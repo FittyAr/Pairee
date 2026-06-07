@@ -1,9 +1,14 @@
 use super::context::AppContext;
-use super::state::{ActivePanel, AppState, PopupType};
+use super::state::{ActivePanel, AppState, PopupType, TreeNode};
 use crate::keybindings::Action;
 use crate::terminal::{Event, EventHandler, TerminalBackend};
 use crate::ui;
 use anyhow::Result;
+use crossterm::{
+    cursor::Show,
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
 use std::path::Path;
 use std::time::Duration;
 
@@ -154,20 +159,23 @@ async fn handle_action(
             state.active_popup = Some(PopupType::UserMenu);
         }
         Action::View => {
-            // Minimalist viewer using system pager or error message
             let active = state.get_active_panel();
             if let Some(entry) = active
                 .entries
                 .get(active.cursor_index)
                 .filter(|e| !e.is_dir)
             {
-                // Try to view using default command or internal error
                 let pager = if cfg!(target_os = "windows") {
                     "more"
                 } else {
                     "less"
                 };
-                let _ = execute_external_command(&entry.path, pager, terminal_backend);
+                if let Err(e) =
+                    execute_external_command(&entry.path.clone(), pager, terminal_backend)
+                {
+                    state.active_popup =
+                        Some(PopupType::Error(format!("View failed: {}", e)));
+                }
             }
         }
         Action::Edit => {
@@ -217,19 +225,22 @@ async fn handle_action(
             }
         }
         Action::Move => {
+            // Open a rename/move prompt so user can confirm/edit destination
             let targets = state.get_active_panel().get_targeted_paths();
-            let dest_dir = state.get_passive_panel().current_path.clone();
-            for t in targets {
-                if let Some(file_name) = t.file_name() {
-                    let dest = dest_dir.join(file_name);
-                    if let Err(e) = crate::fs::rename_or_move_sync(&t, &dest) {
-                        state.active_popup = Some(PopupType::Error(format!("Move failed: {}", e)));
-                        break;
-                    }
-                }
+            if !targets.is_empty() {
+                let dest_dir = state.get_passive_panel().current_path.clone();
+                // Pre-fill input with the destination filename of the first item
+                let default_input = targets
+                    .first()
+                    .and_then(|p| p.file_name())
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
+                state.active_popup = Some(PopupType::RenMovPrompt {
+                    input: default_input,
+                    src_paths: targets,
+                    dest_dir,
+                });
             }
-            state.get_active_panel_mut().selected_paths.clear();
-            state.refresh_both_panels(context.config.settings.show_hidden);
         }
         Action::MkDir => {
             state.active_popup = Some(PopupType::MkDirPrompt {
@@ -363,7 +374,7 @@ fn handle_popup_input(
                 }
                 return Err(());
             }
-            PopupType::Error(_) | PopupType::Help => {
+            PopupType::Error(_) | PopupType::Help | PopupType::Info(_) => {
                 if key.code == crossterm::event::KeyCode::Esc
                     || key.code == crossterm::event::KeyCode::Enter
                 {
@@ -722,6 +733,263 @@ fn handle_popup_input(
                 }
                 return Err(());
             }
+            PopupType::RenMovPrompt {
+                ref input,
+                ref src_paths,
+                ref dest_dir,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_input = input.clone();
+                        new_input.push(c);
+                        state.active_popup = Some(PopupType::RenMovPrompt {
+                            input: new_input,
+                            src_paths: src_paths.clone(),
+                            dest_dir: dest_dir.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_input = input.clone();
+                        new_input.pop();
+                        state.active_popup = Some(PopupType::RenMovPrompt {
+                            input: new_input,
+                            src_paths: src_paths.clone(),
+                            dest_dir: dest_dir.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let dest_dir = dest_dir.clone();
+                        let src_paths = src_paths.clone();
+                        let input = input.clone();
+                        state.active_popup = None;
+
+                        if src_paths.len() == 1 {
+                            // Single item: use the input string as the new filename
+                            let dst = dest_dir.join(&input);
+                            if let Err(e) = crate::fs::rename_or_move_sync(&src_paths[0], &dst) {
+                                state.active_popup =
+                                    Some(PopupType::Error(format!("Move failed: {}", e)));
+                            }
+                        } else {
+                            // Multiple items: move all into dest_dir (ignore input as filename)
+                            for src in &src_paths {
+                                if let Some(fname) = src.file_name() {
+                                    let dst = dest_dir.join(fname);
+                                    if let Err(e) = crate::fs::rename_or_move_sync(src, &dst) {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "Move failed: {}",
+                                            e
+                                        )));
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+
+                        state.get_active_panel_mut().selected_paths.clear();
+                        state.refresh_both_panels(context.config.settings.show_hidden);
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::SearchPrompt {
+                ref query,
+                ref search_root,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_query = query.clone();
+                        new_query.push(c);
+                        state.active_popup = Some(PopupType::SearchPrompt {
+                            query: new_query,
+                            search_root: search_root.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_query = query.clone();
+                        new_query.pop();
+                        state.active_popup = Some(PopupType::SearchPrompt {
+                            query: new_query,
+                            search_root: search_root.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let query = query.clone();
+                        let search_root = search_root.clone();
+                        if !query.is_empty() {
+                            let results = search_files_recursive(&search_root, &query);
+                            state.active_popup = Some(PopupType::SearchResults {
+                                query,
+                                results,
+                                cursor_idx: 0,
+                            });
+                        } else {
+                            state.active_popup = None;
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::SearchResults {
+                ref query,
+                ref results,
+                cursor_idx,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if !results.is_empty() {
+                            let new_idx = if cursor_idx > 0 {
+                                cursor_idx - 1
+                            } else {
+                                results.len() - 1
+                            };
+                            state.active_popup = Some(PopupType::SearchResults {
+                                query: query.clone(),
+                                results: results.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        if !results.is_empty() {
+                            let new_idx = if cursor_idx < results.len() - 1 {
+                                cursor_idx + 1
+                            } else {
+                                0
+                            };
+                            state.active_popup = Some(PopupType::SearchResults {
+                                query: query.clone(),
+                                results: results.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if let Some(result_path) = results.get(cursor_idx) {
+                            // Navigate the active panel to the directory containing the result
+                            let target_dir = if result_path.is_dir() {
+                                result_path.clone()
+                            } else {
+                                result_path
+                                    .parent()
+                                    .map(|p| p.to_path_buf())
+                                    .unwrap_or_else(|| result_path.clone())
+                            };
+                            let panel = state.get_active_panel_mut();
+                            panel.current_path = target_dir;
+                            panel.cursor_index = 0;
+                            panel.selected_paths.clear();
+                            state.active_popup = None;
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::InfoPanel { .. } => {
+                if key.code == crossterm::event::KeyCode::Esc
+                    || key.code == crossterm::event::KeyCode::Enter
+                {
+                    state.active_popup = None;
+                    return Ok(None);
+                }
+                return Err(());
+            }
+            PopupType::TreeView {
+                ref nodes,
+                cursor_idx,
+                panel,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if !nodes.is_empty() {
+                            let new_idx = if cursor_idx > 0 {
+                                cursor_idx - 1
+                            } else {
+                                nodes.len() - 1
+                            };
+                            state.active_popup = Some(PopupType::TreeView {
+                                nodes: nodes.clone(),
+                                cursor_idx: new_idx,
+                                panel,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        if !nodes.is_empty() {
+                            let new_idx = if cursor_idx < nodes.len() - 1 {
+                                cursor_idx + 1
+                            } else {
+                                0
+                            };
+                            state.active_popup = Some(PopupType::TreeView {
+                                nodes: nodes.clone(),
+                                cursor_idx: new_idx,
+                                panel,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if let Some(node) = nodes.get(cursor_idx) {
+                            let target = if node.is_dir {
+                                node.path.clone()
+                            } else {
+                                node.path
+                                    .parent()
+                                    .map(|p| p.to_path_buf())
+                                    .unwrap_or_else(|| node.path.clone())
+                            };
+                            match panel {
+                                ActivePanel::Left => {
+                                    state.left_panel.current_path = target;
+                                    state.left_panel.cursor_index = 0;
+                                    state.left_panel.selected_paths.clear();
+                                }
+                                ActivePanel::Right => {
+                                    state.right_panel.current_path = target;
+                                    state.right_panel.cursor_index = 0;
+                                    state.right_panel.selected_paths.clear();
+                                }
+                            }
+                            state.active_popup = None;
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
         }
     }
     Err(())
@@ -735,28 +1003,34 @@ fn trigger_menu_item(
 ) -> Option<Action> {
     match menu_idx {
         0 => {
-            // Left
+            // Left panel menu
             match item_idx {
                 0 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Brief View is not implemented. Using Full View.".to_string(),
-                    ));
+                    // Brief View toggle
+                    state.brief_view = !state.brief_view;
                     None
                 }
                 1 => {
+                    // Full View: disable brief mode and refresh
+                    state.brief_view = false;
                     state.refresh_both_panels(context.config.settings.show_hidden);
                     None
                 }
                 2 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Info Panel is not implemented.".to_string(),
-                    ));
+                    // Info Panel
+                    let lines = build_info_panel_lines(state);
+                    state.active_popup = Some(PopupType::InfoPanel { lines });
                     None
                 }
                 3 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Tree Panel is not implemented.".to_string(),
-                    ));
+                    // Tree Panel
+                    let root = state.left_panel.current_path.clone();
+                    let nodes = build_tree_nodes(&root, 0, 2);
+                    state.active_popup = Some(PopupType::TreeView {
+                        nodes,
+                        cursor_idx: 0,
+                        panel: ActivePanel::Left,
+                    });
                     None
                 }
                 4 => {
@@ -772,7 +1046,7 @@ fn trigger_menu_item(
             }
         }
         1 => {
-            // Files
+            // Files menu
             match item_idx {
                 0 => Some(Action::Help),
                 1 => Some(Action::UserMenu),
@@ -787,7 +1061,7 @@ fn trigger_menu_item(
             }
         }
         2 => {
-            // Commands
+            // Commands menu
             match item_idx {
                 0 => Some(Action::SwapPanels),
                 1 => {
@@ -799,7 +1073,8 @@ fn trigger_menu_item(
                         "Directory comparison: directories differ in file names or structure."
                             .to_string()
                     };
-                    state.active_popup = Some(PopupType::Error(msg));
+                    // Use Info popup, not Error
+                    state.active_popup = Some(PopupType::Info(msg));
                     None
                 }
                 2 => {
@@ -810,12 +1085,20 @@ fn trigger_menu_item(
                     });
                     None
                 }
-                3 => Some(Action::FocusCli),
+                3 => {
+                    // Search Files
+                    let search_root = state.get_active_panel().current_path.clone();
+                    state.active_popup = Some(PopupType::SearchPrompt {
+                        query: String::new(),
+                        search_root,
+                    });
+                    None
+                }
                 _ => None,
             }
         }
         3 => {
-            // Options
+            // Options menu
             match item_idx {
                 0 => Some(Action::ToggleHidden),
                 1 => {
@@ -838,28 +1121,34 @@ fn trigger_menu_item(
             }
         }
         4 => {
-            // Right
+            // Right panel menu
             match item_idx {
                 0 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Brief View is not implemented. Using Full View.".to_string(),
-                    ));
+                    // Brief View toggle
+                    state.brief_view = !state.brief_view;
                     None
                 }
                 1 => {
+                    // Full View: disable brief mode and refresh
+                    state.brief_view = false;
                     state.refresh_both_panels(context.config.settings.show_hidden);
                     None
                 }
                 2 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Info Panel is not implemented.".to_string(),
-                    ));
+                    // Info Panel
+                    let lines = build_info_panel_lines(state);
+                    state.active_popup = Some(PopupType::InfoPanel { lines });
                     None
                 }
                 3 => {
-                    state.active_popup = Some(PopupType::Error(
-                        "Tree Panel is not implemented.".to_string(),
-                    ));
+                    // Tree Panel
+                    let root = state.right_panel.current_path.clone();
+                    let nodes = build_tree_nodes(&root, 0, 2);
+                    state.active_popup = Some(PopupType::TreeView {
+                        nodes,
+                        cursor_idx: 0,
+                        panel: ActivePanel::Right,
+                    });
                     None
                 }
                 4 => {
@@ -967,6 +1256,160 @@ fn change_preset(context: &mut AppContext, preset_name: &str) {
     let _ = context.config.save();
 }
 
+/// Builds info panel lines for the currently highlighted entry.
+fn build_info_panel_lines(state: &AppState) -> Vec<String> {
+    let panel = state.get_active_panel();
+    let mut lines = Vec::new();
+
+    if let Some(entry) = panel.entries.get(panel.cursor_index) {
+        lines.push(format!("Name    : {}", entry.name));
+        lines.push(format!(
+            "Type    : {}",
+            if entry.is_dir { "Directory" } else { "File" }
+        ));
+
+        if !entry.is_dir {
+            lines.push(format!("Size    : {} bytes", entry.size));
+            if entry.size >= 1024 {
+                lines.push(format!(
+                    "        : {:.2} KB",
+                    entry.size as f64 / 1024.0
+                ));
+            }
+            if entry.size >= 1024 * 1024 {
+                lines.push(format!(
+                    "        : {:.2} MB",
+                    entry.size as f64 / (1024.0 * 1024.0)
+                ));
+            }
+        }
+
+        if let Some(modified) = entry.modified {
+            let datetime: chrono::DateTime<chrono::Local> = modified.into();
+            lines.push(format!(
+                "Modified: {}",
+                datetime.format("%Y-%m-%d %H:%M:%S")
+            ));
+        }
+
+        lines.push(String::new());
+        lines.push(format!("Path    : {}", entry.path.to_string_lossy()));
+    }
+
+    lines.push(String::new());
+    lines.push(format!(
+        "Dir     : {}",
+        panel.current_path.to_string_lossy()
+    ));
+
+    let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
+    let total_dirs = panel.entries.iter().filter(|e| e.is_dir && e.name != "..").count();
+    let total_size: u64 = panel.entries.iter().filter(|e| !e.is_dir).map(|e| e.size).sum();
+
+    lines.push(format!("Files   : {}", total_files));
+    lines.push(format!("Folders : {}", total_dirs));
+    lines.push(format!(
+        "Total   : {:.2} MB",
+        total_size as f64 / (1024.0 * 1024.0)
+    ));
+    lines.push(String::new());
+    lines.push("[Enter/Esc] Close".to_string());
+    lines
+}
+
+/// Recursively builds tree nodes up to `max_depth` levels deep.
+fn build_tree_nodes(root: &std::path::Path, depth: usize, max_depth: usize) -> Vec<TreeNode> {
+    let mut nodes = Vec::new();
+
+    if depth == 0 {
+        nodes.push(TreeNode {
+            depth: 0,
+            name: root
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_else(|| root.to_string_lossy().to_string()),
+            path: root.to_path_buf(),
+            is_dir: true,
+        });
+    }
+
+    if depth >= max_depth {
+        return nodes;
+    }
+
+    if let Ok(read_dir) = std::fs::read_dir(root) {
+        let mut entries: Vec<_> = read_dir.flatten().collect();
+        entries.sort_by_key(|e| {
+            let is_file = e.file_type().map(|ft| !ft.is_dir()).unwrap_or(false);
+            (is_file, e.file_name())
+        });
+
+        for entry in entries {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_string();
+            // Skip hidden files/system dirs
+            if name.starts_with('.') {
+                continue;
+            }
+            let is_dir = path.is_dir();
+
+            nodes.push(TreeNode {
+                depth: depth + 1,
+                name: name.clone(),
+                path: path.clone(),
+                is_dir,
+            });
+
+            if is_dir && depth + 1 < max_depth {
+                let children = build_tree_nodes(&path, depth + 1, max_depth);
+                // Skip the root node of each recursive call (first element is the dir itself)
+                nodes.extend(children.into_iter().skip(1));
+            }
+        }
+    }
+
+    nodes
+}
+
+/// Recursive file search — returns paths whose filenames contain `query` (case-insensitive).
+fn search_files_recursive(root: &std::path::Path, query: &str) -> Vec<std::path::PathBuf> {
+    let query_lower = query.to_lowercase();
+    let mut results = Vec::new();
+    search_recursive_inner(root, &query_lower, &mut results, 0);
+    results
+}
+
+fn search_recursive_inner(
+    dir: &std::path::Path,
+    query: &str,
+    results: &mut Vec<std::path::PathBuf>,
+    depth: usize,
+) {
+    // Limit recursion depth to keep search responsive
+    if depth > 6 {
+        return;
+    }
+    if let Ok(read_dir) = std::fs::read_dir(dir) {
+        for entry in read_dir.flatten() {
+            let path = entry.path();
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            if name.starts_with('.') {
+                continue;
+            }
+            if name.contains(query) {
+                results.push(path.clone());
+            }
+            if path.is_dir() {
+                search_recursive_inner(&path, query, results, depth + 1);
+            }
+            // Cap results at 500 to avoid overwhelming the UI
+            if results.len() >= 500 {
+                return;
+            }
+        }
+    }
+}
+
 /// Captures characters for bottom shell CLI command input.
 fn handle_cli_input(
     state: &mut AppState,
@@ -1028,9 +1471,14 @@ fn handle_cli_input(
     }
 }
 
-/// Suspends raw mode, runs shell command natively, and restores terminal back.
+/// Suspends raw mode **in-place**, runs a shell command natively, then re-enables raw mode.
+/// Does NOT drop/recreate TerminalBackend to avoid double-restore.
 fn execute_shell_command(command_str: &str, terminal_backend: &mut TerminalBackend) -> Result<()> {
-    terminal_backend.restore()?;
+    // Suspend TUI: leave alternate screen, disable raw mode
+    terminal_backend.terminal.flush()?;
+    disable_raw_mode()?;
+    execute!(std::io::stdout(), LeaveAlternateScreen, Show)?;
+
     println!("\nNCRust shell execution: {}\n", command_str);
 
     let mut shell = if cfg!(target_os = "windows") {
@@ -1057,17 +1505,24 @@ fn execute_shell_command(command_str: &str, terminal_backend: &mut TerminalBacke
     let mut buffer = String::new();
     let _ = std::io::stdin().read_line(&mut buffer);
 
-    *terminal_backend = TerminalBackend::init()?;
+    // Resume TUI: re-enable raw mode and re-enter alternate screen
+    enable_raw_mode()?;
+    execute!(std::io::stdout(), EnterAlternateScreen)?;
+    terminal_backend.terminal.clear()?;
     Ok(())
 }
 
-/// Spawns an external utility (like Editor or Pager) on the selected target.
+/// Spawns an external utility (like a pager or editor) on the selected file path.
+/// Suspends and resumes the TUI **in-place** without dropping/recreating TerminalBackend.
 fn execute_external_command(
     target_path: &Path,
     utility_command: &str,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
-    terminal_backend.restore()?;
+    // Suspend TUI
+    terminal_backend.terminal.flush()?;
+    disable_raw_mode()?;
+    execute!(std::io::stdout(), LeaveAlternateScreen, Show)?;
 
     let mut child = std::process::Command::new(utility_command)
         .arg(target_path)
@@ -1082,7 +1537,10 @@ fn execute_external_command(
     let mut buffer = String::new();
     let _ = std::io::stdin().read_line(&mut buffer);
 
-    *terminal_backend = TerminalBackend::init()?;
+    // Resume TUI
+    enable_raw_mode()?;
+    execute!(std::io::stdout(), EnterAlternateScreen)?;
+    terminal_backend.terminal.clear()?;
     Ok(())
 }
 

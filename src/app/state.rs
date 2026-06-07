@@ -112,6 +112,15 @@ impl PanelState {
     }
 }
 
+/// A single node in the tree view (depth, display name, full path, is_dir).
+#[derive(Debug, Clone)]
+pub struct TreeNode {
+    pub depth: usize,
+    pub name: String,
+    pub path: PathBuf,
+    pub is_dir: bool,
+}
+
 #[derive(Debug, Clone)]
 pub enum PopupType {
     Help,
@@ -129,6 +138,8 @@ pub enum PopupType {
         total_bytes: u64,
     },
     Error(String),
+    /// Neutral informational dialog (not an error).
+    Info(String),
     UserMenu,
     InternalEditor {
         path: PathBuf,
@@ -151,6 +162,38 @@ pub enum PopupType {
         bookmarks: Vec<(String, std::path::PathBuf)>,
         cursor_idx: usize,
     },
+    /// Rename/Move prompt — user edits the destination path before committing.
+    RenMovPrompt {
+        /// Input string the user is editing (destination path).
+        input: String,
+        /// Source paths to move.
+        src_paths: Vec<PathBuf>,
+        /// Default destination directory for display.
+        dest_dir: PathBuf,
+    },
+    /// Search prompt for entering a query string.
+    SearchPrompt {
+        query: String,
+        /// Root directory to search within.
+        search_root: PathBuf,
+    },
+    /// Search results list.
+    SearchResults {
+        query: String,
+        results: Vec<PathBuf>,
+        cursor_idx: usize,
+    },
+    /// File/directory information panel.
+    InfoPanel {
+        lines: Vec<String>,
+    },
+    /// Directory tree view (2-level deep).
+    TreeView {
+        nodes: Vec<TreeNode>,
+        cursor_idx: usize,
+        /// Which panel triggered the tree view (for navigation target).
+        panel: ActivePanel,
+    },
 }
 
 pub struct AppState {
@@ -162,6 +205,8 @@ pub struct AppState {
     pub should_quit: bool,
     /// Channel receiver for running copy/move operations
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
+    /// When true, panels render in brief (filename-only, 2-column) mode.
+    pub brief_view: bool,
 }
 
 impl AppState {
@@ -174,6 +219,7 @@ impl AppState {
             active_popup: None,
             should_quit: false,
             progress_rx: None,
+            brief_view: false,
         }
     }
 
@@ -239,7 +285,8 @@ impl AppState {
             self.right_panel.entries = entries;
             // Check if cursor index is still within bounds
             if self.right_panel.cursor_index >= self.right_panel.entries.len() {
-                self.right_panel.cursor_index = self.right_panel.entries.len().saturating_sub(1);
+                self.right_panel.cursor_index =
+                    self.right_panel.entries.len().saturating_sub(1);
             }
         }
     }

@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -9,7 +9,13 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Gauge, Paragraph, Row, Table},
 };
 
-pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
+pub fn render_popup(
+    f: &mut Frame,
+    state: &AppState,
+    context: &AppContext,
+    left_rect: Rect,
+    right_rect: Rect,
+) {
     let popup = match &state.active_popup {
         Some(p) => p,
         None => return,
@@ -145,6 +151,8 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
             let size_paragraph =
                 Paragraph::new(size_label).style(Style::default().fg(parse_color(&theme.popup_fg)));
             f.render_widget(size_paragraph, inner_chunks[3]);
+
+            f.render_widget(block, area);
         }
         PopupType::Error(message) => {
             let area = centered_rect(50, 25, size);
@@ -160,6 +168,23 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(Color::LightRed));
+
+            f.render_widget(paragraph, area);
+        }
+        PopupType::Info(message) => {
+            let area = centered_rect(55, 30, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" Information ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = format!("\n {}\n\n[Press Enter/Esc to Dismiss]", message);
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
 
             f.render_widget(paragraph, area);
         }
@@ -288,7 +313,12 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
             drives,
             cursor_idx,
         } => {
-            let area = centered_rect(35, 35, size);
+            // Center over the correct panel's rectangle
+            let panel_rect = match panel {
+                ActivePanel::Left => left_rect,
+                ActivePanel::Right => right_rect,
+            };
+            let area = centered_rect_in(35, 60, panel_rect);
             f.render_widget(Clear, area);
 
             let mut lines = Vec::new();
@@ -310,7 +340,11 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
                 lines.push(Line::from(Span::styled(line_str, style)));
             }
 
-            let title = format!(" Select Drive ({:?}) ", panel);
+            let panel_label = match panel {
+                ActivePanel::Left => "Left",
+                ActivePanel::Right => "Right",
+            };
+            let title = format!(" Select Drive ({}) ", panel_label);
             let paragraph = Paragraph::new(lines).block(
                 Block::default()
                     .borders(Borders::ALL)
@@ -353,10 +387,196 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
 
             f.render_widget(paragraph, area);
         }
+        PopupType::RenMovPrompt {
+            input,
+            src_paths,
+            dest_dir,
+        } => {
+            let area = centered_rect(60, 30, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Rename / Move ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let count = src_paths.len();
+            let first_name = src_paths
+                .first()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            let src_label = if count == 1 {
+                format!("Moving: {}", first_name)
+            } else {
+                format!("Moving: {} items", count)
+            };
+
+            let text = format!(
+                "\n {}\n Destination: {}\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
+                src_label,
+                dest_dir.to_string_lossy(),
+                input
+            );
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+        }
+        PopupType::SearchPrompt { query, search_root } => {
+            let area = centered_rect(55, 25, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" Search Files ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = format!(
+                "\n Search in: {}\n\n > {}\n\n [Enter] Search   [Esc] Cancel",
+                search_root.to_string_lossy(),
+                query
+            );
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+        }
+        PopupType::SearchResults {
+            query,
+            results,
+            cursor_idx,
+        } => {
+            let area = centered_rect(70, 60, size);
+            f.render_widget(Clear, area);
+
+            let title = format!(" Search Results: \"{}\" ({} found) ", query, results.len());
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(title)
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            if results.is_empty() {
+                let paragraph = Paragraph::new("\n No files found.\n\n [Esc] Close")
+                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
+                f.render_widget(paragraph, inner);
+            } else {
+                let list_height = inner.height.saturating_sub(2) as usize;
+                let scroll_start = cursor_idx.saturating_sub(list_height / 2);
+                let mut lines = Vec::new();
+
+                for (i, path) in results.iter().enumerate().skip(scroll_start).take(list_height) {
+                    let is_cursor = i == *cursor_idx;
+                    let display = path.to_string_lossy().to_string();
+                    let style = if is_cursor {
+                        Style::default()
+                            .bg(parse_color(&theme.selection_bg))
+                            .fg(parse_color(&theme.selection_fg))
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(parse_color(&theme.popup_fg))
+                    };
+                    lines.push(Line::from(Span::styled(format!(" {} ", display), style)));
+                }
+
+                let hint = Line::from(Span::styled(
+                    " [Enter] Navigate to  [Esc] Close ",
+                    Style::default().fg(Color::DarkGray),
+                ));
+                lines.push(Line::from(""));
+                lines.push(hint);
+
+                let paragraph = Paragraph::new(lines)
+                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
+                f.render_widget(paragraph, inner);
+            }
+        }
+        PopupType::InfoPanel { lines } => {
+            let area = centered_rect(55, 55, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(" File Information ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text_lines: Vec<Line> = lines
+                .iter()
+                .map(|l| Line::from(Span::raw(format!(" {}", l))))
+                .collect();
+
+            let paragraph = Paragraph::new(text_lines)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+        }
+        PopupType::TreeView {
+            nodes,
+            cursor_idx,
+            panel: _,
+        } => {
+            let area = centered_rect(55, 70, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Green))
+                .title(" Directory Tree ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let list_height = inner.height.saturating_sub(2) as usize;
+            let scroll_start = cursor_idx.saturating_sub(list_height / 2);
+            let mut lines = Vec::new();
+
+            for (i, node) in nodes.iter().enumerate().skip(scroll_start).take(list_height) {
+                let is_cursor = i == *cursor_idx;
+                let indent = "  ".repeat(node.depth);
+                let prefix = if node.is_dir { "▶ " } else { "  " };
+                let display = format!("{}{}{}", indent, prefix, node.name);
+                let style = if is_cursor {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else if node.is_dir {
+                    Style::default().fg(Color::LightBlue)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                lines.push(Line::from(Span::styled(display, style)));
+            }
+
+            let hint = Line::from(Span::styled(
+                " [Enter] Navigate  [Esc] Close ",
+                Style::default().fg(Color::DarkGray),
+            ));
+            lines.push(Line::from(""));
+            lines.push(hint);
+
+            let paragraph = Paragraph::new(lines)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+            f.render_widget(paragraph, inner);
+        }
     }
 }
 
-/// Helper utility to divide screen space and center popup rectangles.
+/// Centers a rectangle of `percent_x` × `percent_y` over the full screen.
 fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -366,6 +586,28 @@ fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
             Constraint::Percentage((100 - percent_y) / 2),
         ])
         .split(r);
+
+    Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([
+            Constraint::Percentage((100 - percent_x) / 2),
+            Constraint::Percentage(percent_x),
+            Constraint::Percentage((100 - percent_x) / 2),
+        ])
+        .split(popup_layout[1])[1]
+}
+
+/// Centers a rectangle of `percent_x` × `percent_y` within a given parent rectangle.
+/// Used for panel-specific popups (e.g. DriveSelect).
+fn centered_rect_in(percent_x: u16, percent_y: u16, parent: Rect) -> Rect {
+    let popup_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Percentage((100 - percent_y) / 2),
+            Constraint::Percentage(percent_y),
+            Constraint::Percentage((100 - percent_y) / 2),
+        ])
+        .split(parent);
 
     Layout::default()
         .direction(Direction::Horizontal)

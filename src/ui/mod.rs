@@ -24,15 +24,23 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     let left_active = state.active_panel == ActivePanel::Left;
     let right_active = state.active_panel == ActivePanel::Right;
 
-    panel::render_panel(f, layout.left_rect, &state.left_panel, left_active, context);
+    panel::render_panel(
+        f,
+        layout.left_rect,
+        &state.left_panel,
+        left_active,
+        context,
+        state.brief_view,
+    );
     panel::render_panel(
         f,
         layout.right_rect,
         &state.right_panel,
         right_active,
         context,
+        state.brief_view,
     );
 
     // 4. Overlap active popup dialogs if present
-    popup::render_popup(f, state, context);
+    popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
 }
