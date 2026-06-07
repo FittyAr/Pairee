@@ -53,4 +53,8 @@ pub enum Action {
     Refresh,
     /// Swap positions of left and right panels (Ctrl+U)
     SwapPanels,
+    /// Open drive selection menu for the left panel (Alt+F1)
+    DriveSelectLeft,
+    /// Open drive selection menu for the right panel (Alt+F2)
+    DriveSelectRight,
 }

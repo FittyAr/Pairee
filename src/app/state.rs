@@ -138,6 +138,19 @@ pub enum PopupType {
         scroll_y: usize,
         is_dirty: bool,
     },
+    Menu {
+        active_menu_idx: usize,
+        active_item_idx: usize,
+    },
+    DriveSelect {
+        panel: ActivePanel,
+        drives: Vec<String>,
+        cursor_idx: usize,
+    },
+    Hotlist {
+        bookmarks: Vec<(String, std::path::PathBuf)>,
+        cursor_idx: usize,
+    },
 }
 
 pub struct AppState {

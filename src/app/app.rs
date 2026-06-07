@@ -72,8 +72,16 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                     }
 
                     // Popups consume inputs first
-                    if handle_popup_input(&mut state, key, &mut context).is_ok() {
-                        continue;
+                    match handle_popup_input(&mut state, key, &mut context) {
+                        Ok(Some(action)) => {
+                            handle_action(&mut state, action, &mut context, &mut terminal_backend)
+                                .await?;
+                            continue;
+                        }
+                        Ok(None) => {
+                            continue;
+                        }
+                        Err(()) => {}
                     }
 
                     // CLI input takes priority next if applicable
@@ -235,9 +243,14 @@ async fn handle_action(
             }
         }
         Action::Menu => {
-            state.active_popup = Some(PopupType::Error(
-                "Dropdown top menu not implemented yet.".to_string(),
-            ));
+            if let Some(PopupType::Menu { .. }) = state.active_popup {
+                state.active_popup = None;
+            } else {
+                state.active_popup = Some(PopupType::Menu {
+                    active_menu_idx: 0,
+                    active_item_idx: 0,
+                });
+            }
         }
         Action::Quit => {
             state.should_quit = true;
@@ -261,6 +274,22 @@ async fn handle_action(
         Action::SwapPanels => {
             state.swap_panels();
         }
+        Action::DriveSelectLeft => {
+            let drives = get_system_drives();
+            state.active_popup = Some(PopupType::DriveSelect {
+                panel: ActivePanel::Left,
+                drives,
+                cursor_idx: 0,
+            });
+        }
+        Action::DriveSelectRight => {
+            let drives = get_system_drives();
+            state.active_popup = Some(PopupType::DriveSelect {
+                panel: ActivePanel::Right,
+                drives,
+                cursor_idx: 0,
+            });
+        }
     }
     Ok(())
 }
@@ -270,7 +299,7 @@ fn handle_popup_input(
     state: &mut AppState,
     key: crossterm::event::KeyEvent,
     context: &mut AppContext,
-) -> Result<(), ()> {
+) -> Result<Option<Action>, ()> {
     let popup = state.active_popup.clone();
     if let Some(p) = popup {
         match p {
@@ -280,13 +309,13 @@ fn handle_popup_input(
                         let mut new_input = input.clone();
                         new_input.push(c);
                         state.active_popup = Some(PopupType::MkDirPrompt { input: new_input });
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Backspace => {
                         let mut new_input = input.clone();
                         new_input.pop();
                         state.active_popup = Some(PopupType::MkDirPrompt { input: new_input });
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Enter => {
                         if !input.is_empty() {
@@ -301,11 +330,11 @@ fn handle_popup_input(
                         } else {
                             state.active_popup = None;
                         }
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Esc => {
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     _ => {}
                 }
@@ -318,17 +347,17 @@ fn handle_popup_input(
                             if let Err(e) = crate::fs::delete_sync(path) {
                                 state.active_popup =
                                     Some(PopupType::Error(format!("Delete failed: {}", e)));
-                                return Ok(());
+                                return Ok(None);
                             }
                         }
                         state.active_popup = None;
                         state.get_active_panel_mut().selected_paths.clear();
                         state.refresh_both_panels(context.config.settings.show_hidden);
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Esc => {
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     _ => {}
                 }
@@ -339,7 +368,7 @@ fn handle_popup_input(
                     || key.code == crossterm::event::KeyCode::Enter
                 {
                     state.active_popup = None;
-                    return Ok(());
+                    return Ok(None);
                 }
                 return Err(());
             }
@@ -349,7 +378,7 @@ fn handle_popup_input(
                     state.progress_rx = None;
                     state.active_popup = None;
                     state.refresh_both_panels(context.config.settings.show_hidden);
-                    return Ok(());
+                    return Ok(None);
                 }
                 return Err(());
             }
@@ -358,27 +387,27 @@ fn handle_popup_input(
                     crossterm::event::KeyCode::Char('1') => {
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Char('2') => {
                         context.config.settings.show_hidden = !context.config.settings.show_hidden;
                         let _ = context.config.save();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Char('3') => {
                         state.swap_panels();
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Char('4') => {
                         state.active_popup = Some(PopupType::Help);
-                        return Ok(());
+                        return Ok(None);
                     }
                     crossterm::event::KeyCode::Char('5') | crossterm::event::KeyCode::Esc => {
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     _ => {}
                 }
@@ -485,13 +514,13 @@ fn handle_popup_input(
                         if let Err(e) = std::fs::write(&path, content) {
                             state.active_popup =
                                 Some(PopupType::Error(format!("Failed to save: {}", e)));
-                            return Ok(());
+                            return Ok(None);
                         }
                         is_dirty = false;
                     }
                     crossterm::event::KeyCode::Esc | crossterm::event::KeyCode::F(10) => {
                         state.active_popup = None;
-                        return Ok(());
+                        return Ok(None);
                     }
                     _ => {}
                 }
@@ -503,11 +532,439 @@ fn handle_popup_input(
                     scroll_y,
                     is_dirty,
                 });
-                return Ok(());
+                return Ok(None);
+            }
+            PopupType::Menu {
+                active_menu_idx,
+                active_item_idx,
+            } => {
+                let items = crate::ui::menu::get_menu_items(active_menu_idx);
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Left => {
+                        let new_idx = if active_menu_idx > 0 {
+                            active_menu_idx - 1
+                        } else {
+                            4
+                        };
+                        state.active_popup = Some(PopupType::Menu {
+                            active_menu_idx: new_idx,
+                            active_item_idx: 0,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Right => {
+                        let new_idx = if active_menu_idx < 4 {
+                            active_menu_idx + 1
+                        } else {
+                            0
+                        };
+                        state.active_popup = Some(PopupType::Menu {
+                            active_menu_idx: new_idx,
+                            active_item_idx: 0,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if !items.is_empty() {
+                            let new_item_idx = if active_item_idx > 0 {
+                                active_item_idx - 1
+                            } else {
+                                items.len() - 1
+                            };
+                            state.active_popup = Some(PopupType::Menu {
+                                active_menu_idx,
+                                active_item_idx: new_item_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        if !items.is_empty() {
+                            let new_item_idx = if active_item_idx < items.len() - 1 {
+                                active_item_idx + 1
+                            } else {
+                                0
+                            };
+                            state.active_popup = Some(PopupType::Menu {
+                                active_menu_idx,
+                                active_item_idx: new_item_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        state.active_popup = None;
+                        let action =
+                            trigger_menu_item(state, context, active_menu_idx, active_item_idx);
+                        return Ok(action);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::DriveSelect {
+                panel,
+                ref drives,
+                cursor_idx,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if !drives.is_empty() {
+                            let new_idx = if cursor_idx > 0 {
+                                cursor_idx - 1
+                            } else {
+                                drives.len() - 1
+                            };
+                            state.active_popup = Some(PopupType::DriveSelect {
+                                panel,
+                                drives: drives.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        if !drives.is_empty() {
+                            let new_idx = if cursor_idx < drives.len() - 1 {
+                                cursor_idx + 1
+                            } else {
+                                0
+                            };
+                            state.active_popup = Some(PopupType::DriveSelect {
+                                panel,
+                                drives: drives.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if let Some(drive_path) = drives.get(cursor_idx) {
+                            let target_path = std::path::PathBuf::from(drive_path);
+                            match panel {
+                                ActivePanel::Left => {
+                                    state.left_panel.current_path = target_path;
+                                    state.left_panel.cursor_index = 0;
+                                    state.left_panel.selected_paths.clear();
+                                }
+                                ActivePanel::Right => {
+                                    state.right_panel.current_path = target_path;
+                                    state.right_panel.cursor_index = 0;
+                                    state.right_panel.selected_paths.clear();
+                                }
+                            }
+                            state.active_popup = None;
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::Hotlist {
+                ref bookmarks,
+                cursor_idx,
+            } => {
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Up => {
+                        if !bookmarks.is_empty() {
+                            let new_idx = if cursor_idx > 0 {
+                                cursor_idx - 1
+                            } else {
+                                bookmarks.len() - 1
+                            };
+                            state.active_popup = Some(PopupType::Hotlist {
+                                bookmarks: bookmarks.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Down => {
+                        if !bookmarks.is_empty() {
+                            let new_idx = if cursor_idx < bookmarks.len() - 1 {
+                                cursor_idx + 1
+                            } else {
+                                0
+                            };
+                            state.active_popup = Some(PopupType::Hotlist {
+                                bookmarks: bookmarks.clone(),
+                                cursor_idx: new_idx,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if let Some((_, target_path)) = bookmarks.get(cursor_idx) {
+                            let panel = state.get_active_panel_mut();
+                            panel.current_path = target_path.clone();
+                            panel.cursor_index = 0;
+                            panel.selected_paths.clear();
+                            state.active_popup = None;
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
             }
         }
     }
     Err(())
+}
+
+fn trigger_menu_item(
+    state: &mut AppState,
+    context: &mut AppContext,
+    menu_idx: usize,
+    item_idx: usize,
+) -> Option<Action> {
+    match menu_idx {
+        0 => {
+            // Left
+            match item_idx {
+                0 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Brief View is not implemented. Using Full View.".to_string(),
+                    ));
+                    None
+                }
+                1 => {
+                    state.refresh_both_panels(context.config.settings.show_hidden);
+                    None
+                }
+                2 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Info Panel is not implemented.".to_string(),
+                    ));
+                    None
+                }
+                3 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Tree Panel is not implemented.".to_string(),
+                    ));
+                    None
+                }
+                4 => {
+                    let drives = get_system_drives();
+                    state.active_popup = Some(PopupType::DriveSelect {
+                        panel: ActivePanel::Left,
+                        drives,
+                        cursor_idx: 0,
+                    });
+                    None
+                }
+                _ => None,
+            }
+        }
+        1 => {
+            // Files
+            match item_idx {
+                0 => Some(Action::Help),
+                1 => Some(Action::UserMenu),
+                2 => Some(Action::View),
+                3 => Some(Action::Edit),
+                4 => Some(Action::Copy),
+                5 => Some(Action::Move),
+                6 => Some(Action::MkDir),
+                7 => Some(Action::Delete),
+                8 => Some(Action::Quit),
+                _ => None,
+            }
+        }
+        2 => {
+            // Commands
+            match item_idx {
+                0 => Some(Action::SwapPanels),
+                1 => {
+                    let same = compare_directories(state);
+                    let msg = if same {
+                        "Directory comparison: both directories contain identical file names."
+                            .to_string()
+                    } else {
+                        "Directory comparison: directories differ in file names or structure."
+                            .to_string()
+                    };
+                    state.active_popup = Some(PopupType::Error(msg));
+                    None
+                }
+                2 => {
+                    let bookmarks = get_hotlist_bookmarks();
+                    state.active_popup = Some(PopupType::Hotlist {
+                        bookmarks,
+                        cursor_idx: 0,
+                    });
+                    None
+                }
+                3 => Some(Action::FocusCli),
+                _ => None,
+            }
+        }
+        3 => {
+            // Options
+            match item_idx {
+                0 => Some(Action::ToggleHidden),
+                1 => {
+                    change_theme(context, state, "slate");
+                    None
+                }
+                2 => {
+                    change_theme(context, state, "classic_blue");
+                    None
+                }
+                3 => {
+                    change_preset(context, "norton");
+                    None
+                }
+                4 => {
+                    change_preset(context, "vim");
+                    None
+                }
+                _ => None,
+            }
+        }
+        4 => {
+            // Right
+            match item_idx {
+                0 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Brief View is not implemented. Using Full View.".to_string(),
+                    ));
+                    None
+                }
+                1 => {
+                    state.refresh_both_panels(context.config.settings.show_hidden);
+                    None
+                }
+                2 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Info Panel is not implemented.".to_string(),
+                    ));
+                    None
+                }
+                3 => {
+                    state.active_popup = Some(PopupType::Error(
+                        "Tree Panel is not implemented.".to_string(),
+                    ));
+                    None
+                }
+                4 => {
+                    let drives = get_system_drives();
+                    state.active_popup = Some(PopupType::DriveSelect {
+                        panel: ActivePanel::Right,
+                        drives,
+                        cursor_idx: 0,
+                    });
+                    None
+                }
+                _ => None,
+            }
+        }
+        _ => None,
+    }
+}
+
+fn get_system_drives() -> Vec<String> {
+    let mut drives = Vec::new();
+    if cfg!(target_os = "windows") {
+        for drive_letter in b'A'..=b'Z' {
+            let path = format!("{}:\\", drive_letter as char);
+            if std::path::Path::new(&path).exists() {
+                drives.push(path);
+            }
+        }
+    } else {
+        let paths = vec!["/", "/home", "/media", "/mnt", "/tmp"];
+        for p in paths {
+            if std::path::Path::new(p).exists() {
+                drives.push(p.to_string());
+            }
+        }
+    }
+    if drives.is_empty() {
+        drives.push("/".to_string());
+    }
+    drives
+}
+
+fn compare_directories(state: &AppState) -> bool {
+    let left_names: std::collections::HashSet<String> = state
+        .left_panel
+        .entries
+        .iter()
+        .map(|e| e.name.clone())
+        .collect();
+    let right_names: std::collections::HashSet<String> = state
+        .right_panel
+        .entries
+        .iter()
+        .map(|e| e.name.clone())
+        .collect();
+    left_names == right_names
+}
+
+fn get_hotlist_bookmarks() -> Vec<(String, std::path::PathBuf)> {
+    let mut bookmarks = Vec::new();
+    if let Some(path) = directories::UserDirs::new().map(|u| u.home_dir().to_path_buf()) {
+        bookmarks.push(("Home Directory".to_string(), path));
+    }
+    if let Some(path) =
+        directories::UserDirs::new().and_then(|u| u.desktop_dir().map(|d| d.to_path_buf()))
+    {
+        bookmarks.push(("Desktop".to_string(), path));
+    }
+    if let Some(path) =
+        directories::UserDirs::new().and_then(|u| u.document_dir().map(|d| d.to_path_buf()))
+    {
+        bookmarks.push(("Documents".to_string(), path));
+    }
+    if let Some(path) =
+        directories::UserDirs::new().and_then(|u| u.download_dir().map(|d| d.to_path_buf()))
+    {
+        bookmarks.push(("Downloads".to_string(), path));
+    }
+    bookmarks.push((
+        "System Root".to_string(),
+        std::path::PathBuf::from(if cfg!(target_os = "windows") {
+            "C:\\"
+        } else {
+            "/"
+        }),
+    ));
+    bookmarks
+}
+
+fn change_theme(context: &mut AppContext, state: &mut AppState, theme_name: &str) {
+    context.config.settings.theme = theme_name.to_string();
+    let theme = if theme_name == "classic_blue" {
+        crate::config::theme::Theme::classic_blue()
+    } else {
+        crate::config::theme::Theme::default()
+    };
+    context.config.theme = theme;
+    let _ = context.config.save();
+    state.refresh_both_panels(context.config.settings.show_hidden);
+}
+
+fn change_preset(context: &mut AppContext, preset_name: &str) {
+    context.config.keybindings.preset = preset_name.to_string();
+    context.config.settings.keybinding_preset = preset_name.to_string();
+    context.resolver = crate::keybindings::KeybindingResolver::new(&context.config);
+    let _ = context.config.save();
 }
 
 /// Captures characters for bottom shell CLI command input.

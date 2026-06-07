@@ -116,6 +116,8 @@ fn parse_action_name(name: &str) -> Option<Action> {
         "unfocus" => Some(Action::Unfocus),
         "refresh" => Some(Action::Refresh),
         "swap_panels" => Some(Action::SwapPanels),
+        "drive_select_left" => Some(Action::DriveSelectLeft),
+        "drive_select_right" => Some(Action::DriveSelectRight),
         _ => None,
     }
 }

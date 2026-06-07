@@ -17,13 +17,17 @@ set "PATH=%PATH%;%USERPROFILE%\.cargo\bin"
 
 :postcargo
 
-:: 2. Locate Visual Studio 2022 Build Tools or Community variables
+:: 2. Locate Visual Studio 2022 / 18 Build Tools or Community variables
 set "VCVARS_PATH="
 if exist "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS_PATH=C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
 if exist "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS_PATH=C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat"
+if exist "C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS_PATH=C:\Program Files (x86)\Microsoft Visual Studio\18\BuildTools\VC\Auxiliary\Build\vcvars64.bat"
+if exist "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" set "VCVARS_PATH=C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
 
 if "%VCVARS_PATH%"=="" goto novcvars
 echo [INFO] Loading VS environment: %VCVARS_PATH%
+:: Clean up PATH temporarily to avoid "input line too long" error during VCVARS execution
+set "PATH=C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\;%USERPROFILE%\.cargo\bin"
 call "%VCVARS_PATH%" x64 >nul
 goto postvcvars
 

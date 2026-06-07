@@ -36,6 +36,8 @@ pub fn get_preset_bindings(preset: &str) -> HashMap<String, Action> {
             map.insert("Ctrl+r".to_string(), Action::Refresh);
             map.insert("Ctrl+U".to_string(), Action::SwapPanels);
             map.insert("Ctrl+u".to_string(), Action::SwapPanels);
+            map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
+            map.insert("Alt+F2".to_string(), Action::DriveSelectRight);
             map.insert(":".to_string(), Action::FocusCli);
             map.insert("Esc".to_string(), Action::Unfocus);
         }
@@ -64,6 +66,8 @@ pub fn get_preset_bindings(preset: &str) -> HashMap<String, Action> {
             map.insert("Ctrl+h".to_string(), Action::ToggleHidden);
             map.insert("Ctrl+R".to_string(), Action::Refresh);
             map.insert("Ctrl+r".to_string(), Action::Refresh);
+            map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
+            map.insert("Alt+F2".to_string(), Action::DriveSelectRight);
             map.insert("Esc".to_string(), Action::Unfocus);
         }
         _ => {
@@ -95,6 +99,8 @@ pub fn get_preset_bindings(preset: &str) -> HashMap<String, Action> {
             map.insert("Ctrl+r".to_string(), Action::Refresh);
             map.insert("Ctrl+U".to_string(), Action::SwapPanels);
             map.insert("Ctrl+u".to_string(), Action::SwapPanels);
+            map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
+            map.insert("Alt+F2".to_string(), Action::DriveSelectRight);
             map.insert("Esc".to_string(), Action::Unfocus);
         }
     }

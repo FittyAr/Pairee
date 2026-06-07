@@ -16,7 +16,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     let layout = layout::calculate_layout(f.size());
 
     // 2. Draw static bar layouts
-    menu::render_menu(f, layout.menu_rect, context);
+    menu::render_menu(f, layout.menu_rect, context, state);
     fkeys::render_fkeys(f, layout.fkeys_rect, context);
     cli::render_cli(f, layout.cli_rect, state, context);
 

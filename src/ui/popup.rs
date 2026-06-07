@@ -5,6 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::{Line, Span},
     widgets::{Block, Borders, Clear, Gauge, Paragraph, Row, Table},
 };
 
@@ -239,6 +240,118 @@ pub fn render_popup(f: &mut Frame, state: &AppState, context: &AppContext) {
             {
                 f.set_cursor(editor_cursor_x, editor_cursor_y);
             }
+        }
+        PopupType::Menu {
+            active_menu_idx,
+            active_item_idx,
+        } => {
+            let items = crate::ui::menu::get_menu_items(*active_menu_idx);
+            let dropdown_x = match active_menu_idx {
+                0 => 2,
+                1 => 10,
+                2 => 19,
+                3 => 31,
+                4 => 42,
+                _ => 2,
+            };
+            let dropdown_width = 30;
+            let dropdown_height = (items.len() + 2) as u16;
+            let dropdown_rect = Rect::new(dropdown_x, 1, dropdown_width, dropdown_height);
+
+            f.render_widget(Clear, dropdown_rect);
+
+            let mut lines = Vec::new();
+            for (i, item) in items.iter().enumerate() {
+                let is_cursor = i == *active_item_idx;
+                let style = if is_cursor {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                lines.push(Line::from(Span::styled(*item, style)));
+            }
+
+            let paragraph = Paragraph::new(lines).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                    .style(Style::default().bg(parse_color(&theme.popup_bg))),
+            );
+
+            f.render_widget(paragraph, dropdown_rect);
+        }
+        PopupType::DriveSelect {
+            panel,
+            drives,
+            cursor_idx,
+        } => {
+            let area = centered_rect(35, 35, size);
+            f.render_widget(Clear, area);
+
+            let mut lines = Vec::new();
+            for (i, drive) in drives.iter().enumerate() {
+                let is_cursor = i == *cursor_idx;
+                let line_str = if is_cursor {
+                    format!(" >  {} ", drive)
+                } else {
+                    format!("    {} ", drive)
+                };
+                let style = if is_cursor {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                lines.push(Line::from(Span::styled(line_str, style)));
+            }
+
+            let title = format!(" Select Drive ({:?}) ", panel);
+            let paragraph = Paragraph::new(lines).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                    .title(title)
+                    .style(Style::default().bg(parse_color(&theme.popup_bg))),
+            );
+
+            f.render_widget(paragraph, area);
+        }
+        PopupType::Hotlist {
+            bookmarks,
+            cursor_idx,
+        } => {
+            let area = centered_rect(60, 40, size);
+            f.render_widget(Clear, area);
+
+            let mut lines = Vec::new();
+            for (i, (name, path)) in bookmarks.iter().enumerate() {
+                let is_cursor = i == *cursor_idx;
+                let line_str = format!(" {:<20} ->  {} ", name, path.to_string_lossy());
+                let style = if is_cursor {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                lines.push(Line::from(Span::styled(line_str, style)));
+            }
+
+            let paragraph = Paragraph::new(lines).block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                    .title(" Directory Hotlist ")
+                    .style(Style::default().bg(parse_color(&theme.popup_bg))),
+            );
+
+            f.render_widget(paragraph, area);
         }
     }
 }
