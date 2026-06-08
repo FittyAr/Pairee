@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::RenMovPrompt {
+    if let Some(PopupType::CopyPrompt {
         input,
         src_paths,
         dest_dir,
@@ -18,7 +18,7 @@ pub fn handle(
             KeyCode::Char(c) => {
                 let mut new_input = input;
                 new_input.push(c);
-                state.active_popup = Some(PopupType::RenMovPrompt {
+                state.active_popup = Some(PopupType::CopyPrompt {
                     input: new_input,
                     src_paths,
                     dest_dir,
@@ -28,7 +28,7 @@ pub fn handle(
             KeyCode::Backspace => {
                 let mut new_input = input;
                 new_input.pop();
-                state.active_popup = Some(PopupType::RenMovPrompt {
+                state.active_popup = Some(PopupType::CopyPrompt {
                     input: new_input,
                     src_paths,
                     dest_dir,
@@ -60,45 +60,33 @@ pub fn handle(
                         state.active_popup = Some(PopupType::ConfirmOverwrite {
                             src_paths,
                             dest_dir,
-                            is_move: true,
+                            is_move: false,
                             input: Some(input),
                         });
                         return Ok(None);
                     }
                 }
 
+                // If no overwrite check needed or no files exist, copy directly
                 state.active_popup = None;
 
-                if src_paths.len() == 1 {
-                    // Single item: use the input string as the new filename
-                    let dst = dest_dir.join(&input);
-                    if let Err(e) = crate::fs::rename_or_move_sync(
-                        &src_paths[0],
-                        &dst,
-                        context.config.settings.req_admin_modification,
-                    ) {
-                        state.active_popup = Some(PopupType::Error(format!("Move failed: {}", e)));
-                    }
+                let targets = src_paths;
+                let dest = if targets.len() == 1 {
+                    dest_dir.join(&input)
                 } else {
-                    // Multiple items: move all into dest_dir (ignore input as filename)
-                    for src in &src_paths {
-                        if let Some(fname) = src.file_name() {
-                            let dst = dest_dir.join(fname);
-                            if let Err(e) = crate::fs::rename_or_move_sync(
-                                src,
-                                &dst,
-                                context.config.settings.req_admin_modification,
-                            ) {
-                                state.active_popup =
-                                    Some(PopupType::Error(format!("Move failed: {}", e)));
-                                break;
-                            }
-                        }
-                    }
-                }
+                    dest_dir
+                };
 
-                state.get_active_panel_mut().selected_paths.clear();
-                state.refresh_both_panels(context.config.settings.show_hidden);
+                let rx = crate::fs::spawn_copy_task(targets, dest, context.config.settings.clone());
+                state.progress_rx = Some(rx);
+                state.active_popup = Some(PopupType::CopyProgress {
+                    current_file: "Initializing...".to_string(),
+                    files_copied: 0,
+                    total_files: 0,
+                    bytes_copied: 0,
+                    total_bytes: 0,
+                });
+
                 return Ok(None);
             }
             KeyCode::Esc => {

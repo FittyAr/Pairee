@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
-    _context: &mut AppContext,
+    context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let popup = state.active_popup.clone();
     if let Some(p) = popup {
@@ -147,42 +147,38 @@ pub fn handle(
                         }
                         is_dirty = false;
                     }
-                    KeyCode::Char('r') if is_ctrl => match std::fs::read_to_string(&path) {
-                        Ok(content) => {
-                            let reloaded_lines: Vec<String> =
-                                content.lines().map(|s| s.to_string()).collect();
-                            lines = if reloaded_lines.is_empty() {
-                                vec![String::new()]
-                            } else {
-                                reloaded_lines
-                            };
-                            cursor_x =
-                                cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
-                            is_dirty = false;
-                        }
-                        Err(e) => {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                    KeyCode::Char('r') | KeyCode::Char('d') if is_ctrl => {
+                        if context.config.settings.confirmations.confirm_reload_edited_file {
+                            state.active_popup = Some(PopupType::ConfirmReload {
+                                path: path.clone(),
+                                lines: lines.clone(),
+                                cursor_x,
+                                cursor_y,
+                                scroll_y,
+                                is_dirty,
+                                last_search,
+                            });
                             return Ok(None);
-                        }
-                    },
-                    KeyCode::Char('d') if is_ctrl => match std::fs::read_to_string(&path) {
-                        Ok(content) => {
-                            let reloaded_lines: Vec<String> =
-                                content.lines().map(|s| s.to_string()).collect();
-                            lines = if reloaded_lines.is_empty() {
-                                vec![String::new()]
-                            } else {
-                                reloaded_lines
-                            };
-                            cursor_x =
-                                cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
-                            is_dirty = false;
-                        }
-                        Err(e) => {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Failed to reload: {}", e)));
-                            return Ok(None);
+                        } else {
+                            match std::fs::read_to_string(&path) {
+                                Ok(content) => {
+                                    let reloaded_lines: Vec<String> =
+                                        content.lines().map(|s| s.to_string()).collect();
+                                    lines = if reloaded_lines.is_empty() {
+                                        vec![String::new()]
+                                    } else {
+                                        reloaded_lines
+                                    };
+                                    cursor_x =
+                                        cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
+                                    is_dirty = false;
+                                }
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                                    return Ok(None);
+                                }
+                            }
                         }
                     },
                     KeyCode::F(7) if is_shift => {

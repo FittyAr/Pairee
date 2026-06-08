@@ -10,7 +10,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -21,7 +21,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -43,7 +43,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -65,7 +65,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -76,7 +76,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -87,7 +87,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -98,7 +98,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -109,7 +109,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -120,7 +120,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -131,7 +131,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
@@ -142,7 +142,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
                 " "
             }
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(

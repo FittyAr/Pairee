@@ -104,11 +104,36 @@ pub enum PopupType {
     MkDirPrompt {
         input: String,
     },
+    CopyPrompt {
+        input: String,
+        src_paths: Vec<PathBuf>,
+        dest_dir: PathBuf,
+    },
     /// Rename/Move prompt — user edits the destination path before committing.
     RenMovPrompt {
         input: String,
         src_paths: Vec<PathBuf>,
         dest_dir: PathBuf,
+    },
+    ConfirmQuit,
+    ConfirmInterrupt,
+    ConfirmOverwrite {
+        src_paths: Vec<PathBuf>,
+        dest_dir: PathBuf,
+        is_move: bool,
+        input: Option<String>,
+    },
+    ConfirmReload {
+        path: PathBuf,
+        lines: Vec<String>,
+        cursor_x: usize,
+        cursor_y: usize,
+        scroll_y: usize,
+        is_dirty: bool,
+        last_search: Option<String>,
+    },
+    ConfirmClearHistory {
+        history_type: String,
     },
     /// Prompt for choosing compression archive name.
     CompressPrompt {

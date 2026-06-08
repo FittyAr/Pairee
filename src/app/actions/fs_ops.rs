@@ -3,6 +3,18 @@ use crate::app::state::{AppState, FileAttrsSnapshot, LinkKind, PopupType};
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
 
+fn is_non_empty_dir(path: &std::path::Path) -> bool {
+    if path.is_dir() {
+        if let Ok(mut entries) = std::fs::read_dir(path) {
+            entries.next().is_some()
+        } else {
+            false
+        }
+    } else {
+        false
+    }
+}
+
 /// Handles filesystem-related actions. Returns `true` if the action was handled.
 pub fn handle_fs_action(
     state: &mut AppState,
@@ -81,16 +93,52 @@ pub fn handle_fs_action(
         Action::Copy => {
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
-                let dest = state.get_passive_panel().current_path.clone();
-                let rx = crate::fs::spawn_copy_task(targets, dest, context.config.settings.clone());
-                state.progress_rx = Some(rx);
-                state.active_popup = Some(PopupType::CopyProgress {
-                    current_file: "Initializing...".to_string(),
-                    files_copied: 0,
-                    total_files: 0,
-                    bytes_copied: 0,
-                    total_bytes: 0,
-                });
+                let dest_dir = state.get_passive_panel().current_path.clone();
+                if context.config.settings.confirmations.confirm_copy {
+                    let default_input = targets
+                        .first()
+                        .and_then(|p| p.file_name())
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    state.active_popup = Some(PopupType::CopyPrompt {
+                        input: default_input,
+                        src_paths: targets,
+                        dest_dir,
+                    });
+                } else {
+                    // Check overwrite if enabled
+                    let mut any_exists = false;
+                    if context.config.settings.confirmations.confirm_overwrite {
+                        for src in &targets {
+                            if let Some(fname) = src.file_name() {
+                                let dst = dest_dir.join(fname);
+                                if dst.exists() {
+                                    any_exists = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if any_exists {
+                        state.active_popup = Some(PopupType::ConfirmOverwrite {
+                            src_paths: targets,
+                            dest_dir,
+                            is_move: false,
+                            input: None,
+                        });
+                    } else {
+                        let rx = crate::fs::spawn_copy_task(targets, dest_dir, context.config.settings.clone());
+                        state.progress_rx = Some(rx);
+                        state.active_popup = Some(PopupType::CopyProgress {
+                            current_file: "Initializing...".to_string(),
+                            files_copied: 0,
+                            total_files: 0,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                        });
+                    }
+                }
             }
             true
         }
@@ -98,16 +146,59 @@ pub fn handle_fs_action(
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
                 let dest_dir = state.get_passive_panel().current_path.clone();
-                let default_input = targets
-                    .first()
-                    .and_then(|p| p.file_name())
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default();
-                state.active_popup = Some(PopupType::RenMovPrompt {
-                    input: default_input,
-                    src_paths: targets,
-                    dest_dir,
-                });
+                if context.config.settings.confirmations.confirm_move {
+                    let default_input = targets
+                        .first()
+                        .and_then(|p| p.file_name())
+                        .map(|n| n.to_string_lossy().to_string())
+                        .unwrap_or_default();
+                    state.active_popup = Some(PopupType::RenMovPrompt {
+                        input: default_input,
+                        src_paths: targets,
+                        dest_dir,
+                    });
+                } else {
+                    // Check overwrite if enabled
+                    let mut any_exists = false;
+                    if context.config.settings.confirmations.confirm_overwrite {
+                        for src in &targets {
+                            if let Some(fname) = src.file_name() {
+                                let dst = dest_dir.join(fname);
+                                if dst.exists() {
+                                    any_exists = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    if any_exists {
+                        state.active_popup = Some(PopupType::ConfirmOverwrite {
+                            src_paths: targets,
+                            dest_dir,
+                            is_move: true,
+                            input: None,
+                        });
+                    } else {
+                        // Move directly
+                        for src in &targets {
+                            if let Some(fname) = src.file_name() {
+                                let dst = dest_dir.join(fname);
+                                if let Err(e) = crate::fs::rename_or_move_sync(
+                                    src,
+                                    &dst,
+                                    context.config.settings.req_admin_modification,
+                                ) {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    break;
+                                }
+                            }
+                        }
+                        state.get_active_panel_mut().selected_paths.clear();
+                        state.refresh_both_panels(context.config.settings.show_hidden);
+                    }
+                }
             }
             true
         }
@@ -157,14 +248,46 @@ pub fn handle_fs_action(
         Action::Delete => {
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
-                state.active_popup = Some(PopupType::ConfirmDelete { paths: targets });
+                let show_prompt = context.config.settings.confirmations.confirm_delete || 
+                    (context.config.settings.confirmations.confirm_delete_non_empty_folders &&
+                     targets.iter().any(|p| is_non_empty_dir(p)));
+
+                if show_prompt {
+                    state.active_popup = Some(PopupType::ConfirmDelete { paths: targets });
+                } else {
+                    for path in &targets {
+                        if let Err(e) = crate::fs::delete_sync(
+                            path,
+                            context.config.settings.delete_to_recycle_bin,
+                            context.config.settings.req_admin_modification,
+                        ) {
+                            state.active_popup =
+                                Some(PopupType::Error(format!("Delete failed: {}", e)));
+                            return true;
+                        }
+                    }
+                    state.get_active_panel_mut().selected_paths.clear();
+                    state.refresh_both_panels(context.config.settings.show_hidden);
+                }
             }
             true
         }
         Action::WipeFile => {
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
-                state.active_popup = Some(PopupType::WipeConfirm { paths: targets });
+                if context.config.settings.confirmations.confirm_wipe {
+                    state.active_popup = Some(PopupType::WipeConfirm { paths: targets });
+                } else {
+                    let rx = crate::fs::spawn_wipe_task(targets);
+                    state.progress_rx = Some(rx);
+                    state.active_popup = Some(PopupType::CopyProgress {
+                        current_file: "Wiping...".to_string(),
+                        files_copied: 0,
+                        total_files: 0,
+                        bytes_copied: 0,
+                        total_bytes: 0,
+                    });
+                }
             }
             true
         }

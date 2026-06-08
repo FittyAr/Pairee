@@ -71,6 +71,168 @@ pub fn render_prompt_popup(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::CopyPrompt {
+            input,
+            src_paths,
+            dest_dir,
+        } => {
+            let area = centered_rect(60, 30, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Copy ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let count = src_paths.len();
+            let first_name = src_paths
+                .first()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            let src_label = if count == 1 {
+                format!("Copying: {}", first_name)
+            } else {
+                format!("Copying: {} items", count)
+            };
+
+            let text = format!(
+                "\n {}\n Destination: {}\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
+                src_label,
+                dest_dir.to_string_lossy(),
+                input
+            );
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::ConfirmQuit => {
+            let area = centered_rect(45, 20, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Confirm Exit ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = "\n Do you really want to exit NCRust?\n\n [Enter] Exit   [Esc] Cancel";
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::ConfirmInterrupt => {
+            let area = centered_rect(45, 20, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Red))
+                .title(" Confirm Abort ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = "\n Do you want to abort the current background operation?\n\n [Enter] Abort   [Esc] Resume";
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::ConfirmOverwrite {
+            src_paths,
+            dest_dir,
+            is_move,
+            input,
+        } => {
+            let area = centered_rect(60, 25, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Red))
+                .title(" Confirm Overwrite ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let op_name = if *is_move { "Move" } else { "Copy" };
+            let first_name = src_paths
+                .first()
+                .and_then(|p| p.file_name())
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+
+            let target_desc = if src_paths.len() == 1 {
+                if let Some(inp) = input {
+                    inp.clone()
+                } else {
+                    first_name
+                }
+            } else {
+                format!("{} files", src_paths.len())
+            };
+
+            let text = format!(
+                "\n Warning: Destination file/directory already exists!\n Destination: {}\n Target: {}\n\n Do you want to overwrite it during {}?\n\n [Enter] Overwrite   [Esc] Cancel",
+                dest_dir.to_string_lossy(),
+                target_desc,
+                op_name
+            );
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::ConfirmReload { .. } => {
+            let area = centered_rect(50, 20, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Confirm Reload ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = "\n Unsaved changes in the editor will be lost!\n Do you want to reload the file from disk?\n\n [Enter] Reload   [Esc] Cancel";
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::ConfirmClearHistory { history_type } => {
+            let area = centered_rect(45, 20, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Confirm Clear History ")
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = format!(
+                "\n Do you want to clear the {} history list?\n\n [Enter] Clear   [Esc] Cancel",
+                history_type
+            );
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
         PopupType::ConfirmDelete { paths } => {
             let area = centered_rect(50, 25, size);
             f.render_widget(Clear, area);

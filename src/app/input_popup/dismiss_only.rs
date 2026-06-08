@@ -19,10 +19,7 @@ pub fn handle(
             | PopupType::CompareFoldersResult { .. }
             | PopupType::FileAssociationsDialog { .. }
             | PopupType::ArchiveCommandsMenu { .. }
-            | PopupType::QuickViewPanel { .. }
-            | PopupType::CommandHistoryList { .. }
-            | PopupType::FileViewHistoryList { .. }
-            | PopupType::FoldersHistoryList { .. } => {
+            | PopupType::QuickViewPanel { .. } => {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Enter {
                     state.active_popup = None;
                     return Ok(None);

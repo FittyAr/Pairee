@@ -22,6 +22,9 @@ pub mod task_list;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
+pub mod copy;
+pub mod confirm_dialogs;
+pub mod history_list;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
@@ -38,6 +41,12 @@ pub fn handle_popup_input(
     if let Some(p) = popup {
         match p {
             PopupType::MkDirPrompt { .. } => mkdir::handle(state, key, context),
+            PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
+            PopupType::ConfirmQuit
+            | PopupType::ConfirmInterrupt
+            | PopupType::ConfirmOverwrite { .. }
+            | PopupType::ConfirmReload { .. }
+            | PopupType::ConfirmClearHistory { .. } => confirm_dialogs::handle(state, key, context),
             PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => {
                 delete::handle(state, key, context)
             }
@@ -66,6 +75,9 @@ pub fn handle_popup_input(
             PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
             PopupType::ConfigurationDialog { .. } => config_dialog::handle(state, key, context),
             PopupType::FileAttributesDialog { .. } => file_attributes::handle(state, key, context),
+            PopupType::CommandHistoryList { .. }
+            | PopupType::FileViewHistoryList { .. }
+            | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

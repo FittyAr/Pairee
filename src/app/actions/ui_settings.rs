@@ -62,7 +62,11 @@ pub fn handle_ui_settings_action(
             true
         }
         Action::Quit => {
-            state.should_quit = true;
+            if context.config.settings.confirmations.confirm_quit {
+                state.active_popup = Some(PopupType::ConfirmQuit);
+            } else {
+                state.should_quit = true;
+            }
             true
         }
         Action::ToggleHidden => {

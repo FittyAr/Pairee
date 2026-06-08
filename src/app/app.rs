@@ -55,13 +55,19 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                 state.refresh_both_panels(context.config.settings.show_hidden);
             } else {
                 if let Some(update) = latest_update {
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        current_file: update.current_file,
-                        files_copied: update.files_copied,
-                        total_files: update.total_files,
-                        bytes_copied: update.bytes_copied,
-                        total_bytes: update.total_bytes,
-                    });
+                    let should_update = match &state.active_popup {
+                        None | Some(PopupType::CopyProgress { .. }) => true,
+                        _ => false,
+                    };
+                    if should_update {
+                        state.active_popup = Some(PopupType::CopyProgress {
+                            current_file: update.current_file,
+                            files_copied: update.files_copied,
+                            total_files: update.total_files,
+                            bytes_copied: update.bytes_copied,
+                            total_bytes: update.total_bytes,
+                        });
+                    }
                 }
                 state.progress_rx = Some(rx);
             }
