@@ -1,6 +1,7 @@
 pub mod associations;
 pub mod history;
 pub mod keybindings;
+pub mod localization;
 pub mod paths;
 pub mod settings;
 pub mod theme;
@@ -45,6 +46,10 @@ impl AppConfig {
             fs::write(&settings_path, toml_str).context("Failed to write default config.toml")?;
             default_settings
         };
+
+        // Initialize default translations and load active language
+        let _ = localization::init_default_languages();
+        localization::load_language(&settings.language);
 
         // 2. Keybindings Loading
         let keybindings_path = paths::get_keybindings_file_path();

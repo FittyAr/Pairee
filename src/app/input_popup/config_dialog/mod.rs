@@ -127,8 +127,10 @@ pub fn handle(
                     state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
                     state.disable_panel_update_object_count =
                         settings.disable_panel_update_object_count;
+                    let lang_to_load = settings.language.clone();
                     context.config.settings = settings;
                     let _ = context.config.save();
+                    crate::config::localization::load_language(&lang_to_load);
                     state.refresh_both_panels(context.config.settings.show_hidden);
                     state.active_popup = None;
                     return Ok(None);
@@ -200,8 +202,10 @@ pub fn handle(
                 state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
                 state.disable_panel_update_object_count =
                     settings.disable_panel_update_object_count;
+                let lang_to_load = settings.language.clone();
                 context.config.settings = settings;
                 let _ = context.config.save();
+                crate::config::localization::load_language(&lang_to_load);
                 state.refresh_both_panels(context.config.settings.show_hidden);
                 state.active_popup = None;
                 return Ok(None);

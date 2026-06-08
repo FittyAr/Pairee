@@ -148,7 +148,12 @@ pub fn handle(
                         is_dirty = false;
                     }
                     KeyCode::Char('r') | KeyCode::Char('d') if is_ctrl => {
-                        if context.config.settings.confirmations.confirm_reload_edited_file {
+                        if context
+                            .config
+                            .settings
+                            .confirmations
+                            .confirm_reload_edited_file
+                        {
                             state.active_popup = Some(PopupType::ConfirmReload {
                                 path: path.clone(),
                                 lines: lines.clone(),
@@ -169,8 +174,8 @@ pub fn handle(
                                     } else {
                                         reloaded_lines
                                     };
-                                    cursor_x =
-                                        cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
+                                    cursor_x = cursor_x
+                                        .min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
                                     is_dirty = false;
                                 }
                                 Err(e) => {
@@ -180,7 +185,7 @@ pub fn handle(
                                 }
                             }
                         }
-                    },
+                    }
                     KeyCode::F(7) if is_shift => {
                         if let Some(ref q) = last_search {
                             if let Some((found_x, found_y)) =

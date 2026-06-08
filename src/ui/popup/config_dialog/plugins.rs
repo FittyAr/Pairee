@@ -1,88 +1,112 @@
+use crate::config::localization::t;
 use crate::config::settings::Settings;
 
 pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
-    rows.push((format!("Main language: < {} >", settings.language), false));
-    rows.push((
-        "Plugins configuration: [ArcLite | EMenu | HlfViewer | NetBox]".to_string(),
-        true,
-    ));
-    rows.push(("Plugins manager settings:".to_string(), true));
     rows.push((
         format!(
-            "  [{}] OEM plugins support",
+            "{}: < {} >",
+            t("lang_label", "Main language"),
+            settings.language
+        ),
+        false,
+    ));
+    rows.push((
+        format!(
+            "{}: [ArcLite | EMenu | HlfViewer | NetBox]",
+            t("plugins_config", "Plugins configuration")
+        ),
+        false,
+    ));
+    rows.push((
+        t("plugins_manager_settings", "Plugins manager settings"),
+        false,
+    ));
+    rows.push((
+        format!(
+            "  [{}] {}",
             if settings.plugins_manager_oem_support {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("oem_support", "OEM plugins support")
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
-            "  [{}] Scan symbolic links",
+            "  [{}] {}",
             if settings.plugins_manager_scan_symlinks {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("scan_symlinks", "Scan symbolic links")
         ),
-        true,
+        false,
     ));
-    rows.push(("  Plugin selection:".to_string(), true));
+    rows.push((
+        format!("  {}", t("plugin_selection", "Plugin selection")),
+        false,
+    ));
     rows.push((
         format!(
-            "    [{}] File processing",
+            "    [{}] {}",
             if settings.plugins_manager_file_processing {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("file_processing", "File processing")
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
-            "      [{}] Show standard association",
+            "      [{}] {}",
             if settings.plugins_manager_show_standard_association {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("show_std_association", "Show standard association")
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
-            "        [{}] Even if only one plugin",
+            "        [{}] {}",
             if settings.plugins_manager_even_if_one_found {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("even_if_one", "Even if only one plugin")
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
-            "    [{}] Search results (SetFindList)",
+            "    [{}] {}",
             if settings.plugins_manager_search_results {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("search_results", "Search results (SetFindList)")
         ),
-        true,
+        false,
     ));
     rows.push((
         format!(
-            "    [{}] Prefix processing",
+            "    [{}] {}",
             if settings.plugins_manager_prefix_processing {
                 "x"
             } else {
                 " "
-            }
+            },
+            t("prefix_processing", "Prefix processing")
         ),
-        true,
+        false,
     ));
 }

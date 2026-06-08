@@ -1,7 +1,9 @@
 pub mod apply_command;
 pub mod compress;
 pub mod config_dialog;
+pub mod confirm_dialogs;
 pub mod context_menu;
+pub mod copy;
 pub mod copy_progress;
 pub mod create_link;
 pub mod delete;
@@ -11,6 +13,7 @@ pub mod drive_select;
 pub mod editor;
 pub mod file_attributes;
 pub mod file_filter;
+pub mod history_list;
 pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
@@ -22,9 +25,6 @@ pub mod task_list;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
-pub mod copy;
-pub mod confirm_dialogs;
-pub mod history_list;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};

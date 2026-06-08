@@ -10,7 +10,12 @@ pub fn handle(
 ) -> Result<Option<Action>, ()> {
     if let Some(PopupType::CopyProgress { .. }) = state.active_popup {
         if key.code == KeyCode::Esc {
-            if context.config.settings.confirmations.confirm_interrupt_operation {
+            if context
+                .config
+                .settings
+                .confirmations
+                .confirm_interrupt_operation
+            {
                 state.active_popup = Some(PopupType::ConfirmInterrupt);
             } else {
                 // Drop channel to signal abort to tokio background thread

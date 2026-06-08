@@ -72,13 +72,31 @@ pub fn render_config_dialog_popup(
             );
 
             let tab_titles = [
-                " System ",
-                " Panel ",
-                " Interface ",
-                " Confirmations ",
-                " Language & Plugins ",
-                " Editor/Viewer ",
-                " Colors ",
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_system", "System")
+                ),
+                format!(" {} ", crate::config::localization::t("tab_panel", "Panel")),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_interface", "Interface")
+                ),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_confirmations", "Confirmations")
+                ),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_plugins", "Language & Plugins")
+                ),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_editor", "Editor/Viewer")
+                ),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_colors", "Colors")
+                ),
             ];
             let mut tab_spans = Vec::new();
             for (i, title) in tab_titles.iter().enumerate() {

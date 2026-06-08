@@ -67,7 +67,8 @@ pub fn handle(
                                     &dst,
                                     context.config.settings.req_admin_modification,
                                 ) {
-                                    state.active_popup = Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Move failed: {}", e)));
                                 }
                             } else {
                                 for src in &src_paths {
@@ -78,8 +79,10 @@ pub fn handle(
                                             &dst,
                                             context.config.settings.req_admin_modification,
                                         ) {
-                                            state.active_popup =
-                                                Some(PopupType::Error(format!("Move failed: {}", e)));
+                                            state.active_popup = Some(PopupType::Error(format!(
+                                                "Move failed: {}",
+                                                e
+                                            )));
                                             break;
                                         }
                                     }
@@ -95,7 +98,11 @@ pub fn handle(
                                 dest_dir
                             };
 
-                            let rx = crate::fs::spawn_copy_task(targets, dest, context.config.settings.clone());
+                            let rx = crate::fs::spawn_copy_task(
+                                targets,
+                                dest,
+                                context.config.settings.clone(),
+                            );
                             state.progress_rx = Some(rx);
                             state.active_popup = Some(PopupType::CopyProgress {
                                 current_file: "Initializing...".to_string(),
@@ -147,7 +154,8 @@ pub fn handle(
                                 });
                             }
                             Err(e) => {
-                                state.active_popup = Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                                state.active_popup =
+                                    Some(PopupType::Error(format!("Failed to reload: {}", e)));
                             }
                         }
                         return Ok(None);

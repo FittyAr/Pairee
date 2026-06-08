@@ -8,10 +8,17 @@ pub fn handle_row(
 ) {
     match cursor_idx {
         0 => {
-            settings.language = match settings.language.as_str() {
-                "English" => "Spanish".to_string(),
-                _ => "English".to_string(),
-            };
+            let discovered = crate::config::localization::discover_languages();
+            if !discovered.is_empty() {
+                let current_idx = discovered
+                    .iter()
+                    .position(|(name, _)| name == &settings.language);
+                let next_idx = match current_idx {
+                    Some(idx) => (idx + 1) % discovered.len(),
+                    None => 0,
+                };
+                settings.language = discovered[next_idx].0.clone();
+            }
         }
         3 => {
             settings.plugins_manager_oem_support = !settings.plugins_manager_oem_support;

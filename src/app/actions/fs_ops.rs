@@ -128,7 +128,11 @@ pub fn handle_fs_action(
                             input: None,
                         });
                     } else {
-                        let rx = crate::fs::spawn_copy_task(targets, dest_dir, context.config.settings.clone());
+                        let rx = crate::fs::spawn_copy_task(
+                            targets,
+                            dest_dir,
+                            context.config.settings.clone(),
+                        );
                         state.progress_rx = Some(rx);
                         state.active_popup = Some(PopupType::CopyProgress {
                             current_file: "Initializing...".to_string(),
@@ -248,9 +252,13 @@ pub fn handle_fs_action(
         Action::Delete => {
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
-                let show_prompt = context.config.settings.confirmations.confirm_delete || 
-                    (context.config.settings.confirmations.confirm_delete_non_empty_folders &&
-                     targets.iter().any(|p| is_non_empty_dir(p)));
+                let show_prompt = context.config.settings.confirmations.confirm_delete
+                    || (context
+                        .config
+                        .settings
+                        .confirmations
+                        .confirm_delete_non_empty_folders
+                        && targets.iter().any(|p| is_non_empty_dir(p)));
 
                 if show_prompt {
                     state.active_popup = Some(PopupType::ConfirmDelete { paths: targets });

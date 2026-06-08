@@ -65,7 +65,12 @@ pub fn handle(
                     }
                     KeyCode::Delete if is_alt => {
                         // Alt+Delete: Clear entire history list
-                        if context.config.settings.confirmations.confirm_clear_history_list {
+                        if context
+                            .config
+                            .settings
+                            .confirmations
+                            .confirm_clear_history_list
+                        {
                             state.active_popup = Some(PopupType::ConfirmClearHistory {
                                 history_type: "command".to_string(),
                             });
@@ -163,7 +168,12 @@ pub fn handle(
                     }
                     KeyCode::Delete if is_alt => {
                         // Alt+Delete: Clear entire history list
-                        if context.config.settings.confirmations.confirm_clear_history_list {
+                        if context
+                            .config
+                            .settings
+                            .confirmations
+                            .confirm_clear_history_list
+                        {
                             state.active_popup = Some(PopupType::ConfirmClearHistory {
                                 history_type: "view".to_string(),
                             });
@@ -262,7 +272,12 @@ pub fn handle(
                     }
                     KeyCode::Delete if is_alt => {
                         // Alt+Delete: Clear entire history list
-                        if context.config.settings.confirmations.confirm_clear_history_list {
+                        if context
+                            .config
+                            .settings
+                            .confirmations
+                            .confirm_clear_history_list
+                        {
                             state.active_popup = Some(PopupType::ConfirmClearHistory {
                                 history_type: "folder".to_string(),
                             });
@@ -314,8 +329,8 @@ pub fn handle(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crossterm::event::{KeyEvent, KeyCode, KeyModifiers, KeyEventKind, KeyEventState};
     use crate::config::AppConfig;
+    use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
     use std::path::PathBuf;
 
     fn make_key(code: KeyCode, modifiers: KeyModifiers) -> KeyEvent {
@@ -344,7 +359,11 @@ mod tests {
         });
 
         // Test Down key
-        let res = handle(&mut state, make_key(KeyCode::Down, KeyModifiers::empty()), &mut context);
+        let res = handle(
+            &mut state,
+            make_key(KeyCode::Down, KeyModifiers::empty()),
+            &mut context,
+        );
         assert!(res.is_ok());
         if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.active_popup {
             assert_eq!(cursor_idx, 1);
@@ -353,7 +372,11 @@ mod tests {
         }
 
         // Test Up key
-        let res = handle(&mut state, make_key(KeyCode::Up, KeyModifiers::empty()), &mut context);
+        let res = handle(
+            &mut state,
+            make_key(KeyCode::Up, KeyModifiers::empty()),
+            &mut context,
+        );
         assert!(res.is_ok());
         if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.active_popup {
             assert_eq!(cursor_idx, 0);
