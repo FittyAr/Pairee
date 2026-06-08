@@ -6,10 +6,10 @@ This document establishes the architecture, design principles, and guidelines fo
 
 ## 1. Core Principles
 
-### Single Responsibility Principle (SRP)
-* **Rule:** Each source file (`.rs`) must perform exactly one, well-defined task.
-* **Reasoning:** Prevents files from growing into unmaintainable "god files". Makes code review, testing, and AI-driven modifications easy.
-* **Example:** Do not combine filesystem scanning and file rendering in the same file. Keep `src/fs/list.rs` and `src/ui/panel.rs` completely separate.
+### Single Responsibility Principle (SRP) & Modularity
+* **Rule:** Each source file (`.rs`) must perform exactly one, well-defined task. Monolithic "god files" are strictly prohibited. Very long files must be modularized into a module directory with a separate file per functionality.
+* **Reasoning:** Prevents files from growing into unmaintainable giants. Makes code review, testing, and AI-driven modifications easy.
+* **Example:** Instead of a single 3000-line `popup.rs`, structure it as a `popup/` directory with a `mod.rs` delegating to specialized files for each popup type/functionality (e.g. `prompts.rs`, `menus.rs`, `editor.rs`).
 
 ### Zero Hardcoding
 * **Rule:** No magic numbers, default file paths, key names, user-facing strings, or color hex codes may be hardcoded in the core application logic.
@@ -116,6 +116,10 @@ For long-running file system operations (like Copy or Move):
 * Always use `std::path::Path` and `std::path::PathBuf`.
 * Never hardcode path separators (use `/` or path methods which resolve automatically on Windows and Linux).
 * Use `fs::canonicalize` carefully (behaves differently with UNC paths on Windows).
+
+### Strict Dead Code & Warning Policy
+* **Rule:** Never use `#[allow(dead_code)]`, `#[allow(unused)]`, or similar attributes to silence compiler warnings about unused fields, variables, or variants.
+* **Requirement:** If a field or variant is unused, you must fully implement its functionality (e.g. ensuring all variant actions or popups are rendered/matched) or delete the unused code if it is obsolete. Warnings must be resolved, not bypassed.
 
 ---
 
