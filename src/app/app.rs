@@ -232,11 +232,9 @@ async fn handle_action(
             }
         }
         Action::Move => {
-            // Open a rename/move prompt so user can confirm/edit destination
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
                 let dest_dir = state.get_passive_panel().current_path.clone();
-                // Pre-fill input with the destination filename of the first item
                 let default_input = targets
                     .first()
                     .and_then(|p| p.file_name())
@@ -337,7 +335,7 @@ async fn handle_action(
             state.active_popup = None;
             state.cli_input.clear();
         }
-        Action::Refresh => {
+        Action::Refresh | Action::RereadPanel => {
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
         Action::SwapPanels => {
@@ -358,6 +356,277 @@ async fn handle_action(
                 drives,
                 cursor_idx: 0,
             });
+        }
+
+        // ── Panel view modes ────────────────────────────────────────────────────
+        Action::PanelViewBrief => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Brief; }
+        Action::PanelViewMedium => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Medium; }
+        Action::PanelViewFull => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Full; }
+        Action::PanelViewWide => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Wide; }
+        Action::PanelViewDetailed => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Detailed; }
+        Action::PanelViewDescriptions => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Descriptions; }
+        Action::PanelViewFileOwners => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::FileOwners; }
+        Action::PanelViewFileLinks => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::FileLinks; }
+        Action::PanelViewAltFull => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::AltFull; }
+
+        // ── Panel visibility ────────────────────────────────────────────────────
+        Action::TogglePanelLeft => { state.left_panel_visible = !state.left_panel_visible; }
+        Action::TogglePanelRight => { state.right_panel_visible = !state.right_panel_visible; }
+        Action::ToggleBothPanels => { state.both_panels_hidden = !state.both_panels_hidden; }
+        Action::ToggleLongNames => {
+            let panel = state.get_active_panel_mut();
+            panel.show_long_names = !panel.show_long_names;
+        }
+        Action::InfoPanel => {
+            let lines = build_info_panel_lines(state);
+            state.active_popup = Some(PopupType::InfoPanel { lines });
+        }
+        Action::QuickView => {
+            state.quick_view_active = !state.quick_view_active;
+            if state.quick_view_active {
+                let active = state.get_active_panel();
+                if let Some(entry) = active.entries.get(active.cursor_index).filter(|e| !e.is_dir) {
+                    let path = entry.path.clone();
+                    let content = crate::ui::quickview::load_quick_view_content(&path);
+                    state.active_popup = Some(PopupType::QuickViewPanel { path, content, scroll: 0 });
+                }
+            } else {
+                if let Some(PopupType::QuickViewPanel { .. }) = state.active_popup {
+                    state.active_popup = None;
+                }
+            }
+        }
+        Action::SortModes => {
+            let panel_id = state.active_panel;
+            let current = state.get_active_panel().sort_field;
+            let reverse = state.get_active_panel().sort_reverse;
+            state.active_popup = Some(PopupType::SortModesDialog {
+                panel: panel_id,
+                current,
+                reverse,
+                cursor_idx: 0,
+            });
+        }
+
+        // ── File operations ─────────────────────────────────────────────────────
+        Action::WipeFile => {
+            let targets = state.get_active_panel().get_targeted_paths();
+            if !targets.is_empty() {
+                state.active_popup = Some(PopupType::WipeConfirm { paths: targets });
+            }
+        }
+        Action::CreateLink => {
+            let active = state.get_active_panel();
+            if let Some(entry) = active.entries.get(active.cursor_index) {
+                if entry.name != ".." {
+                    state.active_popup = Some(PopupType::CreateLinkPrompt {
+                        src: entry.path.clone(),
+                        dest_input: entry.name.clone(),
+                        kind: crate::app::state::LinkKind::Symbolic,
+                    });
+                }
+            }
+        }
+        Action::FileAttributes => {
+            let active = state.get_active_panel();
+            if let Some(entry) = active.entries.get(active.cursor_index) {
+                if entry.name != ".." {
+                    match crate::fs::read_attrs(&entry.path) {
+                        Ok(attrs) => {
+                            let mode_str = crate::fs::attrs::format_unix_mode(attrs.mode);
+                            state.active_popup = Some(PopupType::FileAttributesDialog {
+                                attrs: crate::app::state::FileAttrsSnapshot {
+                                    path: attrs.path,
+                                    mode: attrs.mode,
+                                    readonly: attrs.readonly,
+                                    size: attrs.size,
+                                    modified: attrs.modified,
+                                    created: attrs.created,
+                                    owner: attrs.owner,
+                                    nlinks: attrs.nlinks,
+                                },
+                                mode_input: mode_str,
+                            });
+                        }
+                        Err(e) => {
+                            state.active_popup = Some(PopupType::Error(format!("Cannot read attrs: {}", e)));
+                        }
+                    }
+                }
+            }
+        }
+        Action::ApplyCommand => {
+            let targets = state.get_active_panel().get_targeted_paths();
+            if !targets.is_empty() {
+                state.active_popup = Some(PopupType::ApplyCommandPrompt {
+                    input: String::new(),
+                    targets,
+                });
+            }
+        }
+        Action::DescribeFile => {
+            let active = state.get_active_panel();
+            if let Some(entry) = active.entries.get(active.cursor_index) {
+                if entry.name != ".." {
+                    let current_desc = crate::fs::read_description(
+                        &active.current_path.clone(),
+                        &entry.name,
+                    )
+                    .unwrap_or_default();
+                    state.active_popup = Some(PopupType::DescribeFilePrompt {
+                        path: entry.path.clone(),
+                        current_desc: current_desc.clone(),
+                        input: current_desc,
+                    });
+                }
+            }
+        }
+        Action::ArchiveCommands => {
+            let active = state.get_active_panel();
+            if let Some(entry) = active.entries.get(active.cursor_index).filter(|e| !e.is_dir) {
+                state.active_popup = Some(PopupType::ArchiveCommandsMenu {
+                    archive_path: entry.path.clone(),
+                    items: vec![
+                        "1. List contents".to_string(),
+                        "2. Test integrity".to_string(),
+                        "3. Extract here".to_string(),
+                        "4. Extract to other panel".to_string(),
+                    ],
+                    cursor_idx: 0,
+                });
+            }
+        }
+
+        // ── Bulk selection ──────────────────────────────────────────────────────
+        Action::SelectGroup => {
+            state.active_popup = Some(PopupType::SelectGroupPrompt {
+                mode: crate::app::state::SelectMode::Add,
+                query: String::new(),
+            });
+        }
+        Action::UnselectGroup => {
+            state.active_popup = Some(PopupType::SelectGroupPrompt {
+                mode: crate::app::state::SelectMode::Remove,
+                query: String::new(),
+            });
+        }
+        Action::InvertSelection => {
+            state.snapshot_selection();
+            state.get_active_panel_mut().invert_selection();
+        }
+        Action::RestoreSelection => {
+            state.restore_selection();
+        }
+
+        // ── Search & history ────────────────────────────────────────────────────
+        Action::FindFile => {
+            let root = state.get_active_panel().current_path.clone();
+            state.active_popup = Some(PopupType::SearchPrompt {
+                query: String::new(),
+                content_query: String::new(),
+                search_root: root,
+            });
+        }
+        Action::CommandHistory => {
+            let entries = state.command_history.clone();
+            state.active_popup = Some(PopupType::CommandHistoryList { entries, cursor_idx: 0 });
+        }
+        Action::FileViewHistory => {
+            let entries = state.file_view_history.clone();
+            state.active_popup = Some(PopupType::FileViewHistoryList { entries, cursor_idx: 0 });
+        }
+        Action::FoldersHistory => {
+            let entries = state.folders_history.clone();
+            state.active_popup = Some(PopupType::FoldersHistoryList { entries, cursor_idx: 0 });
+        }
+
+        // ── Commands ────────────────────────────────────────────────────────────
+        Action::CompareFolder => {
+            let left = state.left_panel.current_path.clone();
+            let right = state.right_panel.current_path.clone();
+            match crate::fs::compare_directories(&left, &right) {
+                Ok(diff) => {
+                    for entry in &diff {
+                        if entry.status != crate::fs::CompareStatus::Equal {
+                            if let Some(e) = state.left_panel.entries.iter().find(|e| e.name == entry.name) {
+                                state.left_panel.selected_paths.insert(e.path.clone());
+                            }
+                        }
+                    }
+                    state.active_popup = Some(PopupType::CompareFoldersResult { diff, cursor_idx: 0 });
+                }
+                Err(e) => {
+                    state.active_popup = Some(PopupType::Error(format!("Compare failed: {}", e)));
+                }
+            }
+        }
+        Action::EditUserMenu => {
+            state.active_popup = Some(PopupType::Info(
+                "Edit user menu: open UserMenu config file with default editor.".to_string(),
+            ));
+        }
+        Action::FileAssociations => {
+            let config = crate::config::associations::AssociationsConfig::load();
+            state.active_popup = Some(PopupType::FileAssociationsDialog {
+                rules: config.rules,
+                cursor_idx: 0,
+            });
+        }
+        Action::FolderShortcutsConfig => {
+            state.active_popup = Some(PopupType::Info(
+                "Folder shortcuts: use Ctrl+Alt+1..9 to jump, configure in settings.".to_string(),
+            ));
+        }
+        Action::FilePanelFilter => {
+            let current = state.get_active_panel().filter_mask.clone().unwrap_or_default();
+            state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: current });
+        }
+        Action::TaskList => {
+            let tasks = get_process_list();
+            state.active_popup = Some(PopupType::TaskListDialog { tasks, cursor_idx: 0 });
+        }
+
+        // ── Options ─────────────────────────────────────────────────────────────
+        Action::SaveSetup => {
+            match context.config.save() {
+                Ok(_) => {
+                    state.active_popup = Some(PopupType::Info("Configuration saved successfully.".to_string()));
+                }
+                Err(e) => {
+                    state.active_popup = Some(PopupType::Error(format!("Save failed: {}", e)));
+                }
+            }
+        }
+        Action::SystemSettings => {
+            state.active_popup = Some(PopupType::Info(
+                "System settings: edit ~/.config/ncrust/config.toml directly.".to_string(),
+            ));
+        }
+
+        // ── Folder shortcuts navigation ──────────────────────────────────────────
+        Action::GoFolderShortcut(n) => {
+            if let Some(target) = state.folder_shortcuts.get(&n).cloned() {
+                let panel = state.get_active_panel_mut();
+                panel.current_path = target;
+                panel.cursor_index = 0;
+                panel.selected_paths.clear();
+                state.refresh_both_panels(context.config.settings.show_hidden);
+            } else {
+                state.active_popup = Some(PopupType::Info(
+                    format!("No folder shortcut assigned to Ctrl+Alt+{}", n),
+                ));
+            }
+        }
+
+        // ── Stubs ─────────────────────────────────────────────────────────────
+        Action::PluginMenu => {
+            state.active_popup = Some(PopupType::Info("Plugin system: not yet implemented.".to_string()));
+        }
+        Action::ScreensList => {
+            state.active_popup = Some(PopupType::Info("Screens list: not yet implemented.".to_string()));
+        }
+        Action::VideoMode => {
+            state.active_popup = Some(PopupType::Info("Video mode: resize your terminal manually.".to_string()));
         }
     }
     Ok(())
@@ -898,6 +1167,7 @@ fn handle_popup_input(
             }
             PopupType::SearchPrompt {
                 ref query,
+                ref content_query,
                 ref search_root,
             } => {
                 match key.code {
@@ -906,6 +1176,7 @@ fn handle_popup_input(
                         new_query.push(c);
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query: new_query,
+                            content_query: content_query.clone(),
                             search_root: search_root.clone(),
                         });
                         return Ok(None);
@@ -915,6 +1186,7 @@ fn handle_popup_input(
                         new_query.pop();
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query: new_query,
+                            content_query: content_query.clone(),
                             search_root: search_root.clone(),
                         });
                         return Ok(None);
@@ -1203,6 +1475,222 @@ fn handle_popup_input(
                 }
                 return Err(());
             }
+            PopupType::WipeConfirm { ref paths } => {
+                match key.code {
+                    crossterm::event::KeyCode::Enter => {
+                        let paths = paths.clone();
+                        state.active_popup = None;
+                        let rx = crate::fs::spawn_wipe_task(paths);
+                        state.progress_rx = Some(rx);
+                        state.active_popup = Some(PopupType::CopyProgress {
+                            current_file: "Wiping...".to_string(),
+                            files_copied: 0,
+                            total_files: 0,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::SelectGroupPrompt { ref mode, ref query } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_q = query.clone();
+                        new_q.push(c);
+                        state.active_popup = Some(PopupType::SelectGroupPrompt { mode: mode.clone(), query: new_q });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_q = query.clone();
+                        new_q.pop();
+                        state.active_popup = Some(PopupType::SelectGroupPrompt { mode: mode.clone(), query: new_q });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let mode = mode.clone();
+                        let query = query.clone();
+                        state.active_popup = None;
+                        match mode {
+                            crate::app::state::SelectMode::Add => state.get_active_panel_mut().select_group(&query),
+                            crate::app::state::SelectMode::Remove => state.get_active_panel_mut().unselect_group(&query),
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => { state.active_popup = None; return Ok(None); }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::ApplyCommandPrompt { ref input, ref targets } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_input = input.clone();
+                        new_input.push(c);
+                        state.active_popup = Some(PopupType::ApplyCommandPrompt { input: new_input, targets: targets.clone() });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_input = input.clone();
+                        new_input.pop();
+                        state.active_popup = Some(PopupType::ApplyCommandPrompt { input: new_input, targets: targets.clone() });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let cmd = input.clone();
+                        let targets = targets.clone();
+                        state.active_popup = None;
+                        if !cmd.is_empty() {
+                            let rx = crate::fs::apply_command(cmd, targets);
+                            state.progress_rx = Some(rx);
+                            state.active_popup = Some(PopupType::CopyProgress {
+                                current_file: "Running command...".to_string(),
+                                files_copied: 0, total_files: 0, bytes_copied: 0, total_bytes: 0,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => { state.active_popup = None; return Ok(None); }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::DescribeFilePrompt { ref path, ref current_desc, ref input } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_input = input.clone();
+                        new_input.push(c);
+                        state.active_popup = Some(PopupType::DescribeFilePrompt {
+                            path: path.clone(), current_desc: current_desc.clone(), input: new_input,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_input = input.clone();
+                        new_input.pop();
+                        state.active_popup = Some(PopupType::DescribeFilePrompt {
+                            path: path.clone(), current_desc: current_desc.clone(), input: new_input,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let desc = input.clone();
+                        let p = path.clone();
+                        state.active_popup = None;
+                        if let Some(dir) = p.parent() {
+                            if let Some(name) = p.file_name() {
+                                let _ = crate::fs::write_description(dir, &name.to_string_lossy(), &desc);
+                            }
+                        }
+                        state.refresh_both_panels(context.config.settings.show_hidden);
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => { state.active_popup = None; return Ok(None); }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::CreateLinkPrompt { ref src, ref dest_input, ref kind } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char('s') | crossterm::event::KeyCode::Char('h') => {
+                        let new_kind = match key.code {
+                            crossterm::event::KeyCode::Char('s') => crate::app::state::LinkKind::Symbolic,
+                            _ => crate::app::state::LinkKind::Hard,
+                        };
+                        state.active_popup = Some(PopupType::CreateLinkPrompt {
+                            src: src.clone(), dest_input: dest_input.clone(), kind: new_kind,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Char(c) if !matches!(c, 's' | 'h') => {
+                        let mut new_input = dest_input.clone();
+                        new_input.push(c);
+                        state.active_popup = Some(PopupType::CreateLinkPrompt {
+                            src: src.clone(), dest_input: new_input, kind: kind.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_input = dest_input.clone();
+                        new_input.pop();
+                        state.active_popup = Some(PopupType::CreateLinkPrompt {
+                            src: src.clone(), dest_input: new_input, kind: kind.clone(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let s = src.clone();
+                        let kind = kind.clone();
+                        let dest = state.get_passive_panel().current_path.join(dest_input);
+                        state.active_popup = None;
+                        let result = match kind {
+                            crate::app::state::LinkKind::Symbolic => crate::fs::create_symlink(&s, &dest),
+                            crate::app::state::LinkKind::Hard => crate::fs::create_hardlink(&s, &dest),
+                        };
+                        if let Err(e) = result {
+                            state.active_popup = Some(PopupType::Error(format!("Link failed: {}", e)));
+                        } else {
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => { state.active_popup = None; return Ok(None); }
+                    _ => {}
+                }
+                return Err(());
+            }
+            PopupType::FilePanelFilterPrompt { ref input } => {
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_input = input.clone();
+                        new_input.push(c);
+                        state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: new_input });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        let mut new_input = input.clone();
+                        new_input.pop();
+                        state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: new_input });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let mask = input.trim().to_string();
+                        state.active_popup = None;
+                        let panel = state.get_active_panel_mut();
+                        panel.filter_mask = if mask.is_empty() { None } else { Some(mask) };
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => { state.active_popup = None; return Ok(None); }
+                    _ => {}
+                }
+                return Err(());
+            }
+            // Dismiss-only popups for new types not yet fully interactive
+            PopupType::SortModesDialog { .. }
+            | PopupType::FileAttributesDialog { .. }
+            | PopupType::CompareFoldersResult { .. }
+            | PopupType::TaskListDialog { .. }
+            | PopupType::FileAssociationsDialog { .. }
+            | PopupType::ArchiveCommandsMenu { .. }
+            | PopupType::QuickViewPanel { .. }
+            | PopupType::CommandHistoryList { .. }
+            | PopupType::FileViewHistoryList { .. }
+            | PopupType::FoldersHistoryList { .. }
+            | PopupType::SaveSetupConfirm => {
+                if key.code == crossterm::event::KeyCode::Esc
+                    || key.code == crossterm::event::KeyCode::Enter
+                {
+                    state.active_popup = None;
+                    return Ok(None);
+                }
+                return Err(());
+            }
         }
     }
     Err(())
@@ -1214,46 +1702,34 @@ fn trigger_menu_item(
     menu_idx: usize,
     item_idx: usize,
 ) -> Option<Action> {
+    // Skip separator lines (those starting with " ─") when mapping item_idx to action.
+    // The index is the raw cursor position in the menu; separator lines are not actionable.
     match menu_idx {
-        0 => {
-            // Left panel menu
+        0 | 4 => {
+            // Left / Right panel menu — both have the same layout
+            let is_right = menu_idx == 4;
             match item_idx {
-                0 => {
-                    // Brief View toggle
-                    state.brief_view = !state.brief_view;
-                    None
+                0 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Brief; None }
+                1 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Medium; None }
+                2 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Full; None }
+                3 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Wide; None }
+                4 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Detailed; None }
+                5 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::Descriptions; None }
+                6 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::FileOwners; None }
+                7 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::FileLinks; None }
+                8 => { state.get_active_panel_mut().view_mode = crate::app::state::PanelViewMode::AltFull; None }
+                // 9 = separator
+                10 => Some(Action::InfoPanel),
+                11 => Some(Action::QuickView),
+                // 12 = separator
+                13 => Some(Action::SortModes),
+                14 => Some(Action::ToggleLongNames),
+                15 => {
+                    if is_right { Some(Action::TogglePanelRight) } else { Some(Action::TogglePanelLeft) }
                 }
-                1 => {
-                    // Full View: disable brief mode and refresh
-                    state.brief_view = false;
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                    None
-                }
-                2 => {
-                    // Info Panel
-                    let lines = build_info_panel_lines(state);
-                    state.active_popup = Some(PopupType::InfoPanel { lines });
-                    None
-                }
-                3 => {
-                    // Tree Panel
-                    let root = state.left_panel.current_path.clone();
-                    let nodes = build_tree_nodes(&root, 0, 2);
-                    state.active_popup = Some(PopupType::TreeView {
-                        nodes,
-                        cursor_idx: 0,
-                        panel: ActivePanel::Left,
-                    });
-                    None
-                }
-                4 => {
-                    let drives = get_system_drives();
-                    state.active_popup = Some(PopupType::DriveSelect {
-                        panel: ActivePanel::Left,
-                        drives,
-                        cursor_idx: 0,
-                    });
-                    None
+                16 => Some(Action::Refresh),
+                17 => {
+                    if is_right { Some(Action::DriveSelectRight) } else { Some(Action::DriveSelectLeft) }
                 }
                 _ => None,
             }
@@ -1261,49 +1737,57 @@ fn trigger_menu_item(
         1 => {
             // Files menu
             match item_idx {
-                0 => Some(Action::Help),
-                1 => Some(Action::UserMenu),
-                2 => Some(Action::View),
-                3 => Some(Action::Edit),
-                4 => Some(Action::Copy),
-                5 => Some(Action::Move),
-                6 => Some(Action::MkDir),
-                7 => Some(Action::Delete),
-                8 => Some(Action::Quit),
+                0 => Some(Action::View),
+                1 => Some(Action::Edit),
+                2 => Some(Action::Copy),
+                3 => Some(Action::Move),
+                4 => Some(Action::CreateLink),
+                5 => Some(Action::MkDir),
+                6 => Some(Action::Delete),
+                7 => Some(Action::WipeFile),
+                // 8 = separator
+                9 => Some(Action::CompressFiles),
+                10 => Some(Action::ExtractArchive),
+                11 => Some(Action::ArchiveCommands),
+                // 12 = separator
+                13 => Some(Action::FileAttributes),
+                14 => Some(Action::ApplyCommand),
+                15 => Some(Action::DescribeFile),
+                // 16 = separator
+                17 => Some(Action::SelectGroup),
+                18 => Some(Action::UnselectGroup),
+                19 => Some(Action::InvertSelection),
+                20 => Some(Action::RestoreSelection),
                 _ => None,
             }
         }
         2 => {
             // Commands menu
             match item_idx {
-                0 => Some(Action::SwapPanels),
-                1 => {
-                    let same = compare_directories(state);
-                    let msg = if same {
-                        "Directory comparison: both directories contain identical file names."
-                            .to_string()
-                    } else {
-                        "Directory comparison: directories differ in file names or structure."
-                            .to_string()
-                    };
-                    // Use Info popup, not Error
-                    state.active_popup = Some(PopupType::Info(msg));
-                    None
-                }
-                2 => {
-                    let bookmarks = get_hotlist_bookmarks();
-                    state.active_popup = Some(PopupType::Hotlist {
-                        bookmarks,
+                0 => Some(Action::FindFile),
+                1 => Some(Action::CommandHistory),
+                2 => Some(Action::FileViewHistory),
+                3 => Some(Action::FoldersHistory),
+                // 4 = separator
+                5 => Some(Action::SwapPanels),
+                6 => Some(Action::ToggleBothPanels),
+                7 => Some(Action::CompareFolder),
+                // 8 = separator
+                9 => Some(Action::EditUserMenu),
+                10 => Some(Action::FileAssociations),
+                11 => Some(Action::FolderShortcutsConfig),
+                12 => Some(Action::FilePanelFilter),
+                // 13 = separator
+                14 => Some(Action::PluginMenu),
+                15 => Some(Action::ScreensList),
+                16 => Some(Action::TaskList),
+                17 => {
+                    // Hotplug devices — reuse DriveSelect
+                    let drives = get_system_drives();
+                    state.active_popup = Some(PopupType::DriveSelect {
+                        panel: state.active_panel,
+                        drives,
                         cursor_idx: 0,
-                    });
-                    None
-                }
-                3 => {
-                    // Search Files
-                    let search_root = state.get_active_panel().current_path.clone();
-                    state.active_popup = Some(PopupType::SearchPrompt {
-                        query: String::new(),
-                        search_root,
                     });
                     None
                 }
@@ -1313,66 +1797,44 @@ fn trigger_menu_item(
         3 => {
             // Options menu
             match item_idx {
-                0 => Some(Action::ToggleHidden),
-                1 => {
-                    change_theme(context, state, "slate");
+                0 | 1 | 2 => {
+                    // System/Panel/Interface settings — show info stub
+                    state.active_popup = Some(PopupType::Info(
+                        "Edit settings file: ~/.config/ncrust/config.toml".to_string(),
+                    ));
                     None
                 }
-                2 => {
-                    change_theme(context, state, "classic_blue");
+                // 3 = separator
+                4 | 5 | 6 => {
+                    state.active_popup = Some(PopupType::Info(
+                        "File descriptions: use Ctrl+Z on files.".to_string(),
+                    ));
                     None
                 }
-                3 => {
-                    change_preset(context, "norton");
+                // 7 = separator
+                8 | 9 | 10 => {
+                    state.active_popup = Some(PopupType::Info(
+                        "Viewer/Editor settings: edit config.toml [viewer] / [editor] sections.".to_string(),
+                    ));
                     None
                 }
-                4 => {
-                    change_preset(context, "vim");
+                // 11 = separator
+                12 | 13 => {
+                    state.active_popup = Some(PopupType::Info(
+                        "Colors: edit the [theme] section in config.toml.".to_string(),
+                    ));
                     None
                 }
-                _ => None,
-            }
-        }
-        4 => {
-            // Right panel menu
-            match item_idx {
-                0 => {
-                    // Brief View toggle
-                    state.brief_view = !state.brief_view;
-                    None
-                }
-                1 => {
-                    // Full View: disable brief mode and refresh
-                    state.brief_view = false;
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                    None
-                }
-                2 => {
-                    // Info Panel
-                    let lines = build_info_panel_lines(state);
-                    state.active_popup = Some(PopupType::InfoPanel { lines });
-                    None
-                }
-                3 => {
-                    // Tree Panel
-                    let root = state.right_panel.current_path.clone();
-                    let nodes = build_tree_nodes(&root, 0, 2);
-                    state.active_popup = Some(PopupType::TreeView {
-                        nodes,
-                        cursor_idx: 0,
-                        panel: ActivePanel::Right,
-                    });
-                    None
-                }
-                4 => {
-                    let drives = get_system_drives();
-                    state.active_popup = Some(PopupType::DriveSelect {
-                        panel: ActivePanel::Right,
-                        drives,
-                        cursor_idx: 0,
-                    });
-                    None
-                }
+                // 14 = separator
+                15 => { change_theme(context, state, "slate"); None }
+                16 => { change_theme(context, state, "classic_blue"); None }
+                // 17 = separator
+                18 => { change_preset(context, "norton"); None }
+                19 => { change_preset(context, "vim"); None }
+                20 => { change_preset(context, "modern"); None }
+                // 21 = separator
+                22 => Some(Action::ToggleHidden),
+                23 => Some(Action::SaveSetup),
                 _ => None,
             }
         }
@@ -1401,6 +1863,56 @@ fn get_system_drives() -> Vec<String> {
         drives.push("/".to_string());
     }
     drives
+}
+
+/// Returns a list of running OS processes.
+/// On Linux reads from /proc; on other platforms returns an empty list.
+fn get_process_list() -> Vec<crate::app::state::ProcessEntry> {
+    let mut processes = Vec::new();
+
+    #[cfg(target_os = "linux")]
+    {
+        if let Ok(read_dir) = std::fs::read_dir("/proc") {
+            for entry in read_dir.flatten() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                // /proc/<pid> directories have purely numeric names
+                if let Ok(pid) = name_str.parse::<u32>() {
+                    let comm_path = entry.path().join("comm");
+                    let proc_name = std::fs::read_to_string(&comm_path)
+                        .unwrap_or_default()
+                        .trim()
+                        .to_string();
+                    // Read VmRSS from status for memory approximation
+                    let memory_kb = read_proc_memory(pid);
+                    processes.push(crate::app::state::ProcessEntry {
+                        pid,
+                        name: if proc_name.is_empty() { format!("[{}]", pid) } else { proc_name },
+                        memory_kb,
+                    });
+                }
+            }
+        }
+        processes.sort_by_key(|p| p.pid);
+    }
+
+    processes
+}
+
+#[cfg(target_os = "linux")]
+fn read_proc_memory(pid: u32) -> u64 {
+    let status_path = format!("/proc/{}/status", pid);
+    if let Ok(content) = std::fs::read_to_string(&status_path) {
+        for line in content.lines() {
+            if line.starts_with("VmRSS:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if let Some(kb_str) = parts.get(1) {
+                    return kb_str.parse::<u64>().unwrap_or(0);
+                }
+            }
+        }
+    }
+    0
 }
 
 fn compare_directories(state: &AppState) -> bool {

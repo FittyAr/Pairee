@@ -1,3 +1,5 @@
+pub mod associations;
+pub mod history;
 pub mod keybindings;
 pub mod paths;
 pub mod settings;

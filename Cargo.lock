@@ -897,6 +897,7 @@ dependencies = [
  "sevenz-rust",
  "simplelog",
  "tar",
+ "tempfile",
  "thiserror",
  "tokio",
  "toml",

@@ -1,3 +1,4 @@
+use crate::app::state::AppState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 #[allow(dead_code)]
@@ -10,24 +11,42 @@ pub struct AppLayout {
     pub fkeys_rect: Rect,
 }
 
-/// Splits the screen into segments: top bar, main directories region, command prompt, and functional keys.
-pub fn calculate_layout(area: Rect) -> AppLayout {
+/// Splits the screen into segments respecting panel visibility flags.
+///
+/// Panel visibility rules:
+/// - `both_panels_hidden` (`Ctrl+O`): the main area collapses to 0 height,
+///   showing only the CLI and f-key bar, revealing the terminal scrollback below.
+/// - `left_panel_visible` / `right_panel_visible`: when one panel is hidden,
+///   the other expands to fill the full width (100 %).
+pub fn calculate_layout(area: Rect, state: &AppState) -> AppLayout {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // Dropdown menu (F9)
-            Constraint::Min(3),    // Middle panels
-            Constraint::Length(1), // Command command-line block
-            Constraint::Length(1), // F1-F10 keys shortcuts
+            Constraint::Length(1), // Dropdown menu bar (F9)
+            if state.both_panels_hidden {
+                Constraint::Length(0) // Both panels hidden → 0 height
+            } else {
+                Constraint::Min(3) // Normal: panels take remaining space
+            },
+            Constraint::Length(1), // Command-line bar
+            Constraint::Length(1), // F1–F10 shortcuts
         ])
         .split(area);
 
+    // Determine panel width constraints based on individual visibility flags
+    let (left_constraint, right_constraint) = match (
+        state.left_panel_visible,
+        state.right_panel_visible,
+    ) {
+        (true, true) => (Constraint::Percentage(50), Constraint::Percentage(50)),
+        (true, false) => (Constraint::Percentage(100), Constraint::Length(0)),
+        (false, true) => (Constraint::Length(0), Constraint::Percentage(100)),
+        (false, false) => (Constraint::Percentage(50), Constraint::Percentage(50)),
+    };
+
     let panels_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage(50), // Left Panel
-            Constraint::Percentage(50), // Right Panel
-        ])
+        .constraints([left_constraint, right_constraint])
         .split(chunks[1]);
 
     AppLayout {
