@@ -26,9 +26,15 @@ pub async fn ensure_external_tools() -> Result<()> {
 
     let bin_path = get_external_7z_path().context("Could not determine bin path")?;
     
-    // If it already exists, no need to download
+    // If it already exists and size > 1MB, it's valid
     if bin_path.exists() {
-        return Ok(());
+        if let Ok(metadata) = fs::metadata(&bin_path) {
+            if metadata.len() > 1024 * 1024 {
+                return Ok(());
+            }
+        }
+        // If it's too small (like a 404 page), remove it and re-download
+        let _ = fs::remove_file(&bin_path);
     }
 
     // Ensure bin folder exists

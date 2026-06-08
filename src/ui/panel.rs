@@ -51,7 +51,23 @@ fn render_full(
     let theme = &context.config.theme;
     let mut rows = Vec::new();
 
-    for (i, entry) in panel.entries.iter().enumerate() {
+    let height = area.height.saturating_sub(3) as usize; // borders + header
+    let start_idx = if panel.cursor_index > height / 2 {
+        panel.cursor_index.saturating_sub(height / 2)
+    } else {
+        0
+    };
+    
+    // Adjust start_idx if we are near the end of the list to prevent empty space at the bottom
+    let start_idx = if start_idx + height > panel.entries.len() {
+        panel.entries.len().saturating_sub(height)
+    } else {
+        start_idx
+    };
+
+    let visible_entries = panel.entries.iter().enumerate().skip(start_idx).take(height);
+
+    for (i, entry) in visible_entries {
         let is_selected = panel.selected_paths.contains(&entry.path);
         let is_cursor = i == panel.cursor_index;
 
@@ -118,10 +134,23 @@ fn render_brief(
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(inner);
 
-    let col_height = cols[0].height as usize;
+    let col_height = cols[0].height.saturating_sub(2) as usize; // -2 for borders
+    let total_visible = col_height * 2;
+    
+    let start_idx = if panel.cursor_index > total_visible / 2 {
+        panel.cursor_index.saturating_sub(total_visible / 2)
+    } else {
+        0
+    };
+    
+    let start_idx = if start_idx + total_visible > panel.entries.len() {
+        panel.entries.len().saturating_sub(total_visible)
+    } else {
+        start_idx
+    };
 
     for col_idx in 0..2 {
-        let start = col_idx * col_height;
+        let start = start_idx + (col_idx * col_height);
         let col_entries: Vec<_> = panel
             .entries
             .iter()
