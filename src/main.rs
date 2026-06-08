@@ -43,6 +43,12 @@ async fn main() -> Result<()> {
     state.treat_digits_as_numbers = context.config.settings.treat_digits_as_numbers;
     state.sorting_collation = context.config.settings.sorting_collation.clone();
     state.req_admin_reading = context.config.settings.req_admin_reading;
+    // Panel settings
+    state.select_folders = context.config.settings.select_folders;
+    state.sort_folder_names_by_extension = context.config.settings.sort_folder_names_by_extension;
+    state.show_dotdot_in_root_folders = context.config.settings.show_dotdot_in_root_folders;
+    state.disable_panel_update_object_count =
+        context.config.settings.disable_panel_update_object_count;
 
     // 5. Hand execution over to main loop
     app::run(context, state).await?;

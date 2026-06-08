@@ -121,6 +121,12 @@ pub fn handle(
                     state.treat_digits_as_numbers = settings.treat_digits_as_numbers;
                     state.sorting_collation = settings.sorting_collation.clone();
                     state.req_admin_reading = settings.req_admin_reading;
+                    // Panel settings
+                    state.select_folders = settings.select_folders;
+                    state.sort_folder_names_by_extension = settings.sort_folder_names_by_extension;
+                    state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
+                    state.disable_panel_update_object_count =
+                        settings.disable_panel_update_object_count;
                     context.config.settings = settings;
                     let _ = context.config.save();
                     state.refresh_both_panels(context.config.settings.show_hidden);
@@ -188,6 +194,12 @@ pub fn handle(
                 state.treat_digits_as_numbers = settings.treat_digits_as_numbers;
                 state.sorting_collation = settings.sorting_collation.clone();
                 state.req_admin_reading = settings.req_admin_reading;
+                // Panel settings
+                state.select_folders = settings.select_folders;
+                state.sort_folder_names_by_extension = settings.sort_folder_names_by_extension;
+                state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
+                state.disable_panel_update_object_count =
+                    settings.disable_panel_update_object_count;
                 context.config.settings = settings;
                 let _ = context.config.save();
                 state.refresh_both_panels(context.config.settings.show_hidden);

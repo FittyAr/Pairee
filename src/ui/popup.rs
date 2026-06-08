@@ -1729,14 +1729,14 @@ pub fn render_popup(
                             "[{}] Highlight files",
                             if settings.highlight_files { "x" } else { " " }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "[{}] Select folders",
                             if settings.select_folders { "x" } else { " " }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1747,7 +1747,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1758,7 +1758,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1772,7 +1772,7 @@ pub fn render_popup(
                             "Disable automatic panel update if object count exceeds: [ {} ]",
                             settings.disable_panel_update_object_count
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1783,7 +1783,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1794,14 +1794,14 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "[{}] Show status line",
                             if settings.show_status_line { "x" } else { " " }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1812,7 +1812,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1823,21 +1823,21 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "[{}] Show free size",
                             if settings.show_free_size { "x" } else { " " }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "[{}] Show scrollbar",
                             if settings.show_scrollbar { "x" } else { " " }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1848,7 +1848,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1859,7 +1859,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1870,9 +1870,9 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
-                    rows.push(("InfoPanel settings:".to_string(), true));
+                    rows.push(("InfoPanel settings:".to_string(), false));
                     rows.push((
                         format!(
                             "  [{}] Show power status",
@@ -1882,7 +1882,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1893,34 +1893,34 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "  Computer name format: < {} >",
                             settings.infopanel_computer_name_format
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "  User name format: < {} >",
                             settings.infopanel_user_name_format
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         "Groups of file masks: [Ins/Del/F4/F7/Ctrl+R]".to_string(),
-                        true,
+                        false,
                     ));
                     rows.push((
                         "Edit panel modes: [Ins/Del/F4/Ctrl+Enter]".to_string(),
-                        true,
+                        false,
                     ));
-                    rows.push(("File descriptions:".to_string(), true));
+                    rows.push(("File descriptions:".to_string(), false));
                     rows.push((
                         format!("  Names: [ {} ]", settings.file_descriptions_list_names),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1931,7 +1931,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1942,21 +1942,21 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "  Position of new descriptions: [ {} ]",
                             settings.file_descriptions_position
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "  Update mode: < {} >",
                             settings.file_descriptions_update_mode
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1967,7 +1967,7 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
@@ -1978,14 +1978,14 @@ pub fn render_popup(
                                 " "
                             }
                         ),
-                        true,
+                        false,
                     ));
                     rows.push((
                         format!(
                             "Folder description list names: [ {} ]",
                             settings.folder_description_list_names
                         ),
-                        true,
+                        false,
                     ));
                 }
                 2 => {

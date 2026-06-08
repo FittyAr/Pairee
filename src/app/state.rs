@@ -413,9 +413,10 @@ impl PanelState {
     }
 
     /// Selects / tags the highlighted entry.
-    pub fn toggle_selection(&mut self) {
+    /// `select_folders` controls whether directory entries can be tagged.
+    pub fn toggle_selection_with_opts(&mut self, select_folders: bool) {
         if let Some(entry) = self.entries.get(self.cursor_index) {
-            if entry.name != ".." {
+            if entry.name != ".." && (!entry.is_dir || select_folders) {
                 let path = entry.path.clone();
                 if self.selected_paths.contains(&path) {
                     self.selected_paths.remove(&path);
@@ -509,6 +510,14 @@ pub struct AppState {
     pub treat_digits_as_numbers: bool,
     pub sorting_collation: String,
     pub req_admin_reading: bool,
+
+    // ── Panel settings (mirrors Settings for quick access) ────────────────────
+    pub select_folders: bool,
+    pub sort_folder_names_by_extension: bool,
+    pub show_dotdot_in_root_folders: bool,
+    pub disable_panel_update_object_count: u32,
+    pub free_space_left: Option<u64>,
+    pub free_space_right: Option<u64>,
 }
 
 impl AppState {
@@ -534,6 +543,12 @@ impl AppState {
             treat_digits_as_numbers: false,
             sorting_collation: "linguistic".to_string(),
             req_admin_reading: false,
+            select_folders: false,
+            sort_folder_names_by_extension: false,
+            show_dotdot_in_root_folders: false,
+            disable_panel_update_object_count: 0,
+            free_space_left: None,
+            free_space_right: None,
         }
     }
 
@@ -624,36 +639,57 @@ impl AppState {
         self.folders_history = store.visited_folders;
     }
 
-    /// Refreshes directories inside left and right panels.
+    /// Refreshes directories inside left and right panels, using full panel settings.
     pub fn refresh_both_panels(&mut self, show_hidden: bool) {
         let left_path = self.left_panel.current_path.clone();
-        if let Ok(entries) = fs::read_directory(
-            &left_path,
-            show_hidden,
-            self.case_sensitive_sort,
-            self.treat_digits_as_numbers,
-            &self.sorting_collation,
-            self.req_admin_reading,
-        ) {
-            self.left_panel.entries = entries;
-            if self.left_panel.cursor_index >= self.left_panel.entries.len() {
-                self.left_panel.cursor_index = self.left_panel.entries.len().saturating_sub(1);
+        let left_count = self.left_panel.entries.len();
+        let skip_left = self.disable_panel_update_object_count > 0
+            && left_count as u32 > self.disable_panel_update_object_count;
+        if !skip_left {
+            if let Ok(entries) = fs::read_directory_ext(
+                &left_path,
+                show_hidden,
+                self.case_sensitive_sort,
+                self.treat_digits_as_numbers,
+                &self.sorting_collation,
+                self.req_admin_reading,
+                self.left_panel.sort_field,
+                self.left_panel.sort_reverse,
+                self.sort_folder_names_by_extension,
+                self.show_dotdot_in_root_folders,
+            ) {
+                self.left_panel.entries = entries;
+                if self.left_panel.cursor_index >= self.left_panel.entries.len() {
+                    self.left_panel.cursor_index = self.left_panel.entries.len().saturating_sub(1);
+                }
             }
+            self.free_space_left = crate::app::sys_helpers::get_free_space(&left_path);
         }
 
         let right_path = self.right_panel.current_path.clone();
-        if let Ok(entries) = fs::read_directory(
-            &right_path,
-            show_hidden,
-            self.case_sensitive_sort,
-            self.treat_digits_as_numbers,
-            &self.sorting_collation,
-            self.req_admin_reading,
-        ) {
-            self.right_panel.entries = entries;
-            if self.right_panel.cursor_index >= self.right_panel.entries.len() {
-                self.right_panel.cursor_index = self.right_panel.entries.len().saturating_sub(1);
+        let right_count = self.right_panel.entries.len();
+        let skip_right = self.disable_panel_update_object_count > 0
+            && right_count as u32 > self.disable_panel_update_object_count;
+        if !skip_right {
+            if let Ok(entries) = fs::read_directory_ext(
+                &right_path,
+                show_hidden,
+                self.case_sensitive_sort,
+                self.treat_digits_as_numbers,
+                &self.sorting_collation,
+                self.req_admin_reading,
+                self.right_panel.sort_field,
+                self.right_panel.sort_reverse,
+                self.sort_folder_names_by_extension,
+                self.show_dotdot_in_root_folders,
+            ) {
+                self.right_panel.entries = entries;
+                if self.right_panel.cursor_index >= self.right_panel.entries.len() {
+                    self.right_panel.cursor_index =
+                        self.right_panel.entries.len().saturating_sub(1);
+                }
             }
+            self.free_space_right = crate::app::sys_helpers::get_free_space(&right_path);
         }
     }
 }

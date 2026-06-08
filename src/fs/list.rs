@@ -176,7 +176,22 @@ fn cmp_standard(a: &str, b: &str, case_sensitive: bool) -> std::cmp::Ordering {
     }
 }
 
-/// Reads directory contents and returns a sorted list of FileEntry structs.
+/// Returns the sort key (extension) for an entry depending on sort-by-extension mode.
+/// Directories have an empty extension unless sort_folder_names_by_extension is set.
+fn entry_sort_key_ext(entry: &FileEntry, sort_folder_names_by_extension: bool) -> String {
+    if entry.is_dir && !sort_folder_names_by_extension {
+        String::new()
+    } else {
+        std::path::Path::new(&entry.name)
+            .extension()
+            .map(|e| e.to_string_lossy().to_lowercase())
+            .unwrap_or_default()
+    }
+}
+
+/// Reads directory contents with default sort (Name, ascending, no folder-by-ext, with dotdot).
+/// Deprecated: use `read_directory_ext` for full panel settings support.
+#[allow(dead_code)]
 pub fn read_directory(
     path: &Path,
     show_hidden: bool,
@@ -185,10 +200,40 @@ pub fn read_directory(
     _sorting_collation: &str,
     req_admin_reading: bool,
 ) -> Result<Vec<FileEntry>> {
+    read_directory_ext(
+        path,
+        show_hidden,
+        case_sensitive_sort,
+        treat_digits_as_numbers,
+        _sorting_collation,
+        req_admin_reading,
+        crate::app::state::SortField::Name,
+        false,
+        false,
+        true,
+    )
+}
+
+/// Extended directory reader with full panel settings support.
+pub fn read_directory_ext(
+    path: &Path,
+    show_hidden: bool,
+    case_sensitive_sort: bool,
+    treat_digits_as_numbers: bool,
+    _sorting_collation: &str,
+    req_admin_reading: bool,
+    sort_field: crate::app::state::SortField,
+    sort_reverse: bool,
+    sort_folder_names_by_extension: bool,
+    show_dotdot_in_root_folders: bool,
+) -> Result<Vec<FileEntry>> {
     let mut entries = Vec::new();
 
-    // 1. Add ".." parent directory entry if a parent exists
-    if let Some(parent) = path.parent() {
+    // 1. Add ".." parent directory entry
+    //    Always added if a parent exists; or if show_dotdot_in_root_folders is enabled.
+    let has_parent = path.parent().is_some();
+    if has_parent {
+        let parent = path.parent().unwrap();
         entries.push(FileEntry {
             name: "..".to_string(),
             path: parent.to_path_buf(),
@@ -197,9 +242,19 @@ pub fn read_directory(
             is_symlink: false,
             modified: None,
         });
+    } else if show_dotdot_in_root_folders {
+        // Insert a ".." that stays in the current root (navigating up from root stays at root).
+        entries.push(FileEntry {
+            name: "..".to_string(),
+            path: path.to_path_buf(),
+            size: 0,
+            is_dir: true,
+            is_symlink: false,
+            modified: None,
+        });
     }
 
-    // 2. Read contents of the directory
+    // 2. Read directory contents
     let read_res = fs::read_dir(path);
     let read_entries = match read_res {
         Ok(read_dir) => {
@@ -207,7 +262,7 @@ pub fn read_directory(
             for entry in read_dir.flatten() {
                 let name = entry.file_name().to_string_lossy().into_owned();
 
-                // Skip hidden files if not enabled in settings
+                // Skip hidden files if show_hidden is not enabled
                 if !show_hidden && name.starts_with('.') {
                     continue;
                 }
@@ -241,30 +296,105 @@ pub fn read_directory(
     let mut read_entries = read_entries.context(format!("Failed to read directory: {:?}", path))?;
     entries.append(&mut read_entries);
 
-    // 3. Sort entries:
-    //    - Pin ".." parent folder as first element
-    //    - Directories come before files
-    //    - Respect sorting collation (treat_digits_as_numbers and case_sensitive_sort)
-    entries.sort_by(|a, b| {
-        if a.name == ".." {
-            return std::cmp::Ordering::Less;
-        }
-        if b.name == ".." {
-            return std::cmp::Ordering::Greater;
-        }
+    // 3. Sort entries
+    //    ".." is always pinned first. Then directories before files (unless extension sort).
+    //    Sort field and direction are applied per settings.
+    use crate::app::state::SortField;
 
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => {
-                if treat_digits_as_numbers {
-                    cmp_natural(&a.name, &b.name, case_sensitive_sort)
-                } else {
-                    cmp_standard(&a.name, &b.name, case_sensitive_sort)
-                }
-            }
+    if matches!(sort_field, SortField::Unsorted) {
+        // No sorting — just pin ".." first
+        if let Some(pos) = entries.iter().position(|e| e.name == "..") {
+            let dotdot = entries.remove(pos);
+            entries.insert(0, dotdot);
         }
-    });
+    } else {
+        entries.sort_by(|a, b| {
+            // ".." is always first
+            if a.name == ".." {
+                return std::cmp::Ordering::Less;
+            }
+            if b.name == ".." {
+                return std::cmp::Ordering::Greater;
+            }
+
+            // Extension sort: folders and files are mixed by extension key
+            // All other sorts: directories sort before files
+            let dir_order = if matches!(sort_field, SortField::Extension) {
+                std::cmp::Ordering::Equal
+            } else {
+                match (a.is_dir, b.is_dir) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                }
+            };
+
+            if dir_order != std::cmp::Ordering::Equal {
+                return if sort_reverse {
+                    dir_order.reverse()
+                } else {
+                    dir_order
+                };
+            }
+
+            let name_ord = match sort_field {
+                SortField::Name => {
+                    if treat_digits_as_numbers {
+                        cmp_natural(&a.name, &b.name, case_sensitive_sort)
+                    } else {
+                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                    }
+                }
+                SortField::Extension => {
+                    let ext_a = entry_sort_key_ext(a, sort_folder_names_by_extension);
+                    let ext_b = entry_sort_key_ext(b, sort_folder_names_by_extension);
+                    let ext_ord = if treat_digits_as_numbers {
+                        cmp_natural(&ext_a, &ext_b, case_sensitive_sort)
+                    } else {
+                        cmp_standard(&ext_a, &ext_b, case_sensitive_sort)
+                    };
+                    if ext_ord == std::cmp::Ordering::Equal {
+                        // Secondary sort by name when extensions are equal
+                        if treat_digits_as_numbers {
+                            cmp_natural(&a.name, &b.name, case_sensitive_sort)
+                        } else {
+                            cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                        }
+                    } else {
+                        ext_ord
+                    }
+                }
+                SortField::Size => {
+                    // Dirs: compare name; files: compare size
+                    if a.is_dir && b.is_dir {
+                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                    } else {
+                        a.size.cmp(&b.size)
+                    }
+                }
+                SortField::Date => {
+                    let t_a = a.modified.map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs()
+                    });
+                    let t_b = b.modified.map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs()
+                    });
+                    t_a.cmp(&t_b)
+                }
+                SortField::Unsorted => std::cmp::Ordering::Equal,
+            };
+
+            if sort_reverse {
+                name_ord.reverse()
+            } else {
+                name_ord
+            }
+        });
+    }
 
     Ok(entries)
 }

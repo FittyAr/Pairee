@@ -45,7 +45,10 @@ pub async fn handle_action(
             state.toggle_focus();
         }
         Action::SelectItem => {
-            state.get_active_panel_mut().toggle_selection();
+            let select_folders = state.select_folders;
+            state
+                .get_active_panel_mut()
+                .toggle_selection_with_opts(select_folders);
             state.get_active_panel_mut().move_cursor_down();
         }
         Action::Execute => {

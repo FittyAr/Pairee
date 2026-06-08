@@ -1,16 +1,21 @@
 use crate::app::context::AppContext;
-use crate::app::state::{PanelState, PanelViewMode};
+use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::fs::attrs::format_unix_mode;
 use crate::fs::descriptions::read_description;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
-    widgets::{Block, Borders, Cell, Row, Table},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{
+        Block, Borders, Cell, Paragraph, Row, Scrollbar, ScrollbarOrientation, ScrollbarState,
+        Table,
+    },
 };
 
 /// Entry point: dispatches to the correct view mode renderer.
+/// Also renders optional footer lines (status, total info, free space) and scrollbar.
 pub fn render_panel(
     f: &mut Frame,
     area: Rect,
@@ -19,6 +24,7 @@ pub fn render_panel(
     context: &AppContext,
 ) {
     let theme = &context.config.theme;
+    let settings = &context.config.settings;
 
     let border_color = if is_active {
         parse_color(&theme.panel_border)
@@ -26,6 +32,7 @@ pub fn render_panel(
         parse_color("DarkGray")
     };
 
+    // ── Build panel title with optional sort mode letter ──────────────────────
     let mode_label = match panel.view_mode {
         PanelViewMode::Brief => "Brief",
         PanelViewMode::Medium => "Medium",
@@ -38,32 +45,230 @@ pub fn render_panel(
         PanelViewMode::AltFull => "Alt",
     };
 
+    let sort_letter = if settings.show_sort_mode_letter {
+        let letter = match panel.sort_field {
+            SortField::Name => "N",
+            SortField::Extension => "X",
+            SortField::Size => "S",
+            SortField::Date => "D",
+            SortField::Unsorted => "U",
+        };
+        let rev = if panel.sort_reverse { "▼" } else { "▲" };
+        format!("|{}{}", letter, rev)
+    } else {
+        String::new()
+    };
+
     let title = format!(
-        " {} [{}] ",
+        " {} [{}{}] ",
         panel.current_path.to_string_lossy(),
-        mode_label
+        mode_label,
+        sort_letter,
     );
 
+    // ── Count optional footer rows ────────────────────────────────────────────
+    let show_status = settings.show_status_line;
+    let show_total = settings.show_files_total_information;
+    let show_free = settings.show_free_size;
+    let show_scrollbar = settings.show_scrollbar;
+    let highlight_files = settings.highlight_files;
+
+    let footer_height = u16::from(show_status) + u16::from(show_total) + u16::from(show_free);
+
+    // ── Split area: [block_with_list] + [footer lines] ────────────────────────
+    let constraints: Vec<Constraint> = if footer_height > 0 {
+        vec![Constraint::Min(3), Constraint::Length(footer_height)]
+    } else {
+        vec![Constraint::Percentage(100)]
+    };
+
+    let v_split = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints(constraints)
+        .split(area);
+
+    let list_area = v_split[0];
+    let footer_area = if footer_height > 0 {
+        Some(v_split[1])
+    } else {
+        None
+    };
+
+    // ── Build the panel block ─────────────────────────────────────────────────
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color))
         .title(title)
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
+    // ── Dispatch to view-specific renderer (list area only) ───────────────────
     match panel.view_mode {
-        PanelViewMode::Brief => render_brief(f, area, panel, is_active, context, block),
-        PanelViewMode::Medium => render_medium(f, area, panel, is_active, context, block),
-        PanelViewMode::Wide => render_wide(f, area, panel, is_active, context, block),
-        PanelViewMode::Detailed => render_detailed(f, area, panel, is_active, context, block),
-        PanelViewMode::Descriptions => {
-            render_descriptions(f, area, panel, is_active, context, block)
+        PanelViewMode::Brief => render_brief(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::Medium => render_medium(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::Wide => render_wide(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::Detailed => render_detailed(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::Descriptions => render_descriptions(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::FileOwners => render_file_owners(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::FileLinks => render_file_links(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+        PanelViewMode::Full | PanelViewMode::AltFull => render_full(
+            f,
+            list_area,
+            panel,
+            is_active,
+            context,
+            block,
+            highlight_files,
+        ),
+    }
+
+    // ── Optional scrollbar ────────────────────────────────────────────────────
+    if show_scrollbar && !panel.entries.is_empty() {
+        let inner_height = list_area.height.saturating_sub(2) as usize;
+        let total = panel.entries.len();
+        let mut scrollbar_state = ScrollbarState::new(total.saturating_sub(inner_height))
+            .position(panel.cursor_index.min(total.saturating_sub(inner_height)));
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+        let scrollbar_area = Rect {
+            x: list_area.x + list_area.width.saturating_sub(1),
+            y: list_area.y + 1,
+            width: 1,
+            height: list_area.height.saturating_sub(2),
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
+
+    // ── Optional footer lines ─────────────────────────────────────────────────
+    if let Some(footer_area) = footer_area {
+        let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
+        let total_dirs = panel
+            .entries
+            .iter()
+            .filter(|e| e.is_dir && e.name != "..")
+            .count();
+        let total_size: u64 = panel
+            .entries
+            .iter()
+            .filter(|e| !e.is_dir)
+            .map(|e| e.size)
+            .sum();
+        let tagged = panel.selected_paths.len();
+
+        let fg = Style::default()
+            .fg(parse_color(&theme.panel_fg))
+            .bg(parse_color(&theme.panel_bg));
+
+        let mut footer_lines: Vec<Line> = Vec::new();
+
+        if show_status {
+            // Status: highlighted entry name + size
+            let status_text = if let Some(entry) = panel.entries.get(panel.cursor_index) {
+                if entry.is_dir {
+                    format!(" {} [DIR]  {} tagged", entry.name, tagged,)
+                } else {
+                    format!(
+                        " {}  {}  {} tagged",
+                        entry.name,
+                        format_file_size(entry.size),
+                        tagged,
+                    )
+                }
+            } else {
+                String::new()
+            };
+            footer_lines.push(Line::from(Span::styled(status_text, fg)));
         }
-        PanelViewMode::FileOwners => render_file_owners(f, area, panel, is_active, context, block),
-        PanelViewMode::FileLinks => render_file_links(f, area, panel, is_active, context, block),
-        // Full + AltFull use the full 3-column layout
-        PanelViewMode::Full | PanelViewMode::AltFull => {
-            render_full(f, area, panel, is_active, context, block)
+
+        if show_total {
+            let info_text = format!(
+                " {} files  {} dirs  {}",
+                total_files,
+                total_dirs,
+                format_file_size(total_size),
+            );
+            footer_lines.push(Line::from(Span::styled(info_text, fg)));
         }
+
+        if show_free {
+            // Free space is stored at the AppState level; we show a placeholder if not available.
+            // Since panel.rs doesn't have direct access to AppState free_space fields,
+            // we show disk info via a quick statfs-like check here.
+            let free_text = get_free_space_text(&panel.current_path);
+            footer_lines.push(Line::from(Span::styled(
+                format!(" Free: {}", free_text),
+                Style::default()
+                    .fg(Color::Green)
+                    .bg(parse_color(&theme.panel_bg)),
+            )));
+        }
+
+        if !footer_lines.is_empty() {
+            let paragraph = Paragraph::new(footer_lines);
+            f.render_widget(paragraph, footer_area);
+        }
+    }
+}
+
+/// Returns a human-readable free space string for the disk containing `path`.
+fn get_free_space_text(path: &std::path::Path) -> String {
+    match crate::app::sys_helpers::get_free_space(path) {
+        Some(bytes) => format_file_size(bytes),
+        None => "?".to_string(),
     }
 }
 
@@ -94,10 +299,15 @@ fn build_row_style(
     is_selected: bool,
     is_active: bool,
     theme: &crate::config::theme::Theme,
+    highlight_files: bool,
 ) -> Style {
-    let rules = crate::ui::highlight::default_highlight_rules();
     let base_style = Style::default().fg(parse_color(&theme.panel_fg));
-    let mut style = crate::ui::highlight::style_for_entry(entry, &rules, base_style);
+    let mut style = if highlight_files {
+        let rules = crate::ui::highlight::default_highlight_rules();
+        crate::ui::highlight::style_for_entry(entry, &rules, base_style)
+    } else {
+        base_style
+    };
     if is_selected {
         style = style.fg(parse_color(&theme.marked_fg));
     }
@@ -153,6 +363,7 @@ fn render_full(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -174,6 +385,7 @@ fn render_full(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             Row::new(vec![
                 Cell::from(entry_display_name(&entry.name, entry.is_dir)),
@@ -222,6 +434,7 @@ fn render_medium(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -243,6 +456,7 @@ fn render_medium(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             let ext = if entry.is_dir {
                 "<DIR>".to_string()
@@ -299,6 +513,7 @@ fn render_wide(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let height = area.height.saturating_sub(2) as usize;
@@ -315,6 +530,7 @@ fn render_wide(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             Row::new(vec![Cell::from(entry_display_name(
                 &entry.name,
@@ -339,6 +555,7 @@ fn render_detailed(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -360,6 +577,7 @@ fn render_detailed(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             let (perm_str, owner) = if let Ok(attrs) = crate::fs::attrs::read_attrs(&entry.path) {
                 (format_unix_mode(attrs.mode), attrs.owner)
@@ -415,6 +633,7 @@ fn render_descriptions(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -436,6 +655,7 @@ fn render_descriptions(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             let desc = read_description(&panel.current_path, &entry.name).unwrap_or_default();
             Row::new(vec![
@@ -476,6 +696,7 @@ fn render_file_owners(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -497,6 +718,7 @@ fn render_file_owners(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             let owner = crate::fs::attrs::read_attrs(&entry.path)
                 .map(|a| a.owner)
@@ -539,6 +761,7 @@ fn render_file_links(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let header_offset = if context.config.settings.show_column_titles {
@@ -560,6 +783,7 @@ fn render_file_links(
                 panel.selected_paths.contains(&entry.path),
                 is_active,
                 theme,
+                highlight_files,
             );
             let nlinks = crate::fs::attrs::read_attrs(&entry.path)
                 .map(|a| a.nlinks.to_string())
@@ -602,6 +826,7 @@ fn render_brief(
     is_active: bool,
     context: &AppContext,
     block: Block,
+    highlight_files: bool,
 ) {
     let theme = &context.config.theme;
     let inner = block.inner(area);
@@ -641,6 +866,7 @@ fn render_brief(
                     panel.selected_paths.contains(&entry.path),
                     is_active,
                     theme,
+                    highlight_files,
                 );
                 Row::new(vec![Cell::from(entry_display_name(
                     &entry.name,
