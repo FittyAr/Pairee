@@ -55,7 +55,6 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
 
 // Expose remove_description utility function for full API completeness.
 // Currently validated via unit tests.
-#[allow(dead_code)]
 /// Removes a file's description entry from the `descript.ion` file.
 pub fn remove_description(dir: &Path, filename: &str) -> Result<()> {
     write_description(dir, filename, "")

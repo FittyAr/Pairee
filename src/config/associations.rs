@@ -15,23 +15,17 @@ pub struct AssocRule {
 }
 
 impl AssocRule {
-    // Used to match file paths against rules for opening with associated applications; verified by tests.
-    #[allow(dead_code)]
     /// Returns true if the given filename matches this rule's mask.
     pub fn matches(&self, filename: &str) -> bool {
         crate::app::state::glob_matches(&self.mask, filename)
     }
 
-    // Used to substitute file paths into commands when launching associated applications; verified by tests.
-    #[allow(dead_code)]
     /// Returns the resolved open command with `%f` substituted by the file path.
     pub fn resolve_open_cmd(&self, path: &std::path::Path) -> String {
         self.open_cmd
             .replace("%f", &path.to_string_lossy())
     }
 
-    // Prepared for future external file viewer resolving; currently verified by unit tests.
-    #[allow(dead_code)]
     /// Returns the resolved view command with `%f` substituted by the file path.
     pub fn resolve_view_cmd(&self, path: &std::path::Path) -> String {
         let cmd = self.view_cmd.as_deref().unwrap_or(&self.open_cmd);
@@ -50,7 +44,11 @@ impl AssociationsConfig {
     pub fn load() -> Self {
         match Self::try_load() {
             Ok(config) => config,
-            Err(_) => Self::default(),
+            Err(_) => {
+                let default_rules = Self::default_rules();
+                let _ = default_rules.save();
+                default_rules
+            }
         }
     }
 
@@ -61,9 +59,6 @@ impl AssociationsConfig {
         toml::from_str(&content).context("Deserializing associations.toml")
     }
 
-    // Prepared for future interactive editing of associations from within the settings UI.
-    // Currently validated by unit tests.
-    #[allow(dead_code)]
     /// Persists the configuration to `<config_dir>/ncrust/associations.toml`.
     pub fn save(&self) -> Result<()> {
         let path = associations_path();
@@ -75,15 +70,11 @@ impl AssociationsConfig {
             .with_context(|| format!("Writing associations file {:?}", path))
     }
 
-    // Finds association rule for a file; allowed because it is verified by tests and used for future associations integration.
-    #[allow(dead_code)]
     /// Finds the first rule whose mask matches the given filename.
     pub fn find_rule(&self, filename: &str) -> Option<&AssocRule> {
         self.rules.iter().find(|r| r.matches(filename))
     }
 
-    // Default configuration rules template; allowed because it is verified by tests and used on config creation fallback.
-    #[allow(dead_code)]
     /// Returns a default set of common rules for a fresh install.
     pub fn default_rules() -> Self {
         Self {

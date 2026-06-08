@@ -168,4 +168,6 @@ pub enum Action {
     RereadPanel,
     /// Video mode (resolution config) — Alt+F9
     VideoMode,
+    /// Open graphical directory tree navigator (Alt+F10)
+    TreeView,
 }

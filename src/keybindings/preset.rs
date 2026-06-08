@@ -111,6 +111,7 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Alt+F7".to_string(), Action::FindFile);
     map.insert("Alt+F8".to_string(), Action::CommandHistory);
     map.insert("Alt+F9".to_string(), Action::VideoMode);
+    map.insert("Alt+F10".to_string(), Action::TreeView);
     map.insert("Alt+F11".to_string(), Action::FileViewHistory);
     map.insert("Alt+F12".to_string(), Action::FoldersHistory);
 

@@ -32,6 +32,12 @@ pub fn wipe_file(path: &Path) -> Result<()> {
         overwrite_with_chunk(path, file_size, &vec![0u8; file_size.min(65536)])?;
     }
 
+    if let (Some(parent), Some(filename)) = (path.parent(), path.file_name()) {
+        if let Some(filename_str) = filename.to_str() {
+            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+        }
+    }
+
     std::fs::remove_file(path)
         .with_context(|| format!("Removing file after wipe: {:?}", path))
 }

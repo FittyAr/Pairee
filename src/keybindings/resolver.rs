@@ -190,6 +190,7 @@ fn parse_action_name(name: &str) -> Option<Action> {
         "drive_select_right" => Some(Action::DriveSelectRight),
         "context_menu" => Some(Action::ContextMenu),
         "video_mode" => Some(Action::VideoMode),
+        "tree_view" => Some(Action::TreeView),
 
         _ => None,
     }

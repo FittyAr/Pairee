@@ -64,6 +64,11 @@ pub fn delete_sync(path: &Path) -> Result<()> {
     if path.is_dir() {
         fs::remove_dir_all(path).context("Failed to delete directory recursively")
     } else {
+        if let (Some(parent), Some(filename)) = (path.parent(), path.file_name()) {
+            if let Some(filename_str) = filename.to_str() {
+                let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+            }
+        }
         fs::remove_file(path).context("Failed to delete file")
     }
 }

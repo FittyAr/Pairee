@@ -4,7 +4,6 @@ use tokio::sync::mpsc;
 // The SearchQuery struct and find_files function are prepared for the background
 // asynchronous file search feature, which will be integrated into the frontend.
 // They are currently validated via unit tests.
-#[allow(dead_code)]
 /// Search query parameters.
 #[derive(Debug, Clone)]
 pub struct SearchQuery {
@@ -16,8 +15,6 @@ pub struct SearchQuery {
     pub root: PathBuf,
 }
 
-// Spawns a background search task; allowed because it is a future feature validated by tests.
-#[allow(dead_code)]
 /// Spawns a background Tokio task that searches for files matching `query`.
 /// Matching paths are sent through the returned `Receiver<PathBuf>`.
 /// The channel closes when the search is complete.
@@ -31,8 +28,6 @@ pub fn find_files(query: SearchQuery) -> mpsc::Receiver<PathBuf> {
     rx
 }
 
-// Internal recursive search helper for the future search feature.
-#[allow(dead_code)]
 /// Recursive async search through a directory tree.
 async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<PathBuf>) {
     let read_dir = match tokio::fs::read_dir(dir).await {
@@ -84,8 +79,6 @@ async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<
     }
 }
 
-// Helper for reading and checking file content in future async search feature.
-#[allow(dead_code)]
 /// Returns true if the text file at `path` contains `needle` (case-insensitive).
 /// Non-UTF-8 / binary files return false.
 async fn file_contains(path: &std::path::Path, needle: &str) -> bool {

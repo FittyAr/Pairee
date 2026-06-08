@@ -3,7 +3,6 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Copy)]
-#[allow(dead_code)]
 pub enum Event {
     /// Keyboard key pressed
     Key(KeyEvent),

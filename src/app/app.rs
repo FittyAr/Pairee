@@ -119,11 +119,13 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                             .await?;
                     }
                 }
-                Event::Resize(_, _) => {
-                    // Ratatui auto-redraws next iteration
+                Event::Resize(w, h) => {
+                    log::debug!("Terminal resized to {}x{}", w, h);
                 }
                 Event::Tick => {}
-                _ => {}
+                Event::Mouse(mouse) => {
+                    log::debug!("Mouse event: {:?}", mouse);
+                }
             }
         }
     }
@@ -136,7 +138,7 @@ async fn handle_action(
     state: &mut AppState,
     action: Action,
     context: &mut AppContext,
-    _terminal_backend: &mut TerminalBackend,
+    terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
     match action {
         Action::MoveUp => {
@@ -185,9 +187,22 @@ async fn handle_action(
                 .filter(|e| !e.is_dir)
             {
                 let path = entry.path.clone();
+                let entry_name = entry.name.clone();
                 state.push_file_view_history(path.clone());
-                let viewer = crate::ui::viewer::ViewerState::load(path);
-                state.active_popup = Some(PopupType::InternalViewer { viewer });
+
+                let rule = crate::config::associations::AssociationsConfig::load()
+                    .find_rule(&entry_name)
+                    .cloned();
+
+                if let Some(ref r) = rule {
+                    let cmd = r.resolve_view_cmd(&path);
+                    if let Err(e) = execute_external_command(&path, &cmd, terminal_backend) {
+                        state.active_popup = Some(PopupType::Error(format!("Failed to run viewer: {}", e)));
+                    }
+                } else {
+                    let viewer = crate::ui::viewer::ViewerState::load(path);
+                    state.active_popup = Some(PopupType::InternalViewer { viewer });
+                }
             }
         }
         Action::Edit => {
@@ -213,6 +228,7 @@ async fn handle_action(
                             cursor_y: 0,
                             scroll_y: 0,
                             is_dirty: false,
+                            last_search: None,
                         });
                     }
                     Err(e) => {
@@ -403,11 +419,9 @@ async fn handle_action(
             }
         }
         Action::SortModes => {
-            let panel_id = state.active_panel;
             let current = state.get_active_panel().sort_field;
             let reverse = state.get_active_panel().sort_reverse;
             state.active_popup = Some(PopupType::SortModesDialog {
-                panel: panel_id,
                 current,
                 reverse,
                 cursor_idx: 0,
@@ -439,11 +453,10 @@ async fn handle_action(
                 if entry.name != ".." {
                     match crate::fs::read_attrs(&entry.path) {
                         Ok(attrs) => {
-                            let mode_str = crate::fs::attrs::format_unix_mode(attrs.mode);
+                            let mode_octal = format!("{:o}", attrs.mode & 0o7777);
                             state.active_popup = Some(PopupType::FileAttributesDialog {
                                 attrs: crate::app::state::FileAttrsSnapshot {
                                     path: attrs.path,
-                                    mode: attrs.mode,
                                     readonly: attrs.readonly,
                                     size: attrs.size,
                                     modified: attrs.modified,
@@ -451,7 +464,7 @@ async fn handle_action(
                                     owner: attrs.owner,
                                     nlinks: attrs.nlinks,
                                 },
-                                mode_input: mode_str,
+                                mode_input: mode_octal,
                             });
                         }
                         Err(e) => {
@@ -531,6 +544,16 @@ async fn handle_action(
                 query: String::new(),
                 content_query: String::new(),
                 search_root: root,
+                focus_content: false,
+            });
+        }
+        Action::TreeView => {
+            let root = state.get_active_panel().current_path.clone();
+            let nodes = build_tree_nodes(&root, 0, 3);
+            state.active_popup = Some(PopupType::TreeView {
+                nodes,
+                cursor_idx: 0,
+                panel: state.active_panel,
             });
         }
         Action::CommandHistory => {
@@ -579,9 +602,11 @@ async fn handle_action(
             });
         }
         Action::FolderShortcutsConfig => {
-            state.active_popup = Some(PopupType::Info(
-                "Folder shortcuts: use Ctrl+Alt+1..9 to jump, configure in settings.".to_string(),
-            ));
+            let bookmarks = get_hotlist_bookmarks();
+            state.active_popup = Some(PopupType::Hotlist {
+                bookmarks,
+                cursor_idx: 0,
+            });
         }
         Action::FilePanelFilter => {
             let current = state.get_active_panel().filter_mask.clone().unwrap_or_default();
@@ -592,16 +617,8 @@ async fn handle_action(
             state.active_popup = Some(PopupType::TaskListDialog { tasks, cursor_idx: 0 });
         }
 
-        // ── Options ─────────────────────────────────────────────────────────────
         Action::SaveSetup => {
-            match context.config.save() {
-                Ok(_) => {
-                    state.active_popup = Some(PopupType::Info("Configuration saved successfully.".to_string()));
-                }
-                Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!("Save failed: {}", e)));
-                }
-            }
+            state.active_popup = Some(PopupType::SaveSetupConfirm);
         }
         Action::SystemSettings => {
             state.active_popup = Some(PopupType::Info(
@@ -802,12 +819,16 @@ fn handle_popup_input(
                 mut cursor_y,
                 mut scroll_y,
                 mut is_dirty,
+                last_search,
             } => {
                 let term_height = crossterm::terminal::size().map(|(_, h)| h).unwrap_or(24);
                 let edit_height = ((term_height as u16 * 90 / 100).saturating_sub(3)) as usize;
 
+                let is_ctrl = key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL);
+                let is_shift = key.modifiers.contains(crossterm::event::KeyModifiers::SHIFT);
+
                 match key.code {
-                    crossterm::event::KeyCode::Char(c) => {
+                    crossterm::event::KeyCode::Char(c) if !is_ctrl => {
                         if lines.is_empty() {
                             lines.push(String::new());
                         }
@@ -917,6 +938,99 @@ fn handle_popup_input(
                         }
                         is_dirty = false;
                     }
+                    crossterm::event::KeyCode::Char('s') if is_ctrl => {
+                        let content = lines.join("\n");
+                        if let Err(e) = std::fs::write(&path, content) {
+                            state.active_popup =
+                                Some(PopupType::Error(format!("Failed to save: {}", e)));
+                            return Ok(None);
+                        }
+                        is_dirty = false;
+                    }
+                    crossterm::event::KeyCode::Char('r') if is_ctrl => {
+                        match std::fs::read_to_string(&path) {
+                            Ok(content) => {
+                                let reloaded_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                                lines = if reloaded_lines.is_empty() {
+                                    vec![String::new()]
+                                } else {
+                                    reloaded_lines
+                                };
+                                cursor_x = cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
+                                is_dirty = false;
+                            }
+                            Err(e) => {
+                                state.active_popup = Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                                return Ok(None);
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::Char('d') if is_ctrl => {
+                        match std::fs::read_to_string(&path) {
+                            Ok(content) => {
+                                let reloaded_lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                                lines = if reloaded_lines.is_empty() {
+                                    vec![String::new()]
+                                } else {
+                                    reloaded_lines
+                                };
+                                cursor_x = cursor_x.min(lines.get(cursor_y).map(|l| l.len()).unwrap_or(0));
+                                is_dirty = false;
+                            }
+                            Err(e) => {
+                                state.active_popup = Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                                return Ok(None);
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::F(7) if is_shift => {
+                        if let Some(ref q) = last_search {
+                            if let Some((found_x, found_y)) = find_next_in_editor(&lines, cursor_x, cursor_y, q) {
+                                cursor_x = found_x;
+                                cursor_y = found_y;
+                                if cursor_y < scroll_y || cursor_y >= scroll_y + edit_height {
+                                    scroll_y = cursor_y.saturating_sub(edit_height / 2);
+                                }
+                            }
+                        }
+                    }
+                    crossterm::event::KeyCode::F(7) => {
+                        state.active_popup = Some(PopupType::EditorSearchPrompt {
+                            path,
+                            lines,
+                            cursor_x,
+                            cursor_y,
+                            scroll_y,
+                            is_dirty,
+                            last_search,
+                            query: String::new(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Char('f') if is_ctrl => {
+                        state.active_popup = Some(PopupType::EditorSearchPrompt {
+                            path,
+                            lines,
+                            cursor_x,
+                            cursor_y,
+                            scroll_y,
+                            is_dirty,
+                            last_search,
+                            query: String::new(),
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::F(3) => {
+                        if let Some(ref q) = last_search {
+                            if let Some((found_x, found_y)) = find_next_in_editor(&lines, cursor_x, cursor_y, q) {
+                                cursor_x = found_x;
+                                cursor_y = found_y;
+                                if cursor_y < scroll_y || cursor_y >= scroll_y + edit_height {
+                                    scroll_y = cursor_y.saturating_sub(edit_height / 2);
+                                }
+                            }
+                        }
+                    }
                     crossterm::event::KeyCode::Esc | crossterm::event::KeyCode::F(10) => {
                         state.active_popup = None;
                         return Ok(None);
@@ -930,6 +1044,91 @@ fn handle_popup_input(
                     cursor_y,
                     scroll_y,
                     is_dirty,
+                    last_search,
+                });
+                return Ok(None);
+            }
+            PopupType::EditorSearchPrompt {
+                path,
+                lines,
+                cursor_x,
+                cursor_y,
+                scroll_y,
+                is_dirty,
+                last_search,
+                mut query,
+            } => {
+                let term_height = crossterm::terminal::size().map(|(_, h)| h).unwrap_or(24);
+                let edit_height = ((term_height as u16 * 90 / 100).saturating_sub(3)) as usize;
+
+                let is_ctrl = key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL);
+
+                match key.code {
+                    crossterm::event::KeyCode::Char(c) if !is_ctrl => {
+                        query.push(c);
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        query.pop();
+                    }
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = Some(PopupType::InternalEditor {
+                            path,
+                            lines,
+                            cursor_x,
+                            cursor_y,
+                            scroll_y,
+                            is_dirty,
+                            last_search,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        let q = query.clone();
+                        if !q.is_empty() {
+                            if let Some((found_x, found_y)) = find_next_in_editor(&lines, cursor_x, cursor_y, &q) {
+                                let new_cursor_x = found_x;
+                                let new_cursor_y = found_y;
+                                let mut new_scroll_y = scroll_y;
+                                if new_cursor_y < new_scroll_y || new_cursor_y >= new_scroll_y + edit_height {
+                                    new_scroll_y = new_cursor_y.saturating_sub(edit_height / 2);
+                                }
+                                state.active_popup = Some(PopupType::InternalEditor {
+                                    path,
+                                    lines,
+                                    cursor_x: new_cursor_x,
+                                    cursor_y: new_cursor_y,
+                                    scroll_y: new_scroll_y,
+                                    is_dirty,
+                                    last_search: Some(q),
+                                });
+                            } else {
+                                // Show "Text not found" popup message to satisfy the request.
+                                state.active_popup = Some(PopupType::Error("Text not found".to_string()));
+                            }
+                        } else {
+                            state.active_popup = Some(PopupType::InternalEditor {
+                                path,
+                                lines,
+                                cursor_x,
+                                cursor_y,
+                                scroll_y,
+                                is_dirty,
+                                last_search,
+                            });
+                        }
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                state.active_popup = Some(PopupType::EditorSearchPrompt {
+                    path,
+                    lines,
+                    cursor_x,
+                    cursor_y,
+                    scroll_y,
+                    is_dirty,
+                    last_search,
+                    query,
                 });
                 return Ok(None);
             }
@@ -1218,35 +1417,58 @@ fn handle_popup_input(
                 ref query,
                 ref content_query,
                 ref search_root,
+                focus_content,
             } => {
                 match key.code {
-                    crossterm::event::KeyCode::Char(c) => {
-                        let mut new_query = query.clone();
-                        new_query.push(c);
+                    crossterm::event::KeyCode::Tab | crossterm::event::KeyCode::Up | crossterm::event::KeyCode::Down => {
                         state.active_popup = Some(PopupType::SearchPrompt {
-                            query: new_query,
+                            query: query.clone(),
                             content_query: content_query.clone(),
                             search_root: search_root.clone(),
+                            focus_content: !focus_content,
+                        });
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Char(c) => {
+                        let mut new_query = query.clone();
+                        let mut new_content = content_query.clone();
+                        if focus_content {
+                            new_content.push(c);
+                        } else {
+                            new_query.push(c);
+                        }
+                        state.active_popup = Some(PopupType::SearchPrompt {
+                            query: new_query,
+                            content_query: new_content,
+                            search_root: search_root.clone(),
+                            focus_content,
                         });
                         return Ok(None);
                     }
                     crossterm::event::KeyCode::Backspace => {
                         let mut new_query = query.clone();
-                        new_query.pop();
+                        let mut new_content = content_query.clone();
+                        if focus_content {
+                            new_content.pop();
+                        } else {
+                            new_query.pop();
+                        }
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query: new_query,
-                            content_query: content_query.clone(),
+                            content_query: new_content,
                             search_root: search_root.clone(),
+                            focus_content,
                         });
                         return Ok(None);
                     }
                     crossterm::event::KeyCode::Enter => {
-                        let query = query.clone();
+                        let q = query.clone();
+                        let c_q = content_query.clone();
                         let search_root = search_root.clone();
-                        if !query.is_empty() {
-                            let results = search_files_recursive(&search_root, &query);
+                        if !q.is_empty() || !c_q.is_empty() {
+                            let results = search_files_recursive(&search_root, &q, if c_q.is_empty() { None } else { Some(&c_q) });
                             state.active_popup = Some(PopupType::SearchResults {
-                                query,
+                                query: if q.is_empty() { c_q } else { q },
                                 results,
                                 cursor_idx: 0,
                             });
@@ -1760,15 +1982,13 @@ fn handle_popup_input(
             }
             // Dismiss-only popups for new types not yet fully interactive
             PopupType::SortModesDialog { .. }
-            | PopupType::FileAttributesDialog { .. }
             | PopupType::CompareFoldersResult { .. }
             | PopupType::FileAssociationsDialog { .. }
             | PopupType::ArchiveCommandsMenu { .. }
             | PopupType::QuickViewPanel { .. }
             | PopupType::CommandHistoryList { .. }
             | PopupType::FileViewHistoryList { .. }
-            | PopupType::FoldersHistoryList { .. }
-            | PopupType::SaveSetupConfirm => {
+            | PopupType::FoldersHistoryList { .. } => {
                 if key.code == crossterm::event::KeyCode::Esc
                     || key.code == crossterm::event::KeyCode::Enter
                 {
@@ -1776,6 +1996,66 @@ fn handle_popup_input(
                     return Ok(None);
                 }
                 return Err(());
+            }
+            PopupType::SaveSetupConfirm => {
+                match key.code {
+                    crossterm::event::KeyCode::Enter => {
+                        match context.config.save() {
+                            Ok(_) => {
+                                state.active_popup = Some(PopupType::Info("Configuration saved successfully.".to_string()));
+                            }
+                            Err(e) => {
+                                state.active_popup = Some(PopupType::Error(format!("Failed to save setup: {}", e)));
+                            }
+                        }
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                return Ok(None);
+            }
+            PopupType::FileAttributesDialog { mut attrs, mut mode_input } => {
+                match key.code {
+                    crossterm::event::KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    crossterm::event::KeyCode::Char(c) if c.is_digit(8) => {
+                        if mode_input.len() < 4 {
+                            mode_input.push(c);
+                        }
+                    }
+                    crossterm::event::KeyCode::Backspace => {
+                        mode_input.pop();
+                    }
+                    crossterm::event::KeyCode::Char('r') | crossterm::event::KeyCode::Char('R') | crossterm::event::KeyCode::Char(' ') => {
+                        attrs.readonly = !attrs.readonly;
+                    }
+                    crossterm::event::KeyCode::Enter => {
+                        if !mode_input.is_empty() {
+                            if let Ok(mode) = u32::from_str_radix(&mode_input, 8) {
+                                if let Err(e) = crate::fs::attrs::set_unix_mode(&attrs.path, mode) {
+                                    state.active_popup = Some(PopupType::Error(format!("Failed to set unix mode: {}", e)));
+                                    return Ok(None);
+                                }
+                            }
+                        }
+                        if let Err(e) = crate::fs::attrs::set_readonly(&attrs.path, attrs.readonly) {
+                            state.active_popup = Some(PopupType::Error(format!("Failed to set readonly: {}", e)));
+                            return Ok(None);
+                        }
+                        state.refresh_both_panels(context.config.settings.show_hidden);
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                state.active_popup = Some(PopupType::FileAttributesDialog { attrs, mode_input });
+                return Ok(None);
             }
         }
     }
@@ -2037,8 +2317,7 @@ fn read_proc_memory(pid: u32) -> u64 {
     0
 }
 
-// This bookmarks resolution logic is prepared for the hotlist/quick bookmarks panel feature (planned for a future sprint).
-#[allow(dead_code)]
+// This bookmarks resolution logic is prepared for the hotlist/quick bookmarks panel feature.
 fn get_hotlist_bookmarks() -> Vec<(String, std::path::PathBuf)> {
     let mut bookmarks = Vec::new();
     if let Some(path) = directories::UserDirs::new().map(|u| u.home_dir().to_path_buf()) {
@@ -2150,8 +2429,7 @@ fn build_info_panel_lines(state: &AppState) -> Vec<String> {
     lines
 }
 
-// Recursively builds tree nodes for the graphical tree navigator feature (planned for a future sprint).
-#[allow(dead_code)]
+// Recursively builds tree nodes for the graphical tree navigator feature.
 fn build_tree_nodes(root: &std::path::Path, depth: usize, max_depth: usize) -> Vec<TreeNode> {
     let mut nodes = Vec::new();
 
@@ -2205,43 +2483,36 @@ fn build_tree_nodes(root: &std::path::Path, depth: usize, max_depth: usize) -> V
     nodes
 }
 
-/// Recursive file search — returns paths whose filenames contain `query` (case-insensitive).
-fn search_files_recursive(root: &std::path::Path, query: &str) -> Vec<std::path::PathBuf> {
-    let query_lower = query.to_lowercase();
-    let mut results = Vec::new();
-    search_recursive_inner(root, &query_lower, &mut results, 0);
-    results
-}
-
-fn search_recursive_inner(
-    dir: &std::path::Path,
+/// Recursive file search — returns paths whose filenames contain `query` (case-insensitive)
+/// and optionally contain the requested search content.
+fn search_files_recursive(
+    root: &std::path::Path,
     query: &str,
-    results: &mut Vec<std::path::PathBuf>,
-    depth: usize,
-) {
-    // Limit recursion depth to keep search responsive
-    if depth > 6 {
-        return;
-    }
-    if let Ok(read_dir) = std::fs::read_dir(dir) {
-        for entry in read_dir.flatten() {
-            let path = entry.path();
-            let name = entry.file_name().to_string_lossy().to_lowercase();
-            if name.starts_with('.') {
-                continue;
-            }
-            if name.contains(query) {
-                results.push(path.clone());
-            }
-            if path.is_dir() {
-                search_recursive_inner(&path, query, results, depth + 1);
-            }
-            // Cap results at 500 to avoid overwhelming the UI
-            if results.len() >= 500 {
-                return;
-            }
+    content_query: Option<&str>,
+) -> Vec<std::path::PathBuf> {
+    let name_glob = if query.is_empty() {
+        "".to_string()
+    } else if query.contains('*') || query.contains('?') {
+        query.to_string()
+    } else {
+        format!("*{}*", query)
+    };
+
+    let q = crate::fs::search::SearchQuery {
+        name_glob,
+        content: content_query.map(|s| s.to_string()),
+        root: root.to_path_buf(),
+    };
+
+    let mut rx = crate::fs::search::find_files(q);
+    let mut results = Vec::new();
+    while let Some(path) = rx.blocking_recv() {
+        results.push(path);
+        if results.len() >= 500 {
+            break;
         }
     }
+    results
 }
 
 /// Captures characters for bottom shell CLI command input.
@@ -2348,9 +2619,8 @@ fn execute_shell_command(command_str: &str, terminal_backend: &mut TerminalBacke
 }
 
 // Suspends TUI and launches an external editor or viewer command (reserved for custom user command association bindings).
-#[allow(dead_code)]
 fn execute_external_command(
-    target_path: &Path,
+    _target_path: &Path,
     utility_command: &str,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
@@ -2359,8 +2629,11 @@ fn execute_external_command(
     disable_raw_mode()?;
     execute!(std::io::stdout(), LeaveAlternateScreen, Show)?;
 
-    let mut child = std::process::Command::new(utility_command)
-        .arg(target_path)
+    let shell = if cfg!(target_os = "windows") { "cmd" } else { "sh" };
+    let flag = if cfg!(target_os = "windows") { "/c" } else { "-c" };
+    let mut child = std::process::Command::new(shell)
+        .arg(flag)
+        .arg(utility_command)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
@@ -2389,7 +2662,13 @@ fn handle_enter_key(state: &mut AppState, _show_hidden: bool) {
                 target_dir = Some(entry.path.clone());
             } else {
                 let path = entry.path.to_string_lossy().to_string();
-                let cmd = if cfg!(target_os = "windows") {
+                let rule = crate::config::associations::AssociationsConfig::load()
+                    .find_rule(&entry.name)
+                    .cloned();
+
+                let cmd = if let Some(r) = rule {
+                    r.resolve_open_cmd(&entry.path)
+                } else if cfg!(target_os = "windows") {
                     format!("start \"\" \"{}\"", path)
                 } else {
                     format!("xdg-open \"{}\" 2>/dev/null", path)
@@ -2449,4 +2728,40 @@ fn handle_backspace_key(state: &mut AppState, show_hidden: bool) {
             .position(|e| e.name == current_dir_name)
             .unwrap_or(0);
     }
+}
+
+fn find_next_in_editor(lines: &[String], current_x: usize, current_y: usize, query: &str) -> Option<(usize, usize)> {
+    if query.is_empty() || lines.is_empty() {
+        return None;
+    }
+    let q_lower = query.to_lowercase();
+    
+    // 1. Search current line forward (starting at current_x + 1)
+    if current_y < lines.len() {
+        let line = &lines[current_y];
+        let start_idx = current_x + 1;
+        if start_idx < line.len() {
+            if let Some(pos) = line[start_idx..].to_lowercase().find(&q_lower) {
+                return Some((start_idx + pos, current_y));
+            }
+        }
+    }
+
+    // 2. Search subsequent lines forward
+    for y in (current_y + 1)..lines.len() {
+        if let Some(pos) = lines[y].to_lowercase().find(&q_lower) {
+            return Some((pos, y));
+        }
+    }
+
+    // 3. Wrap around: Search from start of file up to current_y
+    for y in 0..=current_y {
+        let line = &lines[y];
+        let limit = if y == current_y { current_x } else { line.len() };
+        if let Some(pos) = line[..limit].to_lowercase().find(&q_lower) {
+            return Some((pos, y));
+        }
+    }
+    
+    None
 }

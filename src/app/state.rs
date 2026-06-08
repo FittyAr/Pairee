@@ -74,9 +74,6 @@ pub use crate::fs::compare::{CompareEntry, CompareStatus};
 #[derive(Debug, Clone)]
 pub struct FileAttrsSnapshot {
     pub path: PathBuf,
-    // Allowed because this records UNIX attributes from read_attrs for potential future permissions edits.
-    #[allow(dead_code)]
-    pub mode: u32,
     pub readonly: bool,
     pub size: u64,
     pub modified: Option<std::time::SystemTime>,
@@ -182,8 +179,6 @@ pub enum PopupType {
     WipeConfirm {
         paths: Vec<PathBuf>,
     },
-    // Allowed because this confirm option will be integrated into options saving logic.
-    #[allow(dead_code)]
     SaveSetupConfirm,
 
     // ── Progress ──────────────────────────────────────────────────────────────
@@ -210,8 +205,6 @@ pub enum PopupType {
         drives: Vec<String>,
         cursor_idx: usize,
     },
-    // Allowed because this hotlist directory bookmarks manager is currently a placeholder for a planned sprint.
-    #[allow(dead_code)]
     Hotlist {
         bookmarks: Vec<(String, PathBuf)>,
         cursor_idx: usize,
@@ -219,9 +212,6 @@ pub enum PopupType {
 
     // ── Sort modes ────────────────────────────────────────────────────────────
     SortModesDialog {
-        // Allowed because this field will be used to apply sort logic specifically on the selected panel.
-        #[allow(dead_code)]
-        panel: ActivePanel,
         current: SortField,
         reverse: bool,
         cursor_idx: usize,
@@ -235,6 +225,17 @@ pub enum PopupType {
         cursor_y: usize,
         scroll_y: usize,
         is_dirty: bool,
+        last_search: Option<String>,
+    },
+    EditorSearchPrompt {
+        path: PathBuf,
+        lines: Vec<String>,
+        cursor_x: usize,
+        cursor_y: usize,
+        scroll_y: usize,
+        is_dirty: bool,
+        last_search: Option<String>,
+        query: String,
     },
     InternalViewer {
         viewer: crate::ui::viewer::ViewerState,
@@ -259,6 +260,7 @@ pub enum PopupType {
         query: String,
         content_query: String,
         search_root: PathBuf,
+        focus_content: bool,
     },
     SearchResults {
         query: String,
@@ -298,9 +300,6 @@ pub enum PopupType {
         cursor_idx: usize,
     },
 
-    // ── Tree view ─────────────────────────────────────────────────────────────
-    // Allowed because this graphical folder tree navigator is currently a placeholder for a planned sprint.
-    #[allow(dead_code)]
     TreeView {
         nodes: Vec<TreeNode>,
         cursor_idx: usize,
@@ -544,16 +543,6 @@ impl AppState {
         }
     }
 
-    /// Returns a mutable reference to the passive panel state.
-    // Allowed because this method is part of AppState API completeness for symmetrical panel manipulation.
-    #[allow(dead_code)]
-    pub fn get_passive_panel_mut(&mut self) -> &mut PanelState {
-        match self.active_panel {
-            ActivePanel::Left => &mut self.right_panel,
-            ActivePanel::Right => &mut self.left_panel,
-        }
-    }
-
     /// Swaps the paths (and lists) of the left and right panels.
     pub fn swap_panels(&mut self) {
         std::mem::swap(&mut self.left_panel, &mut self.right_panel);
@@ -578,27 +567,43 @@ impl AppState {
         self.get_active_panel_mut().selected_paths = snapshot;
     }
 
-    /// Pushes a path to the file view history (capped at 100 entries).
+    /// Pushes a path to the file view history.
     pub fn push_file_view_history(&mut self, path: PathBuf) {
-        self.file_view_history.retain(|p| p != &path);
-        self.file_view_history.insert(0, path);
-        self.file_view_history.truncate(100);
+        let mut store = crate::config::history::HistoryStore {
+            commands: std::mem::take(&mut self.command_history),
+            viewed_files: std::mem::take(&mut self.file_view_history),
+            visited_folders: std::mem::take(&mut self.folders_history),
+        };
+        store.push_viewed_file(path);
+        self.command_history = store.commands;
+        self.file_view_history = store.viewed_files;
+        self.folders_history = store.visited_folders;
     }
 
-    /// Pushes a folder to the folders history (capped at 100 entries).
+    /// Pushes a folder to the folders history.
     pub fn push_folders_history(&mut self, path: PathBuf) {
-        self.folders_history.retain(|p| p != &path);
-        self.folders_history.insert(0, path);
-        self.folders_history.truncate(100);
+        let mut store = crate::config::history::HistoryStore {
+            commands: std::mem::take(&mut self.command_history),
+            viewed_files: std::mem::take(&mut self.file_view_history),
+            visited_folders: std::mem::take(&mut self.folders_history),
+        };
+        store.push_visited_folder(path);
+        self.command_history = store.commands;
+        self.file_view_history = store.viewed_files;
+        self.folders_history = store.visited_folders;
     }
 
-    /// Pushes a CLI command to the command history (capped at 100 entries).
+    /// Pushes a CLI command to the command history.
     pub fn push_command_history(&mut self, cmd: String) {
-        if !cmd.trim().is_empty() {
-            self.command_history.retain(|c| c != &cmd);
-            self.command_history.insert(0, cmd);
-            self.command_history.truncate(100);
-        }
+        let mut store = crate::config::history::HistoryStore {
+            commands: std::mem::take(&mut self.command_history),
+            viewed_files: std::mem::take(&mut self.file_view_history),
+            visited_folders: std::mem::take(&mut self.folders_history),
+        };
+        store.push_command(cmd);
+        self.command_history = store.commands;
+        self.file_view_history = store.viewed_files;
+        self.folders_history = store.visited_folders;
     }
 
     /// Refreshes directories inside left and right panels.

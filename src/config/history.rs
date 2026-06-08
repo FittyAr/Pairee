@@ -2,8 +2,6 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
-// Maximum history capacity for history lists; allowed because it is used by internal push methods and validated by tests.
-#[allow(dead_code)]
 const MAX_HISTORY: usize = 100;
 
 /// Persists the three history lists between sessions.
@@ -44,8 +42,6 @@ impl HistoryStore {
             .with_context(|| format!("Writing history file {:?}", path))
     }
 
-    // Allowed because this method is part of the public HistoryStore API and validated by unit tests.
-    #[allow(dead_code)]
     /// Adds a command to the front of the list, removing duplicates and capping at MAX_HISTORY.
     pub fn push_command(&mut self, cmd: impl Into<String>) {
         let cmd = cmd.into();
@@ -56,8 +52,6 @@ impl HistoryStore {
         }
     }
 
-    // Allowed because this method is part of the public HistoryStore API and validated by unit tests.
-    #[allow(dead_code)]
     /// Adds a viewed file to the front of the list.
     pub fn push_viewed_file(&mut self, path: PathBuf) {
         self.viewed_files.retain(|p| p != &path);
@@ -65,8 +59,6 @@ impl HistoryStore {
         self.viewed_files.truncate(MAX_HISTORY);
     }
 
-    // Allowed because this method is part of the public HistoryStore API and validated by unit tests.
-    #[allow(dead_code)]
     /// Adds a visited folder to the front of the list.
     pub fn push_visited_folder(&mut self, path: PathBuf) {
         self.visited_folders.retain(|p| p != &path);
