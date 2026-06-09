@@ -14,7 +14,7 @@ pub fn handle(
         active_item_idx,
     }) = state.active_popup
     {
-        let items = crate::ui::menu::get_menu_items(active_menu_idx);
+        let items = crate::ui::menu::get_menu_items(active_menu_idx, state);
         match key.code {
             KeyCode::Esc => {
                 state.active_popup = None;

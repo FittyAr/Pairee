@@ -17,7 +17,7 @@ pub fn render_menu_popup(
     size: Rect,
     left_rect: Rect,
     right_rect: Rect,
-    active_panel: ActivePanel,
+    state: &crate::app::state::AppState,
 ) -> bool {
     match popup {
         PopupType::SortModesDialog {
@@ -125,7 +125,7 @@ pub fn render_menu_popup(
             active_menu_idx,
             active_item_idx,
         } => {
-            let items = crate::ui::menu::get_menu_items(*active_menu_idx);
+            let items = crate::ui::menu::get_menu_items(*active_menu_idx, state);
             let dropdown_x = match active_menu_idx {
                 0 => 2,
                 1 => 10,
@@ -246,7 +246,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::ContextMenu { items, cursor_idx } => {
-            let panel_rect = match active_panel {
+            let panel_rect = match state.active_panel {
                 ActivePanel::Left => left_rect,
                 ActivePanel::Right => right_rect,
             };

@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{AppState, PopupType, PanelViewMode};
 use crate::ui::theme_apply::parse_color;
 use crate::config::localization::t;
 use ratatui::{
@@ -20,26 +20,35 @@ use ratatui::{
 /// - 2 = Commands
 /// - 3 = Options
 /// - 4 = Right  (panel config for the right panel)
-pub fn get_menu_items(menu_idx: usize) -> Vec<String> {
+pub fn get_menu_items(menu_idx: usize, state: &AppState) -> Vec<String> {
+    let m = |s: String, active: bool| -> String {
+        if active {
+            let mut chars = s.chars();
+            chars.next();
+            format!("•{}", chars.as_str())
+        } else {
+            s
+        }
+    };
     match menu_idx {
         // ── Left (mirrors Right exactly, just different drive shortcut) ───────
         0 => vec![
-            format!(" {:<25}Ctrl+1 ", t("menu_brief")),
-            format!(" {:<25}Ctrl+2 ", t("menu_medium")),
-            format!(" {:<25}Ctrl+3 ", t("menu_full")),
-            format!(" {:<25}Ctrl+4 ", t("menu_wide")),
-            format!(" {:<25}Ctrl+5 ", t("menu_detailed")),
-            format!(" {:<25}Ctrl+6 ", t("menu_descriptions")),
-            format!(" {:<25}Ctrl+7 ", t("menu_file_owners")),
-            format!(" {:<25}Ctrl+8 ", t("menu_file_links")),
-            format!(" {:<25}Ctrl+9 ", t("menu_alt_full")),
+            m(format!(" {:<25}Ctrl+1 ", t("menu_brief")), state.left_panel.view_mode == PanelViewMode::Brief),
+            m(format!(" {:<25}Ctrl+2 ", t("menu_medium")), state.left_panel.view_mode == PanelViewMode::Medium),
+            m(format!(" {:<25}Ctrl+3 ", t("menu_full")), state.left_panel.view_mode == PanelViewMode::Full),
+            m(format!(" {:<25}Ctrl+4 ", t("menu_wide")), state.left_panel.view_mode == PanelViewMode::Wide),
+            m(format!(" {:<25}Ctrl+5 ", t("menu_detailed")), state.left_panel.view_mode == PanelViewMode::Detailed),
+            m(format!(" {:<25}Ctrl+6 ", t("menu_descriptions")), state.left_panel.view_mode == PanelViewMode::Descriptions),
+            m(format!(" {:<25}Ctrl+7 ", t("menu_file_owners")), state.left_panel.view_mode == PanelViewMode::FileOwners),
+            m(format!(" {:<25}Ctrl+8 ", t("menu_file_links")), state.left_panel.view_mode == PanelViewMode::FileLinks),
+            m(format!(" {:<25}Ctrl+9 ", t("menu_alt_full")), state.left_panel.view_mode == PanelViewMode::AltFull),
             " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+L ", t("menu_info_panel")),
-            format!(" {:<25}Ctrl+Q ", t("menu_quick_view")),
+            m(format!(" {:<25}Ctrl+L ", t("menu_info_panel")), matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
+            m(format!(" {:<25}Ctrl+Q ", t("menu_quick_view")), state.quick_view_active),
             " ───────────────────────────────── ".to_string(),
             format!(" {:<25}Ctrl+F12", t("menu_sort_modes")),
-            format!(" {:<25}Ctrl+N ", t("menu_show_long_names")),
-            format!(" {:<25}Ctrl+F1 ", t("menu_panel_on_off")),
+            m(format!(" {:<25}Ctrl+N ", t("menu_show_long_names")), state.left_panel.show_long_names),
+            m(format!(" {:<25}Ctrl+F1 ", t("menu_panel_on_off")), state.left_panel_visible),
             format!(" {:<25}Ctrl+R ", t("menu_re_read")),
             format!(" {:<25}Alt+F1 ", t("menu_change_drive")),
         ],
@@ -96,22 +105,22 @@ pub fn get_menu_items(menu_idx: usize) -> Vec<String> {
         ],
         // ── Right (mirrors Left) ──────────────────────────────────────────────
         4 => vec![
-            format!(" {:<25}Ctrl+1 ", t("menu_brief")),
-            format!(" {:<25}Ctrl+2 ", t("menu_medium")),
-            format!(" {:<25}Ctrl+3 ", t("menu_full")),
-            format!(" {:<25}Ctrl+4 ", t("menu_wide")),
-            format!(" {:<25}Ctrl+5 ", t("menu_detailed")),
-            format!(" {:<25}Ctrl+6 ", t("menu_descriptions")),
-            format!(" {:<25}Ctrl+7 ", t("menu_file_owners")),
-            format!(" {:<25}Ctrl+8 ", t("menu_file_links")),
-            format!(" {:<25}Ctrl+9 ", t("menu_alt_full")),
+            m(format!(" {:<25}Ctrl+1 ", t("menu_brief")), state.right_panel.view_mode == PanelViewMode::Brief),
+            m(format!(" {:<25}Ctrl+2 ", t("menu_medium")), state.right_panel.view_mode == PanelViewMode::Medium),
+            m(format!(" {:<25}Ctrl+3 ", t("menu_full")), state.right_panel.view_mode == PanelViewMode::Full),
+            m(format!(" {:<25}Ctrl+4 ", t("menu_wide")), state.right_panel.view_mode == PanelViewMode::Wide),
+            m(format!(" {:<25}Ctrl+5 ", t("menu_detailed")), state.right_panel.view_mode == PanelViewMode::Detailed),
+            m(format!(" {:<25}Ctrl+6 ", t("menu_descriptions")), state.right_panel.view_mode == PanelViewMode::Descriptions),
+            m(format!(" {:<25}Ctrl+7 ", t("menu_file_owners")), state.right_panel.view_mode == PanelViewMode::FileOwners),
+            m(format!(" {:<25}Ctrl+8 ", t("menu_file_links")), state.right_panel.view_mode == PanelViewMode::FileLinks),
+            m(format!(" {:<25}Ctrl+9 ", t("menu_alt_full")), state.right_panel.view_mode == PanelViewMode::AltFull),
             " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+L ", t("menu_info_panel")),
-            format!(" {:<25}Ctrl+Q ", t("menu_quick_view")),
+            m(format!(" {:<25}Ctrl+L ", t("menu_info_panel")), matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
+            m(format!(" {:<25}Ctrl+Q ", t("menu_quick_view")), state.quick_view_active),
             " ───────────────────────────────── ".to_string(),
             format!(" {:<25}Ctrl+F12", t("menu_sort_modes")),
-            format!(" {:<25}Ctrl+N ", t("menu_show_long_names")),
-            format!(" {:<25}Ctrl+F2 ", t("menu_panel_on_off")),
+            m(format!(" {:<25}Ctrl+N ", t("menu_show_long_names")), state.right_panel.show_long_names),
+            m(format!(" {:<25}Ctrl+F2 ", t("menu_panel_on_off")), state.right_panel_visible),
             format!(" {:<25}Ctrl+R ", t("menu_re_read")),
             format!(" {:<25}Alt+F2 ", t("menu_change_drive")),
         ],

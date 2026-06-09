@@ -39,7 +39,7 @@ pub fn render_popup(
         size,
         left_rect,
         right_rect,
-        state.active_panel,
+        state,
     ) {
         return;
     }
