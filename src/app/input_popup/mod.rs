@@ -5,6 +5,7 @@ pub mod color_groups;
 pub mod confirm_dialogs;
 pub mod context_menu;
 pub mod copy;
+pub mod copy_filter;
 pub mod copy_progress;
 pub mod create_link;
 pub mod delete;
@@ -68,6 +69,7 @@ pub fn handle_popup_input(
             PopupType::TreeView { .. } => tree_view::handle(state, key, context),
             PopupType::ContextMenu { .. } => context_menu::handle(state, key, context),
             PopupType::CompressPrompt { .. } => compress::handle(state, key, context),
+        PopupType::CopyMoveFilterPrompt { .. } => copy_filter::handle(state, key, context),
             PopupType::SelectGroupPrompt { .. } => select_group::handle(state, key, context),
             PopupType::ApplyCommandPrompt { .. } => apply_command::handle(state, key, context),
             PopupType::DescribeFilePrompt { .. } => describe_file::handle(state, key, context),

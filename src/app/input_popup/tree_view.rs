@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::{ActivePanel, AppState, PopupType};
+use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -11,7 +11,7 @@ pub fn handle(
     if let Some(PopupType::TreeView {
         nodes,
         cursor_idx,
-        panel,
+        caller,
     }) = state.active_popup.clone()
     {
         match key.code {
@@ -29,7 +29,7 @@ pub fn handle(
                     state.active_popup = Some(PopupType::TreeView {
                         nodes,
                         cursor_idx: new_idx,
-                        panel,
+                        caller,
                     });
                 }
                 return Ok(None);
@@ -44,7 +44,7 @@ pub fn handle(
                     state.active_popup = Some(PopupType::TreeView {
                         nodes,
                         cursor_idx: new_idx,
-                        panel,
+                        caller,
                     });
                 }
                 return Ok(None);
@@ -59,20 +59,36 @@ pub fn handle(
                             .map(|p| p.to_path_buf())
                             .unwrap_or_else(|| node.path.clone())
                     };
-                    match panel {
-                        ActivePanel::Left => {
-                            state.left_panel.current_path = target;
-                            state.left_panel.cursor_index = 0;
-                            state.left_panel.selected_paths.clear();
+                    match caller {
+                        crate::app::state::types::TreeViewCaller::Panel(panel) => {
+                            match panel {
+                                crate::app::state::ActivePanel::Left => {
+                                    state.left_panel.current_path = target;
+                                    state.left_panel.cursor_index = 0;
+                                    state.left_panel.selected_paths.clear();
+                                }
+                                crate::app::state::ActivePanel::Right => {
+                                    state.right_panel.current_path = target;
+                                    state.right_panel.cursor_index = 0;
+                                    state.right_panel.selected_paths.clear();
+                                }
+                            }
+                            state.active_popup = None;
+                            state.refresh_both_panels(context.config.settings.show_hidden);
                         }
-                        ActivePanel::Right => {
-                            state.right_panel.current_path = target;
-                            state.right_panel.cursor_index = 0;
-                            state.right_panel.selected_paths.clear();
+                        crate::app::state::types::TreeViewCaller::CopyPrompt { mut previous } => {
+                            if let PopupType::CopyPrompt { ref mut dest_dir, .. } = *previous {
+                                *dest_dir = target;
+                            }
+                            state.active_popup = Some(*previous);
+                        }
+                        crate::app::state::types::TreeViewCaller::RenMovPrompt { mut previous } => {
+                            if let PopupType::RenMovPrompt { ref mut dest_dir, .. } = *previous {
+                                *dest_dir = target;
+                            }
+                            state.active_popup = Some(*previous);
                         }
                     }
-                    state.active_popup = None;
-                    state.refresh_both_panels(context.config.settings.show_hidden);
                 }
                 return Ok(None);
             }

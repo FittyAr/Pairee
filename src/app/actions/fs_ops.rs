@@ -120,6 +120,7 @@ pub fn handle_fs_action(
                         use_copy_on_write: false,
                         symlink_mode: 0, // Smartly copy
                         use_filter: false,
+                        filter_mask: String::new(),
                     });
                 } else {
                     // Check overwrite if enabled
@@ -186,6 +187,7 @@ pub fn handle_fs_action(
                         use_copy_on_write: false,
                         symlink_mode: 0,
                         use_filter: false,
+                        filter_mask: String::new(),
                     });
                 } else {
                     // Check overwrite if enabled

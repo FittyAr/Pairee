@@ -108,6 +108,7 @@ pub fn render_prompt_popup(
             use_copy_on_write,
             symlink_mode,
             use_filter,
+            filter_mask,
         } => {
             let area = centered_rect(65, 45, size);
             f.render_widget(Clear, area);
@@ -165,8 +166,8 @@ pub fn render_prompt_popup(
 
             let sym_opts = [t("opt_smartly_copy"), t("opt_copy_link"), t("opt_copy_target")];
             f.render_widget(Paragraph::new(format!("{}          {}", t("prompt_symlinks"), sym_opts[*symlink_mode])).style(if *cursor_idx == 8 { act_style } else { norm_style }), chunks[8]);
-            
-            f.render_widget(Paragraph::new(format!("{} {}", check(use_filter), t("prompt_use_filter"))).style(if *cursor_idx == 9 { act_style } else { norm_style }), chunks[9]);
+            let filter_display = if filter_mask.is_empty() { String::new() } else { format!(" [{}]", filter_mask) };
+            f.render_widget(Paragraph::new(format!("{} {}{}", check(use_filter), t("prompt_use_filter"), filter_display)).style(if *cursor_idx == 9 { act_style } else { norm_style }), chunks[9]);
 
             let b1 = if *cursor_idx == 10 { act_style } else { norm_style };
             let b2 = if *cursor_idx == 11 { act_style } else { norm_style };
@@ -446,6 +447,7 @@ pub fn render_prompt_popup(
             use_copy_on_write,
             symlink_mode,
             use_filter,
+            filter_mask,
         } => {
             let area = centered_rect(65, 45, size);
             f.render_widget(Clear, area);
@@ -503,8 +505,8 @@ pub fn render_prompt_popup(
 
             let sym_opts = [t("opt_smartly_copy"), t("opt_copy_link"), t("opt_copy_target")];
             f.render_widget(Paragraph::new(format!("{}          {}", t("prompt_symlinks"), sym_opts[*symlink_mode])).style(if *cursor_idx == 8 { act_style } else { norm_style }), chunks[8]);
-            
-            f.render_widget(Paragraph::new(format!("{} {}", check(use_filter), t("prompt_use_filter"))).style(if *cursor_idx == 9 { act_style } else { norm_style }), chunks[9]);
+            let filter_display = if filter_mask.is_empty() { String::new() } else { format!(" [{}]", filter_mask) };
+            f.render_widget(Paragraph::new(format!("{} {}{}", check(use_filter), t("prompt_use_filter"), filter_display)).style(if *cursor_idx == 9 { act_style } else { norm_style }), chunks[9]);
 
             let b1 = if *cursor_idx == 10 { act_style } else { norm_style };
             let b2 = if *cursor_idx == 11 { act_style } else { norm_style };
@@ -702,6 +704,25 @@ pub fn render_prompt_popup(
             true
         }
         PopupType::FilePanelFilterPrompt { input } => {
+            let area = centered_rect(50, 25, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(t("prompt_filter_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = t("prompt_filter_text").replacen("{}", input, 1);
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
+        PopupType::CopyMoveFilterPrompt { input, previous: _ } => {
             let area = centered_rect(50, 25, size);
             f.render_widget(Clear, area);
 

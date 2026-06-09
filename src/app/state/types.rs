@@ -87,6 +87,13 @@ pub enum SelectMode {
 }
 
 #[derive(Debug, Clone)]
+pub enum TreeViewCaller {
+    Panel(ActivePanel),
+    CopyPrompt { previous: Box<PopupType> },
+    RenMovPrompt { previous: Box<PopupType> },
+}
+
+#[derive(Debug, Clone)]
 pub enum LinkKind {
     Symbolic,
     Hard,
@@ -120,6 +127,7 @@ pub enum PopupType {
         use_copy_on_write: bool,
         symlink_mode: usize,
         use_filter: bool,
+        filter_mask: String,
     },
     /// Rename/Move prompt — user edits the destination path before committing.
     RenMovPrompt {
@@ -136,6 +144,7 @@ pub enum PopupType {
         use_copy_on_write: bool,
         symlink_mode: usize,
         use_filter: bool,
+        filter_mask: String,
     },
     ConfirmQuit,
     ConfirmInterrupt,
@@ -188,6 +197,11 @@ pub enum PopupType {
     /// File mask filter for the active panel.
     FilePanelFilterPrompt {
         input: String,
+    },
+    /// Filter mask input specifically for Copy/Move popups
+    CopyMoveFilterPrompt {
+        input: String,
+        previous: Box<PopupType>,
     },
 
     // ── Confirmations ─────────────────────────────────────────────────────────
@@ -322,7 +336,7 @@ pub enum PopupType {
     TreeView {
         nodes: Vec<TreeNode>,
         cursor_idx: usize,
-        panel: ActivePanel,
+        caller: TreeViewCaller,
     },
 
     // ── Archive commands ──────────────────────────────────────────────────────

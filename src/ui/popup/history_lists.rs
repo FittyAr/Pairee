@@ -283,7 +283,7 @@ pub fn render_history_lists_popup(
         PopupType::TreeView {
             nodes,
             cursor_idx,
-            panel: _,
+            caller: _,
         } => {
             let area = centered_rect(55, 70, size);
             f.render_widget(Clear, area);

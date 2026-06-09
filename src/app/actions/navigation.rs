@@ -122,7 +122,7 @@ pub fn handle_navigation_action(
             state.active_popup = Some(PopupType::TreeView {
                 nodes,
                 cursor_idx: 0,
-                panel: state.active_panel,
+                caller: crate::app::state::types::TreeViewCaller::Panel(state.active_panel),
             });
             true
         }

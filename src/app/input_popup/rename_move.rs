@@ -24,6 +24,7 @@ pub fn handle(
         use_copy_on_write,
         symlink_mode,
         use_filter,
+        filter_mask,
     }) = state.active_popup.clone()
     {
         let mut new_input = input.clone();
@@ -37,6 +38,7 @@ pub fn handle(
         let mut new_cow = use_copy_on_write;
         let mut new_sym = symlink_mode;
         let mut new_filter = use_filter;
+        let new_filter_mask = filter_mask.clone();
 
         let update_popup = |
             s: &mut AppState,
@@ -50,7 +52,8 @@ pub fn handle(
             sp: bool,
             cw: bool,
             sy: usize,
-            f: bool
+            f: bool,
+            fm: String
         | {
             s.active_popup = Some(PopupType::RenMovPrompt {
                 input: i,
@@ -66,24 +69,25 @@ pub fn handle(
                 use_copy_on_write: cw,
                 symlink_mode: sy,
                 use_filter: f,
+                filter_mask: fm,
             });
         };
 
         match key.code {
             KeyCode::Up | KeyCode::BackTab => {
                 new_idx = if new_idx > 0 { new_idx - 1 } else { MAX_CURSOR_IDX };
-                update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter);
+                update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter, new_filter_mask);
                 return Ok(None);
             }
             KeyCode::Down | KeyCode::Tab => {
                 new_idx = if new_idx < MAX_CURSOR_IDX { new_idx + 1 } else { 0 };
-                update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter);
+                update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter, new_filter_mask);
                 return Ok(None);
             }
             KeyCode::Char(c) => {
                 if new_idx == 0 {
                     new_input.push(c);
-                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter);
+                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter, new_filter_mask);
                 } else if c == ' ' {
                     // Toggle depending on idx
                     match new_idx {
@@ -98,14 +102,14 @@ pub fn handle(
                         9 => new_filter = !new_filter,
                         _ => {}
                     }
-                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter);
+                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter, new_filter_mask);
                 }
                 return Ok(None);
             }
             KeyCode::Backspace => {
                 if new_idx == 0 {
                     new_input.pop();
-                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter);
+                    update_popup(state, new_input, new_idx, new_already, new_multi, new_access, new_ext, new_cache, new_sparse, new_cow, new_sym, new_filter, new_filter_mask);
                 }
                 return Ok(None);
             }
@@ -116,7 +120,22 @@ pub fn handle(
                     return Ok(None);
                 }
 
-                if new_idx == 11 || new_idx == 12 {
+                if new_idx == 11 {
+                    let nodes = crate::app::sys_helpers::build_tree_nodes(&dest_dir, 0, 3);
+                    state.active_popup = Some(PopupType::TreeView {
+                        nodes,
+                        cursor_idx: 0,
+                        caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                            previous: Box::new(state.active_popup.take().unwrap()),
+                        },
+                    });
+                    return Ok(None);
+                }
+                if new_idx == 12 {
+                    state.active_popup = Some(PopupType::CopyMoveFilterPrompt {
+                        input: new_filter_mask,
+                        previous: Box::new(state.active_popup.take().unwrap()),
+                    });
                     return Ok(None);
                 }
 
@@ -176,7 +195,14 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::F(10) => {
-                // Not implemented yet, just ignore so it doesn't quit
+                let nodes = crate::app::sys_helpers::build_tree_nodes(&dest_dir, 0, 3);
+                state.active_popup = Some(PopupType::TreeView {
+                    nodes,
+                    cursor_idx: 0,
+                    caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                        previous: Box::new(state.active_popup.take().unwrap()),
+                    },
+                });
                 return Ok(None);
             }
             _ => {}
