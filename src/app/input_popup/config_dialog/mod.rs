@@ -77,7 +77,7 @@ pub fn handle(
                     editing_value = false;
                 }
                 KeyCode::Enter => {
-                    let mut current_rows =
+                    let current_rows =
                         get_rows_for_tab(active_tab, &settings, editing_value, cursor_idx, &edit_buffer);
                     // Extract setting ID
                     if cursor_idx < current_rows.len() {

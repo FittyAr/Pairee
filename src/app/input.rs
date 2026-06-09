@@ -49,7 +49,38 @@ pub fn handle_cli_input(
                 let cmd = state.cli_input.trim().to_string();
                 state.cli_input.clear();
                 state.push_command_history(cmd.clone());
-                let _ = execute_shell_command(&cmd, context, terminal_backend);
+
+                let current_path = state.get_active_panel().current_path.clone();
+
+                if cmd == "cd" || cmd.starts_with("cd ") {
+                    let target_dir = cmd.strip_prefix("cd").unwrap_or("").trim();
+                    let new_path = if target_dir.is_empty() || target_dir == "~" {
+                        let home = if cfg!(target_os = "windows") {
+                            std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string())
+                        } else {
+                            std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
+                        };
+                        std::path::PathBuf::from(home)
+                    } else {
+                        let path = std::path::Path::new(target_dir);
+                        current_path.join(path)
+                    };
+
+                    let new_path = match std::fs::canonicalize(&new_path) {
+                        Ok(p) => p,
+                        Err(_) => new_path,
+                    };
+
+                    if new_path.is_dir() {
+                        let active = state.get_active_panel_mut();
+                        active.current_path = new_path;
+                        active.cursor_index = 0;
+                        active.selected_paths.clear();
+                    }
+                } else {
+                    let _ = execute_shell_command(&cmd, &current_path, context, terminal_backend);
+                }
+
                 state.refresh_both_panels(context.config.settings.show_hidden);
                 return Ok(());
             }

@@ -12,6 +12,7 @@ use std::path::Path;
 /// Does NOT drop/recreate TerminalBackend to avoid double-restore.
 pub fn execute_shell_command(
     command_str: &str,
+    current_dir: &Path,
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
@@ -26,10 +27,29 @@ pub fn execute_shell_command(
 
     println!("\nNCRust shell execution: {}\n", command_str);
 
+    let interactive = [
+        "vi", "vim", "nvim", "nano", "pico", "emacs", "htop", "top", "mc", "less", "more", "ssh", "gdb",
+        "python", "node", "mysql", "psql", "sqlite3", "bash", "sh", "zsh", "fish", "tmux", "screen",
+        "ftp", "sftp", "telnet", "w3m", "lynx", "su", "sudo", "login",
+    ];
+    let cmd_name = command_str.split_whitespace().next().unwrap_or("").to_lowercase();
+    let is_interactive = interactive.contains(&cmd_name.as_str());
+
+    let final_command = if !is_interactive && !cfg!(target_os = "windows") {
+        if command_str.contains("| less") || command_str.contains("| more") {
+            command_str.to_string()
+        } else {
+            format!("({}) 2>&1 | less -F -R -X", command_str)
+        }
+    } else {
+        command_str.to_string()
+    };
+
     let mut shell = if cfg!(target_os = "windows") {
         std::process::Command::new("cmd")
             .arg("/c")
-            .arg(command_str)
+            .arg(&final_command)
+            .current_dir(current_dir)
             .stdin(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
@@ -37,7 +57,8 @@ pub fn execute_shell_command(
     } else {
         std::process::Command::new("sh")
             .arg("-c")
-            .arg(command_str)
+            .arg(&final_command)
+            .current_dir(current_dir)
             .stdin(std::process::Stdio::inherit())
             .stdout(std::process::Stdio::inherit())
             .stderr(std::process::Stdio::inherit())
