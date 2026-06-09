@@ -1,3 +1,4 @@
+use crate::config::localization::t;
 use crate::app::context::AppContext;
 use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::fs::attrs::format_unix_mode;
@@ -34,15 +35,15 @@ pub fn render_panel(
 
     // ── Build panel title with optional sort mode letter ──────────────────────
     let mode_label = match panel.view_mode {
-        PanelViewMode::Brief => "Brief",
-        PanelViewMode::Medium => "Medium",
-        PanelViewMode::Full => "Full",
-        PanelViewMode::Wide => "Wide",
-        PanelViewMode::Detailed => "Detailed",
-        PanelViewMode::Descriptions => "Desc",
-        PanelViewMode::FileOwners => "Owners",
-        PanelViewMode::FileLinks => "Links",
-        PanelViewMode::AltFull => "Alt",
+        PanelViewMode::Brief => t("panel_mode_brief"),
+        PanelViewMode::Medium => t("panel_mode_medium"),
+        PanelViewMode::Full => t("panel_mode_full"),
+        PanelViewMode::Wide => t("panel_mode_wide"),
+        PanelViewMode::Detailed => t("panel_mode_detailed"),
+        PanelViewMode::Descriptions => t("panel_mode_desc"),
+        PanelViewMode::FileOwners => t("panel_mode_owners"),
+        PanelViewMode::FileLinks => t("panel_mode_links"),
+        PanelViewMode::AltFull => t("panel_mode_alt"),
     };
 
     let sort_letter = if settings.show_sort_mode_letter {
@@ -219,13 +220,14 @@ pub fn render_panel(
             // Status: highlighted entry name + size
             let status_text = if let Some(entry) = panel.entries.get(panel.cursor_index) {
                 if entry.is_dir {
-                    format!(" {} [DIR]  {} tagged", entry.name, tagged,)
+                    format!(" {} [DIR]  {} {}", entry.name, tagged, t("label_tagged"))
                 } else {
                     format!(
-                        " {}  {}  {} tagged",
+                        " {}  {}  {} {}",
                         entry.name,
                         format_file_size(entry.size),
                         tagged,
+                        t("label_tagged")
                     )
                 }
             } else {
@@ -235,10 +237,14 @@ pub fn render_panel(
         }
 
         if show_total {
+            let files_label = if total_files == 1 { t("label_file") } else { t("label_files") };
+            let dirs_label = if total_dirs == 1 { t("label_dir") } else { t("label_dirs") };
             let info_text = format!(
-                " {} files  {} dirs  {}",
+                " {} {}  {} {}  {}",
                 total_files,
+                files_label,
                 total_dirs,
+                dirs_label,
                 format_file_size(total_size),
             );
             footer_lines.push(Line::from(Span::styled(info_text, fg)));
@@ -250,7 +256,7 @@ pub fn render_panel(
             // we show disk info via a quick statfs-like check here.
             let free_text = get_free_space_text(&panel.current_path);
             footer_lines.push(Line::from(Span::styled(
-                format!(" Free: {}", free_text),
+                format!(" {} {}", t("label_free"), free_text),
                 Style::default()
                     .fg(Color::Green)
                     .bg(parse_color(&theme.panel_bg)),
@@ -400,7 +406,7 @@ fn render_full(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "Size", "Date Modified"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_size"), t("col_date_modified")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),
@@ -479,7 +485,7 @@ fn render_medium(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "Ext", "Size"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_ext"), t("col_size")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),
@@ -598,7 +604,7 @@ fn render_detailed(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "Perms", "Owner", "Size"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_perms"), t("col_owner"), t("col_size")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),
@@ -666,7 +672,7 @@ fn render_descriptions(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "Description"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_description")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),
@@ -731,7 +737,7 @@ fn render_file_owners(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "Owner"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_owner")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),
@@ -796,7 +802,7 @@ fn render_file_links(
         })
         .collect();
 
-    let header = Row::new(vec!["Name", "#Links"]).style(
+    let header = Row::new(vec![t("col_name"), t("col_links")]).style(
         Style::default()
             .fg(parse_color(&theme.header_fg))
             .add_modifier(Modifier::BOLD),

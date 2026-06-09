@@ -5,7 +5,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
     rows.push((
         format!(
             "{}: < {} >",
-            t("lang_label", "Main language"),
+            t("lang_label"),
             settings.language
         ),
         false,
@@ -13,12 +13,12 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
     rows.push((
         format!(
             "{}: [ArcLite | EMenu | HlfViewer | NetBox]",
-            t("plugins_config", "Plugins configuration")
+            t("plugins_config")
         ),
         false,
     ));
     rows.push((
-        t("plugins_manager_settings", "Plugins manager settings"),
+        t("plugins_manager_settings"),
         false,
     ));
     rows.push((
@@ -29,7 +29,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("oem_support", "OEM plugins support")
+            t("oem_support")
         ),
         false,
     ));
@@ -41,12 +41,12 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("scan_symlinks", "Scan symbolic links")
+            t("scan_symlinks")
         ),
         false,
     ));
     rows.push((
-        format!("  {}", t("plugin_selection", "Plugin selection")),
+        format!("  {}", t("plugin_selection")),
         false,
     ));
     rows.push((
@@ -57,7 +57,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("file_processing", "File processing")
+            t("file_processing")
         ),
         false,
     ));
@@ -69,7 +69,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("show_std_association", "Show standard association")
+            t("show_std_association")
         ),
         false,
     ));
@@ -81,7 +81,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("even_if_one", "Even if only one plugin")
+            t("even_if_one")
         ),
         false,
     ));
@@ -93,7 +93,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("search_results", "Search results (SetFindList)")
+            t("search_results")
         ),
         false,
     ));
@@ -105,7 +105,7 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, bool)>) {
             } else {
                 " "
             },
-            t("prefix_processing", "Prefix processing")
+            t("prefix_processing")
         ),
         false,
     ));

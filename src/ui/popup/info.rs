@@ -1,6 +1,7 @@
 use super::centered_rect;
 use crate::app::state::PopupType;
 use crate::ui::theme_apply::parse_color;
+use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -23,7 +24,7 @@ pub fn render_info_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(" File Information ")
+                .title(t("info_panel_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let text_lines: Vec<Line> = lines
@@ -45,7 +46,7 @@ pub fn render_info_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" File Attributes ")
+                .title(t("prompt_attributes_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let path_str = attrs.path.to_string_lossy();
@@ -54,31 +55,29 @@ pub fn render_info_popup(
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| path_str.to_string());
-            let readonly_status = if attrs.readonly { "Yes" } else { "No" };
+            let readonly_status = if attrs.readonly { t("info_yes") } else { t("info_no") };
 
-            let format_time = |t: Option<std::time::SystemTime>| {
-                t.map(|st| {
+            let format_time = |t_val: Option<std::time::SystemTime>| {
+                t_val.map(|st| {
                     let datetime: chrono::DateTime<chrono::Local> = st.into();
                     datetime.format("%Y-%m-%d %H:%M:%S").to_string()
                 })
-                .unwrap_or_else(|| "N/A".to_string())
+                .unwrap_or_else(|| t("info_na"))
             };
 
             let modified_str = format_time(attrs.modified);
             let created_str = format_time(attrs.created);
 
-            let text = format!(
-                "\n Name: {}\n Path: {}\n Size: {} bytes\n Owner: {}\n Links: {}\n Readonly: {}\n Modified: {}\n Created: {}\n\n Unix Permissions (octal):\n > {}\n\n [Enter] Save   [Esc] Cancel",
-                file_name,
-                path_str,
-                attrs.size,
-                attrs.owner,
-                attrs.nlinks,
-                readonly_status,
-                modified_str,
-                created_str,
-                mode_input
-            );
+            let text = t("info_attrs_text")
+                .replacen("{}", &file_name, 1)
+                .replacen("{}", &path_str, 1)
+                .replacen("{}", &attrs.size.to_string(), 1)
+                .replacen("{}", &attrs.owner, 1)
+                .replacen("{}", &attrs.nlinks.to_string(), 1)
+                .replacen("{}", &readonly_status, 1)
+                .replacen("{}", &modified_str, 1)
+                .replacen("{}", &created_str, 1)
+                .replacen("{}", mode_input, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)

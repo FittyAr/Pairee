@@ -47,8 +47,7 @@ impl AppConfig {
             default_settings
         };
 
-        // Initialize default translations and load active language
-        let _ = localization::init_default_languages();
+        // Load active language
         localization::load_language(&settings.language);
 
         // 2. Keybindings Loading

@@ -1,12 +1,13 @@
 use super::{centered_rect, centered_rect_in};
 use crate::app::state::{ActivePanel, PopupType, SortField};
 use crate::ui::theme_apply::parse_color;
+use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Row, Table},
+    widgets::{Block, Borders, Clear, Paragraph, Row, Table, Cell},
 };
 
 pub fn render_menu_popup(
@@ -30,7 +31,7 @@ pub fn render_menu_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" Sort Modes ")
+                .title(t("popup_sort_modes"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let fields = [
@@ -49,11 +50,11 @@ pub fn render_menu_popup(
                 let cursor_marker = if is_cursor { ">" } else { " " };
 
                 let name = match field {
-                    SortField::Name => "Name",
-                    SortField::Extension => "Extension",
-                    SortField::Size => "Size",
-                    SortField::Date => "Date",
-                    SortField::Unsorted => "Unsorted",
+                    SortField::Name => t("col_name"),
+                    SortField::Extension => t("col_extension"),
+                    SortField::Size => t("col_size"),
+                    SortField::Date => t("col_date"),
+                    SortField::Unsorted => t("col_unsorted"),
                 };
 
                 let line_str = format!(" {} [{}] {} ", cursor_marker, active_marker, name);
@@ -72,7 +73,7 @@ pub fn render_menu_popup(
             let is_reverse_cursor = *cursor_idx == fields.len();
             let reverse_marker = if *reverse { "√" } else { " " };
             let cursor_marker = if is_reverse_cursor { ">" } else { " " };
-            let line_str = format!(" {} [{}] Reverse order ", cursor_marker, reverse_marker);
+            let line_str = format!(" {} [{}] {} ", cursor_marker, reverse_marker, t("popup_reverse_order"));
             let style = if is_reverse_cursor {
                 Style::default()
                     .bg(parse_color(&theme.selection_bg))
@@ -95,16 +96,16 @@ pub fn render_menu_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" User Commands Menu ")
+                .title(t("popup_user_menu"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let menu_rows = vec![
-                Row::new(vec!["1", "Refresh Panel Directories"]),
-                Row::new(vec!["2", "Toggle Hidden Files"]),
-                Row::new(vec!["3", "Swap Left and Right Panels"]),
-                Row::new(vec!["4", "Show Help Keyboard Shortcuts"]),
-                Row::new(vec!["5", "Close User Menu"]),
-                Row::new(vec!["6", "Download 7z Extractor Tool"]),
+                Row::new(vec![Cell::from("1"), Cell::from(t("user_cmd_refresh"))]),
+                Row::new(vec![Cell::from("2"), Cell::from(t("user_cmd_toggle_hidden"))]),
+                Row::new(vec![Cell::from("3"), Cell::from(t("user_cmd_swap"))]),
+                Row::new(vec![Cell::from("4"), Cell::from(t("user_cmd_help"))]),
+                Row::new(vec![Cell::from("5"), Cell::from(t("user_cmd_close"))]),
+                Row::new(vec![Cell::from("6"), Cell::from(t("user_cmd_download"))]),
             ];
 
             let table = Table::new(
@@ -113,7 +114,7 @@ pub fn render_menu_popup(
             )
             .block(block)
             .header(
-                Row::new(vec!["Key", "Command"])
+                Row::new(vec![Cell::from(t("col_key")), Cell::from(t("col_command"))])
                     .style(Style::default().add_modifier(Modifier::BOLD)),
             );
 
@@ -150,7 +151,7 @@ pub fn render_menu_popup(
                 } else {
                     Style::default().fg(parse_color(&theme.popup_fg))
                 };
-                lines.push(Line::from(Span::styled(*item, style)));
+                lines.push(Line::from(Span::styled(item.clone(), style)));
             }
 
             let paragraph = Paragraph::new(lines).block(
@@ -196,10 +197,10 @@ pub fn render_menu_popup(
             }
 
             let panel_label = match panel {
-                ActivePanel::Left => "Left",
-                ActivePanel::Right => "Right",
+                ActivePanel::Left => t("menu_left"),
+                ActivePanel::Right => t("menu_right"),
             };
-            let title = format!(" Select Drive ({}) ", panel_label);
+            let title = t("popup_select_drive").replacen("{}", &panel_label, 1);
             let paragraph = Paragraph::new(lines).block(
                 Block::default()
                     .borders(Borders::ALL)
@@ -237,7 +238,7 @@ pub fn render_menu_popup(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                    .title(" Directory Hotlist ")
+                    .title(t("popup_hotlist"))
                     .style(Style::default().bg(parse_color(&theme.popup_bg))),
             );
 
@@ -276,7 +277,7 @@ pub fn render_menu_popup(
                 Block::default()
                     .borders(Borders::ALL)
                     .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                    .title(" Actions ")
+                    .title(t("popup_actions"))
                     .style(Style::default().bg(parse_color(&theme.popup_bg))),
             );
             f.render_widget(paragraph, area);
@@ -290,13 +291,11 @@ pub fn render_menu_popup(
             let area = centered_rect(60, 45, size);
             f.render_widget(Clear, area);
 
-            let title = format!(
-                " Archive Commands: {} ",
-                archive_path
-                    .file_name()
-                    .map(|n| n.to_string_lossy().to_string())
-                    .unwrap_or_default()
-            );
+            let archive_name = archive_path
+                .file_name()
+                .map(|n| n.to_string_lossy().to_string())
+                .unwrap_or_default();
+            let title = t("popup_archive_commands").replacen("{}", &archive_name, 1);
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(ratatui::style::Color::Yellow))
@@ -307,7 +306,7 @@ pub fn render_menu_popup(
             f.render_widget(block, area);
 
             if items.is_empty() {
-                let paragraph = Paragraph::new("\n No archive commands available.\n\n [Esc] Close")
+                let paragraph = Paragraph::new(t("no_archive_commands"))
                     .style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
             } else {
@@ -339,7 +338,7 @@ pub fn render_menu_popup(
                 }
 
                 let hint = Line::from(Span::styled(
-                    " [Enter] Execute Option  [Esc] Close ",
+                    t("archive_commands_hint"),
                     Style::default().fg(ratatui::style::Color::DarkGray),
                 ));
                 lines.push(Line::from(""));

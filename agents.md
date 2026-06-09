@@ -49,7 +49,10 @@ NCRust/
     │   ├── settings.rs            # Structs for general settings
     │   ├── keybindings.rs         # Structs for keybinding presets
     │   ├── theme.rs               # Structs for modern styling themes
-    │   └── paths.rs               # Platform-specific path resolution
+    │   ├── paths.rs               # Platform-specific path resolution
+    │   ├── localization.rs        # Core translation lookup engine
+    │   └── localization/
+    │       └── en.rs              # Default English translation keys & constants
     ├── keybindings/               # Keybinding mapping engine
     │   ├── mod.rs
     │   ├── actions.rs             # Logical application Action enum
@@ -120,6 +123,16 @@ For long-running file system operations (like Copy or Move):
 ### Strict Dead Code & Warning Policy
 * **Rule:** Never use `#[allow(dead_code)]`, `#[allow(unused)]`, or similar attributes to silence compiler warnings about unused fields, variables, or variants.
 * **Requirement:** If a field or variant is unused, you must fully implement its functionality (e.g. ensuring all variant actions or popups are rendered/matched) or delete the unused code if it is obsolete. Warnings must be resolved, not bypassed.
+
+### Localization & Centralized Strings Policy
+* **Rule:** Do not hardcode strings inside UI rendering files or pass fallback translations directly at the translation call site (e.g. `t("key", "fallback")` is prohibited).
+* **Implementation:** 
+  * All default English user-facing texts must be centralized inside `get_default_english_translation` in `src/config/localization/en.rs`.
+  * Translate texts using `t("key")`.
+  * Do not automatically write or generate translation JSON files inside the application's configuration directory at runtime. They must be supplied from the installer or project directory (`lang/` folder).
+
+### Windows Configuration Directories
+* **Rule:** On Windows systems, the application must use `%APPDATA%` directly (typically `Roaming/ncrust/config` and `Roaming/ncrust/cache`) for storing system-wide config and logs, ensuring a shared folder structure. Do not use local AppData or add extra levels of nested project directories.
 
 ---
 

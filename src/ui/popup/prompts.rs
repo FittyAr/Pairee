@@ -1,11 +1,12 @@
 use super::centered_rect;
 use crate::app::state::{LinkKind, PopupType, SelectMode};
 use crate::ui::theme_apply::parse_color;
+use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Clear, Gauge, Paragraph, Row, Table},
+    widgets::{Block, Borders, Clear, Gauge, Paragraph, Row, Table, Cell},
 };
 
 pub fn render_prompt_popup(
@@ -19,25 +20,26 @@ pub fn render_prompt_popup(
             let area = centered_rect(60, 50, size);
             f.render_widget(Clear, area);
 
+            let title = format!(" {} ", t("prompt_help_title").trim());
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" Help - Keybindings ")
+                .title(title)
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let help_rows = vec![
-                Row::new(vec!["Tab", "Switch active panel"]),
-                Row::new(vec!["Insert / Space", "Tag/Select file for bulk ops"]),
-                Row::new(vec!["F3", "View highlighted file contents"]),
-                Row::new(vec!["F4", "Edit highlighted file"]),
-                Row::new(vec!["F5", "Copy tagged files to passive panel"]),
-                Row::new(vec!["F6", "Rename/Move files to passive panel"]),
-                Row::new(vec!["F7", "Make new directory"]),
-                Row::new(vec!["F8", "Delete tagged files"]),
-                Row::new(vec!["Ctrl+H", "Toggle hidden files"]),
-                Row::new(vec!["Ctrl+U", "Swap left and right panels"]),
-                Row::new(vec!["F10", "Quit application"]),
-                Row::new(vec!["Esc", "Close popup / Clear input"]),
+                Row::new(vec![Cell::from(t("key_tab")), Cell::from(t("desc_tab"))]),
+                Row::new(vec![Cell::from(t("key_insert")), Cell::from(t("desc_insert"))]),
+                Row::new(vec![Cell::from(t("key_f3")), Cell::from(t("desc_f3"))]),
+                Row::new(vec![Cell::from(t("key_f4")), Cell::from(t("desc_f4"))]),
+                Row::new(vec![Cell::from(t("key_f5")), Cell::from(t("desc_f5"))]),
+                Row::new(vec![Cell::from(t("key_f6")), Cell::from(t("desc_f6"))]),
+                Row::new(vec![Cell::from(t("key_f7")), Cell::from(t("desc_f7"))]),
+                Row::new(vec![Cell::from(t("key_f8")), Cell::from(t("desc_f8"))]),
+                Row::new(vec![Cell::from(t("key_ctrl_h")), Cell::from(t("desc_ctrl_h"))]),
+                Row::new(vec![Cell::from(t("key_ctrl_u")), Cell::from(t("desc_ctrl_u"))]),
+                Row::new(vec![Cell::from(t("key_f10")), Cell::from(t("desc_f10"))]),
+                Row::new(vec![Cell::from(t("key_esc")), Cell::from(t("desc_esc"))]),
             ];
 
             let table = Table::new(
@@ -46,7 +48,7 @@ pub fn render_prompt_popup(
             )
             .block(block)
             .header(
-                Row::new(vec!["Key", "Description"])
+                Row::new(vec![Cell::from(t("col_key")), Cell::from(t("col_description"))])
                     .style(Style::default().add_modifier(Modifier::BOLD)),
             );
 
@@ -60,10 +62,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" Create Directory ")
+                .title(t("prompt_mkdir_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!("\nEnter directory name:\n\n > {}", input);
+            let text = t("prompt_mkdir_text").replacen("{}", input, 1);
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -82,7 +84,7 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Copy ")
+                .title(t("prompt_copy_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let count = src_paths.len();
@@ -93,16 +95,17 @@ pub fn render_prompt_popup(
                 .unwrap_or_default();
 
             let src_label = if count == 1 {
-                format!("Copying: {}", first_name)
+                t("prompt_copy_sing").replacen("{}", &first_name, 1)
             } else {
-                format!("Copying: {} items", count)
+                t("prompt_copy_plur").replacen("{}", &count.to_string(), 1)
             };
 
             let text = format!(
-                "\n {}\n Destination: {}\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
+                "\n {}\n {}\n\n > {}\n\n {}",
                 src_label,
-                dest_dir.to_string_lossy(),
-                input
+                t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
+                input,
+                t("prompt_confirm_cancel_hint")
             );
 
             let paragraph = Paragraph::new(text)
@@ -119,10 +122,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Confirm Exit ")
+                .title(t("prompt_exit_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = "\n Do you really want to exit NCRust?\n\n [Enter] Exit   [Esc] Cancel";
+            let text = t("prompt_exit_text");
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -137,10 +140,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Confirm Abort ")
+                .title(t("prompt_abort_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = "\n Do you want to abort the current background operation?\n\n [Enter] Abort   [Esc] Resume";
+            let text = t("prompt_abort_text");
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -160,10 +163,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Confirm Overwrite ")
+                .title(t("prompt_overwrite_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let op_name = if *is_move { "Move" } else { "Copy" };
+            let op_name = if *is_move { t("op_move") } else { t("op_copy") };
             let first_name = src_paths
                 .first()
                 .and_then(|p| p.file_name())
@@ -177,15 +180,13 @@ pub fn render_prompt_popup(
                     first_name
                 }
             } else {
-                format!("{} files", src_paths.len())
+                t("prompt_files_count").replacen("{}", &src_paths.len().to_string(), 1)
             };
 
-            let text = format!(
-                "\n Warning: Destination file/directory already exists!\n Destination: {}\n Target: {}\n\n Do you want to overwrite it during {}?\n\n [Enter] Overwrite   [Esc] Cancel",
-                dest_dir.to_string_lossy(),
-                target_desc,
-                op_name
-            );
+            let text = t("prompt_overwrite_text")
+                .replacen("{}", &dest_dir.to_string_lossy(), 1)
+                .replacen("{}", &target_desc, 1)
+                .replacen("{}", &op_name, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -201,10 +202,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Confirm Reload ")
+                .title(t("prompt_reload_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = "\n Unsaved changes in the editor will be lost!\n Do you want to reload the file from disk?\n\n [Enter] Reload   [Esc] Cancel";
+            let text = t("prompt_reload_text");
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -219,13 +220,17 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Confirm Clear History ")
+                .title(t("prompt_clear_history_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!(
-                "\n Do you want to clear the {} history list?\n\n [Enter] Clear   [Esc] Cancel",
-                history_type
-            );
+            let hist_type_translated = match history_type.as_str() {
+                "command" => t("history_type_command"),
+                "view" => t("history_type_view"),
+                "folder" => t("history_type_folder"),
+                _ => history_type.clone(),
+            };
+
+            let text = t("prompt_clear_history_text").replacen("{}", &hist_type_translated, 1);
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -240,13 +245,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Confirm Deletion ")
+                .title(t("prompt_delete_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!(
-                "\nAre you sure you want to delete {} item(s)?\n\n[Enter] Confirm Deletion\n[Esc] Cancel",
-                paths.len()
-            );
+            let text = t("prompt_delete_text").replacen("{}", &paths.len().to_string(), 1);
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -267,7 +269,7 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" Copying Files ")
+                .title(t("progress_copy_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let percent = bytes_copied
@@ -285,7 +287,7 @@ pub fn render_prompt_popup(
                 ])
                 .split(block.inner(area));
 
-            let file_label = format!("File: {}", current_file);
+            let file_label = t("progress_file_label").replacen("{}", current_file, 1);
             let paragraph =
                 Paragraph::new(file_label).style(Style::default().fg(parse_color(&theme.popup_fg)));
             f.render_widget(paragraph, inner_chunks[1]);
@@ -296,13 +298,11 @@ pub fn render_prompt_popup(
                 .label(format!("{}%", percent.min(100)));
             f.render_widget(gauge, inner_chunks[2]);
 
-            let size_label = format!(
-                "Files: {} / {}  |  Bytes: {} MB / {} MB",
-                files_copied,
-                total_files,
-                *bytes_copied / (1024 * 1024),
-                *total_bytes / (1024 * 1024)
-            );
+            let size_label = t("progress_size_label")
+                .replacen("{}", &files_copied.to_string(), 1)
+                .replacen("{}", &total_files.to_string(), 1)
+                .replacen("{}", &(*bytes_copied / (1024 * 1024)).to_string(), 1)
+                .replacen("{}", &(*total_bytes / (1024 * 1024)).to_string(), 1);
             let size_paragraph =
                 Paragraph::new(size_label).style(Style::default().fg(parse_color(&theme.popup_fg)));
             f.render_widget(size_paragraph, inner_chunks[3]);
@@ -317,10 +317,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" Error Alert ")
+                .title(t("prompt_error_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!("\n {}\n\n[Press Enter/Esc to Dismiss]", message);
+            let text = format!("\n {}\n\n{}", message, t("prompt_dismiss_hint"));
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(Color::LightRed));
@@ -335,10 +335,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(" Information ")
+                .title(t("prompt_info_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!("\n {}\n\n[Press Enter/Esc to Dismiss]", message);
+            let text = format!("\n {}\n\n{}", message, t("prompt_dismiss_hint"));
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
@@ -357,7 +357,7 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Rename / Move ")
+                .title(t("prompt_renmov_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let count = src_paths.len();
@@ -368,16 +368,17 @@ pub fn render_prompt_popup(
                 .unwrap_or_default();
 
             let src_label = if count == 1 {
-                format!("Moving: {}", first_name)
+                t("prompt_move_sing").replacen("{}", &first_name, 1)
             } else {
-                format!("Moving: {} items", count)
+                t("prompt_move_plur").replacen("{}", &count.to_string(), 1)
             };
 
             let text = format!(
-                "\n {}\n Destination: {}\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
+                "\n {}\n {}\n\n > {}\n\n {}",
                 src_label,
-                dest_dir.to_string_lossy(),
-                input
+                t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
+                input,
+                t("prompt_confirm_cancel_hint")
             );
 
             let paragraph = Paragraph::new(text)
@@ -398,7 +399,7 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Compress Archive ")
+                .title(t("prompt_compress_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let count = targets.len();
@@ -409,16 +410,17 @@ pub fn render_prompt_popup(
                 .unwrap_or_default();
 
             let src_label = if count == 1 {
-                format!("Compressing: {}", first_name)
+                t("prompt_compress_sing").replacen("{}", &first_name, 1)
             } else {
-                format!("Compressing: {} items", count)
+                t("prompt_compress_plur").replacen("{}", &count.to_string(), 1)
             };
 
             let text = format!(
-                "\n {}\n Destination: {}\n\n > {}.zip\n\n [Enter] Confirm   [Esc] Cancel",
+                "\n {}\n {}\n\n > {}.zip\n\n {}",
                 src_label,
-                dest_dir.to_string_lossy(),
-                input
+                t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
+                input,
+                t("prompt_confirm_cancel_hint")
             );
 
             let paragraph = Paragraph::new(text)
@@ -435,7 +437,7 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Apply Command to Selected Files ")
+                .title(t("prompt_apply_cmd_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let first_targets = targets
@@ -449,15 +451,16 @@ pub fn render_prompt_popup(
                 .collect::<Vec<String>>()
                 .join(", ");
             let files_label = if targets.len() > 3 {
-                format!("Files ({} total): {}, ...", targets.len(), first_targets)
+                t("prompt_apply_cmd_plur")
+                    .replacen("{}", &targets.len().to_string(), 1)
+                    .replacen("{}", &first_targets, 1)
             } else {
-                format!("Files: {}", first_targets)
+                t("prompt_apply_cmd_sing").replacen("{}", &first_targets, 1)
             };
 
-            let text = format!(
-                "\n {}\n\n Template command (use %f for file name):\n > {}\n\n [Enter] Execute   [Esc] Cancel",
-                files_label, input
-            );
+            let text = t("prompt_apply_cmd_text")
+                .replacen("{}", &files_label, 1)
+                .replacen("{}", input, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -477,17 +480,17 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(" Describe File ")
+                .title(t("prompt_description_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let file_name = path
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let text = format!(
-                "\n File: {}\n Current Description: {}\n\n New Description:\n > {}\n\n [Enter] Save   [Esc] Cancel",
-                file_name, current_desc, input
-            );
+            let text = t("prompt_describe_text")
+                .replacen("{}", &file_name, 1)
+                .replacen("{}", current_desc, 1)
+                .replacen("{}", input, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -501,8 +504,8 @@ pub fn render_prompt_popup(
             f.render_widget(Clear, area);
 
             let title = match mode {
-                SelectMode::Add => " Select Group ",
-                SelectMode::Remove => " Unselect Group ",
+                SelectMode::Add => t("prompt_select_group_title"),
+                SelectMode::Remove => t("prompt_unselect_group_title"),
             };
 
             let block = Block::default()
@@ -512,13 +515,13 @@ pub fn render_prompt_popup(
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let prompt_label = match mode {
-                SelectMode::Add => "Select matching files:",
-                SelectMode::Remove => "Unselect matching files:",
+                SelectMode::Add => t("prompt_select_group_pat"),
+                SelectMode::Remove => t("prompt_unselect_group_pat"),
             };
 
             let text = format!(
-                "\n {}\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
-                prompt_label, query
+                "\n {}\n\n > {}\n\n {}",
+                prompt_label, query, t("prompt_confirm_cancel_hint")
             );
 
             let paragraph = Paragraph::new(text)
@@ -537,8 +540,8 @@ pub fn render_prompt_popup(
             f.render_widget(Clear, area);
 
             let title = match kind {
-                LinkKind::Symbolic => " Create Symbolic Link ",
-                LinkKind::Hard => " Create Hard Link ",
+                LinkKind::Symbolic => t("prompt_symlink_title"),
+                LinkKind::Hard => t("prompt_hardlink_title"),
             };
 
             let block = Block::default()
@@ -551,10 +554,9 @@ pub fn render_prompt_popup(
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            let text = format!(
-                "\n Source: {}\n Link Path Destination:\n\n > {}\n\n [Enter] Confirm   [Esc] Cancel",
-                src_name, dest_input
-            );
+            let text = t("prompt_link_text")
+                .replacen("{}", &src_name, 1)
+                .replacen("{}", dest_input, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -570,13 +572,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
-                .title(" File Mask Filter ")
+                .title(t("prompt_filter_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!(
-                "\n Enter mask filter (e.g. *.rs; empty to show all):\n\n > {}\n\n [Enter] Apply   [Esc] Cancel",
-                input
-            );
+            let text = t("prompt_filter_text").replacen("{}", input, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -592,13 +591,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Red))
-                .title(" WARNING: Secure Wipe Confirm ")
+                .title(t("prompt_wipe_warn_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!(
-                "\n Are you sure you want to SECURELY WIPE {} item(s)?\n This writes over files and is IRRECOVERABLE.\n\n [Enter] Wipe   [Esc] Cancel",
-                paths.len()
-            );
+            let text = t("prompt_wipe_warn_text").replacen("{}", &paths.len().to_string(), 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)
@@ -614,10 +610,10 @@ pub fn render_prompt_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Green))
-                .title(" Save Setup ")
+                .title(t("prompt_save_setup_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = "\n Save configuration and current layout settings?\n\n [Enter] Confirm   [Esc] Cancel";
+            let text = t("prompt_save_setup_text");
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));

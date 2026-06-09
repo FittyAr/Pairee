@@ -1,3 +1,4 @@
+use crate::config::localization::t;
 use crate::app::context::AppContext;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -13,16 +14,16 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext) {
 
     // F1 to F10 labels matching classic Norton Commander features
     let fkeys = [
-        ("1", "Help"),
-        ("2", "Menu"),
-        ("3", "View"),
-        ("4", "Edit"),
-        ("5", "Copy"),
-        ("6", "RenMov"),
-        ("7", "MkDir"),
-        ("8", "Delete"),
-        ("9", "PullDn"),
-        ("10", "Quit"),
+        ("1", t("fkey_help")),
+        ("2", t("fkey_menu")),
+        ("3", t("fkey_view")),
+        ("4", t("fkey_edit")),
+        ("5", t("fkey_copy")),
+        ("6", t("fkey_renmov")),
+        ("7", t("fkey_mkdir")),
+        ("8", t("fkey_delete")),
+        ("9", t("fkey_pulldn")),
+        ("10", t("fkey_quit")),
     ];
 
     // Divide the row into 10 equal columns

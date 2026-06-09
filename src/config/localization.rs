@@ -12,10 +12,30 @@ pub struct LanguageFile {
 
 static CURRENT_TRANSLATIONS: OnceLock<RwLock<HashMap<String, String>>> = OnceLock::new();
 
-/// Discovers all JSON language files in the default configuration directory.
+/// Discovers all JSON language files in both the configuration directory and the local project root.
 pub fn discover_languages() -> Vec<(String, PathBuf)> {
-    let lang_dir = crate::config::paths::get_config_dir().join("lang");
-    discover_languages_in_dir(&lang_dir)
+    let mut langs = Vec::new();
+
+    // 1. Scan the project's root folder 'lang'
+    let project_lang_dir = PathBuf::from("lang");
+    if project_lang_dir.exists() {
+        langs.extend(discover_languages_in_dir(&project_lang_dir));
+    }
+
+    // 2. Scan the user's config directory 'lang'
+    let config_lang_dir = crate::config::paths::get_config_dir().join("lang");
+    if config_lang_dir.exists() && config_lang_dir != project_lang_dir {
+        for (name, path) in discover_languages_in_dir(&config_lang_dir) {
+            // Avoid duplicate entries if they are in both paths
+            if !langs.iter().any(|(n, _)| n == &name) {
+                langs.push((name, path));
+            }
+        }
+    }
+
+    // Sort for UI presentation consistency
+    langs.sort_by(|a, b| a.0.cmp(&b.0));
+    langs
 }
 
 /// Helper function to discover language files in a specific directory (makes it testable).
@@ -33,103 +53,21 @@ pub fn discover_languages_in_dir(dir: &Path) -> Vec<(String, PathBuf)> {
             }
         }
     }
-    // Sort for UI presentation consistency
     langs.sort_by(|a, b| a.0.cmp(&b.0));
     langs
 }
 
-/// Initializes default English and Spanish translation files if they do not exist.
-pub fn init_default_languages() -> anyhow::Result<()> {
-    let lang_dir = crate::config::paths::get_config_dir().join("lang");
-    init_default_languages_in_dir(&lang_dir)
-}
+pub mod en;
 
-/// Helper function to initialize default languages in a specific directory (makes it testable).
-pub fn init_default_languages_in_dir(dir: &Path) -> anyhow::Result<()> {
-    if !dir.exists() {
-        fs::create_dir_all(dir)?;
-    }
-
-    let en_path = dir.join("en.json");
-    if !en_path.exists() {
-        let en_content = LanguageFile {
-            language_name: "English".to_string(),
-            translations: [
-                ("tab_system", "System"),
-                ("tab_panel", "Panel"),
-                ("tab_interface", "Interface"),
-                ("tab_confirmations", "Confirmations"),
-                ("tab_plugins", "Language & Plugins"),
-                ("tab_editor", "Editor/Viewer"),
-                ("tab_colors", "Colors"),
-                ("lang_label", "Main language"),
-                ("plugins_config", "Plugins configuration"),
-                ("plugins_manager_settings", "Plugins manager settings"),
-                ("oem_support", "OEM plugins support"),
-                ("scan_symlinks", "Scan symbolic links"),
-                ("plugin_selection", "Plugin selection"),
-                ("file_processing", "File processing"),
-                ("show_std_association", "Show standard association"),
-                ("even_if_one", "Even if only one plugin"),
-                ("search_results", "Search results (SetFindList)"),
-                ("prefix_processing", "Prefix processing"),
-            ]
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect(),
-        };
-        let serialized = serde_json::to_string_pretty(&en_content)?;
-        fs::write(&en_path, serialized)?;
-    }
-
-    let es_path = dir.join("es.json");
-    if !es_path.exists() {
-        let es_content = LanguageFile {
-            language_name: "Español".to_string(),
-            translations: [
-                ("tab_system", "Sistema"),
-                ("tab_panel", "Panel"),
-                ("tab_interface", "Interfaz"),
-                ("tab_confirmations", "Confirmaciones"),
-                ("tab_plugins", "Idioma y Plugins"),
-                ("tab_editor", "Editor/Visor"),
-                ("tab_colors", "Colores"),
-                ("lang_label", "Idioma principal"),
-                ("plugins_config", "Configuración de plugins"),
-                (
-                    "plugins_manager_settings",
-                    "Configuración del gestor de plugins",
-                ),
-                ("oem_support", "Soporte de plugins OEM"),
-                ("scan_symlinks", "Escanear enlaces simbólicos"),
-                ("plugin_selection", "Selección de plugins"),
-                ("file_processing", "Procesamiento de archivos"),
-                ("show_std_association", "Mostrar asociación estándar"),
-                ("even_if_one", "Incluso si solo se encuentra un plugin"),
-                ("search_results", "Resultados de búsqueda (SetFindList)"),
-                ("prefix_processing", "Procesamiento de prefijos"),
-            ]
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
-            .collect(),
-        };
-        let serialized = serde_json::to_string_pretty(&es_content)?;
-        fs::write(&es_path, serialized)?;
-    }
-
-    Ok(())
+/// Returns the centralized default English translation for a key.
+pub fn get_default_english_translation(key: &str) -> String {
+    en::get_default_english_translation(key)
 }
 
 /// Loads a language by its full name into the global active translation map.
-/// Falls back to English if the language cannot be found or loaded.
+/// Falls back to empty map (so t() falls back to English) if not found.
 pub fn load_language(language_name: &str) {
-    let lang_dir = crate::config::paths::get_config_dir().join("lang");
-    load_language_from_dir(language_name, &lang_dir);
-}
-
-/// Helper function to load a language from a specific directory (makes it testable).
-pub fn load_language_from_dir(language_name: &str, dir: &Path) {
-    let langs = discover_languages_in_dir(dir);
+    let langs = discover_languages();
 
     // Find the file path for the given language name
     let path_opt = langs
@@ -137,7 +75,7 @@ pub fn load_language_from_dir(language_name: &str, dir: &Path) {
         .find(|(name, _)| name == language_name)
         .map(|(_, path)| path.clone());
 
-    let mut translations = if let Some(path) = path_opt {
+    let translations = if let Some(path) = path_opt {
         if let Ok(content) = fs::read_to_string(&path) {
             if let Ok(lang_file) = serde_json::from_str::<LanguageFile>(&content) {
                 lang_file.translations
@@ -151,21 +89,6 @@ pub fn load_language_from_dir(language_name: &str, dir: &Path) {
         HashMap::new()
     };
 
-    // Fallback: If translations are empty and we are not loading English, load English as a fallback.
-    if translations.is_empty() && language_name != "English" {
-        if let Some(en_path) = langs
-            .iter()
-            .find(|(name, _)| name == "English")
-            .map(|(_, path)| path.clone())
-        {
-            if let Ok(content) = fs::read_to_string(&en_path) {
-                if let Ok(lang_file) = serde_json::from_str::<LanguageFile>(&content) {
-                    translations = lang_file.translations;
-                }
-            }
-        }
-    }
-
     if let Some(lock) = CURRENT_TRANSLATIONS.get() {
         if let Ok(mut writer) = lock.write() {
             *writer = translations;
@@ -176,8 +99,8 @@ pub fn load_language_from_dir(language_name: &str, dir: &Path) {
 }
 
 /// Translates a key using the active language translation map.
-/// Returns the `default` value if the key is not found.
-pub fn t(key: &str, default: &str) -> String {
+/// Falls back to the centralized English translation if the key is not found.
+pub fn t(key: &str) -> String {
     if let Some(lock) = CURRENT_TRANSLATIONS.get() {
         if let Ok(reader) = lock.read() {
             if let Some(val) = reader.get(key) {
@@ -185,7 +108,7 @@ pub fn t(key: &str, default: &str) -> String {
             }
         }
     }
-    default.to_string()
+    get_default_english_translation(key)
 }
 
 #[cfg(test)]
@@ -194,37 +117,40 @@ mod tests {
     use tempfile::tempdir;
 
     #[test]
-    fn test_init_and_discovery() {
+    fn test_discovery_and_translation() {
         let dir = tempdir().unwrap();
         let path = dir.path();
 
-        // 1. Initialize languages
-        init_default_languages_in_dir(path).unwrap();
+        // Write a test JSON file
+        let test_lang = LanguageFile {
+            language_name: "TestLang".to_string(),
+            translations: [("tab_system", "TestSystem")]
+                .into_iter()
+                .map(|(k, v)| (k.to_string(), v.to_string()))
+                .collect(),
+        };
+        let serialized = serde_json::to_string(&test_lang).unwrap();
+        let file_path = path.join("test.json");
+        std::fs::write(&file_path, serialized).unwrap();
 
-        // 2. Discover languages
+        // Test discover_languages_in_dir
         let discovered = discover_languages_in_dir(path);
-        assert_eq!(discovered.len(), 2);
+        assert_eq!(discovered.len(), 1);
+        assert_eq!(discovered[0].0, "TestLang");
 
-        let names: Vec<String> = discovered.iter().map(|(name, _)| name.clone()).collect();
-        assert!(names.contains(&"English".to_string()));
-        assert!(names.contains(&"Español".to_string()));
-    }
+        // Load the language dynamically by simulating translation loading
+        let mut test_translations = HashMap::new();
+        test_translations.insert("tab_system".to_string(), "TestSystem".to_string());
 
-    #[test]
-    fn test_load_and_translate() {
-        let dir = tempdir().unwrap();
-        let path = dir.path();
+        if let Some(lock) = CURRENT_TRANSLATIONS.get() {
+            if let Ok(mut writer) = lock.write() {
+                *writer = test_translations;
+            }
+        } else {
+            let _ = CURRENT_TRANSLATIONS.set(RwLock::new(test_translations));
+        }
 
-        init_default_languages_in_dir(path).unwrap();
-
-        // Load English and translate
-        load_language_from_dir("English", path);
-        assert_eq!(t("tab_system", "Fallback"), "System");
-        assert_eq!(t("nonexistent_key", "Fallback"), "Fallback");
-
-        // Load Spanish and translate
-        load_language_from_dir("Español", path);
-        assert_eq!(t("tab_system", "Fallback"), "Sistema");
-        assert_eq!(t("nonexistent_key", "Fallback"), "Fallback");
+        assert_eq!(t("tab_system"), "TestSystem");
+        assert_eq!(t("tab_panel"), "Panel"); // fallback to central English
     }
 }

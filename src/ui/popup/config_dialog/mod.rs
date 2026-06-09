@@ -37,7 +37,7 @@ pub fn render_config_dialog_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(" Configuration Settings ")
+                .title(crate::config::localization::t("config_dialog_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let inner = block.inner(area);
@@ -74,28 +74,28 @@ pub fn render_config_dialog_popup(
             let tab_titles = [
                 format!(
                     " {} ",
-                    crate::config::localization::t("tab_system", "System")
+                    crate::config::localization::t("tab_system")
                 ),
-                format!(" {} ", crate::config::localization::t("tab_panel", "Panel")),
+                format!(" {} ", crate::config::localization::t("tab_panel")),
                 format!(
                     " {} ",
-                    crate::config::localization::t("tab_interface", "Interface")
-                ),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_confirmations", "Confirmations")
+                    crate::config::localization::t("tab_interface")
                 ),
                 format!(
                     " {} ",
-                    crate::config::localization::t("tab_plugins", "Language & Plugins")
+                    crate::config::localization::t("tab_confirmations")
                 ),
                 format!(
                     " {} ",
-                    crate::config::localization::t("tab_editor", "Editor/Viewer")
+                    crate::config::localization::t("tab_plugins")
                 ),
                 format!(
                     " {} ",
-                    crate::config::localization::t("tab_colors", "Colors")
+                    crate::config::localization::t("tab_editor")
+                ),
+                format!(
+                    " {} ",
+                    crate::config::localization::t("tab_colors")
                 ),
             ];
             let mut tab_spans = Vec::new();
@@ -138,8 +138,8 @@ pub fn render_config_dialog_popup(
                 _ => {}
             }
 
-            rows.push(("[ OK ]".to_string(), false));
-            rows.push(("[ Cancel ]".to_string(), false));
+            rows.push((crate::config::localization::t("btn_ok"), false));
+            rows.push((crate::config::localization::t("btn_cancel"), false));
 
             let list_height = content_area.height as usize;
             let scroll_start = cursor_idx.saturating_sub(list_height / 2);
@@ -175,7 +175,7 @@ pub fn render_config_dialog_popup(
 
             f.render_widget(Paragraph::new(list_spans), content_area);
 
-            let hint_str = " * Unimplemented/Future feature  |  [Tab/Arrows] Navigate  [Space/Enter] Edit/Toggle  [F9] Save  [Esc] Cancel";
+            let hint_str = crate::config::localization::t("config_dialog_hint");
             let hint_widget = Paragraph::new(hint_str).style(Style::default().fg(Color::Yellow));
             f.render_widget(hint_widget, hint_area);
             true

@@ -1,6 +1,7 @@
 use super::centered_rect;
 use crate::app::state::PopupType;
 use crate::ui::theme_apply::parse_color;
+use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -20,11 +21,9 @@ fn render_editor_widget(
     is_dirty: bool,
     _theme: &crate::config::theme::Theme,
 ) {
-    let title = format!(
-        " Editor - {} {} ",
-        path.to_string_lossy(),
-        if is_dirty { "*" } else { "" }
-    );
+    let title = t("editor_title")
+        .replacen("{}", &path.to_string_lossy(), 1)
+        .replacen("{}", if is_dirty { "*" } else { "" }, 1);
 
     let block = Block::default()
         .borders(Borders::ALL)
@@ -56,13 +55,11 @@ fn render_editor_widget(
     f.render_widget(paragraph, edit_area);
 
     let current_line_len = lines.get(cursor_y).map(|l| l.len()).unwrap_or(0);
-    let status_text = format!(
-        " Line Chars: {} | Total Lines: {} | Pos: ({}, {})",
-        current_line_len,
-        lines.len(),
-        cursor_y + 1,
-        cursor_x + 1
-    );
+    let status_text = t("editor_status_text")
+        .replacen("{}", &current_line_len.to_string(), 1)
+        .replacen("{}", &lines.len().to_string(), 1)
+        .replacen("{}", &(cursor_y + 1).to_string(), 1)
+        .replacen("{}", &(cursor_x + 1).to_string(), 1);
     let status_para =
         Paragraph::new(status_text).style(Style::default().bg(Color::Cyan).fg(Color::Black));
     f.render_widget(status_para, status_area);
@@ -124,13 +121,10 @@ pub fn render_editor_popup(
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(" Search Text ")
+                .title(t("editor_search_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = format!(
-                "\n Search query:\n > {}\n\n [Enter] Search   [Esc] Cancel",
-                query
-            );
+            let text = t("editor_search_text").replacen("{}", query, 1);
 
             let paragraph = Paragraph::new(text)
                 .block(block)

@@ -1,3 +1,4 @@
+use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -80,18 +81,18 @@ pub fn render_viewer(
     theme: &crate::config::theme::Theme,
 ) {
     let mode_label = match state.mode {
-        ViewerMode::Text => "Text",
-        ViewerMode::Hex => "Hex",
+        ViewerMode::Text => t("view_text_mode"),
+        ViewerMode::Hex => t("view_hex_mode"),
     };
-    let title = format!(
-        " [{}] {}  | F2=Hex/Text  Esc=Close ",
-        mode_label,
-        state
-            .path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default()
-    );
+    let file_name = state
+        .path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    
+    let title = t("viewer_title_bar")
+        .replacen("{}", &mode_label, 1)
+        .replacen("{}", &file_name, 1);
 
     let block = Block::default()
         .borders(Borders::ALL)
