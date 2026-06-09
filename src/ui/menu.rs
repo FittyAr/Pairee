@@ -6,123 +6,131 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Modifier, Style},
-    text::{Line, Span},
+    text::Line,
     widgets::Paragraph,
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Menu definitions — fully matches norton_commander_features.md sections 1–5
+// Menu definitions
 // ─────────────────────────────────────────────────────────────────────────────
 
-/// Returns the menu item labels for a given top-level menu index.
-/// - 0 = Left   (panel config for the left panel)
-/// - 1 = Files  (file operations)
-/// - 2 = Commands
-/// - 3 = Options
-/// - 4 = Right  (panel config for the right panel)
-pub fn get_menu_items(menu_idx: usize, state: &AppState) -> Vec<String> {
-    let m = |s: String, active: bool| -> String {
-        if active {
-            let mut chars = s.chars();
-            chars.next();
-            format!("•{}", chars.as_str())
-        } else {
-            s
+#[derive(Debug, Clone)]
+pub struct MenuItemData {
+    pub label: String,
+    pub shortcut: String,
+    pub active: bool,
+    pub is_separator: bool,
+}
+
+impl MenuItemData {
+    pub fn new(label: String, shortcut: &str, active: bool) -> Self {
+        Self {
+            label,
+            shortcut: shortcut.to_string(),
+            active,
+            is_separator: false,
         }
-    };
+    }
+    pub fn separator() -> Self {
+        Self {
+            label: String::new(),
+            shortcut: String::new(),
+            active: false,
+            is_separator: true,
+        }
+    }
+}
+
+/// Returns the menu item labels for a given top-level menu index.
+pub fn get_menu_items(menu_idx: usize, state: &AppState) -> Vec<MenuItemData> {
     match menu_idx {
-        // ── Left (mirrors Right exactly, just different drive shortcut) ───────
         0 => vec![
-            m(format!(" {:<25}Ctrl+1 ", t("menu_brief")), state.left_panel.view_mode == PanelViewMode::Brief),
-            m(format!(" {:<25}Ctrl+2 ", t("menu_medium")), state.left_panel.view_mode == PanelViewMode::Medium),
-            m(format!(" {:<25}Ctrl+3 ", t("menu_full")), state.left_panel.view_mode == PanelViewMode::Full),
-            m(format!(" {:<25}Ctrl+4 ", t("menu_wide")), state.left_panel.view_mode == PanelViewMode::Wide),
-            m(format!(" {:<25}Ctrl+5 ", t("menu_detailed")), state.left_panel.view_mode == PanelViewMode::Detailed),
-            m(format!(" {:<25}Ctrl+6 ", t("menu_descriptions")), state.left_panel.view_mode == PanelViewMode::Descriptions),
-            m(format!(" {:<25}Ctrl+7 ", t("menu_file_owners")), state.left_panel.view_mode == PanelViewMode::FileOwners),
-            m(format!(" {:<25}Ctrl+8 ", t("menu_file_links")), state.left_panel.view_mode == PanelViewMode::FileLinks),
-            m(format!(" {:<25}Ctrl+9 ", t("menu_alt_full")), state.left_panel.view_mode == PanelViewMode::AltFull),
-            " ───────────────────────────────── ".to_string(),
-            m(format!(" {:<25}Ctrl+L ", t("menu_info_panel")), matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
-            m(format!(" {:<25}Ctrl+Q ", t("menu_quick_view")), state.quick_view_active),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+F12", t("menu_sort_modes")),
-            m(format!(" {:<25}Ctrl+N ", t("menu_show_long_names")), state.left_panel.show_long_names),
-            m(format!(" {:<25}Ctrl+F1 ", t("menu_panel_on_off")), state.left_panel_visible),
-            format!(" {:<25}Ctrl+R ", t("menu_re_read")),
-            format!(" {:<25}Alt+F1 ", t("menu_change_drive")),
+            MenuItemData::new(t("menu_brief"), "Ctrl+1", state.left_panel.view_mode == PanelViewMode::Brief),
+            MenuItemData::new(t("menu_medium"), "Ctrl+2", state.left_panel.view_mode == PanelViewMode::Medium),
+            MenuItemData::new(t("menu_full"), "Ctrl+3", state.left_panel.view_mode == PanelViewMode::Full),
+            MenuItemData::new(t("menu_wide"), "Ctrl+4", state.left_panel.view_mode == PanelViewMode::Wide),
+            MenuItemData::new(t("menu_detailed"), "Ctrl+5", state.left_panel.view_mode == PanelViewMode::Detailed),
+            MenuItemData::new(t("menu_descriptions"), "Ctrl+6", state.left_panel.view_mode == PanelViewMode::Descriptions),
+            MenuItemData::new(t("menu_file_owners"), "Ctrl+7", state.left_panel.view_mode == PanelViewMode::FileOwners),
+            MenuItemData::new(t("menu_file_links"), "Ctrl+8", state.left_panel.view_mode == PanelViewMode::FileLinks),
+            MenuItemData::new(t("menu_alt_full"), "Ctrl+9", state.left_panel.view_mode == PanelViewMode::AltFull),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_info_panel"), "Ctrl+L", matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
+            MenuItemData::new(t("menu_quick_view"), "Ctrl+Q", state.quick_view_active),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_sort_modes"), "Ctrl+F12", false),
+            MenuItemData::new(t("menu_show_long_names"), "Ctrl+N", state.left_panel.show_long_names),
+            MenuItemData::new(t("menu_panel_on_off"), "Ctrl+F1", state.left_panel_visible),
+            MenuItemData::new(t("menu_re_read"), "Ctrl+R", false),
+            MenuItemData::new(t("menu_change_drive"), "Alt+F1", false),
         ],
-        // ── Files ─────────────────────────────────────────────────────────────
         1 => vec![
-            format!(" {:<25}    F3 ", t("menu_view")),
-            format!(" {:<25}    F4 ", t("menu_edit")),
-            format!(" {:<25}    F5 ", t("menu_copy")),
-            format!(" {:<25}    F6 ", t("menu_rename_move")),
-            format!(" {:<25}Alt+F6 ", t("menu_link")),
-            format!(" {:<25}    F7 ", t("menu_make_folder")),
-            format!(" {:<25}    F8 ", t("menu_delete")),
-            format!(" {:<25}Alt+Del", t("menu_wipe")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Shf+F1 ", t("menu_add_to_archive")),
-            format!(" {:<25}Shf+F2 ", t("menu_extract_files")),
-            format!(" {:<25}Shf+F3 ", t("menu_archive_commands")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+A ", t("menu_file_attributes")),
-            format!(" {:<25}Ctrl+G ", t("menu_apply_command")),
-            format!(" {:<25}Ctrl+Z ", t("menu_describe_files")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25} Gray+ ", t("menu_select_group")),
-            format!(" {:<25} Gray- ", t("menu_unselect_group")),
-            format!(" {:<25} Gray* ", t("menu_invert_selection")),
-            format!(" {:<25}Ctrl+M ", t("menu_restore_selection")),
+            MenuItemData::new(t("menu_view"), "F3", false),
+            MenuItemData::new(t("menu_edit"), "F4", false),
+            MenuItemData::new(t("menu_copy"), "F5", false),
+            MenuItemData::new(t("menu_rename_move"), "F6", false),
+            MenuItemData::new(t("menu_link"), "Alt+F6", false),
+            MenuItemData::new(t("menu_make_folder"), "F7", false),
+            MenuItemData::new(t("menu_delete"), "F8", false),
+            MenuItemData::new(t("menu_wipe"), "Alt+Del", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_add_to_archive"), "Shf+F1", false),
+            MenuItemData::new(t("menu_extract_files"), "Shf+F2", false),
+            MenuItemData::new(t("menu_archive_commands"), "Shf+F3", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_file_attributes"), "Ctrl+A", false),
+            MenuItemData::new(t("menu_apply_command"), "Ctrl+G", false),
+            MenuItemData::new(t("menu_describe_files"), "Ctrl+Z", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_select_group"), "Gray+", false),
+            MenuItemData::new(t("menu_unselect_group"), "Gray-", false),
+            MenuItemData::new(t("menu_invert_selection"), "Gray*", false),
+            MenuItemData::new(t("menu_restore_selection"), "Ctrl+M", false),
         ],
-        // ── Commands ──────────────────────────────────────────────────────────
         2 => vec![
-            format!(" {:<25}Alt+F7 ", t("menu_find_file")),
-            format!(" {:<25}Alt+F8 ", t("menu_history")),
-            format!(" {:<25}Alt+F11", t("menu_file_view_hist")),
-            format!(" {:<25}Alt+F12", t("menu_folders_hist")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+U ", t("menu_swap_panels")),
-            format!(" {:<25}Ctrl+O ", t("menu_panels_on_off")),
-            format!(" {:<25}       ", t("menu_compare_folders")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}       ", t("menu_edit_user_menu")),
-            format!(" {:<25}       ", t("menu_file_associations")),
-            format!(" {:<25}       ", t("menu_folder_shortcuts")),
-            format!(" {:<25}Ctrl+I ", t("menu_file_panel_filter")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}   F11 ", t("menu_plugin_commands")),
-            format!(" {:<25}   F12 ", t("menu_screens_list")),
-            format!(" {:<25}Ctrl+W ", t("menu_task_list")),
-            format!(" {:<25}       ", t("menu_hotplug_devices")),
+            MenuItemData::new(t("menu_find_file"), "Alt+F7", false),
+            MenuItemData::new(t("menu_history"), "Alt+F8", false),
+            MenuItemData::new(t("menu_file_view_hist"), "Alt+F11", false),
+            MenuItemData::new(t("menu_folders_hist"), "Alt+F12", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_swap_panels"), "Ctrl+U", false),
+            MenuItemData::new(t("menu_panels_on_off"), "Ctrl+O", false),
+            MenuItemData::new(t("menu_compare_folders"), "", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_edit_user_menu"), "", false),
+            MenuItemData::new(t("menu_file_associations"), "", false),
+            MenuItemData::new(t("menu_folder_shortcuts"), "", false),
+            MenuItemData::new(t("menu_file_panel_filter"), "Ctrl+I", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_plugin_commands"), "F11", false),
+            MenuItemData::new(t("menu_screens_list"), "F12", false),
+            MenuItemData::new(t("menu_task_list"), "Ctrl+W", false),
+            MenuItemData::new(t("menu_hotplug_devices"), "", false),
         ],
-        // ── Options ───────────────────────────────────────────────────────────
         3 => vec![
-            format!(" {:<25}       ", t("menu_configuration")),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Shf+F9 ", t("menu_save_setup")),
+            MenuItemData::new(t("menu_configuration"), "", false),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_save_setup"), "Shf+F9", false),
         ],
-        // ── Right (mirrors Left) ──────────────────────────────────────────────
         4 => vec![
-            m(format!(" {:<25}Ctrl+1 ", t("menu_brief")), state.right_panel.view_mode == PanelViewMode::Brief),
-            m(format!(" {:<25}Ctrl+2 ", t("menu_medium")), state.right_panel.view_mode == PanelViewMode::Medium),
-            m(format!(" {:<25}Ctrl+3 ", t("menu_full")), state.right_panel.view_mode == PanelViewMode::Full),
-            m(format!(" {:<25}Ctrl+4 ", t("menu_wide")), state.right_panel.view_mode == PanelViewMode::Wide),
-            m(format!(" {:<25}Ctrl+5 ", t("menu_detailed")), state.right_panel.view_mode == PanelViewMode::Detailed),
-            m(format!(" {:<25}Ctrl+6 ", t("menu_descriptions")), state.right_panel.view_mode == PanelViewMode::Descriptions),
-            m(format!(" {:<25}Ctrl+7 ", t("menu_file_owners")), state.right_panel.view_mode == PanelViewMode::FileOwners),
-            m(format!(" {:<25}Ctrl+8 ", t("menu_file_links")), state.right_panel.view_mode == PanelViewMode::FileLinks),
-            m(format!(" {:<25}Ctrl+9 ", t("menu_alt_full")), state.right_panel.view_mode == PanelViewMode::AltFull),
-            " ───────────────────────────────── ".to_string(),
-            m(format!(" {:<25}Ctrl+L ", t("menu_info_panel")), matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
-            m(format!(" {:<25}Ctrl+Q ", t("menu_quick_view")), state.quick_view_active),
-            " ───────────────────────────────── ".to_string(),
-            format!(" {:<25}Ctrl+F12", t("menu_sort_modes")),
-            m(format!(" {:<25}Ctrl+N ", t("menu_show_long_names")), state.right_panel.show_long_names),
-            m(format!(" {:<25}Ctrl+F2 ", t("menu_panel_on_off")), state.right_panel_visible),
-            format!(" {:<25}Ctrl+R ", t("menu_re_read")),
-            format!(" {:<25}Alt+F2 ", t("menu_change_drive")),
+            MenuItemData::new(t("menu_brief"), "Ctrl+1", state.right_panel.view_mode == PanelViewMode::Brief),
+            MenuItemData::new(t("menu_medium"), "Ctrl+2", state.right_panel.view_mode == PanelViewMode::Medium),
+            MenuItemData::new(t("menu_full"), "Ctrl+3", state.right_panel.view_mode == PanelViewMode::Full),
+            MenuItemData::new(t("menu_wide"), "Ctrl+4", state.right_panel.view_mode == PanelViewMode::Wide),
+            MenuItemData::new(t("menu_detailed"), "Ctrl+5", state.right_panel.view_mode == PanelViewMode::Detailed),
+            MenuItemData::new(t("menu_descriptions"), "Ctrl+6", state.right_panel.view_mode == PanelViewMode::Descriptions),
+            MenuItemData::new(t("menu_file_owners"), "Ctrl+7", state.right_panel.view_mode == PanelViewMode::FileOwners),
+            MenuItemData::new(t("menu_file_links"), "Ctrl+8", state.right_panel.view_mode == PanelViewMode::FileLinks),
+            MenuItemData::new(t("menu_alt_full"), "Ctrl+9", state.right_panel.view_mode == PanelViewMode::AltFull),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_info_panel"), "Ctrl+L", matches!(state.active_popup, Some(PopupType::InfoPanel { .. }))),
+            MenuItemData::new(t("menu_quick_view"), "Ctrl+Q", state.quick_view_active),
+            MenuItemData::separator(),
+            MenuItemData::new(t("menu_sort_modes"), "Ctrl+F12", false),
+            MenuItemData::new(t("menu_show_long_names"), "Ctrl+N", state.right_panel.show_long_names),
+            MenuItemData::new(t("menu_panel_on_off"), "Ctrl+F2", state.right_panel_visible),
+            MenuItemData::new(t("menu_re_read"), "Ctrl+R", false),
+            MenuItemData::new(t("menu_change_drive"), "Alt+F2", false),
         ],
         _ => vec![],
     }
@@ -169,7 +177,10 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
                 .fg(parse_color(&theme.panel_fg))
                 .add_modifier(Modifier::BOLD)
         };
-        spans.push(Span::styled(title.clone(), style));
+        
+        let hotkey_style = style.fg(ratatui::style::Color::Yellow);
+        let hotkey_spans = crate::ui::hotkey::render_hotkey_spans(title, style, hotkey_style);
+        spans.extend(hotkey_spans);
     }
 
     let menu_chunks = Layout::default()

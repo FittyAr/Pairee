@@ -125,6 +125,11 @@ pub fn render_menu_popup(
             active_menu_idx,
             active_item_idx,
         } => {
+            let active_item_idx = match active_item_idx {
+                Some(idx) => *idx,
+                None => return true, // Only top menu bar is active, no dropdown to render
+            };
+
             let items = crate::ui::menu::get_menu_items(*active_menu_idx, state);
             let dropdown_x = match active_menu_idx {
                 0 => 2,
@@ -142,8 +147,8 @@ pub fn render_menu_popup(
 
             let mut lines = Vec::new();
             for (i, item) in items.iter().enumerate() {
-                let is_cursor = i == *active_item_idx;
-                let style = if is_cursor {
+                let is_cursor = i == active_item_idx;
+                let base_style = if is_cursor {
                     Style::default()
                         .bg(parse_color(&theme.selection_bg))
                         .fg(parse_color(&theme.selection_fg))
@@ -151,7 +156,33 @@ pub fn render_menu_popup(
                 } else {
                     Style::default().fg(parse_color(&theme.popup_fg))
                 };
-                lines.push(Line::from(Span::styled(item.clone(), style)));
+
+                if item.is_separator {
+                    lines.push(Line::from(Span::styled(" ───────────────────────────────── ", base_style)));
+                    continue;
+                }
+
+                let hotkey_style = if is_cursor {
+                    base_style.fg(ratatui::style::Color::Yellow)
+                } else {
+                    base_style.fg(ratatui::style::Color::Yellow).add_modifier(Modifier::BOLD)
+                };
+
+                let mut line_spans = Vec::new();
+                let active_char = if item.active { "•" } else { " " };
+                line_spans.push(Span::styled(format!(" {} ", active_char), base_style));
+
+                let parsed = crate::ui::hotkey::parse_hotkey(&item.label);
+                let label_spans = crate::ui::hotkey::render_hotkey_spans(&item.label, base_style, hotkey_style);
+                line_spans.extend(label_spans);
+
+                let label_len = parsed.clean_text.chars().count();
+                let padding = 25usize.saturating_sub(label_len);
+                line_spans.push(Span::styled(" ".repeat(padding), base_style));
+
+                line_spans.push(Span::styled(format!("{:<7}", item.shortcut), base_style));
+
+                lines.push(Line::from(line_spans));
             }
 
             let paragraph = Paragraph::new(lines).block(

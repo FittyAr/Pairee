@@ -219,6 +219,28 @@ pub fn handle(
                 state.active_popup = None;
                 return Ok(None);
             }
+            KeyCode::Char(c) => {
+                let lower_c = c.to_ascii_lowercase();
+                let tab_titles = [
+                    crate::config::localization::t("tab_system"),
+                    crate::config::localization::t("tab_panel"),
+                    crate::config::localization::t("tab_interface"),
+                    crate::config::localization::t("tab_confirmations"),
+                    crate::config::localization::t("tab_plugins"),
+                    crate::config::localization::t("tab_editor"),
+                    crate::config::localization::t("tab_colors"),
+                ];
+                for (i, title) in tab_titles.iter().enumerate() {
+                    let parsed = crate::ui::hotkey::parse_hotkey(&title);
+                    if let Some(hotkey) = parsed.hotkey {
+                        if hotkey == lower_c {
+                            active_tab = i;
+                            cursor_idx = 0;
+                            break;
+                        }
+                    }
+                }
+            }
             _ => {}
         }
 

@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod fkeys;
 pub mod highlight;
+pub mod hotkey;
 pub mod layout;
 pub mod menu;
 pub mod panel;

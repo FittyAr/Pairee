@@ -72,36 +72,18 @@ pub fn render_config_dialog_popup(
             );
 
             let tab_titles = [
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_system")
-                ),
-                format!(" {} ", crate::config::localization::t("tab_panel")),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_interface")
-                ),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_confirmations")
-                ),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_plugins")
-                ),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_editor")
-                ),
-                format!(
-                    " {} ",
-                    crate::config::localization::t("tab_colors")
-                ),
+                crate::config::localization::t("tab_system"),
+                crate::config::localization::t("tab_panel"),
+                crate::config::localization::t("tab_interface"),
+                crate::config::localization::t("tab_confirmations"),
+                crate::config::localization::t("tab_plugins"),
+                crate::config::localization::t("tab_editor"),
+                crate::config::localization::t("tab_colors"),
             ];
             let mut tab_spans = Vec::new();
             for (i, title) in tab_titles.iter().enumerate() {
                 let is_active = i == *active_tab;
-                let style = if is_active {
+                let base_style = if is_active {
                     Style::default()
                         .bg(parse_color(&theme.selection_bg))
                         .fg(parse_color(&theme.selection_fg))
@@ -109,7 +91,16 @@ pub fn render_config_dialog_popup(
                 } else {
                     Style::default().fg(parse_color(&theme.popup_fg))
                 };
-                tab_spans.push(Span::styled(format!("  [{}]  ", title), style));
+                let hotkey_style = if is_active {
+                    base_style.fg(ratatui::style::Color::Yellow)
+                } else {
+                    base_style.fg(ratatui::style::Color::Yellow).add_modifier(Modifier::BOLD)
+                };
+
+                tab_spans.push(Span::styled("  [ ", base_style));
+                let text_spans = crate::ui::hotkey::render_hotkey_spans(title, base_style, hotkey_style);
+                tab_spans.extend(text_spans);
+                tab_spans.push(Span::styled(" ]", base_style));
             }
             f.render_widget(Paragraph::new(Line::from(tab_spans)), header_area);
 

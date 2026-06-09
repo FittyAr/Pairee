@@ -22,9 +22,14 @@ pub fn handle_ui_settings_action(
             if let Some(PopupType::Menu { .. }) = state.active_popup {
                 state.active_popup = None;
             } else {
+                let active_item_idx = if context.config.settings.auto_drop_menu {
+                    Some(0)
+                } else {
+                    None
+                };
                 state.active_popup = Some(PopupType::Menu {
                     active_menu_idx: 0,
-                    active_item_idx: 0,
+                    active_item_idx,
                 });
             }
             true

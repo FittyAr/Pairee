@@ -190,7 +190,7 @@ pub enum PopupType {
     UserMenu,
     Menu {
         active_menu_idx: usize,
-        active_item_idx: usize,
+        active_item_idx: Option<usize>,
     },
     ContextMenu {
         items: Vec<String>,
