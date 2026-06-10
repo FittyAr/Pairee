@@ -29,6 +29,14 @@ pub fn handle_ui_settings_action(
                             path = config_path;
                         }
                     }
+                    if !path.exists() {
+                        if let Some(share_dir) = crate::config::paths::get_system_share_dir() {
+                            let share_path = share_dir.join(path_str);
+                            if share_path.exists() {
+                                path = share_path;
+                            }
+                        }
+                    }
                 }
                 docs.push((title.to_string(), path));
             };

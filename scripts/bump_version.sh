@@ -56,12 +56,21 @@ if [[ ! "$new_version" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
-# 3. Update Cargo.toml
+# 3. Update Cargo.toml and installer.iss
 echo -e "Updating Cargo.toml to version ${YELLOW}$new_version${RESET}..."
 if [[ "$OSTYPE" == "darwin"* ]]; then
     sed -i '' -E '0,/^version = .*/{s/^version = .*/version = "'"$new_version"'"/;}' Cargo.toml
 else
     sed -i -E '0,/^version = .*/s/^version = .*/version = "'"$new_version"'"/' Cargo.toml
+fi
+
+if [[ -f "installer.iss" ]]; then
+    echo -e "Updating installer.iss to version ${YELLOW}$new_version${RESET}..."
+    if [[ "$OSTYPE" == "darwin"* ]]; then
+        sed -i '' -E 's/^#define AppVersion .*/#define AppVersion "'"$new_version"'"/' installer.iss
+    else
+        sed -i -E 's/^#define AppVersion .*/#define AppVersion "'"$new_version"'"/' installer.iss
+    fi
 fi
 
 # 4. Run cargo check to update Cargo.lock
@@ -79,20 +88,20 @@ if [[ -z "$branch" ]]; then
 fi
 
 echo -e "\n${YELLOW}Summary of actions to perform:${RESET}"
-echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock)"
+echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss)"
 echo -e "  - Create git tag v$new_version"
 echo -e "  - Push commit and tag to origin ($branch)"
 echo ""
 
 read -rp "Are you sure you want to commit, tag, and push? (y/n): " confirm
 if [[ "$confirm" != "y" && "$confirm" != "Y" ]]; then
-    echo -e "${YELLOW}Operation cancelled. Cargo.toml/Cargo.lock were updated but no Git changes were committed or pushed.${RESET}"
+    echo -e "${YELLOW}Operation cancelled. Cargo.toml/Cargo.lock/installer.iss were updated but no Git changes were committed or pushed.${RESET}"
     exit 0
 fi
 
 # Commit and tag
 echo -e "${YELLOW}Staging changes...${RESET}"
-git add Cargo.toml Cargo.lock
+git add Cargo.toml Cargo.lock installer.iss
 git commit -m "Bump version to v$new_version"
 
 echo -e "${YELLOW}Creating git tag v$new_version...${RESET}"

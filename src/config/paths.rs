@@ -61,3 +61,15 @@ pub fn get_themes_dir() -> PathBuf {
 pub fn get_log_file_path() -> PathBuf {
     get_cache_dir().join("app.log")
 }
+
+/// Returns the system-wide sharing directory for Unix installations (e.g. `/usr/share/pairee`).
+pub fn get_system_share_dir() -> Option<PathBuf> {
+    #[cfg(not(target_os = "windows"))]
+    {
+        let path = PathBuf::from("/usr/share/pairee");
+        if path.exists() {
+            return Some(path);
+        }
+    }
+    None
+}

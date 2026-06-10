@@ -57,10 +57,17 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         exit 1
     }
     
-    # 3. Update Cargo.toml
+    # 3. Update Cargo.toml and installer.iss
     Write-Host "Updating Cargo.toml to version $newVersion..." -ForegroundColor Yellow
     $newCargoToml = [regex]::Replace($cargoToml, '(?m)^version\s*=\s*"[^"]+"', "version = `"$newVersion`"")
     Set-Content -Path Cargo.toml -Value $newCargoToml
+    
+    if (Test-Path "installer.iss") {
+        Write-Host "Updating installer.iss to version $newVersion..." -ForegroundColor Yellow
+        $issContent = Get-Content -Raw -Path installer.iss
+        $newIssContent = [regex]::Replace($issContent, '(?m)^#define\s+AppVersion\s+"[^"]+"', "#define AppVersion `"$newVersion`"")
+        Set-Content -Path installer.iss -Value $newIssContent
+    }
     
     # 4. Run cargo check to update Cargo.lock
     Write-Host "Running cargo check to update Cargo.lock..." -ForegroundColor Yellow
@@ -80,20 +87,20 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     
     Write-Host ""
     Write-Host "Summary of actions to perform:" -ForegroundColor Yellow
-    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock)"
+    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss)"
     Write-Host "  - Create git tag v$newVersion"
     Write-Host "  - Push commit and tag to origin ($branch)"
     Write-Host ""
     
     $confirm = Read-Host "Are you sure you want to commit, tag, and push? (y/n)"
     if ($confirm -ne 'y' -and $confirm -ne 'Y') {
-        Write-Host "Operation cancelled. Cargo.toml/Cargo.lock were updated but no Git changes were committed or pushed." -ForegroundColor Yellow
+        Write-Host "Operation cancelled. Cargo.toml/Cargo.lock/installer.iss were updated but no Git changes were committed or pushed." -ForegroundColor Yellow
         exit 0
     }
     
     # Commit and tag
     Write-Host "Staging changes..." -ForegroundColor Yellow
-    git add Cargo.toml Cargo.lock
+    git add Cargo.toml Cargo.lock installer.iss
     git commit -m "Bump version to v$newVersion"
     
     Write-Host "Creating git tag v$newVersion..." -ForegroundColor Yellow
