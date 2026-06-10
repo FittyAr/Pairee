@@ -1,4 +1,6 @@
 @echo off
+set GIT_DIR=
+set GIT_WORK_TREE=
 title Pairee Development & Test Shell
 cls
 
@@ -18,10 +20,10 @@ set "PATH=%PATH%;%USERPROFILE%\.cargo\bin"
 :postcargo
 
 :: Locate git and cargo directories to preserve them in cleaned PATH
-set "GIT_DIR="
-for /f "delims=" %%i in ('where git 2^>nul') do set "GIT_DIR=%%~dpi"
-set "CARGO_DIR="
-for /f "delims=" %%i in ('where cargo 2^>nul') do set "CARGO_DIR=%%~dpi"
+set "GIT_BIN_DIR="
+for /f "delims=" %%i in ('where git 2^>nul') do set "GIT_BIN_DIR=%%~dpi"
+set "CARGO_BIN_DIR="
+for /f "delims=" %%i in ('where cargo 2^>nul') do set "CARGO_BIN_DIR=%%~dpi"
 
 :: 2. Locate Visual Studio 2022 / 18 Build Tools or Community variables
 set "VCVARS_PATH="
@@ -34,8 +36,8 @@ if "%VCVARS_PATH%"=="" goto novcvars
 echo [INFO] Loading VS environment: %VCVARS_PATH%
 :: Clean up PATH temporarily to avoid "input line too long" error during VCVARS execution, but preserve git/cargo
 set "PATH=C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\"
-if not "%CARGO_DIR%"=="" set "PATH=%PATH%;%CARGO_DIR%"
-if not "%GIT_DIR%"=="" set "PATH=%PATH%;%GIT_DIR%"
+if not "%CARGO_BIN_DIR%"=="" set "PATH=%PATH%;%CARGO_BIN_DIR%"
+if not "%GIT_BIN_DIR%"=="" set "PATH=%PATH%;%GIT_BIN_DIR%"
 call "%VCVARS_PATH%" x64 >nul
 goto postvcvars
 
