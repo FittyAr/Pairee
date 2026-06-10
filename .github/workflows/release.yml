@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build (${{ matrix.target }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - x86_64-unknown-linux-gnu
+          - x86_64-unknown-linux-musl
+          - x86_64-pc-windows-msvc
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            use-musl: true
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install musl-tools
+        if: matrix.use-musl
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y musl-tools
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ matrix.target }}
+
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
+
+      - name: Package release assets
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME:-latest}"
+          PKG_NAME="ncrust-${VERSION}-${{ matrix.target }}"
+          mkdir -p "$PKG_NAME"
+          
+          # Copy resources
+          cp -r lang help README.md LICENSE "$PKG_NAME/"
+
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            cp "target/${{ matrix.target }}/release/ncrust.exe" "$PKG_NAME/"
+            zip -r "${PKG_NAME}.zip" "$PKG_NAME"
+            echo "ASSET_PATH=${PKG_NAME}.zip" >> $GITHUB_ENV
+          else
+            cp "target/${{ matrix.target }}/release/ncrust" "$PKG_NAME/"
+            tar -czf "${PKG_NAME}.tar.gz" "$PKG_NAME"
+            echo "ASSET_PATH=${PKG_NAME}.tar.gz" >> $GITHUB_ENV
+          fi
+
+      - name: Create / Update GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: ${{ env.ASSET_PATH }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

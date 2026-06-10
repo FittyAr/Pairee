@@ -25,6 +25,8 @@ Un gestor de archivos para terminal moderno, multiplataforma y altamente modular
 NCRust/
 ├── Cargo.toml                     # Configuración de Cargo
 ├── agents.md                      # Directrices para desarrolladores de IA
+├── install.sh                     # Script de instalación para Linux (compatible con curl)
+├── install.ps1                    # Script de instalación para Windows (compatible con PowerShell)
 ├── LICENSE                        # Licencia MIT
 ├── README.md                      # Índice de documentación en inglés
 ├── README.es.md                   # Índice de documentación en español (Este archivo)
@@ -51,10 +53,26 @@ NCRust/
 
 ## 🛠️ Inicio Rápido
 
-### Prerrequisitos
+### Instalación (Instaladores Rápidos)
+
+NCRust ofrece binarios precompilados de forma automática mediante GitHub Actions (compatibles con Windows MSVC, Linux GNU y Linux MUSL estático). Puedes instalarlos al instante desde tu terminal:
+
+* **Linux (enlace estático, ejecutable independiente):**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/FittyAr/NCRust/main/install.sh | sh
+  ```
+* **Windows (PowerShell):**
+  Ejecuta el siguiente comando dentro de PowerShell:
+  ```powershell
+  irm https://raw.githubusercontent.com/FittyAr/NCRust/main/install.ps1 | iex
+  ```
+
+### Compilar desde el Código Fuente
+
+#### Prerrequisitos
 Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install).
 
-### Compilar y Ejecutar
+#### Compilar y Ejecutar
 ```bash
 # Clonar el repositorio
 git clone https://github.com/FittyAr/NCRust.git

@@ -13,6 +13,10 @@ mod ui;
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    // Install the rustls ring crypto provider for reqwest on non-Windows platforms
+    #[cfg(not(target_os = "windows"))]
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
     // 0. Check if we need to spawn a standalone terminal window
     if terminal::standalone::check_and_launch_standalone().unwrap_or(false) {
         return Ok(());

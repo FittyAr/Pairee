@@ -96,7 +96,7 @@ mod tests {
         let rules = default_highlight_rules();
         let entry = make_entry("main.rs", false);
         let style = style_for_entry(&entry, &rules, Style::default());
-        assert_eq!(style.fg, Some(Color::Green));
+        assert_eq!(style.fg, Some(Color::LightGreen));
     }
 
     #[test]

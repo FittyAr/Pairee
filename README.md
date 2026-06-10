@@ -25,6 +25,8 @@ A modern, highly modular, cross-platform terminal file manager inspired by the c
 NCRust/
 ├── Cargo.toml                     # Cargo configuration
 ├── agents.md                      # AI Developer Guidelines
+├── install.sh                     # Linux installer script (curl-compatible)
+├── install.ps1                    # Windows installer script (PowerShell-compatible)
 ├── LICENSE                        # MIT License
 ├── README.md                      # English documentation index (This file)
 ├── README.es.md                   # Spanish documentation index
@@ -51,10 +53,26 @@ NCRust/
 
 ## 🛠️ Quick Start
 
-### Prerequisites
+### Installation (Quick Installers)
+
+NCRust provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
+
+* **Linux (statically linked, standalone binary):**
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/FittyAr/NCRust/main/install.sh | sh
+  ```
+* **Windows (PowerShell):**
+  Run the following command inside PowerShell:
+  ```powershell
+  irm https://raw.githubusercontent.com/FittyAr/NCRust/main/install.ps1 | iex
+  ```
+
+### Build from Source
+
+#### Prerequisites
 Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
 
-### Build and Run
+#### Build and Run
 ```bash
 # Clone the repository
 git clone https://github.com/FittyAr/NCRust.git

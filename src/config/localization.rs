@@ -168,6 +168,6 @@ mod tests {
         }
 
         assert_eq!(t("tab_system"), "TestSystem");
-        assert_eq!(t("tab_panel"), "Panel"); // fallback to central English
+        assert_eq!(t("tab_panel"), "&Panel"); // fallback to central English
     }
 }

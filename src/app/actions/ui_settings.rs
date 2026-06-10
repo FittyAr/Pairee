@@ -23,6 +23,12 @@ pub fn handle_ui_settings_action(
                             }
                         }
                     }
+                    if !path.exists() {
+                        let config_path = crate::config::paths::get_config_dir().join(path_str);
+                        if config_path.exists() {
+                            path = config_path;
+                        }
+                    }
                 }
                 docs.push((title.to_string(), path));
             };
