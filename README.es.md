@@ -28,11 +28,13 @@ NCRust/
 ├── LICENSE                        # Licencia MIT
 ├── README.md                      # Índice de documentación en inglés
 ├── README.es.md                   # Índice de documentación en español (Este archivo)
-├── docs/                          # Manuales y referencias detalladas
-│   ├── features_en.md             # Manual detallado de características (Inglés)
-│   ├── features_es.md             # Manual detallado de características (Español)
-│   ├── architecture_en.md         # Arquitectura y diseño del código (Inglés)
-│   ├── architecture_es.md         # Arquitectura y diseño del código (Español)
+├── docs/                          # Documentación para desarrolladores
+│   └── technical/
+│       ├── architecture_en.md     # Arquitectura y diseño del código (Inglés)
+│       └── architecture_es.md     # Arquitectura y diseño del código (Español)
+├── help/                          # Documentación de ayuda al usuario (cargada por F1)
+│   ├── features_en.md             # Manual de características (Inglés)
+│   ├── features_es.md             # Manual de características (Español)
 │   ├── user_guide_en.md           # Guía de configuración y personalización (Inglés)
 │   └── user_guide_es.md           # Guía de configuración y personalización (Español)
 └── src/                           # Código fuente
@@ -87,9 +89,9 @@ Para manuales detallados, principios de diseño y opciones de configuración, co
 
 | Tema | Inglés | Español |
 | :--- | :--- | :--- |
-| **Referencia de Funciones** | [Features Manual](docs/features_en.md) | [Manual de Funciones](docs/features_es.md) |
-| **Arquitectura del Sistema** | [Architecture Guide](docs/architecture_en.md) | [Guía de Arquitectura](docs/architecture_es.md) |
-| **Configuración y Opciones** | [User Guide](docs/user_guide_en.md) | [Guía de Usuario](docs/user_guide_es.md) |
+| **Referencia de Funciones** | [Features Manual](help/features_en.md) | [Manual de Funciones](help/features_es.md) |
+| **Arquitectura del Sistema** | [Architecture Guide](docs/technical/architecture_en.md) | [Guía de Arquitectura](docs/technical/architecture_es.md) |
+| **Configuración y Opciones** | [User Guide](help/user_guide_en.md) | [Guía de Usuario](help/user_guide_es.md) |
 
 ---
 

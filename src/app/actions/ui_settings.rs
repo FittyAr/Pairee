@@ -11,7 +11,42 @@ pub fn handle_ui_settings_action(
 ) -> bool {
     match action {
         Action::Help => {
-            state.active_popup = Some(PopupType::Help);
+            let mut docs = Vec::new();
+            let mut add_doc = |title: &str, path_str: &str| {
+                let mut path = std::path::PathBuf::from(path_str);
+                if !path.exists() {
+                    if let Ok(exe) = std::env::current_exe() {
+                        if let Some(parent) = exe.parent() {
+                            let alt_path = parent.join(path_str);
+                            if alt_path.exists() {
+                                path = alt_path;
+                            }
+                        }
+                    }
+                }
+                docs.push((title.to_string(), path));
+            };
+
+            let is_spanish = context.config.settings.language.to_lowercase().contains("es")
+                || context.config.settings.language.to_lowercase().contains("spanish");
+
+            if is_spanish {
+                add_doc("Manual de Funciones", "help/features_es.md");
+                add_doc("Guía de Usuario", "help/user_guide_es.md");
+                add_doc("Guía de Arquitectura", "docs/technical/architecture_es.md");
+            } else {
+                add_doc("Features Reference", "help/features_en.md");
+                add_doc("User Guide", "help/user_guide_en.md");
+                add_doc("Technical Architecture", "docs/technical/architecture_en.md");
+            }
+
+            state.active_popup = Some(PopupType::Help {
+                mode: 0,
+                docs,
+                cursor_idx: 0,
+                scroll_y: 0,
+                active_content: None,
+            });
             true
         }
         Action::UserMenu => {

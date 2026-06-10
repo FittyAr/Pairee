@@ -12,7 +12,7 @@ pub fn handle(
     if let Some(p) = popup {
         match p {
             PopupType::Error(_)
-            | PopupType::Help
+            | PopupType::Help { .. }
             | PopupType::Info(_)
             | PopupType::InfoPanel { .. }
             | PopupType::SortModesDialog { .. }

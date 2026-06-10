@@ -28,11 +28,13 @@ NCRust/
 ├── LICENSE                        # MIT License
 ├── README.md                      # English documentation index (This file)
 ├── README.es.md                   # Spanish documentation index
-├── docs/                          # Detailed manuals and references
+├── docs/                          # Developer documentation
+│   └── technical/
+│       ├── architecture_en.md     # Architecture & codebase design (English)
+│       └── architecture_es.md     # Architecture & codebase design (Spanish)
+├── help/                          # User help documentation (loaded in-app via F1)
 │   ├── features_en.md             # In-depth feature manual (English)
 │   ├── features_es.md             # In-depth feature manual (Spanish)
-│   ├── architecture_en.md         # Architecture and codebase design (English)
-│   ├── architecture_es.md         # Architecture and codebase design (Spanish)
 │   ├── user_guide_en.md           # Configuration & customization guide (English)
 │   └── user_guide_es.md           # Configuration & customization guide (Spanish)
 └── src/                           # Source code
@@ -87,9 +89,9 @@ For deep-dive instructions, design principles, and config options, refer to the 
 
 | Topic | English | Español |
 | :--- | :--- | :--- |
-| **Full Features Reference** | [Features Manual](docs/features_en.md) | [Manual de Funciones](docs/features_es.md) |
-| **System Architecture** | [Architecture Guide](docs/architecture_en.md) | [Guía de Arquitectura](docs/architecture_es.md) |
-| **Configuration & Options** | [User Guide](docs/user_guide_en.md) | [Guía de Usuario](docs/user_guide_es.md) |
+| **Full Features Reference** | [Features Manual](help/features_en.md) | [Manual de Funciones](help/features_es.md) |
+| **System Architecture** | [Architecture Guide](docs/technical/architecture_en.md) | [Guía de Arquitectura](docs/technical/architecture_es.md) |
+| **Configuration & Options** | [User Guide](help/user_guide_en.md) | [Guía de Usuario](help/user_guide_es.md) |
 
 ---
 

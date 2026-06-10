@@ -28,8 +28,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char('4') => {
-                state.active_popup = Some(PopupType::Help);
-                return Ok(None);
+                return Ok(Some(Action::Help));
             }
             KeyCode::Char('5') | KeyCode::Esc => {
                 state.active_popup = None;

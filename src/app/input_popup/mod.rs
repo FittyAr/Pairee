@@ -11,6 +11,7 @@ pub mod create_link;
 pub mod delete;
 pub mod describe_file;
 pub mod dismiss_only;
+pub mod help;
 pub mod drive_select;
 pub mod editor;
 pub mod file_attributes;
@@ -44,6 +45,7 @@ pub fn handle_popup_input(
     let popup = state.active_popup.clone();
     if let Some(p) = popup {
         match p {
+            PopupType::Help { .. } => help::handle(state, key, context),
             PopupType::MkDirPrompt { .. } => mkdir::handle(state, key, context),
             PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
             PopupType::ConfirmQuit

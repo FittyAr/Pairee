@@ -136,7 +136,13 @@ pub enum Screen {
 #[derive(Debug, Clone)]
 pub enum PopupType {
     // ── Basic ────────────────────────────────────────────────────────────────
-    Help,
+    Help {
+        mode: usize,
+        docs: Vec<(String, PathBuf)>,
+        cursor_idx: usize,
+        scroll_y: usize,
+        active_content: Option<String>,
+    },
     Error(String),
     /// Neutral informational dialog (not an error).
     Info(String),

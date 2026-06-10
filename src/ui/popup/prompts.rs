@@ -5,8 +5,8 @@ use crate::config::localization::t;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    widgets::{Block, Borders, Clear, Gauge, Paragraph, Row, Table, Cell},
+    style::{Color, Style},
+    widgets::{Block, Borders, Clear, Gauge, Paragraph, List, ListItem},
 };
 
 pub fn render_prompt_popup(
@@ -16,43 +16,77 @@ pub fn render_prompt_popup(
     size: Rect,
 ) -> bool {
     match popup {
-        PopupType::Help => {
-            let area = centered_rect(60, 50, size);
+        PopupType::Help {
+            mode,
+            docs,
+            cursor_idx,
+            scroll_y,
+            active_content,
+        } => {
+            let area = centered_rect(80, 80, size);
             f.render_widget(Clear, area);
 
-            let title = format!(" {} ", t("prompt_help_title").trim());
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(title)
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            use ratatui::text::Span;
 
-            let help_rows = vec![
-                Row::new(vec![Cell::from(t("key_tab")), Cell::from(t("desc_tab"))]),
-                Row::new(vec![Cell::from(t("key_insert")), Cell::from(t("desc_insert"))]),
-                Row::new(vec![Cell::from(t("key_f3")), Cell::from(t("desc_f3"))]),
-                Row::new(vec![Cell::from(t("key_f4")), Cell::from(t("desc_f4"))]),
-                Row::new(vec![Cell::from(t("key_f5")), Cell::from(t("desc_f5"))]),
-                Row::new(vec![Cell::from(t("key_f6")), Cell::from(t("desc_f6"))]),
-                Row::new(vec![Cell::from(t("key_f7")), Cell::from(t("desc_f7"))]),
-                Row::new(vec![Cell::from(t("key_f8")), Cell::from(t("desc_f8"))]),
-                Row::new(vec![Cell::from(t("key_ctrl_h")), Cell::from(t("desc_ctrl_h"))]),
-                Row::new(vec![Cell::from(t("key_ctrl_u")), Cell::from(t("desc_ctrl_u"))]),
-                Row::new(vec![Cell::from(t("key_f10")), Cell::from(t("desc_f10"))]),
-                Row::new(vec![Cell::from(t("key_esc")), Cell::from(t("desc_esc"))]),
-            ];
+            if *mode == 0 {
+                let title = format!(" {} ", t("prompt_help_title").trim());
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                    .title(title)
+                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let table = Table::new(
-                help_rows,
-                [Constraint::Percentage(40), Constraint::Percentage(60)],
-            )
-            .block(block)
-            .header(
-                Row::new(vec![Cell::from(t("col_key")), Cell::from(t("col_description"))])
-                    .style(Style::default().add_modifier(Modifier::BOLD)),
-            );
+                let mut list_items = Vec::new();
+                for (i, (doc_title, _)) in docs.iter().enumerate() {
+                    let style = if i == *cursor_idx {
+                        Style::default().bg(Color::Cyan).fg(Color::Black)
+                    } else {
+                        Style::default().fg(parse_color(&theme.popup_fg))
+                    };
+                    list_items.push(ListItem::new(ratatui::text::Line::from(vec![Span::styled(format!("  {}  ", doc_title), style)])));
+                }
 
-            f.render_widget(table, area);
+                let list = List::new(list_items)
+                    .block(block)
+                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                
+                f.render_widget(list, area);
+
+                let hint_area = Rect {
+                    x: area.x + 2,
+                    y: area.y + area.height - 2,
+                    width: area.width.saturating_sub(4),
+                    height: 1,
+                };
+                let hint_text = " [Up/Down] Navigate  [Enter] Open Document  [Esc] Close ";
+                f.render_widget(Paragraph::new(hint_text).alignment(ratatui::layout::Alignment::Center).style(Style::default().fg(Color::DarkGray)), hint_area);
+            } else if let Some(content) = active_content {
+                let doc_title = docs.get(*cursor_idx).map(|(t, _)| t.as_str()).unwrap_or(" Documentation ");
+                let block = Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                    .title(format!(" {} ", doc_title))
+                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+                let parsed_lines = parse_markdown_to_lines(content);
+
+                let paragraph = Paragraph::new(parsed_lines)
+                    .block(block)
+                    .wrap(ratatui::widgets::Wrap { trim: false })
+                    .scroll((*scroll_y as u16, 0))
+                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+                f.render_widget(paragraph, area);
+
+                let hint_area = Rect {
+                    x: area.x + 2,
+                    y: area.y + area.height - 2,
+                    width: area.width.saturating_sub(4),
+                    height: 1,
+                };
+                let hint_text = " [Up/Down/PgUp/PgDn] Scroll  [Esc/Backspace] Back to Menu ";
+                f.render_widget(Paragraph::new(hint_text).alignment(ratatui::layout::Alignment::Center).style(Style::default().fg(Color::DarkGray)), hint_area);
+            }
             true
         }
         PopupType::MkDirPrompt { input, cursor_idx, process_multiple } => {
@@ -805,3 +839,115 @@ pub fn render_prompt_popup(
         _ => false,
     }
 }
+
+fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
+    use pulldown_cmark::{Parser, Event, Tag, HeadingLevel, TagEnd};
+    use ratatui::style::{Style, Color, Modifier};
+    use ratatui::text::{Span, Line};
+
+    let parser = Parser::new(text);
+    let mut lines = Vec::new();
+    let mut current_spans = Vec::new();
+
+    let mut bold = false;
+    let mut italic = false;
+    let code = false;
+    let mut link = false;
+
+    for event in parser {
+        match event {
+            Event::Start(tag) => match tag {
+                Tag::Heading { level, .. } => {
+                    if !current_spans.is_empty() {
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                    if !lines.is_empty() {
+                        lines.push(Line::from(""));
+                    }
+                    
+                    let prefix = match level {
+                        HeadingLevel::H1 => "# ",
+                        HeadingLevel::H2 => "## ",
+                        HeadingLevel::H3 => "### ",
+                        _ => "#### ",
+                    };
+                    current_spans.push(Span::styled(prefix, Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)));
+                }
+                Tag::Paragraph => {
+                    if !current_spans.is_empty() {
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                }
+                Tag::Emphasis => italic = true,
+                Tag::Strong => bold = true,
+                Tag::Link { .. } => link = true,
+                Tag::Item => {
+                    if !current_spans.is_empty() {
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                    current_spans.push(Span::styled("• ", Style::default().fg(Color::Cyan)));
+                }
+                _ => {}
+            }
+            Event::End(tag) => match tag {
+                TagEnd::Heading(_) => {
+                    if !current_spans.is_empty() {
+                        for span in &mut current_spans {
+                            span.style = span.style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
+                        }
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                    lines.push(Line::from(""));
+                }
+                TagEnd::Paragraph => {
+                    if !current_spans.is_empty() {
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                    lines.push(Line::from(""));
+                }
+                TagEnd::Emphasis => italic = false,
+                TagEnd::Strong => bold = false,
+                TagEnd::Link => link = false,
+                TagEnd::Item => {
+                    if !current_spans.is_empty() {
+                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                    }
+                }
+                _ => {}
+            }
+            Event::Text(t) => {
+                let mut style = Style::default();
+                if bold {
+                    style = style.add_modifier(Modifier::BOLD);
+                }
+                if italic {
+                    style = style.add_modifier(Modifier::ITALIC);
+                }
+                if code {
+                    style = style.fg(Color::Magenta);
+                } else if link {
+                    style = style.fg(Color::Blue).add_modifier(Modifier::UNDERLINED);
+                } else {
+                    style = style.fg(Color::White);
+                }
+                current_spans.push(Span::styled(t.into_string(), style));
+            }
+            Event::Code(c) => {
+                current_spans.push(Span::styled(format!(" `{}` ", c), Style::default().fg(Color::Magenta)));
+            }
+            Event::SoftBreak | Event::HardBreak => {
+                if !current_spans.is_empty() {
+                    lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                }
+            }
+            _ => {}
+        }
+    }
+
+    if !current_spans.is_empty() {
+        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+    }
+
+    lines
+}
+
