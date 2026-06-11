@@ -27,6 +27,8 @@ pub struct ViewerState {
     pub raw: Vec<u8>,
     /// Loaded image data if applicable.
     pub image_data: Option<image::DynamicImage>,
+    pub is_image: bool,
+    pub is_text: bool,
     pub mode: ViewerMode,
     /// Vertical scroll offset (line, hex row index, or image character row).
     pub scroll: usize,
@@ -62,7 +64,6 @@ impl ViewerState {
 
         let mut image_data = None;
         let mut mode = ViewerMode::Hex;
-        let mut lines = Vec::new();
 
         if is_image_ext {
             if let Ok(img) = image::open(&path) {
@@ -71,15 +72,27 @@ impl ViewerState {
             }
         }
 
-        if image_data.is_none() {
-            match std::str::from_utf8(&raw) {
-                Ok(text) => {
-                    lines = text.lines().map(|l| l.to_string()).collect();
-                    mode = ViewerMode::Text;
-                }
-                Err(_) => {
-                    mode = ViewerMode::Hex;
-                }
+        let is_image = image_data.is_some();
+        let is_text = std::str::from_utf8(&raw).is_ok();
+
+        let lines = if is_text {
+            std::str::from_utf8(&raw)
+                .unwrap_or_default()
+                .lines()
+                .map(|l| l.to_string())
+                .collect()
+        } else {
+            String::from_utf8_lossy(&raw)
+                .lines()
+                .map(|l| l.to_string())
+                .collect()
+        };
+
+        if !is_image {
+            if is_text {
+                mode = ViewerMode::Text;
+            } else {
+                mode = ViewerMode::Hex;
             }
         }
 
@@ -88,6 +101,8 @@ impl ViewerState {
             lines,
             raw,
             image_data,
+            is_image,
+            is_text,
             mode,
             scroll: 0,
             last_search: None,
@@ -95,17 +110,26 @@ impl ViewerState {
     }
 
     pub fn toggle_mode(&mut self) {
-        self.mode = match self.mode {
-            ViewerMode::Text => {
-                if self.image_data.is_some() {
-                    ViewerMode::Image
-                } else {
-                    ViewerMode::Hex
-                }
-            }
-            ViewerMode::Hex => ViewerMode::Text,
-            ViewerMode::Image => ViewerMode::Hex,
-        };
+        if self.is_image && !self.is_text {
+            // Image files switch between Image and Hex
+            self.mode = match self.mode {
+                ViewerMode::Image => ViewerMode::Hex,
+                _ => ViewerMode::Image,
+            };
+        } else if self.is_text && !self.is_image {
+            // Text/code files switch between Text and Hex
+            self.mode = match self.mode {
+                ViewerMode::Text => ViewerMode::Hex,
+                _ => ViewerMode::Text,
+            };
+        } else {
+            // Unfiltered / other files switch between all 3 modes
+            self.mode = match self.mode {
+                ViewerMode::Text => ViewerMode::Hex,
+                ViewerMode::Hex => ViewerMode::Image,
+                ViewerMode::Image => ViewerMode::Text,
+            };
+        }
         self.scroll = 0;
     }
 

@@ -86,6 +86,8 @@ pub enum Action {
     UserMenu,
     /// View file content (F3)
     View,
+    /// View file content alternative (Alt+F3)
+    ViewAlt,
     /// Edit file (F4)
     Edit,
     /// Copy selected items to the other panel (F5)

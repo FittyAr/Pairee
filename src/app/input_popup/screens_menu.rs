@@ -59,6 +59,8 @@ pub fn handle(
                                     lines,
                                     raw,
                                     image_data: None,
+                                    is_image: false,
+                                    is_text: true,
                                     mode: crate::ui::viewer::ViewerMode::Text,
                                     scroll: 0,
                                     last_search: None,

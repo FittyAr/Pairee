@@ -24,7 +24,7 @@ pub fn handle_fs_action(
     terminal_backend: &mut TerminalBackend,
 ) -> bool {
     match action {
-        Action::View => {
+        Action::View | Action::ViewAlt => {
             let active = state.get_active_panel();
             if let Some(entry) = active
                 .entries
@@ -40,18 +40,34 @@ pub fn handle_fs_action(
                     .cloned();
 
                 let mut ran_external = false;
-                if let Some(ref r) = rule {
-                    let cmd = r.resolve_view_cmd(&path);
-                    if command_exists(&cmd) {
-                        ran_external = true;
-                        if let Err(e) = super::exec::execute_external_command(
-                            &path,
-                            &cmd,
-                            context,
-                            terminal_backend,
-                        ) {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Failed to run viewer: {}", e)));
+
+                // Decide whether we want to use the external command.
+                // If viewer_use_external is true:
+                //   F3 (Action::View) uses external command.
+                //   Alt+F3 (Action::ViewAlt) uses internal viewer.
+                // If viewer_use_external is false (default):
+                //   F3 (Action::View) uses internal viewer.
+                //   Alt+F3 (Action::ViewAlt) uses external command.
+                let use_external = match action {
+                    Action::View => context.config.settings.viewer_use_external,
+                    Action::ViewAlt => !context.config.settings.viewer_use_external,
+                    _ => false,
+                };
+
+                if use_external {
+                    if let Some(ref r) = rule {
+                        let cmd = r.resolve_view_cmd(&path);
+                        if command_exists(&cmd) {
+                            ran_external = true;
+                            if let Err(e) = super::exec::execute_external_command(
+                                &path,
+                                &cmd,
+                                context,
+                                terminal_backend,
+                            ) {
+                                state.active_popup =
+                                    Some(PopupType::Error(format!("Failed to run viewer: {}", e)));
+                            }
                         }
                     }
                 }

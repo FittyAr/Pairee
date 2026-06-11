@@ -135,6 +135,7 @@ fn parse_action_name(name: &str) -> Option<Action> {
         "help" => Some(Action::Help),
         "user_menu" => Some(Action::UserMenu),
         "view" => Some(Action::View),
+        "view_alt" => Some(Action::ViewAlt),
         "edit" => Some(Action::Edit),
         "copy" => Some(Action::Copy),
         "move" => Some(Action::Move),

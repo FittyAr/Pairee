@@ -118,7 +118,7 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     // ── Alt+F actions ────────────────────────────────────────────────────────
     map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
     map.insert("Alt+F2".to_string(), Action::DriveSelectRight);
-    map.insert("Alt+F3".to_string(), Action::View);
+    map.insert("Alt+F3".to_string(), Action::ViewAlt);
     map.insert("Alt+F4".to_string(), Action::Edit);
     map.insert("Alt+F5".to_string(), Action::PrintFile);
     map.insert("Alt+F6".to_string(), Action::CreateLink);
