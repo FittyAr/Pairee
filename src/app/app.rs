@@ -150,7 +150,6 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                             .await?;
                     }
                 }
-                #[cfg(windows)]
                 Event::ModifiersChanged(modifiers) => {
                     state.current_modifiers = modifiers;
                 }

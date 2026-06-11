@@ -11,8 +11,7 @@ pub enum Event {
     Mouse(MouseEvent),
     /// Terminal window resized
     Resize(u16, u16),
-    /// Modifier state changed (poll on tick for Windows compatibility)
-    #[cfg(windows)]
+    /// Modifier state changed (poll on tick)
     ModifiersChanged(crossterm::event::KeyModifiers),
     /// Periodic tick event for UI updates
     Tick,
@@ -28,9 +27,7 @@ impl EventHandler {
         let (sender, receiver) = mpsc::channel(100);
 
         std::thread::spawn(move || {
-            #[cfg(windows)]
             let mut last_modifiers = crossterm::event::KeyModifiers::empty();
-            #[cfg(windows)]
             let mut has_focus = true;
 
             loop {
@@ -41,20 +38,14 @@ impl EventHandler {
                         #[allow(clippy::collapsible_match)]
                         match event::read() {
                             Ok(CrossEvent::FocusGained) => {
-                                #[cfg(windows)]
-                                {
-                                    has_focus = true;
-                                }
+                                has_focus = true;
                             }
                             Ok(CrossEvent::FocusLost) => {
-                                #[cfg(windows)]
-                                {
-                                    has_focus = false;
-                                    if !last_modifiers.is_empty() {
-                                        last_modifiers = crossterm::event::KeyModifiers::empty();
-                                        let _ = sender
-                                            .blocking_send(Event::ModifiersChanged(last_modifiers));
-                                    }
+                                has_focus = false;
+                                if !last_modifiers.is_empty() {
+                                    last_modifiers = crossterm::event::KeyModifiers::empty();
+                                    let _ = sender
+                                        .blocking_send(Event::ModifiersChanged(last_modifiers));
                                 }
                             }
                             Ok(CrossEvent::Key(key)) => {
@@ -76,7 +67,7 @@ impl EventHandler {
                         }
                     }
                     Ok(false) => {
-                        // Timeout reached, check modifiers if on Windows, then send Tick event
+                        // Timeout reached, check modifiers then send Tick event
                         #[cfg(windows)]
                         {
                             if has_focus {
@@ -98,6 +89,20 @@ impl EventHandler {
                                         current_modifiers |= KeyModifiers::SHIFT;
                                     }
 
+                                    if current_modifiers != last_modifiers {
+                                        last_modifiers = current_modifiers;
+                                        let _ = sender.blocking_send(Event::ModifiersChanged(
+                                            current_modifiers,
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+
+                        #[cfg(target_os = "linux")]
+                        {
+                            if has_focus {
+                                if let Some(current_modifiers) = super::x11_poll::get_x11_modifiers() {
                                     if current_modifiers != last_modifiers {
                                         last_modifiers = current_modifiers;
                                         let _ = sender.blocking_send(Event::ModifiersChanged(
