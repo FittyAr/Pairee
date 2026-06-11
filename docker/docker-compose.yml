@@ -1,0 +1,14 @@
+services:
+  pairee-ssh-test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pairee-ssh-test
+    ports:
+      - "2222:22"
+    volumes:
+      - ../:/workspace
+    environment:
+      # Isolate Linux build outputs to prevent target collision/file locking with Windows host builds
+      - CARGO_TARGET_DIR=/workspace/target-linux
+    restart: unless-stopped

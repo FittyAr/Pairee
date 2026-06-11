@@ -152,3 +152,58 @@ background = "Blue"          # Top menu background
 selected = "White"            # Selected item text color
 ```
 Supported colors: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White`, `Gray`, `DarkGray`, `Reset`, or custom hexadecimal numbers (`#RRGGBB`).
+
+---
+
+## 🌐 5. Using Pairee over SSH & Modifier Keys (Ctrl / Alt)
+
+When using **Pairee** remotely over SSH, you may notice that holding down `Ctrl` or `Alt` does not automatically update the bottom F-keys bar. This is a fundamental limitation of standard terminals and the SSH protocol, which only transmit bytes when a complete key combination is pressed (they do not send events when modifier keys are pressed or released alone).
+
+To resolve this limitation, we have implemented several options to ensure you can still easily inspect and run these key combinations:
+
+### 1. Manual Modifier Cycling (No Third-Party Apps Required)
+Inside **Pairee**, you can press **`Ctrl+p`** (or `Ctrl+P`) to cycle the bottom F-key bar states manually:
+* **First Press**: Locks the bottom bar to show `CONTROL` functions (e.g. F3: Name, F4: Extension).
+* **Second Press**: Locks the bottom bar to show `ALT` functions (e.g. F3: View, F4: Edit).
+* **Third Press**: Restores the default F-key layout.
+
+*Note: All shortcuts remain fully functional even if the bar is not visually showing them! For example, pressing `Ctrl+F3` sorts by name, and `Alt+F1` opens the left drive menu instantly.*
+
+### 2. Live Modifier Tracking (via X11 Forwarding)
+If you want the bottom bar to update dynamically when you hold down the physical `Ctrl` or `Alt` keys on your keyboard, you can enable **X11 Forwarding** on your SSH connection. **Pairee** will query your local X server to check the physical modifier key states.
+
+Here are the recommended third-party client configurations to enable this:
+
+#### 💻 Windows Host
+* **MobaXterm (Recommended & Easiest)**:
+  MobaXterm includes an integrated X server out-of-the-box. Simply create an SSH session, and X11 forwarding is configured automatically.
+* **Windows Terminal / PowerShell / CMD (with VcXsrv)**:
+  1. Download and install **VcXsrv** (or **Xming**).
+  2. Launch **XLaunch** (VcXsrv) with:
+     * *Multiple windows*
+     * Display number: `0`
+     * **Crucial**: Check **"Disable access control"** to allow connection permissions from your container/remote host.
+  3. Connect using standard Windows OpenSSH client:
+     ```cmd
+     ssh -Y user@hostname -p port
+     ```
+* **PuTTY**:
+  1. Expand **Connection** -> **SSH** -> **X11** in the settings tree.
+  2. Check **"Enable X11 forwarding"**.
+  3. Set **X display location** to `localhost:0`.
+  4. Ensure you have an X Server like VcXsrv running in the background before connecting.
+
+#### 🍎 macOS Host
+* **XQuartz**:
+  1. Download and install **XQuartz**.
+  2. Open XQuartz, go to *Preferences* -> *Security*, and check **"Allow connections from clients"**.
+  3. Connect using terminal:
+     ```bash
+     ssh -Y user@hostname -p port
+     ```
+
+#### 🐧 Linux Host
+* Linux systems have native X11 support. Simply run:
+  ```bash
+  ssh -Y user@hostname -p port
+  ```

@@ -151,3 +151,58 @@ background = "Blue"          # Fondo del menú superior
 selected = "White"            # Texto seleccionado
 ```
 Colores admitidos: `Black`, `Red`, `Green`, `Yellow`, `Blue`, `Magenta`, `Cyan`, `White`, `Gray`, `DarkGray`, `Reset` o colores hexadecimales (`#RRGGBB`).
+
+---
+
+## 🌐 5. Uso de Pairee a través de SSH y Teclas Modificadoras (Ctrl / Alt)
+
+Al utilizar **Pairee** de forma remota a través de una conexión SSH, notarás que mantener presionado `Ctrl` o `Alt` no actualiza automáticamente la barra inferior de teclas F. Esta es una limitación física e histórica de las terminales tradicionales y del protocolo SSH, los cuales solo transmiten flujos de texto cuando se presiona una combinación completa (no envían ninguna señal cuando las teclas modificadoras se presionan o liberan por sí solas).
+
+Para resolver esta limitación, he diseñado varias alternativas para que puedas usar y visualizar estos atajos sin problemas:
+
+### 1. Rotación Manual de Modificadores (Sin Aplicaciones de Terceros)
+Dentro de **Pairee**, puedes presionar **`Ctrl+p`** (o `Ctrl+P`) para rotar visualmente los estados de la barra de teclas F:
+* **Primera pulsación**: Bloquea la barra en la vista de **CONTROL** (ej. F3: Nombre, F4: Extensión).
+* **Segunda pulsación**: Bloquea la barra en la vista de **ALT** (ej. F3: Ver, F4: Editar).
+* **Tercera pulsación**: Restaura la vista por defecto de la barra.
+
+*Nota: Todas las combinaciones de teclas siguen estando 100% funcionales aunque la barra no las muestre en ese momento. Por ejemplo, al presionar `Ctrl+F3` se ordenará la lista por nombre y al presionar `Alt+F1` se abrirá el selector de discos izquierdo al instante.*
+
+### 2. Detección Física en Tiempo Real (Mediante Reenvío X11)
+Si deseas que la barra cambie automáticamente al mantener presionados físicamente los botones `Ctrl` o `Alt`, puedes activar el **Reenvío X11** (X11 Forwarding) en tu conexión SSH. Al hacer esto, **Pairee** consultará al servidor gráfico X11 local el estado físico de tu teclado.
+
+A continuación, detallo las aplicaciones de terceros recomendadas y sus configuraciones según tu sistema operativo:
+
+#### 💻 Servidores en Windows
+* **MobaXterm (Recomendado y más sencillo)**:
+  Incluye un servidor X11 integrado de fábrica. Solo debes crear una nueva sesión SSH y MobaXterm habilitará el reenvío gráfico automáticamente.
+* **Windows Terminal / PowerShell / CMD (con VcXsrv)**:
+  1. Instala **VcXsrv** (o **Xming**).
+  2. Ejecuta **XLaunch** (VcXsrv) con la siguiente configuración:
+     * *Multiple windows*
+     * Display number: `0`
+     * **Crucial**: Marca la opción **"Disable access control"** (para dar permisos de conexión al contenedor o servidor remoto).
+  3. Conéctate desde tu consola ejecutando:
+     ```cmd
+     ssh -Y usuario@servidor -p puerto
+     ```
+* **PuTTY**:
+  1. Despliega **Connection** -> **SSH** -> **X11** en el panel de configuración.
+  2. Marca la casilla **"Enable X11 forwarding"**.
+  3. Escribe `localhost:0` en **X display location**.
+  4. Asegúrate de tener VcXsrv ejecutándose de fondo antes de abrir la conexión.
+
+#### 🍎 Servidores en macOS
+* **XQuartz**:
+  1. Instala **XQuartz**.
+  2. Ejecuta XQuartz, abre *Preferencias* -> *Seguridad* y marca la casilla **"Allow connections from clients"**.
+  3. Conéctate desde la terminal usando:
+     ```bash
+     ssh -Y usuario@servidor -p puerto
+     ```
+
+#### 🐧 Servidores en Linux
+* Los sistemas Linux tienen soporte X11 nativo de fábrica. Solo debes conectarte con:
+  ```bash
+  ssh -Y usuario@servidor -p puerto
+  ```
