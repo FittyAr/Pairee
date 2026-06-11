@@ -1,6 +1,6 @@
 ; installer.iss
 #define AppName "Pairee"
-#define AppVersion "0.1.6"
+#define AppVersion "0.1.7"
 #define AppPublisher "FittyAr"
 #define AppURL "https://github.com/FittyAr/Pairee"
 #define AppExeName "pairee.exe"
@@ -37,6 +37,7 @@ Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
 [Registry]
 ; Safely append to user PATH environment variable
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{localappdata}\Programs\pairee;{olddata}"; Flags: preservestringtype
+
 
 
 
