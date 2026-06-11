@@ -12,6 +12,7 @@ pub enum Event {
     /// Terminal window resized
     Resize(u16, u16),
     /// Modifier state changed (poll on tick for Windows compatibility)
+    #[cfg(windows)]
     ModifiersChanged(crossterm::event::KeyModifiers),
     /// Periodic tick event for UI updates
     Tick,
