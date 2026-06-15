@@ -72,21 +72,61 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                 }
                 state.progress_rx = Some(rx);
             }
+        }
 
-            // 1.5 Process Terminal background updates
-            if state.term_rx.is_some() {
-                let mut rx = state.term_rx.take().unwrap();
-                while let Ok(update) = rx.try_recv() {
-                    if let Some(crate::app::state::Screen::Terminal(ts)) =
-                        state.screens.get_mut(update.screen_idx)
-                    {
-                        match update.line {
-                            Some(line) => ts.output_lines.push(line),
-                            None => ts.is_running = false,
+        // 1.5 Process Terminal background updates
+        if state.term_rx.is_some() {
+            let mut rx = state.term_rx.take().unwrap();
+            while let Ok(update) = rx.try_recv() {
+                if let Some(crate::app::state::Screen::Terminal(ts)) =
+                    state.screens.get_mut(update.screen_idx)
+                {
+                    match update.line {
+                        Some(line) => ts.output_lines.push(line),
+                        None => ts.is_running = false,
+                    }
+                }
+            }
+            state.term_rx = Some(rx);
+        }
+
+        // 1.7 Process background search updates
+        if state.search_rx.is_some() {
+            let mut rx = state.search_rx.take().unwrap();
+            let mut new_results = Vec::new();
+            let mut closed = false;
+            loop {
+                match rx.try_recv() {
+                    Ok(path) => {
+                        new_results.push(path);
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
+                        break;
+                    }
+                    Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                        closed = true;
+                        break;
+                    }
+                }
+            }
+            if !new_results.is_empty() {
+                if let Some(PopupType::SearchResults { results, .. }) = &mut state.active_popup {
+                    for path in new_results {
+                        if results.len() < 500 {
+                            results.push(path);
+                        } else {
+                            closed = true;
+                            break;
                         }
                     }
                 }
-                state.term_rx = Some(rx);
+            }
+            if closed {
+                if let Some(PopupType::SearchResults { searching, .. }) = &mut state.active_popup {
+                    *searching = false;
+                }
+            } else {
+                state.search_rx = Some(rx);
             }
         }
 

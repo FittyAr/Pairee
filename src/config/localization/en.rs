@@ -522,6 +522,8 @@ pub fn get_default_english_translation(key: &str) -> String {
             "\n Search in: {}\n{}File name query: {}\n{}Content query: {}\n\n [Tab] Switch Field   [Enter] Search   [Esc] Cancel"
         }
         "search_results_title" => " Search Results: \"{}\" ({} found) ",
+        "searching_suffix" => " (searching...)",
+        "searching_placeholder" => "\n Searching, please wait...\n\n [Esc] Cancel",
         "search_results_empty" => "\n No files found.\n\n [Esc] Close",
         "search_results_hint" => " [Enter] Navigate to  [Esc] Close ",
         "tree_view_title" => " Directory Tree ",

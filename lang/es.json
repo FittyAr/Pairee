@@ -402,6 +402,8 @@
     "prompt_search_title": " Buscar Archivos ",
     "prompt_search_text": "\n Buscar en: {}\n{}Consulta de nombre: {}\n{}Consulta de contenido: {}\n\n [Tab] Cambiar Campo   [Enter] Buscar   [Esc] Cancelar",
     "search_results_title": " Resultados de Búsqueda: \"{}\" ({} encontrados) ",
+    "searching_suffix": " (buscando...)",
+    "searching_placeholder": "\n Buscando, por favor espere...\n\n [Esc] Cancelar",
     "search_results_empty": "\n No se encontraron archivos.\n\n [Esc] Cerrar",
     "search_results_hint": " [Enter] Ir a  [Esc] Cerrar ",
     "tree_view_title": " Árbol de Directorios ",

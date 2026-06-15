@@ -23,6 +23,8 @@ pub struct AppState {
     pub should_quit: bool,
     /// Channel receiver for running copy/move/extract/wipe operations
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
+    /// Channel receiver for running background file search operations
+    pub search_rx: Option<tokio::sync::mpsc::Receiver<PathBuf>>,
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
@@ -81,6 +83,7 @@ impl AppState {
             active_popup: None,
             should_quit: false,
             progress_rx: None,
+            search_rx: None,
             term_tx,
             term_rx: Some(term_rx),
             screens: vec![Screen::Panels],

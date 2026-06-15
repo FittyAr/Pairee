@@ -223,15 +223,17 @@ pub fn render_history_lists_popup(
             query,
             results,
             cursor_idx,
+            searching,
         } => {
             let area = centered_rect(70, 60, size);
             f.render_widget(Clear, area);
 
-            let title = t("search_results_title").replacen("{}", query, 1).replacen(
-                "{}",
-                &results.len().to_string(),
-                1,
-            );
+            let mut title = t("search_results_title")
+                .replacen("{}", query, 1)
+                .replacen("{}", &results.len().to_string(), 1);
+            if *searching {
+                title.push_str(&t("searching_suffix"));
+            }
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
@@ -242,7 +244,12 @@ pub fn render_history_lists_popup(
             f.render_widget(block, area);
 
             if results.is_empty() {
-                let paragraph = Paragraph::new(t("search_results_empty"))
+                let text = if *searching {
+                    t("searching_placeholder")
+                } else {
+                    t("search_results_empty")
+                };
+                let paragraph = Paragraph::new(text)
                     .style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
             } else {

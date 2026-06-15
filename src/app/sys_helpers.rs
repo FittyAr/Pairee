@@ -292,77 +292,7 @@ pub fn build_tree_nodes(root: &Path, depth: usize, max_depth: usize) -> Vec<Tree
     nodes
 }
 
-/// Recursive file search — returns paths whose filenames contain `query` (case-insensitive)
-/// and optionally contain the requested search content.
-pub fn search_files_recursive(
-    root: &Path,
-    query: &str,
-    content_query: Option<&str>,
-) -> Vec<PathBuf> {
-    let name_glob = if query.is_empty() {
-        "".to_string()
-    } else if query.contains('*') || query.contains('?') {
-        query.to_string()
-    } else {
-        format!("*{}*", query)
-    };
 
-    let q = crate::fs::search::SearchQuery {
-        name_glob,
-        content: content_query.map(|s| s.to_string()),
-        root: root.to_path_buf(),
-    };
-
-    let mut results = Vec::new();
-    search_sync_recursive(&q.root, &q, &mut results);
-    results
-}
-
-fn search_sync_recursive(dir: &Path, query: &crate::fs::search::SearchQuery, results: &mut Vec<PathBuf>) {
-    if results.len() >= 500 {
-        return;
-    }
-    let read_dir = match std::fs::read_dir(dir) {
-        Ok(rd) => rd,
-        Err(_) => return,
-    };
-
-    for entry in read_dir.flatten() {
-        if results.len() >= 500 {
-            break;
-        }
-        let path = entry.path();
-        if let Ok(file_type) = entry.file_type() {
-            if file_type.is_dir() {
-                search_sync_recursive(&path, query, results);
-            } else if file_type.is_file() {
-                let name = entry.file_name();
-                let name_str = name.to_string_lossy();
-                let name_matches = query.name_glob.is_empty()
-                    || crate::app::state::glob_matches(&query.name_glob, &name_str);
-
-                if !name_matches {
-                    continue;
-                }
-
-                let content_matches = match &query.content {
-                    None => true,
-                    Some(needle) => {
-                        if let Ok(content) = std::fs::read_to_string(&path) {
-                            content.to_lowercase().contains(&needle.to_lowercase())
-                        } else {
-                            false
-                        }
-                    }
-                };
-
-                if content_matches {
-                    results.push(path);
-                }
-            }
-        }
-    }
-}
 
 /// Searches for the next occurrence of `query` in the editor.
 pub fn find_next_in_editor(

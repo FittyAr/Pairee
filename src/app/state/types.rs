@@ -322,6 +322,7 @@ pub enum PopupType {
         query: String,
         results: Vec<PathBuf>,
         cursor_idx: usize,
+        searching: bool,
     },
 
     // ── History ───────────────────────────────────────────────────────────────

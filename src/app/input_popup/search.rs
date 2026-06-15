@@ -1,6 +1,5 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::app::sys_helpers::search_files_recursive;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -64,15 +63,28 @@ pub fn handle(
                         let q = query.clone();
                         let c_q = content_query.clone();
                         if !q.is_empty() || !c_q.is_empty() {
-                            let results = search_files_recursive(
-                                &search_root,
-                                &q,
-                                if c_q.is_empty() { None } else { Some(&c_q) },
-                            );
+                            let name_glob = if q.is_empty() {
+                                "".to_string()
+                            } else if q.contains('*') || q.contains('?') {
+                                q.to_string()
+                            } else {
+                                format!("*{}*", q)
+                            };
+
+                            let q_struct = crate::fs::search::SearchQuery {
+                                name_glob,
+                                content: if c_q.is_empty() { None } else { Some(c_q.clone()) },
+                                root: search_root.clone(),
+                            };
+
+                            let rx = crate::fs::search::find_files(q_struct);
+                            state.search_rx = Some(rx);
+
                             state.active_popup = Some(PopupType::SearchResults {
                                 query: if q.is_empty() { c_q } else { q },
-                                results,
+                                results: Vec::new(),
                                 cursor_idx: 0,
+                                searching: true,
                             });
                         } else {
                             state.active_popup = None;
@@ -91,9 +103,12 @@ pub fn handle(
                 query,
                 results,
                 cursor_idx,
+                searching,
             } => {
                 match key.code {
                     KeyCode::Esc => {
+                        // Cancel active background search if Esc is pressed
+                        state.search_rx = None;
                         state.active_popup = None;
                         return Ok(None);
                     }
@@ -108,6 +123,7 @@ pub fn handle(
                                 query,
                                 results,
                                 cursor_idx: new_idx,
+                                searching,
                             });
                         }
                         return Ok(None);
@@ -123,12 +139,15 @@ pub fn handle(
                                 query,
                                 results,
                                 cursor_idx: new_idx,
+                                searching,
                             });
                         }
                         return Ok(None);
                     }
                     KeyCode::Enter => {
                         if let Some(result_path) = results.get(cursor_idx) {
+                            // Cancel search
+                            state.search_rx = None;
                             // Navigate the active panel to the directory containing the result
                             let target_dir = if result_path.is_dir() {
                                 result_path.clone()
@@ -137,7 +156,7 @@ pub fn handle(
                                     .parent()
                                     .map(|p| p.to_path_buf())
                                     .unwrap_or_else(|| result_path.clone())
-                            };
+                             };
                             let panel = state.get_active_panel_mut();
                             panel.current_path = target_dir;
                             panel.cursor_index = 0;
