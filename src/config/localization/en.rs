@@ -563,6 +563,8 @@ pub fn get_default_english_translation(key: &str) -> String {
         "editor_status_text" => " Line Chars: {} | Total Lines: {} | Pos: ({}, {})",
         "editor_search_title" => " Search Text ",
         "editor_search_text" => "\n Search query:\n > {}\n\n [Enter] Search   [Esc] Cancel",
+        "search_query_label" => "Search query:",
+        "btn_search_bracket" => "{ Search }",
 
         "prompt_process_multiple" => "Process multiple destinations",
         "prompt_process_multiple_names" => "Process multiple names",

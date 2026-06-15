@@ -96,10 +96,17 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     ed.scroll_y,
                     ed.is_dirty,
                     &context.config.theme,
+                    &state.active_popup,
                 );
             }
             crate::app::state::Screen::Viewer(vw) => {
-                crate::ui::viewer::render_viewer(f, layout.main_rect, vw, &context.config.theme);
+                crate::ui::viewer::render_viewer(
+                    f,
+                    layout.main_rect,
+                    vw,
+                    &context.config.theme,
+                    &state.active_popup,
+                );
             }
             crate::app::state::Screen::Terminal(ts) => {
                 let lines: Vec<ratatui::text::Line> = ts

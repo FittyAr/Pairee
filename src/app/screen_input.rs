@@ -197,9 +197,13 @@ fn handle_editor_screen(
             }
             KeyCode::F(7) if is_shift => {
                 if let Some(ref q) = ed.last_search {
-                    if let Some((found_x, found_y)) =
-                        find_next_in_editor(&ed.lines, ed.cursor_x, ed.cursor_y, q)
-                    {
+                    if let Some((found_x, found_y)) = find_next_in_editor(
+                        &ed.lines,
+                        ed.cursor_x,
+                        ed.cursor_y,
+                        q,
+                        ed.last_case_sensitive,
+                    ) {
                         ed.cursor_x = found_x;
                         ed.cursor_y = found_y;
                         if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
@@ -211,14 +215,20 @@ fn handle_editor_screen(
             KeyCode::F(7) | KeyCode::Char('f') if is_ctrl || key.code == KeyCode::F(7) => {
                 state.active_popup = Some(PopupType::EditorSearchPrompt {
                     query: String::new(),
+                    case_sensitive: false,
+                    cursor_idx: 0,
                 });
                 return Ok(());
             }
             KeyCode::F(3) => {
                 if let Some(ref q) = ed.last_search {
-                    if let Some((found_x, found_y)) =
-                        find_next_in_editor(&ed.lines, ed.cursor_x, ed.cursor_y, q)
-                    {
+                    if let Some((found_x, found_y)) = find_next_in_editor(
+                        &ed.lines,
+                        ed.cursor_x,
+                        ed.cursor_y,
+                        q,
+                        ed.last_case_sensitive,
+                    ) {
                         ed.cursor_x = found_x;
                         ed.cursor_y = found_y;
                         if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
@@ -287,19 +297,29 @@ fn handle_viewer_screen(
             KeyCode::F(7) => {
                 state.active_popup = Some(PopupType::ViewerSearchPrompt {
                     query: String::new(),
+                    case_sensitive: false,
+                    cursor_idx: 0,
                 });
                 return Ok(());
             }
             KeyCode::F(3) => {
                 if let Some(ref q) = vw.last_search {
                     if vw.mode == crate::ui::viewer::ViewerMode::Text {
+                        let cs = vw.last_case_sensitive;
+                        let match_fn = |l: &str| {
+                            if cs {
+                                l.contains(q)
+                            } else {
+                                l.to_lowercase().contains(&q.to_lowercase())
+                            }
+                        };
                         // basic search downward from current scroll
                         if let Some(found_idx) = vw
                             .lines
                             .iter()
                             .enumerate()
                             .skip(vw.scroll + 1)
-                            .find(|(_, l)| l.to_lowercase().contains(&q.to_lowercase()))
+                            .find(|(_, l)| match_fn(l))
                             .map(|(i, _)| i)
                         {
                             vw.scroll = found_idx;
@@ -308,7 +328,7 @@ fn handle_viewer_screen(
                             .iter()
                             .enumerate()
                             .take(vw.scroll + 1)
-                            .find(|(_, l)| l.to_lowercase().contains(&q.to_lowercase()))
+                            .find(|(_, l)| match_fn(l))
                             .map(|(i, _)| i)
                         {
                             vw.scroll = found_idx;

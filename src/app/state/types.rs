@@ -108,6 +108,7 @@ pub struct EditorState {
     pub scroll_y: usize,
     pub is_dirty: bool,
     pub last_search: Option<String>,
+    pub last_case_sensitive: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -291,10 +292,14 @@ pub enum PopupType {
     // ── Editors / viewers (Popups for active screens) ─────────────────────────
     EditorSearchPrompt {
         query: String,
+        case_sensitive: bool,
+        cursor_idx: usize,
     },
     ConfirmDiscardEditorChanges,
     ViewerSearchPrompt {
         query: String,
+        case_sensitive: bool,
+        cursor_idx: usize,
     },
     QuickViewPanel {
         path: PathBuf,

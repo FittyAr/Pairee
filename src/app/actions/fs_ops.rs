@@ -103,6 +103,7 @@ pub fn handle_fs_action(
                             scroll_y: 0,
                             is_dirty: false,
                             last_search: None,
+                            last_case_sensitive: false,
                         }));
                     }
                     Err(e) => {
