@@ -220,6 +220,36 @@ pub fn handle(
                 }
                 Err(())
             }
+            PopupType::ConfirmRetryAsAdmin { paths } => {
+                match key.code {
+                    KeyCode::Enter => {
+                        state.active_popup = None;
+                        for path in &paths {
+                            if let Err(e) = crate::fs::delete_sync(
+                                path,
+                                context.config.settings.delete_to_recycle_bin,
+                                true,
+                            ) {
+                                state.active_popup = Some(PopupType::Error(format!(
+                                    "{} {}",
+                                    crate::config::localization::t("error_delete_failed"),
+                                    e
+                                )));
+                                return Ok(None);
+                            }
+                        }
+                        state.get_active_panel_mut().selected_paths.clear();
+                        state.refresh_both_panels(context.config.settings.show_hidden);
+                        return Ok(None);
+                    }
+                    KeyCode::Esc => {
+                        state.active_popup = None;
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                Err(())
+            }
             _ => Err(()),
         }
     } else {

@@ -328,8 +328,14 @@ pub fn handle_fs_action(
                             context.config.settings.delete_to_recycle_bin,
                             context.config.settings.req_admin_modification,
                         ) {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Delete failed: {}", e)));
+                            if !context.config.settings.req_admin_modification {
+                                state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                    paths: targets.clone(),
+                                });
+                            } else {
+                                state.active_popup =
+                                    Some(PopupType::Error(format!("Delete failed: {}", e)));
+                            }
                             return true;
                         }
                     }

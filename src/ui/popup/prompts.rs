@@ -572,6 +572,24 @@ pub fn render_prompt_popup(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::ConfirmRetryAsAdmin { .. } => {
+            let area = centered_rect(50, 20, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(t("prompt_sudo_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = t("prompt_sudo_text");
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
         PopupType::ConfirmDelete { paths, cursor_idx } => {
             let area = centered_rect(50, 24, size);
             f.render_widget(Clear, area);

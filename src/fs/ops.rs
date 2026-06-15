@@ -71,16 +71,36 @@ fn run_as_admin_delete(path: &Path) -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn run_as_admin_delete(path: &Path) -> Result<()> {
-    use std::process::Command;
+    use crossterm::cursor::Show;
+    use crossterm::execute;
+    use crossterm::terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    };
+    use std::process::{Command, Stdio};
+
+    let _ = disable_raw_mode();
+    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
+
+    println!(
+        "\nRequesting administrator privileges to delete: {}",
+        path.display()
+    );
+
     let status = Command::new("sudo")
         .arg("rm")
         .arg("-rf")
         .arg(path)
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to delete as administrator via sudo")
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status();
+
+    let _ = enable_raw_mode();
+    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => anyhow::bail!("Failed to delete as administrator via sudo"),
     }
 }
 
@@ -104,16 +124,36 @@ fn run_as_admin_mkdir(path: &Path) -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn run_as_admin_mkdir(path: &Path) -> Result<()> {
-    use std::process::Command;
+    use crossterm::cursor::Show;
+    use crossterm::execute;
+    use crossterm::terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    };
+    use std::process::{Command, Stdio};
+
+    let _ = disable_raw_mode();
+    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
+
+    println!(
+        "\nRequesting administrator privileges to create folder: {}",
+        path.display()
+    );
+
     let status = Command::new("sudo")
         .arg("mkdir")
         .arg("-p")
         .arg(path)
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to create folder as administrator via sudo")
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status();
+
+    let _ = enable_raw_mode();
+    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => anyhow::bail!("Failed to create folder as administrator via sudo"),
     }
 }
 
@@ -138,12 +178,37 @@ fn run_as_admin_rename(src: &Path, dst: &Path) -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 fn run_as_admin_rename(src: &Path, dst: &Path) -> Result<()> {
-    use std::process::Command;
-    let status = Command::new("sudo").arg("mv").arg(src).arg(dst).status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to rename/move as administrator via sudo")
+    use crossterm::cursor::Show;
+    use crossterm::execute;
+    use crossterm::terminal::{
+        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
+    };
+    use std::process::{Command, Stdio};
+
+    let _ = disable_raw_mode();
+    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
+
+    println!(
+        "\nRequesting administrator privileges to move/rename:\n  From: {}\n  To:   {}",
+        src.display(),
+        dst.display()
+    );
+
+    let status = Command::new("sudo")
+        .arg("mv")
+        .arg(src)
+        .arg(dst)
+        .stdin(Stdio::inherit())
+        .stdout(Stdio::inherit())
+        .stderr(Stdio::inherit())
+        .status();
+
+    let _ = enable_raw_mode();
+    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => anyhow::bail!("Failed to rename/move as administrator via sudo"),
     }
 }
 
@@ -213,6 +278,47 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
+fn make_writable(path: &Path) -> std::io::Result<()> {
+    let metadata = path.symlink_metadata()?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+    let mut perms = metadata.permissions();
+    #[cfg(not(target_os = "windows"))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = perms.mode();
+        let is_dir = metadata.is_dir();
+        let new_mode = if is_dir { mode | 0o700 } else { mode | 0o600 };
+        perms.set_mode(new_mode);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        perms.set_readonly(false);
+    }
+    fs::set_permissions(path, perms)
+}
+
+fn ensure_writable_recursive(path: &Path) -> std::io::Result<()> {
+    let metadata = path.symlink_metadata()?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+
+    if metadata.is_dir() {
+        let _ = make_writable(path);
+        if let Ok(entries) = fs::read_dir(path) {
+            for entry in entries.flatten() {
+                let _ = ensure_writable_recursive(&entry.path());
+            }
+        }
+        let _ = make_writable(path);
+    } else {
+        let _ = make_writable(path);
+    }
+    Ok(())
+}
+
 fn delete_dir_recursive(path: &Path) -> Result<()> {
     if path
         .symlink_metadata()
@@ -221,7 +327,11 @@ fn delete_dir_recursive(path: &Path) -> Result<()> {
     {
         fs::remove_file(path).context("Failed to remove symlink")
     } else {
-        let res = fs::remove_dir_all(path);
+        let mut res = fs::remove_dir_all(path);
+        if res.is_err() {
+            let _ = ensure_writable_recursive(path);
+            res = fs::remove_dir_all(path);
+        }
         #[cfg(not(target_os = "windows"))]
         {
             if res.is_err() {
@@ -253,7 +363,13 @@ pub fn delete_sync(path: &Path, delete_to_recycle_bin: bool, req_admin: bool) ->
                     let _ = crate::fs::descriptions::remove_description(parent, filename_str);
                 }
             }
-            fs::remove_file(path).context("Failed to delete file")
+            let file_res = fs::remove_file(path);
+            if file_res.is_err() {
+                let _ = make_writable(path);
+                fs::remove_file(path).context("Failed to delete file")
+            } else {
+                file_res.context("Failed to delete file")
+            }
         }
     };
 

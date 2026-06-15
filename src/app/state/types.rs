@@ -245,6 +245,9 @@ pub enum PopupType {
     WipeConfirm {
         paths: Vec<PathBuf>,
     },
+    ConfirmRetryAsAdmin {
+        paths: Vec<PathBuf>,
+    },
     SaveSetupConfirm,
 
     // ── Progress ──────────────────────────────────────────────────────────────

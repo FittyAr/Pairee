@@ -53,7 +53,8 @@ pub fn handle_popup_input(
             | PopupType::ConfirmOverwrite { .. }
             | PopupType::ConfirmReload { .. }
             | PopupType::ConfirmDiscardEditorChanges
-            | PopupType::ConfirmClearHistory { .. } => confirm_dialogs::handle(state, key, context),
+            | PopupType::ConfirmClearHistory { .. }
+            | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle(state, key, context),
             PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => {
                 delete::handle(state, key, context)
             }

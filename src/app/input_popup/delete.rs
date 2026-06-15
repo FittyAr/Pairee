@@ -35,11 +35,17 @@ pub fn handle(
                                     context.config.settings.delete_to_recycle_bin,
                                     context.config.settings.req_admin_modification,
                                 ) {
-                                    state.active_popup = Some(PopupType::Error(format!(
-                                        "{} {}",
-                                        crate::config::localization::t("error_delete_failed"),
-                                        e
-                                    )));
+                                    if !context.config.settings.req_admin_modification {
+                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                            paths: paths.clone(),
+                                        });
+                                    } else {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "{} {}",
+                                            crate::config::localization::t("error_delete_failed"),
+                                            e
+                                        )));
+                                    }
                                     return Ok(None);
                                 }
                             }
