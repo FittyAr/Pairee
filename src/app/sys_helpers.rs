@@ -313,15 +313,55 @@ pub fn search_files_recursive(
         root: root.to_path_buf(),
     };
 
-    let mut rx = crate::fs::search::find_files(q);
     let mut results = Vec::new();
-    while let Some(path) = rx.blocking_recv() {
-        results.push(path);
+    search_sync_recursive(&q.root, &q, &mut results);
+    results
+}
+
+fn search_sync_recursive(dir: &Path, query: &crate::fs::search::SearchQuery, results: &mut Vec<PathBuf>) {
+    if results.len() >= 500 {
+        return;
+    }
+    let read_dir = match std::fs::read_dir(dir) {
+        Ok(rd) => rd,
+        Err(_) => return,
+    };
+
+    for entry in read_dir.flatten() {
         if results.len() >= 500 {
             break;
         }
+        let path = entry.path();
+        if let Ok(file_type) = entry.file_type() {
+            if file_type.is_dir() {
+                search_sync_recursive(&path, query, results);
+            } else if file_type.is_file() {
+                let name = entry.file_name();
+                let name_str = name.to_string_lossy();
+                let name_matches = query.name_glob.is_empty()
+                    || crate::app::state::glob_matches(&query.name_glob, &name_str);
+
+                if !name_matches {
+                    continue;
+                }
+
+                let content_matches = match &query.content {
+                    None => true,
+                    Some(needle) => {
+                        if let Ok(content) = std::fs::read_to_string(&path) {
+                            content.to_lowercase().contains(&needle.to_lowercase())
+                        } else {
+                            false
+                        }
+                    }
+                };
+
+                if content_matches {
+                    results.push(path);
+                }
+            }
+        }
     }
-    results
 }
 
 /// Searches for the next occurrence of `query` in the editor.
