@@ -13,22 +13,38 @@ pub fn handle(
         match p {
             PopupType::ConfirmDelete {
                 paths,
-                cursor_idx: _,
+                cursor_idx,
             } => {
                 match key.code {
+                    KeyCode::Left => {
+                        state.active_popup = Some(PopupType::ConfirmDelete {
+                            paths,
+                            cursor_idx: 0,
+                        });
+                        return Ok(None);
+                    }
+                    KeyCode::Right | KeyCode::Tab => {
+                        state.active_popup = Some(PopupType::ConfirmDelete {
+                            paths,
+                            cursor_idx: if cursor_idx == 0 { 1 } else { 0 },
+                        });
+                        return Ok(None);
+                    }
                     KeyCode::Enter => {
-                        for path in &paths {
-                            if let Err(e) = crate::fs::delete_sync(
-                                path,
-                                context.config.settings.delete_to_recycle_bin,
-                                context.config.settings.req_admin_modification,
-                            ) {
-                                state.active_popup = Some(PopupType::Error(format!(
-                                    "{} {}",
-                                    crate::config::localization::t("error_delete_failed"),
-                                    e
-                                )));
-                                return Ok(None);
+                        if cursor_idx == 0 {
+                            for path in &paths {
+                                if let Err(e) = crate::fs::delete_sync(
+                                    path,
+                                    context.config.settings.delete_to_recycle_bin,
+                                    context.config.settings.req_admin_modification,
+                                ) {
+                                    state.active_popup = Some(PopupType::Error(format!(
+                                        "{} {}",
+                                        crate::config::localization::t("error_delete_failed"),
+                                        e
+                                    )));
+                                    return Ok(None);
+                                }
                             }
                         }
                         state.active_popup = None;

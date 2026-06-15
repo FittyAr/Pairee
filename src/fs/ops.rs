@@ -45,7 +45,7 @@ fn send_to_recycle_bin(path: &Path) -> Result<()> {
     }
     // Fallback to standard delete if trash command fails
     if path.is_dir() {
-        fs::remove_dir_all(path).context("Failed to delete directory recursively")
+        delete_dir_recursive(path)
     } else {
         fs::remove_file(path).context("Failed to delete file")
     }
@@ -189,7 +189,7 @@ pub fn rename_or_move_sync(src: &Path, dst: &Path, req_admin: bool) -> Result<()
 pub fn move_with_fallback(src: &Path, dst: &Path) -> Result<()> {
     if src.is_dir() {
         copy_dir_recursive(src, dst)?;
-        fs::remove_dir_all(src).context("Failed to remove source directory after cross-device move")
+        delete_dir_recursive(src).context("Failed to remove source directory after cross-device move")
     } else {
         fs::copy(src, dst).context("Failed to copy file for cross-device move")?;
         fs::remove_file(src).context("Failed to remove source file after cross-device move")
@@ -212,13 +212,36 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
+fn delete_dir_recursive(path: &Path) -> Result<()> {
+    if path.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+        fs::remove_file(path).context("Failed to remove symlink")
+    } else {
+        let res = fs::remove_dir_all(path);
+        #[cfg(not(target_os = "windows"))]
+        {
+            if res.is_err() {
+                let status = std::process::Command::new("rm")
+                    .arg("-rf")
+                    .arg(path)
+                    .status();
+                if let Ok(s) = status {
+                    if s.success() {
+                        return Ok(());
+                    }
+                }
+            }
+        }
+        res.context("Failed to delete directory recursively")
+    }
+}
+
 /// Deletes a file or directory recursively.
 pub fn delete_sync(path: &Path, delete_to_recycle_bin: bool, req_admin: bool) -> Result<()> {
     let res = if delete_to_recycle_bin {
         send_to_recycle_bin(path)
     } else {
         if path.is_dir() {
-            fs::remove_dir_all(path).context("Failed to delete directory recursively")
+            delete_dir_recursive(path)
         } else {
             if let (Some(parent), Some(filename)) = (path.parent(), path.file_name()) {
                 if let Some(filename_str) = filename.to_str() {
