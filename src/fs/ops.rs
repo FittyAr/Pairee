@@ -189,7 +189,8 @@ pub fn rename_or_move_sync(src: &Path, dst: &Path, req_admin: bool) -> Result<()
 pub fn move_with_fallback(src: &Path, dst: &Path) -> Result<()> {
     if src.is_dir() {
         copy_dir_recursive(src, dst)?;
-        delete_dir_recursive(src).context("Failed to remove source directory after cross-device move")
+        delete_dir_recursive(src)
+            .context("Failed to remove source directory after cross-device move")
     } else {
         fs::copy(src, dst).context("Failed to copy file for cross-device move")?;
         fs::remove_file(src).context("Failed to remove source file after cross-device move")
@@ -213,7 +214,11 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
 }
 
 fn delete_dir_recursive(path: &Path) -> Result<()> {
-    if path.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+    if path
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+    {
         fs::remove_file(path).context("Failed to remove symlink")
     } else {
         let res = fs::remove_dir_all(path);

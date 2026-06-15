@@ -525,6 +525,10 @@ pub fn get_default_english_translation(key: &str) -> String {
         "prompt_search_text" => {
             "\n Search in: {}\n{}File name query: {}\n{}Content query: {}\n\n [Tab] Switch Field   [Enter] Search   [Esc] Cancel"
         }
+        "search_target_any" => "Any",
+        "search_target_file" => "Files",
+        "search_target_dir" => "Directories",
+        "search_target_label" => "Search target:",
         "search_results_title" => " Search Results: \"{}\" ({} found) ",
         "searching_suffix" => " (searching...)",
         "searching_placeholder" => "\n Searching, please wait...\n\n [Esc] Cancel",

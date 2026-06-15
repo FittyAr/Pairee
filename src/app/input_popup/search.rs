@@ -15,51 +15,141 @@ pub fn handle(
                 query,
                 content_query,
                 search_root,
-                focus_content,
+                case_sensitive,
+                search_target,
+                cursor_idx,
             } => {
                 match key.code {
-                    KeyCode::Tab | KeyCode::Up | KeyCode::Down => {
+                    KeyCode::Tab | KeyCode::Down => {
+                        let next_idx = (cursor_idx + 1) % 6;
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query,
                             content_query,
                             search_root,
-                            focus_content: !focus_content,
+                            case_sensitive,
+                            search_target,
+                            cursor_idx: next_idx,
+                        });
+                        return Ok(None);
+                    }
+                    KeyCode::Up => {
+                        let next_idx = if cursor_idx == 0 { 5 } else { cursor_idx - 1 };
+                        state.active_popup = Some(PopupType::SearchPrompt {
+                            query,
+                            content_query,
+                            search_root,
+                            case_sensitive,
+                            search_target,
+                            cursor_idx: next_idx,
                         });
                         return Ok(None);
                     }
                     KeyCode::Char(c) => {
                         let mut new_query = query;
                         let mut new_content = content_query;
-                        if focus_content {
-                            new_content.push(c);
-                        } else {
+                        let mut new_case = case_sensitive;
+                        let mut new_target = search_target;
+
+                        if cursor_idx == 0 {
                             new_query.push(c);
+                        } else if cursor_idx == 1 {
+                            new_content.push(c);
+                        } else if cursor_idx == 2 && c == ' ' {
+                            new_case = !new_case;
+                        } else if cursor_idx == 3 && c == ' ' {
+                            new_target = match search_target {
+                                crate::fs::search::SearchTarget::Any => {
+                                    crate::fs::search::SearchTarget::File
+                                }
+                                crate::fs::search::SearchTarget::File => {
+                                    crate::fs::search::SearchTarget::Directory
+                                }
+                                crate::fs::search::SearchTarget::Directory => {
+                                    crate::fs::search::SearchTarget::Any
+                                }
+                            };
                         }
+
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query: new_query,
                             content_query: new_content,
                             search_root,
-                            focus_content,
+                            case_sensitive: new_case,
+                            search_target: new_target,
+                            cursor_idx,
                         });
+                        return Ok(None);
+                    }
+                    KeyCode::Left | KeyCode::Right => {
+                        if cursor_idx == 3 {
+                            let new_target = match search_target {
+                                crate::fs::search::SearchTarget::Any => {
+                                    if key.code == KeyCode::Left {
+                                        crate::fs::search::SearchTarget::Directory
+                                    } else {
+                                        crate::fs::search::SearchTarget::File
+                                    }
+                                }
+                                crate::fs::search::SearchTarget::File => {
+                                    if key.code == KeyCode::Left {
+                                        crate::fs::search::SearchTarget::Any
+                                    } else {
+                                        crate::fs::search::SearchTarget::Directory
+                                    }
+                                }
+                                crate::fs::search::SearchTarget::Directory => {
+                                    if key.code == KeyCode::Left {
+                                        crate::fs::search::SearchTarget::File
+                                    } else {
+                                        crate::fs::search::SearchTarget::Any
+                                    }
+                                }
+                            };
+                            state.active_popup = Some(PopupType::SearchPrompt {
+                                query,
+                                content_query,
+                                search_root,
+                                case_sensitive,
+                                search_target: new_target,
+                                cursor_idx,
+                            });
+                        } else if cursor_idx == 4 || cursor_idx == 5 {
+                            let next_idx = if cursor_idx == 4 { 5 } else { 4 };
+                            state.active_popup = Some(PopupType::SearchPrompt {
+                                query,
+                                content_query,
+                                search_root,
+                                case_sensitive,
+                                search_target,
+                                cursor_idx: next_idx,
+                            });
+                        }
                         return Ok(None);
                     }
                     KeyCode::Backspace => {
                         let mut new_query = query;
                         let mut new_content = content_query;
-                        if focus_content {
-                            new_content.pop();
-                        } else {
+                        if cursor_idx == 0 {
                             new_query.pop();
+                        } else if cursor_idx == 1 {
+                            new_content.pop();
                         }
                         state.active_popup = Some(PopupType::SearchPrompt {
                             query: new_query,
                             content_query: new_content,
                             search_root,
-                            focus_content,
+                            case_sensitive,
+                            search_target,
+                            cursor_idx,
                         });
                         return Ok(None);
                     }
                     KeyCode::Enter => {
+                        if cursor_idx == 5 {
+                            state.active_popup = None;
+                            return Ok(None);
+                        }
+
                         let q = query.clone();
                         let c_q = content_query.clone();
                         if !q.is_empty() || !c_q.is_empty() {
@@ -73,8 +163,14 @@ pub fn handle(
 
                             let q_struct = crate::fs::search::SearchQuery {
                                 name_glob,
-                                content: if c_q.is_empty() { None } else { Some(c_q.clone()) },
+                                content: if c_q.is_empty() {
+                                    None
+                                } else {
+                                    Some(c_q.clone())
+                                },
                                 root: search_root.clone(),
+                                case_sensitive,
+                                target: search_target,
                             };
 
                             let rx = crate::fs::search::find_files(q_struct);
@@ -145,18 +241,16 @@ pub fn handle(
                         return Ok(None);
                     }
                     KeyCode::Enter => {
-                        if let Some(result_path) = results.get(cursor_idx) {
-                            // Cancel search
+                        if let Some((result_path, is_dir)) = results.get(cursor_idx) {
                             state.search_rx = None;
-                            // Navigate the active panel to the directory containing the result
-                            let target_dir = if result_path.is_dir() {
+                            let target_dir = if *is_dir {
                                 result_path.clone()
                             } else {
                                 result_path
                                     .parent()
                                     .map(|p| p.to_path_buf())
                                     .unwrap_or_else(|| result_path.clone())
-                             };
+                            };
                             let panel = state.get_active_panel_mut();
                             panel.current_path = target_dir;
                             panel.cursor_index = 0;

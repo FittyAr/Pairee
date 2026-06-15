@@ -336,7 +336,9 @@ pub fn handle_ui_settings_action(
                 query: String::new(),
                 content_query: String::new(),
                 search_root: root,
-                focus_content: false,
+                case_sensitive: false,
+                search_target: crate::fs::search::SearchTarget::Any,
+                cursor_idx: 0,
             });
             true
         }

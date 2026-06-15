@@ -316,11 +316,13 @@ pub enum PopupType {
         query: String,
         content_query: String,
         search_root: PathBuf,
-        focus_content: bool,
+        case_sensitive: bool,
+        search_target: crate::fs::search::SearchTarget,
+        cursor_idx: usize,
     },
     SearchResults {
         query: String,
-        results: Vec<PathBuf>,
+        results: Vec<(PathBuf, bool)>, // (path, is_dir)
         cursor_idx: usize,
         searching: bool,
     },

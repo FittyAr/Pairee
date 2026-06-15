@@ -3,7 +3,7 @@ pub mod panel;
 pub mod types;
 
 pub use crate::fs::compare::CompareStatus;
-pub use glob::glob_matches;
+pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use types::{
     ActivePanel, FileAttrsSnapshot, LinkKind, PanelViewMode, PopupType, ProcessEntry, Screen,
@@ -24,7 +24,7 @@ pub struct AppState {
     /// Channel receiver for running copy/move/extract/wipe operations
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
     /// Channel receiver for running background file search operations
-    pub search_rx: Option<tokio::sync::mpsc::Receiver<PathBuf>>,
+    pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,

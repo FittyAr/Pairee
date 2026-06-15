@@ -292,8 +292,6 @@ pub fn build_tree_nodes(root: &Path, depth: usize, max_depth: usize) -> Vec<Tree
     nodes
 }
 
-
-
 /// Searches for the next occurrence of `query` in the editor.
 pub fn find_next_in_editor(
     lines: &[String],

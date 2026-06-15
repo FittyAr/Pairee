@@ -97,8 +97,8 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             let mut closed = false;
             loop {
                 match rx.try_recv() {
-                    Ok(path) => {
-                        new_results.push(path);
+                    Ok((path, is_dir)) => {
+                        new_results.push((path, is_dir));
                     }
                     Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
                         break;
@@ -111,9 +111,9 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             }
             if !new_results.is_empty() {
                 if let Some(PopupType::SearchResults { results, .. }) = &mut state.active_popup {
-                    for path in new_results {
+                    for (path, is_dir) in new_results {
                         if results.len() < 500 {
-                            results.push(path);
+                            results.push((path, is_dir));
                         } else {
                             closed = true;
                             break;

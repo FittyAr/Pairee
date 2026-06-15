@@ -593,7 +593,12 @@ pub fn render_prompt_popup(
             let mut folders_count = 0;
             let mut files_count = 0;
             for p in paths {
-                if p.is_dir() && !p.symlink_metadata().map(|m| m.file_type().is_symlink()).unwrap_or(false) {
+                if p.is_dir()
+                    && !p
+                        .symlink_metadata()
+                        .map(|m| m.file_type().is_symlink())
+                        .unwrap_or(false)
+                {
                     folders_count += 1;
                 } else {
                     files_count += 1;

@@ -11,10 +11,7 @@ pub fn handle(
     let popup = state.active_popup.clone();
     if let Some(p) = popup {
         match p {
-            PopupType::ConfirmDelete {
-                paths,
-                cursor_idx,
-            } => {
+            PopupType::ConfirmDelete { paths, cursor_idx } => {
                 match key.code {
                     KeyCode::Left => {
                         state.active_popup = Some(PopupType::ConfirmDelete {
