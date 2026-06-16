@@ -291,29 +291,26 @@ pub fn handle(
                 }
 
                 state.active_popup = None;
-                for src in &targets {
-                    if let Some(fname) = src.file_name() {
-                        let dst = if targets.len() == 1 {
-                            dest.clone()
-                        } else {
-                            dest.join(fname)
-                        };
-                        if let Err(e) = crate::fs::rename_or_move_sync(
-                            src,
-                            &dst,
-                            context.config.settings.req_admin_modification,
-                        ) {
-                            state.active_popup = Some(PopupType::Error(format!(
-                                "{} {}",
-                                crate::config::localization::t("error_move_failed"),
-                                e
-                            )));
-                            break;
-                        }
-                    }
-                }
-                state.get_active_panel_mut().clear_selection();
-                state.refresh_both_panels(context.config.settings.show_hidden);
+
+                // Launch the move as a background async task
+                let rx = crate::fs::spawn_move_task(
+                    targets.clone(),
+                    dest.clone(),
+                    context.config.settings.clone(),
+                );
+                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move {
+                    sources: targets,
+                    dest,
+                });
+                state.progress_rx = Some(rx);
+                state.active_popup = Some(PopupType::CopyProgress {
+                    is_move: true,
+                    current_file: crate::config::localization::t("progress_initializing"),
+                    files_copied: 0,
+                    total_files: 0,
+                    bytes_copied: 0,
+                    total_bytes: 0,
+                });
 
                 return Ok(None);
             }

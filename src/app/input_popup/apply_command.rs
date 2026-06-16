@@ -34,6 +34,7 @@ pub fn handle(
                     let rx = crate::fs::apply_command(input, targets);
                     state.progress_rx = Some(rx);
                     state.active_popup = Some(PopupType::CopyProgress {
+                        is_move: false,
                         current_file: "Running command...".to_string(),
                         files_copied: 0,
                         total_files: 0,

@@ -51,15 +51,22 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
             if let Some(err) = has_error {
                 if !context.config.settings.req_admin_modification {
-                    if let Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) =
-                        state.active_bg_op.take()
-                    {
-                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                            paths: sources,
-                            op_kind: crate::app::state::AdminOpKind::Copy { dst: dest },
-                        });
-                    } else {
-                        state.active_popup = Some(PopupType::Error(err));
+                    match state.active_bg_op.take() {
+                        Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) => {
+                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                paths: sources,
+                                op_kind: crate::app::state::AdminOpKind::Copy { dst: dest },
+                            });
+                        }
+                        Some(crate::app::state::BackgroundOpContext::Move { sources, dest }) => {
+                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                paths: sources,
+                                op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest },
+                            });
+                        }
+                        None => {
+                            state.active_popup = Some(PopupType::Error(err));
+                        }
                     }
                 } else {
                     state.active_popup = Some(PopupType::Error(err));
@@ -76,7 +83,16 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                         _ => false,
                     };
                     if should_update {
+                        // Preserve the is_move flag from the current popup if present
+                        let is_move = match &state.active_popup {
+                            Some(PopupType::CopyProgress { is_move, .. }) => *is_move,
+                            _ => matches!(
+                                state.active_bg_op,
+                                Some(crate::app::state::BackgroundOpContext::Move { .. })
+                            ),
+                        };
                         state.active_popup = Some(PopupType::CopyProgress {
+                            is_move,
                             current_file: update.current_file,
                             files_copied: update.files_copied,
                             total_files: update.total_files,

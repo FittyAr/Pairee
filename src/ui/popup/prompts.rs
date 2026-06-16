@@ -683,6 +683,7 @@ pub fn render_prompt_popup(
             true
         }
         PopupType::CopyProgress {
+            is_move,
             current_file,
             files_copied,
             total_files,
@@ -692,10 +693,16 @@ pub fn render_prompt_popup(
             let area = centered_rect(55, 30, size);
             f.render_widget(Clear, area);
 
+            let title = if *is_move {
+                t("progress_move_title")
+            } else {
+                t("progress_copy_title")
+            };
+
             let block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(t("progress_copy_title"))
+                .title(title)
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let percent = bytes_copied

@@ -479,6 +479,7 @@ pub fn get_default_english_translation(key: &str) -> String {
             "\nAre you sure you want to delete {} item(s)?\n\n[Enter] Confirm Deletion\n[Esc] Cancel"
         }
         "progress_copy_title" => " Copying Files ",
+        "progress_move_title" => " Moving Files ",
         "progress_file_label" => "File: {}",
         "progress_size_label" => "Files: {} / {}  |  Bytes: {} MB / {} MB",
         "prompt_dismiss_hint" => "[Press Enter/Esc to Dismiss]",

@@ -306,6 +306,7 @@ pub fn handle(
                 });
                 state.progress_rx = Some(rx);
                 state.active_popup = Some(PopupType::CopyProgress {
+                    is_move: false,
                     current_file: crate::config::localization::t("progress_initializing"),
                     files_copied: 0,
                     total_files: 0,

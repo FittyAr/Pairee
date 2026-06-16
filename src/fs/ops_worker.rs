@@ -356,6 +356,7 @@ pub fn spawn_copy_task(
 }
 
 /// Copies a single file in chunks to allow cancellation or smooth progress updates.
+/// Progress updates are throttled to every 100 ms to avoid flooding the channel.
 #[allow(clippy::too_many_arguments)]
 async fn copy_file_buffered(
     src: &Path,
@@ -369,6 +370,7 @@ async fn copy_file_buffered(
     copy_files_opened_for_writing: bool,
 ) -> Result<()> {
     use std::io::{Read, Write};
+    use std::time::{Duration, Instant};
     let mut src_file = if copy_files_opened_for_writing {
         #[cfg(target_os = "windows")]
         {
@@ -388,6 +390,8 @@ async fn copy_file_buffered(
     let mut dst_file = fs::File::create(dst)?;
 
     let mut buffer = vec![0; 64 * 1024]; // 64 KB buffer size
+    let throttle = Duration::from_millis(100);
+    let mut last_sent = Instant::now();
     loop {
         let bytes_read = src_file.read(&mut buffer)?;
         if bytes_read == 0 {
@@ -396,20 +400,340 @@ async fn copy_file_buffered(
         dst_file.write_all(&buffer[..bytes_read])?;
         *global_bytes_copied += bytes_read as u64;
 
-        // Stream current status update
-        let _ = tx
-            .send(ProgressUpdate {
-                current_file: file_name.to_string(),
-                files_copied,
-                total_files,
-                bytes_copied: *global_bytes_copied,
-                total_bytes,
-                error: None,
-            })
-            .await;
+        // Yield to the async runtime so the UI loop keeps running
+        tokio::task::yield_now().await;
+
+        // Throttle progress updates to ~10 per second
+        if last_sent.elapsed() >= throttle {
+            last_sent = Instant::now();
+            let _ = tx
+                .send(ProgressUpdate {
+                    current_file: file_name.to_string(),
+                    files_copied,
+                    total_files,
+                    bytes_copied: *global_bytes_copied,
+                    total_bytes,
+                    error: None,
+                })
+                .await;
+        }
     }
     Ok(())
 }
+
+/// Recursively copies a directory tree, reporting progress via the channel.
+async fn copy_dir_recursive_async(
+    src: &Path,
+    dst: &Path,
+    tx: &mpsc::Sender<ProgressUpdate>,
+    files_copied: &mut usize,
+    bytes_copied: &mut u64,
+    total_files: usize,
+    total_bytes: u64,
+    copy_files_opened_for_writing: bool,
+) -> Result<()> {
+    fs::create_dir_all(dst)
+        .map_err(|e| anyhow::anyhow!("Failed to create directory {:?}: {}", dst, e))?;
+    for entry in
+        fs::read_dir(src).map_err(|e| anyhow::anyhow!("Failed to read dir {:?}: {}", src, e))?
+    {
+        let entry =
+            entry.map_err(|e| anyhow::anyhow!("Failed to read dir entry: {}", e))?;
+        let src_path = entry.path();
+        let dst_path = dst.join(entry.file_name());
+        let file_name = entry
+            .file_name()
+            .to_string_lossy()
+            .into_owned();
+        if src_path.is_dir() {
+            Box::pin(copy_dir_recursive_async(
+                &src_path,
+                &dst_path,
+                tx,
+                files_copied,
+                bytes_copied,
+                total_files,
+                total_bytes,
+                copy_files_opened_for_writing,
+            ))
+            .await?;
+        } else {
+            copy_file_buffered(
+                &src_path,
+                &dst_path,
+                tx,
+                bytes_copied,
+                &file_name,
+                *files_copied,
+                total_files,
+                total_bytes,
+                copy_files_opened_for_writing,
+            )
+            .await?;
+            *files_copied += 1;
+        }
+    }
+    Ok(())
+}
+
+/// Recursively deletes a directory or file (helper for async move fallback).
+fn delete_recursive(path: &Path) -> Result<()> {
+    if path
+        .symlink_metadata()
+        .map(|m| m.file_type().is_symlink())
+        .unwrap_or(false)
+    {
+        fs::remove_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to remove symlink {:?}: {}", path, e))
+    } else if path.is_dir() {
+        fs::remove_dir_all(path)
+            .map_err(|e| anyhow::anyhow!("Failed to delete dir {:?}: {}", path, e))
+    } else {
+        fs::remove_file(path)
+            .map_err(|e| anyhow::anyhow!("Failed to delete file {:?}: {}", path, e))
+    }
+}
+
+/// Spawns a background task that moves multiple source files/directories to a destination directory.
+/// It first tries a fast atomic rename; on cross-device failures it falls back to copy + delete.
+/// Returns a channel receiver for real-time progress updates.
+pub fn spawn_move_task(
+    sources: Vec<PathBuf>,
+    destination_dir: PathBuf,
+    settings: crate::config::settings::Settings,
+) -> mpsc::Receiver<ProgressUpdate> {
+    let (tx, rx) = mpsc::channel(100);
+
+    tokio::spawn(async move {
+        let total_files = sources.len();
+        let mut files_copied = 0usize;
+
+        for src in &sources {
+            let file_name = src
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+
+            // Determine destination path
+            let dst = if sources.len() == 1 && !destination_dir.is_dir() {
+                destination_dir.clone()
+            } else {
+                destination_dir.join(&file_name)
+            };
+
+            // Send starting notification
+            let _ = tx
+                .send(ProgressUpdate {
+                    current_file: file_name.clone(),
+                    files_copied,
+                    total_files,
+                    bytes_copied: 0,
+                    total_bytes: 0,
+                    error: None,
+                })
+                .await;
+
+            // Try fast atomic rename first
+            let rename_res = fs::rename(src, &dst);
+            match rename_res {
+                Ok(()) => {
+                    files_copied += 1;
+                    let _ = tx
+                        .send(ProgressUpdate {
+                            current_file: file_name.clone(),
+                            files_copied,
+                            total_files,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                            error: None,
+                        })
+                        .await;
+                    continue;
+                }
+                Err(ref e) => {
+                    let is_cross_device = e
+                        .raw_os_error()
+                        .map(|code| code == 18 || code == 17)
+                        .unwrap_or(false);
+                    let is_cross = is_cross_device
+                        || e.kind() == std::io::ErrorKind::CrossesDevices;
+
+                    if !is_cross {
+                        // Permission or other error — try admin if configured
+                        if settings.req_admin_modification {
+                            let res = run_as_admin_copy(src, &dst);
+                            if res.is_ok() {
+                                let _ = delete_recursive(src);
+                                files_copied += 1;
+                                let _ = tx
+                                    .send(ProgressUpdate {
+                                        current_file: file_name,
+                                        files_copied,
+                                        total_files,
+                                        bytes_copied: 0,
+                                        total_bytes: 0,
+                                        error: None,
+                                    })
+                                    .await;
+                                continue;
+                            } else if let Err(e) = res {
+                                let _ = tx
+                                    .send(ProgressUpdate {
+                                        current_file: file_name,
+                                        files_copied,
+                                        total_files,
+                                        bytes_copied: 0,
+                                        total_bytes: 0,
+                                        error: Some(format!("Error moving {:?}: {}", src, e)),
+                                    })
+                                    .await;
+                                return;
+                            }
+                        } else {
+                            let e_msg = rename_res.err().unwrap().to_string();
+                            let _ = tx
+                                .send(ProgressUpdate {
+                                    current_file: file_name,
+                                    files_copied,
+                                    total_files,
+                                    bytes_copied: 0,
+                                    total_bytes: 0,
+                                    error: Some(format!("Error moving {:?}: {}", src, e_msg)),
+                                })
+                                .await;
+                            return;
+                        }
+                    }
+                }
+            }
+
+            // Cross-device fallback: compute total bytes for this item
+            let mut item_total_bytes = 0u64;
+            if src.is_dir() {
+                let mut dirs_to_visit = vec![src.clone()];
+                while let Some(dir) = dirs_to_visit.pop() {
+                    if let Ok(entries) = fs::read_dir(&dir) {
+                        for entry in entries.flatten() {
+                            let p = entry.path();
+                            if p.is_dir() {
+                                dirs_to_visit.push(p);
+                            } else if !p.is_symlink() {
+                                if let Ok(meta) = entry.metadata() {
+                                    item_total_bytes += meta.len();
+                                }
+                            }
+                        }
+                    }
+                }
+            } else if !src.is_symlink() {
+                if let Ok(meta) = src.metadata() {
+                    item_total_bytes = meta.len();
+                }
+            }
+
+            let mut bytes_copied = 0u64;
+
+            // Cross-device copy phase
+            let copy_res = if src.is_dir() {
+                let is_sym = src.is_symlink();
+                if is_sym && !settings.scan_symbolic_links {
+                    Ok(())
+                } else {
+                    copy_dir_recursive_async(
+                        src,
+                        &dst,
+                        &tx,
+                        &mut files_copied,
+                        &mut bytes_copied,
+                        total_files,
+                        item_total_bytes,
+                        settings.copy_files_opened_for_writing,
+                    )
+                    .await
+                }
+            } else {
+                let is_sym = src.is_symlink();
+                if is_sym {
+                    copy_symlink(src, &dst).map_err(|e| e)
+                } else {
+                    copy_file_buffered(
+                        src,
+                        &dst,
+                        &tx,
+                        &mut bytes_copied,
+                        &file_name,
+                        files_copied,
+                        total_files,
+                        item_total_bytes,
+                        settings.copy_files_opened_for_writing,
+                    )
+                    .await
+                }
+            };
+
+            match copy_res {
+                Ok(()) => {
+                    // Delete source after successful copy
+                    if let Err(e) = delete_recursive(src) {
+                        let _ = tx
+                            .send(ProgressUpdate {
+                                current_file: file_name,
+                                files_copied,
+                                total_files,
+                                bytes_copied,
+                                total_bytes: item_total_bytes,
+                                error: Some(format!(
+                                    "Copied but failed to remove source {:?}: {}",
+                                    src, e
+                                )),
+                            })
+                            .await;
+                        return;
+                    }
+                    files_copied += 1;
+                    let _ = tx
+                        .send(ProgressUpdate {
+                            current_file: file_name,
+                            files_copied,
+                            total_files,
+                            bytes_copied,
+                            total_bytes: item_total_bytes,
+                            error: None,
+                        })
+                        .await;
+                }
+                Err(e) => {
+                    let _ = tx
+                        .send(ProgressUpdate {
+                            current_file: file_name,
+                            files_copied,
+                            total_files,
+                            bytes_copied,
+                            total_bytes: item_total_bytes,
+                            error: Some(format!("Error moving {:?}: {}", src, e)),
+                        })
+                        .await;
+                    return;
+                }
+            }
+        }
+
+        // Final completion update
+        let _ = tx
+            .send(ProgressUpdate {
+                current_file: "Completed".to_string(),
+                files_copied,
+                total_files,
+                bytes_copied: 0,
+                total_bytes: 0,
+                error: None,
+            })
+            .await;
+    });
+
+    rx
+}
+
 
 pub fn spawn_extract_task(
     archive_path: PathBuf,

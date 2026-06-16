@@ -148,6 +148,10 @@ pub enum BackgroundOpContext {
         sources: Vec<PathBuf>,
         dest: PathBuf,
     },
+    Move {
+        sources: Vec<PathBuf>,
+        dest: PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -269,6 +273,7 @@ pub enum PopupType {
 
     // ── Progress ──────────────────────────────────────────────────────────────
     CopyProgress {
+        is_move: bool,
         current_file: String,
         files_copied: usize,
         total_files: usize,

@@ -37,7 +37,12 @@ pub fn handle(
                     }
                     KeyCode::Esc => {
                         // Resume the progress popup; it will automatically receive progress updates on the next tick
+                        let is_move = matches!(
+                            state.active_bg_op,
+                            Some(crate::app::state::BackgroundOpContext::Move { .. })
+                        );
                         state.active_popup = Some(PopupType::CopyProgress {
+                            is_move,
                             current_file: t("progress_resuming"),
                             files_copied: 0,
                             total_files: 0,
@@ -135,6 +140,7 @@ pub fn handle(
                                 });
                             state.progress_rx = Some(rx);
                             state.active_popup = Some(PopupType::CopyProgress {
+                                is_move: false,
                                 current_file: t("progress_initializing"),
                                 files_copied: 0,
                                 total_files: 0,
@@ -304,23 +310,27 @@ pub fn handle(
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
                             crate::app::state::AdminOpKind::RenameMove { dst } => {
-                                for src in &paths {
-                                    if let Some(fname) = src.file_name() {
-                                        let final_dst = dst.join(fname);
-                                        if let Err(e) =
-                                            crate::fs::rename_or_move_sync(src, &final_dst, true)
-                                        {
-                                            state.active_popup = Some(PopupType::Error(format!(
-                                                "{} {}",
-                                                t("error_move_failed"),
-                                                e
-                                            )));
-                                            return Ok(None);
-                                        }
-                                    }
-                                }
-                                state.get_active_panel_mut().clear_selection();
-                                state.refresh_both_panels(context.config.settings.show_hidden);
+                                let mut settings = context.config.settings.clone();
+                                settings.req_admin_modification = true;
+                                let rx = crate::fs::spawn_move_task(
+                                    paths.clone(),
+                                    dst.clone(),
+                                    settings,
+                                );
+                                state.active_bg_op =
+                                    Some(crate::app::state::BackgroundOpContext::Move {
+                                        sources: paths,
+                                        dest: dst,
+                                    });
+                                state.progress_rx = Some(rx);
+                                state.active_popup = Some(PopupType::CopyProgress {
+                                    is_move: true,
+                                    current_file: t("progress_initializing"),
+                                    files_copied: 0,
+                                    total_files: 0,
+                                    bytes_copied: 0,
+                                    total_bytes: 0,
+                                });
                             }
                             crate::app::state::AdminOpKind::Copy { dst } => {
                                 let mut settings = context.config.settings.clone();
@@ -337,6 +347,7 @@ pub fn handle(
                                     });
                                 state.progress_rx = Some(rx);
                                 state.active_popup = Some(PopupType::CopyProgress {
+                                    is_move: false,
                                     current_file: crate::config::localization::t(
                                         "progress_initializing",
                                     ),

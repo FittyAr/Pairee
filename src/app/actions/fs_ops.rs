@@ -185,6 +185,7 @@ pub fn handle_fs_action(
                         });
                         state.progress_rx = Some(rx);
                         state.active_popup = Some(PopupType::CopyProgress {
+                            is_move: false,
                             current_file: t("progress_initializing"),
                             files_copied: 0,
                             total_files: 0,
@@ -249,40 +250,25 @@ pub fn handle_fs_action(
                             input: None,
                         });
                     } else {
-                        // Move directly
-                        let mut succeeded = true;
-                        for src in &targets {
-                            if let Some(fname) = src.file_name() {
-                                let dst = dest_dir.join(fname);
-                                if let Err(e) = crate::fs::rename_or_move_sync(
-                                    src,
-                                    &dst,
-                                    context.config.settings.req_admin_modification,
-                                ) {
-                                    succeeded = false;
-                                    if !context.config.settings.req_admin_modification {
-                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                                            paths: targets.clone(),
-                                            op_kind: crate::app::state::AdminOpKind::RenameMove {
-                                                dst: dest_dir.clone(),
-                                            },
-                                        });
-                                    } else {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "{} {}",
-                                            t("error_move_failed"),
-                                            e
-                                        )));
-                                    }
-                                    break;
-                                }
-                            }
-                        }
-                        if succeeded && context.config.settings.req_admin_modification {
-                            state.terminal_needs_clear = true;
-                        }
-                        state.get_active_panel_mut().clear_selection();
-                        state.refresh_both_panels(context.config.settings.show_hidden);
+                        // Move directly via background task
+                        let rx = crate::fs::spawn_move_task(
+                            targets.clone(),
+                            dest_dir.clone(),
+                            context.config.settings.clone(),
+                        );
+                        state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move {
+                            sources: targets,
+                            dest: dest_dir,
+                        });
+                        state.progress_rx = Some(rx);
+                        state.active_popup = Some(PopupType::CopyProgress {
+                            is_move: true,
+                            current_file: t("progress_initializing"),
+                            files_copied: 0,
+                            total_files: 0,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                        });
                     }
                 }
             }
@@ -316,6 +302,7 @@ pub fn handle_fs_action(
                 let rx = crate::fs::spawn_extract_task(entry.path.clone(), dest);
                 state.progress_rx = Some(rx);
                 state.active_popup = Some(PopupType::CopyProgress {
+                    is_move: false,
                     current_file: t("progress_extracting"),
                     files_copied: 0,
                     total_files: 0,
@@ -389,6 +376,7 @@ pub fn handle_fs_action(
                     let rx = crate::fs::spawn_wipe_task(targets);
                     state.progress_rx = Some(rx);
                     state.active_popup = Some(PopupType::CopyProgress {
+                        is_move: false,
                         current_file: t("progress_wiping"),
                         files_copied: 0,
                         total_files: 0,
