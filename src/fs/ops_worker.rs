@@ -99,7 +99,13 @@ pub fn spawn_copy_task(
             let is_sym = src.is_symlink();
             if src.is_dir() && (!is_sym || settings.scan_symbolic_links) {
                 if let Some(folder_name) = src.file_name() {
-                    let base_dst = destination_dir.join(folder_name);
+                    // If destination already exists as a directory, nest the folder inside it.
+                    // Otherwise use destination_dir directly as the new folder path.
+                    let base_dst = if destination_dir.is_dir() {
+                        destination_dir.join(folder_name)
+                    } else {
+                        destination_dir.clone()
+                    };
                     dirs_to_create.push(base_dst.clone());
 
                     let mut dirs_to_visit = vec![src.clone()];
@@ -138,10 +144,19 @@ pub fn spawn_copy_task(
                         total_bytes += meta.len();
                     }
                 }
-                if let Some(file_name) = src.file_name() {
-                    let dst_path = destination_dir.join(file_name);
-                    file_mappings.push((src.clone(), dst_path, is_sym));
-                }
+                // If destination_dir is an existing directory, place the file inside it.
+                // Otherwise (the caller passed the full destination path), use it directly.
+                // This avoids doubling the filename, e.g. "dest/file.rs" + "file.rs" → "dest/file.rs/file.rs".
+                let dst_path = if destination_dir.is_dir() {
+                    if let Some(file_name) = src.file_name() {
+                        destination_dir.join(file_name)
+                    } else {
+                        continue;
+                    }
+                } else {
+                    destination_dir.clone()
+                };
+                file_mappings.push((src.clone(), dst_path, is_sym));
             }
         }
 
