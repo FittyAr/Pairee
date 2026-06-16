@@ -6,8 +6,8 @@ pub use crate::fs::compare::CompareStatus;
 pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use types::{
-    ActivePanel, FileAttrsSnapshot, LinkKind, PanelViewMode, PopupType, ProcessEntry, Screen,
-    SelectMode, SortField, TerminalUpdate, TreeNode,
+    ActivePanel, AdminOpKind, BackgroundOpContext, FileAttrsSnapshot, LinkKind, PanelViewMode,
+    PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
 };
 
 use crate::fs::{self, ProgressUpdate};
@@ -28,6 +28,8 @@ pub struct AppState {
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
+    pub active_bg_op: Option<BackgroundOpContext>,
+    pub terminal_needs_clear: bool,
 
     // ── Screens Management ────────────────────────────────────────────────────
     pub screens: Vec<Screen>,
@@ -110,6 +112,8 @@ impl AppState {
             free_space_right: None,
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
+            active_bg_op: None,
+            terminal_needs_clear: false,
         }
     }
 

@@ -77,9 +77,19 @@ pub fn handle(
                         &path,
                         context.config.settings.req_admin_modification,
                     ) {
-                        state.active_popup =
-                            Some(PopupType::Error(format!("Directory error: {}", e)));
+                        if !context.config.settings.req_admin_modification {
+                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                paths: vec![path],
+                                op_kind: crate::app::state::AdminOpKind::MkDir,
+                            });
+                        } else {
+                            state.active_popup =
+                                Some(PopupType::Error(format!("Directory error: {}", e)));
+                        }
                     } else {
+                        if context.config.settings.req_admin_modification {
+                            state.terminal_needs_clear = true;
+                        }
                         state.active_popup = None;
                         state.refresh_both_panels(context.config.settings.show_hidden);
                     }

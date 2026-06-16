@@ -295,7 +295,11 @@ pub fn handle(
                 let targets = src_paths;
                 let dest = dest_dir.join(&new_input);
 
-                let rx = crate::fs::spawn_copy_task(targets, dest, context.config.settings.clone());
+                let rx = crate::fs::spawn_copy_task(targets.clone(), dest.clone(), context.config.settings.clone());
+                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
+                    sources: targets,
+                    dest,
+                });
                 state.progress_rx = Some(rx);
                 state.active_popup = Some(PopupType::CopyProgress {
                     current_file: crate::config::localization::t("progress_initializing"),

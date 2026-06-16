@@ -38,6 +38,7 @@ pub fn handle(
                                     if !context.config.settings.req_admin_modification {
                                         state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
                                             paths: paths.clone(),
+                                            op_kind: crate::app::state::AdminOpKind::Delete,
                                         });
                                     } else {
                                         state.active_popup = Some(PopupType::Error(format!(

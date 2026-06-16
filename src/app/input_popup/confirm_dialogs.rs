@@ -60,6 +60,7 @@ pub fn handle(
                         state.active_popup = None;
 
                         if is_move {
+                            let mut succeeded = true;
                             if src_paths.len() == 1 {
                                 let dst = dest_dir.join(input.as_deref().unwrap_or_default());
                                 if let Err(e) = crate::fs::rename_or_move_sync(
@@ -67,8 +68,16 @@ pub fn handle(
                                     &dst,
                                     context.config.settings.req_admin_modification,
                                 ) {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    succeeded = false;
+                                    if !context.config.settings.req_admin_modification {
+                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                            paths: src_paths.clone(),
+                                            op_kind: crate::app::state::AdminOpKind::RenameMove { dst },
+                                        });
+                                    } else {
+                                        state.active_popup =
+                                            Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    }
                                 }
                             } else {
                                 for src in &src_paths {
@@ -79,14 +88,25 @@ pub fn handle(
                                             &dst,
                                             context.config.settings.req_admin_modification,
                                         ) {
-                                            state.active_popup = Some(PopupType::Error(format!(
-                                                "Move failed: {}",
-                                                e
-                                            )));
+                                            succeeded = false;
+                                            if !context.config.settings.req_admin_modification {
+                                                state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                                    paths: src_paths.clone(),
+                                                    op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest_dir.clone() },
+                                                });
+                                            } else {
+                                                state.active_popup = Some(PopupType::Error(format!(
+                                                    "Move failed: {}",
+                                                    e
+                                                )));
+                                            }
                                             break;
                                         }
                                     }
                                 }
+                            }
+                            if succeeded && context.config.settings.req_admin_modification {
+                                state.terminal_needs_clear = true;
                             }
                             state.get_active_panel_mut().selected_paths.clear();
                             state.refresh_both_panels(context.config.settings.show_hidden);
@@ -99,10 +119,14 @@ pub fn handle(
                             };
 
                             let rx = crate::fs::spawn_copy_task(
-                                targets,
-                                dest,
+                                targets.clone(),
+                                dest.clone(),
                                 context.config.settings.clone(),
                             );
+                            state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
+                                sources: targets,
+                                dest,
+                            });
                             state.progress_rx = Some(rx);
                             state.active_popup = Some(PopupType::CopyProgress {
                                 current_file: "Initializing...".to_string(),
@@ -220,26 +244,100 @@ pub fn handle(
                 }
                 Err(())
             }
-            PopupType::ConfirmRetryAsAdmin { paths } => {
+            PopupType::ConfirmRetryAsAdmin { paths, op_kind } => {
                 match key.code {
                     KeyCode::Enter => {
                         state.active_popup = None;
-                        for path in &paths {
-                            if let Err(e) = crate::fs::delete_sync(
-                                path,
-                                context.config.settings.delete_to_recycle_bin,
-                                true,
-                            ) {
+
+                        #[cfg(not(target_os = "windows"))]
+                        {
+                            if let Err(e) = crate::fs::acquire_admin_privileges() {
                                 state.active_popup = Some(PopupType::Error(format!(
-                                    "{} {}",
-                                    crate::config::localization::t("error_delete_failed"),
+                                    "Failed to acquire admin privileges: {}",
                                     e
                                 )));
                                 return Ok(None);
                             }
+                            state.terminal_needs_clear = true;
                         }
-                        state.get_active_panel_mut().selected_paths.clear();
-                        state.refresh_both_panels(context.config.settings.show_hidden);
+
+                        match op_kind {
+                            crate::app::state::AdminOpKind::Delete => {
+                                for path in &paths {
+                                    if let Err(e) = crate::fs::delete_sync(
+                                        path,
+                                        context.config.settings.delete_to_recycle_bin,
+                                        true,
+                                    ) {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "{} {}",
+                                            crate::config::localization::t("error_delete_failed"),
+                                            e
+                                        )));
+                                        return Ok(None);
+                                    }
+                                }
+                                state.get_active_panel_mut().selected_paths.clear();
+                                state.refresh_both_panels(context.config.settings.show_hidden);
+                            }
+                            crate::app::state::AdminOpKind::MkDir => {
+                                for path in &paths {
+                                    if let Err(e) = crate::fs::create_directory(path, true) {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "MkDir failed: {}",
+                                            e
+                                        )));
+                                        return Ok(None);
+                                    }
+                                }
+                                state.refresh_both_panels(context.config.settings.show_hidden);
+                            }
+                            crate::app::state::AdminOpKind::RenameMove { dst } => {
+                                for src in &paths {
+                                    if let Some(fname) = src.file_name() {
+                                        let final_dst = dst.join(fname);
+                                        if let Err(e) = crate::fs::rename_or_move_sync(
+                                            src,
+                                            &final_dst,
+                                            true,
+                                        ) {
+                                            state.active_popup = Some(PopupType::Error(format!(
+                                                "Move failed: {}",
+                                                e
+                                            )));
+                                            return Ok(None);
+                                        }
+                                    }
+                                }
+                                state.get_active_panel_mut().selected_paths.clear();
+                                state.refresh_both_panels(context.config.settings.show_hidden);
+                            }
+                            crate::app::state::AdminOpKind::Copy { dst } => {
+                                let mut settings = context.config.settings.clone();
+                                settings.req_admin_modification = true;
+                                let rx = crate::fs::spawn_copy_task(
+                                    paths.clone(),
+                                    dst.clone(),
+                                    settings,
+                                );
+                                state.active_bg_op = Some(
+                                    crate::app::state::BackgroundOpContext::Copy {
+                                        sources: paths,
+                                        dest: dst,
+                                    },
+                                );
+                                state.progress_rx = Some(rx);
+                                state.active_popup = Some(PopupType::CopyProgress {
+                                    current_file: crate::config::localization::t(
+                                        "progress_initializing",
+                                    ),
+                                    files_copied: 0,
+                                    total_files: 0,
+                                    bytes_copied: 0,
+                                    total_bytes: 0,
+                                });
+                            }
+                        }
                         return Ok(None);
                     }
                     KeyCode::Esc => {

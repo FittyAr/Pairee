@@ -1,5 +1,5 @@
 use super::centered_rect;
-use crate::app::state::{LinkKind, PopupType, SelectMode};
+use crate::app::state::{AdminOpKind, LinkKind, PopupType, SelectMode};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -572,7 +572,7 @@ pub fn render_prompt_popup(
             f.render_widget(paragraph, area);
             true
         }
-        PopupType::ConfirmRetryAsAdmin { .. } => {
+        PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
             let area = centered_rect(50, 20, size);
             f.render_widget(Clear, area);
 
@@ -582,7 +582,14 @@ pub fn render_prompt_popup(
                 .title(t("prompt_sudo_title"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let text = t("prompt_sudo_text");
+            let text_key = match op_kind {
+                AdminOpKind::Delete => "prompt_sudo_delete_text",
+                AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
+                AdminOpKind::RenameMove { .. } => "prompt_sudo_renmov_text",
+                AdminOpKind::Copy { .. } => "prompt_sudo_copy_text",
+            };
+
+            let text = t(text_key);
             let paragraph = Paragraph::new(text)
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));

@@ -440,8 +440,17 @@ pub fn get_default_english_translation(key: &str) -> String {
             "\n Do you really want to exit Pairee?\n\n [Enter] Exit   [Esc] Cancel"
         }
         "prompt_sudo_title" => " Privilege Elevation ",
-        "prompt_sudo_text" => {
-            "\n Permission denied. Do you want to retry with administrator / sudo privileges?\n\n [Enter] Retry with Admin   [Esc] Cancel"
+        "prompt_sudo_delete_text" => {
+            "\n Permission denied. Do you want to retry deleting with administrator / sudo privileges?\n\n [Enter] Retry with Admin   [Esc] Cancel"
+        }
+        "prompt_sudo_mkdir_text" => {
+            "\n Permission denied. Do you want to retry creating the folder with administrator / sudo privileges?\n\n [Enter] Retry with Admin   [Esc] Cancel"
+        }
+        "prompt_sudo_renmov_text" => {
+            "\n Permission denied. Do you want to retry moving/renaming with administrator / sudo privileges?\n\n [Enter] Retry with Admin   [Esc] Cancel"
+        }
+        "prompt_sudo_copy_text" => {
+            "\n Permission denied. Do you want to retry copying with administrator / sudo privileges?\n\n [Enter] Retry with Admin   [Esc] Cancel"
         }
         "prompt_abort_title" => " Confirm Abort ",
         "prompt_abort_text" => {

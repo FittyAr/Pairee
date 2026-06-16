@@ -50,9 +50,22 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             }
 
             if let Some(err) = has_error {
-                state.active_popup = Some(PopupType::Error(err));
+                if !context.config.settings.req_admin_modification {
+                    if let Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) = state.active_bg_op.take() {
+                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                            paths: sources,
+                            op_kind: crate::app::state::AdminOpKind::Copy { dst: dest },
+                        });
+                    } else {
+                        state.active_popup = Some(PopupType::Error(err));
+                    }
+                } else {
+                    state.active_popup = Some(PopupType::Error(err));
+                    state.active_bg_op = None;
+                }
             } else if is_completed {
                 state.active_popup = None;
+                state.active_bg_op = None;
                 state.refresh_both_panels(context.config.settings.show_hidden);
             } else {
                 if let Some(update) = latest_update {
@@ -131,6 +144,10 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         }
 
         // 2. Draw terminal window
+        if state.terminal_needs_clear {
+            let _ = terminal_backend.terminal.clear();
+            state.terminal_needs_clear = false;
+        }
         terminal_backend.terminal.draw(|f| {
             ui::draw_ui(f, &context, &state);
         })?;

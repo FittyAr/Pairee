@@ -168,10 +168,14 @@ pub fn handle_fs_action(
                         });
                     } else {
                         let rx = crate::fs::spawn_copy_task(
-                            targets,
-                            dest_dir,
+                            targets.clone(),
+                            dest_dir.clone(),
                             context.config.settings.clone(),
                         );
+                        state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
+                            sources: targets,
+                            dest: dest_dir,
+                        });
                         state.progress_rx = Some(rx);
                         state.active_popup = Some(PopupType::CopyProgress {
                             current_file: "Initializing...".to_string(),
@@ -239,6 +243,7 @@ pub fn handle_fs_action(
                         });
                     } else {
                         // Move directly
+                        let mut succeeded = true;
                         for src in &targets {
                             if let Some(fname) = src.file_name() {
                                 let dst = dest_dir.join(fname);
@@ -247,11 +252,22 @@ pub fn handle_fs_action(
                                     &dst,
                                     context.config.settings.req_admin_modification,
                                 ) {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    succeeded = false;
+                                    if !context.config.settings.req_admin_modification {
+                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                            paths: targets.clone(),
+                                            op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest_dir.clone() },
+                                        });
+                                    } else {
+                                        state.active_popup =
+                                            Some(PopupType::Error(format!("Move failed: {}", e)));
+                                    }
                                     break;
                                 }
                             }
+                        }
+                        if succeeded && context.config.settings.req_admin_modification {
+                            state.terminal_needs_clear = true;
                         }
                         state.get_active_panel_mut().selected_paths.clear();
                         state.refresh_both_panels(context.config.settings.show_hidden);
@@ -331,6 +347,7 @@ pub fn handle_fs_action(
                             if !context.config.settings.req_admin_modification {
                                 state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
                                     paths: targets.clone(),
+                                    op_kind: crate::app::state::AdminOpKind::Delete,
                                 });
                             } else {
                                 state.active_popup =
@@ -338,6 +355,9 @@ pub fn handle_fs_action(
                             }
                             return true;
                         }
+                    }
+                    if context.config.settings.req_admin_modification {
+                        state.terminal_needs_clear = true;
                     }
                     state.get_active_panel_mut().selected_paths.clear();
                     state.refresh_both_panels(context.config.settings.show_hidden);

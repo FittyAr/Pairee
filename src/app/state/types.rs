@@ -135,6 +135,22 @@ pub enum Screen {
 }
 
 #[derive(Debug, Clone)]
+pub enum AdminOpKind {
+    Delete,
+    MkDir,
+    RenameMove { dst: PathBuf },
+    Copy { dst: PathBuf },
+}
+
+#[derive(Debug, Clone)]
+pub enum BackgroundOpContext {
+    Copy {
+        sources: Vec<PathBuf>,
+        dest: PathBuf,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub enum PopupType {
     // ── Basic ────────────────────────────────────────────────────────────────
     Help {
@@ -247,6 +263,7 @@ pub enum PopupType {
     },
     ConfirmRetryAsAdmin {
         paths: Vec<PathBuf>,
+        op_kind: AdminOpKind,
     },
     SaveSetupConfirm,
 
