@@ -325,6 +325,7 @@ pub enum PopupType {
         path: PathBuf,
         content: Vec<String>,
         scroll: usize,
+        image_data: Option<image::DynamicImage>,
     },
 
     // ── File info ─────────────────────────────────────────────────────────────

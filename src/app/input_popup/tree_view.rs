@@ -75,12 +75,12 @@ pub fn handle(
                                 crate::app::state::ActivePanel::Left => {
                                     state.left_panel.current_path = target;
                                     state.left_panel.cursor_index = 0;
-                                    state.left_panel.selected_paths.clear();
+                                    state.left_panel.clear_selection();
                                 }
                                 crate::app::state::ActivePanel::Right => {
                                     state.right_panel.current_path = target;
                                     state.right_panel.cursor_index = 0;
-                                    state.right_panel.selected_paths.clear();
+                                    state.right_panel.clear_selection();
                                 }
                             }
                             state.active_popup = None;

@@ -51,7 +51,7 @@ pub fn handle(
                     let panel = state.get_active_panel_mut();
                     panel.current_path = target_path.clone();
                     panel.cursor_index = 0;
-                    panel.selected_paths.clear();
+                    panel.clear_selection();
                     state.active_popup = None;
                     state.refresh_both_panels(context.config.settings.show_hidden);
                 }

@@ -217,25 +217,12 @@ pub fn handle_ui_settings_action(
         }
         Action::QuickView => {
             state.quick_view_active = !state.quick_view_active;
-            if state.quick_view_active {
-                let active = state.get_active_panel();
-                if let Some(entry) = active
-                    .entries
-                    .get(active.cursor_index)
-                    .filter(|e| !e.is_dir)
-                {
-                    let path = entry.path.clone();
-                    let content = crate::ui::quickview::load_quick_view_content(&path);
-                    state.active_popup = Some(PopupType::QuickViewPanel {
-                        path,
-                        content,
-                        scroll: 0,
-                    });
-                }
-            } else {
+            if !state.quick_view_active {
                 if let Some(PopupType::QuickViewPanel { .. }) = state.active_popup {
                     state.active_popup = None;
                 }
+            } else {
+                state.update_quick_view();
             }
             true
         }
@@ -262,7 +249,9 @@ pub fn handle_ui_settings_action(
                                 .iter()
                                 .find(|e| e.name == entry.name)
                             {
-                                state.left_panel.selected_paths.insert(e.path.clone());
+                                if state.left_panel.selected_paths.insert(e.path.clone()) {
+                                    state.left_panel.selection_order.push(e.path.clone());
+                                }
                             }
                         }
                     }

@@ -18,14 +18,17 @@ pub async fn handle_action(
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
+    let mut handled = false;
     if navigation::handle_navigation_action(state, &action, context) {
-        return Ok(());
+        handled = true;
+    } else if fs_ops::handle_fs_action(state, &action, context, terminal_backend) {
+        handled = true;
+    } else if ui_settings::handle_ui_settings_action(state, &action, context) {
+        handled = true;
     }
-    if fs_ops::handle_fs_action(state, &action, context, terminal_backend) {
-        return Ok(());
-    }
-    if ui_settings::handle_ui_settings_action(state, &action, context) {
-        return Ok(());
+
+    if handled {
+        state.update_quick_view();
     }
     Ok(())
 }

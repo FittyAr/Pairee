@@ -281,7 +281,7 @@ pub fn handle_fs_action(
                         if succeeded && context.config.settings.req_admin_modification {
                             state.terminal_needs_clear = true;
                         }
-                        state.get_active_panel_mut().selected_paths.clear();
+                        state.get_active_panel_mut().clear_selection();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                     }
                 }
@@ -374,7 +374,7 @@ pub fn handle_fs_action(
                     if context.config.settings.req_admin_modification {
                         state.terminal_needs_clear = true;
                     }
-                    state.get_active_panel_mut().selected_paths.clear();
+                    state.get_active_panel_mut().clear_selection();
                     state.refresh_both_panels(context.config.settings.show_hidden);
                 }
             }

@@ -75,7 +75,7 @@ pub fn handle_cli_input(
                         let active = state.get_active_panel_mut();
                         active.current_path = new_path;
                         active.cursor_index = 0;
-                        active.selected_paths.clear();
+                        active.clear_selection();
                     }
                 } else if cmd.ends_with("&") {
                     let cmd_bg = cmd.strip_suffix("&").unwrap().trim().to_string();
@@ -238,7 +238,7 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
         let active_mut = state.get_active_panel_mut();
         active_mut.current_path = dir;
         active_mut.cursor_index = 0;
-        active_mut.selected_paths.clear();
+        active_mut.clear_selection();
     }
 }
 
@@ -260,7 +260,7 @@ pub fn handle_backspace_key(state: &mut AppState, show_hidden: bool) {
         state.push_folders_history(parent.clone());
 
         state.get_active_panel_mut().current_path = parent;
-        state.get_active_panel_mut().selected_paths.clear();
+        state.get_active_panel_mut().clear_selection();
 
         // Reread folder entries in parent directory
         state.refresh_both_panels(show_hidden);

@@ -83,7 +83,7 @@ pub fn handle_navigation_action(
                 let panel = state.get_active_panel_mut();
                 panel.current_path = target;
                 panel.cursor_index = 0;
-                panel.selected_paths.clear();
+                panel.clear_selection();
                 state.refresh_both_panels(context.config.settings.show_hidden);
             } else {
                 state.active_popup = Some(PopupType::Info(format!(

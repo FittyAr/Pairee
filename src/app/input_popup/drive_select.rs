@@ -56,12 +56,12 @@ pub fn handle(
                         ActivePanel::Left => {
                             state.left_panel.current_path = target_path;
                             state.left_panel.cursor_index = 0;
-                            state.left_panel.selected_paths.clear();
+                            state.left_panel.clear_selection();
                         }
                         ActivePanel::Right => {
                             state.right_panel.current_path = target_path;
                             state.right_panel.cursor_index = 0;
-                            state.right_panel.selected_paths.clear();
+                            state.right_panel.clear_selection();
                         }
                     }
                     state.active_popup = None;

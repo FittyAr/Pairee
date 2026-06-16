@@ -52,7 +52,7 @@ pub fn handle(
                             }
                         }
                         state.active_popup = None;
-                        state.get_active_panel_mut().selected_paths.clear();
+                        state.get_active_panel_mut().clear_selection();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);
                     }

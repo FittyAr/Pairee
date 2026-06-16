@@ -113,7 +113,7 @@ pub fn handle(
                             if succeeded && context.config.settings.req_admin_modification {
                                 state.terminal_needs_clear = true;
                             }
-                            state.get_active_panel_mut().selected_paths.clear();
+                            state.get_active_panel_mut().clear_selection();
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         } else {
                             let targets = src_paths;
@@ -287,7 +287,7 @@ pub fn handle(
                                         return Ok(None);
                                     }
                                 }
-                                state.get_active_panel_mut().selected_paths.clear();
+                                state.get_active_panel_mut().clear_selection();
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
                             crate::app::state::AdminOpKind::MkDir => {
@@ -319,7 +319,7 @@ pub fn handle(
                                         }
                                     }
                                 }
-                                state.get_active_panel_mut().selected_paths.clear();
+                                state.get_active_panel_mut().clear_selection();
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
                             crate::app::state::AdminOpKind::Copy { dst } => {

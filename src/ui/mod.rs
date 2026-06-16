@@ -36,24 +36,53 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     let left_active = state.active_panel == ActivePanel::Left;
                     let right_active = state.active_panel == ActivePanel::Right;
 
-                    // Left panel
+                    // Left panel — replaced by quick view if active and the left panel is passive
                     if state.left_panel_visible && layout.left_rect.width > 1 {
-                        panel::render_panel(
-                            f,
-                            layout.left_rect,
-                            &state.left_panel,
-                            left_active,
-                            context,
-                        );
-                    }
-
-                    // Right panel — replaced by quick view if active and the right panel is passive
-                    if state.right_panel_visible && layout.right_rect.width > 1 {
-                        if state.quick_view_active {
+                        if state.quick_view_active && !left_active {
                             if let Some(PopupType::QuickViewPanel {
                                 ref path,
                                 ref content,
                                 scroll,
+                                ref image_data,
+                            }) = state.active_popup
+                            {
+                                quickview::draw_quick_view(
+                                    f,
+                                    layout.left_rect,
+                                    path,
+                                    content,
+                                    scroll,
+                                    &context.config.theme,
+                                    image_data,
+                                );
+                            } else {
+                                panel::render_panel(
+                                    f,
+                                    layout.left_rect,
+                                    &state.left_panel,
+                                    left_active,
+                                    context,
+                                );
+                            }
+                        } else {
+                            panel::render_panel(
+                                f,
+                                layout.left_rect,
+                                &state.left_panel,
+                                left_active,
+                                context,
+                            );
+                        }
+                    }
+
+                    // Right panel — replaced by quick view if active and the right panel is passive
+                    if state.right_panel_visible && layout.right_rect.width > 1 {
+                        if state.quick_view_active && !right_active {
+                            if let Some(PopupType::QuickViewPanel {
+                                ref path,
+                                ref content,
+                                scroll,
+                                ref image_data,
                             }) = state.active_popup
                             {
                                 quickview::draw_quick_view(
@@ -63,6 +92,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     content,
                                     scroll,
                                     &context.config.theme,
+                                    image_data,
                                 );
                             } else {
                                 panel::render_panel(

@@ -262,6 +262,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         "quickview_files" => "Files count: {}",
         "quickview_error" => "[Error reading archive: {}]",
         "quickview_binary_no_preview" => "[Binary file — cannot preview]",
+        "quickview_folder" => "Folder: {}",
 
         // System Settings Row Labels
         "sys_delete_recycle" => "Delete to Recycle Bin",

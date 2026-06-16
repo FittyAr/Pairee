@@ -14,6 +14,8 @@ pub struct PanelState {
     pub cursor_index: usize,
     /// Set of file/folder paths selected (tagged) by the user
     pub selected_paths: HashSet<PathBuf>,
+    /// The order in which paths were selected (tagged) by the user
+    pub selection_order: Vec<PathBuf>,
     /// Active view mode for this panel
     pub view_mode: PanelViewMode,
     /// Active sort field
@@ -33,6 +35,7 @@ impl PanelState {
             entries: Vec::new(),
             cursor_index: 0,
             selected_paths: HashSet::new(),
+            selection_order: Vec::new(),
             view_mode: PanelViewMode::default(),
             sort_field: SortField::default(),
             sort_reverse: false,
@@ -98,8 +101,10 @@ impl PanelState {
                 let path = entry.path.clone();
                 if self.selected_paths.contains(&path) {
                     self.selected_paths.remove(&path);
+                    self.selection_order.retain(|p| p != &path);
                 } else {
-                    self.selected_paths.insert(path);
+                    self.selected_paths.insert(path.clone());
+                    self.selection_order.push(path);
                 }
             }
         }
@@ -109,7 +114,9 @@ impl PanelState {
     pub fn select_group(&mut self, mask: &str) {
         for entry in &self.entries {
             if entry.name != ".." && glob_matches(mask, &entry.name) {
-                self.selected_paths.insert(entry.path.clone());
+                if self.selected_paths.insert(entry.path.clone()) {
+                    self.selection_order.push(entry.path.clone());
+                }
             }
         }
     }
@@ -117,6 +124,8 @@ impl PanelState {
     /// Deselects all entries matching a glob mask.
     pub fn unselect_group(&mut self, mask: &str) {
         self.selected_paths
+            .retain(|p| !glob_matches(mask, &p.file_name().unwrap_or_default().to_string_lossy()));
+        self.selection_order
             .retain(|p| !glob_matches(mask, &p.file_name().unwrap_or_default().to_string_lossy()));
     }
 
@@ -130,6 +139,19 @@ impl PanelState {
             .collect();
         let currently_selected = std::mem::take(&mut self.selected_paths);
         self.selected_paths = all.difference(&currently_selected).cloned().collect();
+        // Rebuild selection_order keeping directory list order
+        self.selection_order.clear();
+        for entry in &self.entries {
+            if self.selected_paths.contains(&entry.path) {
+                self.selection_order.push(entry.path.clone());
+            }
+        }
+    }
+
+    /// Clears both selected_paths and selection_order
+    pub fn clear_selection(&mut self) {
+        self.selected_paths.clear();
+        self.selection_order.clear();
     }
 
     /// Returns a list of paths representing the targeted items:
@@ -179,5 +201,51 @@ mod tests {
         panel.invert_selection();
         assert!(!panel.selected_paths.contains(&PathBuf::from("/tmp/a.rs")));
         assert!(panel.selected_paths.contains(&PathBuf::from("/tmp/b.rs")));
+    }
+
+    #[test]
+    fn test_selection_order() {
+        let mut panel = PanelState::new(PathBuf::from("/tmp"));
+        panel.entries = vec![
+            FileEntry {
+                name: "a.rs".to_string(),
+                path: PathBuf::from("/tmp/a.rs"),
+                is_dir: false,
+                is_symlink: false,
+                size: 0,
+                modified: None,
+            },
+            FileEntry {
+                name: "b.rs".to_string(),
+                path: PathBuf::from("/tmp/b.rs"),
+                is_dir: false,
+                is_symlink: false,
+                size: 0,
+                modified: None,
+            },
+        ];
+
+        // Toggle selection on a.rs (index 0)
+        panel.cursor_index = 0;
+        panel.toggle_selection_with_opts(false);
+        assert_eq!(panel.selection_order, vec![PathBuf::from("/tmp/a.rs")]);
+
+        // Toggle selection on b.rs (index 1)
+        panel.cursor_index = 1;
+        panel.toggle_selection_with_opts(false);
+        assert_eq!(
+            panel.selection_order,
+            vec![PathBuf::from("/tmp/a.rs"), PathBuf::from("/tmp/b.rs")]
+        );
+
+        // Toggle selection on a.rs again (deselects it)
+        panel.cursor_index = 0;
+        panel.toggle_selection_with_opts(false);
+        assert_eq!(panel.selection_order, vec![PathBuf::from("/tmp/b.rs")]);
+
+        // Clear selection
+        panel.clear_selection();
+        assert!(panel.selection_order.is_empty());
+        assert!(panel.selected_paths.is_empty());
     }
 }
