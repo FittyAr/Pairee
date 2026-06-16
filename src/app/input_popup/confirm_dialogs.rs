@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -37,7 +38,7 @@ pub fn handle(
                     KeyCode::Esc => {
                         // Resume the progress popup; it will automatically receive progress updates on the next tick
                         state.active_popup = Some(PopupType::CopyProgress {
-                            current_file: "Resuming...".to_string(),
+                            current_file: t("progress_resuming"),
                             files_copied: 0,
                             total_files: 0,
                             bytes_copied: 0,
@@ -72,11 +73,16 @@ pub fn handle(
                                     if !context.config.settings.req_admin_modification {
                                         state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
                                             paths: src_paths.clone(),
-                                            op_kind: crate::app::state::AdminOpKind::RenameMove { dst },
+                                            op_kind: crate::app::state::AdminOpKind::RenameMove {
+                                                dst,
+                                            },
                                         });
                                     } else {
-                                        state.active_popup =
-                                            Some(PopupType::Error(format!("Move failed: {}", e)));
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "{} {}",
+                                            t("error_move_failed"),
+                                            e
+                                        )));
                                     }
                                 }
                             } else {
@@ -95,10 +101,9 @@ pub fn handle(
                                                     op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest_dir.clone() },
                                                 });
                                             } else {
-                                                state.active_popup = Some(PopupType::Error(format!(
-                                                    "Move failed: {}",
-                                                    e
-                                                )));
+                                                state.active_popup = Some(PopupType::Error(
+                                                    format!("{} {}", t("error_move_failed"), e),
+                                                ));
                                             }
                                             break;
                                         }
@@ -123,13 +128,14 @@ pub fn handle(
                                 dest.clone(),
                                 context.config.settings.clone(),
                             );
-                            state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
-                                sources: targets,
-                                dest,
-                            });
+                            state.active_bg_op =
+                                Some(crate::app::state::BackgroundOpContext::Copy {
+                                    sources: targets,
+                                    dest,
+                                });
                             state.progress_rx = Some(rx);
                             state.active_popup = Some(PopupType::CopyProgress {
-                                current_file: "Initializing...".to_string(),
+                                current_file: t("progress_initializing"),
                                 files_copied: 0,
                                 total_files: 0,
                                 bytes_copied: 0,
@@ -167,8 +173,11 @@ pub fn handle(
                                     ed.is_dirty = false;
                                 }
                                 Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                                    state.active_popup = Some(PopupType::Error(format!(
+                                        "{} {}",
+                                        t("error_reload_failed"),
+                                        e
+                                    )));
                                     return Ok(None);
                                 }
                             }
@@ -253,7 +262,8 @@ pub fn handle(
                         {
                             if let Err(e) = crate::fs::acquire_admin_privileges() {
                                 state.active_popup = Some(PopupType::Error(format!(
-                                    "Failed to acquire admin privileges: {}",
+                                    "{} {}",
+                                    t("error_acquire_admin_failed"),
                                     e
                                 )));
                                 return Ok(None);
@@ -284,7 +294,8 @@ pub fn handle(
                                 for path in &paths {
                                     if let Err(e) = crate::fs::create_directory(path, true) {
                                         state.active_popup = Some(PopupType::Error(format!(
-                                            "MkDir failed: {}",
+                                            "{} {}",
+                                            t("error_mkdir_failed"),
                                             e
                                         )));
                                         return Ok(None);
@@ -296,13 +307,12 @@ pub fn handle(
                                 for src in &paths {
                                     if let Some(fname) = src.file_name() {
                                         let final_dst = dst.join(fname);
-                                        if let Err(e) = crate::fs::rename_or_move_sync(
-                                            src,
-                                            &final_dst,
-                                            true,
-                                        ) {
+                                        if let Err(e) =
+                                            crate::fs::rename_or_move_sync(src, &final_dst, true)
+                                        {
                                             state.active_popup = Some(PopupType::Error(format!(
-                                                "Move failed: {}",
+                                                "{} {}",
+                                                t("error_move_failed"),
                                                 e
                                             )));
                                             return Ok(None);
@@ -320,12 +330,11 @@ pub fn handle(
                                     dst.clone(),
                                     settings,
                                 );
-                                state.active_bg_op = Some(
-                                    crate::app::state::BackgroundOpContext::Copy {
+                                state.active_bg_op =
+                                    Some(crate::app::state::BackgroundOpContext::Copy {
                                         sources: paths,
                                         dest: dst,
-                                    },
-                                );
+                                    });
                                 state.progress_rx = Some(rx);
                                 state.active_popup = Some(PopupType::CopyProgress {
                                     current_file: crate::config::localization::t(

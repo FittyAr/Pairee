@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::types::EditorState;
 use crate::app::state::{AppState, FileAttrsSnapshot, LinkKind, PopupType, Screen};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
 
@@ -65,8 +66,11 @@ pub fn handle_fs_action(
                                 context,
                                 terminal_backend,
                             ) {
-                                state.active_popup =
-                                    Some(PopupType::Error(format!("Failed to run viewer: {}", e)));
+                                state.active_popup = Some(PopupType::Error(format!(
+                                    "{} {}",
+                                    t("error_viewer_failed"),
+                                    e
+                                )));
                             }
                         }
                     }
@@ -107,8 +111,11 @@ pub fn handle_fs_action(
                         }));
                     }
                     Err(e) => {
-                        state.active_popup =
-                            Some(PopupType::Error(format!("Cannot read file: {}", e)));
+                        state.active_popup = Some(PopupType::Error(format!(
+                            "{} {}",
+                            t("error_read_file_failed"),
+                            e
+                        )));
                     }
                 }
             }
@@ -178,7 +185,7 @@ pub fn handle_fs_action(
                         });
                         state.progress_rx = Some(rx);
                         state.active_popup = Some(PopupType::CopyProgress {
-                            current_file: "Initializing...".to_string(),
+                            current_file: t("progress_initializing"),
                             files_copied: 0,
                             total_files: 0,
                             bytes_copied: 0,
@@ -256,11 +263,16 @@ pub fn handle_fs_action(
                                     if !context.config.settings.req_admin_modification {
                                         state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
                                             paths: targets.clone(),
-                                            op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest_dir.clone() },
+                                            op_kind: crate::app::state::AdminOpKind::RenameMove {
+                                                dst: dest_dir.clone(),
+                                            },
                                         });
                                     } else {
-                                        state.active_popup =
-                                            Some(PopupType::Error(format!("Move failed: {}", e)));
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "{} {}",
+                                            t("error_move_failed"),
+                                            e
+                                        )));
                                     }
                                     break;
                                 }
@@ -304,7 +316,7 @@ pub fn handle_fs_action(
                 let rx = crate::fs::spawn_extract_task(entry.path.clone(), dest);
                 state.progress_rx = Some(rx);
                 state.active_popup = Some(PopupType::CopyProgress {
-                    current_file: "Extracting...".to_string(),
+                    current_file: t("progress_extracting"),
                     files_copied: 0,
                     total_files: 0,
                     bytes_copied: 0,
@@ -350,8 +362,11 @@ pub fn handle_fs_action(
                                     op_kind: crate::app::state::AdminOpKind::Delete,
                                 });
                             } else {
-                                state.active_popup =
-                                    Some(PopupType::Error(format!("Delete failed: {}", e)));
+                                state.active_popup = Some(PopupType::Error(format!(
+                                    "{} {}",
+                                    t("error_delete_failed"),
+                                    e
+                                )));
                             }
                             return true;
                         }
@@ -374,7 +389,7 @@ pub fn handle_fs_action(
                     let rx = crate::fs::spawn_wipe_task(targets);
                     state.progress_rx = Some(rx);
                     state.active_popup = Some(PopupType::CopyProgress {
-                        current_file: "Wiping...".to_string(),
+                        current_file: t("progress_wiping"),
                         files_copied: 0,
                         total_files: 0,
                         bytes_copied: 0,
@@ -418,8 +433,11 @@ pub fn handle_fs_action(
                             });
                         }
                         Err(e) => {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Cannot read attrs: {}", e)));
+                            state.active_popup = Some(PopupType::Error(format!(
+                                "{} {}",
+                                t("error_read_attrs_failed"),
+                                e
+                            )));
                         }
                     }
                 }
@@ -462,10 +480,10 @@ pub fn handle_fs_action(
                 state.active_popup = Some(PopupType::ArchiveCommandsMenu {
                     archive_path: entry.path.clone(),
                     items: vec![
-                        "1. List contents".to_string(),
-                        "2. Test integrity".to_string(),
-                        "3. Extract here".to_string(),
-                        "4. Extract to other panel".to_string(),
+                        t("menu_archive_list"),
+                        t("menu_archive_test"),
+                        t("menu_archive_extract"),
+                        t("menu_archive_extract_other"),
                     ],
                     cursor_idx: 0,
                 });

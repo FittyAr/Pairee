@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -84,7 +85,7 @@ pub fn handle(
                             });
                         } else {
                             state.active_popup =
-                                Some(PopupType::Error(format!("Directory error: {}", e)));
+                                Some(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
                         }
                     } else {
                         if context.config.settings.req_admin_modification {

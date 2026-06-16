@@ -51,7 +51,9 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
             if let Some(err) = has_error {
                 if !context.config.settings.req_admin_modification {
-                    if let Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) = state.active_bg_op.take() {
+                    if let Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) =
+                        state.active_bg_op.take()
+                    {
                         state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
                             paths: sources,
                             op_kind: crate::app::state::AdminOpKind::Copy { dst: dest },
