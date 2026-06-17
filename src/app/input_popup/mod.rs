@@ -31,6 +31,8 @@ pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
 
+pub mod ssh_connect;
+
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -90,6 +92,7 @@ pub fn handle_popup_input(
             PopupType::CommandHistoryList { .. }
             | PopupType::FileViewHistoryList { .. }
             | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
+            PopupType::SshConnectPrompt { .. } => ssh_connect::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

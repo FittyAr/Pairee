@@ -78,6 +78,18 @@ pub fn handle_navigation_action(
             });
             true
         }
+        Action::SshConnect => {
+            state.active_popup = Some(PopupType::SshConnectPrompt {
+                panel: state.active_panel,
+                input_host: String::new(),
+                input_port: "22".to_string(),
+                input_user: String::new(),
+                input_pass: String::new(),
+                input_key_path: String::new(),
+                cursor_idx: 0,
+            });
+            true
+        }
         Action::GoFolderShortcut(n) => {
             if let Some(target) = state.folder_shortcuts.get(n).cloned() {
                 let panel = state.get_active_panel_mut();

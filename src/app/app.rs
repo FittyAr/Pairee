@@ -121,6 +121,39 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             state.term_rx = Some(rx);
         }
 
+        // 1.6 Process background SSH connection attempts
+        if state.ssh_connect_rx.is_some() {
+            let mut rx = state.ssh_connect_rx.take().unwrap();
+            match rx.try_recv() {
+                Ok((panel, res)) => {
+                    match res {
+                        Ok(client) => {
+                            let p = match panel {
+                                crate::app::state::ActivePanel::Left => &mut state.left_panel,
+                                crate::app::state::ActivePanel::Right => &mut state.right_panel,
+                            };
+                            p.ssh_conn = Some(client);
+                            p.current_path = std::path::PathBuf::from("/");
+                            p.cursor_index = 0;
+                            p.clear_selection();
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                        }
+                        Err(e) => {
+                            state.active_popup = Some(PopupType::Error(format!(
+                                "{} {}",
+                                crate::config::localization::t("error_ssh_failed"),
+                                e
+                            )));
+                        }
+                    }
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+                    state.ssh_connect_rx = Some(rx);
+                }
+                Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {}
+            }
+        }
+
         // 1.7 Process background search updates
         if state.search_rx.is_some() {
             let mut rx = state.search_rx.take().unwrap();

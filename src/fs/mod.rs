@@ -27,6 +27,7 @@ pub use mkdir::create_directory;
 pub use privileges::acquire_admin_privileges;
 pub use rename_move::rename_or_move_sync;
 pub use ops_worker::{
-    ProgressUpdate, spawn_compress_task, spawn_copy_task, spawn_extract_task, spawn_move_task,
+    ProgressUpdate, spawn_compress_task, spawn_copy_task, spawn_copy_move_task, spawn_extract_task, spawn_move_task,
     spawn_wipe_task,
 };
+pub mod ssh;

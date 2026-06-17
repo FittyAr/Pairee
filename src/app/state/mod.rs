@@ -23,6 +23,8 @@ pub struct AppState {
     pub should_quit: bool,
     /// Channel receiver for running copy/move/extract/wipe operations
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
+    /// Channel receiver for background SSH connection attempts
+    pub ssh_connect_rx: Option<tokio::sync::oneshot::Receiver<(ActivePanel, anyhow::Result<crate::fs::ssh::SharedSshClient>)>>,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     /// Channel for communicating with the background terminal
@@ -86,6 +88,7 @@ impl AppState {
             active_popup: None,
             should_quit: false,
             progress_rx: None,
+            ssh_connect_rx: None,
             search_rx: None,
             term_tx,
             term_rx: Some(term_rx),
@@ -216,24 +219,42 @@ impl AppState {
         let skip_left = self.disable_panel_update_object_count > 0
             && left_count as u32 > self.disable_panel_update_object_count;
         if !skip_left {
-            if let Ok(entries) = fs::read_directory_ext(
-                &left_path,
-                show_hidden,
-                self.case_sensitive_sort,
-                self.treat_digits_as_numbers,
-                &self.sorting_collation,
-                self.req_admin_reading,
-                self.left_panel.sort_field,
-                self.left_panel.sort_reverse,
-                self.sort_folder_names_by_extension,
-                self.show_dotdot_in_root_folders,
-            ) {
+            let res = if let Some(client) = &self.left_panel.ssh_conn {
+                client.read_directory(
+                    &left_path,
+                    show_hidden,
+                    self.case_sensitive_sort,
+                    self.treat_digits_as_numbers,
+                    self.left_panel.sort_field,
+                    self.left_panel.sort_reverse,
+                    self.show_dotdot_in_root_folders,
+                )
+            } else {
+                fs::read_directory_ext(
+                    &left_path,
+                    show_hidden,
+                    self.case_sensitive_sort,
+                    self.treat_digits_as_numbers,
+                    &self.sorting_collation,
+                    self.req_admin_reading,
+                    self.left_panel.sort_field,
+                    self.left_panel.sort_reverse,
+                    self.sort_folder_names_by_extension,
+                    self.show_dotdot_in_root_folders,
+                )
+            };
+
+            if let Ok(entries) = res {
                 self.left_panel.entries = entries;
                 if self.left_panel.cursor_index >= self.left_panel.entries.len() {
                     self.left_panel.cursor_index = self.left_panel.entries.len().saturating_sub(1);
                 }
             }
-            self.free_space_left = crate::app::sys_helpers::get_free_space(&left_path);
+            self.free_space_left = if self.left_panel.ssh_conn.is_none() {
+                crate::app::sys_helpers::get_free_space(&left_path)
+            } else {
+                None
+            };
         }
 
         let right_path = self.right_panel.current_path.clone();
@@ -241,25 +262,43 @@ impl AppState {
         let skip_right = self.disable_panel_update_object_count > 0
             && right_count as u32 > self.disable_panel_update_object_count;
         if !skip_right {
-            if let Ok(entries) = fs::read_directory_ext(
-                &right_path,
-                show_hidden,
-                self.case_sensitive_sort,
-                self.treat_digits_as_numbers,
-                &self.sorting_collation,
-                self.req_admin_reading,
-                self.right_panel.sort_field,
-                self.right_panel.sort_reverse,
-                self.sort_folder_names_by_extension,
-                self.show_dotdot_in_root_folders,
-            ) {
+            let res = if let Some(client) = &self.right_panel.ssh_conn {
+                client.read_directory(
+                    &right_path,
+                    show_hidden,
+                    self.case_sensitive_sort,
+                    self.treat_digits_as_numbers,
+                    self.right_panel.sort_field,
+                    self.right_panel.sort_reverse,
+                    self.show_dotdot_in_root_folders,
+                )
+            } else {
+                fs::read_directory_ext(
+                    &right_path,
+                    show_hidden,
+                    self.case_sensitive_sort,
+                    self.treat_digits_as_numbers,
+                    &self.sorting_collation,
+                    self.req_admin_reading,
+                    self.right_panel.sort_field,
+                    self.right_panel.sort_reverse,
+                    self.sort_folder_names_by_extension,
+                    self.show_dotdot_in_root_folders,
+                )
+            };
+
+            if let Ok(entries) = res {
                 self.right_panel.entries = entries;
                 if self.right_panel.cursor_index >= self.right_panel.entries.len() {
                     self.right_panel.cursor_index =
                         self.right_panel.entries.len().saturating_sub(1);
                 }
             }
-            self.free_space_right = crate::app::sys_helpers::get_free_space(&right_path);
+            self.free_space_right = if self.right_panel.ssh_conn.is_none() {
+                crate::app::sys_helpers::get_free_space(&right_path)
+            } else {
+                None
+            };
         }
     }
 

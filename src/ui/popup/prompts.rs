@@ -1300,6 +1300,104 @@ pub fn render_prompt_popup(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::SshConnectPrompt {
+            panel: _,
+            input_host,
+            input_port,
+            input_user,
+            input_pass,
+            input_key_path,
+            cursor_idx,
+        } => {
+            let area = centered_rect(65, 17, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(t("prompt_ssh_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            let inner = block.inner(area);
+            f.render_widget(block, area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(1), // Spacer
+                    Constraint::Length(2), // Host IP / Domain
+                    Constraint::Length(2), // Port
+                    Constraint::Length(2), // Username
+                    Constraint::Length(2), // Password
+                    Constraint::Length(2), // Private Key Path
+                    Constraint::Length(1), // Spacer / Sep
+                    Constraint::Length(1), // Buttons
+                ])
+                .split(inner);
+
+            let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
+            let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
+
+            // Host
+            let host_style = if *cursor_idx == 0 { active_style } else { normal_style };
+            let host_disp = if *cursor_idx == 0 { format!("{}_", input_host) } else { input_host.clone() };
+            f.render_widget(
+                Paragraph::new(format!("{}{}", t("prompt_ssh_host"), host_disp)).style(host_style),
+                chunks[1],
+            );
+
+            // Port
+            let port_style = if *cursor_idx == 1 { active_style } else { normal_style };
+            let port_disp = if *cursor_idx == 1 { format!("{}_", input_port) } else { input_port.clone() };
+            f.render_widget(
+                Paragraph::new(format!("{}{}", t("prompt_ssh_port"), port_disp)).style(port_style),
+                chunks[2],
+            );
+
+            // Username
+            let user_style = if *cursor_idx == 2 { active_style } else { normal_style };
+            let user_disp = if *cursor_idx == 2 { format!("{}_", input_user) } else { input_user.clone() };
+            f.render_widget(
+                Paragraph::new(format!("{}{}", t("prompt_ssh_user"), user_disp)).style(user_style),
+                chunks[3],
+            );
+
+            // Password (masked)
+            let pass_style = if *cursor_idx == 3 { active_style } else { normal_style };
+            let pass_masked: String = "*".repeat(input_pass.len());
+            let pass_disp = if *cursor_idx == 3 { format!("{}_", pass_masked) } else { pass_masked };
+            f.render_widget(
+                Paragraph::new(format!("{}{}", t("prompt_ssh_pass"), pass_disp)).style(pass_style),
+                chunks[4],
+            );
+
+            // Key Path
+            let key_style = if *cursor_idx == 4 { active_style } else { normal_style };
+            let key_disp = if *cursor_idx == 4 { format!("{}_", input_key_path) } else { input_key_path.clone() };
+            f.render_widget(
+                Paragraph::new(format!("{}{}", t("prompt_ssh_key_path"), key_disp)).style(key_style),
+                chunks[5],
+            );
+
+            // Sep
+            let sep_str = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
+            f.render_widget(Paragraph::new(sep_str).style(Style::default().fg(Color::Cyan)), chunks[6]);
+
+            // Buttons
+            let b1 = if *cursor_idx == 5 { active_style } else { normal_style };
+            let b2 = if *cursor_idx == 6 { active_style } else { normal_style };
+
+            let btns = ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(t("btn_connect_braced"), b1),
+                ratatui::text::Span::raw("    "),
+                ratatui::text::Span::styled(t("btn_cancel_bracket"), b2),
+            ]);
+            f.render_widget(
+                Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+                chunks[7],
+            );
+
+            true
+        }
         _ => false,
     }
 }

@@ -97,6 +97,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_panel_on_off" => "&Panel On/Off",
         "menu_re_read" => "&Re-read",
         "menu_change_drive" => "&Change drive",
+        "menu_connect_ssh" => "&Connect to SSH...",
 
         // Files menu items
         "menu_view" => "&View",
@@ -622,6 +623,25 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_archive_test" => "2. Test integrity",
         "menu_archive_extract" => "3. Extract here",
         "menu_archive_extract_other" => "4. Extract to other panel",
+        "prompt_ssh_title" => " Connect to SSH / SFTP ",
+        "prompt_ssh_host" => " Host: ",
+        "prompt_ssh_port" => " Port: ",
+        "prompt_ssh_user" => " User: ",
+        "prompt_ssh_pass" => " Password: ",
+        "prompt_ssh_key_path" => " Key Path: ",
+        "btn_connect_braced" => "{ Connect }",
+        "progress_connecting_ssh" => "Connecting to SSH server...",
+        "error_ssh_host_empty" => "Host cannot be empty",
+        "error_ssh_user_empty" => "Username cannot be empty",
+        "error_ssh_failed" => "SSH connection failed:",
+        "error_wipe_failed_for" => "Wipe failed for {}: {}",
+        "error_remote_move_failed" => "Remote move failed: {}",
+        "error_copying_to" => "Error copying {} to {}: {}",
+        "error_remote_source_delete_failed" => "Copied but failed to delete remote source {}: {}",
+        "error_delete_source_failed" => "Copied but failed to remove source {}: {}",
+        "error_extraction_failed" => "Extraction failed: {}",
+        "error_compression_failed" => "Compression failed: {}",
+        "error_moving_failed_for" => "Error moving {}: {}",
 
         _ => key,
     };

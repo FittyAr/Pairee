@@ -80,6 +80,7 @@ pub fn trigger_menu_item(
                         Some(Action::DriveSelectLeft)
                     }
                 }
+                18 => Some(Action::SshConnect),
                 _ => None,
             }
         }

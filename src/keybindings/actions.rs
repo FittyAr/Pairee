@@ -200,4 +200,6 @@ pub enum Action {
     TreeView,
     /// Cycle active F-key modifier row view (Normal -> Ctrl -> Alt)
     CycleFKeysModifiers,
+    /// Connect active panel to a remote server via SSH
+    SshConnect,
 }

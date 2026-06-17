@@ -29,25 +29,39 @@ pub fn handle(
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 0 {
-                            for path in &paths {
-                                if let Err(e) = crate::fs::delete_sync(
-                                    path,
-                                    context.config.settings.delete_to_recycle_bin,
-                                    context.config.settings.req_admin_modification,
-                                ) {
-                                    if !context.config.settings.req_admin_modification {
-                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                                            paths: paths.clone(),
-                                            op_kind: crate::app::state::AdminOpKind::Delete,
-                                        });
-                                    } else {
+                            let ssh_conn = state.get_active_panel().ssh_conn.clone();
+                            if let Some(client) = ssh_conn {
+                                for path in &paths {
+                                    if let Err(e) = client.delete_recursive(path) {
                                         state.active_popup = Some(PopupType::Error(format!(
                                             "{} {}",
                                             crate::config::localization::t("error_delete_failed"),
                                             e
                                         )));
+                                        return Ok(None);
                                     }
-                                    return Ok(None);
+                                }
+                            } else {
+                                for path in &paths {
+                                    if let Err(e) = crate::fs::delete_sync(
+                                        path,
+                                        context.config.settings.delete_to_recycle_bin,
+                                        context.config.settings.req_admin_modification,
+                                    ) {
+                                        if !context.config.settings.req_admin_modification {
+                                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                                                paths: paths.clone(),
+                                                op_kind: crate::app::state::AdminOpKind::Delete,
+                                            });
+                                        } else {
+                                            state.active_popup = Some(PopupType::Error(format!(
+                                                "{} {}",
+                                                crate::config::localization::t("error_delete_failed"),
+                                                e
+                                            )));
+                                        }
+                                        return Ok(None);
+                                    }
                                 }
                             }
                         }

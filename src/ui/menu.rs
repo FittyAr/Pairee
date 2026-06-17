@@ -107,6 +107,7 @@ pub fn get_menu_items(menu_idx: usize, state: &AppState) -> Vec<MenuItemData> {
             MenuItemData::new(t("menu_panel_on_off"), "Ctrl+F1", state.left_panel_visible),
             MenuItemData::new(t("menu_re_read"), "Ctrl+R", false),
             MenuItemData::new(t("menu_change_drive"), "Alt+F1", false),
+            MenuItemData::new(t("menu_connect_ssh"), "Ctrl+Shift+S", false),
         ],
         1 => vec![
             MenuItemData::new(t("menu_view"), "F3", false),
@@ -219,6 +220,7 @@ pub fn get_menu_items(menu_idx: usize, state: &AppState) -> Vec<MenuItemData> {
             MenuItemData::new(t("menu_panel_on_off"), "Ctrl+F2", state.right_panel_visible),
             MenuItemData::new(t("menu_re_read"), "Ctrl+R", false),
             MenuItemData::new(t("menu_change_drive"), "Alt+F2", false),
+            MenuItemData::new(t("menu_connect_ssh"), "Ctrl+Shift+S", false),
         ],
         _ => vec![],
     }

@@ -424,4 +424,15 @@ pub enum PopupType {
         edit_buffer: String,
         rules: Vec<crate::ui::highlight::HighlightRule>,
     },
+
+    // ── SSH Connection ────────────────────────────────────────────────────────
+    SshConnectPrompt {
+        panel: ActivePanel,
+        input_host: String,
+        input_port: String,
+        input_user: String,
+        input_pass: String,
+        input_key_path: String,
+        cursor_idx: usize,
+    },
 }

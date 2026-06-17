@@ -60,9 +60,20 @@ pub fn render_panel(
         String::new()
     };
 
+    let ssh_suffix = if let Some(client) = &panel.ssh_conn {
+        if let Ok(c) = client.0.lock() {
+            format!(" [SSH: {}@{}]", c.username, c.host)
+        } else {
+            " [SSH: Locked]".to_string()
+        }
+    } else {
+        String::new()
+    };
+
     let title = format!(
-        " {} [{}{}] ",
+        " {}{} [{}{}] ",
         panel.current_path.to_string_lossy(),
+        ssh_suffix,
         mode_label,
         sort_letter,
     );
@@ -262,7 +273,11 @@ pub fn render_panel(
             // Free space is stored at the AppState level; we show a placeholder if not available.
             // Since panel.rs doesn't have direct access to AppState free_space fields,
             // we show disk info via a quick statfs-like check here.
-            let free_text = get_free_space_text(&panel.current_path);
+            let free_text = if panel.ssh_conn.is_some() {
+                "?".to_string()
+            } else {
+                get_free_space_text(&panel.current_path)
+            };
             footer_lines.push(Line::from(Span::styled(
                 format!(" {} {}", t("label_free"), free_text),
                 Style::default()
@@ -593,7 +608,9 @@ fn render_detailed(
                 theme,
                 highlight_files,
             );
-            let (perm_str, owner) = if let Ok(attrs) = crate::fs::attrs::read_attrs(&entry.path) {
+            let (perm_str, owner) = if panel.ssh_conn.is_some() {
+                ("?????????".to_string(), "?".to_string())
+            } else if let Ok(attrs) = crate::fs::attrs::read_attrs(&entry.path) {
                 (format_unix_mode(attrs.mode), attrs.owner)
             } else {
                 ("?????????".to_string(), "?".to_string())
@@ -740,9 +757,13 @@ fn render_file_owners(
                 theme,
                 highlight_files,
             );
-            let owner = crate::fs::attrs::read_attrs(&entry.path)
-                .map(|a| a.owner)
-                .unwrap_or_else(|_| "?".to_string());
+            let owner = if panel.ssh_conn.is_some() {
+                "?".to_string()
+            } else {
+                crate::fs::attrs::read_attrs(&entry.path)
+                    .map(|a| a.owner)
+                    .unwrap_or_else(|_| "?".to_string())
+            };
             Row::new(vec![
                 Cell::from(entry_display_name(&entry.name, entry.is_dir)),
                 Cell::from(owner),
@@ -805,9 +826,13 @@ fn render_file_links(
                 theme,
                 highlight_files,
             );
-            let nlinks = crate::fs::attrs::read_attrs(&entry.path)
-                .map(|a| a.nlinks.to_string())
-                .unwrap_or_else(|_| "?".to_string());
+            let nlinks = if panel.ssh_conn.is_some() {
+                "?".to_string()
+            } else {
+                crate::fs::attrs::read_attrs(&entry.path)
+                    .map(|a| a.nlinks.to_string())
+                    .unwrap_or_else(|_| "?".to_string())
+            };
             Row::new(vec![
                 Cell::from(entry_display_name(&entry.name, entry.is_dir)),
                 Cell::from(nlinks),

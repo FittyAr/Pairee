@@ -26,6 +26,8 @@ pub struct PanelState {
     pub show_long_names: bool,
     /// Permanent mask filter (None = show all)
     pub filter_mask: Option<String>,
+    /// Active SSH connection detail, if any
+    pub ssh_conn: Option<crate::fs::ssh::SharedSshClient>,
 }
 
 impl PanelState {
@@ -41,6 +43,7 @@ impl PanelState {
             sort_reverse: false,
             show_long_names: true,
             filter_mask: None,
+            ssh_conn: None,
         }
     }
 

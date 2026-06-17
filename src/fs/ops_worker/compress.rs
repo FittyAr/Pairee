@@ -1,0 +1,35 @@
+use crate::fs::archive::compress_zip;
+use std::path::PathBuf;
+use tokio::sync::mpsc;
+use super::ProgressUpdate;
+use crate::config::localization::t;
+
+pub fn spawn_compress_task(
+    sources: Vec<PathBuf>,
+    dest_archive: PathBuf,
+) -> mpsc::Receiver<ProgressUpdate> {
+    let (tx, rx) = mpsc::channel(100);
+    tokio::task::spawn_blocking(move || {
+        if let Err(e) = compress_zip(sources, &dest_archive, &tx) {
+            let err_msg = t("error_compression_failed").replacen("{}", &e.to_string(), 1);
+            let _ = tx.blocking_send(ProgressUpdate {
+                current_file: dest_archive.to_string_lossy().into_owned(),
+                files_copied: 0,
+                total_files: 0,
+                bytes_copied: 0,
+                total_bytes: 0,
+                error: Some(err_msg),
+            });
+        } else {
+            let _ = tx.blocking_send(ProgressUpdate {
+                current_file: "Completed".to_string(),
+                files_copied: 1,
+                total_files: 1,
+                bytes_copied: 0,
+                total_bytes: 0,
+                error: None,
+            });
+        }
+    });
+    rx
+}

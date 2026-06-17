@@ -195,6 +195,7 @@ fn parse_action_name(name: &str) -> Option<Action> {
         "video_mode" => Some(Action::VideoMode),
         "tree_view" => Some(Action::TreeView),
         "cycle_fkeys_modifiers" => Some(Action::CycleFKeysModifiers),
+        "ssh_connect" => Some(Action::SshConnect),
 
         _ => None,
     }
