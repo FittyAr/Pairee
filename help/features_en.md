@@ -137,3 +137,25 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 
 ### 5.9 System Info Panel (`F2 -> Commands -> Info panel`)
 * Overlay window displaying current OS distribution name, machine NetBIOS hostname, logged-in username, available system RAM, and environment parameters.
+
+---
+
+## 🌐 6. Built-in SSH & SFTP Client
+
+Pairee features a fully integrated SSH client and SFTP protocol backend, enabling you to manage files on remote Unix/Linux or Windows SSH servers as if they were local directories.
+
+### 6.1 Multi-Mode Connection Options
+* **SSH Bookmarks & Presets:** Save connection details (label name, hostname/IP, port, user, key file path) into settings presets to connect with a single click in future sessions.
+* **Flexible Authentication:**
+  * **Password Auth:** Secure interactive password entry.
+  * **Private Key Auth:** Use standard SSH keys (RSA, Ed25519, etc.), with optional passphrase support.
+  * **Default Key Auto-Discovery:** Automatic discovery and attempt of standard keys like `~/.ssh/id_rsa` or `~/.ssh/id_ed25519`.
+  * **SSH Agent Support:** Leverages local active SSH Agents for passwordless/keyless authentication.
+
+### 6.2 Fully Interactive Remote Panels
+* **Dynamic Title Suffix:** Connecting updates the active panel title to `[SSH: user@host]`, giving clear visibility of the remote context.
+* **Remote File System Actions:** List directories, create new directories (`F7`), rename files or folders (`F6`), and recursively delete files (`F8`) directly on the SFTP endpoint.
+* **File Attributes & Permissions:** Renders remote permissions (octal/Unix representations), owners, groups, sizes, and modification timestamps in Detailed view.
+
+### 6.3 Asynchronous Bidirectional Transfers
+* **Background Worker Copy/Move:** Transfer files between your local system and the remote server in both directions. Copy (`F5`) and Move (`F6`) tasks run in the background without blocking the UI, displaying live transfer speeds, percentages, and progress bars.

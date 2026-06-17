@@ -137,3 +137,25 @@ Pairee cuenta con una arquitectura robusta de entornos de trabajo concurrentes (
 
 ### 5.9 Panel de Información del Sistema (`F2 -> Comandos -> Panel de información`)
 * Ventana que muestra información sobre el sistema operativo, hostname de red, nombre de usuario activo, memoria RAM disponible y variables del sistema.
+
+---
+
+## 🌐 6. Cliente SSH y SFTP Integrado
+
+Pairee incluye un cliente SSH y un motor de protocolo SFTP completamente integrado, permitiéndote administrar archivos en servidores remotos Unix/Linux o Windows a través de SSH de la misma forma que si fuesen directorios locales.
+
+### 6.1 Opciones de Conexión Multi-Modo
+* **Marcadores y Ajustes Preestablecidos (Presets):** Guarda los detalles de conexión (nombre, host, puerto, usuario, ruta del archivo de clave) como presets en la configuración para conectarte con un solo clic en futuras sesiones.
+* **Autenticación Flexible:**
+  * **Contraseña:** Entrada segura e interactiva de contraseñas.
+  * **Llave Privada:** Admite el uso de llaves estándar (RSA, Ed25519, etc.), con soporte opcional para frase de paso (passphrase).
+  * **Detección Automática de Llaves:** Busca y prueba automáticamente las rutas de llaves predeterminadas como `~/.ssh/id_rsa` o `~/.ssh/id_ed25519`.
+  * **Soporte de SSH Agent:** Aprovecha el SSH Agent activo en el sistema local para una autenticación sin contraseña ni llave explícita.
+
+### 6.2 Paneles Remotos Interactivos
+* **Sufijo de Título Dinámico:** Al conectarte, el panel activo actualiza su título a `[SSH: usuario@host]` para dar una visibilidad clara del contexto remoto.
+* **Operaciones Remotas de Disco:** Permite listar directorios, crear carpetas nuevas (`F7`), renombrar elementos (`F6`) y eliminar recursivamente archivos y carpetas (`F8`) directamente en el servidor SFTP.
+* **Permisos y Atributos de Archivos:** Representa los permisos remotos (notación octal Unix), propietarios, grupos, tamaños y marcas de tiempo de modificación en la vista Detallada (Detailed).
+
+### 6.3 Transferencia Asíncrona Bidireccional
+* **Procesamiento en Segundo Plano (Tokio):** Transfiere archivos entre tu máquina local y el servidor remoto en ambas direcciones. Las tareas de Copiar (`F5`) y Mover (`F6`) se ejecutan en segundo plano sin congelar la interfaz, mostrando velocidad de transferencia en tiempo real, porcentajes y barras de progreso.

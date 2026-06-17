@@ -207,3 +207,50 @@ Here are the recommended third-party client configurations to enable this:
   ```bash
   ssh -Y user@hostname -p port
   ```
+
+---
+
+## 🌐 6. Using the Built-in SSH / SFTP Client
+
+**Pairee** includes a built-in SSH/SFTP client that allows you to browse and manage remote files directly within one of the standard navigation panels.
+
+### 6.1 Connecting to a Remote Host
+To open the SSH connection dialog, you can:
+1. Press the default shortcut **`Ctrl+Shift+S`**.
+2. Go to the top pulldown menu: **`Files`** (or **`Commands`**) -> **`Connect SSH...`**.
+3. Open the Drive/Disk selector menu using **`Alt+F1`** (for the left panel) or **`Alt+F2`** (for the right panel), and select **`[Connect SSH]`**.
+
+### 6.2 Filling the Connection Dialog
+The SSH Connection prompt contains the following fields:
+* **Preset Name:** A user-friendly nickname for the connection (e.g., `Staging Server`). If you specify a name, you can save the details as a bookmark for future use.
+* **Host:** The remote IP address or domain name (e.g., `192.168.1.100` or `ssh.example.com`).
+* **Port:** The SSH port on the remote host (defaults to `22`).
+* **Username:** The login username on the remote host.
+* **Password:** The password for password authentication, OR the passphrase if you are using an encrypted SSH private key file.
+* **Key Path:** The local absolute path to your SSH private key file (e.g., `C:/Users/name/.ssh/id_rsa` or `/home/user/.ssh/id_ed25519`). Leave blank if you are using password auth or local SSH agents.
+
+### 6.3 Managing SSH Bookmarks (Presets)
+Within the connection dialog, you can save and load bookmarks to quickly connect to your servers:
+* **Saving a Preset:** Fill in the fields (ensuring **Preset Name** is set) and press the **`[Save]`** button. The preset will be stored in your application settings.
+* **Loading a Preset:** The left side of the dialog displays a list of saved presets. Use the arrow keys or click to select a preset, then press **`[Load]`** to populate the fields, and select **`[Connect]`** (or press `Enter`) to establish the connection.
+* **Deleting a Preset:** Select a preset from the list and press the **`[Delete]`** button.
+
+### 6.4 Navigating & Managing SFTP Panels
+Once connected:
+* The active panel transitions to SFTP mode. Its header will display a dynamic title like `[SSH: user@host]`.
+* You can browse folders, enter directories by pressing **`Enter`**, and return to parent folders using **`..`** or **`Backspace`**.
+* **Create Directory:** Press **`F7`** to create a new folder on the remote machine.
+* **Rename / Move:** Press **`F6`** on a highlighted file/folder to rename or move it remotely.
+* **Delete:** Press **`F8`** to delete remote files or directories recursively.
+* **Viewer & Editor:** Highlight a remote file and press **`F3`** to view it or **`F4`** to edit its text contents directly on the remote server.
+
+### 6.5 Bidirectional File Transfers
+You can easily transfer files between your local filesystem panel and the remote SFTP panel:
+* **Upload:** Highlight or tag files in your local panel, focus on the local panel, and press **`F5`** (Copy) or **`F6`** (Move). Pairee will copy/move the files to the remote server.
+* **Download:** Highlight or tag files in the SFTP panel, focus on the SFTP panel, and press **`F5`** (Copy) or **`F6`** (Move). Pairee will download the files to the active local folder.
+* **Asynchronous Progress:** Transfers are processed on a background queue. A popup displays transfer speed, total/current file sizes, percentages, and progress bars. You can switch screens or menus while the transfer is active.
+
+### 6.6 Disconnecting
+To disconnect and return the panel to your local disk:
+1. Go to the top pulldown menu: **`Files`** (or **`Commands`**) -> **`Disconnect SSH`**.
+2. Alternatively, open the Drive/Disk selector menu using **`Alt+F1`** or **`Alt+F2`** and select any local drive/path (e.g., `C:` or `/`).

@@ -206,3 +206,50 @@ A continuación, detallo las aplicaciones de terceros recomendadas y sus configu
   ```bash
   ssh -Y usuario@servidor -p puerto
   ```
+
+---
+
+## 🌐 6. Uso del Cliente SSH / SFTP Integrado
+
+**Pairee** incluye un cliente SSH/SFTP integrado que te permite explorar y gestionar archivos remotos directamente desde uno de sus paneles de navegación tradicionales.
+
+### 6.1 Cómo Conectarse a un Servidor Remoto
+Para abrir la ventana de conexión SSH, tienes tres opciones:
+1. Presionar el atajo de teclado predeterminado **`Ctrl+Shift+S`**.
+2. Desplegar el menú superior: **`Files`** (o **`Commands`**) -> **`Connect SSH...`**.
+3. Abrir el menú selector de unidad con **`Alt+F1`** (para el panel izquierdo) o **`Alt+F2`** (para el panel derecho), y seleccionar **`[Connect SSH]`**.
+
+### 6.2 Completar el Cuadro de Conexión
+La ventana emergente de Conexión SSH contiene los siguientes campos:
+* **Preset Name (Nombre del Preset):** Un alias identificativo para la conexión (ej. `Servidor de Staging`). Si especificas un nombre, podrás guardar estos detalles de conexión como marcador para el futuro.
+* **Host:** Dirección IP o nombre de dominio del servidor remoto (ej. `192.168.1.100` o `ssh.ejemplo.com`).
+* **Port (Puerto):** Puerto SSH del servidor remoto (por defecto es `22`).
+* **Username (Usuario):** Nombre de usuario con el que te conectarás.
+* **Password (Contraseña):** La contraseña del usuario para la autenticación estándar, O la frase de paso (passphrase) si usas una llave privada SSH cifrada.
+* **Key Path (Ruta de la Llave):** Ruta absoluta local a tu archivo de llave privada (ej. `C:/Users/nombre/.ssh/id_rsa` o `/home/usuario/.ssh/id_ed25519`). Déjala en blanco si deseas usar autenticación por contraseña o el agente local SSH.
+
+### 6.3 Administrar Marcadores (Presets) de SSH
+Dentro del diálogo de conexión, puedes guardar y cargar marcadores para agilizar futuros accesos:
+* **Guardar un Preset:** Llena los campos de conexión (asegurándose de escribir un **Preset Name**) y presiona el botón **`[Save]`**. El preset se guardará en la configuración de la aplicación.
+* **Cargar un Preset:** La parte izquierda del diálogo muestra la lista de marcadores guardados. Usa las flechas de dirección o haz clic para seleccionar un preset, luego pulsa **`[Load]`** para autocompletar los campos, y presiona **`[Connect]`** (o la tecla `Enter`) para establecer la conexión.
+* **Eliminar un Preset:** Selecciona un marcador en la lista y presiona el botón **`[Delete]`**.
+
+### 6.4 Navegar y Gestionar Paneles SFTP
+Una vez conectados:
+* El panel activo pasa a modo SFTP. Su cabecera mostrará un título dinámico con el formato `[SSH: usuario@host]`.
+* Podrás explorar carpetas remotas presionando **`Enter`** para entrar en ellas y **`..`** o **`Backspace`** para retroceder al directorio superior.
+* **Crear Directorio:** Presiona **`F7`** para crear una nueva carpeta remota.
+* **Renombrar / Mover:** Presiona **`F6`** sobre el archivo/directorio seleccionado para renombrarlo o moverlo dentro del servidor remoto.
+* **Eliminar:** Presiona **`F8`** para borrar archivos o carpetas recursivamente del servidor remoto.
+* **Visualizar y Editar:** Selecciona un archivo remoto y pulsa **`F3`** para abrir el visor interno o **`F4`** para abrir el editor de texto y modificarlo directamente en caliente sobre el servidor.
+
+### 6.5 Transferencia Bidireccional de Archivos
+Puedes transferir archivos de forma rápida entre tu panel local de archivos y el panel SFTP remoto:
+* **Subir Archivos:** Selecciona o marca archivos en tu panel local, asegúrate de enfocar ese panel, y presiona **`F5`** (Copiar) o **`F6`** (Mover). Pairee subirá los elementos seleccionados al directorio remoto del panel opuesto.
+* **Descargar Archivos:** Selecciona o marca elementos en el panel de SSH (SFTP), enfoca dicho panel, y presiona **`F5`** (Copiar) o **`F6`** (Mover). Pairee descargará los elementos a la ruta local activa en el panel opuesto.
+* **Progreso Asíncrono:** Las transferencias ocurren a través de colas en segundo plano. Un popup mostrará la velocidad de transferencia, tamaños totales/parciales, porcentajes y barras de progreso. Puedes cambiar de pantalla o abrir menús mientras las tareas continúan su curso de fondo.
+
+### 6.6 Desconexión
+Para desconectarte y devolver el panel a tu disco local:
+1. Abre el menú superior: **`Files`** (o **`Commands`**) -> **`Disconnect SSH`**.
+2. O bien, abre el menú selector de unidad con **`Alt+F1`** o **`Alt+F2`** y selecciona cualquier unidad local (ej. `C:` o `/`).
