@@ -25,7 +25,12 @@ pub fn handle(
                 }
                 Err(())
             }
-            PopupType::QuickViewPanel { path, content, scroll, image_data } => {
+            PopupType::QuickViewPanel {
+                path,
+                content,
+                scroll,
+                image_data,
+            } => {
                 if key.code == KeyCode::Esc {
                     state.active_popup = None;
                     state.quick_view_active = false;

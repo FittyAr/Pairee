@@ -1,12 +1,9 @@
 use crate::app::context::AppContext;
 use crate::app::state::types::EditorState;
-use crate::app::state::{AppState, Screen, PopupType};
+use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::localization::t;
 
-pub fn handle(
-    state: &mut AppState,
-    _context: &mut AppContext,
-) -> bool {
+pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
     let active = state.get_active_panel();
     if let Some(entry) = active
         .entries

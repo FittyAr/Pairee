@@ -1,7 +1,7 @@
+use super::delete::delete_dir_recursive;
 use anyhow::{Context, Result};
 use std::fs;
 use std::path::Path;
-use super::delete::delete_dir_recursive;
 
 #[cfg(target_os = "windows")]
 fn run_as_admin_rename(src: &Path, dst: &Path) -> Result<()> {

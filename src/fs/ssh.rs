@@ -1,12 +1,12 @@
-use crate::fs::entry::FileEntry;
 use crate::app::state::SortField;
+use crate::config::localization::t;
+use crate::fs::entry::FileEntry;
 use anyhow::{Context, Result};
-use std::net::{TcpStream, SocketAddr, ToSocketAddrs};
+use ssh2::{Session, Sftp};
+use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
-use crate::config::localization::t;
-use ssh2::{Session, Sftp};
 
 pub struct SshClient {
     pub host: String,
@@ -45,27 +45,27 @@ impl SharedSshClient {
         username: &str,
         password: Option<&str>,
         key_path: Option<&str>,
-     ) -> Result<Self> {
+    ) -> Result<Self> {
         let addr = format!("{}:{}", host, port);
         let socket_addrs = addr
             .to_socket_addrs()
             .context(t("error_ssh_resolve_host"))?
             .collect::<Vec<SocketAddr>>();
- 
+
         if socket_addrs.is_empty() {
             anyhow::bail!(t("error_ssh_no_socket_addr").replace("{}", host));
         }
- 
+
         // Connect with a 5 second timeout
         let stream = TcpStream::connect_timeout(&socket_addrs[0], Duration::from_secs(5))
             .context(t("error_ssh_connect_timeout"))?;
- 
+
         let mut sess = Session::new().context(t("error_ssh_create_session"))?;
         sess.set_tcp_stream(stream);
         sess.handshake().context(t("error_ssh_handshake_failed"))?;
- 
+
         let mut authenticated = false;
- 
+
         // Try key authentication if provided
         if let Some(kp) = key_path {
             if !kp.trim().is_empty() {
@@ -77,7 +77,7 @@ impl SharedSshClient {
                 }
             }
         }
- 
+
         // Try password authentication if key failed/not provided
         if !authenticated {
             if let Some(pass) = password {
@@ -86,7 +86,7 @@ impl SharedSshClient {
                 authenticated = true;
             }
         }
- 
+
         // Try default keys if still not authenticated
         if !authenticated {
             let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
@@ -97,27 +97,30 @@ impl SharedSshClient {
             for key in keys {
                 let path = Path::new(&key);
                 if path.exists() {
-                    if sess.userauth_pubkey_file(username, None, path, None).is_ok() {
+                    if sess
+                        .userauth_pubkey_file(username, None, path, None)
+                        .is_ok()
+                    {
                         authenticated = true;
                         break;
                     }
                 }
             }
         }
- 
+
         // Try agent if still not authenticated
         if !authenticated {
             if sess.userauth_agent(username).is_ok() {
                 authenticated = true;
             }
         }
- 
+
         if !authenticated {
             anyhow::bail!(t("error_ssh_auth_failed"));
         }
- 
+
         let sftp = sess.sftp().context(t("error_ssh_init_sftp"))?;
- 
+
         Ok(Self(Arc::new(Mutex::new(SshClient {
             host: host.to_string(),
             port,
@@ -137,7 +140,10 @@ impl SharedSshClient {
         sort_reverse: bool,
         show_dotdot_in_root_folders: bool,
     ) -> Result<Vec<FileEntry>> {
-        let client = self.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+        let client = self
+            .0
+            .lock()
+            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         let mut entries = Vec::new();
 
         // 1. Add ".." parent directory entry
@@ -186,9 +192,9 @@ impl SharedSshClient {
                     let is_dir = stat.is_dir();
                     let is_symlink = stat.file_type().is_symlink();
                     let size = stat.size.unwrap_or(0);
-                    let modified = stat.mtime.map(|mtime| {
-                        SystemTime::UNIX_EPOCH + Duration::from_secs(mtime)
-                    });
+                    let modified = stat
+                        .mtime
+                        .map(|mtime| SystemTime::UNIX_EPOCH + Duration::from_secs(mtime));
 
                     mapped.push(FileEntry {
                         name,
@@ -300,14 +306,20 @@ impl SharedSshClient {
     }
 
     pub fn create_dir(&self, path: &Path) -> Result<()> {
-        let client = self.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+        let client = self
+            .0
+            .lock()
+            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         client.sftp.mkdir(path, 0o755)?;
         Ok(())
     }
 
     pub fn delete_recursive(&self, path: &Path) -> Result<()> {
-        let client = self.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-        
+        let client = self
+            .0
+            .lock()
+            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+
         // Let's check if the path is a directory or a file
         let metadata = client.sftp.stat(path);
         if let Ok(stat) = metadata {
@@ -342,7 +354,10 @@ impl SharedSshClient {
     }
 
     pub fn walk_dir(&self, root: &Path) -> Result<Vec<(PathBuf, bool, u64)>> {
-        let client = self.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+        let client = self
+            .0
+            .lock()
+            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         let mut results = Vec::new();
         let mut to_visit = vec![root.to_path_buf()];
 
@@ -369,7 +384,10 @@ impl SharedSshClient {
     }
 
     pub fn rename_move(&self, src: &Path, dst: &Path) -> Result<()> {
-        let client = self.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+        let client = self
+            .0
+            .lock()
+            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         client.sftp.rename(src, dst, None)?;
         Ok(())
     }

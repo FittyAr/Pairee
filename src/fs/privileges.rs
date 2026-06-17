@@ -1,12 +1,5 @@
-use anyhow::Result;
-
-#[cfg(target_os = "windows")]
-pub fn acquire_admin_privileges() -> Result<()> {
-    Ok(())
-}
-
 #[cfg(not(target_os = "windows"))]
-pub fn acquire_admin_privileges() -> Result<()> {
+pub fn acquire_admin_privileges() -> anyhow::Result<()> {
     use crossterm::cursor::Show;
     use crossterm::execute;
     use crossterm::terminal::{

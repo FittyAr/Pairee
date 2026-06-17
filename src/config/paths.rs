@@ -57,6 +57,12 @@ pub fn get_themes_dir() -> PathBuf {
     get_config_dir().join("themes")
 }
 
+/// Returns the path to the keymaps subdirectory where preset TOML files live.
+/// Each file is named `<preset_name>.toml` (e.g. `norton.toml`, `neovim.toml`).
+pub fn get_keymaps_dir() -> PathBuf {
+    get_config_dir().join("keymaps")
+}
+
 /// Returns the path to the application log file.
 pub fn get_log_file_path() -> PathBuf {
     get_cache_dir().join("app.log")

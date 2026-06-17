@@ -18,7 +18,7 @@ simplelog = "0.12"
 chrono = "0.4"
 zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
-flate2 = "1.1.9"
+flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 sevenz-rust = "0.6.1"
 pulldown-cmark = "0.11"
 image = "0.25.1"
@@ -49,6 +49,7 @@ assets = [
     ["lang/*", "usr/share/pairee/lang/", "644"],
     ["help/*", "usr/share/pairee/help/", "644"],
     ["docs/technical/*", "usr/share/pairee/docs/technical/", "644"],
+    ["keymaps/*", "usr/share/pairee/keymaps/", "644"],
 ]
 
 [package.metadata.generate-rpm]
@@ -62,6 +63,7 @@ assets = [
     { source = "lang/*", dest = "/usr/share/pairee/lang/", mode = "644" },
     { source = "help/*", dest = "/usr/share/pairee/help/", mode = "644" },
     { source = "docs/technical/*", dest = "/usr/share/pairee/docs/technical/", mode = "644" },
+    { source = "keymaps/*", dest = "/usr/share/pairee/keymaps/", mode = "644" },
 ]
 
 

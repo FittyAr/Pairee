@@ -1,9 +1,9 @@
+use super::ProgressUpdate;
+use super::helper::{copy_file_buffered, copy_symlink, run_as_admin_copy};
+use crate::config::localization::t;
 use std::fs;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
-use super::ProgressUpdate;
-use crate::config::localization::t;
-use super::helper::{copy_symlink, run_as_admin_copy, copy_file_buffered};
 
 pub fn spawn_copy_task(
     sources: Vec<PathBuf>,

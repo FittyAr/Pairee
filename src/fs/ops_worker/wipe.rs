@@ -1,7 +1,7 @@
-use std::path::PathBuf;
-use tokio::sync::mpsc;
 use super::ProgressUpdate;
 use crate::config::localization::t;
+use std::path::PathBuf;
+use tokio::sync::mpsc;
 
 /// Spawns a background task that securely wipes each file in `targets`.
 /// Uses the same progress channel pattern as `spawn_copy_task`.

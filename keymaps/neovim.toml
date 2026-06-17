@@ -1,0 +1,154 @@
+# Pairee Keybinding Preset: Neovim
+#
+# This file defines the key-to-action mapping for Neovim-style navigation.
+# Inspired by Oil.nvim, NvimTree, and standard Neovim motion conventions.
+#
+# Navigation uses h/j/k/l, with gg/G for top/bottom and Ctrl+d/u for half-pages.
+# All F-key fallbacks are preserved so Norton Commander users switching presets
+# can still reach every action via function keys.
+#
+# Keys are specified as human-readable strings:
+#   "k", "Ctrl+d", "Alt+F7", "Shift+F9"
+
+[bindings]
+
+# ── Navigation (Neovim-style primary) ─────────────────────────────────────────
+move_up             = "k"
+move_down           = "j"
+go_parent           = "h"
+execute             = "l"
+page_up             = "Ctrl+u"
+page_down           = "Ctrl+d"
+go_to_top           = "g"
+go_to_bottom        = "G"
+select_item         = "v"
+change_panel        = "Tab"
+unfocus             = "Esc"
+
+# ── Navigation (universal arrow-key fallbacks) ────────────────────────────────
+move_up_arrow       = "Up"
+move_down_arrow     = "Down"
+page_up_pgkey       = "PageUp"
+page_down_pgkey     = "PageDown"
+go_to_top_home      = "Home"
+go_to_bottom_end    = "End"
+execute_enter       = "Enter"
+go_parent_bs        = "Backspace"
+select_item_insert  = "Insert"
+
+# ── Search / CLI (Neovim-style) ───────────────────────────────────────────────
+focus_cli           = ":"
+find_file           = "/"
+
+# ── File operations (Neovim-style mnemonics) ──────────────────────────────────
+copy                = "y"
+move                = "m"
+delete              = "d"
+mkdir               = "Ctrl+Shift+n"
+rename              = "r"
+view                = "o"
+edit                = "e"
+
+# ── Panel operations ──────────────────────────────────────────────────────────
+toggle_both_panels  = "Ctrl+o"
+toggle_hidden       = "Ctrl+h"
+refresh             = "Ctrl+r"
+swap_panels         = "Ctrl+s"
+change_panel_tab    = "Tab"
+
+# ── Quit ──────────────────────────────────────────────────────────────────────
+quit                = "Ctrl+c"
+quit_f10            = "F10"
+
+# ── F-key fallbacks (for users who know Norton bindings) ──────────────────────
+help                = "F1"
+user_menu           = "F2"
+view_fkey           = "F3"
+edit_fkey           = "F4"
+copy_fkey           = "F5"
+move_fkey           = "F6"
+mkdir_fkey          = "F7"
+delete_fkey         = "F8"
+menu                = "F9"
+plugin_menu         = "F11"
+screens_list        = "F12"
+next_screen         = "Ctrl+Tab"
+prev_screen         = "Ctrl+Shift+Tab"
+
+# ── Shift+F fallbacks ─────────────────────────────────────────────────────────
+compress_files      = "Shift+F1"
+extract_archive     = "Shift+F2"
+archive_commands    = "Shift+F3"
+save_setup          = "Shift+F9"
+
+# ── Alt+F fallbacks ───────────────────────────────────────────────────────────
+drive_select_left   = "Alt+F1"
+drive_select_right  = "Alt+F2"
+view_alt            = "Alt+F3"
+print_file          = "Alt+F5"
+create_link         = "Alt+F6"
+find_file_alt       = "Alt+F7"
+command_history     = "Alt+F8"
+video_mode          = "Alt+F9"
+tree_view           = "Alt+F10"
+file_view_history   = "Alt+F11"
+folders_history     = "Alt+F12"
+
+# ── Sorting (Ctrl+F-keys) ─────────────────────────────────────────────────────
+sort_by_name            = "Ctrl+F3"
+sort_by_extension       = "Ctrl+F4"
+sort_by_write_time      = "Ctrl+F5"
+sort_by_size            = "Ctrl+F6"
+sort_unsorted           = "Ctrl+F7"
+sort_by_creation_time   = "Ctrl+F8"
+sort_by_access_time     = "Ctrl+F9"
+sort_by_description     = "Ctrl+F10"
+sort_by_owner           = "Ctrl+F11"
+sort_modes              = "Ctrl+F12"
+
+# ── Panel toggles ─────────────────────────────────────────────────────────────
+toggle_panel_left   = "Ctrl+F1"
+toggle_panel_right  = "Ctrl+F2"
+info_panel          = "Ctrl+l"
+quick_view          = "Ctrl+q"
+toggle_long_names   = "Ctrl+n"
+
+# ── Bulk selection ────────────────────────────────────────────────────────────
+select_group        = "Gray+"
+unselect_group      = "Gray-"
+invert_selection    = "Gray*"
+restore_selection   = "Ctrl+m"
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+wipe_file               = "Alt+Delete"
+file_attributes         = "Ctrl+a"
+apply_command           = "Ctrl+g"
+describe_file           = "Ctrl+z"
+file_panel_filter       = "Ctrl+i"
+task_list               = "Ctrl+w"
+cycle_fkeys_modifiers   = "Ctrl+p"
+ssh_connect             = "Ctrl+Shift+S"
+context_menu            = "Menu"
+context_menu_alt        = "Alt+m"
+
+# ── Panel view modes ──────────────────────────────────────────────────────────
+panel_view_brief        = "Ctrl+1"
+panel_view_medium       = "Ctrl+2"
+panel_view_full         = "Ctrl+3"
+panel_view_wide         = "Ctrl+4"
+panel_view_detailed     = "Ctrl+5"
+panel_view_descriptions = "Ctrl+6"
+panel_view_file_owners  = "Ctrl+7"
+panel_view_file_links   = "Ctrl+8"
+panel_view_alt_full     = "Ctrl+9"
+
+# ── Folder shortcuts (Ctrl+Alt+1 … Ctrl+Alt+9) ───────────────────────────────
+go_folder_shortcut_1 = "Ctrl+Alt+1"
+go_folder_shortcut_2 = "Ctrl+Alt+2"
+go_folder_shortcut_3 = "Ctrl+Alt+3"
+go_folder_shortcut_4 = "Ctrl+Alt+4"
+go_folder_shortcut_5 = "Ctrl+Alt+5"
+go_folder_shortcut_6 = "Ctrl+Alt+6"
+go_folder_shortcut_7 = "Ctrl+Alt+7"
+go_folder_shortcut_8 = "Ctrl+Alt+8"
+go_folder_shortcut_9 = "Ctrl+Alt+9"

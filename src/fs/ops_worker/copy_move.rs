@@ -1,11 +1,11 @@
+use super::ProgressUpdate;
+use super::copy::spawn_copy_task;
+use super::helper::delete_recursive;
+use super::move_rename::spawn_move_task;
+use crate::config::localization::t;
+use crate::fs::ssh::SharedSshClient;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
-use super::ProgressUpdate;
-use crate::config::localization::t;
-use super::helper::delete_recursive;
-use super::copy::spawn_copy_task;
-use super::move_rename::spawn_move_task;
-use crate::fs::ssh::SharedSshClient;
 
 /// Spawns a background task to copy or move multiple files between panels (supports remote panels).
 pub fn spawn_copy_move_task(
@@ -47,44 +47,56 @@ pub fn spawn_copy_move_task(
                 if src_client.is_same_server(dst_client) {
                     let total_files = sources.len();
                     for (idx, src) in sources.iter().enumerate() {
-                        let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
-                        let dst = if sources.len() == 1 && !is_dir_for_conn(&destination_dir, &dst_conn) {
+                        let name = src
+                            .file_name()
+                            .map(|n| n.to_string_lossy().into_owned())
+                            .unwrap_or_default();
+                        let dst = if sources.len() == 1
+                            && !is_dir_for_conn(&destination_dir, &dst_conn)
+                        {
                             destination_dir.clone()
                         } else {
                             destination_dir.join(&name)
                         };
 
-                        let _ = tx.send(ProgressUpdate {
-                            current_file: name.clone(),
-                            files_copied: idx,
-                            total_files,
-                            bytes_copied: 0,
-                            total_bytes: 0,
-                            error: None,
-                        }).await;
-
-                        if let Err(e) = src_client.rename_move(src, &dst) {
-                            let err_msg = t("error_remote_move_failed").replacen("{}", &e.to_string(), 1);
-                            let _ = tx.send(ProgressUpdate {
-                                current_file: name,
+                        let _ = tx
+                            .send(ProgressUpdate {
+                                current_file: name.clone(),
                                 files_copied: idx,
                                 total_files,
                                 bytes_copied: 0,
                                 total_bytes: 0,
-                                error: Some(err_msg),
-                            }).await;
+                                error: None,
+                            })
+                            .await;
+
+                        if let Err(e) = src_client.rename_move(src, &dst) {
+                            let err_msg =
+                                t("error_remote_move_failed").replacen("{}", &e.to_string(), 1);
+                            let _ = tx
+                                .send(ProgressUpdate {
+                                    current_file: name,
+                                    files_copied: idx,
+                                    total_files,
+                                    bytes_copied: 0,
+                                    total_bytes: 0,
+                                    error: Some(err_msg),
+                                })
+                                .await;
                             return;
                         }
                     }
 
-                    let _ = tx.send(ProgressUpdate {
-                        current_file: "Completed".to_string(),
-                        files_copied: total_files,
-                        total_files,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                        error: None,
-                    }).await;
+                    let _ = tx
+                        .send(ProgressUpdate {
+                            current_file: "Completed".to_string(),
+                            files_copied: total_files,
+                            total_files,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                            error: None,
+                        })
+                        .await;
                     return;
                 }
             }
@@ -100,7 +112,10 @@ pub fn spawn_copy_move_task(
 
         for src in &sources {
             let is_dir = is_dir_for_conn(src, &src_conn);
-            let name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let name = src
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
 
             if is_dir {
                 let base_dst = if destination_dir_is_dir {
@@ -190,14 +205,16 @@ pub fn spawn_copy_move_task(
 
         if file_mappings.is_empty() {
             // No files to copy (maybe only empty folders)
-            let _ = tx.send(ProgressUpdate {
-                current_file: "Completed".to_string(),
-                files_copied: total_files,
-                total_files,
-                bytes_copied: total_bytes,
-                total_bytes,
-                error: None,
-            }).await;
+            let _ = tx
+                .send(ProgressUpdate {
+                    current_file: "Completed".to_string(),
+                    files_copied: total_files,
+                    total_files,
+                    bytes_copied: total_bytes,
+                    total_bytes,
+                    error: None,
+                })
+                .await;
             return;
         }
 
@@ -206,21 +223,29 @@ pub fn spawn_copy_move_task(
         let mut bytes_copied = 0;
 
         for (src, dst, _size) in file_mappings.clone() {
-            let file_name = src.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+            let file_name = src
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
 
-            let _ = tx.send(ProgressUpdate {
-                current_file: file_name.clone(),
-                files_copied,
-                total_files,
-                bytes_copied,
-                total_bytes,
-                error: None,
-            }).await;
+            let _ = tx
+                .send(ProgressUpdate {
+                    current_file: file_name.clone(),
+                    files_copied,
+                    total_files,
+                    bytes_copied,
+                    total_bytes,
+                    error: None,
+                })
+                .await;
 
             let copy_res = async {
                 // Open reader
                 let mut reader: Box<dyn std::io::Read + Send> = if let Some(src_conn) = &src_conn {
-                    let client = src_conn.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                    let client = src_conn
+                        .0
+                        .lock()
+                        .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
                     let file = client.sftp.open(&src)?;
                     Box::new(file)
                 } else {
@@ -230,7 +255,10 @@ pub fn spawn_copy_move_task(
 
                 // Open writer
                 let mut writer: Box<dyn std::io::Write + Send> = if let Some(dst_conn) = &dst_conn {
-                    let client = dst_conn.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                    let client = dst_conn
+                        .0
+                        .lock()
+                        .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
                     let file = client.sftp.create(&dst)?;
                     Box::new(file)
                 } else {
@@ -258,32 +286,37 @@ pub fn spawn_copy_move_task(
 
                     if last_sent.elapsed() >= throttle {
                         last_sent = std::time::Instant::now();
-                        let _ = tx.send(ProgressUpdate {
-                            current_file: file_name.clone(),
-                            files_copied,
-                            total_files,
-                            bytes_copied,
-                            total_bytes,
-                            error: None,
-                        }).await;
+                        let _ = tx
+                            .send(ProgressUpdate {
+                                current_file: file_name.clone(),
+                                files_copied,
+                                total_files,
+                                bytes_copied,
+                                total_bytes,
+                                error: None,
+                            })
+                            .await;
                     }
                 }
                 Ok::<(), anyhow::Error>(())
-            }.await;
+            }
+            .await;
 
             if let Err(e) = copy_res {
                 let err_msg = t("error_copying_to")
                     .replacen("{}", &src.to_string_lossy(), 1)
                     .replacen("{}", &dst.to_string_lossy(), 1)
                     .replacen("{}", &e.to_string(), 1);
-                let _ = tx.send(ProgressUpdate {
-                    current_file: file_name,
-                    files_copied,
-                    total_files,
-                    bytes_copied,
-                    total_bytes,
-                    error: Some(err_msg),
-                }).await;
+                let _ = tx
+                    .send(ProgressUpdate {
+                        current_file: file_name,
+                        files_copied,
+                        total_files,
+                        bytes_copied,
+                        total_bytes,
+                        error: Some(err_msg),
+                    })
+                    .await;
                 return;
             }
 
@@ -298,14 +331,16 @@ pub fn spawn_copy_move_task(
                         let err_msg = t("error_remote_source_delete_failed")
                             .replacen("{}", &src.to_string_lossy(), 1)
                             .replacen("{}", &e.to_string(), 1);
-                        let _ = tx.send(ProgressUpdate {
-                            current_file: "Completed".to_string(),
-                            files_copied,
-                            total_files,
-                            bytes_copied,
-                            total_bytes,
-                            error: Some(err_msg),
-                        }).await;
+                        let _ = tx
+                            .send(ProgressUpdate {
+                                current_file: "Completed".to_string(),
+                                files_copied,
+                                total_files,
+                                bytes_copied,
+                                total_bytes,
+                                error: Some(err_msg),
+                            })
+                            .await;
                         return;
                     }
                 } else {
@@ -313,14 +348,16 @@ pub fn spawn_copy_move_task(
                         let err_msg = t("error_delete_source_failed")
                             .replacen("{}", &src.to_string_lossy(), 1)
                             .replacen("{}", &e.to_string(), 1);
-                        let _ = tx.send(ProgressUpdate {
-                            current_file: "Completed".to_string(),
-                            files_copied,
-                            total_files,
-                            bytes_copied,
-                            total_bytes,
-                            error: Some(err_msg),
-                        }).await;
+                        let _ = tx
+                            .send(ProgressUpdate {
+                                current_file: "Completed".to_string(),
+                                files_copied,
+                                total_files,
+                                bytes_copied,
+                                total_bytes,
+                                error: Some(err_msg),
+                            })
+                            .await;
                         return;
                     }
                 }
@@ -328,14 +365,16 @@ pub fn spawn_copy_move_task(
         }
 
         // 5. Done!
-        let _ = tx.send(ProgressUpdate {
-            current_file: "Completed".to_string(),
-            files_copied,
-            total_files,
-            bytes_copied,
-            total_bytes,
-            error: None,
-        }).await;
+        let _ = tx
+            .send(ProgressUpdate {
+                current_file: "Completed".to_string(),
+                files_copied,
+                total_files,
+                bytes_copied,
+                total_bytes,
+                error: None,
+            })
+            .await;
     });
 
     rx

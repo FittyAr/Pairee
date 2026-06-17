@@ -4,7 +4,7 @@ use crate::ui::panel::helpers::{build_row_style, entry_display_name};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    widgets::{Block, Borders, Row, Cell, Table},
+    widgets::{Block, Borders, Cell, Row, Table},
 };
 
 pub(crate) fn render_brief(

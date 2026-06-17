@@ -1328,7 +1328,7 @@ pub fn render_prompt_popup(
             let main_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Min(8), // Form columns
+                    Constraint::Min(8),    // Form columns
                     Constraint::Length(1), // Separator
                     Constraint::Length(1), // Buttons
                 ])
@@ -1351,7 +1351,10 @@ pub fn render_prompt_popup(
             let mut list_items = Vec::new();
             if presets.is_empty() {
                 list_items.push(ListItem::new(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(" <No Presets> ", Style::default().fg(Color::DarkGray)),
+                    ratatui::text::Span::styled(
+                        " <No Presets> ",
+                        Style::default().fg(Color::DarkGray),
+                    ),
                 ])));
             } else {
                 for (i, p) in presets.iter().enumerate() {
@@ -1416,29 +1419,35 @@ pub fn render_prompt_popup(
             let l_port = pad_label(&t("prompt_ssh_port").trim(), 14);
             let l_user = pad_label(&t("prompt_ssh_user").trim(), 14);
             let l_pass = pad_label(&t("prompt_ssh_pass").trim(), 14);
-            let l_key  = pad_label(&t("prompt_ssh_key_path").trim(), 14);
+            let l_key = pad_label(&t("prompt_ssh_key_path").trim(), 14);
 
-            let render_input_line = |f: &mut Frame, chunk: Rect, label: &str, val: &str, idx: usize, is_pass: bool| {
-                let is_active = *cursor_idx == idx;
-                let style = if is_active { active_style } else { normal_style };
+            let render_input_line =
+                |f: &mut Frame, chunk: Rect, label: &str, val: &str, idx: usize, is_pass: bool| {
+                    let is_active = *cursor_idx == idx;
+                    let style = if is_active {
+                        active_style
+                    } else {
+                        normal_style
+                    };
 
-                let val_disp = if is_pass {
-                    "*".repeat(val.len())
-                } else {
-                    val.to_string()
+                    let val_disp = if is_pass {
+                        "*".repeat(val.len())
+                    } else {
+                        val.to_string()
+                    };
+
+                    let text = if is_active {
+                        format!("{}{}_", label, val_disp)
+                    } else {
+                        format!("{}{}", label, val_disp)
+                    };
+
+                    f.render_widget(Paragraph::new(text).style(style), chunk);
                 };
-
-                let text = if is_active {
-                    format!("{}{}_", label, val_disp)
-                } else {
-                    format!("{}{}", label, val_disp)
-                };
-
-                f.render_widget(Paragraph::new(text).style(style), chunk);
-            };
 
             f.render_widget(
-                Paragraph::new(format!(" {}", t("ssh_details_title"))).style(Style::default().fg(Color::Yellow)),
+                Paragraph::new(format!(" {}", t("ssh_details_title")))
+                    .style(Style::default().fg(Color::Yellow)),
                 input_chunks[0],
             );
 
@@ -1450,14 +1459,34 @@ pub fn render_prompt_popup(
             render_input_line(f, input_chunks[6], &l_key, input_key_path, 6, false);
 
             // Bottom horizontal separator
-            let sep_str_horizontal = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
-            f.render_widget(Paragraph::new(sep_str_horizontal).style(Style::default().fg(Color::Cyan)), main_chunks[1]);
+            let sep_str_horizontal =
+                ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
+            f.render_widget(
+                Paragraph::new(sep_str_horizontal).style(Style::default().fg(Color::Cyan)),
+                main_chunks[1],
+            );
 
             // Buttons at the bottom
-            let b_connect = if *cursor_idx == 7 { active_style } else { normal_style };
-            let b_save = if *cursor_idx == 8 { active_style } else { normal_style };
-            let b_delete = if *cursor_idx == 9 { active_style } else { normal_style };
-            let b_cancel = if *cursor_idx == 10 { active_style } else { normal_style };
+            let b_connect = if *cursor_idx == 7 {
+                active_style
+            } else {
+                normal_style
+            };
+            let b_save = if *cursor_idx == 8 {
+                active_style
+            } else {
+                normal_style
+            };
+            let b_delete = if *cursor_idx == 9 {
+                active_style
+            } else {
+                normal_style
+            };
+            let b_cancel = if *cursor_idx == 10 {
+                active_style
+            } else {
+                normal_style
+            };
 
             let btns = ratatui::text::Line::from(vec![
                 ratatui::text::Span::styled(format!(" {} ", t("btn_connect_braced")), b_connect),

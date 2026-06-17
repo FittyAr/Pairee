@@ -24,7 +24,12 @@ pub struct AppState {
     /// Channel receiver for running copy/move/extract/wipe operations
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
     /// Channel receiver for background SSH connection attempts
-    pub ssh_connect_rx: Option<tokio::sync::oneshot::Receiver<(ActivePanel, anyhow::Result<crate::fs::ssh::SharedSshClient>)>>,
+    pub ssh_connect_rx: Option<
+        tokio::sync::oneshot::Receiver<(
+            ActivePanel,
+            anyhow::Result<crate::fs::ssh::SharedSshClient>,
+        )>,
+    >,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     /// Channel for communicating with the background terminal
@@ -359,7 +364,9 @@ impl AppState {
 
             if let Some(path) = target_path {
                 let needs_load = match &self.active_popup {
-                    Some(PopupType::QuickViewPanel { path: current_path, .. }) => current_path != &path,
+                    Some(PopupType::QuickViewPanel {
+                        path: current_path, ..
+                    }) => current_path != &path,
                     _ => true,
                 };
 
@@ -497,5 +504,7 @@ fn extract_pdf_text(data: &[u8]) -> Option<String> {
 }
 
 fn find_subsequence(haystack: &[u8], needle: &[u8]) -> Option<usize> {
-    haystack.windows(needle.len()).position(|window| window == needle)
+    haystack
+        .windows(needle.len())
+        .position(|window| window == needle)
 }

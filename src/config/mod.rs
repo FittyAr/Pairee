@@ -12,6 +12,9 @@ use settings::Settings;
 use std::fs;
 use theme::Theme;
 
+/// Names of the preset TOML files shipped with Pairee.
+const BUILTIN_PRESETS: &[&str] = &["norton", "neovim", "vscode"];
+
 #[derive(Debug, Clone)]
 pub struct AppConfig {
     pub settings: Settings,
@@ -64,6 +67,21 @@ impl AppConfig {
                 .context("Failed to write default keybindings.toml")?;
             default_keybindings
         };
+
+        // 2b. Preset keymap files — seed keymaps/ directory on first run
+        let keymaps_dir = paths::get_keymaps_dir();
+        if !keymaps_dir.exists() {
+            fs::create_dir_all(&keymaps_dir).context("Failed to create keymaps directory")?;
+        }
+        for preset_name in BUILTIN_PRESETS {
+            let preset_path = keymaps_dir.join(format!("{}.toml", preset_name));
+            if !preset_path.exists() {
+                let toml_content = crate::keybindings::preset::get_builtin_preset_toml(preset_name);
+                fs::write(&preset_path, toml_content).with_context(|| {
+                    format!("Failed to write default keymap file: {}.toml", preset_name)
+                })?;
+            }
+        }
 
         // 3. Theme Loading
         let theme_name = &settings.theme;

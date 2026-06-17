@@ -1,8 +1,8 @@
+use super::ProgressUpdate;
+use crate::config::localization::t;
 use crate::fs::archive::compress_zip;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
-use super::ProgressUpdate;
-use crate::config::localization::t;
 
 pub fn spawn_compress_task(
     sources: Vec<PathBuf>,

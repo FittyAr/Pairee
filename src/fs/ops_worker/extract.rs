@@ -1,8 +1,8 @@
+use super::ProgressUpdate;
+use crate::config::localization::t;
 use crate::fs::archive::extract_archive;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
-use super::ProgressUpdate;
-use crate::config::localization::t;
 
 pub fn spawn_extract_task(
     archive_path: PathBuf,

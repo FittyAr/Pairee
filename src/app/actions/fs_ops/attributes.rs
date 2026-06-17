@@ -1,9 +1,7 @@
-use crate::app::state::{AppState, PopupType, FileAttrsSnapshot};
+use crate::app::state::{AppState, FileAttrsSnapshot, PopupType};
 use crate::config::localization::t;
 
-pub fn handle(
-    state: &mut AppState,
-) -> bool {
+pub fn handle(state: &mut AppState) -> bool {
     let active = state.get_active_panel();
     if let Some(entry) = active.entries.get(active.cursor_index) {
         if entry.name != ".." {

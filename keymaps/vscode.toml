@@ -1,0 +1,136 @@
+# Pairee Keybinding Preset: VS Code
+#
+# This file defines the key-to-action mapping for VS Code users.
+# Modeled on VS Code's Explorer panel shortcuts and common editor conventions.
+#
+# Developers already familiar with VS Code can use Pairee without learning
+# a new keyboard layout. Arrow-key navigation is universal; Ctrl+C/X/V
+# style shortcuts handle file operations.
+#
+# Keys are specified as human-readable strings:
+#   "Ctrl+c", "Delete", "F2", "Ctrl+Shift+n"
+
+[bindings]
+
+# ── Navigation (universal — same as VS Code Explorer) ─────────────────────────
+move_up             = "Up"
+move_down           = "Down"
+page_up             = "PageUp"
+page_down           = "PageDown"
+go_to_top           = "Home"
+go_to_bottom        = "End"
+change_panel        = "Tab"
+execute             = "Enter"
+go_parent           = "Backspace"
+select_item         = "Space"
+unfocus             = "Esc"
+
+# ── File operations (VS Code Explorer style) ──────────────────────────────────
+copy                = "Ctrl+c"
+move                = "Ctrl+x"
+delete              = "Delete"
+wipe_file           = "Shift+Delete"
+# rename reuses F2 — same as VS Code Explorer
+move_rename         = "F2"
+mkdir               = "Ctrl+Shift+n"
+view                = "Ctrl+Shift+v"
+edit                = "Ctrl+e"
+
+# ── Search & navigation ───────────────────────────────────────────────────────
+find_file           = "Ctrl+f"
+focus_cli           = "Ctrl+`"
+command_history     = "Ctrl+Shift+h"
+
+# ── Application ───────────────────────────────────────────────────────────────
+quit                = "Ctrl+q"
+system_settings     = "Ctrl+,"
+refresh             = "Ctrl+Shift+e"
+toggle_hidden       = "Ctrl+Shift+."
+save_setup          = "Ctrl+s"
+swap_panels         = "Ctrl+Shift+s"
+toggle_both_panels  = "Ctrl+b"
+
+# ── SSH ───────────────────────────────────────────────────────────────────────
+ssh_connect         = "Ctrl+Shift+S"
+
+# ── Context & menus ───────────────────────────────────────────────────────────
+context_menu        = "Menu"
+context_menu_shift  = "Shift+F10"
+menu                = "F9"
+help                = "F1"
+user_menu           = "F2"
+
+# ── Panel operations ──────────────────────────────────────────────────────────
+toggle_panel_left   = "Ctrl+F1"
+toggle_panel_right  = "Ctrl+F2"
+drive_select_left   = "Alt+F1"
+drive_select_right  = "Alt+F2"
+next_screen         = "Ctrl+Tab"
+prev_screen         = "Ctrl+Shift+Tab"
+cycle_fkeys_modifiers = "Ctrl+p"
+
+# ── Sorting ───────────────────────────────────────────────────────────────────
+sort_by_name            = "Ctrl+F3"
+sort_by_extension       = "Ctrl+F4"
+sort_by_write_time      = "Ctrl+F5"
+sort_by_size            = "Ctrl+F6"
+sort_unsorted           = "Ctrl+F7"
+sort_by_creation_time   = "Ctrl+F8"
+sort_by_access_time     = "Ctrl+F9"
+sort_by_description     = "Ctrl+F10"
+sort_by_owner           = "Ctrl+F11"
+sort_modes              = "Ctrl+F12"
+
+# ── Panel view modes ──────────────────────────────────────────────────────────
+panel_view_brief        = "Ctrl+1"
+panel_view_medium       = "Ctrl+2"
+panel_view_full         = "Ctrl+3"
+panel_view_wide         = "Ctrl+4"
+panel_view_detailed     = "Ctrl+5"
+panel_view_descriptions = "Ctrl+6"
+panel_view_file_owners  = "Ctrl+7"
+panel_view_file_links   = "Ctrl+8"
+panel_view_alt_full     = "Ctrl+9"
+
+# ── Archive operations ────────────────────────────────────────────────────────
+compress_files      = "Shift+F1"
+extract_archive     = "Shift+F2"
+archive_commands    = "Shift+F3"
+
+# ── Misc F-key fallbacks ──────────────────────────────────────────────────────
+view_fkey           = "F3"
+mkdir_fkey          = "F7"
+delete_fkey         = "F8"
+quit_f10            = "F10"
+plugin_menu         = "F11"
+screens_list        = "F12"
+find_file_alt       = "Alt+F7"
+file_view_history   = "Alt+F11"
+folders_history     = "Alt+F12"
+
+# ── Bulk selection ────────────────────────────────────────────────────────────
+select_group        = "Gray+"
+unselect_group      = "Gray-"
+invert_selection    = "Gray*"
+restore_selection   = "Ctrl+m"
+
+# ── Misc ──────────────────────────────────────────────────────────────────────
+file_attributes     = "Ctrl+a"
+apply_command       = "Ctrl+g"
+describe_file       = "Ctrl+z"
+file_panel_filter   = "Ctrl+i"
+task_list           = "Ctrl+w"
+tree_view           = "Ctrl+Shift+t"
+info_panel          = "Ctrl+l"
+quick_view          = "Ctrl+Shift+q"
+
+# ── Folder shortcuts (Ctrl+Alt+1 … Ctrl+Alt+9) ───────────────────────────────
+go_folder_shortcut_1 = "Ctrl+Alt+1"
+go_folder_shortcut_2 = "Ctrl+Alt+2"
+go_folder_shortcut_3 = "Ctrl+Alt+3"
+go_folder_shortcut_4 = "Ctrl+Alt+4"
+go_folder_shortcut_5 = "Ctrl+Alt+5"
+go_folder_shortcut_6 = "Ctrl+Alt+6"
+go_folder_shortcut_7 = "Ctrl+Alt+7"
+go_folder_shortcut_8 = "Ctrl+Alt+8"
+go_folder_shortcut_9 = "Ctrl+Alt+9"

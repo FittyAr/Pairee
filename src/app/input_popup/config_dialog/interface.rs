@@ -128,8 +128,8 @@ pub fn handle_row(
         }
         36 => {
             settings.keybinding_preset = match settings.keybinding_preset.as_str() {
-                "norton" => "vim".to_string(),
-                "vim" => "modern".to_string(),
+                "norton" => "neovim".to_string(),
+                "neovim" => "vscode".to_string(),
                 _ => "norton".to_string(),
             };
         }

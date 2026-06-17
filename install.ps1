@@ -175,6 +175,9 @@ if (-not (Test-Path (Join-Path $configDir "help"))) {
 if (-not (Test-Path (Join-Path $configDir "docs"))) {
     New-Item -ItemType Directory -Force -Path (Join-Path $configDir "docs") | Out-Null
 }
+if (-not (Test-Path (Join-Path $configDir "keymaps"))) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $configDir "keymaps") | Out-Null
+}
 
 # 4. Download and Extract ZIP (or Git Clone & Cargo Build in debug mode)
 $tempDir = Join-Path $env:TEMP "pairee_install_$(Get-Date -Format 'yyyyMMddHHmmss')"
@@ -247,6 +250,15 @@ if (Test-Path (Join-Path $extractedFolder "help")) {
 }
 if (Test-Path (Join-Path $extractedFolder "docs")) {
     Copy-Item -Path (Join-Path $extractedFolder "docs\*") -Destination (Join-Path $configDir "docs") -Force -Recurse
+}
+if (Test-Path (Join-Path $extractedFolder "keymaps")) {
+    # Only copy preset files that do not already exist, to preserve user edits
+    Get-ChildItem -Path (Join-Path $extractedFolder "keymaps") -Filter "*.toml" | ForEach-Object {
+        $destFile = Join-Path $configDir "keymaps\$($_.Name)"
+        if (-not (Test-Path $destFile)) {
+            Copy-Item -Path $_.FullName -Destination $destFile -Force
+        }
+    }
 }
 
 # Clean up temp

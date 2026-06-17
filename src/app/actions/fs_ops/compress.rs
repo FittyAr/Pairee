@@ -1,10 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 
-pub fn handle(
-    state: &mut AppState,
-    _context: &mut AppContext,
-) -> bool {
+pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();
     if !targets.is_empty() {
         let default_name = targets

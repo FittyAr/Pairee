@@ -1,25 +1,34 @@
 use super::actions::Action;
+use super::preset::parse_action_name;
 use crate::config::AppConfig;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
 
 pub struct KeybindingResolver {
     bindings: HashMap<String, Action>,
+    /// Inverse map: Action -> first key string that triggers it.
+    inverse: HashMap<Action, String>,
 }
 
 impl KeybindingResolver {
     pub fn new(config: &AppConfig) -> Self {
-        // Load default bindings from selected preset profile
+        // Load bindings from the active preset (file-based or built-in fallback)
         let mut bindings = super::preset::get_preset_bindings(&config.keybindings.preset);
 
-        // Overlay user custom overrides
+        // Overlay user custom overrides from keybindings.toml [custom_bindings]
         for (action_name, key_str) in &config.keybindings.custom_bindings {
             if let Some(action) = parse_action_name(action_name) {
                 bindings.insert(key_str.clone(), action);
             }
         }
 
-        Self { bindings }
+        // Build inverse map (action -> first key found, prefer shorter/simpler keys)
+        let mut inverse: HashMap<Action, String> = HashMap::new();
+        for (key_str, action) in &bindings {
+            inverse.entry(*action).or_insert_with(|| key_str.clone());
+        }
+
+        Self { bindings, inverse }
     }
 
     /// Resolves a KeyEvent into a logical Action.
@@ -29,6 +38,11 @@ impl KeybindingResolver {
             return None;
         }
         self.bindings.get(&key_str).copied()
+    }
+
+    /// Returns the key string bound to `action` in the active preset, or `None` if unbound.
+    pub fn key_for_action(&self, action: Action) -> Option<&str> {
+        self.inverse.get(&action).map(|s| s.as_str())
     }
 }
 
@@ -92,113 +106,6 @@ pub fn key_event_to_string(key: KeyEvent) -> String {
             return code_str;
         }
         format!("{}+{}", parts.join("+"), code_str)
-    }
-}
-
-/// Helper to parse keybinding settings action names into Actions.
-/// Extended with all new action variants.
-fn parse_action_name(name: &str) -> Option<Action> {
-    match name.to_lowercase().as_str() {
-        // ── Navigation ────────────────────────────────────────────────────────
-        "move_up" => Some(Action::MoveUp),
-        "move_down" => Some(Action::MoveDown),
-        "page_up" => Some(Action::PageUp),
-        "page_down" => Some(Action::PageDown),
-        "go_to_top" => Some(Action::GoToTop),
-        "go_to_bottom" => Some(Action::GoToBottom),
-        "change_panel" => Some(Action::ChangePanel),
-        "select_item" => Some(Action::SelectItem),
-        "execute" => Some(Action::Execute),
-        "go_parent" => Some(Action::GoParent),
-
-        // ── Panel view modes ─────────────────────────────────────────────────
-        "panel_view_brief" => Some(Action::PanelViewBrief),
-        "panel_view_medium" => Some(Action::PanelViewMedium),
-        "panel_view_full" => Some(Action::PanelViewFull),
-        "panel_view_wide" => Some(Action::PanelViewWide),
-        "panel_view_detailed" => Some(Action::PanelViewDetailed),
-        "panel_view_descriptions" => Some(Action::PanelViewDescriptions),
-        "panel_view_file_owners" => Some(Action::PanelViewFileOwners),
-        "panel_view_file_links" => Some(Action::PanelViewFileLinks),
-        "panel_view_alt_full" => Some(Action::PanelViewAltFull),
-
-        // ── Panel toggles ────────────────────────────────────────────────────
-        "toggle_panel_left" => Some(Action::TogglePanelLeft),
-        "toggle_panel_right" => Some(Action::TogglePanelRight),
-        "toggle_both_panels" => Some(Action::ToggleBothPanels),
-        "info_panel" => Some(Action::InfoPanel),
-        "quick_view" => Some(Action::QuickView),
-        "sort_modes" => Some(Action::SortModes),
-        "toggle_long_names" => Some(Action::ToggleLongNames),
-
-        // ── F-key actions ────────────────────────────────────────────────────
-        "help" => Some(Action::Help),
-        "user_menu" => Some(Action::UserMenu),
-        "view" => Some(Action::View),
-        "view_alt" => Some(Action::ViewAlt),
-        "edit" => Some(Action::Edit),
-        "copy" => Some(Action::Copy),
-        "move" => Some(Action::Move),
-        "mkdir" => Some(Action::MkDir),
-        "delete" => Some(Action::Delete),
-        "menu" => Some(Action::Menu),
-        "quit" => Some(Action::Quit),
-        "plugin_menu" => Some(Action::PluginMenu),
-        "screens_list" => Some(Action::ScreensList),
-        "next_screen" => Some(Action::NextScreen),
-        "prev_screen" => Some(Action::PrevScreen),
-
-        // ── File operations ──────────────────────────────────────────────────
-        "create_link" => Some(Action::CreateLink),
-        "wipe_file" => Some(Action::WipeFile),
-        "file_attributes" => Some(Action::FileAttributes),
-        "apply_command" => Some(Action::ApplyCommand),
-        "describe_file" => Some(Action::DescribeFile),
-        "compress_files" => Some(Action::CompressFiles),
-        "extract_archive" => Some(Action::ExtractArchive),
-        "archive_commands" => Some(Action::ArchiveCommands),
-
-        // ── Bulk selection ────────────────────────────────────────────────────
-        "select_group" => Some(Action::SelectGroup),
-        "unselect_group" => Some(Action::UnselectGroup),
-        "invert_selection" => Some(Action::InvertSelection),
-        "restore_selection" => Some(Action::RestoreSelection),
-
-        // ── Search & history ─────────────────────────────────────────────────
-        "find_file" => Some(Action::FindFile),
-        "command_history" => Some(Action::CommandHistory),
-        "file_view_history" => Some(Action::FileViewHistory),
-        "folders_history" => Some(Action::FoldersHistory),
-
-        // ── Commands ─────────────────────────────────────────────────────────
-        "compare_folder" => Some(Action::CompareFolder),
-        "edit_user_menu" => Some(Action::EditUserMenu),
-        "file_associations" => Some(Action::FileAssociations),
-        "folder_shortcuts_config" => Some(Action::FolderShortcutsConfig),
-        "file_panel_filter" => Some(Action::FilePanelFilter),
-        "task_list" => Some(Action::TaskList),
-
-        // ── Options ──────────────────────────────────────────────────────────
-        "save_setup" => Some(Action::SaveSetup),
-        "system_settings" => Some(Action::SystemSettings),
-
-        // ── General ──────────────────────────────────────────────────────────
-        "toggle_hidden" => Some(Action::ToggleHidden),
-        "focus_cli" => Some(Action::FocusCli),
-        "unfocus" => Some(Action::Unfocus),
-        "refresh" => Some(Action::Refresh),
-        "reread_panel" => Some(Action::RereadPanel),
-        "swap_panels" => Some(Action::SwapPanels),
-        "drive_select_left" => Some(Action::DriveSelectLeft),
-        "drive_select_right" => Some(Action::DriveSelectRight),
-        "context_menu" => Some(Action::ContextMenu),
-        "video_mode" => Some(Action::VideoMode),
-        "tree_view" => Some(Action::TreeView),
-        "cycle_fkeys_modifiers" => Some(Action::CycleFKeysModifiers),
-        "ssh_connect" => Some(Action::SshConnect),
-        "ssh_disconnect" => Some(Action::SshDisconnect),
-
-        _ => None,
     }
 }
 
@@ -280,5 +187,23 @@ mod tests {
             resolver.resolve(key_ctrl_p),
             Some(Action::CycleFKeysModifiers)
         );
+    }
+
+    #[test]
+    fn test_action_parsing_with_suffixes() {
+        assert_eq!(parse_action_name("move_up_arrow"), Some(Action::MoveUp));
+        assert_eq!(parse_action_name("move_down_arrow"), Some(Action::MoveDown));
+        assert_eq!(parse_action_name("page_up_pgkey"), Some(Action::PageUp));
+        assert_eq!(parse_action_name("page_down_pgkey"), Some(Action::PageDown));
+        assert_eq!(parse_action_name("view_fkey"), Some(Action::View));
+        assert_eq!(parse_action_name("move_rename"), Some(Action::Move));
+        assert_eq!(parse_action_name("rename"), Some(Action::Move));
+        assert_eq!(parse_action_name("quit_f10"), Some(Action::Quit));
+        assert_eq!(
+            parse_action_name("context_menu_shift"),
+            Some(Action::ContextMenu)
+        );
+        assert_eq!(parse_action_name("find_file_alt"), Some(Action::FindFile));
+        assert_eq!(parse_action_name("invalid_action_name"), None);
     }
 }

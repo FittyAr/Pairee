@@ -210,6 +210,7 @@ mkdir -p "$INSTALL_DIR"
 mkdir -p "$CONFIG_DIR/lang"
 mkdir -p "$CONFIG_DIR/help"
 mkdir -p "$CONFIG_DIR/docs"
+mkdir -p "$CONFIG_DIR/keymaps"
 
 # 6. Download and Extract (or Git Clone & Cargo Build in debug mode)
 TEMP_DIR=$(mktemp -d)
@@ -258,6 +259,16 @@ if [ -d "${PKG_FOLDER}/help" ]; then
 fi
 if [ -d "${PKG_FOLDER}/docs" ]; then
     cp -r "${PKG_FOLDER}/docs/"* "$CONFIG_DIR/docs/"
+fi
+# Copy keybinding preset files, but skip files already edited by the user
+if [ -d "${PKG_FOLDER}/keymaps" ]; then
+    for preset_file in "${PKG_FOLDER}/keymaps/"*.toml; do
+        [ -f "$preset_file" ] || continue
+        dest="$CONFIG_DIR/keymaps/$(basename "$preset_file")"
+        if [ ! -f "$dest" ]; then
+            cp "$preset_file" "$dest"
+        fi
+    done
 fi
 
 # Clean up

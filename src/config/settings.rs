@@ -362,7 +362,7 @@ impl Default for Settings {
             highlight_rules: crate::ui::highlight::default_highlight_rules(),
             ssh_presets: Vec::new(),
         }
-     }
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -374,4 +374,3 @@ pub struct SshPreset {
     pub password: Option<String>,
     pub key_path: Option<String>,
 }
-

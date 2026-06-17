@@ -2,10 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 
-pub fn handle(
-    state: &mut AppState,
-    context: &mut AppContext,
-) -> bool {
+pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();
     if !targets.is_empty() {
         let dest_dir = state.get_passive_panel().current_path.clone();

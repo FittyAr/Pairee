@@ -31,7 +31,15 @@ pub fn handle(
         let mut new_idx = cursor_idx;
         let mut new_selected_preset = selected_preset_idx;
 
-        let update_popup = |s: &mut AppState, name: String, host: String, port: String, user: String, pass: String, kp: String, idx: usize, sp_idx: Option<usize>| {
+        let update_popup = |s: &mut AppState,
+                            name: String,
+                            host: String,
+                            port: String,
+                            user: String,
+                            pass: String,
+                            kp: String,
+                            idx: usize,
+                            sp_idx: Option<usize>| {
             s.active_popup = Some(PopupType::SshConnectPrompt {
                 panel,
                 input_name: name,
@@ -73,7 +81,17 @@ pub fn handle(
                     // Normal fields
                     new_idx = if new_idx > 1 { new_idx - 1 } else { 0 };
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Down => {
@@ -105,7 +123,17 @@ pub fn handle(
                 } else {
                     new_idx += 1;
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Left => {
@@ -116,7 +144,17 @@ pub fn handle(
                     // Left from fields moves to presets list (index 0)
                     new_idx = 0;
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Right => {
@@ -127,7 +165,17 @@ pub fn handle(
                     // Right from presets list moves to Name field (index 1)
                     new_idx = 1;
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Tab => {
@@ -136,7 +184,17 @@ pub fn handle(
                 } else {
                     0
                 };
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::BackTab => {
@@ -145,7 +203,17 @@ pub fn handle(
                 } else {
                     MAX_CURSOR_IDX
                 };
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Char(c) => {
@@ -162,26 +230,60 @@ pub fn handle(
                     6 => new_key_path.push(c),
                     _ => {}
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Backspace => {
                 match new_idx {
-                    1 => { new_name.pop(); }
-                    2 => { new_host.pop(); }
-                    3 => { new_port.pop(); }
-                    4 => { new_user.pop(); }
-                    5 => { new_pass.pop(); }
-                    6 => { new_key_path.pop(); }
+                    1 => {
+                        new_name.pop();
+                    }
+                    2 => {
+                        new_host.pop();
+                    }
+                    3 => {
+                        new_port.pop();
+                    }
+                    4 => {
+                        new_user.pop();
+                    }
+                    5 => {
+                        new_pass.pop();
+                    }
+                    6 => {
+                        new_key_path.pop();
+                    }
                     _ => {}
                 }
-                update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                update_popup(
+                    state,
+                    new_name,
+                    new_host,
+                    new_port,
+                    new_user,
+                    new_pass,
+                    new_key_path,
+                    new_idx,
+                    new_selected_preset,
+                );
                 return Ok(None);
             }
             KeyCode::Enter => {
                 if new_idx == 0 {
                     // Connect immediately to the selected preset!
-                    if new_selected_preset.is_none() && !context.config.settings.ssh_presets.is_empty() {
+                    if new_selected_preset.is_none()
+                        && !context.config.settings.ssh_presets.is_empty()
+                    {
                         new_selected_preset = Some(0);
                     }
                     if let Some(idx) = new_selected_preset {
@@ -202,11 +304,14 @@ pub fn handle(
                 } else if new_idx == 8 {
                     // Save Preset button
                     if new_name.trim().is_empty() {
-                        state.active_popup = Some(PopupType::Error("Preset name cannot be empty".to_string()));
+                        state.active_popup =
+                            Some(PopupType::Error("Preset name cannot be empty".to_string()));
                         return Ok(None);
                     }
                     if new_host.trim().is_empty() {
-                        state.active_popup = Some(PopupType::Error(crate::config::localization::t("error_ssh_host_empty")));
+                        state.active_popup = Some(PopupType::Error(
+                            crate::config::localization::t("error_ssh_host_empty"),
+                        ));
                         return Ok(None);
                     }
                     let mut presets = context.config.settings.ssh_presets.clone();
@@ -215,10 +320,18 @@ pub fn handle(
                         host: new_host.trim().to_string(),
                         port: new_port.trim().to_string(),
                         username: new_user.trim().to_string(),
-                        password: if new_pass.is_empty() { None } else { Some(new_pass.clone()) },
-                        key_path: if new_key_path.is_empty() { None } else { Some(new_key_path.clone()) },
+                        password: if new_pass.is_empty() {
+                            None
+                        } else {
+                            Some(new_pass.clone())
+                        },
+                        key_path: if new_key_path.is_empty() {
+                            None
+                        } else {
+                            Some(new_key_path.clone())
+                        },
                     };
-                    
+
                     let mut found_idx = None;
                     for (i, p) in presets.iter().enumerate() {
                         if p.name == new_p.name {
@@ -226,7 +339,7 @@ pub fn handle(
                             break;
                         }
                     }
-                    
+
                     if let Some(idx) = found_idx {
                         presets[idx] = new_p;
                         new_selected_preset = Some(idx);
@@ -234,12 +347,22 @@ pub fn handle(
                         presets.push(new_p);
                         new_selected_preset = Some(presets.len() - 1);
                     }
-                    
+
                     context.config.settings.ssh_presets = presets;
                     let _ = context.config.save();
-                    
+
                     // Stay on Save button but refresh state
-                    update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, 8, new_selected_preset);
+                    update_popup(
+                        state,
+                        new_name,
+                        new_host,
+                        new_port,
+                        new_user,
+                        new_pass,
+                        new_key_path,
+                        8,
+                        new_selected_preset,
+                    );
                     return Ok(None);
                 } else if new_idx == 9 {
                     // Delete Preset button
@@ -249,7 +372,7 @@ pub fn handle(
                             presets.remove(idx);
                             context.config.settings.ssh_presets = presets;
                             let _ = context.config.save();
-                            
+
                             let next_presets = &context.config.settings.ssh_presets;
                             if !next_presets.is_empty() {
                                 let next_idx = idx.min(next_presets.len() - 1);
@@ -274,30 +397,54 @@ pub fn handle(
                             }
                         }
                     }
-                    update_popup(state, new_name, new_host, new_port, new_user, new_pass, new_key_path, new_idx, new_selected_preset);
+                    update_popup(
+                        state,
+                        new_name,
+                        new_host,
+                        new_port,
+                        new_user,
+                        new_pass,
+                        new_key_path,
+                        new_idx,
+                        new_selected_preset,
+                    );
                     return Ok(None);
                 }
 
                 // If not Cancel/Save/Delete, Enter triggers connect logic
                 if new_host.trim().is_empty() {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t("error_ssh_host_empty")));
+                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
+                        "error_ssh_host_empty",
+                    )));
                     return Ok(None);
                 }
                 if new_user.trim().is_empty() {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t("error_ssh_user_empty")));
+                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
+                        "error_ssh_user_empty",
+                    )));
                     return Ok(None);
                 }
 
                 let host = new_host.trim().to_string();
                 let port_val = new_port.trim().parse::<u16>().unwrap_or(22);
                 let user = new_user.trim().to_string();
-                let pass = if new_pass.is_empty() { None } else { Some(new_pass.clone()) };
-                let key_path = if new_key_path.is_empty() { None } else { Some(new_key_path.clone()) };
+                let pass = if new_pass.is_empty() {
+                    None
+                } else {
+                    Some(new_pass.clone())
+                };
+                let key_path = if new_key_path.is_empty() {
+                    None
+                } else {
+                    Some(new_key_path.clone())
+                };
 
                 // Create channel
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 state.ssh_connect_rx = Some(rx);
-                state.active_popup = Some(PopupType::Info(crate::config::localization::t("progress_connecting_ssh")));
+                state.active_popup = Some(PopupType::Info(crate::config::localization::t(
+                    "progress_connecting_ssh",
+                )));
 
                 tokio::spawn(async move {
                     let res = crate::fs::ssh::SharedSshClient::connect(

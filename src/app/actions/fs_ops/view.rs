@@ -1,9 +1,9 @@
+use super::helper::command_exists;
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, Screen, PopupType};
+use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
-use super::helper::command_exists;
 
 pub fn handle(
     state: &mut AppState,

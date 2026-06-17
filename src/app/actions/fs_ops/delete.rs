@@ -14,10 +14,7 @@ fn is_non_empty_dir(path: &std::path::Path) -> bool {
     }
 }
 
-pub fn handle(
-    state: &mut AppState,
-    context: &mut AppContext,
-) -> bool {
+pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();
     if !targets.is_empty() {
         let active_panel = state.get_active_panel();
@@ -30,7 +27,10 @@ pub fn handle(
                 .confirm_delete_non_empty_folders
                 && targets.iter().any(|p| {
                     if is_remote {
-                        active_panel.entries.iter().any(|e| &e.path == p && e.is_dir)
+                        active_panel
+                            .entries
+                            .iter()
+                            .any(|e| &e.path == p && e.is_dir)
                     } else {
                         is_non_empty_dir(p)
                     }

@@ -1,11 +1,11 @@
+use super::ProgressUpdate;
+use super::helper::{
+    copy_dir_recursive_async, copy_file_buffered, copy_symlink, delete_recursive, run_as_admin_copy,
+};
+use crate::config::localization::t;
 use std::fs;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
-use super::ProgressUpdate;
-use crate::config::localization::t;
-use super::helper::{
-    run_as_admin_copy, delete_recursive, copy_dir_recursive_async, copy_symlink, copy_file_buffered,
-};
 
 /// Spawns a background task that moves multiple source files/directories to a destination directory.
 /// It first tries a fast atomic rename; on cross-device failures it falls back to copy + delete.
@@ -68,8 +68,8 @@ pub fn spawn_move_task(
                         .raw_os_error()
                         .map(|code| code == 18 || code == 17)
                         .unwrap_or(false);
-                    let is_cross = is_cross_device
-                        || e.kind() == std::io::ErrorKind::CrossesDevices;
+                    let is_cross =
+                        is_cross_device || e.kind() == std::io::ErrorKind::CrossesDevices;
 
                     if !is_cross {
                         // Permission or other error — try admin if configured

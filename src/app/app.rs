@@ -125,29 +125,27 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         if state.ssh_connect_rx.is_some() {
             let mut rx = state.ssh_connect_rx.take().unwrap();
             match rx.try_recv() {
-                Ok((panel, res)) => {
-                    match res {
-                        Ok(client) => {
-                            let p = match panel {
-                                crate::app::state::ActivePanel::Left => &mut state.left_panel,
-                                crate::app::state::ActivePanel::Right => &mut state.right_panel,
-                            };
-                            p.ssh_conn = Some(client);
-                            p.current_path = std::path::PathBuf::from("/");
-                            p.cursor_index = 0;
-                            p.clear_selection();
-                            state.active_popup = None;
-                            state.refresh_both_panels(context.config.settings.show_hidden);
-                        }
-                        Err(e) => {
-                            state.active_popup = Some(PopupType::Error(format!(
-                                "{} {}",
-                                crate::config::localization::t("error_ssh_failed"),
-                                e
-                            )));
-                        }
+                Ok((panel, res)) => match res {
+                    Ok(client) => {
+                        let p = match panel {
+                            crate::app::state::ActivePanel::Left => &mut state.left_panel,
+                            crate::app::state::ActivePanel::Right => &mut state.right_panel,
+                        };
+                        p.ssh_conn = Some(client);
+                        p.current_path = std::path::PathBuf::from("/");
+                        p.cursor_index = 0;
+                        p.clear_selection();
+                        state.active_popup = None;
+                        state.refresh_both_panels(context.config.settings.show_hidden);
                     }
-                }
+                    Err(e) => {
+                        state.active_popup = Some(PopupType::Error(format!(
+                            "{} {}",
+                            crate::config::localization::t("error_ssh_failed"),
+                            e
+                        )));
+                    }
+                },
                 Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
                     state.ssh_connect_rx = Some(rx);
                 }
