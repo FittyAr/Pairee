@@ -18,6 +18,7 @@ pub fn render_menu_popup(
     left_rect: Rect,
     right_rect: Rect,
     state: &crate::app::state::AppState,
+    context: &crate::app::context::AppContext,
 ) -> bool {
     match popup {
         PopupType::SortModesDialog {
@@ -138,7 +139,7 @@ pub fn render_menu_popup(
                 None => return true, // Only top menu bar is active, no dropdown to render
             };
 
-            let items = crate::ui::menu::get_menu_items(*active_menu_idx, state);
+            let items = crate::ui::menu::get_menu_items(*active_menu_idx, state, &context.resolver);
             let dropdown_x = match active_menu_idx {
                 0 => 2,
                 1 => 10,

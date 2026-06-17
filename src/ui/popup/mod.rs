@@ -58,7 +58,7 @@ fn render_specific_popup(
     if prompts::render_prompt_popup(f, popup, theme, size, context) {
         return;
     }
-    if menus::render_menu_popup(f, popup, theme, size, left_rect, right_rect, state) {
+    if menus::render_menu_popup(f, popup, theme, size, left_rect, right_rect, state, context) {
         return;
     }
     if screens_menu::render_screens_menu(f, popup, state, theme, size) {

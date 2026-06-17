@@ -87,29 +87,19 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
             ("12", t("fkey_alt_foldhs")),
         ]
     } else {
-        use crate::keybindings::Action;
-        let r = &context.resolver;
-        // Helper: show the bound key if it differs from the standard F-key,
-        // otherwise show the classic label from localisation.
-        let fk = |action: Action, label_key: &str| -> String {
-            match r.key_for_action(action) {
-                Some(k) if !k.starts_with('F') => format!("{} ({})", t(label_key), k),
-                _ => t(label_key),
-            }
-        };
         vec![
-            ("1", fk(Action::Help, "fkey_help")),
-            ("2", fk(Action::UserMenu, "fkey_menu")),
-            ("3", fk(Action::View, "fkey_view")),
-            ("4", fk(Action::Edit, "fkey_edit")),
-            ("5", fk(Action::Copy, "fkey_copy")),
-            ("6", fk(Action::Move, "fkey_renmov")),
-            ("7", fk(Action::MkDir, "fkey_mkdir")),
-            ("8", fk(Action::Delete, "fkey_delete")),
-            ("9", fk(Action::Menu, "fkey_pulldn")),
-            ("10", fk(Action::Quit, "fkey_quit")),
-            ("11", fk(Action::PluginMenu, "fkey_plugin")),
-            ("12", fk(Action::ScreensList, "fkey_screen")),
+            ("1", t("fkey_help")),
+            ("2", t("fkey_menu")),
+            ("3", t("fkey_view")),
+            ("4", t("fkey_edit")),
+            ("5", t("fkey_copy")),
+            ("6", t("fkey_renmov")),
+            ("7", t("fkey_mkdir")),
+            ("8", t("fkey_delete")),
+            ("9", t("fkey_pulldn")),
+            ("10", t("fkey_quit")),
+            ("11", t("fkey_plugin")),
+            ("12", t("fkey_screen")),
         ]
     };
 

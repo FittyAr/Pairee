@@ -338,7 +338,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         // Interface Settings Row Labels
         "int_clock" => "Clock",
         "int_mouse" => "Mouse",
-        "int_key_bar" => "Show key bar",
+        "int_key_bar" => "Show bottom F-keys bar",
         "int_menu_bar" => "Always show the menu bar",
         "int_screensaver" => "Screen saver:",
         "int_copy_progress" => "Show total copy progress indicator",

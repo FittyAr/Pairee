@@ -111,7 +111,7 @@ The Setup dialog is divided into tabbed categories:
 
 ### Tab 2: Interface Settings
 * **Clock:** Display clock widget in the top right.
-* **Show key bar:** Toggle bottom F-keys bar display.
+* **Show bottom F-keys bar:** Toggle bottom F-keys bar display.
 * **Always show the menu bar:** Keep top menu visible.
 * **Show total copy progress indicator:** Displays progress bars for file copy jobs.
 * **Show total delete progress indicator:** Displays progress bars for delete operations.

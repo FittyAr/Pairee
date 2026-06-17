@@ -33,7 +33,8 @@ pub fn calculate_layout(
         0
     };
 
-    let fkeys_height = if settings.interface_show_key_bar {
+    let fkeys_height = if settings.interface_show_key_bar && settings.keybinding_preset == "norton"
+    {
         1
     } else {
         0

@@ -110,7 +110,7 @@ Las opciones de configuración se agrupan en las siguientes pestañas:
 
 ### Pestaña 2: Ajustes de Interfaz
 * **Clock:** Muestra el reloj digital en la esquina superior derecha.
-* **Show key bar:** Muestra la fila inferior de atajos F1-F10.
+* **Show bottom F-keys bar:** Muestra la fila inferior de atajos F1-F10.
 * **Always show the menu bar:** Mantiene el menú superior visible todo el tiempo.
 * **Show total copy progress indicator:** Muestra la barra de progreso para tareas de copiado.
 * **Show total delete progress indicator:** Muestra la barra de progreso para tareas de eliminación.
