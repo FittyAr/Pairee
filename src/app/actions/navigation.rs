@@ -79,14 +79,40 @@ pub fn handle_navigation_action(
             true
         }
         Action::SshConnect => {
+            let (name, host, port, user, pass, key_path, preset_idx, cursor_idx) = if !context.config.settings.ssh_presets.is_empty() {
+                let p = &context.config.settings.ssh_presets[0];
+                (
+                    p.name.clone(),
+                    p.host.clone(),
+                    p.port.clone(),
+                    p.username.clone(),
+                    p.password.clone().unwrap_or_default(),
+                    p.key_path.clone().unwrap_or_default(),
+                    Some(0),
+                    0,
+                )
+            } else {
+                (
+                    String::new(),
+                    String::new(),
+                    "22".to_string(),
+                    String::new(),
+                    String::new(),
+                    String::new(),
+                    None,
+                    1,
+                )
+            };
             state.active_popup = Some(PopupType::SshConnectPrompt {
                 panel: state.active_panel,
-                input_host: String::new(),
-                input_port: "22".to_string(),
-                input_user: String::new(),
-                input_pass: String::new(),
-                input_key_path: String::new(),
-                cursor_idx: 0,
+                input_name: name,
+                input_host: host,
+                input_port: port,
+                input_user: user,
+                input_pass: pass,
+                input_key_path: key_path,
+                cursor_idx,
+                selected_preset_idx: preset_idx,
             });
             true
         }

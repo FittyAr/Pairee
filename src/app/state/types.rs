@@ -428,11 +428,13 @@ pub enum PopupType {
     // ── SSH Connection ────────────────────────────────────────────────────────
     SshConnectPrompt {
         panel: ActivePanel,
+        input_name: String,
         input_host: String,
         input_port: String,
         input_user: String,
         input_pass: String,
         input_key_path: String,
         cursor_idx: usize,
+        selected_preset_idx: Option<usize>,
     },
 }

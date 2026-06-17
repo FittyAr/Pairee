@@ -49,13 +49,13 @@ fn render_specific_popup(
     f: &mut ratatui::Frame,
     popup: &PopupType,
     state: &AppState,
-    _context: &AppContext,
+    context: &AppContext,
     left_rect: Rect,
     right_rect: Rect,
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) {
-    if prompts::render_prompt_popup(f, popup, theme, size) {
+    if prompts::render_prompt_popup(f, popup, theme, size, context) {
         return;
     }
     if menus::render_menu_popup(f, popup, theme, size, left_rect, right_rect, state) {

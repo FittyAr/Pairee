@@ -204,6 +204,9 @@ pub struct Settings {
 
     // ── NEW Colors settings (Tab 6 interactive) ──────────────────────────────
     pub highlight_rules: Vec<crate::ui::highlight::HighlightRule>,
+
+    #[serde(default)]
+    pub ssh_presets: Vec<SshPreset>,
 }
 
 impl Default for Settings {
@@ -357,6 +360,18 @@ impl Default for Settings {
 
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),
+            ssh_presets: Vec::new(),
         }
-    }
+     }
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct SshPreset {
+    pub name: String,
+    pub host: String,
+    pub port: String,
+    pub username: String,
+    pub password: Option<String>,
+    pub key_path: Option<String>,
+}
+
