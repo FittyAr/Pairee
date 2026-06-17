@@ -209,6 +209,7 @@ fi
 mkdir -p "$INSTALL_DIR"
 mkdir -p "$CONFIG_DIR/lang"
 mkdir -p "$CONFIG_DIR/help"
+mkdir -p "$CONFIG_DIR/docs"
 
 # 6. Download and Extract (or Git Clone & Cargo Build in debug mode)
 TEMP_DIR=$(mktemp -d)
@@ -248,9 +249,10 @@ echo "Installing files..."
 cp "$BIN_SRC" "$INSTALL_DIR/pairee"
 chmod +x "$INSTALL_DIR/pairee"
 
-# Copy translations and help markdown
+# Copy translations, help markdown and docs
 cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
 cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
+cp -r "${PKG_FOLDER}/docs/"* "$CONFIG_DIR/docs/"
 
 # Clean up
 rm -rf "$TEMP_DIR"

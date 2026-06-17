@@ -172,6 +172,9 @@ if (-not (Test-Path (Join-Path $configDir "lang"))) {
 if (-not (Test-Path (Join-Path $configDir "help"))) {
     New-Item -ItemType Directory -Force -Path (Join-Path $configDir "help") | Out-Null
 }
+if (-not (Test-Path (Join-Path $configDir "docs"))) {
+    New-Item -ItemType Directory -Force -Path (Join-Path $configDir "docs") | Out-Null
+}
 
 # 4. Download and Extract ZIP (or Git Clone & Cargo Build in debug mode)
 $tempDir = Join-Path $env:TEMP "pairee_install_$(Get-Date -Format 'yyyyMMddHHmmss')"
@@ -238,6 +241,7 @@ Copy-Item -Path $binSrc -Destination $installDir -Force
 # Copy resources
 Copy-Item -Path (Join-Path $extractedFolder "lang\*") -Destination (Join-Path $configDir "lang") -Force -Recurse
 Copy-Item -Path (Join-Path $extractedFolder "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse
+Copy-Item -Path (Join-Path $extractedFolder "docs\*") -Destination (Join-Path $configDir "docs") -Force -Recurse
 
 # Clean up temp
 Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
