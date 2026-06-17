@@ -220,7 +220,7 @@ pub fn spawn_copy_move_task(
             let copy_res = async {
                 // Open reader
                 let mut reader: Box<dyn std::io::Read + Send> = if let Some(src_conn) = &src_conn {
-                    let client = src_conn.0.lock().map_err(|_| anyhow::anyhow!("Mutex poisoned"))?;
+                    let client = src_conn.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
                     let file = client.sftp.open(&src)?;
                     Box::new(file)
                 } else {
@@ -230,7 +230,7 @@ pub fn spawn_copy_move_task(
 
                 // Open writer
                 let mut writer: Box<dyn std::io::Write + Send> = if let Some(dst_conn) = &dst_conn {
-                    let client = dst_conn.0.lock().map_err(|_| anyhow::anyhow!("Mutex poisoned"))?;
+                    let client = dst_conn.0.lock().map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
                     let file = client.sftp.create(&dst)?;
                     Box::new(file)
                 } else {

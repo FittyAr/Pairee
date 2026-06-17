@@ -642,6 +642,15 @@ pub fn get_default_english_translation(key: &str) -> String {
         "error_extraction_failed" => "Extraction failed: {}",
         "error_compression_failed" => "Compression failed: {}",
         "error_moving_failed_for" => "Error moving {}: {}",
+        "error_failed_copy_admin" => "Failed to copy as administrator",
+        "error_failed_copy_sudo" => "Failed to copy as administrator via sudo",
+        "error_failed_create_dir" => "Failed to create directory {}: {}",
+        "error_failed_read_dir" => "Failed to read directory {}: {}",
+        "error_failed_read_dir_entry" => "Failed to read directory entry: {}",
+        "error_failed_remove_symlink" => "Failed to remove symbolic link {}: {}",
+        "error_failed_delete_dir" => "Failed to delete directory {}: {}",
+        "error_failed_delete_file" => "Failed to delete file {}: {}",
+        "error_mutex_poisoned" => "Mutex poisoned",
 
         _ => key,
     };

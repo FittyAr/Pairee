@@ -482,6 +482,15 @@
     "error_delete_source_failed": "Copiado pero falló al eliminar el origen {}: {}",
     "error_extraction_failed": "Fallo de extracción: {}",
     "error_compression_failed": "Fallo de compresión: {}",
-    "error_moving_failed_for": "Error al mover {}: {}"
+    "error_moving_failed_for": "Error al mover {}: {}",
+    "error_failed_copy_admin": "Fallo al copiar como administrador",
+    "error_failed_copy_sudo": "Fallo al copiar como administrador mediante sudo",
+    "error_failed_create_dir": "Fallo al crear el directorio {}: {}",
+    "error_failed_read_dir": "Fallo al leer el directorio {}: {}",
+    "error_failed_read_dir_entry": "Fallo al leer la entrada del directorio: {}",
+    "error_failed_remove_symlink": "Fallo al eliminar el enlace simbólico {}: {}",
+    "error_failed_delete_dir": "Fallo al eliminar el directorio {}: {}",
+    "error_failed_delete_file": "Fallo al eliminar el archivo {}: {}",
+    "error_mutex_poisoned": "Mutex envenenado"
   }
 }

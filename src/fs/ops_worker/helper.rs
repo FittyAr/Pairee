@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 use tokio::sync::mpsc;
 use super::ProgressUpdate;
+use crate::config::localization::t;
 
 pub(crate) fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
     let target = fs::read_link(src)?;
@@ -43,7 +44,7 @@ pub(crate) fn run_as_admin_copy(src: &Path, dst: &Path) -> Result<()> {
     if status.success() {
         Ok(())
     } else {
-        anyhow::bail!("Failed to copy as administrator")
+        anyhow::bail!(t("error_failed_copy_admin"))
     }
 }
 
@@ -59,7 +60,7 @@ pub(crate) fn run_as_admin_copy(src: &Path, dst: &Path) -> Result<()> {
     if status.success() {
         Ok(())
     } else {
-        anyhow::bail!("Failed to copy as administrator via sudo")
+        anyhow::bail!(t("error_failed_copy_sudo"))
     }
 }
 
@@ -139,12 +140,12 @@ pub(crate) async fn copy_dir_recursive_async(
     copy_files_opened_for_writing: bool,
 ) -> Result<()> {
     fs::create_dir_all(dst)
-        .map_err(|e| anyhow::anyhow!("Failed to create directory {:?}: {}", dst, e))?;
+        .map_err(|e| anyhow::anyhow!(t("error_failed_create_dir").replacen("{}", &dst.to_string_lossy(), 1).replacen("{}", &e.to_string(), 1)))?;
     for entry in
-        fs::read_dir(src).map_err(|e| anyhow::anyhow!("Failed to read dir {:?}: {}", src, e))?
+        fs::read_dir(src).map_err(|e| anyhow::anyhow!(t("error_failed_read_dir").replacen("{}", &src.to_string_lossy(), 1).replacen("{}", &e.to_string(), 1)))?
     {
         let entry =
-            entry.map_err(|e| anyhow::anyhow!("Failed to read dir entry: {}", e))?;
+            entry.map_err(|e| anyhow::anyhow!(t("error_failed_read_dir_entry").replacen("{}", &e.to_string(), 1)))?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
         let file_name = entry
@@ -189,12 +190,12 @@ pub(crate) fn delete_recursive(path: &Path) -> Result<()> {
         .unwrap_or(false)
     {
         fs::remove_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to remove symlink {:?}: {}", path, e))
+            .map_err(|e| anyhow::anyhow!(t("error_failed_remove_symlink").replacen("{}", &path.to_string_lossy(), 1).replacen("{}", &e.to_string(), 1)))
     } else if path.is_dir() {
         fs::remove_dir_all(path)
-            .map_err(|e| anyhow::anyhow!("Failed to delete dir {:?}: {}", path, e))
+            .map_err(|e| anyhow::anyhow!(t("error_failed_delete_dir").replacen("{}", &path.to_string_lossy(), 1).replacen("{}", &e.to_string(), 1)))
     } else {
         fs::remove_file(path)
-            .map_err(|e| anyhow::anyhow!("Failed to delete file {:?}: {}", path, e))
+            .map_err(|e| anyhow::anyhow!(t("error_failed_delete_file").replacen("{}", &path.to_string_lossy(), 1).replacen("{}", &e.to_string(), 1)))
     }
 }
