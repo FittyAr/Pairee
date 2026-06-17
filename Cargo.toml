@@ -48,6 +48,7 @@ assets = [
     ["target/release/pairee", "usr/bin/pairee", "755"],
     ["lang/*", "usr/share/pairee/lang/", "644"],
     ["help/*", "usr/share/pairee/help/", "644"],
+    ["docs/technical/*", "usr/share/pairee/docs/technical/", "644"],
 ]
 
 [package.metadata.generate-rpm]
@@ -60,6 +61,7 @@ assets = [
     { source = "target/x86_64-unknown-linux-musl/release/pairee", dest = "/usr/bin/pairee", mode = "755" },
     { source = "lang/*", dest = "/usr/share/pairee/lang/", mode = "644" },
     { source = "help/*", dest = "/usr/share/pairee/help/", mode = "644" },
+    { source = "docs/technical/*", dest = "/usr/share/pairee/docs/technical/", mode = "644" },
 ]
 
 

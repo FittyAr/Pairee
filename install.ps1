@@ -239,9 +239,15 @@ Write-Host "Installing files..."
 Copy-Item -Path $binSrc -Destination $installDir -Force
 
 # Copy resources
-Copy-Item -Path (Join-Path $extractedFolder "lang\*") -Destination (Join-Path $configDir "lang") -Force -Recurse
-Copy-Item -Path (Join-Path $extractedFolder "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse
-Copy-Item -Path (Join-Path $extractedFolder "docs\*") -Destination (Join-Path $configDir "docs") -Force -Recurse
+if (Test-Path (Join-Path $extractedFolder "lang")) {
+    Copy-Item -Path (Join-Path $extractedFolder "lang\*") -Destination (Join-Path $configDir "lang") -Force -Recurse
+}
+if (Test-Path (Join-Path $extractedFolder "help")) {
+    Copy-Item -Path (Join-Path $extractedFolder "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse
+}
+if (Test-Path (Join-Path $extractedFolder "docs")) {
+    Copy-Item -Path (Join-Path $extractedFolder "docs\*") -Destination (Join-Path $configDir "docs") -Force -Recurse
+}
 
 # Clean up temp
 Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue

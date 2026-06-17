@@ -250,9 +250,15 @@ cp "$BIN_SRC" "$INSTALL_DIR/pairee"
 chmod +x "$INSTALL_DIR/pairee"
 
 # Copy translations, help markdown and docs
-cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
-cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
-cp -r "${PKG_FOLDER}/docs/"* "$CONFIG_DIR/docs/"
+if [ -d "${PKG_FOLDER}/lang" ]; then
+    cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
+fi
+if [ -d "${PKG_FOLDER}/help" ]; then
+    cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
+fi
+if [ -d "${PKG_FOLDER}/docs" ]; then
+    cp -r "${PKG_FOLDER}/docs/"* "$CONFIG_DIR/docs/"
+fi
 
 # Clean up
 rm -rf "$TEMP_DIR"

@@ -74,7 +74,7 @@ jobs:
           mkdir -p dist
           
           # Copy resources
-          cp -r lang help README.md LICENSE "$PKG_NAME/"
+          cp -r lang help docs README.md LICENSE "$PKG_NAME/"
           
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "target/${{ matrix.target }}/release/pairee.exe" "$PKG_NAME/"
