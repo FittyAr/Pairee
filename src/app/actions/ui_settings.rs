@@ -15,26 +15,37 @@ pub fn handle_ui_settings_action(
             let mut add_doc = |title: &str, path_str: &str| {
                 let mut path = std::path::PathBuf::from(path_str);
                 if !path.exists() {
+                    if let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR") {
+                        let manifest_path = std::path::PathBuf::from(manifest_dir).join(path_str);
+                        if manifest_path.exists() {
+                            path = manifest_path;
+                        }
+                    }
+                }
+                if !path.exists() {
                     if let Ok(exe) = std::env::current_exe() {
-                        if let Some(parent) = exe.parent() {
-                            let alt_path = parent.join(path_str);
-                            if alt_path.exists() {
-                                path = alt_path;
+                        let mut current = exe.parent();
+                        while let Some(dir) = current {
+                            let candidate = dir.join(path_str);
+                            if candidate.exists() {
+                                path = candidate;
+                                break;
                             }
+                            current = dir.parent();
                         }
                     }
-                    if !path.exists() {
-                        let config_path = crate::config::paths::get_config_dir().join(path_str);
-                        if config_path.exists() {
-                            path = config_path;
-                        }
+                }
+                if !path.exists() {
+                    let config_path = crate::config::paths::get_config_dir().join(path_str);
+                    if config_path.exists() {
+                        path = config_path;
                     }
-                    if !path.exists() {
-                        if let Some(share_dir) = crate::config::paths::get_system_share_dir() {
-                            let share_path = share_dir.join(path_str);
-                            if share_path.exists() {
-                                path = share_path;
-                            }
+                }
+                if !path.exists() {
+                    if let Some(share_dir) = crate::config::paths::get_system_share_dir() {
+                        let share_path = share_dir.join(path_str);
+                        if share_path.exists() {
+                            path = share_path;
                         }
                     }
                 }

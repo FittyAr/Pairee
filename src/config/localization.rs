@@ -19,7 +19,29 @@ pub fn discover_languages() -> Vec<(String, PathBuf)> {
     langs.push(("English".to_string(), PathBuf::new()));
 
     // 1. Scan the project's root folder 'lang'
-    let project_lang_dir = PathBuf::from("lang");
+    let mut project_lang_dir = PathBuf::from("lang");
+    if !project_lang_dir.exists() {
+        if let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR") {
+            let manifest_path = PathBuf::from(manifest_dir).join("lang");
+            if manifest_path.exists() {
+                project_lang_dir = manifest_path;
+            }
+        }
+    }
+    if !project_lang_dir.exists() {
+        if let Ok(exe) = std::env::current_exe() {
+            let mut current = exe.parent();
+            while let Some(dir) = current {
+                let candidate = dir.join("lang");
+                if candidate.exists() {
+                    project_lang_dir = candidate;
+                    break;
+                }
+                current = dir.parent();
+            }
+        }
+    }
+
     if project_lang_dir.exists() {
         for (name, path) in discover_languages_in_dir(&project_lang_dir) {
             if !langs.iter().any(|(n, _)| n == &name) {
