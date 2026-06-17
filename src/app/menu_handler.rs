@@ -80,7 +80,22 @@ pub fn trigger_menu_item(
                         Some(Action::DriveSelectLeft)
                     }
                 }
-                18 => Some(Action::SshConnect),
+                18 => {
+                    state.active_panel = if is_right {
+                        crate::app::state::ActivePanel::Right
+                    } else {
+                        crate::app::state::ActivePanel::Left
+                    };
+                    Some(Action::SshConnect)
+                }
+                19 => {
+                    state.active_panel = if is_right {
+                        crate::app::state::ActivePanel::Right
+                    } else {
+                        crate::app::state::ActivePanel::Left
+                    };
+                    Some(Action::SshDisconnect)
+                }
                 _ => None,
             }
         }

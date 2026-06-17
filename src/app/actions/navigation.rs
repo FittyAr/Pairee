@@ -116,6 +116,18 @@ pub fn handle_navigation_action(
             });
             true
         }
+        Action::SshDisconnect => {
+            let panel = state.get_active_panel_mut();
+            if panel.ssh_conn.is_some() {
+                panel.ssh_conn = None;
+                let local_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+                panel.current_path = local_dir;
+                panel.cursor_index = 0;
+                panel.clear_selection();
+                state.refresh_both_panels(context.config.settings.show_hidden);
+            }
+            true
+        }
         Action::GoFolderShortcut(n) => {
             if let Some(target) = state.folder_shortcuts.get(n).cloned() {
                 let panel = state.get_active_panel_mut();

@@ -149,7 +149,7 @@ pub fn render_menu_popup(
             };
             let dropdown_width = 37;
             let dropdown_height = (items.len() + 2) as u16;
-            let dropdown_rect = Rect::new(dropdown_x, 1, dropdown_width, dropdown_height);
+            let dropdown_rect = Rect::new(dropdown_x, 1, dropdown_width, dropdown_height).intersection(size);
 
             f.render_widget(Clear, dropdown_rect);
 

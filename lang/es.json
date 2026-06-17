@@ -51,6 +51,7 @@
     "menu_re_read": "&Re-leer",
     "menu_change_drive": "C&ambiar unidad",
     "menu_connect_ssh": "Conectar a SSH...",
+    "menu_disconnect_ssh": "Desconectar SSH",
     "menu_view": "&Ver",
     "menu_edit": "&Editar",
     "menu_copy": "&Copiar",

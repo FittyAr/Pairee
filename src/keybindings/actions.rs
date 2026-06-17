@@ -202,4 +202,6 @@ pub enum Action {
     CycleFKeysModifiers,
     /// Connect active panel to a remote server via SSH
     SshConnect,
+    /// Disconnect active panel from SSH
+    SshDisconnect,
 }

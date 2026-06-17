@@ -136,6 +136,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                             p.current_path = std::path::PathBuf::from("/");
                             p.cursor_index = 0;
                             p.clear_selection();
+                            state.active_popup = None;
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         }
                         Err(e) => {

@@ -98,6 +98,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_re_read" => "&Re-read",
         "menu_change_drive" => "&Change drive",
         "menu_connect_ssh" => "&Connect to SSH...",
+        "menu_disconnect_ssh" => "&Disconnect SSH",
 
         // Files menu items
         "menu_view" => "&View",
