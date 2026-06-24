@@ -1,6 +1,6 @@
 [package]
 name = "pairee"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 
 [dependencies]
@@ -66,6 +66,7 @@ assets = [
     { source = "docs/technical/*", dest = "/usr/share/pairee/docs/technical/", mode = "644" },
     { source = "keymaps/*", dest = "/usr/share/pairee/keymaps/", mode = "644" },
 ]
+
 
 
 
