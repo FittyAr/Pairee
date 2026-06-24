@@ -728,12 +728,27 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
 
     let menu_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Min(20), Constraint::Length(12)])
+        .constraints([
+            Constraint::Min(20),
+            Constraint::Length(if state.is_root { 8 } else { 0 }),
+            Constraint::Length(12),
+        ])
         .split(area);
 
     let line = Line::from(spans);
     let paragraph = Paragraph::new(line).style(Style::default().bg(parse_color("DarkGray")));
     f.render_widget(paragraph, menu_chunks[0]);
+
+    if state.is_root {
+        let root_para = Paragraph::new(" [ROOT] ")
+            .style(
+                Style::default()
+                    .bg(parse_color("DarkGray"))
+                    .fg(ratatui::style::Color::Red)
+                    .add_modifier(Modifier::BOLD),
+            );
+        f.render_widget(root_para, menu_chunks[1]);
+    }
 
     if context.config.settings.interface_clock {
         let time_str = chrono::Local::now().format(" %H:%M:%S ").to_string();
@@ -744,9 +759,9 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
                     .fg(parse_color(&theme.panel_fg)),
             )
             .alignment(ratatui::layout::Alignment::Right);
-        f.render_widget(clock_para, menu_chunks[1]);
+        f.render_widget(clock_para, menu_chunks[2]);
     } else {
         let empty_para = Paragraph::new("").style(Style::default().bg(parse_color("DarkGray")));
-        f.render_widget(empty_para, menu_chunks[1]);
+        f.render_widget(empty_para, menu_chunks[2]);
     }
 }

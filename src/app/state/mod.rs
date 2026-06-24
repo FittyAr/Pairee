@@ -80,11 +80,13 @@ pub struct AppState {
     pub current_modifiers: crossterm::event::KeyModifiers,
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
     pub pending_custom_command: Option<String>,
+    pub is_root: bool,
 }
 
 impl AppState {
     pub fn new(left_path: PathBuf, right_path: PathBuf) -> Self {
         let (term_tx, term_rx) = tokio::sync::mpsc::unbounded_channel();
+        let is_root = crate::fs::is_elevated();
         Self {
             left_panel: PanelState::new(left_path),
             right_panel: PanelState::new(right_path),
@@ -125,6 +127,7 @@ impl AppState {
             active_bg_op: None,
             terminal_needs_clear: false,
             pending_custom_command: None,
+            is_root,
         }
     }
 

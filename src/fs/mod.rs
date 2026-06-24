@@ -28,7 +28,10 @@ pub use ops_worker::{
     ProgressUpdate, spawn_compress_task, spawn_copy_move_task, spawn_copy_task, spawn_extract_task,
     spawn_move_task, spawn_wipe_task,
 };
-#[cfg(not(target_os = "windows"))]
-pub use privileges::acquire_admin_privileges;
+pub mod elevated_helper;
+
+pub use privileges::{
+    FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper,
+};
 pub use rename_move::rename_or_move_sync;
 pub mod ssh;

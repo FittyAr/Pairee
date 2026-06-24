@@ -51,57 +51,10 @@ fn send_to_recycle_bin(path: &Path) -> Result<()> {
     }
 }
 
-#[cfg(target_os = "windows")]
 fn run_as_admin_delete(path: &Path) -> Result<()> {
-    use std::process::Command;
-    let path_str = path.to_string_lossy().replace('"', "\\\"");
-    let ps_arg = format!(
-        "Start-Process powershell -ArgumentList '-NoProfile -Command Remove-Item -Path \\\"{}\\\" -Force -Recurse' -Verb RunAs -WindowStyle Hidden",
-        path_str
-    );
-    let status = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_arg])
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to delete as administrator")
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-fn run_as_admin_delete(path: &Path) -> Result<()> {
-    use crossterm::cursor::Show;
-    use crossterm::execute;
-    use crossterm::terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    };
-    use std::process::{Command, Stdio};
-
-    let _ = disable_raw_mode();
-    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
-
-    println!(
-        "\nRequesting administrator privileges to delete: {}",
-        path.display()
-    );
-
-    let status = Command::new("sudo")
-        .arg("rm")
-        .arg("-rf")
-        .arg(path)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status();
-
-    let _ = enable_raw_mode();
-    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
-
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => anyhow::bail!("Failed to delete as administrator via sudo"),
-    }
+    crate::fs::run_in_elevated_helper(vec![
+        crate::fs::FsOperation::Delete { path: path.to_path_buf() }
+    ])
 }
 
 pub(crate) fn make_writable(path: &Path) -> std::io::Result<()> {

@@ -29,81 +29,16 @@ pub(crate) fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
     Ok(())
 }
 
-#[cfg(target_os = "windows")]
 pub(crate) fn run_as_admin_copy(src: &Path, dst: &Path) -> Result<()> {
-    use std::process::Command;
-    let src_str = src.to_string_lossy().replace('"', "\\\"");
-    let dst_str = dst.to_string_lossy().replace('"', "\\\"");
-    let recurse_flag = if src.is_dir() { " -Recurse" } else { "" };
-    let ps_arg = format!(
-        "Start-Process powershell -ArgumentList '-NoProfile -Command Copy-Item -Path \\\"{}\\\" -Destination \\\"{}\\\"{}-Force' -Verb RunAs -WindowStyle Hidden -Wait",
-        src_str, dst_str, recurse_flag
-    );
-    let status = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_arg])
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!(t("error_failed_copy_admin"))
-    }
+    crate::fs::run_in_elevated_helper(vec![
+        crate::fs::FsOperation::Copy { src: src.to_path_buf(), dst: dst.to_path_buf() }
+    ])
 }
 
-#[cfg(target_os = "windows")]
 pub(crate) fn run_as_admin_move(src: &Path, dst: &Path) -> Result<()> {
-    use std::process::Command;
-    let src_str = src.to_string_lossy().replace('"', "\\\"");
-    let dst_str = dst.to_string_lossy().replace('"', "\\\"");
-    let ps_arg = format!(
-        "Start-Process powershell -ArgumentList '-NoProfile -Command Move-Item -Path \\\"{}\\\" -Destination \\\"{}\\\" -Force' -Verb RunAs -WindowStyle Hidden -Wait",
-        src_str, dst_str
-    );
-    let status = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_arg])
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to move as administrator")
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub(crate) fn run_as_admin_copy(src: &Path, dst: &Path) -> Result<()> {
-    use std::process::Command;
-    let mut cmd = Command::new("sudo");
-    cmd.arg("cp").arg("-p");
-    if src.is_dir() {
-        cmd.arg("-r");
-    }
-    let status = cmd
-        .arg(src)
-        .arg(dst)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!(t("error_failed_copy_sudo"))
-    }
-}
-
-#[cfg(not(target_os = "windows"))]
-pub(crate) fn run_as_admin_move(src: &Path, dst: &Path) -> Result<()> {
-    use std::process::Command;
-    let status = Command::new("sudo")
-        .arg("mv")
-        .arg(src)
-        .arg(dst)
-        .stdout(std::process::Stdio::null())
-        .stderr(std::process::Stdio::null())
-        .status()?;
-    if status.success() {
-        Ok(())
-    } else {
-        anyhow::bail!("Failed to move/rename as administrator via sudo")
-    }
+    crate::fs::run_in_elevated_helper(vec![
+        crate::fs::FsOperation::Move { src: src.to_path_buf(), dst: dst.to_path_buf() }
+    ])
 }
 
 #[allow(clippy::too_many_arguments)]

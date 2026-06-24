@@ -264,16 +264,16 @@ pub fn handle(
                     KeyCode::Enter => {
                         state.active_popup = None;
 
+                        if let Err(e) = crate::fs::acquire_admin_privileges() {
+                            state.active_popup = Some(PopupType::Error(format!(
+                                "{} {}",
+                                t("error_acquire_admin_failed"),
+                                e
+                            )));
+                            return Ok(None);
+                        }
                         #[cfg(not(target_os = "windows"))]
                         {
-                            if let Err(e) = crate::fs::acquire_admin_privileges() {
-                                state.active_popup = Some(PopupType::Error(format!(
-                                    "{} {}",
-                                    t("error_acquire_admin_failed"),
-                                    e
-                                )));
-                                return Ok(None);
-                            }
                             state.terminal_needs_clear = true;
                         }
 

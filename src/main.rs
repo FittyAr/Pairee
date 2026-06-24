@@ -18,6 +18,18 @@ async fn main() -> Result<()> {
     #[cfg(not(target_os = "windows"))]
     let _ = rustls::crypto::ring::default_provider().install_default();
 
+    // Intercept elevated helper requests
+    let args: Vec<String> = env::args().collect();
+    if let Some(pos) = args.iter().position(|a| a == "--elevated-helper") {
+        if pos + 1 < args.len() {
+            let temp_file = PathBuf::from(&args[pos + 1]);
+            fs::elevated_helper::run_elevated_helper_loop(&temp_file)?;
+        } else {
+            anyhow::bail!("Missing temp file argument for --elevated-helper");
+        }
+        return Ok(());
+    }
+
     // 0. Check if we need to spawn a standalone terminal window
     if terminal::standalone::check_and_launch_standalone().unwrap_or(false) {
         return Ok(());
