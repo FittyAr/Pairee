@@ -92,6 +92,7 @@ pub fn handle(
                         editing_value: false,
                         edit_buffer: String::new(),
                         settings: context.config.settings.clone(),
+                        focus_on_tabs: false,
                     });
                     return Ok(None);
                 }
@@ -137,6 +138,7 @@ pub fn handle(
                         editing_value: false,
                         edit_buffer: String::new(),
                         settings: context.config.settings.clone(),
+                        focus_on_tabs: false,
                     });
                     return Ok(None);
                 }

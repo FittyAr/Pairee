@@ -404,6 +404,7 @@ pub fn handle_ui_settings_action(
                 editing_value: false,
                 edit_buffer: String::new(),
                 settings: context.config.settings.clone(),
+                focus_on_tabs: true,
             });
             true
         }

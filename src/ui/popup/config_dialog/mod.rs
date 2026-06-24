@@ -39,6 +39,7 @@ pub fn render_config_dialog_popup(
             editing_value,
             edit_buffer,
             settings,
+            focus_on_tabs,
         } => {
             let area = centered_rect(85, 85, size);
             f.render_widget(Clear, area);
@@ -52,28 +53,40 @@ pub fn render_config_dialog_popup(
             let inner = block.inner(area);
             f.render_widget(block, area);
 
-            let chunks = Layout::default()
+            let main_chunks = Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
-                    Constraint::Length(3), // Tab headers
-                    Constraint::Length(1), // Separator
-                    Constraint::Min(1),    // Tab contents
+                    Constraint::Min(1),    // Body area (tabs and contents side by side)
                     Constraint::Length(1), // Bottom separator
                     Constraint::Length(1), // Hint/Status bar
                 ])
                 .split(inner);
 
-            let header_area = chunks[0];
-            let separator_area = chunks[1];
-            let content_area = chunks[2];
-            let bottom_sep_area = chunks[3];
-            let hint_area = chunks[4];
+            let body_area = main_chunks[0];
+            let bottom_sep_area = main_chunks[1];
+            let hint_area = main_chunks[2];
 
-            f.render_widget(
-                Paragraph::new("─".repeat(inner.width as usize))
-                    .style(Style::default().fg(Color::DarkGray)),
-                separator_area,
-            );
+            let body_chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Length(25), // Left panel: Tabs (vertical list)
+                    Constraint::Length(1),  // Vertical separator
+                    Constraint::Min(1),     // Right panel: Content list
+                ])
+                .split(body_area);
+
+            let tabs_area = body_chunks[0];
+            let vertical_sep_area = body_chunks[1];
+            let content_area = body_chunks[2];
+
+            // Render vertical separator
+            let sep_height = vertical_sep_area.height as usize;
+            let sep_lines: Vec<Line> = (0..sep_height)
+                .map(|_| Line::from(Span::styled("│", Style::default().fg(Color::DarkGray))))
+                .collect();
+            f.render_widget(Paragraph::new(sep_lines), vertical_sep_area);
+
+            // Render horizontal bottom separator
             f.render_widget(
                 Paragraph::new("─".repeat(inner.width as usize))
                     .style(Style::default().fg(Color::DarkGray)),
@@ -90,18 +103,31 @@ pub fn render_config_dialog_popup(
                 crate::config::localization::t("tab_colors"),
                 crate::config::localization::t("tab_git"),
             ];
-            let mut tab_spans = Vec::new();
+
+            let mut tab_lines = Vec::new();
             for (i, title) in tab_titles.iter().enumerate() {
                 let is_active = i == *active_tab;
-                let base_style = if is_active {
-                    Style::default()
-                        .bg(parse_color(&theme.selection_bg))
-                        .fg(parse_color(&theme.selection_fg))
-                        .add_modifier(Modifier::BOLD)
+
+                let (prefix, base_style) = if is_active && *focus_on_tabs {
+                    (
+                        "▶ ",
+                        Style::default()
+                            .bg(parse_color(&theme.selection_bg))
+                            .fg(parse_color(&theme.selection_fg))
+                            .add_modifier(Modifier::BOLD),
+                    )
+                } else if is_active && !*focus_on_tabs {
+                    (
+                        "▷ ",
+                        Style::default()
+                            .fg(parse_color(&theme.selection_bg))
+                            .add_modifier(Modifier::BOLD),
+                    )
                 } else {
-                    Style::default().fg(parse_color(&theme.popup_fg))
+                    ("  ", Style::default().fg(parse_color(&theme.popup_fg)))
                 };
-                let hotkey_style = if is_active {
+
+                let hotkey_style = if is_active && *focus_on_tabs {
                     base_style.fg(ratatui::style::Color::Yellow)
                 } else {
                     base_style
@@ -109,13 +135,17 @@ pub fn render_config_dialog_popup(
                         .add_modifier(Modifier::BOLD)
                 };
 
-                tab_spans.push(Span::styled("  [ ", base_style));
+                let mut spans = Vec::new();
+                spans.push(Span::styled(prefix, base_style));
+                spans.push(Span::styled("[ ", base_style));
                 let text_spans =
                     crate::ui::hotkey::render_hotkey_spans(title, base_style, hotkey_style);
-                tab_spans.extend(text_spans);
-                tab_spans.push(Span::styled(" ]", base_style));
+                spans.extend(text_spans);
+                spans.push(Span::styled(" ]", base_style));
+
+                tab_lines.push(Line::from(spans));
             }
-            f.render_widget(Paragraph::new(Line::from(tab_spans)), header_area);
+            f.render_widget(Paragraph::new(tab_lines), tabs_area);
 
             let mut rows: Vec<(String, RowType)> = Vec::new();
 
@@ -174,10 +204,14 @@ pub fn render_config_dialog_popup(
                     RowType::Subtitle => Style::default().fg(Color::Yellow),
                     RowType::Hint => Style::default().fg(Color::DarkGray),
                     RowType::Setting(_) => {
-                        if is_cursor {
+                        if is_cursor && !*focus_on_tabs {
                             Style::default()
                                 .bg(parse_color(&theme.selection_bg))
                                 .fg(parse_color(&theme.selection_fg))
+                                .add_modifier(Modifier::BOLD)
+                        } else if is_cursor && *focus_on_tabs {
+                            Style::default()
+                                .fg(parse_color(&theme.selection_bg))
                                 .add_modifier(Modifier::BOLD)
                         } else {
                             Style::default().fg(parse_color(&theme.popup_fg))

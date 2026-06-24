@@ -419,6 +419,7 @@ pub enum PopupType {
         editing_value: bool,
         edit_buffer: String,
         settings: crate::config::settings::Settings,
+        focus_on_tabs: bool,
     },
 
     // ── Colors Configuration ──────────────────────────────────────────────────
