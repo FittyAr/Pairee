@@ -22,6 +22,22 @@ if [[ ! -f "Cargo.toml" ]]; then
     exit 1
 fi
 
+# Resolve current branch
+branch=$(git branch --show-current)
+if [[ -z "$branch" ]]; then
+    branch="main"
+fi
+
+# Pre-flight authentication and write permission check
+echo -e "${YELLOW}Checking Git authentication and push permissions for origin ($branch)...${RESET}"
+if ! GIT_TERMINAL_PROMPT=0 git push --dry-run origin "$branch" >/dev/null 2>&1; then
+    echo -e "${RED}[ERROR]${RESET} Git authentication failed or you do not have push permissions for origin."
+    echo "Please make sure you are logged in (e.g. via GitHub Desktop or 'gh auth login') and your credential helper is active."
+    echo "To test manually, run: git push --dry-run origin $branch"
+    exit 1
+fi
+echo -e "${GREEN}[OK]${RESET} Git authentication successful."
+
 echo -e "${CYAN}${BOLD}==========================================${RESET}"
 echo -e "${CYAN}${BOLD}       Pairee Version Bump & Release      ${RESET}"
 echo -e "${CYAN}${BOLD}==========================================${RESET}"

@@ -15,6 +15,30 @@ if (-not (Test-Path "Cargo.toml")) {
     exit 1
 }
 
+# Resolve current branch
+$branch = git branch --show-current
+if ([string]::IsNullOrWhiteSpace($branch)) {
+    $branch = "main"
+}
+
+# Pre-flight authentication and write permission check
+Write-Host "Checking Git authentication and push permissions for origin ($branch)..." -ForegroundColor Yellow
+$env:GIT_TERMINAL_PROMPT = "0"
+$oldEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+git push --dry-run origin $branch
+$exitCode = $LASTEXITCODE
+$ErrorActionPreference = $oldEAP
+Remove-Item env:GIT_TERMINAL_PROMPT
+
+if ($exitCode -ne 0) {
+    Write-Error "Git authentication failed or you do not have push permissions for origin."
+    Write-Host "Please ensure you are logged into GitHub (e.g. via GitHub Desktop or 'gh auth login') and that your credential helper is active." -ForegroundColor Yellow
+    Write-Host "To test manually, run: git push --dry-run origin $branch" -ForegroundColor Yellow
+    exit 1
+}
+Write-Host "Git authentication successful." -ForegroundColor Green
+
 Write-Host "==========================================" -ForegroundColor Cyan
 Write-Host "       Pairee Version Bump & Release      " -ForegroundColor Cyan
 Write-Host "==========================================" -ForegroundColor Cyan

@@ -35,10 +35,12 @@ if exist "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Bui
 if "%VCVARS_PATH%"=="" goto novcvars
 echo [INFO] Loading VS environment: %VCVARS_PATH%
 :: Clean up PATH temporarily to avoid "input line too long" error during VCVARS execution, but preserve git/cargo
+set "ORIG_PATH=%PATH%"
 set "PATH=C:\Windows\system32;C:\Windows;C:\Windows\System32\Wbem;C:\Windows\System32\WindowsPowerShell\v1.0\"
 if not "%CARGO_BIN_DIR%"=="" set "PATH=%PATH%;%CARGO_BIN_DIR%"
 if not "%GIT_BIN_DIR%"=="" set "PATH=%PATH%;%GIT_BIN_DIR%"
 call "%VCVARS_PATH%" x64 >nul
+set "PATH=%PATH%;%ORIG_PATH%"
 goto postvcvars
 
 :novcvars
