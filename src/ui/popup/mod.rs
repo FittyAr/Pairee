@@ -2,6 +2,9 @@ pub mod color_groups;
 pub mod config_dialog;
 pub mod editor;
 pub mod files_highlighting;
+pub mod git_panel;
+pub mod git_commit_prompt;
+pub mod git_confirm_checkout;
 pub mod history_lists;
 pub mod info;
 pub mod menus;
@@ -83,6 +86,15 @@ fn render_specific_popup(
         return;
     }
     if info::render_info_popup(f, popup, theme, size) {
+        return;
+    }
+    if git_panel::render(f, popup, theme, size) {
+        return;
+    }
+    if git_commit_prompt::render(f, popup, theme, size) {
+        return;
+    }
+    if git_confirm_checkout::render(f, popup, theme, size) {
         return;
     }
 }

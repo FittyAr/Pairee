@@ -7,10 +7,25 @@ use crate::keybindings::Action;
 /// The index is the raw cursor position in the menu; separator lines are not actionable.
 pub fn trigger_menu_item(
     state: &mut AppState,
-    _context: &mut AppContext,
+    context: &mut AppContext,
     menu_idx: usize,
     item_idx: usize,
 ) -> Option<Action> {
+    if menu_idx == 0 || menu_idx == 4 {
+        let items = crate::ui::menu::get_menu_items(menu_idx, state, &context.resolver, &context.config.settings);
+        if let Some(item) = items.get(item_idx) {
+            if item.label == crate::config::localization::t("menu_git") {
+                let is_right = menu_idx == 4;
+                state.active_panel = if is_right {
+                    crate::app::state::ActivePanel::Right
+                } else {
+                    crate::app::state::ActivePanel::Left
+                };
+                return Some(Action::OpenGitPanel);
+            }
+        }
+    }
+
     match menu_idx {
         0 | 4 => {
             // Left / Right panel menu — both have the same layout

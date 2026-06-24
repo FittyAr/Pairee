@@ -99,6 +99,14 @@ pub enum LinkKind {
     Hard,
 }
 
+/// Pending action queued from within the GitPanel popup.
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum GitPendingAction {
+    CommitAll,
+    Checkout(String),
+}
+
 #[derive(Debug, Clone)]
 pub struct EditorState {
     pub path: PathBuf,
@@ -423,6 +431,35 @@ pub enum PopupType {
         editing: bool,
         edit_buffer: String,
         rules: Vec<crate::ui::highlight::HighlightRule>,
+    },
+
+    // ── Git Integration ───────────────────────────────────────────────────────
+    /// Main Git panel with tabs: Status / Log / Branches
+    GitPanel {
+        repo_path: std::path::PathBuf,
+        /// 0=Status, 1=Log, 2=Branches
+        active_tab: usize,
+        cursor_idx: usize,
+        scroll: usize,
+        status_entries: Vec<crate::git::status::GitFileStatus>,
+        log_entries: Vec<crate::git::log::CommitInfo>,
+        branch_entries: Vec<crate::git::branches::BranchInfo>,
+        current_branch: String,
+        #[allow(dead_code)]
+        pending_action: Option<GitPendingAction>,
+    },
+    /// Prompt for typing a git commit message
+    GitCommitPrompt {
+        input: String,
+        cursor_idx: usize,
+        repo_path: std::path::PathBuf,
+    },
+    /// Confirmation dialog before checking out a commit or branch
+    GitConfirmCheckout {
+        /// Branch name or commit hash
+        target: String,
+        is_branch: bool,
+        repo_path: std::path::PathBuf,
     },
 
     // ── SSH Connection ────────────────────────────────────────────────────────

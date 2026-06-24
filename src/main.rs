@@ -7,6 +7,7 @@ use std::path::PathBuf;
 mod app;
 mod config;
 mod fs;
+mod git;
 mod keybindings;
 mod terminal;
 mod ui;

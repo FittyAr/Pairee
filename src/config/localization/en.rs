@@ -99,6 +99,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_change_drive" => "&Change drive",
         "menu_connect_ssh" => "&Connect to SSH...",
         "menu_disconnect_ssh" => "&Disconnect SSH",
+        "menu_git" => "&Git panel",
 
         // Files menu items
         "menu_view" => "&View",
@@ -667,6 +668,49 @@ pub fn get_default_english_translation(key: &str) -> String {
         "error_failed_delete_dir" => "Failed to delete directory {}: {}",
         "error_failed_delete_file" => "Failed to delete file {}: {}",
         "error_mutex_poisoned" => "Mutex poisoned",
+
+        // ── Git Integration ──────────────────────────────────────────────────────
+        "git_not_a_repo" => "Not a git repository",
+        "git_panel_title" => "Git",
+        "git_tab_status" => "Status",
+        "git_tab_log" => "Log",
+        "git_tab_branches" => "Branches",
+        "git_no_changes" => "No changes in repository",
+        "git_hint_status" => "[c] Commit All  [r] Refresh  [Tab] Next Tab  [Esc] Close",
+        "git_hint_log" => "[Enter] Checkout Commit  [r] Refresh  [Tab] Next Tab  [Esc] Close",
+        "git_hint_branches" => "[Enter] Checkout Branch  [r] Refresh  [Tab] Next Tab  [Esc] Close",
+
+        // Git commit prompt
+        "git_commit_prompt_title" => "Commit All Changes",
+        "git_commit_msg_label" => "Commit message:",
+        "git_commit_hint" => "[Enter] Commit  [Esc] Cancel",
+        "git_commit_empty_msg" => "Commit message cannot be empty",
+        "git_commit_success" => "Committed successfully",
+        "git_error_stage_failed" => "Failed to stage files",
+        "git_error_commit_failed" => "Failed to create commit",
+
+        // Git checkout confirmation
+        "git_checkout_title" => "Confirm Checkout",
+        "git_checkout_confirm" => "Checkout",
+        "git_checkout_branch" => "branch",
+        "git_checkout_commit" => "commit",
+        "git_checkout_yes" => "Proceed",
+        "git_checkout_no" => "Cancel",
+        "git_checkout_success" => "Checkout successful",
+        "git_checkout_error" => "Checkout failed",
+
+        // Git config tab
+        "tab_git" => "&Git",
+        "git_section_general" => "General",
+        "git_section_author" => "Author Identity (for commits)",
+        "git_section_log" => "Log View",
+        "git_enabled" => "Enable Git integration",
+        "git_auto_detect" => "Auto-detect git repos when navigating",
+        "git_author_name" => "Author name",
+        "git_author_email" => "Author email",
+        "git_log_limit" => "Max log entries",
+        "git_from_git_config" => "from git config",
+        "git_hint_config" => "Tip: Leave author name/email empty to use values from your global git config",
 
         _ => key,
     };

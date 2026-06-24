@@ -32,6 +32,9 @@ pub mod user_menu;
 pub mod viewer;
 
 pub mod ssh_connect;
+pub mod git_panel;
+pub mod git_commit_prompt;
+pub mod git_confirm_checkout;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
@@ -93,6 +96,11 @@ pub fn handle_popup_input(
             | PopupType::FileViewHistoryList { .. }
             | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
             PopupType::SshConnectPrompt { .. } => ssh_connect::handle(state, key, context),
+            PopupType::GitPanel { .. } => git_panel::handle(state, key, context),
+            PopupType::GitCommitPrompt { .. } => git_commit_prompt::handle(state, key, context),
+            PopupType::GitConfirmCheckout { .. } => {
+                git_confirm_checkout::handle(state, key, context)
+            }
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

@@ -1,6 +1,7 @@
 pub mod colors;
 pub mod confirmations;
 pub mod editor_viewer;
+pub mod git;
 pub mod interface;
 pub mod panel;
 pub mod plugins;
@@ -87,6 +88,7 @@ pub fn render_config_dialog_popup(
                 crate::config::localization::t("tab_plugins"),
                 crate::config::localization::t("tab_editor"),
                 crate::config::localization::t("tab_colors"),
+                crate::config::localization::t("tab_git"),
             ];
             let mut tab_spans = Vec::new();
             for (i, title) in tab_titles.iter().enumerate() {
@@ -137,6 +139,13 @@ pub fn render_config_dialog_popup(
                     &mut rows,
                 ),
                 6 => colors::populate_rows(settings, &mut rows),
+                7 => git::populate_rows(
+                    settings,
+                    *editing_value,
+                    *cursor_idx,
+                    edit_buffer,
+                    &mut rows,
+                ),
                 _ => {}
             }
 

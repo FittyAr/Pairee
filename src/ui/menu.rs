@@ -46,6 +46,7 @@ pub fn get_menu_items(
     menu_idx: usize,
     state: &AppState,
     resolver: &crate::keybindings::KeybindingResolver,
+    settings: &crate::config::settings::Settings,
 ) -> Vec<MenuItemData> {
     use crate::keybindings::Action;
     let shortcut_for = |action: Action, fallback: &str| -> String {
@@ -152,6 +153,16 @@ pub fn get_menu_items(
                     &shortcut_for(Action::SshDisconnect, ""),
                     false,
                 ));
+            }
+            if settings.git_enabled {
+                if crate::git::repo::find_repo(&state.left_panel.current_path).is_some() {
+                    items.push(MenuItemData::separator());
+                    items.push(MenuItemData::new(
+                        t("menu_git"),
+                        &shortcut_for(Action::OpenGitPanel, "Alt+G"),
+                        false,
+                    ));
+                }
             }
             items
         }
@@ -419,6 +430,16 @@ pub fn get_menu_items(
                     &shortcut_for(Action::SshDisconnect, ""),
                     false,
                 ));
+            }
+            if settings.git_enabled {
+                if crate::git::repo::find_repo(&state.right_panel.current_path).is_some() {
+                    items.push(MenuItemData::separator());
+                    items.push(MenuItemData::new(
+                        t("menu_git"),
+                        &shortcut_for(Action::OpenGitPanel, "Alt+G"),
+                        false,
+                    ));
+                }
             }
             items
         }

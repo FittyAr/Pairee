@@ -53,10 +53,17 @@ fn load_preset_from_file(preset: &str) -> Option<HashMap<String, Action>> {
         }
     };
 
-    let mut map = HashMap::new();
+    // Start with default built-in bindings for this preset
+    let mut map = get_builtin_preset_bindings(preset);
+
     for (action_name, key_str) in preset_file.bindings {
         if let Some(action) = parse_action_name(&action_name) {
-            map.insert(key_str, action);
+            // Remove any existing default bindings for this action
+            map.retain(|_, v| *v != action);
+            let trimmed = key_str.trim();
+            if !trimmed.is_empty() {
+                map.insert(trimmed.to_string(), action);
+            }
         } else {
             log::warn!(
                 "Preset '{}': unknown action '{}' — skipped.",
@@ -268,6 +275,8 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Alt+e".to_string(), Action::ExtractArchive);
     map.insert("Menu".to_string(), Action::ContextMenu);
     map.insert("Alt+m".to_string(), Action::ContextMenu);
+    map.insert("Alt+g".to_string(), Action::OpenGitPanel);
+    map.insert("Alt+G".to_string(), Action::OpenGitPanel);
 
     // ── Folder shortcuts 1–9 (Ctrl+Alt+n) ────────────────────────────────────
     for n in 1u8..=9 {
@@ -371,6 +380,7 @@ fn action_to_name(action: Action) -> String {
         Action::CycleFKeysModifiers => "cycle_fkeys_modifiers",
         Action::SshConnect => "ssh_connect",
         Action::SshDisconnect => "ssh_disconnect",
+        Action::OpenGitPanel => "open_git_panel",
     }
     .to_string()
 }
@@ -517,6 +527,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "cycle_fkeys_modifiers" => Some(Action::CycleFKeysModifiers),
         "ssh_connect" => Some(Action::SshConnect),
         "ssh_disconnect" => Some(Action::SshDisconnect),
+        "open_git_panel" => Some(Action::OpenGitPanel),
 
         _ => None,
     }

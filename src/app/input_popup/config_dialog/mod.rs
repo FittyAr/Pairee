@@ -1,6 +1,7 @@
 pub mod colors;
 pub mod confirmations;
 pub mod editor_viewer;
+pub mod git;
 pub mod interface;
 pub mod panel;
 pub mod plugins;
@@ -46,6 +47,9 @@ pub fn handle(
                     settings, editing, c_idx, buf, &mut rows,
                 ),
                 6 => crate::ui::popup::config_dialog::colors::populate_rows(settings, &mut rows),
+                7 => crate::ui::popup::config_dialog::git::populate_rows(
+                    settings, editing, c_idx, buf, &mut rows,
+                ),
                 _ => {}
             }
             rows
@@ -95,6 +99,8 @@ pub fn handle(
                                 settings.viewer_command = edit_buffer.clone();
                             } else if active_tab == 2 && setting_id == 14 {
                                 settings.interface_window_title_addons = edit_buffer.clone();
+                            } else if active_tab == 7 {
+                                git::apply_edit(setting_id, &mut settings, &edit_buffer);
                             }
                         }
                     }
@@ -140,7 +146,7 @@ pub fn handle(
                 if active_tab > 0 {
                     active_tab -= 1;
                 } else {
-                    active_tab = 6;
+                    active_tab = 7;
                 }
                 cursor_idx = 0;
                 current_rows = get_rows_for_tab(
@@ -155,7 +161,7 @@ pub fn handle(
                 }
             }
             KeyCode::Right => {
-                if active_tab < 6 {
+                if active_tab < 7 {
                     active_tab += 1;
                 } else {
                     active_tab = 0;
@@ -278,6 +284,12 @@ pub fn handle(
                         &mut editing_value,
                         &mut edit_buffer,
                         context,
+                    ),
+                    7 => git::handle_row(
+                        setting_id,
+                        &mut settings,
+                        &mut editing_value,
+                        &mut edit_buffer,
                     ),
                     _ => None,
                 };

@@ -207,6 +207,23 @@ pub struct Settings {
 
     #[serde(default)]
     pub ssh_presets: Vec<SshPreset>,
+
+    // ── Git Integration settings ────────────────────────────────────────
+    /// Whether the Git panel feature is enabled
+    #[serde(default = "default_true")]
+    pub git_enabled: bool,
+    /// Auto-detect git repos when changing directory
+    #[serde(default = "default_true")]
+    pub git_auto_detect: bool,
+    /// Author name for commits (empty = read from git config)
+    #[serde(default)]
+    pub git_author_name: String,
+    /// Author email for commits (empty = read from git config)
+    #[serde(default)]
+    pub git_author_email: String,
+    /// Maximum number of commits to load in the log view
+    #[serde(default = "default_git_log_limit")]
+    pub git_log_limit: u32,
 }
 
 impl Default for Settings {
@@ -361,6 +378,13 @@ impl Default for Settings {
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),
             ssh_presets: Vec::new(),
+
+            // Git integration
+            git_enabled: true,
+            git_auto_detect: true,
+            git_author_name: String::new(),
+            git_author_email: String::new(),
+            git_log_limit: 100,
         }
     }
 }
@@ -373,4 +397,14 @@ pub struct SshPreset {
     pub username: String,
     pub password: Option<String>,
     pub key_path: Option<String>,
+}
+
+// ── Serde default helpers ────────────────────────────────────────────────────
+
+fn default_true() -> bool {
+    true
+}
+
+fn default_git_log_limit() -> u32 {
+    100
 }

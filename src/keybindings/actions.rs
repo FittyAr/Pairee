@@ -204,4 +204,6 @@ pub enum Action {
     SshConnect,
     /// Disconnect active panel from SSH
     SshDisconnect,
+    /// Open Git integration panel (Alt+G)
+    OpenGitPanel,
 }
