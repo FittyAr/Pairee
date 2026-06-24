@@ -19,7 +19,10 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         let area = centered_rect_fixed(60, 7, size);
         f.render_widget(Clear, area);
 
-        let title = format!(" {} ", crate::config::localization::t("git_commit_prompt_title"));
+        let title = format!(
+            " {} ",
+            crate::config::localization::t("git_commit_prompt_title")
+        );
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green))
@@ -71,14 +74,20 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         };
 
         let input_line = Line::from(vec![
-            Span::styled(before_cursor.to_string(), Style::default().fg(parse_color(&theme.popup_fg))),
+            Span::styled(
+                before_cursor.to_string(),
+                Style::default().fg(parse_color(&theme.popup_fg)),
+            ),
             Span::styled(
                 at_cursor,
                 Style::default()
                     .bg(parse_color(&theme.selection_bg))
                     .fg(parse_color(&theme.selection_fg)),
             ),
-            Span::styled(after_cursor, Style::default().fg(parse_color(&theme.popup_fg))),
+            Span::styled(
+                after_cursor,
+                Style::default().fg(parse_color(&theme.popup_fg)),
+            ),
         ]);
         f.render_widget(Paragraph::new(input_line), chunks[2]);
 

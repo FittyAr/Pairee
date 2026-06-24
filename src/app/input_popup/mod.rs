@@ -31,10 +31,10 @@ pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
 
-pub mod ssh_connect;
-pub mod git_panel;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
+pub mod git_panel;
+pub mod ssh_connect;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};

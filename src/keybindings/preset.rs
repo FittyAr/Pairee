@@ -62,7 +62,7 @@ fn load_preset_from_file(preset: &str) -> Option<HashMap<String, Action>> {
             map.retain(|_, v| *v != action);
             let trimmed = key_str.trim();
             if !trimmed.is_empty() {
-                map.insert(trimmed.to_string(), action);
+                map.insert(normalize_key_string(trimmed), action);
             }
         } else {
             log::warn!(
@@ -530,5 +530,98 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "open_git_panel" => Some(Action::OpenGitPanel),
 
         _ => None,
+    }
+}
+
+/// Normalises any user-written key string into the canonical format used by
+/// `key_event_to_string`.
+/// Examples: "ctrl+w" -> "Ctrl+w", "Ctrl+Shift+w" -> "Ctrl+Shift+W", "shift+w" -> "W".
+pub fn normalize_key_string(key: &str) -> String {
+    let parts: Vec<&str> = key.split('+').map(|s| s.trim()).collect();
+    if parts.is_empty() {
+        return String::new();
+    }
+
+    let mut has_ctrl = false;
+    let mut has_alt = false;
+    let mut has_shift = false;
+    let mut key_code = "";
+
+    for part in parts {
+        match part.to_lowercase().as_str() {
+            "ctrl" => has_ctrl = true,
+            "alt" => has_alt = true,
+            "shift" => has_shift = true,
+            _ => {
+                key_code = part;
+            }
+        }
+    }
+
+    if key_code.is_empty() {
+        return String::new();
+    }
+
+    let mut code_str = match key_code.to_lowercase().as_str() {
+        "space" => "Space".to_string(),
+        "up" => "Up".to_string(),
+        "down" => "Down".to_string(),
+        "left" => "Left".to_string(),
+        "right" => "Right".to_string(),
+        "tab" => "Tab".to_string(),
+        "enter" => "Enter".to_string(),
+        "backspace" => "Backspace".to_string(),
+        "delete" => "Delete".to_string(),
+        "insert" => "Insert".to_string(),
+        "esc" | "escape" => "Esc".to_string(),
+        "home" => "Home".to_string(),
+        "end" => "End".to_string(),
+        "pageup" | "pgup" => "PageUp".to_string(),
+        "pagedown" | "pgdn" => "PageDown".to_string(),
+        _ => {
+            let lower = key_code.to_lowercase();
+            if lower.starts_with('f') {
+                if let Ok(num) = lower[1..].parse::<u32>() {
+                    format!("F{}", num)
+                } else {
+                    key_code.to_string()
+                }
+            } else {
+                key_code.to_string()
+            }
+        }
+    };
+
+    let chars: Vec<char> = key_code.chars().collect();
+    if chars.len() == 1 {
+        let c = chars[0];
+        if c.is_alphabetic() {
+            if has_shift {
+                code_str = c.to_ascii_uppercase().to_string();
+            } else {
+                code_str = c.to_ascii_lowercase().to_string();
+            }
+        }
+    }
+
+    let mut canonical_parts = Vec::new();
+    if has_ctrl {
+        canonical_parts.push("Ctrl");
+    }
+    if has_alt {
+        canonical_parts.push("Alt");
+    }
+    if has_shift {
+        if !(has_ctrl || has_alt) && chars.len() == 1 && chars[0].is_alphabetic() {
+            // Shift+char with no other modifiers is canonicalised to just the uppercase char (e.g. "W")
+        } else {
+            canonical_parts.push("Shift");
+        }
+    }
+
+    if canonical_parts.is_empty() {
+        code_str
+    } else {
+        format!("{}+{}", canonical_parts.join("+"), code_str)
     }
 }

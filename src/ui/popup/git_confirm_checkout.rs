@@ -25,10 +25,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             crate::config::localization::t("git_checkout_commit")
         };
 
-        let title = format!(
-            " {} ",
-            crate::config::localization::t("git_checkout_title")
-        );
+        let title = format!(" {} ", crate::config::localization::t("git_checkout_title"));
 
         let block = Block::default()
             .borders(Borders::ALL)
@@ -65,8 +62,11 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             chunks[0],
         );
         f.render_widget(
-            Paragraph::new(format!("  {}", target))
-                .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)),
+            Paragraph::new(format!("  {}", target)).style(
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ),
             chunks[1],
         );
 
@@ -90,9 +90,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             Span::styled("    ", Style::default()),
             Span::styled(
                 "[ Esc / N ] ",
-                Style::default()
-                    .fg(Color::Red)
-                    .add_modifier(Modifier::BOLD),
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
             ),
             Span::styled(
                 crate::config::localization::t("git_checkout_no"),

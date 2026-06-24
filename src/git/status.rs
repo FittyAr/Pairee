@@ -67,8 +67,7 @@ pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
                 || flags.contains(git2::Status::WT_NEW)
             {
                 // Distinguish truly untracked from newly staged
-                if flags.contains(git2::Status::WT_NEW)
-                    && !flags.contains(git2::Status::INDEX_NEW)
+                if flags.contains(git2::Status::WT_NEW) && !flags.contains(git2::Status::INDEX_NEW)
                 {
                     StatusKind::Untracked
                 } else {

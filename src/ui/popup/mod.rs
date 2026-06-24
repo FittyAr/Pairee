@@ -2,9 +2,9 @@ pub mod color_groups;
 pub mod config_dialog;
 pub mod editor;
 pub mod files_highlighting;
-pub mod git_panel;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
+pub mod git_panel;
 pub mod history_lists;
 pub mod info;
 pub mod menus;
@@ -32,7 +32,7 @@ pub fn render_popup(
     };
 
     let theme = &context.config.theme;
-    let size = f.size();
+    let size = f.area();
 
     // If the active popup is a ScreensMenu that suspended another popup, render the suspended one first!
     if let PopupType::ScreensMenu {
@@ -140,7 +140,6 @@ pub(crate) fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
         ])
         .split(popup_layout[1])[1]
 }
-
 
 /// Centers a rectangle of `percent_x` × `percent_y` within a given parent rectangle.
 /// Used for panel-specific popups (e.g. DriveSelect).

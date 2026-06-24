@@ -139,7 +139,12 @@ pub fn render_menu_popup(
                 None => return true, // Only top menu bar is active, no dropdown to render
             };
 
-            let items = crate::ui::menu::get_menu_items(*active_menu_idx, state, &context.resolver, &context.config.settings);
+            let items = crate::ui::menu::get_menu_items(
+                *active_menu_idx,
+                state,
+                &context.resolver,
+                &context.config.settings,
+            );
             let dropdown_x = match active_menu_idx {
                 0 => 2,
                 1 => 10,

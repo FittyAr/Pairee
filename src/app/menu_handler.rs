@@ -12,7 +12,12 @@ pub fn trigger_menu_item(
     item_idx: usize,
 ) -> Option<Action> {
     if menu_idx == 0 || menu_idx == 4 {
-        let items = crate::ui::menu::get_menu_items(menu_idx, state, &context.resolver, &context.config.settings);
+        let items = crate::ui::menu::get_menu_items(
+            menu_idx,
+            state,
+            &context.resolver,
+            &context.config.settings,
+        );
         if let Some(item) = items.get(item_idx) {
             if item.label == crate::config::localization::t("menu_git") {
                 let is_right = menu_idx == 4;

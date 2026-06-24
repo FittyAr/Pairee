@@ -387,12 +387,12 @@ pub fn handle_ui_settings_action(
             let panel_path = state.get_active_panel().current_path.clone();
             match crate::git::repo::find_repo(&panel_path) {
                 Some(repo) => {
-                    let repo_path = crate::git::repo::get_workdir(&repo)
-                        .unwrap_or_else(|| panel_path.clone());
+                    let repo_path =
+                        crate::git::repo::get_workdir(&repo).unwrap_or_else(|| panel_path.clone());
                     let current_branch = repo
                         .head()
                         .ok()
-                        .and_then(|h| h.shorthand().map(|s| s.to_string()))
+                        .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
                         .unwrap_or_else(|| "(detached HEAD)".to_string());
                     let limit = context.config.settings.git_log_limit as usize;
                     let status_entries = crate::git::status::get_status(&repo);

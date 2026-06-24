@@ -710,7 +710,9 @@ pub fn get_default_english_translation(key: &str) -> String {
         "git_author_email" => "Author email",
         "git_log_limit" => "Max log entries",
         "git_from_git_config" => "from git config",
-        "git_hint_config" => "Tip: Leave author name/email empty to use values from your global git config",
+        "git_hint_config" => {
+            "Tip: Leave author name/email empty to use values from your global git config"
+        }
 
         _ => key,
     };

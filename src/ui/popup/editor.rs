@@ -178,7 +178,7 @@ pub fn render_editor_widget(
     if editor_cursor_x < edit_area.x + edit_area.width
         && editor_cursor_y < edit_area.y + edit_area.height
     {
-        f.set_cursor(editor_cursor_x, editor_cursor_y);
+        f.set_cursor_position((editor_cursor_x, editor_cursor_y));
     }
 }
 

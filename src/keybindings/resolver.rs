@@ -1,5 +1,5 @@
 use super::actions::Action;
-use super::preset::parse_action_name;
+use super::preset::{normalize_key_string, parse_action_name};
 use crate::config::AppConfig;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::collections::HashMap;
@@ -18,7 +18,7 @@ impl KeybindingResolver {
         // Overlay user custom overrides from keybindings.toml [custom_bindings]
         for (action_name, key_str) in &config.keybindings.custom_bindings {
             if let Some(action) = parse_action_name(action_name) {
-                bindings.insert(key_str.clone(), action);
+                bindings.insert(normalize_key_string(key_str), action);
             }
         }
 

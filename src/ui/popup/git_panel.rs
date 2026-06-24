@@ -32,15 +32,17 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("?");
-        let title = format!(
-            " Git: {} [{}] ",
-            repo_name, current_branch
-        );
+        let title = format!(" Git: {} [{}] ", repo_name, current_branch);
 
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(Span::styled(title, Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
+            .title(Span::styled(
+                title,
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
+            ))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
         let inner = block.inner(area);
@@ -103,9 +105,27 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         };
 
         let lines: Vec<Line> = match active_tab {
-            0 => render_status_lines(status_entries, *cursor_idx, effective_scroll, list_height, theme),
-            1 => render_log_lines(log_entries, *cursor_idx, effective_scroll, list_height, theme),
-            2 => render_branch_lines(branch_entries, *cursor_idx, effective_scroll, list_height, theme),
+            0 => render_status_lines(
+                status_entries,
+                *cursor_idx,
+                effective_scroll,
+                list_height,
+                theme,
+            ),
+            1 => render_log_lines(
+                log_entries,
+                *cursor_idx,
+                effective_scroll,
+                list_height,
+                theme,
+            ),
+            2 => render_branch_lines(
+                branch_entries,
+                *cursor_idx,
+                effective_scroll,
+                list_height,
+                theme,
+            ),
             _ => Vec::new(),
         };
 
@@ -179,7 +199,10 @@ fn render_status_lines(
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", entry.kind.label()),
-                    Style::default().fg(label_color).bg(bg).add_modifier(Modifier::BOLD),
+                    Style::default()
+                        .fg(label_color)
+                        .bg(bg)
+                        .add_modifier(Modifier::BOLD),
                 ),
                 Span::styled(
                     format!(" {}", entry.path.clone()),
@@ -230,10 +253,7 @@ fn render_log_lines(
                     format!("{:<20} ", commit.author.clone()),
                     Style::default().fg(Color::Green).bg(bg),
                 ),
-                Span::styled(
-                    commit.message.clone(),
-                    Style::default().fg(fg).bg(bg),
-                ),
+                Span::styled(commit.message.clone(), Style::default().fg(fg).bg(bg)),
             ])
         })
         .collect()
@@ -272,20 +292,18 @@ fn render_branch_lines(
             } else {
                 "  "
             };
-            let type_label = if branch.is_remote { "[remote] " } else { "         " };
+            let type_label = if branch.is_remote {
+                "[remote] "
+            } else {
+                "         "
+            };
             Line::from(vec![
                 Span::styled(
                     format!(" {}", prefix),
                     Style::default().fg(Color::Yellow).bg(bg),
                 ),
-                Span::styled(
-                    type_label,
-                    Style::default().fg(Color::DarkGray).bg(bg),
-                ),
-                Span::styled(
-                    branch.name.clone(),
-                    Style::default().fg(name_color).bg(bg),
-                ),
+                Span::styled(type_label, Style::default().fg(Color::DarkGray).bg(bg)),
+                Span::styled(branch.name.clone(), Style::default().fg(name_color).bg(bg)),
             ])
         })
         .collect()

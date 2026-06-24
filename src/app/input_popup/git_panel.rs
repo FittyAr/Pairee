@@ -114,7 +114,7 @@ pub fn handle(
                     let new_branch = repo
                         .head()
                         .ok()
-                        .and_then(|h| h.shorthand().map(|s| s.to_string()))
+                        .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
                         .unwrap_or_else(|| "(detached HEAD)".to_string());
                     state.active_popup = Some(PopupType::GitPanel {
                         repo_path: repo_path.clone(),

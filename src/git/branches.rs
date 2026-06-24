@@ -14,16 +14,13 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
     let mut result = Vec::new();
 
     // Determine the current HEAD branch name for marking
-    let current_branch_name = repo
-        .head()
-        .ok()
-        .and_then(|h| {
-            if h.is_branch() {
-                h.shorthand().map(|s| s.to_string())
-            } else {
-                None
-            }
-        });
+    let current_branch_name = repo.head().ok().and_then(|h| {
+        if h.is_branch() {
+            h.shorthand().ok().map(|s| s.to_string())
+        } else {
+            None
+        }
+    });
 
     let branch_types = [
         (git2::BranchType::Local, false),
@@ -61,9 +58,7 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
         } else if b.is_current {
             std::cmp::Ordering::Greater
         } else {
-            a.is_remote
-                .cmp(&b.is_remote)
-                .then(a.name.cmp(&b.name))
+            a.is_remote.cmp(&b.is_remote).then(a.name.cmp(&b.name))
         }
     });
 

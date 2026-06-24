@@ -25,9 +25,9 @@ pub fn handle(
             KeyCode::Enter => {
                 let message = input.trim().to_string();
                 if message.is_empty() {
-                    state.active_popup = Some(PopupType::Error(
-                        crate::config::localization::t("git_commit_empty_msg"),
-                    ));
+                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
+                        "git_commit_empty_msg",
+                    )));
                     return Ok(None);
                 }
                 if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
@@ -65,9 +65,9 @@ pub fn handle(
                         }
                     }
                 } else {
-                    state.active_popup = Some(PopupType::Error(
-                        crate::config::localization::t("git_not_a_repo"),
-                    ));
+                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
+                        "git_not_a_repo",
+                    )));
                 }
                 return Ok(None);
             }

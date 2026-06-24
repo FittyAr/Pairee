@@ -469,18 +469,22 @@ fn render_image(
             let pixel_top = resized.get_pixel(r_x as u32, py_top as u32);
             let color_top = ratatui::style::Color::Rgb(pixel_top[0], pixel_top[1], pixel_top[2]);
 
-            let cell = buf.get_mut(target_x, target_y as u16);
-            if py_bottom < dh as usize {
-                let pixel_bottom = resized.get_pixel(r_x as u32, py_bottom as u32);
-                let color_bottom =
-                    ratatui::style::Color::Rgb(pixel_bottom[0], pixel_bottom[1], pixel_bottom[2]);
-                cell.set_char('▄');
-                cell.set_fg(color_bottom);
-                cell.set_bg(color_top);
-            } else {
-                cell.set_char('▀');
-                cell.set_fg(color_top);
-                cell.set_bg(parse_color(&theme.panel_bg));
+            if let Some(cell) = buf.cell_mut((target_x, target_y as u16)) {
+                if py_bottom < dh as usize {
+                    let pixel_bottom = resized.get_pixel(r_x as u32, py_bottom as u32);
+                    let color_bottom = ratatui::style::Color::Rgb(
+                        pixel_bottom[0],
+                        pixel_bottom[1],
+                        pixel_bottom[2],
+                    );
+                    cell.set_char('▄');
+                    cell.set_fg(color_bottom);
+                    cell.set_bg(color_top);
+                } else {
+                    cell.set_char('▀');
+                    cell.set_fg(color_top);
+                    cell.set_bg(parse_color(&theme.panel_bg));
+                }
             }
         }
     }

@@ -1,7 +1,6 @@
 use super::ProgressUpdate;
 use super::helper::{
-    copy_dir_recursive_async, copy_file_buffered, copy_symlink, delete_recursive,
-    run_as_admin_move,
+    copy_dir_recursive_async, copy_file_buffered, copy_symlink, delete_recursive, run_as_admin_move,
 };
 use crate::config::localization::t;
 use std::fs;

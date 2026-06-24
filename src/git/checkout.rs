@@ -5,9 +5,7 @@ pub fn checkout_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Re
     // Find the branch reference
     let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
     let branch_ref = branch.get();
-    let branch_ref_name = branch_ref
-        .name()
-        .ok_or_else(|| anyhow::anyhow!("Invalid branch ref name"))?;
+    let branch_ref_name = branch_ref.name()?;
 
     // Resolve the commit the branch points to
     let obj = repo.revparse_single(branch_ref_name)?;

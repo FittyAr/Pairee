@@ -14,7 +14,12 @@ pub fn handle(
         active_item_idx,
     }) = state.active_popup
     {
-        let items = crate::ui::menu::get_menu_items(active_menu_idx, state, &context.resolver, &context.config.settings);
+        let items = crate::ui::menu::get_menu_items(
+            active_menu_idx,
+            state,
+            &context.resolver,
+            &context.config.settings,
+        );
         match key.code {
             KeyCode::Esc => {
                 state.active_popup = None;

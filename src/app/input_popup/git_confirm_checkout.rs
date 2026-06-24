@@ -40,9 +40,9 @@ pub fn handle(
                         }
                     }
                 } else {
-                    state.active_popup = Some(PopupType::Error(
-                        crate::config::localization::t("git_not_a_repo"),
-                    ));
+                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
+                        "git_not_a_repo",
+                    )));
                 }
             }
             KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {

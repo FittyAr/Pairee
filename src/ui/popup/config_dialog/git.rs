@@ -37,11 +37,7 @@ pub fn populate_rows(
 
     // 802: git_author_name (text input)
     let name_display = if editing && cursor_idx == rows.len() {
-        format!(
-            "{}: {}█",
-            t("git_author_name"),
-            edit_buffer
-        )
+        format!("{}: {}█", t("git_author_name"), edit_buffer)
     } else {
         format!(
             "{}: {}",
@@ -57,11 +53,7 @@ pub fn populate_rows(
 
     // 803: git_author_email (text input)
     let email_display = if editing && cursor_idx == rows.len() {
-        format!(
-            "{}: {}█",
-            t("git_author_email"),
-            edit_buffer
-        )
+        format!("{}: {}█", t("git_author_email"), edit_buffer)
     } else {
         format!(
             "{}: {}",
@@ -79,11 +71,7 @@ pub fn populate_rows(
 
     // 804: git_log_limit (numeric input)
     let limit_display = if editing && cursor_idx == rows.len() {
-        format!(
-            "{}: {}█",
-            t("git_log_limit"),
-            edit_buffer
-        )
+        format!("{}: {}█", t("git_log_limit"), edit_buffer)
     } else {
         format!("{}: {}", t("git_log_limit"), settings.git_log_limit)
     };
