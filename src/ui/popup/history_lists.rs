@@ -561,7 +561,7 @@ pub fn render_history_lists_popup(
                     .style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
             } else {
-                let list_height = inner.height.saturating_sub(2) as usize;
+                let list_height = inner.height.saturating_sub(4) as usize;
                 let scroll_start = cursor_idx.saturating_sub(list_height / 2);
                 let mut lines = Vec::new();
 

@@ -6,7 +6,10 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Clear, Gauge, List, ListItem, Paragraph},
+    widgets::{
+        Block, Borders, Clear, Gauge, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
+        ScrollbarState,
+    },
 };
 
 use crate::app::context::AppContext;
@@ -26,85 +29,116 @@ pub fn render_prompt_popup(
             scroll_y,
             active_content,
         } => {
-            let area = centered_rect(80, 80, size);
+            let area = centered_rect(90, 85, size); // Expand to 90% width, 85% height
             f.render_widget(Clear, area);
 
             use ratatui::text::Span;
 
-            if *mode == 0 {
-                let title = format!(" {} ", t("prompt_help_title").trim());
-                let block = Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                    .title(title)
-                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            // Split into Left (list) and Right (content viewer)
+            let chunks = Layout::default()
+                .direction(Direction::Horizontal)
+                .constraints([
+                    Constraint::Percentage(25), // 25% for document list
+                    Constraint::Percentage(75), // 75% for content
+                ])
+                .split(area);
+            let left_area = chunks[0];
+            let right_area = chunks[1];
 
-                let mut list_items = Vec::new();
-                for (i, (doc_title, _)) in docs.iter().enumerate() {
-                    let style = if i == *cursor_idx {
-                        Style::default().bg(Color::Cyan).fg(Color::Black)
-                    } else {
-                        Style::default().fg(parse_color(&theme.popup_fg))
-                    };
-                    list_items.push(ListItem::new(ratatui::text::Line::from(vec![
-                        Span::styled(format!("  {}  ", doc_title), style),
-                    ])));
-                }
+            // 1. Render Left panel (document selection list)
+            let left_title = format!(" {} ", t("prompt_help_title").trim());
+            let left_border_color = if *mode == 0 {
+                Color::Yellow
+            } else {
+                parse_color(&theme.popup_border)
+            };
+            let left_block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(left_border_color))
+                .title(left_title)
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-                let list = List::new(list_items)
-                    .block(block)
-                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-                f.render_widget(list, area);
-
-                let hint_area = Rect {
-                    x: area.x + 2,
-                    y: area.y + area.height - 2,
-                    width: area.width.saturating_sub(4),
-                    height: 1,
+            let mut list_items = Vec::new();
+            for (i, (doc_title, _)) in docs.iter().enumerate() {
+                let style = if i == *cursor_idx {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(ratatui::style::Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
                 };
-                let hint_text = " [Up/Down] Navigate  [Enter] Open Document  [Esc] Close ";
-                f.render_widget(
-                    Paragraph::new(hint_text)
-                        .alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().fg(Color::DarkGray)),
-                    hint_area,
-                );
-            } else if let Some(content) = active_content {
-                let doc_title = docs
-                    .get(*cursor_idx)
-                    .map(|(t, _)| t.as_str())
-                    .unwrap_or(" Documentation ");
-                let block = Block::default()
-                    .borders(Borders::ALL)
-                    .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                    .title(format!(" {} ", doc_title))
-                    .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                list_items.push(ListItem::new(ratatui::text::Line::from(vec![
+                    Span::styled(format!("  {}  ", doc_title), style),
+                ])));
+            }
 
+            let list = List::new(list_items)
+                .block(left_block)
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            f.render_widget(list, left_area);
+
+            // 2. Render Right panel (content viewer)
+            let doc_title = docs
+                .get(*cursor_idx)
+                .map(|(t, _)| t.as_str())
+                .unwrap_or(" Documentation ");
+            let right_border_color = if *mode == 1 {
+                Color::Yellow
+            } else {
+                parse_color(&theme.popup_border)
+            };
+            let right_block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(right_border_color))
+                .title(format!(" {} ", doc_title))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            if let Some(content) = active_content {
                 let parsed_lines = parse_markdown_to_lines(content);
 
-                let paragraph = Paragraph::new(parsed_lines)
-                    .block(block)
+                let paragraph = Paragraph::new(parsed_lines.clone())
+                    .block(right_block)
                     .wrap(ratatui::widgets::Wrap { trim: false })
                     .scroll((*scroll_y as u16, 0))
                     .style(Style::default().fg(parse_color(&theme.popup_fg)));
+                f.render_widget(paragraph, right_area);
 
-                f.render_widget(paragraph, area);
-
-                let hint_area = Rect {
-                    x: area.x + 2,
-                    y: area.y + area.height - 2,
-                    width: area.width.saturating_sub(4),
-                    height: 1,
-                };
-                let hint_text = " [Up/Down/PgUp/PgDn] Scroll  [Esc/Backspace] Back to Menu ";
-                f.render_widget(
-                    Paragraph::new(hint_text)
-                        .alignment(ratatui::layout::Alignment::Center)
-                        .style(Style::default().fg(Color::DarkGray)),
-                    hint_area,
-                );
+                // Render scrollbar if text is longer than panel height
+                let total_lines = parsed_lines.len();
+                let inner_height = right_area.height.saturating_sub(2) as usize;
+                if total_lines > inner_height {
+                    let mut scrollbar_state =
+                        ScrollbarState::new(total_lines.saturating_sub(inner_height))
+                            .position((*scroll_y).min(total_lines.saturating_sub(inner_height)));
+                    let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+                    let scrollbar_area = Rect {
+                        x: right_area.x + right_area.width.saturating_sub(1),
+                        y: right_area.y + 1,
+                        width: 1,
+                        height: right_area.height.saturating_sub(2),
+                    };
+                    f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+                }
+            } else {
+                let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);
+                f.render_widget(empty_paragraph, right_area);
             }
+
+            // 3. Render help hint at the bottom
+            let hint_area = Rect {
+                x: area.x + 2,
+                y: area.y + area.height - 2,
+                width: area.width.saturating_sub(4),
+                height: 1,
+            };
+            let hint_text = " [Tab] Switch Panels  [Up/Down/j/k] Navigate/Scroll  [Esc] Close ";
+            f.render_widget(
+                Paragraph::new(hint_text)
+                    .alignment(ratatui::layout::Alignment::Center)
+                    .style(Style::default().fg(Color::DarkGray)),
+                hint_area,
+            );
             true
         }
         PopupType::MkDirPrompt {

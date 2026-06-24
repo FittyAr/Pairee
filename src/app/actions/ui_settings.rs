@@ -78,12 +78,18 @@ pub fn handle_ui_settings_action(
                 );
             }
 
+            let first_content = if !docs.is_empty() {
+                std::fs::read_to_string(&docs[0].1).ok()
+            } else {
+                None
+            };
+
             state.active_popup = Some(PopupType::Help {
                 mode: 0,
                 docs,
                 cursor_idx: 0,
                 scroll_y: 0,
-                active_content: None,
+                active_content: first_content,
             });
             true
         }
