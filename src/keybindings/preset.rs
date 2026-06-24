@@ -60,9 +60,11 @@ fn load_preset_from_file(preset: &str) -> Option<HashMap<String, Action>> {
         if let Some(action) = parse_action_name(&action_name) {
             // Remove any existing default bindings for this action
             map.retain(|_, v| *v != action);
-            let trimmed = key_str.trim();
-            if !trimmed.is_empty() {
-                map.insert(normalize_key_string(trimmed), action);
+            for key in key_str.split(',') {
+                let trimmed = key.trim();
+                if !trimmed.is_empty() {
+                    map.insert(normalize_key_string(trimmed), action);
+                }
             }
         } else {
             log::warn!(
@@ -81,19 +83,22 @@ fn load_preset_from_file(preset: &str) -> Option<HashMap<String, Action>> {
 pub fn get_builtin_preset_toml(preset: &str) -> String {
     let bindings = get_builtin_preset_bindings(preset);
 
-    // Invert the map: action_name → first key string found (deduplicate).
-    // Multiple keys can map to the same action; we keep only one per entry
-    // to avoid duplicate keys in the generated TOML.
-    let mut seen: std::collections::HashSet<String> = std::collections::HashSet::new();
-    let mut lines: Vec<String> = bindings
-        .iter()
-        .filter_map(|(key_str, action)| {
-            let action_name = action_to_name(*action);
-            if seen.insert(action_name.clone()) {
-                Some(format!("{:<30} = {:?}", action_name, key_str))
-            } else {
-                None
-            }
+    // Group keys by action to preserve all default keybindings deterministically
+    let mut action_to_keys: HashMap<String, Vec<String>> = HashMap::new();
+    for (key_str, action) in &bindings {
+        let action_name = action_to_name(*action);
+        action_to_keys
+            .entry(action_name)
+            .or_default()
+            .push(key_str.clone());
+    }
+
+    let mut lines: Vec<String> = action_to_keys
+        .into_iter()
+        .map(|(action_name, mut keys)| {
+            keys.sort();
+            let keys_str = keys.join(", ");
+            format!("{:<30} = {:?}", action_name, keys_str)
         })
         .collect();
     lines.sort();

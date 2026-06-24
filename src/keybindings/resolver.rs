@@ -18,7 +18,12 @@ impl KeybindingResolver {
         // Overlay user custom overrides from keybindings.toml [custom_bindings]
         for (action_name, key_str) in &config.keybindings.custom_bindings {
             if let Some(action) = parse_action_name(action_name) {
-                bindings.insert(normalize_key_string(key_str), action);
+                for key in key_str.split(',') {
+                    let trimmed = key.trim();
+                    if !trimmed.is_empty() {
+                        bindings.insert(normalize_key_string(trimmed), action);
+                    }
+                }
             }
         }
 
