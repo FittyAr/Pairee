@@ -507,6 +507,11 @@
     "error_failed_remove_symlink": "Fallo al eliminar el enlace simbólico {}: {}",
     "error_failed_delete_dir": "Fallo al eliminar el directorio {}: {}",
     "error_failed_delete_file": "Fallo al eliminar el archivo {}: {}",
-    "error_mutex_poisoned": "Mutex envenenado"
+    "error_mutex_poisoned": "Mutex envenenado",
+    "prompt_sudo_title": " Elevación de Privilegios ",
+    "prompt_sudo_delete_text": "\n Permiso denegado. ¿Desea reintentar la eliminación con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
+    "prompt_sudo_mkdir_text": "\n Permiso denegado. ¿Desea reintentar la creación de la carpeta con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
+    "prompt_sudo_renmov_text": "\n Permiso denegado. ¿Desea reintentar el movimiento/renombrado con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
+    "prompt_sudo_copy_text": "\n Permiso denegado. ¿Desea reintentar la copia con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar"
   }
 }

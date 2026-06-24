@@ -1,6 +1,7 @@
 use super::ProgressUpdate;
 use super::helper::{
-    copy_dir_recursive_async, copy_file_buffered, copy_symlink, delete_recursive, run_as_admin_copy,
+    copy_dir_recursive_async, copy_file_buffered, copy_symlink, delete_recursive,
+    run_as_admin_move,
 };
 use crate::config::localization::t;
 use std::fs;
@@ -74,9 +75,8 @@ pub fn spawn_move_task(
                     if !is_cross {
                         // Permission or other error — try admin if configured
                         if settings.req_admin_modification {
-                            let res = run_as_admin_copy(src, &dst);
+                            let res = run_as_admin_move(src, &dst);
                             if res.is_ok() {
-                                let _ = delete_recursive(src);
                                 files_copied += 1;
                                 let _ = tx
                                     .send(ProgressUpdate {

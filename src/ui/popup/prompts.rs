@@ -1,4 +1,4 @@
-use super::centered_rect;
+use super::{centered_rect, centered_rect_fixed};
 use crate::app::state::{AdminOpKind, LinkKind, PopupType, SelectMode};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -576,7 +576,7 @@ pub fn render_prompt_popup(
             true
         }
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
-            let area = centered_rect(50, 20, size);
+            let area = centered_rect_fixed(65, 8, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -595,6 +595,7 @@ pub fn render_prompt_popup(
             let text = t(text_key);
             let paragraph = Paragraph::new(text)
                 .block(block)
+                .wrap(ratatui::widgets::Wrap { trim: true })
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
 
             f.render_widget(paragraph, area);
