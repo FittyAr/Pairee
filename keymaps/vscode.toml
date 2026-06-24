@@ -22,7 +22,7 @@ go_to_bottom        = "End"
 change_panel        = "Tab"
 execute             = "Enter"
 go_parent           = "Backspace"
-select_item         = "Space"
+select_item         = "Space, Insert"
 unfocus             = "Esc"
 
 # ── File operations (VS Code Explorer style) ──────────────────────────────────

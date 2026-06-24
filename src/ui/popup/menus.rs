@@ -95,7 +95,7 @@ pub fn render_menu_popup(
             f.render_widget(paragraph, area);
             true
         }
-        PopupType::UserMenu => {
+        PopupType::UserMenu { cursor_idx } => {
             let area = centered_rect(50, 50, size);
             f.render_widget(Clear, area);
 
@@ -105,21 +105,23 @@ pub fn render_menu_popup(
                 .title(t("popup_user_menu"))
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-            let menu_rows = vec![
-                Row::new(vec![Cell::from("1"), Cell::from(t("user_cmd_refresh"))]),
-                Row::new(vec![
-                    Cell::from("2"),
-                    Cell::from(t("user_cmd_toggle_hidden")),
-                ]),
-                Row::new(vec![Cell::from("3"), Cell::from(t("user_cmd_swap"))]),
-                Row::new(vec![Cell::from("4"), Cell::from(t("user_cmd_help"))]),
-                Row::new(vec![Cell::from("5"), Cell::from(t("user_cmd_close"))]),
-                Row::new(vec![Cell::from("6"), Cell::from(t("user_cmd_download"))]),
-                Row::new(vec![Cell::from("7"), Cell::from(t("user_cmd_screens"))]),
-                Row::new(vec![Cell::from("8"), Cell::from(t("user_cmd_plugins"))]),
-                Row::new(vec![Cell::from("9"), Cell::from(t("user_cmd_git"))]),
-                Row::new(vec![Cell::from("0"), Cell::from(t("user_cmd_settings"))]),
-            ];
+            let items = crate::app::input_popup::user_menu::get_user_menu_items();
+            let mut menu_rows = Vec::new();
+            for (i, item) in items.iter().enumerate() {
+                let is_cursor = i == *cursor_idx;
+                let style = if is_cursor {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                menu_rows.push(Row::new(vec![
+                    Cell::from(item.key.as_str()).style(style),
+                    Cell::from(item.label.as_str()).style(style),
+                ]));
+            }
 
             let table = Table::new(
                 menu_rows,

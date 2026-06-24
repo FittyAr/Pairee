@@ -21,7 +21,7 @@ page_up             = "Ctrl+u"
 page_down           = "Ctrl+d"
 go_to_top           = "g"
 go_to_bottom        = "G"
-select_item         = "v"
+select_item         = "v, Insert, Space"
 change_panel        = "Tab"
 unfocus             = "Esc"
 
@@ -34,7 +34,6 @@ go_to_top_home      = "Home"
 go_to_bottom_end    = "End"
 execute_enter       = "Enter"
 go_parent_bs        = "Backspace"
-select_item_insert  = "Insert"
 
 # ── Search / CLI (Neovim-style) ───────────────────────────────────────────────
 focus_cli           = ":"

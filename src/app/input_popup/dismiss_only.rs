@@ -16,8 +16,7 @@ pub fn handle(
             | PopupType::Info(_)
             | PopupType::InfoPanel { .. }
             | PopupType::CompareFoldersResult { .. }
-            | PopupType::FileAssociationsDialog { .. }
-            | PopupType::ArchiveCommandsMenu { .. } => {
+            | PopupType::FileAssociationsDialog { .. } => {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Enter {
                     state.active_popup = None;
                     return Ok(None);

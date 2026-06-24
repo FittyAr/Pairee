@@ -1,6 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::app::sys_helpers::kill_process;
+use crate::app::sys_helpers::{get_process_list, kill_process};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -29,19 +29,39 @@ pub fn handle(
                     cursor_idx += 1;
                 }
             }
-            KeyCode::Delete | KeyCode::Char('k') => {
+            KeyCode::Delete | KeyCode::Char('k') | KeyCode::Char('K') => {
                 if let Some(task) = tasks.get(cursor_idx) {
                     let pid = task.pid;
                     match kill_process(pid) {
                         Ok(_) => {
-                            tasks.remove(cursor_idx);
-                            if cursor_idx >= tasks.len() && cursor_idx > 0 {
+                            tasks = get_process_list();
+                            if cursor_idx >= tasks.len() && !tasks.is_empty() {
                                 cursor_idx = tasks.len().saturating_sub(1);
                             }
                         }
                         Err(e) => {
                             state.active_popup =
                                 Some(PopupType::Error(format!("Failed to kill process: {}", e)));
+                            return Ok(None);
+                        }
+                    }
+                }
+            }
+            KeyCode::Char('r') | KeyCode::Char('R') => {
+                if let Some(task) = tasks.get(cursor_idx) {
+                    let pid = task.pid;
+                    match crate::app::sys_helpers::restart_process(pid) {
+                        Ok(_) => {
+                            tasks = get_process_list();
+                            if cursor_idx >= tasks.len() && !tasks.is_empty() {
+                                cursor_idx = tasks.len().saturating_sub(1);
+                            }
+                        }
+                        Err(e) => {
+                            state.active_popup = Some(PopupType::Error(format!(
+                                "Failed to restart process: {}",
+                                e
+                            )));
                             return Ok(None);
                         }
                     }

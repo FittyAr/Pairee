@@ -77,9 +77,9 @@ pub struct AppState {
     pub free_space_left: Option<u64>,
     pub free_space_right: Option<u64>,
 
-    // ── Keyboard State ────────────────────────────────────────────────────────
     pub current_modifiers: crossterm::event::KeyModifiers,
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
+    pub pending_custom_command: Option<String>,
 }
 
 impl AppState {
@@ -124,6 +124,7 @@ impl AppState {
             fkeys_modifier_override: None,
             active_bg_op: None,
             terminal_needs_clear: false,
+            pending_custom_command: None,
         }
     }
 

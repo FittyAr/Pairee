@@ -1,4 +1,5 @@
 pub mod apply_command;
+pub mod archive_commands;
 pub mod color_groups;
 pub mod compress;
 pub mod config_dialog;
@@ -65,7 +66,7 @@ pub fn handle_popup_input(
                 delete::handle(state, key, context)
             }
             PopupType::CopyProgress { .. } => copy_progress::handle(state, key, context),
-            PopupType::UserMenu => user_menu::handle(state, key, context),
+            PopupType::UserMenu { .. } => user_menu::handle(state, key, context),
             PopupType::EditorSearchPrompt { .. } => editor::handle(state, key, context),
             PopupType::ViewerSearchPrompt { .. } => viewer::handle(state, key, context),
             PopupType::Menu { .. } => menu::handle(state, key, context),
@@ -79,6 +80,7 @@ pub fn handle_popup_input(
             PopupType::TreeView { .. } => tree_view::handle(state, key, context),
             PopupType::ContextMenu { .. } => context_menu::handle(state, key, context),
             PopupType::CompressPrompt { .. } => compress::handle(state, key, context),
+            PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle(state, key, context),
             PopupType::CopyMoveFilterPrompt { .. } => copy_filter::handle(state, key, context),
             PopupType::SelectGroupPrompt { .. } => select_group::handle(state, key, context),
             PopupType::ApplyCommandPrompt { .. } => apply_command::handle(state, key, context),

@@ -290,7 +290,9 @@ pub enum PopupType {
     },
 
     // ── Menus / lists ─────────────────────────────────────────────────────────
-    UserMenu,
+    UserMenu {
+        cursor_idx: usize,
+    },
     Menu {
         active_menu_idx: usize,
         active_item_idx: Option<usize>,

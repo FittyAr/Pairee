@@ -15,6 +15,11 @@ pub fn handle_cli_input(
         return Err(());
     }
 
+    // Bypass CLI input capture if command line is empty and the key matches a resolved shortcut
+    if state.cli_input.is_empty() && context.resolver.resolve(key).is_some() {
+        return Err(());
+    }
+
     let is_vim = context.config.keybindings.preset == "vim";
     let is_active = !state.cli_input.is_empty() || !is_vim;
 

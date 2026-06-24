@@ -88,7 +88,7 @@ pub fn handle_ui_settings_action(
             true
         }
         Action::UserMenu => {
-            state.active_popup = Some(PopupType::UserMenu);
+            state.active_popup = Some(PopupType::UserMenu { cursor_idx: 0 });
             true
         }
         Action::Menu => {
@@ -308,9 +308,50 @@ pub fn handle_ui_settings_action(
             true
         }
         Action::EditUserMenu => {
-            state.active_popup = Some(PopupType::Info(
-                "Edit user menu: open UserMenu config file with default editor.".to_string(),
-            ));
+            let path = crate::config::paths::get_config_dir().join("usermenu.toml");
+            if !path.exists() {
+                let default_template = r#"# Pairee User Custom Commands Menu
+#
+# Define your own custom commands here.
+# Format:
+# [commands]
+# "Key" = "Command"
+#
+# Examples:
+# "1" = "cargo build"
+# "2" = "git status"
+# "3" = "echo 'Hello World!'"
+# "4" = "systemctl status docker"
+"#;
+                let _ = std::fs::write(&path, default_template);
+            }
+            match std::fs::read_to_string(&path) {
+                Ok(content) => {
+                    let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
+                    state.push_screen(crate::app::state::Screen::Editor(
+                        crate::app::state::types::EditorState {
+                            path,
+                            lines: if lines.is_empty() {
+                                vec![String::new()]
+                            } else {
+                                lines
+                            },
+                            cursor_x: 0,
+                            cursor_y: 0,
+                            scroll_y: 0,
+                            is_dirty: false,
+                            last_search: None,
+                            last_case_sensitive: false,
+                        },
+                    ));
+                }
+                Err(e) => {
+                    state.active_popup = Some(PopupType::Error(format!(
+                        "Failed to read user menu config: {}",
+                        e
+                    )));
+                }
+            }
             true
         }
         Action::FileAssociations => {

@@ -193,6 +193,17 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             }
         }
 
+        if let Some(cmd) = state.pending_custom_command.take() {
+            let active_path = state.get_active_panel().current_path.clone();
+            let _ = crate::app::actions::exec::execute_shell_command(
+                &cmd,
+                &active_path,
+                &context,
+                &mut terminal_backend,
+            );
+            state.refresh_both_panels(context.config.settings.show_hidden);
+        }
+
         // 2. Draw terminal window
         if state.terminal_needs_clear {
             let _ = terminal_backend.terminal.clear();
@@ -229,6 +240,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                     }
 
                     // Popups consume inputs first
+                    let popup_active = state.active_popup.is_some();
                     match handle_popup_input(&mut state, key, &mut context) {
                         Ok(Some(action)) => {
                             handle_action(&mut state, action, &mut context, &mut terminal_backend)
@@ -238,7 +250,11 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                         Ok(None) => {
                             continue;
                         }
-                        Err(()) => {}
+                        Err(()) => {
+                            if popup_active {
+                                continue;
+                            }
+                        }
                     }
 
                     // Screens consume inputs before CLI and Panels (unless it's a global shortcut)

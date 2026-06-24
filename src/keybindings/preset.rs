@@ -56,10 +56,14 @@ fn load_preset_from_file(preset: &str) -> Option<HashMap<String, Action>> {
     // Start with default built-in bindings for this preset
     let mut map = get_builtin_preset_bindings(preset);
 
+    let mut cleared_actions = std::collections::HashSet::new();
+
     for (action_name, key_str) in preset_file.bindings {
         if let Some(action) = parse_action_name(&action_name) {
-            // Remove any existing default bindings for this action
-            map.retain(|_, v| *v != action);
+            // Remove any existing default bindings for this action only once
+            if cleared_actions.insert(action) {
+                map.retain(|_, v| *v != action);
+            }
             for key in key_str.split(',') {
                 let trimmed = key.trim();
                 if !trimmed.is_empty() {
