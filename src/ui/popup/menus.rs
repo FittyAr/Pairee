@@ -96,7 +96,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::UserMenu => {
-            let area = centered_rect(50, 35, size);
+            let area = centered_rect(50, 50, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -115,6 +115,10 @@ pub fn render_menu_popup(
                 Row::new(vec![Cell::from("4"), Cell::from(t("user_cmd_help"))]),
                 Row::new(vec![Cell::from("5"), Cell::from(t("user_cmd_close"))]),
                 Row::new(vec![Cell::from("6"), Cell::from(t("user_cmd_download"))]),
+                Row::new(vec![Cell::from("7"), Cell::from(t("user_cmd_screens"))]),
+                Row::new(vec![Cell::from("8"), Cell::from(t("user_cmd_plugins"))]),
+                Row::new(vec![Cell::from("9"), Cell::from(t("user_cmd_git"))]),
+                Row::new(vec![Cell::from("0"), Cell::from(t("user_cmd_settings"))]),
             ];
 
             let table = Table::new(

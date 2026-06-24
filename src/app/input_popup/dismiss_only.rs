@@ -15,7 +15,6 @@ pub fn handle(
             | PopupType::Help { .. }
             | PopupType::Info(_)
             | PopupType::InfoPanel { .. }
-            | PopupType::SortModesDialog { .. }
             | PopupType::CompareFoldersResult { .. }
             | PopupType::FileAssociationsDialog { .. }
             | PopupType::ArchiveCommandsMenu { .. } => {

@@ -28,7 +28,24 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char('4') => {
+                state.active_popup = None;
                 return Ok(Some(Action::Help));
+            }
+            KeyCode::Char('7') => {
+                state.active_popup = None;
+                return Ok(Some(Action::ScreensList));
+            }
+            KeyCode::Char('8') => {
+                state.active_popup = None;
+                return Ok(Some(Action::PluginMenu));
+            }
+            KeyCode::Char('9') => {
+                state.active_popup = None;
+                return Ok(Some(Action::OpenGitPanel));
+            }
+            KeyCode::Char('0') => {
+                state.active_popup = None;
+                return Ok(Some(Action::SystemSettings));
             }
             KeyCode::Char('5') | KeyCode::Esc => {
                 state.active_popup = None;

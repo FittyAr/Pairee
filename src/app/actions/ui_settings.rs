@@ -247,6 +247,36 @@ pub fn handle_ui_settings_action(
             });
             true
         }
+        Action::SortByName => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
+        Action::SortByExtension => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Extension;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
+        Action::SortByWriteTime | Action::SortByCreationTime | Action::SortByAccessTime => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Date;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
+        Action::SortBySize => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Size;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
+        Action::SortUnsorted => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Unsorted;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
+        Action::SortByDescription | Action::SortByOwner => {
+            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            true
+        }
         Action::CompareFolder => {
             let left = state.left_panel.current_path.clone();
             let right = state.right_panel.current_path.clone();

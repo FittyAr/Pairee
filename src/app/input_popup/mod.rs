@@ -26,6 +26,7 @@ pub mod save_setup;
 pub mod screens_menu;
 pub mod search;
 pub mod select_group;
+pub mod sort_modes;
 pub mod task_list;
 pub mod tree_view;
 pub mod user_menu;
@@ -101,6 +102,7 @@ pub fn handle_popup_input(
             PopupType::GitConfirmCheckout { .. } => {
                 git_confirm_checkout::handle(state, key, context)
             }
+            PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

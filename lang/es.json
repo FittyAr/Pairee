@@ -512,6 +512,26 @@
     "prompt_sudo_delete_text": "\n Permiso denegado. ¿Desea reintentar la eliminación con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
     "prompt_sudo_mkdir_text": "\n Permiso denegado. ¿Desea reintentar la creación de la carpeta con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
     "prompt_sudo_renmov_text": "\n Permiso denegado. ¿Desea reintentar el movimiento/renombrado con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
-    "prompt_sudo_copy_text": "\n Permiso denegado. ¿Desea reintentar la copia con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar"
+    "prompt_sudo_copy_text": "\n Permiso denegado. ¿Desea reintentar la copia con privilegios de administrador / sudo?\n\n [Enter] Reintentar como Admin   [Esc] Cancelar",
+    "menu_sort_name": "Ordenar por &nombre",
+    "menu_sort_ext": "Ordenar por &extensión",
+    "menu_sort_write": "Ordenar por fecha de &modificación",
+    "menu_sort_size": "Ordenar por &tamaño",
+    "menu_sort_unsorted": "Sin &ordenar",
+    "menu_sort_create": "Ordenar por fecha de &creación",
+    "menu_sort_access": "Ordenar por fecha de &acceso",
+    "menu_sort_desc": "Ordenar por &descripción",
+    "menu_sort_owner": "Ordenar por &propietario",
+    "menu_view_alt": "Vista alternativa",
+    "menu_print": "Im&primir archivo",
+    "menu_exit": "&Salir",
+    "menu_video_mode": "Modo de video",
+    "menu_tree_view": "Vista de árbol",
+    "menu_user_menu": "Menú de usuario",
+    "menu_help": "A&yuda",
+    "user_cmd_screens": "Lista de pantallas",
+    "user_cmd_plugins": "Comandos plugin",
+    "user_cmd_git": "Panel de Git",
+    "user_cmd_settings": "Configuración..."
   }
 }

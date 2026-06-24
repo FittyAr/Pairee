@@ -714,6 +714,28 @@ pub fn get_default_english_translation(key: &str) -> String {
             "Tip: Leave author name/email empty to use values from your global git config"
         }
 
+        // Additional menu & user menu translations
+        "menu_sort_name" => "Sort by &name",
+        "menu_sort_ext" => "Sort by &extension",
+        "menu_sort_write" => "Sort by &write time",
+        "menu_sort_size" => "Sort by &size",
+        "menu_sort_unsorted" => "Sort &unsorted",
+        "menu_sort_create" => "Sort by &creation time",
+        "menu_sort_access" => "Sort by &access time",
+        "menu_sort_desc" => "Sort by &description",
+        "menu_sort_owner" => "Sort by &owner",
+        "menu_view_alt" => "View alternative",
+        "menu_print" => "&Print file",
+        "menu_exit" => "E&xit",
+        "menu_video_mode" => "Video mode",
+        "menu_tree_view" => "Tree view",
+        "menu_user_menu" => "User menu",
+        "menu_help" => "&Help",
+        "user_cmd_screens" => "Screens list",
+        "user_cmd_plugins" => "Plugin commands",
+        "user_cmd_git" => "Git panel",
+        "user_cmd_settings" => "Configuration...",
+
         _ => key,
     };
     val.to_string()
