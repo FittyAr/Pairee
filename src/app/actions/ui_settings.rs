@@ -10,6 +10,10 @@ pub fn handle_ui_settings_action(
     context: &mut AppContext,
 ) -> bool {
     match action {
+        Action::About => {
+            state.active_popup = Some(PopupType::About { scroll_y: 0 });
+            true
+        }
         Action::Help => {
             let mut docs = Vec::new();
             let mut add_doc = |title: &str, path_str: &str| {

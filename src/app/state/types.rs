@@ -172,6 +172,9 @@ pub enum PopupType {
         scroll_y: usize,
         active_content: Option<String>,
     },
+    About {
+        scroll_y: usize,
+    },
     Error(String),
     /// Neutral informational dialog (not an error).
     Info(String),

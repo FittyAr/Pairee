@@ -1,3 +1,4 @@
+pub mod about;
 pub mod color_groups;
 pub mod config_dialog;
 pub mod editor;
@@ -91,6 +92,9 @@ fn render_specific_popup(
         return;
     }
     if info::render_info_popup(f, popup, theme, size) {
+        return;
+    }
+    if about::render_about_popup(f, popup, theme, size) {
         return;
     }
     if git_panel::render(f, popup, theme, size) {

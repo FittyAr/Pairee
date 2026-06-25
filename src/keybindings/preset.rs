@@ -338,6 +338,7 @@ fn action_to_name(action: Action) -> String {
         Action::SortByDescription => "sort_by_description",
         Action::SortByOwner => "sort_by_owner",
         Action::Help => "help",
+        Action::About => "about",
         Action::UserMenu => "user_menu",
         Action::View => "view",
         Action::ViewAlt => "view_alt",
@@ -467,6 +468,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
 
         // ── F-key actions ─────────────────────────────────────────────────────
         "help" => Some(Action::Help),
+        "about" => Some(Action::About),
         "user_menu" => Some(Action::UserMenu),
         "view" => Some(Action::View),
         "view_alt" => Some(Action::ViewAlt),

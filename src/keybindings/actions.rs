@@ -82,6 +82,8 @@ pub enum Action {
     // ── F-key actions ────────────────────────────────────────────────────────
     /// Open help dialog (F1)
     Help,
+    /// Open about dialog
+    About,
     /// Open user custom commands menu (F2)
     UserMenu,
     /// View file content (F3)

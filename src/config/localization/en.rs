@@ -142,6 +142,14 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_configuration" => "&Configuration...",
         "menu_check_updates" => "Check for &updates",
         "menu_save_setup" => "&Save setup",
+        "menu_about" => "&About...",
+        "about_title" => " About Pairee ",
+        "about_version" => "Version",
+        "about_website" => "Project Website",
+        "about_github" => "GitHub Page",
+        "about_license" => "Software License",
+        "about_libraries" => "Open Source Libraries Used",
+        "about_hint" => " [Up/Down/j/k/PageUp/PageDown] Scroll  [Esc/Enter] Close ",
 
         // Popup titles & options
         "popup_sort_modes" => "Sort Modes",

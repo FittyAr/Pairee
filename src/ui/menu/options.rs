@@ -13,6 +13,8 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
     vec![
         MenuItemData::new(t("menu_help"), &shortcut_for(Action::Help, "F1"), false)
             .with_action(Action::Help),
+        MenuItemData::new(t("menu_about"), &shortcut_for(Action::About, ""), false)
+            .with_action(Action::About),
         MenuItemData::separator(),
         MenuItemData::new(
             t("menu_configuration"),

@@ -1,3 +1,4 @@
+pub mod about;
 pub mod apply_command;
 pub mod archive_commands;
 pub mod color_groups;
@@ -55,6 +56,7 @@ pub fn handle_popup_input(
     if let Some(p) = popup {
         match p {
             PopupType::Help { .. } => help::handle(state, key, context),
+            PopupType::About { .. } => about::handle(state, key, context),
             PopupType::MkDirPrompt { .. } => mkdir::handle(state, key, context),
             PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
             PopupType::ConfirmQuit
