@@ -90,6 +90,37 @@ if [[ -f "installer.iss" ]]; then
     fi
 fi
 
+# 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
+changelog_path="CHANGELOG.md"
+if [[ -f "$changelog_path" ]]; then
+    echo -e "Stamping CHANGELOG.md for ${YELLOW}v$new_version${RESET}..."
+    today=$(date +%Y-%m-%d)
+    tmp_changelog=$(mktemp)
+    found_unreleased=false
+
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$found_unreleased" == false ]] && [[ "$line" == "## [Unreleased]" ]]; then
+            found_unreleased=true
+            # Insert fresh [Unreleased] block
+            printf '%s\n' "## [Unreleased]" "" "---" "" >> "$tmp_changelog"
+            # Replace with the versioned heading
+            echo "## [v$new_version] - $today" >> "$tmp_changelog"
+        else
+            echo "$line" >> "$tmp_changelog"
+        fi
+    done < "$changelog_path"
+
+    if [[ "$found_unreleased" == false ]]; then
+        echo -e "${YELLOW}[WARNING]${RESET} '## [Unreleased]' section not found in CHANGELOG.md - skipping changelog stamp."
+        rm -f "$tmp_changelog"
+    else
+        mv "$tmp_changelog" "$changelog_path"
+        echo -e "${GREEN}[OK]${RESET} CHANGELOG.md stamped successfully."
+    fi
+else
+    echo -e "${YELLOW}[WARNING]${RESET} CHANGELOG.md not found - skipping changelog stamp."
+fi
+
 # 4. Run cargo check to update Cargo.lock
 echo -e "${YELLOW}Running cargo check to update Cargo.lock...${RESET}"
 if ! cargo check; then
@@ -105,7 +136,7 @@ if [[ -z "$branch" ]]; then
 fi
 
 echo -e "\n${YELLOW}Summary of actions to perform:${RESET}"
-echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss)"
+echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md)"
 echo -e "  - Create git tag v$new_version"
 echo -e "  - Push commit and tag to origin ($branch)"
 echo ""
@@ -119,6 +150,9 @@ fi
 # Commit and tag
 echo -e "${YELLOW}Staging changes...${RESET}"
 git add Cargo.toml Cargo.lock installer.iss
+if [[ -f "CHANGELOG.md" ]]; then
+    git add CHANGELOG.md
+fi
 git commit -m "Bump version to v$new_version"
 
 echo -e "${YELLOW}Creating git tag v$new_version...${RESET}"
@@ -128,7 +162,8 @@ git tag -a "v$new_version" -m "Release v$new_version"
 echo -e "${YELLOW}Pushing commits and tag to origin...${RESET}"
 if git push origin "$branch" && git push origin "v$new_version"; then
     echo -e "${GREEN}Successfully bumped version to v$new_version and pushed to GitHub!${RESET}"
-    echo "GitHub Actions will now compile and publish the release."
+    echo -e "GitHub Actions will now build binaries and create a ${CYAN}draft release${RESET}."
+    echo -e "Review the draft release on GitHub and publish it when ready."
 else
     echo -e "${RED}[ERROR]${RESET} Failed to push to GitHub. Check your connection or repository permissions."
     echo -e "Note: The commit and tag were created locally. You can push manually using:"

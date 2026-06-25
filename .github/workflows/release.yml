@@ -10,9 +10,45 @@ permissions:
   contents: write
 
 jobs:
+  # Extract changelog section for the tagged version
+  release-notes:
+    name: Extract Release Notes
+    runs-on: ubuntu-latest
+    outputs:
+      body: ${{ steps.extract.outputs.body }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract changelog section
+        id: extract
+        shell: bash
+        run: |
+          VERSION="${GITHUB_REF_NAME:-}"
+          if [[ -z "$VERSION" ]]; then
+            echo "body=No release notes available." >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          chmod +x scripts/extract_changelog.sh
+          BODY=$(scripts/extract_changelog.sh "$VERSION" 2>/dev/null || echo "")
+
+          if [[ -z "$BODY" ]]; then
+            COMPARE_URL="https://github.com/${{ github.repository }}/compare"
+            BODY="See the [full changelog]($COMPARE_URL) for changes in this release."
+          fi
+
+          # GitHub Actions multiline output
+          {
+            echo "body<<CHANGELOG_EOF"
+            echo "$BODY"
+            echo "CHANGELOG_EOF"
+          } >> "$GITHUB_OUTPUT"
+
   build:
     name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
+    needs: release-notes
     strategy:
       fail-fast: false
       matrix:
@@ -72,15 +108,15 @@ jobs:
           PKG_NAME="pairee-${VERSION}-${{ matrix.target }}"
           mkdir -p "$PKG_NAME"
           mkdir -p dist
-          
+
           # Copy resources
           cp -r lang help docs README.md LICENSE "$PKG_NAME/"
-          
+
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "target/${{ matrix.target }}/release/pairee.exe" "$PKG_NAME/"
             powershell -Command "Compress-Archive -Path '$PKG_NAME' -DestinationPath '${PKG_NAME}.zip' -Force"
             mv "${PKG_NAME}.zip" dist/
-            
+
             # Compile Inno Setup installer
             if [ "${{ matrix.target }}" = "aarch64-pc-windows-msvc" ]; then
               MSYS_NO_PATHCONV=1 "C:\\Program Files (x86)\\Inno Setup 6\\iscc.exe" /DAppVersion="$VERSION_NUM" /DSourceDir="target\\aarch64-pc-windows-msvc\\release" /O"target\\release" /F"pairee-setup-${VERSION_NUM}-arm64" installer.iss
@@ -93,16 +129,16 @@ jobs:
             cp "target/${{ matrix.target }}/release/pairee" "$PKG_NAME/"
             tar -czf "${PKG_NAME}.tar.gz" "$PKG_NAME"
             mv "${PKG_NAME}.tar.gz" dist/
-            
+
             if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
               # Install cargo-deb and cargo-generate-rpm
               cargo install cargo-deb
               cargo install cargo-generate-rpm
-              
+
               # Build DEB
               cargo deb --target x86_64-unknown-linux-musl --no-build
               mv target/x86_64-unknown-linux-musl/debian/*.deb dist/
-              
+
               # Build RPM
               cargo generate-rpm --target x86_64-unknown-linux-musl
               mv target/x86_64-unknown-linux-musl/generate-rpm/*.rpm dist/
@@ -119,11 +155,33 @@ jobs:
             fi
           done
 
-      - name: Create / Update GitHub Release
-        uses: softprops/action-gh-release@v3
-        if: startsWith(github.ref, 'refs/tags/')
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
         with:
+          name: dist-${{ matrix.target }}
+          path: dist/*
+          retention-days: 1
+
+  # Create a DRAFT release — maintainer reviews and publishes manually
+  draft-release:
+    name: Create Draft Release
+    runs-on: ubuntu-latest
+    needs: [release-notes, build]
+    if: startsWith(github.ref, 'refs/tags/')
+    steps:
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: dist-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Create Draft GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
           files: dist/*
-          generate_release_notes: true
+          body: ${{ needs.release-notes.outputs.body }}
+          name: ${{ github.ref_name }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

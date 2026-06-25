@@ -92,7 +92,45 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         $newIssContent = [regex]::Replace($issContent, '(?m)^#define\s+AppVersion\s+"[^"]+"', "#define AppVersion `"$newVersion`"")
         Set-Content -Path installer.iss -Value $newIssContent
     }
-    
+
+    # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
+    $changelogPath = "CHANGELOG.md"
+    if (Test-Path $changelogPath) {
+        Write-Host "Stamping CHANGELOG.md for v$newVersion..." -ForegroundColor Yellow
+        $today = (Get-Date -Format "yyyy-MM-dd")
+        $changelogContent = Get-Content -Path $changelogPath -Encoding UTF8
+
+        $unreleasedPattern = '^## \[Unreleased\]'
+        $foundUnreleased = $false
+        $newChangelog = @()
+
+        foreach ($line in $changelogContent) {
+            if (-not $foundUnreleased -and $line -match $unreleasedPattern) {
+                $foundUnreleased = $true
+                # Insert fresh [Unreleased] block before the versioned heading
+                $newChangelog += "## [Unreleased]"
+                $newChangelog += ""
+                $newChangelog += "---"
+                $newChangelog += ""
+                # Replace this line with the version heading
+                $newChangelog += "## [v$newVersion] - $today"
+            } else {
+                $newChangelog += $line
+            }
+        }
+
+        if (-not $foundUnreleased) {
+            Write-Host "[WARNING] '## [Unreleased]' section not found in CHANGELOG.md - skipping changelog stamp." -ForegroundColor Yellow
+        } else {
+            # Write back using UTF8 without BOM
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllLines((Resolve-Path $changelogPath).Path, $newChangelog, $utf8NoBom)
+            Write-Host "CHANGELOG.md stamped successfully." -ForegroundColor Green
+        }
+    } else {
+        Write-Host "[WARNING] CHANGELOG.md not found - skipping changelog stamp." -ForegroundColor Yellow
+    }
+
     # 4. Run cargo check to update Cargo.lock
     Write-Host "Running cargo check to update Cargo.lock..." -ForegroundColor Yellow
     try {
@@ -111,7 +149,7 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     
     Write-Host ""
     Write-Host "Summary of actions to perform:" -ForegroundColor Yellow
-    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss)"
+    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md)"
     Write-Host "  - Create git tag v$newVersion"
     Write-Host "  - Push commit and tag to origin ($branch)"
     Write-Host ""
@@ -125,6 +163,9 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     # Commit and tag
     Write-Host "Staging changes..." -ForegroundColor Yellow
     git add Cargo.toml Cargo.lock installer.iss
+    if (Test-Path "CHANGELOG.md") {
+        git add CHANGELOG.md
+    }
     git commit -m "Bump version to v$newVersion"
     
     Write-Host "Creating git tag v$newVersion..." -ForegroundColor Yellow
@@ -136,7 +177,8 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         git push origin $branch
         git push origin "v$newVersion"
         Write-Host "Successfully bumped version to v$newVersion and pushed to GitHub!" -ForegroundColor Green
-        Write-Host "GitHub Actions will now compile and publish the release." -ForegroundColor Green
+        Write-Host "GitHub Actions will now build binaries and create a draft release." -ForegroundColor Green
+        Write-Host "Review the draft release on GitHub and publish it when ready." -ForegroundColor Cyan
     } catch {
         Write-Error "Failed to push to GitHub. Check your internet connection or repository permissions."
         Write-Host "Note: The commit and tag were created locally. You can push manually using:" -ForegroundColor Yellow
