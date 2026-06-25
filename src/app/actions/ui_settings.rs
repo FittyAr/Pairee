@@ -68,10 +68,18 @@ pub fn handle_ui_settings_action(
             if is_spanish {
                 add_doc("Manual de Funciones", "help/features_es.md");
                 add_doc("Guía de Usuario", "help/user_guide_es.md");
+                add_doc("Conexión SSH y SFTP", "help/ssh_sftp_es.md");
+                add_doc("Integración con Git", "help/git_integration_es.md");
+                add_doc("Configuración de Ajustes", "help/configuration_details_es.md");
+                add_doc("Atajos de Teclado", "help/keyboard_shortcuts_es.md");
                 add_doc("Guía de Arquitectura", "docs/technical/architecture_es.md");
             } else {
                 add_doc("Features Reference", "help/features_en.md");
                 add_doc("User Guide", "help/user_guide_en.md");
+                add_doc("SSH & SFTP Remote Connections", "help/ssh_sftp_en.md");
+                add_doc("Git Integration", "help/git_integration_en.md");
+                add_doc("Configuration Settings", "help/configuration_details_en.md");
+                add_doc("Keyboard Shortcuts", "help/keyboard_shortcuts_en.md");
                 add_doc(
                     "Technical Architecture",
                     "docs/technical/architecture_en.md",

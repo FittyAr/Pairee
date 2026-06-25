@@ -96,16 +96,17 @@ pub fn render_prompt_popup(
 
             if let Some(content) = active_content {
                 let parsed_lines = parse_markdown_to_lines(content);
+                let inner_width = (right_area.width.saturating_sub(4)) as usize;
+                let wrapped_lines = wrap_lines(parsed_lines, inner_width);
 
-                let paragraph = Paragraph::new(parsed_lines.clone())
+                let paragraph = Paragraph::new(wrapped_lines.clone())
                     .block(right_block)
-                    .wrap(ratatui::widgets::Wrap { trim: false })
                     .scroll((*scroll_y as u16, 0))
                     .style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, right_area);
 
                 // Render scrollbar if text is longer than panel height
-                let total_lines = parsed_lines.len();
+                let total_lines = wrapped_lines.len();
                 let inner_height = right_area.height.saturating_sub(2) as usize;
                 if total_lines > inner_height {
                     let mut scrollbar_state =
@@ -1660,4 +1661,65 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
     }
 
     lines
+}
+
+fn wrap_lines(lines: Vec<ratatui::text::Line<'static>>, width: usize) -> Vec<ratatui::text::Line<'static>> {
+    let mut wrapped = Vec::new();
+    for line in lines {
+        let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+        if total_chars <= width {
+            wrapped.push(line);
+            continue;
+        }
+
+        let mut current_line_spans = Vec::new();
+        let mut current_width = 0;
+
+        for span in line.spans {
+            let text = span.content;
+            let style = span.style;
+
+            let mut words = Vec::new();
+            let mut word = String::new();
+            for c in text.chars() {
+                if c.is_whitespace() {
+                    if !word.is_empty() {
+                        words.push((word.clone(), false));
+                        word.clear();
+                    }
+                    words.push((c.to_string(), true));
+                } else {
+                    word.push(c);
+                }
+            }
+            if !word.is_empty() {
+                words.push((word, false));
+            }
+
+            for (w, is_space) in words {
+                let w_len = w.chars().count();
+                if current_width + w_len > width && !is_space && current_width > 0 {
+                    wrapped.push(ratatui::text::Line::from(current_line_spans));
+                    current_line_spans = Vec::new();
+                    current_width = 0;
+                }
+
+                if w_len > width {
+                    let chars: Vec<char> = w.chars().collect();
+                    for chunk in chars.chunks(width) {
+                        let chunk_str: String = chunk.iter().collect();
+                        wrapped.push(ratatui::text::Line::from(vec![ratatui::text::Span::styled(chunk_str, style)]));
+                    }
+                    continue;
+                }
+
+                current_line_spans.push(ratatui::text::Span::styled(w, style));
+                current_width += w_len;
+            }
+        }
+        if !current_line_spans.is_empty() {
+            wrapped.push(ratatui::text::Line::from(current_line_spans));
+        }
+    }
+    wrapped
 }
