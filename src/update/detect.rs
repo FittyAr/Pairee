@@ -11,18 +11,25 @@ pub enum InstallMethod {
     // ── Linux ──────────────────────────────────────────────────────────────
     /// Installed via the official install.sh script or extracted tar.gz manually.
     /// The binary lives in ~/.local/bin or any path not managed by a package manager.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     TarballManual,
     /// Installed via a .deb package (apt, dpkg).
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     Deb,
     /// Installed via a .rpm package (dnf, zypper, rpm).
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     Rpm,
     /// Installed via the AUR (yay, paru, makepkg) on Arch / Manjaro / EndeavourOS.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     AurPacman,
     /// Installed via Nix or NixOS package manager.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     Nix,
     /// Installed as a Snap package.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     Snap,
     /// Installed as a Flatpak.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     Flatpak,
 
     // ── Windows ────────────────────────────────────────────────────────────
@@ -45,7 +52,7 @@ pub enum InstallMethod {
     Chocolatey,
 
     /// Could not determine the install method.
-    #[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+    #[allow(dead_code)]
     Unknown,
 }
 

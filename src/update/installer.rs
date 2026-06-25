@@ -10,6 +10,7 @@ use crate::update::UpdateInfo;
 #[derive(Debug)]
 pub enum InstallResult {
     /// The update was applied in-place. The user should restart Pairee.
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     RestartRequired,
     /// On Windows, the installer has been invoked. Pairee will close.
     #[cfg(target_os = "windows")]
