@@ -1,4 +1,4 @@
-use super::super::centered_rect;
+use super::super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -17,7 +17,7 @@ pub fn render(
 ) -> bool {
     match popup {
         PopupType::ConfirmQuit => {
-            let area = centered_rect(45, 20, size);
+            let area = centered_rect_fixed(45, 7, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -35,7 +35,7 @@ pub fn render(
             true
         }
         PopupType::ConfirmInterrupt => {
-            let area = centered_rect(45, 20, size);
+            let area = centered_rect_fixed(45, 7, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -53,7 +53,7 @@ pub fn render(
             true
         }
         PopupType::ConfirmReload { .. } => {
-            let area = centered_rect(50, 20, size);
+            let area = centered_rect_fixed(50, 8, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -71,7 +71,7 @@ pub fn render(
             true
         }
         PopupType::ConfirmClearHistory { history_type } => {
-            let area = centered_rect(45, 20, size);
+            let area = centered_rect_fixed(45, 7, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -96,7 +96,7 @@ pub fn render(
             true
         }
         PopupType::SaveSetupConfirm => {
-            let area = centered_rect(45, 20, size);
+            let area = centered_rect_fixed(45, 7, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()

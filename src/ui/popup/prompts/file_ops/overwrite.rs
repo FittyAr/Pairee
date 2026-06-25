@@ -1,4 +1,4 @@
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -22,7 +22,7 @@ pub fn render(
         input,
     } = popup
     {
-        let area = centered_rect(60, 25, size);
+        let area = centered_rect_fixed(60, 9, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()

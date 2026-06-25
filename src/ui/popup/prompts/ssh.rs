@@ -1,4 +1,4 @@
-use super::super::centered_rect;
+use super::super::centered_rect_fixed;
 use crate::app::context::AppContext;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
@@ -29,7 +29,7 @@ pub fn render(
         selected_preset_idx,
     } = popup
     {
-        let area = centered_rect(75, 50, size);
+        let area = centered_rect_fixed(75, 12, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()

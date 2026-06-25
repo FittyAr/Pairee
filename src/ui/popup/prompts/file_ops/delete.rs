@@ -1,4 +1,4 @@
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -16,7 +16,7 @@ pub fn render(
     size: Rect,
 ) -> bool {
     if let PopupType::ConfirmDelete { paths, cursor_idx } = popup {
-        let area = centered_rect(50, 24, size);
+        let area = centered_rect_fixed(50, 8, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()

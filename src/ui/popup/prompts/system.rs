@@ -1,4 +1,4 @@
-use super::super::{centered_rect, centered_rect_fixed};
+use super::super::centered_rect_fixed;
 use crate::app::state::{AdminOpKind, PopupType, SelectMode};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -50,7 +50,7 @@ pub fn render(
             bytes_copied,
             total_bytes,
         } => {
-            let area = centered_rect(55, 30, size);
+            let area = centered_rect_fixed(55, 10, size);
             f.render_widget(Clear, area);
 
             let title = if *is_move {
@@ -104,7 +104,7 @@ pub fn render(
             true
         }
         PopupType::Error(message) => {
-            let area = centered_rect(50, 25, size);
+            let area = centered_rect_fixed(50, 8, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -122,7 +122,7 @@ pub fn render(
             true
         }
         PopupType::Info(message) => {
-            let area = centered_rect(55, 30, size);
+            let area = centered_rect_fixed(55, 9, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -140,7 +140,7 @@ pub fn render(
             true
         }
         PopupType::ApplyCommandPrompt { input, targets } => {
-            let area = centered_rect(65, 35, size);
+            let area = centered_rect_fixed(65, 10, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -179,7 +179,7 @@ pub fn render(
             true
         }
         PopupType::SelectGroupPrompt { mode, query } => {
-            let area = centered_rect(50, 25, size);
+            let area = centered_rect_fixed(50, 9, size);
             f.render_widget(Clear, area);
 
             let title = match mode {

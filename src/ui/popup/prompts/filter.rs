@@ -1,4 +1,4 @@
-use super::super::centered_rect;
+use super::super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -17,7 +17,7 @@ pub fn render(
 ) -> bool {
     match popup {
         PopupType::FilePanelFilterPrompt { input } => {
-            let area = centered_rect(50, 25, size);
+            let area = centered_rect_fixed(50, 9, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -36,7 +36,7 @@ pub fn render(
             true
         }
         PopupType::QuickFilterPrompt { input, .. } => {
-            let area = centered_rect(50, 25, size);
+            let area = centered_rect_fixed(50, 9, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -55,7 +55,7 @@ pub fn render(
             true
         }
         PopupType::CopyMoveFilterPrompt { input, previous: _ } => {
-            let area = centered_rect(50, 25, size);
+            let area = centered_rect_fixed(50, 9, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()

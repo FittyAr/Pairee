@@ -1,4 +1,4 @@
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -32,7 +32,7 @@ pub fn render(
         filter_mask,
     } = popup
     {
-        let area = centered_rect(75, 45, size);
+        let area = centered_rect_fixed(75, 17, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()
@@ -268,13 +268,13 @@ pub fn render(
         };
 
         let btns = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(format!(" {{ {} }} ", t("btn_rename")), b1),
+            ratatui::text::Span::styled(t("btn_rename_bracket"), b1),
             ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(format!(" [ {} ] ", t("btn_f10_tree")), b2),
+            ratatui::text::Span::styled(t("btn_f10_tree"), b2),
             ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(format!(" [ {} ] ", t("btn_filter")), b3),
+            ratatui::text::Span::styled(t("btn_filter"), b3),
             ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(format!(" [ {} ] ", t("btn_cancel")), b4),
+            ratatui::text::Span::styled(t("btn_cancel_bracket"), b4),
         ]);
         f.render_widget(
             Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),

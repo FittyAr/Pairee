@@ -19,8 +19,11 @@ pub fn handle(
             install_progress,
             ..
         }) => {
-            // Block navigation while installing
+            // Block navigation while installing, but allow Esc or 'q' to close the popup
             if install_progress.is_some() {
+                if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') {
+                    state.active_popup = None;
+                }
                 return Ok(None);
             }
             (info.clone(), *cursor_idx)

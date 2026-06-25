@@ -1,4 +1,4 @@
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -32,7 +32,7 @@ pub fn render(
         filter_mask,
     } = popup
     {
-        let area = centered_rect(75, 45, size);
+        let area = centered_rect_fixed(75, 17, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()
