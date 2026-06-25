@@ -5,7 +5,7 @@ use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::Style,
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
@@ -129,5 +129,22 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
 
         let paragraph = Paragraph::new(line);
         f.render_widget(paragraph, block_area);
+    }
+
+    // Update-available badge: render on top of the last fkey cell
+    if state.update_available.is_some() {
+        let last_col = columns[11];
+        // Build the badge text (fits in the 9-char fkey cell)
+        let badge = Span::styled(
+            " ▲ UPDATE ",
+            Style::default()
+                .fg(Color::Black)
+                .bg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        );
+        let badge_line = Line::from(badge);
+        let badge_paragraph = Paragraph::new(badge_line);
+        // Overlay on the last (F12) key column
+        f.render_widget(badge_paragraph, last_col);
     }
 }

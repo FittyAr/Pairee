@@ -11,6 +11,7 @@ pub use types::{
 };
 
 use crate::fs::{self, ProgressUpdate};
+use crate::update::{UpdateInfo, UpdateStatus};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
@@ -81,6 +82,20 @@ pub struct AppState {
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
     pub pending_custom_command: Option<String>,
     pub is_root: bool,
+
+    // ── Auto-update ────────────────────────────────────────────────
+    /// Pending oneshot receiver for the background update check.
+    pub update_check_rx:
+        Option<tokio::sync::oneshot::Receiver<Option<crate::update::UpdateInfo>>>,
+    /// Available update info (set after the background check completes).
+    pub update_available: Option<UpdateInfo>,
+    /// Current status of an ongoing update installation.
+    pub update_status: UpdateStatus,
+    /// Receiver for download progress (0.0–1.0).
+    pub update_progress_rx: Option<tokio::sync::mpsc::Receiver<f32>>,
+    /// Pending oneshot receiver for the final installation result.
+    pub update_install_rx:
+        Option<tokio::sync::oneshot::Receiver<Result<crate::update::installer::InstallResult, String>>>,
 }
 
 impl AppState {
@@ -128,6 +143,12 @@ impl AppState {
             terminal_needs_clear: false,
             pending_custom_command: None,
             is_root,
+            // Update
+            update_check_rx: None,
+            update_available: None,
+            update_status: UpdateStatus::Idle,
+            update_progress_rx: None,
+            update_install_rx: None,
         }
     }
 

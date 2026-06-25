@@ -23,18 +23,19 @@ sevenz-rust = "0.6.1"
 pulldown-cmark = "0.13"
 image = "0.25.10"
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
+futures-util = { version = "0.3", default-features = false, features = ["io"] }
 
 
 [dev-dependencies]
 tempfile = "3.27"
 
 [target.'cfg(windows)'.dependencies]
-reqwest = { version = "0.13.4", default-features = false, features = ["native-tls"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
 ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
-reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider"] }
+reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 

@@ -37,6 +37,7 @@ pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_panel;
 pub mod ssh_connect;
+pub mod update_popup;
 pub mod yazi_popup;
 
 use crate::app::context::AppContext;
@@ -109,6 +110,7 @@ pub fn handle_popup_input(
                 git_confirm_checkout::handle(state, key, context)
             }
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
+            PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

@@ -109,6 +109,16 @@ jobs:
             fi
           fi
 
+      - name: Generate SHA-256 checksums
+        shell: bash
+        run: |
+          cd dist
+          for f in *; do
+            if [ -f "$f" ]; then
+              sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
+            fi
+          done
+
       - name: Create / Update GitHub Release
         uses: softprops/action-gh-release@v2
         if: startsWith(github.ref, 'refs/tags/')

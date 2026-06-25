@@ -18,6 +18,7 @@ Un gestor de archivos para terminal moderno, multiplataforma y altamente modular
 * **Alta Extensibilidad:** Estructura modular alineada con el Principio de Responsabilidad Única, cargadores de temas visuales y soporte para complementos.
 * **Localización y Temas:** Motor centralizado para traducciones que soporta inglés, español y temas personalizados (Slate, Blue, etc.).
 * **Funcionalidades Avanzadas:** Búsqueda de archivos por nombre/contenido, comparación de carpetas, menú personalizado de comandos de usuario, administrador de procesos del sistema y visor de atributos.
+* **Actualización Automática Inteligente:** Sistema integrado de actualizaciones seguras que detecta de forma automática la vía de instalación del usuario de entre 13 métodos (como gestores de paquetes o descargas directas) y descarga/instala validando firmas SHA-256.
 
 ---
 

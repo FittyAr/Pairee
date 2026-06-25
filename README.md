@@ -18,6 +18,7 @@ A modern, highly modular, cross-platform terminal file manager inspired by the c
 * **High Extensibility:** Modular layout conforming to the Single Responsibility Principle, theme loaders, and customizable plugins.
 * **Localization & Themes:** Centralized translation lookup engine supporting English, Spanish, and custom themes (Slate, Blue, etc.).
 * **Advanced Features:** File search by content/name, folder comparison, custom user commands menu, OS process manager, and attributes viewer.
+* **Smart Auto-Update System:** Built-in secure updates that auto-detect the installation source across 13 methods (like package managers or direct builds) and download/install with SHA-256 checks.
 
 ---
 

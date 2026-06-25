@@ -130,3 +130,23 @@ Pairee puede iniciarse de manera nativa sin requerir que el usuario abra una con
 * Los temas gráficos se configuran en archivos TOML independientes.
 * Asocian elementos visuales lógicos (como bordes de paneles, archivos ejecutables o menús seleccionados) a constantes de color del terminal (ej. `Color::Blue` o `Color::Rgb(r,g,b)`).
 * `ui::theme_apply::parse_color` se encarga de parsear las cadenas de texto del archivo TOML para convertirlas en estilos nativos de `ratatui::style::Color` que se inyectan dinámicamente en los componentes durante el frame actual.
+
+---
+
+## 🔄 7. Sistema de Actualización Automática
+
+Pairee integra un sistema inteligente de detección y ejecución de actualizaciones de software, diseñado para funcionar sin interrupciones y adaptándose a múltiples plataformas y métodos de instalación.
+
+### 7.1 Componentes del Módulo (`src/update/`)
+El sistema está desacoplado en varios componentes de responsabilidad única:
+* **Detector de Método (`detect.rs`):** Identifica cómo fue instalado Pairee en el sistema del usuario de entre 13 métodos (como gestores de paquetes nativos de Linux, gestores de paquetes de Windows, instalador Inno Setup, tar.gz manual o zip manual).
+* **Verificador (`checker.rs`):** Consulta de forma asíncrona la API de GitHub Releases para comprobar si existe una versión superior usando ordenamiento semántico (`semver`). Implementa una caché local en disco (`update_cache.json`) que dura 1 hora para evitar superar los límites de rate limit de la API.
+* **Descargador (`downloader.rs`):** Descarga el archivo ejecutable o comprimido correspondiente en segundo plano de manera segmentada/streaming, calculando en tiempo real el progreso de la descarga y validando la integridad del archivo comparando su hash SHA-256 con el archivo `.sha256` remoto.
+* **Instalador (`installer.rs`):** Aplica la actualización dependiendo del método detectado. Para actualizaciones de binario directo (Linux tar.gz), realiza un reemplazo atómico. Para instaladores Windows (Inno Setup), lanza la instalación silenciosa. Para Windows zip manual, genera un script `.bat` temporal para reemplazar el archivo tras el cierre de Pairee. Para gestores de paquetes, presenta el comando de consola adecuado.
+
+### 7.2 Flujo de Ejecución y Tareas Asíncronas
+1. **Verificación en el arranque:** Si `auto_update_check` está activo, se lanza un hilo Tokio en segundo plano al arrancar la aplicación.
+2. **Notificación no invasiva:** Si se detecta una versión más nueva, se dibuja un indicador amarillo `▲ UPDATE` en la barra visual de la UI.
+3. **Diálogo interactivo:** Si el usuario selecciona el botón de actualizar en el menú Options o hace clic en el indicador, se abre un popup que muestra el registro de cambios (Changelog) y las opciones para "Instalar ahora", "Ignorar versión" (guarda la versión ignorada en el archivo de configuración para no volver a notificarla) o "Cerrar".
+4. **Descarga e instalación en vivo:** Si se inicia la actualización, se abre un popup de progreso de descarga que actualiza en tiempo real los bytes transmitidos y, al finalizar la descarga e instalación con éxito, solicita al usuario reiniciar la aplicación.
+

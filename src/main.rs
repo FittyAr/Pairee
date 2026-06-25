@@ -11,6 +11,7 @@ mod git;
 mod keybindings;
 mod terminal;
 mod ui;
+mod update;
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -72,7 +73,15 @@ async fn main() -> Result<()> {
     state.disable_panel_update_object_count =
         context.config.settings.disable_panel_update_object_count;
 
-    // 5. Hand execution over to main loop
+    // 5. Launch background update check (if enabled)
+    if context.config.settings.auto_update_check {
+        let (tx, rx) = tokio::sync::oneshot::channel();
+        update::checker::UpdateChecker::check_in_background(tx);
+        state.update_check_rx = Some(rx);
+        state.update_status = update::UpdateStatus::Checking;
+    }
+
+    // 6. Hand execution over to main loop
     app::run(context, state).await?;
 
     log::info!("Pairee exited cleanly.");

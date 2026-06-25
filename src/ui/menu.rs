@@ -382,6 +382,12 @@ pub fn get_menu_items(
                 false,
             )
             .with_action(Action::SystemSettings),
+            MenuItemData::new(
+                t("menu_check_updates"),
+                "",
+                false,
+            )
+            .with_action(Action::CheckForUpdates),
             MenuItemData::separator(),
             MenuItemData::new(
                 t("menu_save_setup"),

@@ -481,4 +481,16 @@ pub enum PopupType {
         cursor_idx: usize,
         selected_preset_idx: Option<usize>,
     },
+
+    // ── Auto-update ────────────────────────────────────────────────
+    /// Shown when a newer version of Pairee is available on GitHub Releases.
+    UpdateAvailable {
+        info: crate::update::UpdateInfo,
+        /// 0 = "Update now", 1 = "Remind me later", 2 = "Ignore this version"
+        cursor_idx: usize,
+        /// If Some, an install is in progress (holds progress 0.0–1.0).
+        install_progress: Option<f32>,
+        /// Error message if the install failed.
+        error: Option<String>,
+    },
 }

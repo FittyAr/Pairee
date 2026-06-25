@@ -197,3 +197,16 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 ### Identidad del Autor
 * **Author name / Author email (Nombre / Correo del autor):** Sobrescribe los datos de usuario al confirmar cambios (commits). Si se deja en blanco, utiliza los datos configurados en el Git del sistema.
 * **Max log entries (Límite del historial):** Determina la cantidad máxima de registros leídos en la pestaña de Log.
+
+---
+
+## ⚙️ Archivo de Configuración (settings.toml)
+
+Algunos parámetros avanzados se pueden configurar directamente dentro del archivo `settings.toml` (ubicado en tu directorio de configuración):
+
+### Ajustes de Actualización Automática
+* **`auto_update_check`** (`bool`, por defecto: `true`):
+  - *Descripción:* Cuando está activo, Pairee consulta GitHub Releases en segundo plano al arrancar para buscar nuevas versiones.
+* **`dismissed_update_version`** (`string`, por defecto: `null` o vacío):
+  - *Descripción:* Almacena la etiqueta de versión (ej. `v1.2.3`) de una actualización que el usuario ha descartado o ignorado de forma explícita, evitando futuras ventanas emergentes sobre esa versión específica. Puedes limpiar este valor si deseas volver a recibir avisos sobre esa versión.
+

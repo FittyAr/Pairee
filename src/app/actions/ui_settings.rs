@@ -512,6 +512,29 @@ pub fn handle_ui_settings_action(
             }
             true
         }
+        Action::CheckForUpdates => {
+            if let Some(info) = state.update_available.clone() {
+                // Re-open the popup with existing info
+                state.active_popup = Some(crate::app::state::PopupType::UpdateAvailable {
+                    info,
+                    cursor_idx: 0,
+                    install_progress: None,
+                    error: None,
+                });
+            } else {
+                // Force a fresh check (bypass cache by deleting cache file first)
+                let cache = crate::config::paths::get_config_dir().join("update_cache.json");
+                let _ = std::fs::remove_file(&cache);
+                let (tx, rx) = tokio::sync::oneshot::channel();
+                crate::update::checker::UpdateChecker::check_in_background(tx);
+                state.update_check_rx = Some(rx);
+                state.update_status = crate::update::UpdateStatus::Checking;
+                state.active_popup = Some(crate::app::state::PopupType::Info(
+                    "Checking for updates...".to_string(),
+                ));
+            }
+            true
+        }
         _ => false,
     }
 }

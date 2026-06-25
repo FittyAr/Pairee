@@ -102,10 +102,33 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 
 ---
 
-## 📖 6. Manuales de Integración Avanzada
+## 🌐 6. Sistema Inteligente de Actualización Automática
+
+Pairee incorpora un sistema de actualización inteligente integrado que identifica cómo se instaló la aplicación y gestiona las nuevas versiones de forma segura y automatizada.
+
+### 6.1 Notificación Interactiva y Ventana Emergente de Versiones
+* **Verificación Automática:** Si está habilitada, Pairee realiza una comprobación de la última versión en GitHub Releases de manera asíncrona al arrancar.
+* **Indicador de Actualización:** Si existe una nueva versión disponible, se dibuja una etiqueta amarilla `▲ UPDATE` en la barra superior (al lado del reloj).
+* **Visor del Registro de Cambios:** Al hacer clic en el indicador o seleccionar `Buscar actualizaciones` en el menú `F9 (Opciones)`, se abre la ventana de Actualización. Este diálogo obtiene y formatea las notas de versión (changelog) directamente desde GitHub y detalla el tamaño de la descarga.
+
+### 6.2 Comportamiento según el Método de Instalación
+Pairee analiza 13 métodos de instalación diferentes para aplicar la actualización de forma correcta:
+* **Binarios Directos:**
+  - **Linux (tar.gz):** Descarga el binario y realiza un reemplazo atómico en la ruta actual de ejecución. Solicita reiniciar para aplicar.
+  - **Windows (ZIP):** Descarga la actualización, crea un script `.bat` temporal de auto-eliminación y reemplaza el ejecutable una vez que Pairee se cierra de forma limpia.
+  - **Windows (Inno Setup):** Descarga el archivo ejecutable del instalador y lo lanza de forma silenciosa en segundo plano (`/VERYSILENT`).
+* **Gestores de Paquetes:** Si detecta que Pairee fue instalado mediante un gestor de paquetes (como `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` en Linux, o `winget`, `scoop`, `chocolatey` en Windows), la ventana mostrará el comando exacto de terminal necesario para actualizar (ej. `winget upgrade Pairee` o `sudo apt update && sudo apt install pairee`) para que puedas ejecutarlo tú mismo en la consola.
+
+### 6.3 Verificación de Firma Segura
+Para evitar la ejecución de binarios corruptos o comprometidos, el descargador de Pairee obtiene automáticamente el hash `.sha256` provisto en GitHub Releases y verifica la integridad del archivo descargado antes de proceder con cualquier paso de instalación.
+
+---
+
+## 📖 7. Manuales de Integración Avanzada
 
 Para módulos más complejos y detallados, por favor consulta sus manuales específicos:
 * **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_es.md).
 * **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
+

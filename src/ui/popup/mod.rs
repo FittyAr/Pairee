@@ -10,6 +10,7 @@ pub mod info;
 pub mod menus;
 pub mod prompts;
 pub mod screens_menu;
+pub mod update;
 pub mod viewer;
 pub mod yazi;
 
@@ -99,6 +100,9 @@ fn render_specific_popup(
         return;
     }
     if git_confirm_checkout::render(f, popup, theme, size) {
+        return;
+    }
+    if update::render(f, popup, theme, size) {
         return;
     }
 }

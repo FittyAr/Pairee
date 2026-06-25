@@ -170,6 +170,8 @@ pub enum Action {
     SaveSetup,
     /// Open system settings dialog
     SystemSettings,
+    /// Manually check for available updates
+    CheckForUpdates,
 
     // ── General ─────────────────────────────────────────────────────────────
     /// Toggle visibility of dotfiles/hidden files (Ctrl+H)

@@ -197,3 +197,16 @@ Specifies which operations require an explicit warning dialog before proceeding.
 ### Author Identity
 * **Author name / Author email:** Override author details for commits. If left blank, Pairee reads from system git config files.
 * **Max log entries:** Limits how many commits to show in log listings.
+
+---
+
+## ⚙️ Configuration File Settings (settings.toml)
+
+Some advanced parameters can be configured directly inside your `settings.toml` file (located in your configuration folder):
+
+### Auto-Update Configurations
+* **`auto_update_check`** (`bool`, default: `true`):
+  - *Description:* When enabled, Pairee queries GitHub Releases asynchronously at launch to check for new updates.
+* **`dismissed_update_version`** (`string`, default: `null` / empty):
+  - *Description:* Stores the version string (e.g., `v1.2.3`) of an update that was explicitly ignored or dismissed by the user, preventing future notification popups for that specific release. You can clear this value to re-enable checks for that version.
+

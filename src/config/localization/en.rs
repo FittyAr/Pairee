@@ -140,6 +140,7 @@ pub fn get_default_english_translation(key: &str) -> String {
 
         // Options menu items
         "menu_configuration" => "&Configuration...",
+        "menu_check_updates" => "Check for &updates",
         "menu_save_setup" => "&Save setup",
 
         // Popup titles & options

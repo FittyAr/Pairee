@@ -225,6 +225,14 @@ pub struct Settings {
     /// Maximum number of commits to load in the log view
     #[serde(default = "default_git_log_limit")]
     pub git_log_limit: u32,
+
+    // ── Auto-update settings ────────────────────────────────────────────────
+    /// Whether Pairee should check GitHub Releases for updates on startup
+    #[serde(default = "default_true")]
+    pub auto_update_check: bool,
+    /// If set, Pairee will not notify the user about this specific version tag
+    #[serde(default)]
+    pub dismissed_update_version: Option<String>,
 }
 
 impl Default for Settings {
@@ -387,6 +395,10 @@ impl Default for Settings {
             git_author_name: String::new(),
             git_author_email: String::new(),
             git_log_limit: 100,
+
+            // Update
+            auto_update_check: true,
+            dismissed_update_version: None,
         }
     }
 }

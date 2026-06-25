@@ -102,10 +102,33 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 
 ---
 
-## 📖 6. Advanced Integration Manuals
+## 🌐 6. Smart Auto-Update System
+
+Pairee features a fully integrated auto-update system that determines how your application was installed and processes updates securely and automatically.
+
+### 6.1 Interactive Notification & Releases Popup
+* **Automatic Checks:** If enabled, Pairee checks the latest GitHub releases in the background at startup.
+* **Update Badge:** If a new release is available, a yellow `▲ UPDATE` indicator badge appears at the top right of the screen (next to the clock).
+* **Release Notes Viewer:** Clicking on the badge or selecting `Check for updates` from the `F9 (Options)` menu opens the Update dialog. This popup fetches and formats the release notes / changelog directly from GitHub and shows the release size.
+
+### 6.2 Platform & Package-Manager Actions
+Pairee checks 13 different installation paths to apply updates correctly:
+* **Direct Binaries:**
+  - **Linux (tar.gz):** Downloads and performs an atomic binary replacement in the active run path. A restart is prompted.
+  - **Windows (ZIP):** Downloads the release, writes a temporary self-destructing batch script helper, and updates the executable cleanly after Pairee exits.
+  - **Windows (Inno Setup):** Downloads the installer and executes it silently in the background (`/VERYSILENT`).
+* **Package Managers:** If Pairee detects it was installed via a package manager (e.g., `apt`, `dnf`/`rpm`, `pacman`, `nix`, `snap`, `flatpak` on Linux, or `winget`, `scoop`, `chocolatey` on Windows), it displays the exact console command required to update Pairee (e.g., `winget upgrade Pairee` or `sudo apt update && sudo apt install pairee`). You can easily view this command to run it in your shell.
+
+### 6.3 Secure Signature Verification
+To prevent running compromised binaries, Pairee's built-in downloader automatically fetches the corresponding `.sha256` hash from GitHub Releases and validates the downloaded payload's integrity before initiating any installation.
+
+---
+
+## 📖 7. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:
 * **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_en.md).
 * **Git Integration:** See [Git Integration Reference Manual](file:///home/fitty/GitHub/Pairee/help/git_integration_en.md).
 * **Detailed Configurations:** See [Configuration Settings Manual](file:///home/fitty/GitHub/Pairee/help/configuration_details_en.md).
 * **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_en.md).
+
