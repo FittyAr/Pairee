@@ -109,6 +109,8 @@ pub fn handle_ui_settings_action(
                 state.active_popup = Some(PopupType::Menu {
                     active_menu_idx: 0,
                     active_item_idx,
+                    active_submenu_idx: None,
+                    active_submenu_item_idx: None,
                 });
             }
             true
@@ -251,6 +253,12 @@ pub fn handle_ui_settings_action(
                 reverse,
                 cursor_idx: 0,
             });
+            true
+        }
+        Action::ToggleSortReverse => {
+            let current = state.get_active_panel().sort_reverse;
+            state.get_active_panel_mut().sort_reverse = !current;
+            state.refresh_both_panels(context.config.settings.show_hidden);
             true
         }
         Action::SortByName => {

@@ -52,9 +52,9 @@ fn send_to_recycle_bin(path: &Path) -> Result<()> {
 }
 
 fn run_as_admin_delete(path: &Path) -> Result<()> {
-    crate::fs::run_in_elevated_helper(vec![
-        crate::fs::FsOperation::Delete { path: path.to_path_buf() }
-    ])
+    crate::fs::run_in_elevated_helper(vec![crate::fs::FsOperation::Delete {
+        path: path.to_path_buf(),
+    }])
 }
 
 pub(crate) fn make_writable(path: &Path) -> std::io::Result<()> {

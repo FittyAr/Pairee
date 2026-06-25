@@ -37,6 +37,7 @@ pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_panel;
 pub mod ssh_connect;
+pub mod yazi_popup;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
@@ -70,6 +71,9 @@ pub fn handle_popup_input(
             PopupType::EditorSearchPrompt { .. } => editor::handle(state, key, context),
             PopupType::ViewerSearchPrompt { .. } => viewer::handle(state, key, context),
             PopupType::Menu { .. } => menu::handle(state, key, context),
+            PopupType::YaziSortPopup | PopupType::YaziViewPopup => {
+                yazi_popup::handle(state, key, context)
+            }
             PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
             PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
             PopupType::Hotlist { .. } => hotlist::handle(state, key, context),

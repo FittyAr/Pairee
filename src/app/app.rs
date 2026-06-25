@@ -262,6 +262,20 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                         continue;
                     }
 
+                    if context.config.settings.enable_yazi_workflow && state.cli_input.is_empty() {
+                        if let crossterm::event::KeyCode::Char(c) = key.code {
+                            if key.modifiers.is_empty() {
+                                if c == 's' {
+                                    state.active_popup = Some(PopupType::YaziSortPopup);
+                                    continue;
+                                } else if c == 'v' {
+                                    state.active_popup = Some(PopupType::YaziViewPopup);
+                                    continue;
+                                }
+                            }
+                        }
+                    }
+
                     // CLI input takes priority next if applicable
                     if handle_cli_input(&mut state, key, &context, &mut terminal_backend).is_ok() {
                         continue;

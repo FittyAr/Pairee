@@ -387,4 +387,16 @@ pub fn populate_rows(
         ),
         RowType::Setting(36),
     ));
+    rows.push((
+        format!(
+            "[{}] {}",
+            if settings.enable_yazi_workflow {
+                "x"
+            } else {
+                " "
+            },
+            t("int_yazi_workflow")
+        ),
+        RowType::Setting(37),
+    ));
 }

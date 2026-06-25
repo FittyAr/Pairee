@@ -133,6 +133,9 @@ pub fn handle_row(
                 _ => "norton".to_string(),
             };
         }
+        37 => {
+            settings.enable_yazi_workflow = !settings.enable_yazi_workflow;
+        }
         _ => {}
     }
     None

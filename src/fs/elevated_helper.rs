@@ -1,6 +1,6 @@
-use std::path::Path;
-use anyhow::{Result, Context};
 use super::privileges::FsOperation;
+use anyhow::{Context, Result};
+use std::path::Path;
 
 pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
     let res_file = temp_file_path.with_extension("res");
@@ -8,8 +8,8 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
     let run = || -> Result<()> {
         let content = std::fs::read_to_string(temp_file_path)
             .context("Failed to read operations temp file")?;
-        let ops: Vec<FsOperation> = serde_json::from_str(&content)
-            .context("Failed to deserialize operations JSON")?;
+        let ops: Vec<FsOperation> =
+            serde_json::from_str(&content).context("Failed to deserialize operations JSON")?;
 
         for op in ops {
             match op {

@@ -1,7 +1,7 @@
+use anyhow::{Context, Result};
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use anyhow::{Result, Context};
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FsOperation {
@@ -165,8 +165,12 @@ mod tests {
     #[test]
     fn test_operation_serialization() {
         let ops = vec![
-            FsOperation::MkDir { path: PathBuf::from("test/dir") },
-            FsOperation::Delete { path: PathBuf::from("test/file") },
+            FsOperation::MkDir {
+                path: PathBuf::from("test/dir"),
+            },
+            FsOperation::Delete {
+                path: PathBuf::from("test/file"),
+            },
             FsOperation::Copy {
                 src: PathBuf::from("test/src"),
                 dst: PathBuf::from("test/dst"),
@@ -181,4 +185,3 @@ mod tests {
         }
     }
 }
-

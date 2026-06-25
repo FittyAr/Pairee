@@ -30,15 +30,17 @@ pub(crate) fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
 }
 
 pub(crate) fn run_as_admin_copy(src: &Path, dst: &Path) -> Result<()> {
-    crate::fs::run_in_elevated_helper(vec![
-        crate::fs::FsOperation::Copy { src: src.to_path_buf(), dst: dst.to_path_buf() }
-    ])
+    crate::fs::run_in_elevated_helper(vec![crate::fs::FsOperation::Copy {
+        src: src.to_path_buf(),
+        dst: dst.to_path_buf(),
+    }])
 }
 
 pub(crate) fn run_as_admin_move(src: &Path, dst: &Path) -> Result<()> {
-    crate::fs::run_in_elevated_helper(vec![
-        crate::fs::FsOperation::Move { src: src.to_path_buf(), dst: dst.to_path_buf() }
-    ])
+    crate::fs::run_in_elevated_helper(vec![crate::fs::FsOperation::Move {
+        src: src.to_path_buf(),
+        dst: dst.to_path_buf(),
+    }])
 }
 
 #[allow(clippy::too_many_arguments)]

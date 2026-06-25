@@ -3,9 +3,9 @@ use std::fs;
 use std::path::Path;
 
 fn run_as_admin_mkdir(path: &Path) -> Result<()> {
-    crate::fs::run_in_elevated_helper(vec![
-        crate::fs::FsOperation::MkDir { path: path.to_path_buf() }
-    ])
+    crate::fs::run_in_elevated_helper(vec![crate::fs::FsOperation::MkDir {
+        path: path.to_path_buf(),
+    }])
 }
 
 /// Creates a new directory at the specified path.

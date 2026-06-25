@@ -374,6 +374,9 @@ pub fn get_default_english_translation(key: &str) -> String {
         "int_auto_modal" => "Modal mode",
         "int_auto_append" => "Append the first matched item",
         "int_keybindings" => "Keybindings preset:",
+        "int_yazi_workflow" => "Enable Yazi-like prefix workflow (s/v keys)",
+        "menu_view_mode" => "View mode",
+        "menu_sort_by" => "Sort by... ",
 
         // Editor & Viewer Settings Row Labels
         "ed_external" => "Use external editor for F4 instead of Alt+F4",

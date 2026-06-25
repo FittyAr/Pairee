@@ -154,6 +154,7 @@ pub struct Settings {
     pub autocomplete_show_list: bool,
     pub autocomplete_modal_mode: bool,
     pub autocomplete_append_first: bool,
+    pub enable_yazi_workflow: bool,
 
     // ── NEW Language & Plugins settings (Tab 4 stubs/interactive) ────────────
     pub language: String,
@@ -327,6 +328,7 @@ impl Default for Settings {
             autocomplete_show_list: true,
             autocomplete_modal_mode: false,
             autocomplete_append_first: false,
+            enable_yazi_workflow: false,
 
             // Tab 4
             language: "English".to_string(),

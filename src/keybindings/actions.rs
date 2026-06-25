@@ -206,4 +206,6 @@ pub enum Action {
     SshDisconnect,
     /// Open Git integration panel (Alt+G)
     OpenGitPanel,
+    /// Toggle reverse sorting order for active panel
+    ToggleSortReverse,
 }

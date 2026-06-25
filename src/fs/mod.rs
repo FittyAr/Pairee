@@ -30,8 +30,6 @@ pub use ops_worker::{
 };
 pub mod elevated_helper;
 
-pub use privileges::{
-    FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper,
-};
+pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};
 pub use rename_move::rename_or_move_sync;
 pub mod ssh;

@@ -11,6 +11,7 @@ pub mod menus;
 pub mod prompts;
 pub mod screens_menu;
 pub mod viewer;
+pub mod yazi;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
@@ -59,6 +60,9 @@ fn render_specific_popup(
     size: Rect,
 ) {
     if prompts::render_prompt_popup(f, popup, theme, size, context) {
+        return;
+    }
+    if yazi::render_yazi_popup(f, popup, theme, size) {
         return;
     }
     if menus::render_menu_popup(f, popup, theme, size, left_rect, right_rect, state, context) {

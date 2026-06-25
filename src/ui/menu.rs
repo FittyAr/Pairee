@@ -22,6 +22,7 @@ pub struct MenuItemData {
     pub active: bool,
     pub is_separator: bool,
     pub action: Option<Action>,
+    pub submenu_idx: Option<usize>,
 }
 
 impl MenuItemData {
@@ -32,10 +33,15 @@ impl MenuItemData {
             active,
             is_separator: false,
             action: None,
+            submenu_idx: None,
         }
     }
     pub fn with_action(mut self, action: Action) -> Self {
         self.action = Some(action);
+        self
+    }
+    pub fn with_submenu(mut self, submenu_idx: usize) -> Self {
+        self.submenu_idx = Some(submenu_idx);
         self
     }
     pub fn separator() -> Self {
@@ -45,6 +51,7 @@ impl MenuItemData {
             active: false,
             is_separator: true,
             action: None,
+            submenu_idx: None,
         }
     }
 }
@@ -67,60 +74,7 @@ pub fn get_menu_items(
     match menu_idx {
         0 => {
             let mut items = vec![
-                MenuItemData::new(
-                    t("menu_brief"),
-                    &shortcut_for(Action::PanelViewBrief, "Ctrl+1"),
-                    state.left_panel.view_mode == PanelViewMode::Brief,
-                )
-                .with_action(Action::PanelViewBrief),
-                MenuItemData::new(
-                    t("menu_medium"),
-                    &shortcut_for(Action::PanelViewMedium, "Ctrl+2"),
-                    state.left_panel.view_mode == PanelViewMode::Medium,
-                )
-                .with_action(Action::PanelViewMedium),
-                MenuItemData::new(
-                    t("menu_full"),
-                    &shortcut_for(Action::PanelViewFull, "Ctrl+3"),
-                    state.left_panel.view_mode == PanelViewMode::Full,
-                )
-                .with_action(Action::PanelViewFull),
-                MenuItemData::new(
-                    t("menu_wide"),
-                    &shortcut_for(Action::PanelViewWide, "Ctrl+4"),
-                    state.left_panel.view_mode == PanelViewMode::Wide,
-                )
-                .with_action(Action::PanelViewWide),
-                MenuItemData::new(
-                    t("menu_detailed"),
-                    &shortcut_for(Action::PanelViewDetailed, "Ctrl+5"),
-                    state.left_panel.view_mode == PanelViewMode::Detailed,
-                )
-                .with_action(Action::PanelViewDetailed),
-                MenuItemData::new(
-                    t("menu_descriptions"),
-                    &shortcut_for(Action::PanelViewDescriptions, "Ctrl+6"),
-                    state.left_panel.view_mode == PanelViewMode::Descriptions,
-                )
-                .with_action(Action::PanelViewDescriptions),
-                MenuItemData::new(
-                    t("menu_file_owners"),
-                    &shortcut_for(Action::PanelViewFileOwners, "Ctrl+7"),
-                    state.left_panel.view_mode == PanelViewMode::FileOwners,
-                )
-                .with_action(Action::PanelViewFileOwners),
-                MenuItemData::new(
-                    t("menu_file_links"),
-                    &shortcut_for(Action::PanelViewFileLinks, "Ctrl+8"),
-                    state.left_panel.view_mode == PanelViewMode::FileLinks,
-                )
-                .with_action(Action::PanelViewFileLinks),
-                MenuItemData::new(
-                    t("menu_alt_full"),
-                    &shortcut_for(Action::PanelViewAltFull, "Ctrl+9"),
-                    state.left_panel.view_mode == PanelViewMode::AltFull,
-                )
-                .with_action(Action::PanelViewAltFull),
+                MenuItemData::new(format!("{} >", t("menu_view_mode")), "", false).with_submenu(5),
                 MenuItemData::separator(),
                 MenuItemData::new(
                     t("menu_info_panel"),
@@ -141,60 +95,7 @@ pub fn get_menu_items(
                     false,
                 )
                 .with_action(Action::SortModes),
-                MenuItemData::new(
-                    t("menu_sort_name"),
-                    &shortcut_for(Action::SortByName, "Ctrl+F3"),
-                    false,
-                )
-                .with_action(Action::SortByName),
-                MenuItemData::new(
-                    t("menu_sort_ext"),
-                    &shortcut_for(Action::SortByExtension, "Ctrl+F4"),
-                    false,
-                )
-                .with_action(Action::SortByExtension),
-                MenuItemData::new(
-                    t("menu_sort_write"),
-                    &shortcut_for(Action::SortByWriteTime, "Ctrl+F5"),
-                    false,
-                )
-                .with_action(Action::SortByWriteTime),
-                MenuItemData::new(
-                    t("menu_sort_size"),
-                    &shortcut_for(Action::SortBySize, "Ctrl+F6"),
-                    false,
-                )
-                .with_action(Action::SortBySize),
-                MenuItemData::new(
-                    t("menu_sort_unsorted"),
-                    &shortcut_for(Action::SortUnsorted, "Ctrl+F7"),
-                    false,
-                )
-                .with_action(Action::SortUnsorted),
-                MenuItemData::new(
-                    t("menu_sort_create"),
-                    &shortcut_for(Action::SortByCreationTime, "Ctrl+F8"),
-                    false,
-                )
-                .with_action(Action::SortByCreationTime),
-                MenuItemData::new(
-                    t("menu_sort_access"),
-                    &shortcut_for(Action::SortByAccessTime, "Ctrl+F9"),
-                    false,
-                )
-                .with_action(Action::SortByAccessTime),
-                MenuItemData::new(
-                    t("menu_sort_desc"),
-                    &shortcut_for(Action::SortByDescription, "Ctrl+F10"),
-                    false,
-                )
-                .with_action(Action::SortByDescription),
-                MenuItemData::new(
-                    t("menu_sort_owner"),
-                    &shortcut_for(Action::SortByOwner, "Ctrl+F11"),
-                    false,
-                )
-                .with_action(Action::SortByOwner),
+                MenuItemData::new(format!("{} >", t("menu_sort_by")), "", false).with_submenu(6),
                 MenuItemData::new(
                     t("menu_show_long_names"),
                     &shortcut_for(Action::ToggleLongNames, "Ctrl+N"),
@@ -491,60 +392,7 @@ pub fn get_menu_items(
         ],
         4 => {
             let mut items = vec![
-                MenuItemData::new(
-                    t("menu_brief"),
-                    &shortcut_for(Action::PanelViewBrief, "Ctrl+1"),
-                    state.right_panel.view_mode == PanelViewMode::Brief,
-                )
-                .with_action(Action::PanelViewBrief),
-                MenuItemData::new(
-                    t("menu_medium"),
-                    &shortcut_for(Action::PanelViewMedium, "Ctrl+2"),
-                    state.right_panel.view_mode == PanelViewMode::Medium,
-                )
-                .with_action(Action::PanelViewMedium),
-                MenuItemData::new(
-                    t("menu_full"),
-                    &shortcut_for(Action::PanelViewFull, "Ctrl+3"),
-                    state.right_panel.view_mode == PanelViewMode::Full,
-                )
-                .with_action(Action::PanelViewFull),
-                MenuItemData::new(
-                    t("menu_wide"),
-                    &shortcut_for(Action::PanelViewWide, "Ctrl+4"),
-                    state.right_panel.view_mode == PanelViewMode::Wide,
-                )
-                .with_action(Action::PanelViewWide),
-                MenuItemData::new(
-                    t("menu_detailed"),
-                    &shortcut_for(Action::PanelViewDetailed, "Ctrl+5"),
-                    state.right_panel.view_mode == PanelViewMode::Detailed,
-                )
-                .with_action(Action::PanelViewDetailed),
-                MenuItemData::new(
-                    t("menu_descriptions"),
-                    &shortcut_for(Action::PanelViewDescriptions, "Ctrl+6"),
-                    state.right_panel.view_mode == PanelViewMode::Descriptions,
-                )
-                .with_action(Action::PanelViewDescriptions),
-                MenuItemData::new(
-                    t("menu_file_owners"),
-                    &shortcut_for(Action::PanelViewFileOwners, "Ctrl+7"),
-                    state.right_panel.view_mode == PanelViewMode::FileOwners,
-                )
-                .with_action(Action::PanelViewFileOwners),
-                MenuItemData::new(
-                    t("menu_file_links"),
-                    &shortcut_for(Action::PanelViewFileLinks, "Ctrl+8"),
-                    state.right_panel.view_mode == PanelViewMode::FileLinks,
-                )
-                .with_action(Action::PanelViewFileLinks),
-                MenuItemData::new(
-                    t("menu_alt_full"),
-                    &shortcut_for(Action::PanelViewAltFull, "Ctrl+9"),
-                    state.right_panel.view_mode == PanelViewMode::AltFull,
-                )
-                .with_action(Action::PanelViewAltFull),
+                MenuItemData::new(format!("{} >", t("menu_view_mode")), "", false).with_submenu(7),
                 MenuItemData::separator(),
                 MenuItemData::new(
                     t("menu_info_panel"),
@@ -565,60 +413,7 @@ pub fn get_menu_items(
                     false,
                 )
                 .with_action(Action::SortModes),
-                MenuItemData::new(
-                    t("menu_sort_name"),
-                    &shortcut_for(Action::SortByName, "Ctrl+F3"),
-                    false,
-                )
-                .with_action(Action::SortByName),
-                MenuItemData::new(
-                    t("menu_sort_ext"),
-                    &shortcut_for(Action::SortByExtension, "Ctrl+F4"),
-                    false,
-                )
-                .with_action(Action::SortByExtension),
-                MenuItemData::new(
-                    t("menu_sort_write"),
-                    &shortcut_for(Action::SortByWriteTime, "Ctrl+F5"),
-                    false,
-                )
-                .with_action(Action::SortByWriteTime),
-                MenuItemData::new(
-                    t("menu_sort_size"),
-                    &shortcut_for(Action::SortBySize, "Ctrl+F6"),
-                    false,
-                )
-                .with_action(Action::SortBySize),
-                MenuItemData::new(
-                    t("menu_sort_unsorted"),
-                    &shortcut_for(Action::SortUnsorted, "Ctrl+F7"),
-                    false,
-                )
-                .with_action(Action::SortUnsorted),
-                MenuItemData::new(
-                    t("menu_sort_create"),
-                    &shortcut_for(Action::SortByCreationTime, "Ctrl+F8"),
-                    false,
-                )
-                .with_action(Action::SortByCreationTime),
-                MenuItemData::new(
-                    t("menu_sort_access"),
-                    &shortcut_for(Action::SortByAccessTime, "Ctrl+F9"),
-                    false,
-                )
-                .with_action(Action::SortByAccessTime),
-                MenuItemData::new(
-                    t("menu_sort_desc"),
-                    &shortcut_for(Action::SortByDescription, "Ctrl+F10"),
-                    false,
-                )
-                .with_action(Action::SortByDescription),
-                MenuItemData::new(
-                    t("menu_sort_owner"),
-                    &shortcut_for(Action::SortByOwner, "Ctrl+F11"),
-                    false,
-                )
-                .with_action(Action::SortByOwner),
+                MenuItemData::new(format!("{} >", t("menu_sort_by")), "", false).with_submenu(8),
                 MenuItemData::new(
                     t("menu_show_long_names"),
                     &shortcut_for(Action::ToggleLongNames, "Ctrl+N"),
@@ -675,6 +470,230 @@ pub fn get_menu_items(
             }
             items
         }
+        5 => vec![
+            MenuItemData::new(
+                t("menu_brief"),
+                &shortcut_for(Action::PanelViewBrief, "Ctrl+1"),
+                state.left_panel.view_mode == PanelViewMode::Brief,
+            )
+            .with_action(Action::PanelViewBrief),
+            MenuItemData::new(
+                t("menu_medium"),
+                &shortcut_for(Action::PanelViewMedium, "Ctrl+2"),
+                state.left_panel.view_mode == PanelViewMode::Medium,
+            )
+            .with_action(Action::PanelViewMedium),
+            MenuItemData::new(
+                t("menu_full"),
+                &shortcut_for(Action::PanelViewFull, "Ctrl+3"),
+                state.left_panel.view_mode == PanelViewMode::Full,
+            )
+            .with_action(Action::PanelViewFull),
+            MenuItemData::new(
+                t("menu_wide"),
+                &shortcut_for(Action::PanelViewWide, "Ctrl+4"),
+                state.left_panel.view_mode == PanelViewMode::Wide,
+            )
+            .with_action(Action::PanelViewWide),
+            MenuItemData::new(
+                t("menu_detailed"),
+                &shortcut_for(Action::PanelViewDetailed, "Ctrl+5"),
+                state.left_panel.view_mode == PanelViewMode::Detailed,
+            )
+            .with_action(Action::PanelViewDetailed),
+            MenuItemData::new(
+                t("menu_descriptions"),
+                &shortcut_for(Action::PanelViewDescriptions, "Ctrl+6"),
+                state.left_panel.view_mode == PanelViewMode::Descriptions,
+            )
+            .with_action(Action::PanelViewDescriptions),
+            MenuItemData::new(
+                t("menu_file_owners"),
+                &shortcut_for(Action::PanelViewFileOwners, "Ctrl+7"),
+                state.left_panel.view_mode == PanelViewMode::FileOwners,
+            )
+            .with_action(Action::PanelViewFileOwners),
+            MenuItemData::new(
+                t("menu_file_links"),
+                &shortcut_for(Action::PanelViewFileLinks, "Ctrl+8"),
+                state.left_panel.view_mode == PanelViewMode::FileLinks,
+            )
+            .with_action(Action::PanelViewFileLinks),
+            MenuItemData::new(
+                t("menu_alt_full"),
+                &shortcut_for(Action::PanelViewAltFull, "Ctrl+9"),
+                state.left_panel.view_mode == PanelViewMode::AltFull,
+            )
+            .with_action(Action::PanelViewAltFull),
+        ],
+        6 => vec![
+            MenuItemData::new(
+                t("menu_sort_name"),
+                &shortcut_for(Action::SortByName, "Ctrl+F3"),
+                state.left_panel.sort_field == crate::app::state::SortField::Name,
+            )
+            .with_action(Action::SortByName),
+            MenuItemData::new(
+                t("menu_sort_ext"),
+                &shortcut_for(Action::SortByExtension, "Ctrl+F4"),
+                state.left_panel.sort_field == crate::app::state::SortField::Extension,
+            )
+            .with_action(Action::SortByExtension),
+            MenuItemData::new(
+                t("menu_sort_write"),
+                &shortcut_for(Action::SortByWriteTime, "Ctrl+F5"),
+                state.left_panel.sort_field == crate::app::state::SortField::Date,
+            )
+            .with_action(Action::SortByWriteTime),
+            MenuItemData::new(
+                t("menu_sort_size"),
+                &shortcut_for(Action::SortBySize, "Ctrl+F6"),
+                state.left_panel.sort_field == crate::app::state::SortField::Size,
+            )
+            .with_action(Action::SortBySize),
+            MenuItemData::new(
+                t("menu_sort_unsorted"),
+                &shortcut_for(Action::SortUnsorted, "Ctrl+F7"),
+                state.left_panel.sort_field == crate::app::state::SortField::Unsorted,
+            )
+            .with_action(Action::SortUnsorted),
+            MenuItemData::new(
+                t("menu_sort_create"),
+                &shortcut_for(Action::SortByCreationTime, "Ctrl+F8"),
+                false,
+            )
+            .with_action(Action::SortByCreationTime),
+            MenuItemData::new(
+                t("menu_sort_access"),
+                &shortcut_for(Action::SortByAccessTime, "Ctrl+F9"),
+                false,
+            )
+            .with_action(Action::SortByAccessTime),
+            MenuItemData::new(
+                t("menu_sort_desc"),
+                &shortcut_for(Action::SortByDescription, "Ctrl+F10"),
+                false,
+            )
+            .with_action(Action::SortByDescription),
+            MenuItemData::new(
+                t("menu_sort_owner"),
+                &shortcut_for(Action::SortByOwner, "Ctrl+F11"),
+                false,
+            )
+            .with_action(Action::SortByOwner),
+        ],
+        7 => vec![
+            MenuItemData::new(
+                t("menu_brief"),
+                &shortcut_for(Action::PanelViewBrief, "Ctrl+1"),
+                state.right_panel.view_mode == PanelViewMode::Brief,
+            )
+            .with_action(Action::PanelViewBrief),
+            MenuItemData::new(
+                t("menu_medium"),
+                &shortcut_for(Action::PanelViewMedium, "Ctrl+2"),
+                state.right_panel.view_mode == PanelViewMode::Medium,
+            )
+            .with_action(Action::PanelViewMedium),
+            MenuItemData::new(
+                t("menu_full"),
+                &shortcut_for(Action::PanelViewFull, "Ctrl+3"),
+                state.right_panel.view_mode == PanelViewMode::Full,
+            )
+            .with_action(Action::PanelViewFull),
+            MenuItemData::new(
+                t("menu_wide"),
+                &shortcut_for(Action::PanelViewWide, "Ctrl+4"),
+                state.right_panel.view_mode == PanelViewMode::Wide,
+            )
+            .with_action(Action::PanelViewWide),
+            MenuItemData::new(
+                t("menu_detailed"),
+                &shortcut_for(Action::PanelViewDetailed, "Ctrl+5"),
+                state.right_panel.view_mode == PanelViewMode::Detailed,
+            )
+            .with_action(Action::PanelViewDetailed),
+            MenuItemData::new(
+                t("menu_descriptions"),
+                &shortcut_for(Action::PanelViewDescriptions, "Ctrl+6"),
+                state.right_panel.view_mode == PanelViewMode::Descriptions,
+            )
+            .with_action(Action::PanelViewDescriptions),
+            MenuItemData::new(
+                t("menu_file_owners"),
+                &shortcut_for(Action::PanelViewFileOwners, "Ctrl+7"),
+                state.right_panel.view_mode == PanelViewMode::FileOwners,
+            )
+            .with_action(Action::PanelViewFileOwners),
+            MenuItemData::new(
+                t("menu_file_links"),
+                &shortcut_for(Action::PanelViewFileLinks, "Ctrl+8"),
+                state.right_panel.view_mode == PanelViewMode::FileLinks,
+            )
+            .with_action(Action::PanelViewFileLinks),
+            MenuItemData::new(
+                t("menu_alt_full"),
+                &shortcut_for(Action::PanelViewAltFull, "Ctrl+9"),
+                state.right_panel.view_mode == PanelViewMode::AltFull,
+            )
+            .with_action(Action::PanelViewAltFull),
+        ],
+        8 => vec![
+            MenuItemData::new(
+                t("menu_sort_name"),
+                &shortcut_for(Action::SortByName, "Ctrl+F3"),
+                state.right_panel.sort_field == crate::app::state::SortField::Name,
+            )
+            .with_action(Action::SortByName),
+            MenuItemData::new(
+                t("menu_sort_ext"),
+                &shortcut_for(Action::SortByExtension, "Ctrl+F4"),
+                state.right_panel.sort_field == crate::app::state::SortField::Extension,
+            )
+            .with_action(Action::SortByExtension),
+            MenuItemData::new(
+                t("menu_sort_write"),
+                &shortcut_for(Action::SortByWriteTime, "Ctrl+F5"),
+                state.right_panel.sort_field == crate::app::state::SortField::Date,
+            )
+            .with_action(Action::SortByWriteTime),
+            MenuItemData::new(
+                t("menu_sort_size"),
+                &shortcut_for(Action::SortBySize, "Ctrl+F6"),
+                state.right_panel.sort_field == crate::app::state::SortField::Size,
+            )
+            .with_action(Action::SortBySize),
+            MenuItemData::new(
+                t("menu_sort_unsorted"),
+                &shortcut_for(Action::SortUnsorted, "Ctrl+F7"),
+                state.right_panel.sort_field == crate::app::state::SortField::Unsorted,
+            )
+            .with_action(Action::SortUnsorted),
+            MenuItemData::new(
+                t("menu_sort_create"),
+                &shortcut_for(Action::SortByCreationTime, "Ctrl+F8"),
+                false,
+            )
+            .with_action(Action::SortByCreationTime),
+            MenuItemData::new(
+                t("menu_sort_access"),
+                &shortcut_for(Action::SortByAccessTime, "Ctrl+F9"),
+                false,
+            )
+            .with_action(Action::SortByAccessTime),
+            MenuItemData::new(
+                t("menu_sort_desc"),
+                &shortcut_for(Action::SortByDescription, "Ctrl+F10"),
+                false,
+            )
+            .with_action(Action::SortByDescription),
+            MenuItemData::new(
+                t("menu_sort_owner"),
+                &shortcut_for(Action::SortByOwner, "Ctrl+F11"),
+                false,
+            )
+            .with_action(Action::SortByOwner),
+        ],
         _ => vec![],
     }
 }
@@ -740,13 +759,12 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     f.render_widget(paragraph, menu_chunks[0]);
 
     if state.is_root {
-        let root_para = Paragraph::new(" [ROOT] ")
-            .style(
-                Style::default()
-                    .bg(parse_color("DarkGray"))
-                    .fg(ratatui::style::Color::Red)
-                    .add_modifier(Modifier::BOLD),
-            );
+        let root_para = Paragraph::new(" [ROOT] ").style(
+            Style::default()
+                .bg(parse_color("DarkGray"))
+                .fg(ratatui::style::Color::Red)
+                .add_modifier(Modifier::BOLD),
+        );
         f.render_widget(root_para, menu_chunks[1]);
     }
 

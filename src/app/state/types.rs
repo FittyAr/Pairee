@@ -296,7 +296,11 @@ pub enum PopupType {
     Menu {
         active_menu_idx: usize,
         active_item_idx: Option<usize>,
+        active_submenu_idx: Option<usize>,
+        active_submenu_item_idx: Option<usize>,
     },
+    YaziSortPopup,
+    YaziViewPopup,
     ContextMenu {
         items: Vec<String>,
         cursor_idx: usize,

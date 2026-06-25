@@ -390,6 +390,7 @@ fn action_to_name(action: Action) -> String {
         Action::SshConnect => "ssh_connect",
         Action::SshDisconnect => "ssh_disconnect",
         Action::OpenGitPanel => "open_git_panel",
+        Action::ToggleSortReverse => "toggle_sort_reverse",
     }
     .to_string()
 }
@@ -537,6 +538,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "ssh_connect" => Some(Action::SshConnect),
         "ssh_disconnect" => Some(Action::SshDisconnect),
         "open_git_panel" => Some(Action::OpenGitPanel),
+        "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
 
         _ => None,
     }
