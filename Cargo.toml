@@ -2,6 +2,7 @@
 name = "pairee"
 version = "0.5.0"
 edition = "2024"
+default-run = "pairee"
 
 [dependencies]
 ratatui = "0.30.2"
