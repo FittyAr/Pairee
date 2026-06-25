@@ -255,9 +255,15 @@ pub enum PopupType {
         dest_input: String,
         kind: LinkKind,
     },
-    /// File mask filter for the active panel.
+    /// File mask filter for the active panel (glob filter).
     FilePanelFilterPrompt {
         input: String,
+    },
+    /// Quick filter prompt for the active panel (real-time fragment filter).
+    QuickFilterPrompt {
+        input: String,
+        original_mask: Option<String>,
+        original_cursor: usize,
     },
     /// Filter mask input specifically for Copy/Move popups
     CopyMoveFilterPrompt {

@@ -433,6 +433,8 @@ pub fn get_default_english_translation(key: &str) -> String {
         "user_cmd_refresh" => "Refresh panel",
         "user_cmd_toggle_hidden" => "Toggle hidden files",
         "user_cmd_swap" => "Swap panels",
+        "user_cmd_task_list" => "Task list",
+        "user_cmd_quick_filter" => "Quick filter",
         "user_cmd_help" => "Help overlay",
         "user_cmd_close" => "Close popup",
         "user_cmd_download" => "Download/Update check",
@@ -513,6 +515,10 @@ pub fn get_default_english_translation(key: &str) -> String {
         "prompt_filter_title" => " File Mask Filter ",
         "prompt_filter_text" => {
             "\n Enter mask filter (e.g. *.rs; empty to show all):\n\n > {}\n\n [Enter] Apply   [Esc] Cancel"
+        }
+        "prompt_quick_filter_title" => " Quick Filter ",
+        "prompt_quick_filter_text" => {
+            "\n Enter a filename fragment (empty to clear):\n\n > {}\n\n [Enter] Keep Filter   [Esc] Cancel/Clear"
         }
         "prompt_wipe_warn_title" => " WARNING: Secure Wipe Confirm ",
         "prompt_wipe_warn_text" => {

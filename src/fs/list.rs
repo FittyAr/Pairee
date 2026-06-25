@@ -176,8 +176,6 @@ fn cmp_standard(a: &str, b: &str, case_sensitive: bool) -> std::cmp::Ordering {
     }
 }
 
-/// Returns the sort key (extension) for an entry depending on sort-by-extension mode.
-/// Directories have an empty extension unless sort_folder_names_by_extension is set.
 fn entry_sort_key_ext(entry: &FileEntry, sort_folder_names_by_extension: bool) -> String {
     if entry.is_dir && !sort_folder_names_by_extension {
         String::new()
@@ -186,6 +184,112 @@ fn entry_sort_key_ext(entry: &FileEntry, sort_folder_names_by_extension: bool) -
             .extension()
             .map(|e| e.to_string_lossy().to_lowercase())
             .unwrap_or_default()
+    }
+}
+
+pub fn sort_entries(
+    entries: &mut Vec<FileEntry>,
+    sort_field: crate::app::state::SortField,
+    sort_reverse: bool,
+    case_sensitive_sort: bool,
+    treat_digits_as_numbers: bool,
+    sort_folder_names_by_extension: bool,
+) {
+    use crate::app::state::SortField;
+
+    if matches!(sort_field, SortField::Unsorted) {
+        // No sorting — just pin ".." first
+        if let Some(pos) = entries.iter().position(|e| e.name == "..") {
+            let dotdot = entries.remove(pos);
+            entries.insert(0, dotdot);
+        }
+    } else {
+        entries.sort_by(|a, b| {
+            // ".." is always first
+            if a.name == ".." {
+                return std::cmp::Ordering::Less;
+            }
+            if b.name == ".." {
+                return std::cmp::Ordering::Greater;
+            }
+
+            // Extension sort: folders and files are mixed by extension key
+            // All other sorts: directories sort before files
+            let dir_order = if matches!(sort_field, SortField::Extension) {
+                std::cmp::Ordering::Equal
+            } else {
+                match (a.is_dir, b.is_dir) {
+                    (true, false) => std::cmp::Ordering::Less,
+                    (false, true) => std::cmp::Ordering::Greater,
+                    _ => std::cmp::Ordering::Equal,
+                }
+            };
+
+            if dir_order != std::cmp::Ordering::Equal {
+                return if sort_reverse {
+                    dir_order.reverse()
+                } else {
+                    dir_order
+                };
+            }
+
+            let name_ord = match sort_field {
+                SortField::Name => {
+                    if treat_digits_as_numbers {
+                        cmp_natural(&a.name, &b.name, case_sensitive_sort)
+                    } else {
+                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                    }
+                }
+                SortField::Extension => {
+                    let ext_a = entry_sort_key_ext(a, sort_folder_names_by_extension);
+                    let ext_b = entry_sort_key_ext(b, sort_folder_names_by_extension);
+                    let ext_ord = if treat_digits_as_numbers {
+                        cmp_natural(&ext_a, &ext_b, case_sensitive_sort)
+                    } else {
+                        cmp_standard(&ext_a, &ext_b, case_sensitive_sort)
+                    };
+                    if ext_ord == std::cmp::Ordering::Equal {
+                        // Secondary sort by name when extensions are equal
+                        if treat_digits_as_numbers {
+                            cmp_natural(&a.name, &b.name, case_sensitive_sort)
+                        } else {
+                            cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                        }
+                    } else {
+                        ext_ord
+                    }
+                }
+                SortField::Size => {
+                    // Dirs: compare name; files: compare size
+                    if a.is_dir && b.is_dir {
+                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
+                    } else {
+                        a.size.cmp(&b.size)
+                    }
+                }
+                SortField::Date => {
+                    let t_a = a.modified.map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs()
+                    });
+                    let t_b = b.modified.map(|t| {
+                        t.duration_since(std::time::UNIX_EPOCH)
+                            .unwrap_or_default()
+                            .as_secs()
+                    });
+                    t_a.cmp(&t_b)
+                }
+                SortField::Unsorted => std::cmp::Ordering::Equal,
+            };
+
+            if sort_reverse {
+                name_ord.reverse()
+            } else {
+                name_ord
+            }
+        });
     }
 }
 
@@ -296,105 +400,15 @@ pub fn read_directory_ext(
     let mut read_entries = read_entries.context(format!("Failed to read directory: {:?}", path))?;
     entries.append(&mut read_entries);
 
-    // 3. Sort entries
-    //    ".." is always pinned first. Then directories before files (unless extension sort).
-    //    Sort field and direction are applied per settings.
-    use crate::app::state::SortField;
-
-    if matches!(sort_field, SortField::Unsorted) {
-        // No sorting — just pin ".." first
-        if let Some(pos) = entries.iter().position(|e| e.name == "..") {
-            let dotdot = entries.remove(pos);
-            entries.insert(0, dotdot);
-        }
-    } else {
-        entries.sort_by(|a, b| {
-            // ".." is always first
-            if a.name == ".." {
-                return std::cmp::Ordering::Less;
-            }
-            if b.name == ".." {
-                return std::cmp::Ordering::Greater;
-            }
-
-            // Extension sort: folders and files are mixed by extension key
-            // All other sorts: directories sort before files
-            let dir_order = if matches!(sort_field, SortField::Extension) {
-                std::cmp::Ordering::Equal
-            } else {
-                match (a.is_dir, b.is_dir) {
-                    (true, false) => std::cmp::Ordering::Less,
-                    (false, true) => std::cmp::Ordering::Greater,
-                    _ => std::cmp::Ordering::Equal,
-                }
-            };
-
-            if dir_order != std::cmp::Ordering::Equal {
-                return if sort_reverse {
-                    dir_order.reverse()
-                } else {
-                    dir_order
-                };
-            }
-
-            let name_ord = match sort_field {
-                SortField::Name => {
-                    if treat_digits_as_numbers {
-                        cmp_natural(&a.name, &b.name, case_sensitive_sort)
-                    } else {
-                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
-                    }
-                }
-                SortField::Extension => {
-                    let ext_a = entry_sort_key_ext(a, sort_folder_names_by_extension);
-                    let ext_b = entry_sort_key_ext(b, sort_folder_names_by_extension);
-                    let ext_ord = if treat_digits_as_numbers {
-                        cmp_natural(&ext_a, &ext_b, case_sensitive_sort)
-                    } else {
-                        cmp_standard(&ext_a, &ext_b, case_sensitive_sort)
-                    };
-                    if ext_ord == std::cmp::Ordering::Equal {
-                        // Secondary sort by name when extensions are equal
-                        if treat_digits_as_numbers {
-                            cmp_natural(&a.name, &b.name, case_sensitive_sort)
-                        } else {
-                            cmp_standard(&a.name, &b.name, case_sensitive_sort)
-                        }
-                    } else {
-                        ext_ord
-                    }
-                }
-                SortField::Size => {
-                    // Dirs: compare name; files: compare size
-                    if a.is_dir && b.is_dir {
-                        cmp_standard(&a.name, &b.name, case_sensitive_sort)
-                    } else {
-                        a.size.cmp(&b.size)
-                    }
-                }
-                SortField::Date => {
-                    let t_a = a.modified.map(|t| {
-                        t.duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs()
-                    });
-                    let t_b = b.modified.map(|t| {
-                        t.duration_since(std::time::UNIX_EPOCH)
-                            .unwrap_or_default()
-                            .as_secs()
-                    });
-                    t_a.cmp(&t_b)
-                }
-                SortField::Unsorted => std::cmp::Ordering::Equal,
-            };
-
-            if sort_reverse {
-                name_ord.reverse()
-            } else {
-                name_ord
-            }
-        });
-    }
+    // 3. Sort entries using the extracted public function
+    sort_entries(
+        &mut entries,
+        sort_field,
+        sort_reverse,
+        case_sensitive_sort,
+        treat_digits_as_numbers,
+        sort_folder_names_by_extension,
+    );
 
     Ok(entries)
 }

@@ -35,6 +35,15 @@ pub(crate) fn render_full(
         .enumerate()
         .map(|(rel, entry)| {
             let i = start + rel;
+            let is_dimmed = if let Some(ref mask) = panel.quick_filter_mask {
+                if entry.name == ".." {
+                    false
+                } else {
+                    !entry.name.to_lowercase().contains(&mask.to_lowercase())
+                }
+            } else {
+                false
+            };
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -42,6 +51,7 @@ pub(crate) fn render_full(
                 is_active,
                 theme,
                 highlight_files,
+                is_dimmed,
             );
             Row::new(vec![
                 Cell::from(entry_display_name(&entry.name, entry.is_dir)),

@@ -393,12 +393,23 @@ pub fn handle_ui_settings_action(
             true
         }
         Action::FilePanelFilter => {
-            let current = state
-                .get_active_panel()
-                .filter_mask
-                .clone()
-                .unwrap_or_default();
-            state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: current });
+            let active = state.get_active_panel();
+            let current = active.filter_mask.clone().unwrap_or_default();
+            state.active_popup = Some(PopupType::FilePanelFilterPrompt {
+                input: current,
+            });
+            true
+        }
+        Action::QuickFilter => {
+            let active = state.get_active_panel();
+            let current = active.quick_filter_mask.clone().unwrap_or_default();
+            let original_mask = active.quick_filter_mask.clone();
+            let original_cursor = active.cursor_index;
+            state.active_popup = Some(PopupType::QuickFilterPrompt {
+                input: current,
+                original_mask,
+                original_cursor,
+            });
             true
         }
         Action::TaskList => {

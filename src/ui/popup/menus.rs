@@ -96,7 +96,11 @@ pub fn render_menu_popup(
             true
         }
         PopupType::UserMenu { cursor_idx } => {
-            let area = centered_rect(50, 50, size);
+            let panel_rect = match state.active_panel {
+                ActivePanel::Left => left_rect,
+                ActivePanel::Right => right_rect,
+            };
+            let area = centered_rect_in(80, 55, panel_rect);
             f.render_widget(Clear, area);
 
             let block = Block::default()

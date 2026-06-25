@@ -36,6 +36,15 @@ pub(crate) fn render_medium(
         .enumerate()
         .map(|(rel, entry)| {
             let i = start + rel;
+            let is_dimmed = if let Some(ref mask) = panel.quick_filter_mask {
+                if entry.name == ".." {
+                    false
+                } else {
+                    !entry.name.to_lowercase().contains(&mask.to_lowercase())
+                }
+            } else {
+                false
+            };
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -43,6 +52,7 @@ pub(crate) fn render_medium(
                 is_active,
                 theme,
                 highlight_files,
+                is_dimmed,
             );
             let ext = if entry.is_dir {
                 "<DIR>".to_string()

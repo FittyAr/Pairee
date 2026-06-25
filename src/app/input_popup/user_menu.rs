@@ -45,45 +45,27 @@ pub fn get_user_menu_items() -> Vec<UserMenuItem> {
         });
         items.push(UserMenuItem {
             key: "4".to_string(),
-            label: crate::config::localization::t("user_cmd_help"),
+            label: crate::config::localization::t("user_cmd_task_list"),
             command: None,
-            action: Some(Action::Help),
+            action: Some(Action::TaskList),
         });
         items.push(UserMenuItem {
             key: "5".to_string(),
-            label: crate::config::localization::t("user_cmd_close"),
-            command: None,
-            action: None,
-        }); // Closes menu
-        items.push(UserMenuItem {
-            key: "6".to_string(),
-            label: crate::config::localization::t("user_cmd_download"),
-            command: None,
-            action: None,
-        }); // Special download task
-        items.push(UserMenuItem {
-            key: "7".to_string(),
-            label: crate::config::localization::t("user_cmd_screens"),
-            command: None,
-            action: Some(Action::ScreensList),
-        });
-        items.push(UserMenuItem {
-            key: "8".to_string(),
-            label: crate::config::localization::t("user_cmd_plugins"),
-            command: None,
-            action: Some(Action::PluginMenu),
-        });
-        items.push(UserMenuItem {
-            key: "9".to_string(),
             label: crate::config::localization::t("user_cmd_git"),
             command: None,
             action: Some(Action::OpenGitPanel),
         });
         items.push(UserMenuItem {
-            key: "0".to_string(),
-            label: crate::config::localization::t("user_cmd_settings"),
+            key: "F".to_string(),
+            label: crate::config::localization::t("user_cmd_quick_filter"),
             command: None,
-            action: Some(Action::SystemSettings),
+            action: Some(Action::QuickFilter),
+        });
+        items.push(UserMenuItem {
+            key: "H".to_string(),
+            label: crate::config::localization::t("user_cmd_help"),
+            command: None,
+            action: Some(Action::Help),
         });
     }
     // Always append Edit option at the end
@@ -175,63 +157,6 @@ fn execute_item(
             return Ok(None);
         }
         return Ok(Some(act));
-    }
-
-    if item.key == "5" {
-        // Close menu
-        return Ok(None);
-    }
-
-    if item.key == "6" {
-        // Download external tools (7z)
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        tokio::spawn(async move {
-            let _ = tx
-                .send(crate::fs::ProgressUpdate {
-                    current_file: "Downloading 7z...".to_string(),
-                    files_copied: 0,
-                    total_files: 1,
-                    bytes_copied: 0,
-                    total_bytes: 1,
-                    error: None,
-                })
-                .await;
-
-            if let Err(e) = crate::fs::external_tools::ensure_external_tools().await {
-                let _ = tx
-                    .send(crate::fs::ProgressUpdate {
-                        current_file: "Completed".to_string(),
-                        files_copied: 0,
-                        total_files: 1,
-                        bytes_copied: 0,
-                        total_bytes: 1,
-                        error: Some(format!("Failed to download: {}", e)),
-                    })
-                    .await;
-            } else {
-                let _ = tx
-                    .send(crate::fs::ProgressUpdate {
-                        current_file: "Completed".to_string(),
-                        files_copied: 1,
-                        total_files: 1,
-                        bytes_copied: 1,
-                        total_bytes: 1,
-                        error: None,
-                    })
-                    .await;
-            }
-        });
-
-        state.progress_rx = Some(rx);
-        state.active_popup = Some(PopupType::CopyProgress {
-            is_move: false,
-            current_file: "Initializing Download...".to_string(),
-            files_copied: 0,
-            total_files: 1,
-            bytes_copied: 0,
-            total_bytes: 1,
-        });
-        return Ok(None);
     }
 
     if let Some(cmd_template) = &item.command {

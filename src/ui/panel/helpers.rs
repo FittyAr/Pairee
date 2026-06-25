@@ -30,6 +30,7 @@ pub(crate) fn build_row_style(
     is_active: bool,
     theme: &Theme,
     highlight_files: bool,
+    is_dimmed: bool,
 ) -> Style {
     let base_style = Style::default().fg(parse_color(&theme.panel_fg));
     let mut style = if highlight_files {
@@ -38,6 +39,9 @@ pub(crate) fn build_row_style(
     } else {
         base_style
     };
+    if is_dimmed {
+        style = style.fg(ratatui::style::Color::DarkGray);
+    }
     if is_selected {
         style = style.fg(parse_color(&theme.marked_fg));
     }

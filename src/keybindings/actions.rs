@@ -162,6 +162,8 @@ pub enum Action {
     FolderShortcutsConfig,
     /// Set a permanent file mask filter on the active panel (Ctrl+I)
     FilePanelFilter,
+    /// Real-time interactive filename fragment filter (F/f, Ctrl+F)
+    QuickFilter,
     /// Show list of running OS processes (Ctrl+W)
     TaskList,
 

@@ -36,6 +36,7 @@ pub fn render_prompt_popup(
         | PopupType::SaveSetupConfirm => confirm::render(f, popup, theme, size),
 
         PopupType::FilePanelFilterPrompt { .. }
+        | PopupType::QuickFilterPrompt { .. }
         | PopupType::CopyMoveFilterPrompt { .. } => filter::render(f, popup, theme, size),
 
         PopupType::SshConnectPrompt { .. } => ssh::render(f, popup, theme, size, context),

@@ -26,6 +26,10 @@ pub struct PanelState {
     pub show_long_names: bool,
     /// Permanent mask filter (None = show all)
     pub filter_mask: Option<String>,
+    /// Quick name fragment filter
+    pub quick_filter_mask: Option<String>,
+    /// Last path refreshed in the panel
+    pub last_path: PathBuf,
     /// Active SSH connection detail, if any
     pub ssh_conn: Option<crate::fs::ssh::SharedSshClient>,
 }
@@ -33,7 +37,7 @@ pub struct PanelState {
 impl PanelState {
     pub fn new(path: PathBuf) -> Self {
         Self {
-            current_path: path,
+            current_path: path.clone(),
             entries: Vec::new(),
             cursor_index: 0,
             selected_paths: HashSet::new(),
@@ -43,6 +47,8 @@ impl PanelState {
             sort_reverse: false,
             show_long_names: true,
             filter_mask: None,
+            quick_filter_mask: None,
+            last_path: path,
             ssh_conn: None,
         }
     }

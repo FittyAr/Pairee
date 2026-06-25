@@ -105,6 +105,7 @@ restore_selection   = "Ctrl+m"
 # ── Commands ──────────────────────────────────────────────────────────────────
 swap_panels         = "Ctrl+u"
 file_panel_filter   = "Ctrl+i"
+quick_filter        = "Ctrl+f, f, F"
 task_list           = "Ctrl+w"
 
 # ── General ───────────────────────────────────────────────────────────────────

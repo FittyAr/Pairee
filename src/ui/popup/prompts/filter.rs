@@ -35,6 +35,25 @@ pub fn render(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::QuickFilterPrompt { input, .. } => {
+            let area = centered_rect(50, 25, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan))
+                .title(t("prompt_quick_filter_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = t("prompt_quick_filter_text").replacen("{}", input, 1);
+
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
         PopupType::CopyMoveFilterPrompt { input, previous: _ } => {
             let area = centered_rect(50, 25, size);
             f.render_widget(Clear, area);

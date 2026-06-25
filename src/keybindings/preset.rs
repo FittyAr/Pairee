@@ -268,6 +268,10 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Ctrl+U".to_string(), Action::SwapPanels);
     map.insert("Ctrl+i".to_string(), Action::FilePanelFilter);
     map.insert("Ctrl+I".to_string(), Action::FilePanelFilter);
+    map.insert("Ctrl+f".to_string(), Action::QuickFilter);
+    map.insert("Ctrl+F".to_string(), Action::QuickFilter);
+    map.insert("f".to_string(), Action::QuickFilter);
+    map.insert("F".to_string(), Action::QuickFilter);
     map.insert("Ctrl+w".to_string(), Action::TaskList);
     map.insert("Ctrl+W".to_string(), Action::TaskList);
 
@@ -370,6 +374,7 @@ fn action_to_name(action: Action) -> String {
         Action::FileAssociations => "file_associations",
         Action::FolderShortcutsConfig => "folder_shortcuts_config",
         Action::FilePanelFilter => "file_panel_filter",
+        Action::QuickFilter => "quick_filter",
         Action::TaskList => "task_list",
         Action::SaveSetup => "save_setup",
         Action::SystemSettings => "system_settings",
@@ -506,6 +511,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "file_associations" => Some(Action::FileAssociations),
         "folder_shortcuts_config" => Some(Action::FolderShortcutsConfig),
         "file_panel_filter" => Some(Action::FilePanelFilter),
+        "quick_filter" => Some(Action::QuickFilter),
         "task_list" => Some(Action::TaskList),
 
         // ── Options ───────────────────────────────────────────────────────────
