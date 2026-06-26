@@ -1,6 +1,6 @@
 ; installer.iss
 #define AppName "Pairee"
-#define AppVersion "0.5.1"
+#define AppVersion "0.6.0"
 #define AppPublisher "FittyAr"
 #define AppURL "https://github.com/FittyAr/Pairee"
 #define AppExeName "pairee.exe"

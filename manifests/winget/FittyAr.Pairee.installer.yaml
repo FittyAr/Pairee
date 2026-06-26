@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.installer.1.9.0.schema.json
 PackageIdentifier: FittyAr.Pairee
-PackageVersion: 0.5.1
+PackageVersion: 0.6.0
 InstallerType: inno
 InstallModes:
   - silent
@@ -9,10 +9,10 @@ UpgradeBehavior: install
 ReleaseDate: 2026-06-26
 Installers:
   - Architecture: x64
-    InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.5.1/pairee-setup-0.5.1-x64.exe
+    InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.6.0/pairee-setup-0.6.0-x64.exe
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000 # To be updated manually or by automated PR
   - Architecture: arm64
-    InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.5.1/pairee-setup-0.5.1-arm64.exe
+    InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.6.0/pairee-setup-0.6.0-arm64.exe
     InstallerSha256: 0000000000000000000000000000000000000000000000000000000000000000 # To be updated manually or by automated PR
 ManifestType: installer
 ManifestVersion: 1.9.0
