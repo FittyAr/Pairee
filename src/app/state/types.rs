@@ -405,6 +405,8 @@ pub enum PopupType {
     TaskListDialog {
         tasks: Vec<ProcessEntry>,
         cursor_idx: usize,
+        filter_query: String,
+        is_filtering: bool,
     },
 
     // ── File associations ─────────────────────────────────────────────────────

@@ -589,6 +589,12 @@ pub fn get_default_english_translation(key: &str) -> String {
         "col_process_name" => "Process Name",
         "col_memory" => "Memory (MB)",
         "task_list_hint" => " [Del / k] Kill process  [r] Restart process  [Esc] Close ",
+        "task_list_filter" => "Filter",
+        "task_list_hint_filtering" => " [Enter] Confirm filter  [Esc] Cancel ",
+        "task_list_hint_filtered" => {
+            " [Del / k] Kill  [r] Restart  [/] Edit filter  [Esc] Clear filter "
+        }
+        "task_list_hint_normal" => " [Del / k] Kill  [r] Restart  [/] Filter  [Esc] Close ",
         "associations_empty" => "\n No rules configured.\n\n [Esc] Close",
         "col_mask" => "Mask",
         "col_open_command" => "Open Command",

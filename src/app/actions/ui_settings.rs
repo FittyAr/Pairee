@@ -422,6 +422,8 @@ pub fn handle_ui_settings_action(
             state.active_popup = Some(PopupType::TaskListDialog {
                 tasks,
                 cursor_idx: 0,
+                filter_query: String::new(),
+                is_filtering: false,
             });
             true
         }
