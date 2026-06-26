@@ -55,7 +55,9 @@ pub async fn download_asset(
     }
 
     {
-        file.flush().await.context("failed to flush download file")?;
+        file.flush()
+            .await
+            .context("failed to flush download file")?;
     }
 
     if let Some(tx) = &progress_tx {
@@ -69,11 +71,14 @@ pub async fn download_asset(
 /// Returns Ok(()) on match, Err otherwise.
 pub fn verify_sha256(file_path: &std::path::Path, expected_hex: &str) -> Result<()> {
     use std::io::Read as _;
-    let mut file = std::fs::File::open(file_path).context("failed to open file for verification")?;
+    let mut file =
+        std::fs::File::open(file_path).context("failed to open file for verification")?;
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 65536];
     loop {
-        let n = file.read(&mut buf).context("read error during verification")?;
+        let n = file
+            .read(&mut buf)
+            .context("read error during verification")?;
         if n == 0 {
             break;
         }
@@ -104,8 +109,8 @@ impl Sha256 {
     fn new() -> Self {
         Self {
             state: [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c,
-                0x1f83d9ab, 0x5be0cd19,
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
             ],
             buffer: Vec::new(),
             total: 0,
@@ -229,27 +234,7 @@ pub fn expected_installer_name(version: &str) -> String {
 
 /// Returns the current target triple for this binary.
 fn current_target() -> &'static str {
-    // These cfg values are set by the Rust compiler
-    #[cfg(all(target_os = "linux", target_arch = "x86_64"))]
-    {
-        "x86_64-unknown-linux-musl"
-    }
-    #[cfg(all(target_os = "linux", target_arch = "aarch64"))]
-    {
-        "aarch64-unknown-linux-musl"
-    }
-    #[cfg(all(target_os = "windows", target_arch = "x86_64"))]
-    {
-        "x86_64-pc-windows-msvc"
-    }
-    #[cfg(all(target_os = "windows", target_arch = "aarch64"))]
-    {
-        "aarch64-pc-windows-msvc"
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        "unknown"
-    }
+    env!("PAIREE_TARGET")
 }
 
 fn build_client() -> Result<reqwest::Client> {

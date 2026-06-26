@@ -3,8 +3,8 @@ use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::{Rect, Alignment},
-    style::{Color, Style, Modifier},
+    layout::{Alignment, Rect},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
@@ -24,8 +24,12 @@ pub fn render_about_popup(
         let bg_style = Style::default().bg(parse_color(&theme.popup_bg));
         let text_style = Style::default().fg(parse_color(&theme.popup_fg));
         let bold_style = text_style.add_modifier(Modifier::BOLD);
-        let link_style = Style::default().fg(Color::Cyan).add_modifier(Modifier::UNDERLINED);
-        let title_style = Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD);
+        let link_style = Style::default()
+            .fg(Color::Cyan)
+            .add_modifier(Modifier::UNDERLINED);
+        let title_style = Style::default()
+            .fg(Color::Yellow)
+            .add_modifier(Modifier::BOLD);
 
         let block = Block::default()
             .borders(Borders::ALL)
@@ -39,13 +43,34 @@ pub fn render_about_popup(
             Span::styled("Pairee", title_style.fg(Color::LightCyan)),
             Span::styled(" - Terminal File Manager", title_style),
         ]));
-        lines.push(Line::from(Span::styled("==============================", Style::default().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled(
+            "==============================",
+            Style::default().fg(Color::DarkGray),
+        )));
         lines.push(Line::from(""));
 
         // Version
+        let git_suffix = env!("PAIREE_GIT_HASH");
+        let version_str = if git_suffix == "no-git" {
+            env!("CARGO_PKG_VERSION").to_string()
+        } else {
+            format!("{} ({})", env!("CARGO_PKG_VERSION"), git_suffix)
+        };
         lines.push(Line::from(vec![
             Span::styled(format!("{}: ", t("about_version")), bold_style),
-            Span::styled(env!("CARGO_PKG_VERSION"), text_style),
+            Span::styled(version_str, text_style),
+        ]));
+
+        // Target
+        lines.push(Line::from(vec![
+            Span::styled(format!("{}: ", t("about_target")), bold_style),
+            Span::styled(env!("PAIREE_TARGET"), text_style),
+        ]));
+
+        // Profile
+        lines.push(Line::from(vec![
+            Span::styled(format!("{}: ", t("about_profile")), bold_style),
+            Span::styled(env!("PAIREE_BUILD_PROFILE"), text_style),
         ]));
 
         // Website
@@ -68,35 +93,118 @@ pub fn render_about_popup(
 
         lines.push(Line::from(""));
         lines.push(Line::from(Span::styled(t("about_libraries"), bold_style)));
-        lines.push(Line::from(Span::styled("---------------------------", Style::default().fg(Color::DarkGray))));
+        lines.push(Line::from(Span::styled(
+            "---------------------------",
+            Style::default().fg(Color::DarkGray),
+        )));
 
         // List of dependencies
         let libs = vec![
             ("ratatui", "MIT", "https://github.com/ratatui/ratatui"),
-            ("crossterm", "MIT", "https://github.com/crossterm-rs/crossterm"),
+            (
+                "crossterm",
+                "MIT",
+                "https://github.com/crossterm-rs/crossterm",
+            ),
             ("tokio", "MIT", "https://github.com/tokio-rs/tokio"),
-            ("serde", "MIT/Apache-2.0", "https://github.com/serde-rs/serde"),
-            ("serde_json", "MIT/Apache-2.0", "https://github.com/serde-rs/json"),
+            (
+                "serde",
+                "MIT/Apache-2.0",
+                "https://github.com/serde-rs/serde",
+            ),
+            (
+                "serde_json",
+                "MIT/Apache-2.0",
+                "https://github.com/serde-rs/json",
+            ),
             ("toml", "MIT/Apache-2.0", "https://github.com/toml-rs/toml"),
-            ("directories", "MIT/Apache-2.0", "https://github.com/dirs-dev/directories-rs"),
-            ("anyhow", "MIT/Apache-2.0", "https://github.com/dtolnay/anyhow"),
-            ("thiserror", "MIT/Apache-2.0", "https://github.com/dtolnay/thiserror"),
+            (
+                "directories",
+                "MIT/Apache-2.0",
+                "https://github.com/dirs-dev/directories-rs",
+            ),
+            (
+                "anyhow",
+                "MIT/Apache-2.0",
+                "https://github.com/dtolnay/anyhow",
+            ),
+            (
+                "thiserror",
+                "MIT/Apache-2.0",
+                "https://github.com/dtolnay/thiserror",
+            ),
             ("log", "MIT/Apache-2.0", "https://github.com/rust-lang/log"),
-            ("simplelog", "MIT/Apache-2.0", "https://github.com/dignifiedquire/simplelog"),
-            ("chrono", "MIT/Apache-2.0", "https://github.com/chronotope/chrono"),
+            (
+                "simplelog",
+                "MIT/Apache-2.0",
+                "https://github.com/dignifiedquire/simplelog",
+            ),
+            (
+                "chrono",
+                "MIT/Apache-2.0",
+                "https://github.com/chronotope/chrono",
+            ),
             ("zip", "MIT", "https://github.com/zip-rs/zip2"),
-            ("tar", "MIT/Apache-2.0", "https://github.com/alexcrichton/tar-rs"),
-            ("flate2", "MIT/Apache-2.0", "https://github.com/rust-lang/flate2-rs"),
-            ("sevenz-rust", "Apache-2.0", "https://github.com/dyxushuai/sevenz-rust"),
-            ("pulldown-cmark", "MIT", "https://github.com/raphlinus/pulldown-cmark"),
-            ("image", "MIT/Apache-2.0", "https://github.com/image-rs/image"),
-            ("git2", "MIT/Apache-2.0", "https://github.com/rust-lang/git2-rs"),
-            ("futures-util", "MIT/Apache-2.0", "https://github.com/rust-lang/futures-rs"),
-            ("reqwest", "MIT/Apache-2.0", "https://github.com/seanmonstar/reqwest"),
-            ("windows-sys", "MIT/Apache-2.0", "https://github.com/microsoft/windows-rs"),
-            ("ssh2", "MIT/Apache-2.0", "https://github.com/alexcrichton/ssh2-rs"),
-            ("rustls", "Apache-2.0/MIT/ISC", "https://github.com/rustls/rustls"),
-            ("tempfile", "MIT/Apache-2.0", "https://github.com/Stebalien/tempfile"),
+            (
+                "tar",
+                "MIT/Apache-2.0",
+                "https://github.com/alexcrichton/tar-rs",
+            ),
+            (
+                "flate2",
+                "MIT/Apache-2.0",
+                "https://github.com/rust-lang/flate2-rs",
+            ),
+            (
+                "sevenz-rust",
+                "Apache-2.0",
+                "https://github.com/dyxushuai/sevenz-rust",
+            ),
+            (
+                "pulldown-cmark",
+                "MIT",
+                "https://github.com/raphlinus/pulldown-cmark",
+            ),
+            (
+                "image",
+                "MIT/Apache-2.0",
+                "https://github.com/image-rs/image",
+            ),
+            (
+                "git2",
+                "MIT/Apache-2.0",
+                "https://github.com/rust-lang/git2-rs",
+            ),
+            (
+                "futures-util",
+                "MIT/Apache-2.0",
+                "https://github.com/rust-lang/futures-rs",
+            ),
+            (
+                "reqwest",
+                "MIT/Apache-2.0",
+                "https://github.com/seanmonstar/reqwest",
+            ),
+            (
+                "windows-sys",
+                "MIT/Apache-2.0",
+                "https://github.com/microsoft/windows-rs",
+            ),
+            (
+                "ssh2",
+                "MIT/Apache-2.0",
+                "https://github.com/alexcrichton/ssh2-rs",
+            ),
+            (
+                "rustls",
+                "Apache-2.0/MIT/ISC",
+                "https://github.com/rustls/rustls",
+            ),
+            (
+                "tempfile",
+                "MIT/Apache-2.0",
+                "https://github.com/Stebalien/tempfile",
+            ),
         ];
 
         for (name, license, url) in libs {
@@ -107,7 +215,12 @@ pub fn render_about_popup(
             ]));
             lines.push(Line::from(vec![
                 Span::styled("  ", text_style),
-                Span::styled(url, Style::default().fg(Color::Blue).add_modifier(Modifier::UNDERLINED)),
+                Span::styled(
+                    url,
+                    Style::default()
+                        .fg(Color::Blue)
+                        .add_modifier(Modifier::UNDERLINED),
+                ),
             ]));
         }
 

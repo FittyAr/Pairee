@@ -1,10 +1,10 @@
-use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
-use crate::terminal::{Event, TerminalBackend};
 use crate::app::actions::handle_action;
+use crate::app::context::AppContext;
 use crate::app::input::handle_cli_input;
 use crate::app::input_popup::handle_popup_input;
 use crate::app::screen_input::handle_screen_input;
+use crate::app::state::{AppState, PopupType};
+use crate::terminal::{Event, TerminalBackend};
 
 pub async fn handle_input_event(
     state: &mut AppState,

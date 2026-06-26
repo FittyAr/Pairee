@@ -1,9 +1,9 @@
+use super::{colors, confirmations, editor_viewer, git, interface, panel, plugins, rows, system};
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::config::settings::Settings;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
-use super::{colors, confirmations, editor_viewer, git, interface, panel, plugins, system, rows};
 
 pub fn handle_navigation(
     state: &mut AppState,

@@ -40,10 +40,7 @@ pub async fn perform_update(
     #[cfg(target_os = "windows")]
     let (asset_name, use_installer) = {
         if matches!(method, InstallMethod::InnoSetup) {
-            (
-                downloader::expected_installer_name(&info.version),
-                true,
-            )
+            (downloader::expected_installer_name(&info.version), true)
         } else {
             (downloader::expected_asset_name(&info.version), false)
         }
@@ -89,8 +86,7 @@ pub async fn perform_update(
         )
         .await
         .context("failed to download SHA256 file")?;
-        let expected = std::fs::read_to_string(&sha_file)
-            .context("failed to read SHA256 file")?;
+        let expected = std::fs::read_to_string(&sha_file).context("failed to read SHA256 file")?;
         let expected = expected.split_whitespace().next().unwrap_or("").to_string();
         if !expected.is_empty() {
             downloader::verify_sha256(&downloaded, &expected)

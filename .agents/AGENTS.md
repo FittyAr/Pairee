@@ -1,4 +1,4 @@
-# Developer Guidelines for AI Agents (`agents.md`)
+# Developer Guidelines for AI Agents (`AGENTS.md`)
 
 This document establishes the architecture, design principles, and guidelines for any AI agent or developer modifying or extending the **Pairee** codebase. All changes must adhere strictly to these rules to maintain high modularity, testability, and cross-platform compatibility.
 
@@ -35,48 +35,48 @@ The project follows a strict modular structure. Ensure that new files are placed
 ```text
 Pairee/
 ├── Cargo.toml
-├── agents.md                      # This file
-├── norton_commander_features.md   # Reference for features
-└── src/
-    ├── main.rs                    # Application entry point
-    ├── app/                       # Application loop & state orchestration
-    │   ├── mod.rs
-    │   ├── app.rs                 # Main application event loop
-    │   ├── state.rs               # Application state (panels, focus, dialogs)
-    │   └── context.rs             # Runtime context (active config, themes, drives)
-    ├── config/                    # Config files management & serialisation
-    │   ├── mod.rs                 # Loader/saver configuration API
-    │   ├── settings.rs            # Structs for general settings
-    │   ├── keybindings.rs         # Structs for keybinding presets
-    │   ├── theme.rs               # Structs for modern styling themes
-    │   ├── paths.rs               # Platform-specific path resolution
-    │   ├── localization.rs        # Core translation lookup engine
-    │   └── localization/
-    │       └── en.rs              # Default English translation keys & constants
-    ├── keybindings/               # Keybinding mapping engine
-    │   ├── mod.rs
-    │   ├── actions.rs             # Logical application Action enum
-    │   ├── preset.rs              # Structs for predefined key binding sets
-    │   └── resolver.rs            # Mapping crossterm events to logical actions
-    ├── fs/                        # Filesystem operations
-    │   ├── mod.rs
-    │   ├── entry.rs               # File and directory representation
-    │   ├── list.rs                # Directory listing & filtering
-    │   ├── ops.rs                 # Standard operations (mkdir, delete, rename)
-    │   └── ops_worker.rs          # Background jobs (copy/move with progress channels)
-    ├── ui/                        # TUI Rendering Components (Ratatui)
-    │   ├── mod.rs                 # Main UI draw entry point
-    │   ├── layout.rs              # Divides terminal into panels, header, footer
-    │   ├── panel.rs               # Renders left/right file lists
-    │   ├── cli.rs                 # Renders the command command-line block
-    │   ├── menu.rs                # Renders top dropdown navigation
-    │   ├── fkeys.rs               # Renders bottom F1-F10 shortcuts
-    │   ├── popup.rs               # Dialog windows (prompts, copy progress, errors)
-    │   └── theme_apply.rs         # Styles conversion from Config theme to Ratatui
-    └── terminal/                  # Raw terminal control & Input listener
-        ├── mod.rs
-        ├── backend.rs             # Terminal initialization and restoration
-        └── events.rs              # Background event producer (keys, resize)
+├── .agents/
+│   └── AGENTS.md                  # This file
+├── src/
+│   ├── main.rs                    # Application entry point
+│   ├── app/                       # Application loop & state orchestration
+│   │   ├── mod.rs
+│   │   ├── app.rs                 # Main application event loop
+│   │   ├── state.rs               # Application state (panels, focus, dialogs)
+│   │   └── context.rs             # Runtime context (active config, themes, drives)
+│   ├── config/                    # Config files management & serialisation
+│   │   ├── mod.rs                 # Loader/saver configuration API
+│   │   ├── settings.rs            # Structs for general settings
+│   │   ├── keybindings.rs         # Structs for keybinding presets
+│   │   ├── theme.rs               # Structs for modern styling themes
+│   │   ├── paths.rs               # Platform-specific path resolution
+│   │   ├── localization.rs        # Core translation lookup engine
+│   │   └── localization/
+│   │       └── en.rs              # Default English translation keys & constants
+│   ├── keybindings/               # Keybinding mapping engine
+│   │   ├── mod.rs
+│   │   ├── actions.rs             # Logical application Action enum
+│   │   ├── preset.rs              # Structs for predefined key binding sets
+│   │   └── resolver.rs            # Mapping crossterm events to logical actions
+│   ├── fs/                        # Filesystem operations
+│   │   ├── mod.rs
+│   │   ├── entry.rs               # File and directory representation
+│   │   ├── list.rs                # Directory listing & filtering
+│   │   ├── ops.rs                 # Standard operations (mkdir, delete, rename)
+│   │   └── ops_worker.rs          # Background jobs (copy/move with progress channels)
+│   ├── ui/                        # TUI Rendering Components (Ratatui)
+│   │   ├── mod.rs                 # Main UI draw entry point
+│   │   ├── layout.rs              # Divides terminal into panels, header, footer
+│   │   ├── panel.rs               # Renders left/right file lists
+│   │   ├── cli.rs                 # Renders the command command-line block
+│   │   ├── menu.rs                # Renders top dropdown navigation
+│   │   ├── fkeys.rs               # Renders bottom F1-F10 shortcuts
+│   │   ├── popup.rs               # Dialog windows (prompts, copy progress, errors)
+│   │   └── theme_apply.rs         # Styles conversion from Config theme to Ratatui
+│   └── terminal/                  # Raw terminal control & Input listener
+│       ├── mod.rs
+│       ├── backend.rs             # Terminal initialization and restoration
+│       └── events.rs              # Background event producer (keys, resize)
 ```
 
 ---

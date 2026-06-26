@@ -37,9 +37,10 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 } else {
                     // If it's already dismissed and we forced a check, we still show a message
                     if state.active_popup.is_none() {
-                        state.active_popup = Some(PopupType::Info(
-                            format!("An update ({}) is available, but you have ignored this version.", info.tag)
-                        ));
+                        state.active_popup = Some(PopupType::Info(format!(
+                            "An update ({}) is available, but you have ignored this version.",
+                            info.tag
+                        )));
                     }
                 }
             }
@@ -83,8 +84,9 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             }
         }
         if let Some(p) = latest_progress {
-            if let Some(PopupType::UpdateAvailable { install_progress, .. }) =
-                &mut state.active_popup
+            if let Some(PopupType::UpdateAvailable {
+                install_progress, ..
+            }) = &mut state.active_popup
             {
                 *install_progress = Some(p);
             }
@@ -118,13 +120,17 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                     }
                     Err(err) => {
                         state.update_status = UpdateStatus::Error(err.clone());
-                        if let Some(PopupType::UpdateAvailable { error, install_progress, .. }) =
-                            &mut state.active_popup
+                        if let Some(PopupType::UpdateAvailable {
+                            error,
+                            install_progress,
+                            ..
+                        }) = &mut state.active_popup
                         {
                             *error = Some(err);
                             *install_progress = None;
                         } else {
-                            state.active_popup = Some(PopupType::Info(format!("Update failed: {}", err)));
+                            state.active_popup =
+                                Some(PopupType::Info(format!("Update failed: {}", err)));
                         }
                     }
                 }
@@ -132,16 +138,22 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
                 state.update_install_rx = Some(rx); // Still running
                 // If download is complete (or not active), set status to Installing
-                if state.update_progress_rx.is_none() && state.update_status != UpdateStatus::Installing {
+                if state.update_progress_rx.is_none()
+                    && state.update_status != UpdateStatus::Installing
+                {
                     state.update_status = UpdateStatus::Installing;
                 }
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Task died/panicked
                 state.update_progress_rx = None;
-                state.update_status = UpdateStatus::Error("Installation task terminated unexpectedly".to_string());
-                if let Some(PopupType::UpdateAvailable { error, install_progress, .. }) =
-                    &mut state.active_popup
+                state.update_status =
+                    UpdateStatus::Error("Installation task terminated unexpectedly".to_string());
+                if let Some(PopupType::UpdateAvailable {
+                    error,
+                    install_progress,
+                    ..
+                }) = &mut state.active_popup
                 {
                     *error = Some("Installation task terminated unexpectedly".to_string());
                     *install_progress = None;

@@ -74,7 +74,10 @@ pub fn handle_ui_settings_action(
                 add_doc("Guía de Usuario", "help/user_guide_es.md");
                 add_doc("Conexión SSH y SFTP", "help/ssh_sftp_es.md");
                 add_doc("Integración con Git", "help/git_integration_es.md");
-                add_doc("Configuración de Ajustes", "help/configuration_details_es.md");
+                add_doc(
+                    "Configuración de Ajustes",
+                    "help/configuration_details_es.md",
+                );
                 add_doc("Atajos de Teclado", "help/keyboard_shortcuts_es.md");
                 add_doc("Guía de Arquitectura", "docs/technical/architecture_es.md");
             } else {
@@ -399,9 +402,7 @@ pub fn handle_ui_settings_action(
         Action::FilePanelFilter => {
             let active = state.get_active_panel();
             let current = active.filter_mask.clone().unwrap_or_default();
-            state.active_popup = Some(PopupType::FilePanelFilterPrompt {
-                input: current,
-            });
+            state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: current });
             true
         }
         Action::QuickFilter => {

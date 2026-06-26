@@ -1,8 +1,8 @@
+use super::git;
+use super::rows;
 use crate::app::state::PopupType;
 use crate::config::settings::Settings;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use super::git;
-use super::rows;
 
 pub fn handle_editing(
     key: KeyEvent,

@@ -1,0 +1,78 @@
+name: Report a bug
+description: Report a problem with Pairee.
+type: Bug
+labels: ["bug", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please search existing issues to see if this bug has already been reported.
+
+        For feature requests, please use the Feature Request template or open a discussion.
+  - type: textarea
+    attributes:
+      label: Reproduction steps
+      description: A step-by-step description of how to reproduce the bug.
+      placeholder: |
+        1. Start pairee
+        2. Press F5 (Copy)
+        3. Observe...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Current vs. Expected behavior
+      description: What happens vs. what you expected to happen.
+      placeholder: |
+        Current: The app freezes on copying a large file.
+        Expected: A progress popup should display and the file should be copied in the background.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Pairee version and system details
+      description: |
+        Press F1 (About) in Pairee to get the exact version, target, build profile, and commit hash.
+      placeholder: |
+        Pairee: v0.5.1 (a1b2c3d)
+        Build Target: x86_64-unknown-linux-musl
+        Build Profile: release
+        OS: Linux (Ubuntu 24.04) / Windows 11
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Attach Pairee log file (`app.log`)
+      description: |
+        Please check your user cache folder for `app.log` (e.g. `~/.cache/pairee/app.log` on Linux or `%APPDATA%/Roaming/pairee/cache/app.log` on Windows) and paste relevant parts here.
+
+        ⚠️ **Please review your log file for secrets and redact them before posting.**
+      value: |
+        <details><summary>app.log</summary>
+
+        <!-- Paste your log inside the code block. -->
+        ```log
+
+        ```
+
+        </details>
+    validations:
+      required: false
+  - type: textarea
+    attributes:
+      label: Relevant settings or keymaps
+      description: |
+        If relevant, paste your `settings.toml` or customized keymaps here.
+
+        ⚠️ **Please review files for secrets and redact them before posting.**
+      value: |
+        <details><summary>settings.toml</summary>
+
+        <!-- Paste your settings/keymaps inside the code block. -->
+        ```toml
+
+        ```
+
+        </details>
+    validations:
+      required: false

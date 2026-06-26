@@ -3,8 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-const GITHUB_API_LATEST: &str =
-    "https://api.github.com/repos/FittyAr/Pairee/releases/latest";
+const GITHUB_API_LATEST: &str = "https://api.github.com/repos/FittyAr/Pairee/releases/latest";
 const CACHE_TTL_SECS: u64 = 3600; // 1 hour
 
 /// Parsed information about an available update.
@@ -214,9 +213,7 @@ impl UpdateChecker {
 
     /// Spawn a background task that checks for updates and sends the result
     /// over the provided oneshot channel.
-    pub fn check_in_background(
-        tx: tokio::sync::oneshot::Sender<Option<UpdateInfo>>,
-    ) {
+    pub fn check_in_background(tx: tokio::sync::oneshot::Sender<Option<UpdateInfo>>) {
         tokio::spawn(async move {
             match Self::check().await {
                 Ok(info) => {

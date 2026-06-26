@@ -93,8 +93,9 @@ pub fn handle_popup_input(
             PopupType::ApplyCommandPrompt { .. } => apply_command::handle(state, key, context),
             PopupType::DescribeFilePrompt { .. } => describe_file::handle(state, key, context),
             PopupType::CreateLinkPrompt { .. } => create_link::handle(state, key, context),
-            PopupType::FilePanelFilterPrompt { .. }
-            | PopupType::QuickFilterPrompt { .. } => file_filter::handle(state, key, context),
+            PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
+                file_filter::handle(state, key, context)
+            }
             PopupType::TaskListDialog { .. } => task_list::handle(state, key, context),
             PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
             PopupType::ConfigurationDialog { .. } => config_dialog::handle(state, key, context),

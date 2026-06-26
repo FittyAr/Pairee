@@ -145,6 +145,8 @@ pub fn get_default_english_translation(key: &str) -> String {
         "menu_about" => "&About...",
         "about_title" => " About Pairee ",
         "about_version" => "Version",
+        "about_target" => "Build Target",
+        "about_profile" => "Build Profile",
         "about_website" => "Project Website",
         "about_github" => "GitHub Page",
         "about_license" => "Software License",

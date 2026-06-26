@@ -1,0 +1,18 @@
+ARG NAMESPACE_BASE_IMAGE_REF=""
+
+# Build FROM the specified namespace base image reference
+FROM ${NAMESPACE_BASE_IMAGE_REF} AS base
+
+# Install system dependencies needed to compile Pairee (e.g. libssl, libx11, pkg-config)
+RUN sudo apt-get update && \
+    sudo apt-get install -y git openssh-client pkg-config libssl-dev libx11-dev build-essential
+
+# Clone the Pairee repository
+RUN git clone https://github.com/FittyAr/Pairee.git ~/pairee
+
+# Build the project
+WORKDIR /home/runner/pairee
+RUN cargo build --release
+
+# Clean up unnecessary files to reduce image size
+RUN sudo apt-get clean && sudo rm -rf /home/runner/pairee

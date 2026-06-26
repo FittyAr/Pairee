@@ -1,4 +1,4 @@
-use super::{AppState, ActivePanel};
+use super::{ActivePanel, AppState};
 use crate::fs;
 
 impl AppState {
@@ -41,7 +41,9 @@ impl AppState {
             if let Ok(mut entries) = res {
                 if let Some(ref mask) = self.left_panel.filter_mask {
                     if !mask.is_empty() {
-                        entries.retain(|e| e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name));
+                        entries.retain(|e| {
+                            e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
+                        });
                     }
                 }
                 if let Some(ref qmask) = self.left_panel.quick_filter_mask {
@@ -98,7 +100,9 @@ impl AppState {
             if let Ok(mut entries) = res {
                 if let Some(ref mask) = self.right_panel.filter_mask {
                     if !mask.is_empty() {
-                        entries.retain(|e| e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name));
+                        entries.retain(|e| {
+                            e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
+                        });
                     }
                 }
                 if let Some(ref qmask) = self.right_panel.quick_filter_mask {
@@ -137,7 +141,10 @@ impl AppState {
             ),
         };
 
-        let prev_selected_path = panel.entries.get(panel.cursor_index).map(|e| e.path.clone());
+        let prev_selected_path = panel
+            .entries
+            .get(panel.cursor_index)
+            .map(|e| e.path.clone());
         let clean_mask = match mask {
             Some(ref m) if m.is_empty() => None,
             m => m,
@@ -174,7 +181,10 @@ impl AppState {
     }
 }
 
-fn partition_entries_by_mask(entries: Vec<crate::fs::FileEntry>, mask: &str) -> Vec<crate::fs::FileEntry> {
+fn partition_entries_by_mask(
+    entries: Vec<crate::fs::FileEntry>,
+    mask: &str,
+) -> Vec<crate::fs::FileEntry> {
     let mask_lower = mask.to_lowercase();
     let mut matching = Vec::new();
     let mut non_matching = Vec::new();

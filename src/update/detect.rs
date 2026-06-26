@@ -86,7 +86,9 @@ impl InstallMethod {
             Self::Scoop => Some("scoop update pairee".to_string()),
             Self::Chocolatey => Some("choco upgrade pairee".to_string()),
             Self::Deb => Some("sudo apt-get install --only-upgrade pairee".to_string()),
-            Self::Rpm => Some("sudo dnf upgrade pairee  # or: sudo zypper update pairee".to_string()),
+            Self::Rpm => {
+                Some("sudo dnf upgrade pairee  # or: sudo zypper update pairee".to_string())
+            }
             _ => None,
         }
     }
@@ -256,8 +258,7 @@ fn is_winget_managed() -> bool {
         .output();
     match out {
         Ok(o) => {
-            o.status.success()
-                && String::from_utf8_lossy(&o.stdout).contains("FittyAr.Pairee")
+            o.status.success() && String::from_utf8_lossy(&o.stdout).contains("FittyAr.Pairee")
         }
         Err(_) => false,
     }

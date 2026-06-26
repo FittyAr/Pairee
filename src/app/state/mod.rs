@@ -90,8 +90,7 @@ pub struct AppState {
 
     // ── Auto-update ────────────────────────────────────────────────
     /// Pending oneshot receiver for the background update check.
-    pub update_check_rx:
-        Option<tokio::sync::oneshot::Receiver<Option<crate::update::UpdateInfo>>>,
+    pub update_check_rx: Option<tokio::sync::oneshot::Receiver<Option<crate::update::UpdateInfo>>>,
     /// Available update info (set after the background check completes).
     pub update_available: Option<UpdateInfo>,
     /// Current status of an ongoing update installation.
@@ -99,8 +98,9 @@ pub struct AppState {
     /// Receiver for download progress (0.0–1.0).
     pub update_progress_rx: Option<tokio::sync::mpsc::Receiver<f32>>,
     /// Pending oneshot receiver for the final installation result.
-    pub update_install_rx:
-        Option<tokio::sync::oneshot::Receiver<Result<crate::update::installer::InstallResult, String>>>,
+    pub update_install_rx: Option<
+        tokio::sync::oneshot::Receiver<Result<crate::update::installer::InstallResult, String>>,
+    >,
 }
 
 impl AppState {

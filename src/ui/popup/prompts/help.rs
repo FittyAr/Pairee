@@ -262,7 +262,10 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
     lines
 }
 
-fn wrap_lines(lines: Vec<ratatui::text::Line<'static>>, width: usize) -> Vec<ratatui::text::Line<'static>> {
+fn wrap_lines(
+    lines: Vec<ratatui::text::Line<'static>>,
+    width: usize,
+) -> Vec<ratatui::text::Line<'static>> {
     let mut wrapped = Vec::new();
     for line in lines {
         let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
@@ -307,7 +310,9 @@ fn wrap_lines(lines: Vec<ratatui::text::Line<'static>>, width: usize) -> Vec<rat
                     let chars: Vec<char> = w.chars().collect();
                     for chunk in chars.chunks(width) {
                         let chunk_str: String = chunk.iter().collect();
-                        wrapped.push(ratatui::text::Line::from(vec![ratatui::text::Span::styled(chunk_str, style)]));
+                        wrapped.push(ratatui::text::Line::from(vec![
+                            ratatui::text::Span::styled(chunk_str, style),
+                        ]));
                     }
                     continue;
                 }

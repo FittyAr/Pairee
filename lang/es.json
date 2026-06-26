@@ -95,6 +95,8 @@
     "menu_about": "Acerca &de...",
     "about_title": " Acerca de Pairee ",
     "about_version": "Versión",
+    "about_target": "Plataforma de compilación",
+    "about_profile": "Perfil de compilación",
     "about_website": "Sitio Web del Proyecto",
     "about_github": "Página de GitHub",
     "about_license": "Licencia del Software",

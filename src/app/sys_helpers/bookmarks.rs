@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 
 /// Returns a list of default bookmarks/shortcuts.
 pub fn get_hotlist_bookmarks() -> Vec<(String, PathBuf)> {

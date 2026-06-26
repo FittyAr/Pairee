@@ -5,7 +5,6 @@
 /// - Checking GitHub Releases for newer versions (with 1h cache)
 /// - Downloading the correct asset for the current platform
 /// - Applying the update (or notifying the user which package-manager command to run)
-
 pub mod checker;
 pub mod detect;
 pub mod downloader;

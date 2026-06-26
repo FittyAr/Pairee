@@ -66,10 +66,7 @@ pub fn render(
         let mut list_items = Vec::new();
         if presets.is_empty() {
             list_items.push(ListItem::new(ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(
-                    " <No Presets> ",
-                    Style::default().fg(Color::DarkGray),
-                ),
+                ratatui::text::Span::styled(" <No Presets> ", Style::default().fg(Color::DarkGray)),
             ])));
         } else {
             for (i, p) in presets.iter().enumerate() {
@@ -174,8 +171,7 @@ pub fn render(
         render_input_line(f, input_chunks[6], &l_key, input_key_path, 6, false);
 
         // Bottom horizontal separator
-        let sep_str_horizontal =
-            ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
+        let sep_str_horizontal = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
         f.render_widget(
             Paragraph::new(sep_str_horizontal).style(Style::default().fg(Color::Cyan)),
             main_chunks[1],

@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an idea or feature for Pairee.
+type: Feature
+labels: ["enhancement", "needs-triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for suggesting a feature! Please check existing issues/discussions to see if this has already been proposed.
+  - type: textarea
+    attributes:
+      label: Describe the feature or improvement you'd like
+      description: Provide a clear and concise description of what you want to happen.
+      placeholder: |
+        I would like to have a built-in search tool (Alt+F7) that allows searching for text in files...
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Use case or problem solved
+      description: Explain why this feature is useful and what problems it solves for you.
+      placeholder: |
+        Currently, to search for text inside files, I have to exit Pairee and use grep. A built-in tool would keep me in the flow.
+    validations:
+      required: true
+  - type: textarea
+    attributes:
+      label: Additional context or mockups
+      description: Add any other context, screenshots, or conceptual workflows.
+    validations:
+      required: false

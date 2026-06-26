@@ -1,8 +1,8 @@
 use super::types::MenuItemData;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::keybindings::{Action, KeybindingResolver};
 use crate::config::settings::Settings;
+use crate::keybindings::{Action, KeybindingResolver};
 
 pub fn get_items(
     state: &AppState,

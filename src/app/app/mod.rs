@@ -2,10 +2,10 @@ pub mod background;
 pub mod events;
 pub mod updates;
 
-use crate::terminal::{EventHandler, TerminalBackend};
-use crate::ui;
 use super::context::AppContext;
 use super::state::AppState;
+use crate::terminal::{EventHandler, TerminalBackend};
+use crate::ui;
 use anyhow::Result;
 use std::time::Duration;
 
@@ -62,7 +62,8 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
         // 4. Handle input events
         if let Some(event) = event_handler.next().await {
-            events::handle_input_event(&mut state, &mut context, &mut terminal_backend, event).await?;
+            events::handle_input_event(&mut state, &mut context, &mut terminal_backend, event)
+                .await?;
         }
     }
 

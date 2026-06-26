@@ -98,13 +98,18 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         Span::styled("Current: ", Style::default().fg(muted)),
         Span::styled(format!("v{}", current), Style::default().fg(muted)),
         Span::raw("  →  "),
-        Span::styled(format!("v{}", info.version), Style::default().fg(accent).add_modifier(Modifier::BOLD)),
+        Span::styled(
+            format!("v{}", info.version),
+            Style::default().fg(accent).add_modifier(Modifier::BOLD),
+        ),
         Span::raw("  ("),
         Span::styled(method.label(), Style::default().fg(muted)),
         Span::raw(")"),
     ]);
     f.render_widget(
-        Paragraph::new(ver_line).style(fg_style).alignment(Alignment::Center),
+        Paragraph::new(ver_line)
+            .style(fg_style)
+            .alignment(Alignment::Center),
         layout[0],
     );
 
@@ -114,7 +119,9 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         Span::styled(&info.html_url, Style::default().fg(accent)),
     ]);
     f.render_widget(
-        Paragraph::new(url_line).style(fg_style).alignment(Alignment::Center),
+        Paragraph::new(url_line)
+            .style(fg_style)
+            .alignment(Alignment::Center),
         layout[1],
     );
 
@@ -133,10 +140,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             ))
         })
         .collect();
-    f.render_widget(
-        Paragraph::new(notes_text).style(bg_style),
-        layout[2],
-    );
+    f.render_widget(Paragraph::new(notes_text).style(bg_style), layout[2]);
 
     // Separator
     let sep = "─".repeat(inner.width as usize);
@@ -212,7 +216,10 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
     if let Some(err) = error {
         let err_area = layout[6];
         if err_area.height > 0 {
-            let short_err: String = err.chars().take((err_area.width as usize).saturating_sub(2)).collect();
+            let short_err: String = err
+                .chars()
+                .take((err_area.width as usize).saturating_sub(2))
+                .collect();
             f.render_widget(
                 Paragraph::new(Line::from(Span::styled(
                     format!(" ⚠ {}", short_err),
@@ -234,10 +241,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
                 width: area.width,
                 height: 1,
             };
-            let short_cmd: String = managed_cmd
-                .chars()
-                .take(area.width as usize)
-                .collect();
+            let short_cmd: String = managed_cmd.chars().take(area.width as usize).collect();
             f.render_widget(
                 Paragraph::new(Line::from(vec![
                     Span::styled(" $ ", Style::default().fg(Color::Green)),

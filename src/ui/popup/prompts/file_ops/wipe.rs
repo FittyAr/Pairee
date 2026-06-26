@@ -1,6 +1,6 @@
-use crate::ui::popup::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
+use crate::ui::popup::centered_rect_fixed;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,

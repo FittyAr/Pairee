@@ -3,11 +3,7 @@ use crate::app::state::AppState;
 use crate::app::sys_helpers::{change_preset, change_theme};
 use crate::config::settings::Settings;
 
-pub fn apply_settings(
-    state: &mut AppState,
-    context: &mut AppContext,
-    settings: Settings,
-) {
+pub fn apply_settings(state: &mut AppState, context: &mut AppContext, settings: Settings) {
     if settings.theme != context.config.settings.theme {
         change_theme(context, state, &settings.theme);
     }

@@ -1,22 +1,31 @@
-## Description
+# Objective
 
-<!-- What does this PR do? Describe the objective or problem it solves. -->
-<!-- If fixing an issue: "Fixes #X" -->
+- Describe the objective or issue this PR addresses.
+- If you're fixing a specific issue, use "Fixes #X" to link the issue.
 
-## Changes
+## Solution
 
-<!-- Brief list of what changed and why. -->
-
-## Changelog
-
-<!-- 
-  Add an entry to the [Unreleased] section in CHANGELOG.md for any user-facing changes.
-  Use the appropriate category: Added / Changed / Fixed / Improved / Deprecated / Removed.
-  Skip this if the change is internal refactoring, CI, or dependency bumps only.
--->
-
-- [ ] Updated `CHANGELOG.md` `[Unreleased]` section
+- Describe the solution used to achieve the objective above.
+- Briefly mention the architectural decisions or design patterns applied.
 
 ## Testing
 
-<!-- How did you test this? What platforms? -->
+- Did you test these changes? If so, how?
+- If relevant, what platforms (Linux, Windows) did you test these changes on?
+- How can reviewers reproduce and verify the behavior?
+
+## Self-Review Checklist
+
+- [ ] I've reviewed my own diff for quality, security, and reliability.
+- [ ] No dead code, obsolete comments, or temporary hacks are left in the changes.
+- [ ] The code follows Pairee's developer guidelines (SRP, Zero Hardcoding, Centralized strings).
+- [ ] Lints (`cargo clippy`) and formatter (`cargo fmt`) pass cleanly.
+- [ ] Unit tests cover the new/changed behavior.
+- [ ] Updated `CHANGELOG.md` `[Unreleased]` section (if this contains user-facing changes).
+
+## Showcase
+
+> This section is optional. If this PR does not include a visual change or does not add a new user-facing feature, you can delete this section.
+
+- If this PR includes a visual change, consider adding a screenshot or video demonstration.
+- A before/after comparison is highly appreciated.

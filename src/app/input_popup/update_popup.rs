@@ -34,17 +34,13 @@ pub fn handle(
     match key.code {
         // Navigate buttons
         KeyCode::Left | KeyCode::BackTab | KeyCode::Char('h') => {
-            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) =
-                &mut state.active_popup
-            {
+            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = &mut state.active_popup {
                 *cursor_idx = cursor_idx.saturating_sub(1);
             }
             Ok(None)
         }
         KeyCode::Right | KeyCode::Tab | KeyCode::Char('l') => {
-            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) =
-                &mut state.active_popup
-            {
+            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = &mut state.active_popup {
                 *cursor_idx = (*cursor_idx + 1).min(2);
             }
             Ok(None)
@@ -72,8 +68,9 @@ pub fn handle(
                         state.update_status = UpdateStatus::Downloading(0.0);
 
                         // Set the progress marker in popup
-                        if let Some(PopupType::UpdateAvailable { install_progress, .. }) =
-                            &mut state.active_popup
+                        if let Some(PopupType::UpdateAvailable {
+                            install_progress, ..
+                        }) = &mut state.active_popup
                         {
                             *install_progress = Some(0.0);
                         }
@@ -84,7 +81,8 @@ pub fn handle(
                         // Spawn background task
                         let info_clone2 = info_clone.clone();
                         tokio::spawn(async move {
-                            let result = installer::perform_update(&info_clone2, &method, progress_tx).await;
+                            let result =
+                                installer::perform_update(&info_clone2, &method, progress_tx).await;
                             let _ = install_tx.send(result.map_err(|e| e.to_string()));
                         });
                     }
@@ -95,8 +93,7 @@ pub fn handle(
                 }
                 // 2 = "Ignore this version" — save dismissed tag to settings
                 2 => {
-                    context.config.settings.dismissed_update_version =
-                        Some(info_clone.tag.clone());
+                    context.config.settings.dismissed_update_version = Some(info_clone.tag.clone());
                     let _ = context.config.save();
                     state.active_popup = None;
                     state.update_available = None;

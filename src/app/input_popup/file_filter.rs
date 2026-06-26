@@ -15,13 +15,15 @@ pub fn handle(
                     KeyCode::Char(c) => {
                         let mut new_input = input;
                         new_input.push(c);
-                        state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: new_input });
+                        state.active_popup =
+                            Some(PopupType::FilePanelFilterPrompt { input: new_input });
                         return Ok(None);
                     }
                     KeyCode::Backspace => {
                         let mut new_input = input;
                         new_input.pop();
-                        state.active_popup = Some(PopupType::FilePanelFilterPrompt { input: new_input });
+                        state.active_popup =
+                            Some(PopupType::FilePanelFilterPrompt { input: new_input });
                         return Ok(None);
                     }
                     KeyCode::Enter => {
