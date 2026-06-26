@@ -24,6 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Improved
 
 - Enlarged the self-update popup, added line wrapping for release notes, styled markdown headers, and implemented vertical scrolling with a scrollbar.
+- Cached the installation method detection using `OnceLock` to prevent TUI thread freezes during self-update rendering and activation.
 
 ### Fixed
 

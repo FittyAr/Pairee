@@ -6,7 +6,7 @@
 /// - Presence of package manager databases
 /// - Location of the current executable
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum InstallMethod {
     // ── Linux ──────────────────────────────────────────────────────────────
     /// Installed via the official install.sh script or extracted tar.gz manually.
@@ -113,16 +113,20 @@ impl InstallMethod {
     }
 }
 
+static DETECTED_INSTALL_METHOD: std::sync::OnceLock<InstallMethod> = std::sync::OnceLock::new();
+
 /// Detect the install method of the currently running Pairee binary.
 pub fn detect_install_method() -> InstallMethod {
-    #[cfg(target_os = "windows")]
-    {
-        detect_windows()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        detect_linux()
-    }
+    *DETECTED_INSTALL_METHOD.get_or_init(|| {
+        #[cfg(target_os = "windows")]
+        {
+            detect_windows()
+        }
+        #[cfg(not(target_os = "windows"))]
+        {
+            detect_linux()
+        }
+    })
 }
 
 // ─── Linux detection ─────────────────────────────────────────────────────────
