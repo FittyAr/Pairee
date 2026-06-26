@@ -5,7 +5,7 @@ description: Guide AI agents in documenting changes in CHANGELOG.md following th
 
 # Changelog Helper Skill
 
-Use this skill whenever you perform code modifications, add new features, or fix bugs, to ensure that user-facing changes are correctly documented in [CHANGELOG.md](file:///home/fitty/GitHub/Pairee/CHANGELOG.md).
+Use this skill whenever you perform code modifications, add new features, or fix bugs, to ensure that user-facing changes are correctly documented in [CHANGELOG.md](../../../CHANGELOG.md).
 
 ## Keep a Changelog Standards
 
