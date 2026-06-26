@@ -538,6 +538,7 @@ pub fn handle_ui_settings_action(
                     cursor_idx: 0,
                     install_progress: None,
                     error: None,
+                    scroll_y: 0,
                 });
             } else {
                 // Force a fresh check (bypass cache by deleting cache file first)

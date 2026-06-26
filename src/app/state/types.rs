@@ -503,5 +503,7 @@ pub enum PopupType {
         install_progress: Option<f32>,
         /// Error message if the install failed.
         error: Option<String>,
+        /// Scroll offset for release notes.
+        scroll_y: usize,
     },
 }

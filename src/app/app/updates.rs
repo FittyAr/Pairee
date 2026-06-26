@@ -32,6 +32,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                             cursor_idx: 0,
                             install_progress: None,
                             error: None,
+                            scroll_y: 0,
                         });
                     }
                 } else {

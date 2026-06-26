@@ -21,6 +21,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Workspace AI agent rules and skills to use relative links, ensuring cross-platform compatibility across Windows and Linux.
 
+### Improved
+
+- Enlarged the self-update popup, added line wrapping for release notes, styled markdown headers, and implemented vertical scrolling with a scrollbar.
+
 ### Fixed
 
 - Output duplication in `scripts/extract_changelog.sh` that caused duplicated release descriptions on GitHub releases.

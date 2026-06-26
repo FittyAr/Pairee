@@ -32,6 +32,32 @@ pub fn handle(
     };
 
     match key.code {
+        // Scroll release notes
+        KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+                *scroll_y = scroll_y.saturating_sub(1);
+            }
+            Ok(None)
+        }
+        KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+                *scroll_y = scroll_y.saturating_add(1);
+            }
+            Ok(None)
+        }
+        KeyCode::PageUp => {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+                *scroll_y = scroll_y.saturating_sub(5);
+            }
+            Ok(None)
+        }
+        KeyCode::PageDown => {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+                *scroll_y = scroll_y.saturating_add(5);
+            }
+            Ok(None)
+        }
+
         // Navigate buttons
         KeyCode::Left | KeyCode::BackTab | KeyCode::Char('h') => {
             if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = &mut state.active_popup {

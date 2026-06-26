@@ -7,24 +7,27 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Gauge, Paragraph},
+    widgets::{
+        Block, Borders, Clear, Gauge, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
+    },
 };
 
 /// Render the "Update Available" popup.
 /// Returns true if the popup was handled (consumed).
 pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
-    let (info, cursor_idx, install_progress, error) = match popup {
+    let (info, cursor_idx, install_progress, error, scroll_y) = match popup {
         PopupType::UpdateAvailable {
             info,
             cursor_idx,
             install_progress,
             error,
-        } => (info, cursor_idx, install_progress, error),
+            scroll_y,
+        } => (info, cursor_idx, install_progress, error, *scroll_y),
         _ => return false,
     };
 
-    let width: u16 = 62.min(size.width.saturating_sub(4));
-    let height: u16 = 20.min(size.height.saturating_sub(4));
+    let width: u16 = 80.min(size.width.saturating_sub(4));
+    let height: u16 = 24.min(size.height.saturating_sub(4));
     let area = centered_rect_fixed(width, height, size);
 
     f.render_widget(Clear, area);
@@ -126,21 +129,48 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
     );
 
     // Release notes
-    let max_lines = layout[2].height as usize;
-    let notes_text: Vec<Line> = info
-        .release_notes
-        .lines()
-        .take(max_lines)
-        .map(|l| {
-            // Strip simple markdown like "## " headings
-            let clean = l.trim_start_matches('#').trim();
-            Line::from(Span::styled(
-                format!(" {}", clean),
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ))
-        })
-        .collect();
-    f.render_widget(Paragraph::new(notes_text).style(bg_style), layout[2]);
+    let mut notes_lines = Vec::new();
+    for l in info.release_notes.lines() {
+        let is_heading = l.trim_start().starts_with('#');
+        let clean = l.trim_start_matches('#').trim();
+        let style = if is_heading {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(parse_color(&theme.popup_fg))
+        };
+        notes_lines.push(Line::from(Span::styled(
+            format!(" {}", clean),
+            style,
+        )));
+    }
+
+    let inner_width = (layout[2].width as usize).saturating_sub(3);
+    let wrapped_notes = wrap_lines(notes_lines, inner_width);
+    let total_lines = wrapped_notes.len();
+    let inner_height = layout[2].height as usize;
+
+    let max_scroll = total_lines.saturating_sub(inner_height);
+    let clamped_scroll = scroll_y.min(max_scroll);
+
+    let paragraph = Paragraph::new(wrapped_notes)
+        .scroll((clamped_scroll as u16, 0))
+        .style(bg_style);
+    f.render_widget(paragraph, layout[2]);
+
+    // Render scrollbar if needed
+    if total_lines > inner_height {
+        let mut scrollbar_state = ScrollbarState::new(max_scroll).position(clamped_scroll);
+        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+        let scrollbar_area = Rect {
+            x: layout[2].x + layout[2].width.saturating_sub(1),
+            y: layout[2].y,
+            width: 1,
+            height: layout[2].height,
+        };
+        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+    }
 
     // Separator
     let sep = "─".repeat(inner.width as usize);
@@ -271,4 +301,66 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
     }
 
     true
+}
+
+// Simple word-wrapping helper
+fn wrap_lines(lines: Vec<Line<'static>>, width: usize) -> Vec<Line<'static>> {
+    let mut wrapped = Vec::new();
+    for line in lines {
+        let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
+        if total_chars <= width {
+            wrapped.push(line);
+            continue;
+        }
+
+        let mut current_line_spans = Vec::new();
+        let mut current_width = 0;
+
+        for span in line.spans {
+            let text = span.content.into_owned();
+            let style = span.style;
+
+            let mut words = Vec::new();
+            let mut word = String::new();
+            for c in text.chars() {
+                if c.is_whitespace() {
+                    if !word.is_empty() {
+                        words.push((word.clone(), false));
+                        word.clear();
+                    }
+                    words.push((c.to_string(), true));
+                } else {
+                    word.push(c);
+                }
+            }
+            if !word.is_empty() {
+                words.push((word, false));
+            }
+
+            for (w, is_space) in words {
+                let w_len = w.chars().count();
+                if current_width + w_len > width && !is_space && current_width > 0 {
+                    wrapped.push(Line::from(current_line_spans));
+                    current_line_spans = Vec::new();
+                    current_width = 0;
+                }
+
+                if w_len > width {
+                    let chars: Vec<char> = w.chars().collect();
+                    for chunk in chars.chunks(width) {
+                        let chunk_str: String = chunk.iter().collect();
+                        wrapped.push(Line::from(vec![Span::styled(chunk_str, style)]));
+                    }
+                    continue;
+                }
+
+                current_line_spans.push(Span::styled(w, style));
+                current_width += w_len;
+            }
+        }
+        if !current_line_spans.is_empty() {
+            wrapped.push(Line::from(current_line_spans));
+        }
+    }
+    wrapped
 }
