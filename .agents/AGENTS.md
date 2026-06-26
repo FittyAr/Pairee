@@ -142,3 +142,13 @@ Before submitting code, verify:
 1. **Compilation:** `cargo check` and `cargo build` run cleanly on both target systems (or cross-compilation is simulated).
 2. **Formatting & Lints:** Code must pass `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings`.
 3. **Testing:** Unit tests must be written for all non-UI components (e.g., config loading, keybinding resolution, path calculations). Run `cargo test`.
+
+---
+
+## 6. Required Agent Customizations & Skills
+
+To ensure consistent project maintenance, the agent must check and apply the relevant skills located in the `.agents/skills/` directory.
+
+* **Documentation & Changelog updates:** After any code modification, feature addition, or bug fix, you **must** load and follow the instructions in the `changelog-helper` skill at [.agents/skills/changelog-helper/SKILL.md](file:///home/fitty/GitHub/Pairee/.agents/skills/changelog-helper/SKILL.md) to log your changes in [CHANGELOG.md](file:///home/fitty/GitHub/Pairee/CHANGELOG.md) before concluding.
+* **Localization & Text changes:** When adding or modifying user-facing text, you **must** load and follow the instructions in the `localize-helper` skill at [.agents/skills/localize-helper/SKILL.md](file:///home/fitty/GitHub/Pairee/.agents/skills/localize-helper/SKILL.md) to ensure zero hardcoding.
+* **Configuration & Settings changes:** When adding or modifying user configuration settings, you **must** load and follow the instructions in the `settings-helper` skill at [.agents/skills/settings-helper/SKILL.md](file:///home/fitty/GitHub/Pairee/.agents/skills/settings-helper/SKILL.md).
