@@ -35,7 +35,7 @@ else
 fi
 
 # Extract lines between this section header and the next ## [ header
-awk -v header="$SECTION_HEADER" '
+OUTPUT=$(awk -v header="$SECTION_HEADER" '
     BEGIN { in_section = 0 }
     {
         # Match section header (exact or with date suffix e.g. "## [v0.5.1] - 2026-06-25")
@@ -50,21 +50,7 @@ awk -v header="$SECTION_HEADER" '
             print
         }
     }
-' "$CHANGELOG" | sed -e '/./,$!d' -e 's/[[:space:]]*$//'
-# sed trims leading blank lines and trailing whitespace per line
-
-# Check if anything was printed
-OUTPUT=$(awk -v header="$SECTION_HEADER" '
-    BEGIN { in_section = 0 }
-    {
-        if ($0 == header || index($0, header " ") == 1 || index($0, header "-") == 1) {
-            in_section = 1
-            next
-        }
-        if (in_section && /^## \[/) { exit }
-        if (in_section) { print }
-    }
-' "$CHANGELOG" | sed '/./,$!d')
+' "$CHANGELOG" | sed -e '/./,$!d' -e 's/[[:space:]]*$//')
 
 if [[ -z "$OUTPUT" ]]; then
     echo "Error: Section '$SECTION_HEADER' not found or empty in CHANGELOG.md" >&2

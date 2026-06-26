@@ -13,6 +13,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Added
+
+- A rule in `.agents/AGENTS.md` to enforce checking and running workspace customization skills automatically.
+
+### Changed
+
+- Workspace AI agent rules and skills to use relative links, ensuring cross-platform compatibility across Windows and Linux.
+
+### Fixed
+
+- Output duplication in `scripts/extract_changelog.sh` that caused duplicated release descriptions on GitHub releases.
+
 ---
 
 ## [v0.6.0] - 2026-06-26
