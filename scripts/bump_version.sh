@@ -90,6 +90,27 @@ if [[ -f "installer.iss" ]]; then
     fi
 fi
 
+# 3c. Update local Winget manifest files
+winget_dir="manifests/winget"
+if [[ -d "$winget_dir" ]]; then
+    echo -e "Updating local WinGet manifests to version ${YELLOW}$new_version${RESET}..."
+    for f in "$winget_dir"/FittyAr.Pairee*.yaml; do
+        if [[ -f "$f" ]]; then
+            if [[ "$OSTYPE" == "darwin"* ]]; then
+                sed -i '' -E 's@^PackageVersion: .*@PackageVersion: '"$new_version"'@' "$f"
+                sed -i '' -E 's@(InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/)v[^/]+(.*\.exe)@\1v'"$new_version"'\2@' "$f"
+                sed -i '' -E 's@pairee-setup-[0-9]+\.[0-9]+\.[0-9]+-(x64\|arm64)\.exe@pairee-setup-'"$new_version"'-\1.exe@' "$f"
+                sed -i '' -E 's@(ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/)v.*@\1v'"$new_version"'@' "$f"
+            else
+                sed -i -E 's@^PackageVersion: .*@PackageVersion: '"$new_version"'@' "$f"
+                sed -i -E 's@(InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/)v[^/]+(.*\.exe)@\1v'"$new_version"'\2@' "$f"
+                sed -i -E 's@pairee-setup-[0-9]+\.[0-9]+\.[0-9]+-(x64|arm64)\.exe@pairee-setup-'"$new_version"'-\1.exe@' "$f"
+                sed -i -E 's@(ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/)v.*@\1v'"$new_version"'@' "$f"
+            fi
+        fi
+    done
+fi
+
 # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
 changelog_path="CHANGELOG.md"
 if [[ -f "$changelog_path" ]]; then
@@ -136,7 +157,7 @@ if [[ -z "$branch" ]]; then
 fi
 
 echo -e "\n${YELLOW}Summary of actions to perform:${RESET}"
-echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md)"
+echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/winget/*.yaml)"
 echo -e "  - Create git tag v$new_version"
 echo -e "  - Push commit and tag to origin ($branch)"
 echo ""
@@ -153,6 +174,9 @@ git add Cargo.toml Cargo.lock installer.iss
 if [[ -f "CHANGELOG.md" ]]; then
     git add CHANGELOG.md
 fi
+if [[ -d "manifests/winget" ]]; then
+    git add manifests/winget/*.yaml
+fi
 git commit -m "Bump version to v$new_version"
 
 echo -e "${YELLOW}Creating git tag v$new_version...${RESET}"
@@ -164,6 +188,10 @@ if git push origin "$branch" && git push origin "v$new_version"; then
     echo -e "${GREEN}Successfully bumped version to v$new_version and pushed to GitHub!${RESET}"
     echo -e "GitHub Actions will now build binaries and create a ${CYAN}draft release${RESET}."
     echo -e "Review the draft release on GitHub and publish it when ready."
+    echo -e "\n${YELLOW}[WinGet Notice]${RESET}"
+    echo -e "Once you publish the draft release on GitHub, the automated WinGet action will run"
+    echo -e "and automatically submit the update to microsoft/winget-pkgs."
+    echo -e "NOTE: Make sure your WINGET_TOKEN secret is set in the repo."
 else
     echo -e "${RED}[ERROR]${RESET} Failed to push to GitHub. Check your connection or repository permissions."
     echo -e "Note: The commit and tag were created locally. You can push manually using:"

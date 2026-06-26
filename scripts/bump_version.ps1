@@ -93,6 +93,27 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         Set-Content -Path installer.iss -Value $newIssContent
     }
 
+    # 3c. Update local Winget manifest files
+    $wingetDir = "manifests/winget"
+    if (Test-Path $wingetDir) {
+        Write-Host "Updating local WinGet manifests to version $newVersion..." -ForegroundColor Yellow
+        $yamlFiles = Get-ChildItem -Path $wingetDir -Filter "FittyAr.Pairee*.yaml"
+        foreach ($file in $yamlFiles) {
+            $content = Get-Content -Raw -Path $file.FullName
+            # Update PackageVersion
+            $content = [regex]::Replace($content, '(?m)^PackageVersion:\s*.*', "PackageVersion: $newVersion")
+            # Update InstallerUrls
+            $content = [regex]::Replace($content, '(?i)(InstallerUrl:\s*https://github.com/FittyAr/Pairee/releases/download/)v[^/]+(.*\.exe)', '$1v' + $newVersion + '$2')
+            $content = [regex]::Replace($content, '(?i)pairee-setup-[0-9]+\.[0-9]+\.[0-9]+-(x64|arm64)\.exe', 'pairee-setup-' + $newVersion + '-$1.exe')
+            # Update ReleaseNotesUrl
+            $content = [regex]::Replace($content, '(?i)(ReleaseNotesUrl:\s*https://github.com/FittyAr/Pairee/releases/tag/)v.*', '$1v' + $newVersion)
+            
+            # Save back (without BOM)
+            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+            [System.IO.File]::WriteAllText($file.FullName, $content, $utf8NoBom)
+        }
+    }
+
     # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
     $changelogPath = "CHANGELOG.md"
     if (Test-Path $changelogPath) {
@@ -149,7 +170,7 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     
     Write-Host ""
     Write-Host "Summary of actions to perform:" -ForegroundColor Yellow
-    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md)"
+    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/winget/*.yaml)"
     Write-Host "  - Create git tag v$newVersion"
     Write-Host "  - Push commit and tag to origin ($branch)"
     Write-Host ""
@@ -166,6 +187,9 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     if (Test-Path "CHANGELOG.md") {
         git add CHANGELOG.md
     }
+    if (Test-Path "manifests/winget") {
+        git add manifests/winget/*.yaml
+    }
     git commit -m "Bump version to v$newVersion"
     
     Write-Host "Creating git tag v$newVersion..." -ForegroundColor Yellow
@@ -179,6 +203,11 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         Write-Host "Successfully bumped version to v$newVersion and pushed to GitHub!" -ForegroundColor Green
         Write-Host "GitHub Actions will now build binaries and create a draft release." -ForegroundColor Green
         Write-Host "Review the draft release on GitHub and publish it when ready." -ForegroundColor Cyan
+        Write-Host ""
+        Write-Host "[WinGet Notice]" -ForegroundColor Yellow
+        Write-Host "Once you publish the draft release on GitHub, the automated WinGet action will run" -ForegroundColor Yellow
+        Write-Host "and automatically submit the update to microsoft/winget-pkgs." -ForegroundColor Yellow
+        Write-Host "NOTE: Make sure your WINGET_TOKEN secret is set in the repo." -ForegroundColor Yellow
     } catch {
         Write-Error "Failed to push to GitHub. Check your internet connection or repository permissions."
         Write-Host "Note: The commit and tag were created locally. You can push manually using:" -ForegroundColor Yellow

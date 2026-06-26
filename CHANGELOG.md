@@ -13,6 +13,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Added
+
+- Interactive "About" dialog (accessible via options menu or shortcut) displaying license, project details, and dependencies with scrolling support.
+- Automated version bumping and release note extraction scripts to automate release steps.
+- Dynamic build-time metadata tracking (target platform, Git commit hash, build profile) integrated into the binary using a new `build.rs` script.
+- Structured GitHub issue templates (bug reports, feature requests) and config templates to standardize community feedback.
+- Community health documents including `CODE_OF_CONDUCT.md` and `CONTRIBUTING.md`.
+- Workspace customization folder `.agents/` with automated AI skills (`localize-helper`, `settings-helper`, `changelog-helper`) and guidelines `AGENTS.md`.
+- Parameterized `Dockerfile.namespace` for containerized compiling and testing in namespace environments.
+- GitHub Actions validation workflow (`check.yml`) to automatically test code, formatting, and lints on pull requests.
+
+### Changed
+
+- Decoupled and modularized individual popup prompt rendering logic into dedicated files.
+- Consolidated and moved workspace AI instructions from root `agents.md` to `.agents/AGENTS.md`.
+
 ### Fixed
 
 - MkDir dialog: typed characters now immediately reflect in the input field.

@@ -1,0 +1,17 @@
+name: Publish to WinGet
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    name: Submit to microsoft/winget-pkgs
+    runs-on: windows-latest
+    steps:
+      - name: Submit package to WinGet
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: FittyAr.Pairee
+          installers-regex: '^pairee-setup-.*\.exe$'
+          token: ${{ secrets.WINGET_TOKEN }}
