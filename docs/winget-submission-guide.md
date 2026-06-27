@@ -114,19 +114,21 @@ We have corrected and updated the manifest files under `manifests/f/FittyAr/Pair
 - `FittyAr.Pairee.locale.en-US.yaml`: Corrected license to `GPLv3` and enriched details.
 - `FittyAr.Pairee.locale.es-ES.yaml`: Included Spanish translation file (version `1.12.0`).
 
-#### Step B.2 — Clone your winget-pkgs fork
-To update your existing branch and PR, clone your fork:
+#### Step B.2 — Clone your winget-pkgs fork (Optimized Clone)
+The `microsoft/winget-pkgs` repository is massive (gigabytes of history). To avoid downloading the entire repository, you can clone **only** the branch created by `wingetcreate` from your fork using a single-branch clone. 
+
+Look at the Pull Request header on GitHub: it will show `from FittyAr:<BRANCH_NAME>`. Clone that specific branch:
 ```powershell
-git clone https://github.com/FittyAr/winget-pkgs.git
+# In your case, the branch name is FittyAr.Pairee-0.6.0-cf869850-7438-42b9-a3eb-0ded6559bdc6
+git clone --branch FittyAr.Pairee-0.6.0-cf869850-7438-42b9-a3eb-0ded6559bdc6 --single-branch https://github.com/FittyAr/winget-pkgs.git
 cd winget-pkgs
 ```
+*(This is extremely fast and will only download a few megabytes).*
 
-#### Step B.3 — Checkout the branch created by wingetcreate
-`wingetcreate` creates a branch automatically when submitting (e.g. `wingetcreate-FittyAr.Pairee-0.6.0`). Find it using:
+#### Step B.3 — Verify you are on the correct branch
+Since you cloned the branch directly, you will already be on `FittyAr.Pairee-0.6.0-cf869850-7438-42b9-a3eb-0ded6559bdc6`. You can verify this by running:
 ```powershell
-git branch -r
-# Check out the branch
-git checkout wingetcreate-FittyAr.Pairee-0.6.0
+git branch
 ```
 
 #### Step B.4 — Copy the corrected local manifests into the fork
@@ -139,7 +141,7 @@ Copy-Item -Path "..\NCRust\manifests\f\FittyAr\Pairee\0.6.0\*.yaml" -Destination
 ```powershell
 git add manifests\f\FittyAr\Pairee\0.6.0
 git commit -m "Fix license to GPLv3, add ARM64 installer, and add Spanish locale"
-git push origin wingetcreate-FittyAr.Pairee-0.6.0
+git push origin FittyAr.Pairee-0.6.0-cf869850-7438-42b9-a3eb-0ded6559bdc6
 ```
 *This will automatically update the open Pull Request on `microsoft/winget-pkgs` and trigger re-validation.*
 
@@ -274,14 +276,17 @@ When updating for a new release, change `PackageVersion` and `InstallerUrl` in a
 
 ## Troubleshooting
 
-| Issue | Solution |
-|---|---|
-| `wingetcreate` command not found after install | Close and reopen the terminal to reload `PATH`. |
-| PR validation fails with SHA mismatch | Recalculate the hash with `Get-FileHash` on the exact file downloaded from the release. Do not hash local build artifacts directly. |
-| `winget.yml` fails on new release | Check that `WINGET_TOKEN` is set in repository secrets and the PAT has not expired. |
-| PR blocked because package does not exist yet | First submission must be done manually. The action only updates existing packages. |
-| `winget install FittyAr.Pairee` returns "No package found" | The PR may not be merged yet, or the CDN cache is refreshing (can take a few hours after merge). |
-| Inno Setup installer silently fails | Verify that `installer.iss` uses a valid `AppId` GUID and that the `[Setup]` section does not prompt for admin elevation. |
+| Error Label / Issue | Cause / Meaning | Solution |
+|---|---|---|
+| **`Needs-CLA`** | Contributor License Agreement is not signed. | Reply to the bot comment in the PR with `@microsoft-github-policy-service agree`. |
+| **`URL-Validation-Error`** | One of the URLs in the manifests returned a 404 or is inaccessible. | Verify that all URLs (`LicenseUrl`, `PrivacyUrl`, `PublisherUrl`, etc.) are correct. (e.g., ensure you use `/blob/master/LICENSE` instead of `main` if the default branch is `master`). |
+| **`Manifest-Validation-Error`** | Syntax error or schema mismatch in YAML files. | Run `winget validate <path-to-manifest>` to debug and resolve schema syntax errors. |
+| **`Error-Hash-Mismatch`** / **`Binary-Validation-Error`** | The computed installer hash does not match `InstallerSha256` in the manifest. | Download the installer from the release URL and compute its hash using `Get-FileHash <file> -Algorithm SHA256`. Update the hash in `FittyAr.Pairee.installer.yaml`. |
+| `wingetcreate` not found after install | Terminal PATH was not refreshed. | Close and reopen the terminal to reload the environment PATH. |
+| `winget.yml` fails on new release | `WINGET_TOKEN` secret is missing or expired. | Create a classic GitHub PAT with `public_repo` scope and save it in repository secrets as `WINGET_TOKEN`. |
+| PR blocked on first release | Automated updates only work for existing packages. | Perform the first submission manually (either via `wingetcreate` or a manual PR). |
+| `winget install` returns "No package found" | CDN cache is refreshing. | The PR may not be merged yet, or the CDN cache is updating (can take up to 2-3 hours after merge). |
+| Inno Setup installer silently fails | Elevation prompts or silent flags mismatch. | Verify that `installer.iss` uses a valid `AppId` GUID and that the installer does not prompt for admin privileges if launched silently. |
 
 ---
 
