@@ -25,4 +25,10 @@ fn main() {
     // Re-run build script if HEAD changes
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/heads");
+
+    // 4. Embed Windows resource icon
+    #[cfg(target_os = "windows")]
+    {
+        embed_resource::compile("manifests/windows/pairee.rc", embed_resource::NONE);
+    }
 }

@@ -25,6 +25,13 @@ OutputBaseFilename=pairee-setup-{#AppVersion}
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
+SetupIconFile=manifests\windows\pairee.ico
+WizardImageFile=manifests\windows\wizard_image.png
+WizardSmallImageFile=manifests\windows\wizard_small_image.png
+UninstallDisplayIcon={app}\{#AppExeName}
+
+[Tasks]
+Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 Source: "{#SourceDir}\pairee.exe"; DestDir: "{app}"; Flags: ignoreversion
@@ -34,6 +41,7 @@ Source: "docs\*"; DestDir: "{userappdata}\pairee\config\docs"; Flags: ignorevers
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExeName}"
+Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: desktopicon
 
 [Registry]
 ; Safely append to user PATH environment variable

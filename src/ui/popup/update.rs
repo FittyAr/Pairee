@@ -140,10 +140,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         } else {
             Style::default().fg(parse_color(&theme.popup_fg))
         };
-        notes_lines.push(Line::from(Span::styled(
-            format!(" {}", clean),
-            style,
-        )));
+        notes_lines.push(Line::from(Span::styled(format!(" {}", clean), style)));
     }
 
     let inner_width = (layout[2].width as usize).saturating_sub(3);

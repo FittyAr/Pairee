@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Pairee
+Comment=A modern, sleek terminal dual-panel file manager
+Exec=pairee
+Icon=pairee
+Terminal=true
+Categories=System;Utility;FileTools;FileManager;
+Keywords=file;manager;norton;commander;terminal;tui;
