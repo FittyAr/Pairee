@@ -140,7 +140,7 @@ jobs:
 
             powershell -Command "
               (Get-Content '$MSIX_STAGING/AppxManifest.xml') -replace 'Version=\"0.6.0.0\"', 'Version=\"$VERSION_NUM.0\"' -replace 'ProcessorArchitecture=\"x64\"', 'ProcessorArchitecture=\"$ARCH\"' | Set-Content '$MSIX_STAGING/AppxManifest.xml'
-              $makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
+              \$makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
               if (-not \$makeappx) { \$makeappx = 'makeappx.exe' }
               & \$makeappx pack /d '$MSIX_STAGING' /p 'dist/pairee-${VERSION_NUM}-${ARCH}.msix'
             "
