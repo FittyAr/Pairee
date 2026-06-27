@@ -62,10 +62,11 @@ echo  4. Run cargo check compiler validation
 echo  5. Run clippy static checks (cargo clippy)
 echo  6. Run format check (cargo fmt)
 echo  7. Clean build directory (cargo clean)
-echo  8. Bump version and publish release (Git Tag & Push)
-echo  9. Exit
+echo  8. Install/Upgrade via WinGet
+echo  9. Bump version and publish release (Git Tag & Push)
+echo  10. Exit
 echo ==========================================
-set /p opt="Choose an option (1-9): "
+set /p opt="Choose an option (1-10): "
 
 if "%opt%"=="1" (
     echo [INFO] Launching Pairee...
@@ -110,13 +111,62 @@ if "%opt%"=="7" (
     goto menu
 )
 if "%opt%"=="8" (
+    goto winget_menu
+)
+if "%opt%"=="9" (
     echo [INFO] Running bump version and release script...
     powershell -ExecutionPolicy Bypass -File "%~dp0scripts\bump_version.ps1"
     pause
     goto menu
 )
-if "%opt%"=="9" (
+if "%opt%"=="10" (
     exit /b 0
 )
 
 goto menu
+
+:winget_menu
+cls
+echo ==========================================
+echo       Install/Upgrade via WinGet
+echo ==========================================
+echo  1. Install Pairee (Auto-detect architecture)
+echo  2. Install Pairee (Force x64)
+echo  3. Install Pairee (Force ARM64)
+echo  4. Upgrade Pairee to latest version
+echo  5. Uninstall Pairee
+echo  6. Back to main menu
+echo ==========================================
+set /p wg_opt="Choose an option (1-6): "
+if "%wg_opt%"=="1" (
+    echo [INFO] Installing Pairee...
+    winget install FittyAr.Pairee --accept-source-agreements --accept-package-agreements
+    pause
+    goto winget_menu
+)
+if "%wg_opt%"=="2" (
+    echo [INFO] Installing Pairee (x64)...
+    winget install FittyAr.Pairee --architecture x64 --accept-source-agreements --accept-package-agreements
+    pause
+    goto winget_menu
+)
+if "%wg_opt%"=="3" (
+    echo [INFO] Installing Pairee (ARM64)...
+    winget install FittyAr.Pairee --architecture arm64 --accept-source-agreements --accept-package-agreements
+    pause
+    goto winget_menu
+)
+if "%wg_opt%"=="4" (
+    echo [INFO] Upgrading Pairee...
+    winget upgrade FittyAr.Pairee --accept-source-agreements --accept-package-agreements
+    pause
+    goto winget_menu
+)
+if "%wg_opt%"=="5" (
+    echo [INFO] Uninstalling Pairee...
+    winget uninstall FittyAr.Pairee
+    pause
+    goto winget_menu
+)
+if "%wg_opt%"=="6" goto menu
+goto winget_menu

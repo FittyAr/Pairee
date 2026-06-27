@@ -59,7 +59,7 @@ assets = [
 name = "pairee"
 summary = "A sleek, dual-panel terminal file manager"
 description = "A modern Rust clone of Norton Commander with dual-panel layout, themes, and full mouse support."
-license = "MIT"
+license = "GPLv3"
 categories = ["Applications/System"]
 assets = [
     { source = "target/x86_64-unknown-linux-musl/release/pairee", dest = "/usr/bin/pairee", mode = "755" },

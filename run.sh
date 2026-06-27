@@ -55,8 +55,9 @@ show_menu() {
     echo -e "  ${BOLD}5.${RESET} Static analysis            ${YELLOW}(cargo clippy -- -D warnings)${RESET}"
     echo -e "  ${BOLD}6.${RESET} Format check               ${YELLOW}(cargo fmt --all -- --check)${RESET}"
     echo -e "  ${BOLD}7.${RESET} Clean build directory      ${YELLOW}(cargo clean)${RESET}"
-    echo -e "  ${BOLD}8.${RESET} Bump version & release     ${YELLOW}(Git Tag & Push)${RESET}"
-    echo -e "  ${BOLD}9.${RESET} Exit"
+    echo -e "  ${BOLD}8.${RESET} Install/Upgrade via WinGet  ${YELLOW}(winget)${RESET}"
+    echo -e "  ${BOLD}9.${RESET} Bump version & release     ${YELLOW}(Git Tag & Push)${RESET}"
+    echo -e "  ${BOLD}10.${RESET} Exit"
     echo -e "${CYAN}${BOLD}==========================================${RESET}"
 }
 
@@ -70,9 +71,73 @@ run_and_pause() {
     read -rp "Press ENTER to return to menu..." _
 }
 
+show_winget_menu() {
+    # Check if winget or winget.exe is available
+    local winget_cmd=""
+    if command -v winget.exe &>/dev/null; then
+        winget_cmd="winget.exe"
+    elif command -v winget &>/dev/null; then
+        winget_cmd="winget"
+    fi
+
+    if [[ -z "$winget_cmd" ]]; then
+        clear
+        echo -e "${RED}[ERROR]${RESET} WinGet (winget / winget.exe) was not found in your PATH."
+        echo "WinGet is natively available on Windows. If you are on Linux, WinGet is not supported."
+        echo ""
+        read -rp "Press ENTER to return..." _
+        return
+    fi
+
+    while true; do
+        clear
+        echo -e "${CYAN}${BOLD}==========================================${RESET}"
+        echo -e "${CYAN}${BOLD}       Install/Upgrade via WinGet         ${RESET}"
+        echo -e "${CYAN}${BOLD}==========================================${RESET}"
+        echo -e "  ${BOLD}1.${RESET} Install Pairee (Auto-detect architecture)"
+        echo -e "  ${BOLD}2.${RESET} Install Pairee (Force x64)"
+        echo -e "  ${BOLD}3.${RESET} Install Pairee (Force ARM64)"
+        echo -e "  ${BOLD}4.${RESET} Upgrade Pairee to latest version"
+        echo -e "  ${BOLD}5.${RESET} Uninstall Pairee"
+        echo -e "  ${BOLD}6.${RESET} Back to main menu"
+        echo -e "${CYAN}${BOLD}==========================================${RESET}"
+        read -rp "Choose an option (1-6): " wg_opt
+
+        case "$wg_opt" in
+            1)
+                echo -e "\n${GREEN}[INFO]${RESET} Installing Pairee..."
+                run_and_pause "$winget_cmd" install FittyAr.Pairee --accept-source-agreements --accept-package-agreements
+                ;;
+            2)
+                echo -e "\n${GREEN}[INFO]${RESET} Installing Pairee (x64)..."
+                run_and_pause "$winget_cmd" install FittyAr.Pairee --architecture x64 --accept-source-agreements --accept-package-agreements
+                ;;
+            3)
+                echo -e "\n${GREEN}[INFO]${RESET} Installing Pairee (ARM64)..."
+                run_and_pause "$winget_cmd" install FittyAr.Pairee --architecture arm64 --accept-source-agreements --accept-package-agreements
+                ;;
+            4)
+                echo -e "\n${GREEN}[INFO]${RESET} Upgrading Pairee..."
+                run_and_pause "$winget_cmd" upgrade FittyAr.Pairee --accept-source-agreements --accept-package-agreements
+                ;;
+            5)
+                echo -e "\n${GREEN}[INFO]${RESET} Uninstalling Pairee..."
+                run_and_pause "$winget_cmd" uninstall FittyAr.Pairee
+                ;;
+            6)
+                break
+                ;;
+            *)
+                echo -e "${YELLOW}[WARN]${RESET} Invalid option. Please choose 1-6."
+                sleep 1
+                ;;
+        esac
+    done
+}
+
 while true; do
     show_menu
-    read -rp "Choose an option (1-9): " opt
+    read -rp "Choose an option (1-10): " opt
 
     case "$opt" in
         1)
@@ -104,15 +169,18 @@ while true; do
             run_and_pause cargo clean
             ;;
         8)
+            show_winget_menu
+            ;;
+        9)
             echo -e "\n${GREEN}[INFO]${RESET} Running bump version and release script...\n"
             run_and_pause "$SCRIPT_DIR/scripts/bump_version.sh"
             ;;
-        9)
+        10)
             echo -e "${CYAN}Bye!${RESET}"
             exit 0
             ;;
         *)
-            echo -e "${YELLOW}[WARN]${RESET} Invalid option. Please choose 1-9."
+            echo -e "${YELLOW}[WARN]${RESET} Invalid option. Please choose 1-10."
             sleep 1
             ;;
     esac

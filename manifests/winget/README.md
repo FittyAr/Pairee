@@ -23,7 +23,7 @@ Since automated GitHub Actions can only update *existing* packages, the first re
    - **Publisher Name:** `FittyAr`
    - **Package Name:** `Pairee`
    - **Version:** `0.5.1`
-   - **License:** `MIT`
+   - **License:** `GPLv3`
    - **Installer Type:** `inno`
    - **Silent Install Switch:** WinGet handles `inno` silent flags automatically, you can press enter to skip.
 4. When prompted to submit, provide your **GitHub Personal Access Token (PAT)** with `public_repo` scope. This will automatically fork `microsoft/winget-pkgs`, generate the manifests, push a branch, and open a Pull Request.
