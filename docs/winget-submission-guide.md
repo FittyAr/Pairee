@@ -138,7 +138,7 @@ Copy-Item -Path "..\NCRust\manifests\f\FittyAr\Pairee\0.6.0\*.yaml" -Destination
 #### Step B.5 — Commit and push to update the PR
 ```powershell
 git add manifests\f\FittyAr\Pairee\0.6.0
-git commit -m "Fix license to MIT, add ARM64 installer, and add Spanish locale"
+git commit -m "Fix license to GPLv3, add ARM64 installer, and add Spanish locale"
 git push origin wingetcreate-FittyAr.Pairee-0.6.0
 ```
 *This will automatically update the open Pull Request on `microsoft/winget-pkgs` and trigger re-validation.*
@@ -147,12 +147,16 @@ git push origin wingetcreate-FittyAr.Pairee-0.6.0
 
 ## Step 4 — PR Review Process
 
-The `microsoft/winget-pkgs` bot (`wingetbot`) will run automated validation checks on your PR. Common requirements:
+The `microsoft/winget-pkgs` bot (`wingetbot`) and system policy service will run automated validation checks on your PR. Common requirements:
 
-- Installer URL must be publicly accessible (HTTPS, no authentication required).
-- SHA-256 must match the actual downloaded file exactly.
-- Installer must launch silently with the standard Inno Setup flags (`/VERYSILENT /SUPPRESSMSGBOXES /NORESTART`).
-- Package identifier must match the format `Publisher.AppName` (✅ `FittyAr.Pairee`).
+- **Contributor License Agreement (CLA)**: Since `microsoft/winget-pkgs` is managed by Microsoft, first-time contributors must sign a Contributor License Agreement. If you see the `license/cla` check queued or failed, look for the comment by the `microsoft-github-policy-service` bot and reply with a comment on the PR containing:
+  ```text
+  @microsoft-github-policy-service agree
+  ```
+  This is required before any maintainers or automated tools can merge your PR.
+- **Installer Validation**: The installer URL must be publicly accessible and the computed SHA-256 must match exactly.
+- **Silent Installation**: The installer must run completely silently using the specified installer flags.
+- **Package ID**: Must follow the standard `Publisher.AppName` pattern (✅ `FittyAr.Pairee`).
 
 > [!NOTE]
 > First-time submissions typically require a human review from the winget-pkgs maintainers in addition to the automated checks. Review times vary from a few hours to a few days.
@@ -254,7 +258,9 @@ When updating for a new release, change `PackageVersion` and `InstallerUrl` in a
 - [ ] Click **Publish release**.
 - [ ] Download installers locally and calculate SHA-256 hashes.
 - [ ] Choose submission method (Option A with `wingetcreate` is fastest).
-- [ ] Submit PR to `microsoft/winget-pkgs` and wait for review.
+- [ ] Submit PR to `microsoft/winget-pkgs`.
+- [ ] Reply to the Microsoft policy bot to sign the **CLA** (`@microsoft-github-policy-service agree`).
+- [ ] Wait for validations to pass and PR to be merged.
 - [ ] Once merged, add `WINGET_TOKEN` secret to the Pairee repository.
 
 ### Every subsequent release
