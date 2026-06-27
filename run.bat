@@ -63,10 +63,11 @@ echo  5. Run clippy static checks (cargo clippy)
 echo  6. Run format check (cargo fmt)
 echo  7. Clean build directory (cargo clean)
 echo  8. Install/Upgrade via WinGet
-echo  9. Bump version and publish release (Git Tag & Push)
-echo  10. Exit
+echo  9. Microsoft Store (MSIX) Developer Menu
+echo  10. Bump version and publish release (Git Tag & Push)
+echo  11. Exit
 echo ==========================================
-set /p opt="Choose an option (1-10): "
+set /p opt="Choose an option (1-11): "
 
 if "%opt%"=="1" (
     echo [INFO] Launching Pairee...
@@ -114,12 +115,15 @@ if "%opt%"=="8" (
     goto winget_menu
 )
 if "%opt%"=="9" (
+    goto msix_menu
+)
+if "%opt%"=="10" (
     echo [INFO] Running bump version and release script...
     powershell -ExecutionPolicy Bypass -File "%~dp0scripts\bump_version.ps1"
     pause
     goto menu
 )
-if "%opt%"=="10" (
+if "%opt%"=="11" (
     exit /b 0
 )
 
@@ -167,6 +171,97 @@ if "%wg_opt%"=="5" (
     winget uninstall FittyAr.Pairee
     pause
     goto winget_menu
+
+:msix_menu
+cls
+echo ==========================================
+echo      Microsoft Store (MSIX) Developer Menu
+echo ==========================================
+echo  1. Package MSIX package locally
+echo  2. Create/Install self-signed testing cert
+echo  3. Sign MSIX package locally
+echo  4. Install local signed MSIX package
+echo  5. Back to main menu
+echo ==========================================
+set /p mx_opt="Choose an option (1-5): "
+
+if "%mx_opt%"=="1" (
+    echo [INFO] Packaging MSIX...
+    if not exist "target\release\pairee.exe" (
+        echo [WARNING] target\release\pairee.exe not found. Compiling in release mode...
+        cargo build --release
+    )
+    
+    :: Create staging folder
+    if exist "target\msix_staging" rd /s /q "target\msix_staging"
+    mkdir "target\msix_staging"
+    
+    :: Copy files
+    copy "target\release\pairee.exe" "target\msix_staging\"
+    xcopy "lang" "target\msix_staging\lang\" /E /I /H /Y
+    xcopy "help" "target\msix_staging\help\" /E /I /H /Y
+    xcopy "docs" "target\msix_staging\docs\" /E /I /H /Y
+    xcopy "manifests\msix\Assets" "target\msix_staging\Assets\" /E /I /H /Y
+    copy "manifests\msix\AppxManifest.xml" "target\msix_staging\"
+    
+    :: Compile
+    powershell -Command "
+      $makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
+      if (-not \$makeappx) { \$makeappx = 'makeappx.exe' }
+      echo [INFO] Running: \$makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix
+      & \$makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix /o
+    "
+    pause
+    goto msix_menu
+)
+if "%mx_opt%"=="2" (
+    echo [INFO] Creating and trusting self-signed certificate...
+    powershell -Command "
+      \$cert = New-SelfSignedCertificate -Type Custom -Subject 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' -KeyUsage DigitalSignature -FriendlyName 'Pairee Local Test' -CertStoreLocation 'Cert:\CurrentUser\My' -TextExtension @('2.5.29.37={text}1.3.6.1.5.5.7.3.3')
+      Export-Certificate -Cert \$cert -FilePath 'target\pairee_test.cer'
+      Import-Certificate -FilePath 'target\pairee_test.cer' -CertStoreLocation 'Cert:\LocalMachine\Root'
+      Write-Host '[SUCCESS] Certificate created at target\pairee_test.cer and trusted.'
+    "
+    pause
+    goto msix_menu
+)
+if "%mx_opt%"=="3" (
+    echo [INFO] Signing MSIX package...
+    if not exist "target\pairee_local_x64.msix" (
+        echo [ERROR] target\pairee_local_x64.msix not found. Package first.
+        pause
+        goto msix_menu
+    )
+    if not exist "target\pairee_test.cer" (
+        echo [ERROR] target\pairee_test.cer not found. Create certificate first.
+        pause
+        goto msix_menu
+    )
+    powershell -Command "
+      \$signtool = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'signtool.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
+      if (-not \$signtool) { \$signtool = 'signtool.exe' }
+      echo [INFO] Running: \$signtool sign /fd SHA256 /a /f target\pairee_test.cer target\pairee_local_x64.msix
+      & \$signtool sign /fd SHA256 /a /f target\pairee_test.cer target\pairee_local_x64.msix
+    "
+    pause
+    goto msix_menu
+)
+if "%mx_opt%"=="4" (
+    echo [INFO] Installing local signed MSIX package...
+    if not exist "target\pairee_local_x64.msix" (
+        echo [ERROR] target\pairee_local_x64.msix not found.
+        pause
+        goto msix_menu
+    )
+    powershell -Command "
+      Add-AppxPackage -Path target\pairee_local_x64.msix
+      Write-Host '[SUCCESS] Package installed.'
+    "
+    pause
+    goto msix_menu
+)
+if "%mx_opt%"=="5" goto menu
+goto msix_menu
 )
 if "%wg_opt%"=="6" goto menu
 goto winget_menu
