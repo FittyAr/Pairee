@@ -40,6 +40,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Output duplication in `scripts/extract_changelog.sh` that caused duplicated release descriptions on GitHub releases.
 - WinGet validation error (STATUS_DLL_NOT_FOUND) resolved by adding VC++ Redistributable package dependencies in the manifest.
+- Syntax errors and rendering bugs in `run.bat` helper script resolved.
 
 ---
 

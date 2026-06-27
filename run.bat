@@ -64,7 +64,7 @@ echo  6. Run format check (cargo fmt)
 echo  7. Clean build directory (cargo clean)
 echo  8. Install/Upgrade via WinGet
 echo  9. Microsoft Store (MSIX) Developer Menu
-echo  10. Bump version and publish release (Git Tag & Push)
+echo  10. Bump version and publish release (Git Tag ^& Push)
 echo  11. Exit
 echo ==========================================
 set /p opt="Choose an option (1-11): "
@@ -171,6 +171,11 @@ if "%wg_opt%"=="5" (
     winget uninstall FittyAr.Pairee
     pause
     goto winget_menu
+)
+if "%wg_opt%"=="6" (
+    goto menu
+)
+goto winget_menu
 
 :msix_menu
 cls
@@ -260,8 +265,7 @@ if "%mx_opt%"=="4" (
     pause
     goto msix_menu
 )
-if "%mx_opt%"=="5" goto menu
-goto msix_menu
+if "%mx_opt%"=="5" (
+    goto menu
 )
-if "%wg_opt%"=="6" goto menu
-goto winget_menu
+goto msix_menu
