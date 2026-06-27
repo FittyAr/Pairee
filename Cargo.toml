@@ -1,6 +1,6 @@
 [package]
 name = "pairee"
-version = "0.6.0"
+version = "0.6.1"
 edition = "2024"
 default-run = "pairee"
 
@@ -77,3 +77,4 @@ assets = [
 
 [build-dependencies]
 embed-resource = "2.5"
+
