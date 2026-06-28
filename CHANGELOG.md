@@ -17,6 +17,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [v0.6.1] - 2026-06-27
 
+---
+
+## [v0.6.1] - 2026-06-27
+
 ### Added
 
 - A rule in `.agents/AGENTS.md` to enforce checking and running workspace customization skills automatically.

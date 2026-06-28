@@ -12,8 +12,8 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPLv3
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: Un clon moderno en Rust de Norton Commander con diseÃ±o de doble panel, temas y soporte completo para ratÃ³n.
-Description: Un clon moderno en Rust de Norton Commander con diseÃ±o de doble panel, temas y soporte completo para ratÃ³n. Cuenta con temas personalizables, traducciones, soporte para formatos estÃ¡ndar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
+ShortDescription: Un clon moderno en Rust de Norton Commander con diseÃƒÂ±o de doble panel, temas y soporte completo para ratÃƒÂ³n.
+Description: Un clon moderno en Rust de Norton Commander con diseÃƒÂ±o de doble panel, temas y soporte completo para ratÃƒÂ³n. Cuenta con temas personalizables, traducciones, soporte para formatos estÃƒÂ¡ndar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
 Moniker: pairee
 Tags:
   - rust
