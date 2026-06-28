@@ -1,6 +1,6 @@
 # WinGet Integration Guide for Pairee
 
-This folder contains the official WinGet manifests for **Pairee**. To submit this application to the Windows Package Manager (WinGet) and enable automatic releases, please follow these steps:
+This guide describes how the official WinGet manifests for **Pairee** are managed. To submit this application to the Windows Package Manager (WinGet) and enable automatic releases, please follow these steps:
 
 ---
 
@@ -39,10 +39,10 @@ Since automated GitHub Actions can only update *existing* packages, the first re
    ```powershell
    Get-FileHash .\pairee-setup-0.5.1-x64.exe
    ```
-4. Open [FittyAr.Pairee.installer.yaml](./FittyAr.Pairee.installer.yaml) and replace the SHA256 placeholders (`000000...`) with the actual computed hashes.
+4. Open the installer manifest (located under `manifests/f/FittyAr/Pairee/<version>/FittyAr.Pairee.installer.yaml`) and replace the SHA256 placeholders (`000000...`) with the actual computed hashes.
 5. Create a folder in your cloned fork at:
-   `manifests/f/FittyAr/Pairee/0.5.1/`
-6. Copy the four YAML files from this directory (`manifests/winget/`) into that folder.
+   `manifests/f/FittyAr/Pairee/<version>/`
+6. Copy the four YAML files from the version folder (e.g. `manifests/f/FittyAr/Pairee/<version>/`) into that folder.
 7. Commit, push to a branch on your fork, and open a Pull Request to `microsoft/winget-pkgs/master`.
 
 ---

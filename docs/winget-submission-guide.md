@@ -3,7 +3,7 @@
 > **Identifier:** `FittyAr.Pairee`  
 > **Manifest version used:** `1.9.0`  
 > **Workflows:** [`.github/workflows/winget.yml`](../.github/workflows/winget.yml) · [`.github/workflows/release.yml`](../.github/workflows/release.yml)  
-> **Local manifests:** [`manifests/winget/`](../manifests/winget/)
+> **Local manifests:** [`manifests/f/FittyAr/Pairee/`](../manifests/f/FittyAr/Pairee/)
 
 ---
 
@@ -238,7 +238,7 @@ Selecting this option opens a submenu:
 
 ## Manifest File Reference
 
-All manifest files live in [`manifests/winget/`](../manifests/winget/) and are kept in sync with the current release.
+All manifest files live in [`manifests/f/FittyAr/Pairee/<version>/`](../manifests/f/FittyAr/Pairee/) and are kept in sync with the current release.
 
 | File | Manifest type | Purpose |
 |---|---|---|
@@ -270,7 +270,7 @@ When updating for a new release, change `PackageVersion` and `InstallerUrl` in a
 - [ ] Push tag `vX.Y.Z` → `release.yml` builds a draft.
 - [ ] Publish the draft release on GitHub.
 - [ ] `winget.yml` automatically opens a PR to `microsoft/winget-pkgs`.
-- [ ] Update local manifests in `manifests/winget/` to reflect the new version (for reference tracking).
+- [ ] Update local manifests in `manifests/f/FittyAr/Pairee/<version>/` to reflect the new version (for reference tracking).
 
 ---
 

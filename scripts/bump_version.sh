@@ -91,10 +91,29 @@ if [[ -f "installer.iss" ]]; then
 fi
 
 # 3c. Update local Winget manifest files
-winget_dir="manifests/winget"
-if [[ -d "$winget_dir" ]]; then
+winget_base_dir="manifests/f/FittyAr/Pairee"
+current_manifest_dir="$winget_base_dir/$current_version"
+new_manifest_dir="$winget_base_dir/$new_version"
+
+if [[ ! -d "$current_manifest_dir" ]]; then
+    # Try to find any directory under manifests/f/FittyAr/Pairee/
+    if [[ -d "$winget_base_dir" ]]; then
+        any_dir=$(find "$winget_base_dir" -maxdepth 1 -mindepth 1 -type d | head -n 1)
+        if [[ -n "$any_dir" ]]; then
+            current_manifest_dir="$any_dir"
+        fi
+    fi
+fi
+
+if [[ -d "$current_manifest_dir" ]]; then
+    if [[ "$current_manifest_dir" != "$new_manifest_dir" ]]; then
+        echo -e "Migrating WinGet manifests from ${YELLOW}$current_manifest_dir${RESET} to ${YELLOW}$new_manifest_dir${RESET}..."
+        mkdir -p "$new_manifest_dir"
+        cp -r "$current_manifest_dir"/. "$new_manifest_dir"/
+        rm -rf "$current_manifest_dir"
+    fi
     echo -e "Updating local WinGet manifests to version ${YELLOW}$new_version${RESET}..."
-    for f in "$winget_dir"/FittyAr.Pairee*.yaml; do
+    for f in "$new_manifest_dir"/FittyAr.Pairee*.yaml; do
         if [[ -f "$f" ]]; then
             if [[ "$OSTYPE" == "darwin"* ]]; then
                 sed -i '' -E 's@^PackageVersion: .*@PackageVersion: '"$new_version"'@' "$f"
@@ -109,6 +128,8 @@ if [[ -d "$winget_dir" ]]; then
             fi
         fi
     done
+else
+    echo -e "${YELLOW}[WARNING]${RESET} No existing WinGet manifest directory found to migrate."
 fi
 
 # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
@@ -157,7 +178,7 @@ if [[ -z "$branch" ]]; then
 fi
 
 echo -e "\n${YELLOW}Summary of actions to perform:${RESET}"
-echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/winget/*.yaml)"
+echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/f/FittyAr/Pairee/*)"
 echo -e "  - Create git tag v$new_version"
 echo -e "  - Push commit and tag to origin ($branch)"
 echo ""
@@ -174,8 +195,8 @@ git add Cargo.toml Cargo.lock installer.iss
 if [[ -f "CHANGELOG.md" ]]; then
     git add CHANGELOG.md
 fi
-if [[ -d "manifests/winget" ]]; then
-    git add manifests/winget/*.yaml
+if [[ -d "manifests/f" ]]; then
+    git add manifests/f/
 fi
 git commit -m "Bump version to v$new_version"
 

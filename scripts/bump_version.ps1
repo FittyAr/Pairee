@@ -94,10 +94,30 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     }
 
     # 3c. Update local Winget manifest files
-    $wingetDir = "manifests/winget"
-    if (Test-Path $wingetDir) {
+    $wingetBaseDir = "manifests/f/FittyAr/Pairee"
+    $currentManifestDir = Join-Path $wingetBaseDir $currentVersion
+    $newManifestDir = Join-Path $wingetBaseDir $newVersion
+
+    if (-not (Test-Path $currentManifestDir)) {
+        # Try to find any version directory under manifests/f/FittyAr/Pairee
+        if (Test-Path $wingetBaseDir) {
+            $anyVersionDir = Get-ChildItem -Path $wingetBaseDir -Directory | Select-Object -First 1
+            if ($anyVersionDir) {
+                $currentManifestDir = $anyVersionDir.FullName
+            }
+        }
+    }
+
+    if (Test-Path $currentManifestDir) {
+        if ($currentManifestDir -ne $newManifestDir) {
+            Write-Host "Migrating WinGet manifests from $currentManifestDir to $newManifestDir..." -ForegroundColor Yellow
+            New-Item -ItemType Directory -Path $newManifestDir -Force | Out-Null
+            Copy-Item -Path "$currentManifestDir\*" -Destination $newManifestDir -Force
+            Remove-Item -Path $currentManifestDir -Recurse -Force
+        }
+
         Write-Host "Updating local WinGet manifests to version $newVersion..." -ForegroundColor Yellow
-        $yamlFiles = Get-ChildItem -Path $wingetDir -Filter "FittyAr.Pairee*.yaml"
+        $yamlFiles = Get-ChildItem -Path $newManifestDir -Filter "FittyAr.Pairee*.yaml"
         foreach ($file in $yamlFiles) {
             $content = Get-Content -Raw -Path $file.FullName
             # Update PackageVersion
@@ -112,6 +132,8 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
             $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
             [System.IO.File]::WriteAllText($file.FullName, $content, $utf8NoBom)
         }
+    } else {
+        Write-Host "[WARNING] No existing WinGet manifest directory found to migrate." -ForegroundColor Yellow
     }
 
     # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
@@ -170,7 +192,7 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     
     Write-Host ""
     Write-Host "Summary of actions to perform:" -ForegroundColor Yellow
-    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/winget/*.yaml)"
+    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/f/FittyAr/Pairee/*)"
     Write-Host "  - Create git tag v$newVersion"
     Write-Host "  - Push commit and tag to origin ($branch)"
     Write-Host ""
@@ -187,8 +209,8 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     if (Test-Path "CHANGELOG.md") {
         git add CHANGELOG.md
     }
-    if (Test-Path "manifests/winget") {
-        git add manifests/winget/*.yaml
+    if (Test-Path "manifests/f/FittyAr/Pairee") {
+        git add manifests/f/
     }
     git commit -m "Bump version to v$newVersion"
     

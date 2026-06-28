@@ -13,8 +13,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Changed
+
+- Moved `manifests/winget/README.md` to `docs/README.md` and corrected its relative links.
+- Updated release version bumping scripts (`bump_version.ps1` and `bump_version.sh`) to automatically migrate and update WinGet manifests in the version-specific `manifests/f/FittyAr/Pairee/<version>` directories.
+- Updated local references inside `docs/winget-submission-guide.md` to match the versioned folder structure under `manifests/f/`.
+
 ### Removed
 
+- Removed the obsolete and unused `manifests/winget/` directory.
 - Packaged `docs/` folder from being distributed in release assets, installers, packages, and staging configurations.
 
 ---

@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.9.0.schema.json
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.12.0.schema.json
 PackageIdentifier: FittyAr.Pairee
 PackageVersion: 0.6.1
 PackageLocale: es-ES
@@ -12,8 +12,8 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPLv3
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: Un clon moderno en Rust de Norton Commander con diseÃƒÂ±o de doble panel, temas y soporte completo para ratÃƒÂ³n.
-Description: Un clon moderno en Rust de Norton Commander con diseÃƒÂ±o de doble panel, temas y soporte completo para ratÃƒÂ³n. Cuenta con temas personalizables, traducciones, soporte para formatos estÃƒÂ¡ndar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
+ShortDescription: Un clon moderno en Rust de Norton Commander con diseño de doble panel, temas y soporte completo para ratón.
+Description: Un clon moderno en Rust de Norton Commander con diseño de doble panel, temas y soporte completo para ratón. Cuenta con temas personalizables, traducciones, soporte para formatos estándar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
 Moniker: pairee
 Tags:
   - rust
@@ -24,4 +24,4 @@ Tags:
   - explorador
 ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/v0.6.1
 ManifestType: locale
-ManifestVersion: 1.9.0
+ManifestVersion: 1.12.0
