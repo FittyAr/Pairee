@@ -24,6 +24,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Removed the obsolete and unused `manifests/winget/` directory.
 - Packaged `docs/` folder from being distributed in release assets, installers, packages, and staging configurations.
 
+### Fixed
+
+- Resolved startup crash (`STATUS_DLL_NOT_FOUND` / `0xC0000135`) on clean Windows installations by ensuring the CI release pipeline statically links the C runtime library.
+
 ---
 
 ## [v0.6.1] - 2026-06-27
