@@ -14,7 +14,6 @@ LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
 ShortDescription: Un clon moderno en Rust de Norton Commander con diseño de doble panel, temas y soporte completo para ratón.
 Description: Un clon moderno en Rust de Norton Commander con diseño de doble panel, temas y soporte completo para ratón. Cuenta con temas personalizables, traducciones, soporte para formatos estándar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
-Moniker: pairee
 Tags:
   - rust
   - gestor-de-archivos
