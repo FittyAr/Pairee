@@ -8,9 +8,10 @@ UpgradeBehavior: install
 Installers:
   - Architecture: x64
     InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.6.1/pairee-setup-0.6.1-x64.exe
-    InstallerSha256: c9e0209191cd3a5fd0e2a52744a977c938482ac809f581ffdf40a987d7f1f177
+    InstallerSha256: 97823413CC2E75C4A1D34CACED3720FA1A378123B8A1904B7BD196FE9359A535
   - Architecture: arm64
     InstallerUrl: https://github.com/FittyAr/Pairee/releases/download/v0.6.1/pairee-setup-0.6.1-arm64.exe
-    InstallerSha256: f625933edb554f804c866f989fe55b583c77634419e213ac65c9a8f758f7827f
+    InstallerSha256: a548cd8870d6437727f59dcad2b82089f65f495088f89e23ad6c569716379303
 ManifestType: installer
 ManifestVersion: 1.12.0
+ReleaseDate: 2026-06-28

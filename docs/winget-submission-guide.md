@@ -79,7 +79,7 @@ This tool automates the PR creation for you.
 winget install Microsoft.WingetCreate
 
 # 2. Reopen the terminal, then run:
-wingetcreate new "https://github.com/FittyAr/Pairee/releases/download/v0.6.0/pairee-setup-0.6.0-x64.exe"
+wingetcreate new "https://github.com/FittyAr/Pairee/releases/download/v0.6.1/pairee-setup-0.6.1-x64.exe"
 ```
 
 Answer the interactive prompts:

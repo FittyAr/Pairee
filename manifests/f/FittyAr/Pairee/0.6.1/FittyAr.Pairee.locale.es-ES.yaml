@@ -9,7 +9,7 @@ PrivacyUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Author: FittyAr
 PackageName: Pairee
 PackageUrl: https://github.com/FittyAr/Pairee
-License: GPLv3
+License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
 ShortDescription: Un clon moderno en Rust de Norton Commander con diseño de doble panel, temas y soporte completo para ratón.

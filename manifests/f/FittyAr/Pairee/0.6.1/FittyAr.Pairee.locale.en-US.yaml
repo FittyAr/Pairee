@@ -11,7 +11,7 @@ PrivacyUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Author: FittyAr
 PackageName: Pairee
 PackageUrl: https://github.com/FittyAr/Pairee
-License: GPLv3
+License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
 ShortDescription: A modern, highly modular, cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**.
