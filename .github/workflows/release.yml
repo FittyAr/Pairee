@@ -110,7 +110,7 @@ jobs:
           mkdir -p dist
 
           # Copy resources
-          cp -r lang help docs README.md LICENSE "$PKG_NAME/"
+          cp -r lang help README.md LICENSE "$PKG_NAME/"
 
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             cp "target/${{ matrix.target }}/release/pairee.exe" "$PKG_NAME/"
@@ -130,7 +130,7 @@ jobs:
             MSIX_STAGING="target/msix_staging_${{ matrix.target }}"
             mkdir -p "$MSIX_STAGING"
             cp "target/${{ matrix.target }}/release/pairee.exe" "$MSIX_STAGING/"
-            cp -r lang help docs manifests/msix/Assets "$MSIX_STAGING/"
+            cp -r lang help manifests/msix/Assets "$MSIX_STAGING/"
             cp manifests/msix/AppxManifest.xml "$MSIX_STAGING/"
 
             ARCH="x64"

@@ -205,7 +205,6 @@ if "%mx_opt%"=="1" (
     copy "target\release\pairee.exe" "target\msix_staging\"
     xcopy "lang" "target\msix_staging\lang\" /E /I /H /Y
     xcopy "help" "target\msix_staging\help\" /E /I /H /Y
-    xcopy "docs" "target\msix_staging\docs\" /E /I /H /Y
     xcopy "manifests\msix\Assets" "target\msix_staging\Assets\" /E /I /H /Y
     copy "manifests\msix\AppxManifest.xml" "target\msix_staging\"
     

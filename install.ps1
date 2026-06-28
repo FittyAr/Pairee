@@ -172,9 +172,6 @@ if (-not (Test-Path (Join-Path $configDir "lang"))) {
 if (-not (Test-Path (Join-Path $configDir "help"))) {
     New-Item -ItemType Directory -Force -Path (Join-Path $configDir "help") | Out-Null
 }
-if (-not (Test-Path (Join-Path $configDir "docs"))) {
-    New-Item -ItemType Directory -Force -Path (Join-Path $configDir "docs") | Out-Null
-}
 if (-not (Test-Path (Join-Path $configDir "keymaps"))) {
     New-Item -ItemType Directory -Force -Path (Join-Path $configDir "keymaps") | Out-Null
 }
@@ -247,9 +244,6 @@ if (Test-Path (Join-Path $extractedFolder "lang")) {
 }
 if (Test-Path (Join-Path $extractedFolder "help")) {
     Copy-Item -Path (Join-Path $extractedFolder "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse
-}
-if (Test-Path (Join-Path $extractedFolder "docs")) {
-    Copy-Item -Path (Join-Path $extractedFolder "docs\*") -Destination (Join-Path $configDir "docs") -Force -Recurse
 }
 if (Test-Path (Join-Path $extractedFolder "keymaps")) {
     # Only copy preset files that do not already exist, to preserve user edits

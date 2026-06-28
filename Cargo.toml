@@ -51,7 +51,6 @@ assets = [
     ["target/release/pairee", "usr/bin/pairee", "755"],
     ["lang/*", "usr/share/pairee/lang/", "644"],
     ["help/*", "usr/share/pairee/help/", "644"],
-    ["docs/technical/*", "usr/share/pairee/docs/technical/", "644"],
     ["keymaps/*", "usr/share/pairee/keymaps/", "644"],
     ["manifests/linux/pairee.desktop", "usr/share/applications/pairee.desktop", "644"],
     ["img/pairee_logo.svg", "usr/share/icons/hicolor/scalable/apps/pairee.svg", "644"],
@@ -68,7 +67,6 @@ assets = [
     { source = "target/x86_64-unknown-linux-musl/release/pairee", dest = "/usr/bin/pairee", mode = "755" },
     { source = "lang/*", dest = "/usr/share/pairee/lang/", mode = "644" },
     { source = "help/*", dest = "/usr/share/pairee/help/", mode = "644" },
-    { source = "docs/technical/*", dest = "/usr/share/pairee/docs/technical/", mode = "644" },
     { source = "keymaps/*", dest = "/usr/share/pairee/keymaps/", mode = "644" },
     { source = "manifests/linux/pairee.desktop", dest = "/usr/share/applications/pairee.desktop", mode = "644" },
     { source = "img/pairee_logo.svg", dest = "/usr/share/icons/hicolor/scalable/apps/pairee.svg", mode = "644" },
@@ -77,5 +75,3 @@ assets = [
 
 [build-dependencies]
 embed-resource = "2.5"
-
-

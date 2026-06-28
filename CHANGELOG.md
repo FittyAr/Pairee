@@ -13,9 +13,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
----
+### Removed
 
-## [v0.6.1] - 2026-06-27
+- Packaged `docs/` folder from being distributed in release assets, installers, packages, and staging configurations.
 
 ---
 

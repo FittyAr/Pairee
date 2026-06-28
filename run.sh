@@ -177,7 +177,7 @@ show_msix_menu() {
                 rm -rf target/msix_staging
                 mkdir -p target/msix_staging
                 cp target/release/pairee.exe target/msix_staging/
-                cp -r lang help docs manifests/msix/Assets target/msix_staging/
+                cp -r lang help manifests/msix/Assets target/msix_staging/
                 cp manifests/msix/AppxManifest.xml target/msix_staging/
 
                 powershell.exe -Command "
