@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Pairee | Gestor de archivos TUI moderno en Rust</title>
+    <meta
+      name="description"
+      content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio."
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  </head>
+  <body>
+    <!-- Topbar/Header -->
+    <header class="header">
+      <div class="container nav">
+        <a class="logo" href="index.html">
+          <img src="assets/wizard_small_image.png" alt="Pairee Logo" />
+          <span>Pairee</span>
+        </a>
+        <nav class="nav-links">
+          <a href="#features">Características</a>
+          <a href="#gallery">Capturas</a>
+          <a href="#install">Instalación</a>
+          <a href="https://fitty.ar/">Volver a fitty.ar</a>
+        </nav>
+        <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank">
+          GitHub
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- Hero Section -->
+      <section class="hero">
+        <div class="container">
+          <span class="badge">
+            <span style="color: #00e5ff;">◆</span> Nueva Versión Disponible
+          </span>
+          <h1 class="hero-title">Tu mundo, en <span>dos paneles</span>.</h1>
+          <p class="hero-subtitle">
+            Un gestor de archivos para terminal moderno, multiplataforma y altamente modular.
+            Inspirado en Norton Commander, desarrollado en Rust con Ratatui y Tokio.
+          </p>
+          <div class="hero-ctas">
+            <a class="btn-primary" href="#install">
+              Descargar ahora
+            </a>
+            <a class="btn-secondary" href="https://github.com/FittyAr/Pairee" target="_blank">
+              Ver Código Fuente
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Key Features Section -->
+      <section class="section" id="features">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Características Clave</h2>
+            <p class="section-subtitle">
+              Pairee combina la velocidad de la línea de comandos con la comodidad visual de un gestor de archivos interactivo.
+            </p>
+          </div>
+
+          <div class="features-grid">
+            <article class="feature-card">
+              <div class="feature-icon">❖</div>
+              <h3>Interfaz de Doble Panel</h3>
+              <p>
+                El clásico diseño de paneles paralelos para moverte y gestionar directorios de manera extremadamente ágil y sin perder contexto.
+              </p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">⚙</div>
+              <h3>Operaciones Asíncronas</h3>
+              <p>
+                Copia, mueve o elimina archivos en segundo plano gracias al runtime de Tokio. La interfaz se mantiene 100% fluida en todo momento.
+              </p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">⌨</div>
+              <h3>Atajos Personalizables</h3>
+              <p>
+                Perfiles integrados para controles de Norton Clásico, Vim y navegación moderna. Elige el estilo que mejor se adapte a ti.
+              </p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">🖌</div>
+              <h3>Temas y Localización</h3>
+              <p>
+                Motor dinámico para temas visuales (Slate, Blue, etc.) y soporte centralizado multilingüe para inglés y español.
+              </p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">🔍</div>
+              <h3>Herramientas Integradas</h3>
+              <p>
+                Búsqueda avanzada por nombre/contenido, visor de atributos detallado, comparación de directorios y administrador de procesos del sistema.
+              </p>
+            </article>
+
+            <article class="feature-card">
+              <div class="feature-icon">⟳</div>
+              <h3>Auto-actualizador Inteligente</h3>
+              <p>
+                Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura validando firmas SHA-256.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- Interactive Gallery Section -->
+      <section class="section" id="gallery" style="background: rgba(15, 18, 27, 0.4);">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">El poder en acción</h2>
+            <p class="section-subtitle">
+              Explora las capturas de la interfaz y las diferentes utilidades integradas en Pairee.
+            </p>
+          </div>
+
+          <div class="gallery-container">
+            <div class="gallery-display">
+              <!-- Slides will be injected or controlled by JS -->
+              <div class="gallery-slide active" data-index="0">
+                <img src="assets/Captura de pantalla_20260629_083335.png" alt="Panel Dual Principal" />
+              </div>
+              <div class="gallery-slide" data-index="1">
+                <img src="assets/Captura de pantalla_20260629_083400.png" alt="Operaciones Asíncronas" />
+              </div>
+              <div class="gallery-slide" data-index="2">
+                <img src="assets/Captura de pantalla_20260629_083412.png" alt="Buscador Avanzado" />
+              </div>
+              <div class="gallery-slide" data-index="3">
+                <img src="assets/Captura de pantalla_20260629_083422.png" alt="Comparación de Directorios" />
+              </div>
+              <div class="gallery-slide" data-index="4">
+                <img src="assets/Captura de pantalla_20260629_083437.png" alt="Administrador de Procesos" />
+              </div>
+              <div class="gallery-slide" data-index="5">
+                <img src="assets/Captura de pantalla_20260629_083508.png" alt="Selector de Temas" />
+              </div>
+              <div class="gallery-slide" data-index="6">
+                <img src="assets/Captura de pantalla_20260629_083558.png" alt="Visor de Atributos" />
+              </div>
+              <div class="gallery-slide" data-index="7">
+                <img src="assets/Captura de pantalla_20260629_083617.png" alt="Auto-actualizaciones" />
+              </div>
+
+              <div class="gallery-nav">
+                <button class="gallery-btn" id="prev-btn">◀</button>
+                <button class="gallery-btn" id="next-btn">▶</button>
+              </div>
+            </div>
+
+            <div class="gallery-caption" id="gallery-caption">
+              Panel Dual Principal: Navegación clásica estilo Norton Commander.
+            </div>
+
+            <div class="gallery-thumbnails" id="gallery-thumbnails">
+              <div class="gallery-thumb active" data-index="0">
+                <img src="assets/Captura de pantalla_20260629_083335.png" alt="Vista previa 1" />
+              </div>
+              <div class="gallery-thumb" data-index="1">
+                <img src="assets/Captura de pantalla_20260629_083400.png" alt="Vista previa 2" />
+              </div>
+              <div class="gallery-thumb" data-index="2">
+                <img src="assets/Captura de pantalla_20260629_083412.png" alt="Vista previa 3" />
+              </div>
+              <div class="gallery-thumb" data-index="3">
+                <img src="assets/Captura de pantalla_20260629_083422.png" alt="Vista previa 4" />
+              </div>
+              <div class="gallery-thumb" data-index="4">
+                <img src="assets/Captura de pantalla_20260629_083437.png" alt="Vista previa 5" />
+              </div>
+              <div class="gallery-thumb" data-index="5">
+                <img src="assets/Captura de pantalla_20260629_083508.png" alt="Vista previa 6" />
+              </div>
+              <div class="gallery-thumb" data-index="6">
+                <img src="assets/Captura de pantalla_20260629_083558.png" alt="Vista previa 7" />
+              </div>
+              <div class="gallery-thumb" data-index="7">
+                <img src="assets/Captura de pantalla_20260629_083617.png" alt="Vista previa 8" />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Terminal Install Section -->
+      <section class="section" id="install">
+        <div class="container">
+          <div class="section-header">
+            <h2 class="section-title">Instalación al instante</h2>
+            <p class="section-subtitle">
+              Puedes descargar y compilar Pairee ejecutando este instalador directo en tu terminal.
+            </p>
+          </div>
+
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <div class="terminal-buttons">
+                <span class="terminal-btn close"></span>
+                <span class="terminal-btn minimize"></span>
+                <span class="terminal-btn maximize"></span>
+              </div>
+              <div class="terminal-title">instalar_pairee.sh</div>
+              <div></div>
+            </div>
+            <div class="terminal-tabs">
+              <div class="terminal-tab active" id="tab-linux" onclick="switchTab('linux')">Linux / macOS</div>
+              <div class="terminal-tab" id="tab-windows" onclick="switchTab('windows')">Windows (PowerShell)</div>
+            </div>
+            <div class="terminal-body">
+              <!-- Linux code -->
+              <div id="code-linux" class="code-container-tab">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">$</span>
+                  <span class="terminal-code" id="cmd-linux">curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh</span>
+                </div>
+              </div>
+              <!-- Windows code -->
+              <div id="code-windows" class="code-container-tab" style="display: none;">
+                <div class="terminal-line">
+                  <span class="terminal-prompt">PS &gt;</span>
+                  <span class="terminal-code" id="cmd-windows">irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex</span>
+                </div>
+              </div>
+
+              <div class="copy-container">
+                <button class="btn-copy" id="btn-copy" onclick="copyCommand()">
+                  <span>📋</span> Copiar Comando
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Wizard Showcase Section (Estética Mágica) -->
+      <section class="section">
+        <div class="container">
+          <div class="wizard-showcase">
+            <div class="wizard-text">
+              <span class="badge" style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan);">
+                Espíritu Retro
+              </span>
+              <h3>La magia de la terminal clásica</h3>
+              <p>
+                Pairee une la nostalgia del software TUI de finales del siglo XX con la seguridad de memoria, el paralelismo sin esfuerzo y la extrema robustez de Rust.
+              </p>
+              <p>
+                No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins, desarrolladores e ingenieros amantes de la consola.
+              </p>
+              <a class="btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), #00a8ff); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.2);" href="https://github.com/FittyAr/Pairee" target="_blank">
+                Explorar el Repositorio ↗
+              </a>
+            </div>
+            <div class="wizard-img">
+              <img src="assets/wizard_image_max.png" alt="Pairee Wizard Graphic" />
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <div class="container footer-grid">
+        <div>
+          <div class="logo" style="margin-bottom: 8px;">
+            <img src="assets/wizard_small_image.png" alt="Pairee Logo" style="width: 24px; height: 24px;" />
+            <span>Pairee</span>
+          </div>
+          <p style="margin: 0; font-size: 0.85rem;">
+            Desarrollado con pasión en Rust. Licenciado bajo MIT.
+          </p>
+        </div>
+        <div class="footer-links">
+          <a href="https://fitty.ar/">fitty.ar</a>
+          <a href="https://fitty.ar/productos.html">Proyectos</a>
+          <a href="https://github.com/FittyAr/Pairee" target="_blank">GitHub</a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- JavaScript logic -->
+    <script>
+      // Slideshow/Gallery logic
+      const captions = [
+        "Panel Dual Principal: Navegación clásica estilo Norton Commander.",
+        "Operaciones Asíncronas: Tareas pesadas en segundo plano con hilos independientes (Tokio).",
+        "Buscador Avanzado: Localización instantánea de archivos por nombre y contenido.",
+        "Comparación de Directorios: Herramienta visual de sincronización y diferencias.",
+        "Administrador de Procesos: Monitoreo y control directo del sistema sin salir del gestor.",
+        "Selector de Temas: Cambia colores y personaliza el aspecto de la terminal al instante.",
+        "Visor de Atributos: Detalle exhaustivo de metadatos, tamaño y permisos.",
+        "Auto-actualizaciones: Sistema de distribución seguro mediante firmas SHA-256."
+      ];
+
+      let currentIndex = 0;
+      const slides = document.querySelectorAll('.gallery-slide');
+      const thumbs = document.querySelectorAll('.gallery-thumb');
+      const captionEl = document.getElementById('gallery-caption');
+
+      function showSlide(index) {
+        // Wrap around
+        if (index >= slides.length) index = 0;
+        if (index < 0) index = slides.length - 1;
+
+        currentIndex = index;
+
+        // Toggle classes
+        slides.forEach((slide, i) => {
+          if (i === index) {
+            slide.classList.add('active');
+          } else {
+            slide.classList.remove('active');
+          }
+        });
+
+        thumbs.forEach((thumb, i) => {
+          if (i === index) {
+            thumb.classList.add('active');
+            // Scroll thumbnail into view if needed
+            thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+          } else {
+            thumb.classList.remove('active');
+          }
+        });
+
+        captionEl.textContent = captions[index];
+      }
+
+      document.getElementById('next-btn').addEventListener('click', () => {
+        showSlide(currentIndex + 1);
+      });
+
+      document.getElementById('prev-btn').addEventListener('click', () => {
+        showSlide(currentIndex - 1);
+      });
+
+      thumbs.forEach(thumb => {
+        thumb.addEventListener('click', () => {
+          const index = parseInt(thumb.getAttribute('data-index'));
+          showSlide(index);
+        });
+      });
+
+      // Terminal tab switching
+      let activeOS = 'linux';
+
+      function switchTab(os) {
+        activeOS = os;
+        const tabLinux = document.getElementById('tab-linux');
+        const tabWindows = document.getElementById('tab-windows');
+        const codeLinux = document.getElementById('code-linux');
+        const codeWindows = document.getElementById('code-windows');
+        const btnCopy = document.getElementById('btn-copy');
+
+        // Reset copy button
+        btnCopy.classList.remove('copied');
+        btnCopy.innerHTML = '<span>📋</span> Copiar Comando';
+
+        if (os === 'linux') {
+          tabLinux.classList.add('active');
+          tabWindows.classList.remove('active');
+          codeLinux.style.display = 'block';
+          codeWindows.style.display = 'none';
+        } else {
+          tabLinux.classList.remove('active');
+          tabWindows.classList.add('active');
+          codeLinux.style.display = 'none';
+          codeWindows.style.display = 'block';
+        }
+      }
+
+      // Clipboard logic
+      function copyCommand() {
+        const id = activeOS === 'linux' ? 'cmd-linux' : 'cmd-windows';
+        const cmdText = document.getElementById(id).textContent;
+        const btnCopy = document.getElementById('btn-copy');
+
+        navigator.clipboard.writeText(cmdText).then(() => {
+          btnCopy.classList.add('copied');
+          btnCopy.innerHTML = '<span>✓</span> ¡Copiado!';
+          setTimeout(() => {
+            btnCopy.classList.remove('copied');
+            btnCopy.innerHTML = '<span>📋</span> Copiar Comando';
+          }, 3000);
+        }).catch(err => {
+          console.error('Error al copiar: ', err);
+        });
+      }
+    </script>
+  </body>
+</html>
