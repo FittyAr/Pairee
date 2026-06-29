@@ -622,6 +622,67 @@ img {
   color: var(--text);
 }
 
+/* Language Selector */
+.lang-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 0.85rem;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 2px 4px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  border-radius: 4px;
+}
+
+.lang-btn:hover {
+  color: var(--text);
+}
+
+.lang-btn.active {
+  color: var(--accent-cyan);
+  font-weight: 700;
+  background: rgba(0, 229, 255, 0.1);
+}
+
+.lang-separator {
+  color: rgba(255, 255, 255, 0.15);
+  font-size: 0.8rem;
+  user-select: none;
+}
+
+/* Release Link */
+.release-link {
+  display: inline-block;
+  text-decoration: none;
+  transition: transform 0.2s ease;
+  margin-bottom: 24px;
+}
+
+.release-link .badge {
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.release-link:hover {
+  transform: translateY(-2px);
+}
+
+.release-link:hover .badge {
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.15);
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .nav {
