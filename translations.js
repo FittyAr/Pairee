@@ -66,7 +66,7 @@ const translations = {
     wizard_p2: "No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins, desarrolladores e ingenieros amantes de la consola.",
     wizard_btn: "Explorar el Repositorio ↗",
     wizard_alt: "Pairee Wizard Graphic",
-    footer_text: "Desarrollado con pasión en Rust. Licenciado bajo MIT.",
+    footer_text: "Desarrollado con pasión en Rust. Licenciado bajo GPLv3.",
     footer_home: "fitty.ar",
     footer_projects: "Proyectos",
     footer_github: "GitHub"
@@ -138,7 +138,7 @@ const translations = {
     wizard_p2: "You don't need to leave your console to perform advanced folder comparisons, kill processes, or transfer gigabytes of information in background threads. It is the ultimate ally for sysadmins, developers, and console-loving engineers.",
     wizard_btn: "Explore the Repository ↗",
     wizard_alt: "Pairee Wizard Graphic",
-    footer_text: "Developed with passion in Rust. Licensed under MIT.",
+    footer_text: "Developed with passion in Rust. Licensed under GPLv3.",
     footer_home: "fitty.ar",
     footer_projects: "Projects",
     footer_github: "GitHub"

@@ -1,572 +1,607 @@
 <!DOCTYPE html>
 <html lang="es">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
-    <meta
-      name="description"
-      content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio."
-    />
-    <link rel="stylesheet" href="style.css" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  </head>
-  <body>
-    <!-- Topbar/Header -->
-    <header class="header">
-      <div class="container nav">
-        <a class="logo" href="index.html">
-          <img src="assets/wizard_small_image.png" alt="Pairee Logo" />
-          <span>Pairee</span>
-        </a>
-        <nav class="nav-links">
-          <a href="#features" data-i18n="nav_features">Características</a>
-          <a href="#gallery" data-i18n="nav_gallery">Capturas</a>
-          <a href="#install" data-i18n="nav_install">Instalación</a>
-          <a href="https://fitty.ar/" data-i18n="nav_back">Volver a fitty.ar</a>
-        </nav>
-        
-        <!-- Language Selector -->
-        <div class="lang-selector">
-          <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
-          <span class="lang-separator">|</span>
-          <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
-        </div>
 
-        <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">
-          GitHub
-        </a>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
+  <meta name="description"
+    content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+</head>
+
+<body>
+  <!-- Topbar/Header -->
+  <header class="header">
+    <div class="container nav">
+      <a class="logo" href="index.html">
+        <img src="assets/wizard_small_image.png" alt="Pairee Logo" />
+        <span>Pairee</span>
+      </a>
+      <nav class="nav-links">
+        <a href="#features" data-i18n="nav_features">Características</a>
+        <a href="#gallery" data-i18n="nav_gallery">Capturas</a>
+        <a href="#install" data-i18n="nav_install">Instalación</a>
+        <a href="https://fitty.ar/" data-i18n="nav_back">Volver a fitty.ar</a>
+      </nav>
+
+      <!-- Language Selector -->
+      <div class="lang-selector">
+        <button class="lang-btn" data-lang="es" onclick="switchLanguage('es')">ES</button>
+        <span class="lang-separator">|</span>
+        <button class="lang-btn" data-lang="en" onclick="switchLanguage('en')">EN</button>
       </div>
-    </header>
 
-    <main>
-      <!-- Hero Section -->
-      <section class="hero">
-        <div class="container">
-          <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" class="release-link">
-            <span class="badge" id="release-badge">
-              <span style="color: #00e5ff;">◆</span> <span id="release-text">Nueva Versión Disponible</span>
-            </span>
+      <a class="nav-btn" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <main>
+    <!-- Hero Section -->
+    <section class="hero">
+      <div class="container">
+        <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" class="release-link">
+          <span class="badge" id="release-badge">
+            <span style="color: #00e5ff;">◆</span> <span id="release-text">Nueva Versión Disponible</span>
+          </span>
+        </a>
+        <h1 class="hero-title" data-i18n="hero_title">Tu mundo, en <span>dos paneles</span>.</h1>
+        <p class="hero-subtitle" data-i18n="hero_subtitle">
+          Un gestor de archivos para terminal moderno, multiplataforma y altamente modular.
+          Inspirado en Norton Commander, desarrollado en Rust con Ratatui y Tokio.
+        </p>
+        <div class="hero-ctas">
+          <a class="btn-primary" href="#install" data-i18n="btn_download">
+            Descargar ahora
           </a>
-          <h1 class="hero-title" data-i18n="hero_title">Tu mundo, en <span>dos paneles</span>.</h1>
-          <p class="hero-subtitle" data-i18n="hero_subtitle">
-            Un gestor de archivos para terminal moderno, multiplataforma y altamente modular.
-            Inspirado en Norton Commander, desarrollado en Rust con Ratatui y Tokio.
-          </p>
-          <div class="hero-ctas">
-            <a class="btn-primary" href="#install" data-i18n="btn_download">
-              Descargar ahora
-            </a>
-            <a class="btn-secondary" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="btn_source">
-              Ver Código Fuente
-            </a>
-          </div>
-        </div>
-      </section>
-
-      <!-- Key Features Section -->
-      <section class="section" id="features">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title" data-i18n="features_title">Características Clave</h2>
-            <p class="section-subtitle" data-i18n="features_subtitle">
-              Pairee combina la velocidad de la línea de comandos con la comodidad visual de un gestor de archivos interactivo.
-            </p>
-          </div>
-
-          <div class="features-grid">
-            <article class="feature-card">
-              <div class="feature-icon">❖</div>
-              <h3 data-i18n="feat1_title">Interfaz de Doble Panel</h3>
-              <p data-i18n="feat1_desc">
-                El clásico diseño de paneles paralelos para moverte y gestionar directorios de manera extremadamente ágil y sin perder contexto.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="feature-icon">⚙</div>
-              <h3 data-i18n="feat2_title">Operaciones Asíncronas</h3>
-              <p data-i18n="feat2_desc">
-                Copia, mueve o elimina archivos en segundo plano gracias al runtime de Tokio. La interfaz se mantiene 100% fluida en todo momento.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="feature-icon">⌨</div>
-              <h3 data-i18n="feat3_title">Atajos Personalizables</h3>
-              <p data-i18n="feat3_desc">
-                Perfiles integrados para controles de Norton Clásico, Vim y navegación moderna. Elige el estilo que mejor se adapte a ti.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="feature-icon">🖌</div>
-              <h3 data-i18n="feat4_title">Temas y Localización</h3>
-              <p data-i18n="feat4_desc">
-                Motor dinámico para temas visuales (Slate, Blue, etc.) y soporte centralizado multilingüe para inglés y español.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="feature-icon">🔍</div>
-              <h3 data-i18n="feat5_title">Herramientas Integradas</h3>
-              <p data-i18n="feat5_desc">
-                Búsqueda avanzada por nombre/contenido, visor de atributos detallado, comparación de directorios y administrador de procesos del sistema.
-              </p>
-            </article>
-
-            <article class="feature-card">
-              <div class="feature-icon">⟳</div>
-              <h3 data-i18n="feat6_title">Auto-actualizador Inteligente</h3>
-              <p data-i18n="feat6_desc">
-                Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura validando firmas SHA-256.
-              </p>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <!-- Interactive Gallery Section -->
-      <section class="section" id="gallery" style="background: rgba(15, 18, 27, 0.4);">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title" data-i18n="gallery_title">El poder en acción</h2>
-            <p class="section-subtitle" data-i18n="gallery_subtitle">
-              Explora las capturas de la interfaz y las diferentes utilidades integradas en Pairee.
-            </p>
-          </div>
-
-          <div class="gallery-container">
-            <div class="gallery-display">
-              <!-- Slides will be injected or controlled by JS -->
-              <div class="gallery-slide active" data-index="0">
-                <img src="assets/Captura de pantalla_20260629_083335.png" data-i18n-alt="gallery_alt0" alt="Panel Dual Principal" />
-              </div>
-              <div class="gallery-slide" data-index="1">
-                <img src="assets/Captura de pantalla_20260629_083400.png" data-i18n-alt="gallery_alt1" alt="Operaciones Asíncronas" />
-              </div>
-              <div class="gallery-slide" data-index="2">
-                <img src="assets/Captura de pantalla_20260629_083412.png" data-i18n-alt="gallery_alt2" alt="Buscador Avanzado" />
-              </div>
-              <div class="gallery-slide" data-index="3">
-                <img src="assets/Captura de pantalla_20260629_083422.png" data-i18n-alt="gallery_alt3" alt="Comparación de Directorios" />
-              </div>
-              <div class="gallery-slide" data-index="4">
-                <img src="assets/Captura de pantalla_20260629_083437.png" data-i18n-alt="gallery_alt4" alt="Administrador de Procesos" />
-              </div>
-              <div class="gallery-slide" data-index="5">
-                <img src="assets/Captura de pantalla_20260629_083508.png" data-i18n-alt="gallery_alt5" alt="Selector de Temas" />
-              </div>
-              <div class="gallery-slide" data-index="6">
-                <img src="assets/Captura de pantalla_20260629_083558.png" data-i18n-alt="gallery_alt6" alt="Visor de Atributos" />
-              </div>
-              <div class="gallery-slide" data-index="7">
-                <img src="assets/Captura de pantalla_20260629_083617.png" data-i18n-alt="gallery_alt7" alt="Auto-actualizaciones" />
-              </div>
-
-              <div class="gallery-nav">
-                <button class="gallery-btn" id="prev-btn">◀</button>
-                <button class="gallery-btn" id="next-btn">▶</button>
-              </div>
-            </div>
-
-            <div class="gallery-caption" id="gallery-caption">
-              <!-- JS Injected Caption -->
-            </div>
-
-            <div class="gallery-thumbnails" id="gallery-thumbnails">
-              <div class="gallery-thumb active" data-index="0">
-                <img src="assets/Captura de pantalla_20260629_083335.png" data-i18n-alt="gallery_thumb0" alt="Vista previa 1" />
-              </div>
-              <div class="gallery-thumb" data-index="1">
-                <img src="assets/Captura de pantalla_20260629_083400.png" data-i18n-alt="gallery_thumb1" alt="Vista previa 2" />
-              </div>
-              <div class="gallery-thumb" data-index="2">
-                <img src="assets/Captura de pantalla_20260629_083412.png" data-i18n-alt="gallery_thumb2" alt="Vista previa 3" />
-              </div>
-              <div class="gallery-thumb" data-index="3">
-                <img src="assets/Captura de pantalla_20260629_083422.png" data-i18n-alt="gallery_thumb3" alt="Vista previa 4" />
-              </div>
-              <div class="gallery-thumb" data-index="4">
-                <img src="assets/Captura de pantalla_20260629_083437.png" data-i18n-alt="gallery_thumb4" alt="Vista previa 5" />
-              </div>
-              <div class="gallery-thumb" data-index="5">
-                <img src="assets/Captura de pantalla_20260629_083508.png" data-i18n-alt="gallery_thumb5" alt="Vista previa 6" />
-              </div>
-              <div class="gallery-thumb" data-index="6">
-                <img src="assets/Captura de pantalla_20260629_083558.png" data-i18n-alt="gallery_thumb6" alt="Vista previa 7" />
-              </div>
-              <div class="gallery-thumb" data-index="7">
-                <img src="assets/Captura de pantalla_20260629_083617.png" data-i18n-alt="gallery_thumb7" alt="Vista previa 8" />
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Terminal Install Section -->
-      <section class="section" id="install">
-        <div class="container">
-          <div class="section-header">
-            <h2 class="section-title" data-i18n="install_title">Instalación al instante</h2>
-            <p class="section-subtitle" data-i18n="install_subtitle">
-              Puedes descargar y compilar Pairee ejecutando este instalador directo en tu terminal.
-            </p>
-          </div>
-
-          <div class="terminal-window">
-            <div class="terminal-header">
-              <div class="terminal-buttons">
-                <span class="terminal-btn close"></span>
-                <span class="terminal-btn minimize"></span>
-                <span class="terminal-btn maximize"></span>
-              </div>
-              <div class="terminal-title">instalar_pairee.sh</div>
-              <div></div>
-            </div>
-            <div class="terminal-tabs">
-              <div class="terminal-tab active" id="tab-linux" onclick="switchTab('linux')" data-i18n="install_linux_mac">Linux / macOS</div>
-              <div class="terminal-tab" id="tab-windows" onclick="switchTab('windows')" data-i18n="install_windows">Windows (PowerShell)</div>
-            </div>
-            <div class="terminal-body">
-              <!-- Linux code -->
-              <div id="code-linux" class="code-container-tab">
-                <div class="terminal-line">
-                  <span class="terminal-prompt">$</span>
-                  <span class="terminal-code" id="cmd-linux">curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh</span>
-                </div>
-              </div>
-              <!-- Windows code -->
-              <div id="code-windows" class="code-container-tab" style="display: none;">
-                <div class="terminal-line">
-                  <span class="terminal-prompt">PS &gt;</span>
-                  <span class="terminal-code" id="cmd-windows">irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex</span>
-                </div>
-              </div>
-
-              <div class="copy-container">
-                <button class="btn-copy" id="btn-copy" onclick="copyCommand()" data-i18n="btn_copy">
-                  <span>📋</span> Copiar Comando
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- Wizard Showcase Section (Estética Mágica) -->
-      <section class="section">
-        <div class="container">
-          <div class="wizard-showcase">
-            <div class="wizard-text">
-              <span class="badge" style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan);" data-i18n="wizard_badge">
-                Espíritu Retro
-              </span>
-              <h3 data-i18n="wizard_title">La magia de la terminal clásica</h3>
-              <p data-i18n="wizard_p1">
-                Pairee une la nostalgia del software TUI de finales del siglo XX con la seguridad de memoria, el paralelismo sin esfuerzo y la extrema robustez de Rust.
-              </p>
-              <p data-i18n="wizard_p2">
-                No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins, desarrolladores e ingenieros amantes de la consola.
-              </p>
-              <a class="btn-primary" style="background: linear-gradient(135deg, var(--accent-cyan), #00a8ff); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.2);" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="wizard_btn">
-                Explorar el Repositorio ↗
-              </a>
-            </div>
-            <div class="wizard-img">
-              <img src="assets/Pairee_ES_2160x2160.png" data-i18n-alt="wizard_alt" alt="Pairee Wizard Graphic" />
-            </div>
-          </div>
-        </div>
-      </section>
-    </main>
-
-    <!-- Footer -->
-    <footer class="footer">
-      <div class="container footer-grid">
-        <div>
-          <div class="logo" style="margin-bottom: 8px;">
-            <img src="assets/wizard_small_image.png" alt="Pairee Logo" style="width: 24px; height: 24px;" />
-            <span>Pairee</span>
-          </div>
-          <p style="margin: 0; font-size: 0.85rem;" data-i18n="footer_text">
-            Desarrollado con pasión en Rust. Licenciado bajo MIT.
-          </p>
-        </div>
-        <div class="footer-links">
-          <a href="https://fitty.ar/" data-i18n="footer_home">fitty.ar</a>
-          <a href="https://fitty.ar/productos.html" data-i18n="footer_projects">Proyectos</a>
-          <a href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">GitHub</a>
+          <a class="btn-secondary" href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="btn_source">
+            Ver Código Fuente
+          </a>
         </div>
       </div>
-    </footer>
+    </section>
 
-    <!-- Translations script -->
-    <script src="translations.js"></script>
+    <!-- Key Features Section -->
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="features_title">Características Clave</h2>
+          <p class="section-subtitle" data-i18n="features_subtitle">
+            Pairee combina la velocidad de la línea de comandos con la comodidad visual de un gestor de archivos
+            interactivo.
+          </p>
+        </div>
 
-    <!-- JavaScript logic -->
-    <script>
-      // Estado global del idioma y el release
-      let currentLang = 'es';
-      let latestReleaseData = null;
+        <div class="features-grid">
+          <article class="feature-card">
+            <div class="feature-icon">❖</div>
+            <h3 data-i18n="feat1_title">Interfaz de Doble Panel</h3>
+            <p data-i18n="feat1_desc">
+              El clásico diseño de paneles paralelos para moverte y gestionar directorios de manera extremadamente ágil
+              y sin perder contexto.
+            </p>
+          </article>
 
-      // Slideshow/Gallery logic
-      let currentIndex = 0;
-      const slides = document.querySelectorAll('.gallery-slide');
-      const thumbs = document.querySelectorAll('.gallery-thumb');
-      const captionEl = document.getElementById('gallery-caption');
+          <article class="feature-card">
+            <div class="feature-icon">⚙</div>
+            <h3 data-i18n="feat2_title">Operaciones Asíncronas</h3>
+            <p data-i18n="feat2_desc">
+              Copia, mueve o elimina archivos en segundo plano gracias al runtime de Tokio. La interfaz se mantiene 100%
+              fluida en todo momento.
+            </p>
+          </article>
 
-      function showSlide(index) {
-        // Wrap around
-        if (index >= slides.length) index = 0;
-        if (index < 0) index = slides.length - 1;
+          <article class="feature-card">
+            <div class="feature-icon">⌨</div>
+            <h3 data-i18n="feat3_title">Atajos Personalizables</h3>
+            <p data-i18n="feat3_desc">
+              Perfiles integrados para controles de Norton Clásico, Vim y navegación moderna. Elige el estilo que mejor
+              se adapte a ti.
+            </p>
+          </article>
 
-        currentIndex = index;
+          <article class="feature-card">
+            <div class="feature-icon">🖌</div>
+            <h3 data-i18n="feat4_title">Temas y Localización</h3>
+            <p data-i18n="feat4_desc">
+              Motor dinámico para temas visuales (Slate, Blue, etc.) y soporte centralizado multilingüe para inglés y
+              español.
+            </p>
+          </article>
 
-        // Toggle classes
-        slides.forEach((slide, i) => {
-          if (i === index) {
-            slide.classList.add('active');
-          } else {
-            slide.classList.remove('active');
-          }
-        });
+          <article class="feature-card">
+            <div class="feature-icon">🔍</div>
+            <h3 data-i18n="feat5_title">Herramientas Integradas</h3>
+            <p data-i18n="feat5_desc">
+              Búsqueda avanzada por nombre/contenido, visor de atributos detallado, comparación de directorios y
+              administrador de procesos del sistema.
+            </p>
+          </article>
 
-        thumbs.forEach((thumb, i) => {
-          if (i === index) {
-            thumb.classList.add('active');
-            // Scroll thumbnail into view if needed
-            thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
-          } else {
-            thumb.classList.remove('active');
-          }
-        });
+          <article class="feature-card">
+            <div class="feature-icon">⟳</div>
+            <h3 data-i18n="feat6_title">Auto-actualizador Inteligente</h3>
+            <p data-i18n="feat6_desc">
+              Detecta tu método de instalación original (soporta hasta 13 vías distintas) y actualiza de manera segura
+              validando firmas SHA-256.
+            </p>
+          </article>
+        </div>
+      </div>
+    </section>
 
-        // Cargar caption desde el archivo de traducciones
-        if (typeof translations !== 'undefined' && translations[currentLang] && translations[currentLang].gallery_captions) {
-          captionEl.textContent = translations[currentLang].gallery_captions[index];
+    <!-- Interactive Gallery Section -->
+    <section class="section" id="gallery" style="background: rgba(15, 18, 27, 0.4);">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="gallery_title">El poder en acción</h2>
+          <p class="section-subtitle" data-i18n="gallery_subtitle">
+            Explora las capturas de la interfaz y las diferentes utilidades integradas en Pairee.
+          </p>
+        </div>
+
+        <div class="gallery-container">
+          <div class="gallery-display">
+            <!-- Slides will be injected or controlled by JS -->
+            <div class="gallery-slide active" data-index="0">
+              <img src="assets/Captura de pantalla_20260629_083335.png" data-i18n-alt="gallery_alt0"
+                alt="Panel Dual Principal" />
+            </div>
+            <div class="gallery-slide" data-index="1">
+              <img src="assets/Captura de pantalla_20260629_083400.png" data-i18n-alt="gallery_alt1"
+                alt="Operaciones Asíncronas" />
+            </div>
+            <div class="gallery-slide" data-index="2">
+              <img src="assets/Captura de pantalla_20260629_083412.png" data-i18n-alt="gallery_alt2"
+                alt="Buscador Avanzado" />
+            </div>
+            <div class="gallery-slide" data-index="3">
+              <img src="assets/Captura de pantalla_20260629_083422.png" data-i18n-alt="gallery_alt3"
+                alt="Comparación de Directorios" />
+            </div>
+            <div class="gallery-slide" data-index="4">
+              <img src="assets/Captura de pantalla_20260629_083437.png" data-i18n-alt="gallery_alt4"
+                alt="Administrador de Procesos" />
+            </div>
+            <div class="gallery-slide" data-index="5">
+              <img src="assets/Captura de pantalla_20260629_083508.png" data-i18n-alt="gallery_alt5"
+                alt="Selector de Temas" />
+            </div>
+            <div class="gallery-slide" data-index="6">
+              <img src="assets/Captura de pantalla_20260629_083558.png" data-i18n-alt="gallery_alt6"
+                alt="Visor de Atributos" />
+            </div>
+            <div class="gallery-slide" data-index="7">
+              <img src="assets/Captura de pantalla_20260629_083617.png" data-i18n-alt="gallery_alt7"
+                alt="Auto-actualizaciones" />
+            </div>
+
+            <div class="gallery-nav">
+              <button class="gallery-btn" id="prev-btn">◀</button>
+              <button class="gallery-btn" id="next-btn">▶</button>
+            </div>
+          </div>
+
+          <div class="gallery-caption" id="gallery-caption">
+            <!-- JS Injected Caption -->
+          </div>
+
+          <div class="gallery-thumbnails" id="gallery-thumbnails">
+            <div class="gallery-thumb active" data-index="0">
+              <img src="assets/Captura de pantalla_20260629_083335.png" data-i18n-alt="gallery_thumb0"
+                alt="Vista previa 1" />
+            </div>
+            <div class="gallery-thumb" data-index="1">
+              <img src="assets/Captura de pantalla_20260629_083400.png" data-i18n-alt="gallery_thumb1"
+                alt="Vista previa 2" />
+            </div>
+            <div class="gallery-thumb" data-index="2">
+              <img src="assets/Captura de pantalla_20260629_083412.png" data-i18n-alt="gallery_thumb2"
+                alt="Vista previa 3" />
+            </div>
+            <div class="gallery-thumb" data-index="3">
+              <img src="assets/Captura de pantalla_20260629_083422.png" data-i18n-alt="gallery_thumb3"
+                alt="Vista previa 4" />
+            </div>
+            <div class="gallery-thumb" data-index="4">
+              <img src="assets/Captura de pantalla_20260629_083437.png" data-i18n-alt="gallery_thumb4"
+                alt="Vista previa 5" />
+            </div>
+            <div class="gallery-thumb" data-index="5">
+              <img src="assets/Captura de pantalla_20260629_083508.png" data-i18n-alt="gallery_thumb5"
+                alt="Vista previa 6" />
+            </div>
+            <div class="gallery-thumb" data-index="6">
+              <img src="assets/Captura de pantalla_20260629_083558.png" data-i18n-alt="gallery_thumb6"
+                alt="Vista previa 7" />
+            </div>
+            <div class="gallery-thumb" data-index="7">
+              <img src="assets/Captura de pantalla_20260629_083617.png" data-i18n-alt="gallery_thumb7"
+                alt="Vista previa 8" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Terminal Install Section -->
+    <section class="section" id="install">
+      <div class="container">
+        <div class="section-header">
+          <h2 class="section-title" data-i18n="install_title">Instalación al instante</h2>
+          <p class="section-subtitle" data-i18n="install_subtitle">
+            Puedes descargar y compilar Pairee ejecutando este instalador directo en tu terminal.
+          </p>
+        </div>
+
+        <div class="terminal-window">
+          <div class="terminal-header">
+            <div class="terminal-buttons">
+              <span class="terminal-btn close"></span>
+              <span class="terminal-btn minimize"></span>
+              <span class="terminal-btn maximize"></span>
+            </div>
+            <div class="terminal-title">instalar_pairee.sh</div>
+            <div></div>
+          </div>
+          <div class="terminal-tabs">
+            <div class="terminal-tab active" id="tab-linux" onclick="switchTab('linux')" data-i18n="install_linux_mac">
+              Linux / macOS</div>
+            <div class="terminal-tab" id="tab-windows" onclick="switchTab('windows')" data-i18n="install_windows">
+              Windows (PowerShell)</div>
+          </div>
+          <div class="terminal-body">
+            <!-- Linux code -->
+            <div id="code-linux" class="code-container-tab">
+              <div class="terminal-line">
+                <span class="terminal-prompt">$</span>
+                <span class="terminal-code" id="cmd-linux">curl -fsSL
+                  https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh</span>
+              </div>
+            </div>
+            <!-- Windows code -->
+            <div id="code-windows" class="code-container-tab" style="display: none;">
+              <div class="terminal-line">
+                <span class="terminal-prompt">PS &gt;</span>
+                <span class="terminal-code" id="cmd-windows">irm
+                  https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex</span>
+              </div>
+            </div>
+
+            <div class="copy-container">
+              <button class="btn-copy" id="btn-copy" onclick="copyCommand()" data-i18n="btn_copy">
+                <span>📋</span> Copiar Comando
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Wizard Showcase Section (Estética Mágica) -->
+    <section class="section">
+      <div class="container">
+        <div class="wizard-showcase">
+          <div class="wizard-text">
+            <span class="badge"
+              style="background: rgba(0, 229, 255, 0.1); border-color: rgba(0, 229, 255, 0.3); color: var(--accent-cyan);"
+              data-i18n="wizard_badge">
+              Espíritu Retro
+            </span>
+            <h3 data-i18n="wizard_title">La magia de la terminal clásica</h3>
+            <p data-i18n="wizard_p1">
+              Pairee une la nostalgia del software TUI de finales del siglo XX con la seguridad de memoria, el
+              paralelismo sin esfuerzo y la extrema robustez de Rust.
+            </p>
+            <p data-i18n="wizard_p2">
+              No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o
+              transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins,
+              desarrolladores e ingenieros amantes de la consola.
+            </p>
+            <a class="btn-primary"
+              style="background: linear-gradient(135deg, var(--accent-cyan), #00a8ff); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.2);"
+              href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="wizard_btn">
+              Explorar el Repositorio ↗
+            </a>
+          </div>
+          <div class="wizard-img">
+            <img src="assets/Pairee_ES_2160x2160.png" data-i18n-alt="wizard_alt" alt="Pairee Wizard Graphic" />
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-grid">
+      <div>
+        <div class="logo" style="margin-bottom: 8px;">
+          <img src="assets/wizard_small_image.png" alt="Pairee Logo" style="width: 24px; height: 24px;" />
+          <span>Pairee</span>
+        </div>
+        <p style="margin: 0; font-size: 0.85rem;" data-i18n="footer_text">
+          Desarrollado con pasión en Rust. Licenciado bajo GPL v3.
+        </p>
+      </div>
+      <div class="footer-links">
+        <a href="https://fitty.ar/" data-i18n="footer_home">fitty.ar</a>
+        <a href="https://fitty.ar/productos.html" data-i18n="footer_projects">Proyectos</a>
+        <a href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">GitHub</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Translations script -->
+  <script src="translations.js"></script>
+
+  <!-- JavaScript logic -->
+  <script>
+    // Estado global del idioma y el release
+    let currentLang = 'es';
+    let latestReleaseData = null;
+
+    // Slideshow/Gallery logic
+    let currentIndex = 0;
+    const slides = document.querySelectorAll('.gallery-slide');
+    const thumbs = document.querySelectorAll('.gallery-thumb');
+    const captionEl = document.getElementById('gallery-caption');
+
+    function showSlide(index) {
+      // Wrap around
+      if (index >= slides.length) index = 0;
+      if (index < 0) index = slides.length - 1;
+
+      currentIndex = index;
+
+      // Toggle classes
+      slides.forEach((slide, i) => {
+        if (i === index) {
+          slide.classList.add('active');
+        } else {
+          slide.classList.remove('active');
         }
+      });
+
+      thumbs.forEach((thumb, i) => {
+        if (i === index) {
+          thumb.classList.add('active');
+          // Scroll thumbnail into view if needed
+          thumb.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        } else {
+          thumb.classList.remove('active');
+        }
+      });
+
+      // Cargar caption desde el archivo de traducciones
+      if (typeof translations !== 'undefined' && translations[currentLang] && translations[currentLang].gallery_captions) {
+        captionEl.textContent = translations[currentLang].gallery_captions[index];
+      }
+    }
+
+    document.getElementById('next-btn').addEventListener('click', () => {
+      showSlide(currentIndex + 1);
+    });
+
+    document.getElementById('prev-btn').addEventListener('click', () => {
+      showSlide(currentIndex - 1);
+    });
+
+    thumbs.forEach(thumb => {
+      thumb.addEventListener('click', () => {
+        const index = parseInt(thumb.getAttribute('data-index'));
+        showSlide(index);
+      });
+    });
+
+    // Terminal tab switching
+    let activeOS = 'linux';
+
+    function switchTab(os) {
+      activeOS = os;
+      const tabLinux = document.getElementById('tab-linux');
+      const tabWindows = document.getElementById('tab-windows');
+      const codeLinux = document.getElementById('code-linux');
+      const codeWindows = document.getElementById('code-windows');
+      const btnCopy = document.getElementById('btn-copy');
+
+      // Reset copy button
+      btnCopy.classList.remove('copied');
+      if (typeof translations !== 'undefined' && translations[currentLang]) {
+        btnCopy.innerHTML = translations[currentLang].btn_copy;
       }
 
-      document.getElementById('next-btn').addEventListener('click', () => {
-        showSlide(currentIndex + 1);
-      });
+      if (os === 'linux') {
+        tabLinux.classList.add('active');
+        tabWindows.classList.remove('active');
+        codeLinux.style.display = 'block';
+        codeWindows.style.display = 'none';
+      } else {
+        tabLinux.classList.remove('active');
+        tabWindows.classList.add('active');
+        codeLinux.style.display = 'none';
+        codeWindows.style.display = 'block';
+      }
+    }
 
-      document.getElementById('prev-btn').addEventListener('click', () => {
-        showSlide(currentIndex - 1);
-      });
+    // Clipboard logic
+    function copyCommand() {
+      const id = activeOS === 'linux' ? 'cmd-linux' : 'cmd-windows';
+      const cmdText = document.getElementById(id).textContent;
+      const btnCopy = document.getElementById('btn-copy');
 
-      thumbs.forEach(thumb => {
-        thumb.addEventListener('click', () => {
-          const index = parseInt(thumb.getAttribute('data-index'));
-          showSlide(index);
-        });
-      });
-
-      // Terminal tab switching
-      let activeOS = 'linux';
-
-      function switchTab(os) {
-        activeOS = os;
-        const tabLinux = document.getElementById('tab-linux');
-        const tabWindows = document.getElementById('tab-windows');
-        const codeLinux = document.getElementById('code-linux');
-        const codeWindows = document.getElementById('code-windows');
-        const btnCopy = document.getElementById('btn-copy');
-
-        // Reset copy button
-        btnCopy.classList.remove('copied');
+      navigator.clipboard.writeText(cmdText).then(() => {
+        btnCopy.classList.add('copied');
         if (typeof translations !== 'undefined' && translations[currentLang]) {
-          btnCopy.innerHTML = translations[currentLang].btn_copy;
+          btnCopy.innerHTML = translations[currentLang].btn_copied;
         }
-
-        if (os === 'linux') {
-          tabLinux.classList.add('active');
-          tabWindows.classList.remove('active');
-          codeLinux.style.display = 'block';
-          codeWindows.style.display = 'none';
-        } else {
-          tabLinux.classList.remove('active');
-          tabWindows.classList.add('active');
-          codeLinux.style.display = 'none';
-          codeWindows.style.display = 'block';
-        }
-      }
-
-      // Clipboard logic
-      function copyCommand() {
-        const id = activeOS === 'linux' ? 'cmd-linux' : 'cmd-windows';
-        const cmdText = document.getElementById(id).textContent;
-        const btnCopy = document.getElementById('btn-copy');
-
-        navigator.clipboard.writeText(cmdText).then(() => {
-          btnCopy.classList.add('copied');
+        setTimeout(() => {
+          btnCopy.classList.remove('copied');
           if (typeof translations !== 'undefined' && translations[currentLang]) {
-            btnCopy.innerHTML = translations[currentLang].btn_copied;
+            btnCopy.innerHTML = translations[currentLang].btn_copy;
           }
-          setTimeout(() => {
-            btnCopy.classList.remove('copied');
-            if (typeof translations !== 'undefined' && translations[currentLang]) {
-              btnCopy.innerHTML = translations[currentLang].btn_copy;
-            }
-          }, 3000);
-        }).catch(err => {
-          console.error('Error al copiar: ', err);
-        });
-      }
-
-      // Lógica de localización (i18n)
-      function updateLanguage(lang) {
-        if (typeof translations === 'undefined' || !translations[lang]) return;
-        currentLang = lang;
-        document.documentElement.setAttribute('lang', lang);
-
-        // Actualizar elementos de texto con data-i18n
-        document.querySelectorAll('[data-i18n]').forEach(el => {
-          const key = el.getAttribute('data-i18n');
-          const value = translations[lang][key];
-          if (value !== undefined) {
-            // Si tiene etiquetas HTML como <span> o ◆, inyectamos innerHTML, sino textContent
-            if (value.includes('<') || value.includes('◆')) {
-              el.innerHTML = value;
-            } else {
-              el.textContent = value;
-            }
-          }
-        });
-
-        // Actualizar textos alt con data-i18n-alt
-        document.querySelectorAll('[data-i18n-alt]').forEach(el => {
-          const key = el.getAttribute('data-i18n-alt');
-          const value = translations[lang][key];
-          if (value !== undefined) {
-            el.setAttribute('alt', value);
-          }
-        });
-
-        // Actualizar título y metatags
-        document.title = translations[lang].title;
-        const metaDesc = document.querySelector('meta[name="description"]');
-        if (metaDesc) {
-          metaDesc.setAttribute('content', translations[lang].description);
-        }
-
-        // Variar la imagen final del Showcase según el idioma
-        const wizardImg = document.querySelector('.wizard-img img');
-        if (wizardImg) {
-          wizardImg.src = lang === 'es' ? 'assets/Pairee_ES_2160x2160.png' : 'assets/Pairee_EN_2160x2160.png';
-        }
-
-        // Actualizar caption actual de la galería
-        showSlide(currentIndex);
-
-        // Actualizar el estado visual del botón del selector de idioma
-        document.querySelectorAll('.lang-btn').forEach(btn => {
-          if (btn.getAttribute('data-lang') === lang) {
-            btn.classList.add('active');
-          } else {
-            btn.classList.remove('active');
-          }
-        });
-
-        // Actualizar el botón de copiar si no está en estado "copiado"
-        const btnCopy = document.getElementById('btn-copy');
-        if (btnCopy && !btnCopy.classList.contains('copied')) {
-          btnCopy.innerHTML = translations[lang].btn_copy;
-        }
-
-        // Actualizar el badge del release
-        updateReleaseBadge();
-      }
-
-      function switchLanguage(lang) {
-        localStorage.setItem('preferred-lang', lang);
-        updateLanguage(lang);
-      }
-
-      // Lógica dinámica del release
-      async function fetchLatestRelease() {
-        try {
-          const response = await fetch('https://api.github.com/repos/FittyAr/Pairee/releases/latest');
-          if (!response.ok) throw new Error('API request failed');
-          const data = await response.json();
-          
-          const tagName = data.tag_name;
-          const publishedAt = new Date(data.published_at);
-          const now = new Date();
-          const diffTime = Math.abs(now - publishedAt);
-          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-          
-          latestReleaseData = {
-            tag: tagName,
-            url: data.html_url,
-            isNew: diffDays <= 30 // Consideramos nuevo si salió hace 30 días o menos
-          };
-        } catch (error) {
-          console.error('Error fetching release data:', error);
-          // Fallback por si la API falla o da error de rate limit
-          latestReleaseData = {
-            tag: 'v0.6.1', // La última versión real conocida
-            url: 'https://github.com/FittyAr/Pairee/releases',
-            isNew: false
-          };
-        }
-        updateReleaseBadge();
-      }
-
-      function updateReleaseBadge() {
-        const badgeEl = document.getElementById('release-badge');
-        const textEl = document.getElementById('release-text');
-        const linkEl = document.querySelector('.release-link');
-
-        if (!latestReleaseData || !badgeEl || !textEl) return;
-
-        if (linkEl) {
-          linkEl.href = latestReleaseData.url;
-        }
-
-        if (typeof translations === 'undefined' || !translations[currentLang]) return;
-
-        const tag = latestReleaseData.tag;
-        if (latestReleaseData.isNew) {
-          const template = translations[currentLang].release_new || 'Nueva Versión Disponible: {version}';
-          textEl.innerHTML = template.replace('{version}', tag);
-          badgeEl.style.borderColor = 'rgba(0, 229, 255, 0.35)';
-          badgeEl.style.background = 'rgba(0, 229, 255, 0.12)';
-          badgeEl.style.color = 'var(--accent-cyan)';
-          
-          // Cambiar color del ◆ a cyan
-          const diamond = badgeEl.querySelector('span');
-          if (diamond) diamond.style.color = '#00e5ff';
-        } else {
-          const template = translations[currentLang].release_old || 'Versión: {version}';
-          textEl.innerHTML = template.replace('{version}', tag);
-          badgeEl.style.borderColor = 'rgba(240, 100, 49, 0.3)';
-          badgeEl.style.background = 'rgba(240, 100, 49, 0.12)';
-          badgeEl.style.color = 'var(--accent)';
-          
-          // Cambiar color del ◆ a naranja
-          const diamond = badgeEl.querySelector('span');
-          if (diamond) diamond.style.color = '#ff8964';
-        }
-      }
-
-      // Inicialización al cargar la página
-      document.addEventListener('DOMContentLoaded', () => {
-        // Detectar idioma preferido
-        let lang = localStorage.getItem('preferred-lang');
-        if (!lang) {
-          const browserLang = navigator.language || navigator.userLanguage;
-          lang = (browserLang && browserLang.startsWith('en')) ? 'en' : 'es';
-        }
-        
-        // Aplicar idioma
-        updateLanguage(lang);
-
-        // Buscar versión asíncronamente
-        fetchLatestRelease();
+        }, 3000);
+      }).catch(err => {
+        console.error('Error al copiar: ', err);
       });
-    </script>
-  </body>
+    }
+
+    // Lógica de localización (i18n)
+    function updateLanguage(lang) {
+      if (typeof translations === 'undefined' || !translations[lang]) return;
+      currentLang = lang;
+      document.documentElement.setAttribute('lang', lang);
+
+      // Actualizar elementos de texto con data-i18n
+      document.querySelectorAll('[data-i18n]').forEach(el => {
+        const key = el.getAttribute('data-i18n');
+        const value = translations[lang][key];
+        if (value !== undefined) {
+          // Si tiene etiquetas HTML como <span> o ◆, inyectamos innerHTML, sino textContent
+          if (value.includes('<') || value.includes('◆')) {
+            el.innerHTML = value;
+          } else {
+            el.textContent = value;
+          }
+        }
+      });
+
+      // Actualizar textos alt con data-i18n-alt
+      document.querySelectorAll('[data-i18n-alt]').forEach(el => {
+        const key = el.getAttribute('data-i18n-alt');
+        const value = translations[lang][key];
+        if (value !== undefined) {
+          el.setAttribute('alt', value);
+        }
+      });
+
+      // Actualizar título y metatags
+      document.title = translations[lang].title;
+      const metaDesc = document.querySelector('meta[name="description"]');
+      if (metaDesc) {
+        metaDesc.setAttribute('content', translations[lang].description);
+      }
+
+      // Variar la imagen final del Showcase según el idioma
+      const wizardImg = document.querySelector('.wizard-img img');
+      if (wizardImg) {
+        wizardImg.src = lang === 'es' ? 'assets/Pairee_ES_2160x2160.png' : 'assets/Pairee_EN_2160x2160.png';
+      }
+
+      // Actualizar caption actual de la galería
+      showSlide(currentIndex);
+
+      // Actualizar el estado visual del botón del selector de idioma
+      document.querySelectorAll('.lang-btn').forEach(btn => {
+        if (btn.getAttribute('data-lang') === lang) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Actualizar el botón de copiar si no está en estado "copiado"
+      const btnCopy = document.getElementById('btn-copy');
+      if (btnCopy && !btnCopy.classList.contains('copied')) {
+        btnCopy.innerHTML = translations[lang].btn_copy;
+      }
+
+      // Actualizar el badge del release
+      updateReleaseBadge();
+    }
+
+    function switchLanguage(lang) {
+      localStorage.setItem('preferred-lang', lang);
+      updateLanguage(lang);
+    }
+
+    // Lógica dinámica del release
+    async function fetchLatestRelease() {
+      try {
+        const response = await fetch('https://api.github.com/repos/FittyAr/Pairee/releases/latest');
+        if (!response.ok) throw new Error('API request failed');
+        const data = await response.json();
+
+        const tagName = data.tag_name;
+        const publishedAt = new Date(data.published_at);
+        const now = new Date();
+        const diffTime = Math.abs(now - publishedAt);
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+        latestReleaseData = {
+          tag: tagName,
+          url: data.html_url,
+          isNew: diffDays <= 30 // Consideramos nuevo si salió hace 30 días o menos
+        };
+      } catch (error) {
+        console.error('Error fetching release data:', error);
+        // Fallback por si la API falla o da error de rate limit
+        latestReleaseData = {
+          tag: 'v0.6.1', // La última versión real conocida
+          url: 'https://github.com/FittyAr/Pairee/releases',
+          isNew: false
+        };
+      }
+      updateReleaseBadge();
+    }
+
+    function updateReleaseBadge() {
+      const badgeEl = document.getElementById('release-badge');
+      const textEl = document.getElementById('release-text');
+      const linkEl = document.querySelector('.release-link');
+
+      if (!latestReleaseData || !badgeEl || !textEl) return;
+
+      if (linkEl) {
+        linkEl.href = latestReleaseData.url;
+      }
+
+      if (typeof translations === 'undefined' || !translations[currentLang]) return;
+
+      const tag = latestReleaseData.tag;
+      if (latestReleaseData.isNew) {
+        const template = translations[currentLang].release_new || 'Nueva Versión Disponible: {version}';
+        textEl.innerHTML = template.replace('{version}', tag);
+        badgeEl.style.borderColor = 'rgba(0, 229, 255, 0.35)';
+        badgeEl.style.background = 'rgba(0, 229, 255, 0.12)';
+        badgeEl.style.color = 'var(--accent-cyan)';
+
+        // Cambiar color del ◆ a cyan
+        const diamond = badgeEl.querySelector('span');
+        if (diamond) diamond.style.color = '#00e5ff';
+      } else {
+        const template = translations[currentLang].release_old || 'Versión: {version}';
+        textEl.innerHTML = template.replace('{version}', tag);
+        badgeEl.style.borderColor = 'rgba(240, 100, 49, 0.3)';
+        badgeEl.style.background = 'rgba(240, 100, 49, 0.12)';
+        badgeEl.style.color = 'var(--accent)';
+
+        // Cambiar color del ◆ a naranja
+        const diamond = badgeEl.querySelector('span');
+        if (diamond) diamond.style.color = '#ff8964';
+      }
+    }
+
+    // Inicialización al cargar la página
+    document.addEventListener('DOMContentLoaded', () => {
+      // Detectar idioma preferido
+      let lang = localStorage.getItem('preferred-lang');
+      if (!lang) {
+        const browserLang = navigator.language || navigator.userLanguage;
+        lang = (browserLang && browserLang.startsWith('en')) ? 'en' : 'es';
+      }
+
+      // Aplicar idioma
+      updateLanguage(lang);
+
+      // Buscar versión asíncronamente
+      fetchLatestRelease();
+    });
+  </script>
+</body>
+
 </html>
