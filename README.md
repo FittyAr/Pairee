@@ -4,7 +4,7 @@
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
-[![Wiki: DeepWiki](https://img.shields.io/badge/Wiki-DeepWiki-green.svg)](https://deepwiki.com/FittyAr/Pairee)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 A modern, highly modular, cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**. Built in Rust utilizing `ratatui` and `crossterm`.
