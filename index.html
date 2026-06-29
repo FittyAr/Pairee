@@ -7,6 +7,27 @@
   <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
   <meta name="description"
     content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
+  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos" />
+  <link rel="canonical" href="https://pairee.fitty.ar/" />
+  
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="assets/wizard_small_image.png" />
+  
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pairee.fitty.ar/" />
+  <meta property="og:title" content="Pairee | Gestor de archivos TUI moderno en Rust" />
+  <meta property="og:description" content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
+  <meta property="og:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta property="og:site_name" content="Pairee" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://pairee.fitty.ar/" />
+  <meta name="twitter:title" content="Pairee | Gestor de archivos TUI moderno en Rust" />
+  <meta name="twitter:description" content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
+  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+
   <link rel="stylesheet" href="style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -325,7 +346,7 @@
           <span>Pairee</span>
         </div>
         <p style="margin: 0; font-size: 0.85rem;" data-i18n="footer_text">
-          Desarrollado con pasión en Rust. Licenciado bajo GPL v3.
+          Desarrollado en Rust. Pairee está bajo licencia GPLv3; este sitio web bajo MIT.
         </p>
       </div>
       <div class="footer-links">
@@ -333,6 +354,11 @@
         <a href="https://fitty.ar/productos.html" data-i18n="footer_projects">Proyectos</a>
         <a href="https://github.com/FittyAr/Pairee" target="_blank" data-i18n="footer_github">GitHub</a>
       </div>
+    </div>
+    <div class="container" style="margin-top: 30px; border-top: 1px solid var(--border); padding-top: 20px;">
+      <p style="margin: 0; font-size: 0.75rem; color: var(--text-muted); opacity: 0.8; line-height: 1.5;" data-i18n="footer_disclaimer">
+        Todas las marcas registradas, nombres de productos y logotipos (como Norton Commander, Vim o Rust) son propiedad de sus respectivos dueños. Su uso en este sitio es solo con fines informativos y de referencia, sin implicar patrocinio o respaldo.
+      </p>
     </div>
   </footer>
 
@@ -485,6 +511,26 @@
       if (metaDesc) {
         metaDesc.setAttribute('content', translations[lang].description);
       }
+
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', translations[lang].title);
+
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', translations[lang].description);
+
+      const twTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twTitle) twTitle.setAttribute('content', translations[lang].title);
+
+      const twDesc = document.querySelector('meta[name="twitter:description"]');
+      if (twDesc) twDesc.setAttribute('content', translations[lang].description);
+
+      const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
+
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.setAttribute('content', shareImgUrl);
+
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage) twitterImage.setAttribute('content', shareImgUrl);
 
       // Variar la imagen final del Showcase según el idioma
       const wizardImg = document.querySelector('.wizard-img img');

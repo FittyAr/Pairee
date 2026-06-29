@@ -66,7 +66,8 @@ const translations = {
     wizard_p2: "No necesitas salir de tu consola para realizar comparaciones avanzadas de carpetas, matar procesos o transferir gigabytes de información en hilos secundarios. Es el aliado definitivo para sysadmins, desarrolladores e ingenieros amantes de la consola.",
     wizard_btn: "Explorar el Repositorio ↗",
     wizard_alt: "Pairee Wizard Graphic",
-    footer_text: "Desarrollado con pasión en Rust. Licenciado bajo GPLv3.",
+    footer_text: "Desarrollado en Rust. Pairee está bajo licencia GPLv3; este sitio web bajo MIT.",
+    footer_disclaimer: "Todas las marcas registradas, nombres de productos y logotipos (como Norton Commander, Vim o Rust) son propiedad de sus respectivos dueños. Su uso en este sitio es solo con fines informativos y de referencia, sin implicar patrocinio o respaldo.",
     footer_home: "fitty.ar",
     footer_projects: "Proyectos",
     footer_github: "GitHub"
@@ -138,7 +139,8 @@ const translations = {
     wizard_p2: "You don't need to leave your console to perform advanced folder comparisons, kill processes, or transfer gigabytes of information in background threads. It is the ultimate ally for sysadmins, developers, and console-loving engineers.",
     wizard_btn: "Explore the Repository ↗",
     wizard_alt: "Pairee Wizard Graphic",
-    footer_text: "Developed with passion in Rust. Licensed under GPLv3.",
+    footer_text: "Developed in Rust. Pairee is licensed under GPLv3; this website under MIT.",
+    footer_disclaimer: "All trademarks, product names, and logos (such as Norton Commander, Vim, or Rust) are the property of their respective owners. Their use on this site is for informational and reference purposes only, without implying any endorsement or sponsorship.",
     footer_home: "fitty.ar",
     footer_projects: "Projects",
     footer_github: "GitHub"

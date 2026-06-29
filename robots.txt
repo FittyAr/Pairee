@@ -1,0 +1,45 @@
+# robots.txt for Pairee
+# Encouraging search engines and AI crawlers to discover and index our modern file manager
+
+User-agent: *
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+# Explicitly allow AI crawlers to access the site and its assets
+User-agent: ChatGPT-User
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: GPTBot
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: Anthropic-AI
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: Applebot-Extended
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+User-agent: Cohere-ai
+Allow: /
+Disallow: /example/
+Disallow: /target/
+
+Sitemap: https://pairee.fitty.ar/sitemap.xml
