@@ -13,6 +13,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Added
+
+- DeepWiki project documentation link and badge to the main README files.
+
 ### Changed
 
 - Moved `manifests/winget/README.md` to `docs/README.md` and corrected its relative links.
