@@ -18,6 +18,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Moved `manifests/winget/README.md` to `docs/README.md` and corrected its relative links.
 - Updated release version bumping scripts (`bump_version.ps1` and `bump_version.sh`) to automatically migrate and update WinGet manifests in the version-specific `manifests/f/FittyAr/Pairee/<version>` directories.
 - Updated local references inside `docs/winget-submission-guide.md` to match the versioned folder structure under `manifests/f/`.
+- Updated MSIX package manifest (`manifests/msix/AppxManifest.xml`) and documentation to target `Windows.Desktop` rather than `Windows.Universal` for proper desktop environment compatibility and corrected default version settings.
+- Made the release workflow's version replacement regex robust in `.github/workflows/release.yml` to prevent build failures during version increments.
+- Replaced hardcoded Microsoft Store publisher credentials in `manifests/msix/AppxManifest.xml` with template placeholders to avoid hardcoding sensitive publisher data in the repository.
+- Updated `.github/workflows/release.yml` to dynamically inject actual Partner Center identity values from GitHub Secrets or Variables, with a fallback chain targeting local developer defaults.
+- Updated local scripts (`run.bat` and `run.sh`) to automatically substitute placeholders with local developer testing defaults before packaging.
 
 ### Removed
 

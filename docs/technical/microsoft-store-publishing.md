@@ -71,19 +71,19 @@ Create a file named `AppxManifest.xml` in your staging folder. Populate it with 
   IgnorableNamespaces="uap rescap">
 
   <Identity
-    Name="30176FittyDev.Pairee"
-    Publisher="CN=EDC5BDED-A726-42CD-B98E-5657B88D9832"
-    Version="0.6.0.0" 
+    Name="TEMPLATE_PACKAGE_IDENTITY_NAME"
+    Publisher="TEMPLATE_PACKAGE_IDENTITY_PUBLISHER"
+    Version="0.6.1.0" 
     ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>Pairee</DisplayName>
-    <PublisherDisplayName>FittyAr</PublisherDisplayName>
+    <PublisherDisplayName>TEMPLATE_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
   </Dependencies>
 
   <Resources>
@@ -98,7 +98,7 @@ Create a file named `AppxManifest.xml` in your staging folder. Populate it with 
       <uap:VisualElements
         DisplayName="Pairee"
         Description="A modern, sleek terminal dual-panel file manager."
-        BackgroundColor="#000000"
+        BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
@@ -114,7 +114,19 @@ Create a file named `AppxManifest.xml` in your staging folder. Populate it with 
 ```
 
 > [!IMPORTANT]
-> The `<Identity Name="..." Publisher="..." />` attributes must **exactly match** the Identity information retrieved in Step 1 from your Partner Center account. If they do not match, the Microsoft Store upload will fail validation.
+> The template manifest contains placeholders (`TEMPLATE_PACKAGE_IDENTITY_NAME`, `TEMPLATE_PACKAGE_IDENTITY_PUBLISHER`, and `TEMPLATE_PUBLISHER_DISPLAY_NAME`) to prevent hardcoding sensitive credentials in the source code.
+> 
+> - **Local Development:** The local scripts (`run.bat` and `run.sh`) automatically replace these placeholders with developer testing defaults during local packaging.
+> - **CI/CD Pipeline (GitHub Actions):** To compile a production-ready package with your actual credentials, you should configure GitHub Repository secrets or variables.
+> 
+> ### How to configure Store variables:
+> 1. Go to your GitHub repository **Settings $\rightarrow$ Secrets and variables $\rightarrow$ Actions**.
+> 2. Create the following Secrets or Variables (both are supported, but Variables are recommended for public values):
+>    - `STORE_PACKAGE_NAME`: The Package Identity Name (e.g. `30176FittyDev.Pairee`).
+>    - `STORE_PUBLISHER`: The Package Identity Publisher CN (e.g. `CN=EDC5BDED-A726-42CD-B98E-5657B88D9832`).
+>    - `STORE_PUBLISHER_DISPLAY_NAME`: The Publisher Display Name (e.g. `FittyAr`).
+> 
+> The pipeline dynamically injects these environment variables and substitutes them during build time. If you do not configure these secrets, the pipeline automatically falls back to our default test values.
 
 ---
 
@@ -126,7 +138,7 @@ Use the **`MakeAppx.exe`** tool (included in the Windows SDK) to pack your stagi
 2. Navigate to your project directory.
 3. Run the pack command:
    ```cmd
-   MakeAppx.exe pack /d target\msix_staging /p target\pairee_0.6.0_x64.msix
+   MakeAppx.exe pack /d target\msix_staging /p target\pairee_0.6.1_x64.msix
    ```
 
 ---
@@ -157,9 +169,9 @@ Import-Certificate -FilePath target\pairee_test.cer `
 ### 3. Sign the package
 Open the Developer Command Prompt as Administrator and run `SignTool.exe`:
 ```cmd
-SignTool.exe sign /fd SHA256 /a /f target\pairee_test.cer target\pairee_0.6.0_x64.msix
+SignTool.exe sign /fd SHA256 /a /f target\pairee_test.cer target\pairee_0.6.1_x64.msix
 ```
-Now you can double-click `pairee_0.6.0_x64.msix` to install it locally and test its behavior!
+Now you can double-click `pairee_0.6.1_x64.msix` to install it locally and test its behavior!
 
 ---
 
@@ -170,7 +182,7 @@ Once you have validated the package locally, you are ready to upload the **unsig
 ### Option A — Direct Partner Center Upload
 1. Log in to [Microsoft Partner Center](https://partner.microsoft.com/dashboard).
 2. Select your app **Pairee** and click **Start new submission**.
-3. Under **Packages**, upload the `target/pairee_0.6.0_x64.msix` file.
+3. Under **Packages**, upload the `target/pairee_0.6.1_x64.msix` file.
 4. Fill in the store listings, upload screenshots, set age ratings, and select pricing (Free).
 5. Click **Submit to the Store**.
 
@@ -181,7 +193,7 @@ You can also automate the submission using the `msstore` CLI tool:
 msstore init
 
 # 2. Upload and submit the package
-msstore publish target\pairee_0.6.0_x64.msix
+msstore publish target\pairee_0.6.1_x64.msix
 ```
 
 During ingestion, the Microsoft Store will verify the identity matches your account, discard the temporary signature, and **re-sign the app with the official Microsoft Store root-trusted certificate**.

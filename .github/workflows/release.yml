@@ -103,6 +103,10 @@ jobs:
 
       - name: Package release assets
         shell: bash
+        env:
+          STORE_PACKAGE_NAME: ${{ secrets.STORE_PACKAGE_NAME || vars.STORE_PACKAGE_NAME || '30176FittyDev.Pairee' }}
+          STORE_PUBLISHER: ${{ secrets.STORE_PUBLISHER || vars.STORE_PUBLISHER || 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' }}
+          STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.STORE_PUBLISHER_DISPLAY_NAME || vars.STORE_PUBLISHER_DISPLAY_NAME || 'FittyAr' }}
         run: |
           VERSION="${GITHUB_REF_NAME:-latest}"
           VERSION_NUM="${VERSION#v}"
@@ -140,7 +144,13 @@ jobs:
             fi
 
             powershell -Command "
-              (Get-Content '$MSIX_STAGING/AppxManifest.xml') -replace 'Version=\"0.6.0.0\"', 'Version=\"$VERSION_NUM.0\"' -replace 'ProcessorArchitecture=\"x64\"', 'ProcessorArchitecture=\"$ARCH\"' | Set-Content '$MSIX_STAGING/AppxManifest.xml'
+              (Get-Content '$MSIX_STAGING/AppxManifest.xml') `
+                -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', \"\$env:STORE_PACKAGE_NAME\" `
+                -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', \"\$env:STORE_PUBLISHER\" `
+                -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', \"\$env:STORE_PUBLISHER_DISPLAY_NAME\" `
+                -replace 'Version=\"[0-9\.]+\"', \"$VERSION_NUM.0\" `
+                -replace 'ProcessorArchitecture=\"[^\"]+\"', \"$ARCH\" `
+                | Set-Content '$MSIX_STAGING/AppxManifest.xml'
               \$makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
               if (-not \$makeappx) { \$makeappx = 'makeappx.exe' }
               & \$makeappx pack /d '$MSIX_STAGING' /p 'dist/pairee-${VERSION_NUM}-${ARCH}.msix'

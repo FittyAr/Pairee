@@ -7,19 +7,19 @@
 
   <!-- Identity: Update Publisher to match your Partner Center ID (e.g. CN=12345-...) -->
   <Identity
-    Name="30176FittyDev.Pairee"
-    Publisher="CN=EDC5BDED-A726-42CD-B98E-5657B88D9832"
-    Version="0.6.0.0" 
+    Name="TEMPLATE_PACKAGE_IDENTITY_NAME"
+    Publisher="TEMPLATE_PACKAGE_IDENTITY_PUBLISHER"
+    Version="0.6.1.0" 
     ProcessorArchitecture="x64" />
 
   <Properties>
     <DisplayName>Pairee</DisplayName>
-    <PublisherDisplayName>FittyAr</PublisherDisplayName>
+    <PublisherDisplayName>TEMPLATE_PUBLISHER_DISPLAY_NAME</PublisherDisplayName>
     <Logo>Assets\StoreLogo.png</Logo>
   </Properties>
 
   <Dependencies>
-    <TargetDeviceFamily Name="Windows.Universal" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
   </Dependencies>
 
   <Resources>
@@ -34,7 +34,7 @@
       <uap:VisualElements
         DisplayName="Pairee"
         Description="A modern, sleek terminal dual-panel file manager."
-        BackgroundColor="#000000"
+        BackgroundColor="transparent"
         Square150x150Logo="Assets\Square150x150Logo.png"
         Square44x44Logo="Assets\Square44x44Logo.png">
         <uap:SplashScreen Image="Assets\SplashScreen.png" />
