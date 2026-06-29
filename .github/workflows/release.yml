@@ -96,6 +96,7 @@ jobs:
             curl -LSfs https://github.com/cross-rs/cross/releases/download/v0.2.5/cross-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /usr/local/bin
             cross build --release --target ${{ matrix.target }}
           else
+            cargo clean
             cargo build --release --target ${{ matrix.target }}
           fi
         shell: bash
