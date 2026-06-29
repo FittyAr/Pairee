@@ -4,8 +4,7 @@
 
 [![Licencia: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
-[![Wiki: DeepWiki](https://img.shields.io/badge/Wiki-DeepWiki-green.svg)](https://deepwiki.com/FittyAr/Pairee/)
-![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
+[![Wiki: DeepWiki](https://img.shields.io/badge/Wiki-DeepWiki-green.svg)](https://deepwiki.com/FittyAr/Pairee)
 
 Un gestor de archivos para terminal moderno, multiplataforma y altamente modular, inspirado en los clásicos **Norton Commander** y **Far Manager**. Desarrollado en Rust utilizando `ratatui` y `crossterm`.
 
@@ -130,7 +129,7 @@ Para manuales detallados, principios de diseño y opciones de configuración, co
 
 | Tema | Inglés | Español |
 | :--- | :--- | :--- |
-| **Wiki del Proyecto** | [DeepWiki](https://deepwiki.com/FittyAr/Pairee/) | [DeepWiki](https://deepwiki.com/FittyAr/Pairee/) |
+| **Wiki del Proyecto** | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) |
 | **Referencia de Funciones** | [Features Manual](help/features_en.md) | [Manual de Funciones](help/features_es.md) |
 | **Arquitectura del Sistema** | [Architecture Guide](docs/technical/architecture_en.md) | [Guía de Arquitectura](docs/technical/architecture_es.md) |
 | **Configuración y Opciones** | [User Guide](help/user_guide_en.md) | [Guía de Usuario](help/user_guide_es.md) |

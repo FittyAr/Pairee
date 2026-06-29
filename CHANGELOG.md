@@ -32,6 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Removed the obsolete and unused `manifests/winget/` directory.
 - Packaged `docs/` folder from being distributed in release assets, installers, packages, and staging configurations.
+- Obsolete and broken CodeRabbit Reviews badge from the README files.
 
 ### Fixed
 
