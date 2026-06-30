@@ -167,6 +167,7 @@ pub struct Settings {
     pub plugins_manager_even_if_one_found: bool,
     pub plugins_manager_search_results: bool,
     pub plugins_manager_prefix_processing: bool,
+    pub plugins_developer_mode: bool,
 
     // ── NEW Editor & Viewer settings (Tab 5 stubs/interactive) ───────────────
     pub editor_use_external: bool,
@@ -357,6 +358,7 @@ impl Default for Settings {
             plugins_manager_even_if_one_found: false,
             plugins_manager_search_results: false,
             plugins_manager_prefix_processing: false,
+            plugins_developer_mode: false,
 
             // Tab 5
             editor_use_external: false,

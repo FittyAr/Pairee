@@ -333,6 +333,7 @@ pub enum PopupType {
         search_query: String,
         is_searching: bool,
         editing_query: bool,
+        dev_results: String,
     },
 
     // ── Sort modes ────────────────────────────────────────────────────────────

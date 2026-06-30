@@ -16,6 +16,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - A new interactive TUI Plugins Manager popup (F11) featuring a tabbed split interface to view installed plugins (with trust/pin badges and update indicators), show detailed metadata descriptions, search the online registry repository with live query editing, toggle trust and pinned statuses, and perform background installs/updates or immediate uninstalls.
+- Integrated a new interactive TUI **Developer Tools** tab (Tab 2) under the F11 Plugins Manager (accessible when `plugins_developer_mode` is enabled). It features an interactive TUI console to initialize plugin skeletons, run security/compliance lint audits, package files with SHA-256 hashes, and format submission logs.
+- Added a `plugins_developer_mode` option in the Language & Plugins configuration screen (Tab 4) to toggle developer-centric TUI helpers.
 - Dynamic population of plugin help documentation files (`help/<locale>.md` or default language fallback) inside the tabbed F1 Help menu.
 - `check-updates` and `update` subcommands to the `pairee plugin` CLI suite to query and apply plugin updates.
 - DeepWiki project documentation link and badge to the main README files.

@@ -44,6 +44,9 @@ pub fn handle_row(
             settings.plugins_manager_prefix_processing =
                 !settings.plugins_manager_prefix_processing;
         }
+        11 => {
+            settings.plugins_developer_mode = !settings.plugins_developer_mode;
+        }
         _ => {}
     }
     None

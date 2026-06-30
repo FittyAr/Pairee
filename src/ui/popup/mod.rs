@@ -98,7 +98,7 @@ fn render_specific_popup(
     if about::render_about_popup(f, popup, theme, size) {
         return;
     }
-    if plugin_menu::render(f, popup, theme, size) {
+    if plugin_menu::render(f, popup, theme, size, context) {
         return;
     }
     if git_panel::render(f, popup, theme, size) {

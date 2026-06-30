@@ -13,6 +13,7 @@ pub fn render(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    context: &crate::app::context::AppContext,
 ) -> bool {
     if let PopupType::PluginMenu {
         active_tab,
@@ -22,6 +23,7 @@ pub fn render(
         search_query,
         is_searching,
         editing_query,
+        dev_results,
     } = popup
     {
         let area = super::centered_rect(85, 80, size);
@@ -32,12 +34,14 @@ pub fn render(
         let text_style = Style::default().fg(parse_color(&theme.popup_fg));
         let bold_style = text_style.add_modifier(Modifier::BOLD);
 
-        let main_chunks = if *active_tab == 1 {
+        let dev_mode = context.config.settings.plugins_developer_mode;
+
+        let main_chunks = if *active_tab == 1 || (*active_tab == 2 && *editing_query) {
             Layout::default()
                 .direction(Direction::Vertical)
                 .constraints([
                     Constraint::Length(3), // Tab Bar
-                    Constraint::Length(3), // Search Input
+                    Constraint::Length(3), // Search Input / Prompt
                     Constraint::Min(1),    // List & Detail Panel
                     Constraint::Length(1), // Legend
                 ])
@@ -54,11 +58,12 @@ pub fn render(
         };
 
         let tab_area = main_chunks[0];
-        let content_area = if *active_tab == 1 { main_chunks[2] } else { main_chunks[1] };
-        let legend_area = if *active_tab == 1 { main_chunks[3] } else { main_chunks[2] };
+        let content_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) { main_chunks[2] } else { main_chunks[1] };
+        let legend_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) { main_chunks[3] } else { main_chunks[2] };
 
         let tab_title_installed = " Installed Plugins ";
         let tab_title_search = " Search Registry ";
+        let tab_title_dev = " Developer Tools ";
 
         let installed_style = if *active_tab == 0 {
             Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
@@ -70,14 +75,27 @@ pub fn render(
         } else {
             Style::default().fg(Color::DarkGray)
         };
+        let dev_style = if *active_tab == 2 {
+            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
 
-        let tabs_line = Line::from(vec![
+        let mut tab_spans = vec![
             Span::styled(" [ ", Style::default().fg(Color::DarkGray)),
             Span::styled(tab_title_installed, installed_style),
             Span::styled(" ]  [ ", Style::default().fg(Color::DarkGray)),
             Span::styled(tab_title_search, search_style),
             Span::styled(" ]", Style::default().fg(Color::DarkGray)),
-        ]);
+        ];
+
+        if dev_mode {
+            tab_spans.push(Span::styled("  [ ", Style::default().fg(Color::DarkGray)));
+            tab_spans.push(Span::styled(tab_title_dev, dev_style));
+            tab_spans.push(Span::styled(" ]", Style::default().fg(Color::DarkGray)));
+        }
+
+        let tabs_line = Line::from(tab_spans);
 
         let tab_block = Block::default()
             .borders(Borders::ALL)
@@ -98,6 +116,15 @@ pub fn render(
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(search_border_color))
                 .title(" Search Repository ")
+                .style(bg_style);
+            f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
+        } else if *active_tab == 2 && *editing_query {
+            let search_area = main_chunks[1];
+            let search_text = format!(" Enter Plugin Name: {}|", search_query);
+            let search_block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(" Initialize New Plugin ")
                 .style(bg_style);
             f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
         }
@@ -132,7 +159,7 @@ pub fn render(
                     Span::styled(format!("  {} v{}{}{}{}", name, version, pin_badge, trust_badge, update_badge), style),
                 ])));
             }
-        } else {
+        } else if *active_tab == 1 {
             if *is_searching {
                 list_items.push(ListItem::new(Line::from(vec![
                     Span::styled("  Searching...", Style::default().fg(Color::Yellow)),
@@ -156,12 +183,33 @@ pub fn render(
                     ])));
                 }
             }
+        } else {
+            // Tab 2: Developer Tools options list
+            let dev_options = vec![
+                "  1. Initialize new plugin skeleton",
+                "  2. Lint selected installed plugin",
+                "  3. Package selected installed plugin",
+                "  4. Submit selected installed plugin",
+            ];
+            for (i, opt) in dev_options.iter().enumerate() {
+                let style = if i == *cursor_idx {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                list_items.push(ListItem::new(Line::from(vec![
+                    Span::styled(*opt, style),
+                ])));
+            }
         }
 
         let list_block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(" Plugins ")
+            .title(if *active_tab == 2 { " Tools " } else { " Plugins " })
             .style(bg_style);
         let list = List::new(list_items).block(list_block);
         f.render_widget(list, list_area);
@@ -169,7 +217,7 @@ pub fn render(
         let detail_block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(" Details ")
+            .title(if *active_tab == 2 { " Action Console / Details " } else { " Details " })
             .style(bg_style);
 
         let mut detail_lines = Vec::new();
@@ -221,6 +269,61 @@ pub fn render(
                 detail_lines.push(Line::from(Span::styled("Description:", bold_style)));
                 detail_lines.push(Line::from(Span::styled(desc.clone(), text_style)));
             }
+        } else if *active_tab == 2 {
+            if !dev_results.is_empty() {
+                // If we have console outputs from the developer tool execution, show them!
+                for line in dev_results.lines() {
+                    detail_lines.push(Line::from(Span::styled(line, text_style)));
+                }
+            } else {
+                // Render descriptive hints on what the options do
+                match *cursor_idx {
+                    0 => {
+                        detail_lines.push(Line::from(Span::styled("1. Initialize New Plugin Skeleton", bold_style)));
+                        detail_lines.push(Line::from(""));
+                        detail_lines.push(Line::from(Span::styled(
+                            "Creates a new directory under the user plugins path containing default templates:",
+                            text_style,
+                        )));
+                        detail_lines.push(Line::from(Span::styled("  - manifest.toml (Default author metadata/dependencies)", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - init.lua (Scripting entry point & Event listeners)", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - help/en.md (Developer documentation placeholders)", text_style)));
+                    }
+                    1 => {
+                        detail_lines.push(Line::from(Span::styled("2. Lint Selected Installed Plugin", bold_style)));
+                        detail_lines.push(Line::from(""));
+                        detail_lines.push(Line::from(Span::styled(
+                            "Performs compliance verification audits on the selected plugin:",
+                            text_style,
+                        )));
+                        detail_lines.push(Line::from(Span::styled("  - Validates formatting and syntax of Lua files", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - Inspects manifest configurations for missing keys", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - Audits security rules (ensures no forbidden system modules are used)", text_style)));
+                    }
+                    2 => {
+                        detail_lines.push(Line::from(Span::styled("3. Package Selected Installed Plugin", bold_style)));
+                        detail_lines.push(Line::from(""));
+                        detail_lines.push(Line::from(Span::styled(
+                            "Bundles the files of the selected plugin into a package ready for distribution:",
+                            text_style,
+                        )));
+                        detail_lines.push(Line::from(Span::styled("  - Gathers all local files & manuals", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - Compresses them to a single release zip file", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - Computes the SHA-256 integrity checksum block", text_style)));
+                    }
+                    3 => {
+                        detail_lines.push(Line::from(Span::styled("4. Submit Selected Installed Plugin", bold_style)));
+                        detail_lines.push(Line::from(""));
+                        detail_lines.push(Line::from(Span::styled(
+                            "Publishes the packaged plugin directly to the official registry index:",
+                            text_style,
+                        )));
+                        detail_lines.push(Line::from(Span::styled("  - Validates package signature and metadata keys", text_style)));
+                        detail_lines.push(Line::from(Span::styled("  - Fork and submit pull request to central repository index", text_style)));
+                    }
+                    _ => {}
+                }
+            }
         } else {
             detail_lines.push(Line::from(Span::styled(
                 "No plugin selected.",
@@ -235,8 +338,10 @@ pub fn render(
 
         let hint_text = if *active_tab == 0 {
             " [Tab] Switch Tab  [t] Toggle Trust  [p] Toggle Pin  [u] Update Selected  [U] Update All  [Del/d] Uninstall  [Esc] Close "
-        } else {
+        } else if *active_tab == 1 {
             " [Tab] Switch Tab  [/] Edit Query  [Enter] Search  [i] Install Selected  [Esc] Close "
+        } else {
+            " [Tab] Switch Tab  [Enter] Run selected tool  [Esc] Close "
         };
         f.render_widget(
             Paragraph::new(hint_text)

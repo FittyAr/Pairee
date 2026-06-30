@@ -57,6 +57,7 @@ pub fn handle(
             search_query,
             is_searching,
             editing_query,
+            dev_results,
         }) => (
             active_tab,
             cursor_idx,
@@ -65,6 +66,7 @@ pub fn handle(
             search_query,
             is_searching,
             editing_query,
+            dev_results,
         ),
         _ => return Err(()),
     };
@@ -77,11 +79,12 @@ pub fn handle(
         mut search_query,
         is_searching,
         mut editing_query,
+        mut dev_results,
     ) = popup_state;
 
     // Handle global escape to close if not editing query
     if key.code == KeyCode::Esc {
-        if active_tab == 1 && editing_query {
+        if (active_tab == 1 && editing_query) || (active_tab == 2 && editing_query) {
             editing_query = false;
             state.active_popup = Some(PopupType::PluginMenu {
                 active_tab,
@@ -91,6 +94,7 @@ pub fn handle(
                 search_query,
                 is_searching,
                 editing_query,
+                dev_results,
             });
             return Ok(None);
         } else {
@@ -101,10 +105,18 @@ pub fn handle(
 
     match key.code {
         KeyCode::Tab => {
-            if !(active_tab == 1 && editing_query) {
-                active_tab = if active_tab == 0 { 1 } else { 0 };
+            let dev_mode = context.config.settings.plugins_developer_mode;
+            if !(active_tab == 1 && editing_query) && !(active_tab == 2 && editing_query) {
+                active_tab = if active_tab == 0 {
+                    1
+                } else if active_tab == 1 {
+                    if dev_mode { 2 } else { 0 }
+                } else {
+                    0
+                };
                 cursor_idx = 0;
                 editing_query = false;
+                dev_results = String::new();
                 state.active_popup = Some(PopupType::PluginMenu {
                     active_tab,
                     cursor_idx,
@@ -113,6 +125,7 @@ pub fn handle(
                     search_query,
                     is_searching,
                     editing_query,
+                    dev_results,
                 });
                 return Ok(None);
             }
@@ -158,8 +171,7 @@ pub fn handle(
                         context.config = c;
                     }
 
-                    let index = tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index()).ok();
-                    installed = reload_installed_plugins(context, &index);
+                    installed = reload_installed_plugins(context, &None);
                 }
             }
             KeyCode::Char('p') | KeyCode::Char('P') => {
@@ -170,15 +182,13 @@ pub fn handle(
                     }
                     let _ = crate::plugin::updater::write_lockfile(&lock);
 
-                    let index = tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index()).ok();
-                    installed = reload_installed_plugins(context, &index);
+                    installed = reload_installed_plugins(context, &None);
                 }
             }
             KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
                 if let Some((name, _, _, _, _)) = installed.get(cursor_idx) {
                     let _ = crate::plugin::updater::remove(name);
-                    let index = tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index()).ok();
-                    installed = reload_installed_plugins(context, &index);
+                    installed = reload_installed_plugins(context, &None);
                     cursor_idx = cursor_idx.min(installed.len().saturating_sub(1));
                 }
             }
@@ -229,7 +239,7 @@ pub fn handle(
             }
             _ => {}
         }
-    } else {
+    } else if active_tab == 1 {
         // Search Registry Tab
         if editing_query {
             match key.code {
@@ -241,7 +251,9 @@ pub fn handle(
                 }
                 KeyCode::Enter => {
                     editing_query = false;
-                    let index_res = tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index());
+                    let index_res = tokio::task::block_in_place(|| {
+                        tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index())
+                    });
                     if let Ok(idx) = index_res {
                         registry.clear();
                         let q_lower = search_query.to_lowercase();
@@ -317,6 +329,145 @@ pub fn handle(
                 _ => {}
             }
         }
+    } else {
+        // Tab 2: Developer Tools
+        if editing_query {
+            match key.code {
+                KeyCode::Backspace => {
+                    search_query.pop();
+                }
+                KeyCode::Char(c) => {
+                    search_query.push(c);
+                }
+                KeyCode::Enter => {
+                    editing_query = false;
+                    let plugins_dir = crate::config::paths::get_config_dir().join("plugins");
+                    let target_path = plugins_dir.join(&search_query);
+                    let _ = std::fs::create_dir_all(&target_path);
+                    if let Ok(current_dir) = std::env::current_dir() {
+                        if std::env::set_current_dir(&plugins_dir).is_ok() {
+                            match crate::plugin::developer_tool::init(&search_query) {
+                                Ok(_) => {
+                                    dev_results = format!(
+                                        "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}",
+                                        search_query, target_path
+                                    );
+                                }
+                                Err(e) => {
+                                    dev_results = format!("Error initializing plugin: {:?}", e);
+                                }
+                            }
+                            let _ = std::env::set_current_dir(current_dir);
+                        }
+                    }
+                    installed = reload_installed_plugins(context, &None);
+                }
+                _ => {}
+            }
+        } else {
+            match key.code {
+                KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
+                    if cursor_idx == 0 {
+                        cursor_idx = 3;
+                    } else {
+                        cursor_idx -= 1;
+                    }
+                }
+                KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
+                    if cursor_idx >= 3 {
+                        cursor_idx = 0;
+                    } else {
+                        cursor_idx += 1;
+                    }
+                }
+                KeyCode::Enter => {
+                    let plugins_dir = crate::config::paths::get_config_dir().join("plugins");
+                    match cursor_idx {
+                        0 => {
+                            // Init Plugin
+                            editing_query = true;
+                            search_query = String::new();
+                            dev_results = String::new();
+                        }
+                        1 => {
+                            // Lint selected plugin
+                            if let Some((selected_name, _, _, _, _)) = installed.get(0) {
+                                let plugin_path = plugins_dir.join(selected_name);
+                                let manifest_path = plugin_path.join("manifest.toml");
+                                let main_path = plugin_path.join("main.lua");
+                                let mut report = format!("Linting plugin '{}'...\n\n", selected_name);
+                                let mut warnings = 0;
+                                if !manifest_path.exists() {
+                                    report.push_str("  [Error] manifest.toml not found!\n");
+                                    warnings += 1;
+                                }
+                                if !main_path.exists() {
+                                    report.push_str("  [Error] main.lua not found!\n");
+                                    warnings += 1;
+                                }
+                                if manifest_path.exists() && main_path.exists() {
+                                    if let Ok(lua_code) = std::fs::read_to_string(&main_path) {
+                                        let forbidden = ["os.execute", "io.open", "os.system", "dofile", "loadfile"];
+                                        for f in &forbidden {
+                                            if lua_code.contains(f) {
+                                                report.push_str(&format!("  [Warning] Potentially unsafe method call detected: '{}'\n", f));
+                                                warnings += 1;
+                                            }
+                                        }
+                                    }
+                                }
+                                if warnings == 0 {
+                                    report.push_str("\n✓ Lint completed successfully! No issues found.");
+                                } else {
+                                    report.push_str(&format!("\nLint completed with {} warning(s)/error(s).", warnings));
+                                }
+                                dev_results = report;
+                            } else {
+                                dev_results = "Error: No installed plugins found to lint.".to_string();
+                            }
+                        }
+                        2 => {
+                            // Package selected plugin
+                            if let Some((selected_name, version, _, _, _)) = installed.get(0) {
+                                let plugin_path = plugins_dir.join(selected_name);
+                                let manifest_path = plugin_path.join("manifest.toml");
+                                let main_path = plugin_path.join("main.lua");
+                                let lang_path = plugin_path.join("lang/en.toml");
+                                
+                                let mut report = format!("Packaging plugin '{}'...\n\n", selected_name);
+                                let mut files_hash = std::collections::HashMap::new();
+                                let files_to_hash = [("manifest.toml", &manifest_path), ("main.lua", &main_path), ("lang/en.toml", &lang_path)];
+                                for (rel, path) in &files_to_hash {
+                                    if path.exists() {
+                                        if let Ok(hash) = crate::update::downloader::compute_sha256(path) {
+                                            files_hash.insert(rel.to_string(), hash);
+                                        }
+                                    }
+                                }
+                                report.push_str("Generated registry entry to append to registry/index.toml:\n\n");
+                                report.push_str(&format!("[plugins.{}]\n", selected_name));
+                                report.push_str(&format!("name = \"{}\"\n", selected_name));
+                                report.push_str(&format!("version = \"{}\"\n", version));
+                                report.push_str("files = {\n");
+                                for (f, h) in files_hash {
+                                    report.push_str(&format!("    \"{}\" = \"{}\",\n", f, h));
+                                }
+                                report.push_str("}\n");
+                                dev_results = report;
+                            } else {
+                                dev_results = "Error: No installed plugins found to package.".to_string();
+                            }
+                        }
+                        3 => {
+                            // Submit instructions
+                            dev_results = "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically.".to_string();
+                        }
+                        _ => {}
+                    }
+                }
+                _ => {}
+            }
+        }
     }
 
     state.active_popup = Some(PopupType::PluginMenu {
@@ -327,6 +478,7 @@ pub fn handle(
         search_query,
         is_searching,
         editing_query,
+        dev_results,
     });
 
     Ok(None)

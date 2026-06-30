@@ -105,4 +105,16 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, RowType)>) {
         ),
         RowType::Setting(10),
     ));
+    rows.push((
+        format!(
+            "  [{}] {}",
+            if settings.plugins_developer_mode {
+                "x"
+            } else {
+                " "
+            },
+            t("developer_mode")
+        ),
+        RowType::Setting(11),
+    ));
 }

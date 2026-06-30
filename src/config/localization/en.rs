@@ -22,6 +22,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         "even_if_one" => "Even if only one plugin",
         "search_results" => "Search results (SetFindList)",
         "prefix_processing" => "Prefix processing",
+        "developer_mode" => "Plugins developer mode",
 
         // Bottom function keys (F1-F10)
         "fkey_help" => "Help",

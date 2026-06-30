@@ -513,6 +513,7 @@ pub async fn handle_ui_settings_action(
                 search_query: String::new(),
                 is_searching: false,
                 editing_query: false,
+                dev_results: String::new(),
             });
             true
         }
