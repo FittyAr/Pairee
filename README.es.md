@@ -7,20 +7,24 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-Un gestor de archivos para terminal moderno, multiplataforma y altamente modular, inspirado en los clásicos **Norton Commander** y **Far Manager**. Desarrollado en Rust utilizando `ratatui` y `crossterm`.
+## Pairee - ⚡ Gestor de Archivos de Terminal Moderno de Doble Panel
+
+Pairee es un gestor de archivos para terminal moderno, multiplataforma y altamente modular, inspirado en los clásicos **Norton Commander** y **Far Manager**. Desarrollado en Rust utilizando `ratatui` y `crossterm`, su objetivo es proporcionar una experiencia de gestión de archivos eficiente, rápida y extensible directamente en tu consola.
+
+- 🚀 **Soporte Asíncrono Completo**: Todas las operaciones pesadas del sistema de archivos (Copiar, Mover, Borrado Seguro, Eliminar) se procesan en segundo plano (`tokio`), manteniendo la interfaz perfectamente fluida y responsiva.
+- 💪 **Planificación de Tareas Asíncronas**: Seguimiento del progreso en tiempo real con ventanas emergentes de barras de progreso y cancelación de tareas para trabajadores concurrentes.
+- 🎨 **Temas Visuales y Diseños**: Cargador de temas visuales personalizados (como Slate, Blue, entre otros) y distribución adaptable del diseño de pantalla.
+- ⚙️ **Atajos de Teclado Flexibles**: Resolutor de atajos dinámico con perfiles predefinidos para Norton Clásico (F1-F10), navegación Vim y teclas modernas.
+- 🔌 **Sistema de Complementos Extensible (Planificado)**: Soporte futuro para complementos concurrentes en Lua para agregar visores de archivos a medida, adaptadores de búsqueda y widgets de interfaz.
+- 🧰 **Herramientas Avanzadas**: Búsqueda integrada por nombre/contenido, comparación de carpetas, menú de comandos personalizados del usuario, gestor de procesos del sistema y visor de atributos.
+- 📦 **Actualizaciones Automáticas Inteligentes**: Comprobaciones seguras de actualización con detección automática entre 13 métodos de instalación y validación de firmas SHA-256.
+- 🌐 **Traducciones Centralizadas**: Motor de traducción centralizado que soporta inglés y español, diseñado para extenderse fácilmente a nuevos idiomas.
 
 ---
 
-## 🚀 Características Clave
+## Estado del Proyecto
 
-* **Interfaz de Doble Panel:** El clásico diseño de doble panel para navegar eficientemente por directorios y realizar operaciones en lote.
-* **Inicio en Modo Dual:** Ejecútalo como una aplicación de consola estándar o lanza una ventana de terminal optimizada e independiente.
-* **Operaciones Asíncronas en Segundo Plano:** Tareas pesadas (Copiar, Mover, Borrado Seguro, Eliminar) se procesan en un grupo de hilos independiente (`tokio`), manteniendo la UI responsiva con barras de progreso en tiempo real.
-* **Resolutor de Atajos de Teclado Flexible:** Perfiles integrados para controles de Norton Clásico, Vim y navegación moderna.
-* **Alta Extensibilidad:** Estructura modular alineada con el Principio de Responsabilidad Única, cargadores de temas visuales y soporte para complementos.
-* **Localización y Temas:** Motor centralizado para traducciones que soporta inglés, español y temas personalizados (Slate, Blue, etc.).
-* **Funcionalidades Avanzadas:** Búsqueda de archivos por nombre/contenido, comparación de carpetas, menú personalizado de comandos de usuario, administrador de procesos del sistema y visor de atributos.
-* **Actualización Automática Inteligente:** Sistema integrado de actualizaciones seguras que detecta de forma automática la vía de instalación del usuario de entre 13 métodos (como gestores de paquetes o descargas directas) y descarga/instala validando firmas SHA-256.
+Beta pública. Lo suficientemente estable para su uso diario. Pairee está bajo desarrollo activo, y cualquier sugerencia o contribución es bienvenida.
 
 ---
 
@@ -29,12 +33,12 @@ Un gestor de archivos para terminal moderno, multiplataforma y altamente modular
 ```text
 Pairee/
 ├── Cargo.toml                     # Configuración de Cargo
-├── agents.md                      # Directrices para desarrolladores de IA
 ├── install.sh                     # Script de instalación para Linux (compatible con curl)
 ├── install.ps1                    # Script de instalación para Windows (compatible con PowerShell)
 ├── LICENSE                        # Licencia GNU GPL v3
 ├── README.md                      # Índice de documentación en inglés
 ├── README.es.md                   # Índice de documentación en español (Este archivo)
+├── .agents/                       # Directrices para desarrolladores de IA y habilidades personalizadas
 ├── docs/                          # Documentación para desarrolladores
 │   └── technical/
 │       ├── architecture_en.md     # Arquitectura y diseño del código (Inglés)
@@ -93,7 +97,7 @@ NCRust ofrece binarios precompilados de forma automática mediante GitHub Action
 ### Compilar desde el Código Fuente
 
 #### Prerrequisitos
-Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install).
+Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install) (versión 1.70 o superior).
 
 #### Compilar y Ejecutar
 ```bash

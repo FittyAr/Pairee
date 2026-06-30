@@ -7,20 +7,24 @@
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
-A modern, highly modular, cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**. Built in Rust utilizing `ratatui` and `crossterm`.
+## Pairee - ⚡ Modern Dual-Panel Terminal File Manager
+
+Pairee is a modern, highly modular, and cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**. Built in Rust utilizing `ratatui` and `crossterm`, it aims to provide an efficient, fast, and extensible file management experience directly within your console.
+
+- 🚀 **Full Asynchronous Support**: All long-running filesystem operations (Copy, Move, Wipe, Delete) run on background threads (`tokio`), keeping the UI perfectly responsive.
+- 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.
+- 🎨 **Visual Themes & Layouts**: Customizable theme loader supporting Slate, Blue, and other custom styles, alongside responsive layout division.
+- ⚙️ **Flexible Keybindings**: Dynamic keybinding resolver featuring preset profiles for Classic Norton (F1-F10), Vim navigation, and Modern keys.
+- 🔌 **Extensible Plugin System (Planned)**: Future support for concurrent Lua-based plugins to add custom file previewers, search adapters, and UI widgets.
+- 🧰 **Advanced Utilities**: Built-in file search by name/content, folder comparison, custom user commands menu, OS process manager, and file attributes viewer.
+- 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods with SHA-256 verification.
+- 🌐 **Centralized Translations**: Core translation engine supporting English, Spanish, and easily extendable to new languages.
 
 ---
 
-## 🚀 Key Features
+## Project Status
 
-* **Dual-Panel Interface:** Classic, efficient two-panel layout to navigate directories and perform bulk file operations.
-* **Dual-Mode Startup:** Run as an in-terminal app or launch a standalone, optimized terminal window directly.
-* **Async Background Operations:** Long-running tasks (Copy, Move, Wipe, Delete) are processed on a background thread pool (`tokio`), keeping the UI fully responsive with real-time progress bars.
-* **Flexible Keybinding Resolver:** Built-in profiles for Classic Norton, Vim, and Modern navigation keys.
-* **High Extensibility:** Modular layout conforming to the Single Responsibility Principle, theme loaders, and customizable plugins.
-* **Localization & Themes:** Centralized translation lookup engine supporting English, Spanish, and custom themes (Slate, Blue, etc.).
-* **Advanced Features:** File search by content/name, folder comparison, custom user commands menu, OS process manager, and attributes viewer.
-* **Smart Auto-Update System:** Built-in secure updates that auto-detect the installation source across 13 methods (like package managers or direct builds) and download/install with SHA-256 checks.
+Public beta. Stable enough to be used as a daily driver. Pairee is in active development, and suggestions or contributions are highly welcome.
 
 ---
 
@@ -29,12 +33,12 @@ A modern, highly modular, cross-platform terminal file manager inspired by the c
 ```text
 Pairee/
 ├── Cargo.toml                     # Cargo configuration
-├── agents.md                      # AI Developer Guidelines
 ├── install.sh                     # Linux installer script (curl-compatible)
 ├── install.ps1                    # Windows installer script (PowerShell-compatible)
 ├── LICENSE                        # GNU GPL v3 License
 ├── README.md                      # English documentation index (This file)
 ├── README.es.md                   # Spanish documentation index
+├── .agents/                       # AI Developer Guidelines and Custom Skills
 ├── docs/                          # Developer documentation
 │   └── technical/
 │       ├── architecture_en.md     # Architecture & codebase design (English)
@@ -60,7 +64,7 @@ Pairee/
 
 ### Installation (Quick Installers)
 
-NCRust provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
+Pairee provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
 
 * **Linux (statically linked, standalone binary):**
   * **Standard Release:**
@@ -93,7 +97,7 @@ NCRust provides precompiled binaries built automatically via GitHub Actions (sup
 ### Build from Source
 
 #### Prerequisites
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) installed.
+Make sure you have [Rust](https://www.rust-lang.org/tools/install) (version 1.70 or higher) installed.
 
 #### Build and Run
 ```bash
@@ -109,7 +113,7 @@ cargo build --release
 ```
 
 ### Launch Standalone Mode
-You can check launcher script wrappers `run.bat` (Windows) or `run.sh` (Linux/macOS) to boot the application in a dedicated console window.
+You can use the launcher script wrappers `run.bat` (Windows) or `run.sh` (Linux/macOS) to boot the application in a dedicated console window.
 
 ---
 
