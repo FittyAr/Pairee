@@ -12,11 +12,15 @@ pub fn handle(
     if let Some(PopupType::Help {
         mode,
         docs,
+        plugin_docs,
+        mut active_tab,
         mut cursor_idx,
         mut scroll_y,
         mut active_content,
     }) = popup
     {
+        let current_docs = if active_tab == 0 { &docs } else { &plugin_docs };
+
         match key.code {
             KeyCode::Esc => {
                 state.active_popup = None;
@@ -27,6 +31,8 @@ pub fn handle(
                 state.active_popup = Some(PopupType::Help {
                     mode: new_mode,
                     docs,
+                    plugin_docs,
+                    active_tab,
                     cursor_idx,
                     scroll_y,
                     active_content,
@@ -39,20 +45,43 @@ pub fn handle(
         if mode == 0 {
             // Mode 0: Navigating Document Selection List
             match key.code {
+                KeyCode::Left | KeyCode::Right => {
+                    active_tab = if active_tab == 0 { 1 } else { 0 };
+                    cursor_idx = 0;
+                    scroll_y = 0;
+                    let next_docs = if active_tab == 0 { &docs } else { &plugin_docs };
+                    active_content = if !next_docs.is_empty() {
+                        std::fs::read_to_string(&next_docs[0].1).ok()
+                    } else {
+                        None
+                    };
+                    state.active_popup = Some(PopupType::Help {
+                        mode,
+                        docs,
+                        plugin_docs,
+                        active_tab,
+                        cursor_idx,
+                        scroll_y,
+                        active_content,
+                    });
+                    Ok(None)
+                }
                 KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                    if !docs.is_empty() {
+                    if !current_docs.is_empty() {
                         if cursor_idx == 0 {
-                            cursor_idx = docs.len() - 1;
+                            cursor_idx = current_docs.len() - 1;
                         } else {
                             cursor_idx -= 1;
                         }
-                        let path = &docs[cursor_idx].1;
+                        let path = &current_docs[cursor_idx].1;
                         active_content = std::fs::read_to_string(path).ok();
                         scroll_y = 0;
                     }
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -60,19 +89,21 @@ pub fn handle(
                     Ok(None)
                 }
                 KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
-                    if !docs.is_empty() {
-                        if cursor_idx + 1 >= docs.len() {
+                    if !current_docs.is_empty() {
+                        if cursor_idx + 1 >= current_docs.len() {
                             cursor_idx = 0;
                         } else {
                             cursor_idx += 1;
                         }
-                        let path = &docs[cursor_idx].1;
+                        let path = &current_docs[cursor_idx].1;
                         active_content = std::fs::read_to_string(path).ok();
                         scroll_y = 0;
                     }
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -84,6 +115,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode: 1,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -102,6 +135,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -113,6 +148,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -128,6 +165,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -139,6 +178,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,
@@ -150,6 +191,8 @@ pub fn handle(
                     state.active_popup = Some(PopupType::Help {
                         mode: 0,
                         docs,
+                        plugin_docs,
+                        active_tab,
                         cursor_idx,
                         scroll_y,
                         active_content,

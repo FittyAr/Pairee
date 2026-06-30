@@ -9,6 +9,7 @@ mod config;
 mod fs;
 mod git;
 mod keybindings;
+mod plugin;
 mod terminal;
 mod ui;
 mod update;
@@ -29,6 +30,121 @@ async fn main() -> Result<()> {
             anyhow::bail!("Missing temp file argument for --elevated-helper");
         }
         return Ok(());
+    }
+
+    // Intercept plugin and developer subcommands
+    if args.len() > 1 {
+        if args[1] == "plugin" {
+            if args.len() > 2 {
+                match args[2].as_str() {
+                    "list" => {
+                        plugin::updater::list_installed()?;
+                        return Ok(());
+                    }
+                    "search" => {
+                        if args.len() > 3 {
+                            plugin::updater::search(&args[3]).await?;
+                        } else {
+                            println!("Error: search requires a query string");
+                        }
+                        return Ok(());
+                    }
+                    "info" => {
+                        if args.len() > 3 {
+                            plugin::updater::show_info(&args[3]).await?;
+                        } else {
+                            println!("Error: info requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "install" => {
+                        if args.len() > 3 {
+                            let part = &args[3];
+                            if part.contains('@') {
+                                let split: Vec<&str> = part.split('@').collect();
+                                plugin::updater::install(split[0], Some(split[1])).await?;
+                            } else {
+                                plugin::updater::install(part, None).await?;
+                            }
+                        } else {
+                            println!("Error: install requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "remove" => {
+                        if args.len() > 3 {
+                            plugin::updater::remove(&args[3])?;
+                        } else {
+                            println!("Error: remove requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "pin" => {
+                        if args.len() > 3 {
+                            plugin::updater::pin(&args[3], true)?;
+                        } else {
+                            println!("Error: pin requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "unpin" => {
+                        if args.len() > 3 {
+                            plugin::updater::pin(&args[3], false)?;
+                        } else {
+                            println!("Error: unpin requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "verify" => {
+                        plugin::updater::verify()?;
+                        return Ok(());
+                    }
+                    _ => {
+                        println!(
+                            "Unknown plugin command. Available: list, search, info, install, remove, pin, unpin, verify"
+                        );
+                    }
+                }
+            } else {
+                println!(
+                    "Plugin CLI usage: pairee plugin [list|search|info|install|remove|pin|unpin|verify]"
+                );
+            }
+            return Ok(());
+        } else if args[1] == "developer" {
+            if args.len() > 2 {
+                match args[2].as_str() {
+                    "init" => {
+                        if args.len() > 3 {
+                            plugin::developer_tool::init(&args[3])?;
+                        } else {
+                            println!("Error: init requires a plugin name");
+                        }
+                        return Ok(());
+                    }
+                    "lint" => {
+                        plugin::developer_tool::lint()?;
+                        return Ok(());
+                    }
+                    "package" => {
+                        plugin::developer_tool::package()?;
+                        return Ok(());
+                    }
+                    "submit" => {
+                        plugin::developer_tool::submit().await?;
+                        return Ok(());
+                    }
+                    _ => {
+                        println!(
+                            "Unknown developer command. Available: init, lint, package, submit"
+                        );
+                    }
+                }
+            } else {
+                println!("Developer CLI usage: pairee developer [init|lint|package|submit]");
+            }
+            return Ok(());
+        }
     }
 
     // 0. Check if we need to spawn a standalone terminal window
@@ -80,6 +196,10 @@ async fn main() -> Result<()> {
         state.update_check_rx = Some(rx);
         state.update_status = update::UpdateStatus::Checking;
     }
+
+    // 5.5. Initialize and load plugins
+    plugin::PluginManager::init();
+    plugin::PluginManager::load_all_plugins(&context).await;
 
     // 6. Hand execution over to main loop
     app::run(context, state).await?;

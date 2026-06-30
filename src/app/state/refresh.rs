@@ -8,6 +8,11 @@ impl AppState {
         if left_path != self.left_panel.last_path {
             self.left_panel.quick_filter_mask = None;
             self.left_panel.last_path = left_path.clone();
+            let path_str = left_path.to_string_lossy().to_string();
+            tokio::spawn(async move {
+                let payload = serde_json::json!({ "path": path_str, "side": "left" });
+                crate::plugin::hooks::emit_event("on_cd", payload).await;
+            });
         }
         let left_count = self.left_panel.entries.len();
         let skip_left = self.disable_panel_update_object_count > 0
@@ -67,6 +72,11 @@ impl AppState {
         if right_path != self.right_panel.last_path {
             self.right_panel.quick_filter_mask = None;
             self.right_panel.last_path = right_path.clone();
+            let path_str = right_path.to_string_lossy().to_string();
+            tokio::spawn(async move {
+                let payload = serde_json::json!({ "path": path_str, "side": "right" });
+                crate::plugin::hooks::emit_event("on_cd", payload).await;
+            });
         }
         let right_count = self.right_panel.entries.len();
         let skip_right = self.disable_panel_update_object_count > 0

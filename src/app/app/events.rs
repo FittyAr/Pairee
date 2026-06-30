@@ -66,8 +66,22 @@ pub async fn handle_input_event(
             }
 
             // Standard resolved actions
+            let key_str = crate::keybindings::resolver::key_event_to_string(key);
+            if !key_str.is_empty() {
+                let payload = serde_json::json!({ "key": key_str });
+                let _ = tokio::spawn(async move {
+                    crate::plugin::hooks::emit_event("on_key", payload).await;
+                });
+            }
+
             if let Some(action) = context.resolver.resolve(key) {
                 handle_action(state, action, context, terminal_backend).await?;
+            } else if !key_str.is_empty() {
+                if let Some((plugin_name, action_name)) =
+                    crate::plugin::registry::resolve_keybinding(&key_str).await
+                {
+                    crate::plugin::registry::run_command(&plugin_name, vec![action_name]).await;
+                }
             }
         }
         Event::ModifiersChanged(modifiers) => {

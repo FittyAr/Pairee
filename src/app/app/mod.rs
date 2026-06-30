@@ -37,6 +37,9 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         // 1.8 Process self-update checking, progress tracking, and installer execution
         updates::process_update_events(&mut state, &mut context);
 
+        // 1.9 Process plugin requests
+        crate::plugin::process_plugin_requests(&mut state, &context);
+
         // 2. Draw terminal window
         if state.terminal_needs_clear {
             let _ = terminal_backend.terminal.clear();

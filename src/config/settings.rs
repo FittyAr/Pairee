@@ -48,6 +48,8 @@ impl Default for ConfirmationSettings {
 pub struct Settings {
     /// Whether to display hidden files/directories (starting with `.`)
     pub show_hidden: bool,
+    /// Global Secure Mode boundary
+    pub secure_mode: bool,
     /// The external editor command to trigger for F4 Edit (e.g. "nano", "vim")
     pub default_editor: String,
     /// Toggle terminal mouse interactions
@@ -233,12 +235,20 @@ pub struct Settings {
     /// If set, Pairee will not notify the user about this specific version tag
     #[serde(default)]
     pub dismissed_update_version: Option<String>,
+
+    // ── Plugins settings ────────────────────────────────────────────────────
+    #[serde(default)]
+    pub plugins: std::collections::HashMap<String, PluginConfig>,
+    #[serde(default)]
+    pub plugin_settings:
+        std::collections::HashMap<String, std::collections::HashMap<String, String>>,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
             show_hidden: false,
+            secure_mode: false,
             default_editor: if cfg!(target_os = "windows") {
                 "notepad".to_string()
             } else {
@@ -399,6 +409,10 @@ impl Default for Settings {
             // Update
             auto_update_check: true,
             dismissed_update_version: None,
+
+            // Plugins
+            plugins: std::collections::HashMap::new(),
+            plugin_settings: std::collections::HashMap::new(),
         }
     }
 }
@@ -421,4 +435,11 @@ fn default_true() -> bool {
 
 fn default_git_log_limit() -> u32 {
     100
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct PluginConfig {
+    pub name: String,
+    #[serde(default)]
+    pub trusted: bool,
 }

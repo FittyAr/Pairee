@@ -1,6 +1,5 @@
 use super::super::centered_rect;
 use crate::app::state::PopupType;
-use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -21,6 +20,8 @@ pub fn render(
     if let PopupType::Help {
         mode,
         docs,
+        plugin_docs,
+        active_tab,
         cursor_idx,
         scroll_y,
         active_content,
@@ -29,7 +30,7 @@ pub fn render(
         let area = centered_rect(90, 85, size); // Expand to 90% width, 85% height
         f.render_widget(Clear, area);
 
-        use ratatui::text::Span;
+        use ratatui::text::{Line, Span};
 
         // Split into Left (list) and Right (content viewer)
         let chunks = Layout::default()
@@ -43,20 +44,64 @@ pub fn render(
         let right_area = chunks[1];
 
         // 1. Render Left panel (document selection list)
-        let left_title = format!(" {} ", t("prompt_help_title").trim());
         let left_border_color = if *mode == 0 {
             Color::Yellow
         } else {
             parse_color(&theme.popup_border)
         };
-        let left_block = Block::default()
-            .borders(Borders::ALL)
+
+        // Split left panel into Tabs and Document list
+        let left_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // Border + Tab bar
+                Constraint::Min(1),    // List of documents
+            ])
+            .split(left_area);
+        let tab_area = left_chunks[0];
+        let list_area = left_chunks[1];
+
+        let tab_title_core = "Core Help";
+        let tab_title_plugins = "Plugins Help";
+
+        let core_style = if *active_tab == 0 {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(ratatui::style::Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+        let plugins_style = if *active_tab == 1 {
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(ratatui::style::Modifier::BOLD)
+        } else {
+            Style::default().fg(Color::DarkGray)
+        };
+
+        let tabs_line = Line::from(vec![
+            Span::styled(" [ ", Style::default().fg(Color::DarkGray)),
+            Span::styled(tab_title_core, core_style),
+            Span::styled(" ]  [ ", Style::default().fg(Color::DarkGray)),
+            Span::styled(tab_title_plugins, plugins_style),
+            Span::styled(" ]", Style::default().fg(Color::DarkGray)),
+        ]);
+
+        let tab_block = Block::default()
+            .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
             .border_style(Style::default().fg(left_border_color))
-            .title(left_title)
+            .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        f.render_widget(Paragraph::new(tabs_line).block(tab_block), tab_area);
+
+        let left_block = Block::default()
+            .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
+            .border_style(Style::default().fg(left_border_color))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
+        let current_docs = if *active_tab == 0 { docs } else { plugin_docs };
+
         let mut list_items = Vec::new();
-        for (i, (doc_title, _)) in docs.iter().enumerate() {
+        for (i, (doc_title, _)) in current_docs.iter().enumerate() {
             let style = if i == *cursor_idx {
                 Style::default()
                     .bg(parse_color(&theme.selection_bg))
@@ -73,10 +118,10 @@ pub fn render(
         let list = List::new(list_items)
             .block(left_block)
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
-        f.render_widget(list, left_area);
+        f.render_widget(list, list_area);
 
         // 2. Render Right panel (content viewer)
-        let doc_title = docs
+        let doc_title = current_docs
             .get(*cursor_idx)
             .map(|(t, _)| t.as_str())
             .unwrap_or(" Documentation ");

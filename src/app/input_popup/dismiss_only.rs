@@ -28,6 +28,7 @@ pub fn handle(
                 content,
                 scroll,
                 image_data,
+                plugin_widget,
             } => {
                 if key.code == KeyCode::Esc {
                     state.active_popup = None;
@@ -48,6 +49,7 @@ pub fn handle(
                         content,
                         scroll: new_scroll,
                         image_data,
+                        plugin_widget,
                     });
                     return Ok(None);
                 }
@@ -58,6 +60,7 @@ pub fn handle(
                         content,
                         scroll: new_scroll,
                         image_data,
+                        plugin_widget,
                     });
                     return Ok(None);
                 }

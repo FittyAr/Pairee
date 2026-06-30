@@ -67,25 +67,27 @@ pub async fn download_asset(
     Ok(dest_path)
 }
 
-/// Verify a file against a SHA-256 checksum string (hex, 64 chars).
-/// Returns Ok(()) on match, Err otherwise.
-pub fn verify_sha256(file_path: &std::path::Path, expected_hex: &str) -> Result<()> {
+/// Compute the SHA-256 checksum string (hex, 64 chars) of a file.
+pub fn compute_sha256(file_path: &std::path::Path) -> Result<String> {
     use std::io::Read as _;
-    let mut file =
-        std::fs::File::open(file_path).context("failed to open file for verification")?;
+    let mut file = std::fs::File::open(file_path).context("failed to open file for hashing")?;
     let mut hasher = Sha256::new();
     let mut buf = [0u8; 65536];
     loop {
-        let n = file
-            .read(&mut buf)
-            .context("read error during verification")?;
+        let n = file.read(&mut buf).context("read error during hashing")?;
         if n == 0 {
             break;
         }
         hasher.update(&buf[..n]);
     }
     let actual = hasher.finalize();
-    let actual_hex = hex_encode(&actual);
+    Ok(hex_encode(&actual))
+}
+
+/// Verify a file against a SHA-256 checksum string (hex, 64 chars).
+/// Returns Ok(()) on match, Err otherwise.
+pub fn verify_sha256(file_path: &std::path::Path, expected_hex: &str) -> Result<()> {
+    let actual_hex = compute_sha256(file_path)?;
     if actual_hex.eq_ignore_ascii_case(expected_hex) {
         Ok(())
     } else {

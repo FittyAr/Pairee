@@ -44,6 +44,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                 ref content,
                                 scroll,
                                 ref image_data,
+                                ref plugin_widget,
                             }) = state.active_popup
                             {
                                 quickview::draw_quick_view(
@@ -54,6 +55,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     scroll,
                                     &context.config.theme,
                                     image_data,
+                                    plugin_widget,
                                 );
                             } else {
                                 panel::render_panel(
@@ -83,6 +85,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                 ref content,
                                 scroll,
                                 ref image_data,
+                                ref plugin_widget,
                             }) = state.active_popup
                             {
                                 quickview::draw_quick_view(
@@ -93,6 +96,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     scroll,
                                     &context.config.theme,
                                     image_data,
+                                    plugin_widget,
                                 );
                             } else {
                                 panel::render_panel(

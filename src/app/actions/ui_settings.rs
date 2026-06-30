@@ -97,6 +97,8 @@ pub fn handle_ui_settings_action(
             state.active_popup = Some(PopupType::Help {
                 mode: 0,
                 docs,
+                plugin_docs: Vec::new(),
+                active_tab: 0,
                 cursor_idx: 0,
                 scroll_y: 0,
                 active_content: first_content,

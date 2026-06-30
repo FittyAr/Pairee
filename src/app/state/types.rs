@@ -166,8 +166,10 @@ pub enum BackgroundOpContext {
 pub enum PopupType {
     // ── Basic ────────────────────────────────────────────────────────────────
     Help {
-        mode: usize,
-        docs: Vec<(String, PathBuf)>,
+        mode: usize,                         // 0 = list focus, 1 = reader focus
+        docs: Vec<(String, PathBuf)>,        // Core docs
+        plugin_docs: Vec<(String, PathBuf)>, // Plugin docs
+        active_tab: usize,                   // 0 = Core Help, 1 = Plugins Help
         cursor_idx: usize,
         scroll_y: usize,
         active_content: Option<String>,
@@ -354,6 +356,7 @@ pub enum PopupType {
         content: Vec<String>,
         scroll: usize,
         image_data: Option<image::DynamicImage>,
+        plugin_widget: Option<PluginWidget>,
     },
 
     // ── File info ─────────────────────────────────────────────────────────────
@@ -506,4 +509,23 @@ pub enum PopupType {
         /// Scroll offset for release notes.
         scroll_y: usize,
     },
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub enum PluginWidget {
+    Paragraph(String),
+    Gauge {
+        ratio: f64,
+        label: String,
+    },
+    List(Vec<String>),
+    Table {
+        headers: Vec<String>,
+        rows: Vec<Vec<String>>,
+    },
+    Span {
+        text: String,
+        style: String,
+    },
+    Line(Vec<PluginWidget>),
 }

@@ -8,15 +8,33 @@ impl AppState {
     pub fn update_quick_view(&mut self) {
         if self.quick_view_active {
             let active = self.get_active_panel();
+            let mut hovered_entry = None;
             let target_path = if !active.selection_order.is_empty() {
-                Some(active.selection_order[0].clone())
+                let path = active.selection_order[0].clone();
+                hovered_entry = active.entries.iter().find(|e| e.path == path).cloned();
+                Some(path)
             } else if let Some(entry) = active.entries.get(active.cursor_index) {
+                hovered_entry = Some(entry.clone());
                 Some(entry.path.clone())
             } else {
                 None
             };
 
             if let Some(path) = target_path {
+                if let Some(entry) = hovered_entry {
+                    let path_str = entry.path.to_string_lossy().to_string();
+                    let is_dir = entry.is_dir;
+                    let size = entry.size;
+                    tokio::spawn(async move {
+                        let payload = serde_json::json!({
+                            "path": path_str,
+                            "is_dir": is_dir,
+                            "size": size,
+                        });
+                        crate::plugin::hooks::emit_event("on_hover", payload).await;
+                    });
+                }
+
                 let needs_load = match &self.active_popup {
                     Some(PopupType::QuickViewPanel {
                         path: current_path, ..
@@ -25,6 +43,31 @@ impl AppState {
                 };
 
                 if needs_load {
+                    let path_clone = path.clone();
+                    tokio::spawn(async move {
+                        let plugins = crate::plugin::registry::get_loaded_plugins().await;
+                        for plugin in plugins {
+                            let job = crate::plugin::registry::PreviewJob {
+                                file_path: path_clone.clone(),
+                                area_width: 80,
+                                area_height: 25,
+                                skip: 0,
+                            };
+                            if let Some(widget) =
+                                crate::plugin::registry::run_previewer(&plugin.manifest.name, job)
+                                    .await
+                            {
+                                let req =
+                                    crate::plugin::manager::PluginRequest::UpdatePluginWidget {
+                                        path: path_clone.clone(),
+                                        widget,
+                                    };
+                                let _ = crate::plugin::PluginManager::get_sender().send(req).await;
+                                return;
+                            }
+                        }
+                    });
+
                     let is_image_ext = path
                         .extension()
                         .and_then(|ext| ext.to_str())
@@ -81,6 +124,7 @@ impl AppState {
                         content,
                         scroll: 0,
                         image_data,
+                        plugin_widget: None,
                     });
                 }
             } else {

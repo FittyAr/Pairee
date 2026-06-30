@@ -3,13 +3,16 @@ use crate::ui::theme_apply::parse_color;
 use image::GenericImageView;
 use ratatui::{
     Frame,
-    layout::Rect,
-    style::{Modifier, Style},
+    layout::{Constraint, Rect},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
-/// Renders a quick-view panel showing the text or image content of a file.
+use crate::app::state::types::PluginWidget;
+use ratatui::widgets::{Gauge, List, ListItem, Row, Table};
+
+/// Renders a quick-view panel showing the text or image content of a file, or a custom plugin widget.
 /// Called when `state.quick_view_active` is true; renders into the passive panel area.
 ///
 /// - Scrolls vertically via `scroll` offset.
@@ -22,6 +25,7 @@ pub fn draw_quick_view(
     scroll: usize,
     theme: &crate::config::theme::Theme,
     image_data: &Option<image::DynamicImage>,
+    plugin_widget: &Option<PluginWidget>,
 ) {
     let file_name = path
         .file_name()
@@ -41,7 +45,9 @@ pub fn draw_quick_view(
         )))
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
-    if let Some(img) = image_data {
+    if let Some(widget) = plugin_widget {
+        render_plugin_widget(f, area, widget, block, theme, scroll);
+    } else if let Some(img) = image_data {
         render_quick_view_image(f, area, img, block, theme, scroll);
     } else {
         let visible_height = area.height.saturating_sub(2) as usize;
@@ -58,6 +64,88 @@ pub fn draw_quick_view(
             .wrap(Wrap { trim: false });
 
         f.render_widget(para, area);
+    }
+}
+
+fn render_plugin_widget(
+    f: &mut Frame,
+    area: Rect,
+    widget: &PluginWidget,
+    block: Block,
+    theme: &crate::config::theme::Theme,
+    scroll: usize,
+) {
+    match widget {
+        PluginWidget::Paragraph(text) => {
+            let para = Paragraph::new(text.as_str())
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.panel_fg)))
+                .wrap(Wrap { trim: false })
+                .scroll((scroll as u16, 0));
+            f.render_widget(para, area);
+        }
+        PluginWidget::Gauge { ratio, label } => {
+            let gauge = Gauge::default()
+                .block(block)
+                .gauge_style(Style::default().fg(Color::Cyan).bg(Color::DarkGray))
+                .ratio(ratio.clamp(0.0, 1.0))
+                .label(label.as_str());
+            f.render_widget(gauge, area);
+        }
+        PluginWidget::List(items) => {
+            let list_items: Vec<ListItem> = items
+                .iter()
+                .skip(scroll)
+                .map(|item| ListItem::new(item.as_str()))
+                .collect();
+            let list = List::new(list_items)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.panel_fg)));
+            f.render_widget(list, area);
+        }
+        PluginWidget::Table { headers, rows } => {
+            let header_row =
+                Row::new(headers.iter().map(|h| {
+                    Span::styled(h.clone(), Style::default().add_modifier(Modifier::BOLD))
+                }));
+            let table_rows: Vec<Row> = rows
+                .iter()
+                .skip(scroll)
+                .map(|r| Row::new(r.iter().map(|c| Span::raw(c.clone()))))
+                .collect();
+            let widths =
+                vec![Constraint::Percentage(100 / headers.len().max(1) as u16); headers.len()];
+            let table = Table::new(table_rows, widths)
+                .header(header_row)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.panel_fg)));
+            f.render_widget(table, area);
+        }
+        PluginWidget::Span { text, style } => {
+            let mut s = Style::default();
+            if !style.is_empty() {
+                s = s.fg(parse_color(style));
+            }
+            let para = Paragraph::new(Span::styled(text.clone(), s)).block(block);
+            f.render_widget(para, area);
+        }
+        PluginWidget::Line(spans) => {
+            let ratatui_spans: Vec<Span> = spans
+                .iter()
+                .map(|w| match w {
+                    PluginWidget::Span { text, style } => {
+                        let mut s = Style::default();
+                        if !style.is_empty() {
+                            s = s.fg(parse_color(style));
+                        }
+                        Span::styled(text.clone(), s)
+                    }
+                    _ => Span::raw(""),
+                })
+                .collect();
+            let para = Paragraph::new(Line::from(ratatui_spans)).block(block);
+            f.render_widget(para, area);
+        }
     }
 }
 
