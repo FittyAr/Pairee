@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -157,12 +158,14 @@ pub fn handle(
             KeyCode::Char('t') | KeyCode::Char('T') => {
                 if let Some((name, _, _, _, _)) = installed.get(cursor_idx) {
                     if let Ok(mut config) = crate::config::AppConfig::load_or_create() {
-                        let plugin_conf = config.settings.plugins.entry(name.clone()).or_insert_with(|| {
-                            crate::config::settings::PluginConfig {
+                        let plugin_conf = config
+                            .settings
+                            .plugins
+                            .entry(name.clone())
+                            .or_insert_with(|| crate::config::settings::PluginConfig {
                                 name: name.clone(),
                                 trusted: false,
-                            }
-                        });
+                            });
                         plugin_conf.trusted = !plugin_conf.trusted;
                         let _ = config.save();
                     }
@@ -199,18 +202,24 @@ pub fn handle(
                     tokio::spawn(async move {
                         match crate::plugin::updater::install(&name_clone, None).await {
                             Ok(_) => {
-                                let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                    title: "Plugin Update".to_string(),
-                                    msg: format!("Plugin '{}' updated successfully!", name_clone),
-                                    level: "info".to_string(),
-                                }).await;
+                                let _ = tx
+                                    .send(crate::plugin::manager::PluginRequest::Notify {
+                                        title: t("plugin_toast_update_title"),
+                                        msg: t("plugin_toast_update_ok").replace("{}", &name_clone),
+                                        level: "info".to_string(),
+                                    })
+                                    .await;
                             }
                             Err(e) => {
-                                let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                    title: "Plugin Update Failed".to_string(),
-                                    msg: format!("Failed to update '{}': {:?}", name_clone, e),
-                                    level: "error".to_string(),
-                                }).await;
+                                let _ = tx
+                                    .send(crate::plugin::manager::PluginRequest::Notify {
+                                        title: t("plugin_toast_update_err_title"),
+                                        msg: t("plugin_toast_update_err")
+                                            .replace("{}", &name_clone)
+                                            .replace("{:?}", &format!("{:?}", e)),
+                                        level: "error".to_string(),
+                                    })
+                                    .await;
                             }
                         }
                     });
@@ -221,18 +230,23 @@ pub fn handle(
                 tokio::spawn(async move {
                     match crate::plugin::updater::update(None).await {
                         Ok(_) => {
-                            let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                title: "Plugins Update".to_string(),
-                                msg: "All plugins updated successfully!".to_string(),
-                                level: "info".to_string(),
-                            }).await;
+                            let _ = tx
+                                .send(crate::plugin::manager::PluginRequest::Notify {
+                                    title: t("plugin_toast_update_all_title"),
+                                    msg: t("plugin_toast_update_all_ok"),
+                                    level: "info".to_string(),
+                                })
+                                .await;
                         }
                         Err(e) => {
-                            let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                title: "Plugins Update Failed".to_string(),
-                                msg: format!("Failed to update plugins: {:?}", e),
-                                level: "error".to_string(),
-                            }).await;
+                            let _ = tx
+                                .send(crate::plugin::manager::PluginRequest::Notify {
+                                    title: t("plugin_toast_update_all_err_title"),
+                                    msg: t("plugin_toast_update_all_err")
+                                        .replace("{:?}", &format!("{:?}", e)),
+                                    level: "error".to_string(),
+                                })
+                                .await;
                         }
                     }
                 });
@@ -252,7 +266,8 @@ pub fn handle(
                 KeyCode::Enter => {
                     editing_query = false;
                     let index_res = tokio::task::block_in_place(|| {
-                        tokio::runtime::Handle::current().block_on(crate::plugin::updater::fetch_index())
+                        tokio::runtime::Handle::current()
+                            .block_on(crate::plugin::updater::fetch_index())
                     });
                     if let Ok(idx) = index_res {
                         registry.clear();
@@ -308,18 +323,25 @@ pub fn handle(
                             tokio::spawn(async move {
                                 match crate::plugin::updater::install(&name_clone, None).await {
                                     Ok(_) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: "Plugin Installed".to_string(),
-                                            msg: format!("Plugin '{}' installed successfully!", name_clone),
-                                            level: "info".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: t("plugin_toast_install_title"),
+                                                msg: t("plugin_toast_install_ok")
+                                                    .replace("{}", &name_clone),
+                                                level: "info".to_string(),
+                                            })
+                                            .await;
                                     }
                                     Err(e) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: "Plugin Installation Failed".to_string(),
-                                            msg: format!("Failed to install '{}': {:?}", name_clone, e),
-                                            level: "error".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: t("plugin_toast_install_err_title"),
+                                                msg: t("plugin_toast_install_err")
+                                                    .replace("{}", &name_clone)
+                                                    .replace("{:?}", &format!("{:?}", e)),
+                                                level: "error".to_string(),
+                                            })
+                                            .await;
                                     }
                                 }
                             });
@@ -348,13 +370,13 @@ pub fn handle(
                         if std::env::set_current_dir(&plugins_dir).is_ok() {
                             match crate::plugin::developer_tool::init(&search_query) {
                                 Ok(_) => {
-                                    dev_results = format!(
-                                        "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}",
-                                        search_query, target_path
-                                    );
+                                    dev_results = t("plugin_dev_init_ok")
+                                        .replace("{}", &search_query)
+                                        .replace("{:?}", &format!("{:?}", target_path));
                                 }
                                 Err(e) => {
-                                    dev_results = format!("Error initializing plugin: {:?}", e);
+                                    dev_results = t("plugin_dev_init_err")
+                                        .replace("{:?}", &format!("{:?}", e));
                                 }
                             }
                             let _ = std::env::set_current_dir(current_dir);
@@ -395,35 +417,48 @@ pub fn handle(
                                 let plugin_path = plugins_dir.join(selected_name);
                                 let manifest_path = plugin_path.join("manifest.toml");
                                 let main_path = plugin_path.join("main.lua");
-                                let mut report = format!("Linting plugin '{}'...\n\n", selected_name);
+                                let mut report =
+                                    t("plugin_dev_lint_start").replace("{}", selected_name);
                                 let mut warnings = 0;
                                 if !manifest_path.exists() {
-                                    report.push_str("  [Error] manifest.toml not found!\n");
+                                    report.push_str(&t("plugin_dev_lint_err_manifest"));
                                     warnings += 1;
                                 }
                                 if !main_path.exists() {
-                                    report.push_str("  [Error] main.lua not found!\n");
+                                    report.push_str(&t("plugin_dev_lint_err_lua"));
                                     warnings += 1;
                                 }
                                 if manifest_path.exists() && main_path.exists() {
                                     if let Ok(lua_code) = std::fs::read_to_string(&main_path) {
-                                        let forbidden = ["os.execute", "io.open", "os.system", "dofile", "loadfile"];
+                                        let forbidden = [
+                                            "os.execute",
+                                            "io.open",
+                                            "os.system",
+                                            "dofile",
+                                            "loadfile",
+                                        ];
                                         for f in &forbidden {
                                             if lua_code.contains(f) {
-                                                report.push_str(&format!("  [Warning] Potentially unsafe method call detected: '{}'\n", f));
+                                                report.push_str(
+                                                    &t("plugin_dev_lint_warn_unsafe")
+                                                        .replace("{}", f),
+                                                );
                                                 warnings += 1;
                                             }
                                         }
                                     }
                                 }
                                 if warnings == 0 {
-                                    report.push_str("\n✓ Lint completed successfully! No issues found.");
+                                    report.push_str(&t("plugin_dev_lint_ok"));
                                 } else {
-                                    report.push_str(&format!("\nLint completed with {} warning(s)/error(s).", warnings));
+                                    report.push_str(
+                                        &t("plugin_dev_lint_warn_total")
+                                            .replace("{}", &format!("{}", warnings)),
+                                    );
                                 }
                                 dev_results = report;
                             } else {
-                                dev_results = "Error: No installed plugins found to lint.".to_string();
+                                dev_results = t("plugin_dev_lint_no_plugins");
                             }
                         }
                         2 => {
@@ -433,18 +468,25 @@ pub fn handle(
                                 let manifest_path = plugin_path.join("manifest.toml");
                                 let main_path = plugin_path.join("main.lua");
                                 let lang_path = plugin_path.join("lang/en.toml");
-                                
-                                let mut report = format!("Packaging plugin '{}'...\n\n", selected_name);
+
+                                let mut report =
+                                    t("plugin_dev_pack_start").replace("{}", selected_name);
                                 let mut files_hash = std::collections::HashMap::new();
-                                let files_to_hash = [("manifest.toml", &manifest_path), ("main.lua", &main_path), ("lang/en.toml", &lang_path)];
+                                let files_to_hash = [
+                                    ("manifest.toml", &manifest_path),
+                                    ("main.lua", &main_path),
+                                    ("lang/en.toml", &lang_path),
+                                ];
                                 for (rel, path) in &files_to_hash {
                                     if path.exists() {
-                                        if let Ok(hash) = crate::update::downloader::compute_sha256(path) {
+                                        if let Ok(hash) =
+                                            crate::update::downloader::compute_sha256(path)
+                                        {
                                             files_hash.insert(rel.to_string(), hash);
                                         }
                                     }
                                 }
-                                report.push_str("Generated registry entry to append to registry/index.toml:\n\n");
+                                report.push_str(&t("plugin_dev_pack_gen"));
                                 report.push_str(&format!("[plugins.{}]\n", selected_name));
                                 report.push_str(&format!("name = \"{}\"\n", selected_name));
                                 report.push_str(&format!("version = \"{}\"\n", version));
@@ -455,12 +497,12 @@ pub fn handle(
                                 report.push_str("}\n");
                                 dev_results = report;
                             } else {
-                                dev_results = "Error: No installed plugins found to package.".to_string();
+                                dev_results = t("plugin_dev_pack_no_plugins");
                             }
                         }
                         3 => {
                             // Submit instructions
-                            dev_results = "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically.".to_string();
+                            dev_results = t("plugin_dev_submit_desc");
                         }
                         _ => {}
                     }
