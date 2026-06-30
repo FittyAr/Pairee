@@ -136,3 +136,36 @@ fn setup_require_wrapper(lua: &mlua::Lua, plugin_dir: &Path) -> mlua::Result<()>
     globals.set("require", require_fn)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_is_command_safe() {
+        assert!(is_command_safe("cargo"));
+        assert!(is_command_safe("git"));
+        assert!(!is_command_safe("curl"));
+        assert!(!is_command_safe("bash"));
+        assert!(!is_command_safe("cmd.exe"));
+        assert!(!is_command_safe("python3"));
+    }
+
+    #[tokio::test]
+    async fn test_create_sandboxed_lua_restrictions() {
+        let dir = tempdir().unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(10);
+        let lua = create_sandboxed_lua(dir.path(), false, tx).unwrap();
+
+        // Standard restricted globals should be nil
+        let globals = lua.globals();
+        assert!(globals.get::<_, mlua::Value>("load").unwrap().is_nil());
+        assert!(globals.get::<_, mlua::Value>("dofile").unwrap().is_nil());
+
+        // io module should not exist
+        assert!(globals.get::<_, mlua::Value>("io").unwrap().is_nil());
+        // os module should not exist
+        assert!(globals.get::<_, mlua::Value>("os").unwrap().is_nil());
+    }
+}

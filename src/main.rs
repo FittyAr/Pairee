@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
             if args.len() > 2 {
                 match args[2].as_str() {
                     "list" => {
-                        plugin::updater::list_installed()?;
+                        plugin::updater::list_installed().await?;
                         return Ok(());
                     }
                     "search" => {
@@ -99,15 +99,24 @@ async fn main() -> Result<()> {
                         plugin::updater::verify()?;
                         return Ok(());
                     }
+                    "check-updates" => {
+                        plugin::updater::check_updates().await?;
+                        return Ok(());
+                    }
+                    "update" => {
+                        let name = if args.len() > 3 { Some(args[3].as_str()) } else { None };
+                        plugin::updater::update(name).await?;
+                        return Ok(());
+                    }
                     _ => {
                         println!(
-                            "Unknown plugin command. Available: list, search, info, install, remove, pin, unpin, verify"
+                            "Unknown plugin command. Available: list, search, info, install, remove, pin, unpin, verify, check-updates, update"
                         );
                     }
                 }
             } else {
                 println!(
-                    "Plugin CLI usage: pairee plugin [list|search|info|install|remove|pin|unpin|verify]"
+                    "Plugin CLI usage: pairee plugin [list|search|info|install|remove|pin|unpin|verify|check-updates|update]"
                 );
             }
             return Ok(());

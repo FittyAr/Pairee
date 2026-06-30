@@ -23,7 +23,7 @@ pub async fn handle_action(
         handled = true;
     } else if fs_ops::handle_fs_action(state, &action, context, terminal_backend) {
         handled = true;
-    } else if ui_settings::handle_ui_settings_action(state, &action, context) {
+    } else if ui_settings::handle_ui_settings_action(state, &action, context).await {
         handled = true;
     }
 

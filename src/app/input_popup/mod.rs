@@ -21,6 +21,7 @@ pub mod files_highlighting;
 pub mod help;
 pub mod history_list;
 pub mod hotlist;
+pub mod plugin_menu;
 pub mod menu;
 pub mod mkdir;
 pub mod rename_move;
@@ -97,6 +98,7 @@ pub fn handle_popup_input(
                 file_filter::handle(state, key, context)
             }
             PopupType::TaskListDialog { .. } => task_list::handle(state, key, context),
+            PopupType::PluginMenu { .. } => plugin_menu::handle(state, key, context),
             PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
             PopupType::ConfigurationDialog { .. } => config_dialog::handle(state, key, context),
             PopupType::ColorGroupsDialog { .. } => color_groups::handle(state, key, context),

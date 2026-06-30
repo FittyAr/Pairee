@@ -1,6 +1,0 @@
-{
-  "summary": "Implementation plan for the complete Pairee plugin system, including dependencies, sandbox/security boundary, Lua API bindings, HookBus, keybinding integration, localization, custom settings schema, CLI commands, developer linter, PR submission wizard, and F1 help.",
-  "updatedAt": "2026-06-30T16:01:09.021992987Z",
-  "requestFeedback": true,
-  "userFacing": true
-}

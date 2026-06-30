@@ -35,7 +35,7 @@ fn get_lockfile_path() -> PathBuf {
     crate::config::paths::get_config_dir().join("plugins.lock")
 }
 
-fn read_lockfile() -> PluginsLock {
+pub fn read_lockfile() -> PluginsLock {
     let path = get_lockfile_path();
     if path.exists() {
         if let Ok(content) = std::fs::read_to_string(&path) {
@@ -47,14 +47,14 @@ fn read_lockfile() -> PluginsLock {
     PluginsLock::default()
 }
 
-fn write_lockfile(lock: &PluginsLock) -> anyhow::Result<()> {
+pub fn write_lockfile(lock: &PluginsLock) -> anyhow::Result<()> {
     let path = get_lockfile_path();
     let content = toml::to_string_pretty(lock)?;
     std::fs::write(&path, content)?;
     Ok(())
 }
 
-async fn fetch_index() -> anyhow::Result<RegistryIndex> {
+pub async fn fetch_index() -> anyhow::Result<RegistryIndex> {
     let url =
         "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/index.toml";
     let client = reqwest::Client::builder().build()?;
@@ -68,16 +68,120 @@ async fn fetch_index() -> anyhow::Result<RegistryIndex> {
     }
 }
 
-pub fn list_installed() -> anyhow::Result<()> {
+pub async fn list_installed() -> anyhow::Result<()> {
     let lock = read_lockfile();
     println!("Installed Plugins:");
     if lock.plugins.is_empty() {
         println!("  (none)");
         return Ok(());
     }
+
+    let index = fetch_index().await.ok();
+    let config = crate::config::AppConfig::load_or_create().ok();
+
     for (name, info) in &lock.plugins {
         let pin_str = if info.pinned { " [PINNED]" } else { "" };
-        println!("  - {} v{}{}", name, info.version, pin_str);
+        let trusted_str = if let Some(ref conf) = config {
+            let trusted = conf.settings.plugins.get(name).map(|p| p.trusted).unwrap_or(false);
+            if trusted { " [TRUSTED]" } else { " [UNTRUSTED]" }
+        } else {
+            " [UNTRUSTED]"
+        };
+
+        let update_str = if let Some(ref idx) = index {
+            if let Some(reg_plugin) = idx.plugins.get(name) {
+                if reg_plugin.version != info.version {
+                    format!(" (Update available: v{})", reg_plugin.version)
+                } else {
+                    "".to_string()
+                }
+            } else {
+                "".to_string()
+            }
+        } else {
+            "".to_string()
+        };
+
+        println!("  - {} v{}{}{}{}", name, info.version, pin_str, trusted_str, update_str);
+    }
+    Ok(())
+}
+
+pub async fn check_updates() -> anyhow::Result<()> {
+    println!("Checking for plugin updates...");
+    let index = fetch_index().await?;
+    let lock = read_lockfile();
+    let mut updates_available = 0;
+
+    for (name, info) in &lock.plugins {
+        if let Some(reg_plugin) = index.plugins.get(name) {
+            if reg_plugin.version != info.version {
+                let pin_str = if info.pinned { " [PINNED] (update skipped)" } else { "" };
+                println!("  - {}: {} -> {}{}", name, info.version, reg_plugin.version, pin_str);
+                updates_available += 1;
+            }
+        }
+    }
+
+    if updates_available == 0 {
+        println!("All plugins are up to date.");
+    } else {
+        println!("Found {} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins.", updates_available);
+    }
+    Ok(())
+}
+
+pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
+    let index = fetch_index().await?;
+    let lock = read_lockfile();
+
+    if let Some(n) = name {
+        if let Some(info) = lock.plugins.get(n) {
+            if info.pinned {
+                anyhow::bail!("Plugin '{}' is pinned and cannot be updated. Unpin it first with 'pairee plugin unpin <name>'.", n);
+            }
+            if let Some(reg_plugin) = index.plugins.get(n) {
+                if reg_plugin.version == info.version {
+                    println!("Plugin '{}' is already up to date (v{}).", n, info.version);
+                    return Ok(());
+                }
+                install(n, None).await?;
+            } else {
+                anyhow::bail!("Plugin '{}' not found in registry.", n);
+            }
+        } else {
+            anyhow::bail!("Plugin '{}' is not installed.", n);
+        }
+    } else {
+        let mut updated = 0;
+        let mut plugins_to_update = Vec::new();
+        for (n, info) in &lock.plugins {
+            if info.pinned {
+                println!("Skipping pinned plugin '{}'.", n);
+                continue;
+            }
+            if let Some(reg_plugin) = index.plugins.get(n) {
+                if reg_plugin.version != info.version {
+                    plugins_to_update.push(n.clone());
+                }
+            }
+        }
+
+        if plugins_to_update.is_empty() {
+            println!("All plugins are up to date.");
+            return Ok(());
+        }
+
+        for n in plugins_to_update {
+            println!("Updating '{}'...", n);
+            if let Err(e) = install(&n, None).await {
+                log::error!("Failed to update plugin '{}': {:?}", n, e);
+                println!("  ✗ Failed to update '{}': {:?}", n, e);
+            } else {
+                updated += 1;
+            }
+        }
+        println!("Updated {} plugin(s).", updated);
     }
     Ok(())
 }

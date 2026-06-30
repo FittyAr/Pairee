@@ -325,6 +325,15 @@ pub enum PopupType {
         bookmarks: Vec<(String, PathBuf)>,
         cursor_idx: usize,
     },
+    PluginMenu {
+        active_tab: usize,
+        cursor_idx: usize,
+        installed: Vec<(String, String, bool, bool, Option<String>)>,
+        registry: Vec<(String, String, String, String)>,
+        search_query: String,
+        is_searching: bool,
+        editing_query: bool,
+    },
 
     // ── Sort modes ────────────────────────────────────────────────────────────
     SortModesDialog {

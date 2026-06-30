@@ -4,7 +4,7 @@ use crate::app::sys_helpers::{build_info_panel_lines, get_hotlist_bookmarks, get
 use crate::keybindings::Action;
 
 /// Handles UI, settings, and other configuration actions. Returns `true` if the action was handled.
-pub fn handle_ui_settings_action(
+pub async fn handle_ui_settings_action(
     state: &mut AppState,
     action: &Action,
     context: &mut AppContext,
@@ -88,6 +88,23 @@ pub fn handle_ui_settings_action(
                 add_doc("Keyboard Shortcuts", "help/keyboard_shortcuts_en.md");
             }
 
+            let mut plugin_docs = Vec::new();
+            let loaded_plugins = crate::plugin::registry::get_loaded_plugins().await;
+            for p in loaded_plugins {
+                let help_dir = p.path.join("help");
+                if help_dir.exists() && help_dir.is_dir() {
+                    let lang_code = if is_spanish { "es" } else { "en" };
+                    let mut help_path = help_dir.join(format!("{}.md", lang_code));
+                    if !help_path.exists() {
+                        let default_lang = p.manifest.default_language.as_deref().unwrap_or("en");
+                        help_path = help_dir.join(format!("{}.md", default_lang));
+                    }
+                    if help_path.exists() && help_path.is_file() {
+                        plugin_docs.push((p.manifest.name.clone(), help_path));
+                    }
+                }
+            }
+
             let first_content = if !docs.is_empty() {
                 std::fs::read_to_string(&docs[0].1).ok()
             } else {
@@ -97,7 +114,7 @@ pub fn handle_ui_settings_action(
             state.active_popup = Some(PopupType::Help {
                 mode: 0,
                 docs,
-                plugin_docs: Vec::new(),
+                plugin_docs,
                 active_tab: 0,
                 cursor_idx: 0,
                 scroll_y: 0,
@@ -452,9 +469,51 @@ pub fn handle_ui_settings_action(
             true
         }
         Action::PluginMenu => {
-            state.active_popup = Some(PopupType::Info(
-                "Plugin system: not yet implemented.".to_string(),
-            ));
+            let lock = crate::plugin::updater::read_lockfile();
+            let index = crate::plugin::updater::fetch_index().await.ok();
+
+            let mut installed = Vec::new();
+            for (name, info) in &lock.plugins {
+                let trusted = context
+                    .config
+                    .settings
+                    .plugins
+                    .get(name)
+                    .map(|p| p.trusted)
+                    .unwrap_or(false);
+
+                let update_available = if let Some(ref idx) = index {
+                    if let Some(reg_plugin) = idx.plugins.get(name) {
+                        if reg_plugin.version != info.version {
+                            Some(reg_plugin.version.clone())
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                };
+
+                installed.push((
+                    name.clone(),
+                    info.version.clone(),
+                    info.pinned,
+                    trusted,
+                    update_available,
+                ));
+            }
+
+            state.active_popup = Some(PopupType::PluginMenu {
+                active_tab: 0,
+                cursor_idx: 0,
+                installed,
+                registry: Vec::new(),
+                search_query: String::new(),
+                is_searching: false,
+                editing_query: false,
+            });
             true
         }
         Action::ScreensList => {

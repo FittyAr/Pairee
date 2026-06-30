@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- A new interactive TUI Plugins Manager popup (F11) featuring a tabbed split interface to view installed plugins (with trust/pin badges and update indicators), show detailed metadata descriptions, search the online registry repository with live query editing, toggle trust and pinned statuses, and perform background installs/updates or immediate uninstalls.
+- Dynamic population of plugin help documentation files (`help/<locale>.md` or default language fallback) inside the tabbed F1 Help menu.
+- `check-updates` and `update` subcommands to the `pairee plugin` CLI suite to query and apply plugin updates.
 - DeepWiki project documentation link and badge to the main README files.
 - Comprehensive plugin system architectural plan covering engine design, design patterns (Strategy, Observer, Command, Facade, Snapshot), API surface (`pairee.app`, `pairee.fs`, `pairee.ui`, `pairee.ps`, `pairee.sync`, `pairee.log`), concurrency model, dynamic keybinding overlays, logging/debugging tools, trusted mode permissions, a global immutable secure mode parameter, isolated plugin localization (`lang/*.toml`) with fallback rules, dynamic custom settings schemas with persistent storage, and F1 Help structured markdown documentation (`help/*.md`) integration.
 - Plugin community registry design: versioned distribution of raw plugin folders via a `plugin-registry` GitHub branch with individual file SHA-256 integrity verification, `plugins.lock`, and CLI commands (`pairee plugin search/list/install/update/check-updates/pin/remove`) featuring visual category and language badges, and help file tracking.
@@ -24,6 +27,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
+- Refactored `list` command of the `pairee plugin` CLI suite to be asynchronous and check/flag available updates dynamically.
 - Updated `README.md` and `README.es.md` with a clean, structured design, a modern features list, and a dedicated project status section inspired by the Yazi layout.
 - Moved `manifests/winget/README.md` to `docs/README.md` and corrected its relative links.
 - Updated release version bumping scripts (`bump_version.ps1` and `bump_version.sh`) to automatically migrate and update WinGet manifests in the version-specific `manifests/f/FittyAr/Pairee/<version>` directories.

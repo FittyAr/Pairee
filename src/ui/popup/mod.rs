@@ -13,6 +13,7 @@ pub mod prompts;
 pub mod screens_menu;
 pub mod update;
 pub mod viewer;
+pub mod plugin_menu;
 pub mod yazi;
 
 use crate::app::context::AppContext;
@@ -95,6 +96,9 @@ fn render_specific_popup(
         return;
     }
     if about::render_about_popup(f, popup, theme, size) {
+        return;
+    }
+    if plugin_menu::render(f, popup, theme, size) {
         return;
     }
     if git_panel::render(f, popup, theme, size) {
