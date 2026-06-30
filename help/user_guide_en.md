@@ -101,10 +101,59 @@ Here are the recommended third-party client configurations to enable this:
 
 ---
 
-## 📖 4. Advanced Integration Manuals
+## 🔌 4. Plugin Management Guide (User Guide)
+
+Pairee features a built-in scripting engine based on the Lua programming language. To protect your system and file integrity, plugins run inside a secure, restricted sandbox execution environment.
+
+### 4.1 Opening the Plugins Manager
+Open the Plugin Manager by pressing **`F11`** (or selecting `F9 -> Options -> Plugins Manager`).
+
+The popup modal consists of two main tabs, which you can cycle through by pressing the **`Tab`** key:
+
+---
+
+#### Tab 1: Installed Plugins
+Lists all plugins currently loaded and active in your local Pairee setup.
+
+##### Status Badges:
+* **`[P]` (Pinned):** The plugin version is pinned. It will not be automatically updated when running global batch updates.
+* **`[T]` (Trusted):** The plugin has been granted extended system permissions ("Trust Mode"). Untagged plugins run inside a strict sandbox without network or raw terminal command execution access.
+* **`[▲]` (Update Available):** A newer version is available in the central registry.
+
+##### Keyboard Shortcuts:
+* **`t` / `T`:** Toggle trust configuration status for the highlighted plugin.
+* **`p` / `P`:** Toggle version pinning in `plugins.lock`.
+* **`u`:** Update the selected plugin to the latest version in the background. A notification toast will display at the top once complete.
+* **`U`:** Update all unpinned plugins in a batch background operation.
+* **`Del` / `d` / `D`:** Uninstall and permanently delete the selected plugin from your storage.
+
+---
+
+#### Tab 2: Search Registry
+Search and install new plugins directly from the official online Pairee registry branch repository.
+
+##### Keyboard Shortcuts:
+* **`/`:** Activate search query editing mode (the search block borders will highlight yellow to indicate you can type).
+* **`Characters` / `Backspace`:** Modify the search input string.
+* **`Enter`:** Submit query, query remote index file, and return focus to the results list.
+* **`i` / `I`:** Install the highlighted search result plugin. Installation downloads and configures files in the background, showing a completion toast when done.
+
+---
+
+### 4.2 Plugin Developers
+If you want to write your own custom plugins, review security rules, or contribute to the official repository index, check out the documentation on GitHub:
+
+* 📚 [**Plugin Developer Guide on GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)
+* 🛠️ [**Plugin System Architecture & Technical Specifications**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-system-design.md)
+* 📂 [**Registry Distribution Specification**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-registry-spec.md)
+
+---
+
+## 📖 5. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:
 * **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_en.md).
 * **Git Integration:** See [Git Integration Reference Manual](file:///home/fitty/GitHub/Pairee/help/git_integration_en.md).
 * **Detailed Configurations:** See [Configuration Settings Manual](file:///home/fitty/GitHub/Pairee/help/configuration_details_en.md).
 * **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_en.md).
+

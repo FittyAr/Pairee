@@ -160,8 +160,20 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 * **Main language (Idioma principal):** Permite cambiar el archivo de traducción activo leyendo las configuraciones `.json` de la carpeta `/lang`.
 
 ### Plugins
-* **OEM plugins support / Scan symlinks:** Carga extensiones heredadas y analiza enlaces simbólicos en rutas de plugins.
-* **Plugins Selection:** Criterios para filtrado por extensiones de complementos, comandos y prefijos.
+* **Soporte de plugins OEM (OEM plugin support):**
+  - *Descripción:* Permite cargar y procesar plugins heredados codificados en formato de consola OEM (ej. CP437, CP850). Convierte dinámicamente sus salidas a UTF-8 para evitar errores de renderizado de caracteres.
+* **Escanear enlaces simbólicos (Scan symlinks):**
+  - *Descripción:* Determina si el motor de plugins debe seguir y escanear enlaces simbólicos al buscar nuevos complementos en el directorio de plugins.
+* **Procesamiento de archivos (File processing):**
+  - *Descripción:* Delega la apertura o procesamiento de archivos y extensiones registradas a los plugins correspondientes (ej. para explorar archivos comprimidos como si fuesen carpetas).
+* **Mostrar asociación estándar (Show standard association):**
+  - *Descripción:* Muestra las aplicaciones predeterminadas del sistema operativo junto con las opciones de plugins al solicitar abrir un archivo con asociaciones múltiples.
+* **Incluso si solo se encuentra un plugin (Even if only one plugin is found):**
+  - *Descripción:* Muestra el diálogo de confirmación y selección para procesar el archivo incluso si solo existe un único plugin capaz de manejar ese formato (de lo contrario, se procesará directamente sin preguntar).
+* **Resultados de búsqueda (SetFindList) (Search results):**
+  - *Descripción:* Permite que un plugin intercepte y manipule el listado de resultados de búsqueda (ej. para volcar búsquedas avanzadas directamente a la lista activa del panel).
+* **Procesamiento de prefijos (Prefix processing):**
+  - *Descripción:* Habilita el reconocimiento y procesamiento de comandos con prefijo (ej. `ftp:servidor` o `arc:archivo.zip`) para invocar directamente a un plugin específico desde la línea de comandos.
 
 ---
 

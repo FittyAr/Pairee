@@ -101,10 +101,59 @@ A continuación, se detalla cómo configurarlo según tu software de conexión:
 
 ---
 
-## 📖 4. Manuales de Integración Avanzada
+## 🔌 4. Gestor de Plugins (Manual de Usuario)
+
+Pairee cuenta con un potente motor de plugins integrado basado en el lenguaje de scripting Lua. Los plugins se ejecutan dentro de un entorno seguro y aislado (sandbox) para proteger la integridad de tu sistema de archivos.
+
+### 4.1 Abrir el Gestor de Plugins
+Puedes acceder al gestor de plugins presionando la tecla **`F11`** (o seleccionando `F9 -> Opciones -> Administrador de Plugins`). 
+
+La ventana emergente presenta dos pestañas principales entre las que puedes cambiar presionando la tecla **`Tab`**:
+
+---
+
+#### Pestaña 1: Plugins Instalados
+Muestra una lista con todos los plugins que se han cargado y están instalados localmente.
+
+##### Indicadores de Estado (Badges):
+* **`[P]` (Pinned):** El plugin está anclado a su versión actual. No se actualizará de manera automática al ejecutar actualizaciones globales.
+* **`[T]` (Trusted):** El plugin tiene permisos de ejecución extendidos ("Modo de Confianza"). Los plugins que no muestran esta etiqueta se ejecutan en modo estrictamente restringido (sandbox), sin acceso a la red ni a comandos arbitrarios del sistema operativo.
+* **`[▲]` (Update Available):** Indica que existe una versión más reciente de este plugin disponible en el repositorio central.
+
+##### Controles de Teclado:
+* **`t` / `T`:** Cambia (activa/desactiva) el estado de confianza (Trusted) del plugin seleccionado en la configuración.
+* **`p` / `P`:** Ancla (Pin) o desancla la versión actual del plugin en `plugins.lock`.
+* **`u`:** Actualiza el plugin seleccionado a la versión más reciente en segundo plano. Recibirás una notificación en la parte superior cuando finalice.
+* **`U`:** Actualiza todos los plugins instalados (que no estén anclados) de forma masiva en segundo plano.
+* **`Del` / `d` / `D`:** Desinstala por completo el plugin seleccionado y lo elimina de tu disco.
+
+---
+
+#### Pestaña 2: Buscar en el Registro (Search Registry)
+Permite buscar e instalar nuevos complementos desde el repositorio central oficial de Pairee.
+
+##### Controles de Teclado:
+* **`/`:** Activa la edición del cuadro de búsqueda en la parte superior (el borde se iluminará en amarillo indicando que está listo para escribir).
+* **`Escribir caracteres` / `Backspace`:** Modifica el texto de tu consulta de búsqueda.
+* **`Enter`:** Envía la consulta al repositorio remoto para actualizar la lista de resultados coincidentes. Al finalizar, la edición se cierra y vuelves a la navegación del listado.
+* **`i` / `I`:** Instala el plugin seleccionado del listado de resultados de búsqueda. El proceso se ejecuta en segundo plano y te mostrará un aviso tipo toast cuando se complete correctamente.
+
+---
+
+### 4.2 Desarrolladores de Plugins
+Si deseas escribir tus propios complementos, auditar la arquitectura de seguridad o colaborar con el registro oficial, te invitamos a consultar la documentación completa para desarrolladores en nuestro repositorio de GitHub:
+
+* 📚 [**Guía de Desarrollo de Plugins en GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)
+* 🛠️ [**Diseño Técnico de la Arquitectura de Plugins**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-system-design.md)
+* 📂 [**Especificación del Registro Central de Distribución**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-registry-spec.md)
+
+---
+
+## 📖 5. Manuales de Integración Avanzada
 
 Para módulos más complejos y detallados, por favor consulta sus manuales específicos:
 * **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_es.md).
 * **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
+

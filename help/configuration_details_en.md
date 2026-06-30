@@ -160,8 +160,20 @@ Specifies which operations require an explicit warning dialog before proceeding.
 * **Main language:** Selects the active translations database (detects JSON files in the `/lang` directory).
 
 ### Plugins Configuration
-* **OEM plugins support / Scan symlinks:** Enables loading legacy plugins and scanning symbolic links.
-* **Plugins Selection:** Configure file processing, command prefix matching, and standard file associations.
+* **Soporte de plugins OEM (OEM plugin support):**
+  - *Description:* Allows loading and processing legacy console plugins encoded in OEM format (e.g. CP437, CP850), converting their text output to UTF-8 dynamically to prevent character rendering errors.
+* **Escanear enlaces simbólicos (Scan symlinks):**
+  - *Description:* Determines whether the plugin engine should follow and scan symbolic links when searching for new extensions in the plugins directory.
+* **Procesamiento de archivos (File processing):**
+  - *Description:* Delegates file opening or processing to registered plugins (e.g. allowing browsing of compressed archives as folders via plugins).
+* **Mostrar asociación estándar (Show standard association):**
+  - *Description:* Shows the operating system's default applications alongside plugin options when prompting to open a file with multiple handlers.
+* **Incluso si solo se encuentra un plugin (Even if only one plugin is found):**
+  - *Description:* Prompts the confirmation and selection dialog even if there is only a single plugin registered to handle the target file type (otherwise, it runs it directly).
+* **Resultados de búsqueda (SetFindList) (Search results):**
+  - *Description:* Allows a plugin to intercept and process search results (e.g. redirecting advanced search outputs directly to the panel listing).
+* **Procesamiento de prefijos (Prefix processing):**
+  - *Description:* Enables command prefix recognition (e.g. `ftp:host` or `arc:path`) to invoke a specific plugin directly from the terminal command-line.
 
 ---
 
