@@ -168,6 +168,8 @@ pub struct Settings {
     pub plugins_manager_search_results: bool,
     pub plugins_manager_prefix_processing: bool,
     pub plugins_developer_mode: bool,
+    #[serde(default = "default_plugins_dev_dir")]
+    pub plugins_dev_dir: String,
 
     // ── NEW Editor & Viewer settings (Tab 5 stubs/interactive) ───────────────
     pub editor_use_external: bool,
@@ -359,6 +361,7 @@ impl Default for Settings {
             plugins_manager_search_results: false,
             plugins_manager_prefix_processing: false,
             plugins_developer_mode: false,
+            plugins_dev_dir: default_plugins_dev_dir(),
 
             // Tab 5
             editor_use_external: false,
@@ -444,4 +447,27 @@ pub struct PluginConfig {
     pub name: String,
     #[serde(default)]
     pub trusted: bool,
+}
+
+fn default_plugins_dev_dir() -> String {
+    #[cfg(target_os = "windows")]
+    {
+        if let Ok(appdata) = std::env::var("APPDATA") {
+            std::path::PathBuf::from(appdata)
+                .join("pairee")
+                .join("config")
+                .join("plugins")
+                .to_string_lossy()
+                .into_owned()
+        } else {
+            "./config/plugins".to_string()
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        crate::config::paths::get_config_dir()
+            .join("plugins")
+            .to_string_lossy()
+            .into_owned()
+    }
 }

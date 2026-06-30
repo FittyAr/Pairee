@@ -232,6 +232,7 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Shift+F2".to_string(), Action::ExtractArchive);
     map.insert("Shift+F3".to_string(), Action::ArchiveCommands);
     map.insert("Shift+F9".to_string(), Action::SaveSetup);
+    map.insert("Shift+F11".to_string(), Action::InstallDevPlugin);
 
     // ── Alt+F actions ─────────────────────────────────────────────────────────
     map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
@@ -350,6 +351,7 @@ fn action_to_name(action: Action) -> String {
         Action::Menu => "menu",
         Action::Quit => "quit",
         Action::PluginMenu => "plugin_menu",
+        Action::InstallDevPlugin => "install_dev_plugin",
         Action::ScreensList => "screens_list",
         Action::NextScreen => "next_screen",
         Action::PrevScreen => "prev_screen",
@@ -480,6 +482,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "menu" => Some(Action::Menu),
         "quit" => Some(Action::Quit),
         "plugin_menu" => Some(Action::PluginMenu),
+        "install_dev_plugin" => Some(Action::InstallDevPlugin),
         "screens_list" => Some(Action::ScreensList),
         "next_screen" => Some(Action::NextScreen),
         "prev_screen" => Some(Action::PrevScreen),

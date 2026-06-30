@@ -45,6 +45,8 @@ pub fn handle_editing(
                             settings.viewer_command = edit_buffer.clone();
                         } else if active_tab == 2 && setting_id == 14 {
                             settings.interface_window_title_addons = edit_buffer.clone();
+                        } else if active_tab == 4 && setting_id == 12 {
+                            settings.plugins_dev_dir = edit_buffer.clone();
                         } else if active_tab == 7 {
                             git::apply_edit(setting_id, &mut settings, &edit_buffer);
                         }

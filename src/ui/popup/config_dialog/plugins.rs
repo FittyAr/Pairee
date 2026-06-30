@@ -117,4 +117,10 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, RowType)>) {
         ),
         RowType::Setting(11),
     ));
+    if settings.plugins_developer_mode {
+        rows.push((
+            format!("    Path: {}", settings.plugins_dev_dir),
+            RowType::Setting(12),
+        ));
+    }
 }

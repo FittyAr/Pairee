@@ -86,6 +86,31 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
             ("11", t("fkey_alt_viewhs")),
             ("12", t("fkey_alt_foldhs")),
         ]
+    } else if modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
+        let is_dev_plugin_dir = context.config.settings.plugins_developer_mode && {
+            let active_panel = state.get_active_panel();
+            let current_dir = &active_panel.current_path;
+            current_dir.join("manifest.toml").exists() ||
+                active_panel.entries.get(active_panel.cursor_index).map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists()).unwrap_or(false)
+        };
+        let mut fks = vec![
+            ("1", String::new()),
+            ("2", String::new()),
+            ("3", String::new()),
+            ("4", String::new()),
+            ("5", String::new()),
+            ("6", String::new()),
+            ("7", String::new()),
+            ("8", String::new()),
+            ("9", String::new()),
+            ("10", String::new()),
+            ("11", String::new()),
+            ("12", String::new()),
+        ];
+        if is_dev_plugin_dir {
+            fks[10] = ("11", t("plugin_install_dev"));
+        }
+        fks
     } else {
         vec![
             ("1", t("fkey_help")),

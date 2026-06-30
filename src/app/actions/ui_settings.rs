@@ -611,6 +611,90 @@ pub async fn handle_ui_settings_action(
             }
             true
         }
+        Action::InstallDevPlugin => {
+            if !context.config.settings.plugins_developer_mode {
+                return false;
+            }
+            let active_panel = state.get_active_panel();
+            let current_dir = &active_panel.current_path;
+            
+            let mut target_dir = current_dir.clone();
+            if let Some(entry) = active_panel.entries.get(active_panel.cursor_index) {
+                if entry.path.is_dir() && entry.path.join("manifest.toml").exists() {
+                    target_dir = entry.path.clone();
+                }
+            }
+            
+            let manifest_path = target_dir.join("manifest.toml");
+            if manifest_path.exists() {
+                if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
+                    if let Ok(manifest) = toml::from_str::<crate::plugin::loader::PluginManifest>(&manifest_content) {
+                        let name = manifest.name.clone();
+                        let version = manifest.version.clone();
+                        let dest_dir = crate::config::paths::get_config_dir().join("plugins").join(&name);
+                        
+                        let _ = std::fs::create_dir_all(&dest_dir);
+                        let mut success = true;
+                        if let Ok(entries) = std::fs::read_dir(&target_dir) {
+                            for entry in entries.filter_map(Result::ok) {
+                                let path = entry.path();
+                                if path.is_file() {
+                                    if let Some(filename) = path.file_name() {
+                                        let _ = std::fs::copy(&path, dest_dir.join(filename));
+                                    }
+                                } else if path.is_dir() && path.file_name().map(|n| n == "lang").unwrap_or(false) {
+                                    let lang_dest = dest_dir.join("lang");
+                                    let _ = std::fs::create_dir_all(&lang_dest);
+                                    if let Ok(lang_entries) = std::fs::read_dir(&path) {
+                                        for le in lang_entries.filter_map(Result::ok) {
+                                            if le.path().is_file() {
+                                                if let Some(fn_lang) = le.path().file_name() {
+                                                    let _ = std::fs::copy(le.path(), lang_dest.join(fn_lang));
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            success = false;
+                        }
+                        
+                        if success {
+                            let mut lock = crate::plugin::updater::read_lockfile();
+                            let mut files_hash = std::collections::HashMap::new();
+                            let manifest_dest = dest_dir.join("manifest.toml");
+                            let main_dest = dest_dir.join("main.lua");
+                            let lang_dest = dest_dir.join("lang/en.toml");
+                            if let Ok(h) = crate::update::downloader::compute_sha256(&manifest_dest) {
+                                files_hash.insert("manifest.toml".to_string(), h);
+                            }
+                            if let Ok(h) = crate::update::downloader::compute_sha256(&main_dest) {
+                                files_hash.insert("main.lua".to_string(), h);
+                            }
+                            if let Ok(h) = crate::update::downloader::compute_sha256(&lang_dest) {
+                                files_hash.insert("lang/en.toml".to_string(), h);
+                            }
+                            lock.plugins.insert(name.clone(), crate::plugin::updater::PinnedPlugin {
+                                version,
+                                pinned: false,
+                                files: files_hash,
+                            });
+                            let _ = crate::plugin::updater::write_lockfile(&lock);
+                            
+                            state.active_popup = Some(crate::app::state::PopupType::Info(
+                                format!("✓ Local plugin '{}' installed successfully to:\n{:?}", name, dest_dir)
+                            ));
+                        } else {
+                            state.active_popup = Some(crate::app::state::PopupType::Error(
+                                format!("Failed to copy plugin files for '{}'.", name)
+                            ));
+                        }
+                    }
+                }
+            }
+            true
+        }
         _ => false,
     }
 }

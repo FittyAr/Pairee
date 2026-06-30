@@ -3,8 +3,8 @@ use crate::config::settings::Settings;
 pub fn handle_row(
     cursor_idx: usize,
     settings: &mut Settings,
-    _editing_value: &mut bool,
-    _edit_buffer: &mut String,
+    editing_value: &mut bool,
+    edit_buffer: &mut String,
 ) -> Option<crate::app::state::PopupType> {
     match cursor_idx {
         0 => {
@@ -46,6 +46,10 @@ pub fn handle_row(
         }
         11 => {
             settings.plugins_developer_mode = !settings.plugins_developer_mode;
+        }
+        12 => {
+            *editing_value = true;
+            *edit_buffer = settings.plugins_dev_dir.clone();
         }
         _ => {}
     }

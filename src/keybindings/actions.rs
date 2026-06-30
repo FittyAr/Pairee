@@ -214,4 +214,6 @@ pub enum Action {
     OpenGitPanel,
     /// Toggle reverse sorting order for active panel
     ToggleSortReverse,
+    /// Install local plugin in development (developer mode)
+    InstallDevPlugin,
 }

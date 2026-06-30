@@ -121,11 +121,16 @@ pub fn render(
             f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
         } else if *active_tab == 2 && *editing_query {
             let search_area = main_chunks[1];
-            let search_text = format!("{}{}|", t("plugin_enter_name"), search_query);
+            let is_submit = dev_results == "GITHUB_SUBMIT_TOKEN_PROMPT";
+            let search_text = if is_submit {
+                format!(" Enter GitHub Token: {}|", search_query)
+            } else {
+                format!("{}{}|", t("plugin_enter_name"), search_query)
+            };
             let search_block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(t("plugin_init_title"))
+                .title(if is_submit { t("plugin_dev_opt_submit") } else { t("plugin_init_title") })
                 .style(bg_style);
             f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
         }
@@ -189,6 +194,7 @@ pub fn render(
                 "plugin_dev_opt_init",
                 "plugin_dev_opt_lint",
                 "plugin_dev_opt_package",
+                "plugin_dev_opt_install",
                 "plugin_dev_opt_submit",
             ];
             for (i, opt_key) in dev_options.iter().enumerate() {
@@ -225,6 +231,7 @@ pub fn render(
         let desc_init = t("plugin_dev_desc_init");
         let desc_lint = t("plugin_dev_desc_lint");
         let desc_package = t("plugin_dev_desc_package");
+        let desc_install = t("plugin_dev_desc_install");
         let desc_submit = t("plugin_dev_desc_submit");
         if *active_tab == 0 && !installed.is_empty() {
             if let Some((name, version, pinned, trusted, update_available)) = installed.get(*cursor_idx) {
@@ -299,6 +306,11 @@ pub fn render(
                         }
                     }
                     3 => {
+                        for line in desc_install.lines() {
+                            detail_lines.push(Line::from(Span::styled(line, text_style)));
+                        }
+                    }
+                    4 => {
                         for line in desc_submit.lines() {
                             detail_lines.push(Line::from(Span::styled(line, text_style)));
                         }

@@ -18,6 +18,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - A new interactive TUI Plugins Manager popup (F11) featuring a tabbed split interface to view installed plugins (with trust/pin badges and update indicators), show detailed metadata descriptions, search the online registry repository with live query editing, toggle trust and pinned statuses, and perform background installs/updates or immediate uninstalls.
 - Integrated a new interactive TUI **Developer Tools** tab (Tab 2) under the F11 Plugins Manager (accessible when `plugins_developer_mode` is enabled). It features an interactive TUI console to initialize plugin skeletons, run security/compliance lint audits, package files with SHA-256 hashes, and format submission logs.
 - Added a `plugins_developer_mode` option in the Language & Plugins configuration screen (Tab 4) to toggle developer-centric TUI helpers.
+- Added a customizable `plugins_dev_dir` setting to allow configuring the plugins development directory, with dynamic row rendering in Tab 4.
+- Enabled scanning the `plugins_dev_dir` path to perform Lint and Package audits recursively across all subfolders containing `manifest.toml` without requiring installation.
+- Automated GitHub submission inside the TUI by prompting the user for their Personal Access Token and initiating forks asynchronously in the background.
+- Added support for local development plugin installation via the `Shift+F11` (`InstDev`) key legend shortcut, copying plugin files from the highlighted panel directory directly to local plugins for testing.
 - Dynamic population of plugin help documentation files (`help/<locale>.md` or default language fallback) inside the tabbed F1 Help menu.
 - `check-updates` and `update` subcommands to the `pairee plugin` CLI suite to query and apply plugin updates.
 - DeepWiki project documentation link and badge to the main README files.

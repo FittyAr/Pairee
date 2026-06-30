@@ -2,7 +2,7 @@ use super::types::MenuItemData;
 use crate::config::localization::t;
 use crate::keybindings::{Action, KeybindingResolver};
 
-pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
+pub fn get_items(resolver: &KeybindingResolver, settings: &crate::config::settings::Settings) -> Vec<MenuItemData> {
     let shortcut_for = |action: Action, fallback: &str| -> String {
         resolver
             .key_for_action(action)
@@ -10,7 +10,7 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             .unwrap_or_else(|| fallback.to_string())
     };
 
-    vec![
+    let mut items = vec![
         MenuItemData::new(
             t("menu_find_file"),
             &shortcut_for(Action::FindFile, "Alt+F7"),
@@ -117,5 +117,19 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
         )
         .with_action(Action::TaskList),
         MenuItemData::new(t("menu_hotplug_devices"), "", false),
-    ]
+    ];
+
+    if settings.plugins_developer_mode {
+        items.push(MenuItemData::separator());
+        items.push(
+            MenuItemData::new(
+                t("menu_install_dev_plugin"),
+                &shortcut_for(Action::InstallDevPlugin, "Shift+F11"),
+                false,
+            )
+            .with_action(Action::InstallDevPlugin),
+        );
+    }
+
+    items
 }
