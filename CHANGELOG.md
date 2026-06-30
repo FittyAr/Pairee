@@ -16,6 +16,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Added
 
 - DeepWiki project documentation link and badge to the main README files.
+- Comprehensive plugin system architectural plan covering engine design, design patterns (Strategy, Observer, Command, Facade, Snapshot), API surface (`pairee.app`, `pairee.fs`, `pairee.ui`, `pairee.ps`, `pairee.sync`, `pairee.log`), concurrency model, dynamic keybinding overlays, logging/debugging tools, trusted mode permissions, a global immutable secure mode parameter, isolated plugin localization (`lang/*.toml`) with fallback rules, dynamic custom settings schemas with persistent storage, and F1 Help structured markdown documentation (`help/*.md`) integration.
+- Plugin community registry design: versioned distribution of raw plugin folders via a `plugin-registry` GitHub branch with individual file SHA-256 integrity verification, `plugins.lock`, and CLI commands (`pairee plugin search/list/install/update/check-updates/pin/remove`) featuring visual category and language badges, and help file tracking.
+- Technical documentation: `docs/technical/plugin-system-design.md` and `docs/technical/plugin-system-design-es.md` — full architecture reference in English and Spanish.
+- Technical documentation: `docs/technical/plugin-registry-spec.md` — registry branch layout, manifest/index TOML schemas, CLI reference, download verification flow, versioning rules, and CI workflow plan.
+- Developer guide: `docs/plugin-dev-guide.md` and `docs/plugin-dev-guide-es.md` — step-by-step guide for writing, testing, and submitting Pairee plugins, including translation, packaging, the developer assistant TUI wizard, and strict directory/naming validations.
 
 ### Changed
 
