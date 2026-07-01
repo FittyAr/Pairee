@@ -34,6 +34,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Added a customizable `plugins_dev_dir` setting to allow configuring the plugins development directory, with dynamic row rendering in Tab 4.
 - Enabled scanning the `plugins_dev_dir` path to perform Lint and Package audits recursively across all subfolders containing `manifest.toml` without requiring installation.
 - Automated GitHub submission inside the TUI by prompting the user for their Personal Access Token and initiating forks asynchronously in the background.
+- Added an **active development plugin** selection system to the Developer Tools tab. A new option (0) allows selecting a specific plugin from the development directory as the active target. All development operations (Lint, Package, Install, Submit) now operate exclusively on the selected active plugin. The "Initialize new plugin" option is automatically disabled while another plugin is active. The active plugin selection persists across sessions and can be quickly deselected with Backspace/Delete/d from the selector or by entering an empty name.
 - Added support for local development plugin installation via the `Shift+F11` (`InstDev`) key legend shortcut, copying plugin files from the highlighted panel directory directly to local plugins for testing.
 - Dynamic population of plugin help documentation files (`help/<locale>.md` or default language fallback) inside the tabbed F1 Help menu.
 - `check-updates` and `update` subcommands to the `pairee plugin` CLI suite to query and apply plugin updates.

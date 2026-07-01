@@ -245,6 +245,8 @@ pub struct Settings {
     #[serde(default)]
     pub plugin_settings:
         std::collections::HashMap<String, std::collections::HashMap<String, String>>,
+    #[serde(default)]
+    pub active_dev_plugin: Option<String>,
 }
 
 impl Default for Settings {
@@ -418,6 +420,7 @@ impl Default for Settings {
             // Plugins
             plugins: std::collections::HashMap::new(),
             plugin_settings: std::collections::HashMap::new(),
+            active_dev_plugin: None,
         }
     }
 }

@@ -4,7 +4,7 @@ use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Modifier as StyleModifier, Style},
+    style::{Color, Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
 };
@@ -18,29 +18,42 @@ pub fn render_dev(
     theme: &crate::config::theme::Theme,
     border_style: Style,
     bg_style: Style,
+    active_dev_plugin: &Option<String>,
 ) {
     let text_style = Style::default().fg(parse_color(&theme.popup_fg));
 
+    let active_name = active_dev_plugin.as_deref().unwrap_or("");
+    let active_label = if active_name.is_empty() {
+        t("plugin_dev_opt_active").replace("{}", &t("plugin_dev_opt_active_none"))
+    } else {
+        t("plugin_dev_opt_active").replace("{}", active_name)
+    };
+
     let dev_options = [
-        "plugin_dev_opt_init",
-        "plugin_dev_opt_lint",
-        "plugin_dev_opt_package",
-        "plugin_dev_opt_install",
-        "plugin_dev_opt_submit",
+        active_label,
+        t("plugin_dev_opt_init"),
+        t("plugin_dev_opt_lint"),
+        t("plugin_dev_opt_package"),
+        t("plugin_dev_opt_install"),
+        t("plugin_dev_opt_submit"),
     ];
 
     let mut list_items = Vec::new();
-    for (i, opt_key) in dev_options.iter().enumerate() {
-        let opt = t(opt_key);
+    for (i, opt) in dev_options.iter().enumerate() {
         let style = if i == cursor_idx {
             Style::default()
                 .bg(parse_color(&theme.selection_bg))
                 .fg(parse_color(&theme.selection_fg))
                 .add_modifier(StyleModifier::BOLD)
+        } else if i == 1 && active_dev_plugin.is_some() {
+            Style::default().fg(Color::DarkGray)
         } else {
             Style::default().fg(parse_color(&theme.popup_fg))
         };
-        list_items.push(ListItem::new(Line::from(vec![Span::styled(opt, style)])));
+        list_items.push(ListItem::new(Line::from(vec![Span::styled(
+            opt.clone(),
+            style,
+        )])));
     }
 
     let list_block = Block::default()
@@ -64,18 +77,24 @@ pub fn render_dev(
             detail_lines.push(Line::from(Span::styled(line, text_style)));
         }
     } else {
-        let desc_init = t("plugin_dev_desc_init");
+        let desc_active = t("plugin_dev_desc_active");
+        let desc_init = if active_dev_plugin.is_some() {
+            t("plugin_dev_desc_init_disabled")
+        } else {
+            t("plugin_dev_desc_init")
+        };
         let desc_lint = t("plugin_dev_desc_lint");
         let desc_package = t("plugin_dev_desc_package");
         let desc_install = t("plugin_dev_desc_install");
         let desc_submit = t("plugin_dev_desc_submit");
 
         let hint = match cursor_idx {
-            0 => desc_init,
-            1 => desc_lint,
-            2 => desc_package,
-            3 => desc_install,
-            4 => desc_submit,
+            0 => desc_active,
+            1 => desc_init,
+            2 => desc_lint,
+            3 => desc_package,
+            4 => desc_install,
+            5 => desc_submit,
             _ => String::new(),
         };
         for line in wrap_text(&hint, max_width) {

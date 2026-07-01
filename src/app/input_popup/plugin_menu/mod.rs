@@ -128,7 +128,12 @@ pub fn handle(
                 } else {
                     0
                 };
-                cursor_idx = 0;
+                cursor_idx =
+                    if active_tab == 2 && context.config.settings.active_dev_plugin.is_none() {
+                        1
+                    } else {
+                        0
+                    };
                 editing_query = false;
                 dev_results = String::new();
                 state.active_popup = Some(PopupType::PluginMenu {

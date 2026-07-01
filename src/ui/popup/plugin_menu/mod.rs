@@ -192,6 +192,7 @@ pub fn render(
                 3 => format!("{}{}|", t("plugin_enter_author"), search_query),
                 5 => format!("{}{}|", t("plugin_enter_commit_desc"), search_query),
                 6 => format!("{}{}|", t("plugin_enter_token_optional"), search_query),
+                10 => format!("{}{}|", t("plugin_enter_active_dev"), search_query),
                 _ => format!("{}{}|", t("plugin_enter_name"), search_query),
             };
             let search_block = Block::default()
@@ -199,6 +200,8 @@ pub fn render(
                 .border_style(Style::default().fg(Color::Yellow))
                 .title(if *dev_wizard_step == 5 || *dev_wizard_step == 6 {
                     t("plugin_dev_opt_submit")
+                } else if *dev_wizard_step == 10 {
+                    t("plugin_dev_opt_active").replace("{}", "")
                 } else {
                     t("plugin_init_title")
                 })
@@ -249,6 +252,7 @@ pub fn render(
                 theme,
                 border_style,
                 bg_style,
+                &context.config.settings.active_dev_plugin,
             );
         }
 
