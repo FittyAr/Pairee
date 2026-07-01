@@ -1,5 +1,5 @@
-use crate::config::localization::t;
 use super::package::{package_to_registry, validate_for_publish};
+use crate::config::localization::t;
 
 pub async fn submit() -> anyhow::Result<()> {
     println!("{}", t("plugin_dev_submit_wizard"));
@@ -64,9 +64,9 @@ pub fn commit_registry_changes(message: &str) -> anyhow::Result<()> {
     let tree = repo.find_tree(oid)?;
 
     // Try to get signature from git config, fallback if none
-    let signature = repo.signature().unwrap_or_else(|_| {
-        git2::Signature::now("Pairee Developer", "dev@pairee.org").unwrap()
-    });
+    let signature = repo
+        .signature()
+        .unwrap_or_else(|_| git2::Signature::now("Pairee Developer", "dev@pairee.org").unwrap());
 
     let parent_commit = repo.head()?.peel_to_commit()?;
 
@@ -99,7 +99,9 @@ pub async fn run_automatic_submit(
         .await?;
 
     if !user_resp.status().is_success() {
-        anyhow::bail!(t("plugin_dev_err_user_profile").replace("{}", &user_resp.status().to_string()));
+        anyhow::bail!(
+            t("plugin_dev_err_user_profile").replace("{}", &user_resp.status().to_string())
+        );
     }
 
     let user_data: serde_json::Value = user_resp.json().await?;

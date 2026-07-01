@@ -1,5 +1,5 @@
+use super::{TEMPLATE_BRANCH, find_pairee_repo};
 use crate::config::localization::t;
-use super::{find_pairee_repo, TEMPLATE_BRANCH};
 
 fn clone_from_template(
     target_path: &std::path::Path,

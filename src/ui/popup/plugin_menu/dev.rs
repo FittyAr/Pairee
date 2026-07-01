@@ -1,3 +1,4 @@
+use super::wrap_text;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -7,7 +8,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
 };
-use super::wrap_text;
 
 pub fn render_dev(
     f: &mut Frame,

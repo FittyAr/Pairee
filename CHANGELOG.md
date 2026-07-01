@@ -52,6 +52,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
+- Replaced the asymmetric hybrid translation model (compiled Rust match blocks for English and JSON for Spanish) with a symmetric, portable TOML-based translation system using embedded files (`lang/en.toml` and `lang/es.toml`) with support for dynamic local directory overrides.
 - Replaced hardcoded help files documentation layout with dynamic locale directory scanning (e.g. `help/en/`, `help/es/`) and auto-detection, utilizing translated metadata keys in localizations.
 - Resolves active language code for plugin help documentation files dynamically to match the program's running locale.
 - Dynamically resolve active language codes for plugins based on the application's loaded language configuration.
@@ -71,6 +72,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 ### Removed
 
 - Removed the obsolete and unused `manifests/winget/` directory.
+- Removed the obsolete `en.rs` translation file and inlined the English fallback resolver inside `localization.rs`.
 - Packaged `docs/` folder from being distributed in release assets, installers, packages, and staging configurations.
 
 ### Fixed

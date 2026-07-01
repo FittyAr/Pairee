@@ -1,7 +1,7 @@
+use super::reload_installed_plugins;
 use crate::app::context::AppContext;
 use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
-use super::reload_installed_plugins;
 
 pub fn handle_dev(
     key: KeyEvent,
@@ -48,16 +48,19 @@ pub fn handle_dev(
                     } else {
                         format!("{}.pairee", dev_wizard_data[0])
                     };
-                    let target_path =
-                        std::path::PathBuf::from(plugins_dev_dir).join(&folder_name);
+                    let target_path = std::path::PathBuf::from(plugins_dev_dir).join(&folder_name);
                     let _ = std::fs::create_dir_all(&target_path);
                     if let Ok(current_dir) = std::env::current_dir() {
                         if std::env::set_current_dir(plugins_dev_dir).is_ok() {
-                            match crate::plugin::developer_tool::init(&folder_name, &dev_wizard_data[1], &dev_wizard_data[2], false) {
+                            match crate::plugin::developer_tool::init(
+                                &folder_name,
+                                &dev_wizard_data[1],
+                                &dev_wizard_data[2],
+                                false,
+                            ) {
                                 Ok(_) => {
-                                    let name_without_suffix = folder_name
-                                        .strip_suffix(".pairee")
-                                        .unwrap_or(&folder_name);
+                                    let name_without_suffix =
+                                        folder_name.strip_suffix(".pairee").unwrap_or(&folder_name);
                                     *dev_results = t("plugin_dev_init_ok")
                                         .replace("{}", name_without_suffix)
                                         .replace("{:?}", &format!("{:?}", target_path));
@@ -93,7 +96,9 @@ pub fn handle_dev(
                     let manifest_path = plugin_path.join("manifest.toml");
                     let mut plugin_name = String::new();
                     if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                        if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&manifest_content) {
+                        if let Ok(manifest) =
+                            crate::plugin::loader::PluginManifest::parse(&manifest_content)
+                        {
                             plugin_name = manifest.name;
                         }
                     }
@@ -101,12 +106,20 @@ pub fn handle_dev(
                     let mut local_err = None;
                     match crate::plugin::developer_tool::package_to_registry(&plugin_path) {
                         Ok(_) => {
-                            if let Err(e) = crate::plugin::developer_tool::commit_registry_changes(&commit_msg) {
-                                local_err = Some(t("plugin_dev_err_git_commit").replace("{:?}", &format!("{:?}", e)));
+                            if let Err(e) =
+                                crate::plugin::developer_tool::commit_registry_changes(&commit_msg)
+                            {
+                                local_err = Some(
+                                    t("plugin_dev_err_git_commit")
+                                        .replace("{:?}", &format!("{:?}", e)),
+                                );
                             }
                         }
                         Err(e) => {
-                            local_err = Some(t("plugin_dev_err_package_registry").replace("{:?}", &format!("{:?}", e)));
+                            local_err = Some(
+                                t("plugin_dev_err_package_registry")
+                                    .replace("{:?}", &format!("{:?}", e)),
+                            );
                         }
                     }
 
@@ -115,24 +128,35 @@ pub fn handle_dev(
                     } else {
                         let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
                         if token.is_empty() {
-                            *dev_results = t("plugin_dev_no_token_inst").replace("{}", &temp_dir.display().to_string());
+                            *dev_results = t("plugin_dev_no_token_inst")
+                                .replace("{}", &temp_dir.display().to_string());
                         } else {
                             let tx = crate::plugin::PluginManager::get_sender();
                             tokio::spawn(async move {
-                                match crate::plugin::developer_tool::run_automatic_submit(&token, &commit_msg, &plugin_name).await {
+                                match crate::plugin::developer_tool::run_automatic_submit(
+                                    &token,
+                                    &commit_msg,
+                                    &plugin_name,
+                                )
+                                .await
+                                {
                                     Ok(msg) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: t("plugin_dev_toast_submitted_title"),
-                                            msg,
-                                            level: "info".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: t("plugin_dev_toast_submitted_title"),
+                                                msg,
+                                                level: "info".to_string(),
+                                            })
+                                            .await;
                                     }
                                     Err(e) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: t("plugin_dev_toast_submit_fail_title"),
-                                            msg: format!("{:?}", e),
-                                            level: "error".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: t("plugin_dev_toast_submit_fail_title"),
+                                                msg: format!("{:?}", e),
+                                                level: "error".to_string(),
+                                            })
+                                            .await;
                                     }
                                 }
                             });
@@ -195,9 +219,8 @@ pub fn handle_dev(
                                     let manifest_path = path.join("manifest.toml");
                                     let main_path = path.join("main.lua");
 
-                                    report.push_str(
-                                        &t("plugin_dev_lint_start").replace("{}", &name),
-                                    );
+                                    report
+                                        .push_str(&t("plugin_dev_lint_start").replace("{}", &name));
                                     let mut warnings = 0;
                                     if !manifest_path.exists() {
                                         report.push_str(&t("plugin_dev_lint_err_manifest"));
@@ -208,9 +231,7 @@ pub fn handle_dev(
                                         warnings += 1;
                                     }
                                     if manifest_path.exists() && main_path.exists() {
-                                        if let Ok(lua_code) =
-                                            std::fs::read_to_string(&main_path)
-                                        {
+                                        if let Ok(lua_code) = std::fs::read_to_string(&main_path) {
                                             let forbidden = [
                                                 "os.execute",
                                                 "io.open",
@@ -237,9 +258,8 @@ pub fn handle_dev(
                                                 .replace("{}", &format!("{}", warnings)),
                                         );
                                     }
-                                    report.push_str(
-                                        "\n────────────────────────────────────────\n\n",
-                                    );
+                                    report
+                                        .push_str("\n────────────────────────────────────────\n\n");
                                 }
                             }
                         }
@@ -266,8 +286,13 @@ pub fn handle_dev(
                                         continue;
                                     }
                                     found_any = true;
-                                    report.push_str(&format!("{} '{}'...\n", t("plugin_dev_pack_start").trim(), folder_name));
-                                    match crate::plugin::developer_tool::package_to_registry(&path) {
+                                    report.push_str(&format!(
+                                        "{} '{}'...\n",
+                                        t("plugin_dev_pack_start").trim(),
+                                        folder_name
+                                    ));
+                                    match crate::plugin::developer_tool::package_to_registry(&path)
+                                    {
                                         Ok(msg) => {
                                             report.push_str(&format!("✓ {}\n", msg));
                                         }
@@ -275,9 +300,8 @@ pub fn handle_dev(
                                             report.push_str(&format!("✗ Failed: {:?}\n", e));
                                         }
                                     }
-                                    report.push_str(
-                                        "\n────────────────────────────────────────\n\n",
-                                    );
+                                    report
+                                        .push_str("\n────────────────────────────────────────\n\n");
                                 }
                             }
                         }
@@ -325,8 +349,7 @@ pub fn handle_dev(
                                             for (rel_path_str, src_file_path) in
                                                 crate::plugin::loader::get_plugin_files(&path)
                                             {
-                                                let dest_file_path =
-                                                    dest_dir.join(&rel_path_str);
+                                                let dest_file_path = dest_dir.join(&rel_path_str);
                                                 if let Some(parent) = dest_file_path.parent() {
                                                     let _ = std::fs::create_dir_all(parent);
                                                 }
@@ -337,17 +360,12 @@ pub fn handle_dev(
                                                 }
                                             }
 
-                                            let mut files_hash =
-                                                std::collections::HashMap::new();
+                                            let mut files_hash = std::collections::HashMap::new();
                                             for (rel, p) in
-                                                crate::plugin::loader::get_plugin_files(
-                                                    &dest_dir,
-                                                )
+                                                crate::plugin::loader::get_plugin_files(&dest_dir)
                                             {
                                                 if let Ok(h) =
-                                                    crate::update::downloader::compute_sha256(
-                                                        &p,
-                                                    )
+                                                    crate::update::downloader::compute_sha256(&p)
                                                 {
                                                     files_hash.insert(rel, h);
                                                 }
@@ -361,7 +379,11 @@ pub fn handle_dev(
                                                 },
                                             );
 
-                                            report.push_str(&format!("✓ Installed '{}' locally (copied {} file(s))\n", name, copied_files.len()));
+                                            report.push_str(&format!(
+                                                "✓ Installed '{}' locally (copied {} file(s))\n",
+                                                name,
+                                                copied_files.len()
+                                            ));
                                         }
                                     }
                                 }
@@ -398,13 +420,15 @@ pub fn handle_dev(
                         }
 
                         if let Some(plugin_path) = found_path {
-                            match crate::plugin::developer_tool::validate_for_publish(&plugin_path) {
+                            match crate::plugin::developer_tool::validate_for_publish(&plugin_path)
+                            {
                                 Ok(_) => {
                                     *editing_query = true;
                                     *search_query = String::new();
                                     *dev_results = String::new();
                                     *dev_wizard_step = 5;
-                                    *dev_wizard_data = vec![plugin_path.to_string_lossy().to_string()];
+                                    *dev_wizard_data =
+                                        vec![plugin_path.to_string_lossy().to_string()];
                                 }
                                 Err(err_msg) => {
                                     *dev_results = err_msg;

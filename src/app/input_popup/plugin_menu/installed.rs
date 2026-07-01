@@ -1,7 +1,7 @@
+use super::reload_installed_plugins;
 use crate::app::context::AppContext;
 use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
-use super::reload_installed_plugins;
 
 pub fn handle_installed(
     key: KeyEvent,
@@ -31,14 +31,15 @@ pub fn handle_installed(
         KeyCode::Char('t') | KeyCode::Char('T') => {
             if let Some((name, _, _, _, _)) = installed.get(*cursor_idx) {
                 if let Ok(mut config) = crate::config::AppConfig::load_or_create() {
-                    let plugin_conf = config
-                        .settings
-                        .plugins
-                        .entry(name.clone())
-                        .or_insert_with(|| crate::config::settings::PluginConfig {
-                            name: name.clone(),
-                            trusted: false,
-                        });
+                    let plugin_conf =
+                        config
+                            .settings
+                            .plugins
+                            .entry(name.clone())
+                            .or_insert_with(|| crate::config::settings::PluginConfig {
+                                name: name.clone(),
+                                trusted: false,
+                            });
                     plugin_conf.trusted = !plugin_conf.trusted;
                     let _ = config.save();
                 }

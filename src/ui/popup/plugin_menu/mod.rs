@@ -20,7 +20,7 @@ pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
             lines.push(String::new());
             continue;
         }
-        
+
         let char_count = line.chars().count();
         if char_count <= max_width {
             lines.push(line.to_string());
@@ -41,7 +41,7 @@ pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
                     current_line = word.to_string();
                     current_len = word_len;
                 }
-                
+
                 while current_len > max_width {
                     let chars: Vec<char> = current_line.chars().collect();
                     let head: String = chars[..max_width].iter().collect();
@@ -217,11 +217,39 @@ pub fn render(
         let detail_area = content_chunks[1];
 
         if *active_tab == 0 {
-            installed::render_installed(f, list_area, detail_area, *cursor_idx, installed, theme, border_style, bg_style);
+            installed::render_installed(
+                f,
+                list_area,
+                detail_area,
+                *cursor_idx,
+                installed,
+                theme,
+                border_style,
+                bg_style,
+            );
         } else if *active_tab == 1 {
-            search::render_search(f, list_area, detail_area, *cursor_idx, registry, *is_searching, theme, border_style, bg_style);
+            search::render_search(
+                f,
+                list_area,
+                detail_area,
+                *cursor_idx,
+                registry,
+                *is_searching,
+                theme,
+                border_style,
+                bg_style,
+            );
         } else {
-            dev::render_dev(f, list_area, detail_area, *cursor_idx, dev_results, theme, border_style, bg_style);
+            dev::render_dev(
+                f,
+                list_area,
+                detail_area,
+                *cursor_idx,
+                dev_results,
+                theme,
+                border_style,
+                bg_style,
+            );
         }
 
         let hint_key = if *active_tab == 0 {

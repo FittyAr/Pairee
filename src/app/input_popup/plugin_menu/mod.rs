@@ -151,12 +151,7 @@ pub fn handle(
 
     let action = None;
     if active_tab == 0 {
-        installed::handle_installed(
-            key,
-            context,
-            &mut cursor_idx,
-            &mut installed,
-        );
+        installed::handle_installed(key, context, &mut cursor_idx, &mut installed);
     } else if active_tab == 1 {
         search::handle_search(
             key,

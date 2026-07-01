@@ -65,7 +65,8 @@ pub fn render_installed(
 
     let mut detail_lines = Vec::new();
     if !installed.is_empty() {
-        if let Some((name, version, pinned, trusted, update_available)) = installed.get(cursor_idx) {
+        if let Some((name, version, pinned, trusted, update_available)) = installed.get(cursor_idx)
+        {
             detail_lines.push(Line::from(vec![
                 Span::styled(t("plugin_detail_name"), bold_style),
                 Span::styled(name.clone(), text_style),

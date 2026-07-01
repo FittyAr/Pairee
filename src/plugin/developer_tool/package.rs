@@ -44,8 +44,9 @@ pub fn validate_for_publish(path: &std::path::Path) -> Result<(), String> {
             }
         }
         Err(e) => {
-            return Err(t("plugin_dev_publish_icon_invalid_format")
-                .replace("{:?}", &format!("{:?}", e)));
+            return Err(
+                t("plugin_dev_publish_icon_invalid_format").replace("{:?}", &format!("{:?}", e))
+            );
         }
     }
 
@@ -91,7 +92,9 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
             let fetched = {
                 if let Ok(mut remote) = repo.find_remote("origin") {
                     let mut fetch_options = git2::FetchOptions::new();
-                    remote.fetch(&["plugin-registry"], Some(&mut fetch_options), None).is_ok()
+                    remote
+                        .fetch(&["plugin-registry"], Some(&mut fetch_options), None)
+                        .is_ok()
                 } else {
                     false
                 }
@@ -111,7 +114,10 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
                     checkout_builder.force();
                     let _ = repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder));
                     let _ = repo.set_head("refs/heads/plugin-registry");
-                    if repo.reset(commit.as_object(), git2::ResetType::Hard, None).is_ok() {
+                    if repo
+                        .reset(commit.as_object(), git2::ResetType::Hard, None)
+                        .is_ok()
+                    {
                         reset_ok = true;
                     }
                 }
@@ -198,7 +204,10 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
         description: manifest.description.clone(),
         author: manifest.author.clone(),
         languages: manifest.languages.clone(),
-        hooks: manifest.keybindings.as_ref().map(|kb| kb.values().cloned().collect()),
+        hooks: manifest
+            .keybindings
+            .as_ref()
+            .map(|kb| kb.values().cloned().collect()),
         min_pairee: manifest.min_pairee.clone(),
         files: files_hash,
     };

@@ -6,7 +6,7 @@ pub mod submit;
 pub use init::init;
 pub use lint::lint;
 pub use package::{package, package_to_registry, validate_for_publish};
-pub use submit::{submit, commit_registry_changes, run_automatic_submit};
+pub use submit::{commit_registry_changes, run_automatic_submit, submit};
 
 const TEMPLATE_BRANCH: &str = "plugin-template";
 

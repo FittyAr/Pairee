@@ -10,7 +10,11 @@ pub fn lint() -> anyhow::Result<()> {
 
     let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
-    if manifest.default_language.as_ref().map_or(true, |l| l.trim().is_empty()) {
+    if manifest
+        .default_language
+        .as_ref()
+        .map_or(true, |l| l.trim().is_empty())
+    {
         anyhow::bail!(t("plugin_dev_lint_err_default_lang"));
     }
 
