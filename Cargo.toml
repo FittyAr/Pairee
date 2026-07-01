@@ -23,7 +23,7 @@ flate2 = { version = "1.1.9", default-features = false, features = ["rust_backen
 sevenz-rust = "0.6.1"
 pulldown-cmark = "0.13"
 image = "0.25.10"
-git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
 

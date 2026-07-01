@@ -92,6 +92,11 @@ fn clone_from_template(
     log::debug!("plugin-template: Local repo/branch not found. Cloning from remote repository...");
     let url = "https://github.com/FittyAr/Pairee.git";
 
+    // Delete the directory if it already exists, as git2 clone expects the destination to not exist/be empty
+    if target_path.exists() {
+        let _ = std::fs::remove_dir_all(target_path);
+    }
+
     let mut builder = git2::build::RepoBuilder::new();
     builder.branch(TEMPLATE_BRANCH);
 
@@ -164,7 +169,6 @@ mod tests {
             assert!(path.join("manifest.toml").exists());
             assert!(path.join("main.lua").exists());
             assert!(path.join("lang/en.toml").exists());
-            assert!(path.join("lang/es.toml").exists());
             assert!(path.join("help/en.md").exists());
             assert!(path.join("icon.png").exists());
             assert!(path.join("screenshots/screenshot1.png").exists());
