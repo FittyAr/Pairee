@@ -99,102 +99,6 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_toast_install_err" => "Failed to install '{}': {:?}",
         "plugin_search_searching" => "  Searching...",
         "plugin_search_no_results" => "  No results found.",
-        "plugin_init_manifest_tmpl" => {
-            r#"[plugin]
-name = "{}"
-version = "0.1.0"
-description = "A new plugin for Pairee"
-author = "Your Name"
-min_pairee = "0.6.1"
-requires_trust = false
-default_language = "en"
-languages = ["en"]
-
-# Path to the plugin icon (PNG format, mandatory size: 256x256 or 512x512 pixels for publishing)
-icon = "icon.png"
-
-# Paths to the screenshots showing the plugin in action (mandatory for publishing, minimum 640x480 pixels)
-screenshots = [
-    "screenshots/screenshot1.png"
-]
-
-[keybindings]
-# "ctrl-p" = "my_custom_action"
-
-[settings_schema]
-# enabled = { type = "boolean", default = true, description = "Enable features" }
-"#
-        }
-        "plugin_init_main_lua_tmpl" => {
-            r#"-- Pairee Plugin Entry
-local plugin = {}
-
-function plugin.setup(opts)
-    -- Use pairee.t to fetch localized strings from lang/<locale>.toml
-    pairee.log.info(pairee.t("setup.welcome"))
-end
-
--- Custom Command Entry
-function plugin.entry(args)
-    local msg = pairee.t("command.executed", { count = tostring(#args) })
-    pairee.app.notify(pairee.t("command.title"), msg, "info")
-end
-
--- Custom Previewer
-function plugin.peek(job)
-    local preview_msg = pairee.t("preview.file_path", { path = job.file.path })
-    return pairee.ui.Paragraph(preview_msg)
-end
-
-return plugin
-"#
-        }
-        "plugin_init_lang_en_tmpl" => {
-            r#"[my_custom_action]
-title = "My Custom Action"
-description = "Executes my custom action"
-
-[setup]
-welcome = "Hello from my new plugin!"
-
-[command]
-title = "My Plugin"
-executed = "Executed command with {count} args"
-
-[preview]
-file_path = "Previewing file: {path}"
-"#
-        }
-        "plugin_init_lang_es_tmpl" => {
-            r#"[my_custom_action]
-title = "Mi Acción Personalizada"
-description = "Ejecuta mi acción personalizada"
-
-[setup]
-welcome = "¡Hola desde mi nuevo plugin!"
-
-[command]
-title = "Mi Plugin"
-executed = "Comando ejecutado con {count} argumentos"
-
-[preview]
-file_path = "Previsualizando archivo: {path}"
-"#
-        }
-        "plugin_init_help_en_tmpl" => {
-            r#"# Help for {} Plugin
-
-This is the help documentation for your Pairee plugin.
-
-## Usage
-
-Describe how to use your plugin here.
-
-## Keybindings
-
-Describe your custom keybindings here.
-"#
-        }
         "plugin_dev_init_ok" => {
             "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - icon.png\n  - lang/en.toml\n  - help/en.md\n  - screenshots/screenshot1.png\n\nTarget directory:\n{:?}"
         }
@@ -209,7 +113,6 @@ Describe your custom keybindings here.
         "plugin_dev_lint_warn_total" => "\nLint completed with {} warning(s)/error(s).",
         "plugin_dev_lint_no_plugins" => "Error: No installed plugins found to lint.",
         "plugin_dev_pack_start" => "Packaging plugin '{}'...\n\n",
-        "plugin_dev_pack_gen" => "Generated registry entry to append to registry/index.toml:\n\n",
         "plugin_dev_pack_no_plugins" => "Error: No installed plugins found to package.",
         "plugin_dev_submit_desc" => {
             "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically."
@@ -219,19 +122,29 @@ Describe your custom keybindings here.
         }
         "plugin_dev_submit_wizard" => "GitHub PR Submission Wizard\n---------------------------",
         "plugin_dev_submit_prompt" => "Please enter your GitHub Personal Access Token:",
-        "plugin_dev_submit_token_req" => "GitHub Token is required to submit a Pull Request.",
         "plugin_dev_submit_no_manifest" => {
             "No manifest.toml found in current directory. Move to your plugin directory before submitting."
         }
-        "plugin_dev_submit_token_ok" => "✓ Token received. Ready to fork and submit.",
         "plugin_dev_submit_sending" => {
             "Sending submit request to Pairee's main repository registry..."
         }
-        "plugin_dev_submit_fork_ok" => "✓ Upstream repository forked successfully.",
-        "plugin_dev_submit_fork_err" => "Failed to fork upstream repository: HTTP {}",
-        "plugin_dev_submit_next_steps" => {
-            "Please run the git push commands to update your branch on the fork,\nthen submit the Pull Request using the GitHub API or UI."
+        "plugin_dev_local_staged" => "Staged and committed locally!",
+        "plugin_dev_no_token_inst" => {
+            "Staged and committed locally!\n\nNo GitHub token provided. To submit manually:\n\n1. Fork the FittyAr/Pairee repository on GitHub.\n2. Run the following commands in your terminal:\n\n   cd \"{}\"\n   git remote add myfork <URL_TO_YOUR_FORK>\n   git push myfork plugin-registry\n\n3. Create a Pull Request from your fork's plugin-registry branch to FittyAr/Pairee:plugin-registry."
         }
+        "plugin_dev_fork_push_bg" => "Staged and committed locally! Automating remote fork & push in background... Check status in notifications.",
+        "plugin_dev_no_plugins_found" => "No development plugins found in developer directory:\n{:?}",
+        "plugin_dev_no_plugins_to_install" => "No development plugins found to install in developer directory:\n{:?}",
+        "plugin_dev_local_sync_ok" => "Local plugins synced successfully! Restart Pairee or reload plugins to apply.",
+        "plugin_dev_toast_submitted_title" => "Plugin Submitted",
+        "plugin_dev_toast_submit_fail_title" => "Submission Failed",
+        "plugin_dev_err_git_commit" => "Failed to commit changes locally: {:?}",
+        "plugin_dev_err_package_registry" => "Failed to package plugin to registry: {:?}",
+        "plugin_dev_err_fork" => "Failed to initiate fork: HTTP {}",
+        "plugin_dev_err_pr" => "Failed to create Pull Request: HTTP {}. Details: {}",
+        "plugin_dev_pr_created" => "PR created successfully! View it at: {}",
+        "plugin_dev_err_user_profile" => "Failed to fetch GitHub user profile: HTTP {}",
+        "plugin_dev_err_username_not_found" => "GitHub username not found in response",
         "plugin_prompt_desc" => "Enter plugin description:",
         "plugin_prompt_author" => "Enter plugin author:",
         "plugin_dev_publish_no_icon" => "Error: icon.png not found in the plugin root. An icon in PNG format (recommended sizes: 512x512 or 256x256 pixels) is required to publish.",
