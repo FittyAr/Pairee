@@ -137,15 +137,13 @@ pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> 
     // Clone files from local `plugin-template` branch or fallback to cloning the remote branch from GitHub
     let used_template = clone_from_template(&path, &manifest_name, description, author)?;
     if !used_template {
-        anyhow::bail!(
-            "Failed to initialize plugin: template branch unavailable (check your internet connection or git status)."
-        );
+        anyhow::bail!(t("plugin_dev_err_template_unavailable"));
     }
 
     if print_output {
         let ok_msg = t("plugin_dev_init_ok")
             .replace("{}", &manifest_name)
-            .replace("{:?}", &format!("{:?}", path));
+            .replace("{:?}", &path.to_string_lossy());
         println!("{}", ok_msg);
     }
     Ok(())

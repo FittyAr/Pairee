@@ -63,11 +63,11 @@ pub fn handle_dev(
                                         folder_name.strip_suffix(".pairee").unwrap_or(&folder_name);
                                     *dev_results = t("plugin_dev_init_ok")
                                         .replace("{}", name_without_suffix)
-                                        .replace("{:?}", &format!("{:?}", target_path));
+                                        .replace("{:?}", &target_path.to_string_lossy());
                                 }
                                 Err(e) => {
-                                    *dev_results = t("plugin_dev_init_err")
-                                        .replace("{:?}", &format!("{:?}", e));
+                                    *dev_results =
+                                        t("plugin_dev_init_err").replace("{:?}", &format!("{}", e));
                                 }
                             }
                             let _ = std::env::set_current_dir(current_dir);

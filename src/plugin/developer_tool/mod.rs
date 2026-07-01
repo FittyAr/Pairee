@@ -15,7 +15,7 @@ const TEMPLATE_BRANCH: &str = "plugin-template";
 /// Search order:
 /// 1. `PAIREE_REPO_DIR` environment variable (explicit override).
 /// 2. Walk up from the running binary until a `.git` directory is found.
-fn find_pairee_repo() -> Option<std::path::PathBuf> {
+pub(crate) fn find_pairee_repo() -> Option<std::path::PathBuf> {
     // 1. Explicit env override
     if let Ok(dir) = std::env::var("PAIREE_REPO_DIR") {
         let p = std::path::PathBuf::from(dir);

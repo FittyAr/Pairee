@@ -1,3 +1,4 @@
+use super::find_pairee_repo;
 use crate::config::localization::t;
 use std::collections::HashMap;
 
@@ -93,7 +94,11 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
                 if let Ok(mut remote) = repo.find_remote("origin") {
                     let mut fetch_options = git2::FetchOptions::new();
                     remote
-                        .fetch(&["plugin-registry"], Some(&mut fetch_options), None)
+                        .fetch(
+                            &["+refs/heads/plugin-registry:refs/remotes/origin/plugin-registry"],
+                            Some(&mut fetch_options),
+                            None,
+                        )
                         .is_ok()
                 } else {
                     false
@@ -131,9 +136,23 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
     }
 
     std::fs::create_dir_all(temp_dir)?;
+
+    let url = if let Some(local_path) = find_pairee_repo() {
+        log::debug!(
+            "plugin-registry: Using local repository clone for registry: {:?}",
+            local_path
+        );
+        local_path.to_string_lossy().into_owned()
+    } else {
+        log::debug!(
+            "plugin-registry: Local repo not found. Cloning registry from remote GitHub..."
+        );
+        "https://github.com/FittyAr/Pairee.git".to_string()
+    };
+
     let mut builder = git2::build::RepoBuilder::new();
     builder.branch("plugin-registry");
-    let repo = builder.clone("https://github.com/FittyAr/Pairee.git", temp_dir)?;
+    let repo = builder.clone(&url, temp_dir)?;
     Ok(repo)
 }
 
