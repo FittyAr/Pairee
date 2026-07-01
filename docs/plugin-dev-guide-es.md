@@ -486,12 +486,14 @@ git checkout master
 ## 16. Flujo de Envío al Registro
 
 1. **Activar el Modo Desarrollador** en `pairee.toml`.
-2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento` para validar tus archivos, autodetectar metadatos y generar hashes.
+2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento` para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
 3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación:
    - **Icono:** Debe existir un icono PNG llamado `icon.png` en el directorio raíz del plugin (tamaños recomendados: `512x512` o `256x256` píxeles).
    - **Capturas de pantalla:** Debe existir un directorio `screenshots/` en la raíz del plugin que contenga al menos una captura de pantalla (PNG, JPG o JPEG).
-4. Introducir tus credenciales de GitHub y fork en la TUI de Envío de PR.
-5. Seleccionar "Enviar Pull Request" para automatizar el commit, push y la generación del PR hacia la rama `plugin-registry`.
+4. Ejecutar la opción de empaquetado para clonar y preparar la rama `plugin-registry` localmente, verificar todas las firmas, copiar los archivos de código y generar la suma de verificación y la entrada del índice central.
+5. Ejecutar la opción "Enviar". El asistente te solicitará:
+   - **Descripción del Commit:** Una descripción detallada de los cambios o características.
+   - **Token de GitHub (Opcional):** Si se suministra, Pairee realizará automáticamente un fork del repositorio, subirá la rama y creará una Pull Request. Si se omite, Pairee realizará un commit git local e imprimirá los comandos manuales para que los copies y ejecutes para subir la rama y abrir la Pull Request por ti mismo.
 
 ---
 

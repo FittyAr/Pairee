@@ -423,54 +423,82 @@ pub fn handle(
                         }
                         dev_wizard_data.clear();
                         installed = reload_installed_plugins(context, &None);
-                    } else if dev_wizard_step == 4 {
+                    } else if dev_wizard_step == 5 {
+                        let commit_msg = search_query.clone().trim().to_string();
+                        if !commit_msg.is_empty() {
+                            dev_wizard_data.push(commit_msg);
+                            search_query.clear();
+                            dev_wizard_step = 6; // Prompt for GitHub Token
+                        }
+                    } else if dev_wizard_step == 6 {
+                        let token = search_query.clone().trim().to_string();
+                        let plugin_path_str = dev_wizard_data[0].clone();
+                        let commit_msg = dev_wizard_data[1].clone();
+                        dev_wizard_data.clear();
                         editing_query = false;
                         dev_wizard_step = 0;
-                        let token = search_query.clone();
-                        let tx = crate::plugin::PluginManager::get_sender();
-                        tokio::spawn(async move {
-                            let client = reqwest::Client::builder().build();
-                            if let Ok(c) = client {
-                                let fork_url = "https://api.github.com/repos/FittyAr/Pairee/forks";
-                                let resp = c
-                                    .post(fork_url)
-                                    .header("User-Agent", "Pairee-Submit-Wizard")
-                                    .header("Authorization", format!("token {}", token))
-                                    .send()
-                                    .await;
-                                match resp {
-                                    Ok(r)
-                                        if r.status().is_success()
-                                            || r.status() == reqwest::StatusCode::ACCEPTED =>
-                                    {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: "Plugin Submitted".to_string(),
-                                            msg: "Fork created successfully! Submit PR from your branch.".to_string(),
-                                            level: "info".to_string(),
-                                        }).await;
-                                    }
-                                    Ok(r) => {
-                                        let _ = tx
-                                            .send(crate::plugin::manager::PluginRequest::Notify {
-                                                title: "Submission Failed".to_string(),
-                                                msg: format!("HTTP Error: {}", r.status()),
-                                                level: "error".to_string(),
-                                            })
-                                            .await;
-                                    }
-                                    Err(e) => {
-                                        let _ = tx
-                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                        search_query.clear();
+
+                        // 1. Commit locally first
+                        let plugin_path = std::path::PathBuf::from(&plugin_path_str);
+                        let manifest_path = plugin_path.join("manifest.toml");
+                        let mut plugin_name = String::new();
+                        if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
+                            if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&manifest_content) {
+                                plugin_name = manifest.name;
+                            }
+                        }
+
+                        let mut local_err = None;
+                        match crate::plugin::developer_tool::package_to_registry(&plugin_path) {
+                            Ok(_) => {
+                                if let Err(e) = crate::plugin::developer_tool::commit_registry_changes(&commit_msg) {
+                                    local_err = Some(format!("Failed to commit changes locally: {:?}", e));
+                                }
+                            }
+                            Err(e) => {
+                                local_err = Some(format!("Failed to package plugin to registry: {:?}", e));
+                            }
+                        }
+
+                        if let Some(err) = local_err {
+                            dev_results = err;
+                        } else {
+                            let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+                            if token.is_empty() {
+                                dev_results = format!(
+                                    "Staged and committed locally!\n\nNo GitHub token provided. To submit manually:\n\n\
+                                     1. Fork the FittyAr/Pairee repository on GitHub.\n\
+                                     2. Run the following commands in your terminal:\n\n\
+                                        cd \"{}\"\n\
+                                        git remote add myfork <URL_TO_YOUR_FORK>\n\
+                                        git push myfork plugin-registry\n\n\
+                                     3. Create a Pull Request from your fork's plugin-registry branch to FittyAr/Pairee:plugin-registry.",
+                                    temp_dir.display()
+                                );
+                            } else {
+                                let tx = crate::plugin::PluginManager::get_sender();
+                                tokio::spawn(async move {
+                                    match crate::plugin::developer_tool::run_automatic_submit(&token, &commit_msg, &plugin_name).await {
+                                        Ok(msg) => {
+                                            let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: "Plugin Submitted".to_string(),
+                                                msg,
+                                                level: "info".to_string(),
+                                            }).await;
+                                        }
+                                        Err(e) => {
+                                            let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
                                                 title: "Submission Failed".to_string(),
                                                 msg: format!("{:?}", e),
                                                 level: "error".to_string(),
-                                            })
-                                            .await;
+                                            }).await;
+                                        }
                                     }
-                                }
+                                });
+                                dev_results = "Staged and committed locally! Automating remote fork & push in background... Check status in notifications.".to_string();
                             }
-                        });
-                        dev_results = "Submission request initiated in background... Check status in notifications.".to_string();
+                        }
                         installed = reload_installed_plugins(context, &None);
                     }
                 }
@@ -600,33 +628,15 @@ pub fn handle(
                                             continue;
                                         }
                                         found_any = true;
-                                        let name = folder_name
-                                            .strip_suffix(".pairee")
-                                            .unwrap_or(&folder_name)
-                                            .to_string();
-                                        report.push_str(
-                                            &t("plugin_dev_pack_start").replace("{}", &name),
-                                        );
-                                        let mut files_hash = std::collections::HashMap::new();
-                                        for (rel, p) in
-                                            crate::plugin::loader::get_plugin_files(&path)
-                                        {
-                                            if let Ok(hash) =
-                                                crate::update::downloader::compute_sha256(&p)
-                                            {
-                                                files_hash.insert(rel, hash);
+                                        report.push_str(&format!("Packaging '{}'...\n", folder_name));
+                                        match crate::plugin::developer_tool::package_to_registry(&path) {
+                                            Ok(msg) => {
+                                                report.push_str(&format!("✓ {}\n", msg));
+                                            }
+                                            Err(e) => {
+                                                report.push_str(&format!("✗ Failed: {:?}\n", e));
                                             }
                                         }
-                                        report.push_str(&t("plugin_dev_pack_gen"));
-                                        report.push_str(&format!("[plugins.{}]\n", name));
-                                        report.push_str(&format!("name = \"{}\"\n", name));
-                                        report.push_str("version = \"0.1.0\"\n");
-                                        report.push_str("files = {\n");
-                                        for (f, h) in files_hash {
-                                            report
-                                                .push_str(&format!("    \"{}\" = \"{}\",\n", f, h));
-                                        }
-                                        report.push_str("}\n");
                                         report.push_str(
                                             "\n────────────────────────────────────────\n\n",
                                         );
@@ -758,8 +768,9 @@ pub fn handle(
                                     Ok(_) => {
                                         editing_query = true;
                                         search_query = String::new();
-                                        dev_results = "GITHUB_SUBMIT_TOKEN_PROMPT".to_string();
-                                        dev_wizard_step = 4;
+                                        dev_results = String::new();
+                                        dev_wizard_step = 5;
+                                        dev_wizard_data = vec![plugin_path.to_string_lossy().to_string()];
                                     }
                                     Err(err_msg) => {
                                         dev_results = err_msg;

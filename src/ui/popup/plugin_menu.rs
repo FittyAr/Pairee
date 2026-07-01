@@ -188,13 +188,14 @@ pub fn render(
                 1 => format!("{}{}|", t("plugin_enter_name"), search_query),
                 2 => format!("{}{}|", t("plugin_enter_desc"), search_query),
                 3 => format!("{}{}|", t("plugin_enter_author"), search_query),
-                4 => format!(" Enter GitHub Token: {}|", search_query),
+                5 => format!("{}{}|", t("plugin_enter_commit_desc"), search_query),
+                6 => format!("{}{}|", t("plugin_enter_token_optional"), search_query),
                 _ => format!("{}{}|", t("plugin_enter_name"), search_query),
             };
             let search_block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(if *dev_wizard_step == 4 {
+                .title(if *dev_wizard_step == 5 || *dev_wizard_step == 6 {
                     t("plugin_dev_opt_submit")
                 } else {
                     t("plugin_init_title")

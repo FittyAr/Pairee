@@ -572,6 +572,8 @@
     "plugin_enter_name": " Ingrese Nombre del Plugin: ",
     "plugin_enter_desc": " Ingrese la descripción del plugin: ",
     "plugin_enter_author": " Ingrese el autor del plugin: ",
+    "plugin_enter_commit_desc": " Ingrese Descripción del Commit/PR: ",
+    "plugin_enter_token_optional": " Ingrese Token de GitHub (opcional, Enter para omitir): ",
     "plugin_init_title": " Inicializar Nuevo Plugin ",
     "plugin_tools_title": " Herramientas ",
     "plugin_title": " Plugins ",

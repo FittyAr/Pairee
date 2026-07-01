@@ -14,12 +14,12 @@ pub struct PinnedPlugin {
     pub files: HashMap<String, String>, // relative_path -> sha256
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RegistryIndex {
     pub plugins: HashMap<String, RegistryPlugin>,
 }
 
-#[derive(Debug, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RegistryPlugin {
     pub name: String,
     pub version: String,

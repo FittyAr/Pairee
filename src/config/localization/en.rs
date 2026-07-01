@@ -33,6 +33,8 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_enter_name" => " Enter Plugin Name: ",
         "plugin_enter_desc" => " Enter Plugin Description: ",
         "plugin_enter_author" => " Enter Plugin Author: ",
+        "plugin_enter_commit_desc" => " Enter Commit/PR Description: ",
+        "plugin_enter_token_optional" => " Enter GitHub Token (optional, press Enter to skip): ",
         "plugin_init_title" => " Initialize New Plugin ",
         "plugin_tools_title" => " Tools ",
         "plugin_title" => " Plugins ",

@@ -44,6 +44,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Technical documentation: `docs/technical/plugin-registry-spec.md` — registry branch layout, manifest/index TOML schemas, CLI reference, download verification flow, versioning rules, and CI workflow plan.
 - Developer guide: `docs/plugin-dev-guide.md` and `docs/plugin-dev-guide-es.md` — step-by-step guide for writing, testing, and submitting Pairee plugins, including translation, packaging, the developer assistant TUI wizard, and strict directory/naming validations.
 
+### Improved
+
+- Upgraded the plugin packaging developer tool workflow (Option 3). It now fetches/clones the central `plugin-registry` branch locally, validates the plugin, copies files to the registry branch, and updates the local `index.toml` catalog file.
+- Upgraded the plugin submission developer tool workflow (Option 5) in both TUI and CLI. It now prompts the developer for a commit/PR description, commits all changes locally, and either automates the fork/push/PR creation on GitHub (if a token is provided) or displays clear manual instructions on how to manually fork, push, and open the Pull Request (if no token is provided).
+- Updated local help pages (`help/es/user_guide.md`, `help/en/user_guide.md`) and development guides (`docs/plugin-dev-guide.md`, `docs/plugin-dev-guide-es.md`) to document these changes.
+
 ### Changed
 
 - Replaced hardcoded help files documentation layout with dynamic locale directory scanning (e.g. `help/en/`, `help/es/`) and auto-detection, utilizing translated metadata keys in localizations.

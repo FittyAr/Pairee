@@ -146,12 +146,12 @@ Si deseas escribir tus propios complementos, auditar la arquitectura de segurida
 #### Herramientas de Desarrollo Disponibles (F11 - Pestaña 3):
 1. **Inicializar plantilla:** Crea un esqueleto de plugin en tu directorio de desarrollo con los archivos mínimos necesarios (`manifest.toml`, `main.lua` y traducciones en `lang/en.toml`).
 2. **Verificar (Lint):** Escanea tu carpeta de desarrollo y realiza auditorías de seguridad e integridad sobre los archivos Lua y de manifiesto. Detecta llamadas a funciones potencialmente peligrosas (como ejecución de subprocesos externos u operaciones de red no declaradas).
-3. **Empaquetar:** Escanea tu carpeta de desarrollo y genera automáticamente los bloques de metadatos con los hashes SHA-256 de los archivos para incluirlos en el índice del registro.
+3. **Empaquetar:** Prepara un clon local temporal de la rama oficial `plugin-registry`, valida los archivos de metadatos, copia todos los componentes del plugin a la rama y añade/actualiza su entrada de catálogo en el archivo maestro `registry/index.toml`.
 4. **Instalar plugin local en desarrollo:** Copia de inmediato tus plugins en desarrollo a la carpeta de ejecución local de Pairee y los registra en el archivo `plugins.lock`. Esto hace que aparezcan al instante en tu lista de "Plugins Instalados" (Pestaña 1) para que puedas probar sus funciones directamente en la interfaz.
-5. **Enviar plugin (GitHub PR):** Ejecuta el asistente interactivo para subir tu plugin al repositorio central de Pairee.
-   - **¿Para qué sirve el Token de Acceso Personal de GitHub (PAT)?**
-     Para automatizar la subida, Pairee necesita interactuar con la API de GitHub en tu nombre. El Token de Acceso Personal sirve como credencial segura para autenticarte. Permite al programa realizar un fork del repositorio central oficial (`FittyAr/Pairee`), subir tu plugin empaquetado a una nueva rama y abrir una solicitud de extracción (Pull Request) de forma transparente.
-   - **Nota sobre Seguridad:** El token nunca se almacena en el disco ni en variables de entorno persistentes; solo se utiliza de forma transitoria en memoria durante la transacción de red.
+5. **Enviar plugin (GitHub PR):** Solicita una descripción del commit e inicia el proceso de envío.
+   - **Con Token de GitHub:** Realiza un fork automático del repositorio oficial `FittyAr/Pairee`, sube la rama y abre una Pull Request automáticamente.
+   - **Sin Token de GitHub (Manual):** Realiza un commit git local en la carpeta temporal e indica exactamente qué comandos ejecutar en tu terminal para realizar el push y abrir la Pull Request manualmente.
+   - **Nota sobre Seguridad:** Si proporcionas el token, este nunca se almacena en el disco ni en variables de entorno persistentes; solo se utiliza de forma transitoria en memoria durante la transacción de red.
 
 Para obtener guías técnicas en profundidad:
 * 📚 [**Guía de Desarrollo de Plugins en GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)

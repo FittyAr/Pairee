@@ -146,12 +146,12 @@ If you wish to write your own custom plugins, review safety rules, or submit to 
 #### Available Developer Tools (F11 - Tab 2):
 1. **Initialize boilerplate:** Generates a new plugin skeleton under your development directory containing baseline files (`manifest.toml`, `main.lua` and translations under `lang/en.toml`).
 2. **Audit (Lint):** Scans your configured development path and runs validation/security audits on manifest parameters and Lua syntax, checking for unsafe imports or undocumented operations.
-3. **Package:** Scans your development folder and generates versioned TOML registry entries containing computed SHA-256 integrity hashes for each source file.
+3. **Package:** Prepares a local temporary clone of the official `plugin-registry` branch, validates metadata files, copies all plugin assets into the branch, and appends/updates its index entry in the master `registry/index.toml` file.
 4. **Install local development plugin:** Copies all active development plugins (or the one highlighted) directly into Pairee's runtime directory and registers them in the lockfile (`plugins.lock`). This makes them appear instantly in the "Installed Plugins" list (Tab 0) so you can execute and test them locally.
-5. **Submit plugin (GitHub PR):** Runs the automated upload wizard to submit your plugin to the central Pairee index.
-   - **Why is a GitHub Personal Access Token (PAT) required?**
-     To automate submissions, Pairee interacts with GitHub APIs on your behalf. The PAT acts as a secure credential. It allows the program to create a fork of the central repository (`FittyAr/Pairee`) under your GitHub profile, push your packaged metadata to a new branch, and open a Pull Request automatically.
-   - **Security Note:** The token is never stored on disk or environment variables; it is only held in temporary memory during the PR transaction.
+5. **Submit plugin (GitHub PR):** Prompts for a commit description and initiates the submission process.
+   - **With GitHub Token:** Automatically forks the official `FittyAr/Pairee` repository, pushes the branch, and creates a Pull Request.
+   - **Without GitHub Token (Manual):** Performs a local git commit in the temporary folder and prints the exact commands you need to run in your terminal to push and open the Pull Request manually.
+   - **Security Note:** If provided, the token is never stored on disk or environment variables; it is only held in temporary memory during the PR transaction.
 
 For technical deep-dives:
 * 📚 [**Plugin Developer Guide on GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)

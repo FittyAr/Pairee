@@ -486,12 +486,14 @@ git checkout master
 ## 16. Registry Submission Flow
 
 1. **Enable Developer Mode** in `pairee.toml`.
-2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin` to validate your files, auto-detect metadata, and generate hashes.
+2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin` to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
 3. Ensure the plugin meets the following mandatory publication requirements:
    - **Icon:** A PNG icon named `icon.png` must be located in the plugin's root directory (recommended sizes: `512x512` or `256x256` pixels).
    - **Screenshots:** A `screenshots/` directory must exist in the plugin's root containing at least one screenshot (PNG, JPG, or JPEG).
-4. Input your GitHub credentials and fork URL into the PR Submission TUI.
-5. Execute "Submit Pull Request" to automate committing, pushing, and generating the PR targeting the `plugin-registry` branch.
+4. Run the packaging option to clone and prepare the `plugin-registry` branch locally, verify all signatures, copy code files, and build the checksums/index entries.
+5. Execute the "Submit" option. The wizard will prompt you for:
+   - **Commit Description:** A detailed description of the changes or features.
+   - **GitHub Token (Optional):** If supplied, Pairee will automatically fork the repository, push the branch, and create a Pull Request. If skipped, Pairee will perform a local git commit and print the manual commands for you to copy and run to push your branch and open the PR yourself.
 
 ---
 

@@ -276,47 +276,8 @@ pub fn lint() -> anyhow::Result<()> {
 
 pub fn package() -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
-    let manifest_path = path.join("manifest.toml");
-    if !manifest_path.exists() {
-        anyhow::bail!(t("plugin_dev_lint_err_manifest").trim().to_string());
-    }
-    let content = std::fs::read_to_string(&manifest_path)?;
-
-    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
-
-    print!(
-        "{}",
-        t("plugin_dev_pack_start").replace("{}", &manifest.name)
-    );
-
-    let mut files_hash = HashMap::new();
-
-    // Iterate files in plugin directory dynamically
-    for (file_rel, file_path) in crate::plugin::loader::get_plugin_files(&path) {
-        let hash = crate::update::downloader::compute_sha256(&file_path)?;
-        files_hash.insert(file_rel, hash);
-    }
-
-    // Output TOML registry entry
-    print!("{}", t("plugin_dev_pack_gen"));
-    println!("[plugins.{}]", manifest.name);
-    println!("name = \"{}\"", manifest.name);
-    println!("version = \"{}\"", manifest.version);
-    if let Some(ref d) = manifest.description {
-        println!("description = \"{}\"", d);
-    }
-    if let Some(ref a) = manifest.author {
-        println!("author = \"{}\"", a);
-    }
-    if let Some(ref mp) = manifest.min_pairee {
-        println!("min_pairee = \"{}\"", mp);
-    }
-    println!("files = {{");
-    for (f, h) in files_hash {
-        println!("    \"{}\" = \"{}\",", f, h);
-    }
-    println!("}}");
-
+    let msg = package_to_registry(&path)?;
+    println!("{}", msg);
     Ok(())
 }
 
@@ -405,38 +366,311 @@ pub async fn submit() -> anyhow::Result<()> {
         anyhow::bail!(err_msg);
     }
 
-    // Read input from user for GitHub token
-    println!("{}", t("plugin_dev_submit_prompt"));
+    let manifest_path = path.join("manifest.toml");
+    let content = std::fs::read_to_string(&manifest_path)?;
+    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
+    let plugin_name = manifest.name.clone();
+
+    // 1. Run package_to_registry to make sure everything is in the temp registry clone
+    let msg = package_to_registry(&path)?;
+    println!("{}", msg);
+
+    // 2. Ask user for commit description
+    println!("Enter Commit Description / Message:");
+    let mut commit_msg = String::new();
+    std::io::stdin().read_line(&mut commit_msg)?;
+    let commit_msg = commit_msg.trim().to_string();
+    if commit_msg.is_empty() {
+        anyhow::bail!("Commit message cannot be empty.");
+    }
+
+    // 3. Commit locally
+    commit_registry_changes(&commit_msg)?;
+    println!("Changes staged and committed to local registry branch.");
+
+    // 4. Prompt for token (optional)
+    println!("{}", t("plugin_dev_submit_prompt")); // "Enter GitHub Token: "
     let mut token = String::new();
     std::io::stdin().read_line(&mut token)?;
     let token = token.trim().to_string();
 
     if token.is_empty() {
-        anyhow::bail!(t("plugin_dev_submit_token_req"));
+        let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+        println!("\nNo token provided. You must submit manually:");
+        println!("1. Fork FittyAr/Pairee repository on GitHub.");
+        println!("2. Run the following commands in your terminal:");
+        println!("   cd \"{}\"", temp_dir.display());
+        println!("   git remote add myfork <URL_TO_YOUR_FORK>");
+        println!("   git push myfork plugin-registry");
+        println!("3. Open a Pull Request from your fork's plugin-registry branch to FittyAr/Pairee:plugin-registry.\n");
+    } else {
+        println!("{}", t("plugin_dev_submit_sending"));
+        match run_automatic_submit(&token, &commit_msg, &plugin_name).await {
+            Ok(success_msg) => println!("{}", success_msg),
+            Err(e) => anyhow::bail!("Automatic submission failed: {:?}", e),
+        }
     }
 
-    println!("{}", t("plugin_dev_submit_token_ok"));
-    println!("{}", t("plugin_dev_submit_sending"));
+    Ok(())
+}
 
-    // Simulate/Perform GitHub fork and PR creation via REST API
+pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git2::Repository> {
+    if temp_dir.join(".git").exists() {
+        if let Ok(repo) = git2::Repository::open(temp_dir) {
+            let fetched = {
+                if let Ok(mut remote) = repo.find_remote("origin") {
+                    let mut fetch_options = git2::FetchOptions::new();
+                    remote.fetch(&["plugin-registry"], Some(&mut fetch_options), None).is_ok()
+                } else {
+                    false
+                }
+            };
+            let mut reset_ok = false;
+            let mut commit_oid = None;
+            if fetched {
+                if let Ok(fetch_head) = repo.find_reference("refs/remotes/origin/plugin-registry") {
+                    if let Ok(commit) = fetch_head.peel_to_commit() {
+                        commit_oid = Some(commit.id());
+                    }
+                }
+            }
+            if let Some(oid) = commit_oid {
+                if let Ok(commit) = repo.find_commit(oid) {
+                    let mut checkout_builder = git2::build::CheckoutBuilder::new();
+                    checkout_builder.force();
+                    let _ = repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder));
+                    let _ = repo.set_head("refs/heads/plugin-registry");
+                    if repo.reset(commit.as_object(), git2::ResetType::Hard, None).is_ok() {
+                        reset_ok = true;
+                    }
+                }
+            }
+            if reset_ok {
+                return Ok(repo);
+            }
+        }
+        // If anything fails, clean up and clone
+        let _ = std::fs::remove_dir_all(temp_dir);
+    }
+
+    std::fs::create_dir_all(temp_dir)?;
+    let mut builder = git2::build::RepoBuilder::new();
+    builder.branch("plugin-registry");
+    let repo = builder.clone("https://github.com/FittyAr/Pairee.git", temp_dir)?;
+    Ok(repo)
+}
+
+pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<String> {
+    // 1. Validate the plugin
+    if let Err(err_msg) = validate_for_publish(plugin_dir) {
+        anyhow::bail!("Plugin validation failed: {}", err_msg);
+    }
+
+    let manifest_path = plugin_dir.join("manifest.toml");
+    let content = std::fs::read_to_string(&manifest_path)?;
+    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
+    let name = manifest.name.clone();
+
+    // 2. Clone or update the registry repo in temporary directory
+    let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+    let _repo = fetch_or_clone_registry(&temp_dir)?;
+
+    // 3. Copy plugin files to the cloned repo
+    let dest_plugin_dir = temp_dir.join("registry").join(&name);
+    if dest_plugin_dir.exists() {
+        let _ = std::fs::remove_dir_all(&dest_plugin_dir);
+    }
+    std::fs::create_dir_all(&dest_plugin_dir)?;
+
+    let mut files_hash = HashMap::new();
+    for (rel_path, src_file_path) in crate::plugin::loader::get_plugin_files(plugin_dir) {
+        let dest_file_path = dest_plugin_dir.join(&rel_path);
+        if let Some(parent) = dest_file_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::copy(&src_file_path, &dest_file_path)?;
+
+        let hash = crate::update::downloader::compute_sha256(&dest_file_path)?;
+        files_hash.insert(rel_path, hash);
+    }
+
+    // Write sha256.sum inside the registry folder
+    let mut sha_content = String::new();
+    for (f, h) in &files_hash {
+        sha_content.push_str(&format!("{}  {}\n", h, f));
+    }
+    std::fs::write(dest_plugin_dir.join("sha256.sum"), sha_content)?;
+
+    // Copy manifest.toml to registry/<name>/manifest.toml
+    std::fs::copy(&manifest_path, dest_plugin_dir.join("manifest.toml"))?;
+
+    // 4. Update registry/index.toml
+    let index_path = temp_dir.join("registry").join("index.toml");
+    let mut index_data = if index_path.exists() {
+        let content = std::fs::read_to_string(&index_path)?;
+        toml::from_str::<crate::plugin::updater::RegistryIndex>(&content).unwrap_or_else(|_| {
+            crate::plugin::updater::RegistryIndex {
+                plugins: HashMap::new(),
+            }
+        })
+    } else {
+        std::fs::create_dir_all(index_path.parent().unwrap())?;
+        crate::plugin::updater::RegistryIndex {
+            plugins: HashMap::new(),
+        }
+    };
+
+    // Construct RegistryPlugin
+    let reg_plugin = crate::plugin::updater::RegistryPlugin {
+        name: name.clone(),
+        version: manifest.version.clone(),
+        description: manifest.description.clone(),
+        author: manifest.author.clone(),
+        languages: manifest.languages.clone(),
+        hooks: manifest.keybindings.as_ref().map(|kb| kb.values().cloned().collect()),
+        min_pairee: manifest.min_pairee.clone(),
+        files: files_hash,
+    };
+
+    index_data.plugins.insert(name.clone(), reg_plugin);
+
+    // Serialize and write back
+    let serialized = toml::to_string_pretty(&index_data)?;
+    std::fs::write(&index_path, serialized)?;
+
+    Ok(format!(
+        "Successfully packaged '{}' v{} into the local registry branch cache.",
+        name, manifest.version
+    ))
+}
+
+pub fn commit_registry_changes(message: &str) -> anyhow::Result<()> {
+    let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+    let repo = git2::Repository::open(&temp_dir)?;
+
+    let mut index = repo.index()?;
+    index.add_all(["."], git2::IndexAddOption::DEFAULT, None)?;
+    index.write()?;
+
+    let oid = index.write_tree()?;
+    let tree = repo.find_tree(oid)?;
+
+    // Try to get signature from git config, fallback if none
+    let signature = repo.signature().unwrap_or_else(|_| {
+        git2::Signature::now("Pairee Developer", "dev@pairee.org").unwrap()
+    });
+
+    let parent_commit = repo.head()?.peel_to_commit()?;
+
+    repo.commit(
+        Some("HEAD"),
+        &signature,
+        &signature,
+        message,
+        &tree,
+        &[&parent_commit],
+    )?;
+
+    Ok(())
+}
+
+pub async fn run_automatic_submit(
+    token: &str,
+    commit_msg: &str,
+    plugin_name: &str,
+) -> anyhow::Result<String> {
     let client = reqwest::Client::builder().build()?;
 
-    // 1. Fork repository
-    let fork_url = "https://api.github.com/repos/FittyAr/Pairee/forks";
-    let resp = client
-        .post(fork_url)
+    // 1. Fetch user login/username
+    let user_resp = client
+        .get("https://api.github.com/user")
         .header("User-Agent", "Pairee-Submit-Wizard")
         .header("Authorization", format!("token {}", token))
+        .header("Accept", "application/vnd.github.v3+json")
         .send()
         .await?;
 
-    if resp.status().is_success() || resp.status() == reqwest::StatusCode::ACCEPTED {
-        println!("{}", t("plugin_dev_submit_fork_ok"));
-    } else {
-        anyhow::bail!(t("plugin_dev_submit_fork_err").replace("{}", &resp.status().to_string()));
+    if !user_resp.status().is_success() {
+        anyhow::bail!("Failed to fetch GitHub user profile: HTTP {}", user_resp.status());
     }
 
-    // Since this is a CLI helper, we inform the developer of next steps or complete the commit/push
-    println!("{}", t("plugin_dev_submit_next_steps"));
-    Ok(())
+    let user_data: serde_json::Value = user_resp.json().await?;
+    let username = user_data["login"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("GitHub username not found in response"))?
+        .to_string();
+
+    // 2. Fork repository
+    let fork_url = "https://api.github.com/repos/FittyAr/Pairee/forks";
+    let fork_resp = client
+        .post(fork_url)
+        .header("User-Agent", "Pairee-Submit-Wizard")
+        .header("Authorization", format!("token {}", token))
+        .header("Accept", "application/vnd.github.v3+json")
+        .send()
+        .await?;
+
+    if !fork_resp.status().is_success() && fork_resp.status() != reqwest::StatusCode::ACCEPTED {
+        anyhow::bail!("Failed to initiate fork: HTTP {}", fork_resp.status());
+    }
+
+    // Wait for the fork to be populated (GitHub forks are async)
+    tokio::time::sleep(std::time::Duration::from_secs(5)).await;
+
+    // 3. Push to fork using git2
+    // Place this entire block inside its own scope so all git2 non-Send types are dropped before the next .await
+    {
+        let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+        let repo = git2::Repository::open(&temp_dir)?;
+
+        let fork_git_url = format!("https://{}@github.com/{}/Pairee.git", token, username);
+        let mut remote = match repo.find_remote("user_fork") {
+            Ok(r) => {
+                repo.remote_set_url("user_fork", &fork_git_url)?;
+                r
+            }
+            Err(_) => repo.remote("user_fork", &fork_git_url)?,
+        };
+
+        let mut push_options = git2::PushOptions::new();
+        let callbacks = git2::RemoteCallbacks::new();
+        push_options.remote_callbacks(callbacks);
+
+        remote.push(
+            &["refs/heads/plugin-registry:refs/heads/plugin-registry"],
+            Some(&mut push_options),
+        )?;
+    }
+
+    // 4. Create Pull Request
+    let pr_url = "https://api.github.com/repos/FittyAr/Pairee/pulls";
+    let pr_payload = serde_json::json!({
+        "title": format!("Add/Update plugin {}", plugin_name),
+        "head": format!("{}:plugin-registry", username),
+        "base": "plugin-registry",
+        "body": commit_msg
+    });
+
+    let pr_resp = client
+        .post(pr_url)
+        .header("User-Agent", "Pairee-Submit-Wizard")
+        .header("Authorization", format!("token {}", token))
+        .header("Accept", "application/vnd.github.v3+json")
+        .json(&pr_payload)
+        .send()
+        .await?;
+
+    let status = pr_resp.status();
+    if status.is_success() || status == reqwest::StatusCode::CREATED {
+        let pr_data: serde_json::Value = pr_resp.json().await?;
+        let html_url = pr_data["html_url"].as_str().unwrap_or(pr_url);
+        Ok(format!("PR created successfully! View it at: {}", html_url))
+    } else {
+        let err_text = pr_resp.text().await.unwrap_or_default();
+        anyhow::bail!(
+            "Failed to create Pull Request: HTTP {}. Details: {}",
+            status,
+            err_text
+        );
+    }
 }
