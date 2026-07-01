@@ -9,11 +9,11 @@ pub mod git_panel;
 pub mod history_lists;
 pub mod info;
 pub mod menus;
+pub mod plugin_menu;
 pub mod prompts;
 pub mod screens_menu;
 pub mod update;
 pub mod viewer;
-pub mod plugin_menu;
 pub mod yazi;
 
 use crate::app::context::AppContext;

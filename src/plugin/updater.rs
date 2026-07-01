@@ -82,8 +82,17 @@ pub async fn list_installed() -> anyhow::Result<()> {
     for (name, info) in &lock.plugins {
         let pin_str = if info.pinned { " [PINNED]" } else { "" };
         let trusted_str = if let Some(ref conf) = config {
-            let trusted = conf.settings.plugins.get(name).map(|p| p.trusted).unwrap_or(false);
-            if trusted { " [TRUSTED]" } else { " [UNTRUSTED]" }
+            let trusted = conf
+                .settings
+                .plugins
+                .get(name)
+                .map(|p| p.trusted)
+                .unwrap_or(false);
+            if trusted {
+                " [TRUSTED]"
+            } else {
+                " [UNTRUSTED]"
+            }
         } else {
             " [UNTRUSTED]"
         };
@@ -102,7 +111,10 @@ pub async fn list_installed() -> anyhow::Result<()> {
             "".to_string()
         };
 
-        println!("  - {} v{}{}{}{}", name, info.version, pin_str, trusted_str, update_str);
+        println!(
+            "  - {} v{}{}{}{}",
+            name, info.version, pin_str, trusted_str, update_str
+        );
     }
     Ok(())
 }
@@ -116,8 +128,15 @@ pub async fn check_updates() -> anyhow::Result<()> {
     for (name, info) in &lock.plugins {
         if let Some(reg_plugin) = index.plugins.get(name) {
             if reg_plugin.version != info.version {
-                let pin_str = if info.pinned { " [PINNED] (update skipped)" } else { "" };
-                println!("  - {}: {} -> {}{}", name, info.version, reg_plugin.version, pin_str);
+                let pin_str = if info.pinned {
+                    " [PINNED] (update skipped)"
+                } else {
+                    ""
+                };
+                println!(
+                    "  - {}: {} -> {}{}",
+                    name, info.version, reg_plugin.version, pin_str
+                );
                 updates_available += 1;
             }
         }
@@ -126,7 +145,10 @@ pub async fn check_updates() -> anyhow::Result<()> {
     if updates_available == 0 {
         println!("All plugins are up to date.");
     } else {
-        println!("Found {} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins.", updates_available);
+        println!(
+            "Found {} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins.",
+            updates_available
+        );
     }
     Ok(())
 }
@@ -138,7 +160,10 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
     if let Some(n) = name {
         if let Some(info) = lock.plugins.get(n) {
             if info.pinned {
-                anyhow::bail!("Plugin '{}' is pinned and cannot be updated. Unpin it first with 'pairee plugin unpin <name>'.", n);
+                anyhow::bail!(
+                    "Plugin '{}' is pinned and cannot be updated. Unpin it first with 'pairee plugin unpin <name>'.",
+                    n
+                );
             }
             if let Some(reg_plugin) = index.plugins.get(n) {
                 if reg_plugin.version == info.version {

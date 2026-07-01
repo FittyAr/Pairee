@@ -90,8 +90,12 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let is_dev_plugin_dir = context.config.settings.plugins_developer_mode && {
             let active_panel = state.get_active_panel();
             let current_dir = &active_panel.current_path;
-            current_dir.join("manifest.toml").exists() ||
-                active_panel.entries.get(active_panel.cursor_index).map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists()).unwrap_or(false)
+            current_dir.join("manifest.toml").exists()
+                || active_panel
+                    .entries
+                    .get(active_panel.cursor_index)
+                    .map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists())
+                    .unwrap_or(false)
         };
         let mut fks = vec![
             ("1", String::new()),

@@ -371,13 +371,17 @@ pub fn handle(
                             let client = reqwest::Client::builder().build();
                             if let Ok(c) = client {
                                 let fork_url = "https://api.github.com/repos/FittyAr/Pairee/forks";
-                                let resp = c.post(fork_url)
+                                let resp = c
+                                    .post(fork_url)
                                     .header("User-Agent", "Pairee-Submit-Wizard")
                                     .header("Authorization", format!("token {}", token))
                                     .send()
                                     .await;
                                 match resp {
-                                    Ok(r) if r.status().is_success() || r.status() == reqwest::StatusCode::ACCEPTED => {
+                                    Ok(r)
+                                        if r.status().is_success()
+                                            || r.status() == reqwest::StatusCode::ACCEPTED =>
+                                    {
                                         let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
                                             title: "Plugin Submitted".to_string(),
                                             msg: "Fork created successfully! Submit PR from your branch.".to_string(),
@@ -385,18 +389,22 @@ pub fn handle(
                                         }).await;
                                     }
                                     Ok(r) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: "Submission Failed".to_string(),
-                                            msg: format!("HTTP Error: {}", r.status()),
-                                            level: "error".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: "Submission Failed".to_string(),
+                                                msg: format!("HTTP Error: {}", r.status()),
+                                                level: "error".to_string(),
+                                            })
+                                            .await;
                                     }
                                     Err(e) => {
-                                        let _ = tx.send(crate::plugin::manager::PluginRequest::Notify {
-                                            title: "Submission Failed".to_string(),
-                                            msg: format!("{:?}", e),
-                                            level: "error".to_string(),
-                                        }).await;
+                                        let _ = tx
+                                            .send(crate::plugin::manager::PluginRequest::Notify {
+                                                title: "Submission Failed".to_string(),
+                                                msg: format!("{:?}", e),
+                                                level: "error".to_string(),
+                                            })
+                                            .await;
                                     }
                                 }
                             }
@@ -404,7 +412,8 @@ pub fn handle(
                         dev_results = "Submission request initiated in background... Check status in notifications.".to_string();
                     } else {
                         let plugins_dev_dir = &context.config.settings.plugins_dev_dir;
-                        let target_path = std::path::PathBuf::from(plugins_dev_dir).join(&search_query);
+                        let target_path =
+                            std::path::PathBuf::from(plugins_dev_dir).join(&search_query);
                         let _ = std::fs::create_dir_all(&target_path);
                         if let Ok(current_dir) = std::env::current_dir() {
                             if std::env::set_current_dir(plugins_dev_dir).is_ok() {
@@ -461,11 +470,17 @@ pub fn handle(
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
                                         found_any = true;
-                                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                                        let name = path
+                                            .file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("")
+                                            .to_string();
                                         let manifest_path = path.join("manifest.toml");
                                         let main_path = path.join("main.lua");
-                                        
-                                        report.push_str(&t("plugin_dev_lint_start").replace("{}", &name));
+
+                                        report.push_str(
+                                            &t("plugin_dev_lint_start").replace("{}", &name),
+                                        );
                                         let mut warnings = 0;
                                         if !manifest_path.exists() {
                                             report.push_str(&t("plugin_dev_lint_err_manifest"));
@@ -476,11 +491,22 @@ pub fn handle(
                                             warnings += 1;
                                         }
                                         if manifest_path.exists() && main_path.exists() {
-                                            if let Ok(lua_code) = std::fs::read_to_string(&main_path) {
-                                                let forbidden = ["os.execute", "io.open", "os.system", "dofile", "loadfile"];
+                                            if let Ok(lua_code) =
+                                                std::fs::read_to_string(&main_path)
+                                            {
+                                                let forbidden = [
+                                                    "os.execute",
+                                                    "io.open",
+                                                    "os.system",
+                                                    "dofile",
+                                                    "loadfile",
+                                                ];
                                                 for f in &forbidden {
                                                     if lua_code.contains(f) {
-                                                        report.push_str(&t("plugin_dev_lint_warn_unsafe").replace("{}", f));
+                                                        report.push_str(
+                                                            &t("plugin_dev_lint_warn_unsafe")
+                                                                .replace("{}", f),
+                                                        );
                                                         warnings += 1;
                                                     }
                                                 }
@@ -489,14 +515,22 @@ pub fn handle(
                                         if warnings == 0 {
                                             report.push_str(&t("plugin_dev_lint_ok"));
                                         } else {
-                                            report.push_str(&t("plugin_dev_lint_warn_total").replace("{}", &format!("{}", warnings)));
+                                            report.push_str(
+                                                &t("plugin_dev_lint_warn_total")
+                                                    .replace("{}", &format!("{}", warnings)),
+                                            );
                                         }
-                                        report.push_str("\n────────────────────────────────────────\n\n");
+                                        report.push_str(
+                                            "\n────────────────────────────────────────\n\n",
+                                        );
                                     }
                                 }
                             }
                             if !found_any {
-                                report = format!("No development plugins found in developer directory:\n{:?}", plugins_dev_dir);
+                                report = format!(
+                                    "No development plugins found in developer directory:\n{:?}",
+                                    plugins_dev_dir
+                                );
                             }
                             dev_results = report;
                         }
@@ -509,17 +543,29 @@ pub fn handle(
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
                                         found_any = true;
-                                        let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+                                        let name = path
+                                            .file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("")
+                                            .to_string();
                                         let manifest_path = path.join("manifest.toml");
                                         let main_path = path.join("main.lua");
                                         let lang_path = path.join("lang/en.toml");
-                                        
-                                        report.push_str(&t("plugin_dev_pack_start").replace("{}", &name));
+
+                                        report.push_str(
+                                            &t("plugin_dev_pack_start").replace("{}", &name),
+                                        );
                                         let mut files_hash = std::collections::HashMap::new();
-                                        let files_to_hash = [("manifest.toml", &manifest_path), ("main.lua", &main_path), ("lang/en.toml", &lang_path)];
+                                        let files_to_hash = [
+                                            ("manifest.toml", &manifest_path),
+                                            ("main.lua", &main_path),
+                                            ("lang/en.toml", &lang_path),
+                                        ];
                                         for (rel, p) in &files_to_hash {
                                             if p.exists() {
-                                                if let Ok(hash) = crate::update::downloader::compute_sha256(p) {
+                                                if let Ok(hash) =
+                                                    crate::update::downloader::compute_sha256(p)
+                                                {
                                                     files_hash.insert(rel.to_string(), hash);
                                                 }
                                             }
@@ -530,15 +576,21 @@ pub fn handle(
                                         report.push_str("version = \"0.1.0\"\n");
                                         report.push_str("files = {\n");
                                         for (f, h) in files_hash {
-                                            report.push_str(&format!("    \"{}\" = \"{}\",\n", f, h));
+                                            report
+                                                .push_str(&format!("    \"{}\" = \"{}\",\n", f, h));
                                         }
                                         report.push_str("}\n");
-                                        report.push_str("\n────────────────────────────────────────\n\n");
+                                        report.push_str(
+                                            "\n────────────────────────────────────────\n\n",
+                                        );
                                     }
                                 }
                             }
                             if !found_any {
-                                report = format!("No development plugins found in developer directory:\n{:?}", plugins_dev_dir);
+                                report = format!(
+                                    "No development plugins found in developer directory:\n{:?}",
+                                    plugins_dev_dir
+                                );
                             }
                             dev_results = report;
                         }
@@ -553,31 +605,64 @@ pub fn handle(
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
                                         let manifest_path = path.join("manifest.toml");
-                                        if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                                            if let Ok(manifest) = toml::from_str::<crate::plugin::loader::PluginManifest>(&manifest_content) {
+                                        if let Ok(manifest_content) =
+                                            std::fs::read_to_string(&manifest_path)
+                                        {
+                                            if let Ok(manifest) =
+                                                crate::plugin::loader::PluginManifest::parse(
+                                                    &manifest_content,
+                                                )
+                                            {
                                                 found_any = true;
                                                 let name = manifest.name.clone();
                                                 let version = manifest.version.clone();
                                                 let dest_dir = dest_base.join(&name);
                                                 let _ = std::fs::create_dir_all(&dest_dir);
-                                                
+
                                                 let mut copied_files = Vec::new();
                                                 if let Ok(sub_entries) = std::fs::read_dir(&path) {
-                                                    for sub_entry in sub_entries.filter_map(Result::ok) {
+                                                    for sub_entry in
+                                                        sub_entries.filter_map(Result::ok)
+                                                    {
                                                         let sub_path = sub_entry.path();
                                                         if sub_path.is_file() {
-                                                            if let Some(filename) = sub_path.file_name() {
-                                                                let _ = std::fs::copy(&sub_path, dest_dir.join(filename));
-                                                                copied_files.push(filename.to_string_lossy().into_owned());
+                                                            if let Some(filename) =
+                                                                sub_path.file_name()
+                                                            {
+                                                                let _ = std::fs::copy(
+                                                                    &sub_path,
+                                                                    dest_dir.join(filename),
+                                                                );
+                                                                copied_files.push(
+                                                                    filename
+                                                                        .to_string_lossy()
+                                                                        .into_owned(),
+                                                                );
                                                             }
-                                                        } else if sub_path.is_dir() && sub_path.file_name().map(|n| n == "lang").unwrap_or(false) {
+                                                        } else if sub_path.is_dir()
+                                                            && sub_path
+                                                                .file_name()
+                                                                .map(|n| n == "lang")
+                                                                .unwrap_or(false)
+                                                        {
                                                             let lang_dest = dest_dir.join("lang");
-                                                            let _ = std::fs::create_dir_all(&lang_dest);
-                                                            if let Ok(lang_entries) = std::fs::read_dir(&sub_path) {
-                                                                for le in lang_entries.filter_map(Result::ok) {
+                                                            let _ =
+                                                                std::fs::create_dir_all(&lang_dest);
+                                                            if let Ok(lang_entries) =
+                                                                std::fs::read_dir(&sub_path)
+                                                            {
+                                                                for le in lang_entries
+                                                                    .filter_map(Result::ok)
+                                                                {
                                                                     if le.path().is_file() {
-                                                                        if let Some(fn_lang) = le.path().file_name() {
-                                                                            let _ = std::fs::copy(le.path(), lang_dest.join(fn_lang));
+                                                                        if let Some(fn_lang) =
+                                                                            le.path().file_name()
+                                                                        {
+                                                                            let _ = std::fs::copy(
+                                                                                le.path(),
+                                                                                lang_dest
+                                                                                    .join(fn_lang),
+                                                                            );
                                                                         }
                                                                     }
                                                                 }
@@ -585,26 +670,44 @@ pub fn handle(
                                                         }
                                                     }
                                                 }
-                                                
-                                                let mut files_hash = std::collections::HashMap::new();
+
+                                                let mut files_hash =
+                                                    std::collections::HashMap::new();
                                                 let manifest_dest = dest_dir.join("manifest.toml");
                                                 let main_dest = dest_dir.join("main.lua");
                                                 let lang_dest = dest_dir.join("lang/en.toml");
-                                                if let Ok(h) = crate::update::downloader::compute_sha256(&manifest_dest) {
-                                                    files_hash.insert("manifest.toml".to_string(), h);
+                                                if let Ok(h) =
+                                                    crate::update::downloader::compute_sha256(
+                                                        &manifest_dest,
+                                                    )
+                                                {
+                                                    files_hash
+                                                        .insert("manifest.toml".to_string(), h);
                                                 }
-                                                if let Ok(h) = crate::update::downloader::compute_sha256(&main_dest) {
+                                                if let Ok(h) =
+                                                    crate::update::downloader::compute_sha256(
+                                                        &main_dest,
+                                                    )
+                                                {
                                                     files_hash.insert("main.lua".to_string(), h);
                                                 }
-                                                if let Ok(h) = crate::update::downloader::compute_sha256(&lang_dest) {
-                                                    files_hash.insert("lang/en.toml".to_string(), h);
+                                                if let Ok(h) =
+                                                    crate::update::downloader::compute_sha256(
+                                                        &lang_dest,
+                                                    )
+                                                {
+                                                    files_hash
+                                                        .insert("lang/en.toml".to_string(), h);
                                                 }
-                                                lock.plugins.insert(name.clone(), crate::plugin::updater::PinnedPlugin {
-                                                    version,
-                                                    pinned: false,
-                                                    files: files_hash,
-                                                });
-                                                
+                                                lock.plugins.insert(
+                                                    name.clone(),
+                                                    crate::plugin::updater::PinnedPlugin {
+                                                        version,
+                                                        pinned: false,
+                                                        files: files_hash,
+                                                    },
+                                                );
+
                                                 report.push_str(&format!("✓ Installed '{}' locally (copied {} file(s))\n", name, copied_files.len()));
                                             }
                                         }
@@ -612,7 +715,10 @@ pub fn handle(
                                 }
                             }
                             if !found_any {
-                                report = format!("No development plugins found to install in developer directory:\n{:?}", plugins_dev_dir);
+                                report = format!(
+                                    "No development plugins found to install in developer directory:\n{:?}",
+                                    plugins_dev_dir
+                                );
                             } else {
                                 let _ = crate::plugin::updater::write_lockfile(&lock);
                                 report.push_str("\nLocal plugins synced successfully! Restart Pairee or reload plugins to apply.");

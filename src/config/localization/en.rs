@@ -53,20 +53,34 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_detail_author" => "Author: ",
         "plugin_detail_description" => "Description:",
         "plugin_no_selected" => "No plugin selected.",
-        "plugin_hint_tab0" => " [Tab] Switch Tab  [t] Toggle Trust  [p] Toggle Pin  [u] Update Selected  [U] Update All  [Del/d] Uninstall  [Esc] Close ",
-        "plugin_hint_tab1" => " [Tab] Switch Tab  [/] Edit Query  [Enter] Search  [i] Install Selected  [Esc] Close ",
+        "plugin_hint_tab0" => {
+            " [Tab] Switch Tab  [t] Toggle Trust  [p] Toggle Pin  [u] Update Selected  [U] Update All  [Del/d] Uninstall  [Esc] Close "
+        }
+        "plugin_hint_tab1" => {
+            " [Tab] Switch Tab  [/] Edit Query  [Enter] Search  [i] Install Selected  [Esc] Close "
+        }
         "plugin_hint_tab2" => " [Tab] Switch Tab  [Enter] Run selected tool  [Esc] Close ",
         "plugin_dev_opt_init" => "  1. Initialize new plugin skeleton",
         "plugin_dev_opt_lint" => "  2. Lint selected installed plugin",
         "plugin_dev_opt_package" => "  3. Package selected installed plugin",
         "plugin_dev_opt_submit" => "  5. Submit selected installed plugin",
         "plugin_dev_opt_install" => "  4. Install local development plugin",
-        "plugin_dev_desc_install" => "Copies all folders containing manifest.toml from the configured development path to the local plugins directory for testing.",
+        "plugin_dev_desc_install" => {
+            "Copies all folders containing manifest.toml from the configured development path to the local plugins directory for testing."
+        }
         "menu_install_dev_plugin" => "Install development plugin",
-        "plugin_dev_desc_init" => "Creates a new directory under the user plugins path containing default templates:\n  - manifest.toml (Default author metadata/dependencies)\n  - init.lua (Scripting entry point & Event listeners)\n  - help/en.md (Developer documentation placeholders)",
-        "plugin_dev_desc_lint" => "Performs compliance verification audits on the selected plugin:\n  - Validates formatting and syntax of Lua files\n  - Inspects manifest configurations for missing keys\n  - Audits security rules (ensures no forbidden system modules are used)",
-        "plugin_dev_desc_package" => "Bundles the files of the selected plugin into a package ready for distribution:\n  - Gathers all local files & manuals\n  - Compresses them to a single release zip file\n  - Computes the SHA-256 integrity checksum block",
-        "plugin_dev_desc_submit" => "Publishes the packaged plugin directly to the official registry index:\n  - Validates package signature and metadata keys\n  - Fork and submit pull request to central repository index",
+        "plugin_dev_desc_init" => {
+            "Creates a new directory under the user plugins path containing default templates:\n  - manifest.toml (Default author metadata/dependencies)\n  - init.lua (Scripting entry point & Event listeners)\n  - help/en.md (Developer documentation placeholders)"
+        }
+        "plugin_dev_desc_lint" => {
+            "Performs compliance verification audits on the selected plugin:\n  - Validates formatting and syntax of Lua files\n  - Inspects manifest configurations for missing keys\n  - Audits security rules (ensures no forbidden system modules are used)"
+        }
+        "plugin_dev_desc_package" => {
+            "Bundles the files of the selected plugin into a package ready for distribution:\n  - Gathers all local files & manuals\n  - Compresses them to a single release zip file\n  - Computes the SHA-256 integrity checksum block"
+        }
+        "plugin_dev_desc_submit" => {
+            "Publishes the packaged plugin directly to the official registry index:\n  - Validates package signature and metadata keys\n  - Fork and submit pull request to central repository index"
+        }
         "plugin_toast_update_title" => "Plugin Update",
         "plugin_toast_update_ok" => "Plugin '{}' updated successfully!",
         "plugin_toast_update_err_title" => "Plugin Update Failed",
@@ -81,19 +95,25 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_toast_install_err" => "Failed to install '{}': {:?}",
         "plugin_search_searching" => "  Searching...",
         "plugin_search_no_results" => "  No results found.",
-        "plugin_dev_init_ok" => "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}",
+        "plugin_dev_init_ok" => {
+            "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}"
+        }
         "plugin_dev_init_err" => "Error initializing plugin: {:?}",
         "plugin_dev_lint_start" => "Linting plugin '{}'...\n\n",
         "plugin_dev_lint_err_manifest" => "  [Error] manifest.toml not found!\n",
         "plugin_dev_lint_err_lua" => "  [Error] main.lua not found!\n",
-        "plugin_dev_lint_warn_unsafe" => "  [Warning] Potentially unsafe method call detected: '{}'\n",
+        "plugin_dev_lint_warn_unsafe" => {
+            "  [Warning] Potentially unsafe method call detected: '{}'\n"
+        }
         "plugin_dev_lint_ok" => "\n✓ Lint completed successfully! No issues found.",
         "plugin_dev_lint_warn_total" => "\nLint completed with {} warning(s)/error(s).",
         "plugin_dev_lint_no_plugins" => "Error: No installed plugins found to lint.",
         "plugin_dev_pack_start" => "Packaging plugin '{}'...\n\n",
         "plugin_dev_pack_gen" => "Generated registry entry to append to registry/index.toml:\n\n",
         "plugin_dev_pack_no_plugins" => "Error: No installed plugins found to package.",
-        "plugin_dev_submit_desc" => "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically.",
+        "plugin_dev_submit_desc" => {
+            "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically."
+        }
 
         // Bottom function keys (F1-F10)
         "fkey_help" => "Help",

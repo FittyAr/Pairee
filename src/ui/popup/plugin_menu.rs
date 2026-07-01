@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
-use crate::ui::theme_apply::parse_color;
 use crate::config::localization::t;
+use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,6 +8,41 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph, Wrap},
 };
+
+fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
+    let mut lines = Vec::new();
+    for line in text.lines() {
+        if line.is_empty() {
+            lines.push(String::new());
+            continue;
+        }
+        if line.len() <= max_width {
+            lines.push(line.to_string());
+        } else {
+            let mut current_line = String::new();
+            for word in line.split(' ') {
+                if current_line.is_empty() {
+                    current_line = word.to_string();
+                } else if current_line.len() + 1 + word.len() <= max_width {
+                    current_line.push(' ');
+                    current_line.push_str(word);
+                } else {
+                    lines.push(current_line);
+                    current_line = word.to_string();
+                }
+                while current_line.len() > max_width {
+                    let (head, tail) = current_line.split_at(max_width);
+                    lines.push(head.to_string());
+                    current_line = tail.to_string();
+                }
+            }
+            if !current_line.is_empty() {
+                lines.push(current_line);
+            }
+        }
+    }
+    lines
+}
 
 pub fn render(
     f: &mut Frame,
@@ -32,6 +67,7 @@ pub fn render(
 
         let border_style = Style::default().fg(parse_color(&theme.popup_border));
         let bg_style = Style::default().bg(parse_color(&theme.popup_bg));
+        f.render_widget(Block::default().style(bg_style), area);
         let text_style = Style::default().fg(parse_color(&theme.popup_fg));
         let bold_style = text_style.add_modifier(Modifier::BOLD);
 
@@ -59,25 +95,39 @@ pub fn render(
         };
 
         let tab_area = main_chunks[0];
-        let content_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) { main_chunks[2] } else { main_chunks[1] };
-        let legend_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) { main_chunks[3] } else { main_chunks[2] };
+        let content_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) {
+            main_chunks[2]
+        } else {
+            main_chunks[1]
+        };
+        let legend_area = if *active_tab == 1 || (*active_tab == 2 && *editing_query) {
+            main_chunks[3]
+        } else {
+            main_chunks[2]
+        };
 
         let tab_title_installed = t("plugin_tab_installed");
         let tab_title_search = t("plugin_tab_search");
         let tab_title_dev = t("plugin_tab_dev");
 
         let installed_style = if *active_tab == 0 {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::DarkGray)
         };
         let search_style = if *active_tab == 1 {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::DarkGray)
         };
         let dev_style = if *active_tab == 2 {
-            Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD)
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::DarkGray)
         };
@@ -130,7 +180,11 @@ pub fn render(
             let search_block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(if is_submit { t("plugin_dev_opt_submit") } else { t("plugin_init_title") })
+                .title(if is_submit {
+                    t("plugin_dev_opt_submit")
+                } else {
+                    t("plugin_init_title")
+                })
                 .style(bg_style);
             f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
         }
@@ -147,10 +201,16 @@ pub fn render(
 
         let mut list_items = Vec::new();
         if *active_tab == 0 {
-            for (i, (name, version, pinned, trusted, update_available)) in installed.iter().enumerate() {
+            for (i, (name, version, pinned, trusted, update_available)) in
+                installed.iter().enumerate()
+            {
                 let pin_badge = if *pinned { " [P]" } else { "" };
                 let trust_badge = if *trusted { " [T]" } else { " [U]" };
-                let update_badge = if update_available.is_some() { " [▲]" } else { "" };
+                let update_badge = if update_available.is_some() {
+                    " [▲]"
+                } else {
+                    ""
+                };
 
                 let style = if i == *cursor_idx {
                     Style::default()
@@ -161,19 +221,25 @@ pub fn render(
                     Style::default().fg(parse_color(&theme.popup_fg))
                 };
 
-                list_items.push(ListItem::new(Line::from(vec![
-                    Span::styled(format!("  {} v{}{}{}{}", name, version, pin_badge, trust_badge, update_badge), style),
-                ])));
+                list_items.push(ListItem::new(Line::from(vec![Span::styled(
+                    format!(
+                        "  {} v{}{}{}{}",
+                        name, version, pin_badge, trust_badge, update_badge
+                    ),
+                    style,
+                )])));
             }
         } else if *active_tab == 1 {
             if *is_searching {
-                list_items.push(ListItem::new(Line::from(vec![
-                    Span::styled(t("plugin_search_searching"), Style::default().fg(Color::Yellow)),
-                ])));
+                list_items.push(ListItem::new(Line::from(vec![Span::styled(
+                    t("plugin_search_searching"),
+                    Style::default().fg(Color::Yellow),
+                )])));
             } else if registry.is_empty() {
-                list_items.push(ListItem::new(Line::from(vec![
-                    Span::styled(t("plugin_search_no_results"), Style::default().fg(Color::DarkGray)),
-                ])));
+                list_items.push(ListItem::new(Line::from(vec![Span::styled(
+                    t("plugin_search_no_results"),
+                    Style::default().fg(Color::DarkGray),
+                )])));
             } else {
                 for (i, (name, version, _, author)) in registry.iter().enumerate() {
                     let style = if i == *cursor_idx {
@@ -184,9 +250,10 @@ pub fn render(
                     } else {
                         Style::default().fg(parse_color(&theme.popup_fg))
                     };
-                    list_items.push(ListItem::new(Line::from(vec![
-                        Span::styled(format!("  {} v{} by {}", name, version, author), style),
-                    ])));
+                    list_items.push(ListItem::new(Line::from(vec![Span::styled(
+                        format!("  {} v{} by {}", name, version, author),
+                        style,
+                    )])));
                 }
             }
         } else {
@@ -207,16 +274,18 @@ pub fn render(
                 } else {
                     Style::default().fg(parse_color(&theme.popup_fg))
                 };
-                list_items.push(ListItem::new(Line::from(vec![
-                    Span::styled(opt, style),
-                ])));
+                list_items.push(ListItem::new(Line::from(vec![Span::styled(opt, style)])));
             }
         }
 
         let list_block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(if *active_tab == 2 { t("plugin_tools_title") } else { t("plugin_title") })
+            .title(if *active_tab == 2 {
+                t("plugin_tools_title")
+            } else {
+                t("plugin_title")
+            })
             .style(bg_style);
         let list = List::new(list_items).block(list_block);
         f.render_widget(list, list_area);
@@ -224,7 +293,11 @@ pub fn render(
         let detail_block = Block::default()
             .borders(Borders::ALL)
             .border_style(border_style)
-            .title(if *active_tab == 2 { t("plugin_action_console") } else { t("plugin_details") })
+            .title(if *active_tab == 2 {
+                t("plugin_action_console")
+            } else {
+                t("plugin_details")
+            })
             .style(bg_style);
 
         let mut detail_lines = Vec::new();
@@ -234,7 +307,9 @@ pub fn render(
         let desc_install = t("plugin_dev_desc_install");
         let desc_submit = t("plugin_dev_desc_submit");
         if *active_tab == 0 && !installed.is_empty() {
-            if let Some((name, version, pinned, trusted, update_available)) = installed.get(*cursor_idx) {
+            if let Some((name, version, pinned, trusted, update_available)) =
+                installed.get(*cursor_idx)
+            {
                 detail_lines.push(Line::from(vec![
                     Span::styled(t("plugin_detail_name"), bold_style),
                     Span::styled(name.clone(), text_style),
@@ -245,16 +320,36 @@ pub fn render(
                 ]));
                 detail_lines.push(Line::from(vec![
                     Span::styled(t("plugin_detail_trust"), bold_style),
-                    Span::styled(if *trusted { t("plugin_detail_trusted_desc") } else { t("plugin_detail_untrusted_desc") }, text_style),
+                    Span::styled(
+                        if *trusted {
+                            t("plugin_detail_trusted_desc")
+                        } else {
+                            t("plugin_detail_untrusted_desc")
+                        },
+                        text_style,
+                    ),
                 ]));
                 detail_lines.push(Line::from(vec![
                     Span::styled(t("plugin_detail_pinned"), bold_style),
-                    Span::styled(if *pinned { t("plugin_detail_pinned_yes") } else { t("plugin_detail_pinned_no") }, text_style),
+                    Span::styled(
+                        if *pinned {
+                            t("plugin_detail_pinned_yes")
+                        } else {
+                            t("plugin_detail_pinned_no")
+                        },
+                        text_style,
+                    ),
                 ]));
                 if let Some(new_ver) = update_available {
                     detail_lines.push(Line::from(vec![
-                        Span::styled(t("plugin_detail_update_avail"), bold_style.fg(Color::Yellow)),
-                        Span::styled(format!("v{}{}", new_ver, t("plugin_detail_press_update")), text_style.fg(Color::Yellow)),
+                        Span::styled(
+                            t("plugin_detail_update_avail"),
+                            bold_style.fg(Color::Yellow),
+                        ),
+                        Span::styled(
+                            format!("v{}{}", new_ver, t("plugin_detail_press_update")),
+                            text_style.fg(Color::Yellow),
+                        ),
                     ]));
                 } else {
                     detail_lines.push(Line::from(vec![
@@ -278,44 +373,34 @@ pub fn render(
                     Span::styled(author.clone(), text_style),
                 ]));
                 detail_lines.push(Line::from(""));
-                detail_lines.push(Line::from(Span::styled(t("plugin_detail_description"), bold_style)));
-                detail_lines.push(Line::from(Span::styled(desc.clone(), text_style)));
+                detail_lines.push(Line::from(Span::styled(
+                    t("plugin_detail_description"),
+                    bold_style,
+                )));
+                let max_width = (detail_area.width as usize).saturating_sub(2);
+                for line in wrap_text(desc, max_width) {
+                    detail_lines.push(Line::from(Span::styled(line, text_style)));
+                }
             }
         } else if *active_tab == 2 {
+            let max_width = (detail_area.width as usize).saturating_sub(2);
             if !dev_results.is_empty() {
                 // If we have console outputs from the developer tool execution, show them!
-                for line in dev_results.lines() {
+                for line in wrap_text(dev_results, max_width) {
                     detail_lines.push(Line::from(Span::styled(line, text_style)));
                 }
             } else {
                 // Render descriptive hints on what the options do
-                match *cursor_idx {
-                    0 => {
-                        for line in desc_init.lines() {
-                            detail_lines.push(Line::from(Span::styled(line, text_style)));
-                        }
-                    }
-                    1 => {
-                        for line in desc_lint.lines() {
-                            detail_lines.push(Line::from(Span::styled(line, text_style)));
-                        }
-                    }
-                    2 => {
-                        for line in desc_package.lines() {
-                            detail_lines.push(Line::from(Span::styled(line, text_style)));
-                        }
-                    }
-                    3 => {
-                        for line in desc_install.lines() {
-                            detail_lines.push(Line::from(Span::styled(line, text_style)));
-                        }
-                    }
-                    4 => {
-                        for line in desc_submit.lines() {
-                            detail_lines.push(Line::from(Span::styled(line, text_style)));
-                        }
-                    }
-                    _ => {}
+                let hint = match *cursor_idx {
+                    0 => desc_init,
+                    1 => desc_lint,
+                    2 => desc_package,
+                    3 => desc_install,
+                    4 => desc_submit,
+                    _ => String::new(),
+                };
+                for line in wrap_text(&hint, max_width) {
+                    detail_lines.push(Line::from(Span::styled(line, text_style)));
                 }
             }
         } else {

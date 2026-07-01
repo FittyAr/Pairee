@@ -2,7 +2,10 @@ use super::types::MenuItemData;
 use crate::config::localization::t;
 use crate::keybindings::{Action, KeybindingResolver};
 
-pub fn get_items(resolver: &KeybindingResolver, settings: &crate::config::settings::Settings) -> Vec<MenuItemData> {
+pub fn get_items(
+    resolver: &KeybindingResolver,
+    settings: &crate::config::settings::Settings,
+) -> Vec<MenuItemData> {
     let shortcut_for = |action: Action, fallback: &str| -> String {
         resolver
             .key_for_action(action)

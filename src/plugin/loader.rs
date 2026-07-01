@@ -19,6 +19,19 @@ pub struct PluginManifest {
     pub settings_schema: Option<HashMap<String, toml::Value>>,
 }
 
+impl PluginManifest {
+    pub fn parse(content: &str) -> anyhow::Result<Self> {
+        let mut table: toml::Table = toml::from_str(content)?;
+        if let Some(toml::Value::Table(plugin_table)) = table.remove("plugin") {
+            for (k, v) in plugin_table {
+                table.insert(k, v);
+            }
+        }
+        let manifest: Self = toml::Value::Table(table).try_into()?;
+        Ok(manifest)
+    }
+}
+
 pub async fn load_plugin(
     name: &str,
     path: &Path,
@@ -31,7 +44,7 @@ pub async fn load_plugin(
         anyhow::bail!("manifest.toml not found for plugin {}", name);
     }
     let manifest_content = std::fs::read_to_string(&manifest_path)?;
-    let manifest: PluginManifest = toml::from_str(&manifest_content)?;
+    let manifest = PluginManifest::parse(&manifest_content)?;
 
     // 2. Validate version compatibility
     if let Some(ref min_version) = manifest.min_pairee {
@@ -107,5 +120,45 @@ fn check_version_compatibility(min_version: &str) -> anyhow::Result<()> {
     } else {
         // Fallback to allow if parsing fails
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_manifest_flat() {
+        let content = r#"
+            name = "test_plugin"
+            version = "0.1.0"
+            description = "A flat manifest"
+        "#;
+        let manifest = PluginManifest::parse(content).unwrap();
+        assert_eq!(manifest.name, "test_plugin");
+        assert_eq!(manifest.version, "0.1.0");
+        assert_eq!(manifest.description.as_deref(), Some("A flat manifest"));
+    }
+
+    #[test]
+    fn test_parse_manifest_nested() {
+        let content = r#"
+            [plugin]
+            name = "test_plugin"
+            version = "0.1.0"
+            description = "A nested manifest"
+
+            [keybindings]
+            "ctrl-p" = "my_custom_action"
+        "#;
+        let manifest = PluginManifest::parse(content).unwrap();
+        assert_eq!(manifest.name, "test_plugin");
+        assert_eq!(manifest.version, "0.1.0");
+        assert_eq!(manifest.description.as_deref(), Some("A nested manifest"));
+        let kbs = manifest.keybindings.unwrap();
+        assert_eq!(
+            kbs.get("ctrl-p").map(|s| s.as_str()),
+            Some("my_custom_action")
+        );
     }
 }

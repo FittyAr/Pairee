@@ -67,51 +67,7 @@ pub fn lint() -> anyhow::Result<()> {
 
     // Parse under [plugin] section or top-level depending on format
     // Let's allow parsing easily
-    let manifest: crate::plugin::loader::PluginManifest = if content.contains("[plugin]") {
-        let raw: toml::Table = toml::from_str(&content)?;
-        let plugin_sec = raw
-            .get("plugin")
-            .and_then(|v| v.as_table())
-            .ok_or_else(|| anyhow::anyhow!("Missing [plugin] section in manifest.toml"))?;
-        let name = plugin_sec
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let version = plugin_sec
-            .get("version")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let description = plugin_sec
-            .get("description")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let author = plugin_sec
-            .get("author")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let min_pairee = plugin_sec
-            .get("min_pairee")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let requires_trust = plugin_sec.get("requires_trust").and_then(|v| v.as_bool());
-        crate::plugin::loader::PluginManifest {
-            name,
-            version,
-            description,
-            author,
-            license: None,
-            min_pairee,
-            requires_trust,
-            default_language: None,
-            languages: None,
-            keybindings: None,
-            settings_schema: None,
-        }
-    } else {
-        toml::from_str(&content)?
-    };
+    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
     println!("Linting plugin '{}'...", manifest.name);
 
@@ -152,51 +108,7 @@ pub fn package() -> anyhow::Result<()> {
     }
     let content = std::fs::read_to_string(&manifest_path)?;
 
-    let manifest: crate::plugin::loader::PluginManifest = if content.contains("[plugin]") {
-        let raw: toml::Table = toml::from_str(&content)?;
-        let plugin_sec = raw
-            .get("plugin")
-            .and_then(|v| v.as_table())
-            .ok_or_else(|| anyhow::anyhow!("Missing [plugin] section in manifest.toml"))?;
-        let name = plugin_sec
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let version = plugin_sec
-            .get("version")
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let description = plugin_sec
-            .get("description")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let author = plugin_sec
-            .get("author")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let min_pairee = plugin_sec
-            .get("min_pairee")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let requires_trust = plugin_sec.get("requires_trust").and_then(|v| v.as_bool());
-        crate::plugin::loader::PluginManifest {
-            name,
-            version,
-            description,
-            author,
-            license: None,
-            min_pairee,
-            requires_trust,
-            default_language: None,
-            languages: None,
-            keybindings: None,
-            settings_schema: None,
-        }
-    } else {
-        toml::from_str(&content)?
-    };
+    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
     println!("Packaging plugin '{}'...", manifest.name);
 

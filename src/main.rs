@@ -104,7 +104,11 @@ async fn main() -> Result<()> {
                         return Ok(());
                     }
                     "update" => {
-                        let name = if args.len() > 3 { Some(args[3].as_str()) } else { None };
+                        let name = if args.len() > 3 {
+                            Some(args[3].as_str())
+                        } else {
+                            None
+                        };
                         plugin::updater::update(name).await?;
                         return Ok(());
                     }

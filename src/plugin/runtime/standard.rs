@@ -49,8 +49,7 @@ fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -
 
     if manifest_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-            if let Ok(manifest) = toml::from_str::<crate::plugin::loader::PluginManifest>(&content)
-            {
+            if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content) {
                 plugin_name = manifest.name.clone();
                 if let Some(schema) = manifest.settings_schema {
                     for (k, v) in schema {
@@ -117,8 +116,7 @@ fn bind_translations(
 
     if manifest_path.exists() {
         if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-            if let Ok(manifest) = toml::from_str::<crate::plugin::loader::PluginManifest>(&content)
-            {
+            if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content) {
                 if let Some(ref dl) = manifest.default_language {
                     default_lang = dl.clone();
                 }
