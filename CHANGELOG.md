@@ -15,6 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- Parametrized `icon` and `screenshots` in the plugin manifest (`manifest.toml`) with validator size and dimension checks (`512x512` or `256x256` pixels for icons, minimum `640x480` pixels for screenshots).
+- Default manifest templates updated to include `icon` and `screenshots` variables with helpful instructions.
 - A step-by-step interactive assistant wizard (both in TUI and CLI) when initializing new plugin skeletons, prompting for the plugin's name, description, and author.
 - Mandatory submission validation checks enforcing the presence of an `icon.png` file (recommended size 512x512 or 256x256 pixels) and a `screenshots/` directory containing at least one image file (PNG/JPG/JPEG) to allow publishing.
 - Updated developer guides (English and Spanish) to document the mandatory icon and screenshot publishing requirements.
@@ -37,6 +39,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
+- Replaced hardcoded help files documentation layout with dynamic locale directory scanning (e.g. `help/en/`, `help/es/`) and auto-detection, utilizing translated metadata keys in localizations.
 - Resolves active language code for plugin help documentation files dynamically to match the program's running locale.
 - Dynamically resolve active language codes for plugins based on the application's loaded language configuration.
 - Localized all developer console output messages inside `src/plugin/developer_tool.rs`.

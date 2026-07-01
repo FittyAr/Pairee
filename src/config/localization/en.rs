@@ -108,6 +108,14 @@ requires_trust = false
 default_language = "en"
 languages = ["en"]
 
+# Path to the plugin icon (PNG format, mandatory size: 256x256 or 512x512 pixels for publishing)
+icon = "icon.png"
+
+# Paths to the screenshots showing the plugin in action (mandatory for publishing, minimum 640x480 pixels)
+screenshots = [
+    "screenshots/screenshot1.png"
+]
+
 [keybindings]
 # "ctrl-p" = "my_custom_action"
 
@@ -213,6 +221,12 @@ file_path = "Previsualizando archivo: {path}"
         "plugin_dev_publish_no_icon" => "Error: icon.png not found in the plugin root. An icon in PNG format (recommended sizes: 512x512 or 256x256 pixels) is required to publish.",
         "plugin_dev_publish_no_screenshots_dir" => "Error: screenshots/ directory not found. You must include a screenshots/ directory with at least one screenshot to publish.",
         "plugin_dev_publish_no_screenshots" => "Error: screenshots/ directory does not contain any screenshots. You must include at least one screenshot (PNG/JPG/JPEG) to publish.",
+        "help_title_configuration_details" => "Configuration Settings",
+        "help_title_features" => "Features Reference",
+        "help_title_git_integration" => "Git Integration",
+        "help_title_keyboard_shortcuts" => "Keyboard Shortcuts",
+        "help_title_ssh_sftp" => "SSH & SFTP Remote Connections",
+        "help_title_user_guide" => "User Guide",
 
         // Bottom function keys (F1-F10)
         "fkey_help" => "Help",

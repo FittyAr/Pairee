@@ -15,6 +15,8 @@ pub struct PluginManifest {
     pub requires_trust: Option<bool>,
     pub default_language: Option<String>,
     pub languages: Option<Vec<String>>,
+    pub icon: Option<String>,
+    pub screenshots: Option<Vec<String>>,
     pub keybindings: Option<HashMap<String, String>>,
     pub settings_schema: Option<HashMap<String, toml::Value>>,
 }
