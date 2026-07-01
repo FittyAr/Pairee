@@ -54,6 +54,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Fixed terminal stdout corruption and screen distortion when initializing a plugin skeleton in the Developer Tools tab by preventing print statements from executing in TUI mode.
 - Fixed manifest.toml deserialization to support both flat formats and nested `[plugin]` table formats, resolving installation failure for initialized plugins.
 - Fixed text wrapping and border overflow issues in the Plugins Manager console details panel, and ensured the popup area is fully cleared on redraw.
 - Extracted and localized default plugin boilerplate template files, showcasing how to use `pairee.t` localization and lang files inside initialized plugins.

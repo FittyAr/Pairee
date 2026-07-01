@@ -422,7 +422,7 @@ pub fn handle(
                         let _ = std::fs::create_dir_all(&target_path);
                         if let Ok(current_dir) = std::env::current_dir() {
                             if std::env::set_current_dir(plugins_dev_dir).is_ok() {
-                                match crate::plugin::developer_tool::init(&folder_name) {
+                                match crate::plugin::developer_tool::init(&folder_name, false) {
                                     Ok(_) => {
                                         let name_without_suffix = folder_name
                                             .strip_suffix(".pairee")

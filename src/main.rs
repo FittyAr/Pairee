@@ -129,7 +129,7 @@ async fn main() -> Result<()> {
                 match args[2].as_str() {
                     "init" => {
                         if args.len() > 3 {
-                            plugin::developer_tool::init(&args[3])?;
+                            plugin::developer_tool::init(&args[3], true)?;
                         } else {
                             println!("Error: init requires a plugin name");
                         }

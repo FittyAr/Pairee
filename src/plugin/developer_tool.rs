@@ -1,7 +1,7 @@
 use crate::config::localization::t;
 use std::collections::HashMap;
 
-pub fn init(name: &str) -> anyhow::Result<()> {
+pub fn init(name: &str, print_output: bool) -> anyhow::Result<()> {
     let folder_name = if name.ends_with(".pairee") {
         name.to_string()
     } else {
@@ -35,10 +35,12 @@ pub fn init(name: &str) -> anyhow::Result<()> {
         }
     }
 
-    let ok_msg = t("plugin_dev_init_ok")
-        .replace("{}", &manifest_name)
-        .replace("{:?}", &format!("{:?}", path));
-    println!("{}", ok_msg);
+    if print_output {
+        let ok_msg = t("plugin_dev_init_ok")
+            .replace("{}", &manifest_name)
+            .replace("{:?}", &format!("{:?}", path));
+        println!("{}", ok_msg);
+    }
     Ok(())
 }
 
