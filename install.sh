@@ -252,6 +252,8 @@ chmod +x "$INSTALL_DIR/pairee"
 # Copy translations, help markdown and docs
 if [ -d "${PKG_FOLDER}/lang" ]; then
     cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
+    # Clean up legacy JSON translation files
+    rm -f "$CONFIG_DIR/lang/"*.json
 fi
 if [ -d "${PKG_FOLDER}/help" ]; then
     cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"

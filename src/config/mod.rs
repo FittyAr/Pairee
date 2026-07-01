@@ -29,6 +29,19 @@ impl AppConfig {
         let config_dir = paths::get_config_dir();
         if !config_dir.exists() {
             fs::create_dir_all(&config_dir).context("Failed to create configuration directory")?;
+        } else {
+            // Clean up legacy JSON translation files from previous versions
+            let lang_dir = config_dir.join("lang");
+            if lang_dir.exists() {
+                if let Ok(entries) = fs::read_dir(&lang_dir) {
+                    for entry in entries.filter_map(Result::ok) {
+                        let path = entry.path();
+                        if path.extension().map_or(false, |ext| ext == "json") {
+                            let _ = fs::remove_file(path);
+                        }
+                    }
+                }
+            }
         }
 
         let cache_dir = paths::get_cache_dir();

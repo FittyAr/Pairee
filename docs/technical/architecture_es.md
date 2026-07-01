@@ -110,8 +110,8 @@ sequenceDiagram
 ## 🌐 4. Motor de Localización Centralizado
 
 La traducción de la interfaz de usuario se implementa de manera estructurada para evitar la duplicación de literales y facilitar la traducción a nuevos idiomas.
-* **Textos en Inglés por Defecto:** Todas las cadenas de texto nativas están centralizadas en `src/config/localization/en.rs` mediante la función `get_default_english_translation(key)`.
-* **Archivos Externos:** Los idiomas adicionales se leen de forma dinámica desde ficheros JSON de traducción (por ejemplo, `lang/es.json`) en el arranque.
+* **Textos en Inglés por Defecto:** Todas las cadenas de texto nativas están centralizadas en el recurso embebido [en.toml](file:///d:/GitHub/NCRust/lang/en.toml) y se resuelven a través de la función `get_default_english_translation(key)`.
+* **Archivos Externos y Embebidos:** Los idiomas adicionales (como el Español) se embeben en el binario ([es.toml](file:///d:/GitHub/NCRust/lang/es.toml)) para dar soporte portable, y se pueden sobrescribir dinámicamente desde ficheros TOML de traducción externos en la carpeta `lang/` en el arranque.
 * **Acceso Simple:** Los componentes visuales de la aplicación obtienen las traducciones llamando a la macro o función `t("clave_de_traduccion")`. Si una traducción no se encuentra en el archivo cargado, se utiliza la cadena inglesa como alternativa por defecto.
 
 ---

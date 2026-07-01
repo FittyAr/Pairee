@@ -157,7 +157,7 @@ Specifies which operations require an explicit warning dialog before proceeding.
 ## 📂 Tab 4: Language & Plugins Settings
 
 ### Language
-* **Main language:** Selects the active translations database (detects JSON files in the `/lang` directory).
+* **Main language:** Selects the active translations database (detects TOML files in the `/lang` directory).
 
 ### Plugins Configuration
 * **Soporte de plugins OEM (OEM plugin support):**

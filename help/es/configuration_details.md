@@ -157,7 +157,7 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 ## 📂 Pestaña 4: Ajustes de Idioma y Plugins
 
 ### Idioma
-* **Main language (Idioma principal):** Permite cambiar el archivo de traducción activo leyendo las configuraciones `.json` de la carpeta `/lang`.
+* **Main language (Idioma principal):** Permite cambiar el archivo de traducción activo leyendo las configuraciones `.toml` de la carpeta `/lang`.
 
 ### Plugins
 * **Soporte de plugins OEM (OEM plugin support):**

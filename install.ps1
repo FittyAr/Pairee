@@ -241,6 +241,8 @@ Copy-Item -Path $binSrc -Destination $installDir -Force
 # Copy resources
 if (Test-Path (Join-Path $extractedFolder "lang")) {
     Copy-Item -Path (Join-Path $extractedFolder "lang\*") -Destination (Join-Path $configDir "lang") -Force -Recurse
+    # Clean up legacy JSON translation files
+    Remove-Item -Path (Join-Path $configDir "lang\*.json") -Force -ErrorAction SilentlyContinue
 }
 if (Test-Path (Join-Path $extractedFolder "help")) {
     Copy-Item -Path (Join-Path $extractedFolder "help\*") -Destination (Join-Path $configDir "help") -Force -Recurse

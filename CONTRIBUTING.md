@@ -55,7 +55,7 @@ Before submitting code, you must ensure that formatting and lints pass:
 Our code architecture values modularity and clean decoupling. All modifications must comply with the guidelines defined in [.agents/AGENTS.md](file:///.agents/AGENTS.md):
 
 - **Single Responsibility Principle (SRP)**: Each source file must do one, well-defined task. No monolithic "god files" are allowed.
-- **Zero Hardcoding**: Do not hardcode strings, key names, default paths, or styles. Use translations in `src/config/localization/en.rs` or `lang/es.json`, settings in TOML, and themes.
+- **Zero Hardcoding**: Do not hardcode strings, key names, default paths, or styles. Use translations in `lang/en.toml` or `lang/es.toml`, settings in TOML, and themes.
 - **Decoupled State**: UI rendering components (`ratatui`) must be decoupled from the core filesystem layer and event loop.
 - **Strict dead-code policy**: Do not use `#[allow(dead_code)]` or `#[allow(unused)]` to bypass compiler warnings. Implement or delete unused code.
 

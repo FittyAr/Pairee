@@ -109,8 +109,8 @@ sequenceDiagram
 ## 🌐 4. Centralized Localization & Translations
 
 Translations are handled systematically to prevent code redundancy and hardcoded UI string issues.
-* **English Strings:** All default English UI text labels are defined centrally in `src/config/localization/en.rs` using `get_default_english_translation(key)`.
-* **External Translations:** Non-English languages are loaded dynamically from JSON profiles (e.g., `lang/es.json`) located in the application runtime directory.
+* **English Strings:** All default English UI text labels are defined centrally in the embedded [en.toml](file:///d:/GitHub/NCRust/lang/en.toml) file, resolved via `get_default_english_translation(key)`.
+* **External & Embedded Translations:** Non-English languages (like Spanish) are compiled directly into the binary ([es.toml](file:///d:/GitHub/NCRust/lang/es.toml)) for portability, and can be overridden dynamically by external TOML files in the `lang/` directory at startup.
 * **Translation Helper:** Code files utilize `t("translation_key")` to resolve messages. If a localized file is missing, the engine falls back to default English definitions.
 
 ---
