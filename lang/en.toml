@@ -1,0 +1,13 @@
+[my_custom_action]
+title = "My Custom Action"
+description = "Executes my custom action"
+
+[setup]
+welcome = "Hello from my new plugin!"
+
+[command]
+title = "My Plugin"
+executed = "Executed command with {count} args"
+
+[preview]
+file_path = "Previewing file: {path}"

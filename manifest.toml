@@ -1,0 +1,23 @@
+[plugin]
+name = "PLUGIN_NAME"
+version = "0.1.0"
+description = "PLUGIN_DESCRIPTION"
+author = "PLUGIN_AUTHOR"
+min_pairee = "0.6.1"
+requires_trust = false
+default_language = "en"
+languages = ["en"]
+
+# Path to the plugin icon (PNG format, mandatory size: 256x256 or 512x512 pixels for publishing)
+icon = "icon.png"
+
+# Paths to the screenshots showing the plugin in action (mandatory for publishing, minimum 640x480 pixels)
+screenshots = [
+    "screenshots/screenshot1.png"
+]
+
+[keybindings]
+# "ctrl-p" = "my_custom_action"
+
+[settings_schema]
+# enabled = { type = "boolean", default = true, description = "Enable features" }
