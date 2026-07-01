@@ -141,8 +141,19 @@ Permite buscar e instalar nuevos complementos desde el repositorio central ofici
 ---
 
 ### 4.2 Desarrolladores de Plugins
-Si deseas escribir tus propios complementos, auditar la arquitectura de seguridad o colaborar con el registro oficial, te invitamos a consultar la documentación completa para desarrolladores en nuestro repositorio de GitHub:
+Si deseas escribir tus propios complementos, auditar la arquitectura de seguridad o colaborar con el registro oficial, te invitamos a habilitar el **Modo Desarrollador** en el panel de Configuración (F9 -> Pestaña 4: Idioma y Plugins). Esto activará la tercera pestaña (**Herramientas de Desarrollo / Developer Tools**) en el Gestor de Plugins (F11) y te permitirá configurar tu propio directorio de desarrollo personalizado.
 
+#### Herramientas de Desarrollo Disponibles (F11 - Pestaña 3):
+1. **Inicializar plantilla:** Crea un esqueleto de plugin en tu directorio de desarrollo con los archivos mínimos necesarios (`manifest.toml`, `main.lua` y traducciones en `lang/en.toml`).
+2. **Verificar (Lint):** Escanea tu carpeta de desarrollo y realiza auditorías de seguridad e integridad sobre los archivos Lua y de manifiesto. Detecta llamadas a funciones potencialmente peligrosas (como ejecución de subprocesos externos u operaciones de red no declaradas).
+3. **Empaquetar:** Escanea tu carpeta de desarrollo y genera automáticamente los bloques de metadatos con los hashes SHA-256 de los archivos para incluirlos en el índice del registro.
+4. **Instalar plugin local en desarrollo:** Copia de inmediato tus plugins en desarrollo a la carpeta de ejecución local de Pairee y los registra en el archivo `plugins.lock`. Esto hace que aparezcan al instante en tu lista de "Plugins Instalados" (Pestaña 1) para que puedas probar sus funciones directamente en la interfaz.
+5. **Enviar plugin (GitHub PR):** Ejecuta el asistente interactivo para subir tu plugin al repositorio central de Pairee.
+   - **¿Para qué sirve el Token de Acceso Personal de GitHub (PAT)?**
+     Para automatizar la subida, Pairee necesita interactuar con la API de GitHub en tu nombre. El Token de Acceso Personal sirve como credencial segura para autenticarte. Permite al programa realizar un fork del repositorio central oficial (`FittyAr/Pairee`), subir tu plugin empaquetado a una nueva rama y abrir una solicitud de extracción (Pull Request) de forma transparente.
+   - **Nota sobre Seguridad:** El token nunca se almacena en el disco ni en variables de entorno persistentes; solo se utiliza de forma transitoria en memoria durante la transacción de red.
+
+Para obtener guías técnicas en profundidad:
 * 📚 [**Guía de Desarrollo de Plugins en GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)
 * 🛠️ [**Diseño Técnico de la Arquitectura de Plugins**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-system-design.md)
 * 📂 [**Especificación del Registro Central de Distribución**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-registry-spec.md)

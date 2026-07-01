@@ -141,8 +141,19 @@ Search and install new plugins directly from the official online Pairee registry
 ---
 
 ### 4.2 Plugin Developers
-If you want to write your own custom plugins, review security rules, or contribute to the official repository index, check out the documentation on GitHub:
+If you wish to write your own custom plugins, review safety rules, or submit to the official repository index, we invite you to enable **Developer Mode** in the Configuration panel (F9 -> Tab 4: Language & Plugins). This will activate a third tab (**Developer Tools**) in the Plugins Manager (F11) and let you specify a custom plugins development path (`plugins_dev_dir`).
 
+#### Available Developer Tools (F11 - Tab 2):
+1. **Initialize boilerplate:** Generates a new plugin skeleton under your development directory containing baseline files (`manifest.toml`, `main.lua` and translations under `lang/en.toml`).
+2. **Audit (Lint):** Scans your configured development path and runs validation/security audits on manifest parameters and Lua syntax, checking for unsafe imports or undocumented operations.
+3. **Package:** Scans your development folder and generates versioned TOML registry entries containing computed SHA-256 integrity hashes for each source file.
+4. **Install local development plugin:** Copies all active development plugins (or the one highlighted) directly into Pairee's runtime directory and registers them in the lockfile (`plugins.lock`). This makes them appear instantly in the "Installed Plugins" list (Tab 0) so you can execute and test them locally.
+5. **Submit plugin (GitHub PR):** Runs the automated upload wizard to submit your plugin to the central Pairee index.
+   - **Why is a GitHub Personal Access Token (PAT) required?**
+     To automate submissions, Pairee interacts with GitHub APIs on your behalf. The PAT acts as a secure credential. It allows the program to create a fork of the central repository (`FittyAr/Pairee`) under your GitHub profile, push your packaged metadata to a new branch, and open a Pull Request automatically.
+   - **Security Note:** The token is never stored on disk or environment variables; it is only held in temporary memory during the PR transaction.
+
+For technical deep-dives:
 * 📚 [**Plugin Developer Guide on GitHub**](https://github.com/FittyAr/Pairee/blob/master/docs/plugin-dev-guide.md)
 * 🛠️ [**Plugin System Architecture & Technical Specifications**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-system-design.md)
 * 📂 [**Registry Distribution Specification**](https://github.com/FittyAr/Pairee/blob/master/docs/technical/plugin-registry-spec.md)
