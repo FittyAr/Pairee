@@ -11,6 +11,7 @@ pub struct LanguageFile {
 }
 
 static CURRENT_TRANSLATIONS: OnceLock<RwLock<HashMap<String, String>>> = OnceLock::new();
+static CURRENT_LANGUAGE_CODE: OnceLock<RwLock<String>> = OnceLock::new();
 
 /// Discovers all JSON language files in both the configuration directory and the local project root,
 /// including the built-in "English" option.
@@ -111,6 +112,7 @@ pub fn get_default_english_translation(key: &str) -> String {
 /// Loads a language by its full name into the global active translation map.
 /// Falls back to empty map (so t() falls back to English) if not found or if English is requested.
 pub fn load_language(language_name: &str) {
+    let mut code = "en".to_string();
     if language_name == "English" {
         if let Some(lock) = CURRENT_TRANSLATIONS.get() {
             if let Ok(mut writer) = lock.write() {
@@ -119,38 +121,71 @@ pub fn load_language(language_name: &str) {
         } else {
             let _ = CURRENT_TRANSLATIONS.set(RwLock::new(HashMap::new()));
         }
-        return;
-    }
+    } else {
+        let langs = discover_languages();
 
-    let langs = discover_languages();
+        // Find the file path for the given language name
+        let path_opt = langs
+            .iter()
+            .find(|(name, _)| name == language_name)
+            .map(|(_, path)| path.clone());
 
-    // Find the file path for the given language name
-    let path_opt = langs
-        .iter()
-        .find(|(name, _)| name == language_name)
-        .map(|(_, path)| path.clone());
-
-    let translations = if let Some(path) = path_opt {
-        if let Ok(content) = fs::read_to_string(&path) {
-            if let Ok(lang_file) = serde_json::from_str::<LanguageFile>(&content) {
-                lang_file.translations
+        let translations = if let Some(path) = path_opt {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                code = stem.to_lowercase();
+            }
+            if let Ok(content) = fs::read_to_string(&path) {
+                if let Ok(lang_file) = serde_json::from_str::<LanguageFile>(&content) {
+                    lang_file.translations
+                } else {
+                    HashMap::new()
+                }
             } else {
                 HashMap::new()
             }
         } else {
             HashMap::new()
-        }
-    } else {
-        HashMap::new()
-    };
+        };
 
-    if let Some(lock) = CURRENT_TRANSLATIONS.get() {
+        if let Some(lock) = CURRENT_TRANSLATIONS.get() {
+            if let Ok(mut writer) = lock.write() {
+                *writer = translations;
+            }
+        } else {
+            let _ = CURRENT_TRANSLATIONS.set(RwLock::new(translations));
+        }
+    }
+
+    if let Some(lock) = CURRENT_LANGUAGE_CODE.get() {
         if let Ok(mut writer) = lock.write() {
-            *writer = translations;
+            *writer = code;
         }
     } else {
-        let _ = CURRENT_TRANSLATIONS.set(RwLock::new(translations));
+        let _ = CURRENT_LANGUAGE_CODE.set(RwLock::new(code));
     }
+}
+
+/// Returns the active language code (e.g. "en", "es").
+pub fn get_active_language_code() -> String {
+    if let Some(lock) = CURRENT_LANGUAGE_CODE.get() {
+        if let Ok(reader) = lock.read() {
+            return reader.clone();
+        }
+    }
+    // Fallback if not initialized (e.g. called early or in tests)
+    if let Ok(config) = crate::config::AppConfig::load_or_create() {
+        let active_name = &config.settings.language;
+        if active_name.eq_ignore_ascii_case("English") {
+            return "en".to_string();
+        }
+        let langs = discover_languages();
+        if let Some((_, path)) = langs.iter().find(|(name, _)| name == active_name) {
+            if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                return stem.to_lowercase();
+            }
+        }
+    }
+    "en".to_string()
 }
 
 /// Translates a key using the active language translation map.

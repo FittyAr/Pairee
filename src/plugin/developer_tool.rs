@@ -35,7 +35,10 @@ pub fn init(name: &str) -> anyhow::Result<()> {
         }
     }
 
-    println!("Initialized plugin boilerplate in {:?}", path);
+    let ok_msg = t("plugin_dev_init_ok")
+        .replace("{}", &manifest_name)
+        .replace("{:?}", &format!("{:?}", path));
+    println!("{}", ok_msg);
     Ok(())
 }
 
@@ -43,7 +46,7 @@ pub fn lint() -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
-        anyhow::bail!("Error: manifest.toml not found in current directory");
+        anyhow::bail!(t("plugin_dev_lint_err_manifest").trim().to_string());
     }
     let content = std::fs::read_to_string(&manifest_path)?;
 
@@ -51,11 +54,25 @@ pub fn lint() -> anyhow::Result<()> {
     // Let's allow parsing easily
     let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
-    println!("Linting plugin '{}'...", manifest.name);
+    if manifest.default_language.is_none()
+        || manifest
+            .default_language
+            .as_ref()
+            .unwrap()
+            .trim()
+            .is_empty()
+    {
+        anyhow::bail!(t("plugin_dev_lint_err_default_lang"));
+    }
+
+    print!(
+        "{}",
+        t("plugin_dev_lint_start").replace("{}", &manifest.name)
+    );
 
     let main_path = path.join("main.lua");
     if !main_path.exists() {
-        anyhow::bail!("Error: main.lua not found in current directory");
+        anyhow::bail!(t("plugin_dev_lint_err_lua").trim().to_string());
     }
     let lua_code = std::fs::read_to_string(&main_path)?;
 
@@ -65,19 +82,21 @@ pub fn lint() -> anyhow::Result<()> {
         let forbidden = ["os.execute", "io.open", "os.system", "dofile", "loadfile"];
         for f in &forbidden {
             if lua_code.contains(f) {
-                println!(
-                    "  [Warning] Un-trusted plugin uses potentially unsafe method '{}'",
-                    f
-                );
+                print!("{}", t("plugin_dev_lint_warn_unsafe").replace("{}", f));
                 warnings += 1;
             }
         }
     }
 
     if warnings == 0 {
-        println!("✓ Lint passed cleanly!");
+        print!("{}", t("plugin_dev_lint_ok"));
+        println!();
     } else {
-        println!("Lint completed with {} warnings.", warnings);
+        print!(
+            "{}",
+            t("plugin_dev_lint_warn_total").replace("{}", &warnings.to_string())
+        );
+        println!();
     }
     Ok(())
 }
@@ -86,13 +105,16 @@ pub fn package() -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
-        anyhow::bail!("Error: manifest.toml not found");
+        anyhow::bail!(t("plugin_dev_lint_err_manifest").trim().to_string());
     }
     let content = std::fs::read_to_string(&manifest_path)?;
 
     let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
-    println!("Packaging plugin '{}'...", manifest.name);
+    print!(
+        "{}",
+        t("plugin_dev_pack_start").replace("{}", &manifest.name)
+    );
 
     let mut files_hash = HashMap::new();
 
@@ -103,7 +125,7 @@ pub fn package() -> anyhow::Result<()> {
     }
 
     // Output TOML registry entry
-    println!("\nGenerated registry entry to append to registry/index.toml:\n");
+    print!("{}", t("plugin_dev_pack_gen"));
     println!("[plugins.{}]", manifest.name);
     println!("name = \"{}\"", manifest.name);
     println!("version = \"{}\"", manifest.version);
@@ -126,29 +148,26 @@ pub fn package() -> anyhow::Result<()> {
 }
 
 pub async fn submit() -> anyhow::Result<()> {
-    println!("GitHub PR Submission Wizard");
-    println!("---------------------------");
+    println!("{}", t("plugin_dev_submit_wizard"));
 
     // Read input from user for GitHub token
-    println!("Please enter your GitHub Personal Access Token:");
+    println!("{}", t("plugin_dev_submit_prompt"));
     let mut token = String::new();
     std::io::stdin().read_line(&mut token)?;
     let token = token.trim().to_string();
 
     if token.is_empty() {
-        anyhow::bail!("GitHub Token is required to submit a Pull Request.");
+        anyhow::bail!(t("plugin_dev_submit_token_req"));
     }
 
     let path = std::env::current_dir()?;
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
-        anyhow::bail!(
-            "No manifest.toml found in current directory. Move to your plugin directory before submitting."
-        );
+        anyhow::bail!(t("plugin_dev_submit_no_manifest"));
     }
 
-    println!("✓ Token received. Ready to fork and submit.");
-    println!("Sending submit request to Pairee's main repository registry...");
+    println!("{}", t("plugin_dev_submit_token_ok"));
+    println!("{}", t("plugin_dev_submit_sending"));
 
     // Simulate/Perform GitHub fork and PR creation via REST API
     let client = reqwest::Client::builder().build()?;
@@ -163,13 +182,12 @@ pub async fn submit() -> anyhow::Result<()> {
         .await?;
 
     if resp.status().is_success() || resp.status() == reqwest::StatusCode::ACCEPTED {
-        println!("✓ Upstream repository forked successfully.");
+        println!("{}", t("plugin_dev_submit_fork_ok"));
     } else {
-        anyhow::bail!("Failed to fork upstream repository: HTTP {}", resp.status());
+        anyhow::bail!(t("plugin_dev_submit_fork_err").replace("{}", &resp.status().to_string()));
     }
 
     // Since this is a CLI helper, we inform the developer of next steps or complete the commit/push
-    println!("Please run the git push commands to update your branch on the fork,");
-    println!("then submit the Pull Request using the GitHub API or UI.");
+    println!("{}", t("plugin_dev_submit_next_steps"));
     Ok(())
 }

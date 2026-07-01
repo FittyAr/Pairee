@@ -637,6 +637,16 @@
     "plugin_dev_pack_gen": "Entrada de registro generada para añadir a registry/index.toml:\n\n",
     "plugin_dev_pack_no_plugins": "Error: No se encontraron plugins instalados para empaquetar.",
     "plugin_dev_submit_desc": "Envío de Pull Request a GitHub:\n\nPara enviar su plugin empaquetado al registro oficial:\n\n1. Ejecute el asistente interactivo de envío en su terminal:\n   > pairee developer submit\n\n2. Ingrese su Token de Acceso Personal de GitHub.\n3. El asistente creará un fork del repositorio, subirá sus archivos y enviará un PR de forma automática.",
+    "plugin_dev_lint_err_default_lang": "Error: manifest.toml no contiene el parámetro requerido 'default_language' bajo la sección [plugin].",
+    "plugin_dev_submit_wizard": "Asistente de Envío de PR a GitHub\n---------------------------",
+    "plugin_dev_submit_prompt": "Por favor, ingrese su Token de Acceso Personal de GitHub:",
+    "plugin_dev_submit_token_req": "El token de GitHub es requerido para enviar un Pull Request.",
+    "plugin_dev_submit_no_manifest": "No se encontró manifest.toml en el directorio actual. Muévase a su directorio de plugin antes de enviar.",
+    "plugin_dev_submit_token_ok": "✓ Token recibido. Listo para bifurcar y enviar.",
+    "plugin_dev_submit_sending": "Enviando solicitud de envío al registro principal de Pairee...",
+    "plugin_dev_submit_fork_ok": "✓ Repositorio upstream bifurcado con éxito.",
+    "plugin_dev_submit_fork_err": "Fallo al bifurcar el repositorio upstream: HTTP {}",
+    "plugin_dev_submit_next_steps": "Por favor ejecute los comandos de git push para actualizar su rama en la bifurcación,\nluego envíe el Pull Request usando la API o la interfaz de GitHub.",
     "plugin_install_dev": "InstDev"
   }
 }

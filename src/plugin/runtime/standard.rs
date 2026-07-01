@@ -125,16 +125,7 @@ fn bind_translations(
     }
 
     let lang_dir = plugin_dir.join("lang");
-    let mut current_lang = "en".to_string();
-    if let Ok(config) = crate::config::AppConfig::load_or_create() {
-        current_lang = config.settings.language.to_lowercase();
-        // Extract language code e.g. "spanish" -> "es", "english" -> "en"
-        if current_lang.contains("spanish") || current_lang.contains("es") {
-            current_lang = "es".to_string();
-        } else {
-            current_lang = "en".to_string();
-        }
-    }
+    let current_lang = crate::config::localization::get_active_language_code();
 
     // Load active locale TOML
     let mut active_dict = toml::Table::default();

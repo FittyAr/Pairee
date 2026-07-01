@@ -188,6 +188,24 @@ file_path = "Previsualizando archivo: {path}"
         "plugin_dev_submit_desc" => {
             "GitHub Pull Request Submission:\n\nTo submit your packaged plugin to the official registry:\n\n1. Run the interactive submission wizard in your shell:\n   > pairee developer submit\n\n2. Provide your GitHub Personal Access Token.\n3. The wizard will fork the repository, push your files, and submit a PR automatically."
         }
+        "plugin_dev_lint_err_default_lang" => {
+            "Error: manifest.toml is missing the required 'default_language' parameter under [plugin] section."
+        }
+        "plugin_dev_submit_wizard" => "GitHub PR Submission Wizard\n---------------------------",
+        "plugin_dev_submit_prompt" => "Please enter your GitHub Personal Access Token:",
+        "plugin_dev_submit_token_req" => "GitHub Token is required to submit a Pull Request.",
+        "plugin_dev_submit_no_manifest" => {
+            "No manifest.toml found in current directory. Move to your plugin directory before submitting."
+        }
+        "plugin_dev_submit_token_ok" => "✓ Token received. Ready to fork and submit.",
+        "plugin_dev_submit_sending" => {
+            "Sending submit request to Pairee's main repository registry..."
+        }
+        "plugin_dev_submit_fork_ok" => "✓ Upstream repository forked successfully.",
+        "plugin_dev_submit_fork_err" => "Failed to fork upstream repository: HTTP {}",
+        "plugin_dev_submit_next_steps" => {
+            "Please run the git push commands to update your branch on the fork,\nthen submit the Pull Request using the GitHub API or UI."
+        }
 
         // Bottom function keys (F1-F10)
         "fkey_help" => "Help",
