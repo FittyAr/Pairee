@@ -428,6 +428,59 @@ Al ejecutar `pairee developer validate <ruta>` (o durante la verificación del C
 | `WARN_KEY_MISALIGNMENT` | Falta alguna clave de traducción en un archivo de idioma que sí está en otro. | Actualiza todos los archivos de `lang/*.toml` para que tengan exactamente las mismas claves de traducción. |
 | `ERR_INVALID_ENCODING` | Un archivo de texto no está codificado en UTF-8. | Vuelve a guardar el archivo utilizando la codificación UTF-8 en tu editor de texto. |
 
+### 15.4 Rama de Plantilla de Complementos (`plugin-template`)
+
+Pairee mantiene una rama git huérfana dedicada llamada **`plugin-template`** en su propio repositorio. Esta rama contiene los archivos de código base canónicos y siempre actualizados para nuevos complementos, y es completamente invisible para los usuarios finales: nunca aparece en ningún listado de plugins dentro de la TUI.
+
+#### Cómo Funciona
+
+Cuando un desarrollador usa el asistente **Inicializar Nuevo Complemento** (ya sea desde la pestaña Herramientas de Desarrollador de la TUI o `pairee developer init`), la herramienta:
+
+1. **Localiza el repositorio de Pairee** en disco recorriendo hacia arriba desde la ubicación del binario en ejecución hasta encontrar un directorio `.git`. Alternativamente, la variable de entorno `PAIREE_REPO_DIR` puede configurarse para apuntar al repositorio de forma explícita.
+2. **Extrae los archivos** directamente de la rama `plugin-template` usando `libgit2` (sin necesidad de tener `git` instalado como comando externo). Cada archivo de la rama se escribe al directorio de destino del nuevo complemento.
+3. **Sustituye los marcadores de posición** en `manifest.toml` y `help/en.md`:
+   - `PLUGIN_NAME` → el nombre ingresado por el desarrollador
+   - `PLUGIN_DESCRIPTION` → la descripción ingresada por el desarrollador
+   - `PLUGIN_AUTHOR` → el autor ingresado por el desarrollador
+4. Si la rama o el repositorio **no están disponibles** (ej. instalación como binario independiente sin el repo fuente), el sistema recurre de forma transparente a generar los archivos desde las cadenas de localización integradas — garantizando que la inicialización de plugins funcione siempre.
+
+#### Estructura de Archivos de la Rama Template
+
+```
+plugin-template/
+├── manifest.toml          # Bloque [plugin] con tokens PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR
+├── main.lua               # Código Lua completo con setup(), entry() y peek()
+├── icon.png               # PNG de marcador de posición 256×256 en gris
+├── lang/
+│   └── en.toml            # Claves de traducción en inglés por defecto
+├── help/
+│   └── en.md              # Archivo de ayuda con token PLUGIN_NAME
+└── screenshots/
+    └── screenshot1.png    # PNG de marcador de posición 640×480 en gris
+```
+
+#### Variable de Entorno PAIREE_REPO_DIR
+
+Configura esta variable para indicarle a Pairee dónde encontrar su repositorio fuente cuando la detección automática falla:
+
+```sh
+export PAIREE_REPO_DIR=/ruta/al/repositorio/pairee
+pairee
+```
+
+#### Editar la Plantilla
+
+Para actualizar los archivos de código base que usan todos los nuevos complementos al crearse, simplemente hacé checkout de la rama y editá los archivos directamente:
+
+```sh
+git checkout plugin-template
+# editar archivos...
+git add -A && git commit -m "feat: actualizar plantilla de plugin"
+git checkout master
+```
+
+> **Nota:** Los cambios en la rama `plugin-template` **no afectan** a `master` y viceversa — la rama no comparte historial con el código base principal.
+
 ---
 
 ## 16. Flujo de Envío al Registro

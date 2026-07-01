@@ -152,3 +152,19 @@ To ensure consistent project maintenance, the agent must check and apply the rel
 * **Documentation & Changelog updates:** After any code modification, feature addition, or bug fix, you **must** load and follow the instructions in the `changelog-helper` skill at [skills/changelog-helper/SKILL.md](skills/changelog-helper/SKILL.md) to log your changes in [CHANGELOG.md](../CHANGELOG.md) before concluding.
 * **Localization & Text changes:** When adding or modifying user-facing text, you **must** load and follow the instructions in the `localize-helper` skill at [skills/localize-helper/SKILL.md](skills/localize-helper/SKILL.md) to ensure zero hardcoding.
 * **Configuration & Settings changes:** When adding or modifying user configuration settings, you **must** load and follow the instructions in the `settings-helper` skill at [skills/settings-helper/SKILL.md](skills/settings-helper/SKILL.md).
+
+---
+
+## 7. Idioma de los Artefactos de Planificación
+
+Los siguientes artefactos generados por el agente durante el proceso de planificación y ejecución de tareas **SIEMPRE deben estar redactados en español**, sin excepción:
+
+| Artefacto | Nombre de archivo típico |
+|-----------|--------------------------|
+| **Plan de Implementación** (`implementation_plan.md`) | `implementation_plan.md` |
+| **Lista de Tareas** (`task.md` / `task_list.md` / `task_plan.md`) | `task.md` |
+| **Resumen de Cambios** (`walkthrough.md`) | `walkthrough.md` |
+
+* El español debe aplicarse tanto al contenido narrativo como a los títulos de secciones, descripciones de cambios, preguntas abiertas y notas de verificación.
+* El código fuente, nombres de variables, comandos de terminal y fragmentos de código permanecen en inglés (como es estándar en el desarrollo de software).
+* Las alertas Markdown (p. ej. `> [!NOTE]`, `> [!IMPORTANT]`) y los bloques de código se redactan con su contenido en español, pero manteniendo la sintaxis técnica en inglés.

@@ -15,7 +15,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- Parametrized `icon` and `screenshots` in the plugin manifest (`manifest.toml`) with validator size and dimension checks (`512x512` or `256x256` pixels for icons, minimum `640x480` pixels for screenshots).
+- A dedicated `plugin-template` git branch (orphan) containing the canonical boilerplate files for new plugins (`manifest.toml`, `main.lua`, `lang/en.toml`, `help/en.md`, `icon.png`, `screenshots/screenshot1.png`). The template is never surfaced in any plugin list in the UI.
+- New `clone_from_template()` function in the developer tool that uses the `git2` crate to extract template files directly from the local `plugin-template` branch without requiring an external `git` binary. Placeholder tokens (`PLUGIN_NAME`, `PLUGIN_DESCRIPTION`, `PLUGIN_AUTHOR`) are substituted after extraction.
+- `PAIREE_REPO_DIR` environment variable support allowing developers to explicitly point to the Pairee source repository for template resolution.
+
+### Fixed
+
+- Plugin initialization via the Developer Tools wizard no longer produces empty `main.lua` and `manifest.toml` files. Files are now sourced from the `plugin-template` branch, with a graceful fallback to the previous localization-string method if the branch is unavailable.
+
 - Default manifest templates updated to include `icon` and `screenshots` variables with helpful instructions.
 - A step-by-step interactive assistant wizard (both in TUI and CLI) when initializing new plugin skeletons, prompting for the plugin's name, description, and author.
 - Mandatory submission validation checks enforcing the presence of an `icon.png` file (recommended size 512x512 or 256x256 pixels) and a `screenshots/` directory containing at least one image file (PNG/JPG/JPEG) to allow publishing.

@@ -428,6 +428,59 @@ When running `pairee developer validate <path>` (or the CI validator), you may e
 | `WARN_KEY_MISALIGNMENT` | Translation key is present in some language files but missing in others. | Update all `lang/*.toml` files to define the same keys to prevent runtime UI bracket placeholders. |
 | `ERR_INVALID_ENCODING` | A file is not encoded in UTF-8. | Re-save the file using UTF-8 encoding in your text editor. |
 
+### 15.4 Plugin Template Branch (`plugin-template`)
+
+Pairee maintains a dedicated orphan git branch called **`plugin-template`** in its own repository. This branch holds the canonical, always-up-to-date boilerplate files for new plugins and is completely invisible to end-users — it never appears in any plugin list inside the TUI.
+
+#### How It Works
+
+When a developer uses the **Initialize New Plugin** wizard (either via the TUI Developer Tools tab or `pairee developer init`), the tool:
+
+1. **Locates the Pairee repository** on disk by walking up from the running binary's location until a `.git` directory is found. Alternatively, the `PAIREE_REPO_DIR` environment variable can be set to point to the repository explicitly.
+2. **Extracts files** directly from the `plugin-template` branch using `libgit2` (no external `git` binary needed). Every file in the branch is written to the new plugin's target directory.
+3. **Substitutes placeholders** in `manifest.toml` and `help/en.md`:
+   - `PLUGIN_NAME` → the name entered by the developer
+   - `PLUGIN_DESCRIPTION` → the description entered by the developer
+   - `PLUGIN_AUTHOR` → the author entered by the developer
+4. If the branch or repository is **not available** (e.g., installed as a standalone binary without the source repo), it gracefully falls back to generating files from the built-in localization strings — guaranteeing that plugin initialization always works.
+
+#### Template Branch File Structure
+
+```
+plugin-template/
+├── manifest.toml          # [plugin] block with PLUGIN_NAME, PLUGIN_DESCRIPTION, PLUGIN_AUTHOR tokens
+├── main.lua               # Full Lua boilerplate with setup(), entry(), and peek()
+├── icon.png               # 256×256 grey placeholder PNG
+├── lang/
+│   └── en.toml            # Default English translation keys
+├── help/
+│   └── en.md              # Help file with PLUGIN_NAME token
+└── screenshots/
+    └── screenshot1.png    # 640×480 grey placeholder PNG
+```
+
+#### PAIREE_REPO_DIR Environment Variable
+
+Set this variable to tell Pairee where to find its source repository when the auto-detection fails:
+
+```sh
+export PAIREE_REPO_DIR=/path/to/pairee/repo
+pairee
+```
+
+#### Editing the Template
+
+To update the boilerplate files that all newly created plugins start from, check out the branch and edit them directly:
+
+```sh
+git checkout plugin-template
+# edit files...
+git add -A && git commit -m "feat: update plugin template"
+git checkout master
+```
+
+> **Note:** Changes to the `plugin-template` branch do **not** affect `master` and vice versa — the branch has no shared history with the main codebase.
+
 ---
 
 ## 16. Registry Submission Flow

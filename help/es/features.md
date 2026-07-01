@@ -124,11 +124,63 @@ Para evitar la ejecución de binarios corruptos o comprometidos, el descargador 
 
 ---
 
-## 📖 7. Manuales de Integración Avanzada
+## 🧩 7. Sistema de Complementos y Herramientas de Desarrollador
 
-Para módulos más complejos y detallados, por favor consulta sus manuales específicos:
+Pairee soporta un sistema de complementos basado en Lua que permite extender el gestor de archivos con comandos personalizados, visores de archivos y hooks de ciclo de vida.
+
+### 7.1 Gestor de Complementos (F11)
+
+Presioná `F11` para abrir el **Gestor de Complementos**, que tiene tres pestañas:
+
+- **Instalados:** Lista todos los complementos cargados con versión, insignia de confianza e indicadores de actualización disponible. Usá `Enter` para alternar confianza/anclado, `D` para desinstalar.
+- **Registro:** Busca el registro online de complementos e instala en segundo plano.
+- **Herramientas de Desarrollador:** Disponible cuando `plugins_developer_mode = true` en los ajustes. Ofrece el asistente de inicialización, lint, empaquetado y envío.
+
+### 7.2 Inicializar un Nuevo Complemento
+
+En la pestaña **Herramientas de Desarrollador**, seleccioná **Inicializar Nuevo Complemento** y seguí el asistente paso a paso:
+1. Ingresá el **nombre** del complemento (usado como nombre de carpeta e identificador en el manifiesto).
+2. Ingresá una **descripción** breve.
+3. Ingresá el nombre del **autor**.
+
+Pairee clona los archivos de código base desde la rama interna `plugin-template`:
+
+```
+mi-complemento.pairee/
+├── manifest.toml     ← nombre, descripción y autor pre-completados
+├── main.lua          ← punto de entrada Lua listo para ejecutar
+├── lang/en.toml      ← claves de traducción en inglés por defecto
+├── help/en.md        ← documentación de ayuda para el usuario
+├── icon.png          ← icono de marcador de posición 256×256
+└── screenshots/
+    └── screenshot1.png
+```
+
+### 7.3 La Rama `plugin-template`
+
+El contenido de los archivos anteriores proviene de una **rama git huérfana dedicada** (`plugin-template`) en el repositorio de Pairee — nunca se muestra en ningún listado de plugins. Pairee localiza el repositorio local automáticamente recorriendo hacia arriba desde la ruta del binario. También podés configurar `PAIREE_REPO_DIR=/ruta/a/pairee` como variable de entorno para sobrescribir esto.
+
+Si el repositorio no está disponible (ej. instalado como binario independiente), los archivos se generan desde los valores predeterminados integrados como fallback.
+
+### 7.4 Comandos de Herramientas de Desarrollador
+
+| Acción | Descripción |
+|--------|-------------|
+| **Init** | Crear un nuevo complemento desde la plantilla |
+| **Lint** | Verificar todos los plugins en desarrollo buscando errores en el manifiesto y llamadas Lua no seguras |
+| **Package** | Escanear archivos, generar hashes SHA-256 y generar entrada de registro |
+| **Submit** | Validar, hacer fork del repo de Pairee y preparar una Pull Request |
+
+> **Consejo:** Editá la plantilla para futuros complementos haciendo checkout de la rama `plugin-template`, modificando los archivos y realizando un commit. Los nuevos complementos creados a partir de ese momento usarán tu código base actualizado.
+
+---
+
+## 📖 8. Manuales de Integración Avanzada
+
+Para módulos más complejos y detallados, por favor consultá sus manuales específicos:
 * **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_es.md).
 * **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
+* **Guía para Desarrolladores de Complementos:** Consulta la [Guía para Desarrolladores de Complementos](file:///home/fitty/GitHub/Pairee/docs/plugin-dev-guide-es.md).
 

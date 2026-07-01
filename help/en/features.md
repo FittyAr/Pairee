@@ -124,11 +124,63 @@ To prevent running compromised binaries, Pairee's built-in downloader automatica
 
 ---
 
-## 📖 7. Advanced Integration Manuals
+## 🧩 7. Plugin System & Developer Tools
+
+Pairee supports a Lua-based plugin system that allows extending the file manager with custom commands, file previewers, and lifecycle hooks.
+
+### 7.1 Plugin Manager (F11)
+
+Press `F11` to open the **Plugin Manager**, which has three tabs:
+
+- **Installed:** Lists all loaded plugins with version, trust badge, and available updates. Use `Enter` to toggle trust/pin, `D` to uninstall.
+- **Registry:** Search the online plugin registry and install plugins in the background.
+- **Developer Tools:** Available when `plugins_developer_mode = true` in settings. Provides the initialization wizard, lint, package, and submit tools.
+
+### 7.2 Initializing a New Plugin
+
+In the **Developer Tools** tab, select **Initialize New Plugin** and follow the step-by-step wizard:
+1. Enter the plugin **name** (used as folder name and manifest identifier).
+2. Enter a short **description**.
+3. Enter the **author** name.
+
+Pairee then clones the boilerplate files from the built-in `plugin-template` branch:
+
+```
+my-plugin.pairee/
+├── manifest.toml     ← name, description, author pre-filled
+├── main.lua          ← ready-to-run Lua entry point
+├── lang/en.toml      ← default English translation keys
+├── help/en.md        ← user-facing help documentation
+├── icon.png          ← 256×256 placeholder icon
+└── screenshots/
+    └── screenshot1.png
+```
+
+### 7.3 The `plugin-template` Branch
+
+The file contents above come from a **dedicated orphan git branch** (`plugin-template`) in the Pairee repository — it is never shown in any plugin list. Pairee locates the local repository automatically by walking up from the binary's path. You can also set `PAIREE_REPO_DIR=/path/to/pairee` as an environment variable to override this.
+
+If the repository is not available (e.g. installed as a standalone binary), files are generated from built-in defaults as a fallback.
+
+### 7.4 Developer Tools Commands
+
+| Action | Description |
+|--------|-------------|
+| **Init** | Create a new plugin from the template |
+| **Lint** | Check all dev plugins for manifest validity and unsafe Lua calls |
+| **Package** | Scan files, generate SHA-256 hashes, and output registry entry |
+| **Submit** | Validate, fork the Pairee repo, and prepare a Pull Request |
+
+> **Tip:** Edit the template for future plugins by checking out the `plugin-template` branch, modifying files, and committing. New plugins created after that point will use your updated boilerplate.
+
+---
+
+## 📖 8. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:
 * **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_en.md).
 * **Git Integration:** See [Git Integration Reference Manual](file:///home/fitty/GitHub/Pairee/help/git_integration_en.md).
 * **Detailed Configurations:** See [Configuration Settings Manual](file:///home/fitty/GitHub/Pairee/help/configuration_details_en.md).
 * **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_en.md).
+* **Plugin Developer Guide:** See [Plugin Developer Guide](file:///home/fitty/GitHub/Pairee/docs/plugin-dev-guide.md).
 
