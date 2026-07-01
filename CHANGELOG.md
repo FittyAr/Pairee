@@ -53,6 +53,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Fixed manifest.toml deserialization to support both flat formats and nested `[plugin]` table formats, resolving installation failure for initialized plugins.
 - Fixed text wrapping and border overflow issues in the Plugins Manager console details panel, and ensured the popup area is fully cleared on redraw.
+- Extracted and localized default plugin boilerplate template files, showcasing how to use `pairee.t` localization and lang files inside initialized plugins.
+- Updated packager and local sync installation processes to dynamically scan and hash all files in the plugin directory instead of using a hardcoded list.
+- Enforced plugin folder naming convention ending in `.pairee` across initialization, loaders, linter, packager, installation, and verification steps.
+- Updated the Plugins Manager TUI list display to strip the `.pairee` suffix, showing only the clean plugin name.
 - Resolved startup crash (`STATUS_DLL_NOT_FOUND` / `0xC0000135`) on clean Windows installations by ensuring the CI release pipeline statically links the C runtime library.
 - Fixed GitHub Actions release workflow dirty cache issues by adding a clean step to force static CRT compilation.
 

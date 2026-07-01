@@ -318,7 +318,7 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
 
     let plugins_dir = crate::config::paths::get_config_dir()
         .join("plugins")
-        .join(name);
+        .join(format!("{}.pairee", name));
     if !plugins_dir.exists() {
         std::fs::create_dir_all(&plugins_dir)?;
     }
@@ -388,7 +388,7 @@ pub fn remove(name: &str) -> anyhow::Result<()> {
     if lock.plugins.remove(name).is_some() {
         let plugins_dir = crate::config::paths::get_config_dir()
             .join("plugins")
-            .join(name);
+            .join(format!("{}.pairee", name));
         if plugins_dir.exists() {
             std::fs::remove_dir_all(plugins_dir)?;
         }
@@ -421,7 +421,7 @@ pub fn verify() -> anyhow::Result<()> {
 
     for (name, info) in &lock.plugins {
         println!("Plugin: {} v{}", name, info.version);
-        let plugin_path = plugins_dir.join(name);
+        let plugin_path = plugins_dir.join(format!("{}.pairee", name));
 
         for (rel_path, expected_hash) in &info.files {
             let file_path = plugin_path.join(rel_path);

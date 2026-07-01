@@ -95,6 +95,80 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_toast_install_err" => "Failed to install '{}': {:?}",
         "plugin_search_searching" => "  Searching...",
         "plugin_search_no_results" => "  No results found.",
+        "plugin_init_manifest_tmpl" => {
+            r#"[plugin]
+name = "{}"
+version = "0.1.0"
+description = "A new plugin for Pairee"
+author = "Your Name"
+min_pairee = "0.6.1"
+requires_trust = false
+default_language = "en"
+languages = ["en"]
+
+[keybindings]
+# "ctrl-p" = "my_custom_action"
+
+[settings_schema]
+# enabled = { type = "boolean", default = true, description = "Enable features" }
+"#
+        }
+        "plugin_init_main_lua_tmpl" => {
+            r#"-- Pairee Plugin Entry
+local plugin = {}
+
+function plugin.setup(opts)
+    -- Use pairee.t to fetch localized strings from lang/<locale>.toml
+    pairee.log.info(pairee.t("setup.welcome"))
+end
+
+-- Custom Command Entry
+function plugin.entry(args)
+    local msg = pairee.t("command.executed", { count = tostring(#args) })
+    pairee.app.notify(pairee.t("command.title"), msg, "info")
+end
+
+-- Custom Previewer
+function plugin.peek(job)
+    local preview_msg = pairee.t("preview.file_path", { path = job.file.path })
+    return pairee.ui.Paragraph(preview_msg)
+end
+
+return plugin
+"#
+        }
+        "plugin_init_lang_en_tmpl" => {
+            r#"[my_custom_action]
+title = "My Custom Action"
+description = "Executes my custom action"
+
+[setup]
+welcome = "Hello from my new plugin!"
+
+[command]
+title = "My Plugin"
+executed = "Executed command with {count} args"
+
+[preview]
+file_path = "Previewing file: {path}"
+"#
+        }
+        "plugin_init_lang_es_tmpl" => {
+            r#"[my_custom_action]
+title = "Mi Acción Personalizada"
+description = "Ejecuta mi acción personalizada"
+
+[setup]
+welcome = "¡Hola desde mi nuevo plugin!"
+
+[command]
+title = "Mi Plugin"
+executed = "Comando ejecutado con {count} argumentos"
+
+[preview]
+file_path = "Previsualizando archivo: {path}"
+"#
+        }
         "plugin_dev_init_ok" => {
             "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}"
         }

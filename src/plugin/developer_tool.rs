@@ -1,57 +1,39 @@
+use crate::config::localization::t;
 use std::collections::HashMap;
 
 pub fn init(name: &str) -> anyhow::Result<()> {
-    let path = std::env::current_dir()?.join(name);
+    let folder_name = if name.ends_with(".pairee") {
+        name.to_string()
+    } else {
+        format!("{}.pairee", name)
+    };
+    let manifest_name = folder_name
+        .strip_suffix(".pairee")
+        .unwrap_or(&folder_name)
+        .to_string();
+
+    let path = std::env::current_dir()?.join(&folder_name);
     std::fs::create_dir_all(&path)?;
     std::fs::create_dir_all(path.join("lang"))?;
 
-    let manifest = format!(
-        r#"[plugin]
-name = "{}"
-version = "0.1.0"
-description = "A new plugin for Pairee"
-author = "Your Name"
-min_pairee = "0.6.1"
-requires_trust = false
-default_language = "en"
-languages = ["en"]
-
-[keybindings]
-# "ctrl-p" = "my_custom_action"
-
-[settings_schema]
-# enabled = {{ type = "boolean", default = true, description = "Enable features" }}
-"#,
-        name
-    );
+    let manifest_tmpl = t("plugin_init_manifest_tmpl");
+    let manifest = manifest_tmpl.replace("{}", &manifest_name);
     std::fs::write(path.join("manifest.toml"), manifest)?;
 
-    let main_lua = r#"-- Pairee Plugin Entry
-local plugin = {}
-
-function plugin.setup(opts)
-    pairee.log.info("Hello from my new plugin!")
-end
-
--- Custom Command Entry
-function plugin.entry(args)
-    pairee.app.notify("My Plugin", "Executed command with " .. #args .. " args", "info")
-end
-
--- Custom Previewer
-function plugin.peek(job)
-    return pairee.ui.Paragraph("Previewing file: " .. job.file.path)
-end
-
-return plugin
-"#;
+    let main_lua = t("plugin_init_main_lua_tmpl");
     std::fs::write(path.join("main.lua"), main_lua)?;
 
-    let lang_en = r#"[my_custom_action]
-title = "My Custom Action"
-description = "Executes my custom action"
-"#;
+    let lang_en = t("plugin_init_lang_en_tmpl");
     std::fs::write(path.join("lang").join("en.toml"), lang_en)?;
+
+    // If Spanish is active, also generate es.toml as an example of localization
+    if let Ok(config) = crate::config::AppConfig::load_or_create() {
+        let current_lang = config.settings.language.to_lowercase();
+        if current_lang.contains("spanish") || current_lang.contains("es") {
+            let lang_es = t("plugin_init_lang_es_tmpl");
+            std::fs::write(path.join("lang").join("es.toml"), lang_es)?;
+        }
+    }
 
     println!("Initialized plugin boilerplate in {:?}", path);
     Ok(())
@@ -114,14 +96,10 @@ pub fn package() -> anyhow::Result<()> {
 
     let mut files_hash = HashMap::new();
 
-    // Iterate files in plugin directory
-    let files_to_hash = ["manifest.toml", "main.lua", "lang/en.toml"];
-    for file_rel in &files_to_hash {
-        let file_path = path.join(file_rel);
-        if file_path.exists() {
-            let hash = crate::update::downloader::compute_sha256(&file_path)?;
-            files_hash.insert(file_rel.to_string(), hash);
-        }
+    // Iterate files in plugin directory dynamically
+    for (file_rel, file_path) in crate::plugin::loader::get_plugin_files(&path) {
+        let hash = crate::update::downloader::compute_sha256(&file_path)?;
+        files_hash.insert(file_rel, hash);
     }
 
     // Output TOML registry entry

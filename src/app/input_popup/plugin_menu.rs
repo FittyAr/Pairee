@@ -412,15 +412,23 @@ pub fn handle(
                         dev_results = "Submission request initiated in background... Check status in notifications.".to_string();
                     } else {
                         let plugins_dev_dir = &context.config.settings.plugins_dev_dir;
+                        let folder_name = if search_query.ends_with(".pairee") {
+                            search_query.clone()
+                        } else {
+                            format!("{}.pairee", search_query)
+                        };
                         let target_path =
-                            std::path::PathBuf::from(plugins_dev_dir).join(&search_query);
+                            std::path::PathBuf::from(plugins_dev_dir).join(&folder_name);
                         let _ = std::fs::create_dir_all(&target_path);
                         if let Ok(current_dir) = std::env::current_dir() {
                             if std::env::set_current_dir(plugins_dev_dir).is_ok() {
-                                match crate::plugin::developer_tool::init(&search_query) {
+                                match crate::plugin::developer_tool::init(&folder_name) {
                                     Ok(_) => {
+                                        let name_without_suffix = folder_name
+                                            .strip_suffix(".pairee")
+                                            .unwrap_or(&folder_name);
                                         dev_results = t("plugin_dev_init_ok")
-                                            .replace("{}", &search_query)
+                                            .replace("{}", name_without_suffix)
                                             .replace("{:?}", &format!("{:?}", target_path));
                                     }
                                     Err(e) => {
@@ -469,11 +477,18 @@ pub fn handle(
                                 for entry in entries.filter_map(Result::ok) {
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
-                                        found_any = true;
-                                        let name = path
+                                        let folder_name = path
                                             .file_name()
                                             .and_then(|n| n.to_str())
                                             .unwrap_or("")
+                                            .to_string();
+                                        if !folder_name.ends_with(".pairee") {
+                                            continue;
+                                        }
+                                        found_any = true;
+                                        let name = folder_name
+                                            .strip_suffix(".pairee")
+                                            .unwrap_or(&folder_name)
                                             .to_string();
                                         let manifest_path = path.join("manifest.toml");
                                         let main_path = path.join("main.lua");
@@ -542,32 +557,30 @@ pub fn handle(
                                 for entry in entries.filter_map(Result::ok) {
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
-                                        found_any = true;
-                                        let name = path
+                                        let folder_name = path
                                             .file_name()
                                             .and_then(|n| n.to_str())
                                             .unwrap_or("")
                                             .to_string();
-                                        let manifest_path = path.join("manifest.toml");
-                                        let main_path = path.join("main.lua");
-                                        let lang_path = path.join("lang/en.toml");
-
+                                        if !folder_name.ends_with(".pairee") {
+                                            continue;
+                                        }
+                                        found_any = true;
+                                        let name = folder_name
+                                            .strip_suffix(".pairee")
+                                            .unwrap_or(&folder_name)
+                                            .to_string();
                                         report.push_str(
                                             &t("plugin_dev_pack_start").replace("{}", &name),
                                         );
                                         let mut files_hash = std::collections::HashMap::new();
-                                        let files_to_hash = [
-                                            ("manifest.toml", &manifest_path),
-                                            ("main.lua", &main_path),
-                                            ("lang/en.toml", &lang_path),
-                                        ];
-                                        for (rel, p) in &files_to_hash {
-                                            if p.exists() {
-                                                if let Ok(hash) =
-                                                    crate::update::downloader::compute_sha256(p)
-                                                {
-                                                    files_hash.insert(rel.to_string(), hash);
-                                                }
+                                        for (rel, p) in
+                                            crate::plugin::loader::get_plugin_files(&path)
+                                        {
+                                            if let Ok(hash) =
+                                                crate::update::downloader::compute_sha256(&p)
+                                            {
+                                                files_hash.insert(rel, hash);
                                             }
                                         }
                                         report.push_str(&t("plugin_dev_pack_gen"));
@@ -604,6 +617,14 @@ pub fn handle(
                                 for entry in entries.filter_map(Result::ok) {
                                     let path = entry.path();
                                     if path.is_dir() && path.join("manifest.toml").exists() {
+                                        let folder_name = path
+                                            .file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("")
+                                            .to_string();
+                                        if !folder_name.ends_with(".pairee") {
+                                            continue;
+                                        }
                                         let manifest_path = path.join("manifest.toml");
                                         if let Ok(manifest_content) =
                                             std::fs::read_to_string(&manifest_path)
@@ -616,7 +637,8 @@ pub fn handle(
                                                 found_any = true;
                                                 let name = manifest.name.clone();
                                                 let version = manifest.version.clone();
-                                                let dest_dir = dest_base.join(&name);
+                                                let dest_dir =
+                                                    dest_base.join(format!("{}.pairee", name));
                                                 let _ = std::fs::create_dir_all(&dest_dir);
 
                                                 let mut copied_files = Vec::new();
@@ -673,31 +695,18 @@ pub fn handle(
 
                                                 let mut files_hash =
                                                     std::collections::HashMap::new();
-                                                let manifest_dest = dest_dir.join("manifest.toml");
-                                                let main_dest = dest_dir.join("main.lua");
-                                                let lang_dest = dest_dir.join("lang/en.toml");
-                                                if let Ok(h) =
-                                                    crate::update::downloader::compute_sha256(
-                                                        &manifest_dest,
+                                                for (rel, p) in
+                                                    crate::plugin::loader::get_plugin_files(
+                                                        &dest_dir,
                                                     )
                                                 {
-                                                    files_hash
-                                                        .insert("manifest.toml".to_string(), h);
-                                                }
-                                                if let Ok(h) =
-                                                    crate::update::downloader::compute_sha256(
-                                                        &main_dest,
-                                                    )
-                                                {
-                                                    files_hash.insert("main.lua".to_string(), h);
-                                                }
-                                                if let Ok(h) =
-                                                    crate::update::downloader::compute_sha256(
-                                                        &lang_dest,
-                                                    )
-                                                {
-                                                    files_hash
-                                                        .insert("lang/en.toml".to_string(), h);
+                                                    if let Ok(h) =
+                                                        crate::update::downloader::compute_sha256(
+                                                            &p,
+                                                        )
+                                                    {
+                                                        files_hash.insert(rel, h);
+                                                    }
                                                 }
                                                 lock.plugins.insert(
                                                     name.clone(),

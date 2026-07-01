@@ -103,7 +103,11 @@ impl PluginManager {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_dir() {
-                    let name = path.file_name().unwrap().to_string_lossy().to_string();
+                    let folder_name = path.file_name().unwrap().to_string_lossy().to_string();
+                    if !folder_name.ends_with(".pairee") {
+                        continue;
+                    }
+                    let name = folder_name.strip_suffix(".pairee").unwrap().to_string();
                     let enabled = context
                         .config
                         .settings

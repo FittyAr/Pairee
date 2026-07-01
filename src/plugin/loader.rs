@@ -32,6 +32,32 @@ impl PluginManifest {
     }
 }
 
+pub fn get_plugin_files(plugin_dir: &Path) -> Vec<(String, std::path::PathBuf)> {
+    let mut files = Vec::new();
+    let manifest_path = plugin_dir.join("manifest.toml");
+    if manifest_path.exists() {
+        files.push(("manifest.toml".to_string(), manifest_path));
+    }
+    let main_path = plugin_dir.join("main.lua");
+    if main_path.exists() {
+        files.push(("main.lua".to_string(), main_path));
+    }
+    let lang_dir = plugin_dir.join("lang");
+    if lang_dir.exists() && lang_dir.is_dir() {
+        if let Ok(entries) = std::fs::read_dir(&lang_dir) {
+            for entry in entries.filter_map(Result::ok) {
+                let p = entry.path();
+                if p.is_file() {
+                    if let Some(filename) = p.file_name().and_then(|n| n.to_str()) {
+                        files.push((format!("lang/{}", filename), p));
+                    }
+                }
+            }
+        }
+    }
+    files
+}
+
 pub async fn load_plugin(
     name: &str,
     path: &Path,

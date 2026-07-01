@@ -635,7 +635,7 @@ pub async fn handle_ui_settings_action(
                         let version = manifest.version.clone();
                         let dest_dir = crate::config::paths::get_config_dir()
                             .join("plugins")
-                            .join(&name);
+                            .join(format!("{}.pairee", name));
 
                         let _ = std::fs::create_dir_all(&dest_dir);
                         let mut success = true;
@@ -672,18 +672,10 @@ pub async fn handle_ui_settings_action(
                         if success {
                             let mut lock = crate::plugin::updater::read_lockfile();
                             let mut files_hash = std::collections::HashMap::new();
-                            let manifest_dest = dest_dir.join("manifest.toml");
-                            let main_dest = dest_dir.join("main.lua");
-                            let lang_dest = dest_dir.join("lang/en.toml");
-                            if let Ok(h) = crate::update::downloader::compute_sha256(&manifest_dest)
-                            {
-                                files_hash.insert("manifest.toml".to_string(), h);
-                            }
-                            if let Ok(h) = crate::update::downloader::compute_sha256(&main_dest) {
-                                files_hash.insert("main.lua".to_string(), h);
-                            }
-                            if let Ok(h) = crate::update::downloader::compute_sha256(&lang_dest) {
-                                files_hash.insert("lang/en.toml".to_string(), h);
+                            for (rel, p) in crate::plugin::loader::get_plugin_files(&dest_dir) {
+                                if let Ok(h) = crate::update::downloader::compute_sha256(&p) {
+                                    files_hash.insert(rel, h);
+                                }
                             }
                             lock.plugins.insert(
                                 name.clone(),
