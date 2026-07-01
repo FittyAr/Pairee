@@ -77,6 +77,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Fixed the plugin initialization wizard failing to initialize a skeleton when the `plugin-template` branch is not available locally (e.g. when running the installed binary) by implementing a robust built-in fallback template generator.
 - Fixed a TUI crash (exit status 101) when displaying developer console text with accented characters by refactoring string wrapping to be UTF-8 safe.
 - Fixed the TUI submit command path resolving to look for plugins inside the developer directory instead of the active process directory.
 - Fixed a potential panic in the developer lint tool when validating the default language of a plugin.
