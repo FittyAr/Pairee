@@ -17,12 +17,16 @@ pub fn validate_for_publish(path: &std::path::Path) -> Result<(), String> {
 
     let content = match std::fs::read_to_string(&manifest_path) {
         Ok(c) => c,
-        Err(e) => return Err(format!("Error reading manifest.toml: {:?}", e)),
+        Err(e) => {
+            return Err(t("plugin_dev_err_read_manifest").replace("{:?}", &format!("{:?}", e)));
+        }
     };
 
     let manifest = match crate::plugin::loader::PluginManifest::parse(&content) {
         Ok(m) => m,
-        Err(e) => return Err(format!("Error parsing manifest.toml: {:?}", e)),
+        Err(e) => {
+            return Err(t("plugin_dev_err_parse_manifest").replace("{:?}", &format!("{:?}", e)));
+        }
     };
 
     // 1. Validate Icon
@@ -159,7 +163,7 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
 pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<String> {
     // 1. Validate the plugin
     if let Err(err_msg) = validate_for_publish(plugin_dir) {
-        anyhow::bail!("Plugin validation failed: {}", err_msg);
+        anyhow::bail!(t("plugin_dev_validation_failed").replace("{}", &err_msg));
     }
 
     let manifest_path = plugin_dir.join("manifest.toml");
@@ -237,8 +241,7 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     let serialized = toml::to_string_pretty(&index_data)?;
     std::fs::write(&index_path, serialized)?;
 
-    Ok(format!(
-        "Successfully packaged '{}' v{} into the local registry branch cache.",
-        name, manifest.version
-    ))
+    Ok(t("plugin_dev_pack_success")
+        .replace("{}", &name)
+        .replace("{v}", &manifest.version))
 }
