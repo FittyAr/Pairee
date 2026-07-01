@@ -53,6 +53,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Replaced hardcoded Microsoft Store publisher credentials in `manifests/msix/AppxManifest.xml` with template placeholders to avoid hardcoding sensitive publisher data in the repository.
 - Updated `.github/workflows/release.yml` to dynamically inject actual Partner Center identity values from GitHub Secrets or Variables, with a fallback chain targeting local developer defaults.
 - Updated local scripts (`run.bat` and `run.sh`) to automatically substitute placeholders with local developer testing defaults before packaging.
+- Updated the plugin initialization wizard to automatically create the expected `help/` and `screenshots/` directories, along with placeholder files/images (`icon.png`, `screenshots/screenshot1.png`, `help/en.md`, and optionally `help/es.md`).
 
 ### Removed
 
@@ -61,6 +62,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Fixed a TUI crash (exit status 101) when displaying developer console text with accented characters by refactoring string wrapping to be UTF-8 safe.
+- Fixed the TUI submit command path resolving to look for plugins inside the developer directory instead of the active process directory.
+- Fixed a potential panic in the developer lint tool when validating the default language of a plugin.
+- Fixed the plugin packaging and local installation logic to recursively traverse, hash, and copy all plugin subdirectories and files, ensuring folders like `help/` and `screenshots/` are included.
 - Fixed terminal stdout corruption and screen distortion when initializing a plugin skeleton in the Developer Tools tab by preventing print statements from executing in TUI mode.
 - Fixed manifest.toml deserialization to support both flat formats and nested `[plugin]` table formats, resolving installation failure for initialized plugins.
 - Fixed text wrapping and border overflow issues in the Plugins Manager console details panel, and ensured the popup area is fully cleared on redraw.

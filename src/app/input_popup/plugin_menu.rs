@@ -676,54 +676,18 @@ pub fn handle(
                                                 let _ = std::fs::create_dir_all(&dest_dir);
 
                                                 let mut copied_files = Vec::new();
-                                                if let Ok(sub_entries) = std::fs::read_dir(&path) {
-                                                    for sub_entry in
-                                                        sub_entries.filter_map(Result::ok)
+                                                for (rel_path_str, src_file_path) in
+                                                    crate::plugin::loader::get_plugin_files(&path)
+                                                {
+                                                    let dest_file_path =
+                                                        dest_dir.join(&rel_path_str);
+                                                    if let Some(parent) = dest_file_path.parent() {
+                                                        let _ = std::fs::create_dir_all(parent);
+                                                    }
+                                                    if std::fs::copy(&src_file_path, &dest_file_path)
+                                                        .is_ok()
                                                     {
-                                                        let sub_path = sub_entry.path();
-                                                        if sub_path.is_file() {
-                                                            if let Some(filename) =
-                                                                sub_path.file_name()
-                                                            {
-                                                                let _ = std::fs::copy(
-                                                                    &sub_path,
-                                                                    dest_dir.join(filename),
-                                                                );
-                                                                copied_files.push(
-                                                                    filename
-                                                                        .to_string_lossy()
-                                                                        .into_owned(),
-                                                                );
-                                                            }
-                                                        } else if sub_path.is_dir()
-                                                            && sub_path
-                                                                .file_name()
-                                                                .map(|n| n == "lang")
-                                                                .unwrap_or(false)
-                                                        {
-                                                            let lang_dest = dest_dir.join("lang");
-                                                            let _ =
-                                                                std::fs::create_dir_all(&lang_dest);
-                                                            if let Ok(lang_entries) =
-                                                                std::fs::read_dir(&sub_path)
-                                                            {
-                                                                for le in lang_entries
-                                                                    .filter_map(Result::ok)
-                                                                {
-                                                                    if le.path().is_file() {
-                                                                        if let Some(fn_lang) =
-                                                                            le.path().file_name()
-                                                                        {
-                                                                            let _ = std::fs::copy(
-                                                                                le.path(),
-                                                                                lang_dest
-                                                                                    .join(fn_lang),
-                                                                            );
-                                                                        }
-                                                                    }
-                                                                }
-                                                            }
-                                                        }
+                                                        copied_files.push(rel_path_str);
                                                     }
                                                 }
 
@@ -771,8 +735,26 @@ pub fn handle(
                         }
                         4 => {
                             // Submit Plugin
-                            if let Ok(current_dir) = std::env::current_dir() {
-                                match crate::plugin::developer_tool::validate_for_publish(&current_dir) {
+                            let mut found_path = None;
+                            if let Ok(entries) = std::fs::read_dir(plugins_dev_dir) {
+                                for entry in entries.filter_map(Result::ok) {
+                                    let path = entry.path();
+                                    if path.is_dir() && path.join("manifest.toml").exists() {
+                                        let folder_name = path
+                                            .file_name()
+                                            .and_then(|n| n.to_str())
+                                            .unwrap_or("")
+                                            .to_string();
+                                        if folder_name.ends_with(".pairee") {
+                                            found_path = Some(path);
+                                            break;
+                                        }
+                                    }
+                                }
+                            }
+
+                            if let Some(plugin_path) = found_path {
+                                match crate::plugin::developer_tool::validate_for_publish(&plugin_path) {
                                     Ok(_) => {
                                         editing_query = true;
                                         search_query = String::new();
@@ -783,6 +765,11 @@ pub fn handle(
                                         dev_results = err_msg;
                                     }
                                 }
+                            } else {
+                                dev_results = format!(
+                                    "No development plugins found to submit in developer directory:\n{:?}",
+                                    plugins_dev_dir
+                                );
                             }
                         }
                         _ => {}

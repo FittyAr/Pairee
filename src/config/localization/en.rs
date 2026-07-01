@@ -72,7 +72,7 @@ pub fn get_default_english_translation(key: &str) -> String {
         }
         "menu_install_dev_plugin" => "Install development plugin",
         "plugin_dev_desc_init" => {
-            "Creates a new directory under the user plugins path containing default templates:\n  - manifest.toml (Default author metadata/dependencies)\n  - init.lua (Scripting entry point & Event listeners)\n  - help/en.md (Developer documentation placeholders)"
+            "Creates a new directory under the user plugins path containing default templates:\n  - manifest.toml (Default author metadata/dependencies)\n  - main.lua (Scripting entry point & Event listeners)\n  - help/en.md (Developer documentation placeholders)"
         }
         "plugin_dev_desc_lint" => {
             "Performs compliance verification audits on the selected plugin:\n  - Validates formatting and syntax of Lua files\n  - Inspects manifest configurations for missing keys\n  - Audits security rules (ensures no forbidden system modules are used)"
@@ -179,8 +179,22 @@ executed = "Comando ejecutado con {count} argumentos"
 file_path = "Previsualizando archivo: {path}"
 "#
         }
+        "plugin_init_help_en_tmpl" => {
+            r#"# Help for {} Plugin
+
+This is the help documentation for your Pairee plugin.
+
+## Usage
+
+Describe how to use your plugin here.
+
+## Keybindings
+
+Describe your custom keybindings here.
+"#
+        }
         "plugin_dev_init_ok" => {
-            "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - lang/en.toml\n\nTarget directory:\n{:?}"
+            "✓ New plugin '{}' initialized successfully.\n\nBoilerplate files created:\n  - manifest.toml\n  - main.lua\n  - icon.png\n  - lang/en.toml\n  - help/en.md\n  - screenshots/screenshot1.png\n\nTarget directory:\n{:?}"
         }
         "plugin_dev_init_err" => "Error initializing plugin: {:?}",
         "plugin_dev_lint_start" => "Linting plugin '{}'...\n\n",
@@ -219,8 +233,13 @@ file_path = "Previsualizando archivo: {path}"
         "plugin_prompt_desc" => "Enter plugin description:",
         "plugin_prompt_author" => "Enter plugin author:",
         "plugin_dev_publish_no_icon" => "Error: icon.png not found in the plugin root. An icon in PNG format (recommended sizes: 512x512 or 256x256 pixels) is required to publish.",
+        "plugin_dev_publish_icon_invalid_size" => "Error: icon size must be either 256x256 or 512x512 pixels (found {w}x{h}).",
+        "plugin_dev_publish_icon_invalid_format" => "Error: icon image format is invalid or corrupt: {:?}.",
         "plugin_dev_publish_no_screenshots_dir" => "Error: screenshots/ directory not found. You must include a screenshots/ directory with at least one screenshot to publish.",
         "plugin_dev_publish_no_screenshots" => "Error: screenshots/ directory does not contain any screenshots. You must include at least one screenshot (PNG/JPG/JPEG) to publish.",
+        "plugin_dev_publish_screenshot_not_found" => "Error: screenshot '{}' not found.",
+        "plugin_dev_publish_screenshot_invalid_size" => "Error: screenshot '{}' size must be at least 640x480 pixels (found {w}x{h}).",
+        "plugin_dev_publish_screenshot_invalid_format" => "Error: screenshot '{}' image format is invalid or corrupt: {:?}.",
         "help_title_configuration_details" => "Configuration Settings",
         "help_title_features" => "Features Reference",
         "help_title_git_integration" => "Git Integration",

@@ -15,6 +15,8 @@ pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> 
     let path = std::env::current_dir()?.join(&folder_name);
     std::fs::create_dir_all(&path)?;
     std::fs::create_dir_all(path.join("lang"))?;
+    std::fs::create_dir_all(path.join("help"))?;
+    std::fs::create_dir_all(path.join("screenshots"))?;
 
     let manifest_tmpl = t("plugin_init_manifest_tmpl");
     let mut manifest = String::new();
@@ -38,12 +40,25 @@ pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> 
     let lang_en = t("plugin_init_lang_en_tmpl");
     std::fs::write(path.join("lang").join("en.toml"), lang_en)?;
 
-    // If Spanish is active, also generate es.toml as an example of localization
+    let help_en = t("plugin_init_help_en_tmpl").replace("{}", &manifest_name);
+    std::fs::write(path.join("help").join("en.md"), help_en)?;
+
+    // Generate placeholder PNG files using the image crate
+    let icon_img = image::RgbImage::new(256, 256);
+    icon_img.save(path.join("icon.png"))?;
+
+    let screenshot_img = image::RgbImage::new(640, 480);
+    screenshot_img.save(path.join("screenshots").join("screenshot1.png"))?;
+
+    // If Spanish is active, also generate es.toml and es.md as examples of localization
     if let Ok(config) = crate::config::AppConfig::load_or_create() {
         let current_lang = config.settings.language.to_lowercase();
         if current_lang.contains("spanish") || current_lang.contains("es") {
             let lang_es = t("plugin_init_lang_es_tmpl");
             std::fs::write(path.join("lang").join("es.toml"), lang_es)?;
+
+            let help_es = t("plugin_init_help_es_tmpl").replace("{}", &manifest_name);
+            std::fs::write(path.join("help").join("es.md"), help_es)?;
         }
     }
 
@@ -68,14 +83,7 @@ pub fn lint() -> anyhow::Result<()> {
     // Let's allow parsing easily
     let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
 
-    if manifest.default_language.is_none()
-        || manifest
-            .default_language
-            .as_ref()
-            .unwrap()
-            .trim()
-            .is_empty()
-    {
+    if manifest.default_language.as_ref().map_or(true, |l| l.trim().is_empty()) {
         anyhow::bail!(t("plugin_dev_lint_err_default_lang"));
     }
 
