@@ -93,8 +93,8 @@ pub async fn handle_ui_settings_action(
             for p in loaded_plugins {
                 let help_dir = p.path.join("help");
                 if help_dir.exists() && help_dir.is_dir() {
-                    let lang_code = if is_spanish { "es" } else { "en" };
-                    let mut help_path = help_dir.join(format!("{}.md", lang_code));
+                    let lang_code = crate::config::localization::get_active_language_code();
+                    let mut help_path = help_dir.join(format!("{}.md", &lang_code));
                     if !help_path.exists() {
                         let default_lang = p.manifest.default_language.as_deref().unwrap_or("en");
                         help_path = help_dir.join(format!("{}.md", default_lang));
@@ -514,6 +514,8 @@ pub async fn handle_ui_settings_action(
                 is_searching: false,
                 editing_query: false,
                 dev_results: String::new(),
+                dev_wizard_step: 0,
+                dev_wizard_data: Vec::new(),
             });
             true
         }

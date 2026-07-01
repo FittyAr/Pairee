@@ -60,6 +60,8 @@ pub fn render(
         is_searching,
         editing_query,
         dev_results,
+        dev_wizard_step,
+        dev_wizard_data: _,
     } = popup
     {
         let area = super::centered_rect(85, 80, size);
@@ -171,16 +173,17 @@ pub fn render(
             f.render_widget(Paragraph::new(search_text).block(search_block), search_area);
         } else if *active_tab == 2 && *editing_query {
             let search_area = main_chunks[1];
-            let is_submit = dev_results == "GITHUB_SUBMIT_TOKEN_PROMPT";
-            let search_text = if is_submit {
-                format!(" Enter GitHub Token: {}|", search_query)
-            } else {
-                format!("{}{}|", t("plugin_enter_name"), search_query)
+            let search_text = match *dev_wizard_step {
+                1 => format!("{}{}|", t("plugin_enter_name"), search_query),
+                2 => format!("{}{}|", t("plugin_enter_desc"), search_query),
+                3 => format!("{}{}|", t("plugin_enter_author"), search_query),
+                4 => format!(" Enter GitHub Token: {}|", search_query),
+                _ => format!("{}{}|", t("plugin_enter_name"), search_query),
             };
             let search_block = Block::default()
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Yellow))
-                .title(if is_submit {
+                .title(if *dev_wizard_step == 4 {
                     t("plugin_dev_opt_submit")
                 } else {
                     t("plugin_init_title")

@@ -59,6 +59,8 @@ pub fn handle(
             is_searching,
             editing_query,
             dev_results,
+            dev_wizard_step,
+            dev_wizard_data,
         }) => (
             active_tab,
             cursor_idx,
@@ -68,6 +70,8 @@ pub fn handle(
             is_searching,
             editing_query,
             dev_results,
+            dev_wizard_step,
+            dev_wizard_data,
         ),
         _ => return Err(()),
     };
@@ -81,12 +85,16 @@ pub fn handle(
         is_searching,
         mut editing_query,
         mut dev_results,
+        mut dev_wizard_step,
+        mut dev_wizard_data,
     ) = popup_state;
 
     // Handle global escape to close if not editing query
     if key.code == KeyCode::Esc {
         if (active_tab == 1 && editing_query) || (active_tab == 2 && editing_query) {
             editing_query = false;
+            dev_wizard_step = 0;
+            dev_wizard_data.clear();
             state.active_popup = Some(PopupType::PluginMenu {
                 active_tab,
                 cursor_idx,
@@ -96,6 +104,8 @@ pub fn handle(
                 is_searching,
                 editing_query,
                 dev_results,
+                dev_wizard_step,
+                dev_wizard_data,
             });
             return Ok(None);
         } else {
@@ -127,6 +137,8 @@ pub fn handle(
                     is_searching,
                     editing_query,
                     dev_results,
+                    dev_wizard_step: 0,
+                    dev_wizard_data: Vec::new(),
                 });
                 return Ok(None);
             }
@@ -362,9 +374,58 @@ pub fn handle(
                     search_query.push(c);
                 }
                 KeyCode::Enter => {
-                    editing_query = false;
-                    let is_submit = dev_results == "GITHUB_SUBMIT_TOKEN_PROMPT";
-                    if is_submit {
+                    if dev_wizard_step == 1 {
+                        let name = search_query.clone().trim().to_string();
+                        if !name.is_empty() {
+                            dev_wizard_data.push(name);
+                            search_query.clear();
+                            dev_wizard_step = 2; // Prompt for description
+                        }
+                    } else if dev_wizard_step == 2 {
+                        let desc = search_query.clone().trim().to_string();
+                        dev_wizard_data.push(desc);
+                        search_query.clear();
+                        dev_wizard_step = 3; // Prompt for author
+                    } else if dev_wizard_step == 3 {
+                        let author = search_query.clone().trim().to_string();
+                        dev_wizard_data.push(author);
+                        search_query.clear();
+                        editing_query = false;
+                        dev_wizard_step = 0;
+
+                        let plugins_dev_dir = &context.config.settings.plugins_dev_dir;
+                        let folder_name = if dev_wizard_data[0].ends_with(".pairee") {
+                            dev_wizard_data[0].clone()
+                        } else {
+                            format!("{}.pairee", dev_wizard_data[0])
+                        };
+                        let target_path =
+                            std::path::PathBuf::from(plugins_dev_dir).join(&folder_name);
+                        let _ = std::fs::create_dir_all(&target_path);
+                        if let Ok(current_dir) = std::env::current_dir() {
+                            if std::env::set_current_dir(plugins_dev_dir).is_ok() {
+                                match crate::plugin::developer_tool::init(&folder_name, &dev_wizard_data[1], &dev_wizard_data[2], false) {
+                                    Ok(_) => {
+                                        let name_without_suffix = folder_name
+                                            .strip_suffix(".pairee")
+                                            .unwrap_or(&folder_name);
+                                        dev_results = t("plugin_dev_init_ok")
+                                            .replace("{}", name_without_suffix)
+                                            .replace("{:?}", &format!("{:?}", target_path));
+                                    }
+                                    Err(e) => {
+                                        dev_results = t("plugin_dev_init_err")
+                                            .replace("{:?}", &format!("{:?}", e));
+                                    }
+                                }
+                                let _ = std::env::set_current_dir(current_dir);
+                            }
+                        }
+                        dev_wizard_data.clear();
+                        installed = reload_installed_plugins(context, &None);
+                    } else if dev_wizard_step == 4 {
+                        editing_query = false;
+                        dev_wizard_step = 0;
                         let token = search_query.clone();
                         let tx = crate::plugin::PluginManager::get_sender();
                         tokio::spawn(async move {
@@ -410,37 +471,8 @@ pub fn handle(
                             }
                         });
                         dev_results = "Submission request initiated in background... Check status in notifications.".to_string();
-                    } else {
-                        let plugins_dev_dir = &context.config.settings.plugins_dev_dir;
-                        let folder_name = if search_query.ends_with(".pairee") {
-                            search_query.clone()
-                        } else {
-                            format!("{}.pairee", search_query)
-                        };
-                        let target_path =
-                            std::path::PathBuf::from(plugins_dev_dir).join(&folder_name);
-                        let _ = std::fs::create_dir_all(&target_path);
-                        if let Ok(current_dir) = std::env::current_dir() {
-                            if std::env::set_current_dir(plugins_dev_dir).is_ok() {
-                                match crate::plugin::developer_tool::init(&folder_name, false) {
-                                    Ok(_) => {
-                                        let name_without_suffix = folder_name
-                                            .strip_suffix(".pairee")
-                                            .unwrap_or(&folder_name);
-                                        dev_results = t("plugin_dev_init_ok")
-                                            .replace("{}", name_without_suffix)
-                                            .replace("{:?}", &format!("{:?}", target_path));
-                                    }
-                                    Err(e) => {
-                                        dev_results = t("plugin_dev_init_err")
-                                            .replace("{:?}", &format!("{:?}", e));
-                                    }
-                                }
-                                let _ = std::env::set_current_dir(current_dir);
-                            }
-                        }
+                        installed = reload_installed_plugins(context, &None);
                     }
-                    installed = reload_installed_plugins(context, &None);
                 }
                 _ => {}
             }
@@ -468,6 +500,8 @@ pub fn handle(
                             editing_query = true;
                             search_query = String::new();
                             dev_results = String::new();
+                            dev_wizard_step = 1;
+                            dev_wizard_data = Vec::new();
                         }
                         1 => {
                             // Lint all development plugins in plugins_dev_dir
@@ -737,9 +771,19 @@ pub fn handle(
                         }
                         4 => {
                             // Submit Plugin
-                            editing_query = true;
-                            search_query = String::new();
-                            dev_results = "GITHUB_SUBMIT_TOKEN_PROMPT".to_string();
+                            if let Ok(current_dir) = std::env::current_dir() {
+                                match crate::plugin::developer_tool::validate_for_publish(&current_dir) {
+                                    Ok(_) => {
+                                        editing_query = true;
+                                        search_query = String::new();
+                                        dev_results = "GITHUB_SUBMIT_TOKEN_PROMPT".to_string();
+                                        dev_wizard_step = 4;
+                                    }
+                                    Err(err_msg) => {
+                                        dev_results = err_msg;
+                                    }
+                                }
+                            }
                         }
                         _ => {}
                     }
@@ -758,6 +802,8 @@ pub fn handle(
         is_searching,
         editing_query,
         dev_results,
+        dev_wizard_step,
+        dev_wizard_data,
     });
 
     Ok(None)

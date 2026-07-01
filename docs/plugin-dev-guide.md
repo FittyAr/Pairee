@@ -434,8 +434,11 @@ When running `pairee developer validate <path>` (or the CI validator), you may e
 
 1. **Enable Developer Mode** in `pairee.toml`.
 2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin` to validate your files, auto-detect metadata, and generate hashes.
-3. Input your GitHub credentials and fork URL into the PR Submission TUI.
-4. Execute "Submit Pull Request" to automate committing, pushing, and generating the PR targeting the `plugin-registry` branch.
+3. Ensure the plugin meets the following mandatory publication requirements:
+   - **Icon:** A PNG icon named `icon.png` must be located in the plugin's root directory (recommended sizes: `512x512` or `256x256` pixels).
+   - **Screenshots:** A `screenshots/` directory must exist in the plugin's root containing at least one screenshot (PNG, JPG, or JPEG).
+4. Input your GitHub credentials and fork URL into the PR Submission TUI.
+5. Execute "Submit Pull Request" to automate committing, pushing, and generating the PR targeting the `plugin-registry` branch.
 
 ---
 

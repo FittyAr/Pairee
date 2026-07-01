@@ -31,6 +31,8 @@ pub fn get_default_english_translation(key: &str) -> String {
         "plugin_query" => " Query: ",
         "plugin_search_repo" => " Search Repository ",
         "plugin_enter_name" => " Enter Plugin Name: ",
+        "plugin_enter_desc" => " Enter Plugin Description: ",
+        "plugin_enter_author" => " Enter Plugin Author: ",
         "plugin_init_title" => " Initialize New Plugin ",
         "plugin_tools_title" => " Tools ",
         "plugin_title" => " Plugins ",
@@ -206,6 +208,11 @@ file_path = "Previsualizando archivo: {path}"
         "plugin_dev_submit_next_steps" => {
             "Please run the git push commands to update your branch on the fork,\nthen submit the Pull Request using the GitHub API or UI."
         }
+        "plugin_prompt_desc" => "Enter plugin description:",
+        "plugin_prompt_author" => "Enter plugin author:",
+        "plugin_dev_publish_no_icon" => "Error: icon.png not found in the plugin root. An icon in PNG format (recommended sizes: 512x512 or 256x256 pixels) is required to publish.",
+        "plugin_dev_publish_no_screenshots_dir" => "Error: screenshots/ directory not found. You must include a screenshots/ directory with at least one screenshot to publish.",
+        "plugin_dev_publish_no_screenshots" => "Error: screenshots/ directory does not contain any screenshots. You must include at least one screenshot (PNG/JPG/JPEG) to publish.",
 
         // Bottom function keys (F1-F10)
         "fkey_help" => "Help",

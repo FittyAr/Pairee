@@ -434,8 +434,11 @@ Al ejecutar `pairee developer validate <ruta>` (o durante la verificación del C
 
 1. **Activar el Modo Desarrollador** en `pairee.toml`.
 2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento` para validar tus archivos, autodetectar metadatos y generar hashes.
-3. Introducir tus credenciales de GitHub y fork en la TUI de Envío de PR.
-4. Seleccionar "Enviar Pull Request" para automatizar el commit, push y la generación del PR hacia la rama `plugin-registry`.
+3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación:
+   - **Icono:** Debe existir un icono PNG llamado `icon.png` en el directorio raíz del plugin (tamaños recomendados: `512x512` o `256x256` píxeles).
+   - **Capturas de pantalla:** Debe existir un directorio `screenshots/` en la raíz del plugin que contenga al menos una captura de pantalla (PNG, JPG o JPEG).
+4. Introducir tus credenciales de GitHub y fork en la TUI de Envío de PR.
+5. Seleccionar "Enviar Pull Request" para automatizar el commit, push y la generación del PR hacia la rama `plugin-registry`.
 
 ---
 

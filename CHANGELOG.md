@@ -15,6 +15,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- A step-by-step interactive assistant wizard (both in TUI and CLI) when initializing new plugin skeletons, prompting for the plugin's name, description, and author.
+- Mandatory submission validation checks enforcing the presence of an `icon.png` file (recommended size 512x512 or 256x256 pixels) and a `screenshots/` directory containing at least one image file (PNG/JPG/JPEG) to allow publishing.
+- Updated developer guides (English and Spanish) to document the mandatory icon and screenshot publishing requirements.
 - Enforced the presence of the `default_language` parameter in the plugin manifest during developer tool lint checks.
 - A new interactive TUI Plugins Manager popup (F11) featuring a tabbed split interface to view installed plugins (with trust/pin badges and update indicators), show detailed metadata descriptions, search the online registry repository with live query editing, toggle trust and pinned statuses, and perform background installs/updates or immediate uninstalls.
 - Integrated a new interactive TUI **Developer Tools** tab (Tab 2) under the F11 Plugins Manager (accessible when `plugins_developer_mode` is enabled). It features an interactive TUI console to initialize plugin skeletons, run security/compliance lint audits, package files with SHA-256 hashes, and format submission logs.
@@ -34,6 +37,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
+- Resolves active language code for plugin help documentation files dynamically to match the program's running locale.
 - Dynamically resolve active language codes for plugins based on the application's loaded language configuration.
 - Localized all developer console output messages inside `src/plugin/developer_tool.rs`.
 - Refactored `list` command of the `pairee plugin` CLI suite to be asynchronous and check/flag available updates dynamically.

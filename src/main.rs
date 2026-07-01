@@ -129,7 +129,18 @@ async fn main() -> Result<()> {
                 match args[2].as_str() {
                     "init" => {
                         if args.len() > 3 {
-                            plugin::developer_tool::init(&args[3], true)?;
+                            let name = &args[3];
+                            println!("Enter plugin description:");
+                            let mut desc = String::new();
+                            std::io::stdin().read_line(&mut desc)?;
+                            let desc = desc.trim().to_string();
+
+                            println!("Enter plugin author:");
+                            let mut author = String::new();
+                            std::io::stdin().read_line(&mut author)?;
+                            let author = author.trim().to_string();
+
+                            plugin::developer_tool::init(name, &desc, &author, true)?;
                         } else {
                             println!("Error: init requires a plugin name");
                         }

@@ -570,6 +570,8 @@
     "plugin_query": " Consulta: ",
     "plugin_search_repo": " Buscar en el Repositorio ",
     "plugin_enter_name": " Ingrese Nombre del Plugin: ",
+    "plugin_enter_desc": " Ingrese la descripción del plugin: ",
+    "plugin_enter_author": " Ingrese el autor del plugin: ",
     "plugin_init_title": " Inicializar Nuevo Plugin ",
     "plugin_tools_title": " Herramientas ",
     "plugin_title": " Plugins ",
@@ -647,6 +649,11 @@
     "plugin_dev_submit_fork_ok": "✓ Repositorio upstream bifurcado con éxito.",
     "plugin_dev_submit_fork_err": "Fallo al bifurcar el repositorio upstream: HTTP {}",
     "plugin_dev_submit_next_steps": "Por favor ejecute los comandos de git push para actualizar su rama en la bifurcación,\nluego envíe el Pull Request usando la API o la interfaz de GitHub.",
+    "plugin_prompt_desc": "Ingrese la descripción del plugin:",
+    "plugin_prompt_author": "Ingrese el autor del plugin:",
+    "plugin_dev_publish_no_icon": "Error: icon.png no encontrado en la raíz del plugin. Se requiere un icono en formato PNG (tamaños recomendados: 512x512 o 256x256 píxeles) para poder publicar.",
+    "plugin_dev_publish_no_screenshots_dir": "Error: directorio screenshots/ no encontrado. Debe incluir un directorio screenshots/ con al menos una captura de pantalla para poder publicar.",
+    "plugin_dev_publish_no_screenshots": "Error: el directorio screenshots/ no contiene ninguna captura de pantalla. Debe incluir al menos una captura (PNG/JPG/JPEG) para poder publicar.",
     "plugin_install_dev": "InstDev"
   }
 }

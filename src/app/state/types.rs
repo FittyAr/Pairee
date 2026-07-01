@@ -334,6 +334,8 @@ pub enum PopupType {
         is_searching: bool,
         editing_query: bool,
         dev_results: String,
+        dev_wizard_step: usize,
+        dev_wizard_data: Vec<String>,
     },
 
     // ── Sort modes ────────────────────────────────────────────────────────────
