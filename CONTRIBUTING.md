@@ -60,8 +60,10 @@ Every file in your plugin folder must be listed in a `sha256.sum` file inside yo
 ```
 *Note: You can generate this automatically by running `pairee developer package` inside your plugin folder.*
 
-### 4. Update the Master Registry Index (`registry/index.toml`)
-Append or update your plugin details in `registry/index.toml`:
+### 4. Update the Master Registry Index (`registry/index.toml`) & Manifest
+Append or update your plugin details in the master `registry/index.toml` (note that `index.toml` only holds plugin metadata; the actual files and their SHA-256 hashes must be appended to the copied `manifest.toml` under a `[files]` table):
+
+**registry/index.toml entry**:
 ```toml
 [plugins.<plugin_name>]
 name = "<plugin_name>"
@@ -71,15 +73,23 @@ author = "<author_name>"
 languages = ["en", "es"]
 hooks = []
 min_pairee = "0.6.1"
+```
 
-[plugins.<plugin_name>.files]
+**registry/plugins/.../<plugin_name>/manifest.toml appended files table**:
+```toml
+[files]
 "main.lua" = "<sha256_hash>"
 "manifest.toml" = "<sha256_hash>"
 "sha256.sum" = "<sha256_hash>"
-...
+"LICENSE" = "<sha256_hash>"
 ```
 
-### 5. Commit and Create a Pull Request
+### 5. License Requirements
+All plugins must be licensed.
+- If your plugin workspace does not contain a license file, `pairee developer package` will automatically assign the `"MIT"` license in the manifest and generate a standard `LICENSE` file for you.
+- If a license file is present but the manifest `license` field is empty, the tool will prompt you for the license name.
+
+### 6. Commit and Create a Pull Request
 Commit your changes, push to your fork, and open a Pull Request (PR) targeting the `plugin-registry` branch.
 ```bash
 git add .

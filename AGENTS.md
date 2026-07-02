@@ -11,13 +11,13 @@ plugin-registry/
 ├── .gitignore
 ├── AGENTS.md                           # These instructions
 └── registry/
-    ├── index.toml                      # Master catalog containing metadata and SHA-256 integrity hashes
+    ├── index.toml                      # Master catalog containing metadata (but NO file hashes)
     ├── blocklist.toml                  # Remote blocklist to disable/remove unsafe or broken plugins
     └── plugins/                        # Root folder for all plugins
         └── <author_initial_lowercase>/  # First letter of the author's name (e.g., 'f' for 'FittyAr', or '_' if not a-z)
             └── <author_name>/          # Author's folder (e.g., 'FittyAr')
                 └── <plugin_name>/      # Plugin directory for the latest version
-                    ├── manifest.toml   # Plugin manifest
+                    ├── manifest.toml   # Plugin manifest (with embedded [files] section containing SHA-256 hashes)
                     ├── main.lua        # Main execution file
                     ├── sha256.sum      # SHA-256 checksums of the plugin files
                     ├── help/           # Help documentation
@@ -47,7 +47,10 @@ generated_at = "2026-07-02T08:40:00Z"
 When working on this branch or generating tools to interact with it, ensure you comply with the following guidelines:
 
 1. **Plugin Location:** All plugin files must be packaged strictly into `registry/plugins/<author_initial_lowercase>/<author_name>/<plugin_name>/`.
-2. **Registry Index (`index.toml`):** Whenever a plugin is added or updated, the corresponding entry in `registry/index.toml` must be updated, adhering to the serialized `RegistryIndex` structure.
-3. **No Deletion (Append-Only):** Do not delete plugins or previous versions from the registry history, as the plugin database is cumulative.
-4. **Emergency Blocklist:** To block/invalidate a plugin, add it to `registry/blocklist.toml` with a clear reason instead of deleting its files from the git history.
-5. **Temporary Files:** Respect the `.gitignore` configured on this branch to avoid uploading build outputs (`target/`), example directories (`example/`), Cargo lockfiles (`Cargo.lock`), or editor temporary files.
+2. **Registry Index (`index.toml`):** Whenever a plugin is added or updated, the corresponding entry in `registry/index.toml` must be updated, adhering to the serialized `RegistryIndex` structure. Note that `index.toml` only holds metadata; the actual files list and their SHA-256 hashes must be appended to the copied `manifest.toml` under a `[files]` table.
+3. **License Handling:**
+   - If the plugin workspace does not contain a license file, the packager must automatically assign the `"MIT"` license in the manifest and generate a default `LICENSE` file.
+   - If a license file is present but the manifest `license` field is missing or empty, prompt the user for the license name (or default to `"Custom"` if stdin is not a terminal).
+4. **No Deletion (Append-Only):** Do not delete plugins or previous versions from the registry history, as the plugin database is cumulative.
+5. **Emergency Blocklist:** To block/invalidate a plugin, add it to `registry/blocklist.toml` with a clear reason instead of deleting its files from the git history.
+6. **Temporary Files:** Respect the `.gitignore` configured on this branch to avoid uploading build outputs (`target/`), example directories (`example/`), Cargo lockfiles (`Cargo.lock`), or editor temporary files.
