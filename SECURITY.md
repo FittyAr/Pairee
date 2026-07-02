@@ -13,7 +13,7 @@ We actively support and fix security vulnerabilities in the following versions o
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
-If you discover a security vulnerability in Pairee or in any plugin hosted in this registry, please report it privately by emailing us at **dev@pairee.org**.
+If you discover a security vulnerability in Pairee or in any plugin hosted in this registry, please report it privately by emailing us at **dev-pairee@fitty.ar**.
 
 When reporting a vulnerability, please include:
 - A description of the issue.
