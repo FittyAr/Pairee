@@ -1,6 +1,6 @@
 use super::actions::execute_shell_command;
 use crate::app::context::AppContext;
-use crate::app::state::{ActivePanel, AppState};
+use crate::app::state::{ActivePanel, AppState, Screen};
 use crate::terminal::TerminalBackend;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -192,51 +192,63 @@ pub fn handle_cli_input(
 /// Enters highlighted directory or open files with standard OS handlers.
 pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::AppContext) {
     let mut target_dir = None;
+    let mut open_file_path: Option<std::path::PathBuf> = None;
     {
         let active = state.get_active_panel();
         if let Some(entry) = active.entries.get(active.cursor_index) {
             if entry.is_dir {
                 target_dir = Some(entry.path.clone());
             } else {
-                let path = entry.path.to_string_lossy().to_string();
-                let rule = crate::config::associations::AssociationsConfig::load()
-                    .find_rule(&entry.name)
-                    .cloned();
-
-                let (cmd_to_run, should_spawn) = if let Some(r) = rule {
-                    (Some(r.resolve_open_cmd(&entry.path)), true)
-                } else if cfg!(target_os = "windows") {
-                    if context.config.settings.use_windows_registered_types {
-                        (Some(format!("start \"\" \"{}\"", path)), true)
-                    } else {
-                        (None, false)
-                    }
+                if !context.config.settings.enter_use_external {
+                    open_file_path = Some(entry.path.clone());
                 } else {
-                    (Some(format!("xdg-open \"{}\" 2>/dev/null", path)), true)
-                };
+                    let path = entry.path.to_string_lossy().to_string();
+                    let rule = crate::config::associations::AssociationsConfig::load()
+                        .find_rule(&entry.name)
+                        .cloned();
 
-                if should_spawn {
-                    if let Some(cmd) = cmd_to_run {
-                        if context.config.settings.automatic_update_env_variables {
-                            crate::app::sys_helpers::refresh_env_vars();
+                    let (cmd_to_run, should_spawn) = if let Some(r) = rule {
+                        (Some(r.resolve_open_cmd(&entry.path)), true)
+                    } else if cfg!(target_os = "windows") {
+                        if context.config.settings.use_windows_registered_types {
+                            (Some(format!("start \"\" \"{}\"", path)), true)
+                        } else {
+                            (None, false)
                         }
-                        let args = if cfg!(target_os = "windows") {
-                            vec!["/c", &cmd]
-                        } else {
-                            vec!["-c", &cmd]
-                        };
+                    } else {
+                        (Some(format!("xdg-open \"{}\" 2>/dev/null", path)), true)
+                    };
 
-                        let _ = std::process::Command::new(if cfg!(target_os = "windows") {
-                            "cmd"
-                        } else {
-                            "sh"
-                        })
-                        .args(&args)
-                        .spawn();
+                    if should_spawn {
+                        if let Some(cmd) = cmd_to_run {
+                            if context.config.settings.automatic_update_env_variables {
+                                crate::app::sys_helpers::refresh_env_vars();
+                            }
+                            let args = if cfg!(target_os = "windows") {
+                                vec!["/c", &cmd]
+                            } else {
+                                vec!["-c", &cmd]
+                            };
+
+                            let _ = std::process::Command::new(if cfg!(target_os = "windows") {
+                                "cmd"
+                            } else {
+                                "sh"
+                            })
+                            .args(&args)
+                            .spawn();
+                        }
                     }
                 }
             }
         }
+    }
+
+    if let Some(path) = open_file_path {
+        state.push_file_view_history(path.clone());
+        let viewer = crate::ui::viewer::ViewerState::load(path);
+        state.push_screen(Screen::Viewer(viewer));
+        return;
     }
     if let Some(dir) = target_dir {
         state.push_folders_history(dir.clone());

@@ -172,6 +172,11 @@ pub struct Settings {
     pub plugins_dev_dir: String,
 
     // ── NEW Editor & Viewer settings (Tab 5 stubs/interactive) ───────────────
+    /// When `true`, pressing Enter on a file runs the external association
+    /// command (e.g. `nano %f`). When `false` (default), Enter opens the file
+    /// in Pairee's native viewer for text, image, and binary files alike.
+    #[serde(default)]
+    pub enter_use_external: bool,
     pub editor_use_external: bool,
     pub editor_expand_tabs: String,
     pub editor_persistent_blocks: bool,
@@ -366,6 +371,7 @@ impl Default for Settings {
             plugins_dev_dir: default_plugins_dev_dir(),
 
             // Tab 5
+            enter_use_external: false,
             editor_use_external: false,
             editor_expand_tabs: "Do not expand tabs".to_string(),
             editor_persistent_blocks: false,

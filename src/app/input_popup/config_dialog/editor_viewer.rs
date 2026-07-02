@@ -111,6 +111,7 @@ pub fn handle_row(
                 _ => "1252".to_string(),
             };
         }
+        38 => settings.enter_use_external = !settings.enter_use_external,
         _ => {}
     }
     None

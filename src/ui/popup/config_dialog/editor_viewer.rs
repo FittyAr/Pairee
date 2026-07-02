@@ -255,6 +255,19 @@ pub fn populate_rows(
         RowType::Setting(21),
     ));
 
+    rows.push((
+        format!(
+            "  [{}] {}",
+            if settings.enter_use_external {
+                "x"
+            } else {
+                " "
+            },
+            t("vi_enter_external")
+        ),
+        RowType::Setting(38),
+    ));
+
     let is_editing_viewer = editing_value && cursor_idx == rows.len();
     if is_editing_viewer {
         rows.push((

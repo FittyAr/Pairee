@@ -15,6 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- `enter_use_external` setting (default `false`) to manually enable launching external association commands (e.g. `nano %f`) when opening files with Enter. Exposed in the Editor & Viewer settings tab as "Use external command when opening files with Enter". Replaces the previous always-on default behavior.
 - Interactive modal selection list for Developer Tools Option 0 (Select Active Plugin), displaying all detected plugins from `plugins_dev_dir` as well as any plugin found in the active Panel 1 or Panel 2 directories, navigable with keyboard arrows and confirmed with Enter.
 - Auto-selection of newly created plugins in Option 0 upon successful initialization in Option 1 (which subsequently disables Option 1).
 - Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.
@@ -30,7 +31,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Changed
 
-- Optimized the registry `index.toml` catalog by moving file SHA-256 hashes to individual plugin manifests (appending them to the `manifest.toml` copy inside the registry branch) to minimize the catalog size.
+- Pressing Enter on a file now opens it with Pairee's native viewer (text, image, or hex mode) by default, instead of launching an external editor such as `nano`. Files remain editable via F4 and viewable via F3/Alt+F3 as before.
+- The previous Enter-to-external behavior (running the association command such as `nano %f`, or `xdg-open`/`start` as fallback) is now opt-in via a new `enter_use_external` toggle in the Editor & Viewer configuration tab.
+
+### Added
+
 - Restructured the plugin registry layout with lowercase single-character partition subdirectories matching the author's initial (e.g., `f/FittyAr/`) to prevent heavy root folder listings.
 - A dedicated `plugin-template` git branch (orphan) containing the canonical boilerplate files for new plugins (`manifest.toml`, `main.lua`, `lang/en.toml`, `help/en.md`, `icon.png`, `screenshots/screenshot1.png`). The template is never surfaced in any plugin list in the UI.
 - New `clone_from_template()` function in the developer tool that uses the `git2` crate to extract template files directly from the local `plugin-template` branch without requiring an external `git` binary. Placeholder tokens (`PLUGIN_NAME`, `PLUGIN_DESCRIPTION`, `PLUGIN_AUTHOR`) are substituted after extraction.
