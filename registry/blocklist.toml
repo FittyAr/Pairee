@@ -1,0 +1,6 @@
+schema_version = "1"
+generated_at = "2026-07-02T08:40:00Z"
+
+[blocked]
+# Examples of blocked plugins:
+# "unsafe-plugin" = "Critical bug causing application hang."
