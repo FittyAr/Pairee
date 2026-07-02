@@ -12,6 +12,7 @@ use ratatui::{
 pub mod dev;
 pub mod installed;
 pub mod search;
+pub mod select;
 
 pub fn wrap_text(text: &str, max_width: usize) -> Vec<String> {
     let mut lines = Vec::new();

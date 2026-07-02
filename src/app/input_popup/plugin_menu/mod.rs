@@ -166,11 +166,14 @@ pub fn handle(
             &mut editing_query,
         );
     } else {
+        let left_path = state.left_panel.current_path.clone();
+        let right_path = state.right_panel.current_path.clone();
         dev::handle_dev(
             key,
+            state,
             context,
-            &state.left_panel.current_path,
-            &state.right_panel.current_path,
+            &left_path,
+            &right_path,
             &mut cursor_idx,
             &mut installed,
             &mut search_query,

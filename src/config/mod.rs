@@ -51,7 +51,7 @@ impl AppConfig {
 
         // 1. Settings Loading
         let settings_path = paths::get_config_file_path();
-        let settings: Settings = if settings_path.exists() {
+        let mut settings: Settings = if settings_path.exists() {
             let content =
                 fs::read_to_string(&settings_path).context("Failed to read config.toml")?;
             toml::from_str(&content).unwrap_or_default()
@@ -62,6 +62,21 @@ impl AppConfig {
             fs::write(&settings_path, toml_str).context("Failed to write default config.toml")?;
             default_settings
         };
+
+        if let Some(ref folder_name) = settings.active_dev_plugin {
+            let plugins_dev_dir = &settings.plugins_dev_dir;
+            let path = if std::path::Path::new(folder_name).is_absolute() {
+                std::path::PathBuf::from(folder_name)
+            } else {
+                std::path::PathBuf::from(plugins_dev_dir).join(folder_name)
+            };
+            if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
+                settings.active_dev_plugin = None;
+                if let Ok(toml_str) = toml::to_string_pretty(&settings) {
+                    let _ = fs::write(&settings_path, toml_str);
+                }
+            }
+        }
 
         // Load active language
         localization::load_language(&settings.language);

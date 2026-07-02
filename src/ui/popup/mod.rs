@@ -101,6 +101,9 @@ fn render_specific_popup(
     if plugin_menu::render(f, popup, theme, size, context) {
         return;
     }
+    if plugin_menu::select::render_dev_select(f, popup, theme, size) {
+        return;
+    }
     if git_panel::render(f, popup, theme, size) {
         return;
     }

@@ -99,6 +99,9 @@ pub fn handle_popup_input(
             }
             PopupType::TaskListDialog { .. } => task_list::handle(state, key, context),
             PopupType::PluginMenu { .. } => plugin_menu::handle(state, key, context),
+            PopupType::SelectDevPlugin { .. } => {
+                plugin_menu::dev::handle_select_popup(state, key, context)
+            }
             PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
             PopupType::ConfigurationDialog { .. } => config_dialog::handle(state, key, context),
             PopupType::ColorGroupsDialog { .. } => color_groups::handle(state, key, context),

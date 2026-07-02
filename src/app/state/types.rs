@@ -275,6 +275,11 @@ pub enum PopupType {
         input: String,
         previous: Box<PopupType>,
     },
+    SelectDevPlugin {
+        options: Vec<(String, String)>,
+        cursor_idx: usize,
+        previous_popup: Box<PopupType>,
+    },
 
     // ── Confirmations ─────────────────────────────────────────────────────────
     ConfirmDelete {

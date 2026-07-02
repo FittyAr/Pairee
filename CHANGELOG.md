@@ -15,9 +15,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
-- Active plugin selection directory auto-detection in Option 0 of TUI Developer Tools, scanning active directories of Panel 1 and Panel 2 for a `manifest.toml` file.
+- Interactive modal selection list for Developer Tools Option 0 (Select Active Plugin), displaying all detected plugins from `plugins_dev_dir` as well as any plugin found in the active Panel 1 or Panel 2 directories, navigable with keyboard arrows and confirmed with Enter.
 - Auto-selection of newly created plugins in Option 0 upon successful initialization in Option 1 (which subsequently disables Option 1).
-- Support for selecting active development plugins using absolute paths, panel folder names, or aliases like `panel1`/`panel2` (or `left`/`right`).
 - Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.
 - Automatic license detection and auto-assignment during packaging, prompting for license names when present but undeclared, or auto-assigning `"MIT"` and generating a standard `LICENSE` file if not present.
 
@@ -35,6 +34,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Fixed
 
+- Active development plugin selection is now validated at application startup; if the previously selected plugin folder no longer exists on disk, the selection is automatically cleared from the configuration file.
+- Active development plugin selection is also validated each time Developer Tools are opened at runtime, avoiding stale references after manual folder deletions.
 - Plugin initialization via the Developer Tools wizard no longer produces empty `main.lua` and `manifest.toml` files. Files are now sourced from the `plugin-template` branch, with a graceful fallback to the previous localization-string method if the branch is unavailable.
 
 - Default manifest templates updated to include `icon` and `screenshots` variables with helpful instructions.

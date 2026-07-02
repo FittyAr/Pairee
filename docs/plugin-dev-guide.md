@@ -417,7 +417,7 @@ With developer mode enabled, the following commands are available:
 ### 15.2 TUI Developer Tools & PR Submission Wizard
 The interactive TUI developer tools (accessible via `F11` -> `Developer Tools` tab when `developer_mode = true` is enabled in `pairee.toml`) provide the following suite of utilities:
 
-* **Active Plugin Selection (Option 0):** Selects which development plugin is currently targeted for linting, packaging, and local installation. It lists all plugins under `plugins_dev_dir`. Additionally, it scans the active directory of Panel 1 and Panel 2; if either has a `manifest.toml`, it is listed as an option. You can select it by typing its folder name, its absolute path, or using aliases like `panel1`/`panel2` (or `left`/`right`).
+* **Active Plugin Selection (Option 0):** Opens an interactive modal selection list displaying all detected development plugins. It lists all plugins found under `plugins_dev_dir` and also scans the active directories of Panel 1 and Panel 2 for a `manifest.toml` file, letting you choose the targeted plugin from the list with your keyboard.
 * **Initialize boilerplate (Option 1):** Guides the developer step-by-step to create a new plugin skeleton under your development directory. Upon successful creation, the new plugin is automatically set as the active plugin (Option 0) and Option 1 is disabled.
 * **Audit (Lint) (Option 2):** Scans the active plugin folder and performs syntax and security audits on Lua and manifest files.
 * **Package (Option 3):** Prepares a local temporary clone of the `plugin-registry` branch, copies all plugin assets, builds/updates the registry index entries, and displays the exact absolute path where it was packaged in the registry cache.
