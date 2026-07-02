@@ -28,7 +28,13 @@ pub struct RegistryPlugin {
     pub languages: Option<Vec<String>>,
     pub hooks: Option<Vec<String>>,
     pub min_pairee: Option<String>,
-    pub files: HashMap<String, String>, // relative_path -> sha256
+}
+
+#[derive(Debug, Deserialize)]
+#[allow(dead_code)]
+pub struct RegistryPluginManifestWrapper {
+    pub plugin: Option<RegistryPlugin>,
+    pub files: Option<HashMap<String, String>>,
 }
 
 fn get_lockfile_path() -> PathBuf {
@@ -358,9 +364,34 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
     if let Some(ref hooks) = plugin.hooks {
         println!("Subscribes to hooks: {}", hooks.join(", "));
     }
-    println!("Files:");
-    for file in plugin.files.keys() {
-        println!("  - {}", file);
+
+    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
+    let author = if author.is_empty() { "unknown" } else { author };
+    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
+    let first_char_str = if first_char.is_ascii_alphabetic() {
+        first_char.to_string()
+    } else {
+        "_".to_string()
+    };
+
+    let client = reqwest::Client::builder().build()?;
+    let manifest_url = format!(
+        "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/manifest.toml",
+        first_char_str, author, name
+    );
+    if let Ok(resp) = client.get(&manifest_url).send().await {
+        if resp.status().is_success() {
+            if let Ok(text) = resp.text().await {
+                if let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text) {
+                    if let Some(files) = manifest_wrapper.files {
+                        println!("Files:");
+                        for file in files.keys() {
+                            println!("  - {}", file);
+                        }
+                    }
+                }
+            }
+        }
     }
     Ok(())
 }
@@ -397,9 +428,6 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
 
     println!("Downloading {} v{}...", plugin.name, plugin.version);
 
-    let client = reqwest::Client::builder().build()?;
-    let mut downloaded_files = HashMap::new();
-
     let author = plugin.author.as_deref().unwrap_or("unknown").trim();
     let author = if author.is_empty() { "unknown" } else { author };
     let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
@@ -409,7 +437,22 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         "_".to_string()
     };
 
-    for (rel_path, expected_hash) in &plugin.files {
+    let client = reqwest::Client::builder().build()?;
+    let manifest_url = format!(
+        "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/manifest.toml",
+        first_char_str, author, name
+    );
+    let resp = client.get(&manifest_url).send().await?;
+    if !resp.status().is_success() {
+        anyhow::bail!("Failed to download plugin manifest: HTTP {}", resp.status());
+    }
+    let manifest_text = resp.text().await?;
+    let manifest_wrapper: RegistryPluginManifestWrapper = toml::from_str(&manifest_text)?;
+    let files = manifest_wrapper.files.ok_or_else(|| anyhow::anyhow!("Plugin manifest is missing [files] section"))?;
+
+    let mut downloaded_files = HashMap::new();
+
+    for (rel_path, expected_hash) in &files {
         let file_url = format!(
             "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/{}",
             first_char_str, author, name, rel_path

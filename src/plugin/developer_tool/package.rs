@@ -168,7 +168,66 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
 
     let manifest_path = plugin_dir.join("manifest.toml");
     let content = std::fs::read_to_string(&manifest_path)?;
-    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
+    let mut manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
+    let mut manifest_table: toml::Table = toml::from_str(&content)?;
+
+    // Check for LICENSE file (case-insensitive)
+    let mut license_file = None;
+    if let Ok(entries) = std::fs::read_dir(plugin_dir) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let name_lower = entry.file_name().to_string_lossy().to_lowercase();
+                if name_lower == "license" || name_lower == "license.txt" || name_lower == "license.md" {
+                    license_file = Some(entry.path());
+                    break;
+                }
+            }
+        }
+    }
+
+    let mut license_to_set = manifest.license.clone();
+
+    if let Some(_path) = license_file {
+        if manifest.license.is_none() || manifest.license.as_ref().map(|l| l.trim().is_empty()).unwrap_or(true) {
+            // Prompt the user for license name if stdin is a terminal
+            let mut license_name = String::new();
+            use std::io::IsTerminal;
+            if std::io::stdin().is_terminal() {
+                println!("LICENSE file detected, but no license name specified in manifest.toml.");
+                println!("Please enter the license name (e.g. MIT, GPL-3.0, Apache-2.0):");
+                let _ = std::io::stdin().read_line(&mut license_name);
+            }
+            let license_name = license_name.trim().to_string();
+            let license_name = if license_name.is_empty() {
+                "Custom".to_string()
+            } else {
+                license_name
+            };
+            license_to_set = Some(license_name);
+        }
+    } else {
+        // No license file present. Auto-assign MIT
+        license_to_set = Some("MIT".to_string());
+        let current_year = chrono::Local::now().format("%Y").to_string();
+        let author_name = manifest.author.as_deref().unwrap_or("unknown");
+        let mit_license_text = format!(
+            "MIT License\n\nCopyright (c) {} {}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
+            current_year, author_name
+        );
+        std::fs::write(plugin_dir.join("LICENSE"), mit_license_text)?;
+    }
+
+    if let Some(ref lic) = license_to_set {
+        manifest.license = Some(lic.clone());
+        if let Some(toml::Value::Table(plugin_table)) = manifest_table.get_mut("plugin") {
+            plugin_table.insert("license".to_string(), toml::Value::String(lic.clone()));
+        } else {
+            manifest_table.insert("license".to_string(), toml::Value::String(lic.clone()));
+        }
+        let updated_content = toml::to_string_pretty(&manifest_table)?;
+        std::fs::write(&manifest_path, updated_content)?;
+    }
+
     let name = manifest.name.clone();
 
     // 2. Clone or update the registry repo in temporary directory
@@ -216,8 +275,16 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     }
     std::fs::write(dest_plugin_dir.join("sha256.sum"), sha_content)?;
 
-    // Copy manifest.toml to registry/<name>/manifest.toml
-    std::fs::copy(&manifest_path, dest_plugin_dir.join("manifest.toml"))?;
+    // Copy manifest.toml to registry/plugins/.../manifest.toml with the [files] section appended
+    let mut manifest_content = std::fs::read_to_string(&manifest_path)?;
+    if !manifest_content.ends_with('\n') {
+        manifest_content.push('\n');
+    }
+    manifest_content.push_str("\n[files]\n");
+    for (f, h) in &files_hash {
+        manifest_content.push_str(&format!("\"{}\" = \"{}\"\n", f, h));
+    }
+    std::fs::write(dest_plugin_dir.join("manifest.toml"), manifest_content)?;
 
     // 4. Update registry/index.toml
     let index_path = temp_dir.join("registry").join("index.toml");
@@ -247,7 +314,6 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
             .as_ref()
             .map(|kb| kb.values().cloned().collect()),
         min_pairee: manifest.min_pairee.clone(),
-        files: files_hash,
     };
 
     index_data.plugins.insert(name.clone(), reg_plugin);
