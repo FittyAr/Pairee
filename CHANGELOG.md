@@ -15,6 +15,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.
+- Automatic license detection and auto-assignment during packaging, prompting for license names when present but undeclared, or auto-assigning `"MIT"` and generating a standard `LICENSE` file if not present.
+
+### Changed
+
+- Optimized the registry `index.toml` catalog by moving file SHA-256 hashes to individual plugin manifests (appending them to the `manifest.toml` copy inside the registry branch) to minimize the catalog size.
+- Restructured the plugin registry layout with lowercase single-character partition subdirectories matching the author's initial (e.g., `f/FittyAr/`) to prevent heavy root folder listings.
 - A dedicated `plugin-template` git branch (orphan) containing the canonical boilerplate files for new plugins (`manifest.toml`, `main.lua`, `lang/en.toml`, `help/en.md`, `icon.png`, `screenshots/screenshot1.png`). The template is never surfaced in any plugin list in the UI.
 - New `clone_from_template()` function in the developer tool that uses the `git2` crate to extract template files directly from the local `plugin-template` branch without requiring an external `git` binary. Placeholder tokens (`PLUGIN_NAME`, `PLUGIN_DESCRIPTION`, `PLUGIN_AUTHOR`) are substituted after extraction.
 - `PAIREE_REPO_DIR` environment variable support allowing developers to explicitly point to the Pairee source repository for template resolution.
