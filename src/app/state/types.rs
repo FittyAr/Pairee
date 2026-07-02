@@ -128,6 +128,28 @@ pub struct TerminalState {
     pub pid: Option<u32>,
 }
 
+/// Progress message emitted by a long-running Developer Tools operation
+/// (init, lint, package, install, submit) running in the background.
+///
+/// The UI drains these from `AppState::dev_progress_rx` on every frame and
+/// reflects them as a status line and (when available) a determinate
+/// progress bar in the Dev Tools console.
+#[derive(Debug, Clone)]
+pub struct DevProgress {
+    /// Human-readable status (already localized by the caller).
+    pub status: String,
+    /// Current step / file index (for determinate progress).
+    pub current: Option<usize>,
+    /// Total step / file count (for determinate progress).
+    pub total: Option<usize>,
+    /// `true` when the operation has finished (success or failure).
+    pub done: bool,
+    /// Final result text to dump into the dev console on completion.
+    pub result: Option<String>,
+    /// Error message on failure; the operation has also finished.
+    pub error: Option<String>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TerminalUpdate {
     pub screen_idx: usize,
@@ -341,6 +363,20 @@ pub enum PopupType {
         dev_results: String,
         dev_wizard_step: usize,
         dev_wizard_data: Vec<String>,
+        /// True while the initial installed-plugins list (and registry index) is
+        /// being fetched in the background after opening the menu.
+        installed_loading: bool,
+        /// Human-readable status text shown while `installed_loading` is true.
+        installed_loading_status: String,
+        /// True while a Developer Tools operation is running asynchronously.
+        dev_loading: bool,
+        /// Human-readable status text shown while `dev_loading` is true
+        /// (e.g. "Cloning registry…", "Copying files…").
+        dev_loading_status: String,
+        /// Optional determinate progress `(current, total)` for the running
+        /// dev operation. When `None`, the renderer falls back to an
+        /// indeterminate (pulsing) indicator.
+        dev_loading_progress: Option<(usize, usize)>,
     },
 
     // ── Sort modes ────────────────────────────────────────────────────────────

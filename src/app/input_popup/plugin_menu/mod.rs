@@ -64,6 +64,11 @@ pub fn handle(
             dev_results,
             dev_wizard_step,
             dev_wizard_data,
+            installed_loading,
+            installed_loading_status,
+            dev_loading,
+            dev_loading_status,
+            dev_loading_progress,
         }) => (
             active_tab,
             cursor_idx,
@@ -75,6 +80,11 @@ pub fn handle(
             dev_results,
             dev_wizard_step,
             dev_wizard_data,
+            installed_loading,
+            installed_loading_status,
+            dev_loading,
+            dev_loading_status,
+            dev_loading_progress,
         ),
         _ => return Err(()),
     };
@@ -90,6 +100,11 @@ pub fn handle(
         mut dev_results,
         mut dev_wizard_step,
         mut dev_wizard_data,
+        installed_loading,
+        installed_loading_status,
+        mut dev_loading,
+        mut dev_loading_status,
+        mut dev_loading_progress,
     ) = popup_state;
 
     // Handle global escape to close if not editing query
@@ -109,6 +124,11 @@ pub fn handle(
                 dev_results,
                 dev_wizard_step,
                 dev_wizard_data,
+                installed_loading,
+                installed_loading_status,
+                dev_loading,
+                dev_loading_status,
+                dev_loading_progress,
             });
             return Ok(None);
         } else {
@@ -147,6 +167,11 @@ pub fn handle(
                     dev_results,
                     dev_wizard_step: 0,
                     dev_wizard_data: Vec::new(),
+                    installed_loading,
+                    installed_loading_status,
+                    dev_loading,
+                    dev_loading_status,
+                    dev_loading_progress,
                 });
                 return Ok(None);
             }
@@ -182,6 +207,20 @@ pub fn handle(
             &mut dev_wizard_step,
             &mut dev_wizard_data,
         );
+        // Pull back the live loading fields from the popup state because
+        // `handle_dev` may have flipped them (e.g. when starting a new op
+        // or when a background update landed).
+        if let Some(PopupType::PluginMenu {
+            dev_loading: dl,
+            dev_loading_status: dls,
+            dev_loading_progress: dlp,
+            ..
+        }) = &state.active_popup
+        {
+            dev_loading = *dl;
+            dev_loading_status = dls.clone();
+            dev_loading_progress = *dlp;
+        }
     }
 
     state.active_popup = Some(PopupType::PluginMenu {
@@ -195,6 +234,11 @@ pub fn handle(
         dev_results,
         dev_wizard_step,
         dev_wizard_data,
+        installed_loading,
+        installed_loading_status,
+        dev_loading,
+        dev_loading_status,
+        dev_loading_progress,
     });
 
     Ok(action)

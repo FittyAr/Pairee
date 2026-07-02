@@ -11,8 +11,9 @@ pub use crate::fs::compare::CompareStatus;
 pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use types::{
-    ActivePanel, AdminOpKind, BackgroundOpContext, FileAttrsSnapshot, LinkKind, PanelViewMode,
-    PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
+    ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot, LinkKind,
+    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
+    TreeNode,
 };
 
 use crate::fs::ProgressUpdate;
@@ -38,6 +39,11 @@ pub struct AppState {
     >,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
+    /// Channel receiver for in-progress Developer Tools operations
+    /// (init / lint / package / install / submit). Drained each frame in
+    /// `process_background_updates` to update the `PluginMenu` popup's
+    /// progress fields without blocking the UI thread.
+    pub dev_progress_rx: Option<tokio::sync::mpsc::UnboundedReceiver<DevProgress>>,
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
@@ -117,6 +123,7 @@ impl AppState {
             progress_rx: None,
             ssh_connect_rx: None,
             search_rx: None,
+            dev_progress_rx: None,
             term_tx,
             term_rx: Some(term_rx),
             screens: vec![Screen::Panels],

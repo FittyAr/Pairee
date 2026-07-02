@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType, Screen};
+use crate::app::state::{AppState, DevProgress, PopupType, Screen};
 use crate::terminal::TerminalBackend;
 
 pub fn process_background_updates(
@@ -163,6 +163,71 @@ pub fn process_background_updates(
             }
         } else {
             state.search_rx = Some(rx);
+        }
+    }
+
+    // 1.8 Process Developer Tools progress updates (async init/lint/package/install/submit)
+    if state.dev_progress_rx.is_some() {
+        let mut rx = state.dev_progress_rx.take().unwrap();
+        let mut latest: Option<DevProgress> = None;
+        let mut finished: Option<DevProgress> = None;
+        let mut disconnected = false;
+        loop {
+            match rx.try_recv() {
+                Ok(update) => {
+                    if update.done {
+                        // The terminal message supersedes any in-flight ones.
+                        finished = Some(update);
+                        latest = None;
+                    } else {
+                        latest = Some(update);
+                    }
+                }
+                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
+                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                    disconnected = true;
+                    break;
+                }
+            }
+        }
+        if let Some(update) = finished {
+            if let Some(PopupType::PluginMenu {
+                dev_results,
+                dev_loading,
+                dev_loading_status,
+                dev_loading_progress,
+                ..
+            }) = &mut state.active_popup
+            {
+                if let Some(err) = update.error {
+                    *dev_results = err;
+                } else if let Some(res) = update.result {
+                    *dev_results = res;
+                }
+                *dev_loading = false;
+                *dev_loading_status = String::new();
+                *dev_loading_progress = None;
+            }
+        } else if let Some(update) = latest {
+            if let Some(PopupType::PluginMenu {
+                dev_loading,
+                dev_loading_status,
+                dev_loading_progress,
+                ..
+            }) = &mut state.active_popup
+            {
+                *dev_loading = true;
+                *dev_loading_status = update.status;
+                *dev_loading_progress =
+                    if let (Some(c), Some(t)) = (update.current, update.total) {
+                        if t > 0 { Some((c, t)) } else { None }
+                    } else {
+                        None
+                    };
+            }
+        }
+        if !disconnected {
+            state.dev_progress_rx = Some(rx);
         }
     }
 

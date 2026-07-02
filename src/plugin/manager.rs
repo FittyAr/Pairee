@@ -70,6 +70,18 @@ pub enum PluginRequest {
         path: PathBuf,
         widget: crate::app::state::types::PluginWidget,
     },
+    /// Result of an asynchronous load of the installed-plugins list
+    /// (triggered when opening the Plugin Manager). The receiver is the
+    /// `(name, version, pinned, trusted, update_available)` tuple used by
+    /// the `PluginMenu` popup's `installed` field.
+    PluginMenuLoaded {
+        installed: Vec<(String, String, bool, bool, Option<String>)>,
+    },
+    /// Result of an asynchronous scan of the dev plugins folder (and the two
+    /// panel paths) for Option 0 "Select active development plugin".
+    DevPluginScan {
+        options: Vec<(String, String)>,
+    },
 }
 
 static PLUGIN_REQ_TX: OnceLock<mpsc::Sender<PluginRequest>> = OnceLock::new();
@@ -240,6 +252,34 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                                 *plugin_widget = Some(widget);
                             }
                         }
+                    }
+                    PluginRequest::PluginMenuLoaded { installed } => {
+                        if let Some(PopupType::PluginMenu {
+                            installed: ref mut existing,
+                            installed_loading: ref mut loading,
+                            installed_loading_status: ref mut loading_status,
+                            ..
+                        }) = state.active_popup
+                        {
+                            *existing = installed;
+                            *loading = false;
+                            *loading_status = String::new();
+                        }
+                    }
+                    PluginRequest::DevPluginScan { options } => {
+                        // Convert the scan into an open SelectDevPlugin popup.
+                        let previous_popup = state
+                            .active_popup
+                            .clone()
+                            .map(Box::new)
+                            .unwrap_or_else(|| {
+                                Box::new(PopupType::Info(String::new()))
+                            });
+                        state.active_popup = Some(PopupType::SelectDevPlugin {
+                            options,
+                            cursor_idx: 0,
+                            previous_popup,
+                        });
                     }
                 }
             }

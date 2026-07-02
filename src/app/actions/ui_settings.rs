@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::app::sys_helpers::{build_info_panel_lines, get_hotlist_bookmarks, get_process_list};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 
 /// Handles UI, settings, and other configuration actions. Returns `true` if the action was handled.
@@ -481,46 +482,13 @@ pub async fn handle_ui_settings_action(
             true
         }
         Action::PluginMenu => {
-            let lock = crate::plugin::updater::read_lockfile();
-            let index = crate::plugin::updater::fetch_index().await.ok();
-
-            let mut installed = Vec::new();
-            for (name, info) in &lock.plugins {
-                let trusted = context
-                    .config
-                    .settings
-                    .plugins
-                    .get(name)
-                    .map(|p| p.trusted)
-                    .unwrap_or(false);
-
-                let update_available = if let Some(ref idx) = index {
-                    if let Some(reg_plugin) = idx.plugins.get(name) {
-                        if reg_plugin.version != info.version {
-                            Some(reg_plugin.version.clone())
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                installed.push((
-                    name.clone(),
-                    info.version.clone(),
-                    info.pinned,
-                    trusted,
-                    update_available,
-                ));
-            }
-
+            // Open the popup immediately so the UI stays responsive while we
+            // fetch the registry index and assemble the installed list in the
+            // background. The status line + spinner shows progress to the user.
             state.active_popup = Some(PopupType::PluginMenu {
                 active_tab: 0,
                 cursor_idx: 0,
-                installed,
+                installed: Vec::new(),
                 registry: Vec::new(),
                 search_query: String::new(),
                 is_searching: false,
@@ -528,7 +496,55 @@ pub async fn handle_ui_settings_action(
                 dev_results: String::new(),
                 dev_wizard_step: 0,
                 dev_wizard_data: Vec::new(),
+                installed_loading: true,
+                installed_loading_status: t("plugin_dev_progress_loading_index"),
+                dev_loading: false,
+                dev_loading_status: String::new(),
+                dev_loading_progress: None,
             });
+
+            // Snapshot the data we need from `context` (which is borrowed
+            // mutably) so the background task does not capture a reference
+            // to it.
+            let plugins_settings = context.config.settings.plugins.clone();
+            let tx = crate::plugin::PluginManager::get_sender();
+            tokio::spawn(async move {
+                let lock = crate::plugin::updater::read_lockfile();
+                let index = crate::plugin::updater::fetch_index().await.ok();
+                let mut installed = Vec::new();
+                for (name, info) in &lock.plugins {
+                    let trusted = plugins_settings
+                        .get(name)
+                        .map(|p| p.trusted)
+                        .unwrap_or(false);
+
+                    let update_available = if let Some(ref idx) = index {
+                        if let Some(reg_plugin) = idx.plugins.get(name) {
+                            if reg_plugin.version != info.version {
+                                Some(reg_plugin.version.clone())
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    } else {
+                        None
+                    };
+
+                    installed.push((
+                        name.clone(),
+                        info.version.clone(),
+                        info.pinned,
+                        trusted,
+                        update_available,
+                    ));
+                }
+                let _ = tx
+                    .send(crate::plugin::manager::PluginRequest::PluginMenuLoaded { installed })
+                    .await;
+            });
+
             true
         }
         Action::ScreensList => {

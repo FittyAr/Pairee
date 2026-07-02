@@ -1,7 +1,17 @@
+use super::progress_status;
+use crate::app::state::DevProgress;
 use crate::config::localization::t;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub fn lint() -> anyhow::Result<()> {
+    lint_with_progress(None)
+}
+
+pub fn lint_with_progress(
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
+    progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
         anyhow::bail!(t("plugin_dev_lint_err_manifest").trim().to_string());
@@ -23,6 +33,7 @@ pub fn lint() -> anyhow::Result<()> {
         t("plugin_dev_lint_start").replace("{}", &manifest.name)
     );
 
+    progress_status(&progress, t("plugin_dev_progress_checking_lua"));
     let main_path = path.join("main.lua");
     if !main_path.exists() {
         anyhow::bail!(t("plugin_dev_lint_err_lua").trim().to_string());

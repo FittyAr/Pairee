@@ -19,10 +19,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Auto-selection of newly created plugins in Option 0 upon successful initialization in Option 1 (which subsequently disables Option 1).
 - Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.
 - Automatic license detection and auto-assignment during packaging, prompting for license names when present but undeclared, or auto-assigning `"MIT"` and generating a standard `LICENSE` file if not present.
+- Asynchronous loading of the installed plugin list when opening the Plugin Manager (F11), with a spinner and status text shown in the Installed tab while the registry index is being fetched.
+- Live progress bar and status text in the Developer Tools console that stream coarse-grained milestones (e.g. "Cloning registry…", "Copying file 3/12…", "Computing SHA-256…") during long-running operations (init, lint, package, install, submit, plugin scan).
+- Three new navigation items in the Developer Tools menu (6, 7, 8) to move the active file panel directly to the dev plugin folder, the packaged plugin folder inside the local registry clone, and the submit folder, closing the popup on success so the developer can inspect the files without copying paths manually.
 
 ### Improved
 
 - Packaging Option 3 now displays the exact absolute path where the plugin was packaged in the registry cache.
+- The Plugin Manager and Developer Tools no longer freeze the UI when opening or running operations. All network calls (registry fetch, GitHub fork/push) and heavy filesystem tasks (git clone, file copy, SHA-256 hashing) run in the background on a Tokio blocking pool and stream progress back to the console.
 
 ### Changed
 
@@ -31,6 +35,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - A dedicated `plugin-template` git branch (orphan) containing the canonical boilerplate files for new plugins (`manifest.toml`, `main.lua`, `lang/en.toml`, `help/en.md`, `icon.png`, `screenshots/screenshot1.png`). The template is never surfaced in any plugin list in the UI.
 - New `clone_from_template()` function in the developer tool that uses the `git2` crate to extract template files directly from the local `plugin-template` branch without requiring an external `git` binary. Placeholder tokens (`PLUGIN_NAME`, `PLUGIN_DESCRIPTION`, `PLUGIN_AUTHOR`) are substituted after extraction.
 - `PAIREE_REPO_DIR` environment variable support allowing developers to explicitly point to the Pairee source repository for template resolution.
+- Developer Tools Option 0 label now reflects the current state: "Select active development plugin" when none is selected, and "Change / deselect active plugin" when one is active, making the dual deselect/change behavior explicit.
 
 ### Fixed
 

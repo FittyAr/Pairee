@@ -1,6 +1,8 @@
-use super::find_pairee_repo;
+use super::{find_pairee_repo, progress_progress, progress_status};
+use crate::app::state::DevProgress;
 use crate::config::localization::t;
 use std::collections::HashMap;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub fn package() -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
@@ -10,11 +12,19 @@ pub fn package() -> anyhow::Result<()> {
 }
 
 pub fn validate_for_publish(path: &std::path::Path) -> Result<(), String> {
+    validate_for_publish_with_progress(path, None)
+}
+
+pub fn validate_for_publish_with_progress(
+    path: &std::path::Path,
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> Result<(), String> {
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
         return Err(t("plugin_dev_submit_no_manifest"));
     }
 
+    progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let content = match std::fs::read_to_string(&manifest_path) {
         Ok(c) => c,
         Err(e) => {
@@ -30,6 +40,7 @@ pub fn validate_for_publish(path: &std::path::Path) -> Result<(), String> {
     };
 
     // 1. Validate Icon
+    progress_status(&progress, t("plugin_dev_progress_validating_icon"));
     let icon_rel = match &manifest.icon {
         Some(i) if !i.trim().is_empty() => i.trim(),
         _ => return Err(t("plugin_dev_publish_no_icon")),
@@ -56,15 +67,28 @@ pub fn validate_for_publish(path: &std::path::Path) -> Result<(), String> {
     }
 
     // 2. Validate Screenshots
+    progress_status(&progress, t("plugin_dev_progress_validating_screenshots"));
     let screenshots = match &manifest.screenshots {
         Some(s) if !s.is_empty() => s,
         _ => return Err(t("plugin_dev_publish_no_screenshots")),
     };
 
+    let total_screens = screenshots.iter().filter(|s| !s.trim().is_empty()).count();
+    let mut scr_idx = 0;
     for scr_rel in screenshots {
         if scr_rel.trim().is_empty() {
             continue;
         }
+        scr_idx += 1;
+        progress_progress(
+            &progress,
+            t("plugin_dev_progress_checking_screenshot")
+                .replace("{}", scr_rel)
+                .replace("{n}", &scr_idx.to_string())
+                .replace("{t}", &total_screens.to_string()),
+            scr_idx,
+            total_screens.max(1),
+        );
         let scr_path = path.join(scr_rel);
         if !scr_path.exists() || !scr_path.is_file() {
             return Err(t("plugin_dev_publish_screenshot_not_found").replace("{}", scr_rel));
@@ -161,12 +185,20 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
 }
 
 pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<String> {
+    package_to_registry_with_progress(plugin_dir, None)
+}
+
+pub fn package_to_registry_with_progress(
+    plugin_dir: &std::path::Path,
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<String> {
     // 1. Validate the plugin
-    if let Err(err_msg) = validate_for_publish(plugin_dir) {
+    if let Err(err_msg) = validate_for_publish_with_progress(plugin_dir, progress.clone()) {
         anyhow::bail!(t("plugin_dev_validation_failed").replace("{}", &err_msg));
     }
 
     let manifest_path = plugin_dir.join("manifest.toml");
+    progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let content = std::fs::read_to_string(&manifest_path)?;
     let mut manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
     let mut manifest_table: toml::Table = toml::from_str(&content)?;
@@ -241,6 +273,7 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
 
     // 2. Clone or update the registry repo in temporary directory
     let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
+    progress_status(&progress, t("plugin_dev_progress_fetching_registry"));
     let _repo = fetch_or_clone_registry(&temp_dir)?;
 
     // 3. Copy plugin files to the cloned repo
@@ -266,7 +299,19 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     std::fs::create_dir_all(&dest_plugin_dir)?;
 
     let mut files_hash = HashMap::new();
-    for (rel_path, src_file_path) in crate::plugin::loader::get_plugin_files(plugin_dir) {
+    let files = crate::plugin::loader::get_plugin_files(plugin_dir);
+    let total_files = files.len().max(1);
+    progress_status(&progress, t("plugin_dev_progress_copying_files"));
+    for (idx, (rel_path, src_file_path)) in files.into_iter().enumerate() {
+        progress_progress(
+            &progress,
+            t("plugin_dev_progress_copying_file")
+                .replace("{}", &rel_path)
+                .replace("{n}", &(idx + 1).to_string())
+                .replace("{t}", &total_files.to_string()),
+            idx + 1,
+            total_files,
+        );
         let dest_file_path = dest_plugin_dir.join(&rel_path);
         if let Some(parent) = dest_file_path.parent() {
             std::fs::create_dir_all(parent)?;
@@ -296,6 +341,7 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     std::fs::write(dest_plugin_dir.join("manifest.toml"), manifest_content)?;
 
     // 4. Update registry/index.toml
+    progress_status(&progress, t("plugin_dev_progress_updating_index"));
     let index_path = temp_dir.join("registry").join("index.toml");
     let mut index_data = if index_path.exists() {
         let content = std::fs::read_to_string(&index_path)?;

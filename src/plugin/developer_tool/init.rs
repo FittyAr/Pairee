@@ -1,5 +1,7 @@
-use super::{TEMPLATE_BRANCH, find_pairee_repo};
+use super::{TEMPLATE_BRANCH, find_pairee_repo, progress_status};
+use crate::app::state::DevProgress;
 use crate::config::localization::t;
+use tokio::sync::mpsc::UnboundedSender;
 
 fn replace_placeholders(
     target_path: &std::path::Path,
@@ -34,7 +36,10 @@ fn clone_from_template(
     manifest_name: &str,
     description: &str,
     author: &str,
+    progress: &Option<UnboundedSender<DevProgress>>,
 ) -> anyhow::Result<bool> {
+    progress_status(progress, t("plugin_dev_progress_locating_template"));
+
     // 1. Try local repository first
     if let Some(repo_dir) = find_pairee_repo() {
         if let Ok(repo) = git2::Repository::open(&repo_dir) {
@@ -42,6 +47,7 @@ fn clone_from_template(
             if let Ok(reference) = repo.find_reference(&branch_ref) {
                 if let Ok(commit) = reference.peel_to_commit() {
                     if let Ok(tree) = commit.tree() {
+                        progress_status(progress, t("plugin_dev_progress_copying_template"));
                         let walk_res = tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
                             use git2::ObjectType;
                             let rel_path = if root.is_empty() {
@@ -76,6 +82,7 @@ fn clone_from_template(
                         });
 
                         if walk_res.is_ok() {
+                            progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
                             replace_placeholders(target_path, manifest_name, description, author)?;
                             log::info!(
                                 "plugin-template: Plugin initialized from local git branch."
@@ -90,6 +97,7 @@ fn clone_from_template(
 
     // 2. Fallback: Clone the remote `plugin-template` branch from GitHub
     log::debug!("plugin-template: Local repo/branch not found. Cloning from remote repository...");
+    progress_status(progress, t("plugin_dev_progress_cloning_template"));
     let url = "https://github.com/FittyAr/Pairee.git";
 
     // Delete the directory if it already exists, as git2 clone expects the destination to not exist/be empty
@@ -109,6 +117,7 @@ fn clone_from_template(
                 let _ = std::fs::remove_dir_all(&git_dir);
             }
 
+            progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
             replace_placeholders(target_path, manifest_name, description, author)?;
             log::info!("plugin-template: Plugin initialized from remote git branch.");
             Ok(true)
@@ -120,7 +129,22 @@ fn clone_from_template(
     }
 }
 
-pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> anyhow::Result<()> {
+pub fn init(
+    name: &str,
+    description: &str,
+    author: &str,
+    print_output: bool,
+) -> anyhow::Result<()> {
+    init_with_progress(name, description, author, print_output, None)
+}
+
+pub fn init_with_progress(
+    name: &str,
+    description: &str,
+    author: &str,
+    print_output: bool,
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<()> {
     let folder_name = if name.ends_with(".pairee") {
         name.to_string()
     } else {
@@ -134,8 +158,9 @@ pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> 
     let path = std::env::current_dir()?.join(&folder_name);
     std::fs::create_dir_all(&path)?;
 
+    progress_status(&progress, t("plugin_dev_progress_creating_dir"));
     // Clone files from local `plugin-template` branch or fallback to cloning the remote branch from GitHub
-    let used_template = clone_from_template(&path, &manifest_name, description, author)?;
+    let used_template = clone_from_template(&path, &manifest_name, description, author, &progress)?;
     if !used_template {
         anyhow::bail!(t("plugin_dev_err_template_unavailable"));
     }
@@ -160,8 +185,14 @@ mod tests {
         let path = dir.path().join("test_remote.pairee");
 
         // Test remote cloning of template branch
-        let ok = clone_from_template(&path, "test_remote", "A remote test plugin", "Test Author")
-            .unwrap();
+        let ok = clone_from_template(
+            &path,
+            "test_remote",
+            "A remote test plugin",
+            "Test Author",
+            &None,
+        )
+        .unwrap();
 
         if ok {
             assert!(path.join("manifest.toml").exists());

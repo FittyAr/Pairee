@@ -1,5 +1,8 @@
 use super::package::{package_to_registry, validate_for_publish};
+use super::progress_status;
+use crate::app::state::DevProgress;
 use crate::config::localization::t;
+use tokio::sync::mpsc::UnboundedSender;
 
 pub async fn submit() -> anyhow::Result<()> {
     println!("{}", t("plugin_dev_submit_wizard"));
@@ -53,6 +56,14 @@ pub async fn submit() -> anyhow::Result<()> {
 }
 
 pub fn commit_registry_changes(message: &str) -> anyhow::Result<()> {
+    commit_registry_changes_with_progress(message, None)
+}
+
+pub fn commit_registry_changes_with_progress(
+    message: &str,
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<()> {
+    progress_status(&progress, t("plugin_dev_progress_staging"));
     let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
     let repo = git2::Repository::open(&temp_dir)?;
 
@@ -70,6 +81,7 @@ pub fn commit_registry_changes(message: &str) -> anyhow::Result<()> {
 
     let parent_commit = repo.head()?.peel_to_commit()?;
 
+    progress_status(&progress, t("plugin_dev_progress_committing"));
     repo.commit(
         Some("HEAD"),
         &signature,
