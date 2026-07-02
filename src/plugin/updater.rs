@@ -68,6 +68,26 @@ pub async fn fetch_index() -> anyhow::Result<RegistryIndex> {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+pub struct Blocklist {
+    pub blocked: HashMap<String, String>,
+}
+
+pub async fn fetch_blocklist() -> anyhow::Result<Blocklist> {
+    let url =
+        "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/blocklist.toml";
+    let client = reqwest::Client::builder().build()?;
+    let resp = client.get(url).send().await?;
+    if resp.status().is_success() {
+        let text = resp.text().await?;
+        let blocklist: Blocklist = toml::from_str(&text).unwrap_or_default();
+        Ok(blocklist)
+    } else {
+        Ok(Blocklist::default())
+    }
+}
+
+
 pub async fn list_installed() -> anyhow::Result<()> {
     let lock = read_lockfile();
     println!("Installed Plugins:");
@@ -77,6 +97,7 @@ pub async fn list_installed() -> anyhow::Result<()> {
     }
 
     let index = fetch_index().await.ok();
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
     let config = crate::config::AppConfig::load_or_create().ok();
 
     for (name, info) in &lock.plugins {
@@ -97,10 +118,16 @@ pub async fn list_installed() -> anyhow::Result<()> {
             " [UNTRUSTED]"
         };
 
-        let update_str = if let Some(ref idx) = index {
-            if let Some(reg_plugin) = idx.plugins.get(name) {
-                if reg_plugin.version != info.version {
-                    format!(" (Update available: v{})", reg_plugin.version)
+        let blocked_str = if blocklist.blocked.contains_key(name) { " [BLOCKED]" } else { "" };
+
+        let update_str = if blocked_str.is_empty() {
+            if let Some(ref idx) = index {
+                if let Some(reg_plugin) = idx.plugins.get(name) {
+                    if reg_plugin.version != info.version {
+                        format!(" (Update available: v{})", reg_plugin.version)
+                    } else {
+                        "".to_string()
+                    }
                 } else {
                     "".to_string()
                 }
@@ -112,8 +139,8 @@ pub async fn list_installed() -> anyhow::Result<()> {
         };
 
         println!(
-            "  - {} v{}{}{}{}",
-            name, info.version, pin_str, trusted_str, update_str
+            "  - {} v{}{}{}{}{}",
+            name, info.version, pin_str, trusted_str, blocked_str, update_str
         );
     }
     Ok(())
@@ -122,10 +149,19 @@ pub async fn list_installed() -> anyhow::Result<()> {
 pub async fn check_updates() -> anyhow::Result<()> {
     println!("Checking for plugin updates...");
     let index = fetch_index().await?;
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
     let lock = read_lockfile();
     let mut updates_available = 0;
 
     for (name, info) in &lock.plugins {
+        if let Some(reason) = blocklist.blocked.get(name) {
+            println!(
+                "  - {}: v{} [BLOCKED] Reason: {}",
+                name, info.version, reason
+            );
+            updates_available += 1;
+            continue;
+        }
         if let Some(reg_plugin) = index.plugins.get(name) {
             if reg_plugin.version != info.version {
                 let pin_str = if info.pinned {
@@ -154,10 +190,18 @@ pub async fn check_updates() -> anyhow::Result<()> {
 }
 
 pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
-    let index = fetch_index().await?;
-    let lock = read_lockfile();
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
 
     if let Some(n) = name {
+        if let Some(reason) = blocklist.blocked.get(n) {
+            anyhow::bail!(
+                "Plugin '{}' cannot be updated because it is blocked: {}",
+                n,
+                reason
+            );
+        }
+        let index = fetch_index().await?;
+        let lock = read_lockfile();
         if let Some(info) = lock.plugins.get(n) {
             if info.pinned {
                 anyhow::bail!(
@@ -178,9 +222,23 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
             anyhow::bail!("Plugin '{}' is not installed.", n);
         }
     } else {
+        let index = fetch_index().await?;
+        let lock = read_lockfile();
         let mut updated = 0;
         let mut plugins_to_update = Vec::new();
+
+        // 1. Remove blocked plugins first
         for (n, info) in &lock.plugins {
+            if let Some(reason) = blocklist.blocked.get(n) {
+                println!(
+                    "WARNING: Installed plugin '{}' has been BLOCKED by registry maintainers: {}. Automatically removing it for safety.",
+                    n, reason
+                );
+                if let Err(e) = remove(n) {
+                    log::error!("Failed to automatically remove blocked plugin '{}': {:?}", n, e);
+                }
+                continue;
+            }
             if info.pinned {
                 println!("Skipping pinned plugin '{}'.", n);
                 continue;
@@ -214,9 +272,13 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
 pub async fn search(query: &str) -> anyhow::Result<()> {
     println!("Searching registry for '{}'...", query);
     let index = fetch_index().await?;
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
     let query_lower = query.to_lowercase();
 
     for (name, plugin) in &index.plugins {
+        if blocklist.blocked.contains_key(name) {
+            continue;
+        }
         if name.to_lowercase().contains(&query_lower)
             || plugin
                 .description
@@ -270,6 +332,11 @@ pub async fn search(query: &str) -> anyhow::Result<()> {
 }
 
 pub async fn show_info(name: &str) -> anyhow::Result<()> {
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
+    if let Some(reason) = blocklist.blocked.get(name) {
+        anyhow::bail!("Plugin '{}' is blocked by registry maintainers: {}", name, reason);
+    }
+
     let index = fetch_index().await?;
     let plugin = index
         .plugins
@@ -299,6 +366,11 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
 }
 
 pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
+    if let Some(reason) = blocklist.blocked.get(name) {
+        anyhow::bail!("Plugin '{}' is blocked and cannot be installed: {}", name, reason);
+    }
+
     let index = fetch_index().await?;
     let plugin = index
         .plugins
@@ -421,14 +493,21 @@ pub fn pin(name: &str, pinned: bool) -> anyhow::Result<()> {
     }
 }
 
-pub fn verify() -> anyhow::Result<()> {
+pub async fn verify() -> anyhow::Result<()> {
     let lock = read_lockfile();
     let plugins_dir = crate::config::paths::get_config_dir().join("plugins");
     let mut clean = true;
 
     println!("Verifying installed plugins...");
 
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
+
     for (name, info) in &lock.plugins {
+        if let Some(reason) = blocklist.blocked.get(name) {
+            println!("  ✗ Plugin '{}' is BLOCKED by registry maintainers: {}", name, reason);
+            clean = false;
+        }
+
         println!("Plugin: {} v{}", name, info.version);
         let plugin_path = plugins_dir.join(format!("{}.pairee", name));
 

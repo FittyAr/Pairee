@@ -96,7 +96,7 @@ async fn main() -> Result<()> {
                         return Ok(());
                     }
                     "verify" => {
-                        plugin::updater::verify()?;
+                        plugin::updater::verify().await?;
                         return Ok(());
                     }
                     "check-updates" => {
