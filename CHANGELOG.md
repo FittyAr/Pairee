@@ -23,6 +23,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Asynchronous loading of the installed plugin list when opening the Plugin Manager (F11), with a spinner and status text shown in the Installed tab while the registry index is being fetched.
 - Live progress bar and status text in the Developer Tools console that stream coarse-grained milestones (e.g. "Cloning registry…", "Copying file 3/12…", "Computing SHA-256…") during long-running operations (init, lint, package, install, submit, plugin scan).
 - Three new navigation items in the Developer Tools menu (6, 7, 8) to move the active file panel directly to the dev plugin folder, the packaged plugin folder inside the local registry clone, and the submit folder, closing the popup on success so the developer can inspect the files without copying paths manually.
+- Technical documentation: `docs/technical/plugin-roadmap.md` and `docs/technical/plugin-roadmap-es.md` — internal design document enumerating 14 gaps in the current plugin system with file:line evidence and proposing 6 areas of new runtime surface (typed userdata, async fs + Command, rich UI widgets, live context, real dialogs + action dispatch + utils, sync/async model with annotations) with a 6-phase implementation roadmap (M0–M5).
 
 ### Improved
 
@@ -84,7 +85,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Dynamically resolve active language codes for plugins based on the application's loaded language configuration.
 - Localized all developer console output messages inside `src/plugin/developer_tool.rs`.
 - Refactored `list` command of the `pairee plugin` CLI suite to be asynchronous and check/flag available updates dynamically.
-- Updated `README.md` and `README.es.md` with a clean, structured design, a modern features list, and a dedicated project status section inspired by the Yazi layout.
+- Updated `README.md` and `README.es.md` with a clean, structured design, a modern features list, and a dedicated project status section inspired by an external terminal file manager's layout.
 - Moved `manifests/winget/README.md` to `docs/README.md` and corrected its relative links.
 - Updated release version bumping scripts (`bump_version.ps1` and `bump_version.sh`) to automatically migrate and update WinGet manifests in the version-specific `manifests/f/FittyAr/Pairee/<version>` directories.
 - Updated local references inside `docs/winget-submission-guide.md` to match the versioned folder structure under `manifests/f/`.
