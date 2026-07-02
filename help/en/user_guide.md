@@ -146,7 +146,7 @@ If you wish to write your own custom plugins, review safety rules, or submit to 
 #### Available Developer Tools (F11 - Tab 2):
 1. **Initialize boilerplate:** Generates a new plugin skeleton under your development directory containing baseline files (`manifest.toml`, `main.lua` and translations under `lang/en.toml`).
 2. **Audit (Lint):** Scans your configured development path and runs validation/security audits on manifest parameters and Lua syntax, checking for unsafe imports or undocumented operations.
-3. **Package:** Prepares a local temporary clone of the official `plugin-registry` branch, validates metadata files, copies all plugin assets into the branch, and appends/updates its index entry in the master `registry/index.toml` file.
+3. **Package:** Prepares a local temporary clone of the official `plugin-registry` branch, validates metadata files, copies all plugin assets into the branch, appends/updates its index entry in the master `registry/index.toml` file (metadata only), and embeds the file list with SHA-256 hashes into the manifest copy. It also auto-assigns the MIT license and generates a license file if none is present.
 4. **Install local development plugin:** Copies all active development plugins (or the one highlighted) directly into Pairee's runtime directory and registers them in the lockfile (`plugins.lock`). This makes them appear instantly in the "Installed Plugins" list (Tab 0) so you can execute and test them locally.
 5. **Submit plugin (GitHub PR):** Prompts for a commit description and initiates the submission process.
    - **With GitHub Token:** Automatically forks the official `FittyAr/Pairee` repository, pushes the branch, and creates a Pull Request.
