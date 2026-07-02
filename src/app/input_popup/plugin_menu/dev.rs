@@ -6,6 +6,8 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub fn handle_dev(
     key: KeyEvent,
     context: &mut AppContext,
+    left_panel_path: &std::path::Path,
+    right_panel_path: &std::path::Path,
     cursor_idx: &mut usize,
     installed: &mut Vec<(String, String, bool, bool, Option<String>)>,
     search_query: &mut String,
@@ -64,6 +66,9 @@ pub fn handle_dev(
                                     *dev_results = t("plugin_dev_init_ok")
                                         .replace("{}", name_without_suffix)
                                         .replace("{:?}", &target_path.to_string_lossy());
+                                    context.config.settings.active_dev_plugin =
+                                        Some(folder_name.clone());
+                                    let _ = context.config.save();
                                 }
                                 Err(e) => {
                                     *dev_results =
@@ -178,48 +183,141 @@ pub fn handle_dev(
                         let _ = context.config.save();
                         *dev_results = "Development plugin deselected.".to_string();
                     } else {
-                        let plugins_dev_dir =
-                            std::path::PathBuf::from(&context.config.settings.plugins_dev_dir);
-                        let candidate_path = plugins_dev_dir.join(&folder_name);
-                        let candidate_path_suffix = if folder_name.ends_with(".pairee") {
-                            candidate_path.clone()
-                        } else {
-                            plugins_dev_dir.join(format!("{}.pairee", folder_name))
-                        };
-
-                        let found_path = if candidate_path.exists()
-                            && candidate_path.is_dir()
-                            && candidate_path.join("manifest.toml").exists()
+                        // Check if input is a panel selection alias
+                        let lower_name = folder_name.to_lowercase();
+                        let selected_path = if lower_name == "panel1"
+                            || lower_name == "panel 1"
+                            || lower_name == "p1"
+                            || lower_name == "left"
                         {
-                            Some(candidate_path)
-                        } else if candidate_path_suffix.exists()
-                            && candidate_path_suffix.is_dir()
-                            && candidate_path_suffix.join("manifest.toml").exists()
-                        {
-                            Some(candidate_path_suffix)
-                        } else {
-                            None
-                        };
-
-                        if let Some(path) = found_path {
-                            if let Some(actual_folder_name) =
-                                path.file_name().and_then(|n| n.to_str())
-                            {
-                                context.config.settings.active_dev_plugin =
-                                    Some(actual_folder_name.to_string());
-                                let _ = context.config.save();
-                                *dev_results = format!(
-                                    "Selected active development plugin: {}",
-                                    actual_folder_name
-                                );
+                            if left_panel_path.join("manifest.toml").exists() {
+                                Some(Ok(left_panel_path.to_path_buf()))
                             } else {
-                                *dev_results = "Error: Invalid path format.".to_string();
+                                Some(Err(format!(
+                                    "Error: Panel 1 path '{}' does not contain a manifest.toml.",
+                                    left_panel_path.display()
+                                )))
+                            }
+                        } else if lower_name == "panel2"
+                            || lower_name == "panel 2"
+                            || lower_name == "p2"
+                            || lower_name == "right"
+                        {
+                            if right_panel_path.join("manifest.toml").exists() {
+                                Some(Ok(right_panel_path.to_path_buf()))
+                            } else {
+                                Some(Err(format!(
+                                    "Error: Panel 2 path '{}' does not contain a manifest.toml.",
+                                    right_panel_path.display()
+                                )))
                             }
                         } else {
-                            *dev_results = format!(
-                                "Error: Directory '{}' not found or has no manifest.toml under developer plugins directory.",
-                                folder_name
-                            );
+                            // Check if it's an absolute path that has manifest
+                            let path_buf = std::path::PathBuf::from(&folder_name);
+                            if path_buf.is_absolute() {
+                                if path_buf.join("manifest.toml").exists() {
+                                    Some(Ok(path_buf))
+                                } else {
+                                    Some(Err(format!(
+                                        "Error: Path '{}' does not contain a manifest.toml.",
+                                        path_buf.display()
+                                    )))
+                                }
+                            } else {
+                                // Check if it matches panel folder names
+                                let left_folder_name = left_panel_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("");
+                                let right_folder_name = right_panel_path
+                                    .file_name()
+                                    .and_then(|n| n.to_str())
+                                    .unwrap_or("");
+                                if !left_folder_name.is_empty() && folder_name == left_folder_name {
+                                    if left_panel_path.join("manifest.toml").exists() {
+                                        Some(Ok(left_panel_path.to_path_buf()))
+                                    } else {
+                                        Some(Err(format!(
+                                            "Error: Panel 1 path '{}' does not contain a manifest.toml.",
+                                            left_panel_path.display()
+                                        )))
+                                    }
+                                } else if !right_folder_name.is_empty()
+                                    && folder_name == right_folder_name
+                                {
+                                    if right_panel_path.join("manifest.toml").exists() {
+                                        Some(Ok(right_panel_path.to_path_buf()))
+                                    } else {
+                                        Some(Err(format!(
+                                            "Error: Panel 2 path '{}' does not contain a manifest.toml.",
+                                            right_panel_path.display()
+                                        )))
+                                    }
+                                } else {
+                                    None
+                                }
+                            }
+                        };
+
+                        if let Some(res) = selected_path {
+                            match res {
+                                Ok(path) => {
+                                    let path_str = path.to_string_lossy().to_string();
+                                    context.config.settings.active_dev_plugin =
+                                        Some(path_str.clone());
+                                    let _ = context.config.save();
+                                    *dev_results =
+                                        format!("Selected active development plugin: {}", path_str);
+                                }
+                                Err(err_msg) => {
+                                    *dev_results = err_msg;
+                                }
+                            }
+                        } else {
+                            // Fallback to standard plugins_dev_dir check
+                            let plugins_dev_dir =
+                                std::path::PathBuf::from(&context.config.settings.plugins_dev_dir);
+                            let candidate_path = plugins_dev_dir.join(&folder_name);
+                            let candidate_path_suffix = if folder_name.ends_with(".pairee") {
+                                candidate_path.clone()
+                            } else {
+                                plugins_dev_dir.join(format!("{}.pairee", folder_name))
+                            };
+
+                            let found_path = if candidate_path.exists()
+                                && candidate_path.is_dir()
+                                && candidate_path.join("manifest.toml").exists()
+                            {
+                                Some(candidate_path)
+                            } else if candidate_path_suffix.exists()
+                                && candidate_path_suffix.is_dir()
+                                && candidate_path_suffix.join("manifest.toml").exists()
+                            {
+                                Some(candidate_path_suffix)
+                            } else {
+                                None
+                            };
+
+                            if let Some(path) = found_path {
+                                if let Some(actual_folder_name) =
+                                    path.file_name().and_then(|n| n.to_str())
+                                {
+                                    context.config.settings.active_dev_plugin =
+                                        Some(actual_folder_name.to_string());
+                                    let _ = context.config.save();
+                                    *dev_results = format!(
+                                        "Selected active development plugin: {}",
+                                        actual_folder_name
+                                    );
+                                } else {
+                                    *dev_results = "Error: Invalid path format.".to_string();
+                                }
+                            } else {
+                                *dev_results = format!(
+                                    "Error: Directory '{}' not found or has no manifest.toml under developer plugins directory.",
+                                    folder_name
+                                );
+                            }
                         }
                     }
                     *installed = reload_installed_plugins(context, &None);
@@ -282,11 +380,36 @@ pub fn handle_dev(
                                 }
                             }
                         }
+                        let left_has_manifest = left_panel_path.join("manifest.toml").exists();
+                        let right_has_manifest = right_panel_path.join("manifest.toml").exists();
+                        if left_has_manifest {
+                            if let Some(name) = left_panel_path.file_name().and_then(|n| n.to_str())
+                            {
+                                report.push_str(&format!(
+                                    "  - [Panel 1] {} ({})\n",
+                                    name,
+                                    left_panel_path.display()
+                                ));
+                                found_any = true;
+                            }
+                        }
+                        if right_has_manifest {
+                            if let Some(name) =
+                                right_panel_path.file_name().and_then(|n| n.to_str())
+                            {
+                                report.push_str(&format!(
+                                    "  - [Panel 2] {} ({})\n",
+                                    name,
+                                    right_panel_path.display()
+                                ));
+                                found_any = true;
+                            }
+                        }
                         if !found_any {
                             report.push_str("  (None found)\n");
                         }
                         report
-                            .push_str("\nEnter plugin folder name to select (empty to deselect):");
+                            .push_str("\nEnter plugin name, absolute path, or 'panel1'/'panel2' to select (empty to deselect):");
                         *dev_results = report;
                     }
                     1 => {
@@ -304,8 +427,11 @@ pub fn handle_dev(
                     2 => {
                         // Lint active plugin
                         if let Some(plugin_folder) = active_plugin {
-                            let path =
-                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder);
+                            let path = if std::path::Path::new(&plugin_folder).is_absolute() {
+                                std::path::PathBuf::from(&plugin_folder)
+                            } else {
+                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder)
+                            };
                             let mut report = String::new();
                             if path.exists() && path.is_dir() && path.join("manifest.toml").exists()
                             {
@@ -368,8 +494,11 @@ pub fn handle_dev(
                     3 => {
                         // Package active plugin
                         if let Some(plugin_folder) = active_plugin {
-                            let path =
-                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder);
+                            let path = if std::path::Path::new(&plugin_folder).is_absolute() {
+                                std::path::PathBuf::from(&plugin_folder)
+                            } else {
+                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder)
+                            };
                             let mut report = String::new();
                             if path.exists() && path.is_dir() && path.join("manifest.toml").exists()
                             {
@@ -400,8 +529,11 @@ pub fn handle_dev(
                     4 => {
                         // Install active plugin locally
                         if let Some(plugin_folder) = active_plugin {
-                            let path =
-                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder);
+                            let path = if std::path::Path::new(&plugin_folder).is_absolute() {
+                                std::path::PathBuf::from(&plugin_folder)
+                            } else {
+                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder)
+                            };
                             let mut report = String::new();
                             let dest_base = crate::config::paths::get_config_dir().join("plugins");
                             let mut lock = crate::plugin::updater::read_lockfile();
@@ -487,8 +619,11 @@ pub fn handle_dev(
                     5 => {
                         // Submit Plugin
                         if let Some(plugin_folder) = active_plugin {
-                            let path =
-                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder);
+                            let path = if std::path::Path::new(&plugin_folder).is_absolute() {
+                                std::path::PathBuf::from(&plugin_folder)
+                            } else {
+                                std::path::PathBuf::from(plugins_dev_dir).join(&plugin_folder)
+                            };
                             if path.exists() && path.is_dir() && path.join("manifest.toml").exists()
                             {
                                 match crate::plugin::developer_tool::validate_for_publish(&path) {

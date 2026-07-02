@@ -169,6 +169,8 @@ pub fn handle(
         dev::handle_dev(
             key,
             context,
+            &state.left_panel.current_path,
+            &state.right_panel.current_path,
             &mut cursor_idx,
             &mut installed,
             &mut search_query,

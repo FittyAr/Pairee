@@ -414,10 +414,15 @@ Con el modo desarrollador activo, se desbloquean los siguientes comandos:
     - Si el archivo existe pero el campo `license` en `manifest.toml` está vacío, el asistente solicita ingresar el nombre de la licencia (o asigna `"Custom"` en entornos no interactivos).
     - Si no existe ningún archivo de licencia, asigna automáticamente la licencia `"MIT"` en el manifiesto y genera un archivo `LICENSE` con la licencia MIT estándar y los datos de derechos de autor en el espacio de trabajo del plugin.
 
-### 15.2 Asistente TUI de Metadatos y Envío Automático de PR
-Se añade una pantalla interactiva TUI exclusiva para desarrolladores que actúa como asistente de metadatos y envío de complementos:
-1. **Asistente de Metadatos:** Guía al desarrollador paso a paso para completar campos faltantes del manifiesto (autor, descripción, licencia), muestra los idiomas y categorías detectados automáticamente y valida el paquete.
-2. **Automatización de PR:** Recopila tokens de GitHub (PATs), repositorios de forks y descripciones de commit, empaqueta el directorio (actualizando `sha256.sum`), crea una rama Git local, realiza el commit, hace push a su fork y abre automáticamente la Pull Request en GitHub.
+### 15.2 Herramientas de Desarrollo en TUI y Asistente de PR
+Las herramientas interactivas de desarrollo en TUI (accesibles a través de la pestaña `Developer Tools` de `F11` cuando `developer_mode = true` está habilitado en `pairee.toml`) ofrecen el siguiente conjunto de utilidades:
+
+* **Seleccionar Plugin Activo (Opción 0):** Selecciona el complemento en desarrollo sobre el cual se realizarán las tareas de linting, empaquetado e instalación local. Enumera todos los plugins bajo `plugins_dev_dir`. Adicionalmente, escanea los directorios activos del Panel 1 y del Panel 2; si alguno contiene un archivo `manifest.toml`, lo añade como opción seleccionable. Puedes seleccionarlo ingresando su nombre de carpeta, su ruta absoluta, o usando los alias `panel1`/`panel2` (o `left`/`right`).
+* **Inicializar plantilla (Opción 1):** Guía paso a paso al desarrollador para crear un nuevo esqueleto de plugin en el directorio de desarrollo. Al completarse con éxito, el nuevo plugin se selecciona automáticamente en la Opción 0 y esta opción queda deshabilitada.
+* **Verificar (Lint) (Opción 2):** Escanea la carpeta del plugin activo y ejecuta comprobaciones de sintaxis y seguridad tanto en los archivos Lua como en el manifiesto.
+* **Empaquetar (Opción 3):** Prepara un clon local temporal de la rama `plugin-registry`, copia todos los recursos del plugin, construye/actualiza las entradas de catálogo en el archivo maestro de índice y muestra en pantalla la ruta absoluta exacta de la caché local donde se empaquetó.
+* **Instalar localmente (Opción 4):** Copia el plugin activo directamente al directorio local de plugins de Pairee y lo registra en `plugins.lock` para poder probarlo de forma inmediata en la interfaz.
+* **Enviar plugin (GitHub PR) (Opción 5):** Asistente que recopila descripciones, realiza commits git locales y opcionalmente utiliza un token PAT de GitHub para subir los cambios a un fork y abrir una Pull Request de forma automatizada.
 
 ### 15.3 Guía de Resolución de Problemas de Validación
 Al ejecutar `pairee developer validate <ruta>` (o durante la verificación del CI), podrías encontrarte con los siguientes errores de validación. A continuación te explicamos cómo corregirlos:

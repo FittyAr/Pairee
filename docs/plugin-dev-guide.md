@@ -414,10 +414,15 @@ With developer mode enabled, the following commands are available:
     - If a license file exists but the manifest `license` field is empty, the tool prompts you to specify the license name (or defaults to `"Custom"` if non-interactive).
     - If no license file is found, the tool automatically assigns the `"MIT"` license to your manifest and writes a standard MIT `LICENSE` file containing your copyright details in the plugin workspace.
 
-### 15.2 Automated PR Submission UI & Metadata Wizard
-An interactive developer-only TUI metadata builder and submission wizard is added to submit plugins directly from Pairee:
-1. **Metadata Wizard:** Guides the developer step-by-step to fill in missing manifest fields (author, description, license), displays the auto-detected language files and plugin category, and validates the configuration.
-2. **PR Automation:** Collects GitHub PATs, fork URLs, and commit descriptions, packages the files (updating `sha256.sum`), creates a local Git branch, commits, pushes to the fork, and creates the Pull Request on GitHub automatically.
+### 15.2 TUI Developer Tools & PR Submission Wizard
+The interactive TUI developer tools (accessible via `F11` -> `Developer Tools` tab when `developer_mode = true` is enabled in `pairee.toml`) provide the following suite of utilities:
+
+* **Active Plugin Selection (Option 0):** Selects which development plugin is currently targeted for linting, packaging, and local installation. It lists all plugins under `plugins_dev_dir`. Additionally, it scans the active directory of Panel 1 and Panel 2; if either has a `manifest.toml`, it is listed as an option. You can select it by typing its folder name, its absolute path, or using aliases like `panel1`/`panel2` (or `left`/`right`).
+* **Initialize boilerplate (Option 1):** Guides the developer step-by-step to create a new plugin skeleton under your development directory. Upon successful creation, the new plugin is automatically set as the active plugin (Option 0) and Option 1 is disabled.
+* **Audit (Lint) (Option 2):** Scans the active plugin folder and performs syntax and security audits on Lua and manifest files.
+* **Package (Option 3):** Prepares a local temporary clone of the `plugin-registry` branch, copies all plugin assets, builds/updates the registry index entries, and displays the exact absolute path where it was packaged in the registry cache.
+* **Install Local (Option 4):** Copies the active plugin to the local plugins runtime folder and registers it in `plugins.lock` for immediate TUI testing.
+* **Submit Plugin (GitHub PR) (Option 5):** Submission wizard that collects descriptions, git commits, and optional GitHub PATs to automatically push to a fork and open a Pull Request.
 
 ### 15.3 Developer Validation Troubleshooting Guide
 When running `pairee developer validate <path>` (or the CI validator), you may encounter the following validation errors. Here is how to fix them:

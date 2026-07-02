@@ -15,8 +15,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ### Added
 
+- Active plugin selection directory auto-detection in Option 0 of TUI Developer Tools, scanning active directories of Panel 1 and Panel 2 for a `manifest.toml` file.
+- Auto-selection of newly created plugins in Option 0 upon successful initialization in Option 1 (which subsequently disables Option 1).
+- Support for selecting active development plugins using absolute paths, panel folder names, or aliases like `panel1`/`panel2` (or `left`/`right`).
 - Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.
 - Automatic license detection and auto-assignment during packaging, prompting for license names when present but undeclared, or auto-assigning `"MIT"` and generating a standard `LICENSE` file if not present.
+
+### Improved
+
+- Packaging Option 3 now displays the exact absolute path where the plugin was packaged in the registry cache.
 
 ### Changed
 

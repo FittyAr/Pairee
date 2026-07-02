@@ -93,7 +93,6 @@ pub async fn fetch_blocklist() -> anyhow::Result<Blocklist> {
     }
 }
 
-
 pub async fn list_installed() -> anyhow::Result<()> {
     let lock = read_lockfile();
     println!("Installed Plugins:");
@@ -124,7 +123,11 @@ pub async fn list_installed() -> anyhow::Result<()> {
             " [UNTRUSTED]"
         };
 
-        let blocked_str = if blocklist.blocked.contains_key(name) { " [BLOCKED]" } else { "" };
+        let blocked_str = if blocklist.blocked.contains_key(name) {
+            " [BLOCKED]"
+        } else {
+            ""
+        };
 
         let update_str = if blocked_str.is_empty() {
             if let Some(ref idx) = index {
@@ -241,7 +244,11 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
                     n, reason
                 );
                 if let Err(e) = remove(n) {
-                    log::error!("Failed to automatically remove blocked plugin '{}': {:?}", n, e);
+                    log::error!(
+                        "Failed to automatically remove blocked plugin '{}': {:?}",
+                        n,
+                        e
+                    );
                 }
                 continue;
             }
@@ -340,7 +347,11 @@ pub async fn search(query: &str) -> anyhow::Result<()> {
 pub async fn show_info(name: &str) -> anyhow::Result<()> {
     let blocklist = fetch_blocklist().await.unwrap_or_default();
     if let Some(reason) = blocklist.blocked.get(name) {
-        anyhow::bail!("Plugin '{}' is blocked by registry maintainers: {}", name, reason);
+        anyhow::bail!(
+            "Plugin '{}' is blocked by registry maintainers: {}",
+            name,
+            reason
+        );
     }
 
     let index = fetch_index().await?;
@@ -382,7 +393,8 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
     if let Ok(resp) = client.get(&manifest_url).send().await {
         if resp.status().is_success() {
             if let Ok(text) = resp.text().await {
-                if let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text) {
+                if let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text)
+                {
                     if let Some(files) = manifest_wrapper.files {
                         println!("Files:");
                         for file in files.keys() {
@@ -399,7 +411,11 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
 pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     let blocklist = fetch_blocklist().await.unwrap_or_default();
     if let Some(reason) = blocklist.blocked.get(name) {
-        anyhow::bail!("Plugin '{}' is blocked and cannot be installed: {}", name, reason);
+        anyhow::bail!(
+            "Plugin '{}' is blocked and cannot be installed: {}",
+            name,
+            reason
+        );
     }
 
     let index = fetch_index().await?;
@@ -448,7 +464,9 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     }
     let manifest_text = resp.text().await?;
     let manifest_wrapper: RegistryPluginManifestWrapper = toml::from_str(&manifest_text)?;
-    let files = manifest_wrapper.files.ok_or_else(|| anyhow::anyhow!("Plugin manifest is missing [files] section"))?;
+    let files = manifest_wrapper
+        .files
+        .ok_or_else(|| anyhow::anyhow!("Plugin manifest is missing [files] section"))?;
 
     let mut downloaded_files = HashMap::new();
 
@@ -547,7 +565,10 @@ pub async fn verify() -> anyhow::Result<()> {
 
     for (name, info) in &lock.plugins {
         if let Some(reason) = blocklist.blocked.get(name) {
-            println!("  ✗ Plugin '{}' is BLOCKED by registry maintainers: {}", name, reason);
+            println!(
+                "  ✗ Plugin '{}' is BLOCKED by registry maintainers: {}",
+                name, reason
+            );
             clean = false;
         }
 

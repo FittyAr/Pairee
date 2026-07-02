@@ -177,7 +177,10 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
         for entry in entries {
             if let Ok(entry) = entry {
                 let name_lower = entry.file_name().to_string_lossy().to_lowercase();
-                if name_lower == "license" || name_lower == "license.txt" || name_lower == "license.md" {
+                if name_lower == "license"
+                    || name_lower == "license.txt"
+                    || name_lower == "license.md"
+                {
                     license_file = Some(entry.path());
                     break;
                 }
@@ -188,7 +191,13 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     let mut license_to_set = manifest.license.clone();
 
     if let Some(_path) = license_file {
-        if manifest.license.is_none() || manifest.license.as_ref().map(|l| l.trim().is_empty()).unwrap_or(true) {
+        if manifest.license.is_none()
+            || manifest
+                .license
+                .as_ref()
+                .map(|l| l.trim().is_empty())
+                .unwrap_or(true)
+        {
             // Prompt the user for license name if stdin is a terminal
             let mut license_name = String::new();
             use std::io::IsTerminal;
@@ -322,7 +331,12 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     let serialized = toml::to_string_pretty(&index_data)?;
     std::fs::write(&index_path, serialized)?;
 
-    Ok(t("plugin_dev_pack_success")
+    let success_msg = t("plugin_dev_pack_success")
         .replace("{}", &name)
-        .replace("{v}", &manifest.version))
+        .replace("{v}", &manifest.version);
+    Ok(format!(
+        "{}\nPath: {}",
+        success_msg,
+        dest_plugin_dir.display()
+    ))
 }
