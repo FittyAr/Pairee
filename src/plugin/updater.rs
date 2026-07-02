@@ -328,10 +328,19 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     let client = reqwest::Client::builder().build()?;
     let mut downloaded_files = HashMap::new();
 
+    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
+    let author = if author.is_empty() { "unknown" } else { author };
+    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
+    let first_char_str = if first_char.is_ascii_alphabetic() {
+        first_char.to_string()
+    } else {
+        "_".to_string()
+    };
+
     for (rel_path, expected_hash) in &plugin.files {
         let file_url = format!(
-            "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/{}/{}",
-            name, rel_path
+            "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/{}",
+            first_char_str, author, name, rel_path
         );
         let dest_path = plugins_dir.join(rel_path);
 

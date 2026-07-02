@@ -176,7 +176,22 @@ pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<Strin
     let _repo = fetch_or_clone_registry(&temp_dir)?;
 
     // 3. Copy plugin files to the cloned repo
-    let dest_plugin_dir = temp_dir.join("registry").join(&name);
+    let author = manifest.author.as_deref().unwrap_or("unknown").trim();
+    let author = if author.is_empty() { "unknown" } else { author };
+    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
+    let first_char_str = if first_char.is_ascii_alphabetic() {
+        first_char.to_string()
+    } else {
+        "_".to_string()
+    };
+
+    let dest_plugin_dir = temp_dir
+        .join("registry")
+        .join("plugins")
+        .join(&first_char_str)
+        .join(author)
+        .join(&name);
+
     if dest_plugin_dir.exists() {
         let _ = std::fs::remove_dir_all(&dest_plugin_dir);
     }
