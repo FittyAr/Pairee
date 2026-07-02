@@ -409,6 +409,10 @@ With developer mode enabled, the following commands are available:
   * **Auto-Detects Languages:** Scans the `lang/` directory for TOML files and registers them in the manifest.
   * **Auto-Detects Plugin Category:** Inspects references in `main.lua` to identify the plugin type.
   * **Generates Hashes:** Automatically generates/updates the version-specific `sha256.sum` file containing SHA-256 hashes of every file in the directory. (Note: this does not create a compressed archive; Pairee registry plugins are distributed as raw folders).
+  * **License Detection & Generation:**
+    - Checks for an existing `LICENSE` file (case-insensitive) in the plugin directory.
+    - If a license file exists but the manifest `license` field is empty, the tool prompts you to specify the license name (or defaults to `"Custom"` if non-interactive).
+    - If no license file is found, the tool automatically assigns the `"MIT"` license to your manifest and writes a standard MIT `LICENSE` file containing your copyright details in the plugin workspace.
 
 ### 15.2 Automated PR Submission UI & Metadata Wizard
 An interactive developer-only TUI metadata builder and submission wizard is added to submit plugins directly from Pairee:

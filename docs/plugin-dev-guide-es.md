@@ -409,6 +409,10 @@ Con el modo desarrollador activo, se desbloquean los siguientes comandos:
   * **Autodetecta Idiomas:** Escanea el directorio `lang/` buscando archivos TOML y los registra en el manifiesto.
   * **Autodetecta Categoría del Complemento:** Analiza las referencias en `main.lua` para identificar el tipo de plugin.
   * **Genera Hashes:** Genera/actualiza automáticamente el archivo de hashes de integridad `sha256.sum` para todos los archivos de la carpeta. (Nota: esto no crea un archivo comprimido; los complementos en el registro de Pairee se distribuyen como carpetas abiertas).
+  * **Detección y Generación de Licencia:**
+    - Busca un archivo de licencia `LICENSE` (sin distinguir mayúsculas/minúsculas) en la raíz del plugin.
+    - Si el archivo existe pero el campo `license` en `manifest.toml` está vacío, el asistente solicita ingresar el nombre de la licencia (o asigna `"Custom"` en entornos no interactivos).
+    - Si no existe ningún archivo de licencia, asigna automáticamente la licencia `"MIT"` en el manifiesto y genera un archivo `LICENSE` con la licencia MIT estándar y los datos de derechos de autor en el espacio de trabajo del plugin.
 
 ### 15.2 Asistente TUI de Metadatos y Envío Automático de PR
 Se añade una pantalla interactiva TUI exclusiva para desarrolladores que actúa como asistente de metadatos y envío de complementos:
