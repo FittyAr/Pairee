@@ -38,16 +38,11 @@ pub fn render_installed(
     let mut list_items = Vec::new();
     if installed_loading && installed.is_empty() {
         list_items.push(ListItem::new(Line::from(vec![Span::styled(
-            format!(
-                "  {} {}",
-                spinner_frame(),
-                installed_loading_status
-            ),
+            format!("  {} {}", spinner_frame(), installed_loading_status),
             Style::default().fg(Color::Yellow),
         )])));
     } else {
-        for (i, (name, version, pinned, trusted, update_available)) in
-            installed.iter().enumerate()
+        for (i, (name, version, pinned, trusted, update_available)) in installed.iter().enumerate()
         {
             let pin_badge = if *pinned { " [P]" } else { "" };
             let trust_badge = if *trusted { " [T]" } else { " [U]" };

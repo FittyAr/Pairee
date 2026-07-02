@@ -1,6 +1,12 @@
 pub mod app;
+pub mod dialogs;
+pub mod emit;
+pub mod file_cache;
 pub mod fs;
 pub mod log;
+pub mod notify_ext;
 pub mod ps;
 pub mod sync;
 pub mod ui;
+pub mod utils_basic;
+pub mod which;

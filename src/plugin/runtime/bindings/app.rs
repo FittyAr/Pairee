@@ -85,7 +85,10 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         })?,
     )?;
 
-    // Blocking confirm dialog
+    // Blocking confirm dialog (legacy signature, routes through the
+    // deprecated stub dispatcher in the main loop. New code should
+    // call `pairee.confirm({pos, title, body})` via the top-level
+    // `pairee.confirm` registered in `standard.rs`.)
     let tx_confirm = tx_clone.clone();
     app.set(
         "confirm",
@@ -110,7 +113,9 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         })?,
     )?;
 
-    // Blocking input dialog
+    // Blocking input dialog (legacy signature — see note above for
+    // `confirm`). New code uses `pairee.input` with the structured
+    // opts table.
     let tx_input = tx_clone.clone();
     app.set(
         "input",

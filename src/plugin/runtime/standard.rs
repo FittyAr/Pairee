@@ -23,11 +23,26 @@ pub fn bind_runtime(
 
     // 2. Bind submodules
     pairee.set("app", super::bindings::app::bind(lua, tx.clone())?)?;
+    pairee.set("emit", super::bindings::emit::bind(lua, tx.clone())?)?;
+    pairee.set(
+        "file_cache",
+        super::bindings::file_cache::bind(lua, tx.clone())?,
+    )?;
+    // Dialogs write their entries directly on the central `pairee`
+    // table so that the top-level `pairee.confirm` and `pairee.input`
+    // are discoverable alongside the existing `pairee.app.*` stubs.
+    super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
     pairee.set("fs", super::bindings::fs::bind(lua, trusted, tx.clone())?)?;
     pairee.set("ui", super::bindings::ui::bind(lua)?)?;
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
     pairee.set("log", super::bindings::log::bind(lua)?)?;
+    pairee.set(
+        "notify",
+        super::bindings::notify_ext::bind(lua, tx.clone())?,
+    )?;
     pairee.set("sync", super::bindings::sync::bind(lua, tx.clone())?)?;
+    pairee.set("utils", super::bindings::utils_basic::bind(lua)?)?;
+    pairee.set("which", super::bindings::which::bind(lua, tx.clone())?)?;
 
     // 3. Bind settings
     bind_settings(lua, &pairee, plugin_dir)?;

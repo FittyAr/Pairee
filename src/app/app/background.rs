@@ -218,12 +218,11 @@ pub fn process_background_updates(
             {
                 *dev_loading = true;
                 *dev_loading_status = update.status;
-                *dev_loading_progress =
-                    if let (Some(c), Some(t)) = (update.current, update.total) {
-                        if t > 0 { Some((c, t)) } else { None }
-                    } else {
-                        None
-                    };
+                *dev_loading_progress = if let (Some(c), Some(t)) = (update.current, update.total) {
+                    if t > 0 { Some((c, t)) } else { None }
+                } else {
+                    None
+                };
             }
         }
         if !disconnected {

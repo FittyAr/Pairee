@@ -36,15 +36,14 @@ pub fn render_dev(
     active_dev_plugin: &Option<String>,
 ) {
     let text_style = Style::default().fg(parse_color(&theme.popup_fg));
-    let dim_style = Style::default().fg(parse_color(&theme.popup_fg)).add_modifier(
-        StyleModifier::ITALIC,
-    );
+    let dim_style = Style::default()
+        .fg(parse_color(&theme.popup_fg))
+        .add_modifier(StyleModifier::ITALIC);
 
     // === Option 0 label: changes when a plugin is active ===
     let active_name = active_dev_plugin.as_deref().unwrap_or("");
     let opt0_label = if active_name.is_empty() {
-        t("plugin_dev_opt_active_select")
-            .replace("{}", &t("plugin_dev_opt_active_none"))
+        t("plugin_dev_opt_active_select").replace("{}", &t("plugin_dev_opt_active_none"))
     } else {
         t("plugin_dev_opt_active_change").replace("{}", active_name)
     };
@@ -52,7 +51,7 @@ pub fn render_dev(
     // Build the full options list (0-8) with a visual separator before the
     // "move to folder" group.
     let dev_options: Vec<(String, bool)> = vec![
-        (opt0_label, false), // 0
+        (opt0_label, false),                    // 0
         (t("plugin_dev_opt_init"), false),      // 1
         (t("plugin_dev_opt_lint"), false),      // 2
         (t("plugin_dev_opt_package"), false),   // 3
@@ -139,12 +138,13 @@ pub fn render_dev(
             format!("{} {}", spinner_frame(), status),
             Style::default().fg(Color::Yellow),
         )]);
-        f.render_widget(
-            Paragraph::new(status_line).style(bg_style),
-            v_chunks[0],
-        );
+        f.render_widget(Paragraph::new(status_line).style(bg_style), v_chunks[0]);
 
-        let gauge_area = if inner_h >= 4 { v_chunks[1] } else { v_chunks[1] };
+        let gauge_area = if inner_h >= 4 {
+            v_chunks[1]
+        } else {
+            v_chunks[1]
+        };
         if let Some((cur, total)) = dev_loading_progress {
             let ratio = if total == 0 {
                 0.0
@@ -152,7 +152,11 @@ pub fn render_dev(
                 (cur as f64 / total as f64).clamp(0.0, 1.0)
             };
             let gauge = Gauge::default()
-                .block(Block::default().borders(Borders::ALL).border_style(border_style))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(border_style),
+                )
                 .gauge_style(
                     Style::default()
                         .fg(parse_color(&theme.selection_bg))
@@ -164,7 +168,11 @@ pub fn render_dev(
         } else {
             // Indeterminate: render an empty gauge with the spinner
             let gauge = Gauge::default()
-                .block(Block::default().borders(Borders::ALL).border_style(border_style))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(border_style),
+                )
                 .gauge_style(
                     Style::default()
                         .fg(parse_color(&theme.selection_bg))
@@ -183,7 +191,11 @@ pub fn render_dev(
                 lines.push(Line::from(Span::styled(line, dim_style)));
             }
             let p = Paragraph::new(lines)
-                .block(Block::default().borders(Borders::ALL).border_style(border_style))
+                .block(
+                    Block::default()
+                        .borders(Borders::ALL)
+                        .border_style(border_style),
+                )
                 .wrap(Wrap { trim: false })
                 .style(bg_style);
             f.render_widget(p, v_chunks[2]);

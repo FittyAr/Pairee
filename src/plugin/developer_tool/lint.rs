@@ -7,9 +7,7 @@ pub fn lint() -> anyhow::Result<()> {
     lint_with_progress(None)
 }
 
-pub fn lint_with_progress(
-    progress: Option<UnboundedSender<DevProgress>>,
-) -> anyhow::Result<()> {
+pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> anyhow::Result<()> {
     let path = std::env::current_dir()?;
     progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let manifest_path = path.join("manifest.toml");

@@ -168,4 +168,5 @@ Para módulos más complejos y detallados, por favor consulta sus manuales espec
 * **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
+* **API Lua de Plugins:** Consulta la [Referencia de la API Lua de Plugins](plugins_es.md) para conocer el namespace `pairee.*` completo (incluyendo los nuevos `pairee.emit`, `pairee.confirm`, `pairee.input`, `pairee.which`, `pairee.notify`, `pairee.file_cache` y `pairee.utils.*` de la evolución M0 del sistema de plugins).
 

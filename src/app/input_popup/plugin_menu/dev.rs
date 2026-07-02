@@ -47,10 +47,7 @@ fn begin_dev_op(
 }
 
 /// Emit a coarse status update over the given progress sender (if any).
-fn progress_status(
-    tx: &Option<tokio::sync::mpsc::UnboundedSender<DevProgress>>,
-    status: String,
-) {
+fn progress_status(tx: &Option<tokio::sync::mpsc::UnboundedSender<DevProgress>>, status: String) {
     if let Some(tx) = tx {
         let _ = tx.send(DevProgress {
             status,
@@ -75,11 +72,7 @@ fn dev_plugin_dir(context: &AppContext) -> PathBuf {
             } else {
                 base.join(name)
             };
-            if candidate.exists() {
-                candidate
-            } else {
-                base
-            }
+            if candidate.exists() { candidate } else { base }
         }
         _ => base,
     }
@@ -314,8 +307,8 @@ pub fn handle_dev(
                         }
 
                         if token.is_empty() {
-                            let temp_dir = crate::config::paths::get_cache_dir()
-                                .join("temp_registry");
+                            let temp_dir =
+                                crate::config::paths::get_cache_dir().join("temp_registry");
                             let result = t("plugin_dev_no_token_inst")
                                 .replace("{}", &temp_dir.display().to_string());
                             crate::plugin::developer_tool::progress_finish(
@@ -436,10 +429,7 @@ pub fn handle_dev(
                         let tx = crate::plugin::PluginManager::get_sender();
                         tokio::task::spawn_blocking(move || {
                             let mut options = Vec::new();
-                            options.push((
-                                "[Deselect / None]".to_string(),
-                                "deselect".to_string(),
-                            ));
+                            options.push(("[Deselect / None]".to_string(), "deselect".to_string()));
 
                             if let Ok(entries) = std::fs::read_dir(&plugins_dev_dir) {
                                 for entry in entries.filter_map(Result::ok) {
@@ -455,9 +445,7 @@ pub fn handle_dev(
                             }
 
                             if left.join("manifest.toml").exists() {
-                                if let Some(name) =
-                                    left.file_name().and_then(|n| n.to_str())
-                                {
+                                if let Some(name) = left.file_name().and_then(|n| n.to_str()) {
                                     options.push((
                                         format!("[Panel 1] {} ({})", name, left.display()),
                                         left.to_string_lossy().to_string(),
@@ -466,9 +454,7 @@ pub fn handle_dev(
                             }
 
                             if right.join("manifest.toml").exists() {
-                                if let Some(name) =
-                                    right.file_name().and_then(|n| n.to_str())
-                                {
+                                if let Some(name) = right.file_name().and_then(|n| n.to_str()) {
                                     options.push((
                                         format!("[Panel 2] {} ({})", name, right.display()),
                                         right.to_string_lossy().to_string(),
@@ -477,9 +463,7 @@ pub fn handle_dev(
                             }
 
                             let _ = tx.blocking_send(
-                                crate::plugin::manager::PluginRequest::DevPluginScan {
-                                    options,
-                                },
+                                crate::plugin::manager::PluginRequest::DevPluginScan { options },
                             );
                         });
                     }
@@ -579,10 +563,8 @@ pub fn handle_dev(
                                     t("plugin_dev_pack_start").trim(),
                                     plugin_folder
                                 );
-                                let tx = begin_dev_op(
-                                    state,
-                                    t("plugin_dev_progress_fetching_registry"),
-                                );
+                                let tx =
+                                    begin_dev_op(state, t("plugin_dev_progress_fetching_registry"));
                                 let path_for_task = path.clone();
                                 let name_for_result = plugin_folder.clone();
                                 tokio::task::spawn_blocking(move || {
@@ -639,10 +621,8 @@ pub fn handle_dev(
                                     t("plugin_dev_install_start"),
                                     plugin_folder
                                 );
-                                let tx = begin_dev_op(
-                                    state,
-                                    t("plugin_dev_progress_copying_files"),
-                                );
+                                let tx =
+                                    begin_dev_op(state, t("plugin_dev_progress_copying_files"));
                                 let path_for_task = path.clone();
                                 tokio::task::spawn_blocking(move || {
                                     use crate::plugin::developer_tool::progress_progress;
@@ -655,8 +635,8 @@ pub fn handle_dev(
                                                 .map_err(|e| format!("{:?}", e))?;
                                         let name = manifest.name.clone();
                                         let version = manifest.version.clone();
-                                        let dest_base = crate::config::paths::get_config_dir()
-                                            .join("plugins");
+                                        let dest_base =
+                                            crate::config::paths::get_config_dir().join("plugins");
                                         let mut lock = crate::plugin::updater::read_lockfile();
                                         let dest_dir = dest_base.join(format!("{}.pairee", name));
                                         let _ = std::fs::create_dir_all(&dest_dir);
@@ -734,7 +714,8 @@ pub fn handle_dev(
                                             copied_files.len(),
                                             t("plugin_dev_local_sync_ok")
                                         ))
-                                    })();
+                                    })(
+                                    );
 
                                     match res {
                                         Ok(msg) => {
@@ -784,8 +765,7 @@ pub fn handle_dev(
                                         *search_query = String::new();
                                         *dev_results = String::new();
                                         *dev_wizard_step = 5;
-                                        *dev_wizard_data =
-                                            vec![path.to_string_lossy().to_string()];
+                                        *dev_wizard_data = vec![path.to_string_lossy().to_string()];
                                     }
                                     Err(err_msg) => {
                                         *dev_results = err_msg;
@@ -814,19 +794,18 @@ pub fn handle_dev(
                         // Open package folder in active panel
                         if let Some(plugin_folder) = active_plugin.as_ref() {
                             let specific = packaged_plugin_dir(plugin_folder);
-                            let target =
-                                if specific.as_ref().map(|p| p.exists()).unwrap_or(false) {
-                                    specific.unwrap()
+                            let target = if specific.as_ref().map(|p| p.exists()).unwrap_or(false) {
+                                specific.unwrap()
+                            } else {
+                                let fallback =
+                                    crate::config::paths::get_cache_dir().join("temp_registry");
+                                if fallback.exists() {
+                                    fallback
                                 } else {
-                                    let fallback = crate::config::paths::get_cache_dir()
-                                        .join("temp_registry");
-                                    if fallback.exists() {
-                                        fallback
-                                    } else {
-                                        *dev_results = t("plugin_dev_package_folder_missing");
-                                        return;
-                                    }
-                                };
+                                    *dev_results = t("plugin_dev_package_folder_missing");
+                                    return;
+                                }
+                            };
                             move_active_panel_to(
                                 state,
                                 target,
@@ -838,8 +817,7 @@ pub fn handle_dev(
                     }
                     8 => {
                         // Open submit folder in active panel
-                        let target =
-                            crate::config::paths::get_cache_dir().join("temp_registry");
+                        let target = crate::config::paths::get_cache_dir().join("temp_registry");
                         if !target.exists() {
                             *dev_results = t("plugin_dev_submit_folder_missing")
                                 .replace("{:?}", &target.to_string_lossy());

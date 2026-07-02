@@ -82,7 +82,10 @@ fn clone_from_template(
                         });
 
                         if walk_res.is_ok() {
-                            progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
+                            progress_status(
+                                progress,
+                                t("plugin_dev_progress_replacing_placeholders"),
+                            );
                             replace_placeholders(target_path, manifest_name, description, author)?;
                             log::info!(
                                 "plugin-template: Plugin initialized from local git branch."
@@ -129,12 +132,7 @@ fn clone_from_template(
     }
 }
 
-pub fn init(
-    name: &str,
-    description: &str,
-    author: &str,
-    print_output: bool,
-) -> anyhow::Result<()> {
+pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> anyhow::Result<()> {
     init_with_progress(name, description, author, print_output, None)
 }
 
