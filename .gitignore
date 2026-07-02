@@ -1,6 +1,29 @@
+# Rust / Cargo
 target/
-example/
 .cargo/
 Cargo.lock
+
+# Examples / Tests
+example/
+
+# Editors and IDEs
 .idea/
 .vscode/
+*.swp
+*.swo
+*~
+Session.vim
+.helix/
+.zed/
+.favorites.json
+.settings/
+.project
+.cproject
+
+# System-specific files
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+*.log
+
