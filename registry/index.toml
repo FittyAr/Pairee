@@ -1,3 +1,31 @@
 schema_version = "1"
-generated_at = "2026-07-02T08:15:00Z"
-plugins = []
+generated_at = "2026-07-03T19:42:00Z"
+
+[plugins]
+
+[plugins."git.pairee"]
+name = "git.pairee"
+version = "1.1.0"
+description = "Git status integration for file panels, showing status markers, staging, and committing"
+author = "FittyAr"
+languages = ["en", "es"]
+hooks = ["on_cd"]
+min_pairee = "0.7.0"
+
+[plugins."fzf.pairee"]
+name = "fzf.pairee"
+version = "1.0.1"
+description = "Fuzzy finder integration using fzf inside the active panel. Instant directory switching."
+author = "FittyAr"
+languages = ["en"]
+hooks = ["ctrl-p"]
+min_pairee = "0.6.1"
+
+[plugins."zoxide.pairee"]
+name = "zoxide.pairee"
+version = "0.9.0"
+description = "Fast directory jumping based on zoxide database scoring. Learn frequently visited directories."
+author = "FittyAr"
+languages = ["en", "es"]
+hooks = ["alt-z"]
+min_pairee = "0.6.1"

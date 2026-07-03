@@ -1,0 +1,20 @@
+name = "zoxide.pairee"
+version = "0.9.0"
+description = "Fast directory jumping based on zoxide database scoring. Learn frequently visited directories."
+author = "FittyAr"
+license = "MIT"
+homepage = "https://github.com/FittyAr/Pairee"
+tags = ["zoxide", "navigation", "jump"]
+default_language = "en"
+languages = ["en", "es"]
+min_pairee = "0.6.1"
+requires_trust = true
+hooks = ["alt-z"]
+type = "command"
+
+[keybindings]
+"alt+z" = "entry"
+
+[files]
+"main.lua" = "3eb3a2bfebc605cf580cf580a1122a2bfec605cf580cf580a1122a2bfec605cf"
+"manifest.toml" = "8dfba2bfebc605cf580cf580a1122a2bfec605cf580cf580a1122a2bfec605cf"

@@ -1,0 +1,20 @@
+name = "fzf.pairee"
+version = "1.0.1"
+description = "Fuzzy finder integration using fzf inside the active panel. Instant directory switching."
+author = "FittyAr"
+license = "MIT"
+homepage = "https://github.com/FittyAr/Pairee"
+tags = ["fzf", "fuzzy-search", "finder"]
+default_language = "en"
+languages = ["en"]
+min_pairee = "0.6.1"
+requires_trust = true
+hooks = ["ctrl-p"]
+type = "command"
+
+[keybindings]
+"ctrl+p" = "entry"
+
+[files]
+"main.lua" = "3eb3a2bfebc605cf580cf580a1122a2bfec605cf580cf580a1122a2bfec605cf"
+"manifest.toml" = "8dfba2bfebc605cf580cf580a1122a2bfec605cf580cf580a1122a2bfec605cf"
