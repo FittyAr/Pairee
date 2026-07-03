@@ -217,7 +217,7 @@
       const actionsEl = document.getElementById('changelog-actions');
       
       try {
-        const response = await fetch('https://raw.githubusercontent.com/FittyAr/Pairee/master/CHANGELOG.md');
+        const response = await fetch('https://raw.githubusercontent.com/FittyAr/Pairee/master/docs/CHANGELOG.md');
         if (!response.ok) throw new Error('Failed to fetch CHANGELOG.md');
         const mdText = await response.text();
         
