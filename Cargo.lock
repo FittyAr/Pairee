@@ -1983,6 +1983,7 @@ dependencies = [
  "image",
  "log",
  "mlua",
+ "percent-encoding",
  "pulldown-cmark",
  "ratatui",
  "reqwest",
