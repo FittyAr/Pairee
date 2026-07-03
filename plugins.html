@@ -4,16 +4,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
+  <title data-i18n="plugins_seo_title">Pairee | Catálogo de Plugins de la Comunidad</title>
   <meta name="description"
-    content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
-  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos" />
+    content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
+  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos, plugins, community, catalog" />
   <link rel="canonical" href="https://pairee.fitty.ar/plugins.html" />
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/wizard_small_image.png" />
   
-  <link rel="stylesheet" href="style.css" />
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pairee.fitty.ar/plugins.html" />
+  <meta property="og:title" content="Pairee | Catálogo de Plugins de la Comunidad" />
+  <meta property="og:description" content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
+  <meta property="og:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta property="og:site_name" content="Pairee" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://pairee.fitty.ar/plugins.html" />
+  <meta name="twitter:title" content="Pairee | Catálogo de Plugins de la Comunidad" />
+  <meta name="twitter:description" content="Explora, busca y consulta los plugins, visores y extensiones de la comunidad para Pairee." />
+  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/plugins.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <style>
@@ -181,7 +197,7 @@
   </footer>
 
   <!-- Translations script -->
-  <script src="translations.js"></script>
+  <script src="js/translations.js"></script>
 
   <!-- JavaScript logic -->
   <script>
@@ -218,11 +234,34 @@
       });
 
       // Title & Metatags
-      document.title = translations[lang].title + " - Plugins";
+      const pageTitle = translations[lang].plugins_seo_title || (translations[lang].title + " - Plugins");
+      const pageDesc = translations[lang].plugins_seo_desc || translations[lang].description;
+      
+      document.title = pageTitle;
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
-        metaDesc.setAttribute('content', translations[lang].description);
+        metaDesc.setAttribute('content', pageDesc);
       }
+
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', pageTitle);
+
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', pageDesc);
+
+      const twTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twTitle) twTitle.setAttribute('content', pageTitle);
+
+      const twDesc = document.querySelector('meta[name="twitter:description"]');
+      if (twDesc) twDesc.setAttribute('content', pageDesc);
+
+      const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
+
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.setAttribute('content', shareImgUrl);
+
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage) twitterImage.setAttribute('content', shareImgUrl);
 
       // Active state visual language button
       document.querySelectorAll('.lang-btn').forEach(btn => {
@@ -401,6 +440,11 @@
           typeLabel = 'Command';
         }
 
+        // Translate type badges
+        const badgeText = (translations[currentLang] && translations[currentLang]['badge_' + typeClass]) 
+          ? translations[currentLang]['badge_' + typeClass] 
+          : typeLabel;
+
         const langBadges = (plugin.languages || []).map(l => `<span class="plugin-meta-badge">${l.toUpperCase()}</span>`).join(' ');
 
         card.innerHTML = `
@@ -409,7 +453,7 @@
               <span class="plugin-name">${escapeHtml(plugin.name)}</span>
               <span class="plugin-author">by ${escapeHtml(plugin.author || 'unknown')}</span>
             </div>
-            <span class="plugin-type-badge ${typeClass}">${typeLabel}</span>
+            <span class="plugin-type-badge ${typeClass}">${escapeHtml(badgeText)}</span>
           </div>
           <p class="plugin-desc">${escapeHtml(plugin.description || 'No description provided.')}</p>
           <div class="plugin-card-footer">
@@ -483,6 +527,9 @@
       const plugin = pluginsData.find(p => p.name === name);
       if (!plugin) return;
 
+      const loadingLabel = translations[currentLang]?.modal_loading || 'Cargando detalles...';
+      const noneLabel = translations[currentLang]?.modal_none || 'Ninguno';
+
       document.getElementById('modal-name').textContent = plugin.name;
       document.getElementById('modal-author-version').textContent = `by ${plugin.author || 'unknown'} • v${plugin.version}`;
       document.getElementById('modal-description').textContent = plugin.description || '';
@@ -490,7 +537,7 @@
       document.getElementById('modal-meta-version').textContent = plugin.version;
       document.getElementById('modal-meta-min-version').textContent = plugin.min_pairee || 'N/A';
       
-      document.getElementById('modal-meta-trust').innerHTML = `<span style="color: var(--text-muted)">Loading...</span>`;
+      document.getElementById('modal-meta-trust').innerHTML = `<span style="color: var(--text-muted)">${loadingLabel}</span>`;
       document.getElementById('modal-meta-languages').innerHTML = '';
       document.getElementById('modal-meta-hooks').innerHTML = '';
       document.getElementById('modal-keybindings-section').style.display = 'none';
@@ -533,7 +580,7 @@
         if (hooks.length > 0) {
           hooksContainer.innerHTML = hooks.map(h => `<span class="plugin-meta-badge" style="background: rgba(46, 204, 113, 0.08); border-color: rgba(46, 204, 113, 0.2); color: #2ecc71;">${h}</span>`).join(' ');
         } else {
-          hooksContainer.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted);">None</span>`;
+          hooksContainer.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted);">${noneLabel}</span>`;
         }
 
         const keybindings = manifest.keybindings || {};
@@ -567,7 +614,7 @@
         if (plugin.hooks && plugin.hooks.length > 0) {
           hooksContainer.innerHTML = plugin.hooks.map(h => `<span class="plugin-meta-badge" style="background: rgba(46, 204, 113, 0.08); border-color: rgba(46, 204, 113, 0.2); color: #2ecc71;">${h}</span>`).join(' ');
         } else {
-          hooksContainer.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted);">None</span>`;
+          hooksContainer.innerHTML = `<span style="font-size: 0.85rem; color: var(--text-muted);">${noneLabel}</span>`;
         }
       }
     }

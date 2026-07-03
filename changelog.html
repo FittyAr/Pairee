@@ -4,16 +4,32 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="title">Pairee | Gestor de archivos TUI moderno en Rust</title>
+  <title data-i18n="changelog_seo_title">Pairee | Historial de Cambios TUI</title>
   <meta name="description"
-    content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
-  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos" />
+    content="Historial de versiones y novedades del gestor de archivos terminal Pairee." />
+  <meta name="keywords" content="Pairee, file manager, terminal, TUI, Rust, Ratatui, Tokio, Norton Commander, dual pane, terminal file manager, gestor de archivos, changelog" />
   <link rel="canonical" href="https://pairee.fitty.ar/changelog.html" />
   
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="assets/wizard_small_image.png" />
   
-  <link rel="stylesheet" href="style.css" />
+  <!-- Open Graph / Facebook -->
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://pairee.fitty.ar/changelog.html" />
+  <meta property="og:title" content="Pairee | Historial de Cambios TUI" />
+  <meta property="og:description" content="Historial de versiones y novedades del gestor de archivos terminal Pairee." />
+  <meta property="og:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+  <meta property="og:site_name" content="Pairee" />
+
+  <!-- Twitter -->
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://pairee.fitty.ar/changelog.html" />
+  <meta name="twitter:title" content="Pairee | Historial de Cambios TUI" />
+  <meta name="twitter:description" content="Historial de versiones y novedades del gestor de archivos terminal Pairee." />
+  <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
+
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/changelog.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <style>
@@ -110,12 +126,13 @@
   </footer>
 
   <!-- Translations script -->
-  <script src="translations.js"></script>
+  <script src="js/translations.js"></script>
 
   <!-- JavaScript logic -->
   <script>
     let currentLang = 'es';
     let showOlderReleases = false;
+    let changelogData = [];
 
     // i18n
     function updateLanguage(lang) {
@@ -145,11 +162,34 @@
       }
 
       // Title & Metatags
-      document.title = translations[lang].title + " - Changelog";
+      const pageTitle = translations[lang].changelog_seo_title || (translations[lang].title + " - Changelog");
+      const pageDesc = translations[lang].changelog_seo_desc || translations[lang].description;
+      
+      document.title = pageTitle;
       const metaDesc = document.querySelector('meta[name="description"]');
       if (metaDesc) {
-        metaDesc.setAttribute('content', translations[lang].description);
+        metaDesc.setAttribute('content', pageDesc);
       }
+
+      const ogTitle = document.querySelector('meta[property="og:title"]');
+      if (ogTitle) ogTitle.setAttribute('content', pageTitle);
+
+      const ogDesc = document.querySelector('meta[property="og:description"]');
+      if (ogDesc) ogDesc.setAttribute('content', pageDesc);
+
+      const twTitle = document.querySelector('meta[name="twitter:title"]');
+      if (twTitle) twTitle.setAttribute('content', pageTitle);
+
+      const twDesc = document.querySelector('meta[name="twitter:description"]');
+      if (twDesc) twDesc.setAttribute('content', pageDesc);
+
+      const shareImgUrl = lang === 'es' ? 'https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png' : 'https://pairee.fitty.ar/assets/Pairee_EN_2160x2160.png';
+
+      const ogImage = document.querySelector('meta[property="og:image"]');
+      if (ogImage) ogImage.setAttribute('content', shareImgUrl);
+
+      const twitterImage = document.querySelector('meta[name="twitter:image"]');
+      if (twitterImage) twitterImage.setAttribute('content', shareImgUrl);
 
       // Active state visual language button
       document.querySelectorAll('.lang-btn').forEach(btn => {
@@ -159,6 +199,11 @@
           btn.classList.remove('active');
         }
       });
+
+      // Re-render changelog if it's already loaded to apply new translation strings
+      if (changelogData.length > 0) {
+        renderChangelog(changelogData);
+      }
     }
 
     function switchLanguage(lang) {
@@ -168,7 +213,6 @@
 
     // Changelog Loading & Parsing
     async function fetchAndRenderChangelog() {
-      const container = document.getElementById('changelog-container');
       const statusEl = document.getElementById('changelog-status');
       const actionsEl = document.getElementById('changelog-actions');
       
@@ -177,60 +221,14 @@
         if (!response.ok) throw new Error('Failed to fetch CHANGELOG.md');
         const mdText = await response.text();
         
-        const releases = parseChangelogMarkdown(mdText);
-        if (releases.length === 0) {
+        changelogData = parseChangelogMarkdown(mdText);
+        if (changelogData.length === 0) {
           throw new Error('No releases parsed');
         }
 
-        container.innerHTML = '';
-        releases.forEach((release, idx) => {
-          const isOlder = idx >= 3;
-          const itemEl = document.createElement('div');
-          itemEl.className = 'changelog-item' + (isOlder ? ' older-release' : '');
-          
-          let categoriesHtml = '';
-          for (const [catName, items] of Object.entries(release.categories)) {
-            if (items.length === 0) continue;
-            
-            let catClass = catName.toLowerCase();
-            let catTitle = catName;
-            
-            let icon = '❖';
-            if (catClass === 'added') icon = '🟢 ＋';
-            else if (catClass === 'changed') icon = '🟠 ✎';
-            else if (catClass === 'improved') icon = '🔵 ⚡';
-            else if (catClass === 'fixed') icon = '🔴 🐛';
-            else if (catClass === 'removed') icon = '⚪ ➖';
+        renderChangelog(changelogData);
 
-            categoriesHtml += `
-              <div class="changelog-category">
-                <span class="changelog-category-title ${catClass}">${icon} ${catTitle}</span>
-                <ul class="changelog-list">
-                  ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-                </ul>
-              </div>
-            `;
-          }
-
-          itemEl.innerHTML = `
-            <div class="changelog-dot">${idx + 1}</div>
-            <div class="changelog-card">
-              <div class="changelog-header">
-                <div class="changelog-version">
-                  ${escapeHtml(release.version)}
-                  ${idx === 0 ? '<span style="background: rgba(0, 229, 255, 0.1); border-color: var(--accent-cyan); color: var(--accent-cyan); font-size: 0.7rem; margin-left: 10px; border-radius: 4px; padding: 2px 6px;">LATEST</span>' : ''}
-                </div>
-                <div class="changelog-date">${escapeHtml(release.date)}</div>
-              </div>
-              <div class="changelog-body">
-                ${categoriesHtml}
-              </div>
-            </div>
-          `;
-          container.appendChild(itemEl);
-        });
-
-        if (releases.length > 3) {
+        if (changelogData.length > 3) {
           actionsEl.style.display = 'flex';
         }
       } catch (error) {
@@ -240,6 +238,71 @@
           statusEl.textContent = translations[currentLang]?.changelog_error || 'No se pudo cargar el historial de cambios.';
         }
       }
+    }
+
+    function renderChangelog(releases) {
+      const container = document.getElementById('changelog-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      releases.forEach((release, idx) => {
+        const isOlder = idx >= 3;
+        const itemEl = document.createElement('div');
+        itemEl.className = 'changelog-item' + (isOlder ? ' older-release' : '');
+        
+        let categoriesHtml = '';
+        for (const [catName, items] of Object.entries(release.categories)) {
+          if (items.length === 0) continue;
+          
+          let catClass = catName.toLowerCase();
+          let catTitle = catName;
+          
+          // Localize category labels dynamically
+          const translationKey = 'changelog_cat_' + catClass;
+          if (translations[currentLang] && translations[currentLang][translationKey]) {
+            catTitle = translations[currentLang][translationKey];
+          }
+
+          categoriesHtml += `
+            <div class="changelog-category">
+              <span class="changelog-category-title ${catClass}">${catTitle}</span>
+              <ul class="changelog-list">
+                ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+              </ul>
+            </div>
+          `;
+        }
+
+        const latestLabel = translations[currentLang]?.changelog_latest || 'LATEST';
+        const dateLabel = release.date === 'Unreleased' ? (translations[currentLang]?.changelog_unreleased || 'Unreleased') : release.date;
+
+        itemEl.innerHTML = `
+          <div class="changelog-dot">${idx + 1}</div>
+          <div class="changelog-card">
+            <div class="changelog-header">
+              <div class="changelog-version">
+                ${escapeHtml(release.version)}
+                ${idx === 0 ? `<span style="background: rgba(0, 229, 255, 0.1); border-color: var(--accent-cyan); color: var(--accent-cyan); font-size: 0.7rem; margin-left: 10px; border-radius: 4px; padding: 2px 6px;">${latestLabel}</span>` : ''}
+              </div>
+              <div class="changelog-date">${escapeHtml(dateLabel)}</div>
+            </div>
+            <div class="changelog-body">
+              ${categoriesHtml}
+            </div>
+          </div>
+        `;
+        container.appendChild(itemEl);
+      });
+
+      // Maintain toggle older state
+      const olderItems = document.querySelectorAll('.changelog-item.older-release');
+      olderItems.forEach(item => {
+        if (showOlderReleases) {
+          item.classList.add('show');
+        } else {
+          item.classList.remove('show');
+        }
+      });
     }
 
     function parseChangelogMarkdown(text) {

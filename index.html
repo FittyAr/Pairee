@@ -28,7 +28,8 @@
   <meta name="twitter:description" content="Un gestor de archivos para terminal moderno, de doble panel y modular. Escrito en Rust con Ratatui y Tokio." />
   <meta name="twitter:image" content="https://pairee.fitty.ar/assets/Pairee_ES_2160x2160.png" />
 
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="css/base.css" />
+  <link rel="stylesheet" href="css/index.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 </head>
@@ -69,7 +70,7 @@
       <div class="container">
         <a href="https://github.com/FittyAr/Pairee/releases" target="_blank" class="release-link">
           <span class="badge" id="release-badge">
-            <span style="color: #00e5ff;">◆</span> <span id="release-text">Nueva Versión Disponible</span>
+            <span style="color: #00e5ff;">◆</span> <span id="release-text" data-i18n="release_text_loading">Cargando versión...</span>
           </span>
         </a>
         <h1 class="hero-title" data-i18n="hero_title">Tu mundo, en <span>dos paneles</span>.</h1>
@@ -375,7 +376,7 @@
   </footer>
 
   <!-- Translations script -->
-  <script src="translations.js"></script>
+  <script src="js/translations.js"></script>
 
   <!-- JavaScript logic -->
   <script>
