@@ -1,17 +1,17 @@
 ---
 name: changelog-helper
-description: Guide AI agents in documenting changes in CHANGELOG.md following the "Keep a Changelog" standard.
+description: Guide AI agents in documenting changes in docs/UNRELEASED.md following the "Keep a Changelog" standard.
 ---
 
 # Changelog Helper Skill
 
-Use this skill whenever you perform code modifications, add new features, or fix bugs, to ensure that user-facing changes are correctly documented in [CHANGELOG.md](../../../CHANGELOG.md).
+Use this skill whenever you perform code modifications, add new features, or fix bugs, to ensure that user-facing changes are correctly documented in [docs/UNRELEASED.md](../../../docs/UNRELEASED.md).
 
 ## Keep a Changelog Standards
 
 The project follows the [Keep a Changelog v1.1.0](https://keepachangelog.com/en/1.1.0/) format.
 
-All modifications must be listed under the `## [Unreleased]` section. Do not create new version sections unless explicitly requested or during a release process.
+All modifications must be listed under the `## [Unreleased]` section in [docs/UNRELEASED.md](../../../docs/UNRELEASED.md). Do not create new version sections unless explicitly requested or during a release process. Do not modify [docs/CHANGELOG.md](../../../docs/CHANGELOG.md) directly; it is updated automatically during the release process.
 
 ## Classification of Changes
 

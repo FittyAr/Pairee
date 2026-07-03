@@ -40,7 +40,7 @@ The release workflow ([`release.yml`](../.github/workflows/release.yml)) creates
 
 1. Go to `https://github.com/FittyAr/Pairee/releases`.
 2. Click **Edit** on the draft release for `v0.6.0`.
-3. Review the release notes (auto-extracted from `CHANGELOG.md`).
+3. Review the release notes (auto-extracted from `docs/CHANGELOG.md`).
 4. Verify both Windows installers are attached:
    - `pairee-setup-0.6.0-x64.exe` + its `.sha256` checksum file.
    - `pairee-setup-0.6.0-arm64.exe` + its `.sha256` checksum file.

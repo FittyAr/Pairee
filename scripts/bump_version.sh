@@ -132,35 +132,72 @@ else
     echo -e "${YELLOW}[WARNING]${RESET} No existing WinGet manifest directory found to migrate."
 fi
 
-# 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
-changelog_path="CHANGELOG.md"
-if [[ -f "$changelog_path" ]]; then
-    echo -e "Stamping CHANGELOG.md for ${YELLOW}v$new_version${RESET}..."
+# 3b. Stamp CHANGELOG: read from docs/UNRELEASED.md, insert into docs/CHANGELOG.md, and reset docs/UNRELEASED.md
+changelog_path="docs/CHANGELOG.md"
+unreleased_path="docs/UNRELEASED.md"
+if [[ -f "$changelog_path" ]] && [[ -f "$unreleased_path" ]]; then
+    echo -e "Stamping CHANGELOG for ${YELLOW}v$new_version${RESET}..."
     today=$(date +%Y-%m-%d)
-    tmp_changelog=$(mktemp)
-    found_unreleased=false
-
+    
+    # Read and prepare unreleased block
+    tmp_unreleased=$(mktemp)
+    found_header=false
     while IFS= read -r line || [[ -n "$line" ]]; do
-        if [[ "$found_unreleased" == false ]] && [[ "$line" == "## [Unreleased]" ]]; then
-            found_unreleased=true
-            # Insert fresh [Unreleased] block
-            printf '%s\n' "## [Unreleased]" "" "---" "" >> "$tmp_changelog"
-            # Replace with the versioned heading
-            echo "## [v$new_version] - $today" >> "$tmp_changelog"
+        if [[ "$found_header" == false ]] && [[ "$line" == "## [Unreleased]" ]]; then
+            found_header=true
+            echo "## [v$new_version] - $today" >> "$tmp_unreleased"
         else
-            echo "$line" >> "$tmp_changelog"
+            echo "$line" >> "$tmp_unreleased"
         fi
-    done < "$changelog_path"
-
-    if [[ "$found_unreleased" == false ]]; then
-        echo -e "${YELLOW}[WARNING]${RESET} '## [Unreleased]' section not found in CHANGELOG.md - skipping changelog stamp."
-        rm -f "$tmp_changelog"
-    else
-        mv "$tmp_changelog" "$changelog_path"
-        echo -e "${GREEN}[OK]${RESET} CHANGELOG.md stamped successfully."
+    done < "$unreleased_path"
+    
+    if [[ "$found_header" == false ]]; then
+        tmp_fallback=$(mktemp)
+        echo "## [v$new_version] - $today" > "$tmp_fallback"
+        echo "" >> "$tmp_fallback"
+        cat "$tmp_unreleased" >> "$tmp_fallback"
+        mv "$tmp_fallback" "$tmp_unreleased"
     fi
+    
+    # Insert into CHANGELOG before the first version header
+    tmp_changelog=$(mktemp)
+    inserted=false
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        if [[ "$inserted" == false ]] && [[ "$line" =~ ^"## [v"[0-9] ]]; then
+            cat "$tmp_unreleased" >> "$tmp_changelog"
+            printf '\n---\n\n' >> "$tmp_changelog"
+            inserted=true
+        fi
+        echo "$line" >> "$tmp_changelog"
+    done < "$changelog_path"
+    
+    if [[ "$inserted" == false ]]; then
+        printf '\n---\n\n' >> "$tmp_changelog"
+        cat "$tmp_unreleased" >> "$tmp_changelog"
+    fi
+    
+    mv "$tmp_changelog" "$changelog_path"
+    rm -f "$tmp_unreleased"
+    
+    # Reset docs/UNRELEASED.md to the empty template
+    cat << 'EOF' > "$unreleased_path"
+## [Unreleased]
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+EOF
+    echo -e "${GREEN}[OK]${RESET} CHANGELOG stamped and UNRELEASED reset successfully."
 else
-    echo -e "${YELLOW}[WARNING]${RESET} CHANGELOG.md not found - skipping changelog stamp."
+    echo -e "${YELLOW}[WARNING]${RESET} docs/CHANGELOG.md or docs/UNRELEASED.md not found - skipping changelog stamp."
 fi
 
 # 4. Run cargo check to update Cargo.lock
@@ -178,7 +215,7 @@ if [[ -z "$branch" ]]; then
 fi
 
 echo -e "\n${YELLOW}Summary of actions to perform:${RESET}"
-echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/f/FittyAr/Pairee/*)"
+echo -e "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, docs/CHANGELOG.md, docs/UNRELEASED.md, manifests/f/FittyAr/Pairee/*)"
 echo -e "  - Create git tag v$new_version"
 echo -e "  - Push commit and tag to origin ($branch)"
 echo ""
@@ -192,8 +229,11 @@ fi
 # Commit and tag
 echo -e "${YELLOW}Staging changes...${RESET}"
 git add Cargo.toml Cargo.lock installer.iss
-if [[ -f "CHANGELOG.md" ]]; then
-    git add CHANGELOG.md
+if [[ -f "docs/CHANGELOG.md" ]]; then
+    git add docs/CHANGELOG.md
+fi
+if [[ -f "docs/UNRELEASED.md" ]]; then
+    git add docs/UNRELEASED.md
 fi
 if [[ -d "manifests/f" ]]; then
     git add manifests/f/

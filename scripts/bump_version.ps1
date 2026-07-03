@@ -136,42 +136,83 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         Write-Host "[WARNING] No existing WinGet manifest directory found to migrate." -ForegroundColor Yellow
     }
 
-    # 3b. Stamp CHANGELOG.md: rename [Unreleased] -> [vX.Y.Z] - YYYY-MM-DD and add a fresh [Unreleased]
-    $changelogPath = "CHANGELOG.md"
-    if (Test-Path $changelogPath) {
-        Write-Host "Stamping CHANGELOG.md for v$newVersion..." -ForegroundColor Yellow
+    # 3b. Stamp CHANGELOG: read from docs/UNRELEASED.md, insert into docs/CHANGELOG.md, and reset docs/UNRELEASED.md
+    $changelogPath = "docs/CHANGELOG.md"
+    $unreleasedPath = "docs/UNRELEASED.md"
+    if ((Test-Path $changelogPath) -and (Test-Path $unreleasedPath)) {
+        Write-Host "Stamping CHANGELOG for v$newVersion..." -ForegroundColor Yellow
         $today = (Get-Date -Format "yyyy-MM-dd")
-        $changelogContent = Get-Content -Path $changelogPath -Encoding UTF8
+        
+        # Read UNRELEASED content
+        $unreleasedContent = Get-Content -Path $unreleasedPath -Encoding UTF8
+        
+        # Replaces ## [Unreleased] with ## [vX.Y.Z] - YYYY-MM-DD
+        $unreleasedBlock = @()
+        $foundHeader = $false
+        foreach ($line in $unreleasedContent) {
+            if (-not $foundHeader -and $line -match '^## \[Unreleased\]') {
+                $unreleasedBlock += "## [v$newVersion] - $today"
+                $foundHeader = $true
+            } else {
+                $unreleasedBlock += $line
+            }
+        }
+        if (-not $foundHeader) {
+            # If for some reason the file didn't have the header, prepend it
+            $unreleasedBlock = @("## [v$newVersion] - $today", "") + $unreleasedBlock
+        }
 
-        $unreleasedPattern = '^## \[Unreleased\]'
-        $foundUnreleased = $false
+        # Read CHANGELOG content
+        $changelogContent = Get-Content -Path $changelogPath -Encoding UTF8
         $newChangelog = @()
+        $inserted = $false
 
         foreach ($line in $changelogContent) {
-            if (-not $foundUnreleased -and $line -match $unreleasedPattern) {
-                $foundUnreleased = $true
-                # Insert fresh [Unreleased] block before the versioned heading
-                $newChangelog += "## [Unreleased]"
+            # We want to insert the unreleased block right before the first version header (e.g. ## [v0.6.1])
+            if (-not $inserted -and $line -match '^## \[v\d+\.') {
+                # Add the unreleased block, followed by separator
+                $newChangelog += $unreleasedBlock
                 $newChangelog += ""
                 $newChangelog += "---"
                 $newChangelog += ""
-                # Replace this line with the version heading
-                $newChangelog += "## [v$newVersion] - $today"
-            } else {
-                $newChangelog += $line
+                $inserted = $true
             }
+            $newChangelog += $line
         }
 
-        if (-not $foundUnreleased) {
-            Write-Host "[WARNING] '## [Unreleased]' section not found in CHANGELOG.md - skipping changelog stamp." -ForegroundColor Yellow
-        } else {
-            # Write back using UTF8 without BOM
-            $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-            [System.IO.File]::WriteAllLines((Resolve-Path $changelogPath).Path, $newChangelog, $utf8NoBom)
-            Write-Host "CHANGELOG.md stamped successfully." -ForegroundColor Green
+        if (-not $inserted) {
+            # Fallback if no version header is found in CHANGELOG.md
+            $newChangelog += ""
+            $newChangelog += "---"
+            $newChangelog += ""
+            $newChangelog += $unreleasedBlock
         }
+
+        # Write back docs/CHANGELOG.md
+        $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+        [System.IO.File]::WriteAllLines((Resolve-Path $changelogPath).Path, $newChangelog, $utf8NoBom)
+        
+        # Reset docs/UNRELEASED.md to the empty template
+        $template = @(
+            "## [Unreleased]",
+            "",
+            "### Added",
+            "",
+            "### Improved",
+            "",
+            "### Changed",
+            "",
+            "### Deprecated",
+            "",
+            "### Removed",
+            "",
+            "### Fixed"
+        )
+        [System.IO.File]::WriteAllLines((Resolve-Path $unreleasedPath).Path, $template, $utf8NoBom)
+
+        Write-Host "CHANGELOG stamped and UNRELEASED reset successfully." -ForegroundColor Green
     } else {
-        Write-Host "[WARNING] CHANGELOG.md not found - skipping changelog stamp." -ForegroundColor Yellow
+        Write-Host "[WARNING] docs/CHANGELOG.md or docs/UNRELEASED.md not found - skipping changelog stamp." -ForegroundColor Yellow
     }
 
     # 4. Run cargo check to update Cargo.lock
@@ -190,9 +231,8 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
         $branch = "main"
     }
     
-    Write-Host ""
     Write-Host "Summary of actions to perform:" -ForegroundColor Yellow
-    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, CHANGELOG.md, manifests/f/FittyAr/Pairee/*)"
+    Write-Host "  - Stage and commit changes (Cargo.toml, Cargo.lock, installer.iss, docs/CHANGELOG.md, docs/UNRELEASED.md, manifests/f/FittyAr/Pairee/*)"
     Write-Host "  - Create git tag v$newVersion"
     Write-Host "  - Push commit and tag to origin ($branch)"
     Write-Host ""
@@ -206,8 +246,11 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     # Commit and tag
     Write-Host "Staging changes..." -ForegroundColor Yellow
     git add Cargo.toml Cargo.lock installer.iss
-    if (Test-Path "CHANGELOG.md") {
-        git add CHANGELOG.md
+    if (Test-Path "docs/CHANGELOG.md") {
+        git add docs/CHANGELOG.md
+    }
+    if (Test-Path "docs/UNRELEASED.md") {
+        git add docs/UNRELEASED.md
     }
     if (Test-Path "manifests/f/FittyAr/Pairee") {
         git add manifests/f/
