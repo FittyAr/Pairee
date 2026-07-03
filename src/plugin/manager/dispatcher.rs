@@ -7,7 +7,7 @@
 //! `dispatch_actions.rs`; this file is the routing layer.
 
 use super::dispatch_actions::dispatch_emit_action;
-use super::request::{InputDialogResult, PluginRequest};
+use super::request::PluginRequest;
 use super::snapshot::FileEntrySnapshot;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
@@ -105,25 +105,27 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         debounce_secs,
                         reply_tx,
                     } => {
-                        // M0 wires the dispatcher; the actual TUI popup will
-                        // replace this with a real one in M1. Until then, we
-                        // return a `Submitted` event with the default value so
-                        // plugins that migrated early still get a deterministic
-                        // answer (matches the old stub behaviour) and a clear
-                        // log message so authors know the placeholder is in
-                        // place.
-                        log::info!(
-                            "Plugin input dialog requested (M0 stub; M1 will route to the TUI popup): \
-                             title={:?} position={:?} obscure={} realtime={} debounce={}s",
+                        // M1: route the request to a real TUI popup. The
+                        // popup's key handler is responsible for sending the
+                        // result on `reply_tx` and clearing `active_popup`.
+                        // `position` is reserved for future use; today the
+                        // popup is always centered.
+                        log::debug!(
+                            "Plugin input dialog requested: title={:?} position={:?} \
+                             obscure={} realtime={} debounce={}s",
                             title,
                             position,
                             obscure,
                             realtime,
                             debounce_secs
                         );
-                        let _ = reply_tx.send(InputDialogResult {
-                            value: default,
-                            event: 1, // submitted
+                        let _ = position; // suppress unused warning
+                        state.active_popup = Some(PopupType::PluginInputDialog {
+                            title,
+                            input: default,
+                            cursor_idx: 0,
+                            obscure,
+                            reply_tx: Some(reply_tx),
                         });
                     }
                     PluginRequest::ConfirmDialog {
@@ -132,29 +134,41 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         position,
                         reply_tx,
                     } => {
-                        log::info!(
-                            "Plugin confirm dialog requested (M0 stub; M1 will route to the TUI popup): \
-                             title={:?}, msg={:?}, position={:?}",
+                        // M1: real confirm popup. The key handler sends the
+                        // boolean reply when the user makes a choice.
+                        log::debug!(
+                            "Plugin confirm dialog requested: title={:?}, msg={:?}, position={:?}",
                             title,
                             msg,
                             position
                         );
-                        let _ = reply_tx.send(false);
+                        let _ = position;
+                        state.active_popup = Some(PopupType::PluginConfirmDialog {
+                            title,
+                            msg,
+                            cursor_idx: 0,
+                            reply_tx: Some(reply_tx),
+                        });
                     }
                     PluginRequest::WhichPrompt {
                         candidates,
                         silent,
                         reply_tx,
                     } => {
-                        log::info!(
-                            "Plugin which-prompt requested for {} candidate(s), silent={} (M0 stub; \
-                             M1 will route to the TUI popup).",
+                        // M1: real which-prompt. The key handler matches
+                        // candidate `on` keys (canonicalised via
+                        // `key_event_to_string`) and sends back the
+                        // 1-based index of the selected candidate.
+                        log::debug!(
+                            "Plugin which-prompt requested for {} candidate(s), silent={}",
                             candidates.len(),
                             silent
                         );
-                        // No candidate can be selected without a TUI, so the
-                        // canonical placeholder is `None` (cancel).
-                        let _ = reply_tx.send(None);
+                        state.active_popup = Some(PopupType::PluginWhichPrompt {
+                            candidates,
+                            silent,
+                            reply_tx: Some(reply_tx),
+                        });
                     }
                     PluginRequest::EmitAction {
                         name,
@@ -236,6 +250,20 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                             cursor_idx: 0,
                             previous_popup,
                         });
+                    }
+                    PluginRequest::ImagePreview { path, rect } => {
+                        // M2 placeholder: decode the image and stash
+                        // it on a hypothetical preview state so the
+                        // M3 renderer can pick it up. For M2 we
+                        // simply log the request.
+                        log::info!(
+                            "Plugin image preview requested: path={:?} rect=({},{} {}x{})",
+                            path,
+                            rect.x,
+                            rect.y,
+                            rect.w,
+                            rect.h
+                        );
                     }
                 }
             }

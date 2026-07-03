@@ -17,9 +17,17 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
     let tx_which = tx;
     table.set(
         "which",
-        lua.create_async_function(move |_lua, opts: mlua::Table| {
+        lua.create_async_function(move |lua_ctx, opts: mlua::Table| {
             let tx = tx_which.clone();
             async move {
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                    if rt.is_blocking() {
+                        return Err(mlua::Error::RuntimeError(
+                            "pairee.which cannot be called inside a sync block (re-entry guard)"
+                                .to_string(),
+                        ));
+                    }
+                }
                 let silent = opts.get::<_, bool>("silent").unwrap_or(false);
                 let candidates = match read_candidates(&opts) {
                     Ok(c) => c,
@@ -32,7 +40,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                     log::warn!("pairee.which: no candidates provided");
                     return Ok(mlua::Value::Nil);
                 }
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::WhichPrompt {
                         candidates,
@@ -45,9 +53,10 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                     log::error!("pairee.which could not enqueue; main loop not running");
                     return Ok(mlua::Value::Nil);
                 }
-                match reply_rx.await {
-                    Ok(Some(idx)) => Ok(mlua::Value::Integer(idx as i64)),
-                    Ok(None) | Err(_) => Ok(mlua::Value::Nil),
+                let answer = crate::plugin::manager::recv_single(reply_rx).await;
+                match answer {
+                    Some(idx) => Ok(mlua::Value::Integer(idx as i64)),
+                    None => Ok(mlua::Value::Nil),
                 }
             }
         })?,

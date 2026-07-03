@@ -1,5 +1,6 @@
 use crate::app::state::types::PluginWidget;
 use crate::plugin::loader::PluginManifest;
+use crate::plugin::types::File;
 use mlua::LuaSerdeExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -16,6 +17,21 @@ pub struct PreviewJob {
 
 pub enum PluginTaskRequest {
     Peek {
+        job: PreviewJob,
+        reply_tx: oneshot::Sender<Option<PluginWidget>>,
+    },
+    /// M3: call the plugin's `preload(job)` function. The reply
+    /// tuple is `(complete: bool, err: Option<String>)`: the
+    /// previewer signals whether it is done with this file and
+    /// can be evicted from the cache.
+    Preload {
+        job: PreviewJob,
+        reply_tx: oneshot::Sender<(bool, Option<String>)>,
+    },
+    /// M3: call the plugin's `seek(job)` function with a new
+    /// `skip` value. The previewer returns the resulting widget
+    /// so the UI can replace the rendered preview in place.
+    Seek {
         job: PreviewJob,
         reply_tx: oneshot::Sender<Option<PluginWidget>>,
     },
@@ -85,6 +101,14 @@ pub async fn register_plugin(
                     let res = execute_peek_internal(&lua, &table_key, job);
                     let _ = reply_tx.send(res);
                 }
+                PluginTaskRequest::Preload { job, reply_tx } => {
+                    let res = execute_preload_internal(&lua, &table_key, job);
+                    let _ = reply_tx.send(res);
+                }
+                PluginTaskRequest::Seek { job, reply_tx } => {
+                    let res = execute_seek_internal(&lua, &table_key, job);
+                    let _ = reply_tx.send(res);
+                }
                 PluginTaskRequest::ExecuteCommand { args } => {
                     execute_command_internal(&lua, &table_key, args);
                 }
@@ -111,26 +135,27 @@ fn execute_peek_internal(
         Err(_) => return None,
     };
     if let Ok(peek_fn) = table.get::<_, mlua::Function>("peek") {
-        let job_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let file_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let _ = file_table.set("url", job.file_path.to_string_lossy().to_string());
-        let _ = file_table.set("path", job.file_path.to_string_lossy().to_string());
-        let _ = job_table.set("file", file_table);
-
-        let area_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let _ = area_table.set("width", job.area_width);
-        let _ = area_table.set("height", job.area_height);
-        let _ = job_table.set("area", area_table);
-        let _ = job_table.set("skip", job.skip);
+        let job_table = build_job_table(lua, &job);
+        // M2-T6: attach a real `File` userdata so plugins can
+        // call `job.file.cha:perm()`, `job.file:size()`, etc. We
+        // also keep the legacy `file.url`/`file.path` string fields
+        // for older plugins.
+        if let Some(file_table) = job_table.get::<_, mlua::Table>("file").ok() {
+            let url = crate::plugin::types::Url::parse(&job.file_path.to_string_lossy());
+            let file_ud = match std::fs::metadata(&job.file_path) {
+                Ok(meta) => {
+                    let f = File::from_url_and_metadata(url.clone(), meta, true);
+                    lua.create_userdata(f).ok()
+                }
+                Err(_) => {
+                    let f = File::from_url(url.clone());
+                    lua.create_userdata(f).ok()
+                }
+            };
+            if let Some(ud) = file_ud {
+                let _ = file_table.set("userdata", ud);
+            }
+        }
 
         // Call peek(job)
         let result: mlua::Value = match peek_fn.call((table, job_table)) {
@@ -163,6 +188,70 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
         }
         let _: Result<(), mlua::Error> = entry_fn.call((table, args_table));
     }
+}
+
+/// Calls the plugin's `preload(job)` Lua function and returns
+/// `(complete, err)`. The reply is `true` on success; an error
+/// is `Some("...")` if the plugin threw.
+fn execute_preload_internal(
+    lua: &mlua::Lua,
+    table_key: &mlua::RegistryKey,
+    job: PreviewJob,
+) -> (bool, Option<String>) {
+    let table: mlua::Table = match lua.registry_value(table_key) {
+        Ok(t) => t,
+        Err(_) => return (true, Some("plugin table missing".to_string())),
+    };
+    let preload_fn = match table.get::<_, mlua::Function>("preload") {
+        Ok(f) => f,
+        Err(_) => return (true, None), // no preload → cacheable by default
+    };
+    let job_table = build_job_table(lua, &job);
+    match preload_fn.call::<_, ()>((table, job_table)) {
+        Ok(()) => (true, None),
+        Err(e) => (false, Some(format!("{e}"))),
+    }
+}
+
+/// Calls the plugin's `seek(job)` Lua function. Returns the
+/// resulting widget (or `None` on error / if the plugin does
+/// not implement `seek`).
+fn execute_seek_internal(
+    lua: &mlua::Lua,
+    table_key: &mlua::RegistryKey,
+    job: PreviewJob,
+) -> Option<PluginWidget> {
+    let table: mlua::Table = lua.registry_value(table_key).ok()?;
+    let seek_fn = table.get::<_, mlua::Function>("seek").ok()?;
+    let job_table = build_job_table(lua, &job);
+    let result: mlua::Value = match seek_fn.call((table, job_table)) {
+        Ok(v) => v,
+        Err(e) => {
+            log::error!("Error in plugin seek: {:?}", e);
+            return None;
+        }
+    };
+    lua.from_value(result).ok()
+}
+
+/// Shared `peek`/`preload`/`seek` job-table builder.
+fn build_job_table<'lua>(lua: &'lua mlua::Lua, job: &PreviewJob) -> mlua::Table<'lua> {
+    let job_table = lua.create_table().unwrap_or_else(|_| {
+        // create_table doesn't fail in practice for an empty
+        // table; fall back to an empty table by reaching through
+        // globals (which always exist).
+        lua.globals()
+    });
+    let file_table = lua.create_table().unwrap_or_else(|_| lua.globals());
+    let _ = file_table.set("url", job.file_path.to_string_lossy().to_string());
+    let _ = file_table.set("path", job.file_path.to_string_lossy().to_string());
+    let _ = job_table.set("file", file_table);
+    let area_table = lua.create_table().unwrap_or_else(|_| lua.globals());
+    let _ = area_table.set("width", job.area_width);
+    let _ = area_table.set("height", job.area_height);
+    let _ = job_table.set("area", area_table);
+    let _ = job_table.set("skip", job.skip);
+    job_table
 }
 
 fn execute_event_internal(
@@ -202,6 +291,49 @@ pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<PluginWidget> 
         let (reply_tx, reply_rx) = oneshot::channel();
         if tx
             .send(PluginTaskRequest::Peek { job, reply_tx })
+            .await
+            .is_ok()
+        {
+            reply_rx.await.ok().flatten()
+        } else {
+            None
+        }
+    } else {
+        None
+    }
+}
+
+/// M3: ask the plugin to preload a file. Returns `true` when the
+/// previewer has finished with the file (the cache can evict it)
+/// and `false` on error.
+pub async fn run_preloader(name: &str, job: PreviewJob) -> (bool, Option<String>) {
+    let registry = get_registry();
+    let channels = registry.channels.read().await;
+    if let Some(tx) = channels.get(name) {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        if tx
+            .send(PluginTaskRequest::Preload { job, reply_tx })
+            .await
+            .is_ok()
+        {
+            reply_rx.await.unwrap_or((true, None))
+        } else {
+            (true, Some("channel closed".to_string()))
+        }
+    } else {
+        (true, Some("plugin not loaded".to_string()))
+    }
+}
+
+/// M3: ask the plugin to seek inside a file. Returns the new
+/// rendered widget.
+pub async fn run_seeker(name: &str, job: PreviewJob) -> Option<PluginWidget> {
+    let registry = get_registry();
+    let channels = registry.channels.read().await;
+    if let Some(tx) = channels.get(name) {
+        let (reply_tx, reply_rx) = oneshot::channel();
+        if tx
+            .send(PluginTaskRequest::Seek { job, reply_tx })
             .await
             .is_ok()
         {

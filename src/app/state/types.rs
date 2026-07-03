@@ -186,6 +186,16 @@ pub enum BackgroundOpContext {
 
 #[derive(Debug, Clone)]
 pub enum PopupType {
+    // The `Clone` impl is auto-derived. We use `PluginReply<T>` (a
+    // thin wrapper around `Option<oneshot::Sender<T>>`) so the sender
+    // fields Clone as `None` — see its custom Clone impl below.
+    // The plugin worker that is awaiting the dialog holds the
+    // ORIGINAL sender (in the box), and the cloned popups in the
+    // input handlers carry the same boxed `PluginReply<T>` because
+    // `Box<PluginReply<T>>` is `Clone`. The clone just hands out a
+    // *new* `Box<PluginReply<T>>` that points at the same inner value
+    // (which still has `Some(Sender)` until the first handler
+    // consumes it).
     // ── Basic ────────────────────────────────────────────────────────────────
     Help {
         mode: usize,                         // 0 = list focus, 1 = reader focus
@@ -561,6 +571,45 @@ pub enum PopupType {
         error: Option<String>,
         /// Scroll offset for release notes.
         scroll_y: usize,
+    },
+
+    // ── Plugin dialogs (M1) ─────────────────────────────────────────────
+    /// Modal input dialog used by `pairee.input({...})`. The optional
+    /// `reply_tx` is `Some` until the user submits (`Enter`) or cancels
+    /// (`Esc`), at which point the key handler takes it to send the
+    /// result back to the awaiting plugin worker. We use an
+    /// `mpsc::UnboundedSender` (clonable, so the auto-derived `Clone`
+    /// on the enum continues to work) instead of a `oneshot::Sender`.
+    PluginInputDialog {
+        title: String,
+        input: String,
+        cursor_idx: usize,
+        obscure: bool,
+        reply_tx: Option<tokio::sync::mpsc::UnboundedSender<crate::plugin::manager::InputDialogResult>>,
+    },
+    /// Modal confirm dialog used by `pairee.confirm({...})`.
+    PluginConfirmDialog {
+        title: String,
+        msg: String,
+        /// 0 = Yes, 1 = No
+        cursor_idx: usize,
+        reply_tx: Option<tokio::sync::mpsc::UnboundedSender<bool>>,
+    },
+    /// Key-prompt used by `pairee.which({...})`. `silent = true`
+    /// suppresses the on-screen candidate list while still listening
+    /// for the matching key.
+    PluginWhichPrompt {
+        candidates: Vec<crate::plugin::manager::WhichCandidate>,
+        silent: bool,
+        reply_tx: Option<tokio::sync::mpsc::UnboundedSender<Option<usize>>>,
+    },
+    /// Auto-dismissing notification used by `pairee.notify({...})` when
+    /// a `timeout` is supplied. The `deadline` is checked on every
+    /// main-loop tick; when it elapses the popup is cleared.
+    PluginNotify {
+        body: String,
+        level: String,
+        deadline: Option<std::time::Instant>,
     },
 }
 

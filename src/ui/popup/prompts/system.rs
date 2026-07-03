@@ -212,6 +212,31 @@ pub fn render(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::PluginNotify { body, level, .. } => {
+            // Reuse the `Info` renderer shape. The colour reflects the
+            // requested level (warn → Yellow, error → Red, else Cyan).
+            let border_color = match level.as_str() {
+                "warn" | "warning" => Color::Yellow,
+                "error" | "critical" => Color::Red,
+                _ => Color::Cyan,
+            };
+            let area = centered_rect_fixed(55, 9, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(border_color))
+                .title(t("prompt_info_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let text = format!("\n {}\n\n{}", body, t("prompt_dismiss_hint"));
+            let paragraph = Paragraph::new(text)
+                .block(block)
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+
+            f.render_widget(paragraph, area);
+            true
+        }
         _ => false,
     }
 }

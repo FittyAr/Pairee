@@ -27,6 +27,10 @@ git2 = { version = "0.21", default-features = false, features = ["vendored-libgi
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
 percent-encoding = "2.3"
+arboard = "3.4"
+hostname = "0.4"
+xxhash-rust = { version = "0.8", features = ["xxh3"] }
+infer = "0.16"
 
 
 [dev-dependencies]
@@ -36,6 +40,9 @@ tempfile = "3.27"
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
 windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
 ssh2 = { version = "0.9" }
+
+[target.'cfg(unix)'.dependencies]
+uzers = "0.12"
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }

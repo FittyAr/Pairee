@@ -175,5 +175,152 @@ pub fn bind(
         })?,
     )?;
 
+    // ── M3: new `fs.*` operations per roadmap §5.B2 ─────────────
+
+    // mkdir(type, url) — `type ∈ {"dir", "dir_all"}`.
+    fs.set(
+        "mkdir",
+        lua.create_function(move |lua_ctx, (kind, url): (String, String)| {
+            let path = validate_path(lua_ctx, &url)?;
+            let recursive = kind == "dir_all";
+            let res = if recursive {
+                std::fs::create_dir_all(&path)
+            } else {
+                std::fs::create_dir(&path)
+            };
+            res.map_err(|e| mlua::Error::RuntimeError(format!("mkdir failed: {e}")))
+        })?,
+    )?;
+
+    // remove(type, url) — `type ∈ {"file", "dir", "dir_all", "dir_clean"}`.
+    fs.set(
+        "remove",
+        lua.create_function(move |lua_ctx, (kind, url): (String, String)| {
+            let path = validate_path(lua_ctx, &url)?;
+            let res = match kind.as_str() {
+                "file" => std::fs::remove_file(&path),
+                "dir" => std::fs::remove_dir(&path),
+                "dir_all" => std::fs::remove_dir_all(&path),
+                // "dir_clean" = empty the directory but keep it.
+                "dir_clean" => {
+                    let mut failed = None;
+                    if let Ok(entries) = std::fs::read_dir(&path) {
+                        for entry in entries.flatten() {
+                            let ep = entry.path();
+                            let r = if ep.is_dir() {
+                                std::fs::remove_dir_all(&ep)
+                            } else {
+                                std::fs::remove_file(&ep)
+                            };
+                            if let Err(e) = r {
+                                failed = Some(e);
+                                break;
+                            }
+                        }
+                    }
+                    match failed {
+                        Some(e) => Err(e),
+                        None => Ok(()),
+                    }
+                }
+                other => {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "fs.remove: unknown type {other:?}"
+                    )));
+                }
+            };
+            res.map_err(|e| mlua::Error::RuntimeError(format!("remove failed: {e}")))
+        })?,
+    )?;
+
+    // rename(from, to)
+    fs.set(
+        "rename",
+        lua.create_function(move |lua_ctx, (from, to): (String, String)| {
+            let from_path = validate_path(lua_ctx, &from)?;
+            let to_path = validate_path(lua_ctx, &to)?;
+            std::fs::rename(&from_path, &to_path)
+                .map_err(|e| mlua::Error::RuntimeError(format!("rename failed: {e}")))
+        })?,
+    )?;
+
+    // copy(from, to) — sync (returns the number of bytes copied).
+    fs.set(
+        "copy",
+        lua.create_function(move |lua_ctx, (from, to): (String, String)| {
+            let from_path = validate_path(lua_ctx, &from)?;
+            let to_path = validate_path(lua_ctx, &to)?;
+            if let Some(parent) = to_path.parent() {
+                let _ = std::fs::create_dir_all(parent);
+            }
+            std::fs::copy(&from_path, &to_path)
+                .map_err(|e| mlua::Error::RuntimeError(format!("copy failed: {e}")))
+        })?,
+    )?;
+
+    // read_dir(url, {glob?, limit?, resolve?}) — return `File[]`.
+    fs.set(
+        "read_dir",
+        lua.create_function(move |lua_ctx, (url, opts): (String, mlua::Table)| {
+            let path = validate_path(lua_ctx, &url)?;
+            let limit: Option<usize> = opts.get("limit").ok();
+            let _glob: Option<String> = opts.get("glob").ok();
+            let mut files = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&path) {
+                for entry in entries.flatten() {
+                    let p = entry.path();
+                    if let Some(limit) = limit {
+                        if files.len() >= limit {
+                            break;
+                        }
+                    }
+                    let url = crate::plugin::types::Url::parse(&p.to_string_lossy());
+                    let cha = match std::fs::metadata(&p) {
+                        Ok(m) => crate::plugin::types::Cha::from_metadata(&m, true),
+                        Err(_) => crate::plugin::types::Cha::dummy(),
+                    };
+                    let f = crate::plugin::types::File {
+                        url,
+                        cha,
+                        link_to: None,
+                    };
+                    let ud = lua_ctx.create_userdata(f)?;
+                    files.push(mlua::Value::UserData(ud));
+                }
+            }
+            Ok(files)
+        })?,
+    )?;
+
+    // cha(url, follow?) — return Cha userdata.
+    fs.set(
+        "cha",
+        lua.create_function(move |lua_ctx, (url, follow): (String, Option<bool>)| {
+            let path = validate_path(lua_ctx, &url)?;
+            let follow = follow.unwrap_or(true);
+            match std::fs::metadata(&path) {
+                Ok(m) => {
+                    let cha = crate::plugin::types::Cha::from_metadata(&m, follow);
+                    lua_ctx.create_userdata(cha).map(mlua::Value::UserData)
+                }
+                Err(e) => Err(mlua::Error::RuntimeError(format!("fs.cha failed: {e}"))),
+            }
+        })?,
+    )?;
+
+    // file(url) — return File userdata.
+    fs.set(
+        "file",
+        lua.create_function(move |lua_ctx, url: String| {
+            let path = validate_path(lua_ctx, &url)?;
+            let url = crate::plugin::types::Url::parse(&path.to_string_lossy());
+            let f = match std::fs::metadata(&path) {
+                Ok(m) => crate::plugin::types::File::from_url_and_metadata(url, m, true),
+                Err(_) => crate::plugin::types::File::from_url(url),
+            };
+            lua_ctx.create_userdata(f).map(mlua::Value::UserData)
+        })?,
+    )?;
+
     Ok(fs)
 }

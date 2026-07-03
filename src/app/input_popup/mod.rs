@@ -38,6 +38,7 @@ pub mod viewer;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_panel;
+pub mod plugin_dialogs;
 pub mod ssh_connect;
 pub mod update_popup;
 pub mod yazi_popup;
@@ -113,6 +114,9 @@ pub fn handle_popup_input(
             | PopupType::FileViewHistoryList { .. }
             | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
             PopupType::SshConnectPrompt { .. } => ssh_connect::handle(state, key, context),
+            PopupType::PluginInputDialog { .. }
+            | PopupType::PluginConfirmDialog { .. }
+            | PopupType::PluginWhichPrompt { .. } => plugin_dialogs::handle(state, key),
             PopupType::GitPanel { .. } => git_panel::handle(state, key, context),
             PopupType::GitCommitPrompt { .. } => git_commit_prompt::handle(state, key, context),
             PopupType::GitConfirmCheckout { .. } => {

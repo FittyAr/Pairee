@@ -5,25 +5,65 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::keybindings::Action;
 use std::path::{Path, PathBuf};
+use std::sync::{Mutex, OnceLock};
 
 use super::request::NotifyPayload;
 
-/// Renders a structured `NotifyPayload` into the existing `PopupType::Info`
-/// slot. The exact rendering is unified with the legacy `<title>: <msg>` form
-/// so plugins see a consistent notification UX regardless of which API
-/// they call.
+/// FIFO queue of `Action`s that the main loop should execute at the
+/// next tick. Populated by `dispatch_emit_action` when a plugin calls
+/// `pairee.emit(name, args)` with an `Action` name that we can parse
+/// via the keybinding resolver (e.g. `pairee.emit("select", …)` or
+/// `pairee.emit("reveal", …)`).
+///
+/// The reason for a separate queue (rather than calling `handle_action`
+/// inline) is that `handle_action` is `async` and borrows
+/// `&mut TerminalBackend` — neither of which is available from the
+/// sync dispatcher site. The main loop drains the queue between
+/// `process_plugin_requests` and the next input event, so all queued
+/// actions run on the main thread with full access to state and the
+/// terminal backend.
+pub static PENDING_EMIT_ACTIONS: OnceLock<Mutex<Vec<Action>>> = OnceLock::new();
+
+fn pending_actions() -> &'static Mutex<Vec<Action>> {
+    PENDING_EMIT_ACTIONS.get_or_init(|| Mutex::new(Vec::new()))
+}
+
+/// Drains all pending emit actions. Called by the main loop once per
+/// tick, BEFORE the input event handler, so that plugins can drive
+/// arbitrary `Action`s without needing a `&mut TerminalBackend` from
+/// the dispatcher site.
+pub fn drain_pending_emit_actions() -> Vec<Action> {
+    let mut q = match pending_actions().lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    std::mem::take(&mut *q)
+}
+
+/// Renders a structured `NotifyPayload` into the `PopupType::PluginNotify`
+/// slot. M1 adds an auto-dismiss deadline computed from
+/// `payload.timeout_secs` so callers see the popup vanish on its own
+/// (no Esc needed) when a timeout is supplied.
 pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
-    let level = payload.level.as_deref().unwrap_or("info");
+    let level = payload.level.clone().unwrap_or_else(|| "info".to_string());
     let body = if payload.content.is_empty() {
         payload.title.clone()
     } else {
         format!("{}: {}", payload.title, payload.content)
     };
-    state.active_popup = Some(PopupType::Info(body));
+    let deadline = payload.timeout_secs.and_then(|secs| {
+        if secs > 0.0 {
+            Some(std::time::Instant::now() + std::time::Duration::from_secs_f64(secs))
+        } else {
+            None
+        }
+    });
+    state.active_popup = Some(PopupType::PluginNotify { body, level, deadline });
     log::info!(
         "Plugin notify [{}]: {} - {} (timeout={:?}s)",
-        level,
+        payload.level.as_deref().unwrap_or("info"),
         payload.title,
         payload.content,
         payload.timeout_secs
@@ -32,24 +72,39 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
 
 /// Dispatches a `pairee.emit(action, args)` request.
 ///
-/// M0 wires the dispatch envelope and supports the two simplest cases
-/// (`cd` and `set_focus` / `focus`) directly, since they have always been
-/// available through the older `Cd` and `SetFocus` request variants. A
-/// full resolver-based dispatch (which would let plugins fire any
-/// registered action) is deferred to a later phase, because the current
-/// `handle_action` API is async and takes a `&mut TerminalBackend`,
-/// neither of which is available from this sync dispatch site.
+/// `name` is the action name (e.g. `"cd"`, `"select"`, `"reveal"`,
+/// `"toggle_all"`, …). The function first tries to parse `name`
+/// against the keybinding resolver so any registered `Action` is
+/// reachable. If the resolver does not know `name`, we fall back to
+/// the two historical plugin-only shortcuts (`cd` and `set_focus` /
+/// `focus`) which have always been available via the older
+/// `PluginRequest::Cd` / `SetFocus` envelopes; if those also fail, a
+/// warning is logged.
 ///
-/// `args` is a JSON value. For `cd` it is either a string path or an
-/// object with a `path` field. For `set_focus` / `focus` it is either a
-/// string side or an object with a `side` field. All other action names
-/// are logged as warnings and no-op for now.
+/// `args` is a JSON value. For most actions it is ignored (the
+/// action's existing handler drives its own behaviour). For `cd` it
+/// can be a string path or an object with a `path` field. For
+/// `set_focus` / `focus` it can be a string side or an object with
+/// a `side` field.
 pub fn dispatch_emit_action(
     state: &mut AppState,
     context: &AppContext,
     name: &str,
     args: &serde_json::Value,
 ) {
+    // Try the resolver first. This unlocks every Action variant
+    // (`select`, `reveal`, `toggle_all`, `quit`, `refresh`, `find_file`,
+    // …) without having to add a hand-rolled match arm for each one.
+    if let Some(action) = crate::keybindings::preset::parse_action_name(name) {
+        let mut q = match pending_actions().lock() {
+            Ok(g) => g,
+            Err(p) => p.into_inner(),
+        };
+        q.push(action);
+        log::info!("pairee.emit('{}', {}) -> queued for next tick", name, args);
+        return;
+    }
+
     match (name, args) {
         ("cd", _) => {
             let path = match args {
@@ -99,9 +154,9 @@ pub fn dispatch_emit_action(
         }
         _ => {
             log::warn!(
-                "pairee.emit('{}', {}) called but the action is not yet wired in M0; \
-                 a future phase will route it through the keybinding resolver. \
-                 Today, only 'cd' and 'set_focus' (or 'focus') are dispatched.",
+                "pairee.emit('{}', {}) called but the action name is unknown to the keybinding \
+                 resolver. Use a recognised action (e.g. 'cd', 'select', 'reveal', 'refresh', \
+                 'quit', 'move_up', 'go_parent', …). Falling back to no-op.",
                 name,
                 args
             );
@@ -162,8 +217,12 @@ mod tests {
             },
         );
         match state.active_popup {
-            Some(PopupType::Info(text)) => assert_eq!(text, "Hello: World"),
-            other => panic!("expected Info popup, got {:?}", other),
+            Some(PopupType::PluginNotify { body, level, deadline }) => {
+                assert_eq!(body, "Hello: World");
+                assert_eq!(level, "warn");
+                assert!(deadline.is_some());
+            }
+            other => panic!("expected PluginNotify popup, got {:?}", other),
         }
     }
 
@@ -180,8 +239,12 @@ mod tests {
             },
         );
         match state.active_popup {
-            Some(PopupType::Info(text)) => assert_eq!(text, "Only"),
-            other => panic!("expected Info popup, got {:?}", other),
+            Some(PopupType::PluginNotify { body, level, deadline }) => {
+                assert_eq!(body, "Only");
+                assert_eq!(level, "info"); // default
+                assert!(deadline.is_none());
+            }
+            other => panic!("expected PluginNotify popup, got {:?}", other),
         }
     }
 
@@ -206,5 +269,48 @@ mod tests {
         // the root temp dir.
         let parent = cache.parent().expect("cache has a parent dir");
         assert!(parent.ends_with("preview_cache"));
+    }
+
+    #[test]
+    fn test_emit_known_action_queues_for_next_tick() {
+        // The pre-existing test environment leaves the pending queue
+        // non-empty from earlier tests; drain it first so this test
+        // starts from a known state.
+        let _ = drain_pending_emit_actions();
+
+        let mut state = fresh_state();
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        let context = crate::app::context::AppContext::new(cfg);
+
+        // `select_item` is a known Action name in the keybinding resolver.
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "select_item",
+            &serde_json::json!({}),
+        );
+        let queued = drain_pending_emit_actions();
+        assert_eq!(queued.len(), 1, "expected exactly one queued action");
+        assert_eq!(queued[0], crate::keybindings::Action::SelectItem);
+    }
+
+    #[test]
+    fn test_emit_unknown_action_does_not_queue() {
+        let _ = drain_pending_emit_actions();
+        let mut state = fresh_state();
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        let context = crate::app::context::AppContext::new(cfg);
+        // `definitely_not_an_action` is not a known action name.
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "definitely_not_an_action",
+            &serde_json::json!({}),
+        );
+        let queued = drain_pending_emit_actions();
+        assert!(
+            queued.is_empty(),
+            "unknown action name must not produce a queued action"
+        );
     }
 }

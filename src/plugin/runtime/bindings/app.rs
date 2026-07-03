@@ -95,7 +95,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         lua.create_async_function(move |_, (title, msg): (String, String)| {
             let tx = tx_confirm.clone();
             async move {
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::Confirm {
                         title,
@@ -105,7 +105,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                     .await
                     .is_ok()
                 {
-                    Ok(reply_rx.await.unwrap_or(false))
+                    Ok(crate::plugin::manager::recv_single(reply_rx).await)
                 } else {
                     Ok(false)
                 }
@@ -122,7 +122,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         lua.create_async_function(move |_, (title, default): (String, String)| {
             let tx = tx_input.clone();
             async move {
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::Input {
                         title,
@@ -132,7 +132,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                     .await
                     .is_ok()
                 {
-                    Ok(reply_rx.await.unwrap_or_default())
+                    Ok(crate::plugin::manager::recv_single(reply_rx).await)
                 } else {
                     Ok(String::new())
                 }

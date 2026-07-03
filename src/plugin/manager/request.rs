@@ -4,10 +4,18 @@
 //! (`DialogPosition`, `WhichCandidate`, `NotifyPayload`,
 //! `InputDialogResult`) carry the structured payloads that the new M0
 //! APIs accept from Lua.
+//!
+//! **M1 note**: the dialog reply channels are now
+//! `tokio::sync::mpsc::UnboundedSender<T>` instead of
+//! `oneshot::Sender<T>` so the sender can be cloned into the
+//! `PopupType` enum (the main loop's input handlers all clone the
+//! active popup before mutating it). The receiver still gets exactly
+//! one value because the channel is consumed by the
+//! `oneshot_compat::recv_single` helper at the call site.
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tokio::sync::oneshot;
+use tokio::sync::{mpsc, oneshot};
 
 pub enum PluginRequest {
     GetStateSnapshot(oneshot::Sender<super::snapshot::AppStateSnapshot>),
@@ -33,18 +41,20 @@ pub enum PluginRequest {
     Input {
         title: String,
         default: String,
-        reply_tx: oneshot::Sender<String>,
+        reply_tx: mpsc::UnboundedSender<String>,
     },
     /// Deprecated confirm stub. Real confirm dialogs flow through
-    /// `ConfirmDialog`. Kept only so old plugins do not crash before they
-    /// migrate.
+    /// `ConfirmDialog`. Kept only so old plugins do not crash before
+    /// they migrate.
     Confirm {
         title: String,
         msg: String,
-        reply_tx: oneshot::Sender<bool>,
+        reply_tx: mpsc::UnboundedSender<bool>,
     },
-    /// Real input dialog. `realtime` and `debounce_secs` enable streaming
-    /// input (the receiver gets periodic updates while the user types).
+    /// Real input dialog. `realtime` and `debounce_secs` are reserved
+    /// for the M1.5 streaming variant — today the channel is used
+    /// one-shot (the main loop sends one `InputDialogResult` on
+    /// submit/cancel and drops the sender).
     InputDialog {
         title: String,
         default: String,
@@ -52,21 +62,21 @@ pub enum PluginRequest {
         obscure: bool,
         realtime: bool,
         debounce_secs: f64,
-        reply_tx: oneshot::Sender<InputDialogResult>,
+        reply_tx: mpsc::UnboundedSender<InputDialogResult>,
     },
     /// Real confirm dialog. Returns the user's yes/no decision.
     ConfirmDialog {
         title: String,
         msg: String,
         position: Option<DialogPosition>,
-        reply_tx: oneshot::Sender<bool>,
+        reply_tx: mpsc::UnboundedSender<bool>,
     },
     /// Key-prompt: waits for the user to press one of the candidate keys.
     /// `silent` hides the on-screen candidate list.
     WhichPrompt {
         candidates: Vec<WhichCandidate>,
         silent: bool,
-        reply_tx: oneshot::Sender<Option<usize>>,
+        reply_tx: mpsc::UnboundedSender<Option<usize>>,
     },
     /// Generic action dispatch (introduced in M0). Any `Action` in
     /// `src/keybindings/actions.rs` is callable. The optional `reply_tx`
@@ -103,6 +113,26 @@ pub enum PluginRequest {
     DevPluginScan {
         options: Vec<(String, String)>,
     },
+    /// M2 placeholder: a plugin called `pairee.image.show(url, rect)`.
+    /// The dispatcher in M3 will route this into the `QuickViewPanel`
+    /// (or whichever preview surface is active). For M2 we accept the
+    /// request and log it; the image is already decoded in the
+    /// binding so the bytes can be carried over.
+    ImagePreview {
+        path: PathBuf,
+        rect: ImageRect,
+    },
+}
+
+/// Rectangular region on the terminal, in cells, used by
+/// `pairee.image.show(url, rect)` and (in M3) the rest of the
+/// `Renderable` surface.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct ImageRect {
+    pub x: i32,
+    pub y: i32,
+    pub w: u16,
+    pub h: u16,
 }
 
 /// Position hint for a dialog popup. Mirrors the public Lua shape that
@@ -145,7 +175,7 @@ pub struct NotifyPayload {
 /// - `value` is the text the user has entered (empty on cancel).
 /// - `event` is an integer tag: 0 = unknown / channel closed, 1 = submitted
 ///   (Enter), 2 = cancelled (Esc), 3 = typed (realtime only).
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct InputDialogResult {
     pub value: String,
     pub event: i32,

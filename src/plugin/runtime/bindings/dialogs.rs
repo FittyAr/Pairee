@@ -12,7 +12,9 @@
 //! `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)`
 //! stubs still work but emit a deprecation warning.
 
-use crate::plugin::manager::{DialogPosition, InputDialogResult, PluginRequest, WhichCandidate};
+use crate::plugin::manager::{DialogPosition, PluginRequest, WhichCandidate};
+#[cfg(test)]
+use crate::plugin::manager::InputDialogResult;
 use tokio::sync::mpsc;
 
 pub fn bind(
@@ -24,9 +26,21 @@ pub fn bind(
     let tx_confirm = tx.clone();
     pairee.set(
         "confirm",
-        lua.create_async_function(move |_lua_ctx, opts: mlua::Table| {
+        lua.create_async_function(move |lua_ctx, opts: mlua::Table| {
             let tx = tx_confirm.clone();
             async move {
+                // M3 re-entry guard: `pairee.confirm`/`pairee.input`/`pairee.which`
+                // cannot be called from inside a sync block (the
+                // main thread is busy waiting for the dialog answer
+                // and would deadlock).
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                    if rt.is_blocking() {
+                        return Err(mlua::Error::RuntimeError(
+                            "pairee.confirm cannot be called inside a sync block (re-entry guard)"
+                                .to_string(),
+                        ));
+                    }
+                }
                 // Extract the title as an owned `String` (or bail with a
                 // false return if it is missing). The `to_str` helper
                 // returns a `&str` borrowed from the Lua string, so we
@@ -51,7 +65,7 @@ pub fn bind(
                     .and_then(|s| s.to_str().ok().map(|cow| cow.to_string()))
                     .unwrap_or_default();
                 let position = read_position(&opts);
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::ConfirmDialog {
                         title,
@@ -65,21 +79,28 @@ pub fn bind(
                     log::error!("pairee.confirm could not enqueue; main loop not running");
                     return Ok(false);
                 }
-                Ok(reply_rx.await.unwrap_or(false))
+                Ok(crate::plugin::manager::recv_single(reply_rx).await)
             }
         })?,
     )?;
 
     // `pairee.input({pos, title, value, obscure, realtime, debounce})` —
     // real input dialog. The result is a table `{value, event}` where
-    // `event` is 1 (submitted), 2 (cancelled), or 3 (typed). In M0
-    // the dispatcher always returns event=1 with the default value.
+    // `event` is 1 (submitted), 2 (cancelled), or 3 (typed).
     let tx_input = tx;
     pairee.set(
         "input",
-        lua.create_async_function(move |_lua_ctx, opts: mlua::Table| {
+        lua.create_async_function(move |lua_ctx, opts: mlua::Table| {
             let tx = tx_input.clone();
             async move {
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                    if rt.is_blocking() {
+                        return Err(mlua::Error::RuntimeError(
+                            "pairee.input cannot be called inside a sync block (re-entry guard)"
+                                .to_string(),
+                        ));
+                    }
+                }
                 let title_opt: Option<String> = match opts.get::<_, mlua::String>("title") {
                     Ok(s) => s.to_str().ok().map(|cow| cow.to_string()),
                     Err(_) => None,
@@ -101,7 +122,7 @@ pub fn bind(
                 let debounce_secs = opts.get::<_, f64>("debounce").unwrap_or(0.0);
                 let position = read_position(&opts);
 
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+                let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::InputDialog {
                         title,
@@ -118,11 +139,8 @@ pub fn bind(
                     log::error!("pairee.input could not enqueue; main loop not running");
                     return Ok(mlua::Value::Nil);
                 }
-                let result = reply_rx.await.unwrap_or(InputDialogResult {
-                    value: value.clone(),
-                    event: 0, // unknown / channel closed
-                });
-                let lua_result = _lua_ctx.create_table()?;
+                let result = crate::plugin::manager::recv_single(reply_rx).await;
+                let lua_result = lua_ctx.create_table()?;
                 lua_result.set("value", result.value)?;
                 lua_result.set("event", result.event)?;
                 Ok(mlua::Value::Table(lua_result))

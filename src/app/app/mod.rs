@@ -40,6 +40,31 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         // 1.9 Process plugin requests
         crate::plugin::process_plugin_requests(&mut state, &context);
 
+        // 1.92 Auto-dismiss `PluginNotify` popups whose `deadline`
+        //      has elapsed. The deadline is set by
+        //      `dispatch_actions::render_notify` when a
+        //      `pairee.notify({timeout=...})` is invoked.
+        if let Some(crate::app::state::PopupType::PluginNotify { deadline: Some(d), .. }) =
+            state.active_popup
+        {
+            if std::time::Instant::now() >= d {
+                state.active_popup = None;
+            }
+        }
+
+        // 1.95 Drain queued emit-actions (plugins called `pairee.emit(name, args)`)
+        //      and execute them on the main thread with full access to state
+        //      and the terminal backend.
+        let pending = crate::plugin::drain_pending_emit_actions();
+        for action in pending {
+            if let Err(e) =
+                crate::app::actions::handle_action(&mut state, action, &mut context, &mut terminal_backend)
+                    .await
+            {
+                log::warn!("pairee.emit action dispatch error: {e}");
+            }
+        }
+
         // 2. Draw terminal window
         if state.terminal_needs_clear {
             let _ = terminal_backend.terminal.clear();

@@ -41,11 +41,45 @@ pub fn bind_runtime(
         super::bindings::notify_ext::bind(lua, tx.clone())?,
     )?;
     pairee.set("sync", super::bindings::sync::bind(lua, tx.clone())?)?;
-    pairee.set("utils", super::bindings::utils_basic::bind(lua)?)?;
+    // M3: `pairee.async_fn(fn)` is a no-op shim today (M4 will
+    // introduce the sync/async VM split). It exists so plugins
+    // can write `pairee.async_fn(do_thing)` ahead of M4.
+    pairee.set("async_fn", super::bindings::sync::bind_async(lua, tx.clone())?)?;
+    // utils_ext composes on top of utils_basic, so the M0 set
+    // (target_os, target_family, time, hash) remains available, and the
+    // M1 helpers (quote, percent_encode, percent_decode, json_encode,
+    // json_decode, sleep) are added on top.
+    pairee.set("utils", super::bindings::utils_ext::bind(lua)?)?;
     pairee.set("which", super::bindings::which::bind(lua, tx.clone())?)?;
 
     // 3. Bind settings
     bind_settings(lua, &pairee, plugin_dir)?;
+
+    // 3.5 M2 typed userdata: `pairee.Url`, `pairee.Path`, `pairee.Cha`,
+    //     `pairee.File`, `pairee.Error`, and the `Err(s, ...)` helper.
+    crate::plugin::runtime::types::register(lua, &pairee)?;
+    // M2 image binding: `pairee.image.{show, precache, info}`.
+    pairee.set("image", super::bindings::image::bind(lua, tx.clone())?)?;
+
+    // M3 process binding: `pairee.Command(name)`, `pairee.fs.access()`.
+    super::bindings::process::command::register(lua, &pairee)?;
+    super::bindings::process::access::register(
+        lua,
+        pairee.get::<_, mlua::Table>("fs")?,
+    )?;
+
+    // M3: seed a fresh `Runtime` on the Lua app data so the
+    //      `runtime_scope!` macro (and the `Runtime::is_blocking`
+    //      re-entry guard) have a place to live.
+    if lua.app_data_ref::<super::runtime::Runtime>().is_none() {
+        lua.set_app_data(super::runtime::Runtime::new());
+    }
+
+    // 4. Top-level aliases for the M1 utility surface so plugins can
+    //    also write `pairee.quote(...)` / `pairee.sleep(...)` etc. —
+    //    matches the public shape described in the plugin roadmap
+    //    (docs/technical/plugin-roadmap.md §5.E9).
+    register_top_level_aliases(lua, &pairee, &tx)?;
 
     // 4. Bind i18n translation helper: pairee.t
     bind_translations(lua, &pairee, plugin_dir)?;
@@ -53,6 +87,57 @@ pub fn bind_runtime(
     globals.set("pairee", pairee)?;
     Ok(())
 }
+
+/// Registers top-level aliases for entries that already exist on
+/// `pairee.utils` (and on `pairee.clipboard` once the M1 binding is
+/// installed). Mirrors the public shape described in the plugin
+/// roadmap §5.E9 — `pairee.quote`, `pairee.sleep`, `pairee.time`,
+/// `pairee.hash`, `pairee.target_os`, `pairee.target_family`,
+/// `pairee.percent_*`, `pairee.json_*`, plus the Unix identity
+/// helpers. Aliases for keys not yet present in `pairee.utils` are
+/// silently skipped so this function is forward-compatible with
+/// later M1/M2 additions.
+fn register_top_level_aliases(
+    lua: &mlua::Lua,
+    pairee: &mlua::Table<'_>,
+    tx: &mpsc::Sender<PluginRequest>,
+) -> mlua::Result<()> {
+    let utils: mlua::Table = pairee.get("utils")?;
+    let alias_keys: &[&str] = &[
+        "quote",
+        "percent_encode",
+        "percent_decode",
+        "json_encode",
+        "json_decode",
+        "sleep",
+        "time",
+        "hash",
+        "target_os",
+        "target_family",
+        "uid",
+        "gid",
+        "user_name",
+        "group_name",
+        "host_name",
+    ];
+    for key in alias_keys {
+        if let Ok(v) = utils.get::<_, mlua::Value>(*key) {
+            if !matches!(v, mlua::Value::Nil) {
+                pairee.set(*key, v)?;
+            }
+        }
+    }
+    // `pairee.clipboard(...)` — bind a thin alias over the dedicated
+    // binding table so both `pairee.clipboard.text = ...` and
+    // `pairee.clipboard(...)` work once the M1 binding is installed.
+    if let Ok(cb) = super::bindings::clipboard::bind(lua, tx.clone()) {
+        if let Ok(cb_fn) = cb.get::<_, mlua::Function>("clipboard") {
+            pairee.set("clipboard", cb_fn)?;
+        }
+    }
+    Ok(())
+}
+
 
 fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -> mlua::Result<()> {
     let settings_table = lua.create_table()?;
