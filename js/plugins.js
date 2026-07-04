@@ -334,6 +334,13 @@ async function openPluginModal(name) {
   document.getElementById('modal-meta-version').textContent = plugin.version;
   document.getElementById('modal-meta-min-version').textContent = plugin.min_pairee || 'N/A';
   
+  document.getElementById('modal-cli-command').textContent = `pairee plugin install ${plugin.name}`;
+  const btnCopy = document.getElementById('btn-copy-cli');
+  if (btnCopy) {
+    btnCopy.classList.remove('copied');
+    btnCopy.innerHTML = translations[currentLang]?.btn_copy_short || '📋 Copiar';
+  }
+  
   document.getElementById('modal-meta-trust').innerHTML = `<span style="color: var(--text-muted)">${loadingLabel}</span>`;
   document.getElementById('modal-meta-languages').innerHTML = '';
   document.getElementById('modal-meta-hooks').innerHTML = '';
@@ -433,6 +440,26 @@ function escapeHtml(text) {
 function cleanPluginName(name) {
   if (!name) return '';
   return name.endsWith('.pairee') ? name.slice(0, -7) : name;
+}
+
+function copyCliCommand() {
+  const cmdText = document.getElementById('modal-cli-command').textContent;
+  const btnCopy = document.getElementById('btn-copy-cli');
+
+  navigator.clipboard.writeText(cmdText).then(() => {
+    btnCopy.classList.add('copied');
+    if (typeof translations !== 'undefined' && translations[currentLang]) {
+      btnCopy.innerHTML = translations[currentLang].btn_copied_short || '✓ Copiado';
+    }
+    setTimeout(() => {
+      btnCopy.classList.remove('copied');
+      if (typeof translations !== 'undefined' && translations[currentLang]) {
+        btnCopy.innerHTML = translations[currentLang].btn_copy_short || '📋 Copiar';
+      }
+    }, 3000);
+  }).catch(err => {
+    console.error('Error al copiar: ', err);
+  });
 }
 
 // Init

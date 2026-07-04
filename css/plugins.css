@@ -425,6 +425,50 @@
   justify-content: flex-end;
 }
 
+.cli-install-box {
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+}
+
+#modal-cli-command {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.9rem;
+  color: var(--accent-cyan);
+  flex: 1;
+  word-break: break-all;
+}
+
+#btn-copy-cli {
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.2);
+  color: var(--accent-cyan);
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+#btn-copy-cli:hover {
+  background: var(--accent-cyan);
+  color: var(--bg);
+  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+#btn-copy-cli.copied {
+  background: rgba(46, 204, 113, 0.1);
+  border-color: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .store-controls {

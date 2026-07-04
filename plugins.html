@@ -150,6 +150,14 @@
             <div class="plugin-meta" id="modal-meta-hooks" style="margin-top: 6px;"></div>
           </div>
 
+          <div class="modal-meta-item" style="margin-bottom: 20px;">
+            <span class="modal-meta-label" data-i18n="modal_cli_install">Comando de Instalación (CLI)</span>
+            <div class="cli-install-box">
+              <code id="modal-cli-command">pairee plugin install plugin-name</code>
+              <button id="btn-copy-cli" onclick="copyCliCommand()" data-i18n="btn_copy_short">📋 Copiar</button>
+            </div>
+          </div>
+
           <div id="modal-keybindings-section" style="display: none;">
             <h4 class="modal-section-title" data-i18n="modal_keybindings">Atajos de Teclado</h4>
             <table class="modal-keybindings-table">
