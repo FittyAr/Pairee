@@ -489,6 +489,7 @@ pub async fn handle_ui_settings_action(
                 active_tab: 0,
                 cursor_idx: 0,
                 installed: Vec::new(),
+                all_registry: Vec::new(),
                 registry: Vec::new(),
                 search_query: String::new(),
                 is_searching: false,
@@ -540,8 +541,32 @@ pub async fn handle_ui_settings_action(
                         update_available,
                     ));
                 }
+                // Build the full registry list (all available plugins) so the
+                // Search tab shows results immediately without requiring a query.
+                let registry: Vec<(String, String, String, String)> = index
+                    .as_ref()
+                    .map(|idx| {
+                        let mut list: Vec<_> = idx
+                            .plugins
+                            .iter()
+                            .map(|(name, p)| {
+                                (
+                                    name.clone(),
+                                    p.version.clone(),
+                                    p.description.clone().unwrap_or_default(),
+                                    p.author.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        list.sort_by(|a, b| a.0.cmp(&b.0));
+                        list
+                    })
+                    .unwrap_or_default();
                 let _ = tx
-                    .send(crate::plugin::manager::PluginRequest::PluginMenuLoaded { installed })
+                    .send(crate::plugin::manager::PluginRequest::PluginMenuLoaded {
+                        installed,
+                        registry,
+                    })
                     .await;
             });
 

@@ -356,6 +356,10 @@ pub enum PopupType {
         active_tab: usize,
         cursor_idx: usize,
         installed: Vec<(String, String, bool, bool, Option<String>)>,
+        /// Full list of plugins from the registry index (unfiltered). Used as
+        /// the source for live-filtering in the Search tab.
+        all_registry: Vec<(String, String, String, String)>,
+        /// Currently visible list after applying `search_query` filter.
         registry: Vec<(String, String, String, String)>,
         search_query: String,
         is_searching: bool,

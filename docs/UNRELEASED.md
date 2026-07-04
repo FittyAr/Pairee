@@ -18,6 +18,9 @@
 - Upgraded the plugin packager to scan and hash files dynamically.
 - Improved help documentation by dynamically loading locale help files (`help/<locale>.md`) inside the F1 Help menu.
 - Display in the Plugins Manager TUI list now strips the `.pairee` suffix, showing clean, user-friendly plugin names.
+- The Search tab in the Plugins Manager now pre-loads all available plugins from the registry on open and filters results in real time as the user types, without requiring a separate query submission.
+- Plugin search results are now displayed in a tabular layout (Name · Author · Version) matching the file panel style, with `.pairee` suffix hidden.
+- Arrow keys Up/Down navigate the plugin list in the Search tab even while typing a query. PgUp/PgDn paginate through long lists.
 
 ### Changed
 
@@ -33,3 +36,5 @@
 - Fixed manifest.toml deserialization to support both flat formats and nested table formats.
 - Fixed text wrapping and border overflow issues in the Plugins Manager details panel.
 - Fixed terminal stdout corruption when initializing a plugin skeleton.
+- Fixed the Search tab in the Plugins Manager not showing any results and not allowing text input on open.
+- Fixed Tab key being consumed by the Search text field, preventing navigation to other Plugin Manager tabs while typing.

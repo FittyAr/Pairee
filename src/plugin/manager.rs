@@ -76,6 +76,7 @@ pub enum PluginRequest {
     /// the `PluginMenu` popup's `installed` field.
     PluginMenuLoaded {
         installed: Vec<(String, String, bool, bool, Option<String>)>,
+        registry: Vec<(String, String, String, String)>,
     },
     /// Result of an asynchronous scan of the dev plugins folder (and the two
     /// panel paths) for Option 0 "Select active development plugin".
@@ -253,15 +254,21 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                             }
                         }
                     }
-                    PluginRequest::PluginMenuLoaded { installed } => {
+                    PluginRequest::PluginMenuLoaded { installed, registry } => {
                         if let Some(PopupType::PluginMenu {
                             installed: ref mut existing,
+                            all_registry: ref mut existing_all,
+                            registry: ref mut existing_registry,
                             installed_loading: ref mut loading,
                             installed_loading_status: ref mut loading_status,
                             ..
                         }) = state.active_popup
                         {
                             *existing = installed;
+                            // all_registry stays as the full list for filtering
+                            *existing_all = registry.clone();
+                            // registry shows all entries until the user narrows it
+                            *existing_registry = registry;
                             *loading = false;
                             *loading_status = String::new();
                         }
