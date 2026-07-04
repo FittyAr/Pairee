@@ -426,47 +426,72 @@
 }
 
 .cli-install-box {
-  margin-top: 6px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: rgba(0, 0, 0, 0.4);
+  margin-top: 8px;
+  background: #090a0f;
   border: 1px solid var(--border);
-  padding: 8px 12px;
   border-radius: var(--radius-sm);
+  overflow: hidden;
+  position: relative;
+}
+
+.cli-install-body {
+  padding: 14px 16px 38px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 50px;
+}
+
+.cli-prompt {
+  color: var(--accent);
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1.5;
 }
 
 #modal-cli-command {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 0.9rem;
-  color: var(--accent-cyan);
-  flex: 1;
+  color: #c9d1d9;
   word-break: break-all;
+  flex: 1;
+  line-height: 1.5;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.88rem;
+}
+
+.cli-copy-container {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
 }
 
 #btn-copy-cli {
-  background: rgba(0, 229, 255, 0.08);
-  border: 1px solid rgba(0, 229, 255, 0.2);
-  color: var(--accent-cyan);
-  padding: 6px 12px;
-  border-radius: 4px;
-  font-size: 0.8rem;
-  font-weight: 600;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-muted);
+  padding: 5px 12px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-family: 'JetBrains Mono', monospace;
   transition: all 0.2s ease;
   white-space: nowrap;
 }
 
 #btn-copy-cli:hover {
-  background: var(--accent-cyan);
-  color: var(--bg);
-  box-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  border-color: var(--accent-cyan);
 }
 
 #btn-copy-cli.copied {
-  background: rgba(46, 204, 113, 0.1);
-  border-color: rgba(46, 204, 113, 0.2);
-  color: #2ecc71;
+  background: rgba(0, 229, 255, 0.08);
+  border-color: var(--accent-cyan);
+  color: var(--accent-cyan);
 }
 
 /* Responsive adjustments */
