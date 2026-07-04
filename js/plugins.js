@@ -247,7 +247,7 @@ function renderPlugins(plugins) {
     card.innerHTML = `
       <div class="plugin-card-header">
         <div class="plugin-title-area">
-          <span class="plugin-name">${escapeHtml(plugin.name)}</span>
+          <span class="plugin-name">${escapeHtml(cleanPluginName(plugin.name))}</span>
           <span class="plugin-author">by ${escapeHtml(plugin.author || 'unknown')}</span>
         </div>
         <span class="plugin-type-badge ${typeClass}">${escapeHtml(badgeText)}</span>
@@ -269,7 +269,7 @@ function filterPlugins() {
   const searchVal = document.getElementById('store-search').value.toLowerCase();
   
   const filtered = pluginsData.filter(plugin => {
-    const nameMatch = plugin.name.toLowerCase().includes(searchVal);
+    const nameMatch = cleanPluginName(plugin.name).toLowerCase().includes(searchVal);
     const authorMatch = (plugin.author || '').toLowerCase().includes(searchVal);
     const descMatch = (plugin.description || '').toLowerCase().includes(searchVal);
     
@@ -327,7 +327,7 @@ async function openPluginModal(name) {
   const loadingLabel = translations[currentLang]?.modal_loading || 'Cargando detalles...';
   const noneLabel = translations[currentLang]?.modal_none || 'Ninguno';
 
-  document.getElementById('modal-name').textContent = plugin.name;
+  document.getElementById('modal-name').textContent = cleanPluginName(plugin.name);
   document.getElementById('modal-author-version').textContent = `by ${plugin.author || 'unknown'} • v${plugin.version}`;
   document.getElementById('modal-description').textContent = plugin.description || '';
   document.getElementById('modal-meta-author').textContent = plugin.author || 'unknown';
@@ -428,6 +428,11 @@ function escapeHtml(text) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+function cleanPluginName(name) {
+  if (!name) return '';
+  return name.endsWith('.pairee') ? name.slice(0, -7) : name;
 }
 
 // Init
