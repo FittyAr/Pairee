@@ -33,7 +33,23 @@ pub fn bind_runtime(
     // are discoverable alongside the existing `pairee.app.*` stubs.
     super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
     pairee.set("fs", super::bindings::fs::bind(lua, trusted, tx.clone())?)?;
-    pairee.set("ui", super::bindings::ui::bind(lua)?)?;
+    {
+        // Wrap the bounded mpsc::Sender in an `Fn(PluginRequest)
+        // -> Result<_, _>` closure so `ui::bind` can accept any
+        // sender shape. The `try_send` failure mode is reported
+        // back to the plugin as a Lua runtime error.
+        let tx_for_ui = tx.clone();
+        let send_fn: super::bindings::ui::SendFn =
+            std::sync::Arc::new(move |req| {
+                tx_for_ui.try_send(req).map_err(|e| match e {
+                    tokio::sync::mpsc::error::TrySendError::Full(r)
+                    | tokio::sync::mpsc::error::TrySendError::Closed(r) => {
+                        tokio::sync::mpsc::error::TrySendError::Closed(r)
+                    }
+                })
+            });
+        super::bindings::ui::bind(lua, &pairee, send_fn)?;
+    }
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
     pairee.set("log", super::bindings::log::bind(lua)?)?;
     pairee.set(

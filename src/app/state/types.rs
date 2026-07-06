@@ -630,4 +630,42 @@ pub enum PluginWidget {
         style: String,
     },
     Line(Vec<PluginWidget>),
+    /// M4-T1: rich widget surface. A single span with fg/bg +
+    /// modifier flags. Carried over the wire by
+    /// `pairee.preview_widget(opts, span)`.
+    RichSpan {
+        text: String,
+        fg: Option<String>,
+        bg: Option<String>,
+        bold: bool,
+        dim: bool,
+        italic: bool,
+        underline: bool,
+        blink: bool,
+        reverse: bool,
+        hidden: bool,
+        crossed: bool,
+    },
+    /// M4-T1: rich line (sequence of rich spans). Carried over the
+    /// wire by `pairee.preview_widget(opts, line)`.
+    RichLine {
+        spans: Vec<PluginWidget>,
+        fg: Option<String>,
+        bg: Option<String>,
+        bold: bool,
+        dim: bool,
+        italic: bool,
+        underline: bool,
+    },
+    /// M4-T1: rich multi-line text. Carried over the wire by
+    /// `pairee.preview_widget(opts, text)`.
+    RichText {
+        lines: Vec<PluginWidget>,
+        fg: Option<String>,
+        bg: Option<String>,
+        bold: bool,
+        dim: bool,
+        italic: bool,
+        underline: bool,
+    },
 }

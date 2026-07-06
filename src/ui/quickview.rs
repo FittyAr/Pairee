@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span},
+    text::{Line, Span, Text},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
@@ -146,7 +146,242 @@ fn render_plugin_widget(
             let para = Paragraph::new(Line::from(ratatui_spans)).block(block);
             f.render_widget(para, area);
         }
+        PluginWidget::RichSpan {
+            text,
+            fg,
+            bg,
+            bold,
+            dim,
+            italic,
+            underline,
+            blink,
+            reverse,
+            hidden,
+            crossed,
+        } => {
+            let span = rich_span_to_ratatui(
+                text,
+                fg.as_deref(),
+                bg.as_deref(),
+                *bold,
+                *dim,
+                *italic,
+                *underline,
+                *blink,
+                *reverse,
+                *hidden,
+                *crossed,
+            );
+            let para = Paragraph::new(span).block(block).scroll((scroll as u16, 0));
+            f.render_widget(para, area);
+        }
+        PluginWidget::RichLine {
+            spans,
+            fg,
+            bg,
+            bold,
+            dim,
+            italic,
+            underline,
+        } => {
+            let inner_fg = fg.as_deref();
+            let inner_bg = bg.as_deref();
+            let modifiers = (
+                *bold, *dim, *italic, *underline,
+            );
+            let ratatui_spans: Vec<Span> = spans
+                .iter()
+                .map(|w| match w {
+                    PluginWidget::RichSpan {
+                        text,
+                        fg: span_fg,
+                        bg: span_bg,
+                        bold,
+                        dim,
+                        italic,
+                        underline,
+                        blink,
+                        reverse,
+                        hidden,
+                        crossed,
+                    } => {
+                        // Spans inside the line override the line's
+                        // style on a per-field basis (their
+                        // own fg/bg take precedence; modifiers are
+                        // cumulative).
+                        let effective_fg = span_fg.as_deref().or(inner_fg);
+                        let effective_bg = span_bg.as_deref().or(inner_bg);
+                        rich_span_to_ratatui(
+                            text,
+                            effective_fg,
+                            effective_bg,
+                            *bold,
+                            *dim,
+                            *italic,
+                            *underline,
+                            *blink,
+                            *reverse,
+                            *hidden,
+                            *crossed,
+                        )
+                    }
+                    _ => Span::raw(""),
+                })
+                .collect();
+            let mut line_style = Style::default();
+            if let Some(c) = inner_fg {
+                line_style = line_style.fg(parse_color(c));
+            }
+            if let Some(c) = inner_bg {
+                line_style = line_style.bg(parse_color(c));
+            }
+            let (b, d, it, u) = modifiers;
+            if b {
+                line_style = line_style.add_modifier(Modifier::BOLD);
+            }
+            if d {
+                line_style = line_style.add_modifier(Modifier::DIM);
+            }
+            if it {
+                line_style = line_style.add_modifier(Modifier::ITALIC);
+            }
+            if u {
+                line_style = line_style.add_modifier(Modifier::UNDERLINED);
+            }
+            let para = Paragraph::new(Line::from(ratatui_spans).style(line_style))
+                .block(block)
+                .scroll((scroll as u16, 0));
+            f.render_widget(para, area);
+        }
+        PluginWidget::RichText {
+            lines,
+            fg,
+            bg,
+            bold,
+            dim,
+            italic,
+            underline,
+        } => {
+            // Render each line as a single rich line; the text-level
+            // style propagates through each line's render path.
+            let mut text_style = Style::default();
+            if let Some(c) = fg.as_deref() {
+                text_style = text_style.fg(parse_color(c));
+            }
+            if let Some(c) = bg.as_deref() {
+                text_style = text_style.bg(parse_color(c));
+            }
+            if *bold {
+                text_style = text_style.add_modifier(Modifier::BOLD);
+            }
+            if *dim {
+                text_style = text_style.add_modifier(Modifier::DIM);
+            }
+            if *italic {
+                text_style = text_style.add_modifier(Modifier::ITALIC);
+            }
+            if *underline {
+                text_style = text_style.add_modifier(Modifier::UNDERLINED);
+            }
+            let ratatui_lines: Vec<Line> = lines
+                .iter()
+                .map(|w| match w {
+                    PluginWidget::RichLine { spans, fg, bg, bold, dim, italic, underline } => {
+                        let inner_fg = fg.as_deref();
+                        let inner_bg = bg.as_deref();
+                        let ratatui_spans: Vec<Span> = spans
+                            .iter()
+                            .map(|s| match s {
+                                PluginWidget::RichSpan {
+                                    text,
+                                    fg: span_fg,
+                                    bg: span_bg,
+                                    bold,
+                                    dim,
+                                    italic,
+                                    underline,
+                                    blink,
+                                    reverse,
+                                    hidden,
+                                    crossed,
+                                } => rich_span_to_ratatui(
+                                    text,
+                                    span_fg.as_deref().or(inner_fg),
+                                    span_bg.as_deref().or(inner_bg),
+                                    *bold,
+                                    *dim,
+                                    *italic,
+                                    *underline,
+                                    *blink,
+                                    *reverse,
+                                    *hidden,
+                                    *crossed,
+                                ),
+                                _ => Span::raw(""),
+                            })
+                            .collect();
+                        Line::from(ratatui_spans)
+                    }
+                    _ => Line::from(""),
+                })
+                .collect();
+            let text = ratatui::text::Text::from(ratatui_lines).style(text_style);
+            let para = Paragraph::new(text).block(block).scroll((scroll as u16, 0));
+            f.render_widget(para, area);
+        }
     }
+}
+
+/// Convert a `PluginWidget::RichSpan` to a `ratatui::text::Span` with
+/// the fg/bg colors and modifier flags applied. The fg/bg
+/// parameters are `Option<&str>` (any string slice from the
+/// line-level / text-level style or the span's own style).
+fn rich_span_to_ratatui(
+    text: &str,
+    fg: Option<&str>,
+    bg: Option<&str>,
+    bold: bool,
+    dim: bool,
+    italic: bool,
+    underline: bool,
+    blink: bool,
+    reverse: bool,
+    hidden: bool,
+    crossed: bool,
+) -> Span<'static> {
+    let mut s = Style::default();
+    if let Some(c) = fg {
+        s = s.fg(parse_color(c));
+    }
+    if let Some(c) = bg {
+        s = s.bg(parse_color(c));
+    }
+    if bold {
+        s = s.add_modifier(Modifier::BOLD);
+    }
+    if dim {
+        s = s.add_modifier(Modifier::DIM);
+    }
+    if italic {
+        s = s.add_modifier(Modifier::ITALIC);
+    }
+    if underline {
+        s = s.add_modifier(Modifier::UNDERLINED);
+    }
+    if blink {
+        s = s.add_modifier(Modifier::SLOW_BLINK);
+    }
+    if reverse {
+        s = s.add_modifier(Modifier::REVERSED);
+    }
+    if hidden {
+        s = s.add_modifier(Modifier::HIDDEN);
+        // (Modifier::HIDDEN exists in ratatui 0.30 via Modifier)
+    }
+    if crossed {
+        s = s.add_modifier(Modifier::CROSSED_OUT);
+    }
+    Span::styled(text.to_string(), s)
 }
 
 fn render_quick_view_image(
