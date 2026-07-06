@@ -57,17 +57,31 @@ async fn main() -> Result<()> {
                         }
                         return Ok(());
                     }
-                    "install" => {
+                    "install" | "add" => {
                         if args.len() > 3 {
-                            let part = &args[3];
-                            if part.contains('@') {
-                                let split: Vec<&str> = part.split('@').collect();
-                                plugin::updater::install(split[0], Some(split[1])).await?;
-                            } else {
-                                plugin::updater::install(part, None).await?;
+                            for part in &args[3..] {
+                                let (name, version) = if part.contains('@') {
+                                    let split: Vec<&str> = part.split('@').collect();
+                                    let clean_name = if split[0].ends_with(".pairee") {
+                                        split[0].to_string()
+                                    } else {
+                                        format!("{}.pairee", split[0])
+                                    };
+                                    (clean_name, Some(split[1]))
+                                } else {
+                                    let clean_name = if part.ends_with(".pairee") {
+                                        part.to_string()
+                                    } else {
+                                        format!("{}.pairee", part)
+                                    };
+                                    (clean_name, None)
+                                };
+                                if let Err(e) = plugin::updater::install(&name, version).await {
+                                    println!("Error installing plugin '{}': {:?}", name, e);
+                                }
                             }
                         } else {
-                            println!("Error: install requires a plugin name");
+                            println!("Error: install command requires at least one plugin name");
                         }
                         return Ok(());
                     }
@@ -114,13 +128,13 @@ async fn main() -> Result<()> {
                     }
                     _ => {
                         println!(
-                            "Unknown plugin command. Available: list, search, info, install, remove, pin, unpin, verify, check-updates, update"
+                            "Unknown plugin command. Available: list, search, info, install, add, remove, pin, unpin, verify, check-updates, update"
                         );
                     }
                 }
             } else {
                 println!(
-                    "Plugin CLI usage: pairee plugin [list|search|info|install|remove|pin|unpin|verify|check-updates|update]"
+                    "Plugin CLI usage: pairee plugin [list|search|info|install|add|remove|pin|unpin|verify|check-updates|update]"
                 );
             }
             return Ok(());

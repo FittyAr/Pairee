@@ -12,25 +12,28 @@ param (
 
 $ErrorActionPreference = "Stop"
 
-# Resolve CHANGELOG.md path relative to this script's parent directory (project root)
+# Resolve paths relative to this script's parent directory (project root)
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$changelogPath = Join-Path $scriptDir "..\CHANGELOG.md"
 
-if (-not (Test-Path $changelogPath)) {
-    Write-Error "CHANGELOG.md not found at: $changelogPath"
+# Normalise version and determine target file
+if ($Version -ieq "Unreleased") {
+    $targetPath = Join-Path $scriptDir "..\docs\UNRELEASED.md"
+    $sectionHeader = "## [Unreleased]"
+} else {
+    $targetPath = Join-Path $scriptDir "..\docs\CHANGELOG.md"
+    if ($Version -match '^v') {
+        $sectionHeader = "## [$Version]"
+    } else {
+        $sectionHeader = "## [v$Version]"
+    }
+}
+
+if (-not (Test-Path $targetPath)) {
+    Write-Error "File not found at: $targetPath"
     exit 1
 }
 
-$lines = Get-Content -Path $changelogPath -Encoding UTF8
-
-# Normalise version: support both "v0.5.1" and "0.5.1", and "Unreleased"
-if ($Version -ieq "Unreleased") {
-    $sectionHeader = "## [Unreleased]"
-} elseif ($Version -match '^v') {
-    $sectionHeader = "## [$Version]"
-} else {
-    $sectionHeader = "## [v$Version]"
-}
+$lines = Get-Content -Path $targetPath -Encoding UTF8
 
 $inSection = $false
 $sectionLines = @()

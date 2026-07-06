@@ -94,9 +94,12 @@ pub enum PluginRequest {
     /// Result of an asynchronous load of the installed-plugins list
     /// (triggered when opening the Plugin Manager). The receiver is the
     /// `(name, version, pinned, trusted, update_available)` tuple used by the
-    /// `PluginMenu` popup's `installed` field.
+    /// `PluginMenu` popup's `installed` field. The `registry` field carries the
+    /// full list of available plugins from the remote index to pre-populate the
+    /// Search tab immediately (name, version, description, author).
     PluginMenuLoaded {
         installed: Vec<(String, String, bool, bool, Option<String>)>,
+        registry: Vec<(String, String, String, String)>,
     },
     /// Result of an asynchronous scan of the dev plugins folder (and the two
     /// panel paths) for Option 0 "Select active development plugin".
