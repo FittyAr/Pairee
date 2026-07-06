@@ -15,11 +15,11 @@ pub enum Stdio {
 }
 
 impl Stdio {
-    pub fn to_tokio(self) -> tokio::process::Stdio {
+    pub fn to_tokio(self) -> std::process::Stdio {
         match self {
-            Stdio::Null => tokio::process::Stdio::null(),
-            Stdio::Piped => tokio::process::Stdio::piped(),
-            Stdio::Inherit => tokio::process::Stdio::inherit(),
+            Stdio::Null => std::process::Stdio::null(),
+            Stdio::Piped => std::process::Stdio::piped(),
+            Stdio::Inherit => std::process::Stdio::inherit(),
         }
     }
 }

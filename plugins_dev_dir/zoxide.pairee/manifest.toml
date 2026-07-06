@@ -1,0 +1,15 @@
+name = "zoxide"
+version = "0.1.0"
+description = "zoxide history navigation"
+author = "Pairee"
+license = "MIT"
+min_pairee = "0.6.1"
+requires_trust = true
+default_language = "en"
+languages = ["en"]
+
+[keybindings]
+"F6" = "zoxide_query"
+
+[settings_schema]
+extra_args = { type = "string", default = "", title = "Extra zoxide args" }

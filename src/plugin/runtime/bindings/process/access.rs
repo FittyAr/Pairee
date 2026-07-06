@@ -89,11 +89,16 @@ pub struct Fd {
 
 impl UserData for Fd {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method("read", |_lua, this, len: usize| {
+        methods.add_method_mut("read", |_lua, mut this, len: usize| {
             let mut buf = vec![0u8; len];
-            let file = this.inner.as_ref().ok_or_else(|| {
-                mlua::Error::RuntimeError("Fd.read: handle already consumed".to_string())
-            })?;
+            let mut file = match this.inner.as_mut() {
+                Some(f) => f,
+                None => {
+                    return Err(mlua::Error::RuntimeError(
+                        "Fd.read: handle already consumed".to_string(),
+                    ))
+                }
+            };
             let n = file
                 .read(&mut buf)
                 .map_err(|e| mlua::Error::RuntimeError(format!("Fd.read failed: {e}")))?;

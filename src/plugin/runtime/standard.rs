@@ -63,10 +63,8 @@ pub fn bind_runtime(
 
     // M3 process binding: `pairee.Command(name)`, `pairee.fs.access()`.
     super::bindings::process::command::register(lua, &pairee)?;
-    super::bindings::process::access::register(
-        lua,
-        pairee.get::<_, mlua::Table>("fs")?,
-    )?;
+    let fs_table: mlua::Table = pairee.get("fs")?;
+    super::bindings::process::access::register(lua, &fs_table)?;
 
     // M3: seed a fresh `Runtime` on the Lua app data so the
     //      `runtime_scope!` macro (and the `Runtime::is_blocking`

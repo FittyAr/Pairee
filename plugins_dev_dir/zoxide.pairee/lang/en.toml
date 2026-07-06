@@ -1,0 +1,4 @@
+[messages]
+plugin_name = "zoxide Navigator"
+plugin_description = "History navigation powered by zoxide."
+hotkey = "F6"

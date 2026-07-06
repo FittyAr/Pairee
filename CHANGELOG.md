@@ -124,6 +124,41 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - Resolved startup crash (`STATUS_DLL_NOT_FOUND` / `0xC0000135`) on clean Windows installations by ensuring the CI release pipeline statically links the C runtime library.
 - Fixed GitHub Actions release workflow dirty cache issues by adding a clean step to force static CRT compilation.
 
+### Added
+
+- Real on-screen dialogs for `pairee.input({pos, title, value, obscure, realtime, debounce})`, `pairee.confirm({pos, title, body})`, and `pairee.which({cands, silent})` with full keyboard handling — the legacy stubs that always returned the default value are now real popups the user interacts with.
+- Auto-dismissing notifications via `pairee.notify({title, content, timeout, level})` when a `timeout` is supplied.
+- New utility helpers exposed both at top level and under `pairee.utils.*`: `quote(str, unix?)` (shell escape), `percent_encode/decode`, `json_encode/decode`, `sleep(secs)` (async, yields to the runtime), `time()`, `hash(str)`, `target_os/family`, `uid/gid/user_name/group_name/host_name` (the first two return nil on Windows), and `clipboard(text?)` with Secure-Mode gating (get blocked in secure mode; set soft-warned when the value falls outside workspace/config/cache).
+- New typed values exposed to plugins: `pairee.Url("path" or "sftp://user@host:port//path")`, `pairee.Path("string")` / `pairee.Path.os(...)`, `pairee.Cha{...}` (file characteristics with `perm()` Unix permission string and `hash(long?)` XxHash3 sum), `pairee.File{url=..., cha=...}` (the main plugin entry point, derefs to `Cha`), and `pairee.Error.custom("msg")` / `pairee.Error.fs({kind, code, message})` for the new async-style `(value, Error?)` tuple returns. Each carries the standard metamethods (`__eq`, `__tostring`, `__concat`).
+- Lua helper `Err(s, ...)` for ad-hoc error construction from a format string.
+- `pairee.image.{show, precache, info}` — preview-pane image integration. `show` decodes and dispatches a preview request; `precache` resizes and writes a thumbnail to the cache directory; `info` returns `{w, h, format, color}`.
+- Previewers (`peek(job)`) now receive a real `File` userdata carrying `cha` and `mime`, so plugin code can ask `job.file.cha:perm()` or `job.file:mime()` directly. The legacy `job.file.url` / `job.file.path` string fields continue to work for back-compat.
+- New filesystem helpers: `pairee.fs.read_dir(url, {limit, glob, resolve}) → File[]`, `mkdir`, `remove`, `rename`, `copy`, `cha(url, follow?) → Cha`, `file(url) → File`, `unique(type, url) → Url`, `expand_url(value) → Url`, `partitions() → Partition[]`, `calc_size(url) → u64`. The legacy `read/write/exists/stat/list` are now non-blocking via tokio.
+- `Command(name):arg/args/cwd/env/env_remove/env_clear/stdin/stdout/stderr/kill_on_drop/memory/spawn/output/status` builder for full process control, with `Command.NULL`/`PIPED`/`INHERIT` Stdio constants. `Command:memory(max)` sets a `RLIMIT_AS` advisory on Unix.
+- `Child` userdata with the full async surface: `id`, `wait`, `wait_with_output`, `try_wait`, `start_kill`, `read(len)`, `read_line()`, `read_line_with({timeout})`, `write_all(src)`, `flush()`, `take_stdin/stdout/stderr`, `close`. Companion `ChildInput`/`ChildOutput`/`ChildError` userdata returned by the `take_*` calls support further streaming reads and writes.
+- `Output` and `Status` userdata for process results: `Output.status`, `Output.stdout`, `Output.stderr`, `Status.success`, `Status.code`.
+- `fs.access():read/write/create/truncate/append/open(url) → Fd` file-descriptor builder; `Fd:read/write_all/seek/close`.
+- Per-plugin mutable state accessible as `pairee.state` — persists across callbacks for caches, last-seen timestamps, counters, etc.
+- Slim `pairee.cx` snapshot exposes `cx.active.current.cwd` and `cx.active.selected` (a `File[]` of the active panel's selection). The full tree (`tabs`, `tasks`, `yanked`, `input`, `which`, `layer`) lands in a later phase.
+- `pairee.sync(fn)` and the new `pairee.async_fn(fn)` bridge between isolated async VMs and the live main-thread state. Sync blocks are protected by a re-entrancy guard: `pairee.input`/`pairee.confirm`/`pairee.which` throw an error if called from within a sync block to prevent deadlocks.
+- Plugin manifest annotation parsing: `--- @sync entry/peek/async/blocking` declares the default execution mode for callbacks; `--- @since X.Y.Z` records the Pairee version the plugin was written against. Both are read from the top comment header of `main.lua` and folded into the manifest's `sync_mode` and `since` fields.
+- `preload(job)` and `seek(job)` plugin callbacks now routed so previewers can warm caches ahead of time and adjust the preview offset without re-running `peek`.
+- Fuzzy-file picker (`fzf.pairee`) and history navigation (`zoxide.pairee`) acceptance plugins demonstrating the new `Command` builder, `Child` async I/O, `pairee.cx` snapshot, `pairee.fs.read_dir`, and `pairee.emit`. F5 opens the fzf picker against the current panel directory; F6 picks from the zoxide history. Each ships with manifest, main, language, and help files.
+
+### Changed
+
+- Migrated `pairee.fs.read`, `pairee.fs.write`, `pairee.fs.exists`, `pairee.fs.stat`, and `pairee.fs.list` from blocking `std::fs` calls to non-blocking `tokio::fs` operations so long file operations no longer stall the plugin worker thread. Their throw-on-error semantics are preserved for back-compat.
+- Added the following crates as dependencies: `arboard` (cross-platform clipboard), `hostname` (host name lookup), `xxhash-rust` (XxHash3 stable hashing), `infer` (MIME sniffing), plus `uzers` (Unix identity) and `libc` (Unix RLIMIT_AS) on Unix targets only.
+- Added a project-local `.cargo/config.toml` with `OPENSSL_NO_VENDOR=1` and a project-local `OPENSSL_DIR` so `cargo build` works on systems whose minimal perl install lacks the IPC::Cmd / Params::Check modules that the vendored OpenSSL build requires. Users with `pkg-config` and the system OpenSSL development headers installed can safely delete this file.
+
+### Deprecated
+
+- `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)` legacy dialog stubs now emit a warning advising migration to the structured `pairee.confirm({...})` / `pairee.input({...})` forms. They continue to work via the deprecated dispatcher arms and will be removed in a future cleanup phase.
+
+### Fixed
+
+- Fixed two pre-existing compile errors that blocked the extended utils surface: a typo referencing the non-existent `percent_encode_str` function (replaced with `percent_encode`), and an outdated `mlua::LuaSerdeExt::to_lua_value` call that did not match the active mlua API (replaced with `to_value`).
+
 ---
 
 ## [v0.6.1] - 2026-06-27

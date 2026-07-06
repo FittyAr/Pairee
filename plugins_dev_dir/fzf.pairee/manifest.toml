@@ -1,0 +1,15 @@
+name = "fzf"
+version = "0.1.0"
+description = "fzf-style fuzzy file navigation"
+author = "Pairee"
+license = "MIT"
+min_pairee = "0.6.1"
+requires_trust = true
+default_language = "en"
+languages = ["en"]
+
+[keybindings]
+"F5" = "fuzzy_find"
+
+[settings_schema]
+extra_args = { type = "string", default = "--height=40% --reverse", title = "Extra fzf args" }

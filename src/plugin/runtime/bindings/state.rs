@@ -12,7 +12,6 @@
 //! mutate it freely across callbacks.
 
 use mlua::RegistryKey;
-use std::sync::Arc;
 
 /// Bind the per-plugin `pairee.state` to the given table and
 /// store the `RegistryKey` on the `Runtime` so other bindings
@@ -43,9 +42,8 @@ pub fn reattach<'lua>(
     runtime: &crate::plugin::runtime::runtime::Runtime,
     plugin_name: &str,
 ) -> mlua::Result<Option<mlua::Table<'lua>>> {
-    let key_arc: Option<Arc<RegistryKey>> = runtime.plugin_state_key(plugin_name);
-    if let Some(key) = key_arc {
-        let table: mlua::Table = lua.registry_value(&*key)?;
+    if let Some(key) = runtime.plugin_state_key(plugin_name) {
+        let table: mlua::Table = lua.registry_value(&key)?;
         let globals = lua.globals();
         if let Ok(pairee) = globals.get::<_, mlua::Table>("pairee") {
             pairee.set("state", table.clone())?;

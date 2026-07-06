@@ -35,6 +35,10 @@ pub struct Command {
     stdout: Option<Stdio>,
     stderr: Option<Stdio>,
     kill_on_drop: bool,
+    /// Optional RLIMIT_AS ceiling in bytes (M3 roadmap §5.B3).
+    /// Set via `:memory(max)`. Honoured on Unix via
+    /// `pre_exec`; logged-and-ignored on Windows.
+    memory: Option<u64>,
 }
 
 impl Command {
@@ -49,6 +53,7 @@ impl Command {
             stdout: None,
             stderr: None,
             kill_on_drop: false,
+            memory: None,
         }
     }
 
@@ -74,6 +79,40 @@ impl Command {
             c.stderr(s.to_tokio());
         }
         c.kill_on_drop(self.kill_on_drop);
+        if let Some(max) = self.memory {
+            #[cfg(unix)]
+            {
+                // SAFETY: `pre_exec` runs in the forked child
+                // between `fork` and `exec`. We only call
+                // `libc::setrlimit` with a stack-local `rlimit`
+                // struct; we never touch the parent's address
+                // space. `RLIMIT_AS` caps the virtual address
+                // space — anything above `max` bytes raises
+                // `ENOMEM` on the next allocation.
+                unsafe {
+                    c.pre_exec(move || {
+                        let rlim = libc::rlimit {
+                            rlim_cur: max as libc::rlim_t,
+                            rlim_max: max as libc::rlim_t,
+                        };
+                        if libc::setrlimit(libc::RLIMIT_AS, &rlim) != 0 {
+                            return Err(std::io::Error::last_os_error());
+                        }
+                        Ok(())
+                    });
+                }
+            }
+            #[cfg(not(unix))]
+            {
+                // M3 simplification: Windows can't enforce
+                // RLIMIT_AS. Log once and move on.
+                let _ = max;
+                log::warn!(
+                    "Command.memory({}) is set but RLIMIT_AS is not supported on this platform",
+                    max
+                );
+            }
+        }
         c
     }
 }
@@ -127,20 +166,30 @@ impl UserData for Command {
             this.kill_on_drop = yes;
             Ok(this.clone())
         });
+        // `:memory(max)` — set an RLIMIT_AS ceiling in bytes
+        // (M3 roadmap §5.B3). On Unix this is enforced in the
+        // forked child via `pre_exec`; on Windows it's a
+        // logged-and-ignored no-op.
+        methods.add_method_mut("memory", |_lua, this, max: u64| {
+            this.memory = Some(max);
+            Ok(this.clone())
+        });
 
         // `:spawn()` — start the child process and return a
         // `Child` userdata that wraps the live handle.
         methods.add_async_method("spawn", |_lua, this, ()| async move {
             let mut cmd = this.materialise();
             match cmd.spawn() {
-                Ok(child) => {
+                Ok(mut child) => {
                     let id = child.id().unwrap_or(0);
                     let stdin = child.stdin.take();
                     let stdout = child.stdout.take();
                     let stderr = child.stderr.take();
                     let wrapped = Child {
                         id,
-                        inner: Some(child),
+                        inner: std::sync::Arc::new(
+                            tokio::sync::Mutex::new(Some(child)),
+                        ),
                         stdin,
                         stdout,
                         stderr,

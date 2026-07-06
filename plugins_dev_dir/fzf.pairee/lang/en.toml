@@ -1,0 +1,4 @@
+[messages]
+plugin_name = "fzf Picker"
+plugin_description = "Fuzzy file navigation powered by the system fzf."
+hotkey = "F5"
