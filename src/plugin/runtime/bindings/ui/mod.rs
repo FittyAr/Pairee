@@ -33,12 +33,18 @@ pub fn bind(
     let ui = legacy::bind(lua)?;
 
     // The new widget userdata constructors overwrite the legacy
-    // `Span` and `Line` keys (the legacy ones were plain tables;
-    // the new ones are userdata-backed). `Paragraph`/`Gauge`/
-    // `List`/`Table` stay on the legacy form until M4-T2.
+    // keys (the legacy ones were plain tables; the new ones are
+    // userdata-backed). The legacy constructors in `legacy.rs`
+    // log a deprecation warning.
     elements::span::bind(lua, &ui)?;
     elements::line::bind(lua, &ui)?;
     elements::text::bind(lua, &ui)?;
+    elements::paragraph::bind(lua, &ui)?;
+    elements::list::bind(lua, &ui)?;
+    elements::gauge::bind(lua, &ui)?;
+    elements::cell::bind(lua, &ui)?;
+    elements::table::bind(lua, &ui)?;
+    elements::table::bind_row(lua, &ui)?;
     style::bind(lua, &ui)?;
 
     // Hide the metatable on `ui` so plugins can't accidentally

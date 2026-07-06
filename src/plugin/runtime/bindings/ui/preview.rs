@@ -139,27 +139,40 @@ pub fn bind(
     Ok(())
 }
 
-/// Convert a Lua value (a `Span`/`Line`/`Text` userdata, or a
-/// plain table) to a `PluginWidget::RichSpan`/`RichLine`/`RichText`.
+/// Convert a Lua value (a widget userdata) to a `PluginWidget`.
 fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
+    use crate::app::state::types::PluginWidget as PW;
     match val {
         mlua::Value::UserData(ud) => {
-            // Try Span, then Line, then Text.
-            if let Ok(s) = ud.borrow::<Span>() {
-                return Ok(span_to_plugin(&s));
+            if let Ok(s) = ud.borrow::<Span>()        { return Ok(span_to_plugin(&s)); }
+            if let Ok(l) = ud.borrow::<Line>()        { return Ok(line_to_plugin(&l)); }
+            if let Ok(t) = ud.borrow::<Text>()        { return Ok(text_to_plugin(&t)); }
+            if let Ok(p) = ud.borrow::<super::elements::Paragraph>() {
+                return Ok(PW::Paragraph(p.text.lines.iter().map(|l|
+                    l.spans.iter().map(|s| s.text.clone()).collect::<Vec<_>>().join(" ")
+                ).collect::<Vec<_>>().join("\n")));
             }
-            if let Ok(l) = ud.borrow::<Line>() {
-                return Ok(line_to_plugin(&l));
+            if let Ok(l) = ud.borrow::<super::elements::List>() {
+                return Ok(PW::List(l.items.clone()));
             }
-            if let Ok(t) = ud.borrow::<Text>() {
-                return Ok(text_to_plugin(&t));
+            if let Ok(g) = ud.borrow::<super::elements::Gauge>() {
+                return Ok(PW::Gauge { ratio: g.ratio, label: g.label.clone() });
+            }
+            if let Ok(t) = ud.borrow::<super::elements::Table>() {
+                let headers: Vec<String> = t.header.as_ref()
+                    .map(|r| r.cells.iter().map(|c| c.content.text.clone()).collect())
+                    .unwrap_or_default();
+                let rows: Vec<Vec<String>> = t.rows.iter()
+                    .map(|r| r.cells.iter().map(|c| c.content.text.clone()).collect())
+                    .collect();
+                return Ok(PW::Table { headers, rows });
             }
             Err(mlua::Error::RuntimeError(
-                "preview_widget: widget is not a Span/Line/Text userdata".to_string(),
+                "preview_widget: widget is not a recognised widget type".to_string(),
             ))
         }
         other => Err(mlua::Error::RuntimeError(format!(
-            "preview_widget: expected Span/Line/Text, got {other:?}"
+            "preview_widget: expected widget userdata, got {other:?}"
         ))),
     }
 }
