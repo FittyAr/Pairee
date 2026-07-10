@@ -18,7 +18,7 @@
 //! any worker thread.
 
 use mlua::Lua;
-use percent_encoding::{percent_decode_str, percent_encode_str, AsciiSet, CONTROLS};
+use percent_encoding::{percent_decode_str, percent_encode, AsciiSet, CONTROLS};
 
 use super::utils_basic;
 
@@ -52,7 +52,7 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
         "percent_encode",
         lua.create_function(|_lua, s: mlua::String| {
             let bytes = s.as_bytes();
-            let encoded = percent_encode_str(&String::from_utf8_lossy(bytes), FRAGMENT).into_owned();
+            let encoded = percent_encode(bytes, FRAGMENT).to_string();
             Ok(mlua::Value::String(_lua.create_string(&encoded)?))
         })?,
     )?;
@@ -90,7 +90,8 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
         lua.create_async_function(|_lua_ctx, s: mlua::String| async move {
             match serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes())) {
                 Ok(v) => {
-                    let lua_value = mlua::LuaSerdeExt::to_lua_value(&v, _lua_ctx).unwrap_or(mlua::Value::Nil);
+                    use mlua::LuaSerdeExt;
+                    let lua_value = _lua_ctx.to_value(&v).unwrap_or(mlua::Value::Nil);
                     Ok(lua_value)
                 }
                 Err(e) => {
@@ -221,7 +222,7 @@ mod tests {
     #[test]
     fn test_percent_encode_decode_roundtrip() {
         let original = "hello world ?#&=+";
-        let encoded = percent_encode_str(original, FRAGMENT).into_owned();
+        let encoded = percent_encode(original.as_bytes(), FRAGMENT).to_string();
         assert!(!encoded.contains(' '));
         let decoded = percent_decode_str(&encoded).decode_utf8_lossy().into_owned();
         assert_eq!(decoded, original);
@@ -231,7 +232,7 @@ mod tests {
     fn test_percent_encode_preserves_unreserved() {
         // RFC 3986 unreserved characters must NOT be percent-encoded.
         let s = "abcXYZ0129-._~";
-        let encoded = percent_encode_str(s, FRAGMENT).into_owned();
+        let encoded = percent_encode(s.as_bytes(), FRAGMENT).to_string();
         assert_eq!(encoded, s);
     }
 
