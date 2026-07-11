@@ -113,3 +113,43 @@ pub fn open_writer_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         File::create(&normalized)
     }
 }
+
+/// Un buffer de bytes alineado en memoria para optimizar operaciones Direct I/O.
+pub struct AlignedBuffer {
+    ptr: *mut u8,
+    layout: std::alloc::Layout,
+    size: usize,
+}
+
+impl AlignedBuffer {
+    /// Crea una nueva instancia de AlignedBuffer alineado a `align` bytes.
+    pub fn new(size: usize, align: usize) -> Self {
+        let layout = std::alloc::Layout::from_size_align(size, align)
+            .unwrap_or_else(|_| std::alloc::Layout::from_size_align(size, 4096).unwrap());
+        let ptr = unsafe { std::alloc::alloc(layout) };
+        if ptr.is_null() {
+            std::alloc::handle_alloc_error(layout);
+        }
+        Self { ptr, layout, size }
+    }
+
+    /// Retorna una referencia de lectura al buffer completo.
+    pub fn as_slice(&self) -> &[u8] {
+        unsafe { std::slice::from_raw_parts(self.ptr, self.size) }
+    }
+
+    /// Retorna una referencia mutable al buffer completo.
+    pub fn as_mut_slice(&mut self) -> &mut [u8] {
+        unsafe { std::slice::from_raw_parts_mut(self.ptr, self.size) }
+    }
+}
+
+impl Drop for AlignedBuffer {
+    fn drop(&mut self) {
+        unsafe {
+            std::alloc::dealloc(self.ptr, self.layout);
+        }
+    }
+}
+unsafe impl Send for AlignedBuffer {}
+unsafe impl Sync for AlignedBuffer {}

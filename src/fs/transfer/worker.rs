@@ -84,7 +84,7 @@ impl TransferWorker {
                 return Err(anyhow!("Job cancelled during scan"));
             }
 
-            if src.is_dir() {
+            if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
                 let mut dirs_to_visit = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
 
@@ -103,6 +103,18 @@ impl TransferWorker {
                         let is_symlink = path.is_symlink();
 
                         if is_symlink && options.skip_symlinks {
+                            continue;
+                        }
+
+                        if is_symlink && !options.follow_symlinks {
+                            // No seguir el symlink -> encolarlo como archivo de tamaño 0
+                            let size = 0u64;
+                            if let Ok(rel) = path.strip_prefix(src) {
+                                let folder_name = src.file_name().unwrap_or_default();
+                                let dst_path = self.destination.join(folder_name).join(rel);
+                                scan_mappings.push((path, dst_path, size));
+                                files_scanned += 1;
+                            }
                             continue;
                         }
 
@@ -138,7 +150,12 @@ impl TransferWorker {
                     continue;
                 }
 
-                let size = src.metadata().map(|m| m.len()).unwrap_or(0);
+                let size = if is_symlink && !options.follow_symlinks {
+                    0
+                } else {
+                    src.metadata().map(|m| m.len()).unwrap_or(0)
+                };
+
                 if !filter.matches(src, size) {
                     continue;
                 }
@@ -329,36 +346,78 @@ impl TransferWorker {
             let mut dst_hash = None;
             let file_start = Instant::now();
 
-            while retries <= options.max_retries {
-                if self.is_cancelled.load(Ordering::Relaxed) {
-                    return Err(anyhow!("Job cancelled"));
-                }
+            let is_symlink = src.is_symlink();
+            let recreate_link = is_symlink && !options.follow_symlinks;
 
-                match copy_file_pipelined(
-                    &src,
-                    &dst,
-                    &options,
-                    &self.event_tx,
-                    self.job_id,
-                    Arc::clone(&self.is_paused),
-                    Arc::clone(&self.is_cancelled),
-                    Arc::clone(&bytes_transferred_acc),
-                )
-                .await
-                {
-                    Ok((s_hash, d_hash)) => {
-                        src_hash = s_hash;
-                        dst_hash = d_hash;
+            if recreate_link {
+                match (|| -> std::io::Result<()> {
+                    let target = std::fs::read_link(&src)?;
+                    #[cfg(target_os = "windows")]
+                    {
+                        let absolute_target = if target.is_relative() {
+                            src.parent().map(|p| p.join(&target)).unwrap_or_else(|| target.clone())
+                        } else {
+                            target.clone()
+                        };
+                        let is_dir = absolute_target.is_dir();
+                        if dst.exists() {
+                            let _ = std::fs::remove_file(&dst);
+                            let _ = std::fs::remove_dir_all(&dst);
+                        }
+                        if is_dir {
+                            std::os::windows::fs::symlink_dir(&target, &dst)?;
+                        } else {
+                            std::os::windows::fs::symlink_file(&target, &dst)?;
+                        }
+                    }
+                    #[cfg(not(target_os = "windows"))]
+                    {
+                        if dst.exists() {
+                            let _ = std::fs::remove_file(&dst);
+                        }
+                        std::os::unix::fs::symlink(&target, &dst)?;
+                    }
+                    Ok(())
+                })() {
+                    Ok(_) => {
                         copy_success = true;
-                        break;
                     }
                     Err(e) => {
-                        retries += 1;
-                        last_error = e.to_string();
-                        if retries <= options.max_retries {
-                            // Backoff exponencial simple: 100ms, 200ms, 400ms...
-                            let backoff = Duration::from_millis(100 * (1 << retries));
-                            tokio::time::sleep(backoff).await;
+                        last_error = format!("Error creating symlink: {}", e);
+                    }
+                }
+            } else {
+                while retries <= options.max_retries {
+                    if self.is_cancelled.load(Ordering::Relaxed) {
+                        return Err(anyhow!("Job cancelled"));
+                    }
+
+                    match copy_file_pipelined(
+                        &src,
+                        &dst,
+                        &options,
+                        &self.event_tx,
+                        self.job_id,
+                        Arc::clone(&self.is_paused),
+                        Arc::clone(&self.is_cancelled),
+                        Arc::clone(&bytes_transferred_acc),
+                    )
+                    .await
+                    {
+                        Ok((s_hash, d_hash)) => {
+                            src_hash = s_hash;
+                            dst_hash = d_hash;
+                            copy_success = true;
+                            break;
+                        }
+                        Err(e) => {
+                            retries += 1;
+                            last_error = e.to_string();
+                            if retries <= options.max_retries {
+                                // Backoff exponencial simple: 100ms, 200ms, 400ms...
+                                let backoff = Duration::from_millis(100 * (1 << retries));
+                                tokio::time::sleep(backoff).await;
+                            }
                         }
                     }
                 }

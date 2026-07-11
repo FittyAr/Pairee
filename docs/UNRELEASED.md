@@ -26,6 +26,10 @@
 
 ### Improved
 
+- Direct I/O implementation now ensures 4096-byte memory alignment using `AlignedBuffer` and handles partial sectors at the end of files by temporarily falling back to standard buffered handles, resolving transfer errors with non-aligned boundaries.
+- Symlink replication now correctly creates the link pointer at the destination when `follow_symlinks` is `false`, instead of reading/writing the linked target's content.
+- Implemented the `limit_bandwidth_rate` option in the file transfer pipeline, allowing users to configure a speed limit (throttling) to avoid saturating network or local disk buses.
+- Implemented `preserve_acl` on Windows NTFS targets to replicate security descriptors (Primary Owner, Group, and DACL access rules) from source to destination.
 - The Transfer Panel file list now supports stateful navigation, highlighting, and scrolling using the Up/Down arrow keys.
 - The Conflict dialog now displays the full source and destination paths of the conflicting files to make resolution more descriptive.
 - The Plugins Manager runs network and heavy filesystem operations asynchronously in the background, keeping the TUI fully responsive.

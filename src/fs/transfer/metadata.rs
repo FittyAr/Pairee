@@ -83,5 +83,50 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
         }
     }
 
+    // 3. Preservar ACLs (Security descriptor)
+    if options.preserve_acl {
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::ffi::OsStrExt;
+            use windows_sys::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
+            use windows_sys::Win32::Security::{
+                OWNER_SECURITY_INFORMATION, GROUP_SECURITY_INFORMATION, DACL_SECURITY_INFORMATION,
+                PSECURITY_DESCRIPTOR
+            };
+            use windows_sys::Win32::Security::SetFileSecurityW;
+            use windows_sys::Win32::Foundation::LocalFree;
+
+            let mut src_wide: Vec<u16> = src.as_os_str().encode_wide().collect();
+            src_wide.push(0);
+            let mut dst_wide: Vec<u16> = dst.as_os_str().encode_wide().collect();
+            dst_wide.push(0);
+
+            let security_info = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+            let mut security_descriptor: PSECURITY_DESCRIPTOR = std::ptr::null_mut();
+
+            unsafe {
+                let res = GetNamedSecurityInfoW(
+                    src_wide.as_ptr(),
+                    SE_FILE_OBJECT,
+                    security_info,
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    std::ptr::null_mut(),
+                    &mut security_descriptor,
+                );
+
+                if res == 0 && !security_descriptor.is_null() {
+                    let _ = SetFileSecurityW(
+                        dst_wide.as_ptr(),
+                        security_info,
+                        security_descriptor,
+                    );
+                    LocalFree(security_descriptor as _);
+                }
+            }
+        }
+    }
+
     Ok(())
 }
