@@ -202,26 +202,36 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Trans
 fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
     let options = &ts.engine.queue.get_active().map(|j| j.options.clone()).unwrap_or_default();
     
-    let text = format!(
-        r#"  [x] Direct I/O (bypass cache): {}
-  [x] Verify integrity after transfer: {}
-  [x] Preserve timestamps (created, modified): {}
-  [x] Preserve attributes and permissions: {}
-  [x] Maximum retries per file: {}
-  [x] Duplicate conflict resolution: "{}"
-  [x] Buffer size: {}"#,
-        if options.direct_io { "Yes" } else { "No" },
-        if options.verify_after_copy { "Yes" } else { "No" },
-        if options.preserve_timestamps { "Yes" } else { "No" },
-        if options.preserve_attributes { "Yes" } else { "No" },
-        options.max_retries,
-        options.conflict_resolution,
-        bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string()
-    );
+    let opt_labels = vec![
+        format!("Direct I/O (bypass cache): {}", if options.direct_io { "Yes" } else { "No" }),
+        format!("Verify integrity after transfer: {}", if options.verify_after_copy { "Yes" } else { "No" }),
+        format!("Preserve timestamps (created, modified): {}", if options.preserve_timestamps { "Yes" } else { "No" }),
+        format!("Preserve attributes and permissions: {}", if options.preserve_attributes { "Yes" } else { "No" }),
+        format!("Post-Action (On Finish): {:?}", ts.post_action),
+        format!("Buffer size: {}", bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string()),
+        format!("Hash algorithm: {}", options.hash_algorithm.as_str()),
+    ];
 
-    let p = Paragraph::new(text)
-        .block(Block::default().borders(Borders::ALL).title(" Active Transfer Settings ").border_type(BorderType::Rounded))
-        .style(Style::default().fg(Color::White));
+    let mut lines = Vec::new();
+    lines.push(ratatui::text::Line::from("")); // Margen superior
+    for (idx, label) in opt_labels.iter().enumerate() {
+        let is_selected = idx == ts.options_cursor;
+        if is_selected {
+            lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                format!("  ▶  {}  ", label),
+                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+            )));
+        } else {
+            lines.push(ratatui::text::Line::from(ratatui::text::Span::styled(
+                format!("     {}  ", label),
+                Style::default().fg(Color::Gray)
+            )));
+        }
+        lines.push(ratatui::text::Line::from("")); // Espaciado entre items
+    }
+
+    let p = Paragraph::new(lines)
+        .block(Block::default().borders(Borders::ALL).title(" Active Transfer Settings (Use Up/Down + Enter to toggle) ").border_type(BorderType::Rounded));
     f.render_widget(p, area);
 }
 

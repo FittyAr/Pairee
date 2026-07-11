@@ -27,6 +27,7 @@ pub struct TransferUIState {
     pub file_list_cursor: usize,
     pub file_list_scroll: usize,
     pub queue_cursor: usize,
+    pub options_cursor: usize,
     
     // Snaphots de tiempo real para renderizar sin bloquear el hilo principal
     pub current_progress: Option<TransferProgress>,
@@ -47,6 +48,7 @@ impl TransferUIState {
             file_list_cursor: 0,
             file_list_scroll: 0,
             queue_cursor: 0,
+            options_cursor: 0,
             current_progress: None,
             current_results: None,
             speed_info: (0.0, None),

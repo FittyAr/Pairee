@@ -132,6 +132,19 @@ impl TransferQueue {
         }
     }
 
+    pub fn update_active_options<F>(&self, update_fn: F)
+    where
+        F: FnOnce(&mut super::options::TransferOptions),
+    {
+        let active_id = self.active_job_id.lock().unwrap();
+        if let Some(id) = *active_id {
+            let mut jobs = self.jobs.lock().unwrap();
+            if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
+                update_fn(&mut job.options);
+            }
+        }
+    }
+
     pub fn pending_count(&self) -> usize {
         let jobs = self.jobs.lock().unwrap();
         jobs.iter().filter(|j| j.status == TransferJobStatus::Queued).count()

@@ -132,6 +132,69 @@ pub fn handle(
             transfer.engine.cancel();
             Ok(None)
         }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            if let Some(ref res) = transfer.current_results {
+                if !res.failed_files.is_empty() {
+                    let failed_sources: Vec<std::path::PathBuf> = res.failed_files.iter().map(|f| f.src.clone()).collect();
+                    if let Some(active_job) = transfer.engine.queue.get_active() {
+                        let new_job = crate::fs::transfer::job::TransferJob::new(
+                            active_job.operation,
+                            failed_sources,
+                            active_job.destination.clone(),
+                            active_job.options.clone(),
+                        );
+                        transfer.log_lines.push(format!("Re-enqueueing {} failed files...", res.failed_files.len()));
+                        transfer.engine.submit_job(new_job);
+                    }
+                }
+            }
+            Ok(None)
+        }
+        KeyCode::Char('e') | KeyCode::Char('E') => {
+            if let Some(ref res) = transfer.current_results {
+                let content = if _context.config.settings.transfer_report_format == "csv" {
+                    crate::fs::transfer::report::generate_csv_report(res)
+                } else {
+                    crate::fs::transfer::report::generate_html_report(res, "Manual Export")
+                };
+                let format = _context.config.settings.transfer_report_format.clone();
+                let dest_dir = if let Some(first_file) = res.completed_files.first() {
+                    first_file.dst.parent().unwrap_or(std::path::Path::new("."))
+                } else {
+                    std::path::Path::new(".")
+                };
+                if let Ok(report_path) = crate::fs::transfer::report::save_report(&content, &format, dest_dir) {
+                    transfer.log_lines.push(format!("Manually saved report to: {}", report_path.to_string_lossy()));
+                }
+            }
+            Ok(None)
+        }
+        KeyCode::Char('+') | KeyCode::Char('=') => {
+            if transfer.active_tab == TransferTab::Queue {
+                let jobs = transfer.engine.queue.get_all();
+                if let Some(job) = jobs.get(transfer.queue_cursor) {
+                    if transfer.engine.queue.reorder(job.id, -1) {
+                        transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
+                        transfer.log_lines.push(format!("[{}] Moved up in queue", job.id));
+                    }
+                }
+            }
+            Ok(None)
+        }
+        KeyCode::Char('-') => {
+            if transfer.active_tab == TransferTab::Queue {
+                let jobs = transfer.engine.queue.get_all();
+                if let Some(job) = jobs.get(transfer.queue_cursor) {
+                    if transfer.engine.queue.reorder(job.id, 1) {
+                        if transfer.queue_cursor < jobs.len().saturating_sub(1) {
+                            transfer.queue_cursor += 1;
+                        }
+                        transfer.log_lines.push(format!("[{}] Moved down in queue", job.id));
+                    }
+                }
+            }
+            Ok(None)
+        }
         KeyCode::Delete => {
             if transfer.active_tab == TransferTab::Queue {
                 let jobs = transfer.engine.queue.get_all();
@@ -148,6 +211,8 @@ pub fn handle(
                 transfer.file_list_cursor = transfer.file_list_cursor.saturating_sub(1);
             } else if transfer.active_tab == TransferTab::Queue {
                 transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
+            } else if transfer.active_tab == TransferTab::Options {
+                transfer.options_cursor = transfer.options_cursor.saturating_sub(1);
             }
             Ok(None)
         }
@@ -158,6 +223,69 @@ pub fn handle(
                 let max_idx = transfer.engine.queue.get_all().len().saturating_sub(1);
                 if transfer.queue_cursor < max_idx {
                     transfer.queue_cursor += 1;
+                }
+            } else if transfer.active_tab == TransferTab::Options {
+                if transfer.options_cursor < 6 {
+                    transfer.options_cursor += 1;
+                }
+            }
+            Ok(None)
+        }
+        KeyCode::Enter | KeyCode::Char(' ') => {
+            if transfer.active_tab == TransferTab::Options {
+                match transfer.options_cursor {
+                    0 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.direct_io = !opts.direct_io;
+                        });
+                    }
+                    1 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.verify_after_copy = !opts.verify_after_copy;
+                        });
+                    }
+                    2 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.preserve_timestamps = !opts.preserve_timestamps;
+                        });
+                    }
+                    3 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.preserve_attributes = !opts.preserve_attributes;
+                        });
+                    }
+                    4 => {
+                        // Alternar post action en la UI
+                        transfer.post_action = match transfer.post_action {
+                            crate::fs::transfer::post_action::PostAction::None => crate::fs::transfer::post_action::PostAction::Shutdown,
+                            crate::fs::transfer::post_action::PostAction::Shutdown => crate::fs::transfer::post_action::PostAction::Sleep,
+                            crate::fs::transfer::post_action::PostAction::Sleep => crate::fs::transfer::post_action::PostAction::Hibernate,
+                            crate::fs::transfer::post_action::PostAction::Hibernate => crate::fs::transfer::post_action::PostAction::CloseApp,
+                            crate::fs::transfer::post_action::PostAction::CloseApp => crate::fs::transfer::post_action::PostAction::None,
+                        };
+                    }
+                    5 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.buffer_size = match opts.buffer_size {
+                                crate::fs::transfer::options::BufferSize::_64KB => crate::fs::transfer::options::BufferSize::_256KB,
+                                crate::fs::transfer::options::BufferSize::_256KB => crate::fs::transfer::options::BufferSize::_1MB,
+                                crate::fs::transfer::options::BufferSize::_1MB => crate::fs::transfer::options::BufferSize::_4MB,
+                                crate::fs::transfer::options::BufferSize::_4MB => crate::fs::transfer::options::BufferSize::_64KB,
+                            };
+                        });
+                    }
+                    6 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.hash_algorithm = match opts.hash_algorithm {
+                                crate::fs::transfer::options::HashAlgorithm::Blake3 => crate::fs::transfer::options::HashAlgorithm::Crc32,
+                                crate::fs::transfer::options::HashAlgorithm::Crc32 => crate::fs::transfer::options::HashAlgorithm::Md5,
+                                crate::fs::transfer::options::HashAlgorithm::Md5 => crate::fs::transfer::options::HashAlgorithm::Sha1,
+                                crate::fs::transfer::options::HashAlgorithm::Sha1 => crate::fs::transfer::options::HashAlgorithm::Sha256,
+                                crate::fs::transfer::options::HashAlgorithm::Sha256 => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                            };
+                        });
+                    }
+                    _ => {}
                 }
             }
             Ok(None)

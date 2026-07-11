@@ -41,6 +41,45 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
                     attrs,
                 );
             }
+
+            // Copiar Alternate Data Streams (ADS) si NTFS y está activo
+            unsafe {
+                use windows_sys::Win32::Storage::FileSystem::{
+                    FindFirstStreamW, FindNextStreamW, FindStreamInfoStandard, WIN32_FIND_STREAM_DATA, FindClose,
+                };
+                use windows_sys::Win32::Foundation::INVALID_HANDLE_VALUE;
+
+                let mut src_wide: Vec<u16> = src.as_os_str().encode_wide().collect();
+                src_wide.push(0);
+
+                let mut find_data: WIN32_FIND_STREAM_DATA = std::mem::zeroed();
+                let handle = FindFirstStreamW(
+                    src_wide.as_ptr(),
+                    FindStreamInfoStandard,
+                    &mut find_data as *mut _ as *mut _,
+                    0,
+                );
+
+                if handle != INVALID_HANDLE_VALUE {
+                    loop {
+                        let name_len = find_data.cStreamName.iter().position(|&x| x == 0).unwrap_or(296);
+                        let stream_name = String::from_utf16_lossy(&find_data.cStreamName[..name_len]);
+
+                        if !stream_name.is_empty() && stream_name != "::$DATA" {
+                            if let Some(clean_name) = stream_name.strip_suffix(":$DATA") {
+                                let src_ads = format!("{}{}", src.to_string_lossy(), clean_name);
+                                let dst_ads = format!("{}{}", dst.to_string_lossy(), clean_name);
+                                let _ = std::fs::copy(src_ads, dst_ads);
+                            }
+                        }
+
+                        if FindNextStreamW(handle, &mut find_data as *mut _ as *mut _) == 0 {
+                            break;
+                        }
+                    }
+                    FindClose(handle);
+                }
+            }
         }
     }
 
