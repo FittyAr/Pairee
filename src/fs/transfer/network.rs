@@ -26,7 +26,7 @@ pub fn is_lan_path(path: &Path) -> bool {
             return false;
         };
 
-        let mut root_wide: Vec<u16> = std::ffi::OsStr::new(&root)
+        let root_wide: Vec<u16> = std::ffi::OsStr::new(&root)
             .encode_wide()
             .chain(std::iter::once(0))
             .collect();

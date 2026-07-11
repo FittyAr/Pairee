@@ -26,6 +26,8 @@
 
 ### Improved
 
+- The Transfer Panel file list now supports stateful navigation, highlighting, and scrolling using the Up/Down arrow keys.
+- The Conflict dialog now displays the full source and destination paths of the conflicting files to make resolution more descriptive.
 - The Plugins Manager runs network and heavy filesystem operations asynchronously in the background, keeping the TUI fully responsive.
 - Upgraded the plugin packager to scan and hash files dynamically.
 - Improved help documentation by dynamically loading locale help files (`help/<locale>.md`) inside the F1 Help menu.
@@ -41,6 +43,8 @@
 
 ### Fixed
 
+- Resolved compiler warnings across the transfer engine, including unused event fields, builders, and trait methods to enforce codebase guidelines.
+- Fixed standard Lua bindings registration to use `utils_ext` instead of `utils_basic`, exposing extended scripting utilities (e.g. quote, percent-encode) to Lua plugins.
 - Resolved application startup crash (`STATUS_DLL_NOT_FOUND` / `0xC0000135`) on clean Windows installations.
 - Fixed UI crash when rendering accented characters in the developer tools console.
 - Fixed plugin initialization wizard to properly generate skeleton files when offline by using a built-in fallback template.

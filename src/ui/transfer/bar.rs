@@ -7,7 +7,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, TransferViewMode};
 use crate::config::localization::t;
 
-pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, context: &AppContext) {
+pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context: &AppContext) {
     let transfer_state = match &state.transfer {
         Some(ts) => ts,
         None => return,

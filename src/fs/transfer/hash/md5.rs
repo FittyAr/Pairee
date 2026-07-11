@@ -14,10 +14,6 @@ impl Md5Hasher {
 }
 
 impl HashStrategy for Md5Hasher {
-    fn name(&self) -> &str {
-        "MD5"
-    }
-
     fn update(&mut self, data: &[u8]) {
         self.state.update(data);
     }
@@ -25,9 +21,5 @@ impl HashStrategy for Md5Hasher {
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
         format!("{:032X}", result)
-    }
-
-    fn new_instance(&self) -> Box<dyn HashStrategy> {
-        Box::new(Md5Hasher::new())
     }
 }

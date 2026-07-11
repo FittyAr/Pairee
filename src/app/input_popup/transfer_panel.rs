@@ -195,6 +195,14 @@ pub fn handle(
             }
             Ok(None)
         }
+        KeyCode::Char('c') | KeyCode::Char('C') => {
+            if transfer.active_tab == TransferTab::Queue {
+                transfer.engine.queue.clear_completed();
+                transfer.queue_cursor = 0;
+                transfer.log_lines.push("Cleared completed and terminal jobs from queue".to_string());
+            }
+            Ok(None)
+        }
         KeyCode::Delete => {
             if transfer.active_tab == TransferTab::Queue {
                 let jobs = transfer.engine.queue.get_all();
@@ -218,7 +226,13 @@ pub fn handle(
         }
         KeyCode::Down => {
             if transfer.active_tab == TransferTab::FileList {
-                transfer.file_list_cursor = transfer.file_list_cursor.saturating_add(1);
+                let total_files = transfer.current_results.as_ref()
+                    .map(|res| res.failed_files.len() + res.skipped_files.len() + res.completed_files.len())
+                    .unwrap_or(0);
+                let max_idx = total_files.saturating_sub(1);
+                if transfer.file_list_cursor < max_idx {
+                    transfer.file_list_cursor += 1;
+                }
             } else if transfer.active_tab == TransferTab::Queue {
                 let max_idx = transfer.engine.queue.get_all().len().saturating_sub(1);
                 if transfer.queue_cursor < max_idx {

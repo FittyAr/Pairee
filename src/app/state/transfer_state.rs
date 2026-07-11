@@ -1,7 +1,7 @@
 use tokio::sync::mpsc;
 use crate::fs::transfer::engine::TransferEngine;
 use crate::fs::transfer::events::TransferEvent;
-use crate::fs::transfer::job::{TransferProgress, TransferResults};
+use crate::fs::transfer::job::TransferProgress;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferViewMode {
@@ -25,7 +25,6 @@ pub struct TransferUIState {
     pub view_mode: TransferViewMode,
     pub active_tab: TransferTab,
     pub file_list_cursor: usize,
-    pub file_list_scroll: usize,
     pub queue_cursor: usize,
     pub options_cursor: usize,
     
@@ -46,7 +45,6 @@ impl TransferUIState {
             view_mode: TransferViewMode::Hidden,
             active_tab: TransferTab::FileList,
             file_list_cursor: 0,
-            file_list_scroll: 0,
             queue_cursor: 0,
             options_cursor: 0,
             current_progress: None,

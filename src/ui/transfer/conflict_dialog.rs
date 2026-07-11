@@ -74,8 +74,11 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .unwrap_or_else(|| "Unknown".to_string());
 
     let comparison_text = format!(
-        "Source File:\n  Size: {} | Modified: {}\n\nDestination File (Duplicate):\n  Size: {} | Modified: {}",
-        src_size_str, src_time_str, dst_size_str, dst_time_str
+        "Source Path: {}\n  Size: {} | Modified: {}\nDestination Path: {}\n  Size: {} | Modified: {}",
+        conflict.src_path.to_string_lossy(),
+        src_size_str, src_time_str,
+        conflict.dst_path.to_string_lossy(),
+        dst_size_str, dst_time_str
     );
 
     f.render_widget(

@@ -41,12 +41,6 @@ impl Default for TransferOptions {
     }
 }
 
-impl TransferOptions {
-    pub fn builder() -> TransferOptionsBuilder {
-        TransferOptionsBuilder::new()
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HashAlgorithm {
     Crc32,
@@ -84,66 +78,5 @@ impl BufferSize {
             BufferSize::_1MB => 1024 * 1024,
             BufferSize::_4MB => 4 * 1024 * 1024,
         }
-    }
-}
-
-pub struct TransferOptionsBuilder {
-    options: TransferOptions,
-}
-
-impl TransferOptionsBuilder {
-    pub fn new() -> Self {
-        Self {
-            options: TransferOptions::default(),
-        }
-    }
-
-    pub fn verify_after_copy(mut self, verify: bool) -> Self {
-        self.options.verify_after_copy = verify;
-        self
-    }
-
-    pub fn hash_algorithm(mut self, algo: HashAlgorithm) -> Self {
-        self.options.hash_algorithm = algo;
-        self
-    }
-
-    pub fn buffer_size(mut self, size: BufferSize) -> Self {
-        self.options.buffer_size = size;
-        self
-    }
-
-    pub fn direct_io(mut self, direct: bool) -> Self {
-        self.options.direct_io = direct;
-        self
-    }
-
-    pub fn preserve_timestamps(mut self, preserve: bool) -> Self {
-        self.options.preserve_timestamps = preserve;
-        self
-    }
-
-    pub fn preserve_attributes(mut self, preserve: bool) -> Self {
-        self.options.preserve_attributes = preserve;
-        self
-    }
-
-    pub fn skip_symlinks(mut self, skip: bool) -> Self {
-        self.options.skip_symlinks = skip;
-        self
-    }
-
-    pub fn conflict_resolution(mut self, res: String) -> Self {
-        self.options.conflict_resolution = res;
-        self
-    }
-
-    pub fn filter_mask(mut self, mask: Option<String>) -> Self {
-        self.options.filter_mask = mask;
-        self
-    }
-
-    pub fn build(self) -> TransferOptions {
-        self.options
     }
 }

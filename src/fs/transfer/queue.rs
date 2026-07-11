@@ -106,18 +106,7 @@ impl TransferQueue {
         }
     }
 
-    pub fn update_active_progress<F>(&self, update_fn: F)
-    where
-        F: FnOnce(&mut super::job::TransferProgress),
-    {
-        let active_id = self.active_job_id.lock().unwrap();
-        if let Some(id) = *active_id {
-            let mut jobs = self.jobs.lock().unwrap();
-            if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
-                update_fn(&mut job.progress);
-            }
-        }
-    }
+
 
     pub fn update_active_results<F>(&self, update_fn: F)
     where

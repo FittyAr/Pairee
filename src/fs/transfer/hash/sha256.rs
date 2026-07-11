@@ -14,10 +14,6 @@ impl Sha256Hasher {
 }
 
 impl HashStrategy for Sha256Hasher {
-    fn name(&self) -> &str {
-        "SHA-256"
-    }
-
     fn update(&mut self, data: &[u8]) {
         self.state.update(data);
     }
@@ -25,9 +21,5 @@ impl HashStrategy for Sha256Hasher {
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
         format!("{:064X}", result)
-    }
-
-    fn new_instance(&self) -> Box<dyn HashStrategy> {
-        Box::new(Sha256Hasher::new())
     }
 }

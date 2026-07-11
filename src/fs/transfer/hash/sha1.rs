@@ -14,10 +14,6 @@ impl Sha1Hasher {
 }
 
 impl HashStrategy for Sha1Hasher {
-    fn name(&self) -> &str {
-        "SHA-1"
-    }
-
     fn update(&mut self, data: &[u8]) {
         self.state.update(data);
     }
@@ -25,9 +21,5 @@ impl HashStrategy for Sha1Hasher {
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
         format!("{:040X}", result)
-    }
-
-    fn new_instance(&self) -> Box<dyn HashStrategy> {
-        Box::new(Sha1Hasher::new())
     }
 }

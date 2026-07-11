@@ -193,10 +193,12 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Trans
     )
     .header(Row::new(vec!["Status", "File Path", "Size", "Hashes"]).style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
     .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded))
-    .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+    .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
-    // Nota: en producción haríamos scrollable usando el cursor de `ts.file_list_cursor`
-    f.render_widget(table, area);
+    let mut table_state = ratatui::widgets::TableState::default();
+    table_state.select(Some(ts.file_list_cursor));
+
+    f.render_stateful_widget(table, area, &mut table_state);
 }
 
 fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {

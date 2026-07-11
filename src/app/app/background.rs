@@ -242,39 +242,47 @@ pub fn process_background_updates(
                     transfer_state.current_progress = Some(crate::fs::transfer::job::TransferProgress::default());
                     transfer_state.current_results = Some(crate::fs::transfer::job::TransferResults::default());
                 }
-                TransferEvent::ScanProgress { files_found, .. } => {
+                TransferEvent::ScanProgress { job_id, files_found } => {
+                    let _ = job_id; // reserved for multi-job routing
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.files_scanned = files_found;
                     }
                 }
-                TransferEvent::ScanComplete { total_files, total_bytes, .. } => {
+                TransferEvent::ScanComplete { job_id, total_files, total_bytes } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.files_total = total_files;
                         prog.bytes_total = total_bytes;
                     }
                     transfer_state.log_lines.push(format!("Scan complete: {} files, {}", total_files, bytesize::ByteSize(total_bytes)));
                 }
-                TransferEvent::FileStarted { file, index, .. } => {
+                TransferEvent::FileStarted { job_id, file, index } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.current_file = file.to_string_lossy().into_owned();
                     }
                     transfer_state.log_lines.push(format!("[{}] Copying: {}", index + 1, file.to_string_lossy()));
                 }
-                TransferEvent::FileProgress { bytes_copied, .. } => {
+                TransferEvent::FileProgress { job_id, bytes_copied, bytes_total } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.bytes_transferred = bytes_copied;
+                        prog.bytes_total = prog.bytes_total.max(bytes_total);
                     }
                 }
-                TransferEvent::FileCompleted { result, .. } => {
+                TransferEvent::FileCompleted { job_id, result } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.files_completed += 1;
                     }
                     if let Some(ref mut res) = transfer_state.current_results {
                         res.completed_files.push(result.clone());
                     }
-                    transfer_state.log_lines.push(format!("✓ OK: {}", result.dst.to_string_lossy()));
+                    let verified_marker = if result.verified { " ✓hash" } else { "" };
+                    transfer_state.log_lines.push(format!("✓ OK{}: {}", verified_marker, result.dst.to_string_lossy()));
                 }
-                TransferEvent::FileFailed { error, .. } => {
+                TransferEvent::FileFailed { job_id, error } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.files_failed += 1;
                     }
@@ -283,7 +291,8 @@ pub fn process_background_updates(
                     }
                     transfer_state.log_lines.push(format!("✗ FAIL: {} - {}", error.src.to_string_lossy(), error.error));
                 }
-                TransferEvent::FileSkipped { file, reason, .. } => {
+                TransferEvent::FileSkipped { job_id, file, reason } => {
+                    let _ = job_id;
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.files_skipped += 1;
                     }
@@ -295,7 +304,8 @@ pub fn process_background_updates(
                     }
                     transfer_state.log_lines.push(format!("⚠ SKIP: {} - {}", file.to_string_lossy(), reason));
                 }
-                TransferEvent::SpeedUpdate { bytes_per_second, eta_seconds, .. } => {
+                TransferEvent::SpeedUpdate { job_id, bytes_per_second, eta_seconds } => {
+                    let _ = job_id;
                     transfer_state.speed_info = (bytes_per_second, eta_seconds);
                     if let Some(ref mut prog) = transfer_state.current_progress {
                         prog.bytes_per_second = bytes_per_second;
@@ -342,11 +352,16 @@ pub fn process_background_updates(
                     state.active_popup = Some(crate::app::state::types::PopupType::TransferPanel);
                     refresh_needed = true;
                 }
-                TransferEvent::VerifyStarted { .. } => {
-                    transfer_state.log_lines.push("Starting integrity verification...".to_string());
+                TransferEvent::VerifyStarted { job_id, file, algorithm } => {
+                    let _ = job_id;
+                    transfer_state.log_lines.push(format!("🔍 Verifying [{}]: {}", algorithm, file.to_string_lossy()));
                 }
-                TransferEvent::VerifyProgress { .. } => {
-                    // Opcionalmente podemos registrar el progreso
+                TransferEvent::VerifyProgress { job_id, bytes_verified, bytes_total } => {
+                    let _ = job_id;
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.bytes_transferred = bytes_verified;
+                        prog.bytes_total = prog.bytes_total.max(bytes_total);
+                    }
                 }
             }
         }

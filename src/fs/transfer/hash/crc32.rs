@@ -14,10 +14,6 @@ impl Crc32Hasher {
 }
 
 impl HashStrategy for Crc32Hasher {
-    fn name(&self) -> &str {
-        "CRC32"
-    }
-
     fn update(&mut self, data: &[u8]) {
         self.state.update(data);
     }
@@ -25,9 +21,5 @@ impl HashStrategy for Crc32Hasher {
     fn finalize(self: Box<Self>) -> String {
         let checksum = self.state.finalize();
         format!("{:08X}", checksum)
-    }
-
-    fn new_instance(&self) -> Box<dyn HashStrategy> {
-        Box::new(Crc32Hasher::new())
     }
 }

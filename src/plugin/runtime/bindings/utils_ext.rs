@@ -17,7 +17,6 @@
 //! `tokio::time::sleep` which yields to the runtime and does not block
 //! any worker thread.
 
-use mlua::Lua;
 use percent_encoding::{percent_decode_str, percent_encode, AsciiSet, CONTROLS};
 
 use super::utils_basic;

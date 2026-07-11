@@ -7,14 +7,10 @@ pub mod blake3;
 use super::options::HashAlgorithm;
 
 pub trait HashStrategy: Send + Sync {
-    /// Nombre legible del algoritmo ("BLAKE3", "SHA-256", etc.)
-    fn name(&self) -> &str;
     /// Alimentar datos al hasher
     fn update(&mut self, data: &[u8]);
     /// Finalizar y producir el hash como string hexadecimal
     fn finalize(self: Box<Self>) -> String;
-    /// Crear una nueva instancia limpia del mismo algoritmo
-    fn new_instance(&self) -> Box<dyn HashStrategy>;
 }
 
 pub fn create_hasher(algorithm: HashAlgorithm) -> Box<dyn HashStrategy> {

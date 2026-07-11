@@ -1,5 +1,4 @@
 use std::path::PathBuf;
-use std::time::Instant;
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -11,11 +10,7 @@ pub struct TransferJob {
     pub destination: PathBuf,
     pub options: super::options::TransferOptions,
     pub status: TransferJobStatus,
-    pub progress: TransferProgress,
     pub results: TransferResults,
-    pub created_at: Instant,
-    pub started_at: Option<Instant>,
-    pub completed_at: Option<Instant>,
     pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
 }
 
@@ -33,11 +28,7 @@ impl TransferJob {
             destination,
             options,
             status: TransferJobStatus::Queued,
-            progress: TransferProgress::default(),
             results: TransferResults::default(),
-            created_at: Instant::now(),
-            started_at: None,
-            completed_at: None,
             active_conflict: Arc::new(std::sync::Mutex::new(None)),
         }
     }
@@ -111,14 +102,6 @@ pub struct TransferProgress {
 }
 
 impl TransferProgress {
-    pub fn percent_files(&self) -> f32 {
-        if self.files_total == 0 {
-            0.0
-        } else {
-            (self.files_completed as f32 / self.files_total as f32) * 100.0
-        }
-    }
-
     pub fn percent_bytes(&self) -> f32 {
         if self.bytes_total == 0 {
             0.0

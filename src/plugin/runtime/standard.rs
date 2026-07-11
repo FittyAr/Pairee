@@ -41,7 +41,7 @@ pub fn bind_runtime(
         super::bindings::notify_ext::bind(lua, tx.clone())?,
     )?;
     pairee.set("sync", super::bindings::sync::bind(lua, tx.clone())?)?;
-    pairee.set("utils", super::bindings::utils_basic::bind(lua)?)?;
+    pairee.set("utils", super::bindings::utils_ext::bind(lua)?)?;
     pairee.set("which", super::bindings::which::bind(lua, tx.clone())?)?;
 
     // 3. Bind settings

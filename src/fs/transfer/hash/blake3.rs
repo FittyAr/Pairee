@@ -14,10 +14,6 @@ impl Blake3Hasher {
 }
 
 impl HashStrategy for Blake3Hasher {
-    fn name(&self) -> &str {
-        "BLAKE3"
-    }
-
     fn update(&mut self, data: &[u8]) {
         self.state.update(data);
     }
@@ -25,9 +21,5 @@ impl HashStrategy for Blake3Hasher {
     fn finalize(self: Box<Self>) -> String {
         let hash = self.state.finalize();
         hash.to_hex().to_string().to_uppercase()
-    }
-
-    fn new_instance(&self) -> Box<dyn HashStrategy> {
-        Box::new(Blake3Hasher::new())
     }
 }

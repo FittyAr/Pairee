@@ -41,11 +41,13 @@ pub enum TransferEvent {
     },
     VerifyStarted {
         job_id: Uuid,
+        file: PathBuf,
+        algorithm: String,
     },
     VerifyProgress {
         job_id: Uuid,
-        files_verified: usize,
-        total: usize,
+        bytes_verified: u64,
+        bytes_total: u64,
     },
     JobCompleted {
         job_id: Uuid,
@@ -67,13 +69,4 @@ pub enum TransferEvent {
     },
 }
 
-#[derive(Debug, Clone)]
-pub enum TransferCommand {
-    Pause,
-    Resume,
-    Cancel,
-    SkipFile,
-    ResolveConflict {
-        resolution: super::conflict::ConflictResolution,
-    },
-}
+

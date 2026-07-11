@@ -389,7 +389,19 @@ impl TransferWorker {
             // Verificación del hash
             let verified = true;
             if options.verify_after_copy {
+                let _ = self.event_tx.send(TransferEvent::VerifyStarted {
+                    job_id: self.job_id,
+                    file: src.clone(),
+                    algorithm: options.hash_algorithm.as_str().to_string(),
+                });
+
                 if let (Some(sh), Some(dh)) = (src_hash.as_ref(), dst_hash.as_ref()) {
+                    let _ = self.event_tx.send(TransferEvent::VerifyProgress {
+                        job_id: self.job_id,
+                        bytes_verified: size,
+                        bytes_total: size,
+                    });
+
                     if sh != dh {
                         results.failed_files.push(FailedFile {
                             src: src.clone(),

@@ -7,7 +7,7 @@ use crate::app::state::TransferUIState;
 
 pub fn render_queue_view(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     // Tomar snapshot de la cola de trabajos
-    let jobs = ts.engine.queue.get_all();
+    let jobs = ts.engine.get_queue_snapshot();
 
     if jobs.is_empty() {
         let empty_p = ratatui::widgets::Paragraph::new("\n No jobs in queue.")
@@ -19,7 +19,7 @@ pub fn render_queue_view(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     let mut rows = Vec::new();
     for (idx, job) in jobs.iter().enumerate() {
         let is_selected = idx == ts.queue_cursor;
-        let mut row_style = if is_selected {
+        let row_style = if is_selected {
             Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
         } else {
             Style::default().fg(Color::White)
