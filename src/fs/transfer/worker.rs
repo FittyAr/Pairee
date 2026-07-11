@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -13,7 +13,7 @@ use super::job::{
 use super::options::TransferOptions;
 use super::events::TransferEvent;
 use super::filter::TransferFilter;
-use super::conflict::{ConflictInfo, ConflictResolution, resolve_filename_conflict};
+use super::conflict::resolve_filename_conflict;
 use super::pipeline::copy_file_pipelined;
 use super::metadata::preserve_metadata;
 

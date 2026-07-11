@@ -27,7 +27,8 @@ pub async fn copy_file_pipelined(
     let buffer_bytes = options.buffer_size.to_bytes();
     
     // Abrir archivo origen
-    let mut src_file = std::fs::File::open(src).map_err(|e| anyhow!("Error opening source file: {}", e))?;
+    let mut src_file = super::direct_io::open_reader_direct(src, options.direct_io)
+        .map_err(|e| anyhow!("Error opening source file: {}", e))?;
     let metadata = src_file.metadata()?;
     let file_size = metadata.len();
     
@@ -35,7 +36,8 @@ pub async fn copy_file_pipelined(
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    let mut dst_file = std::fs::File::create(dst).map_err(|e| anyhow!("Error creating destination file: {}", e))?;
+    let mut dst_file = super::direct_io::open_writer_direct(dst, options.direct_io)
+        .map_err(|e| anyhow!("Error creating destination file: {}", e))?;
 
     // Configurar hashers si la verificación está activa
     let src_hasher: Option<Box<dyn HashStrategy>> = if options.verify_after_copy {

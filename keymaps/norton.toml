@@ -118,6 +118,7 @@ context_menu            = "Menu"
 context_menu_alt        = "Alt+m"
 compress_files_alt      = "Alt+c"
 extract_archive_alt     = "Alt+e"
+toggle_transfer_panel   = "Ctrl+t"
 
 # ── Folder shortcuts (Ctrl+Alt+1 … Ctrl+Alt+9) ───────────────────────────────
 go_folder_shortcut_1 = "Ctrl+Alt+1"

@@ -756,6 +756,23 @@ pub async fn handle_ui_settings_action(
             }
             true
         }
+        Action::ToggleTransferPanel => {
+            if let Some(ref mut ts) = state.transfer {
+                match ts.view_mode {
+                    crate::app::state::TransferViewMode::Hidden | crate::app::state::TransferViewMode::Minimized => {
+                        ts.view_mode = crate::app::state::TransferViewMode::Expanded;
+                        state.active_popup = Some(PopupType::TransferPanel);
+                    }
+                    crate::app::state::TransferViewMode::Expanded => {
+                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
+                        state.active_popup = None;
+                    }
+                }
+            } else {
+                state.active_popup = Some(PopupType::Info("No active background transfers.".to_string()));
+            }
+            true
+        }
         _ => false,
     }
 }

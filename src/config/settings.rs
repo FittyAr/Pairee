@@ -252,6 +252,32 @@ pub struct Settings {
         std::collections::HashMap<String, std::collections::HashMap<String, String>>,
     #[serde(default)]
     pub active_dev_plugin: Option<String>,
+
+    // ── Transfer Engine settings ─────────────────────────────────
+    #[serde(default = "default_true")]
+    pub transfer_engine_enabled: bool,
+    #[serde(default = "default_transfer_hash")]
+    pub transfer_default_hash: String,
+    #[serde(default = "default_transfer_buffer")]
+    pub transfer_buffer_size: u32,
+    #[serde(default)]
+    pub transfer_verify_after_copy: bool,
+    #[serde(default)]
+    pub transfer_direct_io: bool,
+    #[serde(default = "default_true")]
+    pub transfer_preserve_timestamps: bool,
+    #[serde(default = "default_true")]
+    pub transfer_preserve_attributes: bool,
+    #[serde(default = "default_transfer_max_retries")]
+    pub transfer_max_retries: u32,
+    #[serde(default = "default_transfer_conflict")]
+    pub transfer_conflict_resolution: String,
+    #[serde(default)]
+    pub transfer_skip_symlinks: bool,
+    #[serde(default)]
+    pub transfer_auto_report: bool,
+    #[serde(default = "default_transfer_report_format")]
+    pub transfer_report_format: String,
 }
 
 impl Default for Settings {
@@ -427,6 +453,20 @@ impl Default for Settings {
             plugins: std::collections::HashMap::new(),
             plugin_settings: std::collections::HashMap::new(),
             active_dev_plugin: None,
+
+            // Transfer Engine
+            transfer_engine_enabled: true,
+            transfer_default_hash: "blake3".to_string(),
+            transfer_buffer_size: 1024 * 1024,
+            transfer_verify_after_copy: false,
+            transfer_direct_io: false,
+            transfer_preserve_timestamps: true,
+            transfer_preserve_attributes: true,
+            transfer_max_retries: 3,
+            transfer_conflict_resolution: "ask".to_string(),
+            transfer_skip_symlinks: false,
+            transfer_auto_report: false,
+            transfer_report_format: "html".to_string(),
         }
     }
 }
@@ -480,3 +520,20 @@ fn default_plugins_dev_dir() -> String {
             .into_owned()
     }
 }
+
+fn default_transfer_hash() -> String {
+    "blake3".to_string()
+}
+fn default_transfer_buffer() -> u32 {
+    1024 * 1024
+}
+fn default_transfer_max_retries() -> u32 {
+    3
+}
+fn default_transfer_conflict() -> String {
+    "ask".to_string()
+}
+fn default_transfer_report_format() -> String {
+    "html".to_string()
+}
+

@@ -3,10 +3,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use std::time::Duration;
-use uuid::Uuid;
 
 use super::job::{TransferJob, TransferJobStatus};
-use super::events::{TransferEvent, TransferCommand};
+use super::events::TransferEvent;
 use super::queue::TransferQueue;
 use super::worker::TransferWorker;
 

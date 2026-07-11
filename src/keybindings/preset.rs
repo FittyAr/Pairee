@@ -400,6 +400,7 @@ fn action_to_name(action: Action) -> String {
         Action::OpenGitPanel => "open_git_panel",
         Action::ToggleSortReverse => "toggle_sort_reverse",
         Action::CheckForUpdates => "check_for_updates",
+        Action::ToggleTransferPanel => "toggle_transfer_panel",
     }
     .to_string()
 }
@@ -552,6 +553,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "open_git_panel" => Some(Action::OpenGitPanel),
         "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
         "check_for_updates" => Some(Action::CheckForUpdates),
+        "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
 
         _ => None,
     }

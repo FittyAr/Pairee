@@ -7,6 +7,7 @@ pub struct AppLayout {
     pub main_rect: Rect,
     pub left_rect: Rect,
     pub right_rect: Rect,
+    pub transfer_rect: Rect,
     pub cli_rect: Rect,
     pub fkeys_rect: Rect,
 }
@@ -40,6 +41,16 @@ pub fn calculate_layout(
         0
     };
 
+    let transfer_height = if let Some(ref ts) = state.transfer {
+        if ts.view_mode == crate::app::state::TransferViewMode::Minimized {
+            3
+        } else {
+            0
+        }
+    } else {
+        0
+    };
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -49,6 +60,7 @@ pub fn calculate_layout(
             } else {
                 Constraint::Min(3) // Normal: panels take remaining space
             },
+            Constraint::Length(transfer_height), // Transfer Compact Bar
             Constraint::Length(1),            // Command-line bar
             Constraint::Length(fkeys_height), // F1–F10 shortcuts
         ])
@@ -73,7 +85,8 @@ pub fn calculate_layout(
         main_rect: chunks[1],
         left_rect: panels_chunks[0],
         right_rect: panels_chunks[1],
-        cli_rect: chunks[2],
-        fkeys_rect: chunks[3],
+        transfer_rect: chunks[2],
+        cli_rect: chunks[3],
+        fkeys_rect: chunks[4],
     }
 }

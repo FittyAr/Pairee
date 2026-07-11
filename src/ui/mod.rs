@@ -9,6 +9,7 @@ pub mod popup;
 pub mod quickview;
 pub mod theme_apply;
 pub mod viewer;
+pub mod transfer;
 
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType};
@@ -25,6 +26,9 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     }
     if layout.fkeys_rect.height > 0 {
         fkeys::render_fkeys(f, layout.fkeys_rect, context, state);
+    }
+    if layout.transfer_rect.height > 0 {
+        transfer::bar::render_transfer_bar(f, layout.transfer_rect, state, context);
     }
     cli::render_cli(f, layout.cli_rect, state, context);
 
@@ -163,4 +167,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
 
     // 4. Overlay active popup dialogs if present
     popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
+
+    // 5. Render Transfer Panel overlay if active
+    transfer::panel::render_transfer_panel(f, state, context);
 }

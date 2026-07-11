@@ -230,6 +230,121 @@ pub fn process_background_updates(
         }
     }
 
+    // 1.9 Process Transfer Engine events
+    let mut refresh_needed = false;
+    if let Some(ref mut transfer_state) = state.transfer {
+        while let Ok(event) = transfer_state.event_rx.try_recv() {
+            use crate::fs::transfer::events::TransferEvent;
+            
+            match event {
+                TransferEvent::JobStarted { job_id } => {
+                    transfer_state.log_lines.push(format!("[{}] Job started", job_id));
+                    transfer_state.current_progress = Some(crate::fs::transfer::job::TransferProgress::default());
+                    transfer_state.current_results = Some(crate::fs::transfer::job::TransferResults::default());
+                }
+                TransferEvent::ScanProgress { files_found, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.files_scanned = files_found;
+                    }
+                }
+                TransferEvent::ScanComplete { total_files, total_bytes, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.files_total = total_files;
+                        prog.bytes_total = total_bytes;
+                    }
+                    transfer_state.log_lines.push(format!("Scan complete: {} files, {}", total_files, bytesize::ByteSize(total_bytes)));
+                }
+                TransferEvent::FileStarted { file, index, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.current_file = file.to_string_lossy().into_owned();
+                    }
+                    transfer_state.log_lines.push(format!("[{}] Copying: {}", index + 1, file.to_string_lossy()));
+                }
+                TransferEvent::FileProgress { bytes_copied, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.bytes_transferred = bytes_copied;
+                    }
+                }
+                TransferEvent::FileCompleted { result, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.files_completed += 1;
+                    }
+                    if let Some(ref mut res) = transfer_state.current_results {
+                        res.completed_files.push(result.clone());
+                    }
+                    transfer_state.log_lines.push(format!("✓ OK: {}", result.dst.to_string_lossy()));
+                }
+                TransferEvent::FileFailed { error, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.files_failed += 1;
+                    }
+                    if let Some(ref mut res) = transfer_state.current_results {
+                        res.failed_files.push(error.clone());
+                    }
+                    transfer_state.log_lines.push(format!("✗ FAIL: {} - {}", error.src.to_string_lossy(), error.error));
+                }
+                TransferEvent::FileSkipped { file, reason, .. } => {
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.files_skipped += 1;
+                    }
+                    if let Some(ref mut res) = transfer_state.current_results {
+                        res.skipped_files.push(crate::fs::transfer::job::SkippedFile {
+                            src: file.clone(),
+                            reason: reason.clone(),
+                        });
+                    }
+                    transfer_state.log_lines.push(format!("⚠ SKIP: {} - {}", file.to_string_lossy(), reason));
+                }
+                TransferEvent::SpeedUpdate { bytes_per_second, eta_seconds, .. } => {
+                    transfer_state.speed_info = (bytes_per_second, eta_seconds);
+                    if let Some(ref mut prog) = transfer_state.current_progress {
+                        prog.bytes_per_second = bytes_per_second;
+                        prog.eta_seconds = eta_seconds;
+                    }
+                }
+                TransferEvent::JobCompleted { results, job_id } => {
+                    transfer_state.log_lines.push(format!("[{}] Job completed successfully", job_id));
+                    transfer_state.current_progress = None;
+                    refresh_needed = true;
+
+                    if context.config.settings.transfer_auto_report {
+                        let format = &context.config.settings.transfer_report_format;
+                        let content = if format == "csv" {
+                            crate::fs::transfer::report::generate_csv_report(&results)
+                        } else {
+                            crate::fs::transfer::report::generate_html_report(&results, &format!("Job {}", job_id))
+                        };
+                        let dest_dir = if let Some(first_file) = results.completed_files.first() {
+                            first_file.dst.parent().unwrap_or(std::path::Path::new("."))
+                        } else {
+                            std::path::Path::new(".")
+                        };
+                        if let Ok(report_path) = crate::fs::transfer::report::save_report(&content, format, dest_dir) {
+                            transfer_state.log_lines.push(format!("Saved report to: {}", report_path.to_string_lossy()));
+                        }
+                    }
+                }
+                TransferEvent::JobFailed { error, job_id } => {
+                    transfer_state.log_lines.push(format!("[{}] Job failed: {}", job_id, error));
+                    transfer_state.current_progress = None;
+                    refresh_needed = true;
+                }
+                TransferEvent::ConflictDetected { file, .. } => {
+                    transfer_state.log_lines.push(format!("Conflict detected: {}", file.to_string_lossy()));
+                }
+                TransferEvent::VerifyStarted { .. } => {
+                    transfer_state.log_lines.push("Starting integrity verification...".to_string());
+                }
+                TransferEvent::VerifyProgress { .. } => {
+                    // Opcionalmente podemos registrar el progreso
+                }
+            }
+        }
+    }
+    if refresh_needed {
+        state.refresh_both_panels(context.config.settings.show_hidden);
+    }
+
     if let Some(cmd) = state.pending_custom_command.take() {
         let active_path = state.get_active_panel().current_path.clone();
         let _ = crate::app::actions::exec::execute_shell_command(

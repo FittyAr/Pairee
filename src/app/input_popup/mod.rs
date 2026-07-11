@@ -34,6 +34,7 @@ pub mod task_list;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
+pub mod transfer_panel;
 
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
@@ -120,6 +121,7 @@ pub fn handle_popup_input(
             }
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
+            PopupType::TransferPanel => transfer_panel::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

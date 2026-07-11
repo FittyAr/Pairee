@@ -326,6 +326,7 @@ pub enum PopupType {
         bytes_copied: u64,
         total_bytes: u64,
     },
+    TransferPanel,
 
     // ── Menus / lists ─────────────────────────────────────────────────────────
     UserMenu {

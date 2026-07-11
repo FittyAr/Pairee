@@ -216,4 +216,6 @@ pub enum Action {
     ToggleSortReverse,
     /// Install local plugin in development (developer mode)
     InstallDevPlugin,
+    /// Toggle Transfer Panel (Ctrl+T)
+    ToggleTransferPanel,
 }
