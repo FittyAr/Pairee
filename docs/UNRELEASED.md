@@ -2,6 +2,8 @@
 
 ### Added
 
+- Batch conflict resolution options: Overwrite All, Overwrite All Older, Skip All, and Rename All in the conflict dialog.
+- Interactive job cancellation directly from the conflict dialog.
 - High-performance asynchronous Transfer Engine inspired by TeraCopy, allowing non-blocking background file copying and moving.
 - Interactive multi-tab Transfer Panel showing file list transfer statuses, options, speed statistics, and logs.
 - Support for queueing multiple file transfer jobs with paused, active, skipped, and cancelled lifecycle controls.
@@ -26,6 +28,9 @@
 
 ### Improved
 
+- Redesigned the expanded transfer panel to a split two-column layout: a vertical sidebar on the left listing all queued and running transfer jobs (style TeraCopy), and an inspector panel on the right showing file lists, options, stats, and logs for the selected job.
+- Key bindings inside the transfer panel: Up/Down navigate the jobs list sidebar, Left/Right/Tab/BackTab/1-4 switch inspector tabs, and PageUp/PageDown scroll the inspector content (FileList or Options).
+- Toggling Pause/Resume (`p`/`P`), skipping files (`s`/`S`), and cancelling jobs (`x`/`X`) now target the selected job in the sidebar instead of only the active one, allowing users to pause/run and alternate between queued transfer jobs.
 - Improved Transfer Engine UI rendering performance by implementing a sliding window to display only visible entries, resolving UI lag during large file transfers.
 - Limit background transfer log history to 1000 entries to prevent memory exhaustion and UI sluggishness.
 - Direct I/O implementation now ensures 4096-byte memory alignment using `AlignedBuffer` and handles partial sectors at the end of files by temporarily falling back to standard buffered handles, resolving transfer errors with non-aligned boundaries.
@@ -52,6 +57,11 @@
 
 - Pressing Enter on a file now opens it with Pairee's native viewer (text, image, or hex) by default. Launching external editors on Enter is now opt-in via the `enter_use_external` config setting.
 - Replaced the hybrid translation engine with a portable, symmetric TOML-based system using embedded files (`lang/en.toml` and `lang/es.toml`), supporting custom local overrides.
+
+### Removed
+
+- Removed the horizontal Jobs Queue tab inside the transfer panel as it is replaced by the vertical jobs list sidebar.
+- Removed the obsolete `queue_view` UI module.
 
 ### Fixed
 

@@ -7,6 +7,9 @@ pub enum TransferEvent {
     JobStarted {
         job_id: Uuid,
     },
+    ScanStarted {
+        job_id: Uuid,
+    },
     ScanProgress {
         job_id: Uuid,
         files_found: usize,

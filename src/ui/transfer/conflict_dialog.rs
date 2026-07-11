@@ -16,7 +16,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Percentage(20),
-            Constraint::Length(14),
+            Constraint::Length(16),
             Constraint::Percentage(20),
         ])
         .split(area);
@@ -49,7 +49,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .constraints([
             Constraint::Length(2), // Cabecera/Instrucción
             Constraint::Length(6), // Comparación de Archivos
-            Constraint::Length(4), // Opciones/Teclas
+            Constraint::Length(6), // Opciones/Teclas
         ])
         .split(inner_area);
 
@@ -89,7 +89,10 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     );
 
     // 3. Opciones de resolución
-    let options_text = "\n[o] Overwrite   [a] Overwrite Older   [s] Skip   [r] Rename Both";
+    let options_text = "\n\
+        [o] Overwrite        [a] Overwrite Older        [s] Skip        [r] Rename Both\n\
+        [O] Overwrite All    [A] Overwrite All Older    [S] Skip All    [R] Rename All\n\
+        [x] Cancel Job";
     f.render_widget(
         Paragraph::new(options_text)
             .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))

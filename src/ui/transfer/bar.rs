@@ -17,14 +17,29 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
         return;
     }
 
-    let progress = match &transfer_state.current_progress {
+    let jobs = transfer_state.engine.queue.get_all();
+    let active_job = jobs.iter().find(|j| {
+        matches!(
+            j.status,
+            crate::fs::transfer::job::TransferJobStatus::Scanning
+                | crate::fs::transfer::job::TransferJobStatus::Transferring
+                | crate::fs::transfer::job::TransferJobStatus::Verifying
+                | crate::fs::transfer::job::TransferJobStatus::Paused
+        )
+    }).or_else(|| jobs.first());
+
+    let job = match active_job {
+        Some(j) => j,
+        None => return,
+    };
+
+    let progress = match &job.progress {
         Some(p) => p,
         None => return,
     };
 
-
     // Color según estado
-    let bar_color = if state.transfer.as_ref().map(|ts| ts.engine.queue.get_active().map(|j| j.status == crate::fs::transfer::job::TransferJobStatus::Paused).unwrap_or(false)).unwrap_or(false) {
+    let bar_color = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
         Color::Yellow
     } else if progress.files_failed > 0 {
         Color::Red
@@ -73,10 +88,18 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
     f.render_widget(gauge, chunks[1]);
 
     // 3. Velocidad y ETA
-    let speed_formatted = bytesize::ByteSize(transfer_state.speed_info.0 as u64).to_string();
-    let eta_text = match transfer_state.speed_info.1 {
-        Some(secs) => format!("ETA {}s", secs),
-        None => "ETA --".to_string(),
+    let speed_formatted = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
+        "0 B".to_string()
+    } else {
+        bytesize::ByteSize(transfer_state.speed_info.0 as u64).to_string()
+    };
+    let eta_text = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
+        "ETA --".to_string()
+    } else {
+        match transfer_state.speed_info.1 {
+            Some(secs) => format!("ETA {}s", secs),
+            None => "ETA --".to_string(),
+        }
     };
     let speed_eta = format!(" {}/s | {}", speed_formatted, eta_text);
     f.render_widget(Paragraph::new(speed_eta).style(Style::default().fg(Color::Yellow)), chunks[2]);

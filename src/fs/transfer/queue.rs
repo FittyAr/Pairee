@@ -26,13 +26,14 @@ impl TransferQueue {
     pub fn dequeue(&self) -> Option<TransferJob> {
         let mut active_id = self.active_job_id.lock().unwrap();
         let mut jobs = self.jobs.lock().unwrap();
-        // Buscar el primer trabajo Queued
-        if let Some(idx) = jobs.iter().position(|j| j.status == TransferJobStatus::Queued) {
-            let mut job = jobs.remove(idx).unwrap();
+        if let Some(idx) = jobs
+            .iter()
+            .position(|j| j.status == TransferJobStatus::Queued)
+        {
+            let mut job = jobs[idx].clone();
             *active_id = Some(job.id);
             job.status = TransferJobStatus::Scanning;
-            // Lo insertamos de nuevo como el trabajo activo (al principio)
-            jobs.push_front(job.clone());
+            jobs[idx] = job.clone();
             Some(job)
         } else {
             None
@@ -86,57 +87,11 @@ impl TransferQueue {
         jobs.iter().cloned().collect()
     }
 
-    pub fn get_active(&self) -> Option<TransferJob> {
-        let active_id = self.active_job_id.lock().unwrap();
-        if let Some(id) = *active_id {
-            let jobs = self.jobs.lock().unwrap();
-            jobs.iter().find(|j| j.id == id).cloned()
-        } else {
-            None
-        }
-    }
-
-    pub fn set_active_status(&self, status: TransferJobStatus) {
-        let active_id = self.active_job_id.lock().unwrap();
-        if let Some(id) = *active_id {
-            let mut jobs = self.jobs.lock().unwrap();
-            if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
-                job.status = status;
-            }
-        }
-    }
-
-
-
-    pub fn update_active_results<F>(&self, update_fn: F)
-    where
-        F: FnOnce(&mut super::job::TransferResults),
-    {
-        let active_id = self.active_job_id.lock().unwrap();
-        if let Some(id) = *active_id {
-            let mut jobs = self.jobs.lock().unwrap();
-            if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
-                update_fn(&mut job.results);
-            }
-        }
-    }
-
-    pub fn update_active_options<F>(&self, update_fn: F)
-    where
-        F: FnOnce(&mut super::options::TransferOptions),
-    {
-        let active_id = self.active_job_id.lock().unwrap();
-        if let Some(id) = *active_id {
-            let mut jobs = self.jobs.lock().unwrap();
-            if let Some(job) = jobs.iter_mut().find(|j| j.id == id) {
-                update_fn(&mut job.options);
-            }
-        }
-    }
-
     pub fn pending_count(&self) -> usize {
         let jobs = self.jobs.lock().unwrap();
-        jobs.iter().filter(|j| j.status == TransferJobStatus::Queued).count()
+        jobs.iter()
+            .filter(|j| j.status == TransferJobStatus::Queued)
+            .count()
     }
 
     pub fn clear_completed(&self) {
@@ -144,18 +99,13 @@ impl TransferQueue {
         jobs.retain(|j| !j.is_terminal());
     }
 
-    pub fn clear_active(&self) {
-        let mut active_id = self.active_job_id.lock().unwrap();
-        *active_id = None;
-    }
-
-    pub fn cancel_all_pending(&self) {
+    pub fn update_job<F>(&self, job_id: Uuid, update_fn: F)
+    where
+        F: FnOnce(&mut TransferJob),
+    {
         let mut jobs = self.jobs.lock().unwrap();
-        for job in jobs.iter_mut() {
-            if job.status == TransferJobStatus::Queued {
-                job.status = TransferJobStatus::Cancelled;
-            }
+        if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
+            update_fn(job);
         }
     }
 }
-

@@ -11,6 +11,11 @@ pub struct TransferJob {
     pub options: super::options::TransferOptions,
     pub status: TransferJobStatus,
     pub results: TransferResults,
+    pub progress: Option<TransferProgress>,
+    pub log_lines: Vec<String>,
+    pub is_paused: Arc<std::sync::atomic::AtomicBool>,
+    pub is_cancelled: Arc<std::sync::atomic::AtomicBool>,
+    pub skip_file_flag: Arc<std::sync::atomic::AtomicBool>,
     pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
 }
 
@@ -29,6 +34,11 @@ impl TransferJob {
             options,
             status: TransferJobStatus::Queued,
             results: TransferResults::default(),
+            progress: None,
+            log_lines: Vec::new(),
+            is_paused: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            is_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
+            skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             active_conflict: Arc::new(std::sync::Mutex::new(None)),
         }
     }

@@ -42,7 +42,15 @@ pub fn calculate_layout(
     };
 
     let transfer_height = if let Some(ref ts) = state.transfer {
-        if ts.view_mode == crate::app::state::TransferViewMode::Minimized && ts.current_progress.is_some() {
+        let any_running = ts.engine.queue.get_all().iter().any(|j| {
+            matches!(
+                j.status,
+                crate::fs::transfer::job::TransferJobStatus::Scanning
+                    | crate::fs::transfer::job::TransferJobStatus::Transferring
+                    | crate::fs::transfer::job::TransferJobStatus::Verifying
+            )
+        });
+        if ts.view_mode == crate::app::state::TransferViewMode::Minimized && any_running {
             3
         } else {
             0

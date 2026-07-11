@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 use std::time::Duration;
@@ -12,10 +12,7 @@ use super::worker::TransferWorker;
 pub struct TransferEngine {
     pub queue: TransferQueue,
     event_tx: mpsc::UnboundedSender<TransferEvent>,
-    is_paused: Arc<AtomicBool>,
-    is_cancelled: Arc<AtomicBool>,
-    skip_file_flag: Arc<AtomicBool>,
-    active_worker_handle: Option<JoinHandle<()>>,
+    active_coordinator_handle: Option<JoinHandle<()>>,
 }
 
 impl TransferEngine {
@@ -24,10 +21,7 @@ impl TransferEngine {
         let engine = Self {
             queue: TransferQueue::new(),
             event_tx,
-            is_paused: Arc::new(AtomicBool::new(false)),
-            is_cancelled: Arc::new(AtomicBool::new(false)),
-            skip_file_flag: Arc::new(AtomicBool::new(false)),
-            active_worker_handle: None,
+            active_coordinator_handle: None,
         };
         (engine, event_rx)
     }
@@ -37,115 +31,91 @@ impl TransferEngine {
         self.trigger_processing_loop();
     }
 
-    pub fn pause(&self) {
-        self.is_paused.store(true, Ordering::SeqCst);
-        self.queue.set_active_status(TransferJobStatus::Paused);
-    }
 
-    pub fn resume(&self) {
-        self.is_paused.store(false, Ordering::SeqCst);
-        self.queue.set_active_status(TransferJobStatus::Transferring);
-    }
-
-    pub fn cancel(&self) {
-        self.is_cancelled.store(true, Ordering::SeqCst);
-        self.queue.cancel_all_pending();
-    }
-
-    pub fn skip_file(&self) {
-        self.skip_file_flag.store(true, Ordering::SeqCst);
-    }
-
-    pub fn get_queue_snapshot(&self) -> Vec<TransferJob> {
-        self.queue.get_all()
-    }
 
     pub fn trigger_processing_loop(&mut self) {
-        if let Some(ref handle) = self.active_worker_handle {
-            if !handle.is_finished() {
-                return;
-            }
+        if self.active_coordinator_handle.is_some() {
+            return;
         }
-
-        // Resetear flags antes de iniciar un nuevo bucle
-        self.is_paused.store(false, Ordering::SeqCst);
-        self.is_cancelled.store(false, Ordering::SeqCst);
-        self.skip_file_flag.store(false, Ordering::SeqCst);
 
         let queue = self.queue.clone();
         let event_tx = self.event_tx.clone();
-        let is_paused = Arc::clone(&self.is_paused);
-        let is_cancelled = Arc::clone(&self.is_cancelled);
-        let skip_file_flag = Arc::clone(&self.skip_file_flag);
 
         let handle = tokio::spawn(async move {
             loop {
-                // Si la cola está cancelada globalmente, la limpiamos y salimos
-                if is_cancelled.load(Ordering::Relaxed) {
-                    queue.clear_active();
-                    break;
-                }
+                let jobs = queue.get_all();
+                
+                // 1. Verificar si hay algún trabajo activo
+                let any_running = jobs.iter().any(|j| {
+                    matches!(
+                        j.status,
+                        TransferJobStatus::Scanning
+                            | TransferJobStatus::Transferring
+                            | TransferJobStatus::Verifying
+                    )
+                });
 
-                // Intentar sacar el siguiente trabajo
-                let job = match queue.dequeue() {
-                    Some(j) => j,
-                    None => {
-                        // No hay más trabajos
-                        queue.clear_active();
-                        break;
-                    }
-                };
+                if !any_running {
+                    // Buscar el primer trabajo Queued en la cola
+                    if let Some(job) = queue.dequeue() {
+                        let job_id = job.id;
+                        let queue_clone = queue.clone();
+                        let event_tx_clone = event_tx.clone();
 
-                // Resetear flags para este nuevo trabajo
-                is_paused.store(false, Ordering::SeqCst);
-                is_cancelled.store(false, Ordering::SeqCst);
-                skip_file_flag.store(false, Ordering::SeqCst);
+                        tokio::spawn(async move {
+                            let worker = TransferWorker::new(
+                                job.id,
+                                job.operation,
+                                job.sources,
+                                job.destination,
+                                job.options.clone(),
+                                Arc::clone(&job.is_paused),
+                                Arc::clone(&job.is_cancelled),
+                                Arc::clone(&job.skip_file_flag),
+                                event_tx_clone.clone(),
+                                job.active_conflict.clone(),
+                            );
 
-                // Configurar el worker
-                let worker = TransferWorker::new(
-                    job.id,
-                    job.operation,
-                    job.sources,
-                    job.destination,
-                    job.options,
-                    Arc::clone(&is_paused),
-                    Arc::clone(&is_cancelled),
-                    Arc::clone(&skip_file_flag),
-                    event_tx.clone(),
-                    job.active_conflict.clone(),
-                );
+                            queue_clone.update_job(job_id, |j| {
+                                j.status = TransferJobStatus::Scanning;
+                            });
+                            let _ = event_tx_clone.send(TransferEvent::ScanStarted { job_id });
 
-                // Correr el worker
-                match worker.run().await {
-                    Ok(results) => {
-                        queue.update_active_results(|r| {
-                            *r = results;
+                            match worker.run().await {
+                                Ok(results) => {
+                                    queue_clone.update_job(job_id, |j| {
+                                        j.status = TransferJobStatus::Completed;
+                                        j.results = results.clone();
+                                    });
+                                    let _ = event_tx_clone.send(TransferEvent::JobCompleted {
+                                        job_id,
+                                        results,
+                                    });
+                                }
+                                Err(e) => {
+                                    let err_msg = e.to_string();
+                                    let is_cancel = err_msg.contains("cancelled");
+                                    queue_clone.update_job(job_id, |j| {
+                                        j.status = if is_cancel {
+                                            TransferJobStatus::Cancelled
+                                        } else {
+                                            TransferJobStatus::Failed
+                                        };
+                                    });
+                                    let _ = event_tx_clone.send(TransferEvent::JobFailed {
+                                        job_id,
+                                        error: if is_cancel { "Job cancelled by user".to_string() } else { err_msg },
+                                    });
+                                }
+                            }
                         });
-                        queue.set_active_status(TransferJobStatus::Completed);
-                    }
-                    Err(e) => {
-                        let err_msg = e.to_string();
-                        if err_msg.contains("cancelled") {
-                            queue.set_active_status(TransferJobStatus::Cancelled);
-                            let _ = event_tx.send(TransferEvent::JobFailed {
-                                job_id: job.id,
-                                error: "Job cancelled by user".to_string(),
-                            });
-                        } else {
-                            queue.set_active_status(TransferJobStatus::Failed);
-                            let _ = event_tx.send(TransferEvent::JobFailed {
-                                job_id: job.id,
-                                error: err_msg,
-                            });
-                        }
                     }
                 }
 
-                // Pequeña pausa entre trabajos
                 tokio::time::sleep(Duration::from_millis(200)).await;
             }
         });
 
-        self.active_worker_handle = Some(handle);
+        self.active_coordinator_handle = Some(handle);
     }
 }

@@ -4,10 +4,15 @@ use std::path::{Path, PathBuf};
 pub enum ConflictResolution {
     Ask,
     Overwrite,
+    OverwriteAll,
     OverwriteOlder,
+    OverwriteOlderAll,
     Skip,
+    SkipAll,
     Rename,
+    RenameAll,
     KeepBoth,
+    Cancel,
 }
 
 #[derive(Debug, Clone)]

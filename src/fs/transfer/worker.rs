@@ -58,6 +58,7 @@ impl TransferWorker {
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
+        let mut auto_resolution = None;
         let _ = self.event_tx.send(TransferEvent::JobStarted { job_id: self.job_id });
 
         // Detección LAN y optimización de buffers
@@ -271,39 +272,57 @@ impl TransferWorker {
             if dst.exists() {
                 let mut resolution = options.conflict_resolution.clone();
                 if resolution == "ask" {
-                    // Notificar conflicto
-                    let _ = self.event_tx.send(TransferEvent::ConflictDetected {
-                        job_id: self.job_id,
-                        file: dst.clone(),
-                        conflict: crate::fs::transfer::conflict::ConflictInfo {
-                            src_path: src.clone(),
-                            dst_path: dst.clone(),
-                            src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
-                            dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
-                            src_modified: src.metadata().and_then(|m| m.modified()).ok(),
-                            dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
-                        },
-                    });
+                    let chosen = if let Some(auto_res) = auto_resolution {
+                        auto_res
+                    } else {
+                        // Notificar conflicto
+                        let _ = self.event_tx.send(TransferEvent::ConflictDetected {
+                            job_id: self.job_id,
+                            file: dst.clone(),
+                            conflict: crate::fs::transfer::conflict::ConflictInfo {
+                                src_path: src.clone(),
+                                dst_path: dst.clone(),
+                                src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
+                                dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
+                                src_modified: src.metadata().and_then(|m| m.modified()).ok(),
+                                dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                            },
+                        });
 
-                    // Limpiar conflicto anterior y esperar respuesta de la UI
-                    {
-                        let mut guard = self.active_conflict.lock().unwrap();
-                        *guard = None;
-                    }
+                        // Limpiar conflicto anterior y esperar respuesta de la UI
+                        {
+                            let mut guard = self.active_conflict.lock().unwrap();
+                            *guard = None;
+                        }
 
-                    while self.active_conflict.lock().unwrap().is_none() {
-                        if self.is_cancelled.load(Ordering::Relaxed) {
+                        while self.active_conflict.lock().unwrap().is_none() {
+                            if self.is_cancelled.load(Ordering::Relaxed) {
+                                return Err(anyhow!("Job cancelled"));
+                            }
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        }
+
+                        let ch = self.active_conflict.lock().unwrap().clone().unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+                        match ch {
+                            crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
+                            crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
+                            crate::fs::transfer::conflict::ConflictResolution::SkipAll |
+                            crate::fs::transfer::conflict::ConflictResolution::RenameAll => {
+                                auto_resolution = Some(ch);
+                            }
+                            _ => {}
+                        }
+                        ch
+                    };
+
+                    resolution = match chosen {
+                        crate::fs::transfer::conflict::ConflictResolution::Overwrite | crate::fs::transfer::conflict::ConflictResolution::OverwriteAll => "overwrite".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder | crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll => "overwrite_older".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::Rename | crate::fs::transfer::conflict::ConflictResolution::RenameAll | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => "rename".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::Cancel => {
+                            self.is_cancelled.store(true, Ordering::SeqCst);
                             return Err(anyhow!("Job cancelled"));
                         }
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    }
-
-                    // Recuperar la resolución seleccionada
-                    let chosen = self.active_conflict.lock().unwrap().clone().unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
-                    resolution = match chosen {
-                        crate::fs::transfer::conflict::ConflictResolution::Overwrite => "overwrite".to_string(),
-                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder => "overwrite_older".to_string(),
-                        crate::fs::transfer::conflict::ConflictResolution::Rename | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => "rename".to_string(),
                         _ => "skip".to_string(),
                     };
                 }

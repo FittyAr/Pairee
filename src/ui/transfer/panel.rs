@@ -4,7 +4,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::Frame;
 
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, TransferTab, TransferViewMode};
+use crate::app::state::{AppState, TransferTab, TransferViewMode, TransferUIState};
+use crate::fs::transfer::job::{TransferJobStatus, TransferProgress, TransferResults};
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect;
 
@@ -17,8 +18,6 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
     if transfer_state.view_mode != TransferViewMode::Expanded {
         return;
     }
-
-    let progress_opt = transfer_state.current_progress.as_ref();
 
     let size = f.area();
     // Popup centrado: 80% ancho, 75% alto
@@ -37,65 +36,174 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
     let inner_area = block.inner(popup_area);
     f.render_widget(block, popup_area);
 
-    // Layout principal: Cabecera, Pestañas, Contenido de Pestaña, Cola, Botones
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
+    // Dividir horizontalmente: Sidebar (30%) e Inspector (70%)
+    let main_layout = Layout::default()
+        .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Length(4), // Cabecera (Velocidad, ETA, Gauge principal)
-            Constraint::Length(3), // Pestañas (File List, Options, Status, Log)
-            Constraint::Min(5),    // Contenido
-            Constraint::Length(3), // Botones de Acción (Footer)
+            Constraint::Percentage(30),
+            Constraint::Percentage(70),
         ])
         .split(inner_area);
 
-    // --- 1. CABECERA ---
-    render_header(f, chunks[0], transfer_state, progress_opt);
+    let jobs = transfer_state.engine.queue.get_all();
 
-    // --- 2. PESTAÑAS (TABS) ---
-    render_tabs(f, chunks[1], transfer_state.active_tab);
+    // --- 1. RENDER SIDEBAR (COL IZQUIERDA) ---
+    render_jobs_sidebar(f, main_layout[0], transfer_state, &jobs);
 
-    // --- 3. CONTENIDO ---
-    match transfer_state.active_tab {
-        TransferTab::FileList => render_file_list_tab(f, chunks[2], transfer_state),
-        TransferTab::Options => render_options_tab(f, chunks[2], transfer_state),
-        TransferTab::Status => render_status_tab(f, chunks[2], transfer_state, progress_opt),
-        TransferTab::Log => render_log_tab(f, chunks[2], transfer_state),
-        TransferTab::Queue => super::queue_view::render_queue_view(f, chunks[2], transfer_state),
+    // --- 2. RENDER INSPECTOR (COL DERECHA) ---
+    if jobs.is_empty() {
+        let empty_p = Paragraph::new("\n No jobs in queue.\n Press F5 to Copy or F6 to Move files.")
+            .style(Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC))
+            .block(Block::default().borders(Borders::LEFT).border_style(Style::default().fg(Color::DarkGray)));
+        f.render_widget(empty_p, main_layout[1]);
+    } else {
+        let cursor_idx = transfer_state.queue_cursor.min(jobs.len().saturating_sub(1));
+        if let Some(selected_job) = jobs.get(cursor_idx) {
+            let inspector_area = main_layout[1];
+            // Aseguramos una división vertical del inspector con borde izquierdo
+            let inspector_block = Block::default().borders(Borders::LEFT).border_style(Style::default().fg(Color::DarkGray));
+            let inner_inspector = inspector_block.inner(inspector_area);
+            f.render_widget(inspector_block, inspector_area);
+
+            let chunks = Layout::default()
+                .direction(Direction::Vertical)
+                .constraints([
+                    Constraint::Length(4), // Cabecera
+                    Constraint::Length(3), // Pestañas
+                    Constraint::Min(5),    // Contenido
+                    Constraint::Length(3), // Footer (Acciones)
+                ])
+                .split(inner_inspector);
+
+            let progress = selected_job.progress.as_ref();
+            let results = &selected_job.results;
+            let log_lines = &selected_job.log_lines;
+
+            // Header
+            render_header(f, chunks[0], transfer_state, progress, selected_job);
+
+            // Tabs
+            render_tabs(f, chunks[1], transfer_state.active_tab);
+
+            // Content
+            match transfer_state.active_tab {
+                TransferTab::FileList => render_file_list_tab(f, chunks[2], transfer_state, results),
+                TransferTab::Options => render_options_tab(f, chunks[2], transfer_state, selected_job),
+                TransferTab::Status => render_status_tab(f, chunks[2], transfer_state, progress, results),
+                TransferTab::Log => render_log_tab(f, chunks[2], log_lines),
+            }
+
+            // Footer
+            render_footer(f, chunks[3], selected_job);
+        }
     }
-
-    // --- 4. FOOTER (ACCIONES) ---
-    render_footer(f, chunks[3], transfer_state);
 }
 
-fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState, prog: Option<&crate::fs::transfer::job::TransferProgress>) {
+fn render_jobs_sidebar(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    jobs: &[crate::fs::transfer::job::TransferJob],
+) {
+    let mut list_items = Vec::new();
+    for (idx, job) in jobs.iter().enumerate() {
+        let is_selected = idx == ts.queue_cursor;
+        
+        let op_name = match job.operation {
+            crate::fs::transfer::job::TransferOperation::Copy => "Copy",
+            crate::fs::transfer::job::TransferOperation::Move => "Move",
+        };
+
+        let (status_str, color) = match job.status {
+            TransferJobStatus::Queued => ("Queued".to_string(), Color::Gray),
+            TransferJobStatus::Scanning => ("Scanning...".to_string(), Color::Cyan),
+            TransferJobStatus::Transferring => {
+                let pct = job.progress.as_ref().map(|p| p.percent_bytes()).unwrap_or(0.0);
+                (format!("Running ({:.0}%)", pct), Color::Green)
+            }
+            TransferJobStatus::Verifying => ("Verifying...".to_string(), Color::LightBlue),
+            TransferJobStatus::Paused => ("Paused".to_string(), Color::Yellow),
+            TransferJobStatus::Completed => ("Completed".to_string(), Color::LightGreen),
+            TransferJobStatus::Failed => ("Failed".to_string(), Color::LightRed),
+            TransferJobStatus::Cancelled => ("Cancelled".to_string(), Color::Red),
+        };
+
+        let title_line = format!("#{} {} - {}", idx + 1, op_name, status_str);
+        let dest_str = format!("Dest: {}", job.destination.file_name().unwrap_or(&job.destination.as_os_str()).to_string_lossy());
+
+        let mut item_style = Style::default().fg(color);
+        if is_selected {
+            item_style = Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD);
+        }
+
+        let mut lines = vec![
+            ratatui::text::Line::from(ratatui::text::Span::styled(title_line, item_style)),
+            ratatui::text::Line::from(ratatui::text::Span::styled(dest_str, if is_selected { Style::default().fg(Color::Black) } else { Style::default().fg(Color::DarkGray) })),
+            ratatui::text::Line::from(""),
+        ];
+        
+        if idx == jobs.len() - 1 {
+            lines.pop();
+        }
+
+        list_items.push(ListItem::new(lines));
+    }
+
+    let jobs_list = List::new(list_items)
+        .block(Block::default().borders(Borders::ALL).title(" Jobs List ").border_type(BorderType::Rounded).border_style(Style::default().fg(Color::DarkGray)))
+        .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+
+    let mut list_state = ratatui::widgets::ListState::default();
+    list_state.select(Some(ts.queue_cursor));
+
+    f.render_stateful_widget(jobs_list, area, &mut list_state);
+}
+
+fn render_header(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    prog: Option<&TransferProgress>,
+    job: &crate::fs::transfer::job::TransferJob,
+) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(1), // Texto: DJI_0427.MP4
-            Constraint::Length(2), // Gauge + Speed/ETA info
+            Constraint::Length(1),
+            Constraint::Length(2),
         ])
         .split(area);
 
     let file_text = match prog {
-        Some(p) => format!("Current File: {}", p.current_file),
-        None => "No active transfer / Finished".to_string(),
+        Some(p) if job.status == TransferJobStatus::Transferring || job.status == TransferJobStatus::Scanning || job.status == TransferJobStatus::Verifying => {
+            let path = std::path::Path::new(&p.current_file);
+            format!("Current File: {}", summarize_path(path))
+        }
+        _ => format!("Job status: {:?}", job.status),
     };
     f.render_widget(Paragraph::new(file_text).style(Style::default().fg(Color::White)), chunks[0]);
 
     let percent = prog.map(|p| p.percent_bytes() as u16).unwrap_or(0);
-    let label = if prog.is_some() {
-        format!("{}%", percent)
-    } else {
-        "Finished / Idle".to_string()
+    let label = match job.status {
+        TransferJobStatus::Completed => "100% (Completed)".to_string(),
+        TransferJobStatus::Failed => "Failed".to_string(),
+        TransferJobStatus::Cancelled => "Cancelled".to_string(),
+        _ => if prog.is_some() {
+            format!("{}%", percent)
+        } else {
+            "0%".to_string()
+        }
     };
-    let speed_formatted = if prog.is_some() {
+    let speed_formatted = if prog.is_some() && (job.status == TransferJobStatus::Transferring || job.status == TransferJobStatus::Verifying) {
         bytesize::ByteSize(ts.speed_info.0 as u64).to_string()
     } else {
         "0 B".to_string()
     };
     let eta_text = match prog.and_then(|_| ts.speed_info.1) {
-        Some(secs) => format!("ETA {}s", secs),
-        None => "ETA --".to_string(),
+        Some(secs) if job.status == TransferJobStatus::Transferring || job.status == TransferJobStatus::Verifying => {
+            format!("ETA {}s", secs)
+        }
+        _ => "ETA --".to_string(),
     };
 
     let gauge_chunk = Layout::default()
@@ -107,9 +215,9 @@ fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUISt
         .split(chunks[1]);
 
     let gauge = Gauge::default()
-        .percent(percent)
+        .percent(if job.status == TransferJobStatus::Completed { 100 } else { percent })
         .label(label)
-        .gauge_style(Style::default().fg(Color::Green).bg(Color::DarkGray).add_modifier(Modifier::BOLD));
+        .gauge_style(Style::default().fg(if job.status == TransferJobStatus::Completed { Color::LightGreen } else { Color::Green }).bg(Color::DarkGray).add_modifier(Modifier::BOLD));
     f.render_widget(gauge, gauge_chunk[0]);
 
     let info_text = format!(" {}/s | {} ", speed_formatted, eta_text);
@@ -117,7 +225,7 @@ fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUISt
 }
 
 fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
-    let tab_titles = vec!["[1] File List", "[2] Options", "[3] Status", "[4] Log", "[5] Queue"];
+    let tab_titles = vec![" [1] File List ", " [2] Options ", " [3] Status ", " [4] Log "];
     let tab_area = Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::DarkGray));
     let inner_area = tab_area.inner(area);
     f.render_widget(tab_area, area);
@@ -125,34 +233,52 @@ fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
     let tab_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
-            Constraint::Percentage(20),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
+            Constraint::Percentage(25),
         ])
         .split(inner_area);
 
     for (idx, title) in tab_titles.into_iter().enumerate() {
         let is_active = idx == active_tab as usize;
-        let style = if is_active {
-            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        
+        let (text, style) = if is_active {
+            (
+                format!("  {}  ", title),
+                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            )
         } else {
-            Style::default().fg(Color::Gray)
+            (
+                format!("  {}  ", title),
+                Style::default().fg(Color::Gray)
+            )
         };
-        let p = Paragraph::new(format!("  {}  ", title))
-            .block(Block::default())
-            .style(style);
+        
+        let block = if is_active {
+            Block::default()
+                .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP)
+                .border_style(Style::default().fg(Color::Cyan))
+        } else {
+            Block::default()
+        };
+
+        let p = Paragraph::new(text)
+            .block(block)
+            .style(style)
+            .alignment(ratatui::layout::Alignment::Center);
+            
         f.render_widget(p, tab_chunks[idx]);
     }
 }
 
-fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
-    let total_files = if let Some(ref res) = ts.current_results {
-        res.failed_files.len() + res.skipped_files.len() + res.completed_files.len()
-    } else {
-        0
-    };
+fn render_file_list_tab(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    res: &TransferResults,
+) {
+    let total_files = res.failed_files.len() + res.skipped_files.len() + res.completed_files.len();
 
     if total_files == 0 {
         let empty_p = Paragraph::new("\n No files transferred yet.")
@@ -177,66 +303,64 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Trans
     let end = start + height.min(total_files.saturating_sub(start));
 
     let mut rows = Vec::new();
-    if let Some(ref res) = ts.current_results {
-        let f_len = res.failed_files.len();
-        let s_len = res.skipped_files.len();
+    let f_len = res.failed_files.len();
+    let s_len = res.skipped_files.len();
 
-        for i in start..end {
-            let is_selected = i == cursor;
-            let mut style = if is_selected {
-                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
-            } else {
-                Style::default()
-            };
+    for i in start..end {
+        let is_selected = i == cursor;
+        let mut style = if is_selected {
+            Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+        } else {
+            Style::default()
+        };
 
-            if i < f_len {
-                let f = &res.failed_files[i];
-                if !is_selected {
-                    style = style.fg(Color::Red);
-                }
-                rows.push(Row::new(vec![
-                    " ✗ FAIL ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    "-".to_string(),
-                    f.error.clone(),
-                ]).style(style));
-            } else if i < f_len + s_len {
-                let f = &res.skipped_files[i - f_len];
-                if !is_selected {
-                    style = style.fg(Color::Yellow);
-                }
-                rows.push(Row::new(vec![
-                    " ⚠ SKIP ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    "-".to_string(),
-                    f.reason.clone(),
-                ]).style(style));
-            } else {
-                let f = &res.completed_files[i - f_len - s_len];
-                if !is_selected {
-                    style = style.fg(Color::Green);
-                }
-                let src_hash = f.src_hash.as_deref().unwrap_or("-");
-                let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
-                let hash_text = format!("{} : {}", &src_hash[..src_hash.len().min(4)], &dst_hash[..dst_hash.len().min(4)]);
-
-                rows.push(Row::new(vec![
-                    " ✓ OK ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    bytesize::ByteSize(f.size).to_string(),
-                    hash_text,
-                ]).style(style));
+        if i < f_len {
+            let f = &res.failed_files[i];
+            if !is_selected {
+                style = style.fg(Color::Red);
             }
+            rows.push(Row::new(vec![
+                " ✗ FAIL ".to_string(),
+                f.src.to_string_lossy().into_owned(),
+                "-".to_string(),
+                f.error.clone(),
+            ]).style(style));
+        } else if i < f_len + s_len {
+            let f = &res.skipped_files[i - f_len];
+            if !is_selected {
+                style = style.fg(Color::Yellow);
+            }
+            rows.push(Row::new(vec![
+                " ⚠ SKIP ".to_string(),
+                f.src.to_string_lossy().into_owned(),
+                "-".to_string(),
+                f.reason.clone(),
+            ]).style(style));
+        } else {
+            let f = &res.completed_files[i - f_len - s_len];
+            if !is_selected {
+                style = style.fg(Color::Green);
+            }
+            let src_hash = f.src_hash.as_deref().unwrap_or("-");
+            let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
+            let hash_text = format!("{} : {}", &src_hash[..src_hash.len().min(4)], &dst_hash[..dst_hash.len().min(4)]);
+
+            rows.push(Row::new(vec![
+                " ✓ OK ".to_string(),
+                f.src.to_string_lossy().into_owned(),
+                bytesize::ByteSize(f.size).to_string(),
+                hash_text,
+            ]).style(style));
         }
     }
 
     let table = Table::new(
         rows,
         [
-            Constraint::Length(10), // Estado
-            Constraint::Min(30),    // Archivo
-            Constraint::Length(12), // Tamaño
-            Constraint::Length(15), // Hash (Src:Dst)
+            Constraint::Length(10),
+            Constraint::Min(30),
+            Constraint::Length(12),
+            Constraint::Length(15),
         ]
     )
     .header(Row::new(vec!["Status", "File Path", "Size", "Hashes"]).style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)))
@@ -249,8 +373,13 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Trans
     f.render_stateful_widget(table, area, &mut table_state);
 }
 
-fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
-    let options = &ts.engine.queue.get_active().map(|j| j.options.clone()).unwrap_or_default();
+fn render_options_tab(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    job: &crate::fs::transfer::job::TransferJob,
+) {
+    let options = &job.options;
     
     let opt_labels = vec![
         format!("Direct I/O (bypass cache): {}", if options.direct_io { "Yes" } else { "No" }),
@@ -268,7 +397,7 @@ fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfe
     ];
 
     let mut lines = Vec::new();
-    lines.push(ratatui::text::Line::from("")); // Margen superior
+    lines.push(ratatui::text::Line::from(""));
     for (idx, label) in opt_labels.iter().enumerate() {
         let is_selected = idx == ts.options_cursor;
         if is_selected {
@@ -282,7 +411,7 @@ fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfe
                 Style::default().fg(Color::Gray)
             )));
         }
-        lines.push(ratatui::text::Line::from("")); // Espaciado entre items
+        lines.push(ratatui::text::Line::from(""));
     }
 
     let p = Paragraph::new(lines)
@@ -290,7 +419,13 @@ fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfe
     f.render_widget(p, area);
 }
 
-fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState, prog: Option<&crate::fs::transfer::job::TransferProgress>) {
+fn render_status_tab(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    prog: Option<&TransferProgress>,
+    res: &TransferResults,
+) {
     let (files_total, files_completed, files_failed, files_skipped, bytes_total, bytes_transferred, speed, eta) = match prog {
         Some(p) => {
             (
@@ -308,25 +443,21 @@ fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfer
             )
         }
         None => {
-            if let Some(ref res) = ts.current_results {
-                let completed = res.completed_files.len();
-                let failed = res.failed_files.len();
-                let skipped = res.skipped_files.len();
-                let total = completed + failed + skipped;
-                let bytes: u64 = res.completed_files.iter().map(|f| f.size).sum();
-                (
-                    total,
-                    completed,
-                    failed,
-                    skipped,
-                    bytesize::ByteSize(bytes).to_string(),
-                    bytesize::ByteSize(bytes).to_string(),
-                    "0 B/s".to_string(),
-                    "Finished".to_string(),
-                )
-            } else {
-                (0, 0, 0, 0, "0 B".to_string(), "0 B".to_string(), "0 B/s".to_string(), "Idle".to_string())
-            }
+            let completed = res.completed_files.len();
+            let failed = res.failed_files.len();
+            let skipped = res.skipped_files.len();
+            let total = completed + failed + skipped;
+            let bytes: u64 = res.completed_files.iter().map(|f| f.size).sum();
+            (
+                total,
+                completed,
+                failed,
+                skipped,
+                bytesize::ByteSize(bytes).to_string(),
+                bytesize::ByteSize(bytes).to_string(),
+                "0 B/s".to_string(),
+                "Finished".to_string(),
+            )
         }
     };
 
@@ -356,10 +487,10 @@ fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfer
     f.render_widget(p, area);
 }
 
-fn render_log_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
-    let items: Vec<ListItem> = ts.log_lines
+fn render_log_tab(f: &mut Frame, area: Rect, log_lines: &[String]) {
+    let items: Vec<ListItem> = log_lines
         .iter()
-        .rev() // Mostrar logs más nuevos arriba
+        .rev()
         .take(15)
         .map(|line| ListItem::new(line.as_str()).style(Style::default().fg(Color::Gray)))
         .collect();
@@ -369,10 +500,23 @@ fn render_log_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIS
     f.render_widget(list, area);
 }
 
-fn render_footer(f: &mut Frame, area: Rect, _ts: &crate::app::state::TransferUIState) {
+fn render_footer(f: &mut Frame, area: Rect, _job: &crate::fs::transfer::job::TransferJob) {
     let footer_text = " [p] Pause/Resume  [s] Skip File  [x] Cancel Job  [Del] Remove Job  [Esc] Minimize ";
     let p = Paragraph::new(footer_text)
         .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded).border_style(Style::default().fg(Color::DarkGray)))
         .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
     f.render_widget(p, area);
+}
+
+pub fn summarize_path(path: &std::path::Path) -> String {
+    if let Some(file_name) = path.file_name() {
+        if let Some(parent) = path.parent() {
+            if let Some(parent_name) = parent.file_name() {
+                let sep = std::path::MAIN_SEPARATOR;
+                return format!("..{}{}{}{}", sep, parent_name.to_string_lossy(), sep, file_name.to_string_lossy());
+            }
+        }
+        return file_name.to_string_lossy().into_owned();
+    }
+    path.to_string_lossy().into_owned()
 }
