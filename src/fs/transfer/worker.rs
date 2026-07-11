@@ -179,6 +179,21 @@ impl TransferWorker {
             total_bytes,
         });
 
+        // Verificar espacio libre en destino
+        if let Ok(free_space) = super::network::get_free_space(&self.destination) {
+            if free_space < total_bytes {
+                let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                    job_id: self.job_id,
+                    file: self.destination.clone(),
+                    reason: format!(
+                        "Warning: Low disk space. Required: {}, Available: {}",
+                        bytesize::ByteSize(total_bytes),
+                        bytesize::ByteSize(free_space)
+                    ),
+                });
+            }
+        }
+
         // --- FASE 2: TRANSFERENCIA ---
         let mut results = TransferResults::default();
         let bytes_transferred_acc = Arc::new(AtomicU64::new(0));
@@ -435,10 +450,17 @@ impl TransferWorker {
                     error: FailedFile {
                         src: src.clone(),
                         dst: dst.clone(),
-                        error: last_error,
+                        error: last_error.clone(),
                         retries,
                     },
                 });
+                if options.halt_on_error {
+                    let _ = self.event_tx.send(TransferEvent::JobFailed {
+                        job_id: self.job_id,
+                        error: format!("Halt on error triggered by file failure: {}", last_error),
+                    });
+                    return Err(anyhow::anyhow!("Halt on error: {}", last_error));
+                }
                 continue;
             }
 
@@ -477,6 +499,13 @@ impl TransferWorker {
                                 retries: 0,
                             },
                         });
+                        if options.halt_on_error {
+                            let _ = self.event_tx.send(TransferEvent::JobFailed {
+                                job_id: self.job_id,
+                                error: "Halt on error triggered by hash mismatch".to_string(),
+                            });
+                            return Err(anyhow::anyhow!("Halt on error: Hash mismatch"));
+                        }
                         continue;
                     }
                 }

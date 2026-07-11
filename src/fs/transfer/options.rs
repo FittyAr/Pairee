@@ -16,6 +16,7 @@ pub struct TransferOptions {
     pub limit_bandwidth_rate: Option<u64>, // en bytes por segundo (opcional)
     pub auto_report: bool,
     pub report_format: String, // "html" o "csv"
+    pub halt_on_error: bool,
 }
 
 impl Default for TransferOptions {
@@ -37,6 +38,7 @@ impl Default for TransferOptions {
             limit_bandwidth_rate: None,
             auto_report: false,
             report_format: "html".to_string(),
+            halt_on_error: false,
         }
     }
 }

@@ -61,3 +61,39 @@ pub fn is_lan_path(path: &Path) -> bool {
         false
     }
 }
+
+/// Obtiene el espacio libre disponible en bytes en la unidad que contiene el path destino.
+pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::ffi::OsStrExt;
+        
+        let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+        wide.push(0);
+        
+        let mut free_bytes_available = 0u64;
+        let mut total_number_of_bytes = 0u64;
+        let mut total_number_of_free_bytes = 0u64;
+        
+        unsafe {
+            let res = windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
+                wide.as_ptr(),
+                &mut free_bytes_available,
+                &mut total_number_of_bytes,
+                &mut total_number_of_free_bytes,
+            );
+            if res == 0 {
+                if let Some(parent) = path.parent() {
+                    return get_free_space(parent);
+                }
+                return Err(std::io::Error::last_os_error());
+            }
+        }
+        Ok(free_bytes_available)
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    {
+        Ok(u64::MAX)
+    }
+}

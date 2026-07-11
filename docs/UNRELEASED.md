@@ -33,6 +33,9 @@
 - Synchronized all `CopyPrompt` interactive dialog selections (write caching, symlink modes, conflict resolutions, and attributes) with the transfer engine worker, preventing interactive choices from being ignored.
 - Exposed all advanced transfer options (security descriptors, ADS streams, symlink skipping/following, and bandwidth limit) inside the active Options tab in the TUI, allowing real-time toggle navigation up to index 11.
 - Added `transfer_preserve_acl`, `transfer_preserve_streams`, `transfer_follow_symlinks`, and `transfer_limit_bandwidth_rate` parameters to global settings for persistent default configurations.
+- Implemented a disk free space pre-check in the transfer worker (using native `GetDiskFreeSpaceExW` on Windows) to report low space warnings before commencing copy operations.
+- Implemented the missing `EjectDrive` and `RunScript` post-action executions using Windows PowerShell/Linux commands and tokio subprocess management respectively, with full UI toggle integration.
+- Added a `halt_on_error` option (configurable in `Settings` as `transfer_halt_on_error`) to immediately halt and fail the transfer job upon encountering the first file copy error or hash mismatch instead of skipping.
 - The Transfer Panel file list now supports stateful navigation, highlighting, and scrolling using the Up/Down arrow keys.
 - The Conflict dialog now displays the full source and destination paths of the conflicting files to make resolution more descriptive.
 - The Plugins Manager runs network and heavy filesystem operations asynchronously in the background, keeping the TUI fully responsive.

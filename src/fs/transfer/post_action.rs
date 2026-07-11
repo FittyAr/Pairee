@@ -1,11 +1,13 @@
 use std::process::Command;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PostAction {
     None,
     Shutdown,
     Sleep,
     Hibernate,
+    EjectDrive(String),
+    RunScript(std::path::PathBuf),
     CloseApp,
 }
 
@@ -55,6 +57,29 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
                 Command::new("systemctl")
                     .arg("hibernate")
                     .spawn()?;
+            }
+            Ok(())
+        }
+        PostAction::EjectDrive(drive) => {
+            #[cfg(target_os = "windows")]
+            {
+                let drive_letter = if drive.is_empty() { "D:" } else { &drive };
+                Command::new("powershell")
+                    .args(["-Command", &format!("(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{}').InvokeVerb('Eject')", drive_letter)])
+                    .spawn()?;
+            }
+            #[cfg(not(target_os = "windows"))]
+            {
+                let dev = if drive.is_empty() { "/dev/sdb" } else { &drive };
+                Command::new("udisksctl")
+                    .args(["power-off", "-b", dev])
+                    .spawn()?;
+            }
+            Ok(())
+        }
+        PostAction::RunScript(path) => {
+            if path.exists() {
+                Command::new(&path).spawn()?;
             }
             Ok(())
         }

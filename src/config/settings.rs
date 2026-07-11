@@ -275,6 +275,8 @@ pub struct Settings {
     #[serde(default)]
     pub transfer_skip_symlinks: bool,
     #[serde(default)]
+    pub transfer_halt_on_error: bool,
+    #[serde(default)]
     pub transfer_preserve_acl: bool,
     #[serde(default)]
     pub transfer_preserve_streams: bool,
@@ -473,6 +475,7 @@ impl Default for Settings {
             transfer_max_retries: 3,
             transfer_conflict_resolution: "ask".to_string(),
             transfer_skip_symlinks: false,
+            transfer_halt_on_error: false,
             transfer_preserve_acl: false,
             transfer_preserve_streams: false,
             transfer_follow_symlinks: false,

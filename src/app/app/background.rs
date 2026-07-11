@@ -337,7 +337,7 @@ pub fn process_background_updates(
                     // Ejecutar post action si la cola se ha vaciado
                     if transfer_state.engine.queue.pending_count() == 0 && transfer_state.post_action != crate::fs::transfer::post_action::PostAction::None {
                         transfer_state.log_lines.push(format!("Executing post-action: {:?}", transfer_state.post_action));
-                        let _ = crate::fs::transfer::post_action::execute_post_action(transfer_state.post_action);
+                        let _ = crate::fs::transfer::post_action::execute_post_action(transfer_state.post_action.clone());
                     }
                 }
                 TransferEvent::JobFailed { error, job_id } => {

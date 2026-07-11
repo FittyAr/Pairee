@@ -270,11 +270,13 @@ pub fn handle(
                     }
                     4 => {
                         // Alternar post action en la UI
-                        transfer.post_action = match transfer.post_action {
+                        transfer.post_action = match &transfer.post_action {
                             crate::fs::transfer::post_action::PostAction::None => crate::fs::transfer::post_action::PostAction::Shutdown,
                             crate::fs::transfer::post_action::PostAction::Shutdown => crate::fs::transfer::post_action::PostAction::Sleep,
                             crate::fs::transfer::post_action::PostAction::Sleep => crate::fs::transfer::post_action::PostAction::Hibernate,
-                            crate::fs::transfer::post_action::PostAction::Hibernate => crate::fs::transfer::post_action::PostAction::CloseApp,
+                            crate::fs::transfer::post_action::PostAction::Hibernate => crate::fs::transfer::post_action::PostAction::EjectDrive(String::new()),
+                            crate::fs::transfer::post_action::PostAction::EjectDrive(_) => crate::fs::transfer::post_action::PostAction::RunScript(std::path::PathBuf::new()),
+                            crate::fs::transfer::post_action::PostAction::RunScript(_) => crate::fs::transfer::post_action::PostAction::CloseApp,
                             crate::fs::transfer::post_action::PostAction::CloseApp => crate::fs::transfer::post_action::PostAction::None,
                         };
                     }

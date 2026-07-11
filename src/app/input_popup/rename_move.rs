@@ -318,6 +318,7 @@ pub fn handle(
                     options.preserve_acl = context.config.settings.transfer_preserve_acl;
                     options.preserve_streams = context.config.settings.transfer_preserve_streams;
                     options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
+                    options.halt_on_error = context.config.settings.transfer_halt_on_error;
                     options.max_retries = context.config.settings.transfer_max_retries;
                     options.conflict_resolution = match new_already {
                         1 => "overwrite".to_string(),

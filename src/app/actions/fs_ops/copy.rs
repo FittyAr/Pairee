@@ -83,6 +83,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                     options.skip_symlinks = context.config.settings.transfer_skip_symlinks;
                     options.follow_symlinks = context.config.settings.transfer_follow_symlinks;
                     options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
+                    options.halt_on_error = context.config.settings.transfer_halt_on_error;
                     options.max_retries = context.config.settings.transfer_max_retries;
                     options.conflict_resolution = context.config.settings.transfer_conflict_resolution.clone();
 
