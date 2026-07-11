@@ -26,6 +26,8 @@
 
 ### Improved
 
+- Improved Transfer Engine UI rendering performance by implementing a sliding window to display only visible entries, resolving UI lag during large file transfers.
+- Limit background transfer log history to 1000 entries to prevent memory exhaustion and UI sluggishness.
 - Direct I/O implementation now ensures 4096-byte memory alignment using `AlignedBuffer` and handles partial sectors at the end of files by temporarily falling back to standard buffered handles, resolving transfer errors with non-aligned boundaries.
 - Symlink replication now correctly creates the link pointer at the destination when `follow_symlinks` is `false`, instead of reading/writing the linked target's content.
 - Implemented the `limit_bandwidth_rate` option in the file transfer pipeline, allowing users to configure a speed limit (throttling) to avoid saturating network or local disk buses.
@@ -53,6 +55,8 @@
 
 ### Fixed
 
+- Fixed a major issue in the Transfer Engine where cancelling a job left the engine in an un-restartable state, preventing subsequent copy/move operations from starting.
+- Mark all queued background transfer tasks as Cancelled when the engine is cancelled.
 - Resolved compiler warnings across the transfer engine, including unused event fields, builders, and trait methods to enforce codebase guidelines.
 - Fixed standard Lua bindings registration to use `utils_ext` instead of `utils_basic`, exposing extended scripting utilities (e.g. quote, percent-encode) to Lua plugins.
 - Resolved application startup crash (`STATUS_DLL_NOT_FOUND` / `0xC0000135`) on clean Windows installations.

@@ -365,6 +365,11 @@ pub fn process_background_updates(
                 }
             }
         }
+
+        if transfer_state.log_lines.len() > 1000 {
+            let drain_count = transfer_state.log_lines.len() - 1000;
+            transfer_state.log_lines.drain(0..drain_count);
+        }
     }
     if refresh_needed {
         state.refresh_both_panels(context.config.settings.show_hidden);

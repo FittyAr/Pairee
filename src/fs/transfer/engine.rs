@@ -49,6 +49,7 @@ impl TransferEngine {
 
     pub fn cancel(&self) {
         self.is_cancelled.store(true, Ordering::SeqCst);
+        self.queue.cancel_all_pending();
     }
 
     pub fn skip_file(&self) {
@@ -60,10 +61,16 @@ impl TransferEngine {
     }
 
     pub fn trigger_processing_loop(&mut self) {
-        if self.active_worker_handle.is_some() {
-            // Ya hay un loop corriendo
-            return;
+        if let Some(ref handle) = self.active_worker_handle {
+            if !handle.is_finished() {
+                return;
+            }
         }
+
+        // Resetear flags antes de iniciar un nuevo bucle
+        self.is_paused.store(false, Ordering::SeqCst);
+        self.is_cancelled.store(false, Ordering::SeqCst);
+        self.skip_file_flag.store(false, Ordering::SeqCst);
 
         let queue = self.queue.clone();
         let event_tx = self.event_tx.clone();

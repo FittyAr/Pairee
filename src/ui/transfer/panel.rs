@@ -140,46 +140,86 @@ fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
 }
 
 fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
-    let mut rows = Vec::new();
+    let total_files = if let Some(ref res) = ts.current_results {
+        res.failed_files.len() + res.skipped_files.len() + res.completed_files.len()
+    } else {
+        0
+    };
 
-    if let Some(ref res) = ts.current_results {
-        for f in &res.failed_files {
-            rows.push(Row::new(vec![
-                " ✗ FAIL ".to_string(),
-                f.src.to_string_lossy().into_owned(),
-                "-".to_string(),
-                f.error.clone(),
-            ]).style(Style::default().fg(Color::Red)));
-        }
-
-        for f in &res.skipped_files {
-            rows.push(Row::new(vec![
-                " ⚠ SKIP ".to_string(),
-                f.src.to_string_lossy().into_owned(),
-                "-".to_string(),
-                f.reason.clone(),
-            ]).style(Style::default().fg(Color::Yellow)));
-        }
-
-        for f in &res.completed_files {
-            let src_hash = f.src_hash.as_deref().unwrap_or("-");
-            let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
-            let hash_text = format!("{} : {}", &src_hash[..src_hash.len().min(4)], &dst_hash[..dst_hash.len().min(4)]);
-            
-            rows.push(Row::new(vec![
-                " ✓ OK ".to_string(),
-                f.src.to_string_lossy().into_owned(),
-                bytesize::ByteSize(f.size).to_string(),
-                hash_text,
-            ]).style(Style::default().fg(Color::Green)));
-        }
-    }
-
-    if rows.is_empty() {
+    if total_files == 0 {
         let empty_p = Paragraph::new("\n No files transferred yet.")
             .style(Style::default().fg(Color::Gray).add_modifier(Modifier::ITALIC));
         f.render_widget(empty_p, area);
         return;
+    }
+
+    let height = area.height.saturating_sub(3) as usize;
+    let cursor = ts.file_list_cursor;
+
+    let start = if cursor > height / 2 {
+        cursor.saturating_sub(height / 2)
+    } else {
+        0
+    };
+    let start = if start + height > total_files {
+        total_files.saturating_sub(height)
+    } else {
+        start
+    };
+    let end = start + height.min(total_files.saturating_sub(start));
+
+    let mut rows = Vec::new();
+    if let Some(ref res) = ts.current_results {
+        let f_len = res.failed_files.len();
+        let s_len = res.skipped_files.len();
+
+        for i in start..end {
+            let is_selected = i == cursor;
+            let mut style = if is_selected {
+                Style::default().fg(Color::Black).bg(Color::Cyan).add_modifier(Modifier::BOLD)
+            } else {
+                Style::default()
+            };
+
+            if i < f_len {
+                let f = &res.failed_files[i];
+                if !is_selected {
+                    style = style.fg(Color::Red);
+                }
+                rows.push(Row::new(vec![
+                    " ✗ FAIL ".to_string(),
+                    f.src.to_string_lossy().into_owned(),
+                    "-".to_string(),
+                    f.error.clone(),
+                ]).style(style));
+            } else if i < f_len + s_len {
+                let f = &res.skipped_files[i - f_len];
+                if !is_selected {
+                    style = style.fg(Color::Yellow);
+                }
+                rows.push(Row::new(vec![
+                    " ⚠ SKIP ".to_string(),
+                    f.src.to_string_lossy().into_owned(),
+                    "-".to_string(),
+                    f.reason.clone(),
+                ]).style(style));
+            } else {
+                let f = &res.completed_files[i - f_len - s_len];
+                if !is_selected {
+                    style = style.fg(Color::Green);
+                }
+                let src_hash = f.src_hash.as_deref().unwrap_or("-");
+                let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
+                let hash_text = format!("{} : {}", &src_hash[..src_hash.len().min(4)], &dst_hash[..dst_hash.len().min(4)]);
+
+                rows.push(Row::new(vec![
+                    " ✓ OK ".to_string(),
+                    f.src.to_string_lossy().into_owned(),
+                    bytesize::ByteSize(f.size).to_string(),
+                    hash_text,
+                ]).style(style));
+            }
+        }
     }
 
     let table = Table::new(
@@ -196,7 +236,7 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Trans
     .row_highlight_style(Style::default().add_modifier(Modifier::REVERSED));
 
     let mut table_state = ratatui::widgets::TableState::default();
-    table_state.select(Some(ts.file_list_cursor));
+    table_state.select(Some(cursor.saturating_sub(start)));
 
     f.render_stateful_widget(table, area, &mut table_state);
 }

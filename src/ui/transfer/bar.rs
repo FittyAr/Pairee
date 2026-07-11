@@ -51,7 +51,7 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
             Constraint::Length(25), // Info: "Copying 3/10 files"
             Constraint::Min(10),    // Gauge: [███████░░░] 45%
             Constraint::Length(20), // Speed & ETA
-            Constraint::Length(15), // Actions info: [Ctrl+T] Expand
+            Constraint::Length(18), // Actions info: [Ctrl+T] Expand
         ])
         .split(inner_area);
 

@@ -212,6 +212,8 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Ctrl+F12".to_string(), Action::SortModes);
     map.insert("Ctrl+n".to_string(), Action::ToggleLongNames);
     map.insert("Ctrl+N".to_string(), Action::ToggleLongNames);
+    map.insert("Ctrl+t".to_string(), Action::ToggleTransferPanel);
+    map.insert("Ctrl+T".to_string(), Action::ToggleTransferPanel);
 
     // ── F-key standard actions ────────────────────────────────────────────────
     map.insert("F1".to_string(), Action::Help);

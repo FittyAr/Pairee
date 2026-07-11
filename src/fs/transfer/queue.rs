@@ -148,4 +148,14 @@ impl TransferQueue {
         let mut active_id = self.active_job_id.lock().unwrap();
         *active_id = None;
     }
+
+    pub fn cancel_all_pending(&self) {
+        let mut jobs = self.jobs.lock().unwrap();
+        for job in jobs.iter_mut() {
+            if job.status == TransferJobStatus::Queued {
+                job.status = TransferJobStatus::Cancelled;
+            }
+        }
+    }
 }
+

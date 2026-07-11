@@ -37,6 +37,12 @@ pub fn handle(
     }
 
     match key.code {
+        KeyCode::Char('t') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+            Ok(Some(Action::ToggleTransferPanel))
+        }
+        KeyCode::Char('T') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+            Ok(Some(Action::ToggleTransferPanel))
+        }
         KeyCode::Esc => {
             // Minimizar a barra compacta
             transfer.view_mode = TransferViewMode::Minimized;

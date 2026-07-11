@@ -86,3 +86,6 @@ assets = [
 
 [build-dependencies]
 embed-resource = "2.5"
+
+[workspace]
+
