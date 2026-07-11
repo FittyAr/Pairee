@@ -24,11 +24,11 @@ impl TransferQueue {
     }
 
     pub fn dequeue(&self) -> Option<TransferJob> {
+        let mut active_id = self.active_job_id.lock().unwrap();
         let mut jobs = self.jobs.lock().unwrap();
         // Buscar el primer trabajo Queued
         if let Some(idx) = jobs.iter().position(|j| j.status == TransferJobStatus::Queued) {
             let mut job = jobs.remove(idx).unwrap();
-            let mut active_id = self.active_job_id.lock().unwrap();
             *active_id = Some(job.id);
             job.status = TransferJobStatus::Scanning;
             // Lo insertamos de nuevo como el trabajo activo (al principio)

@@ -127,6 +127,10 @@ impl TransferEngine {
                         let err_msg = e.to_string();
                         if err_msg.contains("cancelled") {
                             queue.set_active_status(TransferJobStatus::Cancelled);
+                            let _ = event_tx.send(TransferEvent::JobFailed {
+                                job_id: job.id,
+                                error: "Job cancelled by user".to_string(),
+                            });
                         } else {
                             queue.set_active_status(TransferJobStatus::Failed);
                             let _ = event_tx.send(TransferEvent::JobFailed {
