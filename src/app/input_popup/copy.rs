@@ -333,6 +333,11 @@ pub fn handle(
                         options,
                     );
 
+                    for src in &job.sources {
+                        crate::fs::transfer::history::add_source_path(src);
+                    }
+                    crate::fs::transfer::history::add_dest_path(&job.destination);
+
                     if state.transfer.is_none() {
                         let (engine, rx) = TransferEngine::new();
                         state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));

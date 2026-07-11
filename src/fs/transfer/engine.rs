@@ -105,6 +105,7 @@ impl TransferEngine {
                     Arc::clone(&is_cancelled),
                     Arc::clone(&skip_file_flag),
                     event_tx.clone(),
+                    job.active_conflict.clone(),
                 );
 
                 // Correr el worker

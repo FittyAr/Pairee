@@ -27,6 +27,7 @@ pub struct TransferWorker {
     pub is_cancelled: Arc<AtomicBool>,
     pub skip_file_flag: Arc<AtomicBool>,
     pub event_tx: mpsc::UnboundedSender<TransferEvent>,
+    pub active_conflict: Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
 }
 
 impl TransferWorker {
@@ -40,6 +41,7 @@ impl TransferWorker {
         is_cancelled: Arc<AtomicBool>,
         skip_file_flag: Arc<AtomicBool>,
         event_tx: mpsc::UnboundedSender<TransferEvent>,
+        active_conflict: Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
     ) -> Self {
         Self {
             job_id,
@@ -51,11 +53,19 @@ impl TransferWorker {
             is_cancelled,
             skip_file_flag,
             event_tx,
+            active_conflict,
         }
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
         let _ = self.event_tx.send(TransferEvent::JobStarted { job_id: self.job_id });
+
+        // Detección LAN y optimización de buffers
+        let is_lan = super::network::is_lan_path(&self.destination);
+        let mut options = self.options.clone();
+        if is_lan {
+            options.buffer_size = crate::fs::transfer::options::BufferSize::_4MB;
+        }
 
         // --- FASE 1: ESCANEO ---
         let _ = self.event_tx.send(TransferEvent::ScanProgress {
@@ -67,7 +77,7 @@ impl TransferWorker {
         let mut total_bytes = 0u64;
         let mut files_scanned = 0usize;
 
-        let filter = TransferFilter::parse(self.options.filter_mask.as_deref().unwrap_or(""));
+        let filter = TransferFilter::parse(options.filter_mask.as_deref().unwrap_or(""));
 
         for src in &self.sources {
             if self.is_cancelled.load(Ordering::Relaxed) {
@@ -92,7 +102,7 @@ impl TransferWorker {
                         let path = entry.path();
                         let is_symlink = path.is_symlink();
 
-                        if is_symlink && self.options.skip_symlinks {
+                        if is_symlink && options.skip_symlinks {
                             continue;
                         }
 
@@ -124,7 +134,7 @@ impl TransferWorker {
                 }
             } else {
                 let is_symlink = src.is_symlink();
-                if is_symlink && self.options.skip_symlinks {
+                if is_symlink && options.skip_symlinks {
                     continue;
                 }
 
@@ -227,8 +237,46 @@ impl TransferWorker {
 
             // Manejar conflicto si existe
             if dst.exists() {
-                let resolution = self.options.conflict_resolution.as_str();
-                match resolution {
+                let mut resolution = options.conflict_resolution.clone();
+                if resolution == "ask" {
+                    // Notificar conflicto
+                    let _ = self.event_tx.send(TransferEvent::ConflictDetected {
+                        job_id: self.job_id,
+                        file: dst.clone(),
+                        conflict: crate::fs::transfer::conflict::ConflictInfo {
+                            src_path: src.clone(),
+                            dst_path: dst.clone(),
+                            src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
+                            dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
+                            src_modified: src.metadata().and_then(|m| m.modified()).ok(),
+                            dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                        },
+                    });
+
+                    // Limpiar conflicto anterior y esperar respuesta de la UI
+                    {
+                        let mut guard = self.active_conflict.lock().unwrap();
+                        *guard = None;
+                    }
+
+                    while self.active_conflict.lock().unwrap().is_none() {
+                        if self.is_cancelled.load(Ordering::Relaxed) {
+                            return Err(anyhow!("Job cancelled"));
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+
+                    // Recuperar la resolución seleccionada
+                    let chosen = self.active_conflict.lock().unwrap().clone().unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+                    resolution = match chosen {
+                        crate::fs::transfer::conflict::ConflictResolution::Overwrite => "overwrite".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder => "overwrite_older".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::Rename | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => "rename".to_string(),
+                        _ => "skip".to_string(),
+                    };
+                }
+
+                match resolution.as_str() {
                     "skip" => {
                         results.skipped_files.push(SkippedFile {
                             src: src.clone(),
@@ -263,7 +311,7 @@ impl TransferWorker {
                             }
                         }
                     }
-                    _ => {} // Overwrite o Ask (por defecto sobreescribimos si no es interactivo)
+                    _ => {} // Overwrite
                 }
             }
 
@@ -281,7 +329,7 @@ impl TransferWorker {
             let mut dst_hash = None;
             let file_start = Instant::now();
 
-            while retries <= self.options.max_retries {
+            while retries <= options.max_retries {
                 if self.is_cancelled.load(Ordering::Relaxed) {
                     return Err(anyhow!("Job cancelled"));
                 }
@@ -289,7 +337,7 @@ impl TransferWorker {
                 match copy_file_pipelined(
                     &src,
                     &dst,
-                    &self.options,
+                    &options,
                     &self.event_tx,
                     self.job_id,
                     Arc::clone(&self.is_paused),
@@ -307,7 +355,7 @@ impl TransferWorker {
                     Err(e) => {
                         retries += 1;
                         last_error = e.to_string();
-                        if retries <= self.options.max_retries {
+                        if retries <= options.max_retries {
                             // Backoff exponencial simple: 100ms, 200ms, 400ms...
                             let backoff = Duration::from_millis(100 * (1 << retries));
                             tokio::time::sleep(backoff).await;
@@ -336,11 +384,11 @@ impl TransferWorker {
             }
 
             // Preservar metadatos
-            let _ = preserve_metadata(&src, &dst, &self.options);
+            let _ = preserve_metadata(&src, &dst, &options);
 
             // Verificación del hash
             let verified = true;
-            if self.options.verify_after_copy {
+            if options.verify_after_copy {
                 if let (Some(sh), Some(dh)) = (src_hash.as_ref(), dst_hash.as_ref()) {
                     if sh != dh {
                         results.failed_files.push(FailedFile {

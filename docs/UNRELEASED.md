@@ -2,6 +2,18 @@
 
 ### Added
 
+- High-performance asynchronous Transfer Engine inspired by TeraCopy, allowing non-blocking background file copying and moving.
+- Interactive multi-tab Transfer Panel showing file list transfer statuses, options, speed statistics, and logs.
+- Support for queueing multiple file transfer jobs with paused, active, skipped, and cancelled lifecycle controls.
+- Secure move operation calculating source hashes before moving, verifying destination integrity, and safely removing original files.
+- Cryptographic hash verification supporting CRC32, MD5, SHA-1, SHA-256, and BLAKE3 algorithms.
+- Automatic HTML and CSV transfer report generation upon completion.
+- Local Network (LAN) path auto-detection and buffer size optimization (up to 4MB) to maximize throughput and network fault tolerance.
+- Multiplatform Post-Action support (Shutdown, Sleep, Hibernate, and CloseApp) executed automatically upon queue completion.
+- Windows Long Paths (Unicode `\\?\`) support in direct I/O operations for filenames exceeding 260 characters.
+- Interactive file conflict resolution prompt ("Ask" mode) pausing the transfer pipeline and allowing options for Overwrite, Overwrite Older, Skip, or Rename.
+- Interactive Jobs Queue tab inside the Transfer Panel allowing job deletion via the Delete key.
+- Persistent folder transfer history (`transfer_history.toml`) saving the last 20 source and destination directories.
 - Support for installing multiple plugins in a single `pairee plugin install` or `pairee plugin add` command, dynamically normalizing names to support both raw names and `.pairee` extensions.
 - New `enter_use_external` setting (default `false`) to manually enable launching external association commands (e.g. `nano %f`) when opening files with Enter. Exposed in the Editor & Viewer settings tab.
 - Remote blocklist support to disable or hide unsafe and broken plugins from search and remote listings.

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 use std::time::Instant;
+use std::sync::Arc;
 use uuid::Uuid;
 
 #[derive(Debug, Clone)]
@@ -15,6 +16,7 @@ pub struct TransferJob {
     pub created_at: Instant,
     pub started_at: Option<Instant>,
     pub completed_at: Option<Instant>,
+    pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
 }
 
 impl TransferJob {
@@ -36,6 +38,7 @@ impl TransferJob {
             created_at: Instant::now(),
             started_at: None,
             completed_at: None,
+            active_conflict: Arc::new(std::sync::Mutex::new(None)),
         }
     }
 

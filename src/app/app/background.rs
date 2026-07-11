@@ -323,14 +323,24 @@ pub fn process_background_updates(
                             transfer_state.log_lines.push(format!("Saved report to: {}", report_path.to_string_lossy()));
                         }
                     }
+
+                    // Ejecutar post action si la cola se ha vaciado
+                    if transfer_state.engine.queue.pending_count() == 0 && transfer_state.post_action != crate::fs::transfer::post_action::PostAction::None {
+                        transfer_state.log_lines.push(format!("Executing post-action: {:?}", transfer_state.post_action));
+                        let _ = crate::fs::transfer::post_action::execute_post_action(transfer_state.post_action);
+                    }
                 }
                 TransferEvent::JobFailed { error, job_id } => {
                     transfer_state.log_lines.push(format!("[{}] Job failed: {}", job_id, error));
                     transfer_state.current_progress = None;
                     refresh_needed = true;
                 }
-                TransferEvent::ConflictDetected { file, .. } => {
+                TransferEvent::ConflictDetected { job_id, file, conflict } => {
                     transfer_state.log_lines.push(format!("Conflict detected: {}", file.to_string_lossy()));
+                    transfer_state.active_conflict_info = Some((job_id, file, conflict));
+                    transfer_state.view_mode = crate::app::state::TransferViewMode::Expanded;
+                    state.active_popup = Some(crate::app::state::types::PopupType::TransferPanel);
+                    refresh_needed = true;
                 }
                 TransferEvent::VerifyStarted { .. } => {
                     transfer_state.log_lines.push("Starting integrity verification...".to_string());

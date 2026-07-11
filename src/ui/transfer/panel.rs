@@ -63,6 +63,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
         TransferTab::Options => render_options_tab(f, chunks[2], transfer_state),
         TransferTab::Status => render_status_tab(f, chunks[2], transfer_state),
         TransferTab::Log => render_log_tab(f, chunks[2], transfer_state),
+        TransferTab::Queue => super::queue_view::render_queue_view(f, chunks[2], transfer_state),
     }
 
     // --- 4. FOOTER (ACCIONES) ---
@@ -108,7 +109,7 @@ fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUISt
 }
 
 fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
-    let tab_titles = vec!["[1] File List", "[2] Options", "[3] Status", "[4] Log"];
+    let tab_titles = vec!["[1] File List", "[2] Options", "[3] Status", "[4] Log", "[5] Queue"];
     let tab_area = Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::DarkGray));
     let inner_area = tab_area.inner(area);
     f.render_widget(tab_area, area);
@@ -116,10 +117,11 @@ fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
     let tab_chunks = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
-            Constraint::Percentage(25),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
+            Constraint::Percentage(20),
         ])
         .split(inner_area);
 
@@ -272,7 +274,7 @@ fn render_log_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIS
 }
 
 fn render_footer(f: &mut Frame, area: Rect, _ts: &crate::app::state::TransferUIState) {
-    let footer_text = " [p] Pause/Resume  [s] Skip File  [x] Cancel Job  [Esc] Minimize ";
+    let footer_text = " [p] Pause/Resume  [s] Skip File  [x] Cancel Job  [Del] Remove Job  [Esc] Minimize ";
     let p = Paragraph::new(footer_text)
         .block(Block::default().borders(Borders::ALL).border_type(BorderType::Rounded).border_style(Style::default().fg(Color::DarkGray)))
         .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD));
