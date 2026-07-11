@@ -11,7 +11,6 @@ pub mod list;
 pub mod mkdir;
 pub mod ops_worker;
 pub mod privileges;
-pub mod rename_move;
 pub mod search;
 pub mod wipe;
 
@@ -25,13 +24,12 @@ pub use link::{create_hardlink, create_symlink};
 pub use list::read_directory_ext;
 pub use mkdir::create_directory;
 pub use ops_worker::{
-    ProgressUpdate, spawn_compress_task, spawn_copy_move_task, spawn_copy_task, spawn_extract_task,
-    spawn_move_task, spawn_wipe_task,
+    ProgressUpdate, spawn_compress_task, spawn_copy_move_task, spawn_extract_task,
+    spawn_wipe_task,
 };
 pub mod elevated_helper;
 
 pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};
-pub use rename_move::rename_or_move_sync;
 pub mod ssh;
 pub mod transfer;
 

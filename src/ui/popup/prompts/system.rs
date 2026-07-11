@@ -29,8 +29,6 @@ pub fn render(
             let text_key = match op_kind {
                 AdminOpKind::Delete => "prompt_sudo_delete_text",
                 AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
-                AdminOpKind::RenameMove { .. } => "prompt_sudo_renmov_text",
-                AdminOpKind::Copy { .. } => "prompt_sudo_copy_text",
             };
 
             let text = t(text_key);

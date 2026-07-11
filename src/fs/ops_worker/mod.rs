@@ -15,16 +15,12 @@ pub struct ProgressUpdate {
 }
 
 pub mod compress;
-pub mod copy;
 pub mod copy_move;
 pub mod extract;
 pub mod helper;
-pub mod move_rename;
 pub mod wipe;
 
 pub use compress::spawn_compress_task;
-pub use copy::spawn_copy_task;
 pub use copy_move::spawn_copy_move_task;
 pub use extract::spawn_extract_task;
-pub use move_rename::spawn_move_task;
 pub use wipe::spawn_wipe_task;

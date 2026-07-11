@@ -27,17 +27,9 @@ pub fn process_background_updates(
         if let Some(err) = has_error {
             if !context.config.settings.req_admin_modification {
                 match state.active_bg_op.take() {
-                    Some(crate::app::state::BackgroundOpContext::Copy { sources, dest }) => {
-                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                            paths: sources,
-                            op_kind: crate::app::state::AdminOpKind::Copy { dst: dest },
-                        });
-                    }
-                    Some(crate::app::state::BackgroundOpContext::Move { sources, dest }) => {
-                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                            paths: sources,
-                            op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest },
-                        });
+                    Some(crate::app::state::BackgroundOpContext::Copy { .. })
+                    | Some(crate::app::state::BackgroundOpContext::Move { .. }) => {
+                        state.active_popup = Some(PopupType::Error(err));
                     }
                     None => {
                         state.active_popup = Some(PopupType::Error(err));

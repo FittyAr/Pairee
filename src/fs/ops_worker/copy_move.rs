@@ -1,7 +1,5 @@
 use super::ProgressUpdate;
-use super::copy::spawn_copy_task;
 use super::helper::delete_recursive;
-use super::move_rename::spawn_move_task;
 use crate::config::localization::t;
 use crate::fs::ssh::SharedSshClient;
 use std::path::{Path, PathBuf};
@@ -14,14 +12,10 @@ pub fn spawn_copy_move_task(
     src_conn: Option<SharedSshClient>,
     dst_conn: Option<SharedSshClient>,
     is_move: bool,
-    settings: crate::config::settings::Settings,
+    _settings: crate::config::settings::Settings,
 ) -> mpsc::Receiver<ProgressUpdate> {
     if src_conn.is_none() && dst_conn.is_none() {
-        if is_move {
-            return spawn_move_task(sources, destination_dir, settings);
-        } else {
-            return spawn_copy_task(sources, destination_dir, settings);
-        }
+        panic!("spawn_copy_move_task must only be called for SSH transfers!");
     }
 
     let (tx, rx) = mpsc::channel(100);

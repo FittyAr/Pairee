@@ -18,10 +18,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
         return;
     }
 
-    let progress = match &transfer_state.current_progress {
-        Some(p) => p,
-        None => return,
-    };
+    let progress_opt = transfer_state.current_progress.as_ref();
 
     let size = f.area();
     // Popup centrado: 80% ancho, 75% alto
@@ -52,7 +49,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
         .split(inner_area);
 
     // --- 1. CABECERA ---
-    render_header(f, chunks[0], transfer_state, progress);
+    render_header(f, chunks[0], transfer_state, progress_opt);
 
     // --- 2. PESTAÑAS (TABS) ---
     render_tabs(f, chunks[1], transfer_state.active_tab);
@@ -61,7 +58,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
     match transfer_state.active_tab {
         TransferTab::FileList => render_file_list_tab(f, chunks[2], transfer_state),
         TransferTab::Options => render_options_tab(f, chunks[2], transfer_state),
-        TransferTab::Status => render_status_tab(f, chunks[2], transfer_state),
+        TransferTab::Status => render_status_tab(f, chunks[2], transfer_state, progress_opt),
         TransferTab::Log => render_log_tab(f, chunks[2], transfer_state),
         TransferTab::Queue => super::queue_view::render_queue_view(f, chunks[2], transfer_state),
     }
@@ -70,7 +67,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
     render_footer(f, chunks[3], transfer_state);
 }
 
-fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState, prog: &crate::fs::transfer::job::TransferProgress) {
+fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState, prog: Option<&crate::fs::transfer::job::TransferProgress>) {
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -79,13 +76,24 @@ fn render_header(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUISt
         ])
         .split(area);
 
-    let file_text = format!("Current File: {}", prog.current_file);
+    let file_text = match prog {
+        Some(p) => format!("Current File: {}", p.current_file),
+        None => "No active transfer / Finished".to_string(),
+    };
     f.render_widget(Paragraph::new(file_text).style(Style::default().fg(Color::White)), chunks[0]);
 
-    let percent = prog.percent_bytes() as u16;
-    let label = format!("{}%", percent);
-    let speed_formatted = bytesize::ByteSize(ts.speed_info.0 as u64).to_string();
-    let eta_text = match ts.speed_info.1 {
+    let percent = prog.map(|p| p.percent_bytes() as u16).unwrap_or(0);
+    let label = if prog.is_some() {
+        format!("{}%", percent)
+    } else {
+        "Finished / Idle".to_string()
+    };
+    let speed_formatted = if prog.is_some() {
+        bytesize::ByteSize(ts.speed_info.0 as u64).to_string()
+    } else {
+        "0 B".to_string()
+    };
+    let eta_text = match prog.and_then(|_| ts.speed_info.1) {
         Some(secs) => format!("ETA {}s", secs),
         None => "ETA --".to_string(),
     };
@@ -282,10 +290,44 @@ fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfe
     f.render_widget(p, area);
 }
 
-fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState) {
-    let progress = match &ts.current_progress {
-        Some(p) => p,
-        None => return,
+fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::TransferUIState, prog: Option<&crate::fs::transfer::job::TransferProgress>) {
+    let (files_total, files_completed, files_failed, files_skipped, bytes_total, bytes_transferred, speed, eta) = match prog {
+        Some(p) => {
+            (
+                p.files_total,
+                p.files_completed,
+                p.files_failed,
+                p.files_skipped,
+                bytesize::ByteSize(p.bytes_total).to_string(),
+                bytesize::ByteSize(p.bytes_transferred).to_string(),
+                format!("{}/s", bytesize::ByteSize(ts.speed_info.0 as u64).to_string()),
+                match ts.speed_info.1 {
+                    Some(secs) => format!("{} seconds", secs),
+                    None => "Calculating...".to_string(),
+                }
+            )
+        }
+        None => {
+            if let Some(ref res) = ts.current_results {
+                let completed = res.completed_files.len();
+                let failed = res.failed_files.len();
+                let skipped = res.skipped_files.len();
+                let total = completed + failed + skipped;
+                let bytes: u64 = res.completed_files.iter().map(|f| f.size).sum();
+                (
+                    total,
+                    completed,
+                    failed,
+                    skipped,
+                    bytesize::ByteSize(bytes).to_string(),
+                    bytesize::ByteSize(bytes).to_string(),
+                    "0 B/s".to_string(),
+                    "Finished".to_string(),
+                )
+            } else {
+                (0, 0, 0, 0, "0 B".to_string(), "0 B".to_string(), "0 B/s".to_string(), "Idle".to_string())
+            }
+        }
     };
 
     let text = format!(
@@ -296,19 +338,16 @@ fn render_status_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfer
   
   - Total Size: {}
   - Bytes Copied: {}
-  - Current Speed: {}/s
+  - Current Speed: {}
   - Estimated Time (ETA): {}"#,
-        progress.files_total,
-        progress.files_completed,
-        progress.files_failed,
-        progress.files_skipped,
-        bytesize::ByteSize(progress.bytes_total).to_string(),
-        bytesize::ByteSize(progress.bytes_transferred).to_string(),
-        bytesize::ByteSize(ts.speed_info.0 as u64).to_string(),
-        match ts.speed_info.1 {
-            Some(secs) => format!("{} seconds", secs),
-            None => "Calculating...".to_string(),
-        }
+        files_total,
+        files_completed,
+        files_failed,
+        files_skipped,
+        bytes_total,
+        bytes_transferred,
+        speed,
+        eta
     );
 
     let p = Paragraph::new(text)

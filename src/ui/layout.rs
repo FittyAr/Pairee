@@ -42,7 +42,7 @@ pub fn calculate_layout(
     };
 
     let transfer_height = if let Some(ref ts) = state.transfer {
-        if ts.view_mode == crate::app::state::TransferViewMode::Minimized {
+        if ts.view_mode == crate::app::state::TransferViewMode::Minimized && ts.current_progress.is_some() {
             3
         } else {
             0

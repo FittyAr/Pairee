@@ -39,7 +39,7 @@ pub fn handle(
                         // Resume the progress popup; it will automatically receive progress updates on the next tick
                         let is_move = matches!(
                             state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move { .. })
+                            Some(crate::app::state::BackgroundOpContext::Move)
                         );
                         state.active_popup = Some(PopupType::CopyProgress {
                             is_move,
@@ -55,109 +55,7 @@ pub fn handle(
                 }
                 Err(())
             }
-            PopupType::ConfirmOverwrite {
-                src_paths,
-                dest_dir,
-                is_move,
-                input,
-            } => {
-                match key.code {
-                    KeyCode::Enter => {
-                        state.active_popup = None;
 
-                        if is_move {
-                            let mut succeeded = true;
-                            if src_paths.len() == 1 {
-                                let dst = dest_dir.join(input.as_deref().unwrap_or_default());
-                                if let Err(e) = crate::fs::rename_or_move_sync(
-                                    &src_paths[0],
-                                    &dst,
-                                    context.config.settings.req_admin_modification,
-                                ) {
-                                    succeeded = false;
-                                    if !context.config.settings.req_admin_modification {
-                                        state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                                            paths: src_paths.clone(),
-                                            op_kind: crate::app::state::AdminOpKind::RenameMove {
-                                                dst,
-                                            },
-                                        });
-                                    } else {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "{} {}",
-                                            t("error_move_failed"),
-                                            e
-                                        )));
-                                    }
-                                }
-                            } else {
-                                for src in &src_paths {
-                                    if let Some(fname) = src.file_name() {
-                                        let dst = dest_dir.join(fname);
-                                        if let Err(e) = crate::fs::rename_or_move_sync(
-                                            src,
-                                            &dst,
-                                            context.config.settings.req_admin_modification,
-                                        ) {
-                                            succeeded = false;
-                                            if !context.config.settings.req_admin_modification {
-                                                state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                                                    paths: src_paths.clone(),
-                                                    op_kind: crate::app::state::AdminOpKind::RenameMove { dst: dest_dir.clone() },
-                                                });
-                                            } else {
-                                                state.active_popup = Some(PopupType::Error(
-                                                    format!("{} {}", t("error_move_failed"), e),
-                                                ));
-                                            }
-                                            break;
-                                        }
-                                    }
-                                }
-                            }
-                            if succeeded && context.config.settings.req_admin_modification {
-                                state.terminal_needs_clear = true;
-                            }
-                            state.get_active_panel_mut().clear_selection();
-                            state.refresh_both_panels(context.config.settings.show_hidden);
-                        } else {
-                            let targets = src_paths;
-                            let dest = if targets.len() == 1 {
-                                dest_dir.join(input.as_deref().unwrap_or_default())
-                            } else {
-                                dest_dir
-                            };
-
-                            let rx = crate::fs::spawn_copy_task(
-                                targets.clone(),
-                                dest.clone(),
-                                context.config.settings.clone(),
-                            );
-                            state.active_bg_op =
-                                Some(crate::app::state::BackgroundOpContext::Copy {
-                                    sources: targets,
-                                    dest,
-                                });
-                            state.progress_rx = Some(rx);
-                            state.active_popup = Some(PopupType::CopyProgress {
-                                is_move: false,
-                                current_file: t("progress_initializing"),
-                                files_copied: 0,
-                                total_files: 0,
-                                bytes_copied: 0,
-                                total_bytes: 0,
-                            });
-                        }
-                        return Ok(None);
-                    }
-                    KeyCode::Esc => {
-                        state.active_popup = None;
-                        return Ok(None);
-                    }
-                    _ => {}
-                }
-                Err(())
-            }
             PopupType::ConfirmReload => {
                 match key.code {
                     KeyCode::Enter => {
@@ -309,54 +207,7 @@ pub fn handle(
                                 }
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
-                            crate::app::state::AdminOpKind::RenameMove { dst } => {
-                                let mut settings = context.config.settings.clone();
-                                settings.req_admin_modification = true;
-                                let rx = crate::fs::spawn_move_task(
-                                    paths.clone(),
-                                    dst.clone(),
-                                    settings,
-                                );
-                                state.active_bg_op =
-                                    Some(crate::app::state::BackgroundOpContext::Move {
-                                        sources: paths,
-                                        dest: dst,
-                                    });
-                                state.progress_rx = Some(rx);
-                                state.active_popup = Some(PopupType::CopyProgress {
-                                    is_move: true,
-                                    current_file: t("progress_initializing"),
-                                    files_copied: 0,
-                                    total_files: 0,
-                                    bytes_copied: 0,
-                                    total_bytes: 0,
-                                });
-                            }
-                            crate::app::state::AdminOpKind::Copy { dst } => {
-                                let mut settings = context.config.settings.clone();
-                                settings.req_admin_modification = true;
-                                let rx = crate::fs::spawn_copy_task(
-                                    paths.clone(),
-                                    dst.clone(),
-                                    settings,
-                                );
-                                state.active_bg_op =
-                                    Some(crate::app::state::BackgroundOpContext::Copy {
-                                        sources: paths,
-                                        dest: dst,
-                                    });
-                                state.progress_rx = Some(rx);
-                                state.active_popup = Some(PopupType::CopyProgress {
-                                    is_move: false,
-                                    current_file: crate::config::localization::t(
-                                        "progress_initializing",
-                                    ),
-                                    files_copied: 0,
-                                    total_files: 0,
-                                    bytes_copied: 0,
-                                    total_bytes: 0,
-                                });
-                            }
+
                         }
                         return Ok(None);
                     }

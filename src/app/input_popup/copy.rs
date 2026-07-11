@@ -280,44 +280,32 @@ pub fn handle(
                 }
 
                 // Copy logic
-                if context.config.settings.confirmations.confirm_overwrite {
-                    let mut any_exists = false;
-                    if src_paths.len() == 1 {
-                        let dst = dest_dir.join(&new_input);
-                        if dst.exists() {
-                            any_exists = true;
-                        }
-                    } else {
-                        for src in &src_paths {
-                            if let Some(fname) = src.file_name() {
-                                let dst = dest_dir.join(fname);
-                                if dst.exists() {
-                                    any_exists = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if any_exists && new_already == 0
-                    /* Ask */
-                    {
-                        state.active_popup = Some(PopupType::ConfirmOverwrite {
-                            src_paths,
-                            dest_dir,
-                            is_move: false,
-                            input: Some(new_input),
-                        });
-                        return Ok(None);
-                    }
-                }
-
                 // Start copy
                 state.active_popup = None;
                 let targets = src_paths;
                 let dest = dest_dir.join(&new_input);
 
-                if context.config.settings.transfer_engine_enabled {
+                let is_ssh = state.get_active_panel().ssh_conn.is_some() || state.get_passive_panel().ssh_conn.is_some();
+                if is_ssh {
+                    let rx = crate::fs::spawn_copy_move_task(
+                        targets.clone(),
+                        dest.clone(),
+                        state.get_active_panel().ssh_conn.clone(),
+                        state.get_passive_panel().ssh_conn.clone(),
+                        false,
+                        context.config.settings.clone(),
+                    );
+                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy);
+                    state.progress_rx = Some(rx);
+                    state.active_popup = Some(PopupType::CopyProgress {
+                        is_move: false,
+                        current_file: crate::config::localization::t("progress_initializing"),
+                        files_copied: 0,
+                        total_files: 0,
+                        bytes_copied: 0,
+                        total_bytes: 0,
+                    });
+                } else {
                     use crate::fs::transfer::engine::TransferEngine;
                     use crate::fs::transfer::job::{TransferJob, TransferOperation};
                     use crate::fs::transfer::options::TransferOptions;
@@ -393,26 +381,6 @@ pub fn handle(
                         ts.engine.submit_job(job);
                         ts.view_mode = crate::app::state::TransferViewMode::Minimized;
                     }
-                    state.active_popup = None;
-                } else {
-                    let rx = crate::fs::spawn_copy_task(
-                        targets.clone(),
-                        dest.clone(),
-                        context.config.settings.clone(),
-                    );
-                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
-                        sources: targets,
-                        dest,
-                    });
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: false,
-                        current_file: crate::config::localization::t("progress_initializing"),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
                 }
 
                 return Ok(None);

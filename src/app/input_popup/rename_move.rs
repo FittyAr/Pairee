@@ -282,39 +282,28 @@ pub fn handle(
                 // Move logic
                 let targets = src_paths.clone();
                 let dest = dest_dir.join(&new_input);
-
-                if context.config.settings.confirmations.confirm_overwrite {
-                    let mut any_exists = false;
-                    for src in &targets {
-                        if let Some(fname) = src.file_name() {
-                            let dst = if targets.len() == 1 {
-                                dest.clone()
-                            } else {
-                                dest.join(fname)
-                            };
-                            if dst.exists() {
-                                any_exists = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if any_exists && new_already == 0
-                    /* Ask */
-                    {
-                        state.active_popup = Some(PopupType::ConfirmOverwrite {
-                            src_paths,
-                            dest_dir,
-                            is_move: true,
-                            input: Some(new_input),
-                        });
-                        return Ok(None);
-                    }
-                }
-
+                let is_ssh = state.get_active_panel().ssh_conn.is_some() || state.get_passive_panel().ssh_conn.is_some();
                 state.active_popup = None;
-
-                if context.config.settings.transfer_engine_enabled {
+                if is_ssh {
+                    let rx = crate::fs::spawn_copy_move_task(
+                        targets.clone(),
+                        dest.clone(),
+                        state.get_active_panel().ssh_conn.clone(),
+                        state.get_passive_panel().ssh_conn.clone(),
+                        true,
+                        context.config.settings.clone(),
+                    );
+                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move);
+                    state.progress_rx = Some(rx);
+                    state.active_popup = Some(PopupType::CopyProgress {
+                        is_move: true,
+                        current_file: crate::config::localization::t("progress_initializing"),
+                        files_copied: 0,
+                        total_files: 0,
+                        bytes_copied: 0,
+                        total_bytes: 0,
+                    });
+                } else {
                     use crate::fs::transfer::engine::TransferEngine;
                     use crate::fs::transfer::job::{TransferJob, TransferOperation};
                     use crate::fs::transfer::options::TransferOptions;
@@ -390,26 +379,6 @@ pub fn handle(
                         ts.engine.submit_job(job);
                         ts.view_mode = crate::app::state::TransferViewMode::Minimized;
                     }
-                    state.active_popup = None;
-                } else {
-                    let rx = crate::fs::spawn_move_task(
-                        targets.clone(),
-                        dest.clone(),
-                        context.config.settings.clone(),
-                    );
-                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move {
-                        sources: targets,
-                        dest,
-                    });
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: true,
-                        current_file: crate::config::localization::t("progress_initializing"),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
                 }
 
                 return Ok(None);

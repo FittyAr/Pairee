@@ -168,20 +168,12 @@ pub enum Screen {
 pub enum AdminOpKind {
     Delete,
     MkDir,
-    RenameMove { dst: PathBuf },
-    Copy { dst: PathBuf },
 }
 
 #[derive(Debug, Clone)]
 pub enum BackgroundOpContext {
-    Copy {
-        sources: Vec<PathBuf>,
-        dest: PathBuf,
-    },
-    Move {
-        sources: Vec<PathBuf>,
-        dest: PathBuf,
-    },
+    Copy,
+    Move,
 }
 
 #[derive(Debug, Clone)]
@@ -244,12 +236,6 @@ pub enum PopupType {
     },
     ConfirmQuit,
     ConfirmInterrupt,
-    ConfirmOverwrite {
-        src_paths: Vec<PathBuf>,
-        dest_dir: PathBuf,
-        is_move: bool,
-        input: Option<String>,
-    },
     ConfirmReload,
     ConfirmClearHistory {
         history_type: String,

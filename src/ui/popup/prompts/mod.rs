@@ -22,7 +22,6 @@ pub fn render_prompt_popup(
         PopupType::MkDirPrompt { .. }
         | PopupType::CopyPrompt { .. }
         | PopupType::RenMovPrompt { .. }
-        | PopupType::ConfirmOverwrite { .. }
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }
         | PopupType::CreateLinkPrompt { .. }

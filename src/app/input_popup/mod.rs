@@ -63,7 +63,6 @@ pub fn handle_popup_input(
             PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
             PopupType::ConfirmQuit
             | PopupType::ConfirmInterrupt
-            | PopupType::ConfirmOverwrite { .. }
             | PopupType::ConfirmReload { .. }
             | PopupType::ConfirmDiscardEditorChanges
             | PopupType::ConfirmClearHistory { .. }
