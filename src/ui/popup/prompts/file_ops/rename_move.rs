@@ -84,19 +84,25 @@ pub fn render(
         } else {
             norm_style
         };
-        let display_input = if *cursor_idx == 0 {
-            format!("{}_", input)
-        } else {
-            input.clone()
-        };
+        let mut text_lines = vec![
+            ratatui::text::Line::from(format!("{} {}", label, t("prompt_renmov_to"))),
+        ];
+        let mut input_spans = vec![ratatui::text::Span::styled(input.clone(), in_style)];
+        if *cursor_idx == 0 {
+            input_spans.push(ratatui::text::Span::styled("_", Style::default().fg(Color::Cyan)));
+            if !input.is_empty() {
+                let history = crate::fs::transfer::history::load_history();
+                if let Some(suggestion) = history.destinations.iter().find(|d| d.to_lowercase().starts_with(&input.to_lowercase())) {
+                    if suggestion.len() > input.len() {
+                        let suffix = &suggestion[input.len()..];
+                        input_spans.push(ratatui::text::Span::styled(suffix.to_string(), Style::default().fg(Color::DarkGray)));
+                    }
+                }
+            }
+        }
+        text_lines.push(ratatui::text::Line::from(input_spans));
         f.render_widget(
-            Paragraph::new(format!(
-                "{} {}\n{}",
-                label,
-                t("prompt_renmov_to"),
-                display_input
-            ))
-            .style(in_style),
+            Paragraph::new(ratatui::text::Text::from(text_lines)),
             chunks[0],
         );
 

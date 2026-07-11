@@ -140,7 +140,29 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Right => {
-                if new_idx >= 10 && new_idx <= 13 {
+                if new_idx == 0 {
+                    if !new_input.is_empty() {
+                        let history = crate::fs::transfer::history::load_history();
+                        if let Some(suggestion) = history.destinations.iter().find(|d| d.to_lowercase().starts_with(&new_input.to_lowercase())) {
+                            new_input = suggestion.clone();
+                            update_popup(
+                                state,
+                                new_input.clone(),
+                                new_idx,
+                                new_already,
+                                new_multi,
+                                new_access,
+                                new_ext,
+                                new_cache,
+                                new_sparse,
+                                new_cow,
+                                new_sym,
+                                new_filter,
+                                new_filter_mask,
+                            );
+                        }
+                    }
+                } else if new_idx >= 10 && new_idx <= 13 {
                     new_idx = if new_idx < 13 { new_idx + 1 } else { 10 };
                     update_popup(
                         state,
