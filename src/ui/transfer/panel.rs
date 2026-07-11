@@ -212,6 +212,11 @@ fn render_options_tab(f: &mut Frame, area: Rect, ts: &crate::app::state::Transfe
         format!("Post-Action (On Finish): {:?}", ts.post_action),
         format!("Buffer size: {}", bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string()),
         format!("Hash algorithm: {}", options.hash_algorithm.as_str()),
+        format!("Preserve Security / ACLs: {}", if options.preserve_acl { "Yes" } else { "No" }),
+        format!("Preserve Alternate Data Streams: {}", if options.preserve_streams { "Yes" } else { "No" }),
+        format!("Skip symbolic links: {}", if options.skip_symlinks { "Yes" } else { "No" }),
+        format!("Follow symbolic links: {}", if options.follow_symlinks { "Yes" } else { "No" }),
+        format!("Limit bandwidth: {}", if let Some(rate) = options.limit_bandwidth_rate { format!("{} /s", bytesize::ByteSize(rate)) } else { "No limit".to_string() }),
     ];
 
     let mut lines = Vec::new();

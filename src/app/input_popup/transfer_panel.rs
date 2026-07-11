@@ -239,7 +239,7 @@ pub fn handle(
                     transfer.queue_cursor += 1;
                 }
             } else if transfer.active_tab == TransferTab::Options {
-                if transfer.options_cursor < 6 {
+                if transfer.options_cursor < 11 {
                     transfer.options_cursor += 1;
                 }
             }
@@ -296,6 +296,36 @@ pub fn handle(
                                 crate::fs::transfer::options::HashAlgorithm::Md5 => crate::fs::transfer::options::HashAlgorithm::Sha1,
                                 crate::fs::transfer::options::HashAlgorithm::Sha1 => crate::fs::transfer::options::HashAlgorithm::Sha256,
                                 crate::fs::transfer::options::HashAlgorithm::Sha256 => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                            };
+                        });
+                    }
+                    7 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.preserve_acl = !opts.preserve_acl;
+                        });
+                    }
+                    8 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.preserve_streams = !opts.preserve_streams;
+                        });
+                    }
+                    9 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.skip_symlinks = !opts.skip_symlinks;
+                        });
+                    }
+                    10 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.follow_symlinks = !opts.follow_symlinks;
+                        });
+                    }
+                    11 => {
+                        transfer.engine.queue.update_active_options(|opts| {
+                            opts.limit_bandwidth_rate = match opts.limit_bandwidth_rate {
+                                None => Some(1_048_576), // 1 MB/s
+                                Some(1_048_576) => Some(10_485_760), // 10 MB/s
+                                Some(10_485_760) => Some(52_428_800), // 50 MB/s
+                                Some(_) => None,
                             };
                         });
                     }

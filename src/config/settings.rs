@@ -275,6 +275,14 @@ pub struct Settings {
     #[serde(default)]
     pub transfer_skip_symlinks: bool,
     #[serde(default)]
+    pub transfer_preserve_acl: bool,
+    #[serde(default)]
+    pub transfer_preserve_streams: bool,
+    #[serde(default)]
+    pub transfer_follow_symlinks: bool,
+    #[serde(default)]
+    pub transfer_limit_bandwidth_rate: Option<u64>,
+    #[serde(default)]
     pub transfer_auto_report: bool,
     #[serde(default = "default_transfer_report_format")]
     pub transfer_report_format: String,
@@ -465,6 +473,10 @@ impl Default for Settings {
             transfer_max_retries: 3,
             transfer_conflict_resolution: "ask".to_string(),
             transfer_skip_symlinks: false,
+            transfer_preserve_acl: false,
+            transfer_preserve_streams: false,
+            transfer_follow_symlinks: false,
+            transfer_limit_bandwidth_rate: None,
             transfer_auto_report: false,
             transfer_report_format: "html".to_string(),
         }

@@ -30,6 +30,9 @@
 - Symlink replication now correctly creates the link pointer at the destination when `follow_symlinks` is `false`, instead of reading/writing the linked target's content.
 - Implemented the `limit_bandwidth_rate` option in the file transfer pipeline, allowing users to configure a speed limit (throttling) to avoid saturating network or local disk buses.
 - Implemented `preserve_acl` on Windows NTFS targets to replicate security descriptors (Primary Owner, Group, and DACL access rules) from source to destination.
+- Synchronized all `CopyPrompt` interactive dialog selections (write caching, symlink modes, conflict resolutions, and attributes) with the transfer engine worker, preventing interactive choices from being ignored.
+- Exposed all advanced transfer options (security descriptors, ADS streams, symlink skipping/following, and bandwidth limit) inside the active Options tab in the TUI, allowing real-time toggle navigation up to index 11.
+- Added `transfer_preserve_acl`, `transfer_preserve_streams`, `transfer_follow_symlinks`, and `transfer_limit_bandwidth_rate` parameters to global settings for persistent default configurations.
 - The Transfer Panel file list now supports stateful navigation, highlighting, and scrolling using the Up/Down arrow keys.
 - The Conflict dialog now displays the full source and destination paths of the conflicting files to make resolution more descriptive.
 - The Plugins Manager runs network and heavy filesystem operations asynchronously in the background, keeping the TUI fully responsive.

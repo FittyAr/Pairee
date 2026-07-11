@@ -315,11 +315,34 @@ pub fn handle(
                         4194304 => crate::fs::transfer::options::BufferSize::_4MB,
                         _ => crate::fs::transfer::options::BufferSize::_1MB,
                     };
-                    options.direct_io = context.config.settings.transfer_direct_io;
+                    options.direct_io = new_cache;
                     options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
-                    options.preserve_attributes = context.config.settings.transfer_preserve_attributes;
+                    options.preserve_attributes = new_ext;
+                    options.preserve_acl = context.config.settings.transfer_preserve_acl;
+                    options.preserve_streams = context.config.settings.transfer_preserve_streams;
+                    options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
                     options.max_retries = context.config.settings.transfer_max_retries;
-                    options.conflict_resolution = context.config.settings.transfer_conflict_resolution.clone();
+                    options.conflict_resolution = match new_already {
+                        1 => "overwrite".to_string(),
+                        2 => "skip".to_string(),
+                        3 => "overwrite_older".to_string(),
+                        4 => "rename".to_string(),
+                        _ => "ask".to_string(),
+                    };
+                    match new_sym {
+                        1 => {
+                            options.skip_symlinks = false;
+                            options.follow_symlinks = true;
+                        }
+                        2 => {
+                            options.skip_symlinks = true;
+                            options.follow_symlinks = false;
+                        }
+                        _ => {
+                            options.skip_symlinks = false;
+                            options.follow_symlinks = false;
+                        }
+                    }
                     options.filter_mask = if new_filter && !new_filter_mask.is_empty() {
                         Some(new_filter_mask)
                     } else {

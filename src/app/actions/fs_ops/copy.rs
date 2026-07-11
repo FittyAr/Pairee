@@ -78,6 +78,11 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                     options.direct_io = context.config.settings.transfer_direct_io;
                     options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
                     options.preserve_attributes = context.config.settings.transfer_preserve_attributes;
+                    options.preserve_acl = context.config.settings.transfer_preserve_acl;
+                    options.preserve_streams = context.config.settings.transfer_preserve_streams;
+                    options.skip_symlinks = context.config.settings.transfer_skip_symlinks;
+                    options.follow_symlinks = context.config.settings.transfer_follow_symlinks;
+                    options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
                     options.max_retries = context.config.settings.transfer_max_retries;
                     options.conflict_resolution = context.config.settings.transfer_conflict_resolution.clone();
 
