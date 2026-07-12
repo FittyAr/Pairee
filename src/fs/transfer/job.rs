@@ -67,6 +67,7 @@ impl TransferJob {
 pub enum TransferOperation {
     Copy,
     Move,
+    Delete,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

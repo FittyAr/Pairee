@@ -2,6 +2,8 @@
 
 ### Added
 
+- Asynchronous file and directory deletion through the background `TransferEngine`, providing non-blocking file removals.
+- Background remote SSH deletion task reporting progress in real-time through standard progress dialogs.
 - Batch conflict resolution options: Overwrite All, Overwrite All Older, Skip All, and Rename All in the conflict dialog.
 - Interactive job cancellation directly from the conflict dialog.
 - High-performance asynchronous Transfer Engine inspired by TeraCopy, allowing non-blocking background file copying and moving.
@@ -28,6 +30,8 @@
 
 ### Improved
 
+- Redesigned the Transfer Panel tabs layout using a single-row constraint and uniform vertical alignment, preventing misaligned framing when rendering active tabs.
+- Replaced the tab selection color change mechanism in the Transfer Panel; the active tab is now indicated by bold text and surrounding symbols (`▶` and `◀`) while maintaining the theme's default text color.
 - Redesigned the expanded transfer panel to a split two-column layout: a vertical sidebar on the left listing all queued and running transfer jobs (style TeraCopy), and an inspector panel on the right showing file lists, options, stats, and logs for the selected job.
 - Key bindings inside the transfer panel: Up/Down navigate the jobs list sidebar, Left/Right/Tab/BackTab/1-4 switch inspector tabs, and PageUp/PageDown scroll the inspector content (FileList or Options).
 - Toggling Pause/Resume (`p`/`P`), skipping files (`s`/`S`), and cancelling jobs (`x`/`X`) now target the selected job in the sidebar instead of only the active one, allowing users to pause/run and alternate between queued transfer jobs.
@@ -60,6 +64,7 @@
 
 ### Removed
 
+- Removed the obsolete synchronous local deletion implementation (`delete_sync`) and the administrative retry privilege prompt logic for delete operations.
 - Removed the horizontal Jobs Queue tab inside the transfer panel as it is replaced by the vertical jobs list sidebar.
 - Removed the obsolete `queue_view` UI module.
 

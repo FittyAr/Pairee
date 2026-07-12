@@ -17,6 +17,7 @@ pub struct TransferOptions {
     pub auto_report: bool,
     pub report_format: String, // "html" o "csv"
     pub halt_on_error: bool,
+    pub delete_to_recycle_bin: bool,
 }
 
 impl Default for TransferOptions {
@@ -39,6 +40,7 @@ impl Default for TransferOptions {
             auto_report: false,
             report_format: "html".to_string(),
             halt_on_error: false,
+            delete_to_recycle_bin: false,
         }
     }
 }

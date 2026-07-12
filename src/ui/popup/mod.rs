@@ -62,7 +62,7 @@ fn render_specific_popup(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) {
-    if prompts::render_prompt_popup(f, popup, theme, size, context) {
+    if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
         return;
     }
     if yazi::render_yazi_popup(f, popup, theme, size) {

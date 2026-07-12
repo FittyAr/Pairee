@@ -75,6 +75,7 @@ impl TransferWorker {
         });
 
         let mut scan_mappings = Vec::new();
+        let mut dirs_to_delete = Vec::new();
         let mut total_bytes = 0u64;
         let mut files_scanned = 0usize;
 
@@ -88,6 +89,9 @@ impl TransferWorker {
             if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
                 let mut dirs_to_visit = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
+                if self.operation == TransferOperation::Delete {
+                    dirs_to_delete.push(src.clone());
+                }
 
                 while let Some(dir) = dirs_to_visit.pop_front() {
                     if self.is_cancelled.load(Ordering::Relaxed) {
@@ -108,34 +112,45 @@ impl TransferWorker {
                         }
 
                         if is_symlink && !options.follow_symlinks {
-                            // No seguir el symlink -> encolarlo como archivo de tamaño 0
                             let size = 0u64;
-                            if let Ok(rel) = path.strip_prefix(src) {
-                                let folder_name = src.file_name().unwrap_or_default();
-                                let dst_path = self.destination.join(folder_name).join(rel);
-                                scan_mappings.push((path, dst_path, size));
+                            if self.operation == TransferOperation::Delete {
+                                scan_mappings.push((path, PathBuf::new(), size));
                                 files_scanned += 1;
+                            } else {
+                                if let Ok(rel) = path.strip_prefix(src) {
+                                    let folder_name = src.file_name().unwrap_or_default();
+                                    let dst_path = self.destination.join(folder_name).join(rel);
+                                    scan_mappings.push((path, dst_path, size));
+                                    files_scanned += 1;
+                                }
                             }
                             continue;
                         }
 
                         if path.is_dir() {
-                            dirs_to_visit.push_back(path);
+                            dirs_to_visit.push_back(path.clone());
+                            if self.operation == TransferOperation::Delete {
+                                dirs_to_delete.push(path);
+                            }
                         } else {
                             let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
                             
-                            // Aplicar filtros
                             if !filter.matches(&path, size) {
                                 continue;
                             }
 
-                            // Determinar destino relativo
-                            if let Ok(rel) = path.strip_prefix(src) {
-                                let folder_name = src.file_name().unwrap_or_default();
-                                let dst_path = self.destination.join(folder_name).join(rel);
-                                scan_mappings.push((path, dst_path, size));
+                            if self.operation == TransferOperation::Delete {
+                                scan_mappings.push((path, PathBuf::new(), size));
                                 total_bytes += size;
                                 files_scanned += 1;
+                            } else {
+                                if let Ok(rel) = path.strip_prefix(src) {
+                                    let folder_name = src.file_name().unwrap_or_default();
+                                    let dst_path = self.destination.join(folder_name).join(rel);
+                                    scan_mappings.push((path, dst_path, size));
+                                    total_bytes += size;
+                                    files_scanned += 1;
+                                }
                             }
                         }
                     }
@@ -161,11 +176,17 @@ impl TransferWorker {
                     continue;
                 }
 
-                let file_name = src.file_name().unwrap_or_default();
-                let dst_path = self.destination.join(file_name);
-                scan_mappings.push((src.clone(), dst_path, size));
-                total_bytes += size;
-                files_scanned += 1;
+                if self.operation == TransferOperation::Delete {
+                    scan_mappings.push((src.clone(), PathBuf::new(), size));
+                    total_bytes += size;
+                    files_scanned += 1;
+                } else {
+                    let file_name = src.file_name().unwrap_or_default();
+                    let dst_path = self.destination.join(file_name);
+                    scan_mappings.push((src.clone(), dst_path, size));
+                    total_bytes += size;
+                    files_scanned += 1;
+                }
 
                 let _ = self.event_tx.send(TransferEvent::ScanProgress {
                     job_id: self.job_id,
@@ -179,6 +200,217 @@ impl TransferWorker {
             total_files: files_scanned,
             total_bytes,
         });
+
+        if self.operation == TransferOperation::Delete {
+            let mut results = TransferResults::default();
+            let bytes_transferred_acc = Arc::new(AtomicU64::new(0));
+
+            // Spawn de tarea para reportar velocidad y ETA periódicos
+            let event_tx_speed = self.event_tx.clone();
+            let job_id_speed = self.job_id;
+            let bytes_acc_speed = Arc::clone(&bytes_transferred_acc);
+            let is_cancelled_speed = Arc::clone(&self.is_cancelled);
+            
+            let _speed_reporter = tokio::spawn(async move {
+                let mut last_bytes = 0u64;
+                let mut interval = tokio::time::interval(Duration::from_secs(1));
+
+                loop {
+                    interval.tick().await;
+                    if is_cancelled_speed.load(Ordering::Relaxed) {
+                        break;
+                    }
+
+                    let current_bytes = bytes_acc_speed.load(Ordering::SeqCst);
+                    let delta = current_bytes.saturating_sub(last_bytes);
+                    last_bytes = current_bytes;
+
+                    let bytes_per_second = delta as f64;
+                    let remaining_bytes = total_bytes.saturating_sub(current_bytes);
+                    let eta_seconds = if bytes_per_second > 0.0 {
+                        Some((remaining_bytes as f64 / bytes_per_second) as u64)
+                    } else {
+                        None
+                    };
+
+                    let _ = event_tx_speed.send(TransferEvent::SpeedUpdate {
+                        job_id: job_id_speed,
+                        bytes_per_second,
+                        eta_seconds,
+                    });
+
+                    if current_bytes >= total_bytes && total_bytes > 0 {
+                        break;
+                    }
+                }
+            });
+
+            if self.options.delete_to_recycle_bin {
+                for (idx, src) in self.sources.iter().enumerate() {
+                    if self.is_cancelled.load(Ordering::Relaxed) {
+                        return Err(anyhow!("Job cancelled"));
+                    }
+
+                    let delete_start = Instant::now();
+                    let _ = self.event_tx.send(TransferEvent::FileStarted {
+                        job_id: self.job_id,
+                        file: src.clone(),
+                        index: idx,
+                    });
+
+                    if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
+                        if let Some(filename_str) = filename.to_str() {
+                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                        }
+                    }
+
+                    let res = send_to_recycle_bin_helper(src);
+
+                    if let Err(e) = res {
+                        let err_msg = e.to_string();
+                        results.failed_files.push(FailedFile {
+                            src: src.clone(),
+                            dst: PathBuf::new(),
+                            error: err_msg.clone(),
+                            retries: 0,
+                        });
+                        let _ = self.event_tx.send(TransferEvent::FileFailed {
+                            job_id: self.job_id,
+                            error: FailedFile {
+                                src: src.clone(),
+                                dst: PathBuf::new(),
+                                error: err_msg,
+                                retries: 0,
+                            },
+                        });
+                        if options.halt_on_error {
+                            return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
+                        }
+                    } else {
+                        let size = src.metadata().map(|m| m.len()).unwrap_or(0);
+                        let file_result = FileTransferResult {
+                            src: src.clone(),
+                            dst: PathBuf::new(),
+                            size,
+                            src_hash: None,
+                            dst_hash: None,
+                            verified: true,
+                            duration: delete_start.elapsed(),
+                        };
+                        results.completed_files.push(file_result.clone());
+                        let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                            job_id: self.job_id,
+                            result: file_result,
+                        });
+                        bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
+                    }
+                }
+            } else {
+                for (idx, (src, _, size)) in scan_mappings.into_iter().enumerate() {
+                    if self.is_cancelled.load(Ordering::Relaxed) {
+                        return Err(anyhow!("Job cancelled"));
+                    }
+
+                    while self.is_paused.load(Ordering::Relaxed) {
+                        if self.is_cancelled.load(Ordering::Relaxed) {
+                            return Err(anyhow!("Job cancelled"));
+                        }
+                        tokio::time::sleep(Duration::from_millis(100)).await;
+                    }
+
+                    if self.skip_file_flag.swap(false, Ordering::Relaxed) {
+                        results.skipped_files.push(SkippedFile {
+                            src: src.clone(),
+                            reason: "Skipped by user".to_string(),
+                        });
+                        let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                            job_id: self.job_id,
+                            file: src.clone(),
+                            reason: "Skipped by user".to_string(),
+                        });
+                        continue;
+                    }
+
+                    let delete_start = Instant::now();
+                    let _ = self.event_tx.send(TransferEvent::FileStarted {
+                        job_id: self.job_id,
+                        file: src.clone(),
+                        index: idx,
+                    });
+
+                    if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
+                        if let Some(filename_str) = filename.to_str() {
+                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                        }
+                    }
+
+                    let mut res = std::fs::remove_file(&src);
+                    if res.is_err() {
+                        let _ = make_writable_helper(&src);
+                        res = std::fs::remove_file(&src);
+                    }
+
+                    if let Err(e) = res {
+                        let err_msg = e.to_string();
+                        results.failed_files.push(FailedFile {
+                            src: src.clone(),
+                            dst: PathBuf::new(),
+                            error: err_msg.clone(),
+                            retries: 0,
+                        });
+                        let _ = self.event_tx.send(TransferEvent::FileFailed {
+                            job_id: self.job_id,
+                            error: FailedFile {
+                                src: src.clone(),
+                                dst: PathBuf::new(),
+                                error: err_msg,
+                                retries: 0,
+                            },
+                        });
+                        if options.halt_on_error {
+                            return Err(anyhow!("Halt on error: Deletion failed"));
+                        }
+                    } else {
+                        let file_result = FileTransferResult {
+                            src: src.clone(),
+                            dst: PathBuf::new(),
+                            size,
+                            src_hash: None,
+                            dst_hash: None,
+                            verified: true,
+                            duration: delete_start.elapsed(),
+                        };
+                        results.completed_files.push(file_result.clone());
+                        let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                            job_id: self.job_id,
+                            result: file_result,
+                        });
+                        bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
+                    }
+                }
+
+                dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+                for dir in dirs_to_delete {
+                    if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
+                        if let Some(filename_str) = filename.to_str() {
+                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                        }
+                    }
+                    let mut res = std::fs::remove_dir(&dir);
+                    if res.is_err() {
+                        let _ = make_writable_helper(&dir);
+                        res = std::fs::remove_dir(&dir);
+                    }
+                }
+            }
+
+            let _ = self.event_tx.send(TransferEvent::JobCompleted {
+                job_id: self.job_id,
+                results: results.clone(),
+            });
+
+            return Ok(results);
+        }
 
         // Verificar espacio libre en destino
         if let Ok(free_space) = super::network::get_free_space(&self.destination) {
@@ -560,4 +792,77 @@ impl TransferWorker {
 
         Ok(results)
     }
+}
+
+#[cfg(target_os = "windows")]
+fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
+    use std::process::Command;
+    let path_str = path.to_string_lossy().replace('\'', "''");
+    let ps_cmd = if path.is_dir() {
+        format!(
+            "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory('{}', 'OnlyErrorDialogs', 'SendToRecycleBin')",
+            path_str
+        )
+    } else {
+        format!(
+            "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{}', 'OnlyErrorDialogs', 'SendToRecycleBin')",
+            path_str
+        )
+    };
+    let output = Command::new("powershell")
+        .args(&["-NoProfile", "-Command", &ps_cmd])
+        .output();
+    let output = match output {
+        Ok(o) => o,
+        Err(e) => anyhow::bail!("Failed to execute PowerShell trash command: {}", e),
+    };
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        anyhow::bail!("PowerShell Recycle Bin error: {}", err);
+    }
+    Ok(())
+}
+
+#[cfg(not(target_os = "windows"))]
+fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
+    use std::process::Command;
+    let status = Command::new("gio").arg("trash").arg(path).status();
+    if let Ok(s) = status {
+        if s.success() {
+            return Ok(());
+        }
+    }
+    let status = Command::new("trash-put").arg(path).status();
+    if let Ok(s) = status {
+        if s.success() {
+            return Ok(());
+        }
+    }
+    // Fallback to standard delete if trash command fails
+    if path.is_dir() {
+        std::fs::remove_dir_all(path).map_err(|e| anyhow::anyhow!("Failed to delete dir recursively: {}", e))
+    } else {
+        std::fs::remove_file(path).map_err(|e| anyhow::anyhow!("Failed to delete file: {}", e))
+    }
+}
+
+fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
+    let metadata = path.symlink_metadata()?;
+    if metadata.file_type().is_symlink() {
+        return Ok(());
+    }
+    let mut perms = metadata.permissions();
+    #[cfg(not(target_os = "windows"))]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = perms.mode();
+        let is_dir = metadata.is_dir();
+        let new_mode = if is_dir { mode | 0o700 } else { mode | 0o600 };
+        perms.set_mode(new_mode);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        perms.set_readonly(false);
+    }
+    std::fs::set_permissions(path, perms)
 }

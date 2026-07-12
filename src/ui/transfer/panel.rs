@@ -9,7 +9,7 @@ use crate::fs::transfer::job::{TransferJobStatus, TransferProgress, TransferResu
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect;
 
-pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppContext) {
+pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppContext) {
     let transfer_state = match &state.transfer {
         Some(ts) => ts,
         None => return,
@@ -83,7 +83,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, _context: &AppCont
             render_header(f, chunks[0], transfer_state, progress, selected_job);
 
             // Tabs
-            render_tabs(f, chunks[1], transfer_state.active_tab);
+            render_tabs(f, chunks[1], transfer_state.active_tab, &context.config.theme);
 
             // Content
             match transfer_state.active_tab {
@@ -112,6 +112,7 @@ fn render_jobs_sidebar(
         let op_name = match job.operation {
             crate::fs::transfer::job::TransferOperation::Copy => "Copy",
             crate::fs::transfer::job::TransferOperation::Move => "Move",
+            crate::fs::transfer::job::TransferOperation::Delete => "Delete",
         };
 
         let (status_str, color) = match job.status {
@@ -224,11 +225,22 @@ fn render_header(
     f.render_widget(Paragraph::new(info_text).style(Style::default().fg(Color::Yellow)), gauge_chunk[1]);
 }
 
-fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
-    let tab_titles = vec![" [1] File List ", " [2] Options ", " [3] Status ", " [4] Log "];
-    let tab_area = Block::default().borders(Borders::BOTTOM).border_style(Style::default().fg(Color::DarkGray));
-    let inner_area = tab_area.inner(area);
-    f.render_widget(tab_area, area);
+fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab, theme: &crate::config::theme::Theme) {
+    let tab_titles = vec![
+        (0, "[1] File List"),
+        (1, "[2] Options"),
+        (2, "[3] Status"),
+        (3, "[4] Log"),
+    ];
+
+    let tab_layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // Tab text row
+            Constraint::Length(1), // Tab separator line
+            Constraint::Min(0),
+        ])
+        .split(area);
 
     let tab_chunks = Layout::default()
         .direction(Direction::Horizontal)
@@ -238,33 +250,33 @@ fn render_tabs(f: &mut Frame, area: Rect, active_tab: TransferTab) {
             Constraint::Percentage(25),
             Constraint::Percentage(25),
         ])
-        .split(inner_area);
+        .split(tab_layout[0]);
 
-    for (idx, title) in tab_titles.into_iter().enumerate() {
-        let is_active = idx == active_tab as usize;
+    // Render bottom separator line using theme border color
+    let border_color = crate::ui::theme_apply::parse_color(&theme.popup_border);
+    f.render_widget(
+        Paragraph::new("─".repeat(area.width as usize))
+            .style(Style::default().fg(border_color)),
+        tab_layout[1],
+    );
+
+    let fg_color = crate::ui::theme_apply::parse_color(&theme.popup_fg);
+
+    for (idx, (tab_idx, title)) in tab_titles.into_iter().enumerate() {
+        let is_active = tab_idx == active_tab as usize;
         
-        let (text, style) = if is_active {
-            (
-                format!("  {}  ", title),
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
-            )
+        let text = if is_active {
+            format!("▶ {} ◀", title)
         } else {
-            (
-                format!("  {}  ", title),
-                Style::default().fg(Color::Gray)
-            )
+            format!("  {}  ", title)
         };
-        
-        let block = if is_active {
-            Block::default()
-                .borders(Borders::LEFT | Borders::RIGHT | Borders::TOP)
-                .border_style(Style::default().fg(Color::Cyan))
-        } else {
-            Block::default()
-        };
+
+        let mut style = Style::default().fg(fg_color);
+        if is_active {
+            style = style.add_modifier(Modifier::BOLD);
+        }
 
         let p = Paragraph::new(text)
-            .block(block)
             .style(style)
             .alignment(ratatui::layout::Alignment::Center);
             

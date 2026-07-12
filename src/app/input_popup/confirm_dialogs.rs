@@ -176,24 +176,6 @@ pub fn handle(
                         }
 
                         match op_kind {
-                            crate::app::state::AdminOpKind::Delete => {
-                                for path in &paths {
-                                    if let Err(e) = crate::fs::delete_sync(
-                                        path,
-                                        context.config.settings.delete_to_recycle_bin,
-                                        true,
-                                    ) {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "{} {}",
-                                            crate::config::localization::t("error_delete_failed"),
-                                            e
-                                        )));
-                                        return Ok(None);
-                                    }
-                                }
-                                state.get_active_panel_mut().clear_selection();
-                                state.refresh_both_panels(context.config.settings.show_hidden);
-                            }
                             crate::app::state::AdminOpKind::MkDir => {
                                 for path in &paths {
                                     if let Err(e) = crate::fs::create_directory(path, true) {
@@ -207,7 +189,6 @@ pub fn handle(
                                 }
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
-
                         }
                         return Ok(None);
                     }

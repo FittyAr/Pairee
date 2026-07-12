@@ -166,7 +166,6 @@ pub enum Screen {
 
 #[derive(Debug, Clone)]
 pub enum AdminOpKind {
-    Delete,
     MkDir,
 }
 
@@ -174,6 +173,7 @@ pub enum AdminOpKind {
 pub enum BackgroundOpContext {
     Copy,
     Move,
+    Delete,
 }
 
 #[derive(Debug, Clone)]

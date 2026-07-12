@@ -14,6 +14,7 @@ pub fn render(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    state: &crate::app::state::AppState,
 ) -> bool {
     match popup {
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
@@ -27,7 +28,6 @@ pub fn render(
                 .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
             let text_key = match op_kind {
-                AdminOpKind::Delete => "prompt_sudo_delete_text",
                 AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
             };
 
@@ -51,10 +51,14 @@ pub fn render(
             let area = centered_rect_fixed(55, 10, size);
             f.render_widget(Clear, area);
 
-            let title = if *is_move {
-                t("progress_move_title")
-            } else {
-                t("progress_copy_title")
+            let title = match state.active_bg_op {
+                Some(crate::app::state::BackgroundOpContext::Move) => t("progress_move_title"),
+                Some(crate::app::state::BackgroundOpContext::Delete) => t("progress_delete_title"),
+                _ => if *is_move {
+                    t("progress_move_title")
+                } else {
+                    t("progress_copy_title")
+                },
             };
 
             let block = Block::default()

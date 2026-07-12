@@ -44,42 +44,43 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
         } else {
             let active_panel = state.get_active_panel();
             if let Some(client) = &active_panel.ssh_conn {
-                for path in &targets {
-                    if let Err(e) = client.delete_recursive(path) {
-                        state.active_popup = Some(PopupType::Error(format!(
-                            "{} {}",
-                            t("error_delete_failed"),
-                            e
-                        )));
-                        return true;
-                    }
-                }
-                state.get_active_panel_mut().clear_selection();
-                state.refresh_both_panels(context.config.settings.show_hidden);
+                let rx = crate::fs::spawn_ssh_delete_task(
+                    client.clone(),
+                    targets.clone(),
+                );
+                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Delete);
+                state.progress_rx = Some(rx);
+                state.active_popup = Some(PopupType::CopyProgress {
+                    is_move: false,
+                    current_file: t("progress_initializing"),
+                    files_copied: 0,
+                    total_files: 0,
+                    bytes_copied: 0,
+                    total_bytes: 0,
+                });
             } else {
-                for path in &targets {
-                    if let Err(e) = crate::fs::delete_sync(
-                        path,
-                        context.config.settings.delete_to_recycle_bin,
-                        context.config.settings.req_admin_modification,
-                    ) {
-                        if !context.config.settings.req_admin_modification {
-                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
-                                paths: targets.clone(),
-                                op_kind: crate::app::state::AdminOpKind::Delete,
-                            });
-                        } else {
-                            state.active_popup = Some(PopupType::Error(format!(
-                                "{} {}",
-                                t("error_delete_failed"),
-                                e
-                            )));
-                        }
-                        return true;
-                    }
+                use crate::fs::transfer::engine::TransferEngine;
+                use crate::fs::transfer::job::{TransferJob, TransferOperation};
+                use crate::fs::transfer::options::TransferOptions;
+
+                let mut options = TransferOptions::default();
+                options.delete_to_recycle_bin = context.config.settings.delete_to_recycle_bin;
+
+                let job = TransferJob::new(
+                    TransferOperation::Delete,
+                    targets.clone(),
+                    std::path::PathBuf::new(),
+                    options,
+                );
+
+                if state.transfer.is_none() {
+                    let (engine, rx) = TransferEngine::new();
+                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
                 }
-                if context.config.settings.req_admin_modification {
-                    state.terminal_needs_clear = true;
+
+                if let Some(ref mut ts) = state.transfer {
+                    ts.engine.submit_job(job);
+                    ts.view_mode = crate::app::state::TransferViewMode::Minimized;
                 }
                 state.get_active_panel_mut().clear_selection();
                 state.refresh_both_panels(context.config.settings.show_hidden);

@@ -27,8 +27,9 @@ pub fn process_background_updates(
         if let Some(err) = has_error {
             if !context.config.settings.req_admin_modification {
                 match state.active_bg_op.take() {
-                    Some(crate::app::state::BackgroundOpContext::Copy { .. })
-                    | Some(crate::app::state::BackgroundOpContext::Move { .. }) => {
+                    Some(crate::app::state::BackgroundOpContext::Copy)
+                    | Some(crate::app::state::BackgroundOpContext::Move)
+                    | Some(crate::app::state::BackgroundOpContext::Delete) => {
                         state.active_popup = Some(PopupType::Error(err));
                     }
                     None => {
@@ -240,7 +241,12 @@ pub fn process_background_updates(
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.status = crate::fs::transfer::job::TransferJobStatus::Scanning;
                         job.progress = Some(crate::fs::transfer::job::TransferProgress::default());
-                        job.log_lines.push("Scanning source files...".to_string());
+                        let msg = if job.operation == crate::fs::transfer::job::TransferOperation::Delete {
+                            "Scanning source files for deletion...".to_string()
+                        } else {
+                            "Scanning source files...".to_string()
+                        };
+                        job.log_lines.push(msg);
                     });
                 }
                 TransferEvent::ScanProgress { job_id, files_found } => {
@@ -264,7 +270,12 @@ pub fn process_background_updates(
                         if let Some(ref mut prog) = job.progress {
                             prog.current_file = file.to_string_lossy().into_owned();
                         }
-                        job.log_lines.push(format!("[{}] Copying: {}", index + 1, file.to_string_lossy()));
+                        let msg = match job.operation {
+                            crate::fs::transfer::job::TransferOperation::Delete => format!("[{}] Deleting: {}", index + 1, file.to_string_lossy()),
+                            crate::fs::transfer::job::TransferOperation::Move => format!("[{}] Moving: {}", index + 1, file.to_string_lossy()),
+                            _ => format!("[{}] Copying: {}", index + 1, file.to_string_lossy()),
+                        };
+                        job.log_lines.push(msg);
                     });
                 }
                 TransferEvent::FileProgress { job_id, bytes_copied, bytes_total } => {
@@ -281,8 +292,13 @@ pub fn process_background_updates(
                             prog.files_completed += 1;
                         }
                         job.results.completed_files.push(result.clone());
-                        let verified_marker = if result.verified { " ✓hash" } else { "" };
-                        job.log_lines.push(format!("✓ OK{}: {}", verified_marker, result.dst.to_string_lossy()));
+                        let msg = if job.operation == crate::fs::transfer::job::TransferOperation::Delete {
+                            format!("✓ OK: Deleted {}", result.src.to_string_lossy())
+                        } else {
+                            let verified_marker = if result.verified { " ✓hash" } else { "" };
+                            format!("✓ OK{}: {}", verified_marker, result.dst.to_string_lossy())
+                        };
+                        job.log_lines.push(msg);
                     });
                 }
                 TransferEvent::FileFailed { job_id, error } => {
