@@ -30,6 +30,7 @@
 
 ### Improved
 
+- Implemented disk free space checks on non-Windows platforms.
 - Redesigned the Transfer Panel tabs layout using a single-row constraint and uniform vertical alignment, preventing misaligned framing when rendering active tabs.
 - Replaced the tab selection color change mechanism in the Transfer Panel; the active tab is now indicated by bold text and surrounding symbols (`▶` and `◀`) while maintaining the theme's default text color.
 - Redesigned the expanded transfer panel to a split two-column layout: a vertical sidebar on the left listing all queued and running transfer jobs (style TeraCopy), and an inspector panel on the right showing file lists, options, stats, and logs for the selected job.

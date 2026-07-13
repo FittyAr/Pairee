@@ -94,6 +94,19 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
 
     #[cfg(not(target_os = "windows"))]
     {
+        if let Ok(output) = std::process::Command::new("df")
+            .arg("--output=avail")
+            .arg("-k")
+            .arg(path)
+            .output()
+        {
+            let text = String::from_utf8_lossy(&output.stdout);
+            if let Some(line) = text.lines().nth(1) {
+                if let Ok(kb) = line.trim().parse::<u64>() {
+                    return Ok(kb * 1024);
+                }
+            }
+        }
         Ok(u64::MAX)
     }
 }
