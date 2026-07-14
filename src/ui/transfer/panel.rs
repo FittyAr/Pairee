@@ -129,6 +129,15 @@ fn render_jobs_sidebar(
     jobs: &[crate::fs::transfer::job::TransferJob],
 ) {
     let mut list_items = Vec::new();
+    let selected_job = jobs.get(ts.queue_cursor);
+    let (sel_bg, sel_fg) = match selected_job.map(|j| &j.status) {
+        Some(TransferJobStatus::Cancelled) => (Color::Red, Color::White),
+        Some(TransferJobStatus::Failed) => (Color::LightRed, Color::White),
+        Some(TransferJobStatus::Paused) => (Color::Yellow, Color::Black),
+        Some(TransferJobStatus::Completed) => (Color::Green, Color::Black),
+        _ => (Color::Cyan, Color::Black),
+    };
+
     for (idx, job) in jobs.iter().enumerate() {
         let is_selected = idx == ts.queue_cursor;
 
@@ -168,8 +177,8 @@ fn render_jobs_sidebar(
         let mut item_style = Style::default().fg(color);
         if is_selected {
             item_style = Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(sel_fg)
+                .bg(sel_bg)
                 .add_modifier(Modifier::BOLD);
         }
 
@@ -178,7 +187,7 @@ fn render_jobs_sidebar(
             ratatui::text::Line::from(ratatui::text::Span::styled(
                 dest_str,
                 if is_selected {
-                    Style::default().fg(Color::Black)
+                    Style::default().fg(sel_fg).bg(sel_bg)
                 } else {
                     Style::default().fg(Color::DarkGray)
                 },
@@ -201,7 +210,7 @@ fn render_jobs_sidebar(
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::DarkGray)),
         )
-        .highlight_style(Style::default().bg(Color::Cyan).fg(Color::Black));
+        .highlight_style(Style::default().bg(sel_bg).fg(sel_fg));
 
     let mut list_state = ratatui::widgets::ListState::default();
     list_state.select(Some(ts.queue_cursor));
@@ -282,10 +291,12 @@ fn render_header(
         .label(label)
         .gauge_style(
             Style::default()
-                .fg(if job.status == TransferJobStatus::Completed {
-                    Color::LightGreen
-                } else {
-                    Color::Green
+                .fg(match job.status {
+                    TransferJobStatus::Completed => Color::LightGreen,
+                    TransferJobStatus::Cancelled => Color::Red,
+                    TransferJobStatus::Failed => Color::LightRed,
+                    TransferJobStatus::Paused => Color::Yellow,
+                    _ => Color::Green,
                 })
                 .bg(Color::DarkGray)
                 .add_modifier(Modifier::BOLD),
@@ -396,20 +407,30 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &T
 
     for i in start..end {
         let is_selected = i == cursor;
-        let mut style = if is_selected {
+        let style = if is_selected {
+            let (fg_sel, bg_sel) = if i < f_len {
+                (Color::White, Color::Red)
+            } else if i < f_len + s_len {
+                (Color::Black, Color::Yellow)
+            } else {
+                (Color::Black, Color::Green)
+            };
             Style::default()
-                .fg(Color::Black)
-                .bg(Color::Cyan)
+                .fg(fg_sel)
+                .bg(bg_sel)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default()
+            if i < f_len {
+                Style::default().fg(Color::Red)
+            } else if i < f_len + s_len {
+                Style::default().fg(Color::Yellow)
+            } else {
+                Style::default().fg(Color::Green)
+            }
         };
 
         if i < f_len {
             let f = &res.failed_files[i];
-            if !is_selected {
-                style = style.fg(Color::Red);
-            }
             rows.push(
                 Row::new(vec![
                     " ✗ FAIL ".to_string(),
@@ -421,9 +442,6 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &T
             );
         } else if i < f_len + s_len {
             let f = &res.skipped_files[i - f_len];
-            if !is_selected {
-                style = style.fg(Color::Yellow);
-            }
             rows.push(
                 Row::new(vec![
                     " ⚠ SKIP ".to_string(),
@@ -435,9 +453,6 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &T
             );
         } else {
             let f = &res.completed_files[i - f_len - s_len];
-            if !is_selected {
-                style = style.fg(Color::Green);
-            }
             let src_hash = f.src_hash.as_deref().unwrap_or("-");
             let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
             let hash_text = format!(

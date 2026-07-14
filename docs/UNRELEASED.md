@@ -89,5 +89,9 @@
 - Fixed a directory deletion issue where clearing file descriptions of nested subfolders during deletion recreated empty `descript.ion` files, preventing parent directory removal (ENOTEMPTY). Empty description files are now physically deleted.
 - Improved the Transfer Engine deletion worker to report directory removal errors as failures rather than silently ignoring them.
 
+### Improved
+
+- Improved visual feedback in the Transfer Panel by dynamically setting the selection color of jobs and file list rows to match their status (red for cancelled/failed, yellow for paused, green for completed).
+
 
 
