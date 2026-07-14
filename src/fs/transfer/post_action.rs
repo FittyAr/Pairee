@@ -19,7 +19,13 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             #[cfg(target_os = "windows")]
             {
                 Command::new("shutdown")
-                    .args(["/s", "/t", "10", "/c", "Pairee: Transfer complete. Shutting down..."])
+                    .args([
+                        "/s",
+                        "/t",
+                        "10",
+                        "/c",
+                        "Pairee: Transfer complete. Shutting down...",
+                    ])
                     .spawn()?;
             }
             #[cfg(not(target_os = "windows"))]
@@ -39,9 +45,7 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Command::new("systemctl")
-                    .arg("suspend")
-                    .spawn()?;
+                Command::new("systemctl").arg("suspend").spawn()?;
             }
             Ok(())
         }
@@ -54,9 +58,7 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Command::new("systemctl")
-                    .arg("hibernate")
-                    .spawn()?;
+                Command::new("systemctl").arg("hibernate").spawn()?;
             }
             Ok(())
         }

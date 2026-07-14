@@ -41,8 +41,16 @@ pub fn render_search(
     // ── Pagination ──────────────────────────────────────────────────────────
     // Leave 2 rows for borders and 1 for the page indicator at the bottom.
     let page_size = (list_area.height as usize).saturating_sub(3).max(1);
-    let page = if registry.is_empty() { 0 } else { cursor_idx / page_size };
-    let total_pages = if registry.is_empty() { 1 } else { (registry.len() + page_size - 1) / page_size };
+    let page = if registry.is_empty() {
+        0
+    } else {
+        cursor_idx / page_size
+    };
+    let total_pages = if registry.is_empty() {
+        1
+    } else {
+        (registry.len() + page_size - 1) / page_size
+    };
     let slice_start = page * page_size;
     let slice_end = (slice_start + page_size).min(registry.len());
 
@@ -92,7 +100,7 @@ pub fn render_search(
             // Truncate each column to its max width
             let name_col = truncate(clean_name, name_w);
             let auth_col = truncate(author, auth_w);
-            let ver_col  = truncate(version, ver_w);
+            let ver_col = truncate(version, ver_w);
 
             let row = format!(
                 " {:<name_w$}  {:<auth_w$}  {:<ver_w$}",
@@ -115,8 +123,7 @@ pub fn render_search(
                 w = inner_w,
             );
             list_items.push(ListItem::new(Line::from(vec![Span::styled(
-                indicator,
-                dim_style,
+                indicator, dim_style,
             )])));
         }
     }
@@ -173,10 +180,7 @@ pub fn render_search(
             }
         }
     } else {
-        detail_lines.push(Line::from(Span::styled(
-            t("plugin_no_selected"),
-            dim_style,
-        )));
+        detail_lines.push(Line::from(Span::styled(t("plugin_no_selected"), dim_style)));
     }
 
     let detail_para = Paragraph::new(detail_lines)

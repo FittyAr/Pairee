@@ -551,4 +551,3 @@ fn default_transfer_conflict() -> String {
 fn default_transfer_report_format() -> String {
     "html".to_string()
 }
-

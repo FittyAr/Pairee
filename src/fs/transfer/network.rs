@@ -9,7 +9,7 @@ pub fn is_lan_path(path: &Path) -> bool {
     {
         // En Windows, resolver la raíz del volumen
         let path_str = path.to_string_lossy();
-        
+
         // Comprobar si es una ruta UNC directa (ej: \\server\share)
         if path_str.starts_with(r"\\") {
             return true;
@@ -33,7 +33,8 @@ pub fn is_lan_path(path: &Path) -> bool {
 
         unsafe {
             // GetDriveTypeW de windows-sys. DRIVE_REMOTE es 4.
-            let drive_type = windows_sys::Win32::Storage::FileSystem::GetDriveTypeW(root_wide.as_ptr());
+            let drive_type =
+                windows_sys::Win32::Storage::FileSystem::GetDriveTypeW(root_wide.as_ptr());
             drive_type == 4 // DRIVE_REMOTE
         }
     }
@@ -47,11 +48,15 @@ pub fn is_lan_path(path: &Path) -> bool {
                 if parts.len() >= 3 {
                     let mount_point = parts[1];
                     let fs_type = parts[2];
-                    
+
                     // Comprobar si el path empieza con el mount point
                     if path.starts_with(mount_point) {
                         // Tipos comunes de FS de red
-                        if fs_type == "nfs" || fs_type == "cifs" || fs_type == "smbfs" || fs_type == "nfs4" {
+                        if fs_type == "nfs"
+                            || fs_type == "cifs"
+                            || fs_type == "smbfs"
+                            || fs_type == "nfs4"
+                        {
                             return true;
                         }
                     }
@@ -67,14 +72,14 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::ffi::OsStrExt;
-        
+
         let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
         wide.push(0);
-        
+
         let mut free_bytes_available = 0u64;
         let mut total_number_of_bytes = 0u64;
         let mut total_number_of_free_bytes = 0u64;
-        
+
         unsafe {
             let res = windows_sys::Win32::Storage::FileSystem::GetDiskFreeSpaceExW(
                 wide.as_ptr(),

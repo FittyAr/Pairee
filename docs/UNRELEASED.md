@@ -84,3 +84,10 @@
 - Fixed terminal stdout corruption when initializing a plugin skeleton.
 - Fixed the Search tab in the Plugins Manager not showing any results and not allowing text input on open.
 - Fixed Tab key being consumed by the Search text field, preventing navigation to other Plugin Manager tabs while typing.
+- Fixed selected row and list item highlighting in the Transfer Panel to prevent white block rendering artifacts in some terminals.
+- Fixed a deadlock/freezing vulnerability in the Transfer Engine's coordinator loop by tracking active worker JoinHandles, preventing worker task panics or unexpected exits from permanently freezing the queue.
+- Fixed a directory deletion issue where clearing file descriptions of nested subfolders during deletion recreated empty `descript.ion` files, preventing parent directory removal (ENOTEMPTY). Empty description files are now physically deleted.
+- Improved the Transfer Engine deletion worker to report directory removal errors as failures rather than silently ignoring them.
+
+
+

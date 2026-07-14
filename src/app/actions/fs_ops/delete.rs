@@ -44,10 +44,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
         } else {
             let active_panel = state.get_active_panel();
             if let Some(client) = &active_panel.ssh_conn {
-                let rx = crate::fs::spawn_ssh_delete_task(
-                    client.clone(),
-                    targets.clone(),
-                );
+                let rx = crate::fs::spawn_ssh_delete_task(client.clone(), targets.clone());
                 state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Delete);
                 state.progress_rx = Some(rx);
                 state.active_popup = Some(PopupType::CopyProgress {
@@ -75,7 +72,9 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
 
                 if state.transfer.is_none() {
                     let (engine, rx) = TransferEngine::new();
-                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
+                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(
+                        engine, rx,
+                    ));
                 }
 
                 if let Some(ref mut ts) = state.transfer {

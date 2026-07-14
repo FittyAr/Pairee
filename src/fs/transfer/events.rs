@@ -1,6 +1,6 @@
+use super::job::{FailedFile, FileTransferResult, TransferResults};
 use std::path::PathBuf;
 use uuid::Uuid;
-use super::job::{FileTransferResult, FailedFile, TransferResults};
 
 #[derive(Debug, Clone)]
 pub enum TransferEvent {
@@ -71,5 +71,3 @@ pub enum TransferEvent {
         conflict: super::conflict::ConflictInfo,
     },
 }
-
-

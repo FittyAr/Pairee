@@ -1,7 +1,7 @@
 pub mod glob;
 pub mod panel;
-pub mod types;
 pub mod transfer_state;
+pub mod types;
 
 pub mod history;
 pub mod quick_view;
@@ -11,12 +11,12 @@ pub mod screens;
 pub use crate::fs::compare::CompareStatus;
 pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
+pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot, LinkKind,
     PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
     TreeNode,
 };
-pub use transfer_state::{TransferUIState, TransferViewMode, TransferTab};
 
 use crate::fs::ProgressUpdate;
 use crate::update::{UpdateInfo, UpdateStatus};

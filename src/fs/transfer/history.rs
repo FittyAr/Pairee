@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct TransferHistory {
@@ -20,7 +20,7 @@ pub fn load_history() -> TransferHistory {
     if !path.exists() {
         return TransferHistory::default();
     }
-    
+
     match std::fs::read_to_string(&path) {
         Ok(content) => toml::from_str(&content).unwrap_or_default(),
         Err(_) => TransferHistory::default(),
@@ -33,7 +33,7 @@ pub fn save_history(history: &TransferHistory) -> std::io::Result<()> {
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)?;
     }
-    
+
     let content = toml::to_string_pretty(history)
         .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
     std::fs::write(path, content)

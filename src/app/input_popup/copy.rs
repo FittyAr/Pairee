@@ -143,7 +143,11 @@ pub fn handle(
                 if new_idx == 0 {
                     if !new_input.is_empty() {
                         let history = crate::fs::transfer::history::load_history();
-                        if let Some(suggestion) = history.destinations.iter().find(|d| d.to_lowercase().starts_with(&new_input.to_lowercase())) {
+                        if let Some(suggestion) = history
+                            .destinations
+                            .iter()
+                            .find(|d| d.to_lowercase().starts_with(&new_input.to_lowercase()))
+                        {
                             new_input = suggestion.clone();
                             update_popup(
                                 state,
@@ -285,7 +289,8 @@ pub fn handle(
                 let targets = src_paths;
                 let dest = dest_dir.join(&new_input);
 
-                let is_ssh = state.get_active_panel().ssh_conn.is_some() || state.get_passive_panel().ssh_conn.is_some();
+                let is_ssh = state.get_active_panel().ssh_conn.is_some()
+                    || state.get_passive_panel().ssh_conn.is_some();
                 if is_ssh {
                     let rx = crate::fs::spawn_copy_move_task(
                         targets.clone(),
@@ -312,13 +317,14 @@ pub fn handle(
 
                     let mut options = TransferOptions::default();
                     options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
-                    options.hash_algorithm = match context.config.settings.transfer_default_hash.as_str() {
-                        "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
-                        "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
-                        "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
-                        "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
-                        _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
-                    };
+                    options.hash_algorithm =
+                        match context.config.settings.transfer_default_hash.as_str() {
+                            "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
+                            "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
+                            "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
+                            "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
+                            _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                        };
                     options.buffer_size = match context.config.settings.transfer_buffer_size {
                         65536 => crate::fs::transfer::options::BufferSize::_64KB,
                         262144 => crate::fs::transfer::options::BufferSize::_256KB,
@@ -326,11 +332,13 @@ pub fn handle(
                         _ => crate::fs::transfer::options::BufferSize::_1MB,
                     };
                     options.direct_io = new_cache;
-                    options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
+                    options.preserve_timestamps =
+                        context.config.settings.transfer_preserve_timestamps;
                     options.preserve_attributes = new_ext;
                     options.preserve_acl = context.config.settings.transfer_preserve_acl;
                     options.preserve_streams = context.config.settings.transfer_preserve_streams;
-                    options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
+                    options.limit_bandwidth_rate =
+                        context.config.settings.transfer_limit_bandwidth_rate;
                     options.halt_on_error = context.config.settings.transfer_halt_on_error;
                     options.max_retries = context.config.settings.transfer_max_retries;
                     options.conflict_resolution = match new_already {
@@ -360,12 +368,7 @@ pub fn handle(
                         None
                     };
 
-                    let job = TransferJob::new(
-                        TransferOperation::Copy,
-                        targets,
-                        dest,
-                        options,
-                    );
+                    let job = TransferJob::new(TransferOperation::Copy, targets, dest, options);
 
                     for src in &job.sources {
                         crate::fs::transfer::history::add_source_path(src);
@@ -374,7 +377,9 @@ pub fn handle(
 
                     if state.transfer.is_none() {
                         let (engine, rx) = TransferEngine::new();
-                        state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
+                        state.transfer = Some(
+                            crate::app::state::transfer_state::TransferUIState::new(engine, rx),
+                        );
                     }
 
                     if let Some(ref mut ts) = state.transfer {

@@ -69,8 +69,8 @@ pub fn calculate_layout(
                 Constraint::Min(3) // Normal: panels take remaining space
             },
             Constraint::Length(transfer_height), // Transfer Compact Bar
-            Constraint::Length(1),            // Command-line bar
-            Constraint::Length(fkeys_height), // F1–F10 shortcuts
+            Constraint::Length(1),               // Command-line bar
+            Constraint::Length(fkeys_height),    // F1–F10 shortcuts
         ])
         .split(area);
 

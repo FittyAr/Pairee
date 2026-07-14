@@ -8,8 +8,8 @@ pub mod panel;
 pub mod popup;
 pub mod quickview;
 pub mod theme_apply;
-pub mod viewer;
 pub mod transfer;
+pub mod viewer;
 
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType};
@@ -172,7 +172,9 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     transfer::panel::render_transfer_panel(f, state, context);
 
     if let Some(ref ts) = state.transfer {
-        if ts.active_conflict_info.is_some() && ts.view_mode == crate::app::state::TransferViewMode::Expanded {
+        if ts.active_conflict_info.is_some()
+            && ts.view_mode == crate::app::state::TransferViewMode::Expanded
+        {
             let size = f.area();
             transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
         }

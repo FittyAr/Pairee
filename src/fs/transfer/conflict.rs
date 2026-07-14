@@ -34,7 +34,7 @@ pub fn resolve_filename_conflict(dst_path: &Path) -> PathBuf {
 
     let parent = dst_path.parent().unwrap_or_else(|| Path::new(""));
     let file_name = dst_path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-    
+
     // Separar nombre base y extensión
     let (base_name, extension) = if let Some(dot_idx) = file_name.rfind('.') {
         if dot_idx > 0 && dot_idx < file_name.len() - 1 {
@@ -60,14 +60,14 @@ pub fn resolve_filename_conflict(dst_path: &Path) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tempfile::tempdir;
     use std::fs::File;
+    use tempfile::tempdir;
 
     #[test]
     fn test_conflict_resolution_naming() {
         let dir = tempdir().unwrap();
         let file_path = dir.path().join("test.txt");
-        
+
         // El primero no existe, retorna el mismo path
         let resolved = resolve_filename_conflict(&file_path);
         assert_eq!(resolved, file_path);
@@ -77,13 +77,19 @@ mod tests {
 
         // Ahora deberia sugerir test (1).txt
         let resolved_1 = resolve_filename_conflict(&file_path);
-        assert_eq!(resolved_1.file_name().unwrap().to_str().unwrap(), "test (1).txt");
+        assert_eq!(
+            resolved_1.file_name().unwrap().to_str().unwrap(),
+            "test (1).txt"
+        );
 
         // Creamos test (1).txt
         File::create(&resolved_1).unwrap();
 
         // Ahora deberia sugerir test (2).txt
         let resolved_2 = resolve_filename_conflict(&file_path);
-        assert_eq!(resolved_2.file_name().unwrap().to_str().unwrap(), "test (2).txt");
+        assert_eq!(
+            resolved_2.file_name().unwrap().to_str().unwrap(),
+            "test (2).txt"
+        );
     }
 }

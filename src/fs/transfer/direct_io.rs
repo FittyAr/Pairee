@@ -48,7 +48,7 @@ pub fn open_reader_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         let mut options = OpenOptions::new();
         options.read(true);
         options.custom_flags(FILE_FLAG_NO_BUFFERING);
-        
+
         match options.open(&normalized) {
             Ok(file) => Ok(file),
             Err(_) => File::open(&normalized), // Fallback
@@ -61,7 +61,7 @@ pub fn open_reader_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         let mut options = OpenOptions::new();
         options.read(true);
         options.custom_flags(O_DIRECT);
-        
+
         match options.open(path) {
             Ok(file) => Ok(file),
             Err(_) => File::open(path), // Fallback
@@ -88,7 +88,7 @@ pub fn open_writer_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         let mut options = OpenOptions::new();
         options.write(true).create(true).truncate(true);
         options.custom_flags(FILE_FLAG_NO_BUFFERING | FILE_FLAG_WRITE_THROUGH);
-        
+
         match options.open(&normalized) {
             Ok(file) => Ok(file),
             Err(_) => File::create(&normalized), // Fallback
@@ -101,7 +101,7 @@ pub fn open_writer_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         let mut options = OpenOptions::new();
         options.write(true).create(true).truncate(true);
         options.custom_flags(O_DIRECT);
-        
+
         match options.open(&normalized) {
             Ok(file) => Ok(file),
             Err(_) => File::create(&normalized), // Fallback

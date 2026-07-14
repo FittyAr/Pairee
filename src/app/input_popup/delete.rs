@@ -31,15 +31,16 @@ pub fn handle(
                         if cursor_idx == 0 {
                             let ssh_conn = state.get_active_panel().ssh_conn.clone();
                             if let Some(client) = ssh_conn {
-                                let rx = crate::fs::spawn_ssh_delete_task(
-                                    client.clone(),
-                                    paths.clone(),
-                                );
-                                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Delete);
+                                let rx =
+                                    crate::fs::spawn_ssh_delete_task(client.clone(), paths.clone());
+                                state.active_bg_op =
+                                    Some(crate::app::state::BackgroundOpContext::Delete);
                                 state.progress_rx = Some(rx);
                                 state.active_popup = Some(PopupType::CopyProgress {
                                     is_move: false,
-                                    current_file: crate::config::localization::t("progress_initializing"),
+                                    current_file: crate::config::localization::t(
+                                        "progress_initializing",
+                                    ),
                                     files_copied: 0,
                                     total_files: 0,
                                     bytes_copied: 0,
@@ -51,7 +52,8 @@ pub fn handle(
                                 use crate::fs::transfer::options::TransferOptions;
 
                                 let mut options = TransferOptions::default();
-                                options.delete_to_recycle_bin = context.config.settings.delete_to_recycle_bin;
+                                options.delete_to_recycle_bin =
+                                    context.config.settings.delete_to_recycle_bin;
 
                                 let job = TransferJob::new(
                                     TransferOperation::Delete,
@@ -62,7 +64,11 @@ pub fn handle(
 
                                 if state.transfer.is_none() {
                                     let (engine, rx) = TransferEngine::new();
-                                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
+                                    state.transfer = Some(
+                                        crate::app::state::transfer_state::TransferUIState::new(
+                                            engine, rx,
+                                        ),
+                                    );
                                 }
 
                                 if let Some(ref mut ts) = state.transfer {

@@ -1,11 +1,11 @@
 use std::sync::Arc;
 
+use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
-use std::time::Duration;
 
-use super::job::{TransferJob, TransferJobStatus};
 use super::events::TransferEvent;
+use super::job::{TransferJob, TransferJobStatus};
 use super::queue::TransferQueue;
 use super::worker::TransferWorker;
 
@@ -31,8 +31,6 @@ impl TransferEngine {
         self.trigger_processing_loop();
     }
 
-
-
     pub fn trigger_processing_loop(&mut self) {
         if self.active_coordinator_handle.is_some() {
             return;
@@ -42,18 +40,44 @@ impl TransferEngine {
         let event_tx = self.event_tx.clone();
 
         let handle = tokio::spawn(async move {
+            let mut active_worker: Option<(uuid::Uuid, JoinHandle<()>)> = None;
+
             loop {
+                // Verificar si el trabajador activo ha terminado (o entrado en pánico/abortado)
+                if let Some((job_id, ref worker_handle)) = active_worker {
+                    if worker_handle.is_finished() {
+                        let jobs = queue.get_all();
+                        if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
+                            if !job.is_terminal() {
+                                // Terminó de forma inesperada (p. ej. pánico)
+                                queue.update_job(job_id, |j| {
+                                    j.status = TransferJobStatus::Failed;
+                                    j.log_lines.push(
+                                        "Error: Worker task terminated unexpectedly.".to_string(),
+                                    );
+                                });
+                                let _ = event_tx.send(TransferEvent::JobFailed {
+                                    job_id,
+                                    error: "Worker task terminated unexpectedly".to_string(),
+                                });
+                            }
+                        }
+                        active_worker = None;
+                    }
+                }
+
                 let jobs = queue.get_all();
-                
+
                 // 1. Verificar si hay algún trabajo activo
-                let any_running = jobs.iter().any(|j| {
-                    matches!(
-                        j.status,
-                        TransferJobStatus::Scanning
-                            | TransferJobStatus::Transferring
-                            | TransferJobStatus::Verifying
-                    )
-                });
+                let any_running = active_worker.is_some()
+                    || jobs.iter().any(|j| {
+                        matches!(
+                            j.status,
+                            TransferJobStatus::Scanning
+                                | TransferJobStatus::Transferring
+                                | TransferJobStatus::Verifying
+                        )
+                    });
 
                 if !any_running {
                     // Buscar el primer trabajo Queued en la cola
@@ -62,7 +86,7 @@ impl TransferEngine {
                         let queue_clone = queue.clone();
                         let event_tx_clone = event_tx.clone();
 
-                        tokio::spawn(async move {
+                        let worker_handle = tokio::spawn(async move {
                             let worker = TransferWorker::new(
                                 job.id,
                                 job.operation,
@@ -87,10 +111,8 @@ impl TransferEngine {
                                         j.status = TransferJobStatus::Completed;
                                         j.results = results.clone();
                                     });
-                                    let _ = event_tx_clone.send(TransferEvent::JobCompleted {
-                                        job_id,
-                                        results,
-                                    });
+                                    let _ = event_tx_clone
+                                        .send(TransferEvent::JobCompleted { job_id, results });
                                 }
                                 Err(e) => {
                                     let err_msg = e.to_string();
@@ -104,11 +126,17 @@ impl TransferEngine {
                                     });
                                     let _ = event_tx_clone.send(TransferEvent::JobFailed {
                                         job_id,
-                                        error: if is_cancel { "Job cancelled by user".to_string() } else { err_msg },
+                                        error: if is_cancel {
+                                            "Job cancelled by user".to_string()
+                                        } else {
+                                            err_msg
+                                        },
                                     });
                                 }
                             }
                         });
+
+                        active_worker = Some((job_id, worker_handle));
                     }
                 }
 

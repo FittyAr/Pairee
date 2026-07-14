@@ -84,18 +84,30 @@ pub fn render(
         } else {
             norm_style
         };
-        let mut text_lines = vec![
-            ratatui::text::Line::from(format!("{} {}", label, t("prompt_renmov_to"))),
-        ];
+        let mut text_lines = vec![ratatui::text::Line::from(format!(
+            "{} {}",
+            label,
+            t("prompt_renmov_to")
+        ))];
         let mut input_spans = vec![ratatui::text::Span::styled(input.clone(), in_style)];
         if *cursor_idx == 0 {
-            input_spans.push(ratatui::text::Span::styled("_", Style::default().fg(Color::Cyan)));
+            input_spans.push(ratatui::text::Span::styled(
+                "_",
+                Style::default().fg(Color::Cyan),
+            ));
             if !input.is_empty() {
                 let history = crate::fs::transfer::history::load_history();
-                if let Some(suggestion) = history.destinations.iter().find(|d| d.to_lowercase().starts_with(&input.to_lowercase())) {
+                if let Some(suggestion) = history
+                    .destinations
+                    .iter()
+                    .find(|d| d.to_lowercase().starts_with(&input.to_lowercase()))
+                {
                     if suggestion.len() > input.len() {
                         let suffix = &suggestion[input.len()..];
-                        input_spans.push(ratatui::text::Span::styled(suffix.to_string(), Style::default().fg(Color::DarkGray)));
+                        input_spans.push(ratatui::text::Span::styled(
+                            suffix.to_string(),
+                            Style::default().fg(Color::DarkGray),
+                        ));
                     }
                 }
             }

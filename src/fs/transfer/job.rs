@@ -56,9 +56,7 @@ impl TransferJob {
     pub fn is_terminal(&self) -> bool {
         matches!(
             self.status,
-            TransferJobStatus::Completed
-                | TransferJobStatus::Failed
-                | TransferJobStatus::Cancelled
+            TransferJobStatus::Completed | TransferJobStatus::Failed | TransferJobStatus::Cancelled
         )
     }
 }

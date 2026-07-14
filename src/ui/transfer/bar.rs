@@ -1,7 +1,7 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::{Block, Borders, BorderType, Gauge, Paragraph};
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::Frame;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::{Block, BorderType, Borders, Gauge, Paragraph};
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, TransferViewMode};
@@ -18,15 +18,18 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
     }
 
     let jobs = transfer_state.engine.queue.get_all();
-    let active_job = jobs.iter().find(|j| {
-        matches!(
-            j.status,
-            crate::fs::transfer::job::TransferJobStatus::Scanning
-                | crate::fs::transfer::job::TransferJobStatus::Transferring
-                | crate::fs::transfer::job::TransferJobStatus::Verifying
-                | crate::fs::transfer::job::TransferJobStatus::Paused
-        )
-    }).or_else(|| jobs.first());
+    let active_job = jobs
+        .iter()
+        .find(|j| {
+            matches!(
+                j.status,
+                crate::fs::transfer::job::TransferJobStatus::Scanning
+                    | crate::fs::transfer::job::TransferJobStatus::Transferring
+                    | crate::fs::transfer::job::TransferJobStatus::Verifying
+                    | crate::fs::transfer::job::TransferJobStatus::Paused
+            )
+        })
+        .or_else(|| jobs.first());
 
     let job = match active_job {
         Some(j) => j,
@@ -48,7 +51,7 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
     };
 
     let percent = progress.percent_bytes() as u16;
-    
+
     // Crear bloque contenedor
     let block = Block::default()
         .borders(Borders::ALL)
@@ -77,14 +80,19 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
         progress.files_completed,
         progress.files_total
     );
-    f.render_widget(Paragraph::new(info_text).style(Style::default().fg(Color::White)), chunks[0]);
+    f.render_widget(
+        Paragraph::new(info_text).style(Style::default().fg(Color::White)),
+        chunks[0],
+    );
 
     // 2. Gauge de progreso
     let label = format!("{}%", percent);
-    let gauge = Gauge::default()
-        .percent(percent)
-        .label(label)
-        .gauge_style(Style::default().fg(bar_color).bg(Color::DarkGray).add_modifier(Modifier::BOLD));
+    let gauge = Gauge::default().percent(percent).label(label).gauge_style(
+        Style::default()
+            .fg(bar_color)
+            .bg(Color::DarkGray)
+            .add_modifier(Modifier::BOLD),
+    );
     f.render_widget(gauge, chunks[1]);
 
     // 3. Velocidad y ETA
@@ -102,12 +110,16 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
         }
     };
     let speed_eta = format!(" {}/s | {}", speed_formatted, eta_text);
-    f.render_widget(Paragraph::new(speed_eta).style(Style::default().fg(Color::Yellow)), chunks[2]);
+    f.render_widget(
+        Paragraph::new(speed_eta).style(Style::default().fg(Color::Yellow)),
+        chunks[2],
+    );
 
     // 4. Atajo de ayuda compacta
     let action_text = " [Ctrl+T] Expand ";
     f.render_widget(
-        Paragraph::new(action_text).style(Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM)),
-        chunks[3]
+        Paragraph::new(action_text)
+            .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM)),
+        chunks[3],
     );
 }

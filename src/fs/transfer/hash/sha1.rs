@@ -1,5 +1,5 @@
 use super::HashStrategy;
-use sha1::{Sha1, Digest};
+use sha1::{Digest, Sha1};
 
 pub struct Sha1Hasher {
     state: Sha1,
@@ -7,9 +7,7 @@ pub struct Sha1Hasher {
 
 impl Sha1Hasher {
     pub fn new() -> Self {
-        Self {
-            state: Sha1::new(),
-        }
+        Self { state: Sha1::new() }
     }
 }
 

@@ -185,14 +185,16 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         use crate::fs::transfer::options::TransferOptions;
 
                         let mut options = TransferOptions::default();
-                        options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
-                        options.hash_algorithm = match context.config.settings.transfer_default_hash.as_str() {
-                            "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
-                            "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
-                            "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
-                            "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
-                            _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
-                        };
+                        options.verify_after_copy =
+                            context.config.settings.transfer_verify_after_copy;
+                        options.hash_algorithm =
+                            match context.config.settings.transfer_default_hash.as_str() {
+                                "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
+                                "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
+                                "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
+                                "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
+                                _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                            };
                         options.buffer_size = match context.config.settings.transfer_buffer_size {
                             65536 => crate::fs::transfer::options::BufferSize::_64KB,
                             262144 => crate::fs::transfer::options::BufferSize::_256KB,
@@ -200,27 +202,30 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                             _ => crate::fs::transfer::options::BufferSize::_1MB,
                         };
                         options.direct_io = context.config.settings.transfer_direct_io;
-                        options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
-                        options.preserve_attributes = context.config.settings.transfer_preserve_attributes;
+                        options.preserve_timestamps =
+                            context.config.settings.transfer_preserve_timestamps;
+                        options.preserve_attributes =
+                            context.config.settings.transfer_preserve_attributes;
                         options.preserve_acl = context.config.settings.transfer_preserve_acl;
-                        options.preserve_streams = context.config.settings.transfer_preserve_streams;
+                        options.preserve_streams =
+                            context.config.settings.transfer_preserve_streams;
                         options.skip_symlinks = context.config.settings.transfer_skip_symlinks;
                         options.follow_symlinks = context.config.settings.transfer_follow_symlinks;
-                        options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
+                        options.limit_bandwidth_rate =
+                            context.config.settings.transfer_limit_bandwidth_rate;
                         options.halt_on_error = context.config.settings.transfer_halt_on_error;
                         options.max_retries = context.config.settings.transfer_max_retries;
-                        options.conflict_resolution = context.config.settings.transfer_conflict_resolution.clone();
+                        options.conflict_resolution =
+                            context.config.settings.transfer_conflict_resolution.clone();
 
-                        let job = TransferJob::new(
-                            TransferOperation::Copy,
-                            vec![from],
-                            to,
-                            options,
-                        );
+                        let job =
+                            TransferJob::new(TransferOperation::Copy, vec![from], to, options);
 
                         if state.transfer.is_none() {
                             let (engine, rx) = TransferEngine::new();
-                            state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
+                            state.transfer = Some(
+                                crate::app::state::transfer_state::TransferUIState::new(engine, rx),
+                            );
                         }
 
                         if let Some(ref mut ts) = state.transfer {
@@ -240,7 +245,10 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                             }
                         }
                     }
-                    PluginRequest::PluginMenuLoaded { installed, registry } => {
+                    PluginRequest::PluginMenuLoaded {
+                        installed,
+                        registry,
+                    } => {
                         if let Some(PopupType::PluginMenu {
                             installed: ref mut existing,
                             all_registry: ref mut existing_all,

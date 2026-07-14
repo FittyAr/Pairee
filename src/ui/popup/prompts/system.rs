@@ -54,11 +54,13 @@ pub fn render(
             let title = match state.active_bg_op {
                 Some(crate::app::state::BackgroundOpContext::Move) => t("progress_move_title"),
                 Some(crate::app::state::BackgroundOpContext::Delete) => t("progress_delete_title"),
-                _ => if *is_move {
-                    t("progress_move_title")
-                } else {
-                    t("progress_copy_title")
-                },
+                _ => {
+                    if *is_move {
+                        t("progress_move_title")
+                    } else {
+                        t("progress_copy_title")
+                    }
+                }
             };
 
             let block = Block::default()

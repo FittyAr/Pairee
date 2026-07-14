@@ -1,5 +1,5 @@
 use super::HashStrategy;
-use md5::{Md5, Digest};
+use md5::{Digest, Md5};
 
 pub struct Md5Hasher {
     state: Md5,
@@ -7,9 +7,7 @@ pub struct Md5Hasher {
 
 impl Md5Hasher {
     pub fn new() -> Self {
-        Self {
-            state: Md5::new(),
-        }
+        Self { state: Md5::new() }
     }
 }
 

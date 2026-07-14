@@ -31,10 +31,10 @@ pub mod search;
 pub mod select_group;
 pub mod sort_modes;
 pub mod task_list;
+pub mod transfer_panel;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
-pub mod transfer_panel;
 
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;

@@ -1,6 +1,6 @@
-use std::path::Path;
 use crate::app::state::glob_matches;
 use chrono::TimeZone;
+use std::path::Path;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum FilterRule {
@@ -64,10 +64,7 @@ impl TransferFilter {
             return true;
         }
 
-        let file_name = path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("");
+        let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
 
         let mut has_include_glob = false;
         let mut glob_matched = false;
@@ -123,19 +120,18 @@ impl TransferFilter {
             }
         }
 
-        if has_include_glob {
-            glob_matched
-        } else {
-            true
-        }
+        if has_include_glob { glob_matched } else { true }
     }
 }
 
 fn parse_size(size_str: &str) -> Option<u64> {
     let size_str = size_str.trim();
-    let num_str: String = size_str.chars().take_while(|c| c.is_ascii_digit()).collect();
+    let num_str: String = size_str
+        .chars()
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
     let num: u64 = num_str.parse().ok()?;
-    
+
     let unit = &size_str[num_str.len()..].trim().to_uppercase();
     let multiplier = match unit.as_str() {
         "KB" | "K" => 1024,
@@ -150,7 +146,10 @@ fn parse_size(size_str: &str) -> Option<u64> {
 fn parse_date(date_str: &str) -> Option<std::time::SystemTime> {
     let date_str = date_str.trim();
     if date_str.ends_with('d') || date_str.ends_with('D') {
-        let days_str: String = date_str.chars().take_while(|c| c.is_ascii_digit()).collect();
+        let days_str: String = date_str
+            .chars()
+            .take_while(|c| c.is_ascii_digit())
+            .collect();
         let days: u64 = days_str.parse().ok()?;
         let duration = std::time::Duration::from_secs(days * 24 * 60 * 60);
         std::time::SystemTime::now().checked_sub(duration)
@@ -177,16 +176,16 @@ mod tests {
     #[test]
     fn test_filter_parsing_and_matching() {
         let filter = TransferFilter::parse("*.jpg;*.png;!temp*;>1MB;<50MB");
-        
+
         // Incluido por glob y dentro de rango de tamaño
         assert!(filter.matches(Path::new("image.jpg"), 5 * 1024 * 1024));
-        
+
         // Excluido por tamaño demasiado pequeño
         assert!(!filter.matches(Path::new("image.jpg"), 500 * 1024));
-        
+
         // Excluido por glob de exclusion
         assert!(!filter.matches(Path::new("temp_image.png"), 2 * 1024 * 1024));
-        
+
         // Excluido porque no es ni jpg ni png
         assert!(!filter.matches(Path::new("document.pdf"), 2 * 1024 * 1024));
     }

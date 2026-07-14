@@ -759,7 +759,8 @@ pub async fn handle_ui_settings_action(
         Action::ToggleTransferPanel => {
             if let Some(ref mut ts) = state.transfer {
                 match ts.view_mode {
-                    crate::app::state::TransferViewMode::Hidden | crate::app::state::TransferViewMode::Minimized => {
+                    crate::app::state::TransferViewMode::Hidden
+                    | crate::app::state::TransferViewMode::Minimized => {
                         ts.view_mode = crate::app::state::TransferViewMode::Expanded;
                         state.active_popup = Some(PopupType::TransferPanel);
                     }
@@ -769,7 +770,9 @@ pub async fn handle_ui_settings_action(
                     }
                 }
             } else {
-                state.active_popup = Some(PopupType::Info("No active background transfers.".to_string()));
+                state.active_popup = Some(PopupType::Info(
+                    "No active background transfers.".to_string(),
+                ));
             }
             true
         }

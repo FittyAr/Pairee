@@ -1,7 +1,6 @@
-use tokio::sync::mpsc;
 use crate::fs::transfer::engine::TransferEngine;
 use crate::fs::transfer::events::TransferEvent;
-
+use tokio::sync::mpsc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TransferViewMode {
@@ -26,11 +25,15 @@ pub struct TransferUIState {
     pub file_list_cursor: usize,
     pub queue_cursor: usize,
     pub options_cursor: usize,
-    
+
     // Snaphots de tiempo real para renderizar sin bloquear el hilo principal
     pub speed_info: (f64, Option<u64>), // (bytes_per_second, eta_seconds)
     pub post_action: crate::fs::transfer::post_action::PostAction,
-    pub active_conflict_info: Option<(uuid::Uuid, std::path::PathBuf, crate::fs::transfer::conflict::ConflictInfo)>,
+    pub active_conflict_info: Option<(
+        uuid::Uuid,
+        std::path::PathBuf,
+        crate::fs::transfer::conflict::ConflictInfo,
+    )>,
 }
 
 impl TransferUIState {

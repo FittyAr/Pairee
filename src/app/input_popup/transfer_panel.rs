@@ -15,15 +15,27 @@ pub fn handle(
 
     if let Some((job_id, _, _)) = transfer.active_conflict_info {
         let resolution = match key.code {
-            KeyCode::Char('o') => Some(crate::fs::transfer::conflict::ConflictResolution::Overwrite),
-            KeyCode::Char('O') => Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteAll),
-            KeyCode::Char('a') => Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder),
-            KeyCode::Char('A') => Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll),
+            KeyCode::Char('o') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::Overwrite)
+            }
+            KeyCode::Char('O') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteAll)
+            }
+            KeyCode::Char('a') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder)
+            }
+            KeyCode::Char('A') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll)
+            }
             KeyCode::Char('s') => Some(crate::fs::transfer::conflict::ConflictResolution::Skip),
             KeyCode::Char('S') => Some(crate::fs::transfer::conflict::ConflictResolution::SkipAll),
             KeyCode::Char('r') => Some(crate::fs::transfer::conflict::ConflictResolution::Rename),
-            KeyCode::Char('R') => Some(crate::fs::transfer::conflict::ConflictResolution::RenameAll),
-            KeyCode::Char('x') | KeyCode::Char('X') => Some(crate::fs::transfer::conflict::ConflictResolution::Cancel),
+            KeyCode::Char('R') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::RenameAll)
+            }
+            KeyCode::Char('x') | KeyCode::Char('X') => {
+                Some(crate::fs::transfer::conflict::ConflictResolution::Cancel)
+            }
             _ => None,
         };
 
@@ -42,10 +54,18 @@ pub fn handle(
     }
 
     match key.code {
-        KeyCode::Char('t') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+        KeyCode::Char('t')
+            if key
+                .modifiers
+                .contains(crossterm::event::KeyModifiers::CONTROL) =>
+        {
             Ok(Some(Action::ToggleTransferPanel))
         }
-        KeyCode::Char('T') if key.modifiers.contains(crossterm::event::KeyModifiers::CONTROL) => {
+        KeyCode::Char('T')
+            if key
+                .modifiers
+                .contains(crossterm::event::KeyModifiers::CONTROL) =>
+        {
             Ok(Some(Action::ToggleTransferPanel))
         }
         KeyCode::Esc => {
@@ -122,11 +142,16 @@ pub fn handle(
                     // 1. Pausar todos los demás trabajos activos
                     for other_job in &jobs {
                         if other_job.id != job.id {
-                            other_job.is_paused.store(true, std::sync::atomic::Ordering::SeqCst);
+                            other_job
+                                .is_paused
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
                             transfer.engine.queue.update_job(other_job.id, |j| {
-                                if j.status == crate::fs::transfer::job::TransferJobStatus::Transferring 
-                                    || j.status == crate::fs::transfer::job::TransferJobStatus::Scanning 
-                                    || j.status == crate::fs::transfer::job::TransferJobStatus::Verifying 
+                                if j.status
+                                    == crate::fs::transfer::job::TransferJobStatus::Transferring
+                                    || j.status
+                                        == crate::fs::transfer::job::TransferJobStatus::Scanning
+                                    || j.status
+                                        == crate::fs::transfer::job::TransferJobStatus::Verifying
                                 {
                                     j.status = crate::fs::transfer::job::TransferJobStatus::Paused;
                                 }
@@ -134,16 +159,18 @@ pub fn handle(
                         }
                     }
                     // 2. Activar el seleccionado
-                    job.is_paused.store(false, std::sync::atomic::Ordering::SeqCst);
+                    job.is_paused
+                        .store(false, std::sync::atomic::Ordering::SeqCst);
                     transfer.engine.queue.update_job(job.id, |j| {
                         j.status = crate::fs::transfer::job::TransferJobStatus::Transferring;
                     });
-                } else if job.status == crate::fs::transfer::job::TransferJobStatus::Transferring 
-                    || job.status == crate::fs::transfer::job::TransferJobStatus::Scanning 
-                    || job.status == crate::fs::transfer::job::TransferJobStatus::Verifying 
+                } else if job.status == crate::fs::transfer::job::TransferJobStatus::Transferring
+                    || job.status == crate::fs::transfer::job::TransferJobStatus::Scanning
+                    || job.status == crate::fs::transfer::job::TransferJobStatus::Verifying
                 {
                     // Pausar
-                    job.is_paused.store(true, std::sync::atomic::Ordering::SeqCst);
+                    job.is_paused
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
                     transfer.engine.queue.update_job(job.id, |j| {
                         j.status = crate::fs::transfer::job::TransferJobStatus::Paused;
                     });
@@ -151,11 +178,16 @@ pub fn handle(
                     // Pausar los demás
                     for other_job in &jobs {
                         if other_job.id != job.id {
-                            other_job.is_paused.store(true, std::sync::atomic::Ordering::SeqCst);
+                            other_job
+                                .is_paused
+                                .store(true, std::sync::atomic::Ordering::SeqCst);
                             transfer.engine.queue.update_job(other_job.id, |j| {
-                                if j.status == crate::fs::transfer::job::TransferJobStatus::Transferring 
-                                    || j.status == crate::fs::transfer::job::TransferJobStatus::Scanning 
-                                    || j.status == crate::fs::transfer::job::TransferJobStatus::Verifying 
+                                if j.status
+                                    == crate::fs::transfer::job::TransferJobStatus::Transferring
+                                    || j.status
+                                        == crate::fs::transfer::job::TransferJobStatus::Scanning
+                                    || j.status
+                                        == crate::fs::transfer::job::TransferJobStatus::Verifying
                                 {
                                     j.status = crate::fs::transfer::job::TransferJobStatus::Paused;
                                 }
@@ -163,7 +195,8 @@ pub fn handle(
                         }
                     }
                     // Promover/ejecutar el seleccionado
-                    job.is_paused.store(false, std::sync::atomic::Ordering::SeqCst);
+                    job.is_paused
+                        .store(false, std::sync::atomic::Ordering::SeqCst);
                     // Movemos al principio de la cola para que el coordinador lo tome de inmediato
                     transfer.engine.queue.reorder(job.id, -(jobs.len() as i32));
                 }
@@ -174,7 +207,8 @@ pub fn handle(
             // Saltar archivo de la tarea seleccionada
             let jobs = transfer.engine.queue.get_all();
             if let Some(job) = jobs.get(transfer.queue_cursor) {
-                job.skip_file_flag.store(true, std::sync::atomic::Ordering::SeqCst);
+                job.skip_file_flag
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
             }
             Ok(None)
         }
@@ -182,7 +216,8 @@ pub fn handle(
             // Cancelar la tarea seleccionada
             let jobs = transfer.engine.queue.get_all();
             if let Some(job) = jobs.get(transfer.queue_cursor) {
-                job.is_cancelled.store(true, std::sync::atomic::Ordering::SeqCst);
+                job.is_cancelled
+                    .store(true, std::sync::atomic::Ordering::SeqCst);
                 transfer.engine.queue.update_job(job.id, |j| {
                     j.status = crate::fs::transfer::job::TransferJobStatus::Cancelled;
                 });
@@ -194,7 +229,8 @@ pub fn handle(
             if let Some(job) = jobs.get(transfer.queue_cursor) {
                 let res = &job.results;
                 if !res.failed_files.is_empty() {
-                    let failed_sources: Vec<std::path::PathBuf> = res.failed_files.iter().map(|f| f.src.clone()).collect();
+                    let failed_sources: Vec<std::path::PathBuf> =
+                        res.failed_files.iter().map(|f| f.src.clone()).collect();
                     let new_job = crate::fs::transfer::job::TransferJob::new(
                         job.operation,
                         failed_sources,
@@ -202,7 +238,10 @@ pub fn handle(
                         job.options.clone(),
                     );
                     transfer.engine.queue.update_job(job.id, |j| {
-                        j.log_lines.push(format!("Re-enqueueing {} failed files...", res.failed_files.len()));
+                        j.log_lines.push(format!(
+                            "Re-enqueueing {} failed files...",
+                            res.failed_files.len()
+                        ));
                     });
                     transfer.engine.submit_job(new_job);
                 }
@@ -224,9 +263,14 @@ pub fn handle(
                 } else {
                     std::path::Path::new(".")
                 };
-                if let Ok(report_path) = crate::fs::transfer::report::save_report(&content, &format, dest_dir) {
+                if let Ok(report_path) =
+                    crate::fs::transfer::report::save_report(&content, &format, dest_dir)
+                {
                     transfer.engine.queue.update_job(job.id, |j| {
-                        j.log_lines.push(format!("Manually saved report to: {}", report_path.to_string_lossy()));
+                        j.log_lines.push(format!(
+                            "Manually saved report to: {}",
+                            report_path.to_string_lossy()
+                        ));
                     });
                 }
             }
@@ -289,7 +333,9 @@ pub fn handle(
             if transfer.active_tab == TransferTab::FileList {
                 let jobs = transfer.engine.queue.get_all();
                 let total_files = if let Some(job) = jobs.get(transfer.queue_cursor) {
-                    job.results.failed_files.len() + job.results.skipped_files.len() + job.results.completed_files.len()
+                    job.results.failed_files.len()
+                        + job.results.skipped_files.len()
+                        + job.results.completed_files.len()
                 } else {
                     0
                 };
@@ -309,8 +355,10 @@ pub fn handle(
                 let jobs = transfer.engine.queue.get_all();
                 if let Some(job) = jobs.get(transfer.queue_cursor) {
                     let job_id = job.id;
-                    transfer.engine.queue.update_job(job_id, |j| {
-                        match transfer.options_cursor {
+                    transfer
+                        .engine
+                        .queue
+                        .update_job(job_id, |j| match transfer.options_cursor {
                             0 => j.options.direct_io = !j.options.direct_io,
                             1 => j.options.verify_after_copy = !j.options.verify_after_copy,
                             2 => j.options.preserve_timestamps = !j.options.preserve_timestamps,
@@ -318,19 +366,37 @@ pub fn handle(
                             4 => {}
                             5 => {
                                 j.options.buffer_size = match j.options.buffer_size {
-                                    crate::fs::transfer::options::BufferSize::_64KB => crate::fs::transfer::options::BufferSize::_256KB,
-                                    crate::fs::transfer::options::BufferSize::_256KB => crate::fs::transfer::options::BufferSize::_1MB,
-                                    crate::fs::transfer::options::BufferSize::_1MB => crate::fs::transfer::options::BufferSize::_4MB,
-                                    crate::fs::transfer::options::BufferSize::_4MB => crate::fs::transfer::options::BufferSize::_64KB,
+                                    crate::fs::transfer::options::BufferSize::_64KB => {
+                                        crate::fs::transfer::options::BufferSize::_256KB
+                                    }
+                                    crate::fs::transfer::options::BufferSize::_256KB => {
+                                        crate::fs::transfer::options::BufferSize::_1MB
+                                    }
+                                    crate::fs::transfer::options::BufferSize::_1MB => {
+                                        crate::fs::transfer::options::BufferSize::_4MB
+                                    }
+                                    crate::fs::transfer::options::BufferSize::_4MB => {
+                                        crate::fs::transfer::options::BufferSize::_64KB
+                                    }
                                 };
                             }
                             6 => {
                                 j.options.hash_algorithm = match j.options.hash_algorithm {
-                                    crate::fs::transfer::options::HashAlgorithm::Blake3 => crate::fs::transfer::options::HashAlgorithm::Crc32,
-                                    crate::fs::transfer::options::HashAlgorithm::Crc32 => crate::fs::transfer::options::HashAlgorithm::Md5,
-                                    crate::fs::transfer::options::HashAlgorithm::Md5 => crate::fs::transfer::options::HashAlgorithm::Sha1,
-                                    crate::fs::transfer::options::HashAlgorithm::Sha1 => crate::fs::transfer::options::HashAlgorithm::Sha256,
-                                    crate::fs::transfer::options::HashAlgorithm::Sha256 => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                                    crate::fs::transfer::options::HashAlgorithm::Blake3 => {
+                                        crate::fs::transfer::options::HashAlgorithm::Crc32
+                                    }
+                                    crate::fs::transfer::options::HashAlgorithm::Crc32 => {
+                                        crate::fs::transfer::options::HashAlgorithm::Md5
+                                    }
+                                    crate::fs::transfer::options::HashAlgorithm::Md5 => {
+                                        crate::fs::transfer::options::HashAlgorithm::Sha1
+                                    }
+                                    crate::fs::transfer::options::HashAlgorithm::Sha1 => {
+                                        crate::fs::transfer::options::HashAlgorithm::Sha256
+                                    }
+                                    crate::fs::transfer::options::HashAlgorithm::Sha256 => {
+                                        crate::fs::transfer::options::HashAlgorithm::Blake3
+                                    }
                                 };
                             }
                             7 => j.options.preserve_acl = !j.options.preserve_acl,
@@ -338,25 +404,43 @@ pub fn handle(
                             9 => j.options.skip_symlinks = !j.options.skip_symlinks,
                             10 => j.options.follow_symlinks = !j.options.follow_symlinks,
                             11 => {
-                                j.options.limit_bandwidth_rate = match j.options.limit_bandwidth_rate {
-                                    None => Some(1_048_576),
-                                    Some(1_048_576) => Some(10_485_760),
-                                    Some(10_485_760) => Some(52_428_800),
-                                    Some(_) => None,
-                                };
+                                j.options.limit_bandwidth_rate =
+                                    match j.options.limit_bandwidth_rate {
+                                        None => Some(1_048_576),
+                                        Some(1_048_576) => Some(10_485_760),
+                                        Some(10_485_760) => Some(52_428_800),
+                                        Some(_) => None,
+                                    };
                             }
                             _ => {}
-                        }
-                    });
+                        });
                     if transfer.options_cursor == 4 {
                         transfer.post_action = match &transfer.post_action {
-                            crate::fs::transfer::post_action::PostAction::None => crate::fs::transfer::post_action::PostAction::Shutdown,
-                            crate::fs::transfer::post_action::PostAction::Shutdown => crate::fs::transfer::post_action::PostAction::Sleep,
-                            crate::fs::transfer::post_action::PostAction::Sleep => crate::fs::transfer::post_action::PostAction::Hibernate,
-                            crate::fs::transfer::post_action::PostAction::Hibernate => crate::fs::transfer::post_action::PostAction::EjectDrive(String::new()),
-                            crate::fs::transfer::post_action::PostAction::EjectDrive(_) => crate::fs::transfer::post_action::PostAction::RunScript(std::path::PathBuf::new()),
-                            crate::fs::transfer::post_action::PostAction::RunScript(_) => crate::fs::transfer::post_action::PostAction::CloseApp,
-                            crate::fs::transfer::post_action::PostAction::CloseApp => crate::fs::transfer::post_action::PostAction::None,
+                            crate::fs::transfer::post_action::PostAction::None => {
+                                crate::fs::transfer::post_action::PostAction::Shutdown
+                            }
+                            crate::fs::transfer::post_action::PostAction::Shutdown => {
+                                crate::fs::transfer::post_action::PostAction::Sleep
+                            }
+                            crate::fs::transfer::post_action::PostAction::Sleep => {
+                                crate::fs::transfer::post_action::PostAction::Hibernate
+                            }
+                            crate::fs::transfer::post_action::PostAction::Hibernate => {
+                                crate::fs::transfer::post_action::PostAction::EjectDrive(
+                                    String::new(),
+                                )
+                            }
+                            crate::fs::transfer::post_action::PostAction::EjectDrive(_) => {
+                                crate::fs::transfer::post_action::PostAction::RunScript(
+                                    std::path::PathBuf::new(),
+                                )
+                            }
+                            crate::fs::transfer::post_action::PostAction::RunScript(_) => {
+                                crate::fs::transfer::post_action::PostAction::CloseApp
+                            }
+                            crate::fs::transfer::post_action::PostAction::CloseApp => {
+                                crate::fs::transfer::post_action::PostAction::None
+                            }
                         };
                     }
                 }

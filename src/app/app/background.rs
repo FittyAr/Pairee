@@ -228,7 +228,7 @@ pub fn process_background_updates(
     if let Some(ref mut transfer_state) = state.transfer {
         while let Ok(event) = transfer_state.event_rx.try_recv() {
             use crate::fs::transfer::events::TransferEvent;
-            
+
             match event {
                 TransferEvent::JobStarted { job_id } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
@@ -241,7 +241,9 @@ pub fn process_background_updates(
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.status = crate::fs::transfer::job::TransferJobStatus::Scanning;
                         job.progress = Some(crate::fs::transfer::job::TransferProgress::default());
-                        let msg = if job.operation == crate::fs::transfer::job::TransferOperation::Delete {
+                        let msg = if job.operation
+                            == crate::fs::transfer::job::TransferOperation::Delete
+                        {
                             "Scanning source files for deletion...".to_string()
                         } else {
                             "Scanning source files...".to_string()
@@ -249,36 +251,59 @@ pub fn process_background_updates(
                         job.log_lines.push(msg);
                     });
                 }
-                TransferEvent::ScanProgress { job_id, files_found } => {
+                TransferEvent::ScanProgress {
+                    job_id,
+                    files_found,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.files_scanned = files_found;
                         }
                     });
                 }
-                TransferEvent::ScanComplete { job_id, total_files, total_bytes } => {
+                TransferEvent::ScanComplete {
+                    job_id,
+                    total_files,
+                    total_bytes,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.files_total = total_files;
                             prog.bytes_total = total_bytes;
                         }
-                        job.log_lines.push(format!("Scan complete: {} files, {}", total_files, bytesize::ByteSize(total_bytes)));
+                        job.log_lines.push(format!(
+                            "Scan complete: {} files, {}",
+                            total_files,
+                            bytesize::ByteSize(total_bytes)
+                        ));
                     });
                 }
-                TransferEvent::FileStarted { job_id, file, index } => {
+                TransferEvent::FileStarted {
+                    job_id,
+                    file,
+                    index,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.current_file = file.to_string_lossy().into_owned();
                         }
                         let msg = match job.operation {
-                            crate::fs::transfer::job::TransferOperation::Delete => format!("[{}] Deleting: {}", index + 1, file.to_string_lossy()),
-                            crate::fs::transfer::job::TransferOperation::Move => format!("[{}] Moving: {}", index + 1, file.to_string_lossy()),
+                            crate::fs::transfer::job::TransferOperation::Delete => {
+                                format!("[{}] Deleting: {}", index + 1, file.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Move => {
+                                format!("[{}] Moving: {}", index + 1, file.to_string_lossy())
+                            }
                             _ => format!("[{}] Copying: {}", index + 1, file.to_string_lossy()),
                         };
                         job.log_lines.push(msg);
                     });
                 }
-                TransferEvent::FileProgress { job_id, bytes_copied, bytes_total } => {
+                TransferEvent::FileProgress {
+                    job_id,
+                    bytes_copied,
+                    bytes_total,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.bytes_transferred = bytes_copied;
@@ -292,7 +317,9 @@ pub fn process_background_updates(
                             prog.files_completed += 1;
                         }
                         job.results.completed_files.push(result.clone());
-                        let msg = if job.operation == crate::fs::transfer::job::TransferOperation::Delete {
+                        let msg = if job.operation
+                            == crate::fs::transfer::job::TransferOperation::Delete
+                        {
                             format!("✓ OK: Deleted {}", result.src.to_string_lossy())
                         } else {
                             let verified_marker = if result.verified { " ✓hash" } else { "" };
@@ -307,22 +334,40 @@ pub fn process_background_updates(
                             prog.files_failed += 1;
                         }
                         job.results.failed_files.push(error.clone());
-                        job.log_lines.push(format!("✗ FAIL: {} - {}", error.src.to_string_lossy(), error.error));
+                        job.log_lines.push(format!(
+                            "✗ FAIL: {} - {}",
+                            error.src.to_string_lossy(),
+                            error.error
+                        ));
                     });
                 }
-                TransferEvent::FileSkipped { job_id, file, reason } => {
+                TransferEvent::FileSkipped {
+                    job_id,
+                    file,
+                    reason,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.files_skipped += 1;
                         }
-                        job.results.skipped_files.push(crate::fs::transfer::job::SkippedFile {
-                            src: file.clone(),
-                            reason: reason.clone(),
-                        });
-                        job.log_lines.push(format!("⚠ SKIP: {} - {}", file.to_string_lossy(), reason));
+                        job.results
+                            .skipped_files
+                            .push(crate::fs::transfer::job::SkippedFile {
+                                src: file.clone(),
+                                reason: reason.clone(),
+                            });
+                        job.log_lines.push(format!(
+                            "⚠ SKIP: {} - {}",
+                            file.to_string_lossy(),
+                            reason
+                        ));
                     });
                 }
-                TransferEvent::SpeedUpdate { job_id, bytes_per_second, eta_seconds } => {
+                TransferEvent::SpeedUpdate {
+                    job_id,
+                    bytes_per_second,
+                    eta_seconds,
+                } => {
                     transfer_state.speed_info = (bytes_per_second, eta_seconds);
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
@@ -333,7 +378,8 @@ pub fn process_background_updates(
                 }
                 TransferEvent::JobCompleted { results, job_id } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
-                        job.log_lines.push(format!("[{}] Job completed successfully", job_id));
+                        job.log_lines
+                            .push(format!("[{}] Job completed successfully", job_id));
                     });
                     refresh_needed = true;
 
@@ -342,46 +388,77 @@ pub fn process_background_updates(
                         let content = if format == "csv" {
                             crate::fs::transfer::report::generate_csv_report(&results)
                         } else {
-                            crate::fs::transfer::report::generate_html_report(&results, &format!("Job {}", job_id))
+                            crate::fs::transfer::report::generate_html_report(
+                                &results,
+                                &format!("Job {}", job_id),
+                            )
                         };
                         let dest_dir = if let Some(first_file) = results.completed_files.first() {
                             first_file.dst.parent().unwrap_or(std::path::Path::new("."))
                         } else {
                             std::path::Path::new(".")
                         };
-                        if let Ok(report_path) = crate::fs::transfer::report::save_report(&content, format, dest_dir) {
+                        if let Ok(report_path) =
+                            crate::fs::transfer::report::save_report(&content, format, dest_dir)
+                        {
                             transfer_state.engine.queue.update_job(job_id, |job| {
-                                job.log_lines.push(format!("Saved report to: {}", report_path.to_string_lossy()));
+                                job.log_lines.push(format!(
+                                    "Saved report to: {}",
+                                    report_path.to_string_lossy()
+                                ));
                             });
                         }
                     }
 
                     // Ejecutar post action si la cola se ha vaciado
-                    if transfer_state.engine.queue.pending_count() == 0 && transfer_state.post_action != crate::fs::transfer::post_action::PostAction::None {
-                        let _ = crate::fs::transfer::post_action::execute_post_action(transfer_state.post_action.clone());
+                    if transfer_state.engine.queue.pending_count() == 0
+                        && transfer_state.post_action
+                            != crate::fs::transfer::post_action::PostAction::None
+                    {
+                        let _ = crate::fs::transfer::post_action::execute_post_action(
+                            transfer_state.post_action.clone(),
+                        );
                     }
                 }
                 TransferEvent::JobFailed { error, job_id } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
-                        job.log_lines.push(format!("[{}] Job failed: {}", job_id, error));
+                        job.log_lines
+                            .push(format!("[{}] Job failed: {}", job_id, error));
                     });
                     refresh_needed = true;
                 }
-                TransferEvent::ConflictDetected { job_id, file, conflict } => {
+                TransferEvent::ConflictDetected {
+                    job_id,
+                    file,
+                    conflict,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
-                        job.log_lines.push(format!("Conflict detected: {}", file.to_string_lossy()));
+                        job.log_lines
+                            .push(format!("Conflict detected: {}", file.to_string_lossy()));
                     });
                     transfer_state.active_conflict_info = Some((job_id, file, conflict));
                     transfer_state.view_mode = crate::app::state::TransferViewMode::Expanded;
                     state.active_popup = Some(crate::app::state::types::PopupType::TransferPanel);
                     refresh_needed = true;
                 }
-                TransferEvent::VerifyStarted { job_id, file, algorithm } => {
+                TransferEvent::VerifyStarted {
+                    job_id,
+                    file,
+                    algorithm,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
-                        job.log_lines.push(format!("🔍 Verifying [{}]: {}", algorithm, file.to_string_lossy()));
+                        job.log_lines.push(format!(
+                            "🔍 Verifying [{}]: {}",
+                            algorithm,
+                            file.to_string_lossy()
+                        ));
                     });
                 }
-                TransferEvent::VerifyProgress { job_id, bytes_verified, bytes_total } => {
+                TransferEvent::VerifyProgress {
+                    job_id,
+                    bytes_verified,
+                    bytes_total,
+                } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
                             prog.bytes_transferred = bytes_verified;

@@ -1,21 +1,19 @@
+use anyhow::anyhow;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use anyhow::anyhow;
 use tokio::sync::mpsc;
 use uuid::Uuid;
 
-use super::job::{
-    FileTransferResult, FailedFile, SkippedFile, TransferResults, TransferOperation,
-};
-use super::options::TransferOptions;
+use super::conflict::resolve_filename_conflict;
 use super::events::TransferEvent;
 use super::filter::TransferFilter;
-use super::conflict::resolve_filename_conflict;
-use super::pipeline::copy_file_pipelined;
+use super::job::{FailedFile, FileTransferResult, SkippedFile, TransferOperation, TransferResults};
 use super::metadata::preserve_metadata;
+use super::options::TransferOptions;
+use super::pipeline::copy_file_pipelined;
 
 pub struct TransferWorker {
     pub job_id: Uuid,
@@ -27,7 +25,8 @@ pub struct TransferWorker {
     pub is_cancelled: Arc<AtomicBool>,
     pub skip_file_flag: Arc<AtomicBool>,
     pub event_tx: mpsc::UnboundedSender<TransferEvent>,
-    pub active_conflict: Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
+    pub active_conflict:
+        Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
 }
 
 impl TransferWorker {
@@ -41,7 +40,9 @@ impl TransferWorker {
         is_cancelled: Arc<AtomicBool>,
         skip_file_flag: Arc<AtomicBool>,
         event_tx: mpsc::UnboundedSender<TransferEvent>,
-        active_conflict: Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
+        active_conflict: Arc<
+            std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>,
+        >,
     ) -> Self {
         Self {
             job_id,
@@ -59,7 +60,9 @@ impl TransferWorker {
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
         let mut auto_resolution = None;
-        let _ = self.event_tx.send(TransferEvent::JobStarted { job_id: self.job_id });
+        let _ = self.event_tx.send(TransferEvent::JobStarted {
+            job_id: self.job_id,
+        });
 
         // Detección LAN y optimización de buffers
         let is_lan = super::network::is_lan_path(&self.destination);
@@ -134,7 +137,7 @@ impl TransferWorker {
                             }
                         } else {
                             let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-                            
+
                             if !filter.matches(&path, size) {
                                 continue;
                             }
@@ -210,7 +213,7 @@ impl TransferWorker {
             let job_id_speed = self.job_id;
             let bytes_acc_speed = Arc::clone(&bytes_transferred_acc);
             let is_cancelled_speed = Arc::clone(&self.is_cancelled);
-            
+
             let _speed_reporter = tokio::spawn(async move {
                 let mut last_bytes = 0u64;
                 let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -260,7 +263,8 @@ impl TransferWorker {
 
                     if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
                         if let Some(filename_str) = filename.to_str() {
-                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                            let _ =
+                                crate::fs::descriptions::remove_description(parent, filename_str);
                         }
                     }
 
@@ -340,7 +344,8 @@ impl TransferWorker {
 
                     if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
                         if let Some(filename_str) = filename.to_str() {
-                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                            let _ =
+                                crate::fs::descriptions::remove_description(parent, filename_str);
                         }
                     }
 
@@ -393,13 +398,32 @@ impl TransferWorker {
                 for dir in dirs_to_delete {
                     if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
                         if let Some(filename_str) = filename.to_str() {
-                            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                            let _ =
+                                crate::fs::descriptions::remove_description(parent, filename_str);
                         }
                     }
                     let mut res = std::fs::remove_dir(&dir);
                     if res.is_err() {
                         let _ = make_writable_helper(&dir);
                         res = std::fs::remove_dir(&dir);
+                    }
+                    if let Err(e) = res {
+                        let err_msg = e.to_string();
+                        results.failed_files.push(FailedFile {
+                            src: dir.clone(),
+                            dst: PathBuf::new(),
+                            error: err_msg.clone(),
+                            retries: 0,
+                        });
+                        let _ = self.event_tx.send(TransferEvent::FileFailed {
+                            job_id: self.job_id,
+                            error: FailedFile {
+                                src: dir.clone(),
+                                dst: PathBuf::new(),
+                                error: err_msg,
+                                retries: 0,
+                            },
+                        });
                     }
                 }
             }
@@ -436,7 +460,7 @@ impl TransferWorker {
         let job_id_speed = self.job_id;
         let bytes_acc_speed = Arc::clone(&bytes_transferred_acc);
         let is_cancelled_speed = Arc::clone(&self.is_cancelled);
-        
+
         let _speed_reporter = tokio::spawn(async move {
             let mut last_bytes = 0u64;
             let mut interval = tokio::time::interval(Duration::from_secs(1));
@@ -452,7 +476,7 @@ impl TransferWorker {
                 last_bytes = current_bytes;
 
                 let bytes_per_second = delta as f64;
-                
+
                 let remaining_bytes = total_bytes.saturating_sub(current_bytes);
                 let eta_seconds = if bytes_per_second > 0.0 {
                     Some((remaining_bytes as f64 / bytes_per_second) as u64)
@@ -504,38 +528,42 @@ impl TransferWorker {
             if dst.exists() {
                 let mut resolution = options.conflict_resolution.clone();
                 if resolution == "ask" {
-                    let chosen = if let Some(auto_res) = auto_resolution {
-                        auto_res
-                    } else {
-                        // Notificar conflicto
-                        let _ = self.event_tx.send(TransferEvent::ConflictDetected {
-                            job_id: self.job_id,
-                            file: dst.clone(),
-                            conflict: crate::fs::transfer::conflict::ConflictInfo {
-                                src_path: src.clone(),
-                                dst_path: dst.clone(),
-                                src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
-                                dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
-                                src_modified: src.metadata().and_then(|m| m.modified()).ok(),
-                                dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
-                            },
-                        });
+                    let chosen =
+                        if let Some(auto_res) = auto_resolution {
+                            auto_res
+                        } else {
+                            // Notificar conflicto
+                            let _ = self.event_tx.send(TransferEvent::ConflictDetected {
+                                job_id: self.job_id,
+                                file: dst.clone(),
+                                conflict: crate::fs::transfer::conflict::ConflictInfo {
+                                    src_path: src.clone(),
+                                    dst_path: dst.clone(),
+                                    src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
+                                    dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
+                                    src_modified: src.metadata().and_then(|m| m.modified()).ok(),
+                                    dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                                },
+                            });
 
-                        // Limpiar conflicto anterior y esperar respuesta de la UI
-                        {
-                            let mut guard = self.active_conflict.lock().unwrap();
-                            *guard = None;
-                        }
-
-                        while self.active_conflict.lock().unwrap().is_none() {
-                            if self.is_cancelled.load(Ordering::Relaxed) {
-                                return Err(anyhow!("Job cancelled"));
+                            // Limpiar conflicto anterior y esperar respuesta de la UI
+                            {
+                                let mut guard = self.active_conflict.lock().unwrap();
+                                *guard = None;
                             }
-                            tokio::time::sleep(Duration::from_millis(100)).await;
-                        }
 
-                        let ch = self.active_conflict.lock().unwrap().clone().unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
-                        match ch {
+                            while self.active_conflict.lock().unwrap().is_none() {
+                                if self.is_cancelled.load(Ordering::Relaxed) {
+                                    return Err(anyhow!("Job cancelled"));
+                                }
+                                tokio::time::sleep(Duration::from_millis(100)).await;
+                            }
+
+                            let ch =
+                                self.active_conflict.lock().unwrap().clone().unwrap_or(
+                                    crate::fs::transfer::conflict::ConflictResolution::Skip,
+                                );
+                            match ch {
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
                             crate::fs::transfer::conflict::ConflictResolution::SkipAll |
@@ -544,13 +572,23 @@ impl TransferWorker {
                             }
                             _ => {}
                         }
-                        ch
-                    };
+                            ch
+                        };
 
                     resolution = match chosen {
-                        crate::fs::transfer::conflict::ConflictResolution::Overwrite | crate::fs::transfer::conflict::ConflictResolution::OverwriteAll => "overwrite".to_string(),
-                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder | crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll => "overwrite_older".to_string(),
-                        crate::fs::transfer::conflict::ConflictResolution::Rename | crate::fs::transfer::conflict::ConflictResolution::RenameAll | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => "rename".to_string(),
+                        crate::fs::transfer::conflict::ConflictResolution::Overwrite
+                        | crate::fs::transfer::conflict::ConflictResolution::OverwriteAll => {
+                            "overwrite".to_string()
+                        }
+                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder
+                        | crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll => {
+                            "overwrite_older".to_string()
+                        }
+                        crate::fs::transfer::conflict::ConflictResolution::Rename
+                        | crate::fs::transfer::conflict::ConflictResolution::RenameAll
+                        | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => {
+                            "rename".to_string()
+                        }
                         crate::fs::transfer::conflict::ConflictResolution::Cancel => {
                             self.is_cancelled.store(true, Ordering::SeqCst);
                             return Err(anyhow!("Job cancelled"));
@@ -621,7 +659,9 @@ impl TransferWorker {
                     #[cfg(target_os = "windows")]
                     {
                         let absolute_target = if target.is_relative() {
-                            src.parent().map(|p| p.join(&target)).unwrap_or_else(|| target.clone())
+                            src.parent()
+                                .map(|p| p.join(&target))
+                                .unwrap_or_else(|| target.clone())
                         } else {
                             target.clone()
                         };
@@ -778,7 +818,7 @@ impl TransferWorker {
             };
 
             results.completed_files.push(file_result.clone());
-            
+
             let _ = self.event_tx.send(TransferEvent::FileCompleted {
                 job_id: self.job_id,
                 result: file_result,
@@ -840,7 +880,8 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
     }
     // Fallback to standard delete if trash command fails
     if path.is_dir() {
-        std::fs::remove_dir_all(path).map_err(|e| anyhow::anyhow!("Failed to delete dir recursively: {}", e))
+        std::fs::remove_dir_all(path)
+            .map_err(|e| anyhow::anyhow!("Failed to delete dir recursively: {}", e))
     } else {
         std::fs::remove_file(path).map_err(|e| anyhow::anyhow!("Failed to delete file: {}", e))
     }

@@ -1,14 +1,14 @@
+use chrono::Local;
 use std::fs::File;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use chrono::Local;
 
 use super::job::TransferResults;
 
 /// Genera un reporte HTML con los detalles de la transferencia.
 pub fn generate_html_report(results: &TransferResults, job_name: &str) -> String {
     let now = Local::now().format("%Y-%m-%d %H:%M:%S").to_string();
-    
+
     let mut completed_rows = String::new();
     for f in &results.completed_files {
         completed_rows.push_str(&format!(
@@ -106,7 +106,9 @@ pub fn generate_csv_report(results: &TransferResults) -> String {
     let mut csv = String::new();
     // UTF-8 BOM
     csv.push('\u{FEFF}');
-    csv.push_str("Estado,Origen,Destino,Tamaño,Hash Origen,Hash Destino,Error,Reintentos/Duración\n");
+    csv.push_str(
+        "Estado,Origen,Destino,Tamaño,Hash Origen,Hash Destino,Error,Reintentos/Duración\n",
+    );
 
     for f in &results.failed_files {
         csv.push_str(&format!(
@@ -142,21 +144,25 @@ pub fn generate_csv_report(results: &TransferResults) -> String {
 }
 
 /// Guarda el reporte generado en el disco y retorna la ruta completa.
-pub fn save_report(report_content: &str, format: &str, destination_dir: &Path) -> std::io::Result<PathBuf> {
+pub fn save_report(
+    report_content: &str,
+    format: &str,
+    destination_dir: &Path,
+) -> std::io::Result<PathBuf> {
     let _ = std::fs::create_dir_all(destination_dir);
-    
+
     let now = Local::now().format("%Y%m%d_%H%M%S").to_string();
     let ext = match format.to_lowercase().as_str() {
         "csv" => "csv",
         _ => "html",
     };
-    
+
     let filename = format!("transfer_report_{}.{}", now, ext);
     let path = destination_dir.join(filename);
-    
+
     let mut file = File::create(&path)?;
     file.write_all(report_content.as_bytes())?;
     file.sync_all()?;
-    
+
     Ok(path)
 }

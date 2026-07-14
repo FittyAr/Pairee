@@ -1,7 +1,7 @@
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
-use ratatui::style::{Color, Modifier, Style};
 use ratatui::Frame;
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::style::{Color, Modifier, Style};
+use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use crate::app::state::TransferUIState;
 
@@ -31,7 +31,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .split(popup_layout[1]);
 
     let dialog_area = center_row[1];
-    
+
     // Limpiar el fondo
     f.render_widget(Clear, dialog_area);
 
@@ -54,38 +54,49 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .split(inner_area);
 
     // 1. Instrucción
-    let title_text = format!("File already exists in destination:\n{}", file_path.file_name().unwrap_or_default().to_string_lossy());
+    let title_text = format!(
+        "File already exists in destination:\n{}",
+        file_path.file_name().unwrap_or_default().to_string_lossy()
+    );
     f.render_widget(
         Paragraph::new(title_text)
-            .style(Style::default().fg(Color::White).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::White)
+                    .add_modifier(Modifier::BOLD),
+            )
             .wrap(Wrap { trim: true }),
-        content_chunks[0]
+        content_chunks[0],
     );
 
     // 2. Comparación
     let src_size_str = bytesize::ByteSize(conflict.src_size).to_string();
     let dst_size_str = bytesize::ByteSize(conflict.dst_size).to_string();
-    
-    let src_time_str = conflict.src_modified
+
+    let src_time_str = conflict
+        .src_modified
         .map(|t| format!("{:?}", t))
         .unwrap_or_else(|| "Unknown".to_string());
-    let dst_time_str = conflict.dst_modified
+    let dst_time_str = conflict
+        .dst_modified
         .map(|t| format!("{:?}", t))
         .unwrap_or_else(|| "Unknown".to_string());
 
     let comparison_text = format!(
         "Source Path: {}\n  Size: {} | Modified: {}\nDestination Path: {}\n  Size: {} | Modified: {}",
         conflict.src_path.to_string_lossy(),
-        src_size_str, src_time_str,
+        src_size_str,
+        src_time_str,
         conflict.dst_path.to_string_lossy(),
-        dst_size_str, dst_time_str
+        dst_size_str,
+        dst_time_str
     );
 
     f.render_widget(
         Paragraph::new(comparison_text)
             .style(Style::default().fg(Color::Gray))
             .wrap(Wrap { trim: true }),
-        content_chunks[1]
+        content_chunks[1],
     );
 
     // 3. Opciones de resolución
@@ -95,8 +106,12 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         [x] Cancel Job";
     f.render_widget(
         Paragraph::new(options_text)
-            .style(Style::default().fg(Color::Yellow).add_modifier(Modifier::BOLD))
+            .style(
+                Style::default()
+                    .fg(Color::Yellow)
+                    .add_modifier(Modifier::BOLD),
+            )
             .wrap(Wrap { trim: true }),
-        content_chunks[2]
+        content_chunks[2],
     );
 }

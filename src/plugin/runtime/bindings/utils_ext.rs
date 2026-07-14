@@ -17,7 +17,7 @@
 //! `tokio::time::sleep` which yields to the runtime and does not block
 //! any worker thread.
 
-use percent_encoding::{percent_decode_str, percent_encode, AsciiSet, CONTROLS};
+use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, percent_encode};
 
 use super::utils_basic;
 
@@ -87,7 +87,8 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     table.set(
         "json_decode",
         lua.create_async_function(|_lua_ctx, s: mlua::String| async move {
-            match serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes())) {
+            match serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes()))
+            {
                 Ok(v) => {
                     use mlua::LuaSerdeExt;
                     let lua_value = _lua_ctx.to_value(&v).unwrap_or(mlua::Value::Nil);
@@ -223,7 +224,9 @@ mod tests {
         let original = "hello world ?#&=+";
         let encoded = percent_encode(original.as_bytes(), FRAGMENT).to_string();
         assert!(!encoded.contains(' '));
-        let decoded = percent_decode_str(&encoded).decode_utf8_lossy().into_owned();
+        let decoded = percent_decode_str(&encoded)
+            .decode_utf8_lossy()
+            .into_owned();
         assert_eq!(decoded, original);
     }
 

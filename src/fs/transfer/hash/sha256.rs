@@ -1,5 +1,5 @@
 use super::HashStrategy;
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
 
 pub struct Sha256Hasher {
     state: Sha256,

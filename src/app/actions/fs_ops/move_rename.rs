@@ -33,7 +33,8 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                 filter_mask: String::new(),
             });
         } else {
-            let is_ssh = state.get_active_panel().ssh_conn.is_some() || state.get_passive_panel().ssh_conn.is_some();
+            let is_ssh = state.get_active_panel().ssh_conn.is_some()
+                || state.get_passive_panel().ssh_conn.is_some();
             if is_ssh {
                 let rx = crate::fs::spawn_copy_move_task(
                     targets.clone(),
@@ -60,13 +61,14 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
 
                 let mut options = TransferOptions::default();
                 options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
-                options.hash_algorithm = match context.config.settings.transfer_default_hash.as_str() {
-                    "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
-                    "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
-                    "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
-                    "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
-                    _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
-                };
+                options.hash_algorithm =
+                    match context.config.settings.transfer_default_hash.as_str() {
+                        "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
+                        "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
+                        "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
+                        "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
+                        _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                    };
                 options.buffer_size = match context.config.settings.transfer_buffer_size {
                     65536 => crate::fs::transfer::options::BufferSize::_64KB,
                     262144 => crate::fs::transfer::options::BufferSize::_256KB,
@@ -80,10 +82,12 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                 options.preserve_streams = context.config.settings.transfer_preserve_streams;
                 options.skip_symlinks = context.config.settings.transfer_skip_symlinks;
                 options.follow_symlinks = context.config.settings.transfer_follow_symlinks;
-                options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
+                options.limit_bandwidth_rate =
+                    context.config.settings.transfer_limit_bandwidth_rate;
                 options.halt_on_error = context.config.settings.transfer_halt_on_error;
                 options.max_retries = context.config.settings.transfer_max_retries;
-                options.conflict_resolution = context.config.settings.transfer_conflict_resolution.clone();
+                options.conflict_resolution =
+                    context.config.settings.transfer_conflict_resolution.clone();
 
                 let job = TransferJob::new(
                     TransferOperation::Move,
@@ -94,7 +98,9 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
 
                 if state.transfer.is_none() {
                     let (engine, rx) = TransferEngine::new();
-                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(engine, rx));
+                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(
+                        engine, rx,
+                    ));
                 }
 
                 if let Some(ref mut ts) = state.transfer {
