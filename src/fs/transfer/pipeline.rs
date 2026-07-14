@@ -273,9 +273,9 @@ pub async fn copy_file_pipelined(
     // Esperar a que ambas etapas terminen
     let (reader_res, writer_res) = tokio::join!(reader_handle, writer_handle);
 
-    let src_hash = reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))??;
     let (_bytes_written, dst_hash) =
         writer_res.map_err(|e| anyhow!("Writer task join error: {}", e))??;
+    let src_hash = reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))??;
 
     Ok((src_hash, dst_hash))
 }

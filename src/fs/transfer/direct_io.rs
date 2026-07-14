@@ -126,7 +126,7 @@ impl AlignedBuffer {
     pub fn new(size: usize, align: usize) -> Self {
         let layout = std::alloc::Layout::from_size_align(size, align)
             .unwrap_or_else(|_| std::alloc::Layout::from_size_align(size, 4096).unwrap());
-        let ptr = unsafe { std::alloc::alloc(layout) };
+        let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
         if ptr.is_null() {
             std::alloc::handle_alloc_error(layout);
         }

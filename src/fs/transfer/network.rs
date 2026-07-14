@@ -102,6 +102,7 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
         if let Ok(output) = std::process::Command::new("df")
             .arg("--output=avail")
             .arg("-k")
+            .arg("--")
             .arg(path)
             .output()
         {

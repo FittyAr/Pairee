@@ -88,6 +88,10 @@
 - Fixed a deadlock/freezing vulnerability in the Transfer Engine's coordinator loop by tracking active worker JoinHandles, preventing worker task panics or unexpected exits from permanently freezing the queue.
 - Fixed a directory deletion issue where clearing file descriptions of nested subfolders during deletion recreated empty `descript.ion` files, preventing parent directory removal (ENOTEMPTY). Empty description files are now physically deleted.
 - Improved the Transfer Engine deletion worker to report directory removal errors as failures rather than silently ignoring them.
+- Validated drive letters in the Windows post-action drive ejection system to prevent PowerShell command execution.
+- Prevented CLI option/argument injection by adding `--` separators to `df`, `gio trash`, and `trash-put` system command calls.
+- Resolved Undefined Behavior (UB) in direct I/O memory allocation by initializing `AlignedBuffer` allocations to zero.
+- Fixed error reporting in pipelined copy operations to propagate write errors (like disk full) instead of the generic "Writer thread disconnected".
 
 ### Improved
 

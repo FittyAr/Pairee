@@ -65,7 +65,10 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
         PostAction::EjectDrive(drive) => {
             #[cfg(target_os = "windows")]
             {
-                let drive_letter = if drive.is_empty() { "D:" } else { &drive };
+                let is_valid = drive.len() == 2
+                    && drive.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false)
+                    && drive.chars().nth(1) == Some(':');
+                let drive_letter = if is_valid { &drive } else { "D:" };
                 Command::new("powershell")
                     .args(["-Command", &format!("(New-Object -ComObject Shell.Application).Namespace(17).ParseName('{}').InvokeVerb('Eject')", drive_letter)])
                     .spawn()?;

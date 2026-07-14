@@ -866,13 +866,13 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
     use std::process::Command;
-    let status = Command::new("gio").arg("trash").arg(path).status();
+    let status = Command::new("gio").arg("trash").arg("--").arg(path).status();
     if let Ok(s) = status {
         if s.success() {
             return Ok(());
         }
     }
-    let status = Command::new("trash-put").arg(path).status();
+    let status = Command::new("trash-put").arg("--").arg(path).status();
     if let Ok(s) = status {
         if s.success() {
             return Ok(());
