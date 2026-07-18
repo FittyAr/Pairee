@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(
@@ -14,12 +15,13 @@ pub fn handle(
                 match context.config.save() {
                     Ok(_) => {
                         state.active_popup = Some(PopupType::Info(
-                            "Configuration saved successfully.".to_string(),
+                            t("setup_saved_success"),
                         ));
                     }
                     Err(e) => {
-                        state.active_popup =
-                            Some(PopupType::Error(format!("Failed to save setup: {}", e)));
+                        state.active_popup = Some(PopupType::Error(
+                            t("error_save_setup_failed").replace("{}", &e.to_string()),
+                        ));
                     }
                 }
                 return Ok(None);

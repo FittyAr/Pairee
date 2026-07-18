@@ -57,6 +57,7 @@
 - The Search tab in the Plugins Manager now pre-loads all available plugins from the registry on open and filters results in real time as the user types, without requiring a separate query submission.
 - Plugin search results are now displayed in a tabular layout (Name · Author · Version) matching the file panel style, with `.pairee` suffix hidden.
 - Arrow keys Up/Down navigate the plugin list in the Search tab even while typing a query. PgUp/PgDn paginate through long lists.
+- Centralized and localized all remaining hardcoded user-facing strings in the application's dialogs, menus, and editor screens (supporting English and Spanish).
 
 ### Changed
 

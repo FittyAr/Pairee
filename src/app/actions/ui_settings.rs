@@ -161,12 +161,12 @@ pub async fn handle_ui_settings_action(
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
                 let mut items = vec![
-                    "1. View".to_string(),
-                    "2. Edit".to_string(),
-                    "3. Copy".to_string(),
-                    "4. Move".to_string(),
-                    "5. Delete".to_string(),
-                    "6. Compress".to_string(),
+                    t("ctx_menu_view"),
+                    t("ctx_menu_edit"),
+                    t("ctx_menu_copy"),
+                    t("ctx_menu_move"),
+                    t("ctx_menu_delete"),
+                    t("ctx_menu_compress"),
                 ];
                 let has_archive = targets.iter().any(|p| {
                     let ext = p
@@ -180,7 +180,7 @@ pub async fn handle_ui_settings_action(
                     )
                 });
                 if has_archive {
-                    items.push("7. Extract".to_string());
+                    items.push(t("ctx_menu_extract"));
                 }
                 state.active_popup = Some(PopupType::ContextMenu {
                     items,
@@ -358,7 +358,9 @@ pub async fn handle_ui_settings_action(
                     });
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!("Compare failed: {}", e)));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_compare_failed").replace("{}", &e.to_string()),
+                    ));
                 }
             }
             true
@@ -402,10 +404,9 @@ pub async fn handle_ui_settings_action(
                     ));
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!(
-                        "Failed to read user menu config: {}",
-                        e
-                    )));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_read_usermenu_failed").replace("{}", &e.to_string()),
+                    ));
                 }
             }
             true
@@ -589,9 +590,7 @@ pub async fn handle_ui_settings_action(
             true
         }
         Action::VideoMode => {
-            state.active_popup = Some(PopupType::Info(
-                "Video mode: resize your terminal manually.".to_string(),
-            ));
+            state.active_popup = Some(PopupType::Info(t("video_mode_hint")));
             true
         }
         Action::CycleFKeysModifiers => {
@@ -617,7 +616,7 @@ pub async fn handle_ui_settings_action(
                         .head()
                         .ok()
                         .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-                        .unwrap_or_else(|| "(detached HEAD)".to_string());
+                        .unwrap_or_else(|| t("git_detached_head"));
                     let limit = context.config.settings.git_log_limit as usize;
                     let status_entries = crate::git::status::get_status(&repo);
                     let log_entries = crate::git::log::get_log(&repo, limit);
@@ -661,7 +660,7 @@ pub async fn handle_ui_settings_action(
                 state.update_check_rx = Some(rx);
                 state.update_status = crate::update::UpdateStatus::Checking;
                 state.active_popup = Some(crate::app::state::PopupType::Info(
-                    "Checking for updates...".to_string(),
+                    t("update_checking"),
                 ));
             }
             true
@@ -742,13 +741,14 @@ pub async fn handle_ui_settings_action(
                             );
                             let _ = crate::plugin::updater::write_lockfile(&lock);
 
-                            state.active_popup = Some(crate::app::state::PopupType::Info(format!(
-                                "✓ Local plugin '{}' installed successfully to:\n{:?}",
-                                name, dest_dir
-                            )));
+                            state.active_popup = Some(crate::app::state::PopupType::Info(
+                                t("plugin_toast_install_dev_ok")
+                                    .replace("{}", &name)
+                                    .replace("{:?}", &format!("{:?}", dest_dir)),
+                            ));
                         } else {
                             state.active_popup = Some(crate::app::state::PopupType::Error(
-                                format!("Failed to copy plugin files for '{}'.", name),
+                                t("plugin_toast_install_dev_failed").replace("{}", &name),
                             ));
                         }
                     }
@@ -770,9 +770,7 @@ pub async fn handle_ui_settings_action(
                     }
                 }
             } else {
-                state.active_popup = Some(PopupType::Info(
-                    "No active background transfers.".to_string(),
-                ));
+                state.active_popup = Some(PopupType::Info(t("transfer_no_active")));
             }
             true
         }
