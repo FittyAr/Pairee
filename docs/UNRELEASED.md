@@ -31,6 +31,7 @@
 - Added dynamic color coding in the Transfer Panel to clearly distinguish job statuses (green for completed, yellow for paused, red for cancelled or failed).
 - Updated help menu (`F1`) to dynamically load localized documentation files (`help/<locale>.md`).
 - Centralized and localized all remaining hardcoded user-facing strings across application dialogs, menus, and editor screens in English and Spanish.
+- Enhanced version bump scripts (`bump_version.sh` and `bump_version.ps1`) to detect feature branches and offer interactive merging into `main` before releasing.
 
 ### Fixed
 

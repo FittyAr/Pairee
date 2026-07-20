@@ -28,6 +28,52 @@ if [[ -z "$branch" ]]; then
     branch="main"
 fi
 
+# Detect if we are on a feature/secondary branch and offer to merge to main
+target_main_branch="main"
+if git show-ref --verify --quiet refs/heads/master && ! git show-ref --verify --quiet refs/heads/main; then
+    target_main_branch="master"
+fi
+
+if [[ "$branch" != "$target_main_branch" ]]; then
+    echo -e "${YELLOW}[NOTICE]${RESET} You are currently on branch '${CYAN}$branch${RESET}', not on the main release branch ('$target_main_branch')."
+    echo "Selecting 'Bump version & release' on a feature branch indicates you may want to merge '$branch' into '$target_main_branch'."
+    read -rp "Do you want to merge '$branch' into '$target_main_branch' now and complete the release on '$target_main_branch'? (y/n): " merge_choice
+    if [[ "$merge_choice" == "y" || "$merge_choice" == "Y" ]]; then
+        feature_branch="$branch"
+        
+        # Ensure working tree is clean before checkout
+        if [[ -n "$(git status --porcelain)" ]]; then
+            echo -e "${RED}[ERROR]${RESET} You have uncommitted changes in '$feature_branch'. Please commit or stash them before merging."
+            exit 1
+        fi
+        
+        echo -e "${YELLOW}Switching to '$target_main_branch'...${RESET}"
+        if ! git checkout "$target_main_branch"; then
+            echo -e "${RED}[ERROR]${RESET} Failed to checkout '$target_main_branch'."
+            exit 1
+        fi
+
+        echo -e "${YELLOW}Pulling latest changes on '$target_main_branch'...${RESET}"
+        git pull origin "$target_main_branch" 2>/dev/null || true
+
+        echo -e "${YELLOW}Merging '$feature_branch' into '$target_main_branch'...${RESET}"
+        if ! git merge "$feature_branch"; then
+            echo -e "${RED}[ERROR]${RESET} Merge conflicts occurred while merging '$feature_branch' into '$target_main_branch'."
+            echo "Please resolve the merge conflicts manually, commit, and re-run the release script."
+            exit 1
+        fi
+
+        branch="$target_main_branch"
+        echo -e "${GREEN}[OK]${RESET} Successfully merged '$feature_branch' into '$target_main_branch'."
+    else
+        read -rp "Do you want to proceed with bumping version directly on branch '$branch'? (y/n): " proceed_branch
+        if [[ "$proceed_branch" != "y" && "$proceed_branch" != "Y" ]]; then
+            echo "Aborted."
+            exit 0
+        fi
+    fi
+fi
+
 # Pre-flight authentication and write permission check
 echo -e "${YELLOW}Checking Git authentication and push permissions for origin ($branch)...${RESET}"
 if ! GIT_TERMINAL_PROMPT=0 git push --dry-run origin "$branch" >/dev/null 2>&1; then

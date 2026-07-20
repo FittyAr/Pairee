@@ -21,6 +21,69 @@ if ([string]::IsNullOrWhiteSpace($branch)) {
     $branch = "main"
 }
 
+# Detect if we are on a feature/secondary branch and offer to merge to main
+$targetMainBranch = "main"
+$oldEAP = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+git show-ref --verify --quiet refs/heads/master
+$hasMaster = ($LASTEXITCODE -eq 0)
+git show-ref --verify --quiet refs/heads/main
+$hasMain = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $oldEAP
+
+if ($hasMaster -and -not $hasMain) {
+    $targetMainBranch = "master"
+}
+
+if ($branch -ne $targetMainBranch) {
+    Write-Host "[NOTICE] You are currently on branch '$branch', not on the main release branch ('$targetMainBranch')." -ForegroundColor Yellow
+    Write-Host "Selecting 'Bump version & release' on a feature branch indicates you may want to merge '$branch' into '$targetMainBranch'." -ForegroundColor Yellow
+    $mergeChoice = Read-Host "Do you want to merge '$branch' into '$targetMainBranch' now and complete the release on '$targetMainBranch'? (y/n)"
+    if ($mergeChoice -eq 'y' -or $mergeChoice -eq 'Y') {
+        $featureBranch = $branch
+
+        $gitStatus = git status --porcelain
+        if ($gitStatus) {
+            Write-Error "You have uncommitted changes in '$featureBranch'. Please commit or stash them before merging."
+            exit 1
+        }
+
+        Write-Host "Switching to '$targetMainBranch'..." -ForegroundColor Yellow
+        git checkout $targetMainBranch
+        if ($LASTEXITCODE -ne 0) {
+            Write-Error "Failed to checkout '$targetMainBranch'."
+            exit 1
+        }
+
+        Write-Host "Pulling latest changes on '$targetMainBranch'..." -ForegroundColor Yellow
+        $oldEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        git pull origin $targetMainBranch
+        $ErrorActionPreference = $oldEAP
+
+        Write-Host "Merging '$featureBranch' into '$targetMainBranch'..." -ForegroundColor Yellow
+        $oldEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        git merge $featureBranch
+        $mergeExit = $LASTEXITCODE
+        $ErrorActionPreference = $oldEAP
+
+        if ($mergeExit -ne 0) {
+            Write-Error "Merge conflicts occurred while merging '$featureBranch' into '$targetMainBranch'. Please resolve conflicts manually and re-run."
+            exit 1
+        }
+
+        $branch = $targetMainBranch
+        Write-Host "Successfully merged '$featureBranch' into '$targetMainBranch'." -ForegroundColor Green
+    } else {
+        $proceedBranch = Read-Host "Do you want to proceed with bumping version directly on branch '$branch'? (y/n)"
+        if ($proceedBranch -ne 'y' -and $proceedBranch -ne 'Y') {
+            Write-Host "Aborted."
+            exit 0
+        }
+    }
+}
+
 # Pre-flight authentication and write permission check
 Write-Host "Checking Git authentication and push permissions for origin ($branch)..." -ForegroundColor Yellow
 $env:GIT_TERMINAL_PROMPT = "0"
