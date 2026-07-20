@@ -149,8 +149,8 @@ jobs:
               \$manifest = \$manifest -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', \$env:STORE_PACKAGE_NAME;
               \$manifest = \$manifest -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', \$env:STORE_PUBLISHER;
               \$manifest = \$manifest -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', \$env:STORE_PUBLISHER_DISPLAY_NAME;
-              \$manifest = \$manifest -replace 'Version=\"[^\"]+\"', 'Version=\"$VERSION_NUM.0\"';
-              \$manifest = \$manifest -replace 'ProcessorArchitecture=\"[^\"]+\"', 'ProcessorArchitecture=\"$ARCH\"';
+              \$manifest = \$manifest -creplace 'Version=\"[^\"]+\"', 'Version=\"$VERSION_NUM.0\"';
+              \$manifest = \$manifest -creplace 'ProcessorArchitecture=\"[^\"]+\"', 'ProcessorArchitecture=\"$ARCH\"';
               \$utf8NoBom = New-Object System.Text.UTF8Encoding(\$false);
               [System.IO.File]::WriteAllText(\$manifestPath, \$manifest, \$utf8NoBom);
               \$makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName;
