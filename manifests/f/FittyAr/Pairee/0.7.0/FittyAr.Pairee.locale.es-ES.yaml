@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.12.0.schema.json
 PackageIdentifier: FittyAr.Pairee
-PackageVersion: 0.6.1
+PackageVersion: 0.7.0
 PackageLocale: es-ES
 Publisher: FittyAr
 PublisherUrl: https://github.com/FittyAr
@@ -21,6 +21,6 @@ Tags:
   - terminal
   - norton-commander
   - explorador
-ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/v0.6.1
+ReleaseNotesUrl: https://github.com/FittyAr/Pairee/releases/tag/v0.7.0
 ManifestType: locale
 ManifestVersion: 1.12.0
