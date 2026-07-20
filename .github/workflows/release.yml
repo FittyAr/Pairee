@@ -144,13 +144,15 @@ jobs:
             fi
 
             powershell -Command "
-              \$content = Get-Content '$MSIX_STAGING/AppxManifest.xml';
-              \$content = \$content -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', \$env:STORE_PACKAGE_NAME;
-              \$content = \$content -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', \$env:STORE_PUBLISHER;
-              \$content = \$content -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', \$env:STORE_PUBLISHER_DISPLAY_NAME;
-              \$content = \$content -replace 'Version=\"[0-9\.]+\"', '$VERSION_NUM.0';
-              \$content = \$content -replace 'ProcessorArchitecture=\"[^\"]+\"', '$ARCH';
-              Set-Content '$MSIX_STAGING/AppxManifest.xml' -Value \$content;
+              \$manifestPath = (Resolve-Path '$MSIX_STAGING/AppxManifest.xml').Path;
+              \$manifest = [System.IO.File]::ReadAllText(\$manifestPath);
+              \$manifest = \$manifest -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', \$env:STORE_PACKAGE_NAME;
+              \$manifest = \$manifest -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', \$env:STORE_PUBLISHER;
+              \$manifest = \$manifest -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', \$env:STORE_PUBLISHER_DISPLAY_NAME;
+              \$manifest = \$manifest -replace 'Version=\"[^\"]+\"', 'Version=\"$VERSION_NUM.0\"';
+              \$manifest = \$manifest -replace 'ProcessorArchitecture=\"[^\"]+\"', 'ProcessorArchitecture=\"$ARCH\"';
+              \$utf8NoBom = New-Object System.Text.UTF8Encoding(\$false);
+              [System.IO.File]::WriteAllText(\$manifestPath, \$manifest, \$utf8NoBom);
               \$makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName;
               if (-not \$makeappx) { \$makeappx = 'makeappx.exe' };
               & \$makeappx pack /d '$MSIX_STAGING' /p 'dist/pairee-${VERSION_NUM}-${ARCH}.msix';

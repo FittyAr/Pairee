@@ -210,11 +210,15 @@ if "%mx_opt%"=="1" (
     
     :: Compile
     powershell -Command "
-      (Get-Content 'target\msix_staging\AppxManifest.xml') -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', '30176FittyDev.Pairee' -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', 'FittyAr' | Set-Content 'target\msix_staging\AppxManifest.xml'
-      $makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { \$_.FullName -match 'x64' } | Select-Object -First 1).FullName
-      if (-not \$makeappx) { \$makeappx = 'makeappx.exe' }
-      echo [INFO] Running: \$makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix
-      & \$makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix /o
+      $manifestPath = (Resolve-Path 'target\msix_staging\AppxManifest.xml').Path
+      $manifest = [System.IO.File]::ReadAllText($manifestPath)
+      $manifest = $manifest -replace 'TEMPLATE_PACKAGE_IDENTITY_NAME', '30176FittyDev.Pairee' -replace 'TEMPLATE_PACKAGE_IDENTITY_PUBLISHER', 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' -replace 'TEMPLATE_PUBLISHER_DISPLAY_NAME', 'FittyAr'
+      $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+      [System.IO.File]::WriteAllText($manifestPath, $manifest, $utf8NoBom)
+      $makeappx = (Get-ChildItem -Path 'C:\Program Files (x86)\Windows Kits\10\bin' -Filter 'makeappx.exe' -Recurse | Where-Object { $_.FullName -match 'x64' } | Select-Object -First 1).FullName
+      if (-not $makeappx) { $makeappx = 'makeappx.exe' }
+      echo [INFO] Running: $makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix
+      & $makeappx pack /d target\msix_staging /p target\pairee_local_x64.msix /o
     "
     pause
     goto msix_menu
