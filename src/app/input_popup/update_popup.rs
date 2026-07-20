@@ -2,6 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::update::{UpdateStatus, detect::detect_install_method, installer};
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
 use tokio::sync::mpsc;
 
@@ -82,10 +83,9 @@ pub fn handle(
                         if let Some(cmd) = method.managed_upgrade_command() {
                             copy_to_clipboard(&cmd);
                             state.active_popup = None;
-                            state.active_popup = Some(PopupType::Info(format!(
-                                "Command copied to clipboard:\n{}",
-                                cmd
-                            )));
+                            state.active_popup = Some(PopupType::Info(
+                                t("update_cmd_copied").replace("{}", &cmd),
+                            ));
                         }
                     } else {
                         // Start the actual self-update

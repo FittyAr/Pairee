@@ -2,6 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, ProcessEntry};
 use crate::app::sys_helpers::{get_process_list, kill_process};
 use crate::keybindings::Action;
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(
@@ -96,10 +97,9 @@ pub fn handle(
                                 }
                             }
                             Err(e) => {
-                                state.active_popup = Some(PopupType::Error(format!(
-                                    "Failed to kill process: {}",
-                                    e
-                                )));
+                                state.active_popup = Some(PopupType::Error(
+                                    t("error_kill_process_failed").replace("{}", &e.to_string()),
+                                ));
                                 return Ok(None);
                             }
                         }
@@ -120,10 +120,9 @@ pub fn handle(
                                 }
                             }
                             Err(e) => {
-                                state.active_popup = Some(PopupType::Error(format!(
-                                    "Failed to restart process: {}",
-                                    e
-                                )));
+                                state.active_popup = Some(PopupType::Error(
+                                    t("error_restart_process_failed").replace("{}", &e.to_string()),
+                                ));
                                 return Ok(None);
                             }
                         }

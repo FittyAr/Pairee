@@ -30,6 +30,7 @@
 - Enhanced search experience in the Plugins Manager with instant background filtering as you type and keyboard navigation support.
 - Added dynamic color coding in the Transfer Panel to clearly distinguish job statuses (green for completed, yellow for paused, red for cancelled or failed).
 - Updated help menu (`F1`) to dynamically load localized documentation files (`help/<locale>.md`).
+- Centralized and localized all remaining hardcoded user-facing strings across application dialogs, menus, and editor screens in English and Spanish.
 
 ### Fixed
 

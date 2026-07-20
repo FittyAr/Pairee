@@ -3,6 +3,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle_select_popup(
@@ -72,9 +73,9 @@ pub fn handle_select_popup(
             {
                 *installed = super::reload_installed_plugins(context, &None);
                 if let Some(ref active) = context.config.settings.active_dev_plugin {
-                    *dev_results = format!("Selected active development plugin: {}", active);
+                    *dev_results = t("plugin_dev_selected").replace("{}", active);
                 } else {
-                    *dev_results = "Development plugin deselected.".to_string();
+                    *dev_results = t("plugin_dev_deselected");
                 }
             }
             state.active_popup = Some(prev);

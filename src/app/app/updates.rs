@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::update::UpdateStatus;
+use crate::config::localization::t;
 
 pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
     // 1.8 Process background update check result
@@ -10,7 +11,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             Ok(Some(info)) => {
                 // If we had a "Checking for updates..." popup active, dismiss it
                 if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == "Checking for updates..." {
+                    if msg == &t("update_checking") {
                         state.active_popup = None;
                     }
                 }
@@ -38,20 +39,17 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 } else {
                     // If it's already dismissed and we forced a check, we still show a message
                     if state.active_popup.is_none() {
-                        state.active_popup = Some(PopupType::Info(format!(
-                            "An update ({}) is available, but you have ignored this version.",
-                            info.tag
-                        )));
+                        state.active_popup = Some(PopupType::Info(
+                            t("update_available_ignored").replace("{}", &info.tag),
+                        ));
                     }
                 }
             }
             Ok(None) => {
                 // No update available. If we had "Checking for updates..." popup, show info.
                 if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == "Checking for updates..." {
-                        state.active_popup = Some(PopupType::Info(
-                            "No updates available. You are running the latest version.".to_string(),
-                        ));
+                    if msg == &t("update_checking") {
+                        state.active_popup = Some(PopupType::Info(t("update_no_updates")));
                     }
                 }
             }
@@ -61,10 +59,8 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Channel closed / check failed. If we had "Checking for updates..." popup, show error.
                 if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == "Checking for updates..." {
-                        state.active_popup = Some(PopupType::Info(
-                            "Failed to check for updates. Please try again later.".to_string(),
-                        ));
+                    if msg == &t("update_checking") {
+                        state.active_popup = Some(PopupType::Info(t("update_check_failed")));
                     }
                 }
             }
@@ -107,8 +103,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                     Ok(crate::update::installer::InstallResult::RestartRequired) => {
                         state.update_status = UpdateStatus::Done;
                         state.active_popup = Some(PopupType::Info(
-                            "Update installed! Please restart Pairee to use the new version."
-                                .to_string(),
+                            t("update_installed_restart"),
                         ));
                     }
                     Ok(crate::update::installer::InstallResult::ManagedCommandShown) => {
@@ -130,8 +125,9 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                             *error = Some(err);
                             *install_progress = None;
                         } else {
-                            state.active_popup =
-                                Some(PopupType::Info(format!("Update failed: {}", err)));
+                            state.active_popup = Some(PopupType::Info(
+                                t("update_failed").replace("{}", &err),
+                            ));
                         }
                     }
                 }
@@ -149,14 +145,14 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 // Task died/panicked
                 state.update_progress_rx = None;
                 state.update_status =
-                    UpdateStatus::Error("Installation task terminated unexpectedly".to_string());
+                    UpdateStatus::Error(t("update_installation_task_terminated"));
                 if let Some(PopupType::UpdateAvailable {
                     error,
                     install_progress,
                     ..
                 }) = &mut state.active_popup
                 {
-                    *error = Some("Installation task terminated unexpectedly".to_string());
+                    *error = Some(t("update_installation_task_terminated"));
                     *install_progress = None;
                 }
             }

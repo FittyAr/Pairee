@@ -43,9 +43,7 @@ pub fn handle_dev(
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
             context.config.settings.active_dev_plugin = None;
             let _ = context.config.save();
-            *dev_results =
-                "Stale active development plugin deselected (directory no longer exists)."
-                    .to_string();
+            *dev_results = t("plugin_dev_stale_deselected");
             *installed = super::reload_installed_plugins(context, &None);
         }
     }
@@ -359,7 +357,7 @@ fn handle_navigation_or_enter(
             if *cursor_idx == 0 && context.config.settings.active_dev_plugin.is_some() {
                 context.config.settings.active_dev_plugin = None;
                 let _ = context.config.save();
-                *dev_results = "Development plugin deselected.".to_string();
+                *dev_results = t("plugin_dev_deselected");
                 *installed = super::reload_installed_plugins(context, &None);
             }
         }
@@ -449,7 +447,7 @@ fn handle_option_select_active_plugin(
     let plugins_dev_dir_for_task = plugins_dev_dir.clone();
     tokio::task::spawn_blocking(move || {
         let mut options = Vec::new();
-        options.push(("[Deselect / None]".to_string(), "deselect".to_string()));
+        options.push((t("plugin_dev_deselect_option"), "deselect".to_string()));
 
         if let Ok(entries) = std::fs::read_dir(&plugins_dev_dir_for_task) {
             for entry in entries.filter_map(Result::ok) {
@@ -465,7 +463,9 @@ fn handle_option_select_active_plugin(
         if left.join("manifest.toml").exists() {
             if let Some(name) = left.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    format!("[Panel 1] {} ({})", name, left.display()),
+                    t("plugin_dev_panel1")
+                        .replacen("{}", &name, 1)
+                        .replacen("{}", &left.display().to_string(), 1),
                     left.to_string_lossy().to_string(),
                 ));
             }
@@ -474,7 +474,9 @@ fn handle_option_select_active_plugin(
         if right.join("manifest.toml").exists() {
             if let Some(name) = right.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    format!("[Panel 2] {} ({})", name, right.display()),
+                    t("plugin_dev_panel2")
+                        .replacen("{}", &name, 1)
+                        .replacen("{}", &right.display().to_string(), 1),
                     right.to_string_lossy().to_string(),
                 ));
             }
@@ -518,10 +520,7 @@ fn handle_option_lint(
     if let Some(plugin_folder) = active_plugin.clone() {
         let path = resolve_active_plugin_path(&plugin_folder, &plugins_dev_dir);
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
-            *dev_results = format!(
-                "Error: Plugin directory '{}' no longer exists.",
-                plugin_folder
-            );
+            *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
             let name = plugin_folder
                 .strip_suffix(".pairee")
@@ -571,12 +570,9 @@ fn handle_option_package(
     if let Some(plugin_folder) = active_plugin.clone() {
         let path = resolve_active_plugin_path(&plugin_folder, &plugins_dev_dir);
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
-            *dev_results = format!(
-                "Error: Plugin directory '{}' no longer exists.",
-                plugin_folder
-            );
+            *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
-            *dev_results = format!("{} '{}'…", t("plugin_dev_pack_start").trim(), plugin_folder);
+            *dev_results = t("plugin_dev_pack_start").replace("{}", &plugin_folder).trim().to_string();
             let tx = begin_dev_op(state, t("plugin_dev_progress_fetching_registry"));
             let path_for_task = path.clone();
             let name_for_result = plugin_folder.clone();
@@ -620,10 +616,7 @@ fn handle_option_install_local(
     if let Some(plugin_folder) = active_plugin.clone() {
         let path = resolve_active_plugin_path(&plugin_folder, &plugins_dev_dir);
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
-            *dev_results = format!(
-                "Error: Plugin directory '{}' no longer exists.",
-                plugin_folder
-            );
+            *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
             *dev_results = format!("{} '{}'…", t("plugin_dev_install_start"), plugin_folder);
             let tx = begin_dev_op(state, t("plugin_dev_progress_copying_files"));
@@ -694,12 +687,10 @@ fn handle_option_install_local(
                         },
                     );
                     let _ = crate::plugin::updater::write_lockfile(&lock);
-                    Ok(format!(
-                        "✓ Installed '{}' locally (copied {} file(s))\n\n{}",
-                        name,
-                        copied_files.len(),
-                        t("plugin_dev_local_sync_ok")
-                    ))
+                    Ok(t("plugin_dev_installed_locally")
+                        .replacen("{}", &name, 1)
+                        .replacen("{}", &copied_files.len().to_string(), 1)
+                        .replacen("{}", &t("plugin_dev_local_sync_ok"), 1))
                 })();
 
                 match res {
@@ -736,10 +727,7 @@ fn handle_option_submit(
     if let Some(plugin_folder) = active_plugin.clone() {
         let path = resolve_active_plugin_path(&plugin_folder, &plugins_dev_dir);
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
-            *dev_results = format!(
-                "Error: Plugin directory '{}' no longer exists.",
-                plugin_folder
-            );
+            *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
             // First do a quick synchronous validation
             // (it's cheap). If it passes, enter the
