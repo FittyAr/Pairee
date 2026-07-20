@@ -2,6 +2,7 @@
 name = "pairee"
 version = "0.7.0"
 edition = "2024"
+description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
 
 [dependencies]
@@ -54,14 +55,15 @@ ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 [package.metadata.deb]
 name = "pairee"
 maintainer = "FittyAr <10284757+FittyAr@users.noreply.github.com>"
-license-file = ["LICENSE", "4"]
+license-file = ["LICENSE"]
 depends = "$default"
 section = "utils"
 priority = "optional"
 assets = [
     ["target/release/pairee", "usr/bin/pairee", "755"],
     ["lang/*", "usr/share/pairee/lang/", "644"],
-    ["help/*", "usr/share/pairee/help/", "644"],
+    ["help/en/*", "usr/share/pairee/help/en/", "644"],
+    ["help/es/*", "usr/share/pairee/help/es/", "644"],
     ["keymaps/*", "usr/share/pairee/keymaps/", "644"],
     ["manifests/linux/pairee.desktop", "usr/share/applications/pairee.desktop", "644"],
     ["img/pairee_logo.svg", "usr/share/icons/hicolor/scalable/apps/pairee.svg", "644"],
@@ -77,7 +79,8 @@ categories = ["Applications/System"]
 assets = [
     { source = "target/x86_64-unknown-linux-musl/release/pairee", dest = "/usr/bin/pairee", mode = "755" },
     { source = "lang/*", dest = "/usr/share/pairee/lang/", mode = "644" },
-    { source = "help/*", dest = "/usr/share/pairee/help/", mode = "644" },
+    { source = "help/en/*", dest = "/usr/share/pairee/help/en/", mode = "644" },
+    { source = "help/es/*", dest = "/usr/share/pairee/help/es/", mode = "644" },
     { source = "keymaps/*", dest = "/usr/share/pairee/keymaps/", mode = "644" },
     { source = "manifests/linux/pairee.desktop", dest = "/usr/share/applications/pairee.desktop", mode = "644" },
     { source = "img/pairee_logo.svg", dest = "/usr/share/icons/hicolor/scalable/apps/pairee.svg", mode = "644" },
