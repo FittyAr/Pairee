@@ -13,6 +13,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ---
 
+## [v0.7.1] - 2026-07-20
+
+### Added
+
+### Improved
+
+### Changed
+
+### Deprecated
+
+### Removed
+
+### Fixed
+
+- Fixed PowerShell command execution syntax in GitHub Actions workflow (`.github/workflows/release.yml`) during MSIX packaging.
+- Fixed directory tree removal when moving folders in the background Transfer Engine so that empty source subdirectories and root folders are completely cleaned up.
+
+---
+
 ## [v0.7.0] - 2026-07-20
 
 ### Added

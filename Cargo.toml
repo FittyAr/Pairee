@@ -1,6 +1,6 @@
 [package]
 name = "pairee"
-version = "0.7.0"
+version = "0.7.1"
 edition = "2024"
 description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
