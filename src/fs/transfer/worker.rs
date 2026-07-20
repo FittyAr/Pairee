@@ -92,13 +92,21 @@ impl TransferWorker {
             if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
                 let mut dirs_to_visit = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
-                if self.operation == TransferOperation::Delete {
+                if self.operation == TransferOperation::Delete || self.operation == TransferOperation::Move {
                     dirs_to_delete.push(src.clone());
                 }
 
                 while let Some(dir) = dirs_to_visit.pop_front() {
                     if self.is_cancelled.load(Ordering::Relaxed) {
                         return Err(anyhow!("Job cancelled during scan"));
+                    }
+
+                    if self.operation == TransferOperation::Copy || self.operation == TransferOperation::Move {
+                        if let Ok(rel) = dir.strip_prefix(src) {
+                            let folder_name = src.file_name().unwrap_or_default();
+                            let dst_dir = self.destination.join(folder_name).join(rel);
+                            let _ = std::fs::create_dir_all(&dst_dir);
+                        }
                     }
 
                     let entries = match std::fs::read_dir(&dir) {
@@ -132,7 +140,7 @@ impl TransferWorker {
 
                         if path.is_dir() {
                             dirs_to_visit.push_back(path.clone());
-                            if self.operation == TransferOperation::Delete {
+                            if self.operation == TransferOperation::Delete || self.operation == TransferOperation::Move {
                                 dirs_to_delete.push(path);
                             }
                         } else {
@@ -825,6 +833,26 @@ impl TransferWorker {
             });
         }
 
+        // Si la operación es MOVE, eliminar las carpetas de origen vacías (de más profunda a más superficial)
+        if self.operation == TransferOperation::Move {
+            dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+            for dir in dirs_to_delete {
+                if self.is_cancelled.load(Ordering::Relaxed) {
+                    break;
+                }
+                if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
+                    if let Some(filename_str) = filename.to_str() {
+                        let _ = crate::fs::descriptions::remove_description(parent, filename_str);
+                    }
+                }
+                let mut res = std::fs::remove_dir(&dir);
+                if res.is_err() {
+                    let _ = make_writable_helper(&dir);
+                    res = std::fs::remove_dir(&dir);
+                }
+            }
+        }
+
         let _ = self.event_tx.send(TransferEvent::JobCompleted {
             job_id: self.job_id,
             results: results.clone(),
@@ -906,4 +934,68 @@ fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
         perms.set_readonly(false);
     }
     std::fs::set_permissions(path, perms)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn test_worker_move_directory_tree() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let src_root = temp_dir.path().join("src_folder");
+        let dst_root = temp_dir.path().join("dst_folder");
+
+        let sub_dir = src_root.join("sub_dir").join("nested");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+
+        let file1 = src_root.join("file1.txt");
+        let file2 = sub_dir.join("file2.txt");
+
+        std::fs::write(&file1, "content1").unwrap();
+        std::fs::write(&file2, "content2").unwrap();
+
+        std::fs::create_dir_all(&dst_root).unwrap();
+
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        let is_paused = Arc::new(AtomicBool::new(false));
+        let is_cancelled = Arc::new(AtomicBool::new(false));
+        let skip_flag = Arc::new(AtomicBool::new(false));
+        let active_conflict = Arc::new(std::sync::Mutex::new(None));
+
+        let worker = TransferWorker::new(
+            Uuid::new_v4(),
+            TransferOperation::Move,
+            vec![src_root.clone()],
+            dst_root.clone(),
+            TransferOptions::default(),
+            is_paused,
+            is_cancelled,
+            skip_flag,
+            tx,
+            active_conflict,
+        );
+
+        tokio::spawn(async move {
+            while let Some(_) = rx.recv().await {}
+        });
+
+        let res = worker.run().await;
+        assert!(res.is_ok());
+
+        // Verificar que el destino contenga todos los archivos y carpetas
+        let dst_moved_folder = dst_root.join("src_folder");
+        assert!(dst_moved_folder.join("file1.txt").exists());
+        assert!(dst_moved_folder
+            .join("sub_dir")
+            .join("nested")
+            .join("file2.txt")
+            .exists());
+
+        // Verificar que el origen (archivos Y estructura de carpetas) fue eliminado por completo
+        assert!(!file1.exists());
+        assert!(!file2.exists());
+        assert!(!sub_dir.exists());
+        assert!(!src_root.exists());
+    }
 }
