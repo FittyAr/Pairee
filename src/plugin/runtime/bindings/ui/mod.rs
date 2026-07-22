@@ -1,11 +1,14 @@
 //! `ui` subdirectory entry point. Wires the legacy 6 plain-table
 //! constructors, the new userdata-backed `Span`/`Line`/`Text`
-//! widgets, the `Style`/`Color` userdata, and the
+//! widgets, the `Style`/`Color` userdata, the geometry primitives
+//! (Rect/Constraint/Pad/Pos/Align/Wrap/Edge/Layout), and the
 //! `pairee.preview_widget` bridge to the preview pane.
 
 pub mod elements;
+pub mod geometry;
 pub mod legacy;
 pub mod preview;
+pub mod renderable;
 pub mod style;
 
 use crate::plugin::manager::PluginRequest;
@@ -46,6 +49,16 @@ pub fn bind(
     elements::table::bind(lua, &ui)?;
     elements::table::bind_row(lua, &ui)?;
     style::bind(lua, &ui)?;
+
+    // M4-T3 geometry primitives.
+    geometry::bind_rect(lua, &ui)?;
+    geometry::bind_constraint(lua, &ui)?;
+    geometry::bind_pad(lua, &ui)?;
+    geometry::bind_pos(lua, &ui)?;
+    geometry::bind_align(lua, &ui)?;
+    geometry::bind_wrap(lua, &ui)?;
+    geometry::bind_edge(lua, &ui)?;
+    geometry::bind_layout(lua, &ui)?;
 
     // Hide the metatable on `ui` so plugins can't accidentally
     // override our types.

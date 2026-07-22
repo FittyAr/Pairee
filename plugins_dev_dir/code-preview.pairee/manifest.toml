@@ -1,0 +1,15 @@
+name = "code-preview"
+version = "0.1.0"
+description = "Syntax-highlighted code preview pane"
+author = "Pairee"
+license = "MIT"
+min_pairee = "0.7.0"
+requires_trust = false
+default_language = "en"
+languages = ["en"]
+
+[keybindings]
+"F8" = "preview_code"
+
+[settings_schema]
+extra_args = { type = "string", default = "", title = "Extra args" }

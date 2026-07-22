@@ -1,0 +1,4 @@
+[messages]
+plugin_name = "Code Preview"
+plugin_description = "Syntax-highlighted preview pane powered by syntect."
+hotkey = "F8"

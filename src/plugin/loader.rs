@@ -140,14 +140,26 @@ pub async fn load_plugin(
     // 3. Create sandboxed Lua instance
     let lua = crate::plugin::sandbox::create_sandboxed_lua(path, trusted, tx.clone())?;
 
-    // 3a. M3: seed `cx` with a snapshot of the live state. The
-    //     slim `cx` exposes `active.current.cwd` and
-    //     `active.selected`; the full sync-context tree lands in
-    //     M4.
+    // 3a. M4-T5/T6/T7/T8: seed `cx`, `rt`, `th`, and `km` globals
+    //     with a snapshot of the live state. The full sync-context
+    //     trees are built once per plugin load (the runtime is
+    //     currently static; a future per-tick rebuild lands in
+    //     M5).
     {
         let workspace = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("/"));
         let stub_state = crate::app::state::AppState::new(workspace.clone(), workspace);
-        let _ = crate::plugin::runtime::bindings::cx::build_cx_table(&lua, &stub_state);
+        if let Ok(cfg) = crate::config::AppConfig::load_or_create() {
+            let theme = cfg.theme.clone();
+            let resolver = crate::keybindings::resolver::KeybindingResolver::new(&cfg);
+            let _ = crate::plugin::runtime::bindings::cx::build_cx_table(&lua, &stub_state);
+            let _ = crate::plugin::runtime::bindings::rt_th_km::build_rt_table(
+                &lua,
+                &stub_state,
+                &cfg,
+            );
+            let _ = crate::plugin::runtime::bindings::rt_th_km::build_th_table(&lua, &theme);
+            let _ = crate::plugin::runtime::bindings::rt_th_km::build_km_table(&lua, &resolver);
+        }
     }
 
     // 4. Load main.lua

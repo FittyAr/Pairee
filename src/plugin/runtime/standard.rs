@@ -76,6 +76,9 @@ pub fn bind_runtime(
     crate::plugin::runtime::types::register(lua, &pairee)?;
     // M2 image binding: `pairee.image.{show, precache, info}`.
     pairee.set("image", super::bindings::image::bind(lua, tx.clone())?)?;
+    // M4-T9: `pairee.preview_code` — syntax-highlighted preview of a
+    // code file, returns a `ui.Text` userdata with per-token styles.
+    super::bindings::preview_code::bind(lua, &pairee)?;
 
     // M3 process binding: `pairee.Command(name)`, `pairee.fs.access()`.
     super::bindings::process::command::register(lua, &pairee)?;

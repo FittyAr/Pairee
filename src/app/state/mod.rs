@@ -180,6 +180,7 @@ impl AppState {
         }
     }
 
+
     /// Returns a reference to the passive panel state.
     pub fn get_passive_panel(&self) -> &PanelState {
         match self.active_panel {
