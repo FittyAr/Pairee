@@ -119,32 +119,187 @@ pairee.app.cd(path)                     -- navigate to path
 pairee.app.focus()                      -- "left" | "right"
 pairee.app.set_focus(side)              -- switch panel
 pairee.app.notify(title, msg, level)   -- show popup ("info","warn","error")
-pairee.app.confirm(title, msg)          -- boolean: confirmation dialog
-pairee.app.input(title, default)        -- string: text input dialog
 pairee.app.hovered()                    -- Entry: currently hovered file
+
+-- DEPRECATED (M5-pending): use the structured forms below
+-- instead; these stubs log a warning and return a canned value.
+pairee.app.confirm(title, msg)          -- (deprecated) use pairee.confirm({pos, title, body})
+pairee.app.input(title, default)        -- (deprecated) use pairee.input({pos, title, value, ...})
 ```
 
-### `pairee.fs` — Filesystem & Processes
+### `pairee.confirm` / `pairee.input` / `pairee.which` — Dialogs (M1)
 
 ```lua
-pairee.fs.read(path)                    -- string: file contents
-pairee.fs.write(path, data)            -- write data to file
-pairee.fs.exists(path)                 -- boolean
-pairee.fs.stat(path)                   -- Entry: file metadata
-pairee.fs.list(path)                   -- Entry[]: directory listing
-pairee.fs.spawn(cmd, args)             -- Output: {stdout, stderr, status}
-pairee.fs.spawn_copy_task(from, to)    -- background copy with progress popup
+pairee.confirm({pos, title, body})             -- boolean (Enter = true, Esc = false)
+pairee.input({pos, title, value, obscure,
+              realtime, debounce})              -- {value, event} where event 1=submit 2=cancel
+pairee.which({cands, silent})                  -- integer 1-based or nil
 ```
 
-### `pairee.ui` — Widget Constructors
+### `pairee.notify` / `pairee.file_cache` / `pairee.emit` — Actions (M0)
 
 ```lua
+pairee.notify({title, content, level, timeout})  -- shows a notification; auto-dismisses on timeout
+pairee.file_cache({file, skip})                  -- string path under preview_cache/
+pairee.emit(action_name, args_table)             -- dispatch a keybinding-resolved action
+                                                  -- (e.g. "cd" | "select" | "reveal" | "refresh" | ...)
+```
+
+### `pairee.fs` — Filesystem & Processes (M3)
+
+```lua
+pairee.fs.read(path)                    -- string: file contents (now async via tokio::fs)
+pairee.fs.write(path, data)            -- write data to file (async)
+pairee.fs.exists(path)                 -- boolean (async)
+pairee.fs.stat(path)                   -- Cha: file metadata
+pairee.fs.list(path)                   -- Entry[]: directory listing (legacy)
+pairee.fs.read_dir(path, {glob?, limit?, resolve?})
+                                         -- File[] (rich — M2 userdata)
+pairee.fs.mkdir(type, url)              -- type ∈ {"dir", "dir_all"}
+pairee.fs.remove(type, url)            -- type ∈ {"file", "dir", "dir_all", "dir_clean"}
+pairee.fs.rename(from, to)
+pairee.fs.copy(from, to)               -- bytes copied (background, cancellable)
+pairee.fs.cha(url, follow?)            -- Cha userdata
+pairee.fs.file(url)                    -- File userdata
+pairee.fs.unique(type, url)            -- unique Url
+pairee.fs.expand_url(value)             -- Url (accepts string or Url userdata)
+pairee.fs.partitions()                 -- Partition[]
+pairee.fs.calc_size(url)               -- u64 bytes (bounded walk)
+
+pairee.fs.spawn(cmd, args)             -- DEPRECATED — use Command() builder
+pairee.fs.spawn_copy_task(from, to)    -- DEPRECATED — use pairee.fs.copy(from, to)
+```
+
+### `pairee.ui` — Widget Constructors (M2/M4 — userdata-backed)
+
+The legacy plain-table constructors are preserved for back-compat
+but emit a deprecation warning the first time they are called. The
+new API below returns userdata values with builder methods
+(`.fg()`, `.bold()`, etc.) that chain fluently.
+
+```lua
+-- LEGACY (plain-table constructors; emit a deprecation warning)
 pairee.ui.Paragraph(text)
 pairee.ui.Gauge(ratio, label)           -- ratio: 0.0 to 1.0
 pairee.ui.List(items)                   -- items: string[]
 pairee.ui.Table(headers, rows)
 pairee.ui.Span(text, style)
 pairee.ui.Line(spans)
+
+-- NEW (M2: text widgets)
+local span  = ui.Span("hello"):fg("red"):bold():italic()
+local line  = ui.Line("world"):fg("#00ff00")
+local text  = ui.Text("multi\nline\n"):bold()
+text:push(line)
+local para  = ui.Paragraph(text):align("center"):wrap("yes")
+
+-- NEW (M2: containers)
+local list  = ui.List({"a", "b", "c"})
+list:push("d")
+local cell  = ui.Cell("content"):fg("yellow")
+local row   = ui.Row({cell, ui.Cell("more")})
+local table = ui.Table({row, row})
+table:header(row)
+
+local gauge = ui.Gauge():ratio(0.75):label("loading...")
+
+-- NEW (M4-T3: geometry primitives)
+local rect   = ui.Rect(0, 0, 80, 24)
+local pad    = ui.Pad(1, 2, 1, 2)            -- top, right, bottom, left
+local pad    = ui.Pad.xy(2, 1)
+local constraint = ui.Constraint.Percentage(50)
+local layout = ui.Layout()
+    :direction("vertical")
+    :margin(0)
+    :constraints({ui.Constraint.Length(3), ui.Constraint.Percentage(100)})
+local splits  = layout:split(rect)            -- Rect[]
+local align_left = ui.Align.LEFT
+local wrap_no    = ui.Wrap.NO
+local edge_top   = ui.Edge.TOP
+```
+
+### `pairee.ui.Style` and `pairee.ui.Color` (M2)
+
+```lua
+local style = ui.Style()
+    :fg("red")
+    :bg("#000000")
+    :bold()
+    :italic()
+    :underline()
+    :patch(other_style)
+local red = ui.Color("red")
+local hex = ui.Color("#ff0000")
+local rgb = ui.Color({r=255, g=0, b=0})
+```
+
+### `pairee.preview_widget` / `pairee.preview_code` (M4)
+
+```lua
+-- Send a widget to the preview pane. The widget can be any of:
+-- ui.Span, ui.Line, ui.Text, ui.Paragraph, ui.List, ui.Gauge, ui.Table.
+pairee.preview_widget({path = "/tmp/x.rs"}, ui.Line("preview"))
+
+-- Syntax-highlighted code preview (uses syntect internally; no
+-- external binary required). Returns a ui.Text rich userdata.
+local text = pairee.preview_code({path = "/tmp/x.rs"})
+pairee.preview_widget({}, text)
+```
+
+### `cx` (M4-T5) — live application state
+
+The `cx` global is built fresh on every main-loop tick and is
+**read-only**. Plugins in sync contexts (the default for `peek`)
+can read it; async plugins get a snapshot at sync time.
+
+```lua
+cx.active.id            -- integer: current tab id
+cx.active.name          -- string: current tab name
+cx.active.mode          -- "select" | "unset" | "visual"
+cx.active.pref.sort_by  -- "name" | "extension" | "size" | "date" | "unsorted"
+cx.active.pref.sort_reverse
+cx.active.pref.show_hidden
+cx.active.pref.view_mode -- "brief" | "medium" | "full" | ...
+cx.active.current.cwd   -- Url: panel cwd
+cx.active.current.files -- integer: entries count
+cx.active.current.offset, cursor, hovered, selected
+cx.active.parent        -- other panel's state (same shape)
+cx.active.preview.skip
+cx.active.finder        -- string: current finder filter
+cx.tabs                 -- Tab[]
+cx.tasks                -- {count, running, finished}
+cx.yanked               -- string[]: yanked paths
+cx.input                -- string: current input prompt value
+cx.which                 -- string: current which-prompt
+cx.layer                -- "manager" | "popup"
+```
+
+### `rt` (M4-T6) — runtime info
+
+```lua
+rt.args.entries, rt.args.cwd_file, rt.args.chooser_file
+rt.term.light                       -- boolean
+rt.mgr.sort_by, rt.mgr.sort_reverse
+rt.mgr.show_hidden, rt.mgr.mouse_events
+rt.preview.wrap, rt.preview.tab_size
+rt.tasks.count, rt.tasks.running
+```
+
+### `th` (M4-T7) — theme styles
+
+```lua
+th.app, th.mgr, th.tabs, th.mode, th.indicator,
+th.status, th.which, th.confirm, th.spot, th.notify,
+th.pick, th.input, th.cmp, th.tasks, th.help
+-- each is { fg = "#rrggbb", bg = "#rrggbb", bold = bool, ... }
+```
+
+### `km` (M4-T8) — keymap
+
+```lua
+km.default["MoveUp"]   -- "Up"
+km.default["MoveDown"] -- "Down"
+-- (the per-layer split is reserved for M5)
 ```
 
 ### `pairee.ps` — Pub/Sub

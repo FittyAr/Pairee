@@ -159,6 +159,36 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - Fixed two pre-existing compile errors that blocked the extended utils surface: a typo referencing the non-existent `percent_encode_str` function (replaced with `percent_encode`), and an outdated `mlua::LuaSerdeExt::to_lua_value` call that did not match the active mlua API (replaced with `to_value`).
 
+### Added
+
+- Plugin system evolution — Phase 4 (UI Widgets + cx/rt/th/km + preview_code). New typed-userdata widget surface exposed to plugins: `ui.Style` (fg/bg/bold/dim/italic/underline/blink/reverse/hidden/crossed/reset/patch/raw builder), `ui.Color` (named, hex, rgb-table constructors), `ui.Span`/`ui.Line`/`ui.Text` (with chained fg/bg/modifier methods), `ui.Paragraph` (with style/align/wrap), `ui.List`/`ui.Cell`/`ui.Row`/`ui.Table`/`ui.Gauge` (with push/header and rich builder surface). All new widgets are real `mlua::UserData` types that return self on every mutator so plugins can chain like `ui.Span("hi"):fg("red"):bold()`.
+- Geometry primitives: `ui.Rect(x,y,w,h)`, `ui.Pad(top,right,bottom,left)` with `Pad.xy`, `ui.Pos`, `ui.Constraint.{Min,Max,Length,Percentage,Fill,Ratio}` factories, `ui.Layout():direction(H|V):margin(n):constraints({...}):split(rect) → Rect[]`, `ui.Align.{LEFT,CENTER,RIGHT}`, `ui.Wrap.{NO,YES,TRIM}`, `ui.Edge.{TOP,RIGHT,BOTTOM,LEFT,ALL,NONE}` bitmask.
+- Full `cx` global tree (sync-only, read-only): `cx.active.{id, name, mode, pref.{sort_by, sort_reverse, show_hidden, view_mode}, current.{cwd, files, offset, cursor, hovered, selected, _entries}, parent, preview.{skip, folder}, finder}`; `cx.tabs`, `cx.tasks.{count, running, finished}`, `cx.yanked`, `cx.input`, `cx.which`, `cx.layer`. M5 will add the per-Folder/Entries walk.
+- `rt` runtime globals: `rt.args.entries`, `rt.term.light`, `rt.mgr.{sort_by, sort_reverse, show_hidden, mouse_events}`, `rt.preview.{wrap, tab_size}`, `rt.tasks.{count, running}`. Built from `AppConfig` + `AppState` on plugin load.
+- `th` theme globals: 15 leaves (`app`, `mgr`, `tabs`, `mode`, `indicator`, `status`, `which`, `confirm`, `spot`, `notify`, `pick`, `input`, `cmp`, `tasks`, `help`), each carrying `{fg, bg, bold, italic, underline}` derived from the active `Theme`.
+- `km` keymap globals: `km.default[action_name] = key_string` for the canonical Pairee actions (MoveUp/Down, ChangePanel, Quit, Help, View, Edit, Copy, Move, MkDir, Delete). Per-layer split is reserved for M5.
+- `pairee.preview_widget(opts, widget)` sync binding: send any of `ui.Span`/`ui.Line`/`ui.Text`/`ui.Paragraph`/`ui.List`/`ui.Gauge`/`ui.Table` to the preview pane via the new `RichSpan`/`RichLine`/`RichText` `PluginWidget` variants (with fg/bg strings + modifier flags) rendered through the existing `QuickViewPanel` renderer.
+- `pairee.preview_code({path})` async binding: uses `syntect` (no external binary required) for syntax highlighting and returns a `ui.Text` rich userdata with per-token `ui.Span`s carrying the syntect fg color and BOLD/ITALIC modifiers.
+- `Renderable` enum (`Span`/`Line`/`Text`/`Paragraph`/`List`/`Gauge`/`Table`/`Cell`/`Row` + `At{rect, inner}` recursive anchor) with `from_lua_value` and `at` helpers. M5 wires the dispatch surface into the `preview_widget` overload.
+- Acceptance plugin `code-preview.pairee`: F8 keybinding triggers a syntax-highlighted preview of the current code file via the new `pairee.preview_code` API. Ships with `manifest.toml`, `main.lua`, `lang/en.toml`, `help/en.md`.
+
+### Changed
+
+- Extended `PluginWidget` enum (in `src/app/state/types.rs`) with three new variants: `RichSpan { text, fg, bg, bold, dim, italic, underline, blink, reverse, hidden, crossed }`, `RichLine { spans, fg, bg, bold, dim, italic, underline }`, `RichText { lines, fg, bg, bold, dim, italic, underline }`. Extended `QuickViewPanel` renderer (`src/ui/quickview.rs`) to dispatch these new variants to ratatui.
+- Added new Cargo dependencies: `syntect` 5.2 (with `default-fancy` feature, vendored syntaxes, no external binary), `once_cell` 1.21 for the lazy `SyntaxSet`/`ThemeSet` cache.
+- Added `AppState::get_inactive_panel` (mirror of the existing `get_passive_panel`) for the M4-T5 `cx.parent` snapshot — kept both names to avoid breaking the existing call sites.
+- `bindings/ui.rs` (single file) was restructured into a `bindings/ui/` directory: `mod.rs` (entry), `legacy.rs` (deprecated 6 plain-table constructors with a `log::warn!` on first use), `style.rs` (Style + Color userdata), `preview.rs` (preview_widget bridge), `geometry.rs` (Rect/Pad/Pos/Constraint/Layout/Align/Wrap/Edge), `renderable.rs` (Renderable enum), and `elements/{span, line, text, paragraph, list, cell, table, gauge}.rs`.
+
+### Deprecated
+
+- `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)` legacy stubs now emit a loud `log::warn!` advising migration to `pairee.confirm({pos, title, body})` / `pairee.input({pos, title, value, obscure, realtime, debounce})`. They continue to work via the deprecated dispatcher arms and will be removed in the M5 cleanup phase.
+- `pairee.fs.spawn(cmd, args)` and `pairee.fs.spawn_copy_task(from, to)` legacy forms are now documented as deprecated; the new API is the `Command` builder (`Command("ls"):arg():cwd():env():stdin():stdout():stderr():spawn() → Child`).
+- `pairee.ui.Paragraph(text)`, `pairee.ui.Gauge(ratio, label)`, `pairee.ui.List(items)`, `pairee.ui.Table(headers, rows)`, `pairee.ui.Span(text, style)`, `pairee.ui.Line(spans)` plain-table constructors emit a one-time `log::warn!` on first use. The new API is the userdata-backed `ui.Paragraph`/`ui.Gauge`/`ui.List`/`ui.Table`/`ui.Span`/`ui.Line` (with builder chain).
+
+### Removed
+
+- (M5-pending) None of the deprecated APIs have been removed yet — they remain functional so existing plugins keep working while authors migrate. Removal is scheduled for the next major version after one release cycle.
+
 ---
 
 ## [v0.6.1] - 2026-06-27

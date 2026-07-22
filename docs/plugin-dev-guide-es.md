@@ -119,32 +119,141 @@ pairee.app.cd(path)                     -- navegar a path
 pairee.app.focus()                      -- "left" | "right"
 pairee.app.set_focus(side)              -- cambiar panel
 pairee.app.notify(title, msg, level)   -- mostrar popup ("info","warn","error")
-pairee.app.confirm(title, msg)          -- boolean: diálogo de confirmación
-pairee.app.input(title, default)        -- string: diálogo de entrada de texto
 pairee.app.hovered()                    -- Entry: archivo actualmente resaltado
+
+-- DEPRECADO (M5-pendiente): usa las formas estructuradas; los
+-- stubs registran una advertencia y devuelven un valor fijo.
+pairee.app.confirm(title, msg)          -- (deprecated) usa pairee.confirm({pos, title, body})
+pairee.app.input(title, default)        -- (deprecated) usa pairee.input({pos, title, value, ...})
 ```
 
-### `pairee.fs` — Sistema de Archivos y Procesos
+### `pairee.confirm` / `pairee.input` / `pairee.which` — Diálogos (M1)
 
 ```lua
-pairee.fs.read(path)                    -- string: contenido del archivo
-pairee.fs.write(path, data)            -- escribe datos en archivo
-pairee.fs.exists(path)                 -- boolean
-pairee.fs.stat(path)                   -- Entry: metadatos del archivo
-pairee.fs.list(path)                   -- Entry[]: listado del directorio
-pairee.fs.spawn(cmd, args)             -- Output: {stdout, stderr, status}
-pairee.fs.spawn_copy_task(from, to)    -- copia en segundo plano con barra de progreso
+pairee.confirm({pos, title, body})             -- boolean
+pairee.input({pos, title, value, obscure,
+              realtime, debounce})              -- {value, event}
+pairee.which({cands, silent})                  -- integer 1-based o nil
 ```
 
-### `pairee.ui` — Constructores de Widgets
+### `pairee.notify` / `pairee.file_cache` / `pairee.emit` — Acciones (M0)
 
 ```lua
+pairee.notify({title, content, level, timeout})  -- notificación; auto-dismiss
+pairee.file_cache({file, skip})                  -- string bajo preview_cache/
+pairee.emit(action_name, args_table)             -- dispatch de acción (resolve keybinding)
+```
+
+### `pairee.fs` — Sistema de Archivos y Procesos (M3)
+
+```lua
+pairee.fs.read(path)                    -- string: contenido (async via tokio::fs)
+pairee.fs.write(path, data)            -- escribe datos (async)
+pairee.fs.exists(path)                 -- boolean (async)
+pairee.fs.stat(path)                   -- Cha
+pairee.fs.list(path)                   -- Entry[] (legacy)
+pairee.fs.read_dir(path, {glob?, limit?, resolve?}) -- File[] (M2 userdata)
+pairee.fs.mkdir(type, url)              -- type ∈ {"dir", "dir_all"}
+pairee.fs.remove(type, url)            -- type ∈ {"file", "dir", "dir_all", "dir_clean"}
+pairee.fs.rename(from, to)
+pairee.fs.copy(from, to)
+pairee.fs.cha(url, follow?)            -- Cha userdata
+pairee.fs.file(url)                    -- File userdata
+pairee.fs.unique(type, url)            -- Url
+pairee.fs.expand_url(value)             -- Url
+pairee.fs.partitions()                 -- Partition[]
+pairee.fs.calc_size(url)               -- u64 bytes
+
+pairee.fs.spawn(cmd, args)             -- DEPRECADO — usa Command() builder
+pairee.fs.spawn_copy_task(from, to)    -- DEPRECADO — usa fs.copy(from, to)
+```
+
+### `pairee.ui` — Constructores de Widgets (M2/M4)
+
+```lua
+-- LEGACY (plain-table; emite advertencia de deprecación)
 pairee.ui.Paragraph(text)
-pairee.ui.Gauge(ratio, label)           -- ratio: 0.0 a 1.0
-pairee.ui.List(items)                   -- items: string[]
+pairee.ui.Gauge(ratio, label)
+pairee.ui.List(items)
 pairee.ui.Table(headers, rows)
 pairee.ui.Span(text, style)
 pairee.ui.Line(spans)
+
+-- NUEVO (M2: widgets de texto)
+local span  = ui.Span("hola"):fg("red"):bold()
+local line  = ui.Line("mundo"):fg("#00ff00")
+local text  = ui.Text("multi\nlínea\n"):bold():push(line)
+local para  = ui.Paragraph(text):align("center"):wrap("yes")
+
+-- NUEVO (M2: contenedores)
+local list  = ui.List({"a", "b", "c"}):push("d")
+local cell  = ui.Cell("contenido"):fg("yellow")
+local row   = ui.Row({cell, ui.Cell("más")})
+local table = ui.Table({row, row}):header(row)
+local gauge = ui.Gauge():ratio(0.75):label("cargando...")
+
+-- NUEVO (M4-T3: primitivas geométricas)
+local rect   = ui.Rect(0, 0, 80, 24)
+local pad    = ui.Pad(1, 2, 1, 2)            -- top, right, bottom, left
+local constraint = ui.Constraint.Percentage(50)
+local layout = ui.Layout()
+    :direction("vertical")
+    :constraints({ui.Constraint.Length(3), ui.Constraint.Percentage(100)})
+local splits  = layout:split(rect)            -- Rect[]
+```
+
+### `pairee.ui.Style` y `pairee.ui.Color` (M2)
+
+```lua
+local style = ui.Style():fg("red"):bg("#000000"):bold():italic():underline()
+local red   = ui.Color("red")
+local hex   = ui.Color("#ff0000")
+local rgb   = ui.Color({r=255, g=0, b=0})
+```
+
+### `pairee.preview_widget` / `pairee.preview_code` (M4)
+
+```lua
+pairee.preview_widget({path = "/tmp/x.rs"}, ui.Line("preview"))
+local text = pairee.preview_code({path = "/tmp/x.rs"})   -- usa syntect internamente
+pairee.preview_widget({}, text)
+```
+
+### `cx` (M4-T5) — estado en vivo (solo lectura)
+
+```lua
+cx.active.id, cx.active.name, cx.active.mode
+cx.active.pref.sort_by, sort_reverse, show_hidden, view_mode
+cx.active.current.cwd (Url), files, offset, cursor, hovered, selected
+cx.active.parent (mismo formato)
+cx.active.preview.skip, finder
+cx.tabs, cx.tasks, cx.yanked, cx.input, cx.which, cx.layer
+```
+
+### `rt` (M4-T6) — info del runtime
+
+```lua
+rt.args.entries, rt.args.cwd_file, rt.args.chooser_file
+rt.term.light
+rt.mgr.sort_by, rt.mgr.sort_reverse, rt.mgr.show_hidden, rt.mgr.mouse_events
+rt.preview.wrap, rt.preview.tab_size
+rt.tasks.count, rt.tasks.running
+```
+
+### `th` (M4-T7) — estilos del tema
+
+```lua
+th.app, th.mgr, th.tabs, th.mode, th.indicator,
+th.status, th.which, th.confirm, th.spot, th.notify,
+th.pick, th.input, th.cmp, th.tasks, th.help
+-- cada uno es { fg = "#rrggbb", bg = "#rrggbb", bold = bool, ... }
+```
+
+### `km` (M4-T8) — keymap
+
+```lua
+km.default["MoveUp"]   -- "Up"
+km.default["MoveDown"] -- "Down"
 ```
 
 ### `pairee.ps` — Pub/Sub
