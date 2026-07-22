@@ -236,4 +236,51 @@ mod tests {
             other => panic!("expected RichLine, got {other:?}"),
         }
     }
+
+    #[test]
+    fn test_peek_line_with_red_bold_propagates_to_spans() {
+        // The M5 done-criterion: a peek() that returns
+        // `ui.Line("hi"):fg("red"):bold()` must produce a
+        // PluginWidget::RichLine whose single RichSpan carries the
+        // line-level fg/bold into the span.
+        let lua = Lua::new();
+        let ui_table = lua.create_table().unwrap();
+        super::super::style::bind(&lua, &ui_table).unwrap();
+        super::super::elements::line::bind(&lua, &ui_table).unwrap();
+        lua.globals().set("ui", ui_table).unwrap();
+        let v: mlua::Value = lua
+            .load("return ui.Line('hi'):fg('red'):bold()")
+            .eval()
+            .expect("line builds");
+        let ud = v.as_userdata().expect("userdata").clone();
+        let line = ud.borrow::<Line>().expect("Line borrow").clone();
+        let pw = line_to_plugin(&line);
+        // The PluginWidget::RichLine should have one span (the text
+        // "hi") and the inherited red fg + bold modifier.
+        match pw {
+            PluginWidget::RichLine {
+                spans, fg, bold, ..
+            } => {
+                assert_eq!(spans.len(), 1);
+                assert_eq!(fg.as_deref(), Some("red"));
+                assert!(bold);
+                // The first span should carry the same color
+                // inherited from the line.
+                match &spans[0] {
+                    PluginWidget::RichSpan {
+                        fg: span_fg,
+                        text,
+                        bold: span_bold,
+                        ..
+                    } => {
+                        assert_eq!(span_fg.as_deref(), Some("red"));
+                        assert_eq!(text, "hi");
+                        assert!(span_bold);
+                    }
+                    other => panic!("expected RichSpan, got {other:?}"),
+                }
+            }
+            other => panic!("expected RichLine, got {other:?}"),
+        }
+    }
 }
