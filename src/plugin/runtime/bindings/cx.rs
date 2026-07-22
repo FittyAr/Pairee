@@ -30,7 +30,7 @@
 use crate::app::state::types::{PanelViewMode, SortField};
 use crate::app::state::AppState;
 use crate::plugin::types::{File, Url};
-use mlua::{UserData, UserDataFields, UserDataMethods};
+use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
 use std::path::PathBuf;
 
 /// Top-level live-state snapshot built on every main-loop tick.
@@ -73,6 +73,92 @@ fn panel_mode(mode: PanelViewMode) -> &'static str {
     }
 }
 
+/// Build the `current`/`parent` folder Lua table for a given
+/// panel. Each panel exposes `cwd`, `files`, `offset`, `cursor`,
+/// `hovered`, `selected`, `entries_count`, and an `entries(i)`
+/// 1-indexed accessor that reads from a stashed `__cx_<tag>__`
+/// global (so the closure stays `Send`).
+fn build_folder_table<'lua>(
+    lua: &'lua Lua,
+    panel: &crate::app::state::PanelState,
+    global_tag: &str,
+) -> mlua::Result<mlua::Table<'lua>> {
+    let table = lua.create_table()?;
+    let cwd_str = panel.current_path.to_string_lossy().to_string();
+    let cwd_url = Url::parse(&cwd_str);
+    table.set("cwd", lua.create_userdata(cwd_url)?)?;
+    table.set("files", panel.entries.len() as i64)?;
+    table.set("offset", 0i64)?;
+    table.set("cursor", panel.cursor_index as i64)?;
+
+    if let Some(entry) = panel.entries.get(panel.cursor_index) {
+        let url = Url::parse(&entry.path.to_string_lossy());
+        let f = File::from_url(url);
+        table.set("hovered", lua.create_userdata(f)?)?;
+    }
+
+    let mut selected = Vec::new();
+    for path in &panel.selection_order {
+        if let Some(entry) = panel.entries.iter().find(|e| &e.path == path) {
+            let url = Url::parse(&entry.path.to_string_lossy());
+            let f = File::from_url(url);
+            let ud = lua.create_userdata(f)?;
+            selected.push(mlua::Value::UserData(ud));
+        }
+    }
+    table.set("selected", selected)?;
+
+    let mut entries = Vec::new();
+    for entry in &panel.entries {
+        let url = Url::parse(&entry.path.to_string_lossy());
+        let cha = crate::plugin::types::Cha::from_metadata(
+            &std::fs::metadata(&entry.path).unwrap_or_else(|_| {
+                std::fs::metadata(&panel.current_path)
+                    .unwrap_or_else(|_| std::fs::metadata("/").unwrap())
+            }),
+            true,
+        );
+        let f = File {
+            url,
+            cha,
+            link_to: None,
+        };
+        let ud = lua.create_userdata(f)?;
+        entries.push(mlua::Value::UserData(ud));
+    }
+    let entries_count = entries.len();
+    table.set("entries_count", entries_count as i64)?;
+
+    // Stash the entries in a global so the closure can read them
+    // without capturing non-Send `mlua::AnyUserData` across threads.
+    let global_entries = lua.create_table()?;
+    for (i, v) in entries.iter().enumerate() {
+        global_entries.set((i + 1) as i64, v.clone())?;
+    }
+    let global_name = format!("__{}__", global_tag);
+    lua.globals().set(global_name.clone(), global_entries)?;
+
+    let entries_table = lua.create_table()?;
+    let global_name_for_closure = global_name.clone();
+    entries_table.set(
+        "__index",
+        lua.create_function(move |lua_ctx, (i,): (i64,)| {
+            let g = match lua_ctx
+                .globals()
+                .get::<_, mlua::Table>(global_name_for_closure.clone())
+            {
+                Ok(t) => t,
+                Err(_) => return Ok(mlua::Value::Nil),
+            };
+            let v: mlua::Value = g.get(i)?;
+            Ok(v)
+        })?,
+    )?;
+    table.set("entries", entries_table)?;
+    table.set("_entries", entries)?;
+    Ok(table)
+}
+
 /// Build the full `cx` Lua tree from the current `AppState`.
 /// M4-T5: this is the canonical implementation that the main
 /// loop calls on every tick.
@@ -102,103 +188,16 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
     active.set("pref", pref)?;
 
     // current
-    let current = lua.create_table()?;
-    let cwd_str = active_panel.current_path.to_string_lossy().to_string();
-    let cwd_url = Url::parse(&cwd_str);
-    current.set("cwd", lua.create_userdata(cwd_url)?)?;
-    current.set("files", active_panel.entries.len() as i64)?;
-    current.set("offset", 0i64)?;
-    current.set("cursor", active_panel.cursor_index as i64)?;
+    let current = build_folder_table(lua, &active_panel, "current_entries")?;
+    active.set("current", current);
 
-    // hovered: the entry at cursor_index
-    if let Some(entry) = active_panel.entries.get(active_panel.cursor_index) {
-        let url = Url::parse(&entry.path.to_string_lossy());
-        let f = File::from_url(url);
-        current.set("hovered", lua.create_userdata(f)?)?;
-    }
-
-    // selected: walk selection_order, build File[]
-    let mut selected = Vec::new();
-    for path in &active_panel.selection_order {
-        if let Some(entry) = active_panel.entries.iter().find(|e| &e.path == path) {
-            let url = Url::parse(&entry.path.to_string_lossy());
-            let f = File::from_url(url);
-            let ud = lua.create_userdata(f)?;
-            selected.push(mlua::Value::UserData(ud));
-        }
-    }
-    current.set("selected", selected)?;
-
-    // helper (not in the roadmap but useful): the currently-
-    // selected panel's `entries` for inspection. Stored under
-    // cx.active.current._entries as a sequence of File[]. The
-    // 1-indexed getter `cx.active.current._entries(i)` (a method)
-    // gives windowed access (window = the whole entries list in
-    // this M5-pending build; the future per-page scrolling logic
-    // is the next M4-T2 follow-up).
-    let mut entries = Vec::new();
-    for entry in &active_panel.entries {
-        let url = Url::parse(&entry.path.to_string_lossy());
-        let cha = crate::plugin::types::Cha::from_metadata(
-            &std::fs::metadata(&entry.path).unwrap_or_else(|_| {
-                std::fs::metadata(&active_panel.current_path)
-                    .unwrap_or_else(|_| std::fs::metadata("/").unwrap())
-            }),
-            true,
-        );
-        let f = File {
-            url,
-            cha,
-            link_to: None,
-        };
-        let ud = lua.create_userdata(f)?;
-        entries.push(mlua::Value::UserData(ud));
-    }
-    let entries_for_method = entries.clone();
-    current.set("entries_count", entries.len() as i64)?;
-    // Stash the entries list in a global so the `__index` closure
-    // can read it without capturing non-Send `mlua::AnyUserData`
-    // across thread boundaries.
-    let global_entries = lua.create_table()?;
-    for (i, v) in entries.iter().enumerate() {
-        global_entries.set((i + 1) as i64, v.clone())?;
-    }
-    lua.globals().set("__cx_entries__", global_entries)?;
-    let entries_table = lua.create_table()?;
-    // Set a method-like __index that returns entries[i-1] for
-    // integer keys.
-    let entries_for_index = entries_for_method.clone();
-    entries_table.set(
-        "__index",
-        lua.create_function(move |lua_ctx, (i,): (i64,)| {
-            let i = (i as usize).saturating_sub(1);
-            // Look up the entry from `entries` directly inside the
-            // closure by reading from the lua state. This avoids
-            // capturing non-Send `mlua::AnyUserData` across thread
-            // boundaries (mlua::create_function requires Send +
-            // 'static).
-            let entries_table_idx = lua_ctx.globals().get::<_, mlua::Table>("__cx_entries__");
-            let entries_table_idx = match entries_table_idx {
-                Ok(t) => t,
-                Err(_) => return Ok(mlua::Value::Nil),
-            };
-            let v: mlua::Value = entries_table_idx.get(i)?;
-            Ok(v)
-        })?,
-    )?;
-    current.set("entries", entries_table)?;
-    current.set("_entries", entries)?;
-
-    active.set("current", current)?;
-
-    // parent (other panel)
+    // parent (other panel) — same shape as `current` minus the
+    // sibling-specific fields. Plugins can do
+    // `cx.active.parent.entries[i]` to enumerate the inactive
+    // panel's windowed entries.
     let inactive_panel = state.get_passive_panel();
-    let parent = lua.create_table()?;
-    let parent_cwd = inactive_panel.current_path.to_string_lossy().to_string();
-    let parent_url = Url::parse(&parent_cwd);
-    parent.set("cwd", lua.create_userdata(parent_url)?)?;
-    parent.set("files", inactive_panel.entries.len() as i64)?;
-    active.set("parent", parent)?;
+    let parent = build_folder_table(lua, &inactive_panel, "parent_entries")?;
+    active.set("parent", parent);
 
     // preview — for M4-T5 we only expose the structure
     let preview = lua.create_table()?;
