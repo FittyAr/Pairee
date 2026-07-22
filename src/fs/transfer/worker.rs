@@ -84,7 +84,8 @@ impl TransferWorker {
 
         let filter = TransferFilter::parse(options.filter_mask.as_deref().unwrap_or(""));
 
-        let is_parent_dir = is_destination_parent_dir(&self.sources, &self.destination, |p| p.is_dir());
+        let is_parent_dir =
+            is_destination_parent_dir(&self.sources, &self.destination, |p| p.is_dir());
 
         for src in &self.sources {
             if self.is_cancelled.load(Ordering::Relaxed) {
@@ -101,7 +102,9 @@ impl TransferWorker {
 
                 let mut dirs_to_visit = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
-                if self.operation == TransferOperation::Delete || self.operation == TransferOperation::Move {
+                if self.operation == TransferOperation::Delete
+                    || self.operation == TransferOperation::Move
+                {
                     dirs_to_delete.push(src.clone());
                 }
 
@@ -110,7 +113,9 @@ impl TransferWorker {
                         return Err(anyhow!("Job cancelled during scan"));
                     }
 
-                    if self.operation == TransferOperation::Copy || self.operation == TransferOperation::Move {
+                    if self.operation == TransferOperation::Copy
+                        || self.operation == TransferOperation::Move
+                    {
                         if let Ok(rel) = dir.strip_prefix(src) {
                             let dst_dir = base_dst.join(rel);
                             let _ = std::fs::create_dir_all(&dst_dir);
@@ -147,7 +152,9 @@ impl TransferWorker {
 
                         if path.is_dir() {
                             dirs_to_visit.push_back(path.clone());
-                            if self.operation == TransferOperation::Delete || self.operation == TransferOperation::Move {
+                            if self.operation == TransferOperation::Delete
+                                || self.operation == TransferOperation::Move
+                            {
                                 dirs_to_delete.push(path);
                             }
                         } else {
@@ -904,7 +911,11 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
     use std::process::Command;
-    let status = Command::new("gio").arg("trash").arg("--").arg(path).status();
+    let status = Command::new("gio")
+        .arg("trash")
+        .arg("--")
+        .arg(path)
+        .status();
     if let Ok(s) = status {
         if s.success() {
             return Ok(());
@@ -951,8 +962,8 @@ fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
 /// the target path for a single source item itself.
 pub fn is_destination_parent_dir(
     sources: &[PathBuf],
-    destination: &Path,
-    is_dir_fn: impl FnOnce(&Path) -> bool,
+    destination: &std::path::Path,
+    is_dir_fn: impl FnOnce(&std::path::Path) -> bool,
 ) -> bool {
     if sources.len() > 1 {
         return true;
@@ -980,7 +991,9 @@ mod tests {
     fn test_is_destination_parent_dir_single_file_target_path() {
         let sources = vec![PathBuf::from("/home/user/reporte.md")];
         let destination = PathBuf::from("/home/user/docs/reporte.md");
-        assert!(!is_destination_parent_dir(&sources, &destination, |_| false));
+        assert!(!is_destination_parent_dir(&sources, &destination, |_| {
+            false
+        }));
     }
 
     #[test]
@@ -1043,9 +1056,7 @@ mod tests {
             active_conflict,
         );
 
-        tokio::spawn(async move {
-            while let Some(_) = rx.recv().await {}
-        });
+        tokio::spawn(async move { while let Some(_) = rx.recv().await {} });
 
         let res = worker.run().await;
         assert!(res.is_ok());
@@ -1053,11 +1064,13 @@ mod tests {
         // Verificar que el destino contenga todos los archivos y carpetas
         let dst_moved_folder = dst_root.join("src_folder");
         assert!(dst_moved_folder.join("file1.txt").exists());
-        assert!(dst_moved_folder
-            .join("sub_dir")
-            .join("nested")
-            .join("file2.txt")
-            .exists());
+        assert!(
+            dst_moved_folder
+                .join("sub_dir")
+                .join("nested")
+                .join("file2.txt")
+                .exists()
+        );
 
         // Verificar que el origen (archivos Y estructura de carpetas) fue eliminado por completo
         assert!(!file1.exists());

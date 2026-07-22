@@ -1,7 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::keybindings::Action;
 use crate::config::localization::t;
+use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
 const MAX_CURSOR_IDX: usize = 10; // 0=presets list, 1=name, 2=host, 3=port, 4=user, 5=pass, 6=key_path, 7=Connect, 8=Save Preset, 9=Delete Preset, 10=Cancel

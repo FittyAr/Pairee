@@ -659,9 +659,7 @@ pub async fn handle_ui_settings_action(
                 crate::update::checker::UpdateChecker::check_in_background(tx);
                 state.update_check_rx = Some(rx);
                 state.update_status = crate::update::UpdateStatus::Checking;
-                state.active_popup = Some(crate::app::state::PopupType::Info(
-                    t("update_checking"),
-                ));
+                state.active_popup = Some(crate::app::state::PopupType::Info(t("update_checking")));
             }
             true
         }

@@ -1,7 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::keybindings::Action;
 use crate::config::localization::t;
+use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(
@@ -14,9 +14,7 @@ pub fn handle(
             KeyCode::Enter => {
                 match context.config.save() {
                     Ok(_) => {
-                        state.active_popup = Some(PopupType::Info(
-                            t("setup_saved_success"),
-                        ));
+                        state.active_popup = Some(PopupType::Info(t("setup_saved_success")));
                     }
                     Err(e) => {
                         state.active_popup = Some(PopupType::Error(

@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, ProcessEntry};
 use crate::app::sys_helpers::{get_process_list, kill_process};
-use crate::keybindings::Action;
 use crate::config::localization::t;
+use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(

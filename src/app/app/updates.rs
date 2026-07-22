@@ -1,7 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::update::UpdateStatus;
 use crate::config::localization::t;
+use crate::update::UpdateStatus;
 
 pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
     // 1.8 Process background update check result
@@ -102,9 +102,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 match result {
                     Ok(crate::update::installer::InstallResult::RestartRequired) => {
                         state.update_status = UpdateStatus::Done;
-                        state.active_popup = Some(PopupType::Info(
-                            t("update_installed_restart"),
-                        ));
+                        state.active_popup = Some(PopupType::Info(t("update_installed_restart")));
                     }
                     Ok(crate::update::installer::InstallResult::ManagedCommandShown) => {
                         state.update_status = UpdateStatus::Done;
@@ -125,9 +123,8 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                             *error = Some(err);
                             *install_progress = None;
                         } else {
-                            state.active_popup = Some(PopupType::Info(
-                                t("update_failed").replace("{}", &err),
-                            ));
+                            state.active_popup =
+                                Some(PopupType::Info(t("update_failed").replace("{}", &err)));
                         }
                     }
                 }
@@ -144,8 +141,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Task died/panicked
                 state.update_progress_rx = None;
-                state.update_status =
-                    UpdateStatus::Error(t("update_installation_task_terminated"));
+                state.update_status = UpdateStatus::Error(t("update_installation_task_terminated"));
                 if let Some(PopupType::UpdateAvailable {
                     error,
                     install_progress,

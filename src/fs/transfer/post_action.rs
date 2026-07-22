@@ -66,7 +66,11 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             #[cfg(target_os = "windows")]
             {
                 let is_valid = drive.len() == 2
-                    && drive.chars().next().map(|c| c.is_ascii_alphabetic()).unwrap_or(false)
+                    && drive
+                        .chars()
+                        .next()
+                        .map(|c| c.is_ascii_alphabetic())
+                        .unwrap_or(false)
                     && drive.chars().nth(1) == Some(':');
                 let drive_letter = if is_valid { &drive } else { "D:" };
                 Command::new("powershell")

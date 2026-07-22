@@ -463,9 +463,11 @@ fn handle_option_select_active_plugin(
         if left.join("manifest.toml").exists() {
             if let Some(name) = left.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    t("plugin_dev_panel1")
-                        .replacen("{}", &name, 1)
-                        .replacen("{}", &left.display().to_string(), 1),
+                    t("plugin_dev_panel1").replacen("{}", &name, 1).replacen(
+                        "{}",
+                        &left.display().to_string(),
+                        1,
+                    ),
                     left.to_string_lossy().to_string(),
                 ));
             }
@@ -474,9 +476,11 @@ fn handle_option_select_active_plugin(
         if right.join("manifest.toml").exists() {
             if let Some(name) = right.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    t("plugin_dev_panel2")
-                        .replacen("{}", &name, 1)
-                        .replacen("{}", &right.display().to_string(), 1),
+                    t("plugin_dev_panel2").replacen("{}", &name, 1).replacen(
+                        "{}",
+                        &right.display().to_string(),
+                        1,
+                    ),
                     right.to_string_lossy().to_string(),
                 ));
             }
@@ -572,7 +576,10 @@ fn handle_option_package(
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
             *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
-            *dev_results = t("plugin_dev_pack_start").replace("{}", &plugin_folder).trim().to_string();
+            *dev_results = t("plugin_dev_pack_start")
+                .replace("{}", &plugin_folder)
+                .trim()
+                .to_string();
             let tx = begin_dev_op(state, t("plugin_dev_progress_fetching_registry"));
             let path_for_task = path.clone();
             let name_for_result = plugin_folder.clone();
