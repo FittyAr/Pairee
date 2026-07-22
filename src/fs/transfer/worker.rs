@@ -84,12 +84,21 @@ impl TransferWorker {
 
         let filter = TransferFilter::parse(options.filter_mask.as_deref().unwrap_or(""));
 
+        let is_parent_dir = is_destination_parent_dir(&self.sources, &self.destination, |p| p.is_dir());
+
         for src in &self.sources {
             if self.is_cancelled.load(Ordering::Relaxed) {
                 return Err(anyhow!("Job cancelled during scan"));
             }
 
             if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
+                let base_dst = if is_parent_dir {
+                    let folder_name = src.file_name().unwrap_or_default();
+                    self.destination.join(folder_name)
+                } else {
+                    self.destination.clone()
+                };
+
                 let mut dirs_to_visit = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
                 if self.operation == TransferOperation::Delete || self.operation == TransferOperation::Move {
@@ -103,8 +112,7 @@ impl TransferWorker {
 
                     if self.operation == TransferOperation::Copy || self.operation == TransferOperation::Move {
                         if let Ok(rel) = dir.strip_prefix(src) {
-                            let folder_name = src.file_name().unwrap_or_default();
-                            let dst_dir = self.destination.join(folder_name).join(rel);
+                            let dst_dir = base_dst.join(rel);
                             let _ = std::fs::create_dir_all(&dst_dir);
                         }
                     }
@@ -129,8 +137,7 @@ impl TransferWorker {
                                 files_scanned += 1;
                             } else {
                                 if let Ok(rel) = path.strip_prefix(src) {
-                                    let folder_name = src.file_name().unwrap_or_default();
-                                    let dst_path = self.destination.join(folder_name).join(rel);
+                                    let dst_path = base_dst.join(rel);
                                     scan_mappings.push((path, dst_path, size));
                                     files_scanned += 1;
                                 }
@@ -156,8 +163,7 @@ impl TransferWorker {
                                 files_scanned += 1;
                             } else {
                                 if let Ok(rel) = path.strip_prefix(src) {
-                                    let folder_name = src.file_name().unwrap_or_default();
-                                    let dst_path = self.destination.join(folder_name).join(rel);
+                                    let dst_path = base_dst.join(rel);
                                     scan_mappings.push((path, dst_path, size));
                                     total_bytes += size;
                                     files_scanned += 1;
@@ -192,8 +198,12 @@ impl TransferWorker {
                     total_bytes += size;
                     files_scanned += 1;
                 } else {
-                    let file_name = src.file_name().unwrap_or_default();
-                    let dst_path = self.destination.join(file_name);
+                    let dst_path = if is_parent_dir {
+                        let file_name = src.file_name().unwrap_or_default();
+                        self.destination.join(file_name)
+                    } else {
+                        self.destination.clone()
+                    };
                     scan_mappings.push((src.clone(), dst_path, size));
                     total_bytes += size;
                     files_scanned += 1;
@@ -936,9 +946,66 @@ fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
     std::fs::set_permissions(path, perms)
 }
 
+/// Determines if `destination` should be treated as a parent directory into which
+/// source items are placed (appending source item filenames), or if `destination` is
+/// the target path for a single source item itself.
+pub fn is_destination_parent_dir(
+    sources: &[PathBuf],
+    destination: &Path,
+    is_dir_fn: impl FnOnce(&Path) -> bool,
+) -> bool {
+    if sources.len() > 1 {
+        return true;
+    }
+    let s = destination.to_string_lossy();
+    if s.ends_with('/') || s.ends_with('\\') {
+        return true;
+    }
+    if is_dir_fn(destination) {
+        if let Some(src) = sources.first() {
+            if let (Some(dest_name), Some(src_name)) = (destination.file_name(), src.file_name()) {
+                return dest_name != src_name;
+            }
+        }
+        return true;
+    }
+    false
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_is_destination_parent_dir_single_file_target_path() {
+        let sources = vec![PathBuf::from("/home/user/reporte.md")];
+        let destination = PathBuf::from("/home/user/docs/reporte.md");
+        assert!(!is_destination_parent_dir(&sources, &destination, |_| false));
+    }
+
+    #[test]
+    fn test_is_destination_parent_dir_trailing_slash() {
+        let sources = vec![PathBuf::from("/home/user/reporte.md")];
+        let destination = PathBuf::from("/home/user/docs/");
+        assert!(is_destination_parent_dir(&sources, &destination, |_| false));
+    }
+
+    #[test]
+    fn test_is_destination_parent_dir_existing_folder_different_name() {
+        let sources = vec![PathBuf::from("/home/user/reporte.md")];
+        let destination = PathBuf::from("/home/user/docs");
+        assert!(is_destination_parent_dir(&sources, &destination, |_| true));
+    }
+
+    #[test]
+    fn test_is_destination_parent_dir_multiple_sources() {
+        let sources = vec![
+            PathBuf::from("/home/user/file1.md"),
+            PathBuf::from("/home/user/file2.md"),
+        ];
+        let destination = PathBuf::from("/home/user/docs/file1.md");
+        assert!(is_destination_parent_dir(&sources, &destination, |_| false));
+    }
 
     #[tokio::test]
     async fn test_worker_move_directory_tree() {

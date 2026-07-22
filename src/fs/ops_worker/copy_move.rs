@@ -45,12 +45,14 @@ pub fn spawn_copy_move_task(
                             .file_name()
                             .map(|n| n.to_string_lossy().into_owned())
                             .unwrap_or_default();
-                        let dst = if sources.len() == 1
-                            && !is_dir_for_conn(&destination_dir, &dst_conn)
-                        {
-                            destination_dir.clone()
-                        } else {
+                        let dst = if crate::fs::transfer::worker::is_destination_parent_dir(
+                            &sources,
+                            &destination_dir,
+                            |p| is_dir_for_conn(p, &dst_conn),
+                        ) {
                             destination_dir.join(&name)
+                        } else {
+                            destination_dir.clone()
                         };
 
                         let _ = tx
@@ -102,7 +104,11 @@ pub fn spawn_copy_move_task(
         let mut file_mappings = Vec::new();
         let mut dirs_to_create = Vec::new();
 
-        let destination_dir_is_dir = is_dir_for_conn(&destination_dir, &dst_conn);
+        let destination_dir_is_dir = crate::fs::transfer::worker::is_destination_parent_dir(
+            &sources,
+            &destination_dir,
+            |p| is_dir_for_conn(p, &dst_conn),
+        );
 
         for src in &sources {
             let is_dir = is_dir_for_conn(src, &src_conn);
