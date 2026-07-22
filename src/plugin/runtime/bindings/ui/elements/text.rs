@@ -224,11 +224,32 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use mlua::Lua;
 
     #[test]
     fn test_text_from_string_splits_on_newline() {
         let t = Text::from_string("a\nb\nc");
         assert_eq!(t.lines.len(), 3);
+    }
+
+    #[test]
+    fn test_text_parse_strips_ansi_escapes() {
+        let lua = Lua::new();
+        let parent = lua.create_table().unwrap();
+        bind(&lua, &parent).unwrap();
+        lua.globals().set("ui", parent).unwrap();
+        // `ui.Text:parse(ansi_string)` should strip ANSI SGR codes
+        // and split on newlines.
+        let v: mlua::Value = lua
+            .load("return ui.Text():parse('\\x1b[31mhello\\x1b[0m\\nworld')")
+            .eval()
+            .unwrap();
+        let ud = v.as_userdata().unwrap();
+        let t = ud.borrow::<Text>().unwrap();
+        assert_eq!(t.lines.len(), 2);
+        // The escape codes are gone (just the raw text remains).
+        assert_eq!(t.lines[0].spans[0].text, "hello");
+        assert_eq!(t.lines[1].spans[0].text, "world");
     }
 
     #[test]

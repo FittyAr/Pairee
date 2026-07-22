@@ -37,6 +37,10 @@ end
 -- for previewers. It receives a job with `file.url`, `file.path`,
 -- `area.width/height`, and `skip`. We dispatch to preview_code
 -- when the file extension matches one we know about.
+--
+-- M5-pending: peek() now returns a `ui.Text` Renderable
+-- userdata directly. The dispatcher converts it to
+-- `PluginWidget::RichText` and the QuickViewPanel renders it.
 function M.peek(M_table, job)
     local path = job.file and job.file.path or job.file_url or ""
     if not is_code(path) then
@@ -44,18 +48,14 @@ function M.peek(M_table, job)
     end
 
     local ok, text = pcall(pairee.preview_code, { path = path })
-    if not ok then
+    if not ok or text == nil then
         return nil
     end
 
-    -- `text` is a `ui.Text` userdata. Hand it to the preview pane
-    -- via `preview_widget` so the rich-rendering path renders it.
-    -- The opts table can carry additional knobs (skip, area) in
-    -- future versions.
-    return {
-        type = "Renderable",
-        renderable = text,
-    }
+    -- Return the `ui.Text` userdata directly. The peek dispatcher
+    -- detects it as a Renderable (via widget_to_plugin) and pushes
+    -- it through the rich-rendering path.
+    return text
 end
 
 -- An optional `entry(args)` handler that uses `preview_widget`
