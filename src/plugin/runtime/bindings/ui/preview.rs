@@ -140,7 +140,7 @@ pub fn bind(
 }
 
 /// Convert a Lua value (a widget userdata) to a `PluginWidget`.
-fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
+pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
     use crate::app::state::types::PluginWidget as PW;
     match val {
         mlua::Value::UserData(ud) => {

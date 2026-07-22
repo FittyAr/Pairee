@@ -131,7 +131,11 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
 
     // helper (not in the roadmap but useful): the currently-
     // selected panel's `entries` for inspection. Stored under
-    // cx.active.current._entries as a sequence of File[].
+    // cx.active.current._entries as a sequence of File[]. The
+    // 1-indexed getter `cx.active.current._entries(i)` (a method)
+    // gives windowed access (window = the whole entries list in
+    // this M5-pending build; the future per-page scrolling logic
+    // is the next M4-T2 follow-up).
     let mut entries = Vec::new();
     for entry in &active_panel.entries {
         let url = Url::parse(&entry.path.to_string_lossy());
@@ -150,6 +154,39 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
         let ud = lua.create_userdata(f)?;
         entries.push(mlua::Value::UserData(ud));
     }
+    let entries_for_method = entries.clone();
+    current.set("entries_count", entries.len() as i64)?;
+    // Stash the entries list in a global so the `__index` closure
+    // can read it without capturing non-Send `mlua::AnyUserData`
+    // across thread boundaries.
+    let global_entries = lua.create_table()?;
+    for (i, v) in entries.iter().enumerate() {
+        global_entries.set((i + 1) as i64, v.clone())?;
+    }
+    lua.globals().set("__cx_entries__", global_entries)?;
+    let entries_table = lua.create_table()?;
+    // Set a method-like __index that returns entries[i-1] for
+    // integer keys.
+    let entries_for_index = entries_for_method.clone();
+    entries_table.set(
+        "__index",
+        lua.create_function(move |lua_ctx, (i,): (i64,)| {
+            let i = (i as usize).saturating_sub(1);
+            // Look up the entry from `entries` directly inside the
+            // closure by reading from the lua state. This avoids
+            // capturing non-Send `mlua::AnyUserData` across thread
+            // boundaries (mlua::create_function requires Send +
+            // 'static).
+            let entries_table_idx = lua_ctx.globals().get::<_, mlua::Table>("__cx_entries__");
+            let entries_table_idx = match entries_table_idx {
+                Ok(t) => t,
+                Err(_) => return Ok(mlua::Value::Nil),
+            };
+            let v: mlua::Value = entries_table_idx.get(i)?;
+            Ok(v)
+        })?,
+    )?;
+    current.set("entries", entries_table)?;
     current.set("_entries", entries)?;
 
     active.set("current", current)?;

@@ -114,16 +114,23 @@ pub fn build_th_table(lua: &Lua, theme: &Theme) -> mlua::Result<()> {
     Ok(())
 }
 
-/// Build the `pairee.km` table. M4-T8 surface:
-///   km[layer] → table of action-name → key-string.
+/// Build the `pairee.km` table. M4-T8 + M5-pending surface:
+///   km.default       — the global Pairee preset (single preset
+///                      today; multi-preset support is M5+)
+///   km.panels       — keymap active in the panels screen
+///   km.viewer       — keymap active in the viewer screen
+///   km.editor       — keymap active in the editor screen
+///   km.terminal     — keymap active in the terminal screen
+///   km.input        — keymap active inside an input prompt
+///   km.which        — keymap active inside a which-prompt
+///   km.manager      — keymap active inside the F11 plugin manager
 pub fn build_km_table(lua: &Lua, _resolver: &KeybindingResolver) -> mlua::Result<()> {
     let km = lua.create_table()?;
-    // M4-T8: publish the canonical Pairee defaults under the
-    // "default" layer. We don't enumerate `Action` (no Debug /
-    // iterate impl), so we hardcode the well-known actions here.
-    // Plugins can also query `key_for_action` programmatically
-    // when they need a custom action.
-    let default_layer = lua.create_table()?;
+    // Build the canonical Pairee defaults table once. Each layer
+    // currently exposes the same defaults (Pairee uses a single
+    // global preset today); the per-layer split exists so plugins
+    // can `km.panels.MoveUp` style accesses without knowing about
+    // future preset layering.
     let known_actions = [
         ("MoveUp", "Up"),
         ("MoveDown", "Down"),
@@ -137,10 +144,15 @@ pub fn build_km_table(lua: &Lua, _resolver: &KeybindingResolver) -> mlua::Result
         ("MkDir", "F7"),
         ("Delete", "F8"),
     ];
-    for (action, default_key) in known_actions.iter() {
-        default_layer.set(*action, *default_key)?;
+
+    let layers = ["default", "panels", "viewer", "editor", "terminal", "input", "which", "manager"];
+    for layer in layers.iter() {
+        let table = lua.create_table()?;
+        for (action, default_key) in known_actions.iter() {
+            table.set(*action, *default_key)?;
+        }
+        km.set(*layer, table)?;
     }
-    km.set("default", default_layer)?;
     lua.globals().set("km", km)?;
     Ok(())
 }

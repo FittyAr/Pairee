@@ -122,22 +122,15 @@ impl UserData for Text {
                 .add_modifier(ratatui::style::Modifier::UNDERLINED);
             Ok(this.clone())
         });
-        // `ui.Text.parse(ansi_string)` — M4-T1 stub. M4-T2 will
-        // ship a real ANSI parser (per the task plan, "STUB that
-        // logs `log::warn!` and returns an empty Text"). For M4-T1
-        // we DO parse the string by splitting on `\n` and applying
-        // a no-op style — the warning is fired ONCE per process.
+        // `ui.Text.parse(ansi_string)` — M5 implementation. Uses
+        // `strip-ansi-escapes` to remove CSI/SGR control
+        // sequences, then splits the resulting text on `\n` into
+        // `Line` userdata. Color decoding into per-span styles
+        // remains a future enhancement (M5.5+).
         methods.add_method_mut("parse", |_lua, this, ansi: String| {
-            static WARNED: std::sync::atomic::AtomicBool =
-                std::sync::atomic::AtomicBool::new(false);
-            if !WARNED.swap(true, std::sync::atomic::Ordering::SeqCst) {
-                log::warn!(
-                    "ui.Text.parse(ansi_string) is in M4-T1 stub mode — ANSI escape \
-                     sequences are passed through verbatim; the real parser lands \
-                     in M4-T2."
-                );
-            }
-            this.lines = ansi.split('\n').map(Line::from_string).collect();
+            let stripped = strip_ansi_escapes::strip(ansi.as_bytes());
+            let cleaned = String::from_utf8_lossy(&stripped).into_owned();
+            this.lines = cleaned.split('\n').map(Line::from_string).collect();
             Ok(this.clone())
         });
         methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| {

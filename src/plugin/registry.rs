@@ -166,11 +166,33 @@ fn execute_peek_internal(
             }
         };
 
-        // Parse result into PluginWidget
-        lua.from_value(result).ok()
+        // Parse result into PluginWidget. Plugins can return
+        // either:
+        //   - a `Renderable` userdata (new M4 path — built via
+        //     `ui.Span(...)`, `ui.Line(...)`, etc., with builder
+        //     chain), or
+        //   - a plain Lua table with the `type` discriminator
+        //     (legacy serde path).
+        peek_value_to_plugin(&lua, result)
     } else {
         None
     }
+}
+
+/// Convert a peek() return value into a `PluginWidget`. Handles
+/// both the new userdata-backed `Renderable` enum (built via
+/// `ui.Span/Line/Text/Paragraph/List/Gauge/Table`) and the legacy
+/// plain-table form (serde-deserialized via the `type` field).
+fn peek_value_to_plugin(lua: &mlua::Lua, val: mlua::Value) -> Option<PluginWidget> {
+    use crate::plugin::runtime::bindings::ui::preview::widget_to_plugin;
+    // First try the userdata-backed widgets (new M4 path).
+    if let mlua::Value::UserData(_) = &val {
+        if let Ok(pw) = widget_to_plugin(val.clone()) {
+            return Some(pw);
+        }
+    }
+    // Fall back to the legacy serde-deserialized form.
+    lua.from_value(val).ok()
 }
 
 fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args: Vec<String>) {
