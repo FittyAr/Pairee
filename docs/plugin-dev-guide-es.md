@@ -225,8 +225,14 @@ pairee.preview_widget({}, text)
 cx.active.id, cx.active.name, cx.active.mode
 cx.active.pref.sort_by, sort_reverse, show_hidden, view_mode
 cx.active.current.cwd (Url), files, offset, cursor, hovered, selected
-cx.active.parent (mismo formato)
+cx.active.parent (mismo formato que cx.active.current)
 cx.active.preview.skip, finder
+
+-- M5-pendiente: acceso indexado por panel (1-indexed, windowed)
+cx.active.current.entries_count  -- integer: total de entradas en el panel activo
+cx.active.current.entries(i)     -- File: i-ésima entrada (1-indexed)
+cx.active.parent.entries_count
+cx.active.parent.entries(i)
 cx.tabs, cx.tasks, cx.yanked, cx.input, cx.which, cx.layer
 ```
 
@@ -249,11 +255,33 @@ th.pick, th.input, th.cmp, th.tasks, th.help
 -- cada uno es { fg = "#rrggbb", bg = "#rrggbb", bold = bool, ... }
 ```
 
-### `km` (M4-T8) — keymap
+### `km` (M4-T8 + M5-pendiente) — keymap
 
 ```lua
-km.default["MoveUp"]   -- "Up"
-km.default["MoveDown"] -- "Down"
+km.default["MoveUp"]     -- "Up"
+km.default["MoveDown"]   -- "Down"
+km.default["ChangePanel"] -- "Tab"
+km.default["Quit"]       -- "F10"
+km.default["Help"]       -- "F1"
+km.default["View"]       -- "F3"
+km.default["Edit"]       -- "F4"
+km.default["Copy"]       -- "F5"
+km.default["Move"]       -- "F6"
+km.default["MkDir"]      -- "F7"
+km.default["Delete"]     -- "F8"
+
+-- M5-pendiente: keymaps por capa. Todas las capas exponen hoy los
+-- mismos defaults canónicos (Pairee tiene un único preset global);
+-- la división por capa existe para que los plugins puedan usar
+-- `km.panels.MoveUp` desde hoy sin romperse cuando se añada el
+-- preset layering futuro.
+km.panels   -- keymap activo en la pantalla de paneles
+km.viewer   -- keymap activo en el visor
+km.editor   -- keymap activo en el editor
+km.terminal -- keymap activo en la terminal
+km.input    -- keymap activo dentro de un input prompt
+km.which    -- keymap activo dentro de un which-prompt
+km.manager  -- keymap activo dentro del F11 plugin manager
 ```
 
 ### `pairee.ps` — Pub/Sub
@@ -273,7 +301,26 @@ pairee.log.error(msg)                  -- Registrar mensaje a nivel error
 pairee.log.debug(msg)                  -- Registrar mensaje a nivel debug
 ```
 
+### Contrato de retorno de `peek()`
+
+`peek(job)` puede devolver ahora:
+
+- Un userdata `Renderable` (construido via `ui.Span(...)`,
+  `ui.Line(...)`, `ui.Text(...)`, `ui.Paragraph(...)`,
+  `ui.List(...)`, `ui.Gauge(...)`, `ui.Table(...)` con la cadena
+  builder). El dispatcher lo convierte a
+  `PluginWidget::RichSpan/RichLine/RichText` y el
+  `QuickViewPanel` lo renderiza directamente.
+- Una tabla Lua plana con discriminador `type` (camino serde
+  legacy: `Paragraph`, `Gauge`, `List`, `Table`, `Span`,
+  `Line`).
+
+La forma legacy está soportada para back-compat pero emite un
+`log::warn!` único la primera vez.
+
 ---
+
+## 6. Superposición de Atajos Dinámicos
 
 ## 6. Superposición de Atajos Dinámicos
 

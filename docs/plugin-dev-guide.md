@@ -244,6 +244,12 @@ pairee.preview_widget({path = "/tmp/x.rs"}, ui.Line("preview"))
 -- external binary required). Returns a ui.Text rich userdata.
 local text = pairee.preview_code({path = "/tmp/x.rs"})
 pairee.preview_widget({}, text)
+
+-- ui.Text:parse(ansi_string) — M5: real ANSI escape stripping
+-- (uses strip-ansi-escapes). Removes CSI/SGR control sequences
+-- and splits on newlines into Line[] of Span[]. Color decoding
+-- into per-span styles remains a follow-up.
+local colored = ui.Text():parse("\x1b[31mhello\x1b[0m\nworld")
 ```
 
 ### `cx` (M4-T5) — live application state
@@ -263,9 +269,31 @@ cx.active.pref.view_mode -- "brief" | "medium" | "full" | ...
 cx.active.current.cwd   -- Url: panel cwd
 cx.active.current.files -- integer: entries count
 cx.active.current.offset, cursor, hovered, selected
-cx.active.parent        -- other panel's state (same shape)
+cx.active.parent        -- other panel's state (same shape as cx.active.current)
 cx.active.preview.skip
 cx.active.finder        -- string: current finder filter
+
+-- M5-pending: per-panel `entries` accessor (1-indexed, windowed)
+cx.active.current.entries_count  -- integer: total entries in active panel
+cx.active.current.entries(i)     -- File: the i-th entry (1-indexed)
+cx.active.parent.entries_count
+cx.active.parent.entries(i)
+```
+
+### `peek()` return contract
+
+`peek(job)` can now return either:
+
+- A `Renderable` userdata (built via `ui.Span(...)`, `ui.Line(...)`,
+  `ui.Text(...)`, `ui.Paragraph(...)`, `ui.List(...)`,
+  `ui.Gauge(...)`, `ui.Table(...)` with builder chain), which the
+  dispatcher converts to `PluginWidget::RichSpan/RichLine/RichText`
+  and the `QuickViewPanel` renders directly.
+- A plain Lua table with a `type` discriminator (legacy serde path:
+  `Paragraph`, `Gauge`, `List`, `Table`, `Span`, `Line`).
+
+The legacy form is supported for back-compat but emits a one-time
+`log::warn!` on first call.
 cx.tabs                 -- Tab[]
 cx.tasks                -- {count, running, finished}
 cx.yanked               -- string[]: yanked paths
@@ -294,12 +322,33 @@ th.pick, th.input, th.cmp, th.tasks, th.help
 -- each is { fg = "#rrggbb", bg = "#rrggbb", bold = bool, ... }
 ```
 
-### `km` (M4-T8) — keymap
+### `km` (M4-T8 + M5-pending) — keymap
 
 ```lua
-km.default["MoveUp"]   -- "Up"
-km.default["MoveDown"] -- "Down"
--- (the per-layer split is reserved for M5)
+km.default["MoveUp"]     -- "Up"
+km.default["MoveDown"]   -- "Down"
+km.default["ChangePanel"] -- "Tab"
+km.default["Quit"]       -- "F10"
+km.default["Help"]       -- "F1"
+km.default["View"]       -- "F3"
+km.default["Edit"]       -- "F4"
+km.default["Copy"]       -- "F5"
+km.default["Move"]       -- "F6"
+km.default["MkDir"]      -- "F7"
+km.default["Delete"]     -- "F8"
+
+-- M5-pending: per-layer keymaps. All layers currently expose
+-- the same canonical defaults (Pairee has a single global
+-- preset today). The per-layer split exists so plugins can use
+-- `km.panels.MoveUp` style accesses today without breaking when
+-- a future preset layering lands.
+km.panels                 -- keymap active in the panels screen
+km.viewer                 -- keymap active in the viewer screen
+km.editor                 -- keymap active in the editor screen
+km.terminal               -- keymap active in the terminal screen
+km.input                  -- keymap active inside an input prompt
+km.which                  -- keymap active inside a which-prompt
+km.manager                -- keymap active inside the F11 plugin manager
 ```
 
 ### `pairee.ps` — Pub/Sub
