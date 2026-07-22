@@ -8,6 +8,8 @@ requires_trust = false
 default_language = "en"
 languages = ["en"]
 
+icon = "icon.png"
+
 [keybindings]
 "F8" = "preview_code"
 

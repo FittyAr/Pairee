@@ -8,6 +8,8 @@ requires_trust = true
 default_language = "en"
 languages = ["en"]
 
+icon = "icon.png"
+
 [keybindings]
 "F6" = "zoxide_query"
 
