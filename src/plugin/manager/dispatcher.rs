@@ -252,18 +252,36 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         });
                     }
                     PluginRequest::ImagePreview { path, rect } => {
-                        // M2 placeholder: decode the image and stash
-                        // it on a hypothetical preview state so the
-                        // M3 renderer can pick it up. For M2 we
-                        // simply log the request.
-                        log::info!(
-                            "Plugin image preview requested: path={:?} rect=({},{} {}x{})",
-                            path,
-                            rect.x,
-                            rect.y,
-                            rect.w,
-                            rect.h
-                        );
+                        // M4 done-criterion: a plugin can call
+                        // `pairee.image.show(url, rect)` and see the
+                        // image render in the preview pane.
+                        // We decode the image here, stash it on
+                        // the QuickViewPanel's `image_data`, and
+                        // make the QuickViewPanel the active popup
+                        // (replacing whatever was there) so the
+                        // renderer picks it up.
+                        match image::open(&path) {
+                            Ok(img) => {
+                                let qvp = PopupType::QuickViewPanel {
+                                    path: path.clone(),
+                                    content: Vec::new(),
+                                    scroll: 0,
+                                    image_data: Some(img),
+                                    plugin_widget: None,
+                                };
+                                state.active_popup = Some(qvp);
+                                log::info!(
+                                    "Plugin image preview rendered: path={:?} rect=({},{} {}x{})",
+                                    path, rect.x, rect.y, rect.w, rect.h,
+                                );
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "Plugin image preview failed to decode {:?}: {}",
+                                    path, e,
+                                );
+                            }
+                        }
                     }
                 }
             }

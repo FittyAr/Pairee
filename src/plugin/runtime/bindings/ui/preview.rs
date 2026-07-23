@@ -93,14 +93,20 @@ fn text_to_plugin(text: &Text) -> PluginWidget {
 }
 
 fn extract_fg_bg(style: &Style) -> (Option<String>, Option<String>) {
-    let fg = style
-        .inner
-        .fg
-        .map(|c| format!("{c:?}").to_lowercase().replace("reset", ""));
-    let bg = style
-        .inner
-        .bg
-        .map(|c| format!("{c:?}").to_lowercase().replace("reset", ""));
+    fn to_color_string(c: ratatui::style::Color) -> Option<String> {
+        // Prefer the named-color round-trip via the matching
+        // parser in `parse_color` (which accepts both named and
+        // "#rrggbb" hex). For `Color::Rgb(r, g, b)` emit a hex
+        // string so the renderer can reconstruct the exact color.
+        use ratatui::style::Color as C;
+        match c {
+            C::Reset => None,
+            C::Rgb(r, g, b) => Some(format!("#{:02x}{:02x}{:02x}", r, g, b)),
+            _ => Some(format!("{:?}", c).to_lowercase()),
+        }
+    }
+    let fg = style.inner.fg.and_then(to_color_string);
+    let bg = style.inner.bg.and_then(to_color_string);
     (fg, bg)
 }
 

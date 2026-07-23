@@ -36,6 +36,16 @@ pub fn build_rt_table(lua: &Lua, state: &AppState, cfg: &crate::config::AppConfi
         "light" | "light-theme"
     );
     term.set("light", is_light)?;
+    // rt.term.cell_size() → returns { w, h }. The terminal
+    // backend does not currently expose its size outside of the
+    // active draw pass, so we return zeros (plugins can detect
+    // this and fall back to a sensible default). A live size
+    // accessor is reserved for the next M4-T5 follow-up that
+    // publishes the frame area through AppState.
+    let cs = lua.create_table()?;
+    cs.set("w", 0i64)?;
+    cs.set("h", 0i64)?;
+    term.set("cell_size", cs)?;
     rt.set("term", term)?;
 
     // rt.mgr
