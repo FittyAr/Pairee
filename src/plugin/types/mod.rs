@@ -22,4 +22,4 @@ pub use cha::{Cha, ChaKind, ChaMode};
 pub use error::Error;
 pub use file::File;
 pub use path::PathU;
-pub use url::{Scheme, Url};
+pub use url::Url;

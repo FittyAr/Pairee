@@ -195,7 +195,7 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
 
     // current
     let current = build_folder_table(lua, &active_panel, "current_entries")?;
-    active.set("current", current);
+    let _ = active.set("current", current);
 
     // parent (other panel) — same shape as `current` minus the
     // sibling-specific fields. Plugins can do
@@ -203,7 +203,7 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
     // panel's windowed entries.
     let inactive_panel = state.get_passive_panel();
     let parent = build_folder_table(lua, &inactive_panel, "parent_entries")?;
-    active.set("parent", parent);
+    let _ = active.set("parent", parent);
 
     // preview — for M4-T5 we only expose the structure
     let preview = lua.create_table()?;

@@ -8,8 +8,6 @@
 //! that the existing rich-rendering path in `quickview.rs`
 //! renders into the preview pane.
 
-use super::ui::elements::line::Line;
-use super::ui::elements::span::Span;
 use super::ui::elements::text::Text;
 use super::ui::style;
 use crate::plugin::types::Url;

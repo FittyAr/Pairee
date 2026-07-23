@@ -11,7 +11,6 @@ use super::style::Style;
 use crate::app::state::types::PluginWidget;
 use crate::plugin::manager::PluginRequest;
 use std::path::PathBuf;
-use tokio::sync::mpsc::error::TrySendError;
 
 /// Convert a `Span` userdata to a `PluginWidget::RichSpan`. If
 /// `inherit_fg`/`inherit_bg`/`inherit_modifiers` are supplied, they
@@ -153,18 +152,18 @@ pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
             if let Ok(s) = ud.borrow::<Span>()        { return Ok(span_to_plugin(&s)); }
             if let Ok(l) = ud.borrow::<Line>()        { return Ok(line_to_plugin(&l)); }
             if let Ok(t) = ud.borrow::<Text>()        { return Ok(text_to_plugin(&t)); }
-            if let Ok(p) = ud.borrow::<super::elements::Paragraph>() {
+            if let Ok(p) = ud.borrow::<super::elements::paragraph::Paragraph>() {
                 return Ok(PW::Paragraph(p.text.lines.iter().map(|l|
                     l.spans.iter().map(|s| s.text.clone()).collect::<Vec<_>>().join(" ")
                 ).collect::<Vec<_>>().join("\n")));
             }
-            if let Ok(l) = ud.borrow::<super::elements::List>() {
+            if let Ok(l) = ud.borrow::<super::elements::list::List>() {
                 return Ok(PW::List(l.items.clone()));
             }
-            if let Ok(g) = ud.borrow::<super::elements::Gauge>() {
+            if let Ok(g) = ud.borrow::<super::elements::gauge::Gauge>() {
                 return Ok(PW::Gauge { ratio: g.ratio, label: g.label.clone() });
             }
-            if let Ok(t) = ud.borrow::<super::elements::Table>() {
+            if let Ok(t) = ud.borrow::<super::elements::table::Table>() {
                 let headers: Vec<String> = t.header.as_ref()
                     .map(|r| r.cells.iter().map(|c| c.content.text.clone()).collect())
                     .unwrap_or_default();
@@ -187,7 +186,6 @@ pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
 mod tests {
     use super::*;
     use mlua::Lua;
-    use std::sync::Arc;
 
     #[test]
     fn test_widget_to_plugin_span_bold_red() {

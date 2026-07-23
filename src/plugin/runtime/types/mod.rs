@@ -4,7 +4,6 @@
 //! Lua, plus a tiny `Err(s, ...)` helper that plugins can call to
 //! construct an ad-hoc `Error.custom` from a format string.
 
-pub use crate::app::state::types::PluginWidget;
 pub use crate::plugin::types::{Cha, ChaKind, ChaMode, Error, File, PathU, Url};
 
 /// Registers every M2 typed userdata on the central `pairee` table:
@@ -157,8 +156,6 @@ pub fn register(lua: &mlua::Lua, pairee: &mlua::Table<'_>) -> mlua::Result<()> {
         lua.create_userdata(e).map(mlua::Value::UserData)
     })?;
     err_globals.set("Err", err_fn)?;
-
-    let _ = crate::plugin::types::url::Scheme::Local; // keep re-export referenced
     Ok(())
 }
 
