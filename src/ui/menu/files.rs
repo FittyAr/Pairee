@@ -35,6 +35,8 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             false,
         )
         .with_action(Action::Move),
+        MenuItemData::new(t("menu_rename"), &shortcut_for(Action::Rename, "F7"), false)
+            .with_action(Action::Rename),
         MenuItemData::new(
             t("menu_link"),
             &shortcut_for(Action::CreateLink, "Alt+F6"),
@@ -43,7 +45,7 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
         .with_action(Action::CreateLink),
         MenuItemData::new(
             t("menu_make_folder"),
-            &shortcut_for(Action::MkDir, "F7"),
+            &shortcut_for(Action::MkDir, ""),
             false,
         )
         .with_action(Action::MkDir),
@@ -119,6 +121,12 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
         )
         .with_action(Action::RestoreSelection),
         MenuItemData::separator(),
+        MenuItemData::new(
+            t("menu_plugin_commands"),
+            &shortcut_for(Action::PluginMenu, ""),
+            false,
+        )
+        .with_action(Action::PluginMenu),
         MenuItemData::new(t("menu_exit"), &shortcut_for(Action::Quit, "F10"), false)
             .with_action(Action::Quit),
     ]

@@ -27,7 +27,7 @@ pub fn handle(
                     } => {
                         *filter_mask = input;
                     }
-                    PopupType::RenMovPrompt {
+                    PopupType::MovePrompt {
                         ref mut filter_mask,
                         ..
                     } => {

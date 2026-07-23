@@ -24,6 +24,7 @@ pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
 pub mod plugin_menu;
+pub mod rename;
 pub mod rename_move;
 pub mod save_setup;
 pub mod screens_menu;
@@ -81,7 +82,8 @@ pub fn handle_popup_input(
             PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
             PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
             PopupType::Hotlist { .. } => hotlist::handle(state, key, context),
-            PopupType::RenMovPrompt { .. } => rename_move::handle(state, key, context),
+            PopupType::MovePrompt { .. } => rename_move::handle(state, key, context),
+            PopupType::RenamePrompt { .. } => rename::handle(state, key, context),
             PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => {
                 search::handle(state, key, context)
             }

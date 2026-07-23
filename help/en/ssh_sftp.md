@@ -41,8 +41,8 @@ Once a connection is established, the active panel transitions into SFTP mode:
   - **`Enter`**: Open the highlighted folder or run associations on files.
   - **`Backspace`** or **`..`**: Navigate to the parent directory.
 * **File Operations:**
-  - **`F7`** (MkDir): Create a folder on the remote server.
-  - **`F6`** (Rename/Move): Rename or relocate remote files directly on the server.
+  - **`F7`** (Rename): Rename a file directly on the remote server.
+  - **`F6`** (Move): Relocate remote files between directories.
   - **`F8`** (Delete): Recursively delete files and folders on the remote server.
   - **`F3`** (Viewer): View remote file contents in plain text or hex modes.
   - **`F4`** (Editor): Edit text files directly on the remote server. Pairee handles temp buffers automatically.

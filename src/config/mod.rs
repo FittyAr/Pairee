@@ -96,18 +96,26 @@ impl AppConfig {
             default_keybindings
         };
 
-        // 2b. Preset keymap files — seed keymaps/ directory on first run
+        // 2b. Preset keymap files — seed/update keymaps/ directory
         let keymaps_dir = paths::get_keymaps_dir();
         if !keymaps_dir.exists() {
             fs::create_dir_all(&keymaps_dir).context("Failed to create keymaps directory")?;
         }
         for preset_name in BUILTIN_PRESETS {
             let preset_path = keymaps_dir.join(format!("{}.toml", preset_name));
+            let toml_content = crate::keybindings::preset::get_builtin_preset_toml(preset_name);
             if !preset_path.exists() {
-                let toml_content = crate::keybindings::preset::get_builtin_preset_toml(preset_name);
-                fs::write(&preset_path, toml_content).with_context(|| {
+                fs::write(&preset_path, &toml_content).with_context(|| {
                     format!("Failed to write default keymap file: {}.toml", preset_name)
                 })?;
+            } else if let Ok(existing) = fs::read_to_string(&preset_path) {
+                if (!existing.contains("rename = \"F7\"") && !existing.contains("rename_fkey = \"F7\""))
+                    || existing.contains("mkdir = \"F7\"")
+                    || existing.contains("mkdir_fkey = \"F7\"")
+                    || existing.contains("plugin_menu = \"F11\"")
+                {
+                    let _ = fs::write(&preset_path, &toml_content);
+                }
             }
         }
 

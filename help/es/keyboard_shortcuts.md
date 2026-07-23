@@ -51,17 +51,18 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `F4` | Abre el editor de texto interno (guarda con `F2` o `Ctrl+S`). |
 | `F5` | Copia los archivos seleccionados hacia el panel opuesto. |
 | `Alt+F5` | Imprime archivos aplicando un comando filtro. |
-| `F6` | Mueve o renombra los archivos hacia el panel opuesto. |
+| `F6` | Mueve los elementos seleccionados al panel opuesto. Pulsa `Tab` desde el campo de ruta para ver las opciones avanzadas (enlaces simbólicos, atributos, filtro, etc.). |
 | `Alt+F6` / `Ctrl+L` | Abre el diálogo de creación de enlaces simbólicos o duros. |
-| `F7` | Crea una nueva carpeta (MkDir). |
+| `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
 | `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |
 | `Alt+Delete` | Borrado Seguro (Wipe): Sobrescribe sectores de datos antes de borrar. |
 | `F9` | Activa la barra superior de menú desplegable. |
 | `F10` | Cierra y sale de la aplicación. |
-| `F11` | Abre el menú de comandos de plugins. |
 | `F12` | Abre el listado de pantallas y pestañas activas de fondo. |
 | `Esc` | Limpia comandos de consola, cierra popups o sale de menús. |
 | `Shift+F10` | Abre el menú contextual del archivo seleccionado. |
+
+> **Consejo:** Las acciones que antes estaban en `F7` (Crear carpeta) y `F11` (Plugins) ahora se encuentran en **Barra de menú** → submenú **Archivos**. La opción **Crear carpeta** también está disponible por defecto (tecla `6`) en el **Menú de Usuario** (`F2`).
 
 ---
 

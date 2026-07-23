@@ -415,7 +415,7 @@ Con el modo desarrollador activo, se desbloquean los siguientes comandos:
     - Si no existe ningún archivo de licencia, asigna automáticamente la licencia `"MIT"` en el manifiesto y genera un archivo `LICENSE` con la licencia MIT estándar y los datos de derechos de autor en el espacio de trabajo del plugin.
 
 ### 15.2 Herramientas de Desarrollo en TUI y Asistente de PR
-Las herramientas interactivas de desarrollo en TUI (accesibles a través de la pestaña `Developer Tools` de `F11` cuando `developer_mode = true` está habilitado en `pairee.toml`) ofrecen el siguiente conjunto de utilidades:
+Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Barra de menú (F9) → Archivos → Comandos de plugins** → pestaña `Developer Tools` cuando `developer_mode = true` está habilitado en `pairee.toml`) ofrecen el siguiente conjunto de utilidades:
 
 * **Seleccionar Plugin Activo (Opción 0):** Abre un modal interactivo con la lista de plugins detectados en el sistema. Enumera todos los plugins encontrados bajo `plugins_dev_dir` y escanea las rutas actuales de los paneles activos (Panel 1 y Panel 2) en busca de un archivo `manifest.toml`, permitiéndote seleccionar tu objetivo de desarrollo directamente con el teclado.
 * **Inicializar plantilla (Opción 1):** Guía paso a paso al desarrollador para crear un nuevo esqueleto de plugin en el directorio de desarrollo. Al completarse con éxito, el nuevo plugin se selecciona automáticamente en la Opción 0 y esta opción queda deshabilitada.

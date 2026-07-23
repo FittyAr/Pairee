@@ -15,7 +15,7 @@ pub fn render(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    if let PopupType::RenMovPrompt {
+    if let PopupType::MovePrompt {
         input,
         src_paths,
         dest_dir: _,
@@ -38,7 +38,7 @@ pub fn render(
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
-            .title(t("prompt_renmov_title"))
+            .title(t("prompt_move_title"))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
         let inner = block.inner(area);
         f.render_widget(block, area);
@@ -87,7 +87,7 @@ pub fn render(
         let mut text_lines = vec![ratatui::text::Line::from(format!(
             "{} {}",
             label,
-            t("prompt_renmov_to")
+            t("prompt_move_to")
         ))];
         let mut input_spans = vec![ratatui::text::Span::styled(input.clone(), in_style)];
         if *cursor_idx == 0 {
@@ -286,7 +286,7 @@ pub fn render(
         };
 
         let btns = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(t("btn_rename_bracket"), b1),
+            ratatui::text::Span::styled(t("btn_move_bracket"), b1),
             ratatui::text::Span::raw("  "),
             ratatui::text::Span::styled(t("btn_f10_tree"), b2),
             ratatui::text::Span::raw("  "),

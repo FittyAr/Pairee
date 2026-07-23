@@ -29,6 +29,7 @@ pub fn render(
 
             let text_key = match op_kind {
                 AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
+                AdminOpKind::Rename { .. } => "prompt_sudo_rename_text",
             };
 
             let text = t(text_key);

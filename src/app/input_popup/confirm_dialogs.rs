@@ -189,6 +189,17 @@ pub fn handle(
                                 }
                                 state.refresh_both_panels(context.config.settings.show_hidden);
                             }
+                            crate::app::state::AdminOpKind::Rename { src, target } => {
+                                if let Err(e) = std::fs::rename(&src, &target) {
+                                    state.active_popup = Some(PopupType::Error(format!(
+                                        "{} {}",
+                                        t("error_rename_error"),
+                                        e
+                                    )));
+                                    return Ok(None);
+                                }
+                                state.refresh_both_panels(context.config.settings.show_hidden);
+                            }
                         }
                         return Ok(None);
                     }

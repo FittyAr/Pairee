@@ -4,6 +4,7 @@ pub mod delete;
 pub mod describe;
 pub mod link;
 pub mod mkdir;
+pub mod rename;
 pub mod rename_move;
 pub mod wipe;
 
@@ -19,7 +20,8 @@ pub fn render(
     match popup {
         PopupType::MkDirPrompt { .. } => mkdir::render(f, popup, theme, size),
         PopupType::CopyPrompt { .. } => copy::render(f, popup, theme, size),
-        PopupType::RenMovPrompt { .. } => rename_move::render(f, popup, theme, size),
+        PopupType::MovePrompt { .. } => rename_move::render(f, popup, theme, size),
+        PopupType::RenamePrompt { .. } => rename::render(f, popup, theme, size),
         PopupType::ConfirmDelete { .. } => delete::render(f, popup, theme, size),
         PopupType::WipeConfirm { .. } => wipe::render(f, popup, theme, size),
         PopupType::CreateLinkPrompt { .. } => link::render(f, popup, theme, size),

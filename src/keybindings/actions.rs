@@ -96,7 +96,9 @@ pub enum Action {
     Copy,
     /// Rename or Move selected items (F6)
     Move,
-    /// Make directory (F7)
+    /// Rename a single item in place (F7)
+    Rename,
+    /// Make directory (User Menu — F2 → "6" by default; also via Top Menu Bar → Files → Make folder)
     MkDir,
     /// Delete selected items (F8)
     Delete,
@@ -104,7 +106,7 @@ pub enum Action {
     Menu,
     /// Quit application (F10)
     Quit,
-    /// Open Plugin commands menu (F11)
+    /// Open Plugin commands menu (Top Menu Bar → Files → Plugin commands)
     PluginMenu,
     /// Show screens list (F12)
     ScreensList,

@@ -90,7 +90,7 @@ pub enum SelectMode {
 pub enum TreeViewCaller {
     Panel(ActivePanel),
     CopyPrompt { previous: Box<PopupType> },
-    RenMovPrompt { previous: Box<PopupType> },
+    MovePrompt { previous: Box<PopupType> },
 }
 
 #[derive(Debug, Clone)]
@@ -167,6 +167,10 @@ pub enum Screen {
 #[derive(Debug, Clone)]
 pub enum AdminOpKind {
     MkDir,
+    Rename {
+        src: std::path::PathBuf,
+        target: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -217,8 +221,8 @@ pub enum PopupType {
         use_filter: bool,
         filter_mask: String,
     },
-    /// Rename/Move prompt — user edits the destination path before committing.
-    RenMovPrompt {
+    /// Move prompt — user edits the destination path before committing.
+    MovePrompt {
         input: String,
         src_paths: Vec<PathBuf>,
         dest_dir: PathBuf,
@@ -233,6 +237,14 @@ pub enum PopupType {
         symlink_mode: usize,
         use_filter: bool,
         filter_mask: String,
+    },
+    /// Rename prompt — user edits only the filename before committing.
+    RenamePrompt {
+        input: String,
+        original: String,
+        src_path: PathBuf,
+        parent_dir: PathBuf,
+        cursor_idx: usize,
     },
     ConfirmQuit,
     ConfirmInterrupt,

@@ -1,3 +1,4 @@
+use crate::app::actions::fs_ops::r#move as move_action;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -10,7 +11,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::RenMovPrompt {
+    if let Some(PopupType::MovePrompt {
         input,
         src_paths,
         dest_dir,
@@ -53,7 +54,7 @@ pub fn handle(
                             sy: usize,
                             f: bool,
                             fm: String| {
-            s.active_popup = Some(PopupType::RenMovPrompt {
+            s.active_popup = Some(PopupType::MovePrompt {
                 input: i,
                 src_paths: src_paths.clone(),
                 dest_dir: dest_dir.clone(),
@@ -205,16 +206,15 @@ pub fn handle(
                         new_filter_mask,
                     );
                 } else if c == ' ' {
-                    // Toggle depending on idx
                     match new_idx {
-                        1 => new_already = (new_already + 1) % 4, // Cycle Ask, Overwrite, Skip, Append
+                        1 => new_already = (new_already + 1) % 4,
                         2 => new_multi = !new_multi,
                         3 => new_access = !new_access,
                         4 => new_ext = !new_ext,
                         5 => new_cache = !new_cache,
                         6 => new_sparse = !new_sparse,
                         7 => new_cow = !new_cow,
-                        8 => new_sym = (new_sym + 1) % 3, // Cycle Smart, Link, Target
+                        8 => new_sym = (new_sym + 1) % 3,
                         9 => new_filter = !new_filter,
                         _ => {}
                     }
@@ -259,7 +259,6 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 if new_idx == 13 {
-                    // Cancel
                     state.active_popup = None;
                     return Ok(None);
                 }
@@ -269,7 +268,7 @@ pub fn handle(
                     state.active_popup = Some(PopupType::TreeView {
                         nodes,
                         cursor_idx: 0,
-                        caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                        caller: crate::app::state::types::TreeViewCaller::MovePrompt {
                             previous: Box::new(state.active_popup.take().unwrap()),
                         },
                     });
@@ -283,109 +282,19 @@ pub fn handle(
                     return Ok(None);
                 }
 
-                // Move logic
-                let targets = src_paths.clone();
-                let dest = dest_dir.join(&new_input);
-                let is_ssh = state.get_active_panel().ssh_conn.is_some()
-                    || state.get_passive_panel().ssh_conn.is_some();
                 state.active_popup = None;
-                if is_ssh {
-                    let rx = crate::fs::spawn_copy_move_task(
-                        targets.clone(),
-                        dest.clone(),
-                        state.get_active_panel().ssh_conn.clone(),
-                        state.get_passive_panel().ssh_conn.clone(),
-                        true,
-                        context.config.settings.clone(),
-                    );
-                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move);
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: true,
-                        current_file: crate::config::localization::t("progress_initializing"),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
-                } else {
-                    use crate::fs::transfer::engine::TransferEngine;
-                    use crate::fs::transfer::job::{TransferJob, TransferOperation};
-                    use crate::fs::transfer::options::TransferOptions;
-
-                    let mut options = TransferOptions::default();
-                    options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
-                    options.hash_algorithm =
-                        match context.config.settings.transfer_default_hash.as_str() {
-                            "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
-                            "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
-                            "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
-                            "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
-                            _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
-                        };
-                    options.buffer_size = match context.config.settings.transfer_buffer_size {
-                        65536 => crate::fs::transfer::options::BufferSize::_64KB,
-                        262144 => crate::fs::transfer::options::BufferSize::_256KB,
-                        4194304 => crate::fs::transfer::options::BufferSize::_4MB,
-                        _ => crate::fs::transfer::options::BufferSize::_1MB,
-                    };
-                    options.direct_io = new_cache;
-                    options.preserve_timestamps =
-                        context.config.settings.transfer_preserve_timestamps;
-                    options.preserve_attributes = new_ext;
-                    options.preserve_acl = context.config.settings.transfer_preserve_acl;
-                    options.preserve_streams = context.config.settings.transfer_preserve_streams;
-                    options.limit_bandwidth_rate =
-                        context.config.settings.transfer_limit_bandwidth_rate;
-                    options.halt_on_error = context.config.settings.transfer_halt_on_error;
-                    options.max_retries = context.config.settings.transfer_max_retries;
-                    options.conflict_resolution = match new_already {
-                        1 => "overwrite".to_string(),
-                        2 => "skip".to_string(),
-                        3 => "overwrite_older".to_string(),
-                        4 => "rename".to_string(),
-                        _ => "ask".to_string(),
-                    };
-                    match new_sym {
-                        1 => {
-                            options.skip_symlinks = false;
-                            options.follow_symlinks = true;
-                        }
-                        2 => {
-                            options.skip_symlinks = true;
-                            options.follow_symlinks = false;
-                        }
-                        _ => {
-                            options.skip_symlinks = false;
-                            options.follow_symlinks = false;
-                        }
-                    }
-                    options.filter_mask = if new_filter && !new_filter_mask.is_empty() {
-                        Some(new_filter_mask)
-                    } else {
-                        None
-                    };
-
-                    let job = TransferJob::new(TransferOperation::Move, targets, dest, options);
-
-                    for src in &job.sources {
-                        crate::fs::transfer::history::add_source_path(src);
-                    }
-                    crate::fs::transfer::history::add_dest_path(&job.destination);
-
-                    if state.transfer.is_none() {
-                        let (engine, rx) = TransferEngine::new();
-                        state.transfer = Some(
-                            crate::app::state::transfer_state::TransferUIState::new(engine, rx),
-                        );
-                    }
-
-                    if let Some(ref mut ts) = state.transfer {
-                        ts.engine.submit_job(job);
-                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
-                    }
-                }
-
+                move_action::submit_move_job_from_popup(
+                    state,
+                    context,
+                    src_paths,
+                    new_input,
+                    new_already,
+                    new_ext,
+                    new_cache,
+                    new_sym,
+                    new_filter,
+                    new_filter_mask,
+                );
                 return Ok(None);
             }
             KeyCode::Esc => {
@@ -397,7 +306,7 @@ pub fn handle(
                 state.active_popup = Some(PopupType::TreeView {
                     nodes,
                     cursor_idx: 0,
-                    caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                    caller: crate::app::state::types::TreeViewCaller::MovePrompt {
                         previous: Box::new(state.active_popup.take().unwrap()),
                     },
                 });

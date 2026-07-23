@@ -415,7 +415,7 @@ With developer mode enabled, the following commands are available:
     - If no license file is found, the tool automatically assigns the `"MIT"` license to your manifest and writes a standard MIT `LICENSE` file containing your copyright details in the plugin workspace.
 
 ### 15.2 TUI Developer Tools & PR Submission Wizard
-The interactive TUI developer tools (accessible via `F11` -> `Developer Tools` tab when `developer_mode = true` is enabled in `pairee.toml`) provide the following suite of utilities:
+The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → Files → Plugin commands** → `Developer Tools` tab when `developer_mode = true` is enabled in `pairee.toml`) provide the following suite of utilities:
 
 * **Active Plugin Selection (Option 0):** Opens an interactive modal selection list displaying all detected development plugins. It lists all plugins found under `plugins_dev_dir` and also scans the active directories of Panel 1 and Panel 2 for a `manifest.toml` file, letting you choose the targeted plugin from the list with your keyboard.
 * **Initialize boilerplate (Option 1):** Guides the developer step-by-step to create a new plugin skeleton under your development directory. Upon successful creation, the new plugin is automatically set as the active plugin (Option 0) and Option 1 is disabled.

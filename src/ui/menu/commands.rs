@@ -102,12 +102,6 @@ pub fn get_items(
         .with_action(Action::FilePanelFilter),
         MenuItemData::separator(),
         MenuItemData::new(
-            t("menu_plugin_commands"),
-            &shortcut_for(Action::PluginMenu, "F11"),
-            false,
-        )
-        .with_action(Action::PluginMenu),
-        MenuItemData::new(
             t("menu_screens_list"),
             &shortcut_for(Action::ScreensList, "F12"),
             false,

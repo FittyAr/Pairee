@@ -51,17 +51,18 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `F4` | Open internal file editor (saves via `F2` or `Ctrl+S`). |
 | `F5` | Copy highlighted or selected files to passive panel destination. |
 | `Alt+F5` | Print file utility (applies custom filter command). |
-| `F6` | Move or Rename files to passive panel destination. |
+| `F6` | Move selected items to passive panel destination. Press `Tab` from the path field to expand advanced options (symlinks, attributes, filter, etc.). |
 | `Alt+F6` / `Ctrl+L` | Open Symlink / Hardlink creation dialog. |
-| `F7` | Create a new directory (MkDir). |
+| `F7` | Rename the highlighted item in place (filename only). |
 | `F8` / `Delete` | Delete highlighted or tagged files. |
 | `Alt+Delete` | Secure Wipe: Overwrites file sectors before permanent deletion. |
 | `F9` | Pull down and activate the Top Menu Bar. |
 | `F10` | Close / Quit Pairee. |
-| `F11` | Open custom Plugins execution menu. |
 | `F12` | Open screens and background tabs navigation overlay. |
 | `Esc` | Clear command prompts, close dialogs, or exit overlays. |
 | `Shift+F10` | Open context actions menu relative to file type. |
+
+> **Tip:** Items previously on `F7` (MkDir) and `F11` (Plugins) are now reachable from the **Top Menu Bar** → **Files** submenu. **MkDir** is also available as a default entry (`6`) inside the **User Menu** (`F2`).
 
 ---
 

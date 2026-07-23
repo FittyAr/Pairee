@@ -41,8 +41,8 @@ Una vez establecida la conexión, el panel activo pasa a modo SFTP:
   - **`Enter`**: Abre el directorio seleccionado o ejecuta las asociaciones de archivos.
   - **`Backspace`** o **`..`**: Vuelve al directorio de nivel superior.
 * **Operaciones sobre Archivos:**
-  - **`F7`** (MkDir): Crea una nueva carpeta en el servidor remoto.
-  - **`F6`** (Rename/Move): Renombra o traslada archivos en caliente dentro del servidor.
+  - **`F7`** (Renombrar): Renombra un archivo directamente en el servidor remoto.
+  - **`F6`** (Mover): Traslada archivos remotos entre directorios.
   - **`F8`** (Delete): Elimina de forma recursiva carpetas y archivos en el servidor remoto.
   - **`F3`** (Viewer): Visualiza contenidos de archivos remotos en texto plano o modo hexadecimal.
   - **`F4`** (Editor): Edita archivos de texto directamente en el servidor remoto. Pairee gestiona los búferes temporales automáticamente.

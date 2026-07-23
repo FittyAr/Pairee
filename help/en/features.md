@@ -96,7 +96,7 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
 * **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.
 * **File Associations:** Map file extensions (e.g., `*.py`) to custom launch commands.
-* **Custom User Commands Menu:** Define custom shell commands or script execution shortcuts to run on highlighted or tagged files.
+* **Custom User Commands Menu:** Define custom shell commands or script execution shortcuts to run on highlighted or tagged files. The popup is bound to `F2` and ships with a small set of built-in shortcuts (Refresh, Toggle hidden, Swap panels, Task list, Git panel, **Create folder**, Quick filter, Help, Edit).
 * **Drive Select Panel:** Displays removable disks, external USB drives, and mounted network drives to switch panel paths.
 * **System Info Panel:** Overlay window displaying current OS distribution name, machine hostname, logged-in username, available system RAM, and environment parameters.
 
@@ -128,9 +128,9 @@ To prevent running compromised binaries, Pairee's built-in downloader automatica
 
 Pairee supports a Lua-based plugin system that allows extending the file manager with custom commands, file previewers, and lifecycle hooks.
 
-### 7.1 Plugin Manager (F11)
+### 7.1 Plugin Manager
 
-Press `F11` to open the **Plugin Manager**, which has three tabs:
+Open the Plugin Manager via **Top Menu Bar → Files → Plugin commands**. `F11` is no longer bound to this action in the default keymap. It has three tabs:
 
 - **Installed:** Lists all loaded plugins with version, trust badge, and available updates. Use `Enter` to toggle trust/pin, `D` to uninstall.
 - **Registry:** Search the online plugin registry and install plugins in the background.

@@ -10,7 +10,8 @@ pub mod extract;
 pub mod helper;
 pub mod link;
 pub mod mkdir;
-pub mod move_rename;
+pub mod r#move;
+pub mod rename;
 pub mod view;
 pub mod wipe;
 
@@ -29,7 +30,8 @@ pub fn handle_fs_action(
         Action::View | Action::ViewAlt => view::handle(state, action, context, terminal_backend),
         Action::Edit => edit::handle(state, context),
         Action::Copy => copy::handle(state, context),
-        Action::Move => move_rename::handle(state, context),
+        Action::Move => r#move::handle(state, context),
+        Action::Rename => rename::handle(state, context),
         Action::CompressFiles => compress::handle(state, context),
         Action::ExtractArchive => extract::handle(state),
         Action::MkDir => mkdir::handle(state),

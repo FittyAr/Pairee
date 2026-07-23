@@ -23,7 +23,7 @@ pub fn handle(
                     crate::app::state::types::TreeViewCaller::CopyPrompt { previous } => {
                         state.active_popup = Some(*previous);
                     }
-                    crate::app::state::types::TreeViewCaller::RenMovPrompt { previous } => {
+                    crate::app::state::types::TreeViewCaller::MovePrompt { previous } => {
                         state.active_popup = Some(*previous);
                     }
                 }
@@ -92,8 +92,8 @@ pub fn handle(
                             }
                             state.active_popup = Some(*previous);
                         }
-                        crate::app::state::types::TreeViewCaller::RenMovPrompt { mut previous } => {
-                            if let PopupType::RenMovPrompt { ref mut input, .. } = *previous {
+                        crate::app::state::types::TreeViewCaller::MovePrompt { mut previous } => {
+                            if let PopupType::MovePrompt { ref mut input, .. } = *previous {
                                 *input = target.to_string_lossy().to_string();
                             }
                             state.active_popup = Some(*previous);

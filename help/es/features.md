@@ -96,7 +96,7 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 * **Vista de Árbol de Directorios:** Recorre la estructura del disco y muestra el árbol de directorios de forma gráfica.
 * **Descripciones de Archivos:** Visualiza y edita descripciones presionando `Ctrl+D` sobre cualquier archivo, guardándolas en archivos ocultos `Descript.ion`.
 * **Asociaciones de Archivos:** Mapea extensiones de archivos a comandos de ejecución personalizados.
-* **Menú de Comandos del Usuario:** Define accesos directos para ejecutar scripts o comandos personalizados sobre los archivos seleccionados.
+* **Menú de Comandos del Usuario:** Define accesos directos para ejecutar scripts o comandos personalizados sobre los archivos seleccionados. La ventana emergente se abre con `F2` e incluye un conjunto predeterminado de accesos directos (Actualizar, Mostrar/ocultar archivos ocultos, Intercambiar paneles, Lista de tareas, Panel de Git, **Crear carpeta**, Filtro rápido, Ayuda, Editar).
 * **Menú de Selección de Unidad:** Muestra las unidades de almacenamiento locales y de red para cambiar de panel rápidamente.
 * **Panel de Información del Sistema:** Ventana que muestra información sobre el sistema operativo, hostname de red, nombre de usuario activo, memoria RAM disponible y variables del sistema.
 
@@ -128,9 +128,9 @@ Para evitar la ejecución de binarios corruptos o comprometidos, el descargador 
 
 Pairee soporta un sistema de complementos basado en Lua que permite extender el gestor de archivos con comandos personalizados, visores de archivos y hooks de ciclo de vida.
 
-### 7.1 Gestor de Complementos (F11)
+### 7.1 Gestor de Complementos
 
-Presioná `F11` para abrir el **Gestor de Complementos**, que tiene tres pestañas:
+Accede al Gestor de Complementos desde **Barra de menú → Archivos → Comandos plugin**. La tecla `F11` ya no está enlazada a esta acción en el mapa de teclas por defecto. Tiene tres pestañas:
 
 - **Instalados:** Lista todos los complementos cargados con versión, insignia de confianza e indicadores de actualización disponible. Usá `Enter` para alternar confianza/anclado, `D` para desinstalar.
 - **Registro:** Busca el registro online de complementos e instala en segundo plano.

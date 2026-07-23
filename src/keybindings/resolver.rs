@@ -49,6 +49,12 @@ impl KeybindingResolver {
     pub fn key_for_action(&self, action: Action) -> Option<&str> {
         self.inverse.get(&action).map(|s| s.as_str())
     }
+
+    /// Resolves a canonical key string (e.g. `"F7"`, `"Alt+F5"`) into the action it triggers.
+    /// Returns `None` if the key is unbound.
+    pub fn resolve_for_key_string(&self, key: &str) -> Option<Action> {
+        self.bindings.get(key).copied()
+    }
 }
 
 /// Converts a crossterm KeyEvent into a standard human-readable string representation.
@@ -202,7 +208,7 @@ mod tests {
         assert_eq!(parse_action_name("page_down_pgkey"), Some(Action::PageDown));
         assert_eq!(parse_action_name("view_fkey"), Some(Action::View));
         assert_eq!(parse_action_name("move_rename"), Some(Action::Move));
-        assert_eq!(parse_action_name("rename"), Some(Action::Move));
+        assert_eq!(parse_action_name("rename"), Some(Action::Rename));
         assert_eq!(parse_action_name("quit_f10"), Some(Action::Quit));
         assert_eq!(
             parse_action_name("context_menu_shift"),
