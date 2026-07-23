@@ -8,7 +8,6 @@ pub mod elements;
 pub mod geometry;
 pub mod legacy;
 pub mod preview;
-pub mod renderable;
 pub mod style;
 
 use crate::plugin::manager::PluginRequest;
