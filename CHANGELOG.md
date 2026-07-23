@@ -189,6 +189,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 - (M5-pending) None of the deprecated APIs have been removed yet — they remain functional so existing plugins keep working while authors migrate. Removal is scheduled for the next major version after one release cycle.
 
+### Added
+
+- `pairee.exec(action, args)` as a parallel alias of `pairee.emit` for plugin authors who prefer the "exec" verb (per roadmap Appendix A).
+- `pairee.preview_widget` now decodes a `ui.Span`/`ui.Line`/`ui.Text` rich userdata into the existing `PluginWidget::RichSpan`/`RichLine`/`RichText` variants, so a plugin can `return ui.Text("hi"):fg("red"):bold()` from `peek()` and have it render in the preview pane (per the M4 done-criterion).
+- `pairee.preview_code({path})` async binding that uses `syntect` internally for syntax highlighting; returns a `ui.Text` rich userdata with per-token styles. `code-preview.pairee` ships as the M4-T11 acceptance plugin demonstrating it.
+- `pairee.image.show(url, rect)` is now wired end-to-end: the dispatcher decodes the image via `image::open()` and stashes it on `QuickViewPanel.image_data` so the preview pane actually shows it (was previously a log-only placeholder).
+
+### Security
+
+- `Command:stdin/stdout/stderr` setters now reject `Stdio::Inherit` under Secure Mode (per roadmap §6). `PIPED` and `NULL` remain allowed.
+- `dispatch_emit_action` blocks destructive actions (`Delete`, `WipeFile`, `Move`) from plugins under Secure Mode. This is a defence-in-depth check on top of the existing confirmation popups — a malicious plugin could otherwise bypass the dialog via `pairee.emit('delete', ...)`.
+- `extract_fg_bg` now emits `#rrggbb` for `Color::Rgb` and lowercase named colors, so the rich-style renderer reconstructs colors correctly via `ui::theme_apply::parse_color`.
+
+### Tests
+
+- 198 unit tests across the bindings modules. Coverage additions:
+  - `dispatch_actions.rs`: 4 new tests (queue/identity/secure-block / secure-allow for `delete`).
+  - `state.rs`: 3 round-trip tests (publish, replace, missing plugin).
+  - `emit.rs`: 1 test (`exec` and `emit` both registered).
+  - `geometry.rs`: 8 tests (Rect Lua, Constraint factories, Pad uniform/xy, Align/Wrap Eq, Edge bitmask, Layout default + Lua).
+  - `cx.rs`: 5 tests (root globals, current cwd, parent/current entries_count, `entries[i]` boundary, panel with entries).
+  - `command.rs`: 7 tests (struct defaults, builder chain, materialise, memory round-trip, INHERIT-allowed, INHERIT-blocked, bind end-to-end).
+  - `process::child.rs`: 3 child I/O tests (read_line, write_all, try_wait).
+  - `preview_code.rs`: 2 tests (Rust file, unknown extension fallback).
+  - `text.rs`: 1 test (`ui.Text:parse(ansi_string)` strips ANSI escape sequences).
+  - `ui/preview.rs`: 1 done-criterion test (Line-style fg/bold propagates to RichSpan children).
+
 ---
 
 ## [v0.6.1] - 2026-06-27
