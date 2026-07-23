@@ -139,6 +139,12 @@ fn build_folder_table<'lua>(
     lua.globals().set(global_name.clone(), global_entries)?;
 
     let entries_table = lua.create_table()?;
+    // `global_name_for_closure` captures the unique name for this
+    // particular folder table (current or parent). We also stash
+    // the global entries on a per-folder key — the current panel
+    // uses `__current_entries__`, the parent uses
+    // `__parent_entries__`, so calling build_folder_table twice
+    // does not race.
     let global_name_for_closure = global_name.clone();
     entries_table.set(
         "__index",
@@ -235,4 +241,118 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
 
     lua.globals().set("cx", cx)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::AppState;
+    use crate::fs::FileEntry;
+    use std::path::PathBuf;
+
+    fn fresh_state() -> AppState {
+        AppState::new(PathBuf::from("/tmp"), PathBuf::from("/tmp"))
+    }
+
+    #[test]
+    fn test_build_cx_table_publishes_root_globals() {
+        let lua = mlua::Lua::new();
+        let state = fresh_state();
+        build_cx_table(&lua, &state).unwrap();
+        let g = lua.globals();
+        assert!(g.contains_key("cx").unwrap());
+        let cx: mlua::Table = g.get("cx").unwrap();
+        // The main sub-trees must all be present.
+        assert!(cx.contains_key("active").unwrap());
+        assert!(cx.contains_key("tabs").unwrap());
+        assert!(cx.contains_key("tasks").unwrap());
+        assert!(cx.contains_key("yanked").unwrap());
+    }
+
+    #[test]
+    fn test_build_cx_table_exposes_active_current_cwd() {
+        let lua = mlua::Lua::new();
+        let state = fresh_state();
+        build_cx_table(&lua, &state).unwrap();
+        let g = lua.globals();
+        let cx: mlua::Table = g.get("cx").unwrap();
+        let active: mlua::Table = cx.get("active").unwrap();
+        let current: mlua::Table = active.get("current").unwrap();
+        // cwd is a Url userdata; verify the path with a Lua script.
+        let s: String = lua
+            .load("return tostring(cx.active.current.cwd)")
+            .eval()
+            .expect("cwd tostring");
+        assert_eq!(s, "/tmp");
+    }
+
+    #[test]
+    fn test_build_cx_table_exposes_panel_current_and_parent() {
+        let lua = mlua::Lua::new();
+        let state = fresh_state();
+        build_cx_table(&lua, &state).unwrap();
+        let g = lua.globals();
+        let cx: mlua::Table = g.get("cx").unwrap();
+        let active: mlua::Table = cx.get("active").unwrap();
+        let current: mlua::Table = active.get("current").unwrap();
+        // Both `entries_count` and `entries(i)` are exposed.
+        assert!(current.contains_key("entries_count").unwrap());
+        assert!(current.contains_key("entries").unwrap());
+        let parent: mlua::Table = active.get("parent").unwrap();
+        assert!(parent.contains_key("entries_count").unwrap());
+    }
+
+    #[test]
+    fn test_build_cx_table_entries_i_returns_nil_for_out_of_range() {
+        let lua = mlua::Lua::new();
+        let state = fresh_state();
+        build_cx_table(&lua, &state).unwrap();
+        let g = lua.globals();
+        let cx: mlua::Table = g.get("cx").unwrap();
+        let active: mlua::Table = cx.get("active").unwrap();
+        let current: mlua::Table = active.get("current").unwrap();
+        let entries: mlua::Table = current.get("entries").unwrap();
+        // No real entries → the stash has 0 elements → index
+        // returns Nil. The implementation reads from the global
+        // `__current_entries__` table which has no rows.
+        let v: mlua::Value = entries.get(1i64).unwrap();
+        assert!(matches!(v, mlua::Value::Nil));
+    }
+
+    #[test]
+    fn test_build_cx_table_handles_panel_with_entries() {
+        let lua = mlua::Lua::new();
+        let mut state = fresh_state();
+        // Inject a synthetic entry so the entries list has rows.
+        state.left_panel.entries.push(FileEntry {
+            name: "a.rs".to_string(),
+            path: PathBuf::from("/tmp/a.rs"),
+            is_dir: false,
+            is_symlink: false,
+            size: 10,
+            modified: None,
+        });
+        state.left_panel.cursor_index = 0;
+        build_cx_table(&lua, &state).unwrap();
+        // entries_count comes from a direct field set — no
+        // metamethod involved.
+        let n: i64 = lua
+            .load("return cx.active.current.entries_count")
+            .eval()
+            .expect("entries_count");
+        assert_eq!(n, 1);
+        // The raw stashed globals must also contain the entry.
+        let stash_len: i64 = lua
+            .load("return #__current_entries__")
+            .eval()
+            .expect("stash length");
+        assert_eq!(stash_len, 1, "__current_entries__ must contain the entry");
+        // Verify the stash contents directly through Lua (this
+        // bypasses any closure confusion).
+        let stash_type: String = lua
+            .load("return type(__current_entries__[1])")
+            .eval()
+            .expect("stash type");
+        assert_eq!(stash_type, "userdata");
+    }
 }

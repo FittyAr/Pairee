@@ -315,6 +315,10 @@ pub fn bind_layout(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()
         lua_ctx.create_userdata(Layout::new()).map(mlua::Value::UserData)
     })?)?;
     let mt = lua.create_table()?;
+    // Mirror `__call` on the metatable so Lua's method-lookup
+    // chain (table → metatable) finds it.
+    let inner_call = l.get::<_, mlua::Function>("__call")?;
+    mt.set("__call", inner_call)?;
     mt.set("__metatable", mlua::Value::Boolean(false))?;
     l.set_metatable(Some(mt));
     parent.set("Layout", l)
@@ -350,5 +354,96 @@ mod tests {
         let c2 = Constraint::percentage(50);
         assert!(matches!(c1.0, RatConstraint::Min(1)));
         assert!(matches!(c2.0, RatConstraint::Percentage(50)));
+    }
+
+    #[test]
+    fn test_constraint_all_factories() {
+        let _ = Constraint::min(1);
+        let _ = Constraint::max(1);
+        let _ = Constraint::length(42);
+        let _ = Constraint::percentage(75);
+        let _ = Constraint::fill(1);
+        let _ = Constraint::ratio(1, 2);
+    }
+
+    #[test]
+    fn test_pad_uniform_and_xy() {
+        let p = Pad::uniform(3);
+        assert_eq!(p.top, 3);
+        assert_eq!(p.right, 3);
+        assert_eq!(p.bottom, 3);
+        assert_eq!(p.left, 3);
+        let q = Pad::xy(1, 2);
+        assert_eq!(q.top, 2);
+        assert_eq!(q.right, 1);
+        assert_eq!(q.bottom, 2);
+        assert_eq!(q.left, 1);
+    }
+
+    #[test]
+    fn test_pad_lua_callable_uniform() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        bind_pad(&lua, &table).unwrap();
+        lua.globals().set("ui", table).unwrap();
+        let v: mlua::Value = lua.load("return ui.Pad(2, 4, 6, 8)").eval().unwrap();
+        let ud = v.as_userdata().unwrap();
+        let p = ud.borrow::<Pad>().unwrap();
+        assert_eq!(p.top, 2);
+        assert_eq!(p.right, 4);
+        assert_eq!(p.bottom, 6);
+        assert_eq!(p.left, 8);
+    }
+
+    #[test]
+    fn test_align_eq() {
+        assert_eq!(Align::Left, Align::Left);
+        assert_ne!(Align::Left, Align::Center);
+        assert_ne!(Align::Left, Align::Right);
+    }
+
+    #[test]
+    fn test_wrap_eq() {
+        assert_eq!(Wrap::No, Wrap::No);
+        assert_ne!(Wrap::No, Wrap::Trim);
+    }
+
+    #[test]
+    fn test_edge_bitmask() {
+        // Edge constants are typed `u8` directly.
+        assert_eq!(Edge::ALL, 0b1111);
+        assert_eq!(Edge::NONE, 0);
+        assert_eq!(Edge::TOP, 0b0001);
+        assert_eq!(Edge::RIGHT, 0b0010);
+        assert_eq!(Edge::BOTTOM, 0b0100);
+        assert_eq!(Edge::LEFT, 0b1000);
+        // The bitmask covers TOP|RIGHT|BOTTOM|LEFT fully.
+        assert_eq!(Edge::ALL, Edge::TOP | Edge::RIGHT | Edge::BOTTOM | Edge::LEFT);
+        // The `contains` method works on an Edge userdata.
+        let e = Edge(0b1111);
+        assert!(e.contains(0b0001));
+        assert!(e.contains(0b0010));
+        assert!(e.contains(0b0100));
+        assert!(e.contains(0b1000));
+        assert!(!Edge(0).contains(0b0001));
+    }
+
+    #[test]
+    fn test_layout_default_direction() {
+        let l = Layout::new();
+        assert_eq!(l.direction, LayoutDirection::Vertical);
+        assert_eq!(l.margin, 0);
+        assert!(l.constraints.is_empty());
+    }
+
+    #[test]
+    fn test_layout_lua_callable() {
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        bind_layout(&lua, &table).unwrap();
+        lua.globals().set("ui", table).unwrap();
+        let v: mlua::Value = lua.load("return ui.Layout()").eval().unwrap();
+        let ud = v.as_userdata().unwrap();
+        let _l = ud.borrow::<Layout>().unwrap();
     }
 }

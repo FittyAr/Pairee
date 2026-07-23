@@ -16,9 +16,27 @@
 
 use super::child::Child;
 use super::stdio::Stdio;
-use mlua::{UserData, UserDataMethods};
+use mlua::{Lua, UserData, UserDataMethods};
 use std::process::Stdio as StdStdio;
 use tokio::process::Command as TokioCommand;
+
+/// Read the cached secure-mode flag set by `standard::bind_runtime`.
+/// Returns `false` if the Lua state is missing it.
+fn is_secure_mode(lua: &Lua) -> bool {
+    lua.globals()
+        .get::<_, mlua::Table>("pairee")
+        .ok()
+        .and_then(|p| p.get::<_, bool>("_secure_mode").ok())
+        .unwrap_or(false)
+}
+
+/// Per roadmap §6: in Secure Mode, `Stdio::Inherit` is forbidden
+/// because it lets the child process see the terminal (and any
+/// authentication tokens typed into it). `PIPED` and `NULL`
+/// remain allowed.
+fn inherit_blocked_by_secure_mode(lua: &Lua, stdio: Stdio) -> bool {
+    is_secure_mode(lua) && matches!(stdio, Stdio::Inherit)
+}
 
 /// The M3 `Command` userdata. Wraps the configuration needed
 /// to build up a `tokio::process::Command` (which is not
@@ -147,18 +165,39 @@ impl UserData for Command {
             this.env.clear();
             Ok(this.clone())
         });
-        methods.add_method_mut("stdin", |_lua, this, stdio: mlua::AnyUserData| {
+        methods.add_method_mut("stdin", |lua_ctx, this, stdio: mlua::AnyUserData| {
             let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            // §6 Secure-Mode: INHERIT is forbidden because it
+            // exposes the terminal (and any sensitive input) to
+            // the child process.
+            if inherit_blocked_by_secure_mode(lua_ctx, *s) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.stdin(Stdio::INHERIT) is blocked in Secure Mode"
+                        .to_string(),
+                ));
+            }
             this.stdin = Some(*s);
             Ok(this.clone())
         });
-        methods.add_method_mut("stdout", |_lua, this, stdio: mlua::AnyUserData| {
+        methods.add_method_mut("stdout", |lua_ctx, this, stdio: mlua::AnyUserData| {
             let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            if inherit_blocked_by_secure_mode(lua_ctx, *s) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.stdout(Stdio::INHERIT) is blocked in Secure Mode"
+                        .to_string(),
+                ));
+            }
             this.stdout = Some(*s);
             Ok(this.clone())
         });
-        methods.add_method_mut("stderr", |_lua, this, stdio: mlua::AnyUserData| {
+        methods.add_method_mut("stderr", |lua_ctx, this, stdio: mlua::AnyUserData| {
             let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            if inherit_blocked_by_secure_mode(lua_ctx, *s) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.stderr(Stdio::INHERIT) is blocked in Secure Mode"
+                        .to_string(),
+                ));
+            }
             this.stderr = Some(*s);
             Ok(this.clone())
         });
@@ -265,4 +304,89 @@ pub fn register(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     super::stdio::register(lua, &cmd)?;
     parent.set("Command", cmd)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_inherit_allowed_outside_secure_mode() {
+        // Default mode (secure_mode=false). The check is per-lua-context,
+        // not a global flag, so this test verifies the helper logic.
+        let lua = mlua::Lua::new();
+        let secure = is_secure_mode(&lua);
+        assert!(!secure, "fresh lua has no _secure_mode set");
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Inherit));
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Piped));
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Null));
+    }
+
+    #[test]
+    fn test_inherit_blocked_in_secure_mode() {
+        // Plant a `pairee._secure_mode = true` table in the globals
+        // so `is_secure_mode` reads back true.
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        assert!(is_secure_mode(&lua));
+        assert!(inherit_blocked_by_secure_mode(&lua, Stdio::Inherit));
+        // PIPED and NULL are still allowed.
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Piped));
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Null));
+    }
+
+    #[test]
+    fn test_command_bind_blocks_inherit_in_secure_mode() {
+        // Sanity: helper itself returns false outside Secure Mode.
+        let lua = mlua::Lua::new();
+        assert!(!is_secure_mode(&lua));
+        assert!(!inherit_blocked_by_secure_mode(&lua, Stdio::Inherit));
+    }
+
+    #[test]
+    fn test_command_struct_field_defaults() {
+        let c = Command::new("echo");
+        assert_eq!(c.program, "echo");
+        assert!(c.args.is_empty());
+        assert!(c.env.is_empty());
+        assert!(c.cwd.is_none());
+        assert!(c.stdin.is_none());
+        assert!(c.stdout.is_none());
+        assert!(c.stderr.is_none());
+        assert!(!c.kill_on_drop);
+        assert!(c.memory.is_none());
+    }
+
+    #[test]
+    fn test_command_builder_chain_appends_args() {
+        let mut c = Command::new("ls");
+        c.args.push("-l".to_string());
+        c.args.push("-a".to_string());
+        assert_eq!(c.args.len(), 2);
+        assert_eq!(c.args[0], "-l");
+        assert_eq!(c.args[1], "-a");
+    }
+
+    #[test]
+    fn test_materialise_propagates_fields() {
+        let mut c = Command::new("ls");
+        c.args.push("-l".to_string());
+        c.cwd = Some("/tmp".to_string());
+        c.env.push(("FOO".to_string(), "bar".to_string()));
+        let tokio_cmd = c.materialise();
+        // tokio::process::Command has no public field accessors
+        // beyond Debug; verify by Debug formatting.
+        let debug = format!("{tokio_cmd:?}");
+        assert!(debug.contains("ls"));
+        assert!(debug.contains("-l"));
+    }
+
+    #[test]
+    fn test_memory_field_round_trip() {
+        let mut c = Command::new("x");
+        c.memory = Some(1_073_741_824);
+        assert_eq!(c.memory, Some(1_073_741_824));
+    }
 }

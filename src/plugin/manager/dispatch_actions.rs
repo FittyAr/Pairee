@@ -96,6 +96,24 @@ pub fn dispatch_emit_action(
     // (`select`, `reveal`, `toggle_all`, `quit`, `refresh`, `find_file`,
     // …) without having to add a hand-rolled match arm for each one.
     if let Some(action) = crate::keybindings::preset::parse_action_name(name) {
+        // §6 Secure-Mode: a small blacklist of destructive actions
+        // cannot be emitted by a plugin. This is a defence-in-depth
+        // check on top of the existing confirmation popups — a
+        // malicious plugin could otherwise bypass the dialog via
+        // `pairee.emit("delete", ...)`.
+        if context.config.settings.secure_mode
+            && matches!(
+                action,
+                crate::keybindings::Action::Delete
+                    | crate::keybindings::Action::WipeFile
+                    | crate::keybindings::Action::Move
+            )
+        {
+            log::warn!(
+                "pairee.emit('{name}') is blocked in Secure Mode (destructive action)"
+            );
+            return;
+        }
         let mut q = match pending_actions().lock() {
             Ok(g) => g,
             Err(p) => p.into_inner(),
@@ -312,5 +330,58 @@ mod tests {
             queued.is_empty(),
             "unknown action name must not produce a queued action"
         );
+    }
+
+    #[test]
+    fn test_emit_destructive_action_blocked_in_secure_mode() {
+        // §6 Secure-Mode: `Delete`, `WipeFile`, and `Move` must not
+        // be emitted by a plugin even when the resolver knows the
+        // action. We exercise the canonical spelling ("delete").
+        let _ = drain_pending_emit_actions();
+        let mut state = fresh_state();
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        // Synthesize a Secure-Mode context by cloning the config
+        // and flipping the bit.
+        let mut secure_cfg = cfg.clone();
+        secure_cfg.settings.secure_mode = true;
+        let context = crate::app::context::AppContext::new(secure_cfg);
+
+        // `delete` is the canonical name (see `preset.rs`).
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "delete",
+            &serde_json::json!({}),
+        );
+        let queued = drain_pending_emit_actions();
+        assert!(
+            queued.is_empty(),
+            "secure-mode emit of 'delete' must be blocked, got {:?}",
+            queued
+        );
+    }
+
+    #[test]
+    fn test_emit_destructive_action_allowed_outside_secure_mode() {
+        let _ = drain_pending_emit_actions();
+        let mut state = fresh_state();
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        // cfg.secure_mode defaults to false; the action must be
+        // accepted.
+        assert!(!cfg.settings.secure_mode);
+        let context = crate::app::context::AppContext::new(cfg);
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "delete",
+            &serde_json::json!({}),
+        );
+        let queued = drain_pending_emit_actions();
+        assert_eq!(
+            queued.len(),
+            1,
+            "non-secure-mode emit of 'delete' must succeed"
+        );
+        assert_eq!(queued[0], crate::keybindings::Action::Delete);
     }
 }
