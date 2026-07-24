@@ -43,6 +43,22 @@ fn pick_syntax(path: &Path) -> &SyntaxReference {
         .unwrap_or_else(|| SYNTAX_SET.find_syntax_plain_text())
 }
 
+/// Workspace boundary check (mirrors the equivalent helper in
+/// `image.rs` and `clipboard.rs` so each binding can stay
+/// self-contained).
+fn is_workspace_path(path: &Path) -> bool {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let allowed_roots = [
+        std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
+        crate::config::paths::get_config_dir(),
+        crate::config::paths::get_cache_dir(),
+    ];
+    allowed_roots.iter().any(|root| {
+        let root = root.canonicalize().unwrap_or_else(|_| root.clone());
+        canonical.starts_with(&root)
+    })
+}
+
 /// Convert a `syntect::highlighting::Color` into a `ColorString`
 /// suitable for our `Style::fg`. The Theme carries colors in
 /// `Rgb(r, g, b)` form; the plain text fallback uses
@@ -120,6 +136,17 @@ pub fn bind(
             .to_str()?
             .to_string();
         let path = std::path::PathBuf::from(&path_str);
+        // Per §6, syntax-highlighted reads are 'Low — Allow', but
+        // we still require the path to live inside the workspace.
+        // A plugin could otherwise use the syntect output (which
+        // includes line counts) to fingerprint files outside its
+        // sandbox. Same workspace check as image/info.
+        if !is_workspace_path(&path) {
+            log::warn!(
+                "pairee.preview_code refused: {path_str} is outside the workspace"
+            );
+            return Ok(mlua::Value::Nil);
+        }
         let url = Url::parse(&path_str);
         let _ = url; // reserved for future use (e.g. SFTP dispatch)
         let theme = THEME_SET
@@ -160,6 +187,21 @@ mod tests {
         let text = build_preview_text_for_file(&lua, &path, &theme).unwrap();
         assert!(text.lines.len() >= 1);
         std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn test_preview_code_binding_refuses_workspace_outside() {
+        // The binding layer enforces a workspace boundary; paths
+        // outside it must come back as Nil so plugins can't probe
+        // for files outside their sandbox.
+        let lua = Lua::new();
+        let table = lua.create_table().unwrap();
+        bind(&lua, &table).unwrap();
+        let preview_code: mlua::Function = table.get("preview_code").unwrap();
+        let opts = lua.create_table().unwrap();
+        opts.set("path", "/dev/null").unwrap();
+        let result: mlua::Value = preview_code.call(opts).unwrap();
+        assert!(matches!(result, mlua::Value::Nil));
     }
 
     #[test]
