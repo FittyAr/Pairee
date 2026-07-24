@@ -138,6 +138,17 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         lua.create_async_function(move |lua_ctx, url_str: String| {
             async move {
                 let path = std::path::PathBuf::from(&url_str);
+                // Per §6, image reads are "low (reads local files only)
+                // — Allow", but we still require the path to live
+                // inside the workspace. Otherwise a plugin could
+                // probe the filesystem (file dimensions, MIME type,
+                // colour-depth) outside its sandbox.
+                if !is_workspace_path(&path) {
+                    log::warn!(
+                        "pairee.image.info refused: {url_str} is outside the workspace"
+                    );
+                    return Ok(mlua::Value::Nil);
+                }
                 match image::open(&path) {
                     Ok(img) => {
                         let table = lua_ctx.create_table()?;
@@ -211,7 +222,11 @@ mod tests {
 
     #[tokio::test]
     async fn test_info_returns_dims() {
-        let path = std::env::temp_dir().join("pairee_image_info_test.png");
+        // The image binding enforces a workspace boundary; place
+        // the fixture under the crate root so the check passes.
+        let path = std::env::current_dir()
+            .expect("cwd")
+            .join("target/pairee_image_info_test.png");
         fresh_png(&path);
         let lua = Lua::new();
         let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
@@ -231,5 +246,24 @@ mod tests {
         assert_eq!(w, 32);
         assert_eq!(h, 32);
         std::fs::remove_file(&path).ok();
+    }
+
+    #[tokio::test]
+    async fn test_info_refuses_workspace_outside() {
+        // `pairee.image.info` must refuse a path outside the
+        // workspace even if the file exists (avoids a filesystem
+        // probe by a plugin).
+        let lua = Lua::new();
+        let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
+        let table = bind(&lua, tx).expect("image table");
+        let info_fn: mlua::Function = table.get("info").expect("info function");
+        let _ = table;
+        let result: mlua::Value = info_fn
+            .call_async::<String, mlua::Value>("/dev/null".to_string())
+            .await
+            .expect("info call");
+        // Should return Nil because /dev/null is not under
+        // workspace / config / cache.
+        assert!(matches!(result, mlua::Value::Nil));
     }
 }
