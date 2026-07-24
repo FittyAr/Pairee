@@ -204,6 +204,7 @@ async fn main() -> Result<()> {
     }
 
     log::info!("Starting Pairee application...");
+    git::unused_keepalive();
 
     // 3. Resolve starting folders for panels
     let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));

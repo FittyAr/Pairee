@@ -2,6 +2,7 @@
 
 ### Added
 
+- Expanded Git support with comprehensive backend APIs for individual file staging, unified diffs, remote syncing (fetch, pull, push), advanced branch management, stashing, resets, merges, and repository clone/initialization.
 - New `F7` Rename action that prompts only for the new filename (with a live collision warning if a sibling already exists).
 - `Rename` command added to the **Top Menu Bar → Files** submenu.
 - F-key shortcut bar now reads each slot from the active keybinding resolver, so the bar always shows what each F-key actually does.
