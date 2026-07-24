@@ -2,6 +2,7 @@
 
 ### Added
 
+- Interactive dialog for file associations enabling navigation, addition, editing, and deletion, with clear visual prompts and helper hints on keys to use.
 - Expanded Git support with comprehensive backend APIs for individual file staging, unified diffs, remote syncing (fetch, pull, push), advanced branch management, stashing, resets, merges, and repository clone/initialization.
 - New Git dashboard TUI integration with an interactive 4-tab panel (Status, Log, Branches, and Stash).
 - Unified diff viewer modal with syntax-colored lines for additions, deletions, and hunks.
@@ -20,6 +21,7 @@
 
 ### Changed
 
+- Expanded default file association presets to support a wide range of popular formats (text, code, images, audio, video, documents, and web pages).
 - F6 dialog renamed from "Rename/Move" to "Move" only — Rename is its own modal now.
 - `Make Folder` and `Plugin commands` moved out of the F-key bar into the **Top Menu Bar → Files** submenu so the bar can focus on the most frequent operations.
 - The plugin system (`PluginMenu` action) is no longer reachable from `F11`. It is now accessible exclusively via **Top Menu Bar (`F9`) → Files → Plugin commands**. Power users can still rebind `F11` to `plugin_menu` in `keybindings.toml` if they prefer the old layout.

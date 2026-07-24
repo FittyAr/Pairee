@@ -92,3 +92,15 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `v` | (Con flujo Yazi activo) Abre el menú inferior modal de vista. |
 | `Ctrl+Tab` | Salta a la siguiente pestaña abierta de fondo. |
 | `Ctrl+Shift+Tab` | Regresa a la pestaña anterior de fondo. |
+
+---
+
+## 🔗 6. Editor de Asociaciones de Archivos
+
+| Tecla / Atajo | Acción |
+| :--- | :--- |
+| `↑` / `↓` | Navegar por la lista de reglas. |
+| `A` / `a` / `Insert` | Añadir una nueva regla de asociación. |
+| `E` / `e` / `Enter` | Editar la regla de asociación seleccionada. |
+| `D` / `d` / `Delete` | Eliminar la regla de asociación seleccionada. |
+| `Esc` | Cerrar el editor o cancelar el paso de edición actual. |

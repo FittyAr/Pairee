@@ -13,6 +13,7 @@ pub mod create_link;
 pub mod delete;
 pub mod describe_file;
 pub mod dismiss_only;
+pub mod file_associations;
 pub mod drive_select;
 pub mod editor;
 pub mod file_attributes;
@@ -129,6 +130,7 @@ pub fn handle_popup_input(
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             PopupType::TransferPanel => transfer_panel::handle(state, key, context),
+            PopupType::FileAssociationsDialog { .. } => file_associations::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

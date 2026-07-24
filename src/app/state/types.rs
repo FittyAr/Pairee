@@ -482,6 +482,10 @@ pub enum PopupType {
     FileAssociationsDialog {
         rules: Vec<crate::config::associations::AssocRule>,
         cursor_idx: usize,
+        editing_idx: Option<usize>,
+        editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
+        edit_buffer: String,
+        original_rule: Option<crate::config::associations::AssocRule>,
     },
 
     TreeView {

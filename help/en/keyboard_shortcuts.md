@@ -92,3 +92,15 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `v` | (With Yazi workflow enabled) Open Yazi View modal panel. |
 | `Ctrl+Tab` | Switch focus to next open screen background tab. |
 | `Ctrl+Shift+Tab` | Switch focus to previous open screen background tab. |
+
+---
+
+## 🔗 6. File Associations Editor
+
+| Key / Shortcut | Action |
+| :--- | :--- |
+| `Up` / `Down` | Navigate through rules list. |
+| `A` / `a` / `Insert` | Add a new file association rule. |
+| `E` / `e` / `Enter` | Edit the highlighted association rule. |
+| `D` / `d` / `Delete` | Delete the highlighted association rule. |
+| `Esc` | Close the editor or cancel current editing step. |

@@ -416,6 +416,10 @@ pub async fn handle_ui_settings_action(
             state.active_popup = Some(PopupType::FileAssociationsDialog {
                 rules: config.rules,
                 cursor_idx: 0,
+                editing_idx: None,
+                editing_field: 0,
+                edit_buffer: String::new(),
+                original_rule: None,
             });
             true
         }
