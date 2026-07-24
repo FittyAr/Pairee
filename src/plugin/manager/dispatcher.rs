@@ -214,6 +214,17 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         });
                     }
                     PluginRequest::UpdatePluginWidget { path, widget } => {
+                        // Three cases:
+                        // 1. The QuickViewPanel is already open at
+                        //    this path — just swap the widget in.
+                        // 2. A different popup is open (or no popup) —
+                        //    activate the QuickViewPanel and seed it
+                        //    with the new widget. This makes
+                        //    `pairee.preview_widget` and `peek`
+                        //    return-renderable paths work without the
+                        //    user having to press F3 first.
+                        // 3. The widget doesn't apply — the path
+                        //    differs from the active panel; ignore.
                         if let Some(PopupType::QuickViewPanel {
                             path: ref cur_path,
                             ref mut plugin_widget,
@@ -223,6 +234,19 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                             if cur_path == &path {
                                 *plugin_widget = Some(widget);
                             }
+                        } else {
+                            // Activate a fresh preview pane with
+                            // the widget. The empty `content` list
+                            // signals "render the plugin widget,
+                            // not the file body" to the renderer.
+                            let widget = Some(widget);
+                            state.active_popup = Some(PopupType::QuickViewPanel {
+                                path,
+                                content: Vec::new(),
+                                scroll: 0,
+                                image_data: None,
+                                plugin_widget: widget,
+                            });
                         }
                     }
                     PluginRequest::PluginMenuLoaded { installed } => {
