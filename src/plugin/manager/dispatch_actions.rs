@@ -11,6 +11,15 @@ use std::sync::{Mutex, OnceLock};
 
 use super::request::NotifyPayload;
 
+/// Per-test mutex used to serialise the queue-touching tests.
+/// Without this, parallel test runs race on the process-global
+/// pending queue and produce order-dependent failures.
+fn serial_mutex() -> &'static std::sync::Mutex<()> {
+    use std::sync::{Mutex, OnceLock};
+    static M: OnceLock<Mutex<()>> = OnceLock::new();
+    M.get_or_init(|| Mutex::new(()))
+}
+
 /// FIFO queue of `Action`s that the main loop should execute at the
 /// next tick. Populated by `dispatch_emit_action` when a plugin calls
 /// `pairee.emit(name, args)` with an `Action` name that we can parse
@@ -291,6 +300,7 @@ mod tests {
 
     #[test]
     fn test_emit_known_action_queues_for_next_tick() {
+        let _guard = serial_mutex().lock().unwrap();
         // The pre-existing test environment leaves the pending queue
         // non-empty from earlier tests; drain it first so this test
         // starts from a known state.
@@ -314,6 +324,9 @@ mod tests {
 
     #[test]
     fn test_emit_unknown_action_does_not_queue() {
+        // The pending-queue tests below share a process-global
+        // mutex; serialise them so a parallel test cannot race us.
+        let _guard = serial_mutex().lock().unwrap();
         let _ = drain_pending_emit_actions();
         let mut state = fresh_state();
         let cfg = crate::config::AppConfig::load_or_create().expect("config");
@@ -334,6 +347,7 @@ mod tests {
 
     #[test]
     fn test_emit_destructive_action_blocked_in_secure_mode() {
+        let _guard = serial_mutex().lock().unwrap();
         // §6 Secure-Mode: `Delete`, `WipeFile`, and `Move` must not
         // be emitted by a plugin even when the resolver knows the
         // action. We exercise the canonical spelling ("delete").
@@ -363,6 +377,7 @@ mod tests {
 
     #[test]
     fn test_emit_destructive_action_allowed_outside_secure_mode() {
+        let _guard = serial_mutex().lock().unwrap();
         let _ = drain_pending_emit_actions();
         let mut state = fresh_state();
         let cfg = crate::config::AppConfig::load_or_create().expect("config");

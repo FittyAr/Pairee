@@ -18,12 +18,11 @@
 local M = {}
 
 -- Read the active panel's current directory from the M3 slim cx
--- snapshot. The plugin falls back to the user's home directory
--- if the snapshot is missing (e.g. when run from a sync
--- context that hasn't built cx yet).
+-- snapshot. `cx.active.current.cwd` is a `Url` userdata in M2+;
+-- `tostring` on the userdata returns the path string.
 local function active_cwd()
     local ok, cwd = pcall(function()
-        return pairee.cx.active.current.cwd
+        return tostring(pairee.cx.active.current.cwd)
     end)
     if ok and type(cwd) == "string" and cwd ~= "" then
         return cwd

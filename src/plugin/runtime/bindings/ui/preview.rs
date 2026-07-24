@@ -153,9 +153,13 @@ pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
             if let Ok(l) = ud.borrow::<Line>()        { return Ok(line_to_plugin(&l)); }
             if let Ok(t) = ud.borrow::<Text>()        { return Ok(text_to_plugin(&t)); }
             if let Ok(p) = ud.borrow::<super::elements::paragraph::Paragraph>() {
-                return Ok(PW::Paragraph(p.text.lines.iter().map(|l|
-                    l.spans.iter().map(|s| s.text.clone()).collect::<Vec<_>>().join(" ")
-                ).collect::<Vec<_>>().join("\n")));
+                // Convert the Paragraph's underlying Text to a
+                // RichText so each line preserves its per-span styles.
+                // The paragraph-level style (alignment, wrap) is
+                // not preserved in the legacy PluginWidget::Paragraph
+                // path; the M4-T2 Renderable dispatch renders the
+                // raw RichText directly without loss.
+                return Ok(text_to_plugin(&p.text));
             }
             if let Ok(l) = ud.borrow::<super::elements::list::List>() {
                 return Ok(PW::List(l.items.clone()));

@@ -48,8 +48,16 @@ fn handle_input(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
     let mut new_cursor = cursor_idx;
     match key.code {
         KeyCode::Char(c) => {
-            new_input.push(c);
-            new_cursor = new_input.chars().count();
+            // Insert `c` at the current cursor position. The input
+            // is a `String` (UTF-8 safe); we operate on the byte
+            // index of the cursor so multibyte characters survive.
+            let byte_idx = new_input
+                .char_indices()
+                .nth(new_cursor)
+                .map(|(i, _)| i)
+                .unwrap_or(new_input.len());
+            new_input.insert(byte_idx, c);
+            new_cursor += 1;
             state.active_popup = Some(PopupType::PluginInputDialog {
                 title,
                 input: new_input,
@@ -60,8 +68,17 @@ fn handle_input(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
             Ok(None)
         }
         KeyCode::Backspace => {
-            new_input.pop();
-            new_cursor = new_input.chars().count();
+            // Delete the character before the cursor. If the
+            // cursor is at the start, no-op.
+            if new_cursor > 0 {
+                let prev_idx = new_input
+                    .char_indices()
+                    .nth(new_cursor - 1)
+                    .map(|(i, _)| i)
+                    .unwrap_or(0);
+                new_input.remove(prev_idx);
+                new_cursor -= 1;
+            }
             state.active_popup = Some(PopupType::PluginInputDialog {
                 title,
                 input: new_input,
@@ -427,6 +444,77 @@ mod tests {
         let result = handle(&mut state, key);
         assert!(result.is_err());
         assert!(state.active_popup.is_some());
+    }
+
+    #[test]
+    fn test_input_dialog_inserts_at_cursor() {
+        // The cursor sits between 'a' and 'b' (cursor_idx = 1).
+        // Typing 'X' must insert at that position, not append.
+        let mut state = fresh_state();
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        state.active_popup = Some(PopupType::PluginInputDialog {
+            title: "T".into(),
+            input: "ab".into(),
+            cursor_idx: 1,
+            obscure: false,
+            reply_tx: Some(tx),
+        });
+        let key = KeyEvent::new(KeyCode::Char('X'), KeyModifiers::NONE);
+        let _ = handle(&mut state, key);
+        match state.active_popup {
+            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+                assert_eq!(input, "aXb");
+                assert_eq!(cursor_idx, 2);
+            }
+            _ => panic!("input popup not preserved"),
+        }
+    }
+
+    #[test]
+    fn test_input_dialog_backspace_at_cursor() {
+        // Cursor after 'b' (idx=2). Backspace removes 'b'.
+        let mut state = fresh_state();
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        state.active_popup = Some(PopupType::PluginInputDialog {
+            title: "T".into(),
+            input: "ab".into(),
+            cursor_idx: 2,
+            obscure: false,
+            reply_tx: Some(tx),
+        });
+        let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
+        let _ = handle(&mut state, key);
+        match state.active_popup {
+            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+                assert_eq!(input, "a");
+                assert_eq!(cursor_idx, 1);
+            }
+            _ => panic!("input popup not preserved"),
+        }
+    }
+
+    #[test]
+    fn test_input_dialog_backspace_at_start_is_noop() {
+        // Cursor at the start (idx=0). Backspace must not panic
+        // and the input must remain unchanged.
+        let mut state = fresh_state();
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        state.active_popup = Some(PopupType::PluginInputDialog {
+            title: "T".into(),
+            input: "ab".into(),
+            cursor_idx: 0,
+            obscure: false,
+            reply_tx: Some(tx),
+        });
+        let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
+        let _ = handle(&mut state, key);
+        match state.active_popup {
+            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+                assert_eq!(input, "ab");
+                assert_eq!(cursor_idx, 0);
+            }
+            _ => panic!("input popup not preserved"),
+        }
     }
 }
 

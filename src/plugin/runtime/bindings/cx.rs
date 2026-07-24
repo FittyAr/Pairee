@@ -300,6 +300,12 @@ mod tests {
         assert!(current.contains_key("entries").unwrap());
         let parent: mlua::Table = active.get("parent").unwrap();
         assert!(parent.contains_key("entries_count").unwrap());
+        // The parent panel's cwd is `/tmp` (the default workspace
+        // for the test state) and it should round-trip through
+        // the Url userdata.
+        let parent_cwd: mlua::AnyUserData = parent.get("cwd").unwrap();
+        let path: String = lua.load("return tostring(cx.active.parent.cwd)").eval().unwrap();
+        assert_eq!(path, "/tmp");
     }
 
     #[test]
