@@ -169,7 +169,7 @@ mod tests {
         assert_eq!(resolver.resolve(key_up), Some(Action::MoveUp));
 
         let key_f7 = KeyEvent::new(KeyCode::F(7), KeyModifiers::empty());
-        assert_eq!(resolver.resolve(key_f7), Some(Action::MkDir));
+        assert_eq!(resolver.resolve(key_f7), Some(Action::Rename));
 
         let key_f8 = KeyEvent::new(KeyCode::F(8), KeyModifiers::empty());
         assert_eq!(resolver.resolve(key_f8), Some(Action::Delete));
