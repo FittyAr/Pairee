@@ -107,6 +107,16 @@ pub enum GitPendingAction {
     Checkout(String),
 }
 
+/// Action approved in GitConfirmAction popup.
+#[derive(Debug, Clone)]
+pub enum GitConfirmedAction {
+    DeleteBranch(String),
+    MergeBranch(String),
+    StashDrop(usize),
+    StashPop(usize),
+    ResetCommit(String, crate::git::reset::ResetMode),
+}
+
 #[derive(Debug, Clone)]
 pub struct EditorState {
     pub path: PathBuf,
@@ -511,16 +521,17 @@ pub enum PopupType {
     },
 
     // ── Git Integration ───────────────────────────────────────────────────────
-    /// Main Git panel with tabs: Status / Log / Branches
+    /// Main Git panel with tabs: Status / Log / Branches / Stash
     GitPanel {
         repo_path: std::path::PathBuf,
-        /// 0=Status, 1=Log, 2=Branches
+        /// 0=Status, 1=Log, 2=Branches, 3=Stash
         active_tab: usize,
         cursor_idx: usize,
         scroll: usize,
         status_entries: Vec<crate::git::status::GitFileStatus>,
         log_entries: Vec<crate::git::log::CommitInfo>,
         branch_entries: Vec<crate::git::branches::BranchInfo>,
+        stash_entries: Vec<crate::git::stash::StashInfo>,
         current_branch: String,
         #[allow(dead_code)]
         pending_action: Option<GitPendingAction>,
@@ -537,6 +548,44 @@ pub enum PopupType {
         target: String,
         is_branch: bool,
         repo_path: std::path::PathBuf,
+    },
+    /// View Git unified diff for a file or commit
+    GitDiffView {
+        repo_path: std::path::PathBuf,
+        file_path: Option<String>,
+        commit_hash: Option<String>,
+        diff_content: String,
+        scroll_y: usize,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering new branch name
+    GitBranchCreatePrompt {
+        input: String,
+        cursor_idx: usize,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering a new name for an existing branch
+    GitBranchRenamePrompt {
+        input: String,
+        cursor_idx: usize,
+        old_name: String,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering a stash message
+    GitStashSavePrompt {
+        input: String,
+        cursor_idx: usize,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Generic confirmation dialog for Git destructive or integration actions
+    GitConfirmAction {
+        message: String,
+        repo_path: std::path::PathBuf,
+        action: GitConfirmedAction,
+        previous_popup: Box<PopupType>,
     },
 
     // ── SSH Connection ────────────────────────────────────────────────────────

@@ -19,6 +19,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         status_entries,
         log_entries,
         branch_entries,
+        stash_entries,
         current_branch,
         repo_path,
         ..
@@ -69,6 +70,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             crate::config::localization::t("git_tab_status"),
             crate::config::localization::t("git_tab_log"),
             crate::config::localization::t("git_tab_branches"),
+            crate::config::localization::t("git_tab_stash"),
         ];
         let mut tab_spans: Vec<Span> = Vec::new();
         for (i, name) in tab_names.iter().enumerate() {
@@ -126,6 +128,13 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
                 list_height,
                 theme,
             ),
+            3 => render_stash_lines(
+                stash_entries,
+                *cursor_idx,
+                effective_scroll,
+                list_height,
+                theme,
+            ),
             _ => Vec::new(),
         };
 
@@ -146,7 +155,8 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         let hint = match active_tab {
             0 => crate::config::localization::t("git_hint_status"),
             1 => crate::config::localization::t("git_hint_log"),
-            _ => crate::config::localization::t("git_hint_branches"),
+            2 => crate::config::localization::t("git_hint_branches"),
+            _ => crate::config::localization::t("git_hint_stash"),
         };
         f.render_widget(
             Paragraph::new(Span::styled(hint, Style::default().fg(Color::Yellow))),
@@ -308,3 +318,47 @@ fn render_branch_lines(
         })
         .collect()
 }
+
+fn render_stash_lines(
+    entries: &[crate::git::stash::StashInfo],
+    cursor_idx: usize,
+    scroll: usize,
+    height: usize,
+    theme: &Theme,
+) -> Vec<Line<'static>> {
+    entries
+        .iter()
+        .enumerate()
+        .skip(scroll)
+        .take(height)
+        .map(|(i, stash)| {
+            let is_cursor = i == cursor_idx;
+            let bg = if is_cursor {
+                parse_color(&theme.selection_bg)
+            } else {
+                parse_color(&theme.popup_bg)
+            };
+            let fg = if is_cursor {
+                parse_color(&theme.selection_fg)
+            } else {
+                parse_color(&theme.popup_fg)
+            };
+            let short_oid = if stash.oid.len() > 7 { &stash.oid[..7] } else { &stash.oid };
+            Line::from(vec![
+                Span::styled(
+                    format!(" stash@{{{}}} ", stash.index),
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .bg(bg)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("{} ", short_oid),
+                    Style::default().fg(Color::DarkGray).bg(bg),
+                ),
+                Span::styled(stash.message.clone(), Style::default().fg(fg).bg(bg)),
+            ])
+        })
+        .collect()
+}
+

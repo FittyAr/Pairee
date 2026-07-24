@@ -40,6 +40,7 @@ pub mod viewer;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_panel;
+pub mod git_new_popups;
 pub mod ssh_connect;
 pub mod update_popup;
 pub mod yazi_popup;
@@ -120,6 +121,11 @@ pub fn handle_popup_input(
             PopupType::GitConfirmCheckout { .. } => {
                 git_confirm_checkout::handle(state, key, context)
             }
+            PopupType::GitDiffView { .. } => git_new_popups::handle_diff(state, key, context),
+            PopupType::GitBranchCreatePrompt { .. }
+            | PopupType::GitBranchRenamePrompt { .. }
+            | PopupType::GitStashSavePrompt { .. } => git_new_popups::handle_prompt(state, key, context),
+            PopupType::GitConfirmAction { .. } => git_new_popups::handle_confirm_action(state, key, context),
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             PopupType::TransferPanel => transfer_panel::handle(state, key, context),

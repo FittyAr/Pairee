@@ -609,7 +609,7 @@ pub async fn handle_ui_settings_action(
             }
             let panel_path = state.get_active_panel().current_path.clone();
             match crate::git::repo::find_repo(&panel_path) {
-                Some(repo) => {
+                Some(mut repo) => {
                     let repo_path =
                         crate::git::repo::get_workdir(&repo).unwrap_or_else(|| panel_path.clone());
                     let current_branch = repo
@@ -621,6 +621,7 @@ pub async fn handle_ui_settings_action(
                     let status_entries = crate::git::status::get_status(&repo);
                     let log_entries = crate::git::log::get_log(&repo, limit);
                     let branch_entries = crate::git::branches::get_branches(&repo);
+                    let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
                     state.active_popup = Some(crate::app::state::PopupType::GitPanel {
                         repo_path,
                         active_tab: 0,
@@ -629,6 +630,7 @@ pub async fn handle_ui_settings_action(
                         status_entries,
                         log_entries,
                         branch_entries,
+                        stash_entries,
                         current_branch,
                         pending_action: None,
                     });
