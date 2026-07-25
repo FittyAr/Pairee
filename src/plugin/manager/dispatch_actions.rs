@@ -11,6 +11,29 @@ use std::sync::{Mutex, OnceLock};
 
 use super::request::NotifyPayload;
 
+/// §6 Secure-Mode equivalent: canonicalise `path` (following
+/// symlinks) and require it to live inside the workspace, config, or
+/// cache directories — the same boundary that `pairee.fs.read` /
+/// `PluginRequest::Cd` enforce. Returns the canonical path on
+/// success, or `None` if the path is outside the sandbox (caller
+/// should treat this as a no-op + warn).
+pub fn validate_workspace_path(path: &Path) -> Option<PathBuf> {
+    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let allowed = [
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+        crate::config::paths::get_config_dir(),
+        crate::config::paths::get_cache_dir(),
+    ];
+    if allowed.iter().any(|root| {
+        let r = root.canonicalize().unwrap_or_else(|_| root.clone());
+        canonical.starts_with(&r)
+    }) {
+        Some(canonical)
+    } else {
+        None
+    }
+}
+
 /// Per-test mutex used to serialise the queue-touching tests.
 /// Without this, parallel test runs race on the process-global
 /// pending queue and produce order-dependent failures.
@@ -146,9 +169,26 @@ pub fn dispatch_emit_action(
                     return;
                 }
             };
-            state.get_active_panel_mut().current_path = PathBuf::from(&path);
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            log::info!("pairee.emit('cd') -> {:?}", path);
+            // §6 Secure-Mode equivalent: validate the destination
+            // path against the workspace / config / cache sandbox
+            // before mutating the active panel. The dispatcher
+            // enforces the same check on `PluginRequest::Cd`;
+            // applying it here closes the `pairee.emit('cd', ...)`
+            // bypass.
+            let p = PathBuf::from(&path);
+            match validate_workspace_path(&p) {
+                Some(canonical) => {
+                    state.get_active_panel_mut().current_path = canonical;
+                    state.refresh_both_panels(context.config.settings.show_hidden);
+                    log::info!("pairee.emit('cd') -> {:?}", path);
+                }
+                None => {
+                    log::warn!(
+                        "pairee.emit('cd') rejected: {:?} is outside the workspace / config / cache",
+                        p
+                    );
+                }
+            }
         }
         ("set_focus", _) | ("focus", _) => {
             let side = match args {
@@ -196,9 +236,43 @@ pub fn dispatch_emit_action(
 /// file's metadata (path + modification time) and the `skip` value, so
 /// previewers can cache generated content (e.g. image conversions) and
 /// reuse the cache across invocations without recomputing.
+///
+/// §6 Secure-Mode equivalent: the file path must live inside the
+/// workspace, config, or cache roots — the same boundary that
+/// `pairee.fs.read` enforces. Without this check a plugin could probe
+/// arbitrary filesystem paths by observing whether `file_cache` returns
+/// a value (the cache key is deterministically derived from the path
+/// bytes, so existence/non-existence becomes a side channel). We also
+/// refuse to compute a cache path when the input cannot be canonicalized
+/// (broken symlink, non-existent file) because the file must already
+/// exist for any cache to be meaningful — and the canonicalize-fail
+/// itself would already probe the filesystem.
 pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
+
+    // §6: strict canonicalize. The path must exist on disk and
+    // resolve to a location inside the workspace / config / cache.
+    // A failure here means we cannot prove the path is in-bounds,
+    // so we treat it as a probe attempt and refuse.
+    let canonical = match file_path.canonicalize() {
+        Ok(c) => c,
+        Err(_) => {
+            log::warn!(
+                "pairee.file_cache rejected: {:?} does not canonicalize (path missing, \
+                 broken symlink, or unreadable)",
+                file_path
+            );
+            return None;
+        }
+    };
+    if validate_workspace_path(&canonical).is_none() {
+        log::warn!(
+            "pairee.file_cache rejected: {:?} is outside the workspace / config / cache",
+            file_path
+        );
+        return None;
+    }
 
     let cache_root = crate::config::paths::get_cache_dir();
     let preview_cache = cache_root.join("preview_cache");
@@ -210,9 +284,6 @@ pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf>
         return None;
     }
 
-    let canonical = file_path
-        .canonicalize()
-        .unwrap_or_else(|_| file_path.to_path_buf());
     let mut hasher = DefaultHasher::new();
     canonical.hash(&mut hasher);
     skip.hash(&mut hasher);
@@ -277,7 +348,12 @@ mod tests {
 
     #[test]
     fn test_compute_file_cache_path_is_stable() {
-        let p = std::env::temp_dir().join("pairee_cache_test.txt");
+        // §6: the file must live inside the workspace. Use the
+        // current working directory (the workspace) and place the
+        // fixture there.
+        let p = std::env::current_dir()
+            .unwrap()
+            .join("pairee_cache_test.txt");
         std::fs::write(&p, "data").unwrap();
         let a = compute_file_cache_path(&p, 0).expect("cache path");
         let b = compute_file_cache_path(&p, 0).expect("cache path");
@@ -290,12 +366,37 @@ mod tests {
 
     #[test]
     fn test_compute_file_cache_path_returns_dir() {
-        let p = std::env::temp_dir();
+        // Use the workspace root as the input; the cache file still
+        // lives under <cache_dir>/preview_cache/.
+        let p = std::env::current_dir().unwrap();
         let cache = compute_file_cache_path(&p, 0).expect("cache path");
-        // The cache file lives under <cache_dir>/preview_cache/, not at
-        // the root temp dir.
         let parent = cache.parent().expect("cache has a parent dir");
         assert!(parent.ends_with("preview_cache"));
+    }
+
+    #[test]
+    fn test_compute_file_cache_path_rejects_outside_workspace() {
+        // §6: a path outside the workspace / config / cache roots
+        // must NOT produce a cache path. The helper returns `None`
+        // and logs a warning.
+        let p = std::path::PathBuf::from("/etc/should-be-rejected.txt");
+        assert!(
+            compute_file_cache_path(&p, 0).is_none(),
+            "file_cache must reject paths outside the workspace / config / cache"
+        );
+    }
+
+    #[test]
+    fn test_compute_file_cache_path_rejects_broken_symlink() {
+        // §6: a path that does not exist (broken symlink target)
+        // cannot be canonicalized; we treat this as a probe attempt
+        // and return None rather than falling back to the raw path.
+        let workspace = std::env::current_dir().unwrap();
+        let broken = workspace.join("pairee_does_not_exist_xyzzy.txt");
+        assert!(
+            compute_file_cache_path(&broken, 0).is_none(),
+            "file_cache must reject paths that fail to canonicalize"
+        );
     }
 
     #[test]
@@ -398,5 +499,82 @@ mod tests {
             "non-secure-mode emit of 'delete' must succeed"
         );
         assert_eq!(queued[0], crate::keybindings::Action::Delete);
+    }
+
+    #[tokio::test]
+    async fn test_emit_cd_accepts_workspace_path() {
+        // The `cd` action via `pairee.emit` must canonicalize and
+        // accept any directory inside the workspace, config, or cache
+        // roots.
+        let workspace = std::env::current_dir().unwrap();
+        let tmp = tempfile::tempdir_in(&workspace).unwrap();
+        let mut state = AppState::new(tmp.path().to_path_buf(), tmp.path().to_path_buf());
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        let context = crate::app::context::AppContext::new(cfg);
+        let pre = state.get_active_panel().current_path.clone();
+        let new_path = tmp.path().join("sub");
+        std::fs::create_dir_all(&new_path).unwrap();
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "cd",
+            &serde_json::json!(new_path.to_string_lossy().to_string()),
+        );
+        let post = state.get_active_panel().current_path.clone();
+        assert_ne!(pre, post, "active panel cwd must change after emit cd");
+        assert!(
+            post.starts_with(tmp.path().canonicalize().unwrap()),
+            "post-cd cwd must remain inside the workspace"
+        );
+    }
+
+    #[test]
+    fn test_emit_cd_rejects_outside_workspace() {
+        // The `cd` action via `pairee.emit` must NOT navigate the
+        // active panel to a directory outside the workspace /
+        // config / cache roots. The dispatcher logs a warning and
+        // leaves `current_path` untouched.
+        let tmp = tempfile::tempdir().unwrap();
+        let mut state = AppState::new(tmp.path().to_path_buf(), tmp.path().to_path_buf());
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        let context = crate::app::context::AppContext::new(cfg);
+        let pre = state.get_active_panel().current_path.clone();
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "cd",
+            &serde_json::json!("/etc/should-be-rejected"),
+        );
+        let post = state.get_active_panel().current_path.clone();
+        assert_eq!(
+            pre, post,
+            "active panel cwd must NOT change after outside-workspace emit cd"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_emit_cd_accepts_object_with_path_field() {
+        // The `cd` action also accepts `{ path = "..." }` as its
+        // args, matching the documented shape in the dispatcher.
+        let workspace = std::env::current_dir().unwrap();
+        let tmp = tempfile::tempdir_in(&workspace).unwrap();
+        let mut state = AppState::new(tmp.path().to_path_buf(), tmp.path().to_path_buf());
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        let context = crate::app::context::AppContext::new(cfg);
+        let new_path = tmp.path().join("inner");
+        std::fs::create_dir_all(&new_path).unwrap();
+        dispatch_emit_action(
+            &mut state,
+            &context,
+            "cd",
+            &serde_json::json!({ "path": new_path.to_string_lossy().to_string() }),
+        );
+        assert!(
+            state
+                .get_active_panel()
+                .current_path
+                .starts_with(tmp.path().canonicalize().unwrap()),
+            "object-shaped args must be honoured and validated against the workspace"
+        );
     }
 }

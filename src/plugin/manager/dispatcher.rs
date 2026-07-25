@@ -13,7 +13,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use std::path::{Path, PathBuf};
 
-use super::dispatch_actions::compute_file_cache_path;
+use super::dispatch_actions::{compute_file_cache_path, validate_workspace_path};
 
 /// Processes plugin requests in the main application loop.
 pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
@@ -63,29 +63,18 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         // directories — the same boundary that
                         // `pairee.fs.read` enforces.
                         let p = PathBuf::from(&path);
-                        let canonical = p
-                            .canonicalize()
-                            .unwrap_or_else(|_| p.clone());
-                        let allowed = [
-                            std::env::current_dir()
-                                .unwrap_or_else(|_| PathBuf::from(".")),
-                            crate::config::paths::get_config_dir(),
-                            crate::config::paths::get_cache_dir(),
-                        ];
-                        if !allowed.iter().any(|root| {
-                            let r = root
-                                .canonicalize()
-                                .unwrap_or_else(|_| root.clone());
-                            canonical.starts_with(&r)
-                        }) {
-                            log::warn!(
-                                "Plugin cd rejected: {:?} is outside the workspace / config / cache",
-                                p
-                            );
-                            return;
+                        match validate_workspace_path(&p) {
+                            Some(canonical) => {
+                                state.get_active_panel_mut().current_path = canonical;
+                                state.refresh_both_panels(context.config.settings.show_hidden);
+                            }
+                            None => {
+                                log::warn!(
+                                    "Plugin cd rejected: {:?} is outside the workspace / config / cache",
+                                    p
+                                );
+                            }
                         }
-                        state.get_active_panel_mut().current_path = canonical;
-                        state.refresh_both_panels(context.config.settings.show_hidden);
                     }
                     PluginRequest::SetFocus { side } => {
                         if side == "left" {
