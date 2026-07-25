@@ -20,21 +20,6 @@ pub enum PluginTaskRequest {
         job: PreviewJob,
         reply_tx: oneshot::Sender<Option<PluginWidget>>,
     },
-    /// M3: call the plugin's `preload(job)` function. The reply
-    /// tuple is `(complete: bool, err: Option<String>)`: the
-    /// previewer signals whether it is done with this file and
-    /// can be evicted from the cache.
-    Preload {
-        job: PreviewJob,
-        reply_tx: oneshot::Sender<(bool, Option<String>)>,
-    },
-    /// M3: call the plugin's `seek(job)` function with a new
-    /// `skip` value. The previewer returns the resulting widget
-    /// so the UI can replace the rendered preview in place.
-    Seek {
-        job: PreviewJob,
-        reply_tx: oneshot::Sender<Option<PluginWidget>>,
-    },
     ExecuteCommand {
         args: Vec<String>,
     },
@@ -99,14 +84,6 @@ pub async fn register_plugin(
             match req {
                 PluginTaskRequest::Peek { job, reply_tx } => {
                     let res = execute_peek_internal(&lua, &table_key, job);
-                    let _ = reply_tx.send(res);
-                }
-                PluginTaskRequest::Preload { job, reply_tx } => {
-                    let res = execute_preload_internal(&lua, &table_key, job);
-                    let _ = reply_tx.send(res);
-                }
-                PluginTaskRequest::Seek { job, reply_tx } => {
-                    let res = execute_seek_internal(&lua, &table_key, job);
                     let _ = reply_tx.send(res);
                 }
                 PluginTaskRequest::ExecuteCommand { args } => {
@@ -212,51 +189,7 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
     }
 }
 
-/// Calls the plugin's `preload(job)` Lua function and returns
-/// `(complete, err)`. The reply is `true` on success; an error
-/// is `Some("...")` if the plugin threw.
-fn execute_preload_internal(
-    lua: &mlua::Lua,
-    table_key: &mlua::RegistryKey,
-    job: PreviewJob,
-) -> (bool, Option<String>) {
-    let table: mlua::Table = match lua.registry_value(table_key) {
-        Ok(t) => t,
-        Err(_) => return (true, Some("plugin table missing".to_string())),
-    };
-    let preload_fn = match table.get::<_, mlua::Function>("preload") {
-        Ok(f) => f,
-        Err(_) => return (true, None), // no preload → cacheable by default
-    };
-    let job_table = build_job_table(lua, &job);
-    match preload_fn.call::<_, ()>((table, job_table)) {
-        Ok(()) => (true, None),
-        Err(e) => (false, Some(format!("{e}"))),
-    }
-}
-
-/// Calls the plugin's `seek(job)` Lua function. Returns the
-/// resulting widget (or `None` on error / if the plugin does
-/// not implement `seek`).
-fn execute_seek_internal(
-    lua: &mlua::Lua,
-    table_key: &mlua::RegistryKey,
-    job: PreviewJob,
-) -> Option<PluginWidget> {
-    let table: mlua::Table = lua.registry_value(table_key).ok()?;
-    let seek_fn = table.get::<_, mlua::Function>("seek").ok()?;
-    let job_table = build_job_table(lua, &job);
-    let result: mlua::Value = match seek_fn.call((table, job_table)) {
-        Ok(v) => v,
-        Err(e) => {
-            log::error!("Error in plugin seek: {:?}", e);
-            return None;
-        }
-    };
-    lua.from_value(result).ok()
-}
-
-/// Shared `peek`/`preload`/`seek` job-table builder.
+/// Shared `peek` job-table builder.
 fn build_job_table<'lua>(lua: &'lua mlua::Lua, job: &PreviewJob) -> mlua::Table<'lua> {
     let job_table = lua.create_table().unwrap_or_else(|_| {
         // create_table doesn't fail in practice for an empty
@@ -313,49 +246,6 @@ pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<PluginWidget> 
         let (reply_tx, reply_rx) = oneshot::channel();
         if tx
             .send(PluginTaskRequest::Peek { job, reply_tx })
-            .await
-            .is_ok()
-        {
-            reply_rx.await.ok().flatten()
-        } else {
-            None
-        }
-    } else {
-        None
-    }
-}
-
-/// M3: ask the plugin to preload a file. Returns `true` when the
-/// previewer has finished with the file (the cache can evict it)
-/// and `false` on error.
-pub async fn run_preloader(name: &str, job: PreviewJob) -> (bool, Option<String>) {
-    let registry = get_registry();
-    let channels = registry.channels.read().await;
-    if let Some(tx) = channels.get(name) {
-        let (reply_tx, reply_rx) = oneshot::channel();
-        if tx
-            .send(PluginTaskRequest::Preload { job, reply_tx })
-            .await
-            .is_ok()
-        {
-            reply_rx.await.unwrap_or((true, None))
-        } else {
-            (true, Some("channel closed".to_string()))
-        }
-    } else {
-        (true, Some("plugin not loaded".to_string()))
-    }
-}
-
-/// M3: ask the plugin to seek inside a file. Returns the new
-/// rendered widget.
-pub async fn run_seeker(name: &str, job: PreviewJob) -> Option<PluginWidget> {
-    let registry = get_registry();
-    let channels = registry.channels.read().await;
-    if let Some(tx) = channels.get(name) {
-        let (reply_tx, reply_rx) = oneshot::channel();
-        if tx
-            .send(PluginTaskRequest::Seek { job, reply_tx })
             .await
             .is_ok()
         {

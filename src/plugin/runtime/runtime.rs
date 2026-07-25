@@ -127,18 +127,15 @@ impl Runtime {
         g.insert(plugin_name.to_string(), key);
     }
 
-    /// Fetch the per-plugin `pairee.state` registry key, if any.
-    /// The caller can then call `lua.registry_value(&key)` to
-    /// obtain the table (while the plugin's `Lua` is alive).
-    pub fn plugin_state_key(&self, plugin_name: &str) -> Option<mlua::RegistryKey> {
-        // We have to return an owned key. `RegistryKey` is not
-        // `Clone`; instead we expose a "lookup" that the caller
-        // wraps in a `Lua::registry_value` invocation. Today the
-        // `state` binding uses a single-table attached to the
-        // plugin's `Lua` and never re-attaches across plugins,
-        // so this branch is rarely taken. The API is left here
-        // for the M3.5 follow-up.
-        let _ = plugin_name;
+    /// Lookup hook for future use; always returns `None` because
+    /// `mlua::RegistryKey` cannot be cloned across `Lua` instances.
+    /// The current per-plugin state surface is set once at load time
+    /// by [`crate::plugin::runtime::bindings::state::attach`] and
+    /// does not need reattachment — so there is no live caller of
+    /// this method today. Kept for forward-compatibility with the
+    /// planned M3.5 follow-up.
+    #[allow(dead_code)]
+    pub fn plugin_state_key(&self, _plugin_name: &str) -> Option<mlua::RegistryKey> {
         None
     }
 }
