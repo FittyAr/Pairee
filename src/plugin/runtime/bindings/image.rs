@@ -195,8 +195,14 @@ fn color_string(img: &image::DynamicImage) -> String {
     }
 }
 
+/// Returns `true` only when `path` exists and resolves (after
+/// symlink resolution) to a location inside the workspace / config /
+/// cache roots. Paths that fail to canonicalise return `false`.
 fn is_workspace_path(path: &Path) -> bool {
-    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let canonical = match path.canonicalize() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
     let allowed_roots = [
         std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from(".")),
         crate::config::paths::get_config_dir(),

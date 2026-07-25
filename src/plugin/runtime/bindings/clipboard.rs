@@ -100,12 +100,18 @@ fn write_clipboard_text(text: &str) -> anyhow::Result<()> {
         .map_err(|e| anyhow::anyhow!("clipboard write failed: {e}"))
 }
 
-/// Returns `true` if the given path is inside the user's current
+/// Returns `true` if the given path exists AND resolves (after
+/// symlink resolution) to a location inside the user's current
 /// working directory, the Pairee config dir, or the Pairee cache
-/// dir. Used for the Secure-Mode soft-warn on `clipboard(text)` when
-/// the value looks like a path.
+/// dir. Paths that fail to canonicalise return `false` — the
+/// clipboard text is rarely a valid path, so the conservative
+/// answer is "no, this is not a workspace path" (which triggers
+/// the Secure-Mode soft warning rather than silently passing).
 fn is_workspace_path(path: &Path) -> bool {
-    let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
+    let canonical = match path.canonicalize() {
+        Ok(c) => c,
+        Err(_) => return false,
+    };
     let allowed_roots = [
         std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
         crate::config::paths::get_config_dir(),

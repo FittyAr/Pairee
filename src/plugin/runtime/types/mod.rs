@@ -78,6 +78,7 @@ pub fn register(lua: &mlua::Lua, pairee: &mlua::Table<'_>) -> mlua::Result<()> {
                 uid: opts.get::<_, u32>("uid").ok(),
                 gid: opts.get::<_, u32>("gid").ok(),
                 nlink: 1,
+                path: None,
             };
             lua.create_userdata(cha).map(mlua::Value::UserData)
         })?,

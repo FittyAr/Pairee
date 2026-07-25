@@ -130,6 +130,14 @@ pub struct Cha {
     pub uid: Option<u32>,
     pub gid: Option<u32>,
     pub nlink: u64,
+    /// Optional filesystem path associated with this Cha. When set,
+    /// `is_hidden` can answer correctly by inspecting the path's
+    /// leading `.` marker. Constructors that do not have a path
+    /// (e.g. the `Cha{...}` Lua-table ctor, or `Cha::dummy()`)
+    /// leave this as `None`, and `is_hidden` returns `false` —
+    /// matching the legacy behaviour and avoiding any filesystem
+    /// probe from a getter.
+    pub path: Option<std::path::PathBuf>,
 }
 
 impl Cha {
@@ -151,6 +159,7 @@ impl Cha {
             uid: Some(meta.uid()),
             gid: Some(meta.gid()),
             nlink: meta.nlink(),
+            path: None,
         }
     }
 
@@ -167,7 +176,22 @@ impl Cha {
             uid: None,
             gid: None,
             nlink: 1,
+            path: None,
         }
+    }
+
+    /// Like [`Cha::from_metadata`] but additionally records the path
+    /// so that `is_hidden()` can answer correctly. The path is
+    /// stored verbatim (no canonicalisation) — callers must use a
+    /// path that does not require probing the filesystem.
+    pub fn from_metadata_with_path(
+        meta: &std::fs::Metadata,
+        follow: bool,
+        path: std::path::PathBuf,
+    ) -> Self {
+        let mut cha = Self::from_metadata(meta, follow);
+        cha.path = Some(path);
+        cha
     }
 
     /// Build a placeholder `Cha` for a file that does not (yet)
@@ -184,12 +208,20 @@ impl Cha {
             uid: None,
             gid: None,
             nlink: 1,
+            path: None,
         }
     }
 
-    /// Hash the path's contents (or the first `long?` bytes of it).
-    /// Returns a 128-bit XxHash3 value as a 32-character hex string.
-    pub fn hash(&self, path: &Path, long: bool) -> std::io::Result<String> {
+    /// Fast (non-cryptographic) hash of the path's contents. Returns a
+    /// 128-bit XxHash3 value as a 32-character hex string.
+    ///
+    /// **Not cryptographically secure.** Collisions can be constructed
+    /// by an adversary. Plugins that need integrity or tamper
+    /// detection must use [`Cha::sha256`] instead.
+    ///
+    /// `long = false` reads only the first 4 KiB; `long = true`
+    /// reads the entire file.
+    pub fn fast_hash(&self, path: &Path, long: bool) -> std::io::Result<String> {
         use std::fs::File;
         use std::io::Read;
         use xxhash_rust::xxh3::Xxh3;
@@ -207,6 +239,28 @@ impl Cha {
         }
         Ok(format!("{:032x}", hasher.digest128()))
     }
+
+    /// Cryptographic SHA-256 hash of the path's contents, returned
+    /// as a 64-character lowercase hex string. Suitable for integrity
+    /// checks and tamper detection (this is what the plugin registry
+    /// uses to verify plugin downloads).
+    pub fn sha256(&self, path: &Path) -> std::io::Result<String> {
+        use sha2::{Digest, Sha256};
+        use std::fs::File;
+        use std::io::Read;
+
+        let mut file = File::open(path)?;
+        let mut hasher = Sha256::new();
+        let mut buf = vec![0u8; 64 * 1024];
+        loop {
+            let n = file.read(&mut buf)?;
+            if n == 0 {
+                break;
+            }
+            hasher.update(&buf[..n]);
+        }
+        Ok(format!("{:064x}", hasher.finalize()))
+    }
 }
 
 impl UserData for Cha {
@@ -219,11 +273,20 @@ impl UserData for Cha {
             Ok(this.mode.contains(ChaMode::T_DIR))
         });
         methods.add_method("is_hidden", |_lua, this, ()| {
-            // A file is "hidden" if its first component starts with `.`
-            let is_hidden = false;
-            // We need a path to know this; without a path, return false.
-            let _ = is_hidden;
-            Ok(false)
+            // A file is "hidden" if its basename starts with `.`.
+            // We need a path to know this; without a stored path
+            // the answer is "unknown" and we conservatively report
+            // `false` rather than `true` (which would prevent
+            // plugins from iterating entries that just lack
+            // metadata).
+            Ok(match &this.path {
+                Some(p) => p
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .map(|s| s.starts_with('.'))
+                    .unwrap_or(false),
+                None => false,
+            })
         });
         methods.add_method("is_link", |_lua, this, ()| {
             Ok(this.mode.contains(ChaMode::T_LINK))
@@ -310,6 +373,7 @@ mod tests {
             uid: Some(1000),
             gid: Some(1000),
             nlink: 1,
+            path: None,
         };
         lua.globals().set("cha", lua.create_userdata(cha).unwrap()).unwrap();
         let is_dir: bool = lua.load("return cha:is_dir()").eval().unwrap();
@@ -327,5 +391,52 @@ mod tests {
         lua.globals().set("cha", lua.create_userdata(cha).unwrap()).unwrap();
         let is_orphan: bool = lua.load("return cha:is_orphan()").eval().unwrap();
         assert!(is_orphan);
+    }
+
+    #[test]
+    fn test_cha_is_hidden_with_path() {
+        // `is_hidden` must return true when the basename starts
+        // with `.`, false otherwise. The previous implementation
+        // always returned false (which silently broke the
+        // visibility filter chain in the panel UI).
+        let lua = Lua::new();
+        // Dotfile
+        let cha_hidden = Cha {
+            mode: ChaMode::T_FILE,
+            kind: ChaKind(0),
+            len: 0,
+            atime: None,
+            btime: None,
+            mtime: None,
+            uid: None,
+            gid: None,
+            nlink: 1,
+            path: Some(std::path::PathBuf::from("/workspace/.bashrc")),
+        };
+        lua.globals()
+            .set("hidden", lua.create_userdata(cha_hidden).unwrap())
+            .unwrap();
+        let is_hidden: bool = lua.load("return hidden:is_hidden()").eval().unwrap();
+        assert!(is_hidden, ".bashrc must be reported as hidden");
+
+        // Regular file
+        let cha_visible = Cha {
+            path: Some(std::path::PathBuf::from("/workspace/file.txt")),
+            ..Cha::dummy()
+        };
+        lua.globals()
+            .set("visible", lua.create_userdata(cha_visible).unwrap())
+            .unwrap();
+        let is_visible_hidden: bool =
+            lua.load("return visible:is_hidden()").eval().unwrap();
+        assert!(!is_visible_hidden, "file.txt must NOT be reported as hidden");
+
+        // Cha with no path: must return false (unknown).
+        let cha_no_path = Cha::dummy();
+        lua.globals()
+            .set("orphan", lua.create_userdata(cha_no_path).unwrap())
+            .unwrap();
+        let is_orphan_hidden: bool = lua.load("return orphan:is_hidden()").eval().unwrap();
+        assert!(!is_orphan_hidden, "Cha without a path must NOT be reported as hidden");
     }
 }

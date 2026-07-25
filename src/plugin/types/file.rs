@@ -132,8 +132,31 @@ impl UserData for File {
         methods.add_method("is_selected", |_lua, _this, ()| Ok(false));
         methods.add_method("is_yanked", |_lua, _this, ()| Ok(false));
         methods.add_method("found", |_lua, _this, ()| Ok(true));
+        // `:fast_hash()` — XXH3 (non-cryptographic). Returns the
+        // empty string on I/O error so plugins can use it
+        // defensively, but only with the understanding that the
+        // value is NOT suitable for integrity / tamper-detection.
+        methods.add_method("fast_hash", |_lua, this, ()| {
+            match this.cha.fast_hash(&this.url.path, false) {
+                Ok(h) => Ok(h),
+                Err(_) => Ok(String::new()),
+            }
+        });
+        // `:sha256()` — cryptographic hash. Returns the empty
+        // string on I/O error. Plugins that need to detect tampering
+        // or build a content-addressed store should use this.
+        methods.add_method("sha256", |_lua, this, ()| {
+            match this.cha.sha256(&this.url.path) {
+                Ok(h) => Ok(h),
+                Err(_) => Ok(String::new()),
+            }
+        });
+        // Legacy `:hash()` — kept as an alias of `:fast_hash()` for
+        // compatibility with plugins written against the M4 surface,
+        // but the name no longer implies cryptographic guarantees.
+        // New code should call `:sha256()` when security matters.
         methods.add_method("hash", |_lua, this, ()| {
-            match this.cha.hash(&this.url.path, false) {
+            match this.cha.fast_hash(&this.url.path, false) {
                 Ok(h) => Ok(h),
                 Err(_) => Ok(String::new()),
             }
@@ -198,6 +221,7 @@ mod tests {
                 uid: Some(1000),
                 gid: Some(1000),
                 nlink: 1,
+                path: None,
             },
             link_to: None,
         }
@@ -243,5 +267,25 @@ mod tests {
         // Cha methods reachable through the `cha()` accessor.
         let is_dir: bool = lua.load("return t.f:cha():is_dir()").eval().unwrap();
         assert!(!is_dir);
+    }
+
+    #[test]
+    fn test_file_sha256_matches_known_digest() {
+        // SHA-256 of the empty string is well-known
+        // (`e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855`).
+        // We assert the helper matches for a non-empty fixture too.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hello.txt");
+        std::fs::write(&path, b"hello").unwrap();
+        let cha = Cha::from_metadata(&std::fs::metadata(&path).unwrap(), true);
+        let digest = cha.sha256(&path).expect("sha256");
+        assert_eq!(
+            digest,
+            "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824"
+        );
+        // The legacy `:hash()` alias still works and returns the
+        // XXH3 digest (32 hex chars).
+        let fast = cha.fast_hash(&path, false).expect("fast_hash");
+        assert_eq!(fast.len(), 32);
     }
 }

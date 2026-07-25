@@ -111,12 +111,15 @@ fn build_folder_table<'lua>(
     let mut entries = Vec::new();
     for entry in &panel.entries {
         let url = Url::parse(&entry.path.to_string_lossy());
-        let cha = crate::plugin::types::Cha::from_metadata(
+        // Pass the entry's path through so `Cha:is_hidden()` can
+        // answer correctly (it inspects the basename's leading `.`).
+        let cha = crate::plugin::types::Cha::from_metadata_with_path(
             &std::fs::metadata(&entry.path).unwrap_or_else(|_| {
                 std::fs::metadata(&panel.current_path)
                     .unwrap_or_else(|_| std::fs::metadata("/").unwrap())
             }),
             true,
+            entry.path.clone(),
         );
         let f = File {
             url,
