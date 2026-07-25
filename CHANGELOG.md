@@ -13,6 +13,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ## [Unreleased]
 
+### Fixed
+
+- Plugin `pairee.emit("cd", ...)` now honours the same workspace / config / cache boundary as the legacy `PluginRequest::Cd` path; previously a plugin could navigate the active panel to any directory in the filesystem (e.g. `/etc`, `~/.ssh`) without restriction. A shared `validate_workspace_path` helper is now used by both code paths.
+- `pairee.file_cache({file, skip})` now requires the file path to exist and live inside the workspace, config, or cache roots before computing the cache key. Previously the cache key was derived from any path string a plugin supplied, allowing filesystem probing by observing whether `file_cache` returned a value.
+- `pairee.fs.read`, `fs.write`, `fs.exists`, `fs.stat`, `fs.list`, `fs.cha`, `fs.file` now reject paths that fail to canonicalize in Secure Mode (broken symlinks, non-existent files). The same strict canonicalization was also applied to `pairee.image.show`/`info`/`precache`, `pairee.preview_code`, and the clipboard Secure-Mode warning.
+- `pairee.quote` was unsafe for use inside `cmd.exe /c` strings because it only escaped `"` and `\`, leaving `^`, `&`, `|`, `<`, `>`, `%` unescaped. The Windows branch now follows the CommandLineToArgvW argument-passing rules and the helper was renamed to `pairee.quote_arg` (with `pairee.quote` retained as a deprecated alias) to make the intended scope explicit.
+- The shell-blacklist check used by `fs.spawn` and `Command.spawn` (Secure Mode) previously matched only the exact basename, so `cmd.exe.bak`, `bash.sh`, `python3.real`, and similar copy-as bypass attempts were not caught. The blacklist now matches both the full basename and the stem, and rejects any non-versioned suffix.
+- `File:hash()` was named as if cryptographic but actually returned an XXH3 (non-cryptographic) digest that is trivially collision-prone. Added a `File:sha256()` method for cryptographic integrity verification and renamed the existing helper to `File:fast_hash()` (with `File:hash()` kept as a deprecated alias). Updated `pairee.hash` documentation to flag the non-cryptographic guarantee.
+- `Cha:is_hidden()` previously returned `false` unconditionally, silently breaking visibility filters that depended on it. The `Cha` struct now stores the optional source path so `is_hidden` can answer correctly when the path is known; the live `cx` snapshot passes the path through.
+- `pairee.utils.json_encode` and `json_decode` silently returned `nil` on failure, masking broken downstream pipelines. They now surface a Lua runtime error so plugin authors see the failure.
+
+### Removed
+
+- Unused `PluginTaskRequest::Preload` and `::Seek` variants, the internal `execute_preload_internal`/`execute_seek_internal` helpers, and the public `run_preloader`/`run_seeker` functions. None of these were reachable from the dispatcher or any caller, so removing them is API-internal and plugin-incompatible behaviour is preserved.
+
 ### Added
 
 - `enter_use_external` setting (default `false`) to manually enable launching external association commands (e.g. `nano %f`) when opening files with Enter. Exposed in the Editor & Viewer settings tab as "Use external command when opening files with Enter". Replaces the previous always-on default behavior.
