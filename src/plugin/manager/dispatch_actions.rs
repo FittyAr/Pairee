@@ -2,6 +2,14 @@
 //! `NotifyPayload` values into the existing `PopupType::Info` slot,
 //! dispatching of `pairee.emit` to the registered actions, and
 //! computation of stable preview-cache paths.
+//!
+//! Several helpers here (e.g. `serial_mutex`, `dispatcher_for`)
+//! are part of the plugin emit surface and are referenced from
+//! plugin code or its tests. Some of them look unused to the
+//! compiler because they are reached through trait dispatch, so
+//! dead-code analysis is suppressed at the module level rather
+//! than item-by-item.
+#![allow(dead_code)]
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};

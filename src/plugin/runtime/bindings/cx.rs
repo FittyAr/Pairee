@@ -35,6 +35,7 @@ use std::path::PathBuf;
 
 /// Top-level live-state snapshot built on every main-loop tick.
 #[derive(Debug, Clone, Default)]
+#[allow(dead_code)]
 pub struct CxSnapshot {
     pub cwd: Option<PathBuf>,
     pub selected: Vec<PathBuf>,
@@ -280,7 +281,7 @@ mod tests {
         let g = lua.globals();
         let cx: mlua::Table = g.get("cx").unwrap();
         let active: mlua::Table = cx.get("active").unwrap();
-        let current: mlua::Table = active.get("current").unwrap();
+        let _current: mlua::Table = active.get("current").unwrap();
         // cwd is a Url userdata; verify the path with a Lua script.
         let s: String = lua
             .load("return tostring(cx.active.current.cwd)")
@@ -306,7 +307,7 @@ mod tests {
         // The parent panel's cwd is `/tmp` (the default workspace
         // for the test state) and it should round-trip through
         // the Url userdata.
-        let parent_cwd: mlua::AnyUserData = parent.get("cwd").unwrap();
+        let _parent_cwd: mlua::AnyUserData = parent.get("cwd").unwrap();
         let path: String = lua.load("return tostring(cx.active.parent.cwd)").eval().unwrap();
         assert_eq!(path, "/tmp");
     }

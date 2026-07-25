@@ -274,6 +274,7 @@ impl UserData for Url {
 /// Helper used by `File::deref()` to expose the `__index` of the
 /// inner `Cha` to the outer `File` userdata. (See M2-T4 for the
 /// `Deref<Target = Cha>` pattern.)
+#[allow(dead_code)]
 pub fn url_borrow<'a>(
     ud_ref: &'a UserDataRef<'_, Url>,
 ) -> &'a Url {

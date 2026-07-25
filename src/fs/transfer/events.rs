@@ -19,6 +19,11 @@ pub enum TransferEvent {
         total_files: usize,
         total_bytes: u64,
     },
+    TransferStarted {
+        job_id: Uuid,
+        total_files: usize,
+        total_bytes: u64,
+    },
     FileStarted {
         job_id: Uuid,
         file: PathBuf,

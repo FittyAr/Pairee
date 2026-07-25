@@ -37,6 +37,7 @@ pub fn attach(
 /// (e.g. when the plugin's `Lua` instance is recreated for a
 /// fresh sync). Returns the table or `None` if the plugin has
 /// no state.
+#[allow(dead_code)]
 pub fn reattach<'lua>(
     lua: &'lua mlua::Lua,
     runtime: &crate::plugin::runtime::runtime::Runtime,

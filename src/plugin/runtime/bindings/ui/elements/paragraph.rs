@@ -25,6 +25,7 @@ impl Paragraph {
         }
     }
 
+    #[allow(dead_code)]
     pub fn from_text(text: Text) -> Self {
         Self {
             text,

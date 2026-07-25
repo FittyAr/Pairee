@@ -4,7 +4,7 @@
 //! `File` derefs to its inner `Cha`, so plugin code can call
 //! `cha:perm()` or read `cha.is_dir` directly on a `File` value.
 
-use super::cha::{Cha, ChaKind, ChaMode};
+use super::cha::{Cha, ChaMode};
 use super::url::Url;
 use mlua::{MetaMethod, UserData, UserDataMethods};
 use std::ops::Deref;
@@ -86,6 +86,7 @@ impl File {
     /// One-line size label (`"1.2K"`, `"3.4M"`, …). The M2
     /// implementation is intentionally tiny — M3 will plug in the
     /// same helper Pairee uses internally so the two stay in sync.
+    #[allow(dead_code)]
     pub fn size_label(&self) -> String {
         crate_size_label(self.cha.len)
     }
@@ -179,6 +180,7 @@ impl UserData for File {
 
 /// Tiny `12K`/`3.4M`/`1.2G` formatter, kept private here so the
 /// `File::size_label` API matches the size labels in the main UI.
+#[allow(dead_code)]
 fn crate_size_label(n: u64) -> String {
     const K: f64 = 1024.0;
     const M: f64 = K * 1024.0;
@@ -201,6 +203,7 @@ fn crate_size_label(n: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::plugin::types::ChaKind;
     use mlua::Lua;
     use std::path::PathBuf;
 

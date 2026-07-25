@@ -108,9 +108,35 @@ impl TransferWorker {
                     dirs_to_delete.push(src.clone());
                 }
 
+                // Cycle detection: track canonicalised directory
+                // paths so that circular symlink chains or bind
+                // mounts back into the source tree don't send the
+                // BFS into an infinite loop. `canonicalize` resolves
+                // all symlinks, so two paths that refer to the same
+                // inode produce the same key. We do NOT pre-insert
+                // the source itself — the first iteration of the
+                // loop handles that.
+                let mut visited_dirs: std::collections::HashSet<PathBuf> =
+                    std::collections::HashSet::new();
+
                 while let Some(dir) = dirs_to_visit.pop_front() {
                     if self.is_cancelled.load(Ordering::Relaxed) {
                         return Err(anyhow!("Job cancelled during scan"));
+                    }
+
+                    // Skip directories that we've already enqueued
+                    // (after symlink resolution). Falls back to the
+                    // raw path if canonicalize fails (broken
+                    // symlink, permission denied) so the scan still
+                    // progresses on partial filesystems.
+                    if let Ok(canon) = std::fs::canonicalize(&dir) {
+                        if !visited_dirs.insert(canon.clone()) {
+                            log::debug!(
+                                "scan: skipping already-visited dir {}",
+                                dir.display()
+                            );
+                            continue;
+                        }
                     }
 
                     if self.operation == TransferOperation::Copy
@@ -228,6 +254,18 @@ impl TransferWorker {
             total_files: files_scanned,
             total_bytes,
         });
+
+        // Signal the UI to flip from Scanning → Transferring now
+        // that the source tree has been fully enumerated. Without
+        // this the panel would stay on "Scanning..." for the
+        // entire copy phase, which on large trees is misleading.
+        if files_scanned > 0 || self.operation != TransferOperation::Delete {
+            let _ = self.event_tx.send(TransferEvent::TransferStarted {
+                job_id: self.job_id,
+                total_files: files_scanned,
+                total_bytes,
+            });
+        }
 
         if self.operation == TransferOperation::Delete {
             let mut results = TransferResults::default();
@@ -1077,5 +1115,59 @@ mod tests {
         assert!(!file2.exists());
         assert!(!sub_dir.exists());
         assert!(!src_root.exists());
+    }
+
+    /// Regression test: a circular symlink inside the source tree
+    /// must NOT send the BFS into an infinite loop. With the
+    /// cycle-detection guard, the worker completes and records
+    /// each path at most once. Without it, this test would hang
+    /// until the test runner's timeout.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_worker_scan_does_not_loop_on_circular_symlink() {
+        let temp_dir = tempfile::tempdir().unwrap();
+        let src_root = temp_dir.path().join("src");
+        let dst_root = temp_dir.path().join("dst");
+        std::fs::create_dir_all(&src_root).unwrap();
+        std::fs::write(src_root.join("file.txt"), "hello").unwrap();
+        // Self-loop: `loop` points back at its parent directory.
+        // With `follow_symlinks = true` the BFS would normally
+        // re-enqueue the parent forever.
+        std::os::unix::fs::symlink(&src_root, src_root.join("loop")).unwrap();
+        std::fs::create_dir_all(&dst_root).unwrap();
+
+        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let is_paused = Arc::new(AtomicBool::new(false));
+        let is_cancelled = Arc::new(AtomicBool::new(false));
+        let skip_flag = Arc::new(AtomicBool::new(false));
+        let active_conflict = Arc::new(std::sync::Mutex::new(None));
+
+        let mut options = TransferOptions::default();
+        options.follow_symlinks = true;
+        options.conflict_resolution = "overwrite".to_string();
+
+        let worker = TransferWorker::new(
+            Uuid::new_v4(),
+            TransferOperation::Copy,
+            vec![src_root.clone()],
+            dst_root.clone(),
+            options,
+            is_paused,
+            is_cancelled,
+            skip_flag,
+            tx,
+            active_conflict,
+        );
+
+        // Use a hard wall-clock deadline so a regression in the
+        // cycle-detection guard surfaces as a test failure
+        // instead of hanging the whole test suite.
+        let res = tokio::time::timeout(
+            std::time::Duration::from_secs(10),
+            worker.run(),
+        )
+        .await
+        .expect("worker should not loop on a circular symlink");
+        assert!(res.is_ok(), "worker returned error: {res:?}");
     }
 }

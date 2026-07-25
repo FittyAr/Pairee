@@ -8,10 +8,12 @@ use crate::plugin::runtime::runtime::{Runtime, RuntimeFrame};
 
 /// RAII guard that pushes a `RuntimeFrame` on construction and pops
 /// it on drop. Used by the `runtime_scope!` macro.
+#[allow(dead_code)]
 pub struct ScopeGuard<'a> {
     runtime: &'a Runtime,
 }
 
+#[allow(dead_code)]
 impl<'a> ScopeGuard<'a> {
     pub fn new(runtime: &'a Runtime, frame: RuntimeFrame) -> Self {
         runtime.push_frame(frame);
@@ -27,7 +29,6 @@ impl<'a> Drop for ScopeGuard<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use crate::plugin::runtime::runtime::Runtime;
     use mlua::Lua;
 

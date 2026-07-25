@@ -149,7 +149,7 @@ fn render_jobs_sidebar(
 
         let (status_str, color) = match job.status {
             TransferJobStatus::Queued => ("Queued".to_string(), Color::Gray),
-            TransferJobStatus::Scanning => ("Scanning...".to_string(), Color::Cyan),
+            TransferJobStatus::Scanning => (busy_text("Scanning"), Color::Cyan),
             TransferJobStatus::Transferring => {
                 let pct = job
                     .progress
@@ -158,7 +158,7 @@ fn render_jobs_sidebar(
                     .unwrap_or(0.0);
                 (format!("Running ({:.0}%)", pct), Color::Green)
             }
-            TransferJobStatus::Verifying => ("Verifying...".to_string(), Color::LightBlue),
+            TransferJobStatus::Verifying => (busy_text("Verifying"), Color::LightBlue),
             TransferJobStatus::Paused => ("Paused".to_string(), Color::Yellow),
             TransferJobStatus::Completed => ("Completed".to_string(), Color::LightGreen),
             TransferJobStatus::Failed => ("Failed".to_string(), Color::LightRed),
@@ -740,4 +740,65 @@ pub fn summarize_path(path: &std::path::Path) -> String {
         return file_name.to_string_lossy().into_owned();
     }
     path.to_string_lossy().into_owned()
+}
+
+/// Cycle a "busy" indicator (e.g. `Scanning`) through 0/1/2/3 dots
+/// using the wall clock so the panel visibly animates while a
+/// long-running phase is in progress. The frame window is 250 ms
+/// per dot, which is fast enough to feel live and slow enough to
+/// read on a 60 Hz terminal. The phase is derived from elapsed
+/// time only — no state is mutated, so the function is pure and
+/// safe to call from any render path.
+fn busy_text(label: &str) -> String {
+    const DOTS: [&str; 4] = ["", ".", "..", "..."];
+    const PHASE_MS: u128 = 250;
+
+    let elapsed_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let phase = ((elapsed_ms / PHASE_MS) as usize) % DOTS.len();
+    format!("{}{}", label, DOTS[phase])
+}
+
+#[cfg(test)]
+mod tests {
+    use super::busy_text;
+
+    #[test]
+    fn busy_text_preserves_label_and_uses_only_dots_as_suffix() {
+        // The exact phase depends on wall-clock time, so we
+        // don't assert which suffix we get — only that:
+        //   1. the label is preserved verbatim, and
+        //   2. the suffix is 0..=3 dots (the documented
+        //      animation cycle).
+        let rendered = busy_text("Scanning");
+        assert!(rendered.starts_with("Scanning"));
+        let suffix = &rendered["Scanning".len()..];
+        assert!(suffix.len() <= 3, "dot suffix must be 0..=3 chars, got {suffix:?}");
+        assert!(suffix.chars().all(|c| c == '.'));
+    }
+
+    #[test]
+    fn busy_text_cycles_through_dots() {
+        // The full animation cycle is 250 ms × 4 phases = 1000 ms.
+        // We sample many readings over two full cycles and confirm
+        // the helper actually visits at least two distinct suffix
+        // states (proving it isn't stuck on a single phase). This
+        // is more robust than comparing two readings that could
+        // happen to land on the same phase boundary by chance.
+        let mut suffixes_seen = std::collections::HashSet::new();
+        for _ in 0..16 {
+            let rendered = busy_text("Verifying");
+            let suffix = &rendered["Verifying".len()..];
+            assert!(suffix.chars().all(|c| c == '.'));
+            assert!(suffix.len() <= 3);
+            suffixes_seen.insert(suffix.to_string());
+            std::thread::sleep(std::time::Duration::from_millis(80));
+        }
+        assert!(
+            suffixes_seen.len() >= 2,
+            "busy_text should animate over time, only saw {suffixes_seen:?}"
+        );
+    }
 }

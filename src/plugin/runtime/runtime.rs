@@ -26,10 +26,18 @@
 //! `M3-T4 pair.sync/async_fn`). The `Runtime` itself is exposed as
 //! a Lua app-data value so any binding can read `is_blocking()` if
 //! it needs to short-circuit.
+//!
+//! Dead-code analysis is suppressed at the module level: the
+//! `frames` stack, `frame_id_for_action`, and `RuntimeFrame::new`
+//! are all part of the public surface that the `runtime_scope!`
+//! macro and downstream M3.5 / M4 work rely on. Some of them are
+//! only reached through the macro, so the compiler cannot see the
+//! uses without whole-program analysis.
+#![allow(dead_code)]
 
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 /// Per-callback frame that tracks the metadata of the current
 /// sync/async execution scope.
@@ -134,7 +142,6 @@ impl Runtime {
     /// does not need reattachment — so there is no live caller of
     /// this method today. Kept for forward-compatibility with the
     /// planned M3.5 follow-up.
-    #[allow(dead_code)]
     pub fn plugin_state_key(&self, _plugin_name: &str) -> Option<mlua::RegistryKey> {
         None
     }

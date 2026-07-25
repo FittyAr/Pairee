@@ -1,6 +1,14 @@
 //! M4-T3: `ui.Rect`, `ui.Pad`, `ui.Pos`, `ui.Constraint`,
 //! `ui.Layout`, `ui.Align`, `ui.Wrap`, `ui.Edge` — geometry
 //! primitives for the widget surface.
+//!
+//! Some of these primitives (`Pos`, conversion helpers like
+//! `from_ratatui` / `to_ratatui`) are part of the M4 surface
+//! that is not yet wired into a renderer. They are kept here so
+//! plugins that depend on the public shape don't break while
+//! the rest of M4 lands; dead-code analysis is suppressed at
+//! the module level for the same reason.
+#![allow(dead_code)]
 
 use mlua::{MetaMethod, UserData, UserDataMethods};
 use ratatui::layout::{Constraint as RatConstraint, Rect as RatRect};

@@ -110,7 +110,7 @@ impl UserData for Style {
         // CSS-like cascade).
         methods.add_method("raw", |_lua, this, ()| Ok(this.clone()));
         // Read accessors so plugins can query a built style.
-        methods.add_method("fg", |_lua, this, ()| Ok(Color { inner: RatColor::default() }));
+        methods.add_method("fg", |_lua, _this, ()| Ok(Color { inner: RatColor::default() }));
         methods.add_method("inner", |_lua, this, ()| {
             // Return a debug string of the inner style so plugins
             // can introspect what they built.

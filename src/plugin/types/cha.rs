@@ -16,7 +16,9 @@ pub struct ChaKind(pub u32);
 
 impl ChaKind {
     pub const FOLLOW: ChaKind = ChaKind(1 << 0); // followed a symlink to stat
+    #[allow(dead_code)]
     pub const HIDDEN: ChaKind = ChaKind(1 << 1); // dotfile
+    #[allow(dead_code)]
     pub const SYSTEM: ChaKind = ChaKind(1 << 2); // OS-managed
     pub const DUMMY: ChaKind = ChaKind(1 << 3); // placeholder (e.g. panel header)
 
@@ -70,6 +72,7 @@ impl ChaMode {
     }
 
     /// Returns the 9-bit permission portion of the mode.
+    #[allow(dead_code)]
     pub fn perm_bits(self) -> u32 {
         self.0 & 0o777
     }

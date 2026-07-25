@@ -30,6 +30,7 @@ impl Error {
     }
 
     /// Build a `fs`-flavoured error from an `std::io::Error`.
+    #[allow(dead_code)]
     pub fn from_io(err: &std::io::Error) -> Self {
         Self {
             code: Some(err.raw_os_error().unwrap_or(-1)),

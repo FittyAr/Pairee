@@ -39,6 +39,7 @@ impl Text {
         }
     }
 
+    #[allow(dead_code)]
     pub(crate) fn to_ratatui(&self) -> RatText<'static> {
         let mut text = RatText::from(
             self.lines

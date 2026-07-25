@@ -278,6 +278,24 @@ pub fn process_background_updates(
                         ));
                     });
                 }
+                TransferEvent::TransferStarted {
+                    job_id,
+                    total_files,
+                    total_bytes,
+                } => {
+                    transfer_state.engine.queue.update_job(job_id, |job| {
+                        job.status = crate::fs::transfer::job::TransferJobStatus::Transferring;
+                        if let Some(ref mut prog) = job.progress {
+                            prog.files_total = total_files;
+                            prog.bytes_total = total_bytes;
+                        }
+                        job.log_lines.push(format!(
+                            "Transfer started: {} files, {}",
+                            total_files,
+                            bytesize::ByteSize(total_bytes)
+                        ));
+                    });
+                }
                 TransferEvent::FileStarted {
                     job_id,
                     file,

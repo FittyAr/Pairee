@@ -55,6 +55,7 @@ pub fn bind_row(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
 pub struct Table {
     pub header: Option<Row>,
     pub rows: Vec<Row>,
+    #[allow(dead_code)]
     pub widths: Option<Vec<usize>>,
 }
 

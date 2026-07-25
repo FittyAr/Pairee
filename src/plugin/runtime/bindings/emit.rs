@@ -263,7 +263,7 @@ mod tests {
         let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
         rt.block_on(async {
             let lua = mlua::Lua::new();
-            let table = lua.create_table().unwrap();
+            let _table = lua.create_table().unwrap();
             // We can't use the real PluginRequest::EmitAction in
             // this synchronous test (its reply_tx requires a live
             // dispatcher loop), so test that `bind` inserts both

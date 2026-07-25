@@ -11,7 +11,7 @@ use super::request::PluginRequest;
 use super::snapshot::FileEntrySnapshot;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use super::dispatch_actions::{compute_file_cache_path, validate_workspace_path};
 
@@ -380,7 +380,7 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::sync::Once;
 
     // Initialise the global mpsc request channel exactly once
@@ -404,7 +404,7 @@ mod tests {
         AppState::new(cwd.to_path_buf(), cwd.to_path_buf())
     }
 
-    fn fresh_context(cwd: &Path) -> AppContext {
+    fn fresh_context(_cwd: &Path) -> AppContext {
         let cfg = crate::config::AppConfig::load_or_create().expect("config");
         AppContext::new(cfg)
     }

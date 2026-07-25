@@ -264,7 +264,7 @@ fn handle_which(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
 mod tests {
     use super::*;
     use crate::app::state::PopupType;
-    use crate::plugin::manager::{InputDialogResult, WhichCandidate};
+    use crate::plugin::manager::WhichCandidate;
     use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
     fn fresh_state() -> AppState {

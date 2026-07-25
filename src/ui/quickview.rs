@@ -5,7 +5,7 @@ use ratatui::{
     Frame,
     layout::{Constraint, Rect},
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
@@ -286,7 +286,7 @@ fn render_plugin_widget(
             let ratatui_lines: Vec<Line> = lines
                 .iter()
                 .map(|w| match w {
-                    PluginWidget::RichLine { spans, fg, bg, bold, dim, italic, underline } => {
+                    PluginWidget::RichLine { spans, fg, bg, bold: _, dim: _, italic: _, underline: _ } => {
                         let inner_fg = fg.as_deref();
                         let inner_bg = bg.as_deref();
                         let ratatui_spans: Vec<Span> = spans
