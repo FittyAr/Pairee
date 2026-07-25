@@ -2,6 +2,19 @@ use crate::plugin::manager::PluginRequest;
 use std::path::Path;
 use tokio::sync::mpsc;
 
+/// Returns `true` when `cmd` does NOT name a blacklisted binary.
+///
+/// The blacklist is matched by **stem** (filename without extensions),
+/// so suffix variations like `cmd.exe.bak`, `bash-5.1`, or
+/// `python3.11-real` are still caught. The original basename is also
+/// compared against the full set so common variants like `cmd.exe`
+/// and `python3` are caught regardless of case.
+///
+/// Note: this is a defence-in-depth check that runs in Secure Mode
+/// (and never for `trusted = true` plugins). Even with this check,
+/// `trusted` plugins can spawn arbitrary binaries by design — the
+/// trust model grants them the full `is_command_safe = true`
+/// behaviour.
 pub fn is_command_safe(cmd: &str) -> bool {
     let path = Path::new(cmd);
     let bin_name = path
@@ -9,6 +22,7 @@ pub fn is_command_safe(cmd: &str) -> bool {
         .map(|n| n.to_string_lossy().to_lowercase())
         .unwrap_or_else(|| cmd.to_lowercase());
 
+    // 1. Compare the full basename (handles `cmd.exe`, `python3`, etc.).
     let blacklist = [
         "curl",
         "wget",
@@ -39,8 +53,47 @@ pub fn is_command_safe(cmd: &str) -> bool {
         "lua",
         "luajit",
     ];
+    if blacklist.contains(&bin_name.as_str()) {
+        return false;
+    }
 
-    !blacklist.contains(&bin_name.as_str())
+    // 2. Compare the stem (filename without any extension). Catches
+    // `cmd.exe.bak`, `bash.sh`, `python3.real` whose basename has a
+    // trailing free-form suffix. A "version-like" suffix
+    // (`python3.11`, `bash-5.1`) is exempted — those are legitimate
+    // versioned interpreter binaries on Linux/macOS.
+    let stem = bin_name
+        .split_once('.')
+        .map(|(s, _)| s)
+        .unwrap_or(&bin_name);
+    // Detect a "version-like" suffix: anything whose non-letter
+    // characters are only digits, dots, and dashes, and that does
+    // not introduce letters after the version marker.
+    let looks_like_version_suffix = |s: &str| -> bool {
+        if s.is_empty() {
+            return true; // no suffix at all
+        }
+        // Reject any letter anywhere — a true version suffix is
+        // purely numeric/punctuation.
+        s.chars().all(|c| !c.is_ascii_alphabetic())
+    };
+    if blacklist.contains(&stem) && !looks_like_version_suffix(&bin_name[stem.len()..]) {
+        return false;
+    }
+
+    // 3. Compare entries that are themselves prefixes of `bin_name`
+    // (e.g. `python3` vs. `python3.11`). Reject anything that adds
+    // a non-version suffix.
+    for entry in blacklist {
+        if bin_name.len() > entry.len() && bin_name.starts_with(entry) {
+            let rest = &bin_name[entry.len()..];
+            if !looks_like_version_suffix(rest) {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 pub fn create_sandboxed_lua(
@@ -150,6 +203,37 @@ mod tests {
         assert!(!is_command_safe("bash"));
         assert!(!is_command_safe("cmd.exe"));
         assert!(!is_command_safe("python3"));
+    }
+
+    #[test]
+    fn test_is_command_safe_blocks_suffix_bypass() {
+        // Each of these would have slipped through the original
+        // (basename-only) check.
+        assert!(!is_command_safe("cmd.exe.bak"), "cmd.exe.bak must be blocked");
+        assert!(!is_command_safe("cmd.bat"), "cmd.bat must be blocked");
+        assert!(!is_command_safe("bash.sh"), "bash.sh must be blocked");
+        assert!(!is_command_safe("python3.real"), "python3.real must be blocked");
+        assert!(!is_command_safe("/usr/bin/cmd.exe.bak"));
+        assert!(!is_command_safe("/usr/bin/bash.sh"));
+    }
+
+    #[test]
+    fn test_is_command_safe_allows_real_world_versions() {
+        // python3.11 has a numeric suffix and must remain allowed
+        // (a real Debian/Ubuntu python interpreter) — the blacklist
+        // is meant to catch copy-as bypass attempts, not to forbid
+        // legitimate interpreter versions.
+        assert!(is_command_safe("python3.11"));
+        assert!(is_command_safe("python3.12"));
+        // bash-5.1 is a common version-tagged binary on macOS.
+        assert!(is_command_safe("bash-5.1"));
+    }
+
+    #[test]
+    fn test_is_command_safe_is_case_insensitive() {
+        assert!(!is_command_safe("CURL"));
+        assert!(!is_command_safe("Cmd.Exe"));
+        assert!(!is_command_safe("PYTHON3"));
     }
 
     #[tokio::test]
