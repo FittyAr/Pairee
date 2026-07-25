@@ -13,9 +13,48 @@ fn is_secure_mode(lua: &mlua::Lua) -> bool {
 }
 
 fn validate_path(lua: &mlua::Lua, path_str: &str) -> mlua::Result<PathBuf> {
+    validate_path_with(lua, path_str, false)
+}
+
+/// Strict variant of [`validate_path`]. When `strict` is true, paths
+/// that fail to canonicalize (broken symlinks, non-existent files,
+/// unreadable directories) are rejected outright. Use this for
+/// paths that are about to be opened for read/write — the caller
+/// needs the canonical path to follow symlinks correctly, and a
+/// failed canonicalize is a strong signal of a probe attempt.
+///
+/// When `strict` is false (the default), paths that fail to
+/// canonicalize are passed through verbatim — appropriate for
+/// commands like `mkdir` or `rename` that operate on paths which
+/// may not yet exist.
+///
+/// Returns the **canonical** path (when canonicalization succeeded)
+/// so the caller can operate on it directly. This eliminates a
+/// TOCTOU window where the caller would otherwise validate the
+/// uncanonicalized path, then operate on it via a separate call to
+/// `tokio::fs::*` — during which a local attacker could swap a
+/// symlink. Operating on the canonical path makes the validation
+/// and the I/O refer to the same target.
+fn validate_path_with(
+    lua: &mlua::Lua,
+    path_str: &str,
+    strict: bool,
+) -> mlua::Result<PathBuf> {
     let path = PathBuf::from(path_str);
     if is_secure_mode(lua) {
-        let abs_path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
+        let abs_path = match std::fs::canonicalize(&path) {
+            Ok(p) => p,
+            Err(e) => {
+                if strict {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "Security violation: path {:?} failed to canonicalize ({}); \
+                         refusing to operate on a path whose target is unreadable",
+                        path, e
+                    )));
+                }
+                return Ok(path);
+            }
+        };
         let workspace = std::env::current_dir().unwrap_or_default();
         let config = crate::config::paths::get_config_dir();
         let cache = crate::config::paths::get_cache_dir();
@@ -30,6 +69,7 @@ fn validate_path(lua: &mlua::Lua, path_str: &str) -> mlua::Result<PathBuf> {
                 path
             )));
         }
+        return Ok(abs_path);
     }
     Ok(path)
 }
@@ -42,10 +82,12 @@ pub fn bind(
     let fs = lua.create_table()?;
 
     // read(path) — async via tokio::fs (M3 roadmap §5.B1).
+    // Strict: the target file must already exist (otherwise we have
+    // no way to verify it lives inside the sandbox).
     fs.set(
         "read",
         lua.create_async_function(move |lua_ctx, path_str: String| async move {
-            let path = validate_path(lua_ctx, &path_str)?;
+            let path = validate_path_with(lua_ctx, &path_str, true)?;
             tokio::fs::read_to_string(&path)
                 .await
                 .map_err(|e| mlua::Error::RuntimeError(format!("Failed to read file: {}", e)))
@@ -53,11 +95,23 @@ pub fn bind(
     )?;
 
     // write(path, data) — async via tokio::fs (M3 roadmap §5.B1).
+    // The destination's parent directory must exist (we need to
+    // canonicalize the parent to verify it lives inside the
+    // sandbox). The destination file itself may not exist yet.
     fs.set(
         "write",
         lua.create_async_function(
             move |lua_ctx, (path_str, data): (String, String)| async move {
-                let path = validate_path(lua_ctx, &path_str)?;
+                let path = PathBuf::from(&path_str);
+                if is_secure_mode(lua_ctx) {
+                    let parent = path
+                        .parent()
+                        .ok_or_else(|| mlua::Error::RuntimeError(format!(
+                            "fs.write: {:?} has no parent directory",
+                            path
+                        )))?;
+                    validate_path_with(lua_ctx, &parent.to_string_lossy(), true)?;
+                }
                 tokio::fs::write(&path, data)
                     .await
                     .map_err(|e| mlua::Error::RuntimeError(format!("Failed to write file: {}", e)))
@@ -66,19 +120,27 @@ pub fn bind(
     )?;
 
     // exists(path) — async, non-blocking existence check (M3 §5.B1).
+    // Strict: refuses to confirm existence of paths that cannot be
+    // canonicalised (otherwise a plugin can probe the filesystem
+    // by observing whether `exists` returns true).
     fs.set(
         "exists",
         lua.create_async_function(move |lua_ctx, path_str: String| async move {
-            let path = validate_path(lua_ctx, &path_str)?;
+            let path = validate_path_with(lua_ctx, &path_str, true)?;
             Ok(tokio::fs::metadata(&path).await.is_ok())
         })?,
     )?;
 
     // stat(path) — async via tokio::fs::metadata (M3 §5.B1).
+    // Strict: returns Nil for paths that fail the sandbox check,
+    // but the sandbox check itself requires canonicalisation.
     fs.set(
         "stat",
         lua.create_async_function(move |lua_ctx, path_str: String| async move {
-            let path = validate_path(lua_ctx, &path_str)?;
+            let path = match validate_path_with(lua_ctx, &path_str, true) {
+                Ok(p) => p,
+                Err(_) => return Ok(mlua::Value::Nil),
+            };
             let m = match tokio::fs::metadata(&path).await {
                 Ok(m) => m,
                 Err(_) => return Ok(mlua::Value::Nil),
@@ -106,11 +168,11 @@ pub fn bind(
     // We must allocate the path string from each `Entry` *before*
     // any `.await` (an `Entry` cannot be held across an await
     // point because of the `!Send` / lifetime issues in the
-    // tokio `read_dir` API).
+    // tokio `read_dir` API). Strict: directory must exist.
     fs.set(
         "list",
         lua.create_async_function(move |lua_ctx, path_str: String| async move {
-            let path = validate_path(lua_ctx, &path_str)?;
+            let path = validate_path_with(lua_ctx, &path_str, true)?;
             let mut entries_vec = Vec::new();
             let mut rd = match tokio::fs::read_dir(&path).await {
                 Ok(rd) => rd,
