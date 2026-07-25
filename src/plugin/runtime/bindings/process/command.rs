@@ -38,6 +38,15 @@ fn inherit_blocked_by_secure_mode(lua: &Lua, stdio: Stdio) -> bool {
     is_secure_mode(lua) && matches!(stdio, Stdio::Inherit)
 }
 
+/// §6 Secure-Mode: a `Command` constructed by a plugin must not
+/// be allowed to run a blacklisted binary (`curl`, `sh`, etc.)
+/// the same way `pairee.fs.spawn` is checked. We pass the
+/// `lua_ctx` through every method so the check has access to the
+/// `_secure_mode` flag.
+fn spawn_blocked_in_secure_mode(lua: &Lua, program: &str) -> bool {
+    is_secure_mode(lua) && !crate::plugin::sandbox::is_command_safe(program)
+}
+
 /// The M3 `Command` userdata. Wraps the configuration needed
 /// to build up a `tokio::process::Command` (which is not
 /// `Clone`). When `:spawn()`/`:output()`/`:status()` is called
@@ -216,7 +225,15 @@ impl UserData for Command {
 
         // `:spawn()` — start the child process and return a
         // `Child` userdata that wraps the live handle.
-        methods.add_async_method("spawn", |_lua, this, ()| async move {
+        methods.add_async_method("spawn", |lua_ctx, this, ()| async move {
+            // §6 Secure-Mode: block blacklisted commands (curl, sh,
+            // wget, etc.). The same check that `pairee.fs.spawn` does.
+            if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "Command.spawn('{}') is blocked in Secure Mode (blacklisted)",
+                    this.program
+                )));
+            }
             let mut cmd = this.materialise();
             match cmd.spawn() {
                 Ok(mut child) => {
@@ -233,7 +250,7 @@ impl UserData for Command {
                         stdout,
                         stderr,
                     };
-                    let ud = _lua.create_userdata(wrapped)?;
+                    let ud = lua_ctx.create_userdata(wrapped)?;
                     Ok(mlua::Value::UserData(ud))
                 }
                 Err(e) => Err(mlua::Error::RuntimeError(format!(
@@ -243,7 +260,13 @@ impl UserData for Command {
         });
 
         // `:output()` — run to completion and capture stdout+stderr.
-        methods.add_async_method("output", |_lua, this, ()| async move {
+        methods.add_async_method("output", |lua_ctx, this, ()| async move {
+            if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "Command.output('{}') is blocked in Secure Mode (blacklisted)",
+                    this.program
+                )));
+            }
             let mut cmd = this.materialise();
             cmd.stdin(StdStdio::null());
             cmd.stdout(StdStdio::piped());
@@ -251,7 +274,7 @@ impl UserData for Command {
             match cmd.output().await {
                 Ok(out) => {
                     let output = super::output::Output::from_tokio(out);
-                    let ud = _lua.create_userdata(output)?;
+                    let ud = lua_ctx.create_userdata(output)?;
                     Ok(mlua::Value::UserData(ud))
                 }
                 Err(e) => Err(mlua::Error::RuntimeError(format!(
@@ -262,7 +285,13 @@ impl UserData for Command {
 
         // `:status()` — run to completion and return the exit
         // status.
-        methods.add_async_method("status", |_lua, this, ()| async move {
+        methods.add_async_method("status", |lua_ctx, this, ()| async move {
+            if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "Command.status('{}') is blocked in Secure Mode (blacklisted)",
+                    this.program
+                )));
+            }
             let mut cmd = this.materialise();
             cmd.stdin(StdStdio::null());
             cmd.stdout(StdStdio::null());
@@ -270,7 +299,7 @@ impl UserData for Command {
             match cmd.status().await {
                 Ok(s) => {
                     let status = super::output::Status::from_exit(s);
-                    let ud = _lua.create_userdata(status)?;
+                    let ud = lua_ctx.create_userdata(status)?;
                     Ok(mlua::Value::UserData(ud))
                 }
                 Err(e) => Err(mlua::Error::RuntimeError(format!(

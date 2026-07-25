@@ -201,6 +201,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 - `Command:stdin/stdout/stderr` setters now reject `Stdio::Inherit` under Secure Mode (per roadmap §6). `PIPED` and `NULL` remain allowed.
 - `dispatch_emit_action` blocks destructive actions (`Delete`, `WipeFile`, `Move`) from plugins under Secure Mode. This is a defence-in-depth check on top of the existing confirmation popups — a malicious plugin could otherwise bypass the dialog via `pairee.emit('delete', ...)`.
 - `extract_fg_bg` now emits `#rrggbb` for `Color::Rgb` and lowercase named colors, so the rich-style renderer reconstructs colors correctly via `ui::theme_apply::parse_color`.
+- `PluginRequest::Cd` (dispatched by `pairee.app.cd` and `pairee.emit("cd", ...)`) now canonicalizes the target path and rejects any cd that falls outside the workspace / config / cache roots. This closes the sandbox-escape where a plugin could navigate the user to `/etc` or `~/.ssh` and then exfiltrate via `pairee.fs.read`.
+- `Command:spawn` / `Command:output` / `Command:status` now apply the same `is_command_safe` blacklist check that `pairee.fs.spawn` already enforced. Without this, a plugin could bypass the sandbox by going through `pairee.Command.spawn("sh", "-c", "rm -rf /")` instead of `pairee.fs.spawn`.
 
 ### Tests
 
@@ -215,6 +217,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
   - `preview_code.rs`: 2 tests (Rust file, unknown extension fallback).
   - `text.rs`: 1 test (`ui.Text:parse(ansi_string)` strips ANSI escape sequences).
   - `ui/preview.rs`: 1 done-criterion test (Line-style fg/bold propagates to RichSpan children).
+  - `dispatcher.rs`: 2 tests (workspace cd accepted, outside-workspace cd rejected).
 
 ---
 

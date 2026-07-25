@@ -11,7 +11,7 @@ use super::request::PluginRequest;
 use super::snapshot::FileEntrySnapshot;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use super::dispatch_actions::compute_file_cache_path;
 
@@ -51,8 +51,40 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         super::dispatch_actions::render_notify(state, &payload);
                     }
                     PluginRequest::Cd { path } => {
-                        let p = PathBuf::from(path);
-                        state.get_active_panel_mut().current_path = p;
+                        // §6 Secure-Mode equivalent: a plugin's `pairee.app.cd`
+                        // (and `pairee.emit("cd", ...)`) navigates the active
+                        // panel to a path of its choice. Without a workspace
+                        // check, a plugin could navigate the user to any
+                        // directory in the filesystem (e.g. `/etc`, the
+                        // user's `~/.ssh`, etc.) and then exfiltrate via
+                        // `pairee.fs.read` of the same path. We canonicalize
+                        // the path (which follows symlinks) and require it
+                        // to live inside the workspace / config / cache
+                        // directories — the same boundary that
+                        // `pairee.fs.read` enforces.
+                        let p = PathBuf::from(&path);
+                        let canonical = p
+                            .canonicalize()
+                            .unwrap_or_else(|_| p.clone());
+                        let allowed = [
+                            std::env::current_dir()
+                                .unwrap_or_else(|_| PathBuf::from(".")),
+                            crate::config::paths::get_config_dir(),
+                            crate::config::paths::get_cache_dir(),
+                        ];
+                        if !allowed.iter().any(|root| {
+                            let r = root
+                                .canonicalize()
+                                .unwrap_or_else(|_| root.clone());
+                            canonical.starts_with(&r)
+                        }) {
+                            log::warn!(
+                                "Plugin cd rejected: {:?} is outside the workspace / config / cache",
+                                p
+                            );
+                            return;
+                        }
+                        state.get_active_panel_mut().current_path = canonical;
                         state.refresh_both_panels(context.config.settings.show_hidden);
                     }
                     PluginRequest::SetFocus { side } => {
@@ -310,5 +342,103 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+    use std::sync::Once;
+
+    // Initialise the global mpsc request channel exactly once
+    // across all tests in this module. We replace both the sender
+    // and the receiver atomically so they refer to the same
+    // channel; otherwise the test sends into one channel and the
+    // dispatcher reads from a different (default-initialised)
+    // channel.
+    static INIT: Once = Once::new();
+    fn init_request_channel() {
+        INIT.call_once(|| {
+            let (tx, rx) = tokio::sync::mpsc::channel::<super::PluginRequest>(8);
+            let _ = super::super::manager::PLUGIN_REQ_TX.set(tx);
+            let _ = super::super::manager::PLUGIN_REQ_RX
+                .set(tokio::sync::Mutex::new(rx));
+        });
+    }
+
+    fn fresh_state(cwd: &Path) -> AppState {
+        init_request_channel();
+        AppState::new(cwd.to_path_buf(), cwd.to_path_buf())
+    }
+
+    fn fresh_context(cwd: &Path) -> AppContext {
+        let cfg = crate::config::AppConfig::load_or_create().expect("config");
+        AppContext::new(cfg)
+    }
+
+    /// Runs `process_plugin_requests` until the queue is drained.
+    /// The dispatcher uses the global mpsc; in tests we replace
+    /// it with a local sender/recv pair via the manager's static.
+    fn drain_queue(state: &mut AppState, context: &AppContext) {
+        process_plugin_requests(state, context);
+    }
+
+    #[tokio::test]
+    async fn test_cd_accepts_workspace_path() {
+        // The dispatcher uses the global mpsc; inject a workspace
+        // cwd via a fresh AppState, push a Cd request that points
+        // into the workspace, and verify the active panel now
+        // holds the canonical path.
+        // The tempdir must be created inside the workspace root
+        // (current_dir) so the workspace check accepts the cd.
+        let workspace = std::env::current_dir().unwrap();
+        let tmp = tempfile::tempdir_in(&workspace).unwrap();
+        let mut state = fresh_state(tmp.path());
+        let context = fresh_context(tmp.path());
+        let pre = state.get_active_panel().current_path.clone();
+        let new_path = tmp.path().join("sub");
+        std::fs::create_dir_all(&new_path).unwrap();
+        super::super::manager::PLUGIN_REQ_TX
+            .get_or_init(|| panic!("PLUGIN_REQ_TX must be set up by AppState::new"))
+            .send(super::PluginRequest::Cd {
+                path: new_path.to_string_lossy().to_string(),
+            })
+            .await
+            .unwrap();
+        drain_queue(&mut state, &context);
+        let post = state.get_active_panel().current_path.clone();
+        assert_ne!(
+            pre, post,
+            "active panel cwd should have changed after workspace cd"
+        );
+        assert!(
+            post.starts_with(tmp.path().canonicalize().unwrap()),
+            "post-cd cwd must remain inside the workspace"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_cd_rejects_outside_workspace() {
+        // Sending a Cd request to a path outside the workspace
+        // / config / cache roots must NOT mutate the active panel.
+        // The dispatcher logs a warn and returns early.
+        let tmp = tempfile::tempdir().unwrap();
+        let mut state = fresh_state(tmp.path());
+        let context = fresh_context(tmp.path());
+        let pre = state.get_active_panel().current_path.clone();
+        super::super::manager::PLUGIN_REQ_TX
+            .get_or_init(|| panic!("PLUGIN_REQ_TX must be set up by AppState::new"))
+            .send(super::PluginRequest::Cd {
+                path: PathBuf::from("/etc/should-be-rejected").to_string_lossy().to_string(),
+            })
+            .await
+            .unwrap();
+        drain_queue(&mut state, &context);
+        let post = state.get_active_panel().current_path.clone();
+        assert_eq!(
+            pre, post,
+            "active panel cwd must NOT change after outside-workspace cd"
+        );
     }
 }
