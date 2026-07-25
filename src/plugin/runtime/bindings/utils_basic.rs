@@ -5,6 +5,12 @@
 //! via the standard library's `DefaultHasher` for portability — a faster
 //! algorithm can be substituted later without changing the API).
 //!
+//! **`pairee.hash` is NOT cryptographically secure.** It uses
+//! `std::collections::hash_map::DefaultHasher`, whose output is
+//! trivially collision-prone and whose algorithm can change between
+//! Rust releases. Plugins that need integrity verification must use
+//! `file:sha256()` instead.
+//!
 //! All functions in this module are synchronous and side-effect-free.
 
 use std::collections::hash_map::DefaultHasher;

@@ -31,11 +31,19 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // `target_family`, `time`, `hash` entries remain available.
     let table = utils_basic::bind(lua)?;
 
-    // `pairee.quote(str, unix?)` — shell-escape a string. `unix=true`
-    // forces POSIX-style escaping, `unix=false` forces Windows-style,
-    // and `nil` auto-detects from `std::env::consts::FAMILY`.
+    // `pairee.quote_arg(str, unix?)` — safe argument quoting for
+    // POSIX / Windows command-line arguments. Use this when feeding
+    // a string as a positional argument to a spawned program; the
+    // result is safe against whitespace, quote, and backslash
+    // splitting regardless of platform.
+    //
+    //   unix = true   → POSIX-style single-quote escaping
+    //   unix = false  → Windows-style double-quote + backslash
+    //                   escaping (NOT safe for `cmd.exe /c` strings,
+    //                    only for argument passing)
+    //   unix = nil    → auto-detect from `std::env::consts::FAMILY`
     table.set(
-        "quote",
+        "quote_arg",
         lua.create_function(|_lua, (s, unix): (mlua::String, Option<bool>)| {
             let bytes = s.as_bytes().to_vec();
             let escaped = match unix {
@@ -47,6 +55,31 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
                 },
             };
             Ok(mlua::Value::String(_lua.create_string(&escaped)?))
+        })?,
+    )?;
+
+    // `pairee.quote(str, unix?)` — DEPRECATED alias for `quote_arg`
+    // kept for backwards compatibility. Plugins that previously
+    // called `pairee.quote` for argument passing continue to work;
+    // new code should call `pairee.quote_arg` to make the intent
+    // explicit and to avoid confusion with `cmd /c` shell strings
+    // (which require different escaping entirely).
+    table.set(
+        "quote",
+        lua.create_function(|inner_lua, (s, unix): (mlua::String, Option<bool>)| {
+            let bytes = s.as_bytes().to_vec();
+            let escaped = match unix {
+                Some(true) => shell_escape_unix(&bytes),
+                Some(false) => shell_escape_windows(&bytes),
+                None => match std::env::consts::FAMILY {
+                    "unix" => shell_escape_unix(&bytes),
+                    _ => shell_escape_windows(&bytes),
+                },
+            };
+            log::debug!(
+                "pairee.quote is deprecated; use pairee.quote_arg for argument passing"
+            );
+            Ok(mlua::Value::String(inner_lua.create_string(&escaped)?))
         })?,
     )?;
 
@@ -75,36 +108,43 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
 
     // `pairee.json_encode(value)` — serialise any Lua value (including
     // userdata, tables, strings, numbers, booleans) to a JSON string.
+    //
+    // Note on partial success: `mlua::Value` implements
+    // `Serialize` for the JSON-friendly subset (Nil, Boolean,
+    // Integer, Number, String, Table, LightUserData, Error).
+    // Functions, Threads, and custom userdata without a serde
+    // adapter are serialised as their Debug string (`"userdata:..."`)
+    // so plugins always get a parseable JSON output rather than
+    // a silent Nil. Real failures (recursion overflow, malformed
+    // UTF-8) still surface as a Lua runtime error so the plugin
+    // sees the failure rather than dropping data silently.
     table.set(
         "json_encode",
-        lua.create_async_function(|_lua_ctx, value: mlua::Value| async move {
+        lua.create_async_function(|lua_ctx, value: mlua::Value| async move {
             match serde_json::to_string(&value) {
-                Ok(s) => Ok(mlua::Value::String(_lua_ctx.create_string(&s)?)),
-                Err(e) => {
-                    log::warn!("pairee.json_encode failed: {e}");
-                    Ok(mlua::Value::Nil)
-                }
+                Ok(s) => Ok(mlua::Value::String(lua_ctx.create_string(&s)?)),
+                Err(e) => Err(mlua::Error::RuntimeError(format!(
+                    "pairee.json_encode failed: {e}"
+                ))),
             }
         })?,
     )?;
 
     // `pairee.json_decode(str)` — parse a JSON string into a Lua value.
     // The value round-trips through `serde_json::Value` so plugins see
-    // idiomatic Lua tables/arrays/strings on the way out.
+    // idiomatic Lua tables/arrays/strings on the way out. Malformed
+    // input is reported as a Lua runtime error rather than `nil`
+    // so the plugin sees the failure rather than dropping data
+    // silently.
     table.set(
         "json_decode",
         lua.create_async_function(|lua_ctx, s: mlua::String| async move {
-            match serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes())) {
-                Ok(v) => {
-                    let lua_value = mlua::LuaSerdeExt::to_value(lua_ctx, &v)
-                        .unwrap_or(mlua::Value::Nil);
-                    Ok(lua_value)
-                }
-                Err(e) => {
-                    log::warn!("pairee.json_decode failed: {e}");
-                    Ok(mlua::Value::Nil)
-                }
-            }
+            let v = serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes()))
+                .map_err(|e| {
+                    mlua::Error::RuntimeError(format!("pairee.json_decode failed: {e}"))
+                })?;
+            mlua::LuaSerdeExt::to_value(lua_ctx, &v)
+                .map_err(|e| mlua::Error::RuntimeError(format!("pairee.json_decode: {e}")))
         })?,
     )?;
 
@@ -253,18 +293,43 @@ fn shell_escape_unix(bytes: &[u8]) -> Vec<u8> {
     out
 }
 
-/// Minimal Windows `cmd.exe` escape: wrap the input in double quotes
-/// and escape any embedded double quotes. Sufficient for `cmd /C` use
-/// cases. Backslash doubling inside the quoted segment follows the
-/// standard `cmd.exe` rule.
+/// Argument-style Windows escape following the CommandLineToArgvW
+/// rules. This is what `CommandLineToArgvW` (used by Rust's
+/// `std::process::Command`) parses back, so a string escaped this
+/// way will be received verbatim by the child process when passed
+/// as a single argument. This is **NOT** safe for use in
+/// `cmd.exe /c "..."` strings — those require entirely different
+/// escaping for metacharacters like `^`, `&`, `|`, `<`, `>`, `%`.
+/// Use `quote_arg` (this helper) for argument passing; if you
+/// need to embed a string in a shell command, build the command
+/// using `Command(...):arg(...)` instead.
 fn shell_escape_windows(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + 2);
+    let mut out: Vec<u8> = Vec::with_capacity(bytes.len() + 2);
+    let mut backslashes = 0usize;
     out.push(b'"');
     for &b in bytes {
-        if b == b'"' || b == b'\\' {
+        if b == b'\\' {
+            backslashes += 1;
             out.push(b'\\');
+        } else if b == b'"' {
+            // Escape all accumulated backslashes, then escape the quote.
+            for _ in 0..backslashes {
+                out.push(b'\\');
+            }
+            out.push(b'\\');
+            out.push(b'"');
+            backslashes = 0;
+        } else {
+            // Any non-backslash, non-quote byte flushes the backslash
+            // accumulator.
+            backslashes = 0;
+            out.push(b);
         }
-        out.push(b);
+    }
+    // Closing quote: double every trailing backslash so the quote is
+    // not interpreted as escaped.
+    for _ in 0..backslashes {
+        out.push(b'\\');
     }
     out.push(b'"');
     out
@@ -291,15 +356,35 @@ mod tests {
 
     #[test]
     fn test_shell_escape_windows_with_quote() {
+        // `a"b` becomes `"a\"b"` — the backslash before `"` is doubled
+        // and the `"` itself is escaped.
         let r = shell_escape_windows(b"a\"b");
         assert_eq!(r, b"\"a\\\"b\"");
     }
 
     #[test]
     fn test_shell_escape_windows_with_backslash() {
-        // Backslashes are doubled inside a quoted cmd.exe segment.
+        // CommandLineToArgvW rules: backslashes are literal UNLESS
+        // followed by a `"`. `a\b` therefore becomes `"a\b"` (one
+        // backslash preserved verbatim).
         let r = shell_escape_windows(b"a\\b");
-        assert_eq!(r, b"\"a\\\\b\"");
+        assert_eq!(r, b"\"a\\b\"");
+    }
+
+    #[test]
+    fn test_shell_escape_windows_trailing_backslashes() {
+        // Trailing backslashes before the closing `"` are doubled so
+        // they don't escape the quote. `a\` becomes `"a\\"`.
+        let r = shell_escape_windows(b"a\\");
+        assert_eq!(r, b"\"a\\\\\"");
+    }
+
+    #[test]
+    fn test_shell_escape_windows_many_backslashes_then_quote() {
+        // CommandLineToArgvW: 2N backslashes + `"` → 2N+1 backslashes
+        // + escaped `"`. Input `\\"` → output `"\\\\\""`.
+        let r = shell_escape_windows(b"\\\\\"");
+        assert_eq!(r, b"\"\\\\\\\\\\\"\"");
     }
 
     #[test]
@@ -340,6 +425,7 @@ mod tests {
             "group_name",
             "host_name",
             "quote",
+            "quote_arg",
             "percent_encode",
             "percent_decode",
             "json_encode",
@@ -355,6 +441,51 @@ mod tests {
                 "utils table missing key {key}"
             );
         }
+    }
+
+    #[test]
+    fn test_quote_arg_is_safe_for_argument_passing() {
+        // Round-trip: a quoted Windows argument must survive being
+        // parsed back by CommandLineToArgvW. We exercise a payload
+        // that contains quotes, backslashes, and whitespace — the
+        // adversarial cases that historically broke naive escapes.
+        let lua = Lua::new();
+        let table = bind(&lua).expect("utils table");
+        let quote_arg: mlua::Function = table.get("quote_arg").expect("quote_arg");
+        // Unix branch.
+        let unix_escaped: String = quote_arg
+            .call::<_, mlua::String>(("it's got a quote", Some(true)))
+            .expect("quote_arg unix")
+            .to_str()
+            .unwrap()
+            .to_string();
+        assert_eq!(unix_escaped, "'it'\\''s got a quote'");
+        // Windows branch.
+        let win_escaped: String = quote_arg
+            .call::<_, mlua::String>(("a\\b\"c d", Some(false)))
+            .expect("quote_arg windows")
+            .to_str()
+            .unwrap()
+            .to_string();
+        // The exact byte sequence follows CommandLineToArgvW:
+        //   a\b"c d → "a\b\"c d"
+        assert_eq!(win_escaped, r#""a\b\"c d""#);
+    }
+
+    #[tokio::test]
+    async fn test_json_decode_rejects_malformed_input() {
+        // Malformed JSON must surface as a Lua runtime error rather
+        // than a silent Nil — the previous implementation swallowed
+        // parse failures with `unwrap_or(Nil)`, which let plugin
+        // authors overlook broken downstream pipelines.
+        let lua = Lua::new();
+        let table = bind(&lua).expect("utils table");
+        let json_decode: mlua::Function = table.get("json_decode").expect("json_decode");
+        let result = json_decode.call_async::<_, mlua::Value>("not json".to_string()).await;
+        assert!(
+            result.is_err(),
+            "json_decode must reject malformed JSON with a runtime error"
+        );
     }
 
     #[test]

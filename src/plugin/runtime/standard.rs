@@ -122,6 +122,7 @@ fn register_top_level_aliases(
     let utils: mlua::Table = pairee.get("utils")?;
     let alias_keys: &[&str] = &[
         "quote",
+        "quote_arg",
         "percent_encode",
         "percent_decode",
         "json_encode",
