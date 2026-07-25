@@ -140,7 +140,33 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Right => {
-                if new_idx >= 10 && new_idx <= 13 {
+                if new_idx == 0 {
+                    if !new_input.is_empty() {
+                        let history = crate::fs::transfer::history::load_history();
+                        if let Some(suggestion) = history
+                            .destinations
+                            .iter()
+                            .find(|d| d.to_lowercase().starts_with(&new_input.to_lowercase()))
+                        {
+                            new_input = suggestion.clone();
+                            update_popup(
+                                state,
+                                new_input.clone(),
+                                new_idx,
+                                new_already,
+                                new_multi,
+                                new_access,
+                                new_ext,
+                                new_cache,
+                                new_sparse,
+                                new_cow,
+                                new_sym,
+                                new_filter,
+                                new_filter_mask,
+                            );
+                        }
+                    }
+                } else if new_idx >= 10 && new_idx <= 13 {
                     new_idx = if new_idx < 13 { new_idx + 1 } else { 10 };
                     update_popup(
                         state,
@@ -258,61 +284,109 @@ pub fn handle(
                 }
 
                 // Copy logic
-                if context.config.settings.confirmations.confirm_overwrite {
-                    let mut any_exists = false;
-                    if src_paths.len() == 1 {
-                        let dst = dest_dir.join(&new_input);
-                        if dst.exists() {
-                            any_exists = true;
-                        }
-                    } else {
-                        for src in &src_paths {
-                            if let Some(fname) = src.file_name() {
-                                let dst = dest_dir.join(fname);
-                                if dst.exists() {
-                                    any_exists = true;
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    if any_exists && new_already == 0
-                    /* Ask */
-                    {
-                        state.active_popup = Some(PopupType::ConfirmOverwrite {
-                            src_paths,
-                            dest_dir,
-                            is_move: false,
-                            input: Some(new_input),
-                        });
-                        return Ok(None);
-                    }
-                }
-
                 // Start copy
                 state.active_popup = None;
                 let targets = src_paths;
                 let dest = dest_dir.join(&new_input);
 
-                let rx = crate::fs::spawn_copy_task(
-                    targets.clone(),
-                    dest.clone(),
-                    context.config.settings.clone(),
-                );
-                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy {
-                    sources: targets,
-                    dest,
-                });
-                state.progress_rx = Some(rx);
-                state.active_popup = Some(PopupType::CopyProgress {
-                    is_move: false,
-                    current_file: crate::config::localization::t("progress_initializing"),
-                    files_copied: 0,
-                    total_files: 0,
-                    bytes_copied: 0,
-                    total_bytes: 0,
-                });
+                let is_ssh = state.get_active_panel().ssh_conn.is_some()
+                    || state.get_passive_panel().ssh_conn.is_some();
+                if is_ssh {
+                    let rx = crate::fs::spawn_copy_move_task(
+                        targets.clone(),
+                        dest.clone(),
+                        state.get_active_panel().ssh_conn.clone(),
+                        state.get_passive_panel().ssh_conn.clone(),
+                        false,
+                        context.config.settings.clone(),
+                    );
+                    state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Copy);
+                    state.progress_rx = Some(rx);
+                    state.active_popup = Some(PopupType::CopyProgress {
+                        is_move: false,
+                        current_file: crate::config::localization::t("progress_initializing"),
+                        files_copied: 0,
+                        total_files: 0,
+                        bytes_copied: 0,
+                        total_bytes: 0,
+                    });
+                } else {
+                    use crate::fs::transfer::engine::TransferEngine;
+                    use crate::fs::transfer::job::{TransferJob, TransferOperation};
+                    use crate::fs::transfer::options::TransferOptions;
+
+                    let mut options = TransferOptions::default();
+                    options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
+                    options.hash_algorithm =
+                        match context.config.settings.transfer_default_hash.as_str() {
+                            "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
+                            "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
+                            "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
+                            "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
+                            _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
+                        };
+                    options.buffer_size = match context.config.settings.transfer_buffer_size {
+                        65536 => crate::fs::transfer::options::BufferSize::_64KB,
+                        262144 => crate::fs::transfer::options::BufferSize::_256KB,
+                        4194304 => crate::fs::transfer::options::BufferSize::_4MB,
+                        _ => crate::fs::transfer::options::BufferSize::_1MB,
+                    };
+                    options.direct_io = new_cache;
+                    options.preserve_timestamps =
+                        context.config.settings.transfer_preserve_timestamps;
+                    options.preserve_attributes = new_ext;
+                    options.preserve_acl = context.config.settings.transfer_preserve_acl;
+                    options.preserve_streams = context.config.settings.transfer_preserve_streams;
+                    options.limit_bandwidth_rate =
+                        context.config.settings.transfer_limit_bandwidth_rate;
+                    options.halt_on_error = context.config.settings.transfer_halt_on_error;
+                    options.max_retries = context.config.settings.transfer_max_retries;
+                    options.conflict_resolution = match new_already {
+                        1 => "overwrite".to_string(),
+                        2 => "skip".to_string(),
+                        3 => "overwrite_older".to_string(),
+                        4 => "rename".to_string(),
+                        _ => "ask".to_string(),
+                    };
+                    match new_sym {
+                        1 => {
+                            options.skip_symlinks = false;
+                            options.follow_symlinks = true;
+                        }
+                        2 => {
+                            options.skip_symlinks = true;
+                            options.follow_symlinks = false;
+                        }
+                        _ => {
+                            options.skip_symlinks = false;
+                            options.follow_symlinks = false;
+                        }
+                    }
+                    options.filter_mask = if new_filter && !new_filter_mask.is_empty() {
+                        Some(new_filter_mask)
+                    } else {
+                        None
+                    };
+
+                    let job = TransferJob::new(TransferOperation::Copy, targets, dest, options);
+
+                    for src in &job.sources {
+                        crate::fs::transfer::history::add_source_path(src);
+                    }
+                    crate::fs::transfer::history::add_dest_path(&job.destination);
+
+                    if state.transfer.is_none() {
+                        let (engine, rx) = TransferEngine::new();
+                        state.transfer = Some(
+                            crate::app::state::transfer_state::TransferUIState::new(engine, rx),
+                        );
+                    }
+
+                    if let Some(ref mut ts) = state.transfer {
+                        ts.engine.submit_job(job);
+                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
+                    }
+                }
 
                 return Ok(None);
             }

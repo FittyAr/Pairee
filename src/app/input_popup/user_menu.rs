@@ -56,6 +56,12 @@ pub fn get_user_menu_items() -> Vec<UserMenuItem> {
             action: Some(Action::OpenGitPanel),
         });
         items.push(UserMenuItem {
+            key: "6".to_string(),
+            label: crate::config::localization::t("user_cmd_mkdir"),
+            command: None,
+            action: Some(Action::MkDir),
+        });
+        items.push(UserMenuItem {
             key: "F".to_string(),
             label: crate::config::localization::t("user_cmd_quick_filter"),
             command: None,

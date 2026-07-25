@@ -1,7 +1,8 @@
 [package]
 name = "pairee"
-version = "0.6.1"
+version = "0.7.1"
 edition = "2024"
+description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
 
 [dependencies]
@@ -30,11 +31,18 @@ percent-encoding = "2.3"
 arboard = "3.4"
 hostname = "0.4"
 xxhash-rust = { version = "0.8", features = ["xxh3"] }
-sha2 = "0.10"
+sha2 = "0.10.8"
 infer = "0.16"
 syntect = { version = "5.2", default-features = false, features = ["default-fancy"] }
 once_cell = "1.21"
 strip-ansi-escapes = "0.2"
+blake3 = "1.5.4"
+md-5 = "0.10.6"
+sha1 = "0.10.6"
+crc32fast = "1.4.2"
+uuid = { version = "1.10.0", features = ["v4"] }
+filetime = "0.2.25"
+bytesize = "1.3.0"
 
 
 [dev-dependencies]
@@ -42,7 +50,7 @@ tempfile = "3.27"
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
-windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation"] }
 ssh2 = { version = "0.9" }
 
 [target.'cfg(unix)'.dependencies]
@@ -57,14 +65,15 @@ ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 [package.metadata.deb]
 name = "pairee"
 maintainer = "FittyAr <10284757+FittyAr@users.noreply.github.com>"
-license-file = ["LICENSE", "4"]
+license-file = ["LICENSE"]
 depends = "$default"
 section = "utils"
 priority = "optional"
 assets = [
     ["target/release/pairee", "usr/bin/pairee", "755"],
     ["lang/*", "usr/share/pairee/lang/", "644"],
-    ["help/*", "usr/share/pairee/help/", "644"],
+    ["help/en/*", "usr/share/pairee/help/en/", "644"],
+    ["help/es/*", "usr/share/pairee/help/es/", "644"],
     ["keymaps/*", "usr/share/pairee/keymaps/", "644"],
     ["manifests/linux/pairee.desktop", "usr/share/applications/pairee.desktop", "644"],
     ["img/pairee_logo.svg", "usr/share/icons/hicolor/scalable/apps/pairee.svg", "644"],
@@ -80,7 +89,8 @@ categories = ["Applications/System"]
 assets = [
     { source = "target/x86_64-unknown-linux-musl/release/pairee", dest = "/usr/bin/pairee", mode = "755" },
     { source = "lang/*", dest = "/usr/share/pairee/lang/", mode = "644" },
-    { source = "help/*", dest = "/usr/share/pairee/help/", mode = "644" },
+    { source = "help/en/*", dest = "/usr/share/pairee/help/en/", mode = "644" },
+    { source = "help/es/*", dest = "/usr/share/pairee/help/es/", mode = "644" },
     { source = "keymaps/*", dest = "/usr/share/pairee/keymaps/", mode = "644" },
     { source = "manifests/linux/pairee.desktop", dest = "/usr/share/applications/pairee.desktop", mode = "644" },
     { source = "img/pairee_logo.svg", dest = "/usr/share/icons/hicolor/scalable/apps/pairee.svg", mode = "644" },
@@ -89,3 +99,6 @@ assets = [
 
 [build-dependencies]
 embed-resource = "2.5"
+
+[workspace]
+

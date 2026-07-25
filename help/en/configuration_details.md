@@ -212,6 +212,24 @@ Specifies which operations require an explicit warning dialog before proceeding.
 
 ---
 
+## 🔗 File Associations Editor
+
+File Associations allow you to map file name patterns (glob masks) to custom launch commands. This editor is accessible via **Top Menu Bar (F9) → Commands → File Associations**.
+
+### Keyboard Shortcuts in the Editor
+* `Up` / `Down`: Navigate through the list of rules.
+* `A` / `a` / `Insert`: Add a new association rule. You will be prompted sequentially to enter:
+  1. **Mask:** Glob pattern (e.g. `*.rs` or `*.{jpg,png}`).
+  2. **Open Command:** The terminal command to run when opening the file (e.g. `notepad %f` or `code %f`). The `%f` placeholder will be replaced with the selected file path.
+  3. **View Command (optional):** Command for the F3 viewer. If left blank, it falls back to the open command.
+* `E` / `e` / `Enter`: Edit the highlighted rule. Follows the same step-by-step input fields as adding a rule.
+* `D` / `d` / `Delete`: Delete the highlighted rule from the list.
+* `Esc`: Exit the editor or cancel editing.
+
+All changes are automatically saved to your `associations.toml` file.
+
+---
+
 ## ⚙️ Configuration File Settings (settings.toml)
 
 Some advanced parameters can be configured directly inside your `settings.toml` file (located in your configuration folder):

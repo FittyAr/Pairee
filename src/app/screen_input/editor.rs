@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::app::sys_helpers::find_next_in_editor;
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn handle_editor_screen(
@@ -125,7 +126,9 @@ pub fn handle_editor_screen(
             KeyCode::F(2) => {
                 let content = ed.lines.join("\n");
                 if let Err(e) = std::fs::write(&ed.path, content) {
-                    state.active_popup = Some(PopupType::Error(format!("Failed to save: {}", e)));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_save_failed").replace("{}", &e.to_string()),
+                    ));
                     return Ok(());
                 }
                 ed.is_dirty = false;
@@ -133,7 +136,9 @@ pub fn handle_editor_screen(
             KeyCode::Char('s') if is_ctrl => {
                 let content = ed.lines.join("\n");
                 if let Err(e) = std::fs::write(&ed.path, content) {
-                    state.active_popup = Some(PopupType::Error(format!("Failed to save: {}", e)));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_save_failed").replace("{}", &e.to_string()),
+                    ));
                     return Ok(());
                 }
                 ed.is_dirty = false;
@@ -163,8 +168,9 @@ pub fn handle_editor_screen(
                             ed.is_dirty = false;
                         }
                         Err(e) => {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("Failed to reload: {}", e)));
+                            state.active_popup = Some(PopupType::Error(
+                                t("error_reload_file_failed").replace("{}", &e.to_string()),
+                            ));
                             return Ok(());
                         }
                     }

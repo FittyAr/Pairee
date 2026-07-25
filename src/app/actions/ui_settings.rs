@@ -161,12 +161,12 @@ pub async fn handle_ui_settings_action(
             let targets = state.get_active_panel().get_targeted_paths();
             if !targets.is_empty() {
                 let mut items = vec![
-                    "1. View".to_string(),
-                    "2. Edit".to_string(),
-                    "3. Copy".to_string(),
-                    "4. Move".to_string(),
-                    "5. Delete".to_string(),
-                    "6. Compress".to_string(),
+                    t("ctx_menu_view"),
+                    t("ctx_menu_edit"),
+                    t("ctx_menu_copy"),
+                    t("ctx_menu_move"),
+                    t("ctx_menu_delete"),
+                    t("ctx_menu_compress"),
                 ];
                 let has_archive = targets.iter().any(|p| {
                     let ext = p
@@ -180,7 +180,7 @@ pub async fn handle_ui_settings_action(
                     )
                 });
                 if has_archive {
-                    items.push("7. Extract".to_string());
+                    items.push(t("ctx_menu_extract"));
                 }
                 state.active_popup = Some(PopupType::ContextMenu {
                     items,
@@ -358,7 +358,9 @@ pub async fn handle_ui_settings_action(
                     });
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!("Compare failed: {}", e)));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_compare_failed").replace("{}", &e.to_string()),
+                    ));
                 }
             }
             true
@@ -402,10 +404,9 @@ pub async fn handle_ui_settings_action(
                     ));
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!(
-                        "Failed to read user menu config: {}",
-                        e
-                    )));
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_read_usermenu_failed").replace("{}", &e.to_string()),
+                    ));
                 }
             }
             true
@@ -415,6 +416,10 @@ pub async fn handle_ui_settings_action(
             state.active_popup = Some(PopupType::FileAssociationsDialog {
                 rules: config.rules,
                 cursor_idx: 0,
+                editing_idx: None,
+                editing_field: 0,
+                edit_buffer: String::new(),
+                original_rule: None,
             });
             true
         }
@@ -489,6 +494,7 @@ pub async fn handle_ui_settings_action(
                 active_tab: 0,
                 cursor_idx: 0,
                 installed: Vec::new(),
+                all_registry: Vec::new(),
                 registry: Vec::new(),
                 search_query: String::new(),
                 is_searching: false,
@@ -540,8 +546,32 @@ pub async fn handle_ui_settings_action(
                         update_available,
                     ));
                 }
+                // Build the full registry list (all available plugins) so the
+                // Search tab shows results immediately without requiring a query.
+                let registry: Vec<(String, String, String, String)> = index
+                    .as_ref()
+                    .map(|idx| {
+                        let mut list: Vec<_> = idx
+                            .plugins
+                            .iter()
+                            .map(|(name, p)| {
+                                (
+                                    name.clone(),
+                                    p.version.clone(),
+                                    p.description.clone().unwrap_or_default(),
+                                    p.author.clone().unwrap_or_default(),
+                                )
+                            })
+                            .collect();
+                        list.sort_by(|a, b| a.0.cmp(&b.0));
+                        list
+                    })
+                    .unwrap_or_default();
                 let _ = tx
-                    .send(crate::plugin::manager::PluginRequest::PluginMenuLoaded { installed })
+                    .send(crate::plugin::manager::PluginRequest::PluginMenuLoaded {
+                        installed,
+                        registry,
+                    })
                     .await;
             });
 
@@ -564,9 +594,7 @@ pub async fn handle_ui_settings_action(
             true
         }
         Action::VideoMode => {
-            state.active_popup = Some(PopupType::Info(
-                "Video mode: resize your terminal manually.".to_string(),
-            ));
+            state.active_popup = Some(PopupType::Info(t("video_mode_hint")));
             true
         }
         Action::CycleFKeysModifiers => {
@@ -585,18 +613,19 @@ pub async fn handle_ui_settings_action(
             }
             let panel_path = state.get_active_panel().current_path.clone();
             match crate::git::repo::find_repo(&panel_path) {
-                Some(repo) => {
+                Some(mut repo) => {
                     let repo_path =
                         crate::git::repo::get_workdir(&repo).unwrap_or_else(|| panel_path.clone());
                     let current_branch = repo
                         .head()
                         .ok()
                         .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-                        .unwrap_or_else(|| "(detached HEAD)".to_string());
+                        .unwrap_or_else(|| t("git_detached_head"));
                     let limit = context.config.settings.git_log_limit as usize;
                     let status_entries = crate::git::status::get_status(&repo);
                     let log_entries = crate::git::log::get_log(&repo, limit);
                     let branch_entries = crate::git::branches::get_branches(&repo);
+                    let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
                     state.active_popup = Some(crate::app::state::PopupType::GitPanel {
                         repo_path,
                         active_tab: 0,
@@ -605,6 +634,7 @@ pub async fn handle_ui_settings_action(
                         status_entries,
                         log_entries,
                         branch_entries,
+                        stash_entries,
                         current_branch,
                         pending_action: None,
                     });
@@ -635,9 +665,7 @@ pub async fn handle_ui_settings_action(
                 crate::update::checker::UpdateChecker::check_in_background(tx);
                 state.update_check_rx = Some(rx);
                 state.update_status = crate::update::UpdateStatus::Checking;
-                state.active_popup = Some(crate::app::state::PopupType::Info(
-                    "Checking for updates...".to_string(),
-                ));
+                state.active_popup = Some(crate::app::state::PopupType::Info(t("update_checking")));
             }
             true
         }
@@ -717,17 +745,36 @@ pub async fn handle_ui_settings_action(
                             );
                             let _ = crate::plugin::updater::write_lockfile(&lock);
 
-                            state.active_popup = Some(crate::app::state::PopupType::Info(format!(
-                                "✓ Local plugin '{}' installed successfully to:\n{:?}",
-                                name, dest_dir
-                            )));
+                            state.active_popup = Some(crate::app::state::PopupType::Info(
+                                t("plugin_toast_install_dev_ok")
+                                    .replace("{}", &name)
+                                    .replace("{:?}", &format!("{:?}", dest_dir)),
+                            ));
                         } else {
                             state.active_popup = Some(crate::app::state::PopupType::Error(
-                                format!("Failed to copy plugin files for '{}'.", name),
+                                t("plugin_toast_install_dev_failed").replace("{}", &name),
                             ));
                         }
                     }
                 }
+            }
+            true
+        }
+        Action::ToggleTransferPanel => {
+            if let Some(ref mut ts) = state.transfer {
+                match ts.view_mode {
+                    crate::app::state::TransferViewMode::Hidden
+                    | crate::app::state::TransferViewMode::Minimized => {
+                        ts.view_mode = crate::app::state::TransferViewMode::Expanded;
+                        state.active_popup = Some(PopupType::TransferPanel);
+                    }
+                    crate::app::state::TransferViewMode::Expanded => {
+                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
+                        state.active_popup = None;
+                    }
+                }
+            } else {
+                state.active_popup = Some(PopupType::Info(t("transfer_no_active")));
             }
             true
         }

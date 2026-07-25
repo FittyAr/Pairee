@@ -1,3 +1,4 @@
+use crate::app::actions::fs_ops::r#move as move_action;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -10,7 +11,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::RenMovPrompt {
+    if let Some(PopupType::MovePrompt {
         input,
         src_paths,
         dest_dir,
@@ -53,7 +54,7 @@ pub fn handle(
                             sy: usize,
                             f: bool,
                             fm: String| {
-            s.active_popup = Some(PopupType::RenMovPrompt {
+            s.active_popup = Some(PopupType::MovePrompt {
                 input: i,
                 src_paths: src_paths.clone(),
                 dest_dir: dest_dir.clone(),
@@ -140,7 +141,33 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Right => {
-                if new_idx >= 10 && new_idx <= 13 {
+                if new_idx == 0 {
+                    if !new_input.is_empty() {
+                        let history = crate::fs::transfer::history::load_history();
+                        if let Some(suggestion) = history
+                            .destinations
+                            .iter()
+                            .find(|d| d.to_lowercase().starts_with(&new_input.to_lowercase()))
+                        {
+                            new_input = suggestion.clone();
+                            update_popup(
+                                state,
+                                new_input.clone(),
+                                new_idx,
+                                new_already,
+                                new_multi,
+                                new_access,
+                                new_ext,
+                                new_cache,
+                                new_sparse,
+                                new_cow,
+                                new_sym,
+                                new_filter,
+                                new_filter_mask,
+                            );
+                        }
+                    }
+                } else if new_idx >= 10 && new_idx <= 13 {
                     new_idx = if new_idx < 13 { new_idx + 1 } else { 10 };
                     update_popup(
                         state,
@@ -179,16 +206,15 @@ pub fn handle(
                         new_filter_mask,
                     );
                 } else if c == ' ' {
-                    // Toggle depending on idx
                     match new_idx {
-                        1 => new_already = (new_already + 1) % 4, // Cycle Ask, Overwrite, Skip, Append
+                        1 => new_already = (new_already + 1) % 4,
                         2 => new_multi = !new_multi,
                         3 => new_access = !new_access,
                         4 => new_ext = !new_ext,
                         5 => new_cache = !new_cache,
                         6 => new_sparse = !new_sparse,
                         7 => new_cow = !new_cow,
-                        8 => new_sym = (new_sym + 1) % 3, // Cycle Smart, Link, Target
+                        8 => new_sym = (new_sym + 1) % 3,
                         9 => new_filter = !new_filter,
                         _ => {}
                     }
@@ -233,7 +259,6 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 if new_idx == 13 {
-                    // Cancel
                     state.active_popup = None;
                     return Ok(None);
                 }
@@ -243,7 +268,7 @@ pub fn handle(
                     state.active_popup = Some(PopupType::TreeView {
                         nodes,
                         cursor_idx: 0,
-                        caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                        caller: crate::app::state::types::TreeViewCaller::MovePrompt {
                             previous: Box::new(state.active_popup.take().unwrap()),
                         },
                     });
@@ -257,61 +282,19 @@ pub fn handle(
                     return Ok(None);
                 }
 
-                // Move logic
-                let targets = src_paths.clone();
-                let dest = dest_dir.join(&new_input);
-
-                if context.config.settings.confirmations.confirm_overwrite {
-                    let mut any_exists = false;
-                    for src in &targets {
-                        if let Some(fname) = src.file_name() {
-                            let dst = if targets.len() == 1 {
-                                dest.clone()
-                            } else {
-                                dest.join(fname)
-                            };
-                            if dst.exists() {
-                                any_exists = true;
-                                break;
-                            }
-                        }
-                    }
-
-                    if any_exists && new_already == 0
-                    /* Ask */
-                    {
-                        state.active_popup = Some(PopupType::ConfirmOverwrite {
-                            src_paths,
-                            dest_dir,
-                            is_move: true,
-                            input: Some(new_input),
-                        });
-                        return Ok(None);
-                    }
-                }
-
                 state.active_popup = None;
-
-                // Launch the move as a background async task
-                let rx = crate::fs::spawn_move_task(
-                    targets.clone(),
-                    dest.clone(),
-                    context.config.settings.clone(),
+                move_action::submit_move_job_from_popup(
+                    state,
+                    context,
+                    src_paths,
+                    new_input,
+                    new_already,
+                    new_ext,
+                    new_cache,
+                    new_sym,
+                    new_filter,
+                    new_filter_mask,
                 );
-                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move {
-                    sources: targets,
-                    dest,
-                });
-                state.progress_rx = Some(rx);
-                state.active_popup = Some(PopupType::CopyProgress {
-                    is_move: true,
-                    current_file: crate::config::localization::t("progress_initializing"),
-                    files_copied: 0,
-                    total_files: 0,
-                    bytes_copied: 0,
-                    total_bytes: 0,
-                });
-
                 return Ok(None);
             }
             KeyCode::Esc => {
@@ -323,7 +306,7 @@ pub fn handle(
                 state.active_popup = Some(PopupType::TreeView {
                     nodes,
                     cursor_idx: 0,
-                    caller: crate::app::state::types::TreeViewCaller::RenMovPrompt {
+                    caller: crate::app::state::types::TreeViewCaller::MovePrompt {
                         previous: Box::new(state.active_popup.take().unwrap()),
                     },
                 });

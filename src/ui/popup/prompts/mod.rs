@@ -7,7 +7,7 @@ pub mod ssh;
 pub mod system;
 
 use crate::app::context::AppContext;
-use crate::app::state::PopupType;
+use crate::app::state::{AppState, PopupType};
 use ratatui::{Frame, layout::Rect};
 
 pub fn render_prompt_popup(
@@ -16,14 +16,15 @@ pub fn render_prompt_popup(
     theme: &crate::config::theme::Theme,
     size: Rect,
     context: &AppContext,
+    state: &AppState,
 ) -> bool {
     match popup {
         PopupType::Help { .. } => help::render(f, popup, theme, size),
 
         PopupType::MkDirPrompt { .. }
         | PopupType::CopyPrompt { .. }
-        | PopupType::RenMovPrompt { .. }
-        | PopupType::ConfirmOverwrite { .. }
+        | PopupType::MovePrompt { .. }
+        | PopupType::RenamePrompt { .. }
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }
         | PopupType::CreateLinkPrompt { .. }
@@ -48,7 +49,7 @@ pub fn render_prompt_popup(
         | PopupType::Info(_)
         | PopupType::ApplyCommandPrompt { .. }
         | PopupType::SelectGroupPrompt { .. }
-        | PopupType::PluginNotify { .. } => system::render(f, popup, theme, size),
+        | PopupType::PluginNotify { .. } => system::render(f, popup, theme, size, state),
 
         PopupType::PluginInputDialog { .. }
         | PopupType::PluginConfirmDialog { .. }

@@ -15,7 +15,7 @@ pub fn render(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    if let PopupType::RenMovPrompt {
+    if let PopupType::MovePrompt {
         input,
         src_paths,
         dest_dir: _,
@@ -38,7 +38,7 @@ pub fn render(
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Yellow))
-            .title(t("prompt_renmov_title"))
+            .title(t("prompt_move_title"))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
         let inner = block.inner(area);
         f.render_widget(block, area);
@@ -84,19 +84,37 @@ pub fn render(
         } else {
             norm_style
         };
-        let display_input = if *cursor_idx == 0 {
-            format!("{}_", input)
-        } else {
-            input.clone()
-        };
+        let mut text_lines = vec![ratatui::text::Line::from(format!(
+            "{} {}",
+            label,
+            t("prompt_move_to")
+        ))];
+        let mut input_spans = vec![ratatui::text::Span::styled(input.clone(), in_style)];
+        if *cursor_idx == 0 {
+            input_spans.push(ratatui::text::Span::styled(
+                "_",
+                Style::default().fg(Color::Cyan),
+            ));
+            if !input.is_empty() {
+                let history = crate::fs::transfer::history::load_history();
+                if let Some(suggestion) = history
+                    .destinations
+                    .iter()
+                    .find(|d| d.to_lowercase().starts_with(&input.to_lowercase()))
+                {
+                    if suggestion.len() > input.len() {
+                        let suffix = &suggestion[input.len()..];
+                        input_spans.push(ratatui::text::Span::styled(
+                            suffix.to_string(),
+                            Style::default().fg(Color::DarkGray),
+                        ));
+                    }
+                }
+            }
+        }
+        text_lines.push(ratatui::text::Line::from(input_spans));
         f.render_widget(
-            Paragraph::new(format!(
-                "{} {}\n{}",
-                label,
-                t("prompt_renmov_to"),
-                display_input
-            ))
-            .style(in_style),
+            Paragraph::new(ratatui::text::Text::from(text_lines)),
             chunks[0],
         );
 
@@ -268,7 +286,7 @@ pub fn render(
         };
 
         let btns = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(t("btn_rename_bracket"), b1),
+            ratatui::text::Span::styled(t("btn_move_bracket"), b1),
             ratatui::text::Span::raw("  "),
             ratatui::text::Span::styled(t("btn_f10_tree"), b2),
             ratatui::text::Span::raw("  "),

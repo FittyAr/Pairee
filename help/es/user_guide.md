@@ -106,7 +106,7 @@ A continuación, se detalla cómo configurarlo según tu software de conexión:
 Pairee cuenta con un potente motor de plugins integrado basado en el lenguaje de scripting Lua. Los plugins se ejecutan dentro de un entorno seguro y aislado (sandbox) para proteger la integridad de tu sistema de archivos.
 
 ### 4.1 Abrir el Gestor de Plugins
-Puedes acceder al gestor de plugins presionando la tecla **`F11`** (o seleccionando `F9 -> Opciones -> Administrador de Plugins`). 
+Puedes acceder al gestor de plugins seleccionando **Barra de menú → Archivos → Comandos plugin**. La tecla `F11` ya no está enlazada a esta acción en el mapa de teclas por defecto.
 
 La ventana emergente presenta dos pestañas principales entre las que puedes cambiar presionando la tecla **`Tab`**:
 
@@ -141,9 +141,9 @@ Permite buscar e instalar nuevos complementos desde el repositorio central ofici
 ---
 
 ### 4.2 Desarrolladores de Plugins
-Si deseas escribir tus propios complementos, auditar la arquitectura de seguridad o colaborar con el registro oficial, te invitamos a habilitar el **Modo Desarrollador** en el panel de Configuración (F9 -> Pestaña 4: Idioma y Plugins). Esto activará la tercera pestaña (**Herramientas de Desarrollo / Developer Tools**) en el Gestor de Plugins (F11) y te permitirá configurar tu propio directorio de desarrollo personalizado.
+Si deseas escribir tus propios complementos, auditar la arquitectura de seguridad o colaborar con el registro oficial, te invitamos a habilitar el **Modo Desarrollador** en el panel de Configuración (F9 -> Pestaña 4: Idioma y Plugins). Esto activará la tercera pestaña (**Herramientas de Desarrollo / Developer Tools**) en el Gestor de Plugins y te permitirá configurar tu propio directorio de desarrollo personalizado.
 
-#### Herramientas de Desarrollo Disponibles (F11 - Pestaña 3):
+#### Herramientas de Desarrollo Disponibles:
 * **Seleccionar Plugin Activo (Opción 0):** Abre un modal interactivo con la lista de plugins detectados en el sistema. Escanea tanto la carpeta de desarrollo (`plugins_dev_dir`) como las rutas actuales de los paneles activos (Panel 1 y Panel 2) en busca de un archivo `manifest.toml`, permitiéndote elegir con facilidad el plugin sobre el que deseas trabajar.
 * **Inicializar plantilla (Opción 1):** Crea un esqueleto de plugin en tu directorio de desarrollo con los archivos mínimos necesarios (`manifest.toml`, `main.lua` y traducciones en `lang/en.toml`). Al crearlo con éxito, se selecciona automáticamente en la Opción 0 y esta opción se deshabilita.
 * **Verificar (Lint) (Opción 2):** Escanea la carpeta del plugin seleccionado y realiza auditorías de seguridad e integridad sobre los archivos Lua y de manifiesto. Detecta llamadas a funciones potencialmente peligrosas (como ejecución de subprocesos externos u operaciones de red no declaradas).

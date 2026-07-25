@@ -30,8 +30,8 @@ copy                = "Ctrl+c"
 move                = "Ctrl+x"
 delete              = "Delete"
 wipe_file           = "Shift+Delete"
-# rename reuses F2 — same as VS Code Explorer
-move_rename         = "F2"
+# Rename follows VS Code Explorer's F2 convention.
+rename              = "F2"
 mkdir               = "Ctrl+Shift+n"
 view                = "Ctrl+Shift+v"
 edit                = "Ctrl+e"
@@ -99,10 +99,9 @@ archive_commands    = "Shift+F3"
 
 # ── Misc F-key fallbacks ──────────────────────────────────────────────────────
 view_fkey           = "F3"
-mkdir_fkey          = "F7"
+rename_fkey         = "F7"
 delete_fkey         = "F8"
 quit_f10            = "F10"
-plugin_menu         = "F11"
 screens_list        = "F12"
 find_file_alt       = "Alt+F7"
 file_view_history   = "Alt+F11"

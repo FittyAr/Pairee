@@ -1,5 +1,6 @@
 pub mod glob;
 pub mod panel;
+pub mod transfer_state;
 pub mod types;
 
 pub mod history;
@@ -10,10 +11,11 @@ pub mod screens;
 pub use crate::fs::compare::CompareStatus;
 pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
+pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot, LinkKind,
     PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
-    TreeNode,
+    TreeNode, GitConfirmedAction,
 };
 
 use crate::fs::ProgressUpdate;
@@ -107,6 +109,8 @@ pub struct AppState {
     pub update_install_rx: Option<
         tokio::sync::oneshot::Receiver<Result<crate::update::installer::InstallResult, String>>,
     >,
+    // ── Transfer Engine ───────────────────────────────────────────
+    pub transfer: Option<TransferUIState>,
 }
 
 impl AppState {
@@ -161,6 +165,8 @@ impl AppState {
             update_status: UpdateStatus::Idle,
             update_progress_rx: None,
             update_install_rx: None,
+            // Transfer Engine
+            transfer: None,
         }
     }
 

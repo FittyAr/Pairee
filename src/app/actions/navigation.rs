@@ -138,10 +138,10 @@ pub fn handle_navigation_action(
                 panel.clear_selection();
                 state.refresh_both_panels(context.config.settings.show_hidden);
             } else {
-                state.active_popup = Some(PopupType::Info(format!(
-                    "No folder shortcut assigned to Ctrl+Alt+{}",
-                    n
-                )));
+                state.active_popup = Some(PopupType::Info(
+                    crate::config::localization::t("error_no_folder_shortcut")
+                        .replace("{}", &n.to_string()),
+                ));
             }
             true
         }

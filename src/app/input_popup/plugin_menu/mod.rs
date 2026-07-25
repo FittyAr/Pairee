@@ -57,6 +57,7 @@ pub fn handle(
             active_tab,
             cursor_idx,
             installed,
+            all_registry,
             registry,
             search_query,
             is_searching,
@@ -73,6 +74,7 @@ pub fn handle(
             active_tab,
             cursor_idx,
             installed,
+            all_registry,
             registry,
             search_query,
             is_searching,
@@ -93,6 +95,7 @@ pub fn handle(
         mut active_tab,
         mut cursor_idx,
         mut installed,
+        all_registry,
         mut registry,
         mut search_query,
         is_searching,
@@ -110,13 +113,20 @@ pub fn handle(
     // Handle global escape to close if not editing query
     if key.code == KeyCode::Esc {
         if (active_tab == 1 && editing_query) || (active_tab == 2 && editing_query) {
+            // Esc from search mode: clear query and restore full list
             editing_query = false;
+            if active_tab == 1 {
+                search_query.clear();
+                registry = all_registry.clone();
+                cursor_idx = 0;
+            }
             dev_wizard_step = 0;
             dev_wizard_data.clear();
             state.active_popup = Some(PopupType::PluginMenu {
                 active_tab,
                 cursor_idx,
                 installed,
+                all_registry,
                 registry,
                 search_query,
                 is_searching,
@@ -140,7 +150,7 @@ pub fn handle(
     match key.code {
         KeyCode::Tab => {
             let dev_mode = context.config.settings.plugins_developer_mode;
-            if !(active_tab == 1 && editing_query) && !(active_tab == 2 && editing_query) {
+            if !(active_tab == 2 && editing_query) {
                 active_tab = if active_tab == 0 {
                     1
                 } else if active_tab == 1 {
@@ -154,12 +164,14 @@ pub fn handle(
                     } else {
                         0
                     };
-                editing_query = false;
+                // Auto-enter edit mode when switching to the Search tab
+                editing_query = active_tab == 1;
                 dev_results = String::new();
                 state.active_popup = Some(PopupType::PluginMenu {
                     active_tab,
                     cursor_idx,
                     installed,
+                    all_registry,
                     registry,
                     search_query,
                     is_searching,
@@ -187,6 +199,7 @@ pub fn handle(
             key,
             &mut cursor_idx,
             &mut registry,
+            &all_registry,
             &mut search_query,
             &mut editing_query,
         );
@@ -227,6 +240,7 @@ pub fn handle(
         active_tab,
         cursor_idx,
         installed,
+        all_registry,
         registry,
         search_query,
         is_searching,

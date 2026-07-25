@@ -48,8 +48,16 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
         lines.push(format!("{} {}", entry_name, description));
     }
 
-    let output = lines.join("\n") + if lines.is_empty() { "" } else { "\n" };
-    std::fs::write(&desc_path, output).with_context(|| format!("Writing {:?}", desc_path))
+    if lines.is_empty() {
+        if desc_path.exists() {
+            std::fs::remove_file(&desc_path)
+                .with_context(|| format!("Removing empty description file {:?}", desc_path))?;
+        }
+        Ok(())
+    } else {
+        let output = lines.join("\n") + "\n";
+        std::fs::write(&desc_path, output).with_context(|| format!("Writing {:?}", desc_path))
+    }
 }
 
 // Expose remove_description utility function for full API completeness.

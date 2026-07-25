@@ -212,17 +212,18 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Ctrl+F12".to_string(), Action::SortModes);
     map.insert("Ctrl+n".to_string(), Action::ToggleLongNames);
     map.insert("Ctrl+N".to_string(), Action::ToggleLongNames);
+    map.insert("Ctrl+t".to_string(), Action::ToggleTransferPanel);
+    map.insert("Ctrl+T".to_string(), Action::ToggleTransferPanel);
 
     // ── F-key standard actions ────────────────────────────────────────────────
     map.insert("F1".to_string(), Action::Help);
     map.insert("F2".to_string(), Action::UserMenu);
     map.insert("F3".to_string(), Action::View);
     map.insert("F4".to_string(), Action::Edit);
-    map.insert("F7".to_string(), Action::MkDir);
+    map.insert("F7".to_string(), Action::Rename);
     map.insert("F8".to_string(), Action::Delete);
     map.insert("F9".to_string(), Action::Menu);
     map.insert("F10".to_string(), Action::Quit);
-    map.insert("F11".to_string(), Action::PluginMenu);
     map.insert("F12".to_string(), Action::ScreensList);
     map.insert("Ctrl+Tab".to_string(), Action::NextScreen);
     map.insert("Ctrl+Shift+Tab".to_string(), Action::PrevScreen);
@@ -346,6 +347,7 @@ fn action_to_name(action: Action) -> String {
         Action::Edit => "edit",
         Action::Copy => "copy",
         Action::Move => "move",
+        Action::Rename => "rename",
         Action::MkDir => "mkdir",
         Action::Delete => "delete",
         Action::Menu => "menu",
@@ -400,6 +402,7 @@ fn action_to_name(action: Action) -> String {
         Action::OpenGitPanel => "open_git_panel",
         Action::ToggleSortReverse => "toggle_sort_reverse",
         Action::CheckForUpdates => "check_for_updates",
+        Action::ToggleTransferPanel => "toggle_transfer_panel",
     }
     .to_string()
 }
@@ -429,10 +432,6 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
             clean_name = stripped;
             break;
         }
-    }
-
-    if clean_name == "rename" {
-        return Some(Action::Move);
     }
 
     match clean_name {
@@ -477,6 +476,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "edit" => Some(Action::Edit),
         "copy" => Some(Action::Copy),
         "move" => Some(Action::Move),
+        "rename" => Some(Action::Rename),
         "mkdir" => Some(Action::MkDir),
         "delete" => Some(Action::Delete),
         "menu" => Some(Action::Menu),
@@ -552,6 +552,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "open_git_panel" => Some(Action::OpenGitPanel),
         "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
         "check_for_updates" => Some(Action::CheckForUpdates),
+        "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
 
         _ => None,
     }

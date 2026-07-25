@@ -18,20 +18,23 @@ if [[ -z "$VERSION" ]]; then
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-CHANGELOG="$SCRIPT_DIR/../CHANGELOG.md"
 
-if [[ ! -f "$CHANGELOG" ]]; then
-    echo "Error: CHANGELOG.md not found at $CHANGELOG" >&2
-    exit 1
+# Normalise version and determine target file
+if [[ "${VERSION,,}" == "unreleased" ]]; then
+    TARGET_FILE="$SCRIPT_DIR/../docs/UNRELEASED.md"
+    SECTION_HEADER="## [Unreleased]"
+else
+    TARGET_FILE="$SCRIPT_DIR/../docs/CHANGELOG.md"
+    if [[ "$VERSION" == v* ]]; then
+        SECTION_HEADER="## [$VERSION]"
+    else
+        SECTION_HEADER="## [v$VERSION]"
+    fi
 fi
 
-# Normalise version: support both "v0.5.1" and "0.5.1", and "Unreleased"
-if [[ "${VERSION,,}" == "unreleased" ]]; then
-    SECTION_HEADER="## [Unreleased]"
-elif [[ "$VERSION" == v* ]]; then
-    SECTION_HEADER="## [$VERSION]"
-else
-    SECTION_HEADER="## [v$VERSION]"
+if [[ ! -f "$TARGET_FILE" ]]; then
+    echo "Error: File not found at $TARGET_FILE" >&2
+    exit 1
 fi
 
 # Extract lines between this section header and the next ## [ header
@@ -50,10 +53,10 @@ OUTPUT=$(awk -v header="$SECTION_HEADER" '
             print
         }
     }
-' "$CHANGELOG" | sed -e '/./,$!d' -e 's/[[:space:]]*$//')
+' "$TARGET_FILE" | sed -e '/./,$!d' -e 's/[[:space:]]*$//')
 
 if [[ -z "$OUTPUT" ]]; then
-    echo "Error: Section '$SECTION_HEADER' not found or empty in CHANGELOG.md" >&2
+    echo "Error: Section '$SECTION_HEADER' not found or empty in $(basename "$TARGET_FILE")" >&2
     exit 1
 fi
 

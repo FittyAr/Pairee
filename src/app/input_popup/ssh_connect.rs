@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -305,7 +306,7 @@ pub fn handle(
                     // Save Preset button
                     if new_name.trim().is_empty() {
                         state.active_popup =
-                            Some(PopupType::Error("Preset name cannot be empty".to_string()));
+                            Some(PopupType::Error(t("error_ssh_preset_name_empty")));
                         return Ok(None);
                     }
                     if new_host.trim().is_empty() {

@@ -42,7 +42,18 @@ impl AssociationsConfig {
     /// Loads associations from disk; returns an empty config if the file is missing.
     pub fn load() -> Self {
         match Self::try_load() {
-            Ok(config) => config,
+            Ok(mut config) => {
+                let is_old = config.rules.len() == 4
+                    && config.rules[0].mask == "*.rs"
+                    && config.rules[1].mask == "*.toml"
+                    && config.rules[2].mask == "*.md"
+                    && config.rules[3].mask == "*.{zip,tar,gz,bz2,xz,7z}";
+                if is_old {
+                    config = Self::default_rules();
+                    let _ = config.save();
+                }
+                config
+            }
             Err(_) => {
                 let default_rules = Self::default_rules();
                 let _ = default_rules.save();
@@ -95,7 +106,37 @@ impl AssociationsConfig {
                         view_cmd: None,
                     },
                     AssocRule {
+                        mask: "*.{txt,json,yaml,yml,xml,ini,conf,cfg}".to_string(),
+                        open_cmd: "notepad %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{sh,bat,cmd,ps1,py,pl,rb,js,ts}".to_string(),
+                        open_cmd: "notepad %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
                         mask: "*.{zip,tar,gz,bz2,xz,7z}".to_string(),
+                        open_cmd: "explorer %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{jpg,jpeg,png,gif,bmp,svg,webp}".to_string(),
+                        open_cmd: "explorer %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{mp3,wav,ogg,flac,m4a,mp4,mkv,avi,mov,wmv,webm}".to_string(),
+                        open_cmd: "explorer %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{pdf,doc,docx,xls,xlsx,ppt,pptx}".to_string(),
+                        open_cmd: "explorer %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{html,htm}".to_string(),
                         open_cmd: "explorer %f".to_string(),
                         view_cmd: None,
                     },
@@ -120,7 +161,37 @@ impl AssociationsConfig {
                         view_cmd: Some("less %f".to_string()),
                     },
                     AssocRule {
+                        mask: "*.{txt,json,yaml,yml,xml,ini,conf,cfg}".to_string(),
+                        open_cmd: "nano %f".to_string(),
+                        view_cmd: Some("less %f".to_string()),
+                    },
+                    AssocRule {
+                        mask: "*.{sh,bat,cmd,ps1,py,pl,rb,js,ts}".to_string(),
+                        open_cmd: "nano %f".to_string(),
+                        view_cmd: Some("less %f".to_string()),
+                    },
+                    AssocRule {
                         mask: "*.{zip,tar,gz,bz2,xz,7z}".to_string(),
+                        open_cmd: "xdg-open %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{jpg,jpeg,png,gif,bmp,svg,webp}".to_string(),
+                        open_cmd: "xdg-open %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{mp3,wav,ogg,flac,m4a,mp4,mkv,avi,mov,wmv,webm}".to_string(),
+                        open_cmd: "xdg-open %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{pdf,doc,docx,xls,xlsx,ppt,pptx}".to_string(),
+                        open_cmd: "xdg-open %f".to_string(),
+                        view_cmd: None,
+                    },
+                    AssocRule {
+                        mask: "*.{html,htm}".to_string(),
                         open_cmd: "xdg-open %f".to_string(),
                         view_cmd: None,
                     },

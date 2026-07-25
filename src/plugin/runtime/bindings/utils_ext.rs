@@ -22,7 +22,7 @@
 //! `tokio::time::sleep` which yields to the runtime and does not block
 //! any worker thread.
 
-use percent_encoding::{percent_decode_str, percent_encode, AsciiSet, CONTROLS};
+use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, percent_encode};
 
 use super::utils_basic;
 
@@ -392,7 +392,9 @@ mod tests {
         let original = "hello world ?#&=+";
         let encoded = percent_encode(original.as_bytes(), FRAGMENT).to_string();
         assert!(!encoded.contains(' '));
-        let decoded = percent_decode_str(&encoded).decode_utf8_lossy().into_owned();
+        let decoded = percent_decode_str(&encoded)
+            .decode_utf8_lossy()
+            .into_owned();
         assert_eq!(decoded, original);
     }
 

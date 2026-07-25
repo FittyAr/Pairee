@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -46,7 +47,7 @@ pub fn handle(
                     state.progress_rx = Some(rx);
                     state.active_popup = Some(PopupType::CopyProgress {
                         is_move: false,
-                        current_file: "Compressing...".to_string(),
+                        current_file: t("progress_compressing"),
                         files_copied: 0,
                         total_files: 0,
                         bytes_copied: 0,

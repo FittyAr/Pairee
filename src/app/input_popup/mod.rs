@@ -13,6 +13,7 @@ pub mod create_link;
 pub mod delete;
 pub mod describe_file;
 pub mod dismiss_only;
+pub mod file_associations;
 pub mod drive_select;
 pub mod editor;
 pub mod file_attributes;
@@ -24,6 +25,7 @@ pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
 pub mod plugin_menu;
+pub mod rename;
 pub mod rename_move;
 pub mod save_setup;
 pub mod screens_menu;
@@ -31,6 +33,7 @@ pub mod search;
 pub mod select_group;
 pub mod sort_modes;
 pub mod task_list;
+pub mod transfer_panel;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
@@ -38,6 +41,7 @@ pub mod viewer;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_panel;
+pub mod git_new_popups;
 pub mod plugin_dialogs;
 pub mod ssh_connect;
 pub mod update_popup;
@@ -63,7 +67,6 @@ pub fn handle_popup_input(
             PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
             PopupType::ConfirmQuit
             | PopupType::ConfirmInterrupt
-            | PopupType::ConfirmOverwrite { .. }
             | PopupType::ConfirmReload { .. }
             | PopupType::ConfirmDiscardEditorChanges
             | PopupType::ConfirmClearHistory { .. }
@@ -82,7 +85,8 @@ pub fn handle_popup_input(
             PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
             PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
             PopupType::Hotlist { .. } => hotlist::handle(state, key, context),
-            PopupType::RenMovPrompt { .. } => rename_move::handle(state, key, context),
+            PopupType::MovePrompt { .. } => rename_move::handle(state, key, context),
+            PopupType::RenamePrompt { .. } => rename::handle(state, key, context),
             PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => {
                 search::handle(state, key, context)
             }
@@ -122,8 +126,15 @@ pub fn handle_popup_input(
             PopupType::GitConfirmCheckout { .. } => {
                 git_confirm_checkout::handle(state, key, context)
             }
+            PopupType::GitDiffView { .. } => git_new_popups::handle_diff(state, key, context),
+            PopupType::GitBranchCreatePrompt { .. }
+            | PopupType::GitBranchRenamePrompt { .. }
+            | PopupType::GitStashSavePrompt { .. } => git_new_popups::handle_prompt(state, key, context),
+            PopupType::GitConfirmAction { .. } => git_new_popups::handle_confirm_action(state, key, context),
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
+            PopupType::TransferPanel => transfer_panel::handle(state, key, context),
+            PopupType::FileAssociationsDialog { .. } => file_associations::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

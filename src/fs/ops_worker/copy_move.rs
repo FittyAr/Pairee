@@ -1,7 +1,5 @@
 use super::ProgressUpdate;
-use super::copy::spawn_copy_task;
 use super::helper::delete_recursive;
-use super::move_rename::spawn_move_task;
 use crate::config::localization::t;
 use crate::fs::ssh::SharedSshClient;
 use std::path::{Path, PathBuf};
@@ -14,14 +12,10 @@ pub fn spawn_copy_move_task(
     src_conn: Option<SharedSshClient>,
     dst_conn: Option<SharedSshClient>,
     is_move: bool,
-    settings: crate::config::settings::Settings,
+    _settings: crate::config::settings::Settings,
 ) -> mpsc::Receiver<ProgressUpdate> {
     if src_conn.is_none() && dst_conn.is_none() {
-        if is_move {
-            return spawn_move_task(sources, destination_dir, settings);
-        } else {
-            return spawn_copy_task(sources, destination_dir, settings);
-        }
+        panic!("spawn_copy_move_task must only be called for SSH transfers!");
     }
 
     let (tx, rx) = mpsc::channel(100);
@@ -51,12 +45,14 @@ pub fn spawn_copy_move_task(
                             .file_name()
                             .map(|n| n.to_string_lossy().into_owned())
                             .unwrap_or_default();
-                        let dst = if sources.len() == 1
-                            && !is_dir_for_conn(&destination_dir, &dst_conn)
-                        {
-                            destination_dir.clone()
-                        } else {
+                        let dst = if crate::fs::transfer::worker::is_destination_parent_dir(
+                            &sources,
+                            &destination_dir,
+                            |p| is_dir_for_conn(p, &dst_conn),
+                        ) {
                             destination_dir.join(&name)
+                        } else {
+                            destination_dir.clone()
                         };
 
                         let _ = tx
@@ -108,7 +104,11 @@ pub fn spawn_copy_move_task(
         let mut file_mappings = Vec::new();
         let mut dirs_to_create = Vec::new();
 
-        let destination_dir_is_dir = is_dir_for_conn(&destination_dir, &dst_conn);
+        let destination_dir_is_dir = crate::fs::transfer::worker::is_destination_parent_dir(
+            &sources,
+            &destination_dir,
+            |p| is_dir_for_conn(p, &dst_conn),
+        );
 
         for src in &sources {
             let is_dir = is_dir_for_conn(src, &src_conn);

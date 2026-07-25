@@ -64,4 +64,4 @@ Our code architecture values modularity and clean decoupling. All modifications 
 - Keep PRs small and focused on a single change.
 - Follow the template in `.github/pull_request_template.md`.
 - Include visual proof (screenshots or recordings) if you change the UI.
-- Update `CHANGELOG.md` in the `[Unreleased]` section with a brief description of user-facing changes.
+- Update `docs/UNRELEASED.md` in the `[Unreleased]` section with a brief description of user-facing changes.

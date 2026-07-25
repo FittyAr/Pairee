@@ -15,7 +15,7 @@ To launch the Git Integration dashboard, your active file panel must be inside a
 
 ## 2. Interactive Git Dashboard Tabs
 
-The Git dashboard popup displays three distinct tabs. Use the **`Tab`** key to switch between them.
+The Git dashboard popup displays four distinct tabs. Use the **`Tab`** key (or **`Shift+Tab`**) to switch between them.
 
 ### 2.1 Status Tab
 This tab displays all unstaged, staged, and conflicted files in your working directory.
@@ -27,8 +27,11 @@ This tab displays all unstaged, staged, and conflicted files in your working dir
   - `R` (Cyan) ⋄ **Renamed:** The file has been renamed.
   - `!` (Magenta) ⋄ **Conflicted:** The file has unresolved merge conflicts.
 * **Keyboard Commands:**
-  - **`c`** (Commit All): Stages all modified and untracked files (`git add -A`) and opens the Commit dialog.
-  - **`r`** (Refresh): Queries the repository and re-reads the active status lists.
+  - **`Space`**: Toggles staging for the selected file (stages unstaged files, unstages staged files).
+  - **`c`** (Commit All): Opens the Commit dialog to commit prepared changes.
+  - **`d`**: Opens the Git Diff viewer to inspect changes in the selected file.
+  - **`s`**: Saves the current changes to the stash stack (prompts for an optional message).
+  - **`r`** (Refresh): Re-reads active status lists.
   - **`Esc`**: Closes the Git dashboard.
 
 ### 2.2 Log Tab
@@ -40,6 +43,10 @@ Displays a detailed commit history of the active branch, starting from `HEAD` do
   - **Message:** The first line of the commit message.
 * **Keyboard Commands:**
   - **`Enter`** (Checkout Commit): Checks out the highlighted commit, placing your repository into a **detached HEAD** state. A confirmation dialog will appear first.
+  - **`d`**: Opens the commit diff to inspect changes introduced by this commit.
+  - **`s`**: Performs a **Soft Reset** to the selected commit.
+  - **`x`**: Performs a **Mixed Reset** to the selected commit.
+  - **`h`**: Performs a **Hard Reset** to the selected commit.
   - **`r`** (Refresh): Re-reads the commit log.
 
 ### 2.3 Branches Tab
@@ -48,19 +55,25 @@ Lists all local branches and remote-tracking branches available in the repositor
   - The currently checked-out branch is marked with a green asterisk (`*`).
   - Remote-tracking branches are prefix-labeled with `[remote]` and rendered in gray.
 * **Keyboard Commands:**
-  - **`Enter`** (Checkout Branch): Switches HEAD to the selected local branch and updates your filesystem panel files. A confirmation dialog will appear first.
-  - **`r`** (Refresh): Queries the repository for updated branches.
+  - **`Enter`** (Checkout Branch): Switches HEAD to the selected local branch.
+  - **`n`**: Prompts for a new branch name and creates it.
+  - **`d` / `Delete`**: Deletes the selected local branch (requires confirmation; current branch cannot be deleted).
+  - **`r`**: Prompts for a new name to rename the selected local branch.
+  - **`m`**: Merges the selected branch into the current branch (requires confirmation).
+  - **`r`** (Refresh): Re-reads branches.
+
+### 2.4 Stash Tab
+Lists all stashed changes in the repository stack.
+* **Keyboard Commands:**
+  - **`a`**: Applies the selected stash entry changes back to your working directory.
+  - **`p` / `Enter`**: Pops the selected stash entry (applies changes and drops it from the stash stack).
+  - **`d` / `Delete`**: Drops the selected stash entry from the stack.
 
 ---
 
-## 3. Commit Dialog & Author Override
+## 3. Remote Operations
 
-When committing changes via the `Status` tab:
-1. Press **`c`**. Pairee runs `git add -A` internally.
-2. A prompt dialog appears: **"Commit All Changes"**.
-3. Type your commit message. If empty, the commit is aborted.
-4. Pairee resolves your identity as follows:
-   - Queries settings `git_author_name` and `git_author_email`.
-   - If those settings are blank, it falls back to querying the repository's local configuration (`.git/config`) or global user configurations (`~/.gitconfig`).
-   - If no config is found, it uses the default fallback `Pairee User <pairee@localhost>`.
-5. Press **`Enter`** to commit changes, or **`Esc`** to cancel.
+From any tab of the Git Dashboard, you can perform remote synchronization:
+* **`f`**: Fetch changes from the remote repository.
+* **`l`**: Pull changes (fetch and merge) from the active remote branch.
+* **`u`**: Push committed changes to the remote branch.

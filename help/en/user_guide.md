@@ -106,7 +106,7 @@ Here are the recommended third-party client configurations to enable this:
 Pairee features a built-in scripting engine based on the Lua programming language. To protect your system and file integrity, plugins run inside a secure, restricted sandbox execution environment.
 
 ### 4.1 Opening the Plugins Manager
-Open the Plugin Manager by pressing **`F11`** (or selecting `F9 -> Options -> Plugins Manager`).
+Open the Plugin Manager by selecting **Top Menu Bar → Files → Plugin commands**. `F11` is no longer bound to this action in the default keymap.
 
 The popup modal consists of two main tabs, which you can cycle through by pressing the **`Tab`** key:
 
@@ -141,9 +141,9 @@ Search and install new plugins directly from the official online Pairee registry
 ---
 
 ### 4.2 Plugin Developers
-If you wish to write your own custom plugins, review safety rules, or submit to the official repository index, we invite you to enable **Developer Mode** in the Configuration panel (F9 -> Tab 4: Language & Plugins). This will activate a third tab (**Developer Tools**) in the Plugins Manager (F11) and let you specify a custom plugins development path (`plugins_dev_dir`).
+If you wish to write your own custom plugins, review safety rules, or submit to the official repository index, we invite you to enable **Developer Mode** in the Configuration panel (F9 -> Tab 4: Language & Plugins). This will activate a third tab (**Developer Tools**) in the Plugins Manager and let you specify a custom plugins development path (`plugins_dev_dir`).
 
-#### Available Developer Tools (F11 - Tab 2):
+#### Available Developer Tools:
 * **Select Active Plugin (Option 0):** Opens an interactive modal selection list displaying all detected development plugins. It scans the default development directory (`plugins_dev_dir`) as well as the active directories of Panel 1 and Panel 2 for a `manifest.toml` file, letting you easily select the active target.
 * **Initialize boilerplate (Option 1):** Generates a new plugin skeleton under your development directory containing baseline files (`manifest.toml`, `main.lua` and translations under `lang/en.toml`). On success, it auto-selects this plugin in Option 0 and disables this option.
 * **Audit (Lint) (Option 2):** Scans the selected plugin's directory and runs validation/security audits on manifest parameters and Lua syntax, checking for unsafe imports or undocumented operations.

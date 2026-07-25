@@ -90,7 +90,7 @@ pub enum SelectMode {
 pub enum TreeViewCaller {
     Panel(ActivePanel),
     CopyPrompt { previous: Box<PopupType> },
-    RenMovPrompt { previous: Box<PopupType> },
+    MovePrompt { previous: Box<PopupType> },
 }
 
 #[derive(Debug, Clone)]
@@ -105,6 +105,16 @@ pub enum LinkKind {
 pub enum GitPendingAction {
     CommitAll,
     Checkout(String),
+}
+
+/// Action approved in GitConfirmAction popup.
+#[derive(Debug, Clone)]
+pub enum GitConfirmedAction {
+    DeleteBranch(String),
+    MergeBranch(String),
+    StashDrop(usize),
+    StashPop(usize),
+    ResetCommit(String, crate::git::reset::ResetMode),
 }
 
 #[derive(Debug, Clone)]
@@ -166,22 +176,18 @@ pub enum Screen {
 
 #[derive(Debug, Clone)]
 pub enum AdminOpKind {
-    Delete,
     MkDir,
-    RenameMove { dst: PathBuf },
-    Copy { dst: PathBuf },
+    Rename {
+        src: std::path::PathBuf,
+        target: std::path::PathBuf,
+    },
 }
 
 #[derive(Debug, Clone)]
 pub enum BackgroundOpContext {
-    Copy {
-        sources: Vec<PathBuf>,
-        dest: PathBuf,
-    },
-    Move {
-        sources: Vec<PathBuf>,
-        dest: PathBuf,
-    },
+    Copy,
+    Move,
+    Delete,
 }
 
 #[derive(Debug, Clone)]
@@ -235,8 +241,8 @@ pub enum PopupType {
         use_filter: bool,
         filter_mask: String,
     },
-    /// Rename/Move prompt — user edits the destination path before committing.
-    RenMovPrompt {
+    /// Move prompt — user edits the destination path before committing.
+    MovePrompt {
         input: String,
         src_paths: Vec<PathBuf>,
         dest_dir: PathBuf,
@@ -252,14 +258,16 @@ pub enum PopupType {
         use_filter: bool,
         filter_mask: String,
     },
+    /// Rename prompt — user edits only the filename before committing.
+    RenamePrompt {
+        input: String,
+        original: String,
+        src_path: PathBuf,
+        parent_dir: PathBuf,
+        cursor_idx: usize,
+    },
     ConfirmQuit,
     ConfirmInterrupt,
-    ConfirmOverwrite {
-        src_paths: Vec<PathBuf>,
-        dest_dir: PathBuf,
-        is_move: bool,
-        input: Option<String>,
-    },
     ConfirmReload,
     ConfirmClearHistory {
         history_type: String,
@@ -336,6 +344,7 @@ pub enum PopupType {
         bytes_copied: u64,
         total_bytes: u64,
     },
+    TransferPanel,
 
     // ── Menus / lists ─────────────────────────────────────────────────────────
     UserMenu {
@@ -366,6 +375,10 @@ pub enum PopupType {
         active_tab: usize,
         cursor_idx: usize,
         installed: Vec<(String, String, bool, bool, Option<String>)>,
+        /// Full list of plugins from the registry index (unfiltered). Used as
+        /// the source for live-filtering in the Search tab.
+        all_registry: Vec<(String, String, String, String)>,
+        /// Currently visible list after applying `search_query` filter.
         registry: Vec<(String, String, String, String)>,
         search_query: String,
         is_searching: bool,
@@ -479,6 +492,10 @@ pub enum PopupType {
     FileAssociationsDialog {
         rules: Vec<crate::config::associations::AssocRule>,
         cursor_idx: usize,
+        editing_idx: Option<usize>,
+        editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
+        edit_buffer: String,
+        original_rule: Option<crate::config::associations::AssocRule>,
     },
 
     TreeView {
@@ -518,16 +535,17 @@ pub enum PopupType {
     },
 
     // ── Git Integration ───────────────────────────────────────────────────────
-    /// Main Git panel with tabs: Status / Log / Branches
+    /// Main Git panel with tabs: Status / Log / Branches / Stash
     GitPanel {
         repo_path: std::path::PathBuf,
-        /// 0=Status, 1=Log, 2=Branches
+        /// 0=Status, 1=Log, 2=Branches, 3=Stash
         active_tab: usize,
         cursor_idx: usize,
         scroll: usize,
         status_entries: Vec<crate::git::status::GitFileStatus>,
         log_entries: Vec<crate::git::log::CommitInfo>,
         branch_entries: Vec<crate::git::branches::BranchInfo>,
+        stash_entries: Vec<crate::git::stash::StashInfo>,
         current_branch: String,
         #[allow(dead_code)]
         pending_action: Option<GitPendingAction>,
@@ -544,6 +562,44 @@ pub enum PopupType {
         target: String,
         is_branch: bool,
         repo_path: std::path::PathBuf,
+    },
+    /// View Git unified diff for a file or commit
+    GitDiffView {
+        repo_path: std::path::PathBuf,
+        file_path: Option<String>,
+        commit_hash: Option<String>,
+        diff_content: String,
+        scroll_y: usize,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering new branch name
+    GitBranchCreatePrompt {
+        input: String,
+        cursor_idx: usize,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering a new name for an existing branch
+    GitBranchRenamePrompt {
+        input: String,
+        cursor_idx: usize,
+        old_name: String,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Prompt for entering a stash message
+    GitStashSavePrompt {
+        input: String,
+        cursor_idx: usize,
+        repo_path: std::path::PathBuf,
+        previous_popup: Box<PopupType>,
+    },
+    /// Generic confirmation dialog for Git destructive or integration actions
+    GitConfirmAction {
+        message: String,
+        repo_path: std::path::PathBuf,
+        action: GitConfirmedAction,
+        previous_popup: Box<PopupType>,
     },
 
     // ── SSH Connection ────────────────────────────────────────────────────────

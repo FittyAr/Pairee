@@ -212,6 +212,24 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 
 ---
 
+## 🔗 Editor de Asociaciones de Archivo
+
+Las asociaciones de archivos te permiten mapear patrones de nombres de archivos (máscaras glob) a comandos de ejecución personalizados. Este editor está disponible en **Barra de menú superior (F9) → Comandos → Asociación arch.**
+
+### Atajos de Teclado en el Editor
+* `↑` / `↓`: Navegar a través de la lista de reglas.
+* `A` / `a` / `Insert`: Añadir una nueva regla de asociación. Se te solicitarán secuencialmente los siguientes datos:
+  1. **Máscara (Mask):** Patrón glob (ej: `*.rs` o `*.{jpg,png}`).
+  2. **Comando Abrir (Open Command):** El comando de terminal que se ejecutará al abrir el archivo (ej: `notepad %f` o `code %f`). El marcador `%f` se sustituye con la ruta del archivo.
+  3. **Comando Ver (opcional - View Command):** Comando para el visor de `F3`. Si se deja en blanco, usará el comando de abrir.
+* `E` / `e` / `Enter`: Editar la regla seleccionada. Sigue el mismo asistente paso a paso de ingreso de campos.
+* `D` / `d` / `Delete`: Eliminar la regla seleccionada de la lista.
+* `Esc`: Salir del editor o cancelar la edición actual.
+
+Todos los cambios se guardan automáticamente en tu archivo de configuración `associations.toml`.
+
+---
+
 ## ⚙️ Archivo de Configuración (settings.toml)
 
 Algunos parámetros avanzados se pueden configurar directamente dentro del archivo `settings.toml` (ubicado en tu directorio de configuración):
