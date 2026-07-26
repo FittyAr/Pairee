@@ -124,24 +124,78 @@ async fn install_linux_tarball(archive: &Path) -> Result<InstallResult> {
     let _ = fs::remove_dir_all(&extract_dir);
     fs::create_dir_all(&extract_dir).context("cannot create extract directory")?;
 
-    // Use std tar + flate2 (already in Cargo.toml)
+    // Extract first; if anything fails we never touched the running exe.
     extract_tar_gz(archive, &extract_dir).context("failed to extract tar.gz")?;
 
     // Find the pairee binary inside the extracted tree
     let new_bin = find_binary_in_dir(&extract_dir, "pairee")
         .ok_or_else(|| anyhow::anyhow!("pairee binary not found in extracted archive"))?;
 
-    // Atomic replace: copy over the existing exe (safe on Linux even if running)
-    let backup = exe.with_extension("bak");
-    let _ = fs::rename(&exe, &backup); // may fail if read-only, that's OK — copy fallback
-    fs::copy(&new_bin, &exe).context("failed to replace pairee binary")?;
-    let _ = set_executable(&exe);
+    // Sanity-check the new binary before swapping: must be non-empty and look
+    // like an ELF executable (or a script with a shebang). This prevents a
+    // corrupt or truncated archive from clobbering the running binary.
+    verify_executable_file(&new_bin).context("new binary failed integrity check")?;
 
-    // Clean up
+    // Stage the replacement to a sibling temp file. We never touch the live
+    // binary path until the staged file is fully written, validated, and
+    // marked executable. The final swap is a single rename(2) so the running
+    // process keeps executing the old inode until it restarts.
+    let staging = exe.with_extension("new");
+    let backup = exe.with_extension("bak");
+    let _ = fs::remove_file(&staging);
+    let _ = fs::remove_file(&backup);
+
+    fs::copy(&new_bin, &staging).context("failed to stage new binary")?;
+    set_executable(&staging).context("failed to set executable bit on staged binary")?;
+
+    // Final atomic swap: rename(staging, exe). If this fails for any reason
+    // (cross-device link, permission denied, exe locked) we abort without
+    // touching the live binary — staging + extract_dir will be cleaned below
+    // and the user keeps the working binary.
+    if let Err(e) = fs::rename(&staging, &exe) {
+        let _ = fs::remove_file(&staging);
+        let _ = fs::remove_dir_all(&extract_dir);
+        anyhow::bail!(
+            "failed to swap new binary into place: {}. \
+             The current binary was not modified; the staged update has been discarded.",
+            e
+        );
+    }
+
+    // Swap succeeded. Best-effort cleanup of the extract dir.
     let _ = fs::remove_dir_all(&extract_dir);
-    let _ = fs::remove_file(backup);
+    // Note: we deliberately do NOT remove the .bak file. If the new binary
+    // turns out to be broken on first launch, the user (or the next update)
+    // can restore it. Cleanup is the user's choice.
 
     Ok(InstallResult::RestartRequired)
+}
+
+/// Sanity-check that a file looks like a runnable executable on Linux:
+/// non-empty and starts with the ELF magic (`\x7fELF`) or a `#!` shebang.
+#[cfg(not(target_os = "windows"))]
+fn verify_executable_file(path: &Path) -> Result<()> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)
+        .with_context(|| format!("cannot open staged binary {:?}", path))?;
+    let meta = file
+        .metadata()
+        .with_context(|| format!("cannot stat staged binary {:?}", path))?;
+    if meta.len() < 4 {
+        anyhow::bail!("staged binary is too small ({} bytes)", meta.len());
+    }
+    let mut head = [0u8; 4];
+    file.read_exact(&mut head)
+        .with_context(|| format!("cannot read header of staged binary {:?}", path))?;
+    let is_elf = &head == b"\x7fELF";
+    let is_script = &head[..2] == b"#!";
+    if !is_elf && !is_script {
+        anyhow::bail!(
+            "staged binary does not look like an ELF executable or a #! script (header: {:?})",
+            head
+        );
+    }
+    Ok(())
 }
 
 #[cfg(not(target_os = "windows"))]

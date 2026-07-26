@@ -41,30 +41,49 @@ pub fn is_lan_path(path: &Path) -> bool {
 
     #[cfg(not(target_os = "windows"))]
     {
-        // En Linux, leer /proc/mounts
+        // En Linux, leer /proc/mounts y elegir el match más largo
+        // (específico) entre los mounts con filesystem de red.
         if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
+            let mut best_len: usize = 0;
+            let mut best_match = false;
             for line in mounts.lines() {
                 let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    let mount_point = parts[1];
-                    let fs_type = parts[2];
+                if parts.len() < 3 {
+                    continue;
+                }
+                let mount_point = parts[1];
+                let fs_type = parts[2];
 
-                    // Comprobar si el path empieza con el mount point
-                    if path.starts_with(mount_point) {
-                        // Tipos comunes de FS de red
-                        if fs_type == "nfs"
-                            || fs_type == "cifs"
-                            || fs_type == "smbfs"
-                            || fs_type == "nfs4"
-                        {
-                            return true;
-                        }
+                // Filtro rápido por tipo de FS
+                let is_net = matches!(fs_type, "nfs" | "nfs4" | "cifs" | "smbfs");
+                if !is_net {
+                    continue;
+                }
+
+                // Verificación de path boundary: el path debe empezar con
+                // el mount point seguido de un separador, o ser igual al
+                // mount point. Sin esto, un mount en "/mnt" matchearía
+                // falsamente con el path "/mntfoo/...".
+                if path_under_mount(path, mount_point) {
+                    if mount_point.len() > best_len {
+                        best_len = mount_point.len();
+                        best_match = true;
                     }
                 }
             }
+            return best_match;
         }
         false
     }
+}
+
+/// Returns true if `path` is exactly `mount_point` or a path strictly below it.
+/// Wrapper over `Path::starts_with` that documents the component-wise
+/// semantics; the function lives next to the call site so the contract is
+/// obvious to anyone touching this code.
+#[cfg(not(target_os = "windows"))]
+fn path_under_mount(path: &Path, mount_point: &str) -> bool {
+    path.starts_with(mount_point)
 }
 
 /// Obtiene el espacio libre disponible en bytes en la unidad que contiene el path destino.
@@ -99,20 +118,45 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
 
     #[cfg(not(target_os = "windows"))]
     {
-        if let Ok(output) = std::process::Command::new("df")
+        match std::process::Command::new("df")
             .arg("--output=avail")
             .arg("-k")
             .arg("--")
             .arg(path)
             .output()
         {
-            let text = String::from_utf8_lossy(&output.stdout);
-            if let Some(line) = text.lines().nth(1) {
-                if let Ok(kb) = line.trim().parse::<u64>() {
-                    return Ok(kb * 1024);
+            Ok(output) if output.status.success() => {
+                let text = String::from_utf8_lossy(&output.stdout);
+                if let Some(line) = text.lines().nth(1) {
+                    if let Ok(kb) = line.trim().parse::<u64>() {
+                        return Ok(kb * 1024);
+                    }
                 }
+                // `df` succeeded but we couldn't parse the output. Don't
+                // lie to the user by returning u64::MAX; surface the error.
+                Err(std::io::Error::other(format!(
+                    "could not parse `df` output for {:?}",
+                    path
+                )))
+            }
+            Ok(output) => {
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                Err(std::io::Error::other(format!(
+                    "`df` failed for {:?}: {}",
+                    path,
+                    stderr.trim()
+                )))
+            }
+            Err(e) => {
+                // `df` not installed (e.g. minimal containers, some musl
+                // distros). The previous behavior was to silently return
+                // u64::MAX, which made the UI show ~18 EiB free and let
+                // the user start transfers that would obviously fail.
+                Err(std::io::Error::other(format!(
+                    "`df` is not available ({}); cannot determine free space for {:?}",
+                    e, path
+                )))
             }
         }
-        Ok(u64::MAX)
     }
 }

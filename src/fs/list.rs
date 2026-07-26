@@ -30,8 +30,12 @@ Get-ChildItem -Path $srcPath -Force | ForEach-Object {
     "$($_.Name)|$($_.Length)|$($_.Mode)|$($_.LastWriteTime.Ticks)"
 } | Out-File -FilePath $outPath -Encoding utf8
 "#;
-    std::fs::write(&script_file, PS_SCRIPT)
-        .with_context(|| format!("failed to write elevated-helper script to {:?}", script_file))?;
+    std::fs::write(&script_file, PS_SCRIPT).with_context(|| {
+        format!(
+            "failed to write elevated-helper script to {:?}",
+            script_file
+        )
+    })?;
 
     // Escape single quotes for PowerShell literal strings (the only
     // metacharacter that can break out of a single-quoted argument
@@ -100,58 +104,92 @@ Get-ChildItem -Path $srcPath -Force | ForEach-Object {
 fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
     use std::process::Command;
 
-    // Pass the path as `sys.argv[1]` instead of interpolating it
-    // into the Python source - that way we never need to escape
-    // backslashes, quotes, or other shell metacharacters that may
-    // appear in the path. Command::arg() is the safe boundary.
+    // We used to shell out to `sudo python3 -c '<script>' <path>`, which
+    // (a) required python3 to be installed on the user's machine (it is
+    // not by default on minimal Fedora Server, RHEL minimal, Alpine, etc.),
+    // (b) required a sudoers entry that allows the user to run python3
+    // without a TTY, and (c) was a multi-language, multi-process pile that
+    // was hard to debug when it broke.
     //
-    // The Python script uses `%`-formatting instead of f-strings so
-    // we don't have to escape `{}` characters into `{{}}`.
-    const PY_SCRIPT: &str = "import os, sys\n\
-path = sys.argv[1]\n\
-for e in os.scandir(path):\n\
-    s = e.stat()\n\
-    name = e.name\n\
-    is_dir = 1 if e.is_dir() else 0\n\
-    is_link = 1 if e.is_symlink() else 0\n\
-    mtime = int(s.st_mtime)\n\
-    print('%s|%d|%d|%d|%d' % (name, s.st_size, is_dir, is_link, mtime))\n";
+    // The cleaner approach: re-exec *ourselves* under `sudo` with a
+    // dedicated `--list-dir-elevated <path>` flag, implemented by
+    // `list_dir_elevated` below. The path is passed as a separate
+    // `Command::arg` (the safe boundary), there is no shell involvement,
+    // and the only external dependency is `sudo` itself — which we
+    // already require for the other elevated operations.
+    let exe = std::env::current_exe().context("cannot determine current exe path")?;
 
     let output = Command::new("sudo")
-        .args(&["python3", "-c", PY_SCRIPT])
+        .arg(&exe)
+        .arg("--list-dir-elevated")
         .arg(path)
-        .output()?;
+        .output()
+        .map_err(|e| {
+            anyhow::anyhow!(
+                "failed to invoke `sudo` for elevated directory listing: {}. \
+                 Make sure `sudo` is installed and the user is in sudoers.",
+                e
+            )
+        })?;
 
-    if output.status.success() {
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let mut entries = Vec::new();
-        for line in stdout.lines() {
-            let parts: Vec<&str> = line.split('|').collect();
-            if parts.len() >= 5 {
-                let name = parts[0].to_string();
-                let size: u64 = parts[1].parse().unwrap_or(0);
-                let is_dir = parts[2] == "1";
-                let is_symlink = parts[3] == "1";
-                let mtime: u64 = parts[4].parse().unwrap_or(0);
-                let modified = if mtime > 0 {
-                    Some(std::time::SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(mtime))
-                } else {
-                    None
-                };
-                let entry_path = path.join(&name);
-                entries.push(FileEntry {
-                    name,
-                    path: entry_path,
-                    size,
-                    is_dir,
-                    is_symlink,
-                    modified,
-                });
-            }
-        }
-        return Ok(entries);
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(anyhow::anyhow!(
+            "elevated directory listing failed (exit {}): {}",
+            output.status,
+            stderr.trim()
+        ));
     }
-    anyhow::bail!("Failed to read directory as admin via sudo")
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let entries: Vec<FileEntry> = serde_json::from_str(stdout.trim())
+        .context("failed to parse elevated directory listing output")?;
+    Ok(entries)
+}
+
+/// Listing routine executed by the re-exec'd, elevated child process
+/// (triggered by `main` when `--list-dir-elevated <path>` is on argv).
+///
+/// Returns a `Vec<FileEntry>` ready to be serialized as JSON and parsed
+/// by the unprivileged parent.
+pub fn list_dir_elevated(path: &Path) -> Result<Vec<FileEntry>> {
+    let mut entries = Vec::new();
+    for entry in
+        fs::read_dir(path).with_context(|| format!("elevated read_dir failed for {:?}", path))?
+    {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(e) => {
+                // A single unreadable entry should not abort the whole
+                // listing — this is "show me what you can", not "fail
+                // closed on first error".
+                log::warn!("skipping unreadable entry under {:?}: {}", path, e);
+                continue;
+            }
+        };
+        let name = entry.file_name().to_string_lossy().into_owned();
+        if name == "." || name == ".." {
+            continue;
+        }
+        let metadata = match entry.metadata() {
+            Ok(m) => m,
+            Err(e) => {
+                log::warn!("skipping {:?}: metadata error {}", entry.path(), e);
+                continue;
+            }
+        };
+        let modified = metadata.modified().ok();
+        let entry_path = entry.path();
+        entries.push(FileEntry {
+            name,
+            path: entry_path,
+            size: metadata.len(),
+            is_dir: metadata.is_dir(),
+            is_symlink: metadata.file_type().is_symlink(),
+            modified,
+        });
+    }
+    Ok(entries)
 }
 
 fn cmp_natural(a: &str, b: &str, case_sensitive: bool) -> std::cmp::Ordering {

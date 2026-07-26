@@ -2,22 +2,60 @@ use crate::app::state::ProcessEntry;
 use std::path::PathBuf;
 
 /// Suspends raw mode in-place and kills the specified process by PID.
+///
+/// On Unix the kill is graceful: a `SIGTERM` is sent first and we wait up
+/// to 2 seconds for the process to exit. Only if the process is still
+/// alive after the grace period do we escalate to `SIGKILL`. The
+/// unconditional `SIGKILL` we used to send would skip the OS's normal
+/// cleanup (closing file handles, releasing locks, flushing stdio) and
+/// could leave child processes orphaned or the user's data in a corrupt
+/// state. `kill(2)` is still subject to the OS permission checks, so a
+/// normal user cannot kill processes they do not own.
 pub fn kill_process(pid: u32) -> std::io::Result<()> {
     #[cfg(unix)]
     {
-        let output = std::process::Command::new("kill")
+        // SIGTERM (15) — the process can trap this and shut down cleanly.
+        // Ignore ESRCH (the process is already gone, which is fine).
+        let term = std::process::Command::new("kill")
+            .arg("-15")
+            .arg(pid.to_string())
+            .output()?;
+        if !term.status.success() {
+            let stderr = String::from_utf8_lossy(&term.stderr);
+            // ESRCH = "no such process" — already dead, treat as success.
+            if !stderr.contains("No such process") && !stderr.contains("ESRCH") {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::Other,
+                    format!("kill -15 failed: {}", stderr),
+                ));
+            }
+        }
+
+        // Wait up to ~2s for the process to exit gracefully.
+        for _ in 0..20 {
+            if !pid_is_alive(pid) {
+                return Ok(());
+            }
+            std::thread::sleep(std::time::Duration::from_millis(100));
+        }
+
+        // Still alive — escalate to SIGKILL (9). This is the last resort
+        // and should rarely be needed in practice.
+        let kill = std::process::Command::new("kill")
             .arg("-9")
             .arg(pid.to_string())
             .output()?;
-        if output.status.success() {
-            Ok(())
-        } else {
-            let err_msg = String::from_utf8_lossy(&output.stderr);
-            Err(std::io::Error::new(
+        if !kill.status.success() {
+            let stderr = String::from_utf8_lossy(&kill.stderr);
+            if stderr.contains("No such process") || stderr.contains("ESRCH") {
+                return Ok(()); // exited between our check and the kill
+            }
+            return Err(std::io::Error::new(
                 std::io::ErrorKind::Other,
-                format!("kill failed: {}", err_msg),
-            ))
+                format!("kill -9 failed: {}", stderr),
+            ));
         }
+        Ok(())
     }
     #[cfg(not(unix))]
     {
@@ -36,6 +74,22 @@ pub fn kill_process(pid: u32) -> std::io::Result<()> {
             ))
         }
     }
+}
+
+/// Returns true if a process with `pid` is currently running.
+/// Uses `kill(pid, 0)` which performs the permission/existence check
+/// without actually sending a signal.
+#[cfg(unix)]
+fn pid_is_alive(pid: u32) -> bool {
+    // `kill -0` exits 0 if the process exists and we can signal it,
+    // -1 (and prints ESRCH) if it does not. We ignore the output and
+    // just check the exit status.
+    std::process::Command::new("kill")
+        .arg("-0")
+        .arg(pid.to_string())
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 /// Returns a list of running OS processes.

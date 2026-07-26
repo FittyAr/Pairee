@@ -71,13 +71,43 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 }
 
 fn move_operation(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if std::fs::rename(src, dst).is_err() {
-        copy_recursive(src, dst)?;
-        if src.is_dir() {
-            std::fs::remove_dir_all(src)?;
+    // Fast path: same-filesystem rename (atomic, no data copy).
+    if std::fs::rename(src, dst).is_ok() {
+        return Ok(());
+    }
+
+    // Slow path: copy then delete. If the post-copy delete fails, we
+    // must roll back the copy so the user is not left with TWO copies
+    // of the data and a half-deleted source. The previous code left
+    // the duplicated state in place and just propagated the error.
+    copy_recursive(src, dst)?;
+    let remove_res = if src.is_dir() {
+        std::fs::remove_dir_all(src)
+    } else {
+        std::fs::remove_file(src)
+    };
+    if let Err(e) = remove_res {
+        // Best-effort rollback: delete the destination we just created
+        // so the user is back in the original state (data at `src`,
+        // nothing at `dst`). We still surface the original error.
+        let rollback_res = if dst.is_dir() {
+            std::fs::remove_dir_all(dst)
         } else {
-            std::fs::remove_file(src)?;
+            std::fs::remove_file(dst)
+        };
+        if let Err(rb) = rollback_res {
+            // Both the original operation AND the rollback failed.
+            // Report both so the user can attempt manual recovery.
+            return Err(std::io::Error::new(
+                e.kind(),
+                format!(
+                    "move failed: {}; rollback also failed: {}. \
+                     Data is now at both {:?} and {:?}; manual recovery required.",
+                    e, rb, src, dst
+                ),
+            ));
         }
+        return Err(e);
     }
     Ok(())
 }

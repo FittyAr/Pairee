@@ -162,6 +162,13 @@ pub fn handle(
                     KeyCode::Enter => {
                         state.active_popup = None;
 
+                        // Cache sudo credentials so the upcoming `sudo`
+                        // re-exec inside `run_in_elevated_helper` does not
+                        // need to re-prompt. This used to be the *whole*
+                        // elevation logic, which silently failed because
+                        // the calling process kept running as the user;
+                        // now we also actually re-exec the operation
+                        // below.
                         if let Err(e) = crate::fs::acquire_admin_privileges() {
                             state.active_popup = Some(PopupType::Error(format!(
                                 "{} {}",
@@ -175,32 +182,37 @@ pub fn handle(
                             state.terminal_needs_clear = true;
                         }
 
-                        match op_kind {
-                            crate::app::state::AdminOpKind::MkDir => {
-                                for path in &paths {
-                                    if let Err(e) = crate::fs::create_directory(path, true) {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "{} {}",
-                                            t("error_mkdir_failed"),
-                                            e
-                                        )));
-                                        return Ok(None);
-                                    }
-                                }
-                                state.refresh_both_panels(context.config.settings.show_hidden);
-                            }
+                        // Build the elevated operation list and run it via
+                        // `run_in_elevated_helper`, which writes the ops
+                        // to a temp JSON file and re-launches the current
+                        // binary under `sudo` (or with `RunAs` on
+                        // Windows). The helper performs the operations
+                        // with the elevated process and writes a result
+                        // file we read here. This is the only correct way
+                        // to do admin work in this code base.
+                        let ops: Vec<crate::fs::FsOperation> = match op_kind {
+                            crate::app::state::AdminOpKind::MkDir => paths
+                                .iter()
+                                .map(|p| crate::fs::FsOperation::MkDir { path: p.clone() })
+                                .collect(),
                             crate::app::state::AdminOpKind::Rename { src, target } => {
-                                if let Err(e) = std::fs::rename(&src, &target) {
-                                    state.active_popup = Some(PopupType::Error(format!(
-                                        "{} {}",
-                                        t("error_rename_error"),
-                                        e
-                                    )));
-                                    return Ok(None);
-                                }
-                                state.refresh_both_panels(context.config.settings.show_hidden);
+                                vec![crate::fs::FsOperation::Move {
+                                    src: src.clone(),
+                                    dst: target.clone(),
+                                }]
                             }
+                        };
+
+                        if let Err(e) = crate::fs::run_in_elevated_helper(ops) {
+                            state.active_popup = Some(PopupType::Error(format!(
+                                "{} {}",
+                                t("error_elevated_helper_failed"),
+                                e
+                            )));
+                            return Ok(None);
                         }
+
+                        state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);
                     }
                     KeyCode::Esc => {

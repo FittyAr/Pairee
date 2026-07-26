@@ -32,6 +32,23 @@ async fn main() -> Result<()> {
         return Ok(());
     }
 
+    // Intercept the privileged "list a directory" subcommand. This is
+    // used by `read_directory_as_admin` on Linux so that the elevation
+    // runs the same binary (no external python3 dependency) and the
+    // output is JSON, parsed by the caller.
+    if let Some(pos) = args.iter().position(|a| a == "--list-dir-elevated") {
+        if pos + 1 < args.len() {
+            let dir = PathBuf::from(&args[pos + 1]);
+            let entries = fs::list::list_dir_elevated(&dir)?;
+            // Emit a compact JSON array on stdout. The caller parses
+            // this with serde_json.
+            println!("{}", serde_json::to_string(&entries)?);
+        } else {
+            anyhow::bail!("Missing path argument for --list-dir-elevated");
+        }
+        return Ok(());
+    }
+
     // Intercept plugin and developer subcommands
     if args.len() > 1 {
         if args[1] == "plugin" {

@@ -102,19 +102,51 @@ pub fn format_unix_mode(mode: u32) -> String {
 
 #[cfg(unix)]
 fn get_unix_owner_name(uid: u32) -> String {
-    // Use getpwuid if available via libc; fallback to numeric UID.
-    // We avoid pulling in libc directly — read /etc/passwd instead.
-    if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
-        for line in content.lines() {
-            let mut parts = line.split(':');
-            if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next()) {
-                if uid_str.trim() == uid.to_string() {
-                    return name.to_string();
-                }
-            }
+    // The previous implementation re-parsed `/etc/passwd` on every call,
+    // which turned a directory listing of an `ls -l`-style view into
+    // O(N×M) where N is the number of files and M the number of users
+    // in /etc/passwd. On a multi-user box with thousands of system
+    // accounts that is a real cost. We now memoise the result per-uid
+    // for the lifetime of the process.
+    //
+    // We deliberately do NOT call `getpwuid(3)` from libc: it can block
+    // indefinitely on NSS backends (LDAP, sssd, nscd) and we are
+    // already in a synchronous rendering path. The file read of
+    // /etc/passwd is the local-only fast path; if the user is missing
+    // from it (typical for LDAP/SSSD users) we fall back to the
+    // numeric UID, which is what the old code did too.
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+
+    static CACHE: OnceLock<std::sync::Mutex<HashMap<u32, String>>> = OnceLock::new();
+    let cache = CACHE.get_or_init(|| std::sync::Mutex::new(HashMap::new()));
+    if let Ok(map) = cache.lock() {
+        if let Some(name) = map.get(&uid) {
+            return name.clone();
         }
     }
-    uid.to_string()
+
+    let resolved = lookup_owner_in_passwd(uid).unwrap_or_else(|| uid.to_string());
+    if let Ok(mut map) = cache.lock() {
+        map.insert(uid, resolved.clone());
+    }
+    resolved
+}
+
+#[cfg(unix)]
+fn lookup_owner_in_passwd(uid: u32) -> Option<String> {
+    let content = std::fs::read_to_string("/etc/passwd").ok()?;
+    let target = uid.to_string();
+    for line in content.lines() {
+        let mut parts = line.split(':');
+        let name = parts.next()?;
+        let _pass = parts.next()?;
+        let uid_str = parts.next()?;
+        if uid_str.trim() == target {
+            return Some(name.to_string());
+        }
+    }
+    None
 }
 
 #[cfg(test)]

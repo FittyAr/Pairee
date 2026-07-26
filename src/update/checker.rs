@@ -240,22 +240,23 @@ fn extract_notes(body: &str) -> String {
 }
 
 fn build_client() -> Result<reqwest::Client> {
-    #[cfg(not(target_os = "windows"))]
-    {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()
-            .context("failed to build HTTP client")?;
-        Ok(client)
-    }
+    // The two cfg arms were byte-for-byte identical, which was dead code
+    // and a strong signal that the original author intended per-platform
+    // TLS configuration but never wrote it. We now keep the per-platform
+    // cfg split (so future platform-specific options have a clear home)
+    // but the bodies are minimal because the actual TLS provider is
+    // selected via Cargo.toml features:
+    //   - Windows uses the OS-bundled TLS stack (Schannel via `native-tls`).
+    //   - Linux and macOS use `rustls` with the `ring` crypto provider,
+    //     installed in `main` before any reqwest call lands here.
+    let builder = reqwest::Client::builder().timeout(Duration::from_secs(15));
+
     #[cfg(target_os = "windows")]
-    {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()
-            .context("failed to build HTTP client")?;
-        Ok(client)
-    }
+    let _ = builder; // placeholder so the cfg arm is non-empty
+    #[cfg(not(target_os = "windows"))]
+    let _ = builder;
+
+    builder.build().context("failed to build HTTP client")
 }
 
 // ─── Unit tests ─────────────────────────────────────────────────────────────

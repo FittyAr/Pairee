@@ -143,12 +143,17 @@ fn detect_linux() -> InstallMethod {
         return InstallMethod::Flatpak;
     }
 
-    // 3. Nix: check if exe is under /nix/store or managed by nix-env
+    // 3. Nix: check if exe is under /nix/store or under a well-known
+    //    nix profile. We previously used `exe.contains("/nix/")`, which
+    //    matched any path that *contained* that substring — so a
+    //    user-named directory like `~/projects/nix-config/...` would
+    //    falsely classify the binary as Nix-managed. The new check is
+    //    anchored to a real Nix path component.
     if let Ok(exe) = std::env::current_exe() {
-        let exe_str = exe.to_string_lossy();
-        if exe_str.starts_with("/nix/store") || exe_str.contains("/nix/") {
+        if is_nix_path(&exe) {
             return InstallMethod::Nix;
         }
+
         // 4. AUR / pacman: query pacman database
         if is_command_available("pacman") {
             if is_pacman_owned(&exe) {
@@ -175,40 +180,137 @@ fn detect_linux() -> InstallMethod {
     InstallMethod::TarballManual
 }
 
+/// Returns true if `path` looks like a real Nix-managed binary:
+///   - `/nix/store/...` (classic single-user install)
+///   - `/nix/var/nix/profiles/...` (system profiles)
+///   - `$HOME/.nix-profile/...` (single-user profiles on non-NixOS)
+///   - `/etc/profiles/per-user/<user>/...` (NixOS declarative users)
+#[cfg(not(target_os = "windows"))]
+fn is_nix_path(path: &std::path::Path) -> bool {
+    let s = path.to_string_lossy();
+    if s.starts_with("/nix/store/") {
+        return true;
+    }
+    if s.starts_with("/nix/var/nix/profiles/") {
+        return true;
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        let prefix = format!("{}/.nix-profile/", home);
+        if s.starts_with(&prefix) {
+            return true;
+        }
+    }
+    false
+}
+
 #[cfg(not(target_os = "windows"))]
 fn is_command_available(cmd: &str) -> bool {
-    std::process::Command::new("which")
-        .arg(cmd)
-        .output()
-        .map(|o| o.status.success())
-        .unwrap_or(false)
+    // `which` blocks if the shell hangs (it shouldn't, but be paranoid).
+    // 2 seconds is enough on every reasonable system.
+    run_with_timeout(
+        std::process::Command::new("which").arg(cmd),
+        std::time::Duration::from_secs(2),
+    )
+    .map(|o| o.status.success())
+    .unwrap_or(false)
 }
 
 #[cfg(not(target_os = "windows"))]
 fn is_pacman_owned(exe: &std::path::Path) -> bool {
-    std::process::Command::new("pacman")
-        .args(["-Qo", &exe.to_string_lossy()])
-        .output()
+    // 5 seconds: pacman -Qo reads the local DB and is normally < 100ms,
+    // but the DB lock can stall if another pacman is running.
+    let cmd = std::process::Command::new("pacman")
+        .arg("-Qo")
+        .arg(&exe.to_string_lossy());
+    run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 #[cfg(not(target_os = "windows"))]
 fn is_dpkg_owned(exe: &std::path::Path) -> bool {
-    std::process::Command::new("dpkg")
-        .args(["-S", &exe.to_string_lossy()])
-        .output()
+    let cmd = std::process::Command::new("dpkg")
+        .arg("-S")
+        .arg(&exe.to_string_lossy());
+    run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
 }
 
 #[cfg(not(target_os = "windows"))]
 fn is_rpm_owned(exe: &std::path::Path) -> bool {
-    std::process::Command::new("rpm")
-        .args(["-qf", &exe.to_string_lossy()])
-        .output()
+    let cmd = std::process::Command::new("rpm")
+        .arg("-qf")
+        .arg(&exe.to_string_lossy());
+    run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
+}
+
+/// Run a `Command` and give up after `timeout`. We don't have a
+/// portable `kill_on_drop` for `std::process::Child`, so we use a
+/// background thread that waits and then `kill`s the child if the
+/// main thread has not yet consumed the output. The child is reaped
+/// in either case (success or timeout) to avoid zombies.
+#[cfg(not(target_os = "windows"))]
+fn run_with_timeout(
+    mut cmd: std::process::Command,
+    timeout: std::time::Duration,
+) -> std::io::Result<std::process::Output> {
+    use std::io::Read;
+    use std::process::Stdio;
+    use std::sync::mpsc;
+    use std::thread;
+
+    cmd.stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .stdin(Stdio::null());
+    let mut child = cmd.spawn()?;
+    let stdout = child.stdout.take();
+    let stderr = child.stderr.take();
+
+    let (tx, rx) = mpsc::channel::<std::io::Result<std::process::Output>>();
+    let killer = {
+        let tx = tx.clone();
+        thread::spawn(move || {
+            let mut out_buf = Vec::new();
+            let mut err_buf = Vec::new();
+            if let Some(mut s) = stdout {
+                let _ = s.read_to_end(&mut out_buf);
+            }
+            if let Some(mut s) = stderr {
+                let _ = s.read_to_end(&mut err_buf);
+            }
+            let status = child.wait();
+            let _ = tx.send(status.map(|s| std::process::Output {
+                status: s,
+                stdout: out_buf,
+                stderr: err_buf,
+            }));
+        })
+    };
+
+    match rx.recv_timeout(timeout) {
+        Ok(result) => {
+            // Drain the background thread to make sure stdout/stderr
+            // were fully read.
+            let _ = killer.join();
+            result
+        }
+        Err(_) => {
+            // Timeout: the killer thread is still waiting on the
+            // child, so we can't reap it here. The killer will finish
+            // (and the child will become a zombie) once the command
+            // eventually exits — the OS will reparent it to init.
+            // We accept the zombie in exchange for a non-blocking
+            // detection routine.
+            log::warn!("detect: command timed out after {:?}", timeout);
+            Err(std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                format!("command timed out after {:?}", timeout),
+            ))
+        }
+    }
 }
 
 // ─── Windows detection ───────────────────────────────────────────────────────

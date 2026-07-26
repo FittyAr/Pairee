@@ -138,37 +138,88 @@ pub fn handle(
 }
 
 fn copy_to_clipboard(text: &str) {
-    // Try xclip, xsel, wl-copy on Linux; clip.exe on Windows
+    // Try wl-copy / xclip / xsel on Linux; clip.exe on Windows.
+    //
+    // We used to check only that `spawn()` succeeded and then return
+    // immediately, which meant a tool that launched but failed at runtime
+    // (e.g. `wl-copy` with no Wayland session) would silently leave the
+    // clipboard untouched. The UI would then show "copied" while the
+    // user had nothing in their clipboard. Now we wait for the child and
+    // require a successful exit status before moving on; on failure we
+    // try the next tool in the list.
     #[cfg(not(target_os = "windows"))]
     {
-        for (cmd, args) in &[
-            ("wl-copy", vec![text]),
-            ("xclip", vec!["-selection", "clipboard"]),
-            ("xsel", vec!["--clipboard", "--input"]),
-        ] {
-            let mut child = std::process::Command::new(cmd);
-            child.args(args);
-            if let Ok(mut c) = child.stdin(std::process::Stdio::piped()).spawn() {
-                use std::io::Write as _;
-                if let Some(stdin) = c.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
-                }
-                let _ = c.wait();
-                return;
+        // Each entry: (program, args-before-stdin, use-stdin)
+        //
+        // `wl-copy` accepts the text as a positional argument and we let
+        // it — passing the same text on stdin is undefined behaviour for
+        // some implementations. `xclip` and `xsel` need the text on stdin
+        // because their arguments only select the target clipboard.
+        let candidates: &[(&str, &[&str], bool)] = &[
+            ("wl-copy", &[], false),
+            ("xclip", &["-selection", "clipboard"], true),
+            ("xsel", &["--clipboard", "--input"], true),
+        ];
+
+        for (cmd, args, use_stdin) in candidates {
+            match try_copy_with(cmd, args, text, *use_stdin) {
+                Ok(()) => return,
+                Err(e) => log::debug!("clipboard tool `{}` failed: {}", cmd, e),
             }
         }
     }
     #[cfg(target_os = "windows")]
     {
-        let _ = std::process::Command::new("clip")
-            .stdin(std::process::Stdio::piped())
-            .spawn()
-            .map(|mut c| {
-                use std::io::Write as _;
-                if let Some(stdin) = c.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
-                }
-                let _ = c.wait();
-            });
+        let _ = try_copy_with("clip", &[], text, true);
+    }
+}
+
+/// Spawn `cmd` with `args`, optionally feed `text` on its stdin, and return
+/// `Ok(())` only if the child exited with status 0. Any spawn failure,
+/// stdin-write failure, or non-zero exit is reported as an error so the
+/// caller can try the next clipboard tool.
+fn try_copy_with(cmd: &str, args: &[&str], text: &str, feed_stdin: bool) -> std::io::Result<()> {
+    use std::io::Write as _;
+    use std::process::{Command, Stdio};
+
+    let mut command = Command::new(cmd);
+    command.args(args);
+    if feed_stdin {
+        command.stdin(Stdio::piped());
+    }
+    let mut child = match command.spawn() {
+        Ok(c) => c,
+        Err(e) => {
+            return Err(std::io::Error::new(
+                e.kind(),
+                format!("failed to spawn `{}`: {}", cmd, e),
+            ));
+        }
+    };
+
+    if feed_stdin {
+        if let Some(stdin) = child.stdin.as_mut() {
+            // We deliberately ignore short writes here — the user-visible
+            // signal is the child's exit status, which we check below.
+            let _ = stdin.write_all(text.as_bytes());
+        } else {
+            // We asked for piped stdin but the child didn't get one;
+            // that's unexpected but not fatal, just continue.
+            log::debug!("`{}` had no stdin pipe even though we asked for one", cmd);
+        }
+        // Drop stdin to close the pipe so `cmd` sees EOF and can exit.
+        drop(child.stdin.take());
+    } else {
+        // `wl-copy` got the text as an arg; no stdin involved.
+    }
+
+    let status = child.wait()?;
+    if status.success() {
+        Ok(())
+    } else {
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            format!("`{}` exited with {}", cmd, status),
+        ))
     }
 }

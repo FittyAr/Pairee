@@ -66,14 +66,36 @@ impl SharedSshClient {
 
         let mut authenticated = false;
 
-        // Try key authentication if provided
+        // Try key authentication if provided.
+        //
+        // There are two distinct failure modes we want to treat differently:
+        //   1. The key file does not exist on disk — the user probably
+        //      mistyped the path, or the key was moved. We log a warning
+        //      and fall through to the next auth method.
+        //   2. The key file exists but the server rejected it (wrong key
+        //      for this user, wrong permissions, etc.) — we do NOT
+        //      propagate the error; we just continue and try the next
+        //      auth method. Propagating would lock the user out even if
+        //      they have a working password configured.
         if let Some(kp) = key_path {
             if !kp.trim().is_empty() {
                 let path = Path::new(kp);
-                if path.exists() {
-                    sess.userauth_pubkey_file(username, None, path, password)
-                        .context(t("error_ssh_key_auth_failed"))?;
-                    authenticated = true;
+                if !path.exists() {
+                    log::warn!(
+                        "SSH key path configured but not found: {} — falling back to next method",
+                        kp
+                    );
+                } else {
+                    match sess.userauth_pubkey_file(username, None, path, password) {
+                        Ok(()) => authenticated = true,
+                        Err(e) => {
+                            log::warn!(
+                                "SSH key auth failed for {}: {} — trying next method",
+                                kp,
+                                e
+                            );
+                        }
+                    }
                 }
             }
         }
@@ -81,9 +103,12 @@ impl SharedSshClient {
         // Try password authentication if key failed/not provided
         if !authenticated {
             if let Some(pass) = password {
-                sess.userauth_password(username, pass)
-                    .context(t("error_ssh_password_auth_failed"))?;
-                authenticated = true;
+                match sess.userauth_password(username, pass) {
+                    Ok(()) => authenticated = true,
+                    Err(e) => {
+                        log::warn!("SSH password auth failed: {} — trying next method", e);
+                    }
+                }
             }
         }
 
@@ -235,41 +260,76 @@ impl SharedSshClient {
     }
 
     pub fn delete_recursive(&self, path: &Path) -> Result<()> {
+        // We need to release the SFTP lock before recursing into
+        // subdirectories (the recursive call would deadlock otherwise), but
+        // we must keep iterating over the *siblings* of any subdirectory we
+        // are about to descend into. To do both, snapshot the directory
+        // listing into a `Vec`, drop the lock, and then process the
+        // snapshot. Subdirectories are processed first so the parent's
+        // `rmdir` at the end has empty children.
+        let entries: Vec<(PathBuf, bool)> = {
+            let client = self
+                .0
+                .lock()
+                .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+
+            // Let's check if the path is a directory or a file
+            let metadata = client.sftp.stat(path);
+            match metadata {
+                Ok(stat) if stat.is_dir() => {
+                    let read = client.sftp.readdir(path)?;
+                    read.into_iter().map(|(p, s)| (p, s.is_dir())).collect()
+                }
+                Ok(_) => {
+                    // It's a file (or symlink). No recursion needed.
+                    client.sftp.unlink(path)?;
+                    return Ok(());
+                }
+                Err(_) => {
+                    // Stat failed: try the unlink as a best-effort and
+                    // surface whatever error it produces.
+                    client.sftp.unlink(path)?;
+                    return Ok(());
+                }
+            }
+        };
+
+        // Process the snapshot without holding the SFTP lock. Collect
+        // subdirs separately so we can recurse *after* the unlinks of
+        // sibling files (avoids the previous bug where the early `return`
+        // for the first subdir would skip processing of its siblings).
+        let mut subdirs: Vec<PathBuf> = Vec::new();
+        for (entry_path, is_dir) in entries {
+            let name = entry_path
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default();
+            if name == "." || name == ".." || name.is_empty() {
+                continue;
+            }
+            if is_dir {
+                subdirs.push(entry_path);
+            } else {
+                let client = self
+                    .0
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                client.sftp.unlink(&entry_path)?;
+            }
+        }
+
+        // Recurse into subdirectories. Each recursive call is independent;
+        // a failure in one does not abort the others.
+        for sub in &subdirs {
+            self.delete_recursive(sub)?;
+        }
+
+        // Finally rmdir the (now-empty) parent.
         let client = self
             .0
             .lock()
             .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-
-        // Let's check if the path is a directory or a file
-        let metadata = client.sftp.stat(path);
-        if let Ok(stat) = metadata {
-            if stat.is_dir() {
-                // Read dir contents and recursively delete them
-                let entries = client.sftp.readdir(path)?;
-                for (entry_path, entry_stat) in entries {
-                    let name = entry_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default();
-                    if name == "." || name == ".." {
-                        continue;
-                    }
-                    if entry_stat.is_dir() {
-                        drop(client);
-                        self.delete_recursive(&entry_path)?;
-                        return self.delete_recursive(path); // retry original
-                    } else {
-                        client.sftp.unlink(&entry_path)?;
-                    }
-                }
-                client.sftp.rmdir(path)?;
-            } else {
-                client.sftp.unlink(path)?;
-            }
-        } else {
-            // Stat failed or doesn't exist, try to delete file anyway
-            let _ = client.sftp.unlink(path);
-        }
+        client.sftp.rmdir(path)?;
         Ok(())
     }
 

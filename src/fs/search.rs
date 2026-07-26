@@ -31,14 +31,47 @@ pub fn find_files(query: SearchQuery) -> mpsc::Receiver<(PathBuf, bool)> {
     let (tx, rx) = mpsc::channel(256);
 
     tokio::spawn(async move {
-        search_recursive(&query.root, &query, &tx).await;
+        // Cycle-detection set: we keep the canonical (resolved) path of
+        // every directory we have *already recursed into*. If a symlink
+        // points back to one of those — directly or transitively — we
+        // skip it instead of entering an infinite loop. We use
+        // `Vec<PathBuf>` rather than `HashSet` because:
+        //   1. the search is typically shallow in visited-dir count, and
+        //   2. canonicalized paths are not trivially `Hash`-able in a
+        //      cross-platform way (Windows prefixes the verbatim path).
+        let mut visited: Vec<PathBuf> = Vec::new();
+        search_recursive(&query.root, &query, &tx, &mut visited).await;
     });
 
     rx
 }
 
 /// Recursive async search through a directory tree.
-async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<(PathBuf, bool)>) {
+///
+/// `visited` holds canonicalized paths of every directory that has
+/// already been recursed into; on each descent we canonicalize the
+/// current directory and skip the recursion if we have already been
+/// here. This protects the user from a `dir/loop -> dir` symlink cycle
+/// (or any deeper variant) turning the search into an OOM coroutine.
+async fn search_recursive(
+    dir: &PathBuf,
+    query: &SearchQuery,
+    tx: &mpsc::Sender<(PathBuf, bool)>,
+    visited: &mut Vec<PathBuf>,
+) {
+    // Canonicalize (resolve symlinks) for cycle detection. If
+    // canonicalize fails (broken symlink, permission denied), we still
+    // proceed using the original path — we just can't be sure it isn't
+    // a cycle, so we mark it as visited under its raw form.
+    let canon = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.clone());
+    if visited.iter().any(|p| p == &canon) {
+        // Already recursed into this directory (or one that resolves to
+        // it). Skip silently — the user gets the match from the first
+        // visit.
+        return;
+    }
+    visited.push(canon);
+
     let read_dir = match tokio::fs::read_dir(dir).await {
         Ok(rd) => rd,
         Err(_) => return,
@@ -61,8 +94,11 @@ async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<
             let is_file = file_type.is_file();
 
             if is_dir {
-                // 1. Recurse into subdirectory (Box::pin to avoid infinite type recursion)
-                Box::pin(search_recursive(&path, query, tx)).await;
+                // 1. Recurse into subdirectory (Box::pin to avoid infinite type recursion).
+                //    `search_recursive` itself does the canonicalize +
+                //    visited-set check, so symlink cycles are short-
+                //    circuited there.
+                Box::pin(search_recursive(&path, query, tx, visited)).await;
 
                 // 2. Check if the directory itself matches
                 if query.target == SearchTarget::Any || query.target == SearchTarget::Directory {

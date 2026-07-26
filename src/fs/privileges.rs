@@ -31,11 +31,34 @@ pub fn is_elevated() -> bool {
 
 #[cfg(target_os = "windows")]
 pub fn acquire_admin_privileges() -> Result<()> {
+    // Windows has no equivalent of "caching sudo credentials"; UAC is
+    // re-prompted for each elevation. Callers that need an admin operation
+    // should use `run_in_elevated_helper`, which re-launches the process
+    // with the `RunAs` verb. This function is kept as a no-op so the
+    // cross-platform call sites compile.
     Ok(())
 }
 
 #[cfg(not(target_os = "windows"))]
 pub fn acquire_admin_privileges() -> Result<()> {
+    // On Linux, `acquire_admin_privileges` historically called `sudo -v`,
+    // which only **caches** the sudo timestamp (≈5 min). It does NOT
+    // elevate the current process — operations performed after this call
+    // still run as the invoking user, which made the function name deeply
+    // misleading. The function has been renamed in spirit to
+    // `cache_sudo_credentials`; the alias here is for source compatibility
+    // with existing call sites that want a "make sure sudo is ready" step
+    // before using `run_in_elevated_helper`.
+    cache_sudo_credentials()
+}
+
+/// Run `sudo -v` to cache sudo credentials for the next ~5 minutes. This
+/// pre-emptively prompts the user for their password so that a subsequent
+/// `sudo`-based elevation (`run_in_elevated_helper`) does not need to
+/// re-prompt. The current process is **not** elevated; this is just a
+/// credential cache warmer.
+#[cfg(not(target_os = "windows"))]
+pub fn cache_sudo_credentials() -> Result<()> {
     use crossterm::cursor::Show;
     use crossterm::execute;
     use crossterm::terminal::{
@@ -46,7 +69,7 @@ pub fn acquire_admin_privileges() -> Result<()> {
     let _ = disable_raw_mode();
     let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
 
-    println!("\nRequesting administrator privileges...");
+    println!("\nRequesting administrator credentials (sudo)...");
 
     let status = Command::new("sudo")
         .arg("-v")
@@ -60,7 +83,8 @@ pub fn acquire_admin_privileges() -> Result<()> {
 
     match status {
         Ok(s) if s.success() => Ok(()),
-        _ => anyhow::bail!("Failed to acquire admin privileges via sudo"),
+        Ok(s) => anyhow::bail!("sudo -v exited with {}", s),
+        Err(e) => anyhow::bail!("Failed to invoke `sudo -v`: {}", e),
     }
 }
 

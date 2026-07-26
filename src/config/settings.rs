@@ -514,26 +514,16 @@ pub struct PluginConfig {
 }
 
 fn default_plugins_dev_dir() -> String {
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(appdata) = std::env::var("APPDATA") {
-            std::path::PathBuf::from(appdata)
-                .join("pairee")
-                .join("config")
-                .join("plugins")
-                .to_string_lossy()
-                .into_owned()
-        } else {
-            "./config/plugins".to_string()
-        }
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        crate::config::paths::get_config_dir()
-            .join("plugins")
-            .to_string_lossy()
-            .into_owned()
-    }
+    // The previous Windows branch produced `<APPDATA>/pairee/config/plugins`
+    // (3 levels deep) while the Unix branch produced `<config_dir>/plugins`
+    // (1 level). That asymmetry violated the AGENTS.md rule "do not
+    // add extra levels of nested project directories" and forced the
+    // Windows installer to be aware of the Linux layout. We now use
+    // the same `config_dir + "plugins"` layout on every platform.
+    crate::config::paths::get_config_dir()
+        .join("plugins")
+        .to_string_lossy()
+        .into_owned()
 }
 
 fn default_transfer_hash() -> String {

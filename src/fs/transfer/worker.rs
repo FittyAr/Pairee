@@ -131,10 +131,7 @@ impl TransferWorker {
                     // progresses on partial filesystems.
                     if let Ok(canon) = std::fs::canonicalize(&dir) {
                         if !visited_dirs.insert(canon.clone()) {
-                            log::debug!(
-                                "scan: skipping already-visited dir {}",
-                                dir.display()
-                            );
+                            log::debug!("scan: skipping already-visited dir {}", dir.display());
                             continue;
                         }
                     }
@@ -591,52 +588,51 @@ impl TransferWorker {
             if dst.exists() {
                 let mut resolution = options.conflict_resolution.clone();
                 if resolution == "ask" {
-                    let chosen =
-                        if let Some(auto_res) = auto_resolution {
-                            auto_res
-                        } else {
-                            // Notificar conflicto
-                            let _ = self.event_tx.send(TransferEvent::ConflictDetected {
-                                job_id: self.job_id,
-                                file: dst.clone(),
-                                conflict: crate::fs::transfer::conflict::ConflictInfo {
-                                    src_path: src.clone(),
-                                    dst_path: dst.clone(),
-                                    src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
-                                    dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
-                                    src_modified: src.metadata().and_then(|m| m.modified()).ok(),
-                                    dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
-                                },
-                            });
+                    let chosen = if let Some(auto_res) = auto_resolution {
+                        auto_res
+                    } else {
+                        // Notificar conflicto
+                        let _ = self.event_tx.send(TransferEvent::ConflictDetected {
+                            job_id: self.job_id,
+                            file: dst.clone(),
+                            conflict: crate::fs::transfer::conflict::ConflictInfo {
+                                src_path: src.clone(),
+                                dst_path: dst.clone(),
+                                src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
+                                dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
+                                src_modified: src.metadata().and_then(|m| m.modified()).ok(),
+                                dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                            },
+                        });
 
-                            // Limpiar conflicto anterior y esperar respuesta de la UI
-                            {
-                                let mut guard = self
-                                    .active_conflict
-                                    .lock()
-                                    .expect("active_conflict mutex poisoned");
-                                *guard = None;
-                            }
-
-                            while self
+                        // Limpiar conflicto anterior y esperar respuesta de la UI
+                        {
+                            let mut guard = self
                                 .active_conflict
                                 .lock()
-                                .expect("active_conflict mutex poisoned")
-                                .is_none()
-                            {
-                                if self.is_cancelled.load(Ordering::Relaxed) {
-                                    return Err(anyhow!("Job cancelled"));
-                                }
-                                tokio::time::sleep(Duration::from_millis(100)).await;
-                            }
+                                .expect("active_conflict mutex poisoned");
+                            *guard = None;
+                        }
 
-                            let ch = self
-                                .active_conflict
-                                .lock()
-                                .expect("active_conflict mutex poisoned")
-                                .clone()
-                                .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
-                            match ch {
+                        while self
+                            .active_conflict
+                            .lock()
+                            .expect("active_conflict mutex poisoned")
+                            .is_none()
+                        {
+                            if self.is_cancelled.load(Ordering::Relaxed) {
+                                return Err(anyhow!("Job cancelled"));
+                            }
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        }
+
+                        let ch = self
+                            .active_conflict
+                            .lock()
+                            .expect("active_conflict mutex poisoned")
+                            .clone()
+                            .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+                        match ch {
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
                             crate::fs::transfer::conflict::ConflictResolution::SkipAll |
@@ -645,8 +641,8 @@ impl TransferWorker {
                             }
                             _ => {}
                         }
-                            ch
-                        };
+                        ch
+                    };
 
                     resolution = match chosen {
                         crate::fs::transfer::conflict::ConflictResolution::Overwrite
@@ -959,29 +955,33 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
     use std::process::Command;
-    let status = Command::new("gio")
+
+    // 1. Try `gio trash` (GNOME / modern GLib-based desktops).
+    match Command::new("gio")
         .arg("trash")
         .arg("--")
         .arg(path)
-        .status();
-    if let Ok(s) = status {
-        if s.success() {
-            return Ok(());
-        }
+        .status()
+    {
+        Ok(s) if s.success() => return Ok(()),
+        Ok(_) | Err(_) => {} // not installed or refused; fall through
     }
-    let status = Command::new("trash-put").arg("--").arg(path).status();
-    if let Ok(s) = status {
-        if s.success() {
-            return Ok(());
-        }
+
+    // 2. Try `trash-put` (trash-cli, common on KDE/minimal setups).
+    match Command::new("trash-put").arg("--").arg(path).status() {
+        Ok(s) if s.success() => return Ok(()),
+        Ok(_) | Err(_) => {}
     }
-    // Fallback to standard delete if trash command fails
-    if path.is_dir() {
-        std::fs::remove_dir_all(path)
-            .map_err(|e| anyhow::anyhow!("Failed to delete dir recursively: {}", e))
-    } else {
-        std::fs::remove_file(path).map_err(|e| anyhow::anyhow!("Failed to delete file: {}", e))
-    }
+
+    // 3. Do NOT fall back to a permanent delete silently — that would turn
+    // a "move to trash" intent into data loss on distros where neither
+    // trash tool is installed (Fedora Server, RHEL minimal, Alpine, etc.).
+    // Surface the missing dependency to the caller so the UI can ask the
+    // user to install `glib2` (provides `gio`) or `trash-cli`, or to
+    // confirm a permanent delete explicitly.
+    anyhow::bail!(
+        "no trash tool found. Install `gio` (glib2) or `trash-cli`, or use a permanent delete."
+    )
 }
 
 fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
@@ -1172,12 +1172,9 @@ mod tests {
         // Use a hard wall-clock deadline so a regression in the
         // cycle-detection guard surfaces as a test failure
         // instead of hanging the whole test suite.
-        let res = tokio::time::timeout(
-            std::time::Duration::from_secs(10),
-            worker.run(),
-        )
-        .await
-        .expect("worker should not loop on a circular symlink");
+        let res = tokio::time::timeout(std::time::Duration::from_secs(10), worker.run())
+            .await
+            .expect("worker should not loop on a circular symlink");
         assert!(res.is_ok(), "worker returned error: {res:?}");
     }
 }

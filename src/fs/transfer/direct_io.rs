@@ -62,9 +62,15 @@ pub fn open_reader_direct(path: &Path, use_direct: bool) -> std::io::Result<File
         options.read(true);
         options.custom_flags(O_DIRECT);
 
-        match options.open(path) {
+        // Open `normalized` (the post-`to_long_path` path), not `path`,
+        // to keep behaviour identical with the Windows branch and the
+        // non-Direct fallback below. Opening different paths for the
+        // primary attempt and the fallback would silently give the
+        // caller two different file handles on systems where
+        // `to_long_path` ever does something non-trivial.
+        match options.open(&normalized) {
             Ok(file) => Ok(file),
-            Err(_) => File::open(path), // Fallback
+            Err(_) => File::open(&normalized), // Fallback
         }
     }
 

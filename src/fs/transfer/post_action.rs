@@ -45,7 +45,7 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Command::new("systemctl").arg("suspend").spawn()?;
+                run_systemctl("suspend")?;
             }
             Ok(())
         }
@@ -58,7 +58,7 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                Command::new("systemctl").arg("hibernate").spawn()?;
+                run_systemctl("hibernate")?;
             }
             Ok(())
         }
@@ -79,9 +79,27 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             }
             #[cfg(not(target_os = "windows"))]
             {
-                let dev = if drive.is_empty() { "/dev/sdb" } else { &drive };
+                // We used to default an empty `drive` to "/dev/sdb",
+                // which is a dangerous "best guess" that can power off
+                // an arbitrary disk on the user's system. The only sane
+                // thing to do is to refuse the operation and ask the
+                // caller to specify a real device path.
+                if drive.trim().is_empty() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        "EjectDrive: no device path provided. \
+                         Specify the /dev/sdX (or /dev/nvmeXnY) path of \
+                         the drive you want to eject.",
+                    ));
+                }
+                if !std::path::Path::new(&drive).exists() {
+                    return Err(std::io::Error::new(
+                        std::io::ErrorKind::NotFound,
+                        format!("EjectDrive: device {} does not exist", drive),
+                    ));
+                }
                 Command::new("udisksctl")
-                    .args(["power-off", "-b", dev])
+                    .args(["power-off", "-b", &drive])
                     .spawn()?;
             }
             Ok(())
@@ -97,4 +115,42 @@ pub fn execute_post_action(action: PostAction) -> Result<(), std::io::Error> {
             std::process::exit(0);
         }
     }
+}
+
+/// Helper that runs `systemctl <verb>` and converts the inevitable
+/// "Access denied" / "not running in a graphical session" failures into
+/// error messages the UI can show verbatim.
+#[cfg(not(target_os = "windows"))]
+fn run_systemctl(verb: &str) -> Result<(), std::io::Error> {
+    use std::process::Stdio;
+    let output = Command::new("systemctl")
+        .arg(verb)
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| {
+            std::io::Error::new(
+                e.kind(),
+                format!(
+                    "systemctl is not available ({}). Power actions on this \
+                     system require systemd.",
+                    e
+                ),
+            )
+        })?;
+    if output.status.success() {
+        return Ok(());
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    let code = output.status.code().unwrap_or(-1);
+    Err(std::io::Error::new(
+        std::io::ErrorKind::PermissionDenied,
+        format!(
+            "`systemctl {}` failed (exit {}): {}. \
+             This usually means the user has no active logind session, \
+             polkit refused the request, or systemd-logind is not running.",
+            verb,
+            code,
+            stderr.trim()
+        ),
+    ))
 }

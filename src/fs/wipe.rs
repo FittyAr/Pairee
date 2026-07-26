@@ -19,6 +19,21 @@ pub fn wipe_file(path: &Path) -> Result<()> {
 
     let file_size = metadata.len() as usize;
 
+    // Truncate the file up front so any pre-existing content past the new
+    // write boundary is discarded immediately. The previous code only
+    // truncated by writing `file_size` bytes, which still left the file
+    // at its previous size if the file had been extended by another
+    // process between `metadata()` and our write.
+    {
+        let f = std::fs::OpenOptions::new()
+            .write(true)
+            .open(path)
+            .with_context(|| format!("Opening file to truncate before wipe: {:?}", path))?;
+        f.set_len(0)
+            .context("Truncating file to zero before wipe")?;
+        f.sync_all().ok();
+    }
+
     if file_size > 0 {
         // Overwrite with alternating patterns (0x00, 0xFF, 0x55)
         let patterns: &[u8] = &[0x00, 0xFF, 0x55];
