@@ -251,13 +251,20 @@ fn handle_which(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
         state.active_popup = None;
         return Ok(None);
     }
-    // Unhandled key (no match, not Esc): restore the popup.
+    // §6 modal: the which prompt is a modal interaction — any key
+    // that doesn't match a candidate (and isn't Esc) is consumed
+    // by the dialog instead of falling through to the main key
+    // handler. Without this, a malicious plugin could set
+    // `cands = {{on = "<C-c>"}}` and trick the user into
+    // triggering a separate action (quit, refresh, etc.) while
+    // they think they're answering the prompt. The popup stays
+    // open so the user can keep trying.
     state.active_popup = Some(PopupType::PluginWhichPrompt {
         candidates,
         silent,
         reply_tx,
     });
-    Err(())
+    Ok(None)
 }
 
 #[cfg(test)]
@@ -426,6 +433,29 @@ mod tests {
         let _ = handle(&mut state, key);
         assert!(state.active_popup.is_none());
         assert_eq!(rx.try_recv().unwrap(), None);
+    }
+
+    #[test]
+    fn test_which_prompt_non_matching_key_is_consumed() {
+        // §6 modal: a key that does not match any candidate and is
+        // not Esc must be consumed by the dialog (so it cannot
+        // fall through to a global action like quit). The popup
+        // stays open so the user can try another key.
+        let mut state = fresh_state();
+        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+        state.active_popup = Some(PopupType::PluginWhichPrompt {
+            candidates: vec![WhichCandidate {
+                on: vec!["a".into()],
+                desc: Some("Apple".into()),
+            }],
+            silent: false,
+            reply_tx: Some(tx),
+        });
+        let key = KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE);
+        let result = handle(&mut state, key);
+        assert!(result.is_ok(), "non-matching key must be consumed");
+        assert!(state.active_popup.is_some(), "popup must stay open");
+        assert!(rx.try_recv().is_err(), "no reply should be sent yet");
     }
 
     #[test]

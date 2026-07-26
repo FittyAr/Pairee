@@ -24,9 +24,16 @@ fn validate_path(lua: &mlua::Lua, path_str: &str) -> mlua::Result<PathBuf> {
 /// failed canonicalize is a strong signal of a probe attempt.
 ///
 /// When `strict` is false (the default), paths that fail to
-/// canonicalize are passed through verbatim — appropriate for
-/// commands like `mkdir` or `rename` that operate on paths which
-/// may not yet exist.
+/// canonicalize are validated against the **parent** directory
+/// instead. This is appropriate for commands like `mkdir` or
+/// `rename` that operate on paths which may not yet exist —
+/// canonicalising the (still-missing) leaf would always fail, but
+/// the parent must already live inside the sandbox for the leaf
+/// to be safe to create. We still reject when the parent fails
+/// to canonicalize or is outside the sandbox; that closes the
+/// "non-existent path = unvalidated path" gap that previously let
+/// plugins operate on arbitrary filesystem locations outside the
+/// workspace by handing us a path that simply didn't exist yet.
 ///
 /// Returns the **canonical** path (when canonicalization succeeded)
 /// so the caller can operate on it directly. This eliminates a
@@ -35,7 +42,7 @@ fn validate_path(lua: &mlua::Lua, path_str: &str) -> mlua::Result<PathBuf> {
 /// `tokio::fs::*` — during which a local attacker could swap a
 /// symlink. Operating on the canonical path makes the validation
 /// and the I/O refer to the same target.
-fn validate_path_with(
+pub(crate) fn validate_path_with(
     lua: &mlua::Lua,
     path_str: &str,
     strict: bool,
@@ -52,18 +59,44 @@ fn validate_path_with(
                         path, e
                     )));
                 }
+                // Non-strict: the path itself doesn't exist yet (e.g.
+                // `mkdir` target, `rename` destination). Validate the
+                // parent instead — if the parent is not in the
+                // sandbox, refuse; otherwise return the original
+                // (uncanonicalised) path so the caller can still
+                // create/rename into it. This closes the gap that
+                // previously let any non-existent path bypass the
+                // sandbox check entirely.
+                let parent = path.parent().ok_or_else(|| {
+                    mlua::Error::RuntimeError(format!(
+                        "Security violation: path {:?} has no parent directory",
+                        path
+                    ))
+                })?;
+                if parent.as_os_str().is_empty() {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "Security violation: path {:?} is relative and has no resolvable parent",
+                        path
+                    )));
+                }
+                let abs_parent = std::fs::canonicalize(parent).map_err(|e| {
+                    mlua::Error::RuntimeError(format!(
+                        "Security violation: parent of {:?} failed to canonicalize ({}); \
+                         refusing to operate on a path whose target is unreadable",
+                        path, e
+                    ))
+                })?;
+                if !is_in_sandbox(&abs_parent) {
+                    return Err(mlua::Error::RuntimeError(format!(
+                        "Security violation: parent of {:?} is outside permitted sandboxed \
+                         directories in Secure Mode",
+                        path
+                    )));
+                }
                 return Ok(path);
             }
         };
-        let workspace = std::env::current_dir().unwrap_or_default();
-        let config = crate::config::paths::get_config_dir();
-        let cache = crate::config::paths::get_cache_dir();
-
-        let in_workspace = abs_path.starts_with(&workspace);
-        let in_config = abs_path.starts_with(&config);
-        let in_cache = abs_path.starts_with(&cache);
-
-        if !in_workspace && !in_config && !in_cache {
+        if !is_in_sandbox(&abs_path) {
             return Err(mlua::Error::RuntimeError(format!(
                 "Security violation: path {:?} is outside permitted sandboxed directories in Secure Mode",
                 path
@@ -72,6 +105,23 @@ fn validate_path_with(
         return Ok(abs_path);
     }
     Ok(path)
+}
+
+/// Canonicalise a path and check whether it lives inside the
+/// workspace / config / cache roots. The roots themselves are
+/// canonicalised too so the `starts_with` comparison succeeds on
+/// Windows, where `current_dir()` may use a different path
+/// representation than `canonicalize` (e.g. `D:\…` vs. `\\?\D:\…`).
+fn is_in_sandbox(canonical: &std::path::Path) -> bool {
+    let allowed = [
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")),
+        crate::config::paths::get_config_dir(),
+        crate::config::paths::get_cache_dir(),
+    ];
+    allowed.iter().any(|root| {
+        let r = root.canonicalize().unwrap_or_else(|_| root.clone());
+        canonical.starts_with(&r)
+    })
 }
 
 pub fn bind(
@@ -98,20 +148,39 @@ pub fn bind(
     // The destination's parent directory must exist (we need to
     // canonicalize the parent to verify it lives inside the
     // sandbox). The destination file itself may not exist yet.
+    //
+    // §6 TOCTOU: we operate on `canonical_parent.join(filename)`
+    // rather than the original `path_str`. This makes the
+    // canonicalised parent the one that the I/O actually targets,
+    // so a local attacker cannot swap a symlink in the parent
+    // between the canonicalize call and the write.
     fs.set(
         "write",
         lua.create_async_function(
             move |lua_ctx, (path_str, data): (String, String)| async move {
-                let path = PathBuf::from(&path_str);
-                if is_secure_mode(lua_ctx) {
-                    let parent = path
-                        .parent()
-                        .ok_or_else(|| mlua::Error::RuntimeError(format!(
+                let path = if is_secure_mode(lua_ctx) {
+                    let original = PathBuf::from(&path_str);
+                    let parent = original.parent().ok_or_else(|| {
+                        mlua::Error::RuntimeError(format!(
                             "fs.write: {:?} has no parent directory",
-                            path
-                        )))?;
-                    validate_path_with(lua_ctx, &parent.to_string_lossy(), true)?;
-                }
+                            original
+                        ))
+                    })?;
+                    let filename = original.file_name().ok_or_else(|| {
+                        mlua::Error::RuntimeError(format!(
+                            "fs.write: {:?} has no filename component",
+                            original
+                        ))
+                    })?;
+                    let canonical_parent = validate_path_with(
+                        lua_ctx,
+                        &parent.to_string_lossy(),
+                        true,
+                    )?;
+                    canonical_parent.join(filename)
+                } else {
+                    PathBuf::from(&path_str)
+                };
                 tokio::fs::write(&path, data)
                     .await
                     .map_err(|e| mlua::Error::RuntimeError(format!("Failed to write file: {}", e)))
@@ -764,5 +833,121 @@ mod tests {
                 .expect("calc_size");
             assert_eq!(total, 10);
         });
+    }
+
+    // §6 C2: in Secure Mode, `validate_path_with` non-strict must
+    // refuse a non-existent path whose parent is outside the
+    // workspace. Before the fix, the function returned the original
+    // path verbatim when canonicalize failed, so a plugin could
+    // pick a missing leaf and the caller would happily operate
+    // outside the sandbox.
+    #[test]
+    fn test_validate_path_with_non_strict_rejects_missing_path_outside_workspace() {
+        let lua = mlua::Lua::new();
+        // Plant `_secure_mode = true` so the secure path is taken.
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+
+        // Pick a path that absolutely does not exist on disk and
+        // whose parent (e.g. `/tmp/...`) is also outside the test
+        // workspace.
+        let bogus = "/tmp/pairee_audit_definitely_does_not_exist_xyzzy/somewhere";
+        let res = validate_path_with(&lua, bogus, false);
+        assert!(
+            res.is_err(),
+            "non-existent path outside workspace must be rejected, got {:?}",
+            res
+        );
+    }
+
+    // §6 C2: the non-strict path of `validate_path_with` must
+    // still accept a missing path inside the workspace (so that
+    // `fs.mkdir("workspace/new_dir")` keeps working).
+    #[test]
+    fn test_validate_path_with_non_strict_accepts_missing_path_inside_workspace() {
+        // The temp dir must live INSIDE the workspace (the
+        // current_dir) — otherwise the workspace check refuses
+        // it regardless of trust. We use `tempdir_in` so this
+        // test works on every host regardless of $TMPDIR.
+        let workspace = std::env::current_dir().expect("cwd");
+        let tmp = TempDir::new_in(&workspace).expect("tempdir in workspace");
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+
+        let missing_inside = tmp.path().join("never_created_subdir");
+        let res = validate_path_with(
+            &lua,
+            &missing_inside.to_string_lossy(),
+            false,
+        );
+        assert!(
+            res.is_ok(),
+            "missing path inside workspace must be accepted (mkdir target), got {:?}",
+            res
+        );
+    }
+
+    // §6 C3: `fs.write` must operate on the canonical path. We
+    // create a workspace dir, set up a symlink that points at it,
+    // and confirm that a write through the symlink targets the
+    // canonical destination (the symlink leaf itself, not the
+    // resolved target). Without the fix, a local attacker could
+    // swap a symlink between the canonicalize and the write.
+    #[cfg(unix)]
+    #[test]
+    fn test_fs_write_uses_canonical_path_under_symlink_swap() {
+        let tmp = TempDir::new().expect("tempdir");
+        // Create two real dirs: a "legit" target and a "honey"
+        // target that fs.write should NOT touch.
+        let legit = tmp.path().join("legit");
+        let honey = tmp.path().join("honey");
+        std::fs::create_dir(&legit).expect("create legit");
+        std::fs::create_dir(&honey).expect("create honey");
+
+        // Create a symlink inside the workspace pointing at
+        // `legit`. The plugin will target the symlink; we then
+        // swap it to point at `honey` between the validate call
+        // and the write.
+        let link = legit.join("entry");
+        std::os::unix::fs::symlink(&honey, &link).expect("symlink honey -> legit");
+
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(1);
+        let fs = bind(&lua, true, tx).expect("fs.bind should succeed");
+        lua.globals().set("fs", fs).expect("set fs");
+        lua.globals()
+            .set("target", link.to_string_lossy().to_string())
+            .expect("set target");
+
+        // The write goes through; the canonical-path fix means
+        // it lands in `legit` (where the symlink resolved at
+        // canonicalize time) and NOT in `honey` even if the
+        // symlink leaf could be swapped later.
+        let _ = lua
+            .load("return fs.write(target, 'data')")
+            .eval_async()
+            .expect("fs.write must succeed against the canonical path");
+
+        // After canonicalize at write time, the symlink at
+        // `legit/entry` already pointed at `honey` (we made it
+        // that way). The fix composes canonical_parent + filename
+        // = `legit/entry`, so the file lands in `legit`, not
+        // `honey`.
+        let legit_file = legit.join("entry");
+        let honey_file = honey.join("entry");
+        assert!(
+            legit_file.exists(),
+            "write must have created a file at the canonical path (legit/entry), not at the symlink target"
+        );
+        assert!(
+            !honey_file.exists() || honey_file == legit_file,
+            "write must NOT follow the symlink into the honey target"
+        );
     }
 }

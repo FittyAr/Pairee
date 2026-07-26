@@ -12,6 +12,16 @@ use std::fs::File;
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::PathBuf;
 
+/// Read the cached secure-mode flag set by `standard::bind_runtime`.
+/// Returns `false` if the Lua state is missing it.
+fn is_secure_mode(lua: &mlua::Lua) -> bool {
+    lua.globals()
+        .get::<_, mlua::Table>("pairee")
+        .ok()
+        .and_then(|p| p.get::<_, bool>("_secure_mode").ok())
+        .unwrap_or(false)
+}
+
 /// Builder for an `Fd`. Created by `fs.access()`.
 #[derive(Debug, Clone, Default)]
 pub struct Access {
@@ -51,7 +61,20 @@ impl UserData for Access {
             Ok(this.clone())
         });
         methods.add_async_method("open", |lua, this, url: String| async move {
-            let path = PathBuf::from(url);
+            // §6 sandbox: in Secure Mode the path must live inside
+            // the workspace / config / cache roots. The same
+            // `validate_path_with(..., true)` (strict) is used as
+            // for `fs.read`, so we refuse to open paths that fail
+            // to canonicalize (broken symlinks, non-existent
+            // files) — without this, an attacker could open a
+            // non-existent path, which `OpenOptions::create` would
+            // then happily create anywhere the process has write
+            // access.
+            let validated = if is_secure_mode(lua) {
+                super::super::fs::validate_path_with(lua, &url, true)?
+            } else {
+                PathBuf::from(url)
+            };
             let mut opts = std::fs::OpenOptions::new();
             opts.read(this.read)
                 .write(this.write)
@@ -59,7 +82,7 @@ impl UserData for Access {
                 .truncate(this.truncate)
                 .append(this.append);
             let file = opts
-                .open(&path)
+                .open(&validated)
                 .map_err(|e| mlua::Error::RuntimeError(format!("Access.open failed: {e}")))?;
             let fd = Fd { inner: Some(file) };
             let ud = lua.create_userdata(fd)?;

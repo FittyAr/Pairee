@@ -92,9 +92,26 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
     let tx_confirm = tx_clone.clone();
     app.set(
         "confirm",
-        lua.create_async_function(move |_, (title, msg): (String, String)| {
+        lua.create_async_function(move |lua_ctx, (title, msg): (String, String)| {
             let tx = tx_confirm.clone();
             async move {
+                // M3 re-entry guard: a blocking dialog cannot be
+                // called from inside a sync block (the main thread
+                // is busy waiting for the dialog answer and would
+                // deadlock). The new top-level `pairee.confirm`
+                // already enforces this; the legacy `pairee.app.*`
+                // stub used to be unguarded.
+                if let Some(rt) = lua_ctx
+                    .app_data_ref::<crate::plugin::runtime::runtime::Runtime>()
+                {
+                    if rt.is_blocking() {
+                        return Err(mlua::Error::RuntimeError(
+                            "pairee.app.confirm cannot be called inside a sync block (re-entry guard); \
+                             use the top-level `pairee.confirm` instead"
+                                .to_string(),
+                        ));
+                    }
+                }
                 let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::Confirm {
@@ -119,9 +136,20 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
     let tx_input = tx_clone.clone();
     app.set(
         "input",
-        lua.create_async_function(move |_, (title, default): (String, String)| {
+        lua.create_async_function(move |lua_ctx, (title, default): (String, String)| {
             let tx = tx_input.clone();
             async move {
+                if let Some(rt) = lua_ctx
+                    .app_data_ref::<crate::plugin::runtime::runtime::Runtime>()
+                {
+                    if rt.is_blocking() {
+                        return Err(mlua::Error::RuntimeError(
+                            "pairee.app.input cannot be called inside a sync block (re-entry guard); \
+                             use the top-level `pairee.input` instead"
+                                .to_string(),
+                        ));
+                    }
+                }
                 let (reply_tx, reply_rx) = tokio::sync::mpsc::unbounded_channel();
                 if tx
                     .send(PluginRequest::Input {

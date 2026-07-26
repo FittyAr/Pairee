@@ -348,10 +348,28 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         // make the QuickViewPanel the active popup
                         // (replacing whatever was there) so the
                         // renderer picks it up.
-                        match image::open(&path) {
+                        //
+                        // §6 TOCTOU: the binding validated the path
+                        // before sending the request, but a local
+                        // attacker could have swapped the symlink
+                        // between then and now. Re-validate here so
+                        // the I/O always targets the path the
+                        // binding agreed to decode.
+                        let validated = match super::dispatch_actions::validate_workspace_path(&path) {
+                            Some(p) => p,
+                            None => {
+                                log::warn!(
+                                    "Plugin image preview rejected: {:?} is outside the workspace / \
+                                     config / cache (TOCTOU re-check)",
+                                    path
+                                );
+                                return;
+                            }
+                        };
+                        match image::open(&validated) {
                             Ok(img) => {
                                 let qvp = PopupType::QuickViewPanel {
-                                    path: path.clone(),
+                                    path: validated.clone(),
                                     content: Vec::new(),
                                     scroll: 0,
                                     image_data: Some(img),
@@ -360,13 +378,13 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                                 state.active_popup = Some(qvp);
                                 log::info!(
                                     "Plugin image preview rendered: path={:?} rect=({},{} {}x{})",
-                                    path, rect.x, rect.y, rect.w, rect.h,
+                                    validated, rect.x, rect.y, rect.w, rect.h,
                                 );
                             }
                             Err(e) => {
                                 log::warn!(
                                     "Plugin image preview failed to decode {:?}: {}",
-                                    path, e,
+                                    validated, e,
                                 );
                             }
                         }

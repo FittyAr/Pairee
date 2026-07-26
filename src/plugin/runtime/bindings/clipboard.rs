@@ -13,11 +13,13 @@
 //!
 //! - `get` is blocked outright in Secure Mode (data exfiltration
 //!   vector): returns `nil` and emits a single `log::warn!` per process.
-//! - `set` is allowed but a single `log::warn!` is emitted if the
-//!   value is non-empty and is not a path inside the user's
-//!   workspace, config, or cache directory. The set itself is not
-//!   refused; the warning is a soft policy signal that helps plugin
-//!   authors notice accidental cross-workspace writes.
+//! - `set` is **refused** in Secure Mode when the value is a
+//!   path-like string that lives outside the workspace / config /
+//!   cache roots. This closes the data-exfiltration vector where a
+//!   malicious plugin could read a sensitive file via `fs.read`
+//!   and then set the clipboard to that file's contents. Plain
+//!   (non-path-like) text is allowed because the policy is about
+//!   file-content exfiltration, not arbitrary text.
 
 use crate::plugin::manager::PluginRequest;
 use std::path::{Path, PathBuf};
@@ -58,12 +60,16 @@ pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<m
             }
             Some(text) => {
                 // ── set ───────────────────────────────────────────────────
-                if secure && !text.is_empty() && !is_workspace_path(Path::new(&text)) {
+                if secure && !text.is_empty() && looks_like_path(&text)
+                    && !is_workspace_path(Path::new(&text))
+                {
                     log::warn!(
-                        "pairee.clipboard(text) (set) called with a value that is not inside \
-                         the workspace, config, or cache directory; this is a soft Secure-Mode \
-                         warning (set still proceeds)."
+                        "pairee.clipboard(text) (set) refused in Secure Mode: the value is a \
+                         path that resolves outside the workspace, config, or cache directory. \
+                         This would let a plugin exfiltrate file contents to the system \
+                         clipboard."
                     );
+                    return Ok(mlua::Value::Nil);
                 }
                 match write_clipboard_text(&text) {
                     Ok(()) => Ok(mlua::Value::Boolean(true)),
@@ -77,6 +83,18 @@ pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<m
     })?;
     table.set("clipboard", cb_fn)?;
     Ok(table)
+}
+
+/// Returns `true` if `s` looks like a filesystem path (absolute on
+/// Unix or Windows, or a `sftp://` URL). Used to distinguish file
+/// content (which is the exfiltration risk) from arbitrary user
+/// strings the plugin wants to set as a convenience.
+fn looks_like_path(s: &str) -> bool {
+    s.starts_with('/')
+        || s.starts_with('\\')
+        || s.starts_with("sftp://")
+        // Windows drive-letter absolute path: "C:\..." or "C:/..."
+        || (s.len() >= 2 && s.as_bytes()[1] == b':')
 }
 
 /// Reads the current clipboard text. Returns `Ok(None)` if the
@@ -148,6 +166,23 @@ mod tests {
         // cache directory on any platform we ship to.
         let p = Path::new("/dev/null");
         assert!(!is_workspace_path(p));
+    }
+
+    #[test]
+    fn test_looks_like_path_classifies_inputs() {
+        // §6 H1: only path-shaped strings are subject to the
+        // Secure-Mode set block; arbitrary user text (greetings,
+        // passwords typed in plaintext, etc.) is always allowed
+        // because it is not an exfiltration vector.
+        assert!(looks_like_path("/etc/hosts"));
+        assert!(looks_like_path("/home/user/.ssh/id_rsa"));
+        assert!(looks_like_path("sftp://user@host/path"));
+        #[cfg(windows)]
+        assert!(looks_like_path("C:\\Users\\me\\secret"));
+        assert!(!looks_like_path("hello"));
+        assert!(!looks_like_path(""));
+        assert!(!looks_like_path("just some text"));
+        assert!(!looks_like_path("relative/path.txt"));
     }
 
     #[test]

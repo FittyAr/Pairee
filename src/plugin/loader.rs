@@ -199,8 +199,14 @@ pub async fn load_plugin(
     };
 
     // 6. Register capabilities (Previewers, Commands, Hooks) and spawn task
-    crate::plugin::registry::register_plugin(manifest.clone(), table_key, lua, path.to_path_buf())
-        .await?;
+    crate::plugin::registry::register_plugin(
+        manifest.clone(),
+        table_key,
+        lua,
+        path.to_path_buf(),
+        trusted,
+    )
+    .await?;
 
     log::info!(
         "Successfully loaded plugin: {} v{} (License: {:?}, Languages: {:?})",

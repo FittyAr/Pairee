@@ -68,10 +68,24 @@ pub async fn handle_input_event(
             // Standard resolved actions
             let key_str = crate::keybindings::resolver::key_event_to_string(key);
             if !key_str.is_empty() {
-                let payload = serde_json::json!({ "key": key_str });
-                let _ = tokio::spawn(async move {
-                    crate::plugin::hooks::emit_event("on_key", payload).await;
-                });
+                // Privacy filter: do NOT broadcast `on_key` to any
+                // plugin while the user is typing into an obscure
+                // input dialog (the keys include their password /
+                // secret). The broadcast itself happens
+                // unconditionally for other key events, but the
+                // `hooks::emit_event` Secure-Mode filter still
+                // suppresses delivery to untrusted plugins in
+                // Secure Mode.
+                let obscure_input = matches!(
+                    state.active_popup,
+                    Some(PopupType::PluginInputDialog { obscure: true, .. })
+                );
+                if !obscure_input {
+                    let payload = serde_json::json!({ "key": key_str });
+                    let _ = tokio::spawn(async move {
+                        crate::plugin::hooks::emit_event("on_key", payload).await;
+                    });
+                }
             }
 
             if let Some(action) = context.resolver.resolve(key) {

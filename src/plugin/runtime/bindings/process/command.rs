@@ -30,6 +30,16 @@ fn is_secure_mode(lua: &Lua) -> bool {
         .unwrap_or(false)
 }
 
+/// Read the cached trust flag set by `standard::bind_runtime`.
+/// Returns `false` if the Lua state is missing it.
+fn is_trusted(lua: &Lua) -> bool {
+    lua.globals()
+        .get::<_, mlua::Table>("pairee")
+        .ok()
+        .and_then(|p| p.get::<_, bool>("_trusted").ok())
+        .unwrap_or(false)
+}
+
 /// Per roadmap §6: in Secure Mode, `Stdio::Inherit` is forbidden
 /// because it lets the child process see the terminal (and any
 /// authentication tokens typed into it). `PIPED` and `NULL`
@@ -45,6 +55,17 @@ fn inherit_blocked_by_secure_mode(lua: &Lua, stdio: Stdio) -> bool {
 /// `_secure_mode` flag.
 fn spawn_blocked_in_secure_mode(lua: &Lua, program: &str) -> bool {
     is_secure_mode(lua) && !crate::plugin::sandbox::is_command_safe(program)
+}
+
+/// Trust gate: an *untrusted* plugin must not be able to spawn a
+/// process via the `pairee.Command(...)` builder at all. The
+/// equivalent `pairee.fs.spawn` already enforces this (see
+/// `fs.rs`); the new process binding was missing the gate, which
+/// let any untrusted plugin run arbitrary binaries whenever
+/// `secure_mode` was off. Trusted plugins pass this check (their
+/// trust model grants full process access by design).
+fn spawn_blocked_by_trust(lua: &Lua) -> bool {
+    !is_trusted(lua)
 }
 
 /// The M3 `Command` userdata. Wraps the configuration needed
@@ -226,6 +247,15 @@ impl UserData for Command {
         // `:spawn()` — start the child process and return a
         // `Child` userdata that wraps the live handle.
         methods.add_async_method("spawn", |lua_ctx, this, ()| async move {
+            // Trust gate: an untrusted plugin must not spawn a
+            // process via the `pairee.Command(...)` builder at all.
+            if spawn_blocked_by_trust(lua_ctx) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.spawn is blocked for untrusted plugins (mark the plugin as \
+                     `trusted = true` in config to enable process spawning)"
+                        .to_string(),
+                ));
+            }
             // §6 Secure-Mode: block blacklisted commands (curl, sh,
             // wget, etc.). The same check that `pairee.fs.spawn` does.
             if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
@@ -261,6 +291,11 @@ impl UserData for Command {
 
         // `:output()` — run to completion and capture stdout+stderr.
         methods.add_async_method("output", |lua_ctx, this, ()| async move {
+            if spawn_blocked_by_trust(lua_ctx) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.output is blocked for untrusted plugins".to_string(),
+                ));
+            }
             if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
                 return Err(mlua::Error::RuntimeError(format!(
                     "Command.output('{}') is blocked in Secure Mode (blacklisted)",
@@ -286,6 +321,11 @@ impl UserData for Command {
         // `:status()` — run to completion and return the exit
         // status.
         methods.add_async_method("status", |lua_ctx, this, ()| async move {
+            if spawn_blocked_by_trust(lua_ctx) {
+                return Err(mlua::Error::RuntimeError(
+                    "Command.status is blocked for untrusted plugins".to_string(),
+                ));
+            }
             if spawn_blocked_in_secure_mode(lua_ctx, &this.program) {
                 return Err(mlua::Error::RuntimeError(format!(
                     "Command.status('{}') is blocked in Secure Mode (blacklisted)",
@@ -417,5 +457,42 @@ mod tests {
         let mut c = Command::new("x");
         c.memory = Some(1_073_741_824);
         assert_eq!(c.memory, Some(1_073_741_824));
+    }
+
+    #[test]
+    fn test_spawn_blocked_by_trust_when_untrusted() {
+        // C1: an untrusted plugin must not be able to spawn a
+        // process via the `pairee.Command(...)` builder. The
+        // helper reports true (blocked) when `_trusted` is
+        // missing/false.
+        let lua = mlua::Lua::new();
+        assert!(!is_trusted(&lua));
+        assert!(spawn_blocked_by_trust(&lua));
+    }
+
+    #[test]
+    fn test_spawn_allowed_by_trust_when_trusted() {
+        // C1: a trusted plugin passes the trust gate. The
+        // secure-mode blacklist may still apply on top of this.
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_trusted", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        assert!(is_trusted(&lua));
+        assert!(!spawn_blocked_by_trust(&lua));
+    }
+
+    #[test]
+    fn test_spawn_blocked_by_trust_independent_of_secure_mode() {
+        // C1: the trust gate is orthogonal to secure mode. A
+        // plugin can be untrusted AND have secure mode on, but
+        // can never spawn a process via Command if not trusted.
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_trusted", false).unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        assert!(!is_trusted(&lua));
+        assert!(spawn_blocked_by_trust(&lua));
     }
 }

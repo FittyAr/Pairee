@@ -20,6 +20,10 @@ pub fn bind_runtime(
         secure_mode_active = config.settings.secure_mode;
     }
     pairee.set("_secure_mode", secure_mode_active)?;
+    // Expose the trust flag too so process bindings can gate spawn
+    // (the trust flag is otherwise known only by the loader, not by
+    // the bindings the loader installs).
+    pairee.set("_trusted", trusted)?;
 
     // 2. Bind submodules
     pairee.set("app", super::bindings::app::bind(lua, tx.clone())?)?;

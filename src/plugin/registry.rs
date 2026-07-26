@@ -33,6 +33,12 @@ pub enum PluginTaskRequest {
 pub struct PluginInfo {
     pub manifest: PluginManifest,
     pub path: PathBuf,
+    /// Whether the plugin was loaded with `trusted = true` (the
+    /// trust flag grants access to the full Lua standard library
+    /// and to process spawning). Used by the hook broadcaster
+    /// (e.g. `on_key`) to keep sensitive key events away from
+    /// untrusted plugins in Secure Mode.
+    pub trusted: bool,
 }
 
 struct Registry {
@@ -56,6 +62,7 @@ pub async fn register_plugin(
     table_key: mlua::RegistryKey,
     lua: mlua::Lua,
     path: PathBuf,
+    trusted: bool,
 ) -> anyhow::Result<()> {
     let name = manifest.name.clone();
     let registry = get_registry();
@@ -64,6 +71,7 @@ pub async fn register_plugin(
     let info = PluginInfo {
         manifest: manifest.clone(),
         path: path.clone(),
+        trusted,
     };
     registry.plugins.write().await.insert(name.clone(), info);
 
