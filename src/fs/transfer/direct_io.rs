@@ -146,10 +146,20 @@ impl AlignedBuffer {
 
 impl Drop for AlignedBuffer {
     fn drop(&mut self) {
+        // SAFETY: `self.ptr` was allocated with `std::alloc::alloc`
+        // in `AlignedBuffer::new` using the same `self.layout`, and
+        // `AlignedBuffer` is not `Copy`/`Clone` so the buffer (and
+        // its pointer) cannot be observed after `drop` runs.
         unsafe {
             std::alloc::dealloc(self.ptr, self.layout);
         }
     }
 }
+// SAFETY: `AlignedBuffer` owns a unique heap allocation. Concurrent
+// access to the underlying bytes is always mediated through
+// `&mut self` (see `as_mut_slice`); `as_slice` only returns a
+// shared reference for the lifetime of that borrow, so the data
+// race guarantee is upheld. The raw pointer is not aliased
+// anywhere else in the program.
 unsafe impl Send for AlignedBuffer {}
 unsafe impl Sync for AlignedBuffer {}

@@ -41,6 +41,16 @@ impl std::ops::BitOr for ChaKind {
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct ChaMode(pub u32);
 
+// `ChaMode` is part of the M2 Lua userdata API. Many of the
+// constants below (S_SUID, S_SGID, the 9 permission bits) are only
+// referenced from `perm_string()`, which is `#[cfg(unix)]`. On
+// Windows builds the linker discards the entire `UserData for Cha`
+// impl as dead code (the `pairee` binary never invokes it directly
+// — the plugin runtime drives it through mlua at runtime), and the
+// `dead_code` lint propagates that judgement to the constants only
+// used by those dead-on-Windows methods. We allow the lint at the
+// impl level so we don't have to annotate every single constant.
+#[allow(dead_code)]
 impl ChaMode {
     // ── Type bits (the bottom 4 nibbles) ───────────────────────────
     pub const T_FILE: ChaMode = ChaMode(0o0100000);

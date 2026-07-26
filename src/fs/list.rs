@@ -6,26 +6,50 @@ use std::path::Path;
 #[cfg(target_os = "windows")]
 fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
     use std::process::Command;
-    let temp_dir = std::env::temp_dir();
-    let temp_file = temp_dir.join(format!("pairee_dir_{}.txt", std::process::id()));
-    let temp_file_str = temp_file.to_string_lossy().replace('"', "\\\"");
-    let path_str = path.to_string_lossy().replace('"', "\\\"");
 
-    // PowerShell script to run as admin. It will write Name|Length|Mode|LastWriteTime to a temp file.
-    // Mode contains 'd' if it is a directory.
-    let ps_cmd = format!(
-        "Get-ChildItem -Path \\\"{}\\\" -Force | % {{ \\\"$($_.Name)|$($_.Length)|$($_.Mode)|$($_.LastWriteTime.Ticks)\\\" }} | Out-File -FilePath \\\"{}\\\" -Encoding utf8",
-        path_str, temp_file_str
-    );
+    // We avoid embedding the user-supplied path inside a PowerShell
+    // string (which would require a fragile, multi-level escape
+    // against `"`, `` ` ``, `$`, `'`, etc.) by writing the script
+    // to a `.ps1` file and passing the path as a separate
+    // `-ArgumentList` element. The only string interpolation that
+    // remains is the path *as a single quoted argument* to
+    // `Start-Process`, where we only need to escape the single
+    // quote (PowerShell literal-string escape: two single quotes).
+    let temp_dir = std::env::temp_dir();
+    let script_file = temp_dir.join(format!("pairee_dir_{}.ps1", std::process::id()));
+    let temp_file = temp_dir.join(format!("pairee_dir_{}.txt", std::process::id()));
+
+    // PowerShell script. It receives the source path via $args[0]
+    // and the output path via $args[1]; no string interpolation of
+    // user data is performed.
+    const PS_SCRIPT: &str = r#"
+$ErrorActionPreference = 'Stop'
+$srcPath = $args[0]
+$outPath = $args[1]
+Get-ChildItem -Path $srcPath -Force | ForEach-Object {
+    "$($_.Name)|$($_.Length)|$($_.Mode)|$($_.LastWriteTime.Ticks)"
+} | Out-File -FilePath $outPath -Encoding utf8
+"#;
+    std::fs::write(&script_file, PS_SCRIPT)
+        .with_context(|| format!("failed to write elevated-helper script to {:?}", script_file))?;
+
+    // Escape single quotes for PowerShell literal strings (the only
+    // metacharacter that can break out of a single-quoted argument
+    // token). Backticks, dollar signs, and double quotes are all
+    // inert inside '...'.
+    let script_escaped = script_file.to_string_lossy().replace('\'', "''");
+    let path_escaped = path.to_string_lossy().replace('\'', "''");
+    let out_escaped = temp_file.to_string_lossy().replace('\'', "''");
 
     let ps_run = format!(
-        "Start-Process powershell -ArgumentList '-NoProfile -Command {}' -Verb RunAs -WindowStyle Hidden -Wait",
-        ps_cmd
+        "Start-Process powershell -ArgumentList '-NoProfile', '-File', '{}', '{}', '{}' -Verb RunAs -WindowStyle Hidden -Wait",
+        script_escaped, path_escaped, out_escaped
     );
     let status = Command::new("powershell")
         .args(&["-NoProfile", "-Command", &ps_run])
         .status()?;
 
+    let _ = std::fs::remove_file(&script_file);
     if status.success() && temp_file.exists() {
         let content = std::fs::read_to_string(&temp_file)?;
         let _ = std::fs::remove_file(&temp_file);
@@ -75,13 +99,29 @@ fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
 #[cfg(not(target_os = "windows"))]
 fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
     use std::process::Command;
-    let py_cmd_simple = format!(
-        "import os; [print(f\"{{e.name}}|{{e.stat().st_size}}|{{1 if e.is_dir() else 0}}|{{1 if e.is_symlink() else 0}}|{{int(e.stat().st_mtime)}}\") for e in os.scandir('{}')]",
-        path.to_string_lossy().replace('\'', "\\'")
-    );
+
+    // Pass the path as `sys.argv[1]` instead of interpolating it
+    // into the Python source - that way we never need to escape
+    // backslashes, quotes, or other shell metacharacters that may
+    // appear in the path. Command::arg() is the safe boundary.
+    //
+    // The Python script uses `%`-formatting instead of f-strings so
+    // we don't have to escape `{}` characters into `{{}}`.
+    const PY_SCRIPT: &str = "import os, sys\n\
+path = sys.argv[1]\n\
+for e in os.scandir(path):\n\
+    s = e.stat()\n\
+    name = e.name\n\
+    is_dir = 1 if e.is_dir() else 0\n\
+    is_link = 1 if e.is_symlink() else 0\n\
+    mtime = int(s.st_mtime)\n\
+    print('%s|%d|%d|%d|%d' % (name, s.st_size, is_dir, is_link, mtime))\n";
+
     let output = Command::new("sudo")
-        .args(&["python3", "-c", &py_cmd_simple])
+        .args(&["python3", "-c", PY_SCRIPT])
+        .arg(path)
         .output()?;
+
     if output.status.success() {
         let stdout = String::from_utf8_lossy(&output.stdout);
         let mut entries = Vec::new();

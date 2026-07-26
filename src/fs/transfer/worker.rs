@@ -611,21 +611,31 @@ impl TransferWorker {
 
                             // Limpiar conflicto anterior y esperar respuesta de la UI
                             {
-                                let mut guard = self.active_conflict.lock().unwrap();
+                                let mut guard = self
+                                    .active_conflict
+                                    .lock()
+                                    .expect("active_conflict mutex poisoned");
                                 *guard = None;
                             }
 
-                            while self.active_conflict.lock().unwrap().is_none() {
+                            while self
+                                .active_conflict
+                                .lock()
+                                .expect("active_conflict mutex poisoned")
+                                .is_none()
+                            {
                                 if self.is_cancelled.load(Ordering::Relaxed) {
                                     return Err(anyhow!("Job cancelled"));
                                 }
                                 tokio::time::sleep(Duration::from_millis(100)).await;
                             }
 
-                            let ch =
-                                self.active_conflict.lock().unwrap().clone().unwrap_or(
-                                    crate::fs::transfer::conflict::ConflictResolution::Skip,
-                                );
+                            let ch = self
+                                .active_conflict
+                                .lock()
+                                .expect("active_conflict mutex poisoned")
+                                .clone()
+                                .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
                             match ch {
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
