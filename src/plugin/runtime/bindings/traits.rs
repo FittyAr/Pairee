@@ -77,94 +77,20 @@ where
     Ok(value)
 }
 
-/// Composer — lazy namespace proxy for `pairee.*` sub-tables.
+/// Composer was a planned "lazy namespace proxy" for `pairee.*`
+/// sub-tables that was never wired into the runtime. It was
+/// deleted in M5 because:
 ///
-/// Plugins that reach into `pairee.fs.read(...)` should not have to
-/// pay the cost of constructing the full `fs` sub-table up-front
-/// (especially when Secure Mode would block most of its
-/// methods). Instead we register a tiny Composer under the namespace
-/// key (e.g. `pairee.fs`); the first time the plugin reads
-/// `pairee.fs.something`, the Composer instantiates the real table
-/// via the registered factory and caches it.
+/// - `Composer::install` was only ever called from a unit test, so
+///   the `__composer__` slot it added to the parent table was dead
+///   surface (and would have been reachable from Lua as e.g.
+///   `pairee.fs.__composer__` if the feature ever shipped).
+/// - The bind functions construct each sub-table eagerly via
+///   `super::bindings::fs::bind` / `super::bindings::app::bind` / …
+///   already, so a lazy proxy buys nothing today.
 ///
-/// This is a small optimisation today but unblocks future lazy
-/// construction of the heavier modules (UI widgets, image preview,
-/// etc.) without touching the plugin's surface.
-#[derive(Default)]
-pub struct Composer {
-    entries: HashMap<String, Box<dyn Fn(&mlua::Lua) -> mlua::Result<mlua::Value>>>,
-}
-
-impl Composer {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Register a namespace entry. `name` is the key the plugin will
-    /// access (e.g. `"read"`); `factory` is invoked the first time
-    /// the entry is requested and must return the value to expose.
-    pub fn with<F>(mut self, name: &str, factory: F) -> Self
-    where
-        F: Fn(&mlua::Lua) -> mlua::Result<mlua::Value> + 'static,
-    {
-        self.entries
-            .insert(name.to_string(), Box::new(factory));
-        self
-    }
-
-    /// Install the composer on a parent table. The composer is
-    /// exposed as a `UserData` so Lua can index it like a normal
-    /// table; `__index` looks up the requested key in `entries` and
-    /// invokes the registered factory on cache miss.
-    pub fn install(self, lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
-        // We expose the composer via a thin proxy: a UserData whose
-        // __index metamethod delegates to the factories. This avoids
-        // constructing a giant flat table up-front.
-        let entries = std::rc::Rc::new(self.entries);
-        let cache: std::rc::Rc<std::cell::RefCell<HashMap<String, mlua::Value>>> =
-            std::rc::Rc::new(std::cell::RefCell::new(HashMap::new()));
-
-        let entries_for_index = entries.clone();
-        let cache_for_index = cache.clone();
-        let meta = lua.create_table()?;
-        meta.set(
-            "__index",
-            lua.create_function(move |lua, (this, key): (mlua::Table, mlua::String)| {
-                let key_str = key.to_str()?;
-                // Memoised?
-                if let Some(v) = cache_for_index.borrow().get(key_str) {
-                    return Ok(v.clone());
-                }
-                // Factory lookup.
-                if let Some(factory) = entries_for_index.get(key_str) {
-                    let value = factory(lua)?;
-                    cache_for_index
-                        .borrow_mut()
-                        .insert(key_str.to_string(), value.clone());
-                    // Set the value on `this` so the next access hits
-                    // the table fast path instead of `__index` again.
-                    this.set(key_str, value.clone())?;
-                    return Ok(value);
-                }
-                Ok(mlua::Value::Nil)
-            })?,
-        )?;
-        meta.set(
-            "__metatable",
-            // hide the metatable from the plugin (best-effort)
-            mlua::Value::Boolean(false),
-        )?;
-
-        // A userdata's metatable cannot be set directly in mlua 0.9,
-        // but we can expose the composer as a regular table whose
-        // __index is the closure above. That is functionally
-        // equivalent from Lua's perspective.
-        let proxy = lua.create_table()?;
-        proxy.set_metatable(Some(meta));
-        parent.set("__composer__", proxy)?;
-        Ok(())
-    }
-}
+/// `cached_field` (the other helper in this file) stays — it is
+/// used by the `Cha` / `File` userdata getters.
 
 #[cfg(test)]
 mod tests {
@@ -182,13 +108,5 @@ mod tests {
         let boxed: Box<dyn Any> = Box::new(cache);
         let downcast: Box<FieldCache> = boxed.downcast().expect("downcast FieldCache");
         assert!(downcast.is_empty());
-    }
-
-    #[test]
-    fn test_composer_registers_entries() {
-        let composer = Composer::new()
-            .with("hello", |lua| lua.create_string("world").map(mlua::Value::String))
-            .with("forty_two", |_| Ok(mlua::Value::Integer(42)));
-        assert_eq!(composer.entries.len(), 2);
     }
 }

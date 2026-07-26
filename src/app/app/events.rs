@@ -68,19 +68,22 @@ pub async fn handle_input_event(
             // Standard resolved actions
             let key_str = crate::keybindings::resolver::key_event_to_string(key);
             if !key_str.is_empty() {
-                // Privacy filter: do NOT broadcast `on_key` to any
-                // plugin while the user is typing into an obscure
-                // input dialog (the keys include their password /
-                // secret). The broadcast itself happens
-                // unconditionally for other key events, but the
+                // §P3 privacy filter: do NOT broadcast `on_key` to
+                // any plugin while the user is interacting with a
+                // popup. The previous filter only matched
+                // `PluginInputDialog { obscure: true, .. }`, but
+                // other popups also capture sensitive keys:
+                // `y`/`n` in `ConfirmDelete`, `SshConnectPrompt`
+                // (SSH password), the `MkDirPrompt` path being
+                // typed, etc. The simpler "no popup active" rule
+                // is the right semantic: `on_key` means "the user
+                // pressed a key in the main loop", not "a popup
+                // handler consumed it". The
                 // `hooks::emit_event` Secure-Mode filter still
                 // suppresses delivery to untrusted plugins in
                 // Secure Mode.
-                let obscure_input = matches!(
-                    state.active_popup,
-                    Some(PopupType::PluginInputDialog { obscure: true, .. })
-                );
-                if !obscure_input {
+                let popup_active = state.active_popup.is_some();
+                if !popup_active {
                     let payload = serde_json::json!({ "key": key_str });
                     let _ = tokio::spawn(async move {
                         crate::plugin::hooks::emit_event("on_key", payload).await;

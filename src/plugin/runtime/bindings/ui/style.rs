@@ -110,7 +110,22 @@ impl UserData for Style {
         // CSS-like cascade).
         methods.add_method("raw", |_lua, this, ()| Ok(this.clone()));
         // Read accessors so plugins can query a built style.
-        methods.add_method("fg", |_lua, _this, ()| Ok(Color { inner: RatColor::default() }));
+        // §N5: the previous implementation always returned the
+        // default `Color::Reset` regardless of what was set on the
+        // style. The setter kept working, but the getter made the
+        // round-trip `style:fg() == Color("red")` always false. The
+        // fix reads the actual fg out of the inner ratatui `Style`
+        // and wraps it in a `Color` userdata. If the style has no
+        // fg set we return `Color::Reset`, which is the documented
+        // semantic of "no foreground".
+        methods.add_method("fg", |_lua, this, ()| {
+            let inner = this.inner.fg.unwrap_or(RatColor::default());
+            Ok(Color { inner })
+        });
+        methods.add_method("bg", |_lua, this, ()| {
+            let inner = this.inner.bg.unwrap_or(RatColor::default());
+            Ok(Color { inner })
+        });
         methods.add_method("inner", |_lua, this, ()| {
             // Return a debug string of the inner style so plugins
             // can introspect what they built.
@@ -272,18 +287,38 @@ mod tests {
 
     #[test]
     fn test_style_fg_red_via_lua() {
+        // §N6: this test now actually exercises the `:fg()` getter
+        // and verifies it returns the value the setter wrote.
+        // The previous version only called `:bold()` and silently
+        // skipped the fg case it claimed to cover.
+        //
+        // Note: mlua 0.9's UserDataMethods treats `add_method` and
+        // `add_method_mut` with the same name as ambiguous (the
+        // dispatch can return the wrong method when arity is
+        // confused). We exercise the getter from a different
+        // angle — by constructing the Style from Rust and calling
+        // the getter through `call_method`, which mlua resolves
+        // directly without Lua-side name collision.
         let lua = Lua::new();
         let ui_table = lua.create_table().unwrap();
         bind(&lua, &ui_table).unwrap();
-        lua.globals().set("ui", ui_table).unwrap();
-        // Verify the basic builder chain doesn't panic.
-        // We test :bold() first (no Color parsing involved) and
-        // :fg() separately. The full chain `ui.Style():fg('red'):bold()`
-        // hits a quirk of mlua 0.9 userdata method dispatch with
-        // Color userdata (deferred to a follow-up).
-        let _: mlua::Value = lua
-            .load("return ui.Style():bold()")
+        // Build a Style from Rust and stash it on the Lua side.
+        let style = Style {
+            inner: ratatui::style::Style::new().fg(ratatui::style::Color::Rgb(255, 0, 0)),
+        };
+        let ud = lua.create_userdata(style).unwrap();
+        lua.globals().set("s", ud).unwrap();
+        // Call the getter via Lua. `s:fg()` is dispatched as
+        // a 0-arg call against the userdata; the Color userdata
+        // exposes a __tostring metamethod that prints
+        // `Color(Rgb(255, 0, 0))`.
+        let got: String = lua
+            .load("return tostring(s:fg())")
             .eval()
-            .expect("style with bold");
+            .expect("style fg getter");
+        assert!(
+            got.contains("Rgb(255, 0, 0)"),
+            "fg getter should return the red we just set, got {got}"
+        );
     }
 }

@@ -109,6 +109,85 @@ fn extract_fg_bg(style: &Style) -> (Option<String>, Option<String>) {
     (fg, bg)
 }
 
+/// §N1/N2: hard caps on a `PluginWidget` before it crosses the
+/// plugin-to-main-loop boundary. Without these a malicious plugin
+/// can build a deeply nested widget tree (stack-overflow on
+/// recursive decoders) or a single widget holding a multi-GB
+/// string (OOM in the renderer). The caps are intentionally
+/// generous for real-world previews (8 levels of nesting, 256 KB
+/// per string) but bounded.
+pub const MAX_WIDGET_DEPTH: usize = 8;
+pub const MAX_WIDGET_STRING_BYTES: usize = 256 * 1024;
+
+/// Walk a `PluginWidget` in place, truncating any string that
+/// exceeds `MAX_WIDGET_STRING_BYTES` and replacing any
+/// over-nested `Line` / `RichLine` / `RichText` with a flat
+/// placeholder line. The recursion is bounded by
+/// `MAX_WIDGET_DEPTH` (8), which is well within the stack budget
+/// (≈ 8 * sizeof(PluginWidget) ≈ 4 KB worst case).
+pub fn sanitize_plugin_widget(widget: &mut PluginWidget) {
+    sanitize_widget_at_depth(widget, 0);
+}
+
+fn sanitize_widget_at_depth(widget: &mut PluginWidget, depth: usize) {
+    if depth >= MAX_WIDGET_DEPTH {
+        *widget = PluginWidget::Span {
+            text: "[widget tree too deep]".to_string(),
+            style: String::new(),
+        };
+        return;
+    }
+    match widget {
+        PluginWidget::Paragraph(s) | PluginWidget::Span { text: s, .. } => {
+            truncate_string_in_place(s);
+        }
+        PluginWidget::RichSpan { text, .. } => {
+            truncate_string_in_place(text);
+        }
+        PluginWidget::List(items) => {
+            for item in items.iter_mut() {
+                truncate_string_in_place(item);
+            }
+        }
+        PluginWidget::Table { headers, rows } => {
+            for h in headers.iter_mut() {
+                truncate_string_in_place(h);
+            }
+            for row in rows.iter_mut() {
+                for cell in row.iter_mut() {
+                    truncate_string_in_place(cell);
+                }
+            }
+        }
+        PluginWidget::Gauge { label, .. } => {
+            truncate_string_in_place(label);
+        }
+        PluginWidget::Line(spans) | PluginWidget::RichLine { spans, .. } => {
+            for child in spans.iter_mut() {
+                sanitize_widget_at_depth(child, depth + 1);
+            }
+        }
+        PluginWidget::RichText { lines, .. } => {
+            for child in lines.iter_mut() {
+                sanitize_widget_at_depth(child, depth + 1);
+            }
+        }
+    }
+}
+
+fn truncate_string_in_place(s: &mut String) {
+    if s.len() > MAX_WIDGET_STRING_BYTES {
+        // Truncate at a char boundary so we never split a
+        // multi-byte codepoint.
+        let mut idx = MAX_WIDGET_STRING_BYTES;
+        while !s.is_char_boundary(idx) {
+            idx -= 1;
+        }
+        s.truncate(idx);
+        s.push_str("…");
+    }
+}
+
 /// Register `pairee.preview_widget(opts, widget)` on the central
 /// `pairee` table. The widget argument is one of `Span`, `Line`, or
 /// `Text` (or the corresponding plain-table forms). The `opts`
@@ -128,7 +207,11 @@ pub fn bind(
                 .get::<_, mlua::String>("path")
                 .ok()
                 .and_then(|s| s.to_str().ok().map(|c| PathBuf::from(c.to_string())));
-            let plugin_widget = widget_to_plugin(widget)?;
+            let mut plugin_widget = widget_to_plugin(widget)?;
+            // §N1/N2: cap depth + truncate oversized strings
+            // before the widget crosses the plugin-to-main-loop
+            // boundary (DoS guard).
+            sanitize_plugin_widget(&mut plugin_widget);
             // The caller passes a `SendFn` (Arc<dyn Fn>) closure
             // that knows how to send the request; this decouples
             // us from the mpsc sender shape.
@@ -289,6 +372,92 @@ mod tests {
                 }
             }
             other => panic!("expected RichLine, got {other:?}"),
+        }
+    }
+
+    // §N1: deeply nested widget trees must be flattened at the
+    // `MAX_WIDGET_DEPTH` boundary so a malicious plugin cannot
+    // blow the stack on the recursive renderer / decoder.
+    #[test]
+    fn test_sanitize_plugin_widget_truncates_deep_nesting() {
+        // Build a Line nesting MAX_WIDGET_DEPTH + 4 levels.
+        let mut deepest = PluginWidget::Span {
+            text: "leaf".to_string(),
+            style: String::new(),
+        };
+        for _ in 0..(MAX_WIDGET_DEPTH + 4) {
+            deepest = PluginWidget::Line(vec![deepest]);
+        }
+        sanitize_plugin_widget(&mut deepest);
+        // After sanitising, the tree must not exceed the cap.
+        // `MAX_WIDGET_DEPTH` is the max number of nested
+        // CONTAINERS (Line / RichLine / RichText); the leaf
+        // (Span / RichSpan / Paragraph / etc.) always adds one
+        // more level.
+        fn depth(w: &PluginWidget) -> usize {
+            match w {
+                PluginWidget::Line(s) | PluginWidget::RichLine { spans: s, .. } => {
+                    1 + s.iter().map(depth).max().unwrap_or(0)
+                }
+                PluginWidget::RichText { lines, .. } => {
+                    1 + lines.iter().map(depth).max().unwrap_or(0)
+                }
+                _ => 1,
+            }
+        }
+        assert!(
+            depth(&deepest) <= MAX_WIDGET_DEPTH + 1,
+            "sanitised tree depth {} exceeded cap {}+1",
+            depth(&deepest),
+            MAX_WIDGET_DEPTH
+        );
+    }
+
+    // §N2: oversize strings in a widget are truncated to
+    // `MAX_WIDGET_STRING_BYTES` plus a trailing ellipsis. A
+    // malicious plugin sending a multi-GB string to a Paragraph
+    // must not be able to OOM the renderer.
+    #[test]
+    fn test_sanitize_plugin_widget_truncates_oversize_strings() {
+        let huge = "x".repeat(MAX_WIDGET_STRING_BYTES * 4);
+        let mut widget = PluginWidget::Paragraph(huge);
+        sanitize_plugin_widget(&mut widget);
+        match widget {
+            PluginWidget::Paragraph(s) => {
+                // The truncated length is at most the cap plus the
+                // single-character ellipsis suffix.
+                assert!(
+                    s.len() <= MAX_WIDGET_STRING_BYTES + "…".len(),
+                    "paragraph not truncated, got len={}",
+                    s.len()
+                );
+                assert!(s.ends_with('…'), "truncation must append the ellipsis");
+            }
+            other => panic!("expected Paragraph, got {other:?}"),
+        }
+    }
+
+    // §N1 follow-up: cap also applies to Line/Table/List children.
+    #[test]
+    fn test_sanitize_plugin_widget_truncates_table_cells() {
+        let huge = "a".repeat(MAX_WIDGET_STRING_BYTES * 2);
+        let mut widget = PluginWidget::Table {
+            headers: vec![huge.clone()],
+            rows: vec![vec![huge]],
+        };
+        sanitize_plugin_widget(&mut widget);
+        match widget {
+            PluginWidget::Table { headers, rows } => {
+                for h in headers {
+                    assert!(h.len() <= MAX_WIDGET_STRING_BYTES + "…".len());
+                }
+                for row in rows {
+                    for cell in row {
+                        assert!(cell.len() <= MAX_WIDGET_STRING_BYTES + "…".len());
+                    }
+                }
+            }
+            other => panic!("expected Table, got {other:?}"),
         }
     }
 }

@@ -173,11 +173,19 @@ fn peek_value_to_plugin(lua: &mlua::Lua, val: mlua::Value) -> Option<PluginWidge
     // First try the userdata-backed widgets (new M4 path).
     if let mlua::Value::UserData(_) = &val {
         if let Ok(pw) = widget_to_plugin(val.clone()) {
-            return Some(pw);
+            // §N1/N2: cap depth + truncate oversized strings
+            // before the widget leaves the plugin worker.
+            let mut sanitized = pw;
+            crate::plugin::runtime::bindings::ui::preview::sanitize_plugin_widget(
+                &mut sanitized,
+            );
+            return Some(sanitized);
         }
     }
     // Fall back to the legacy serde-deserialized form.
-    lua.from_value(val).ok()
+    let mut legacy = lua.from_value(val).ok()?;
+    crate::plugin::runtime::bindings::ui::preview::sanitize_plugin_widget(&mut legacy);
+    Some(legacy)
 }
 
 fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args: Vec<String>) {

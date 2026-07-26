@@ -1,6 +1,28 @@
 use crate::plugin::registry::{emit_hook_event, get_loaded_plugins};
+use std::sync::OnceLock;
+use std::sync::atomic::{AtomicBool, Ordering};
 
-/// Broadcasts a hook event (e.g. "on_cd", "on_hover", "on_key") to all loaded plugins.
+/// Process-wide cache of the current Secure-Mode flag. The main
+/// loop refreshes this on every tick (via `set_secure_mode_cached`)
+/// so that `emit_event` can read it without hitting the
+/// filesystem on every keystroke — `on_key` fires per keypress
+/// and a per-call `AppConfig::load_or_create` would do a
+/// synchronous TOML read on every single key the user presses.
+static SECURE_MODE_CACHED: OnceLock<AtomicBool> = OnceLock::new();
+
+fn secure_mode_cached() -> &'static AtomicBool {
+    SECURE_MODE_CACHED.get_or_init(|| AtomicBool::new(false))
+}
+
+/// Update the cached Secure-Mode flag. Called by the main loop
+/// after the `AppConfig` is reloaded so the broadcast filter sees
+/// the latest value.
+pub fn set_secure_mode_cached(value: bool) {
+    secure_mode_cached().store(value, Ordering::Relaxed);
+}
+
+/// Broadcasts a hook event (e.g. "on_cd", "on_hover", "on_key") to
+/// all loaded plugins.
 ///
 /// §6 Secure-Mode filter: events whose payload could carry
 /// sensitive keystrokes (today: `on_key`) are **not** delivered to
@@ -11,13 +33,7 @@ pub async fn emit_event(event_name: &str, data: serde_json::Value) {
     let data_str = data.to_string();
     let plugins = get_loaded_plugins().await;
 
-    // Read the secure-mode flag once per broadcast. We do not want
-    // a plugin to be able to flip the bit between our check and
-    // the per-plugin dispatch, so we capture the bool before
-    // spawning any tasks.
-    let secure_mode = crate::config::AppConfig::load_or_create()
-        .map(|c| c.settings.secure_mode)
-        .unwrap_or(false);
+    let secure_mode = secure_mode_cached().load(Ordering::Relaxed);
 
     for plugin in plugins {
         // Sensitive events are filtered to trusted plugins in

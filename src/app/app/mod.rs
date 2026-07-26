@@ -31,6 +31,13 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
     });
 
     loop {
+        // 0. Refresh the cached Secure-Mode flag so the hook
+        //    broadcaster (which fires on every keystroke for
+        //    `on_key`) reads from memory instead of the disk.
+        crate::plugin::hooks::set_secure_mode_cached(
+            context.config.settings.secure_mode,
+        );
+
         // 1. Process background operation updates (e.g. copy progress)
         background::process_background_updates(&mut state, &context, &mut terminal_backend);
 
