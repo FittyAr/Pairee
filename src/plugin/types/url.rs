@@ -76,7 +76,18 @@ impl Scheme {
             }
             (
                 Scheme::Sftp { user, host, port },
-                format!("/{}", path),
+                // The SFTP "double slash" convention is `sftp://host//path`,
+                // i.e. an *extra* `/` between the authority and the path
+                // that signals an absolute filesystem path. After splitting
+                // on the first `/`, `path` already begins with that second
+                // `/`; we drop any leading slashes here and re-add a single
+                // canonical one so the result is `/home/...` rather than
+                // `//home/...`.
+                if path.is_empty() {
+                    "/".to_string()
+                } else {
+                    format!("/{}", path.trim_start_matches('/'))
+                },
             )
         } else {
             (Scheme::Local, uri.to_string())

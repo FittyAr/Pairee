@@ -664,11 +664,15 @@ mod tests {
         let tmp = TempDir::new().expect("tempdir");
         let base_str = tmp.path().join("uniq").to_string_lossy().to_string();
         with_fs(|lua| {
-            let code = format!(
-                "return fs.unique('file', '{base}'):path()",
-                base = base_str
-            );
-            let path: String = lua.load(&code).eval().expect("unique");
+            // Pass the path as a Lua global instead of interpolating
+            // it into the source — on Windows, backslashes inside a
+            // Lua string literal are escape characters and the path
+            // would need careful escaping otherwise.
+            lua.globals().set("base", base_str.clone()).unwrap();
+            let path: String = lua
+                .load("return fs.unique('file', base):path()")
+                .eval()
+                .expect("unique");
             assert!(path.starts_with(&base_str));
             assert!(std::path::Path::new(&path).exists());
         });
@@ -679,11 +683,11 @@ mod tests {
         let tmp = TempDir::new().expect("tempdir");
         let base_str = tmp.path().join("uniqdir").to_string_lossy().to_string();
         with_fs(|lua| {
-            let code = format!(
-                "return fs.unique('dir', '{base}'):path()",
-                base = base_str
-            );
-            let path: String = lua.load(&code).eval().expect("unique");
+            lua.globals().set("base", base_str.clone()).unwrap();
+            let path: String = lua
+                .load("return fs.unique('dir', base):path()")
+                .eval()
+                .expect("unique");
             let p = std::path::Path::new(&path);
             assert!(p.is_dir(), "fs.unique dir should create a directory at {path}");
         });
@@ -694,11 +698,11 @@ mod tests {
         let tmp = TempDir::new().expect("tempdir");
         let base_str = tmp.path().join("uniqnone").to_string_lossy().to_string();
         with_fs(|lua| {
-            let code = format!(
-                "return fs.unique('none', '{base}'):path()",
-                base = base_str
-            );
-            let path: String = lua.load(&code).eval().expect("unique");
+            lua.globals().set("base", base_str.clone()).unwrap();
+            let path: String = lua
+                .load("return fs.unique('none', base):path()")
+                .eval()
+                .expect("unique");
             // "none" does NOT create the file, so it should not exist.
             assert!(!std::path::Path::new(&path).exists());
         });
@@ -733,8 +737,15 @@ mod tests {
         std::fs::write(&f, b"hello, world!").expect("write");
         let f_str = f.to_string_lossy().to_string();
         with_fs(|lua| {
-            let code = format!("return fs.calc_size('{f}')", f = f_str);
-            let total: u64 = lua.load(&code).eval().expect("calc_size");
+            // Pass the path as a Lua global instead of string-
+            // interpolating it into the source. On Windows the
+            // backslashes in the literal would otherwise be parsed
+            // as Lua escape sequences and fail with a syntax error.
+            lua.globals().set("f_path", f_str).unwrap();
+            let total: u64 = lua
+                .load("return fs.calc_size(f_path)")
+                .eval()
+                .expect("calc_size");
             assert_eq!(total, 13);
         });
     }
@@ -746,8 +757,11 @@ mod tests {
         std::fs::write(tmp.path().join("b.txt"), b"bbbbbb").expect("write b");
         let dir_str = tmp.path().to_string_lossy().to_string();
         with_fs(|lua| {
-            let code = format!("return fs.calc_size('{d}')", d = dir_str);
-            let total: u64 = lua.load(&code).eval().expect("calc_size");
+            lua.globals().set("d_path", dir_str).unwrap();
+            let total: u64 = lua
+                .load("return fs.calc_size(d_path)")
+                .eval()
+                .expect("calc_size");
             assert_eq!(total, 10);
         });
     }

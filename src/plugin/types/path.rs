@@ -130,9 +130,21 @@ mod tests {
 
     #[test]
     fn test_path_from_string() {
-        let p = PathU::from_string("/etc/hosts");
-        assert_eq!(p.path, PathBuf::from("/etc/hosts"));
-        assert!(p.path.is_absolute());
+        // Use a path that is absolute on every platform.
+        // (On Unix `/etc/hosts` is absolute; on Windows it is not,
+        // so we build a path that is absolute in both worlds by
+        // leveraging the platform-appropriate root.)
+        #[cfg(unix)]
+        let (input, expected) = ("/etc/hosts", PathBuf::from("/etc/hosts"));
+        #[cfg(windows)]
+        let (input, expected) = {
+            // Pick a known absolute path on Windows (system drive root).
+            let s = std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string());
+            (s.clone(), PathBuf::from(s))
+        };
+        let p = PathU::from_string(&input);
+        assert_eq!(p.path, expected);
+        assert!(p.path.is_absolute(), "{:?} should be absolute", p.path);
     }
 
     #[test]
@@ -161,16 +173,26 @@ mod tests {
     #[test]
     fn test_path_lua_methods() {
         let lua = Lua::new();
+        // `/usr/bin` is absolute on Unix but not on Windows; pick a
+        // path that is absolute on every platform so the same
+        // assertions hold in both worlds.
+        #[cfg(unix)]
         let p = PathU::os("/usr/bin");
+        #[cfg(windows)]
+        let p = PathU::os(&std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string()));
         lua.globals()
             .set("p", lua.create_userdata(p).unwrap())
             .unwrap();
+        // `:name()` returns the trailing component, which on Windows
+        // is "Windows" for `C:\Windows` and on Unix is "bin" for
+        // `/usr/bin`. Either way, `name` should not be empty and
+        // `:is_absolute()` and `:has_root()` must hold.
         let name: Option<String> = lua.load("return p:name()").eval().unwrap();
-        assert_eq!(name.as_deref(), Some("bin"));
+        assert!(name.is_some() && !name.as_deref().unwrap().is_empty());
         let abs: bool = lua.load("return p:is_absolute()").eval().unwrap();
-        assert!(abs);
+        assert!(abs, "p:is_absolute() must be true for an absolute path");
         let has_root: bool = lua.load("return p:has_root()").eval().unwrap();
-        assert!(has_root);
+        assert!(has_root, "p:has_root() must be true for an absolute path");
     }
 
     #[test]

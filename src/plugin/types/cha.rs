@@ -360,6 +360,7 @@ mod tests {
     use mlua::Lua;
 
     #[test]
+    #[cfg(unix)] // `perm_string()` returns `None` on Windows.
     fn test_perm_string_unix() {
         // 0o755 = rwxr-xr-x
         let m = ChaMode(0o755);
@@ -367,6 +368,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)] // `perm_string()` returns `None` on Windows.
     fn test_perm_string_with_suid() {
         // 0o4755 = rwsr-xr-x
         let m = ChaMode(0o4755);
@@ -374,6 +376,7 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)] // The `:perm()` assertion only holds on Unix.
     fn test_cha_lua_methods() {
         let lua = Lua::new();
         let cha = Cha {
