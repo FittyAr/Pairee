@@ -406,7 +406,29 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
 mod tests {
     use super::*;
     use std::path::{Path, PathBuf};
-    use std::sync::Once;
+    use std::sync::{Mutex, Once, OnceLock};
+
+    /// Serialise the cd-handler tests so they cannot
+    /// race against each other on the global
+    /// `PLUGIN_REQ_TX` / `PLUGIN_REQ_RX` channel pair.
+    ///
+    /// Both tests send a `PluginRequest::Cd` through
+    /// the same global mpsc, then call `drain_queue`
+    /// which pulls **every** pending message out of
+    /// the channel (not just the one this test sent).
+    /// Without a per-test mutex, test A's drain can
+    /// run before test B's `send()` and consume B's
+    /// request, mutating A's `AppState` with the wrong
+    /// path (and vice versa). Holding this mutex
+    /// across the send + drain pair keeps the two
+    /// tests logically serial.
+    static TEST_LOCK: OnceLock<Mutex<()>> = OnceLock::new();
+    fn test_lock() -> std::sync::MutexGuard<'static, ()> {
+        TEST_LOCK
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+    }
 
     // Initialise the global mpsc request channel exactly once
     // across all tests in this module. We replace both the sender
@@ -442,6 +464,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cd_accepts_workspace_path() {
+        let _guard = test_lock();
         // The dispatcher uses the global mpsc; inject a workspace
         // cwd via a fresh AppState, push a Cd request that points
         // into the workspace, and verify the active panel now
@@ -476,6 +499,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_cd_rejects_outside_workspace() {
+        let _guard = test_lock();
         // Sending a Cd request to a path outside the workspace
         // / config / cache roots must NOT mutate the active panel.
         // The dispatcher logs a warn and returns early.
