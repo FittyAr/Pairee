@@ -36,15 +36,23 @@ pub fn handle(
                     // around the old ops_worker
                     // channel). The new engine does
                     // not yet have a generic
-                    // "apply-command" operation; the
-                    // command goes to the OS terminal
-                    // instead. We log a warning and
-                    // refresh the panels.
+                    // "apply-command" operation. We
+                    // log the input (so a power user
+                    // can recover it from app.log) and
+                    // surface a clear error popup so
+                    // the user is not misled into
+                    // thinking the command ran.
                     log::warn!(
                         "apply_command popup is no longer wired up (A10): '{}'",
                         input
                     );
                     let _ = targets;
+                    state.active_popup = Some(PopupType::Error(format!(
+                        "Apply command is not supported in this build.\n\n\
+                         Command: {}\n\n\
+                         Use the terminal popup or run the command from your shell.",
+                        input
+                    )));
                     state.refresh_both_panels(false);
                 }
                 return Ok(None);
