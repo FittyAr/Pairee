@@ -2,6 +2,7 @@
 
 ### Added
 
+- `lefthook` pre-commit hook that runs `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` before every `git commit`, so formatting and lint regressions get caught at commit time instead of failing the Rustfmt / Clippy CI jobs. Install once per clone with `cargo install lefthook --locked && lefthook install`.
 - Interactive dialog for file associations enabling navigation, addition, editing, and deletion, with clear visual prompts and helper hints on keys to use.
 - Expanded Git support with comprehensive backend APIs for individual file staging, unified diffs, remote syncing (fetch, pull, push), advanced branch management, stashing, resets, merges, and repository clone/initialization.
 - New Git dashboard TUI integration with an interactive 4-tab panel (Status, Log, Branches, and Stash).

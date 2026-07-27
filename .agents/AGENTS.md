@@ -143,6 +143,25 @@ Before submitting code, verify:
 2. **Formatting & Lints:** Code must pass `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings`.
 3. **Testing:** Unit tests must be written for all non-UI components (e.g., config loading, keybinding resolution, path calculations). Run `cargo test`.
 
+### 5.1 Pre-commit enforcement (lefthook)
+
+The same `cargo fmt --check` and `cargo clippy` checks above are wired
+into a [`lefthook`](../lefthook.yml) `pre-commit` hook so they run
+automatically on every `git commit` and abort the commit if they fail.
+After cloning the repo (or after a fresh `git pull` on a new machine),
+install it once with:
+
+```bash
+cargo install lefthook --locked
+lefthook install
+```
+
+CI (`.github/workflows/check.yml`) runs the same checks in separate
+jobs as a safety net for contributors who have not installed
+`lefthook` locally. Do not skip the pre-commit hook — the goal is
+to catch formatting and lint regressions at commit time, not at
+PR review time.
+
 ---
 
 ## 6. Required Agent Customizations & Skills

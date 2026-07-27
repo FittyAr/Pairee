@@ -50,6 +50,23 @@ Before submitting code, you must ensure that formatting and lints pass:
    cargo test
    ```
 
+### Pre-commit hook (lefthook)
+
+This repository ships a [`lefthook`](../lefthook.yml) configuration that
+runs the format and clippy checks above automatically on every
+`git commit` and aborts the commit if they fail. Install it once
+after cloning:
+
+```sh
+cargo install lefthook --locked
+lefthook install
+```
+
+CI ([`.github/workflows/check.yml`](../.github/workflows/check.yml))
+runs the same checks in separate jobs as a safety net, so
+contributors who have not installed `lefthook` will still get their
+PRs checked — the hook is just fast local feedback.
+
 ## Developer Guidelines
 
 Our code architecture values modularity and clean decoupling. All modifications must comply with the guidelines defined in [.agents/AGENTS.md](file:///.agents/AGENTS.md):

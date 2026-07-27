@@ -1,0 +1,33 @@
+# Lefthook configuration for Pairee.
+# Docs: https://github.com/evilmartians/lefthook
+#
+# One-time setup per clone (after `git clone` / `git pull` on a fresh
+# checkout, or after a Rust toolchain bump):
+#
+#   cargo install lefthook --locked
+#   lefthook install
+#
+# After that, every `git commit` automatically runs the checks
+# below and aborts the commit if any check fails. Run them on
+# demand with `lefthook run pre-commit`.
+#
+# CI (`.github/workflows/check.yml`) runs the same checks in
+# separate jobs as a safety net for contributors who have not
+# installed lefthook locally.
+
+pre-commit:
+  parallel: true
+  commands:
+    # rustfmt: catches the "forgot to run cargo fmt" class of bug
+    # that broke the Rustfmt CI job in the past. Cheap (~1-2 s)
+    # because it does no compilation.
+    fmt:
+      glob: "*.rs"
+      run: cargo fmt --all -- --check
+
+    # clippy: catches the same lint regressions the Clippy CI
+    # job would. Slower than fmt because it builds the workspace,
+    # but `parallel: true` above lets it overlap with fmt.
+    clippy:
+      glob: "*.rs"
+      run: cargo clippy --all-targets -- -D warnings
