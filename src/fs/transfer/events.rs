@@ -75,4 +75,17 @@ pub enum TransferEvent {
         file: PathBuf,
         conflict: super::conflict::ConflictInfo,
     },
+    /// Emitted at the end of a job when the
+    /// [`super::policy::PromptPolicy`] has accumulated at
+    /// least one `AccessDenied` failure. The UI is expected
+    /// to show a single popup asking the user whether to
+    /// retry those files as admin.
+    ///
+    /// `count` is pre-computed so the UI doesn't need to
+    /// walk `files` just to display "N files failed".
+    PermissionPrompt {
+        job_id: Uuid,
+        count: usize,
+        files: Vec<PathBuf>,
+    },
 }

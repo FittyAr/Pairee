@@ -11,6 +11,7 @@ pub mod metadata;
 pub mod network;
 pub mod options;
 pub mod pipeline;
+pub mod policy;
 pub mod post_action;
 pub mod queue;
 pub mod report;

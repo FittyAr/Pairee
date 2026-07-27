@@ -6,6 +6,7 @@ use tokio::task::JoinHandle;
 
 use super::events::TransferEvent;
 use super::job::{TransferJob, TransferJobStatus};
+use super::policy::{PromptPolicy, TransferPolicy};
 use super::queue::TransferQueue;
 use super::worker::TransferWorker;
 
@@ -13,20 +14,38 @@ pub struct TransferEngine {
     pub queue: TransferQueue,
     event_tx: mpsc::UnboundedSender<TransferEvent>,
     active_coordinator_handle: Option<JoinHandle<()>>,
+    /// Strategy the engine uses to react to file-level
+    /// failures. Defaults to a [`PromptPolicy`] so the
+    /// retry-as-admin prompt is wired end-to-end from the
+    /// start. Pass [`super::policy::LoggingPolicy`]
+    /// (or any custom impl) via [`Self::with_policy`] for
+    /// headless contexts.
+    policy: Arc<dyn TransferPolicy>,
 }
 
 impl TransferEngine {
     pub fn new() -> (Self, mpsc::UnboundedReceiver<TransferEvent>) {
+        Self::with_policy(None)
+    }
+
+    /// Build an engine with a custom policy. Pass `None`
+    /// to use the default [`PromptPolicy`].
+    pub fn with_policy(
+        policy: Option<Arc<dyn TransferPolicy>>,
+    ) -> (Self, mpsc::UnboundedReceiver<TransferEvent>) {
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let engine = Self {
             queue: TransferQueue::new(),
             event_tx,
             active_coordinator_handle: None,
+            policy: policy.unwrap_or_else(|| Arc::new(PromptPolicy::new())),
         };
         (engine, event_rx)
     }
 
     pub fn submit_job(&mut self, job: TransferJob) {
+        // Each new job starts with a clean policy slate.
+        self.policy.reset();
         self.queue.enqueue(job);
         self.trigger_processing_loop();
     }
@@ -38,6 +57,10 @@ impl TransferEngine {
 
         let queue = self.queue.clone();
         let event_tx = self.event_tx.clone();
+        // Clone the policy for the coordinator task so the
+        // worker spawned inside the loop can pass it down
+        // to its `TransferWorker`.
+        let policy = Arc::clone(&self.policy);
 
         let handle = tokio::spawn(async move {
             let mut active_worker: Option<(uuid::Uuid, JoinHandle<()>)> = None;
@@ -85,6 +108,11 @@ impl TransferEngine {
                         let job_id = job.id;
                         let queue_clone = queue.clone();
                         let event_tx_clone = event_tx.clone();
+                        // Fresh Arc clone per job so the
+                        // worker task can take ownership
+                        // without disturbing the loop's
+                        // own reference to the policy.
+                        let policy_for_worker = Arc::clone(&policy);
 
                         let worker_handle = tokio::spawn(async move {
                             let worker = TransferWorker::new(
@@ -100,6 +128,7 @@ impl TransferEngine {
                                 Arc::clone(&job.skip_file_flag),
                                 event_tx_clone.clone(),
                                 job.active_conflict.clone(),
+                                policy_for_worker,
                             );
 
                             queue_clone.update_job(job_id, |j| {
@@ -147,5 +176,96 @@ impl TransferEngine {
         });
 
         self.active_coordinator_handle = Some(handle);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::transfer::policy::{FileError, RetryRequest};
+    use std::path::{Path, PathBuf};
+
+    #[test]
+    fn default_engine_can_be_built() {
+        // Smoke test: the default `new()` builds an
+        // engine without panicking. The default policy
+        // is a `PromptPolicy` whose `finalize()` returns
+        // the empty list; the actual prompt emission is
+        // driven by the worker at the end of a job and
+        // is covered by integration tests.
+        let (_engine, _rx) = TransferEngine::new();
+    }
+
+    #[test]
+    fn with_policy_accepts_a_custom_trait_object() {
+        // We don't keep the `Arc` around: we just want
+        // to confirm the constructor accepts one.
+        let _engine =
+            TransferEngine::with_policy(Some(Arc::new(crate::fs::transfer::policy::PromptPolicy::new())));
+    }
+
+    #[test]
+    fn policy_file_error_access_denied_helper_is_observable() {
+        // The helper exists so callers can filter
+        // `AccessDenied` without matching the whole enum
+        // by hand.
+        let denied = FileError::AccessDenied;
+        let other = FileError::IoError("nope".to_string());
+        assert!(denied.is_access_denied());
+        assert!(!other.is_access_denied());
+    }
+
+    #[test]
+    fn retry_request_carries_original_path_and_error() {
+        let r = RetryRequest {
+            original_path: PathBuf::from("/some/file"),
+            error: "Access denied".to_string(),
+        };
+        assert_eq!(r.original_path, PathBuf::from("/some/file"));
+        assert_eq!(r.error, "Access denied");
+    }
+
+    #[test]
+    fn file_error_categorises_known_messages() {
+        // Public API smoke test of `FileError::from_error_message`.
+        assert_eq!(
+            FileError::from_error_message("Access is denied"),
+            FileError::AccessDenied
+        );
+        assert_eq!(
+            FileError::from_error_message("file not found"),
+            FileError::NotFound
+        );
+        match FileError::from_error_message("random io error") {
+            FileError::IoError(s) => assert_eq!(s, "random io error"),
+            other => panic!("expected IoError, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn prompt_policy_collects_access_denied_only() {
+        use crate::fs::transfer::policy::{PromptPolicy, TransferPolicy};
+        let policy = PromptPolicy::new();
+        // Two AccessDenied + one NotFound + one IoError.
+        policy.on_file_error(Path::new("/a"), &FileError::AccessDenied);
+        policy.on_file_error(Path::new("/b"), &FileError::AccessDenied);
+        policy.on_file_error(Path::new("/c"), &FileError::NotFound);
+        policy.on_file_error(
+            Path::new("/d"),
+            &FileError::IoError("nope".to_string()),
+        );
+        // `finalize` drains the accumulated list. Only
+        // the two AccessDenied entries should be there.
+        let snap = policy.finalize();
+        assert_eq!(snap.len(), 2);
+        let paths: std::collections::HashSet<_> = snap
+            .iter()
+            .map(|r| r.original_path.clone())
+            .collect();
+        assert!(paths.contains(&PathBuf::from("/a")));
+        assert!(paths.contains(&PathBuf::from("/b")));
+        // Reset clears state.
+        policy.reset();
+        assert!(policy.finalize().is_empty());
     }
 }

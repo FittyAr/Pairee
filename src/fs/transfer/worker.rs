@@ -17,6 +17,7 @@ use super::job::{
 use super::metadata::preserve_metadata;
 use super::options::{BufferSize, TransferOptions};
 use super::pipeline::copy_file_pipelined;
+use super::policy::{FileError, TransferPolicy};
 
 /// The transfer worker. Owns everything needed to execute a single
 /// `TransferJob`: the source and destination endpoints, the
@@ -43,6 +44,12 @@ pub struct TransferWorker {
     pub event_tx: mpsc::UnboundedSender<TransferEvent>,
     pub active_conflict:
         Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
+    /// Strategy the worker consults on every file
+    /// failure. Held as `Arc<dyn TransferPolicy>` so the
+    /// production code can swap in a `PromptPolicy` that
+    /// drives the retry-as-admin popup without changing
+    /// the worker's signature.
+    pub policy: Arc<dyn TransferPolicy>,
 }
 
 impl TransferWorker {
@@ -61,6 +68,7 @@ impl TransferWorker {
         active_conflict: Arc<
             std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>,
         >,
+        policy: Arc<dyn TransferPolicy>,
     ) -> Self {
         Self {
             job_id,
@@ -75,7 +83,36 @@ impl TransferWorker {
             skip_file_flag,
             event_tx,
             active_conflict,
+            policy,
         }
+    }
+
+    /// Centralised failure reporting. Builds the
+    /// [`FailedFile`], pushes it into `results`, notifies
+    /// the policy, and emits the [`TransferEvent::FileFailed`]
+    /// event. Every site that used to inline the 6-line
+    /// `let failed = FailedFile { ... }; push; send;` pattern
+    /// now goes through this method.
+    fn emit_file_failed(
+        &self,
+        results: &mut TransferResults,
+        src: &Path,
+        dst: &Path,
+        error: &str,
+        retries: u32,
+    ) {
+        report_file_failure(&*self.policy, src, error);
+        let failed = FailedFile {
+            src: src.to_path_buf(),
+            dst: dst.to_path_buf(),
+            error: error.to_string(),
+            retries,
+        };
+        results.failed_files.push(failed.clone());
+        let _ = self.event_tx.send(TransferEvent::FileFailed {
+            job_id: self.job_id,
+            error: failed,
+        });
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
@@ -316,7 +353,7 @@ impl TransferWorker {
             Arc::clone(&self.is_cancelled),
         );
 
-        match self.operation {
+        let result = match self.operation {
             TransferOperation::Delete => {
                 self.run_delete(
                     scan_mappings,
@@ -375,7 +412,28 @@ impl TransferWorker {
                     })
                 }
             }
+        };
+
+        // -----------------------------------------------------------------
+        // FASE 3: POLICY FINALIZE
+        // -----------------------------------------------------------------
+        // Ask the policy if any files should be retried as
+        // admin. The default `LoggingPolicy` always returns
+        // the empty list, so this is a no-op in tests. The
+        // `PromptPolicy` returns the list of files that
+        // failed with `AccessDenied`; we forward that as a
+        // single `PermissionPrompt` event so the UI can show
+        // one popup at the end of the job.
+        let retries = self.policy.finalize();
+        if !retries.is_empty() {
+            let _ = self.event_tx.send(TransferEvent::PermissionPrompt {
+                job_id: self.job_id,
+                count: retries.len(),
+                files: retries.iter().map(|r| r.original_path.clone()).collect(),
+            });
         }
+
+        result
     }
 
     // -----------------------------------------------------------------
@@ -608,17 +666,13 @@ impl TransferWorker {
             }
 
             if !copy_success {
-                let failed = FailedFile {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    error: last_error.clone(),
+                self.emit_file_failed(
+                    &mut results,
+                    &src,
+                    &dst,
+                    &last_error,
                     retries,
-                };
-                results.failed_files.push(failed.clone());
-                let _ = self.event_tx.send(TransferEvent::FileFailed {
-                    job_id: self.job_id,
-                    error: failed,
-                });
+                );
                 if self.options.halt_on_error {
                     return Err(anyhow!("Halt on error: {}", last_error));
                 }
@@ -648,17 +702,13 @@ impl TransferWorker {
                         bytes_total: size,
                     });
                     if sh != dh {
-                        let failed = FailedFile {
-                            src: src.clone(),
-                            dst: dst.clone(),
-                            error: "Hash verification mismatch".to_string(),
-                            retries: 0,
-                        };
-                        results.failed_files.push(failed.clone());
-                        let _ = self.event_tx.send(TransferEvent::FileFailed {
-                            job_id: self.job_id,
-                            error: failed,
-                        });
+                        self.emit_file_failed(
+                            &mut results,
+                            &src,
+                            &dst,
+                            "Hash verification mismatch",
+                            0,
+                        );
                         if self.options.halt_on_error {
                             return Err(anyhow!("Halt on error: Hash mismatch"));
                         }
@@ -780,17 +830,13 @@ impl TransferWorker {
             }
 
             if !copy_success {
-                let failed = FailedFile {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    error: last_error.clone(),
+                self.emit_file_failed(
+                    &mut results,
+                    &src,
+                    &dst,
+                    &last_error,
                     retries,
-                };
-                results.failed_files.push(failed.clone());
-                let _ = self.event_tx.send(TransferEvent::FileFailed {
-                    job_id: self.job_id,
-                    error: failed,
-                });
+                );
                 if self.options.halt_on_error {
                     return Err(anyhow!("Halt on error: {}", last_error));
                 }
@@ -917,17 +963,13 @@ impl TransferWorker {
         }
 
         if !success {
-            let failed = FailedFile {
-                src: src.clone(),
-                dst: target.clone(),
-                error: last_error.clone(),
+            self.emit_file_failed(
+                &mut results,
+                &src,
+                &target,
+                &last_error,
                 retries,
-            };
-            results.failed_files.push(failed.clone());
-            let _ = self.event_tx.send(TransferEvent::FileFailed {
-                job_id: self.job_id,
-                error: failed,
-            });
+            );
             if self.options.halt_on_error {
                 return Err(anyhow!("Halt on error: {}", last_error));
             }
@@ -988,17 +1030,13 @@ impl TransferWorker {
         // If the destination already exists, fail fast with
         // a clear error (matches the behaviour of std::os::unix::fs::symlink).
         if self.dst_endpoint.exists(&dst) {
-            let failed = FailedFile {
-                src: src.clone(),
-                dst: dst.clone(),
-                error: "Link target already exists".to_string(),
-                retries: 0,
-            };
-            results.failed_files.push(failed.clone());
-            let _ = self.event_tx.send(TransferEvent::FileFailed {
-                job_id: self.job_id,
-                error: failed,
-            });
+            self.emit_file_failed(
+                &mut results,
+                &src,
+                &dst,
+                "Link target already exists",
+                0,
+            );
             let _ = self.event_tx.send(TransferEvent::JobCompleted {
                 job_id: self.job_id,
                 results: results.clone(),
@@ -1036,17 +1074,13 @@ impl TransferWorker {
                 });
             }
             Err(e) => {
-                let failed = FailedFile {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    error: e.to_string(),
-                    retries: 0,
-                };
-                results.failed_files.push(failed.clone());
-                let _ = self.event_tx.send(TransferEvent::FileFailed {
-                    job_id: self.job_id,
-                    error: failed,
-                });
+                self.emit_file_failed(
+                    &mut results,
+                    &src,
+                    &dst,
+                    &e.to_string(),
+                    0,
+                );
             }
         }
 
@@ -1081,17 +1115,13 @@ impl TransferWorker {
                     index: idx,
                 });
                 if let Err(e) = send_to_recycle_bin_helper(src) {
-                    let failed = FailedFile {
-                        src: src.clone(),
-                        dst: PathBuf::new(),
-                        error: e.to_string(),
-                        retries: 0,
-                    };
-                    results.failed_files.push(failed.clone());
-                    let _ = self.event_tx.send(TransferEvent::FileFailed {
-                        job_id: self.job_id,
-                        error: failed,
-                    });
+                    self.emit_file_failed(
+                        &mut results,
+                        src,
+                        &PathBuf::new(),
+                        &e.to_string(),
+                        0,
+                    );
                     if self.options.halt_on_error {
                         return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
                     }
@@ -1158,17 +1188,13 @@ impl TransferWorker {
                     res = self.src_endpoint.remove_file(&src);
                 }
                 if let Err(e) = res {
-                    let failed = FailedFile {
-                        src: src.clone(),
-                        dst: PathBuf::new(),
-                        error: e.to_string(),
-                        retries: 0,
-                    };
-                    results.failed_files.push(failed.clone());
-                    let _ = self.event_tx.send(TransferEvent::FileFailed {
-                        job_id: self.job_id,
-                        error: failed,
-                    });
+                    self.emit_file_failed(
+                        &mut results,
+                        &src,
+                        &PathBuf::new(),
+                        &e.to_string(),
+                        0,
+                    );
                     if self.options.halt_on_error {
                         return Err(anyhow!("Halt on error: Deletion failed"));
                     }
@@ -1200,22 +1226,13 @@ impl TransferWorker {
                     res = self.src_endpoint.remove_dir(&dir);
                 }
                 if let Err(e) = res {
-                    let failed = FailedFile {
-                        src: dir.clone(),
-                        dst: PathBuf::new(),
-                        error: e.to_string(),
-                        retries: 0,
-                    };
-                    results.failed_files.push(failed);
-                    let _ = self.event_tx.send(TransferEvent::FileFailed {
-                        job_id: self.job_id,
-                        error: FailedFile {
-                            src: dir.clone(),
-                            dst: PathBuf::new(),
-                            error: e.to_string(),
-                            retries: 0,
-                        },
-                    });
+                    self.emit_file_failed(
+                        &mut results,
+                        &dir,
+                        &PathBuf::new(),
+                        &e.to_string(),
+                        0,
+                    );
                 }
             }
         }
@@ -1231,6 +1248,19 @@ impl TransferWorker {
 // =========================================================================
 //   Helpers
 // =========================================================================
+
+/// Notify the policy that a single file operation failed.
+/// Categorises the error so the [`super::policy::PromptPolicy`]
+/// can decide whether to add the file to its
+/// retry-as-admin batch.
+fn report_file_failure(
+    policy: &dyn TransferPolicy,
+    file: &Path,
+    error_msg: &str,
+) {
+    let cat = FileError::from_error_message(error_msg);
+    policy.on_file_error(file, &cat);
+}
 
 /// Re-create a symlink in the destination by reading the source
 /// target through the endpoint and writing it to the destination
@@ -1512,6 +1542,8 @@ mod tests {
             skip,
             tx,
             conflict,
+            Arc::new(crate::fs::transfer::policy::PromptPolicy::new())
+                as Arc<dyn TransferPolicy>,
         );
         (w, rx)
     }
@@ -1659,6 +1691,8 @@ mod tests {
                 skip,
                 tx,
                 conflict,
+                Arc::new(crate::fs::transfer::policy::PromptPolicy::new())
+                    as Arc<dyn TransferPolicy>,
             );
             let res = tokio::time::timeout(std::time::Duration::from_secs(10), worker.run())
                 .await

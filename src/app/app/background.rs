@@ -491,6 +491,26 @@ pub fn process_background_updates(
                     state.active_popup = Some(crate::app::state::types::PopupType::TransferPanel);
                     refresh_needed = true;
                 }
+                TransferEvent::PermissionPrompt {
+                    job_id,
+                    count,
+                    files,
+                } => {
+                    // Log the prompt. The popup itself is
+                    // handled in B4 when the `PromptPolicy`
+                    // is wired to the UI; for now we only
+                    // need to keep the match exhaustive.
+                    transfer_state.engine.queue.update_job(job_id, |job| {
+                        job.log_lines.push(format!(
+                            "🔐 {} file(s) failed with AccessDenied. Retry as admin?",
+                            count
+                        ));
+                        for f in &files {
+                            job.log_lines
+                                .push(format!("    - {}", f.to_string_lossy()));
+                        }
+                    });
+                }
                 TransferEvent::VerifyStarted {
                     job_id,
                     file,
