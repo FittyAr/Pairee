@@ -125,6 +125,15 @@ pub enum PluginRequest {
         path: PathBuf,
         rect: ImageRect,
     },
+    /// Sent by the Search tab's install task when the download
+    /// (and lockfile update) is done — success or failure. The
+    /// dispatcher uses this to release the per-popup install lock
+    /// on `PluginMenu.install_in_progress` so the user can install
+    /// the next plugin without dismissing anything. Always sent
+    /// exactly once per install attempt.
+    InstallFinished {
+        name: String,
+    },
 }
 
 /// Rectangular region on the terminal, in cells, used by

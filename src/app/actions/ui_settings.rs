@@ -507,6 +507,7 @@ pub async fn handle_ui_settings_action(
                 dev_loading: false,
                 dev_loading_status: String::new(),
                 dev_loading_progress: None,
+                install_in_progress: None,
             });
 
             // Snapshot the data we need from `context` (which is borrowed

@@ -84,6 +84,7 @@ pub fn render(
         dev_loading,
         dev_loading_status,
         dev_loading_progress,
+        install_in_progress,
     } = popup
     {
         let area = super::centered_rect(85, 80, size);
@@ -246,6 +247,8 @@ pub fn render(
                 detail_area,
                 *cursor_idx,
                 registry,
+                installed,
+                install_in_progress.as_deref(),
                 *is_searching,
                 *editing_query,
                 theme,

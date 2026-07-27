@@ -1,4 +1,5 @@
 use super::wrap_text;
+use crate::app::input_popup::plugin_menu::search::InstallStatus;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -14,12 +15,29 @@ fn display_name(name: &str) -> &str {
     name.strip_suffix(".pairee").unwrap_or(name)
 }
 
+/// Short text marker rendered next to the version column to convey
+/// the install status of the entry. Kept tiny (1-2 cells) so it
+/// doesn't push the existing columns around — the existing column
+/// widths already account for it.
+fn status_marker(status: InstallStatus) -> (&'static str, Color) {
+    match status {
+        // Plugin is not installed: no marker, no clutter.
+        InstallStatus::NotInstalled => ("", Color::Reset),
+        // Installed and at the latest version: dim check-mark.
+        InstallStatus::Installed => ("✓", Color::Green),
+        // Installed but a newer version is available: bright arrow.
+        InstallStatus::UpdateAvailable => ("↑", Color::Yellow),
+    }
+}
+
 pub fn render_search(
     f: &mut Frame,
     list_area: Rect,
     detail_area: Rect,
     cursor_idx: usize,
     registry: &[(String, String, String, String)],
+    installed: &[(String, String, bool, bool, Option<String>)],
+    install_in_progress: Option<&str>,
     is_searching: bool,
     editing_query: bool,
     theme: &crate::config::theme::Theme,
@@ -33,10 +51,12 @@ pub fn render_search(
     // Usable inner width (subtract 2 for borders, 1 leading space)
     let inner_w = (list_area.width as usize).saturating_sub(3);
 
-    // Column widths: name takes the bulk, author fixed ~18, version fixed ~8
+    // Column widths: name takes the bulk, author fixed ~18, version
+    // fixed ~8, status marker fixed 1 cell ("✓" or "↑").
+    let marker_w: usize = 1;
     let ver_w: usize = 8;
     let auth_w: usize = 18;
-    let name_w: usize = inner_w.saturating_sub(ver_w + auth_w + 2); // 2 separators
+    let name_w: usize = inner_w.saturating_sub(ver_w + auth_w + marker_w + 3); // 3 separators
 
     // ── Pagination ──────────────────────────────────────────────────────────
     // Leave 2 rows for borders and 1 for the page indicator at the bottom.
@@ -69,10 +89,11 @@ pub fn render_search(
     } else {
         // ── Column header ──────────────────────────────────────────────────
         let header = format!(
-            " {:<name_w$}  {:<auth_w$}  {:<ver_w$}",
+            " {:<name_w$}  {:<auth_w$}  {:<ver_w$}  {}",
             "Plugin",
             "Author",
             "Version",
+            "",
             name_w = name_w,
             auth_w = auth_w,
             ver_w = ver_w,
@@ -96,23 +117,44 @@ pub fn render_search(
             };
 
             let clean_name = display_name(name);
+            let status = crate::app::input_popup::plugin_menu::search::install_status(
+                name, version, installed,
+            );
+            let (marker, marker_color) = status_marker(status);
+            let in_flight = install_in_progress == Some(name.as_str());
 
             // Truncate each column to its max width
             let name_col = truncate(clean_name, name_w);
             let auth_col = truncate(author, auth_w);
             let ver_col = truncate(version, ver_w);
 
-            let row = format!(
-                " {:<name_w$}  {:<auth_w$}  {:<ver_w$}",
-                name_col,
-                auth_col,
-                ver_col,
-                name_w = name_w,
-                auth_w = auth_w,
-                ver_w = ver_w,
-            );
+            // Prefix the row with "⏳" while this entry is being
+            // installed so the user can see which row is in flight
+            // (the install task also emits a toast, but the row
+            // marker stays until the install actually completes).
+            let row_prefix = if in_flight { "⏳ " } else { "  " };
 
-            list_items.push(ListItem::new(Line::from(vec![Span::styled(row, style)])));
+            let mut spans = vec![Span::styled(
+                format!(
+                    "{}{:<name_w$}  {:<auth_w$}  {:<ver_w$}  ",
+                    row_prefix,
+                    name_col,
+                    auth_col,
+                    ver_col,
+                    name_w = name_w,
+                    auth_w = auth_w,
+                    ver_w = ver_w,
+                ),
+                style,
+            )];
+            if !marker.is_empty() {
+                spans.push(Span::styled(
+                    marker.to_string(),
+                    style.fg(marker_color).add_modifier(StyleModifier::BOLD),
+                ));
+            }
+
+            list_items.push(ListItem::new(Line::from(spans)));
         }
 
         // ── Page indicator ────────────────────────────────────────────────
@@ -169,6 +211,41 @@ pub fn render_search(
                 Span::styled(t("plugin_detail_author"), bold_style),
                 Span::styled(author.clone(), text_style),
             ]));
+
+            // Show the locally installed version (if any) and the
+            // current install status so the user knows whether the
+            // action bound to `i` is going to install, reinstall,
+            // or update.
+            let status = crate::app::input_popup::plugin_menu::search::install_status(
+                name, version, installed,
+            );
+            match status {
+                InstallStatus::NotInstalled => {
+                    detail_lines.push(Line::from(vec![
+                        Span::styled(format!("{}: ", t("plugin_detail_local_ver")), bold_style),
+                        Span::styled(t("plugin_detail_local_none"), dim_style),
+                    ]));
+                }
+                InstallStatus::Installed | InstallStatus::UpdateAvailable => {
+                    if let Some((_, installed_version, _, _, _)) =
+                        installed.iter().find(|(n, _, _, _, _)| n == name)
+                    {
+                        detail_lines.push(Line::from(vec![
+                            Span::styled(format!("{}: ", t("plugin_detail_local_ver")), bold_style),
+                            Span::styled(installed_version.clone(), text_style),
+                        ]));
+                    }
+                }
+            }
+            if install_in_progress == Some(name.as_str()) {
+                detail_lines.push(Line::from(Span::styled(
+                    t("plugin_detail_install_in_progress"),
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .add_modifier(StyleModifier::BOLD),
+                )));
+            }
+
             detail_lines.push(Line::from(""));
             detail_lines.push(Line::from(Span::styled(
                 t("plugin_detail_description"),

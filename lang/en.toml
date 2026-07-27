@@ -818,3 +818,13 @@ toast_title_success = " Success "
 toast_title_warn    = " Warning "
 toast_title_error   = " Error "
 toast_dismiss_hint  = " [Esc] Dismiss  (auto-dismiss) "
+
+# Search-tab install / update / reinstall markers and dynamic hint.
+plugin_install_busy_title    = "Install in progress"
+plugin_install_busy_msg      = "Please wait for the current install to finish before starting another one."
+plugin_toast_install_starting_new       = "Installing {}…"
+plugin_toast_install_starting_reinstall = "Reinstalling {}…"
+plugin_toast_install_starting_update    = "Updating {}…"
+plugin_detail_local_ver    = "Installed version"
+plugin_detail_local_none   = "(not installed)"
+plugin_detail_install_in_progress = "⏳ Install in progress…"

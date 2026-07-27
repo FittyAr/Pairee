@@ -744,3 +744,14 @@ toast_title_success = " Éxito "
 toast_title_warn    = " Aviso "
 toast_title_error   = " Error "
 toast_dismiss_hint  = " [Esc] Descartar  (auto-descartado) "
+
+# Marcadores de install / update / reinstall y pista dinámica en la
+# pestaña de búsqueda.
+plugin_install_busy_title    = "Instalación en curso"
+plugin_install_busy_msg      = "Esperá a que termine la instalación actual antes de iniciar otra."
+plugin_toast_install_starting_new       = "Instalando {}…"
+plugin_toast_install_starting_reinstall = "Reinstalando {}…"
+plugin_toast_install_starting_update    = "Actualizando {}…"
+plugin_detail_local_ver    = "Versión instalada"
+plugin_detail_local_none   = "(no instalado)"
+plugin_detail_install_in_progress = "⏳ Instalación en curso…"

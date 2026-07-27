@@ -404,6 +404,28 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     }
                 }
             }
+            PluginRequest::InstallFinished { name } => {
+                // Release the per-popup install lock so the user can
+                // install the next plugin right away. The Search
+                // tab's install task sends this exactly once per
+                // install attempt (success or failure) — see
+                // `app/input_popup/plugin_menu/search.rs`.
+                if let Some(PopupType::PluginMenu {
+                    install_in_progress,
+                    ..
+                }) = &mut state.active_popup
+                {
+                    // Only clear the lock if it still points at the
+                    // plugin that just finished. Future refactors
+                    // could split the lock or move it to AppState
+                    // (out of the popup); this guard keeps the
+                    // behaviour conservative.
+                    if install_in_progress.as_deref() == Some(name.as_str()) {
+                        *install_in_progress = None;
+                    }
+                }
+                log::debug!("Plugin install finished: {}", name);
+            }
         }
     }
 }
@@ -491,5 +513,117 @@ mod tests {
             pre, post,
             "active panel cwd must NOT change after outside-workspace cd"
         );
+    }
+
+    // ─── InstallFinished clears the per-popup install lock ──────────
+    // Regression test for the user-reported issue: after a Search
+    // tab install completes, the dispatcher must clear the
+    // `PluginMenu.install_in_progress` flag so the user can install
+    // another plugin in sequence. The flag must be cleared EXACTLY
+    // when the InstallFinished request carries the matching name;
+    // a stale request for a different name must NOT clobber the
+    // newer install's state.
+
+    fn fresh_state_with_plugin_menu(
+        cwd: &Path,
+        install_in_progress: Option<String>,
+    ) -> (AppState, tokio::sync::mpsc::Sender<PluginRequest>) {
+        let (tx, rx) = tokio::sync::mpsc::channel::<PluginRequest>(8);
+        let mut state = AppState::new(cwd.to_path_buf(), cwd.to_path_buf());
+        state.plugin_req_rx = rx;
+        // Open a PluginMenu popup with the given in-progress name.
+        state.active_popup = Some(PopupType::PluginMenu {
+            active_tab: 1,
+            cursor_idx: 0,
+            installed: Vec::new(),
+            all_registry: Vec::new(),
+            registry: Vec::new(),
+            search_query: String::new(),
+            is_searching: false,
+            editing_query: false,
+            dev_results: String::new(),
+            dev_wizard_step: 0,
+            dev_wizard_data: Vec::new(),
+            installed_loading: false,
+            installed_loading_status: String::new(),
+            dev_loading: false,
+            dev_loading_status: String::new(),
+            dev_loading_progress: None,
+            install_in_progress,
+        });
+        (state, tx)
+    }
+
+    #[tokio::test]
+    async fn install_finished_clears_lock_when_name_matches() {
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_plugin_menu(&tmp, Some("foo.pairee".to_string()));
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::InstallFinished {
+            name: "foo.pairee".to_string(),
+        })
+        .await
+        .unwrap();
+        process_plugin_requests(&mut state, &context);
+        if let Some(PopupType::PluginMenu {
+            install_in_progress,
+            ..
+        }) = &state.active_popup
+        {
+            assert!(
+                install_in_progress.is_none(),
+                "matching InstallFinished must clear the lock"
+            );
+        } else {
+            panic!("PluginMenu popup must still be present");
+        }
+    }
+
+    #[tokio::test]
+    async fn install_finished_keeps_lock_when_name_mismatches() {
+        // Defensive: a stale InstallFinished for a different plugin
+        // must not clobber a newer install's lock. This guards
+        // against a future refactor that moves the lock to
+        // AppState (where this guard would still apply).
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_plugin_menu(&tmp, Some("newer.pairee".to_string()));
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::InstallFinished {
+            name: "older.pairee".to_string(),
+        })
+        .await
+        .unwrap();
+        process_plugin_requests(&mut state, &context);
+        if let Some(PopupType::PluginMenu {
+            install_in_progress,
+            ..
+        }) = &state.active_popup
+        {
+            assert_eq!(
+                install_in_progress.as_deref(),
+                Some("newer.pairee"),
+                "stale InstallFinished must not clobber the active lock"
+            );
+        } else {
+            panic!("PluginMenu popup must still be present");
+        }
+    }
+
+    #[tokio::test]
+    async fn install_finished_is_noop_when_no_popup_active() {
+        // The dispatcher must tolerate InstallFinished arriving
+        // after the user closed the popup (e.g. the install task
+        // completed while the user was navigating away). Nothing
+        // to do, no panic.
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_channel(&tmp);
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::InstallFinished {
+            name: "orphan.pairee".to_string(),
+        })
+        .await
+        .unwrap();
+        process_plugin_requests(&mut state, &context);
+        assert!(state.active_popup.is_none());
     }
 }

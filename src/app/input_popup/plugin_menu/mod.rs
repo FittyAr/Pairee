@@ -70,6 +70,7 @@ pub fn handle(
             dev_loading,
             dev_loading_status,
             dev_loading_progress,
+            install_in_progress,
         }) => (
             active_tab,
             cursor_idx,
@@ -87,6 +88,7 @@ pub fn handle(
             dev_loading,
             dev_loading_status,
             dev_loading_progress,
+            install_in_progress,
         ),
         _ => return Err(()),
     };
@@ -108,6 +110,7 @@ pub fn handle(
         mut dev_loading,
         mut dev_loading_status,
         mut dev_loading_progress,
+        install_in_progress,
     ) = popup_state;
 
     // Handle global escape to close if not editing query
@@ -139,6 +142,7 @@ pub fn handle(
                 dev_loading,
                 dev_loading_status,
                 dev_loading_progress,
+                install_in_progress,
             });
             return Ok(None);
         } else {
@@ -184,6 +188,7 @@ pub fn handle(
                     dev_loading,
                     dev_loading_status,
                     dev_loading_progress,
+                    install_in_progress,
                 });
                 return Ok(None);
             }
@@ -202,6 +207,8 @@ pub fn handle(
             &all_registry,
             &mut search_query,
             &mut editing_query,
+            install_in_progress.as_deref(),
+            &installed,
         );
     } else {
         let left_path = state.left_panel.current_path.clone();
@@ -253,6 +260,7 @@ pub fn handle(
         dev_loading,
         dev_loading_status,
         dev_loading_progress,
+        install_in_progress,
     });
 
     Ok(action)

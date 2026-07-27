@@ -442,7 +442,13 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         std::fs::create_dir_all(&plugins_dir)?;
     }
 
-    println!("Downloading {} v{}...", plugin.name, plugin.version);
+    // The download progress is now reported via the toast channel
+    // by the caller (see `app/input_popup/plugin_menu/search.rs`),
+    // NOT through `println!`. The TUI is in raw mode and `println!`
+    // corrupts the display; the CLI callers get their own progress
+    // by wrapping the `install()` call in a loop (see
+    // `update_all()` below) and the start / finish toasts still
+    // make the install feel responsive.
 
     let author = plugin.author.as_deref().unwrap_or("unknown").trim();
     let author = if author.is_empty() { "unknown" } else { author };
@@ -503,7 +509,6 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         }
 
         downloaded_files.insert(rel_path.clone(), expected_hash.clone());
-        println!("  ✓ {} verified.", rel_path);
     }
 
     // Update lockfile
@@ -518,10 +523,6 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     );
     write_lockfile(&lock)?;
 
-    println!(
-        "Successfully installed plugin '{}' v{}!",
-        plugin.name, plugin.version
-    );
     Ok(())
 }
 

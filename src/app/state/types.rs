@@ -432,6 +432,14 @@ pub enum PopupType {
         /// dev operation. When `None`, the renderer falls back to an
         /// indeterminate (pulsing) indicator.
         dev_loading_progress: Option<(usize, usize)>,
+        /// Name of the plugin currently being installed from the Search tab,
+        /// or `None` when no install is in flight. Acts as a per-popup lock
+        /// so pressing `i` twice does NOT spawn two parallel install tasks
+        /// (which would race on the lockfile and corrupt the TUI with
+        /// interleaved `println!` output from `updater::install`).
+        /// Cleared by the dispatcher when it receives a matching
+        /// `PluginRequest::InstallFinished` request.
+        install_in_progress: Option<String>,
     },
 
     // ── Sort modes ────────────────────────────────────────────────────────────
