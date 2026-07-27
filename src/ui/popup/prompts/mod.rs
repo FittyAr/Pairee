@@ -48,8 +48,7 @@ pub fn render_prompt_popup(
         | PopupType::Error(_)
         | PopupType::Info(_)
         | PopupType::ApplyCommandPrompt { .. }
-        | PopupType::SelectGroupPrompt { .. }
-        | PopupType::PluginNotify { .. } => system::render(f, popup, theme, size, state),
+        | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
 
         PopupType::PluginInputDialog { .. }
         | PopupType::PluginConfirmDialog { .. }

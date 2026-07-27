@@ -8,6 +8,7 @@ pub mod panel;
 pub mod popup;
 pub mod quickview;
 pub mod theme_apply;
+pub mod toast;
 pub mod transfer;
 pub mod viewer;
 
@@ -179,4 +180,11 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
             transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
         }
     }
+
+    // 6. Overlay the non-modal toast (always on top). The toast is the
+    //    home for every `pairee.notify(...)` / `pairee.app.notify(...)`
+    //    call: it never blocks input, auto-dismisses on deadline, and
+    //    leaves the active popup (e.g. the plugin search panel) open
+    //    so the user can keep working while it is on screen.
+    toast::render(f, state, context);
 }

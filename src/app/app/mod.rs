@@ -45,16 +45,19 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         // 1.9 Process plugin requests
         crate::plugin::process_plugin_requests(&mut state, &context);
 
-        // 1.92 Auto-dismiss `PluginNotify` popups whose `deadline`
-        //      has elapsed. The deadline is set by
-        //      `dispatch_actions::render_notify` when a
-        //      `pairee.notify({timeout=...})` is invoked.
-        if let Some(crate::app::state::PopupType::PluginNotify {
-            deadline: Some(d), ..
-        }) = state.active_popup
-        {
-            if std::time::Instant::now() >= d {
-                state.active_popup = None;
+        // 1.92 Auto-dismiss the non-modal toast (if its deadline has
+        //      elapsed). The toast is set by the plugin dispatcher's
+        //      `render_notify` / `push_toast` helpers and is the home
+        //      for every `pairee.notify(...)` / `pairee.app.notify(...)`
+        //      call. We do NOT touch `active_popup` here, so the active
+        //      popup (e.g. the plugin search panel) keeps the focus
+        //      and the user can keep working while the toast is on
+        //      screen.
+        if let Some(t) = &state.toast {
+            if let Some(deadline) = t.deadline {
+                if std::time::Instant::now() >= deadline {
+                    state.toast = None;
+                }
             }
         }
 

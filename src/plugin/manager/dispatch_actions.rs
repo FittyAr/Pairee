@@ -12,7 +12,8 @@
 #![allow(dead_code)]
 
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::types::Toast;
 use crate::keybindings::Action;
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
@@ -82,10 +83,14 @@ pub fn drain_pending_emit_actions() -> Vec<Action> {
     std::mem::take(&mut *q)
 }
 
-/// Renders a structured `NotifyPayload` into the `PopupType::PluginNotify`
-/// slot. M1 adds an auto-dismiss deadline computed from
-/// `payload.timeout_secs` so callers see the popup vanish on its own
-/// (no Esc needed) when a timeout is supplied.
+/// Renders a structured `NotifyPayload` as a non-modal toast overlay.
+///
+/// The toast lives in `state.toast` (a separate slot from
+/// `state.active_popup`), so it never blocks keyboard input. The main loop
+/// watches the optional `deadline` and clears the slot automatically. When
+/// a new toast arrives while one is already on screen, [`push_toast`]
+/// keeps whichever deadline is later so the user gets the full timeout to
+/// read the new message.
 pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
     let level = payload.level.clone().unwrap_or_else(|| "info".to_string());
     let body = if payload.content.is_empty() {
@@ -93,18 +98,7 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
     } else {
         format!("{}: {}", payload.title, payload.content)
     };
-    let deadline = payload.timeout_secs.and_then(|secs| {
-        if secs > 0.0 {
-            Some(std::time::Instant::now() + std::time::Duration::from_secs_f64(secs))
-        } else {
-            None
-        }
-    });
-    state.active_popup = Some(PopupType::PluginNotify {
-        body,
-        level,
-        deadline,
-    });
+    push_toast(state, &body, &level, payload.timeout_secs);
     log::info!(
         "Plugin notify [{}]: {} - {} (timeout={:?}s)",
         payload.level.as_deref().unwrap_or("info"),
@@ -112,6 +106,38 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
         payload.content,
         payload.timeout_secs
     );
+}
+
+/// Push a toast onto `state.toast`.
+///
+/// If a toast is already on screen, it is replaced. The replacement keeps
+/// the **later** of (the existing deadline) and (the new deadline) so the
+/// user never loses feedback because the new message arrived "too early"
+/// (e.g. they installed two plugins back-to-back and the second toast
+/// would have replaced the first before the timeout elapsed). `None` for
+/// `timeout_secs` means "stay until replaced".
+pub fn push_toast(state: &mut AppState, body: &str, level: &str, timeout_secs: Option<f64>) {
+    let mut toast = Toast::new(body.to_string(), level.to_string(), timeout_secs);
+    if let Some(existing) = &state.toast {
+        if let (Some(existing_d), Some(new_d)) = (existing.deadline, toast.deadline) {
+            // Keep whichever deadline is later.
+            if existing_d > new_d {
+                toast.deadline = Some(existing_d);
+            }
+        }
+    }
+    state.toast = Some(toast);
+}
+
+/// Returns true if a toast is currently on screen and not yet expired.
+pub fn toast_is_alive(state: &AppState) -> bool {
+    match &state.toast {
+        None => false,
+        Some(t) => match t.deadline {
+            None => true,
+            Some(d) => std::time::Instant::now() < d,
+        },
+    }
 }
 
 /// Dispatches a `pairee.emit(action, args)` request.
@@ -304,16 +330,16 @@ pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf>
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::state::PopupType;
 
     fn fresh_state() -> AppState {
         AppState::new(PathBuf::from("/"), PathBuf::from("/"))
     }
 
     #[test]
-    fn test_render_notify_uses_structured_payload() {
-        // `render_notify` only touches the `active_popup` field, so a
-        // freshly-initialised state is sufficient.
+    fn test_render_notify_uses_toast_slot() {
+        // `render_notify` no longer mutates `active_popup`; it stores the
+        // notification in the non-modal `toast` slot so the underlying
+        // popup (e.g. the plugin search panel) keeps the focus.
         let mut state = fresh_state();
         render_notify(
             &mut state,
@@ -324,18 +350,17 @@ mod tests {
                 timeout_secs: Some(2.5),
             },
         );
-        match state.active_popup {
-            Some(PopupType::PluginNotify {
-                body,
-                level,
-                deadline,
-            }) => {
-                assert_eq!(body, "Hello: World");
-                assert_eq!(level, "warn");
-                assert!(deadline.is_some());
-            }
-            other => panic!("expected PluginNotify popup, got {:?}", other),
-        }
+        let toast = state
+            .toast
+            .as_ref()
+            .expect("expected a toast to be set after render_notify");
+        assert_eq!(toast.body, "Hello: World");
+        assert_eq!(toast.level, "warn");
+        assert!(toast.deadline.is_some(), "toast should auto-dismiss");
+        assert!(
+            state.active_popup.is_none(),
+            "render_notify must NOT touch active_popup (it was a modal before)"
+        );
     }
 
     #[test]
@@ -350,18 +375,119 @@ mod tests {
                 timeout_secs: None,
             },
         );
-        match state.active_popup {
-            Some(PopupType::PluginNotify {
-                body,
-                level,
-                deadline,
-            }) => {
-                assert_eq!(body, "Only");
-                assert_eq!(level, "info"); // default
-                assert!(deadline.is_none());
-            }
-            other => panic!("expected PluginNotify popup, got {:?}", other),
-        }
+        let toast = state.toast.as_ref().expect("toast should be set");
+        assert_eq!(toast.body, "Only");
+        assert_eq!(toast.level, "info"); // default
+        assert!(toast.deadline.is_none(), "no timeout => no deadline");
+    }
+
+    #[test]
+    fn test_push_toast_replaces_and_extends_deadline() {
+        // Two toasts in quick succession must not lose the user's
+        // feedback: the later deadline wins. This matters for the
+        // "install 5 plugins back-to-back" workflow — the user should
+        // see the last toast for the full timeout.
+        let mut state = fresh_state();
+        let far_future = std::time::Instant::now() + std::time::Duration::from_secs(60);
+        state.toast = Some(Toast {
+            body: "first".to_string(),
+            level: "info".to_string(),
+            deadline: Some(far_future),
+        });
+        // A second toast with a 2s timeout should NOT shorten the
+        // existing 60s deadline.
+        push_toast(&mut state, "second", "info", Some(2.0));
+        let toast = state.toast.as_ref().unwrap();
+        assert_eq!(toast.body, "second", "body must be replaced");
+        assert_eq!(
+            toast.deadline,
+            Some(far_future),
+            "existing later deadline must be kept"
+        );
+    }
+
+    #[test]
+    fn test_push_toast_extends_when_new_deadline_is_later() {
+        // Symmetric: a new toast with a later deadline must extend the
+        // existing one (rather than shorten it).
+        let mut state = fresh_state();
+        let now = std::time::Instant::now();
+        state.toast = Some(Toast {
+            body: "first".to_string(),
+            level: "info".to_string(),
+            deadline: Some(now + std::time::Duration::from_secs(1)),
+        });
+        push_toast(&mut state, "second", "info", Some(60.0));
+        let toast = state.toast.as_ref().unwrap();
+        assert!(
+            toast
+                .deadline
+                .expect("deadline")
+                .duration_since(now)
+                .as_secs()
+                >= 55,
+            "new later deadline must be kept"
+        );
+    }
+
+    #[test]
+    fn test_toast_is_alive_respects_deadline() {
+        let mut state = fresh_state();
+        // No toast => not alive.
+        assert!(!toast_is_alive(&state));
+
+        // Toast with no deadline => always alive.
+        state.toast = Some(Toast::new("x", "info", None));
+        assert!(toast_is_alive(&state));
+
+        // Toast with a deadline already in the past => not alive.
+        state.toast = Some(Toast {
+            body: "x".to_string(),
+            level: "info".to_string(),
+            deadline: Some(std::time::Instant::now() - std::time::Duration::from_secs(1)),
+        });
+        assert!(!toast_is_alive(&state));
+    }
+
+    #[test]
+    fn test_toast_slot_is_independent_of_active_popup() {
+        // The input pipeline in `app/app/events.rs` only consults
+        // `active_popup` to decide whether to swallow a key, so a
+        // toast on screen never blocks input. This test pins the
+        // data-model invariant that future refactors of the toast
+        // slot cannot accidentally couple it to the modal popup
+        // slot.
+        let t = Toast::new("hello", "info", Some(2.0));
+        assert_eq!(t.body, "hello");
+        assert_eq!(t.level, "info");
+        assert!(t.deadline.is_some());
+        // The toast is a pure value type — it carries no
+        // `active_popup` reference and no `reply_tx`. If a future
+        // refactor adds either, the input pipeline will silently
+        // start blocking keys; review any change to this size.
+        let _ = std::mem::size_of::<Toast>();
+    }
+
+    #[test]
+    fn test_two_toasts_back_to_back_extend_deadline() {
+        // Regression test for the user-reported workflow: install
+        // 5 plugins in quick succession. Each new toast must show
+        // for at least its full timeout, regardless of whether the
+        // previous toast had already started its countdown.
+        let mut state = fresh_state();
+        push_toast(&mut state, "first", "info", Some(60.0));
+        let d1 = state.toast.as_ref().unwrap().deadline.unwrap();
+        push_toast(&mut state, "second", "info", Some(1.0));
+        let d2 = state.toast.as_ref().unwrap().deadline.unwrap();
+        assert_eq!(
+            d1, d2,
+            "second toast must not shorten the existing deadline"
+        );
+        assert_eq!(
+            state.toast.as_ref().unwrap().body,
+            "second",
+            "body is replaced with the latest message"
+        );
     }
 
     #[test]

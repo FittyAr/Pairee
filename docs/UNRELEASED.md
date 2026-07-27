@@ -32,6 +32,7 @@
 - Alt+G Git panel initialization now populates stash data immediately on launch.
 - F2-F12 F-key shortcut bar now matches the actual action each key triggers: F2 = User Menu, F9 = Top Menu, F7 = Rename, F11 = empty (when not bound).
 - Bottom F-key bar no longer claims `F11 = Plugin` by default — the F11 slot now renders blank until the user explicitly rebinds the key.
+- **Plugin install / error feedback is now a non-modal toast.** Every `pairee.notify(...)` and `pairee.app.notify(...)` call (including the success / error messages produced by pressing `i` inside the plugin search panel) renders in the bottom-right corner as a small card with a level-coloured border and an auto-dismiss countdown. The toast does **not** consume keyboard input: the active popup (e.g. the plugin search panel) keeps the focus, so the user can install several plugins back-to-back without dismissing anything. Success toasts auto-dismiss after 3 s; error toasts after 5 s; the body width fits the message up to 80 % of the terminal width with word-wrap so long names like `archive-inspect.pairee` are no longer truncated. A new `state.toast` slot stores the notification separately from `state.active_popup`; the legacy `PopupType::PluginNotify` variant is gone. New tests cover the toast slot, the deadline extension when toasts arrive back-to-back, the renderer fit, the level→colour mapping, and the non-modal behaviour.
 
 ### Changed
 

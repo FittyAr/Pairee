@@ -29,6 +29,17 @@ pub struct AppState {
     pub active_panel: ActivePanel,
     pub cli_input: String,
     pub active_popup: Option<PopupType>,
+    /// Non-modal notification overlay (e.g. "Plugin installed").
+    ///
+    /// A `Toast` is rendered on top of the active popup and the panels,
+    /// but does **not** consume keyboard input: the main loop keeps routing
+    /// keys to the active popup/panel handlers, so the user can keep
+    /// working (install another plugin, navigate, etc.) while the toast
+    /// is visible. Each toast carries an optional `deadline`; when it
+    /// elapses the main loop clears the slot. New toasts replace the
+    /// current one (with extended deadline if needed) rather than
+    /// stacking, so there is always at most one toast on screen.
+    pub toast: Option<crate::app::state::types::Toast>,
     pub should_quit: bool,
     /// Pending answer from
     /// [`PopupType::PermissionPrompt`]. The input
@@ -151,6 +162,7 @@ impl AppState {
             active_panel: ActivePanel::Left,
             cli_input: String::new(),
             active_popup: None,
+            toast: None,
             should_quit: false,
             pending_permission_answer: None,
             ssh_connect_rx: None,

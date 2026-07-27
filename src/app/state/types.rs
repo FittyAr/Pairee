@@ -692,14 +692,45 @@ pub enum PopupType {
         silent: bool,
         reply_tx: Option<tokio::sync::mpsc::UnboundedSender<Option<usize>>>,
     },
-    /// Auto-dismissing notification used by `pairee.notify({...})` when
-    /// a `timeout` is supplied. The `deadline` is checked on every
-    /// main-loop tick; when it elapses the popup is cleared.
-    PluginNotify {
-        body: String,
-        level: String,
-        deadline: Option<std::time::Instant>,
-    },
+}
+
+/// Non-modal notification overlay rendered on top of the active popup.
+///
+/// Unlike `PopupType`, a `Toast` does **not** consume keyboard input: the
+/// main loop still routes keys to the active popup / panel handlers, so the
+/// user can keep working (e.g. install another plugin) while the toast is
+/// visible. Each toast has a `deadline` after which the main loop clears it
+/// automatically. When a new toast arrives while one is already on screen,
+/// the renderer replaces it and the dispatcher extends the deadline so the
+/// user has at least the new timeout to read the new message.
+#[derive(Debug, Clone)]
+pub struct Toast {
+    pub body: String,
+    pub level: String,
+    pub deadline: Option<std::time::Instant>,
+}
+
+impl Toast {
+    /// Construct a new toast with the supplied body, level and optional
+    /// timeout (seconds). `timeout_secs <= 0.0` means "stay until replaced".
+    pub fn new(
+        body: impl Into<String>,
+        level: impl Into<String>,
+        timeout_secs: Option<f64>,
+    ) -> Self {
+        let deadline = timeout_secs.and_then(|secs| {
+            if secs > 0.0 {
+                Some(std::time::Instant::now() + std::time::Duration::from_secs_f64(secs))
+            } else {
+                None
+            }
+        });
+        Self {
+            body: body.into(),
+            level: level.into(),
+            deadline,
+        }
+    }
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

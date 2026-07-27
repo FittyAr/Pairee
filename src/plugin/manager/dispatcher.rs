@@ -49,7 +49,17 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 let _ = reply_tx.send(snapshot);
             }
             PluginRequest::Notify { title, msg, level } => {
-                state.active_popup = Some(PopupType::Info(format!("{}: {}", title, msg)));
+                // Legacy `pairee.app.notify(title, msg, level)` path.
+                //
+                // We push the message into the non-modal `toast` slot rather
+                // than the modal `PopupType::Info` slot, so the notification
+                // no longer steals focus or blocks the active popup (e.g.
+                // the plugin search panel stays open so the user can install
+                // another plugin right away). A 3-second auto-dismiss is
+                // applied by default — the structured `pairee.notify`
+                // API lets callers pass an explicit `timeout_secs`.
+                let body = format!("{}: {}", title, msg);
+                super::dispatch_actions::push_toast(state, &body, &level, Some(3.0));
                 log::info!("Plugin notify [{}]: {} - {}", level, title, msg);
             }
             PluginRequest::NotifyStructured(payload) => {
