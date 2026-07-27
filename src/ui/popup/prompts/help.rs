@@ -122,6 +122,36 @@ fn make_doc_row(
     ListItem::new(line).style(Style::default().bg(row_bg))
 }
 
+/// Strip inline code backticks from markdown table rows.
+///
+/// `the-other-tui-markdown`'s converter explicitly drops `Event::Code`
+/// events whenever the parser is inside a table cell (see
+/// `is_table_context()` in the upstream `converter.rs`). That means
+/// a row like `| \`Tab\` | Toggle focus |` renders with an empty first
+/// cell — the `` `Tab` `` is silently discarded. Every keyboard-mapping
+/// table in the help docs hits this case, so the keys are invisible.
+///
+/// As a workaround we rewrite table rows in place: any backtick on a
+/// line that starts and ends with `|` is removed, so the wrapped text
+/// becomes a regular `Event::Text` and lands in the cell normally.
+/// We lose the code style (no magenta) but the content shows.
+fn strip_table_inline_code(md: &str) -> String {
+    let mut out = String::with_capacity(md.len());
+    for line in md.lines() {
+        let trimmed = line.trim_start();
+        if trimmed.starts_with('|') && trimmed.ends_with('|') {
+            // `replace` is fine here: the only backticks we expect in a
+            // table row are the ones around inline code, and they don't
+            // carry any structural meaning beyond that.
+            out.push_str(&line.replace('`', ""));
+        } else {
+            out.push_str(line);
+        }
+        out.push('\n');
+    }
+    out
+}
+
 /// Build a `the-other-tui-markdown` theme that maps the library's element
 /// styles to our popup theme tokens. This keeps markdown rendering visually
 /// consistent with the rest of the help popup (selection colors, border
@@ -364,8 +394,14 @@ pub fn render(
         // footnotes, and all the bits our hand-rolled parser was missing.
         // The returned `Text<'static>` is fed directly to a `Paragraph` so
         // it slots into the existing layout + scroll pipeline.
+        //
+        // The library's converter drops `Event::Code` events inside table
+        // cells, so any inline code in a table row would render empty.
+        // `strip_table_inline_code` works around that by removing the
+        // backticks from table rows before parsing.
+        let sanitized = strip_table_inline_code(content);
         let md_theme = build_help_md_theme(popup_bg, popup_fg, popup_border);
-        let md_text: Text<'static> = the_other_tui_markdown::into_text_with_theme(content, md_theme);
+        let md_text: Text<'static> = the_other_tui_markdown::into_text_with_theme(&sanitized, md_theme);
 
         let total_lines = md_text.lines.len();
 
@@ -407,4 +443,30 @@ pub fn render(
         hint_area,
     );
     true
+}
+
+#[cfg(test)]
+mod tests {
+    use super::strip_table_inline_code;
+
+    #[test]
+    fn strips_backticks_in_table_rows() {
+        let md = "| Key | Effect |\n| --- | --- |\n| `Tab` | Toggle focus |";
+        let out = strip_table_inline_code(md);
+        assert!(out.contains("| Tab | Toggle focus |"), "got: {out}");
+        assert!(!out.contains('`'), "backticks should be gone: {out}");
+    }
+
+    #[test]
+    fn leaves_backticks_in_paragraphs_alone() {
+        let md = "Use `Tab` to switch panels.\n| `Ctrl+U` | Swap |";
+        let out = strip_table_inline_code(md);
+        assert!(out.contains("Use `Tab` to switch panels."));
+        assert!(out.contains("| Ctrl+U | Swap |"));
+    }
+
+    #[test]
+    fn empty_input_is_empty_output() {
+        assert_eq!(strip_table_inline_code(""), "");
+    }
 }
