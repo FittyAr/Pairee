@@ -70,14 +70,9 @@ pub fn process_background_updates(
 
         if let Some(err) = has_error {
             if !context.config.settings.req_admin_modification {
-                match state.active_bg_op.take() {
-                    Some(crate::app::state::BackgroundOpContext::Delete) => {
-                        state.active_popup = Some(PopupType::Error(err));
-                    }
-                    None => {
-                        state.active_popup = Some(PopupType::Error(err));
-                    }
-                }
+                // Phase 6: BackgroundOpContext is empty; any
+                // error is shown directly.
+                state.active_popup = Some(PopupType::Error(err));
             } else {
                 state.active_popup = Some(PopupType::Error(err));
                 state.active_bg_op = None;

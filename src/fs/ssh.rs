@@ -4,7 +4,7 @@ use crate::fs::entry::FileEntry;
 use anyhow::{Context, Result};
 use ssh2::{Session, Sftp};
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, SystemTime};
 
@@ -248,79 +248,5 @@ impl SharedSshClient {
         );
 
         Ok(entries)
-    }
-
-    pub fn delete_recursive(&self, path: &Path) -> Result<()> {
-        // We need to release the SFTP lock before recursing into
-        // subdirectories (the recursive call would deadlock otherwise), but
-        // we must keep iterating over the *siblings* of any subdirectory we
-        // are about to descend into. To do both, snapshot the directory
-        // listing into a `Vec`, drop the lock, and then process the
-        // snapshot. Subdirectories are processed first so the parent's
-        // `rmdir` at the end has empty children.
-        let entries: Vec<(PathBuf, bool)> = {
-            let client = self
-                .0
-                .lock()
-                .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-
-            // Let's check if the path is a directory or a file
-            let metadata = client.sftp.stat(path);
-            match metadata {
-                Ok(stat) if stat.is_dir() => {
-                    let read = client.sftp.readdir(path)?;
-                    read.into_iter().map(|(p, s)| (p, s.is_dir())).collect()
-                }
-                Ok(_) => {
-                    // It's a file (or symlink). No recursion needed.
-                    client.sftp.unlink(path)?;
-                    return Ok(());
-                }
-                Err(_) => {
-                    // Stat failed: try the unlink as a best-effort and
-                    // surface whatever error it produces.
-                    client.sftp.unlink(path)?;
-                    return Ok(());
-                }
-            }
-        };
-
-        // Process the snapshot without holding the SFTP lock. Collect
-        // subdirs separately so we can recurse *after* the unlinks of
-        // sibling files (avoids the previous bug where the early `return`
-        // for the first subdir would skip processing of its siblings).
-        let mut subdirs: Vec<PathBuf> = Vec::new();
-        for (entry_path, is_dir) in entries {
-            let name = entry_path
-                .file_name()
-                .map(|n| n.to_string_lossy().into_owned())
-                .unwrap_or_default();
-            if name == "." || name == ".." || name.is_empty() {
-                continue;
-            }
-            if is_dir {
-                subdirs.push(entry_path);
-            } else {
-                let client = self
-                    .0
-                    .lock()
-                    .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-                client.sftp.unlink(&entry_path)?;
-            }
-        }
-
-        // Recurse into subdirectories. Each recursive call is independent;
-        // a failure in one does not abort the others.
-        for sub in &subdirs {
-            self.delete_recursive(sub)?;
-        }
-
-        // Finally rmdir the (now-empty) parent.
-        let client = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-        client.sftp.rmdir(path)?;
-        Ok(())
     }
 }
