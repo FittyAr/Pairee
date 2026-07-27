@@ -11,6 +11,12 @@
 desktop.ini
 example/
 
+# Per-directory file description files (Norton Commander style).
+# Pairee never creates or manages these at the project root; if you
+# open the repo in Pairee and hit Ctrl+Z on a file, one will appear
+# here. Keep the repo tree clean.
+/descript.ion
+
 ## Editor
 *.swp
 *.swo

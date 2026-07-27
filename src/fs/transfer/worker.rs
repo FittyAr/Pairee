@@ -321,13 +321,6 @@ impl TransferWorker {
                         index: idx,
                     });
 
-                    if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
-                        if let Some(filename_str) = filename.to_str() {
-                            let _ =
-                                crate::fs::descriptions::remove_description(parent, filename_str);
-                        }
-                    }
-
                     let res = send_to_recycle_bin_helper(src);
 
                     if let Err(e) = res {
@@ -402,13 +395,6 @@ impl TransferWorker {
                         index: idx,
                     });
 
-                    if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
-                        if let Some(filename_str) = filename.to_str() {
-                            let _ =
-                                crate::fs::descriptions::remove_description(parent, filename_str);
-                        }
-                    }
-
                     let mut res = std::fs::remove_file(&src);
                     if res.is_err() {
                         let _ = make_writable_helper(&src);
@@ -456,12 +442,6 @@ impl TransferWorker {
 
                 dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
                 for dir in dirs_to_delete {
-                    if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
-                        if let Some(filename_str) = filename.to_str() {
-                            let _ =
-                                crate::fs::descriptions::remove_description(parent, filename_str);
-                        }
-                    }
                     let mut res = std::fs::remove_dir(&dir);
                     if res.is_err() {
                         let _ = make_writable_helper(&dir);
@@ -900,11 +880,6 @@ impl TransferWorker {
             for dir in dirs_to_delete {
                 if self.is_cancelled.load(Ordering::Relaxed) {
                     break;
-                }
-                if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
-                    if let Some(filename_str) = filename.to_str() {
-                        let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-                    }
                 }
                 let mut res = std::fs::remove_dir(&dir);
                 if res.is_err() {

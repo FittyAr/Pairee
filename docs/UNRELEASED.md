@@ -35,6 +35,7 @@
 - Single file copy target path resolution so copying a file to a target destination path no longer creates an extra directory with the file name.
 - F-key bar in `keymaps/*.toml` preset files now reflects the new keymap (F7→Rename, no F7→MkDir, no F11→PluginMenu), so users upgrading keep the bar and behavior in sync.
 - Outdated doc comment on `Action::MkDir` that still claimed the action was bound to `F7`.
+- Pairee no longer touches the per-directory `descript.ion` file as a side effect of file operations. Deleting, moving, sending to the recycle bin, or securely wiping a file used to trigger a cleanup call against `descript.ion`; that cleanup is gone. The descriptions file is now only modified by the explicit `DescribeFile` prompt (`Ctrl+Z`) and read by the `Ctrl+6` view.
 
 #### Linux-specific bug sweep (2026-07-26)
 

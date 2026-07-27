@@ -60,13 +60,6 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
     }
 }
 
-// Expose remove_description utility function for full API completeness.
-// Currently validated via unit tests.
-/// Removes a file's description entry from the `descript.ion` file.
-pub fn remove_description(dir: &Path, filename: &str) -> Result<()> {
-    write_description(dir, filename, "")
-}
-
 /// Parses a single `descript.ion` line into `(filename, description)`.
 /// Handles both quoted and unquoted filenames.
 fn parse_description_line(line: &str) -> Option<(&str, &str)> {
@@ -119,19 +112,6 @@ mod tests {
         assert_eq!(
             read_description(dir.path(), "file.txt"),
             Some("New desc".to_string())
-        );
-    }
-
-    #[test]
-    fn test_remove_description() {
-        let dir = tempfile::tempdir().expect("tempdir");
-        write_description(dir.path(), "keep.rs", "Keep this").unwrap();
-        write_description(dir.path(), "remove.rs", "Remove this").unwrap();
-        remove_description(dir.path(), "remove.rs").unwrap();
-        assert_eq!(read_description(dir.path(), "remove.rs"), None);
-        assert_eq!(
-            read_description(dir.path(), "keep.rs"),
-            Some("Keep this".to_string())
         );
     }
 
