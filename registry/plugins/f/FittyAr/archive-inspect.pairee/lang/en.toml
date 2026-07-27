@@ -1,0 +1,4 @@
+[messages]
+not_archive = "Not a supported archive: {path}"
+listing_failed = "Could not list archive contents."
+summary_title = "Archive summary"

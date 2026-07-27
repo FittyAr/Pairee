@@ -1,0 +1,4 @@
+[messages]
+not_archive = "No es un archivo compatible: {path}"
+listing_failed = "No se pudo listar el contenido del archivo."
+summary_title = "Resumen del archivo"

@@ -1,0 +1,4 @@
+[messages]
+empty         = "Aún no hay archivos recientes — visita algunos directorios primero."
+picker_title  = "Archivos recientes"
+opened        = "Saltando a: {path}"

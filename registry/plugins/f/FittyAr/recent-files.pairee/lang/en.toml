@@ -1,0 +1,4 @@
+[messages]
+empty         = "No recent files tracked yet — visit a few directories first."
+picker_title  = "Recent files"
+opened        = "Jumped to: {path}"

@@ -1,0 +1,6 @@
+[messages]
+no_cwd        = "No hay un directorio activo para escanear."
+tool_missing  = "La herramienta '{tool}' requerida no está en el PATH."
+scan_failed   = "Falló el escaneo de uso de disco. Revisa el log para más detalles."
+nothing_found = "No se encontraron elementos escaneables en este directorio."
+report_ready  = "Se escanearon {total} elementos; mostrando los {top} más grandes."

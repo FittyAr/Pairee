@@ -1,0 +1,6 @@
+[messages]
+no_cwd        = "No active directory to scan."
+tool_missing  = "Required tool '{tool}' is not on PATH."
+scan_failed   = "Disk-usage scan failed. See the log for details."
+nothing_found = "No scannable entries were found in this directory."
+report_ready  = "Scanned {total} entries; showing the top {top}."
