@@ -333,6 +333,18 @@ impl TransferWorker {
                 )
                 .await
             }
+            TransferOperation::Rename => {
+                // Single-source, single-destination rename. The
+                // engine must enforce that the two endpoints are
+                // the same; otherwise we refuse with a clear
+                // error instead of falling back to copy+delete.
+                if !self.src_endpoint.same_client(&self.dst_endpoint) {
+                    return Err(anyhow!(
+                        "Rename across endpoints is not supported (use Move instead)"
+                    ));
+                }
+                self.run_rename().await
+            }
             TransferOperation::Move => {
                 // Same-endpoint move: try a direct rename for
                 // every (src, dst) pair. This is O(N) renames
@@ -801,6 +813,131 @@ impl TransferWorker {
                 break;
             }
             let _ = self.src_endpoint.remove_dir(&dir);
+        }
+
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
+    }
+
+    // -----------------------------------------------------------------
+    //   Rename (single source / single destination)
+    // -----------------------------------------------------------------
+    async fn run_rename(&self) -> Result<TransferResults, anyhow::Error> {
+        if self.sources.len() != 1 {
+            return Err(anyhow!(
+                "Rename requires exactly one source (got {})",
+                self.sources.len()
+            ));
+        }
+        let src = self.sources[0].clone();
+        let dst = self.destination.clone();
+
+        // Honour pause / cancel.
+        if self.is_cancelled.load(Ordering::Relaxed) {
+            return Err(anyhow!("Job cancelled"));
+        }
+        while self.is_paused.load(Ordering::Relaxed) {
+            if self.is_cancelled.load(Ordering::Relaxed) {
+                return Err(anyhow!("Job cancelled"));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
+        let mut results = TransferResults::default();
+        let size = self.src_endpoint.lstat(&src).map(|m| m.size).unwrap_or(0);
+
+        let _ = self.event_tx.send(TransferEvent::FileStarted {
+            job_id: self.job_id,
+            file: src.clone(),
+            index: 0,
+        });
+
+        // Conflict resolution: if the destination already
+        // exists, fall back to the same logic as Copy
+        // (overwrite / skip / rename / overwrite-older).
+        let mut target = dst.clone();
+        if self.dst_endpoint.exists(&target) {
+            match self.options.conflict_resolution.as_str() {
+                "skip" | "ask" => {
+                    results.skipped_files.push(SkippedFile {
+                        src: src.clone(),
+                        reason: "Destination already exists (skipped)".to_string(),
+                    });
+                    let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                        job_id: self.job_id,
+                        file: src.clone(),
+                        reason: "Destination already exists".to_string(),
+                    });
+                    let _ = self.event_tx.send(TransferEvent::JobCompleted {
+                        job_id: self.job_id,
+                        results: results.clone(),
+                    });
+                    return Ok(results);
+                }
+                "rename" | "keep_both" => {
+                    target = resolve_filename_conflict(&target);
+                }
+                _ => {} // Overwrite / overwrite_older — let the rename try to clobber
+            }
+        }
+
+        let file_start = Instant::now();
+        let mut success = false;
+        let mut last_error = String::new();
+        let mut retries: u32 = 0;
+        while retries <= self.options.max_retries {
+            if self.is_cancelled.load(Ordering::Relaxed) {
+                return Err(anyhow!("Job cancelled"));
+            }
+            match self.src_endpoint.rename(&src, &target) {
+                Ok(_) => {
+                    success = true;
+                    break;
+                }
+                Err(e) => {
+                    retries += 1;
+                    last_error = e.to_string();
+                    if retries <= self.options.max_retries {
+                        let backoff = Duration::from_millis(100 * (1u64 << retries));
+                        tokio::time::sleep(backoff).await;
+                    }
+                }
+            }
+        }
+
+        if !success {
+            let failed = FailedFile {
+                src: src.clone(),
+                dst: target.clone(),
+                error: last_error.clone(),
+                retries,
+            };
+            results.failed_files.push(failed.clone());
+            let _ = self.event_tx.send(TransferEvent::FileFailed {
+                job_id: self.job_id,
+                error: failed,
+            });
+            if self.options.halt_on_error {
+                return Err(anyhow!("Halt on error: {}", last_error));
+            }
+        } else {
+            let result = FileTransferResult {
+                src: src.clone(),
+                dst: target.clone(),
+                size,
+                src_hash: None,
+                dst_hash: None,
+                verified: true,
+                duration: file_start.elapsed(),
+            };
+            results.completed_files.push(result.clone());
+            let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                job_id: self.job_id,
+                result,
+            });
         }
 
         let _ = self.event_tx.send(TransferEvent::JobCompleted {

@@ -100,6 +100,12 @@ pub enum TransferOperation {
     Copy,
     Move,
     Delete,
+    /// Single-source single-destination rename. The
+    /// `sources` vector must contain exactly one entry, and
+    /// `destination` is the new name (not a parent
+    /// directory). Both endpoints are the same: rename across
+    /// filesystems / panels is rejected by the engine.
+    Rename,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

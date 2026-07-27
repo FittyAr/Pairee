@@ -177,10 +177,6 @@ pub enum Screen {
 #[derive(Debug, Clone)]
 pub enum AdminOpKind {
     MkDir,
-    Rename {
-        src: std::path::PathBuf,
-        target: std::path::PathBuf,
-    },
 }
 
 /// The kind of background file operation in flight through the

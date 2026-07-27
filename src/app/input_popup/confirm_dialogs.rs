@@ -196,12 +196,6 @@ pub fn handle(
                                 .iter()
                                 .map(|p| crate::fs::FsOperation::MkDir { path: p.clone() })
                                 .collect(),
-                            crate::app::state::AdminOpKind::Rename { src, target } => {
-                                vec![crate::fs::FsOperation::Move {
-                                    src: src.clone(),
-                                    dst: target.clone(),
-                                }]
-                            }
                         };
 
                         if let Err(e) = crate::fs::run_in_elevated_helper(ops) {
