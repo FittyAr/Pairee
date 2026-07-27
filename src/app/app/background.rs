@@ -496,10 +496,13 @@ pub fn process_background_updates(
                     count,
                     files,
                 } => {
-                    // Log the prompt. The popup itself is
-                    // handled in B4 when the `PromptPolicy`
-                    // is wired to the UI; for now we only
-                    // need to keep the match exhaustive.
+                    // Log the prompt and open the
+                    // user-facing dialog. We only open
+                    // the dialog if no other popup is
+                    // already up: the engine will fire
+                    // the event regardless and the user
+                    // can address it after dismissing
+                    // whatever is on top.
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.log_lines.push(format!(
                             "🔐 {} file(s) failed with AccessDenied. Retry as admin?",
@@ -510,6 +513,16 @@ pub fn process_background_updates(
                                 .push(format!("    - {}", f.to_string_lossy()));
                         }
                     });
+                    let no_popup_yet = state.active_popup.is_none();
+                    if no_popup_yet {
+                        state.active_popup =
+                            Some(crate::app::state::PopupType::PermissionPrompt {
+                                paths: files.clone(),
+                                job_id,
+                                selected: 0,
+                            });
+                        refresh_needed = true;
+                    }
                 }
                 TransferEvent::PermissionDenied { job_id, file, error } => {
                     // Per-file log entry. The UI can use

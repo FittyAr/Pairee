@@ -17,6 +17,53 @@ pub fn render(
     _state: &crate::app::state::AppState,
 ) -> bool {
     match popup {
+        PopupType::PermissionPrompt { paths, selected, .. } => {
+            // 3-button dialog: Yes / No / Cancel.
+            // The width is fixed at 70 cols and the
+            // height grows with the number of failed
+            // files (capped at 12 visible rows + a
+            // "and N more" footer).
+            let visible_count = paths.len().min(12);
+            let height = (visible_count as u16) + 8;
+            let area = centered_rect_fixed(70, height, size);
+            f.render_widget(Clear, area);
+
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Yellow))
+                .title(t("permission_prompt_title"))
+                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+
+            let mut body = String::new();
+            body.push_str(&t("permission_prompt_intro"));
+            body.push('\n');
+            for (i, p) in paths.iter().take(visible_count).enumerate() {
+                body.push_str(&format!("  {}. {}\n", i + 1, p.display()));
+            }
+            if paths.len() > visible_count {
+                body.push_str(&format!(
+                    "\n  …and {} more\n",
+                    paths.len() - visible_count
+                ));
+            }
+            body.push('\n');
+            let labels = [
+                t("permission_prompt_yes"),
+                t("permission_prompt_no"),
+                t("permission_prompt_cancel"),
+            ];
+            for (i, lbl) in labels.iter().enumerate() {
+                let marker = if i == *selected { "▶ " } else { "  " };
+                body.push_str(&format!("{}{}\n", marker, lbl));
+            }
+
+            let paragraph = Paragraph::new(body)
+                .block(block)
+                .wrap(ratatui::widgets::Wrap { trim: false })
+                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+            f.render_widget(paragraph, area);
+            true
+        }
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
             let area = centered_rect_fixed(65, 8, size);
             f.render_widget(Clear, area);

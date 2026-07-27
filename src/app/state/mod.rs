@@ -30,6 +30,12 @@ pub struct AppState {
     pub cli_input: String,
     pub active_popup: Option<PopupType>,
     pub should_quit: bool,
+    /// Pending answer from
+    /// [`PopupType::PermissionPrompt`]. The input
+    /// handler fills it in; the background loop
+    /// drains it and drives the elevated helper
+    /// based on the choice.
+    pub pending_permission_answer: Option<(uuid::Uuid, Vec<std::path::PathBuf>, crate::app::state::types::PermissionAnswer)>,
     /// Channel receiver for compress / extract operations (the
     /// file-modulation paths that still use the legacy
     /// `ops_worker` modal). The unified transfer engine
@@ -127,6 +133,7 @@ impl AppState {
             cli_input: String::new(),
             active_popup: None,
             should_quit: false,
+            pending_permission_answer: None,
             progress_rx: None,
             ssh_connect_rx: None,
             search_rx: None,

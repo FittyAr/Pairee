@@ -86,6 +86,25 @@ pub enum SelectMode {
     Remove,
 }
 
+/// User's answer to the
+/// [`PopupType::PermissionPrompt`] end-of-job
+/// dialog. The popup handler stores the choice on
+/// `AppState::pending_permission_answer`; the
+/// background loop then drives the elevated helper
+/// based on it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PermissionAnswer {
+    /// Retry every file that failed with
+    /// `AccessDenied` as administrator.
+    Yes,
+    /// Leave the files as-is; the failures stay
+    /// in the job's results.
+    No,
+    /// Same as `No` plus abort the job if it is
+    /// still running.
+    Cancel,
+}
+
 #[derive(Debug, Clone)]
 pub enum TreeViewCaller {
     Panel(ActivePanel),
@@ -321,6 +340,20 @@ pub enum PopupType {
     ConfirmRetryAsAdmin {
         paths: Vec<PathBuf>,
         op_kind: AdminOpKind,
+    },
+    /// End-of-job prompt that asks the user whether to
+    /// retry the files that failed with `AccessDenied`
+    /// as administrator. The popup carries the
+    /// `job_id` so the engine can correlate the
+    /// answer with the originating job, and the
+    /// list of files that the policy accumulated.
+    ///
+    /// `selected` is the index of the currently
+    /// focused button (0 = Yes, 1 = No, 2 = Cancel).
+    PermissionPrompt {
+        paths: Vec<PathBuf>,
+        job_id: uuid::Uuid,
+        selected: usize,
     },
     SaveSetupConfirm,
 
