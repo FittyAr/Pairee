@@ -13,9 +13,8 @@ pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
-    ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot,
-    GitConfirmedAction, LinkKind, PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode,
-    SortField, TerminalUpdate, TreeNode,
+    ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
+    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
 };
 
 use crate::fs::ProgressUpdate;
@@ -30,7 +29,11 @@ pub struct AppState {
     pub cli_input: String,
     pub active_popup: Option<PopupType>,
     pub should_quit: bool,
-    /// Channel receiver for running copy/move/extract/wipe operations
+    /// Channel receiver for compress / extract operations (the
+    /// file-modulation paths that still use the legacy
+    /// `ops_worker` modal). The unified transfer engine
+    /// (`state.transfer`) handles copy / move / delete / rename
+    /// / create-link / wipe and has its own event bus.
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
     /// Channel receiver for background SSH connection attempts
     pub ssh_connect_rx: Option<
@@ -49,7 +52,6 @@ pub struct AppState {
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
-    pub active_bg_op: Option<BackgroundOpContext>,
     pub terminal_needs_clear: bool,
 
     // ── Screens Management ────────────────────────────────────────────────────
@@ -155,7 +157,6 @@ impl AppState {
             free_space_right: None,
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
-            active_bg_op: None,
             terminal_needs_clear: false,
             pending_custom_command: None,
             is_root,

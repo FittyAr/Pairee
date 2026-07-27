@@ -179,12 +179,7 @@ pub enum AdminOpKind {
     MkDir,
 }
 
-/// The kind of background file operation in flight through the
-/// legacy `state.progress_rx` channel. Phase 10 will delete this
-/// enum entirely along with `progress_rx` / `active_bg_op`; the
-/// unified transfer engine in `fs::transfer` tracks its own state.
-#[derive(Debug, Clone)]
-pub enum BackgroundOpContext {}
+
 
 #[derive(Debug, Clone)]
 pub enum PopupType {

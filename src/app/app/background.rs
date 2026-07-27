@@ -70,16 +70,15 @@ pub fn process_background_updates(
 
         if let Some(err) = has_error {
             if !context.config.settings.req_admin_modification {
-                // Phase 6: BackgroundOpContext is empty; any
-                // error is shown directly.
+                // Phase 10: BackgroundOpContext is gone. Any
+                // error from the legacy compress/extract path
+                // is shown directly.
                 state.active_popup = Some(PopupType::Error(err));
             } else {
                 state.active_popup = Some(PopupType::Error(err));
-                state.active_bg_op = None;
             }
         } else if is_completed {
             state.active_popup = None;
-            state.active_bg_op = None;
             state.refresh_both_panels(context.config.settings.show_hidden);
         } else {
             if let Some(update) = latest_update {
