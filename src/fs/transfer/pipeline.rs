@@ -521,16 +521,26 @@ async fn compress_zip(
     // `compression_level`; setting one triggers an
     // "unsupported compression level" error inside
     // the crate. We only pass the level when we
-    // actually picked `Deflated`.
-    let options = if matches!(compression, zip::CompressionMethod::Stored) {
-        SimpleFileOptions::default()
-            .compression_method(compression)
-            .large_file(true)
-    } else {
-        SimpleFileOptions::default()
-            .compression_method(compression)
-            .compression_level(Some(level.clamp(1, 9) as i64))
-            .large_file(true)
+    // actually picked `Deflated`. The options are
+    // rebuilt per file because we also stamp the
+    // source's permission bits (Unix mode) so a
+    // 0o600 file does not end up world-readable in
+    // the archive.
+    let options_for = |mode: Option<u32>| -> SimpleFileOptions {
+        let mut opts = if matches!(compression, zip::CompressionMethod::Stored) {
+            SimpleFileOptions::default()
+                .compression_method(compression)
+                .large_file(true)
+        } else {
+            SimpleFileOptions::default()
+                .compression_method(compression)
+                .compression_level(Some(level.clamp(1, 9) as i64))
+                .large_file(true)
+        };
+        if let Some(m) = mode {
+            opts = opts.unix_permissions(m & 0o7777);
+        }
+        opts
     };
 
     // Walk each source. For a directory, descend
@@ -542,20 +552,27 @@ async fn compress_zip(
                 .file_name()
                 .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
             let dir_prefix = Path::new(dir_name).to_path_buf();
+            // Directories use the default 0o755; we don't
+            // need a per-file mode for them.
             write_zip_dir(
                 &mut zip,
                 src_endpoint,
                 src,
                 &dir_prefix,
-                options,
+                options_for(None),
             )?;
         } else {
             // Single-file source.
             let entry_name = src
                 .file_name()
                 .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
-            zip.start_file(entry_name.to_string_lossy(), options)
-                .map_err(|e| anyhow!("zip start_file: {}", e))?;
+            let stat = src_endpoint.lstat(src).ok();
+            let file_mode = stat.as_ref().and_then(|m| m.mode);
+            zip.start_file(
+                entry_name.to_string_lossy(),
+                options_for(file_mode),
+            )
+            .map_err(|e| anyhow!("zip start_file: {}", e))?;
             let mut reader = src_endpoint
                 .open_reader(src)
                 .map_err(|e| anyhow!("open reader for {:?}: {}", src, e))?;
@@ -1158,17 +1175,26 @@ async fn compress_targz(
             let entry_name = src
                 .file_name()
                 .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
-            let size = src_endpoint
-                .lstat(src)
-                .map(|m| m.size)
-                .unwrap_or(0);
+            let stat = src_endpoint.lstat(src).ok();
+            let size = stat.as_ref().map(|m| m.size).unwrap_or(0);
+            // Preserve the source's permission bits so a
+            // 0o600 SSH key does not end up world-readable
+            // in the archive. Fall back to 0o644 only when
+            // the endpoint cannot surface a mode (e.g.
+            // Windows or an SFTP server that doesn't
+            // expose perm bits).
+            let mode = stat
+                .as_ref()
+                .and_then(|m| m.mode)
+                .map(|m| m & 0o7777)
+                .unwrap_or(0o644);
             let mut header = tar::Header::new_gnu();
             header
                 .set_path(entry_name)
                 .map_err(|e| anyhow!("tar header path: {}", e))?;
             header.set_size(size);
             header.set_entry_type(tar::EntryType::Regular);
-            header.set_mode(0o644);
+            header.set_mode(mode);
             header.set_cksum();
             let mut reader = src_endpoint
                 .open_reader(src)
@@ -1236,17 +1262,24 @@ fn append_tar_dir<W: std::io::Write>(
         if entry.is_dir {
             append_tar_dir(builder, endpoint, &entry_path, &child_name)?;
         } else {
-            let size = endpoint
-                .lstat(&entry_path)
-                .map(|m| m.size)
-                .unwrap_or(0);
+            let stat = endpoint.lstat(&entry_path).ok();
+            let size = stat.as_ref().map(|m| m.size).unwrap_or(0);
+            // Preserve the source's permission bits; see
+            // the single-file branch above for the
+            // rationale. Fall back to 0o644 when the
+            // endpoint cannot surface a mode.
+            let mode = stat
+                .as_ref()
+                .and_then(|m| m.mode)
+                .map(|m| m & 0o7777)
+                .unwrap_or(0o644);
             let mut header = tar::Header::new_gnu();
             header
                 .set_path(&child_name)
                 .map_err(|e| anyhow!("tar header path: {}", e))?;
             header.set_size(size);
             header.set_entry_type(tar::EntryType::Regular);
-            header.set_mode(0o644);
+            header.set_mode(mode);
             header.set_cksum();
             let mut reader = endpoint
                 .open_reader(&entry_path)
@@ -1270,7 +1303,7 @@ fn write_zip_dir<W: Write + std::io::Seek>(
     endpoint: &TransferEndpoint,
     dir: &Path,
     prefix: &Path,
-    options: zip::write::SimpleFileOptions,
+    base_options: zip::write::SimpleFileOptions,
 ) -> Result<(), anyhow::Error> {
     let entries = endpoint
         .read_dir(dir)
@@ -1282,11 +1315,17 @@ fn write_zip_dir<W: Write + std::io::Seek>(
             .ok_or_else(|| anyhow!("entry has no name: {:?}", entry_path))?;
         let archive_path = prefix.join(entry_name);
         if entry.is_dir {
-            write_zip_dir(zip, endpoint, &entry_path, &archive_path, options)?;
+            write_zip_dir(zip, endpoint, &entry_path, &archive_path, base_options)?;
         } else {
+            let stat = endpoint.lstat(&entry_path).ok();
+            let mode = stat.as_ref().and_then(|m| m.mode);
+            let mut file_options = base_options;
+            if let Some(m) = mode {
+                file_options = file_options.unix_permissions(m & 0o7777);
+            }
             zip.start_file(
                 archive_path.to_string_lossy().replace('\\', "/"),
-                options,
+                file_options,
             )
             .map_err(|e| anyhow!("zip start_file: {}", e))?;
             let mut reader = endpoint
@@ -1528,6 +1567,107 @@ mod tests {
         use std::io::Read;
         a.read_to_string(&mut buf).unwrap();
         assert_eq!(buf, "hello-a");
+    }
+
+    /// Regression test for security review finding L2:
+    /// ZIP and tar.gz compress pipelines used to hard-code
+    /// mode 0o644 on every entry, which leaks a 0o600
+    /// source (e.g. an SSH key) as world-readable in the
+    /// archive. The fix reads the source's `lstat().mode`
+    /// and stamps it onto the entry.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn compress_zip_preserves_source_mode_bits() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("private.bin");
+        std::fs::write(&src, b"secret").unwrap();
+        std::fs::set_permissions(&src, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let archive = tmp.path().join("out.zip");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        compress_pipeline(
+            &ep(),
+            vec![src.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::Zip,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("zip compress");
+
+        let f = std::fs::File::open(&archive).unwrap();
+        let mut za = zip::ZipArchive::new(f).unwrap();
+        let entry = za.by_name("private.bin").expect("entry present");
+        // The zip crate exposes the external attrs; the
+        // unix perm bits are stored in the high 16 bits
+        // of the external file attributes field. The
+        // public API gives us `unix_mode()` directly.
+        #[cfg(unix)]
+        let stored_mode = entry.unix_mode().unwrap_or(0o644);
+        assert_eq!(
+            stored_mode & 0o777,
+            0o600,
+            "zip entry must preserve 0o600 source mode, got {:o}",
+            stored_mode
+        );
+    }
+
+    /// Same as the zip version above, but for tar.gz: the
+    /// source's mode bits must end up in the tar header.
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn compress_targz_preserves_source_mode_bits() {
+        use std::os::unix::fs::PermissionsExt;
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("private.bin");
+        std::fs::write(&src, b"secret").unwrap();
+        std::fs::set_permissions(&src, std::fs::Permissions::from_mode(0o600)).unwrap();
+
+        let archive = tmp.path().join("out.tar.gz");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        compress_pipeline(
+            &ep(),
+            vec![src.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::TarGz,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("targz compress");
+
+        // Open the archive and read the header for
+        // private.bin. The `tar` crate's `Header::mode()`
+        // returns the unix mode bits we stamped.
+        let bytes = std::fs::read(&archive).unwrap();
+        let gz = flate2::read::GzDecoder::new(&bytes[..]);
+        let mut archive = tar::Archive::new(gz);
+        let mut found = false;
+        for entry in archive.entries().unwrap() {
+            let mut e = entry.unwrap();
+            let path = e.path().unwrap().to_path_buf();
+            if path.file_name().and_then(|n| n.to_str()) == Some("private.bin") {
+                assert_eq!(
+                    e.header().mode().unwrap() & 0o777,
+                    0o600,
+                    "tar entry must preserve 0o600 source mode"
+                );
+                found = true;
+            }
+        }
+        assert!(found, "private.bin should be present in the archive");
     }
 
     #[tokio::test]
