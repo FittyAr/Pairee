@@ -748,7 +748,9 @@ impl TransferWorker {
                     }
 
                     match copy_file_pipelined(
+                        &super::endpoint::TransferEndpoint::Local,
                         &src,
+                        &super::endpoint::TransferEndpoint::Local,
                         &dst,
                         &options,
                         &self.event_tx,
