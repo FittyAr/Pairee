@@ -44,8 +44,14 @@ impl TransferEngine {
     }
 
     pub fn submit_job(&mut self, job: TransferJob) {
-        // Each new job starts with a clean policy slate.
-        self.policy.reset();
+        // Important: do **not** reset the policy here. The
+        // policy is shared (`Arc<dyn TransferPolicy>`) with any
+        // in-flight worker; resetting it would wipe the
+        // `AccessDenied` entries that the running job has
+        // already accumulated, suppressing the
+        // retry-as-admin prompt at the end of that job. The
+        // worker takes care of resetting its own policy at the
+        // start of `run()` (see `TransferWorker::run`).
         self.queue.enqueue(job);
         self.trigger_processing_loop();
     }
@@ -182,8 +188,12 @@ impl TransferEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fs::transfer::policy::{FileError, RetryRequest};
+    use crate::fs::transfer::policy::{FileError, RetryRequest, TransferPolicy};
+    use crate::fs::transfer::job::{TransferJob, TransferOperation};
+    use crate::fs::transfer::options::TransferOptions;
     use std::path::{Path, PathBuf};
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use std::sync::Arc;
 
     #[test]
     fn default_engine_can_be_built() {
@@ -267,5 +277,62 @@ mod tests {
         // Reset clears state.
         policy.reset();
         assert!(policy.finalize().is_empty());
+    }
+
+    /// Regression test for the policy-reset race (security
+    /// review finding C2 on branch `refactor-plugins`).
+    ///
+    /// Before the fix, `TransferEngine::submit_job` called
+    /// `self.policy.reset()` on the shared `Arc<dyn
+    /// TransferPolicy>`. If a second job was enqueued while
+    /// the first worker was still running, the reset wiped
+    /// the `AccessDenied` entries the first job had already
+    /// accumulated, so the retry-as-admin prompt at the end
+    /// of the first job would never fire. The fix moves the
+    /// reset to the start of `TransferWorker::run()`.
+    #[tokio::test]
+    async fn submit_job_does_not_reset_shared_policy() {
+        /// Counts how many times `reset` is called. The test
+        /// holds an `Arc<AtomicUsize>` shared with the policy
+        /// so it can assert after `submit_job` returns.
+        struct Counter(Arc<AtomicUsize>);
+        impl TransferPolicy for Counter {
+            fn on_file_error(&self, _f: &Path, _e: &FileError) {}
+            fn finalize(&self) -> Vec<RetryRequest> {
+                vec![]
+            }
+            fn reset(&self) {
+                self.0.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+
+        let resets = Arc::new(AtomicUsize::new(0));
+        let policy: Arc<dyn TransferPolicy> =
+            Arc::new(Counter(resets.clone()));
+        let (mut engine, _rx) =
+            TransferEngine::with_policy(Some(policy));
+
+        let make_job = || {
+            TransferJob::new(
+                TransferOperation::Copy,
+                vec![PathBuf::from("/a")],
+                PathBuf::from("/b"),
+                TransferOptions::default(),
+            )
+        };
+
+        // Two submits back-to-back. The coordinator loop
+        // may or may not have spawned a worker in between
+        // (we don't await it), so the test only checks the
+        // contract: `submit_job` itself must not call
+        // `reset` on the shared policy.
+        engine.submit_job(make_job());
+        engine.submit_job(make_job());
+        assert_eq!(
+            resets.load(Ordering::Relaxed),
+            0,
+            "submit_job must not reset the shared policy; \
+             the worker is responsible for its own reset."
+        );
     }
 }

@@ -125,6 +125,16 @@ impl TransferWorker {
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
+        // Reset the policy for this job. The engine does not
+        // reset in `submit_job` (the policy is shared, and
+        // resetting there would wipe AccessDenied entries
+        // accumulated by a job that is still running but has
+        // not yet been picked up by the coordinator). The
+        // coordinator guarantees that only one worker runs at
+        // a time, so resetting here is safe and gives every
+        // job a clean slate.
+        self.policy.reset();
+
         let _ = self.event_tx.send(TransferEvent::JobStarted {
             job_id: self.job_id,
         });
