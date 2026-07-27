@@ -138,11 +138,12 @@ impl AppState {
         // is owned by the state (so `process_plugin_requests`
         // can `try_recv` without locking a global); the
         // sender is registered into the `PLUGIN_REQ_TX`
-        // `OnceLock` so the plugin runtime and other call
-        // sites can publish requests without holding a
-        // reference to the state.
+        // `OnceLock` (re-exported at `crate::plugin::manager`)
+        // so the plugin runtime and other call sites can
+        // publish requests without holding a reference to
+        // the state.
         let (plugin_tx, plugin_rx) = tokio::sync::mpsc::channel(100);
-        let _ = crate::plugin::manager::manager::PLUGIN_REQ_TX.set(plugin_tx);
+        let _ = crate::plugin::manager::PLUGIN_REQ_TX.set(plugin_tx);
         let is_root = crate::fs::is_elevated();
         Self {
             left_panel: PanelState::new(left_path),

@@ -7,8 +7,11 @@
 //! - `request` — `PluginRequest` enum + the structured payload structs
 //!   (`DialogPosition`, `WhichCandidate`, `NotifyPayload`,
 //!   `InputDialogResult`).
-//! - `manager` — `PluginManager` (channel init, eager discovery) and the
-//!   static `PLUGIN_REQ_TX/RX` channels.
+//! - `manager` — `PluginManager` (eager plugin discovery) and the
+//!   static `PLUGIN_REQ_TX` sender. The matching receiver is
+//!   owned by `AppState` (see `app::state::AppState::new` and
+//!   the field `plugin_req_rx`); see the docstring on
+//!   `manager::manager` for the rationale.
 //! - `dispatcher` — the main-loop `process_plugin_requests` function that
 //!   routes every `PluginRequest` variant to its side effect.
 //! - `dispatch_actions` — the side-effect helpers themselves
@@ -24,6 +27,7 @@ pub mod manager;
 pub mod request;
 pub mod snapshot;
 
+pub use manager::PLUGIN_REQ_TX;
 pub use manager::PluginManager;
 pub use request::{
     DialogPosition, ImageRect, InputDialogResult, NotifyPayload, PluginRequest, WhichCandidate,

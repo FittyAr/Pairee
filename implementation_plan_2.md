@@ -619,14 +619,22 @@ commits, 18 tests nuevos, 305 tests totales al final.
 - [ ] `cargo build`, `cargo clippy --all-targets -- -D
       warnings`, `cargo test --all`, `cargo fmt --check`
       todos limpios.
-- [ ] Smoke test manual:
+- [ ] Smoke test manual (procedimiento completo en
+      `docs/technical/smoke-test.md`):
   - [ ] Compress local → local
   - [ ] Compress local → SSH
   - [ ] Compress SSH → local
   - [ ] Extract local → local
   - [ ] Extract SSH → local
   - [ ] Copy archivo de Sistema en Windows como admin
-        (elevación)
-  - [ ] Copy archivo de Sistema en Linux con `sudo`
+        (elevación) — incluye el chequeo de que el
+        popup muestra el `sample_error` (L3)
+  - [ ] Copy archivo de Sistema en Linux con `sudo` —
+        incluye el chequeo de que el temp file es 0600
+        (C1)
   - [ ] Copy normal (no elevación) sigue funcionando
+  - [ ] Compress ZIP level=0 → archivo al menos tan
+        grande como la suma de los sources (L2 sanity)
+  - [ ] Compress con archivo 0o600 → entry preserva
+        0o600 (L2)
 - [ ] CHANGELOG actualizado.
