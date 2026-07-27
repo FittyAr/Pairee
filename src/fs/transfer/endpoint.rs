@@ -83,6 +83,14 @@ impl TransferEndpoint {
         matches!(self, TransferEndpoint::Local)
     }
 
+    /// Convenience helper: is `path` a directory at this endpoint?
+    /// Returns `false` on any I/O error (missing path, permission
+    /// denied, ...). Use `stat` / `lstat` directly when you need
+    /// to distinguish "no" from "error".
+    pub fn is_dir(&self, path: &Path) -> bool {
+        self.stat(path).map(|m| m.is_dir).unwrap_or(false)
+    }
+
     /// Two endpoints share the same underlying SFTP session.
     /// `Local == Local` returns `true`. Cross-kind always returns `false`.
     pub fn same_client(&self, other: &Self) -> bool {

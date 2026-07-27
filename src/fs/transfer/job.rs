@@ -2,12 +2,22 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
+use super::endpoint::TransferEndpoint;
+
 #[derive(Debug, Clone)]
 pub struct TransferJob {
     pub id: Uuid,
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
+    /// Endpoint that produces the source files. For `Delete`, this is
+    /// the same as `dst_endpoint`. For `Copy` / `Move`, this is the
+    /// panel the user is reading from.
+    pub src_endpoint: TransferEndpoint,
+    /// Endpoint that consumes the destination. For `Delete` this is
+    /// unused (and defaults to `Local` for back-compat). For
+    /// `Copy` / `Move` this is the panel the user is writing to.
+    pub dst_endpoint: TransferEndpoint,
     pub options: super::options::TransferOptions,
     pub status: TransferJobStatus,
     pub results: TransferResults,
@@ -26,11 +36,35 @@ impl TransferJob {
         destination: PathBuf,
         options: super::options::TransferOptions,
     ) -> Self {
+        Self::with_endpoints(
+            operation,
+            sources,
+            destination,
+            options,
+            TransferEndpoint::Local,
+            TransferEndpoint::Local,
+        )
+    }
+
+    /// Constructor that takes explicit source / destination
+    /// endpoints. Use this from Phase 5 onwards when the action
+    /// handlers can read the panel configuration and pick the right
+    /// endpoint per side.
+    pub fn with_endpoints(
+        operation: TransferOperation,
+        sources: Vec<PathBuf>,
+        destination: PathBuf,
+        options: super::options::TransferOptions,
+        src_endpoint: TransferEndpoint,
+        dst_endpoint: TransferEndpoint,
+    ) -> Self {
         Self {
             id: Uuid::new_v4(),
             operation,
             sources,
             destination,
+            src_endpoint,
+            dst_endpoint,
             options,
             status: TransferJobStatus::Queued,
             results: TransferResults::default(),

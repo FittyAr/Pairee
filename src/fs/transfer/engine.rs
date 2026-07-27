@@ -92,6 +92,8 @@ impl TransferEngine {
                                 job.operation,
                                 job.sources,
                                 job.destination,
+                                job.src_endpoint,
+                                job.dst_endpoint,
                                 job.options.clone(),
                                 Arc::clone(&job.is_paused),
                                 Arc::clone(&job.is_cancelled),

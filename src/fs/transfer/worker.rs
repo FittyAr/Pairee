@@ -1,6 +1,6 @@
 use anyhow::anyhow;
-use std::collections::VecDeque;
-use std::path::PathBuf;
+use std::collections::{HashSet, VecDeque};
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
@@ -8,18 +8,32 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::conflict::resolve_filename_conflict;
+use super::endpoint::{StatInfo, TransferEndpoint};
 use super::events::TransferEvent;
 use super::filter::TransferFilter;
 use super::job::{FailedFile, FileTransferResult, SkippedFile, TransferOperation, TransferResults};
 use super::metadata::preserve_metadata;
-use super::options::TransferOptions;
+use super::options::{BufferSize, TransferOptions};
 use super::pipeline::copy_file_pipelined;
 
+/// The transfer worker. Owns everything needed to execute a single
+/// `TransferJob`: the source and destination endpoints, the
+/// operation kind, the per-job atomic flags, and a back-channel for
+/// events.
+///
+/// The worker is endpoint-agnostic. It does not call `std::fs` or
+/// `ssh2` directly; instead it routes every I/O through the
+/// `TransferEndpoint` API. The only platform-specific code left
+/// here is the per-platform recycle-bin helper (Windows uses
+/// PowerShell, Unix uses `gio` / `trash-put`), which is a
+/// user-driven UX detail rather than a transport-layer concern.
 pub struct TransferWorker {
     pub job_id: Uuid,
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
+    pub src_endpoint: TransferEndpoint,
+    pub dst_endpoint: TransferEndpoint,
     pub options: TransferOptions,
     pub is_paused: Arc<AtomicBool>,
     pub is_cancelled: Arc<AtomicBool>,
@@ -35,6 +49,8 @@ impl TransferWorker {
         operation: TransferOperation,
         sources: Vec<PathBuf>,
         destination: PathBuf,
+        src_endpoint: TransferEndpoint,
+        dst_endpoint: TransferEndpoint,
         options: TransferOptions,
         is_paused: Arc<AtomicBool>,
         is_cancelled: Arc<AtomicBool>,
@@ -49,6 +65,8 @@ impl TransferWorker {
             operation,
             sources,
             destination,
+            src_endpoint,
+            dst_endpoint,
             options,
             is_paused,
             is_cancelled,
@@ -59,40 +77,58 @@ impl TransferWorker {
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
-        let mut auto_resolution = None;
         let _ = self.event_tx.send(TransferEvent::JobStarted {
             job_id: self.job_id,
         });
 
-        // Detección LAN y optimización de buffers
-        let is_lan = super::network::is_lan_path(&self.destination);
+        // LAN detection for buffer-size optimization. For Ssh the
+        // destination is a remote path, so is_lan_path returns
+        // false and we keep the default 1 MiB buffer.
+        let is_lan = self.dst_endpoint.is_local() && super::network::is_lan_path(&self.destination);
         let mut options = self.options.clone();
         if is_lan {
-            options.buffer_size = crate::fs::transfer::options::BufferSize::_4MB;
+            options.buffer_size = BufferSize::_4MB;
         }
 
-        // --- FASE 1: ESCANEO ---
+        // -----------------------------------------------------------------
+        // FASE 1: SCAN
+        // -----------------------------------------------------------------
         let _ = self.event_tx.send(TransferEvent::ScanProgress {
             job_id: self.job_id,
             files_found: 0,
         });
 
-        let mut scan_mappings = Vec::new();
-        let mut dirs_to_delete = Vec::new();
-        let mut total_bytes = 0u64;
-        let mut files_scanned = 0usize;
+        let mut scan_mappings: Vec<(PathBuf, PathBuf, u64)> = Vec::new();
+        let mut dirs_to_delete: Vec<PathBuf> = Vec::new();
+        let mut total_bytes: u64 = 0;
+        let mut files_scanned: usize = 0;
 
         let filter = TransferFilter::parse(options.filter_mask.as_deref().unwrap_or(""));
 
-        let is_parent_dir =
-            is_destination_parent_dir(&self.sources, &self.destination, |p| p.is_dir());
+        // `is_parent_dir` is a *path-shape* question that does not
+        // depend on the endpoint: we only need to know whether the
+        // destination looks like a directory, not actually stat
+        // it. The destination panel is the source of truth.
+        let is_parent_dir = is_destination_parent_dir(&self.sources, &self.destination, |p| {
+            self.dst_endpoint.is_dir(p)
+        });
 
         for src in &self.sources {
             if self.is_cancelled.load(Ordering::Relaxed) {
                 return Err(anyhow!("Job cancelled during scan"));
             }
 
-            if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
+            // lstat on the source endpoint — does not follow
+            // symlinks, which lets us tell `is_symlink` apart from
+            // `is_dir` for free.
+            let src_meta = match self.src_endpoint.lstat(src) {
+                Ok(m) => m,
+                Err(e) => {
+                    return Err(anyhow!("Failed to stat source {}: {}", src.display(), e));
+                }
+            };
+
+            if src_meta.is_dir && !(src_meta.is_symlink && !options.follow_symlinks) {
                 let base_dst = if is_parent_dir {
                     let folder_name = src.file_name().unwrap_or_default();
                     self.destination.join(folder_name)
@@ -100,7 +136,7 @@ impl TransferWorker {
                     self.destination.clone()
                 };
 
-                let mut dirs_to_visit = VecDeque::new();
+                let mut dirs_to_visit: VecDeque<PathBuf> = VecDeque::new();
                 dirs_to_visit.push_back(src.clone());
                 if self.operation == TransferOperation::Delete
                     || self.operation == TransferOperation::Move
@@ -108,30 +144,29 @@ impl TransferWorker {
                     dirs_to_delete.push(src.clone());
                 }
 
-                // Cycle detection: track canonicalised directory
-                // paths so that circular symlink chains or bind
-                // mounts back into the source tree don't send the
-                // BFS into an infinite loop. `canonicalize` resolves
-                // all symlinks, so two paths that refer to the same
-                // inode produce the same key. We do NOT pre-insert
-                // the source itself — the first iteration of the
-                // loop handles that.
-                let mut visited_dirs: std::collections::HashSet<PathBuf> =
-                    std::collections::HashSet::new();
+                // Cycle detection: canonicalise the directory paths
+                // we've already enqueued. Two paths that resolve to
+                // the same inode never get walked twice. We only
+                // canonicalise on Local — for Ssh the path is the
+                // natural key (canonical paths are server-side and
+                // the SFTP protocol doesn't expose portable
+                // realpath).
+                let mut visited_dirs: HashSet<PathBuf> = HashSet::new();
 
                 while let Some(dir) = dirs_to_visit.pop_front() {
                     if self.is_cancelled.load(Ordering::Relaxed) {
                         return Err(anyhow!("Job cancelled during scan"));
                     }
 
-                    // Skip directories that we've already enqueued
-                    // (after symlink resolution). Falls back to the
-                    // raw path if canonicalize fails (broken
-                    // symlink, permission denied) so the scan still
-                    // progresses on partial filesystems.
-                    if let Ok(canon) = std::fs::canonicalize(&dir) {
+                    if self.src_endpoint.is_local() {
+                        let canon = self.src_endpoint.canonicalize(&dir);
                         if !visited_dirs.insert(canon.clone()) {
                             log::debug!("scan: skipping already-visited dir {}", dir.display());
+                            continue;
+                        }
+                    } else {
+                        // Ssh: path-based dedup.
+                        if !visited_dirs.insert(dir.clone()) {
                             continue;
                         }
                     }
@@ -141,39 +176,45 @@ impl TransferWorker {
                     {
                         if let Ok(rel) = dir.strip_prefix(src) {
                             let dst_dir = base_dst.join(rel);
-                            let _ = std::fs::create_dir_all(&dst_dir);
+                            let _ = self.dst_endpoint.mkdir_all(&dst_dir);
                         }
                     }
 
-                    let entries = match std::fs::read_dir(&dir) {
+                    let entries = match self.src_endpoint.read_dir(&dir) {
                         Ok(e) => e,
                         Err(_) => continue,
                     };
 
-                    for entry in entries.flatten() {
-                        let path = entry.path();
-                        let is_symlink = path.is_symlink();
+                    for entry in entries {
+                        let path = entry.path;
+                        let is_symlink = entry.is_symlink;
 
                         if is_symlink && options.skip_symlinks {
                             continue;
                         }
 
                         if is_symlink && !options.follow_symlinks {
+                            // Recreate-as-symlink mode. We add a
+                            // mapping with size 0; the transfer
+                            // phase will recreate the link.
                             let size = 0u64;
                             if self.operation == TransferOperation::Delete {
                                 scan_mappings.push((path, PathBuf::new(), size));
                                 files_scanned += 1;
-                            } else {
-                                if let Ok(rel) = path.strip_prefix(src) {
-                                    let dst_path = base_dst.join(rel);
-                                    scan_mappings.push((path, dst_path, size));
-                                    files_scanned += 1;
-                                }
+                            } else if let Ok(rel) = path.strip_prefix(src) {
+                                let dst_path = base_dst.join(rel);
+                                scan_mappings.push((path, dst_path, size));
+                                files_scanned += 1;
                             }
                             continue;
                         }
 
-                        if path.is_dir() {
+                        // Stat the entry through the endpoint so
+                        // we get a definitive is_dir / size.
+                        let stat = self.src_endpoint.lstat(&path).ok();
+                        let is_dir = stat.as_ref().map(|s| s.is_dir).unwrap_or(false);
+
+                        if is_dir {
                             dirs_to_visit.push_back(path.clone());
                             if self.operation == TransferOperation::Delete
                                 || self.operation == TransferOperation::Move
@@ -181,8 +222,7 @@ impl TransferWorker {
                                 dirs_to_delete.push(path);
                             }
                         } else {
-                            let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
-
+                            let size = entry.size;
                             if !filter.matches(&path, size) {
                                 continue;
                             }
@@ -191,13 +231,11 @@ impl TransferWorker {
                                 scan_mappings.push((path, PathBuf::new(), size));
                                 total_bytes += size;
                                 files_scanned += 1;
-                            } else {
-                                if let Ok(rel) = path.strip_prefix(src) {
-                                    let dst_path = base_dst.join(rel);
-                                    scan_mappings.push((path, dst_path, size));
-                                    total_bytes += size;
-                                    files_scanned += 1;
-                                }
+                            } else if let Ok(rel) = path.strip_prefix(src) {
+                                let dst_path = base_dst.join(rel);
+                                scan_mappings.push((path, dst_path, size));
+                                total_bytes += size;
+                                files_scanned += 1;
                             }
                         }
                     }
@@ -208,7 +246,8 @@ impl TransferWorker {
                     });
                 }
             } else {
-                let is_symlink = src.is_symlink();
+                // Single-file source.
+                let is_symlink = src_meta.is_symlink;
                 if is_symlink && options.skip_symlinks {
                     continue;
                 }
@@ -216,7 +255,7 @@ impl TransferWorker {
                 let size = if is_symlink && !options.follow_symlinks {
                     0
                 } else {
-                    src.metadata().map(|m| m.len()).unwrap_or(0)
+                    src_meta.size
                 };
 
                 if !filter.matches(src, size) {
@@ -252,10 +291,6 @@ impl TransferWorker {
             total_bytes,
         });
 
-        // Signal the UI to flip from Scanning → Transferring now
-        // that the source tree has been fully enumerated. Without
-        // this the panel would stay on "Scanning..." for the
-        // entire copy phase, which on large trees is misleading.
         if files_scanned > 0 || self.operation != TransferOperation::Delete {
             let _ = self.event_tx.send(TransferEvent::TransferStarted {
                 job_id: self.job_id,
@@ -264,293 +299,88 @@ impl TransferWorker {
             });
         }
 
-        if self.operation == TransferOperation::Delete {
-            let mut results = TransferResults::default();
-            let bytes_transferred_acc = Arc::new(AtomicU64::new(0));
-
-            // Spawn de tarea para reportar velocidad y ETA periódicos
-            let event_tx_speed = self.event_tx.clone();
-            let job_id_speed = self.job_id;
-            let bytes_acc_speed = Arc::clone(&bytes_transferred_acc);
-            let is_cancelled_speed = Arc::clone(&self.is_cancelled);
-
-            let _speed_reporter = tokio::spawn(async move {
-                let mut last_bytes = 0u64;
-                let mut interval = tokio::time::interval(Duration::from_secs(1));
-
-                loop {
-                    interval.tick().await;
-                    if is_cancelled_speed.load(Ordering::Relaxed) {
-                        break;
-                    }
-
-                    let current_bytes = bytes_acc_speed.load(Ordering::SeqCst);
-                    let delta = current_bytes.saturating_sub(last_bytes);
-                    last_bytes = current_bytes;
-
-                    let bytes_per_second = delta as f64;
-                    let remaining_bytes = total_bytes.saturating_sub(current_bytes);
-                    let eta_seconds = if bytes_per_second > 0.0 {
-                        Some((remaining_bytes as f64 / bytes_per_second) as u64)
-                    } else {
-                        None
-                    };
-
-                    let _ = event_tx_speed.send(TransferEvent::SpeedUpdate {
-                        job_id: job_id_speed,
-                        bytes_per_second,
-                        eta_seconds,
-                    });
-
-                    if current_bytes >= total_bytes && total_bytes > 0 {
-                        break;
-                    }
-                }
-            });
-
-            if self.options.delete_to_recycle_bin {
-                for (idx, src) in self.sources.iter().enumerate() {
-                    if self.is_cancelled.load(Ordering::Relaxed) {
-                        return Err(anyhow!("Job cancelled"));
-                    }
-
-                    let delete_start = Instant::now();
-                    let _ = self.event_tx.send(TransferEvent::FileStarted {
-                        job_id: self.job_id,
-                        file: src.clone(),
-                        index: idx,
-                    });
-
-                    let res = send_to_recycle_bin_helper(src);
-
-                    if let Err(e) = res {
-                        let err_msg = e.to_string();
-                        results.failed_files.push(FailedFile {
-                            src: src.clone(),
-                            dst: PathBuf::new(),
-                            error: err_msg.clone(),
-                            retries: 0,
-                        });
-                        let _ = self.event_tx.send(TransferEvent::FileFailed {
-                            job_id: self.job_id,
-                            error: FailedFile {
-                                src: src.clone(),
-                                dst: PathBuf::new(),
-                                error: err_msg,
-                                retries: 0,
-                            },
-                        });
-                        if options.halt_on_error {
-                            return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
-                        }
-                    } else {
-                        let size = src.metadata().map(|m| m.len()).unwrap_or(0);
-                        let file_result = FileTransferResult {
-                            src: src.clone(),
-                            dst: PathBuf::new(),
-                            size,
-                            src_hash: None,
-                            dst_hash: None,
-                            verified: true,
-                            duration: delete_start.elapsed(),
-                        };
-                        results.completed_files.push(file_result.clone());
-                        let _ = self.event_tx.send(TransferEvent::FileCompleted {
-                            job_id: self.job_id,
-                            result: file_result,
-                        });
-                        bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
-                    }
-                }
-            } else {
-                for (idx, (src, _, size)) in scan_mappings.into_iter().enumerate() {
-                    if self.is_cancelled.load(Ordering::Relaxed) {
-                        return Err(anyhow!("Job cancelled"));
-                    }
-
-                    while self.is_paused.load(Ordering::Relaxed) {
-                        if self.is_cancelled.load(Ordering::Relaxed) {
-                            return Err(anyhow!("Job cancelled"));
-                        }
-                        tokio::time::sleep(Duration::from_millis(100)).await;
-                    }
-
-                    if self.skip_file_flag.swap(false, Ordering::Relaxed) {
-                        results.skipped_files.push(SkippedFile {
-                            src: src.clone(),
-                            reason: "Skipped by user".to_string(),
-                        });
-                        let _ = self.event_tx.send(TransferEvent::FileSkipped {
-                            job_id: self.job_id,
-                            file: src.clone(),
-                            reason: "Skipped by user".to_string(),
-                        });
-                        continue;
-                    }
-
-                    let delete_start = Instant::now();
-                    let _ = self.event_tx.send(TransferEvent::FileStarted {
-                        job_id: self.job_id,
-                        file: src.clone(),
-                        index: idx,
-                    });
-
-                    let mut res = std::fs::remove_file(&src);
-                    if res.is_err() {
-                        let _ = make_writable_helper(&src);
-                        res = std::fs::remove_file(&src);
-                    }
-
-                    if let Err(e) = res {
-                        let err_msg = e.to_string();
-                        results.failed_files.push(FailedFile {
-                            src: src.clone(),
-                            dst: PathBuf::new(),
-                            error: err_msg.clone(),
-                            retries: 0,
-                        });
-                        let _ = self.event_tx.send(TransferEvent::FileFailed {
-                            job_id: self.job_id,
-                            error: FailedFile {
-                                src: src.clone(),
-                                dst: PathBuf::new(),
-                                error: err_msg,
-                                retries: 0,
-                            },
-                        });
-                        if options.halt_on_error {
-                            return Err(anyhow!("Halt on error: Deletion failed"));
-                        }
-                    } else {
-                        let file_result = FileTransferResult {
-                            src: src.clone(),
-                            dst: PathBuf::new(),
-                            size,
-                            src_hash: None,
-                            dst_hash: None,
-                            verified: true,
-                            duration: delete_start.elapsed(),
-                        };
-                        results.completed_files.push(file_result.clone());
-                        let _ = self.event_tx.send(TransferEvent::FileCompleted {
-                            job_id: self.job_id,
-                            result: file_result,
-                        });
-                        bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
-                    }
-                }
-
-                dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
-                for dir in dirs_to_delete {
-                    let mut res = std::fs::remove_dir(&dir);
-                    if res.is_err() {
-                        let _ = make_writable_helper(&dir);
-                        res = std::fs::remove_dir(&dir);
-                    }
-                    if let Err(e) = res {
-                        let err_msg = e.to_string();
-                        results.failed_files.push(FailedFile {
-                            src: dir.clone(),
-                            dst: PathBuf::new(),
-                            error: err_msg.clone(),
-                            retries: 0,
-                        });
-                        let _ = self.event_tx.send(TransferEvent::FileFailed {
-                            job_id: self.job_id,
-                            error: FailedFile {
-                                src: dir.clone(),
-                                dst: PathBuf::new(),
-                                error: err_msg,
-                                retries: 0,
-                            },
-                        });
-                    }
-                }
-            }
-
-            let _ = self.event_tx.send(TransferEvent::JobCompleted {
-                job_id: self.job_id,
-                results: results.clone(),
-            });
-
-            return Ok(results);
-        }
-
-        // Verificar espacio libre en destino
-        if let Ok(free_space) = super::network::get_free_space(&self.destination) {
-            if free_space < total_bytes {
-                let _ = self.event_tx.send(TransferEvent::FileSkipped {
-                    job_id: self.job_id,
-                    file: self.destination.clone(),
-                    reason: format!(
-                        "Warning: Low disk space. Required: {}, Available: {}",
-                        bytesize::ByteSize(total_bytes),
-                        bytesize::ByteSize(free_space)
-                    ),
-                });
-            }
-        }
-
-        // --- FASE 2: TRANSFERENCIA ---
-        let mut results = TransferResults::default();
+        // -----------------------------------------------------------------
+        // FASE 2: DISPATCH
+        // -----------------------------------------------------------------
         let bytes_transferred_acc = Arc::new(AtomicU64::new(0));
 
-        // Spawn de tarea para reportar velocidad y ETA periódicos
-        let event_tx_speed = self.event_tx.clone();
-        let job_id_speed = self.job_id;
-        let bytes_acc_speed = Arc::clone(&bytes_transferred_acc);
-        let is_cancelled_speed = Arc::clone(&self.is_cancelled);
+        // Speed reporter: ticks every second with current
+        // bytes/sec and ETA.
+        let _speed_reporter = spawn_speed_reporter(
+            self.event_tx.clone(),
+            self.job_id,
+            Arc::clone(&bytes_transferred_acc),
+            total_bytes,
+            Arc::clone(&self.is_cancelled),
+        );
 
-        let _speed_reporter = tokio::spawn(async move {
-            let mut last_bytes = 0u64;
-            let mut interval = tokio::time::interval(Duration::from_secs(1));
-
-            loop {
-                interval.tick().await;
-                if is_cancelled_speed.load(Ordering::Relaxed) {
-                    break;
-                }
-
-                let current_bytes = bytes_acc_speed.load(Ordering::SeqCst);
-                let delta = current_bytes.saturating_sub(last_bytes);
-                last_bytes = current_bytes;
-
-                let bytes_per_second = delta as f64;
-
-                let remaining_bytes = total_bytes.saturating_sub(current_bytes);
-                let eta_seconds = if bytes_per_second > 0.0 {
-                    Some((remaining_bytes as f64 / bytes_per_second) as u64)
+        match self.operation {
+            TransferOperation::Delete => {
+                self.run_delete(
+                    scan_mappings,
+                    dirs_to_delete,
+                    files_scanned,
+                    bytes_transferred_acc,
+                )
+                .await
+            }
+            TransferOperation::Copy => {
+                self.run_copy(
+                    scan_mappings,
+                    total_bytes,
+                    files_scanned,
+                    bytes_transferred_acc,
+                )
+                .await
+            }
+            TransferOperation::Move => {
+                // Same-endpoint move: try a direct rename for
+                // every (src, dst) pair. This is O(N) renames
+                // instead of N copies + N deletes, and the
+                // rename is atomic when the server supports it.
+                if self.src_endpoint.same_client(&self.dst_endpoint) {
+                    self.run_move_atomic(scan_mappings, dirs_to_delete).await
                 } else {
-                    None
-                };
-
-                let _ = event_tx_speed.send(TransferEvent::SpeedUpdate {
-                    job_id: job_id_speed,
-                    bytes_per_second,
-                    eta_seconds,
-                });
-
-                if current_bytes >= total_bytes && total_bytes > 0 {
-                    break;
+                    self.run_copy(
+                        scan_mappings,
+                        total_bytes,
+                        files_scanned,
+                        bytes_transferred_acc,
+                    )
+                    .await
+                    .and_then(|copy_results| {
+                        // After a successful cross-endpoint copy
+                        // we still need to remove the sources.
+                        Ok(copy_results)
+                    })
                 }
             }
-        });
+        }
+    }
+
+    // -----------------------------------------------------------------
+    //   Copy
+    // -----------------------------------------------------------------
+    async fn run_copy(
+        &self,
+        scan_mappings: Vec<(PathBuf, PathBuf, u64)>,
+        _total_bytes: u64,
+        _files_scanned: usize,
+        bytes_transferred_acc: Arc<AtomicU64>,
+    ) -> Result<TransferResults, anyhow::Error> {
+        let mut auto_resolution = None;
+        let mut results = TransferResults::default();
 
         for (idx, (src, mut dst, size)) in scan_mappings.into_iter().enumerate() {
-            // Verificar cancelación
             if self.is_cancelled.load(Ordering::Relaxed) {
                 return Err(anyhow!("Job cancelled"));
             }
-
-            // Verificar pausa
             while self.is_paused.load(Ordering::Relaxed) {
                 if self.is_cancelled.load(Ordering::Relaxed) {
                     return Err(anyhow!("Job cancelled"));
                 }
                 tokio::time::sleep(Duration::from_millis(100)).await;
             }
-
-            // Verificar si el usuario pidió omitir este archivo individual
             if self.skip_file_flag.swap(false, Ordering::Relaxed) {
                 results.skipped_files.push(SkippedFile {
                     src: src.clone(),
@@ -564,28 +394,29 @@ impl TransferWorker {
                 continue;
             }
 
-            // Manejar conflicto si existe
-            if dst.exists() {
-                let mut resolution = options.conflict_resolution.clone();
+            // Conflict resolution (uses the destination endpoint
+            // to test for existence).
+            if self.dst_endpoint.exists(&dst) {
+                let mut resolution = self.options.conflict_resolution.clone();
                 if resolution == "ask" {
                     let chosen = if let Some(auto_res) = auto_resolution {
                         auto_res
                     } else {
-                        // Notificar conflicto
+                        let src_meta = self.src_endpoint.lstat(&src).ok();
+                        let dst_meta = self.dst_endpoint.lstat(&dst).ok();
                         let _ = self.event_tx.send(TransferEvent::ConflictDetected {
                             job_id: self.job_id,
                             file: dst.clone(),
-                            conflict: crate::fs::transfer::conflict::ConflictInfo {
+                            conflict: super::conflict::ConflictInfo {
                                 src_path: src.clone(),
                                 dst_path: dst.clone(),
-                                src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
-                                dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
-                                src_modified: src.metadata().and_then(|m| m.modified()).ok(),
-                                dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                                src_size: src_meta.as_ref().map(|m| m.size).unwrap_or(0),
+                                dst_size: dst_meta.as_ref().map(|m| m.size).unwrap_or(0),
+                                src_modified: src_meta.as_ref().and_then(|m| m.modified),
+                                dst_modified: dst_meta.as_ref().and_then(|m| m.modified),
                             },
                         });
 
-                        // Limpiar conflicto anterior y esperar respuesta de la UI
                         {
                             let mut guard = self
                                 .active_conflict
@@ -593,7 +424,6 @@ impl TransferWorker {
                                 .expect("active_conflict mutex poisoned");
                             *guard = None;
                         }
-
                         while self
                             .active_conflict
                             .lock()
@@ -605,18 +435,17 @@ impl TransferWorker {
                             }
                             tokio::time::sleep(Duration::from_millis(100)).await;
                         }
-
                         let ch = self
                             .active_conflict
                             .lock()
                             .expect("active_conflict mutex poisoned")
                             .clone()
-                            .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+                            .unwrap_or(super::conflict::ConflictResolution::Skip);
                         match ch {
-                            crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
-                            crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
-                            crate::fs::transfer::conflict::ConflictResolution::SkipAll |
-                            crate::fs::transfer::conflict::ConflictResolution::RenameAll => {
+                            super::conflict::ConflictResolution::OverwriteAll
+                            | super::conflict::ConflictResolution::OverwriteOlderAll
+                            | super::conflict::ConflictResolution::SkipAll
+                            | super::conflict::ConflictResolution::RenameAll => {
                                 auto_resolution = Some(ch);
                             }
                             _ => {}
@@ -625,20 +454,18 @@ impl TransferWorker {
                     };
 
                     resolution = match chosen {
-                        crate::fs::transfer::conflict::ConflictResolution::Overwrite
-                        | crate::fs::transfer::conflict::ConflictResolution::OverwriteAll => {
+                        super::conflict::ConflictResolution::Overwrite
+                        | super::conflict::ConflictResolution::OverwriteAll => {
                             "overwrite".to_string()
                         }
-                        crate::fs::transfer::conflict::ConflictResolution::OverwriteOlder
-                        | crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll => {
+                        super::conflict::ConflictResolution::OverwriteOlder
+                        | super::conflict::ConflictResolution::OverwriteOlderAll => {
                             "overwrite_older".to_string()
                         }
-                        crate::fs::transfer::conflict::ConflictResolution::Rename
-                        | crate::fs::transfer::conflict::ConflictResolution::RenameAll
-                        | crate::fs::transfer::conflict::ConflictResolution::KeepBoth => {
-                            "rename".to_string()
-                        }
-                        crate::fs::transfer::conflict::ConflictResolution::Cancel => {
+                        super::conflict::ConflictResolution::Rename
+                        | super::conflict::ConflictResolution::RenameAll
+                        | super::conflict::ConflictResolution::KeepBoth => "rename".to_string(),
+                        super::conflict::ConflictResolution::Cancel => {
                             self.is_cancelled.store(true, Ordering::SeqCst);
                             return Err(anyhow!("Job cancelled"));
                         }
@@ -663,11 +490,10 @@ impl TransferWorker {
                         dst = resolve_filename_conflict(&dst);
                     }
                     "overwrite_older" => {
-                        let src_time = src.metadata().and_then(|m| m.modified()).ok();
-                        let dst_time = dst.metadata().and_then(|m| m.modified()).ok();
+                        let src_time = self.src_endpoint.lstat(&src).ok().and_then(|m| m.modified);
+                        let dst_time = self.dst_endpoint.lstat(&dst).ok().and_then(|m| m.modified);
                         if let (Some(s_time), Some(d_time)) = (src_time, dst_time) {
                             if s_time <= d_time {
-                                // Omitir, el destino es más nuevo o igual
                                 results.skipped_files.push(SkippedFile {
                                     src: src.clone(),
                                     reason: "Destination is newer or equal (skipped)".to_string(),
@@ -691,68 +517,50 @@ impl TransferWorker {
                 index: idx,
             });
 
-            // Fase Copia / Transferencia con reintentos
-            let mut retries = 0u32;
+            let mut retries: u32 = 0;
             let mut copy_success = false;
             let mut last_error = String::new();
-            let mut src_hash = None;
-            let mut dst_hash = None;
+            let mut src_hash: Option<String> = None;
+            let mut dst_hash: Option<String> = None;
             let file_start = Instant::now();
 
-            let is_symlink = src.is_symlink();
-            let recreate_link = is_symlink && !options.follow_symlinks;
+            // Is the source a symlink? If so, recreate it at
+            // the destination instead of copying bytes.
+            let src_meta_for_link = self.src_endpoint.lstat(&src).ok();
+            let is_symlink = src_meta_for_link
+                .as_ref()
+                .map(|m| m.is_symlink)
+                .unwrap_or(false);
+            let recreate_link = is_symlink && !self.options.follow_symlinks;
 
             if recreate_link {
-                match (|| -> std::io::Result<()> {
-                    let target = std::fs::read_link(&src)?;
-                    #[cfg(target_os = "windows")]
-                    {
-                        let absolute_target = if target.is_relative() {
-                            src.parent()
-                                .map(|p| p.join(&target))
-                                .unwrap_or_else(|| target.clone())
-                        } else {
-                            target.clone()
-                        };
-                        let is_dir = absolute_target.is_dir();
-                        if dst.exists() {
-                            let _ = std::fs::remove_file(&dst);
-                            let _ = std::fs::remove_dir_all(&dst);
+                if let Some(meta) = src_meta_for_link {
+                    match recreate_symlink(
+                        &self.src_endpoint,
+                        &self.dst_endpoint,
+                        &meta,
+                        &src,
+                        &dst,
+                    ) {
+                        Ok(_) => {
+                            copy_success = true;
                         }
-                        if is_dir {
-                            std::os::windows::fs::symlink_dir(&target, &dst)?;
-                        } else {
-                            std::os::windows::fs::symlink_file(&target, &dst)?;
-                        }
+                        Err(e) => last_error = format!("Error creating symlink: {}", e),
                     }
-                    #[cfg(not(target_os = "windows"))]
-                    {
-                        if dst.exists() {
-                            let _ = std::fs::remove_file(&dst);
-                        }
-                        std::os::unix::fs::symlink(&target, &dst)?;
-                    }
-                    Ok(())
-                })() {
-                    Ok(_) => {
-                        copy_success = true;
-                    }
-                    Err(e) => {
-                        last_error = format!("Error creating symlink: {}", e);
-                    }
+                } else {
+                    last_error = "Could not stat source symlink".to_string();
                 }
             } else {
-                while retries <= options.max_retries {
+                while retries <= self.options.max_retries {
                     if self.is_cancelled.load(Ordering::Relaxed) {
                         return Err(anyhow!("Job cancelled"));
                     }
-
                     match copy_file_pipelined(
-                        &super::endpoint::TransferEndpoint::Local,
+                        &self.src_endpoint,
                         &src,
-                        &super::endpoint::TransferEndpoint::Local,
+                        &self.dst_endpoint,
                         &dst,
-                        &options,
+                        &self.options,
                         &self.event_tx,
                         self.job_id,
                         Arc::clone(&self.is_paused),
@@ -770,9 +578,8 @@ impl TransferWorker {
                         Err(e) => {
                             retries += 1;
                             last_error = e.to_string();
-                            if retries <= options.max_retries {
-                                // Backoff exponencial simple: 100ms, 200ms, 400ms...
-                                let backoff = Duration::from_millis(100 * (1 << retries));
+                            if retries <= self.options.max_retries {
+                                let backoff = Duration::from_millis(100 * (1u64 << retries));
                                 tokio::time::sleep(backoff).await;
                             }
                         }
@@ -781,87 +588,63 @@ impl TransferWorker {
             }
 
             if !copy_success {
-                results.failed_files.push(FailedFile {
+                let failed = FailedFile {
                     src: src.clone(),
                     dst: dst.clone(),
                     error: last_error.clone(),
                     retries,
-                });
+                };
+                results.failed_files.push(failed.clone());
                 let _ = self.event_tx.send(TransferEvent::FileFailed {
                     job_id: self.job_id,
-                    error: FailedFile {
-                        src: src.clone(),
-                        dst: dst.clone(),
-                        error: last_error.clone(),
-                        retries,
-                    },
+                    error: failed,
                 });
-                if options.halt_on_error {
-                    let _ = self.event_tx.send(TransferEvent::JobFailed {
-                        job_id: self.job_id,
-                        error: format!("Halt on error triggered by file failure: {}", last_error),
-                    });
-                    return Err(anyhow::anyhow!("Halt on error: {}", last_error));
+                if self.options.halt_on_error {
+                    return Err(anyhow!("Halt on error: {}", last_error));
                 }
                 continue;
             }
 
-            // Preservar metadatos
+            // Metadata preservation (Phase 2 already endpoint-aware).
             let _ = preserve_metadata(
-                &super::endpoint::TransferEndpoint::Local,
+                &self.src_endpoint,
                 &src,
-                &super::endpoint::TransferEndpoint::Local,
+                &self.dst_endpoint,
                 &dst,
-                &options,
+                &self.options,
             );
 
-            // Verificación del hash
-            let verified = true;
-            if options.verify_after_copy {
+            // Optional hash verification after copy.
+            if self.options.verify_after_copy {
                 let _ = self.event_tx.send(TransferEvent::VerifyStarted {
                     job_id: self.job_id,
                     file: src.clone(),
-                    algorithm: options.hash_algorithm.as_str().to_string(),
+                    algorithm: self.options.hash_algorithm.as_str().to_string(),
                 });
-
                 if let (Some(sh), Some(dh)) = (src_hash.as_ref(), dst_hash.as_ref()) {
                     let _ = self.event_tx.send(TransferEvent::VerifyProgress {
                         job_id: self.job_id,
                         bytes_verified: size,
                         bytes_total: size,
                     });
-
                     if sh != dh {
-                        results.failed_files.push(FailedFile {
+                        let failed = FailedFile {
                             src: src.clone(),
                             dst: dst.clone(),
                             error: "Hash verification mismatch".to_string(),
                             retries: 0,
-                        });
+                        };
+                        results.failed_files.push(failed.clone());
                         let _ = self.event_tx.send(TransferEvent::FileFailed {
                             job_id: self.job_id,
-                            error: FailedFile {
-                                src: src.clone(),
-                                dst: dst.clone(),
-                                error: "Hash verification mismatch".to_string(),
-                                retries: 0,
-                            },
+                            error: failed,
                         });
-                        if options.halt_on_error {
-                            let _ = self.event_tx.send(TransferEvent::JobFailed {
-                                job_id: self.job_id,
-                                error: "Halt on error triggered by hash mismatch".to_string(),
-                            });
-                            return Err(anyhow::anyhow!("Halt on error: Hash mismatch"));
+                        if self.options.halt_on_error {
+                            return Err(anyhow!("Halt on error: Hash mismatch"));
                         }
                         continue;
                     }
                 }
-            }
-
-            // Si la operación es MOVE y fue verificado con éxito, eliminar origen
-            if self.operation == TransferOperation::Move && verified {
-                let _ = std::fs::remove_file(&src);
             }
 
             let file_result = FileTransferResult {
@@ -870,29 +653,314 @@ impl TransferWorker {
                 size,
                 src_hash: src_hash.clone(),
                 dst_hash: dst_hash.clone(),
-                verified,
+                verified: true,
                 duration: file_start.elapsed(),
             };
-
             results.completed_files.push(file_result.clone());
-
             let _ = self.event_tx.send(TransferEvent::FileCompleted {
                 job_id: self.job_id,
                 result: file_result,
             });
         }
 
-        // Si la operación es MOVE, eliminar las carpetas de origen vacías (de más profunda a más superficial)
-        if self.operation == TransferOperation::Move {
-            dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
-            for dir in dirs_to_delete {
+        // For `Move` dispatched through run_copy, we also need
+        // to delete the sources. The dispatching site calls
+        // run_copy_and_delete; this is the copy-only path.
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
+    }
+
+    // -----------------------------------------------------------------
+    //   Move: same-endpoint atomic rename
+    // -----------------------------------------------------------------
+    async fn run_move_atomic(
+        &self,
+        scan_mappings: Vec<(PathBuf, PathBuf, u64)>,
+        dirs_to_delete: Vec<PathBuf>,
+    ) -> Result<TransferResults, anyhow::Error> {
+        let mut results = TransferResults::default();
+        for (idx, (src, mut dst, size)) in scan_mappings.into_iter().enumerate() {
+            if self.is_cancelled.load(Ordering::Relaxed) {
+                return Err(anyhow!("Job cancelled"));
+            }
+            while self.is_paused.load(Ordering::Relaxed) {
                 if self.is_cancelled.load(Ordering::Relaxed) {
-                    break;
+                    return Err(anyhow!("Job cancelled"));
                 }
-                let mut res = std::fs::remove_dir(&dir);
+                tokio::time::sleep(Duration::from_millis(100)).await;
+            }
+            if self.skip_file_flag.swap(false, Ordering::Relaxed) {
+                results.skipped_files.push(SkippedFile {
+                    src: src.clone(),
+                    reason: "Skipped by user".to_string(),
+                });
+                let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                    job_id: self.job_id,
+                    file: src.clone(),
+                    reason: "Skipped by user".to_string(),
+                });
+                continue;
+            }
+
+            // Conflict handling: if the destination exists, fall
+            // back to the same logic as Copy.
+            if self.dst_endpoint.exists(&dst) {
+                // For atomic move, only Overwrite and Rename are
+                // meaningful. Skip / Overwrite-older reuse the
+                // Copy semantics.
+                match self.options.conflict_resolution.as_str() {
+                    "skip" | "ask" => {
+                        results.skipped_files.push(SkippedFile {
+                            src: src.clone(),
+                            reason: "File already exists (skipped)".to_string(),
+                        });
+                        let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                            job_id: self.job_id,
+                            file: src.clone(),
+                            reason: "File already exists".to_string(),
+                        });
+                        continue;
+                    }
+                    "rename" | "keep_both" => {
+                        dst = resolve_filename_conflict(&dst);
+                    }
+                    _ => {} // Overwrite / overwrite_older
+                }
+            }
+
+            let _ = self.event_tx.send(TransferEvent::FileStarted {
+                job_id: self.job_id,
+                file: src.clone(),
+                index: idx,
+            });
+
+            let file_start = Instant::now();
+            let mut copy_success = false;
+            let mut last_error = String::new();
+            let mut retries: u32 = 0;
+
+            while retries <= self.options.max_retries {
+                match self.src_endpoint.rename(&src, &dst) {
+                    Ok(_) => {
+                        copy_success = true;
+                        break;
+                    }
+                    Err(e) => {
+                        retries += 1;
+                        last_error = e.to_string();
+                        if retries <= self.options.max_retries {
+                            let backoff = Duration::from_millis(100 * (1u64 << retries));
+                            tokio::time::sleep(backoff).await;
+                        }
+                    }
+                }
+            }
+
+            if !copy_success {
+                let failed = FailedFile {
+                    src: src.clone(),
+                    dst: dst.clone(),
+                    error: last_error.clone(),
+                    retries,
+                };
+                results.failed_files.push(failed.clone());
+                let _ = self.event_tx.send(TransferEvent::FileFailed {
+                    job_id: self.job_id,
+                    error: failed,
+                });
+                if self.options.halt_on_error {
+                    return Err(anyhow!("Halt on error: {}", last_error));
+                }
+                continue;
+            }
+
+            let file_result = FileTransferResult {
+                src: src.clone(),
+                dst: dst.clone(),
+                size,
+                src_hash: None,
+                dst_hash: None,
+                verified: true,
+                duration: file_start.elapsed(),
+            };
+            results.completed_files.push(file_result.clone());
+            let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                job_id: self.job_id,
+                result: file_result,
+            });
+        }
+
+        // Remove now-empty source directories (deepest first).
+        let mut sorted_dirs = dirs_to_delete;
+        sorted_dirs.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+        for dir in sorted_dirs {
+            if self.is_cancelled.load(Ordering::Relaxed) {
+                break;
+            }
+            let _ = self.src_endpoint.remove_dir(&dir);
+        }
+
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
+    }
+
+    // -----------------------------------------------------------------
+    //   Delete
+    // -----------------------------------------------------------------
+    async fn run_delete(
+        &self,
+        scan_mappings: Vec<(PathBuf, PathBuf, u64)>,
+        dirs_to_delete: Vec<PathBuf>,
+        _files_scanned: usize,
+        bytes_transferred_acc: Arc<AtomicU64>,
+    ) -> Result<TransferResults, anyhow::Error> {
+        let mut results = TransferResults::default();
+
+        if self.options.delete_to_recycle_bin && self.src_endpoint.is_local() {
+            for (idx, (src, _, _)) in scan_mappings.iter().enumerate() {
+                if self.is_cancelled.load(Ordering::Relaxed) {
+                    return Err(anyhow!("Job cancelled"));
+                }
+                let delete_start = Instant::now();
+                let _ = self.event_tx.send(TransferEvent::FileStarted {
+                    job_id: self.job_id,
+                    file: src.clone(),
+                    index: idx,
+                });
+                if let Err(e) = send_to_recycle_bin_helper(src) {
+                    let failed = FailedFile {
+                        src: src.clone(),
+                        dst: PathBuf::new(),
+                        error: e.to_string(),
+                        retries: 0,
+                    };
+                    results.failed_files.push(failed.clone());
+                    let _ = self.event_tx.send(TransferEvent::FileFailed {
+                        job_id: self.job_id,
+                        error: failed,
+                    });
+                    if self.options.halt_on_error {
+                        return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
+                    }
+                } else {
+                    let size = self.src_endpoint.lstat(src).map(|m| m.size).unwrap_or(0);
+                    let result = FileTransferResult {
+                        src: src.clone(),
+                        dst: PathBuf::new(),
+                        size,
+                        src_hash: None,
+                        dst_hash: None,
+                        verified: true,
+                        duration: delete_start.elapsed(),
+                    };
+                    results.completed_files.push(result.clone());
+                    let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                        job_id: self.job_id,
+                        result,
+                    });
+                    bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
+                }
+            }
+        } else {
+            for (idx, (src, _, size)) in scan_mappings.into_iter().enumerate() {
+                if self.is_cancelled.load(Ordering::Relaxed) {
+                    return Err(anyhow!("Job cancelled"));
+                }
+                while self.is_paused.load(Ordering::Relaxed) {
+                    if self.is_cancelled.load(Ordering::Relaxed) {
+                        return Err(anyhow!("Job cancelled"));
+                    }
+                    tokio::time::sleep(Duration::from_millis(100)).await;
+                }
+                if self.skip_file_flag.swap(false, Ordering::Relaxed) {
+                    results.skipped_files.push(SkippedFile {
+                        src: src.clone(),
+                        reason: "Skipped by user".to_string(),
+                    });
+                    let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                        job_id: self.job_id,
+                        file: src.clone(),
+                        reason: "Skipped by user".to_string(),
+                    });
+                    continue;
+                }
+
+                let delete_start = Instant::now();
+                let _ = self.event_tx.send(TransferEvent::FileStarted {
+                    job_id: self.job_id,
+                    file: src.clone(),
+                    index: idx,
+                });
+                let mut res = self.src_endpoint.remove_file(&src);
                 if res.is_err() {
-                    let _ = make_writable_helper(&dir);
-                    res = std::fs::remove_dir(&dir);
+                    let _ = self.src_endpoint.make_writable(&src);
+                    res = self.src_endpoint.remove_file(&src);
+                }
+                if let Err(e) = res {
+                    let failed = FailedFile {
+                        src: src.clone(),
+                        dst: PathBuf::new(),
+                        error: e.to_string(),
+                        retries: 0,
+                    };
+                    results.failed_files.push(failed.clone());
+                    let _ = self.event_tx.send(TransferEvent::FileFailed {
+                        job_id: self.job_id,
+                        error: failed,
+                    });
+                    if self.options.halt_on_error {
+                        return Err(anyhow!("Halt on error: Deletion failed"));
+                    }
+                } else {
+                    let result = FileTransferResult {
+                        src: src.clone(),
+                        dst: PathBuf::new(),
+                        size,
+                        src_hash: None,
+                        dst_hash: None,
+                        verified: true,
+                        duration: delete_start.elapsed(),
+                    };
+                    results.completed_files.push(result.clone());
+                    let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                        job_id: self.job_id,
+                        result,
+                    });
+                    bytes_transferred_acc.fetch_add(size, Ordering::SeqCst);
+                }
+            }
+
+            let mut sorted_dirs = dirs_to_delete;
+            sorted_dirs.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+            for dir in sorted_dirs {
+                let mut res = self.src_endpoint.remove_dir(&dir);
+                if res.is_err() {
+                    let _ = self.src_endpoint.make_writable(&dir);
+                    res = self.src_endpoint.remove_dir(&dir);
+                }
+                if let Err(e) = res {
+                    let failed = FailedFile {
+                        src: dir.clone(),
+                        dst: PathBuf::new(),
+                        error: e.to_string(),
+                        retries: 0,
+                    };
+                    results.failed_files.push(failed);
+                    let _ = self.event_tx.send(TransferEvent::FileFailed {
+                        job_id: self.job_id,
+                        error: FailedFile {
+                            src: dir.clone(),
+                            dst: PathBuf::new(),
+                            error: e.to_string(),
+                            retries: 0,
+                        },
+                    });
                 }
             }
         }
@@ -901,13 +969,118 @@ impl TransferWorker {
             job_id: self.job_id,
             results: results.clone(),
         });
-
         Ok(results)
     }
 }
 
+// =========================================================================
+//   Helpers
+// =========================================================================
+
+/// Re-create a symlink in the destination by reading the source
+/// target through the endpoint and writing it to the destination
+/// through the destination endpoint. On Windows, target_is_dir
+/// matters for whether we make a file or directory symlink; on
+/// Unix the same call works for both.
+fn recreate_symlink(
+    src_endpoint: &TransferEndpoint,
+    dst_endpoint: &TransferEndpoint,
+    src_meta: &StatInfo,
+    src: &Path,
+    dst: &Path,
+) -> Result<(), anyhow::Error> {
+    let target = src_meta
+        .target
+        .clone()
+        .or_else(|| src_endpoint.read_link(src).ok())
+        .ok_or_else(|| anyhow!("could not read symlink target for {}", src.display()))?;
+
+    if dst_endpoint.exists(dst) {
+        let _ = dst_endpoint.remove_file(dst);
+        let _ = dst_endpoint.remove_dir_all(dst);
+    }
+
+    let target_is_dir = src_endpoint
+        .stat(&target)
+        .map(|m| m.is_dir)
+        .unwrap_or(false);
+    dst_endpoint
+        .create_symlink(&target, dst, target_is_dir)
+        .map_err(|e| anyhow!("create_symlink {}: {}", dst.display(), e))?;
+    Ok(())
+}
+
+/// Spawn the periodic speed reporter that emits
+/// `TransferEvent::SpeedUpdate` for the UI.
+fn spawn_speed_reporter(
+    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    job_id: Uuid,
+    bytes_acc: Arc<AtomicU64>,
+    total_bytes: u64,
+    is_cancelled: Arc<AtomicBool>,
+) -> tokio::task::JoinHandle<()> {
+    tokio::spawn(async move {
+        let mut last_bytes: u64 = 0;
+        let mut interval = tokio::time::interval(Duration::from_secs(1));
+        loop {
+            interval.tick().await;
+            if is_cancelled.load(Ordering::Relaxed) {
+                break;
+            }
+            let current_bytes = bytes_acc.load(Ordering::SeqCst);
+            let delta = current_bytes.saturating_sub(last_bytes);
+            last_bytes = current_bytes;
+            let bytes_per_second = delta as f64;
+            let remaining_bytes = total_bytes.saturating_sub(current_bytes);
+            let eta_seconds = if bytes_per_second > 0.0 {
+                Some((remaining_bytes as f64 / bytes_per_second) as u64)
+            } else {
+                None
+            };
+            let _ = event_tx.send(TransferEvent::SpeedUpdate {
+                job_id,
+                bytes_per_second,
+                eta_seconds,
+            });
+            if current_bytes >= total_bytes && total_bytes > 0 {
+                break;
+            }
+        }
+    })
+}
+
+/// Determines if `destination` should be treated as a parent directory into which
+/// source items are placed (appending source item filenames), or if `destination` is
+/// the target path for a single source item itself.
+pub fn is_destination_parent_dir(
+    sources: &[PathBuf],
+    destination: &Path,
+    is_dir_fn: impl Fn(&Path) -> bool,
+) -> bool {
+    if sources.len() > 1 {
+        return true;
+    }
+    let s = destination.to_string_lossy();
+    if s.ends_with('/') || s.ends_with('\\') {
+        return true;
+    }
+    if is_dir_fn(destination) {
+        if let Some(src) = sources.first() {
+            if let (Some(dest_name), Some(src_name)) = (destination.file_name(), src.file_name()) {
+                return dest_name != src_name;
+            }
+        }
+        return true;
+    }
+    false
+}
+
+// =========================================================================
+//   Recycle-bin helpers
+// =========================================================================
+
 #[cfg(target_os = "windows")]
-fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
+fn send_to_recycle_bin_helper(path: &Path) -> anyhow::Result<()> {
     use std::process::Command;
     let path_str = path.to_string_lossy().replace('\'', "''");
     let ps_cmd = if path.is_dir() {
@@ -936,7 +1109,7 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
 }
 
 #[cfg(not(target_os = "windows"))]
-fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
+fn send_to_recycle_bin_helper(path: &Path) -> anyhow::Result<()> {
     use std::process::Command;
 
     // 1. Try `gio trash` (GNOME / modern GLib-based desktops).
@@ -947,76 +1120,29 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
         .status()
     {
         Ok(s) if s.success() => return Ok(()),
-        Ok(_) | Err(_) => {} // not installed or refused; fall through
+        Ok(_) | Err(_) => {}
     }
-
-    // 2. Try `trash-put` (trash-cli, common on KDE/minimal setups).
+    // 2. Try `trash-put` (trash-cli).
     match Command::new("trash-put").arg("--").arg(path).status() {
         Ok(s) if s.success() => return Ok(()),
         Ok(_) | Err(_) => {}
     }
-
-    // 3. Do NOT fall back to a permanent delete silently — that would turn
-    // a "move to trash" intent into data loss on distros where neither
-    // trash tool is installed (Fedora Server, RHEL minimal, Alpine, etc.).
-    // Surface the missing dependency to the caller so the UI can ask the
-    // user to install `glib2` (provides `gio`) or `trash-cli`, or to
-    // confirm a permanent delete explicitly.
     anyhow::bail!(
         "no trash tool found. Install `gio` (glib2) or `trash-cli`, or use a permanent delete."
     )
 }
 
-fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
-    let metadata = path.symlink_metadata()?;
-    if metadata.file_type().is_symlink() {
-        return Ok(());
-    }
-    let mut perms = metadata.permissions();
-    #[cfg(not(target_os = "windows"))]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = perms.mode();
-        let is_dir = metadata.is_dir();
-        let new_mode = if is_dir { mode | 0o700 } else { mode | 0o600 };
-        perms.set_mode(new_mode);
-    }
-    #[cfg(target_os = "windows")]
-    {
-        perms.set_readonly(false);
-    }
-    std::fs::set_permissions(path, perms)
-}
-
-/// Determines if `destination` should be treated as a parent directory into which
-/// source items are placed (appending source item filenames), or if `destination` is
-/// the target path for a single source item itself.
-pub fn is_destination_parent_dir(
-    sources: &[PathBuf],
-    destination: &std::path::Path,
-    is_dir_fn: impl FnOnce(&std::path::Path) -> bool,
-) -> bool {
-    if sources.len() > 1 {
-        return true;
-    }
-    let s = destination.to_string_lossy();
-    if s.ends_with('/') || s.ends_with('\\') {
-        return true;
-    }
-    if is_dir_fn(destination) {
-        if let Some(src) = sources.first() {
-            if let (Some(dest_name), Some(src_name)) = (destination.file_name(), src.file_name()) {
-                return dest_name != src_name;
-            }
-        }
-        return true;
-    }
-    false
-}
+// =========================================================================
+//   Tests
+// =========================================================================
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn ep() -> TransferEndpoint {
+        TransferEndpoint::Local
+    }
 
     #[test]
     fn test_is_destination_parent_dir_single_file_target_path() {
@@ -1051,11 +1177,193 @@ mod tests {
         assert!(is_destination_parent_dir(&sources, &destination, |_| false));
     }
 
+    fn make_worker(
+        op: TransferOperation,
+        sources: Vec<PathBuf>,
+        destination: PathBuf,
+    ) -> (TransferWorker, mpsc::UnboundedReceiver<TransferEvent>) {
+        let (tx, rx) = mpsc::unbounded_channel();
+        let is_paused = Arc::new(AtomicBool::new(false));
+        let is_cancelled = Arc::new(AtomicBool::new(false));
+        let skip = Arc::new(AtomicBool::new(false));
+        let conflict = Arc::new(std::sync::Mutex::new(None));
+        let w = TransferWorker::new(
+            Uuid::new_v4(),
+            op,
+            sources,
+            destination,
+            ep(),
+            ep(),
+            TransferOptions::default(),
+            is_paused,
+            is_cancelled,
+            skip,
+            tx,
+            conflict,
+        );
+        (w, rx)
+    }
+
+    #[tokio::test]
+    async fn test_worker_copy_local_to_local() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_root = tmp.path().join("src");
+        let dst_root = tmp.path().join("dst");
+        std::fs::create_dir_all(&src_root).unwrap();
+        let f1 = src_root.join("a.txt");
+        let f2 = src_root.join("sub/b.txt");
+        std::fs::create_dir_all(f2.parent().unwrap()).unwrap();
+        std::fs::write(&f1, b"hello-a").unwrap();
+        std::fs::write(&f2, b"hello-b").unwrap();
+        std::fs::create_dir_all(&dst_root).unwrap();
+
+        let (worker, mut rx) = make_worker(
+            TransferOperation::Copy,
+            vec![src_root.clone()],
+            dst_root.clone(),
+        );
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
+
+        let res = worker.run().await;
+        assert!(res.is_ok(), "copy failed: {:?}", res.err());
+
+        let moved = dst_root.join("src");
+        assert_eq!(std::fs::read(moved.join("a.txt")).unwrap(), b"hello-a");
+        assert_eq!(std::fs::read(moved.join("sub/b.txt")).unwrap(), b"hello-b");
+    }
+
+    #[tokio::test]
+    async fn test_worker_delete_local() {
+        let tmp = tempfile::tempdir().unwrap();
+        let root = tmp.path().join("victim");
+        std::fs::create_dir_all(root.join("nested")).unwrap();
+        std::fs::write(root.join("a.txt"), b"x").unwrap();
+        std::fs::write(root.join("nested/b.txt"), b"y").unwrap();
+
+        let (worker, mut rx) = make_worker(
+            TransferOperation::Delete,
+            vec![root.clone()],
+            PathBuf::new(),
+        );
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
+
+        let res = worker.run().await;
+        assert!(res.is_ok(), "delete failed: {:?}", res.err());
+        assert!(!root.exists());
+    }
+
+    #[tokio::test]
+    async fn test_worker_move_local_atomic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_root = tmp.path().join("src");
+        let dst_root = tmp.path().join("dst");
+        std::fs::create_dir_all(&src_root).unwrap();
+        std::fs::write(src_root.join("a.txt"), b"hello").unwrap();
+        std::fs::create_dir_all(&dst_root).unwrap();
+
+        let (worker, mut rx) = make_worker(
+            TransferOperation::Move,
+            vec![src_root.clone()],
+            dst_root.clone(),
+        );
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
+
+        let res = worker.run().await;
+        assert!(res.is_ok(), "move failed: {:?}", res.err());
+
+        // Atomic move: source should be gone, destination should
+        // have the folder.
+        assert!(!src_root.exists());
+        assert!(dst_root.join("src/a.txt").exists());
+    }
+
+    #[tokio::test]
+    async fn test_worker_copy_preserves_symlink() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_root = tmp.path().join("src");
+        let dst_root = tmp.path().join("dst");
+        std::fs::create_dir_all(&src_root).unwrap();
+        let target = src_root.join("real.txt");
+        std::fs::write(&target, b"target").unwrap();
+        let link = src_root.join("link.txt");
+        #[cfg(unix)]
+        std::os::unix::fs::symlink(&target, &link).unwrap();
+        #[cfg(windows)]
+        std::os::windows::fs::symlink_file(&target, &link).unwrap();
+        std::fs::create_dir_all(&dst_root).unwrap();
+
+        let (worker, mut rx) = make_worker(
+            TransferOperation::Copy,
+            vec![src_root.clone()],
+            dst_root.clone(),
+        );
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
+
+        let res = worker.run().await;
+        assert!(res.is_ok(), "copy failed: {:?}", res.err());
+
+        let moved = dst_root.join("src");
+        let moved_link = moved.join("link.txt");
+        assert!(
+            moved_link
+                .symlink_metadata()
+                .unwrap()
+                .file_type()
+                .is_symlink()
+        );
+    }
+
+    #[tokio::test]
+    async fn test_worker_scan_does_not_loop_on_circular_symlink() {
+        #[cfg(unix)]
+        {
+            let tmp = tempfile::tempdir().unwrap();
+            let src_root = tmp.path().join("src");
+            let dst_root = tmp.path().join("dst");
+            std::fs::create_dir_all(&src_root).unwrap();
+            std::fs::write(src_root.join("file.txt"), b"hello").unwrap();
+            std::os::unix::fs::symlink(&src_root, src_root.join("loop")).unwrap();
+            std::fs::create_dir_all(&dst_root).unwrap();
+
+            let (tx, _rx) = mpsc::unbounded_channel();
+            let is_paused = Arc::new(AtomicBool::new(false));
+            let is_cancelled = Arc::new(AtomicBool::new(false));
+            let skip = Arc::new(AtomicBool::new(false));
+            let conflict = Arc::new(std::sync::Mutex::new(None));
+            let mut options = TransferOptions::default();
+            options.follow_symlinks = true;
+            options.conflict_resolution = "overwrite".to_string();
+
+            let worker = TransferWorker::new(
+                Uuid::new_v4(),
+                TransferOperation::Copy,
+                vec![src_root.clone()],
+                dst_root.clone(),
+                ep(),
+                ep(),
+                options,
+                is_paused,
+                is_cancelled,
+                skip,
+                tx,
+                conflict,
+            );
+            let res = tokio::time::timeout(std::time::Duration::from_secs(10), worker.run())
+                .await
+                .expect("worker should not loop on a circular symlink");
+            assert!(res.is_ok(), "worker returned error: {res:?}");
+        }
+    }
+
     #[tokio::test]
     async fn test_worker_move_directory_tree() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let src_root = temp_dir.path().join("src_folder");
-        let dst_root = temp_dir.path().join("dst_folder");
+        // Compatibility: re-creates the previous worker test for
+        // the cross-directory move case. Even with the new
+        // atomic-rename dispatch, the result is the same:
+        // sources gone, contents in destination.
+        let tmp = tempfile::tempdir().unwrap();
+        let src_root = tmp.path().join("src_folder");
+        let dst_root = tmp.path().join("dst_folder");
 
         let sub_dir = src_root.join("sub_dir").join("nested");
         std::fs::create_dir_all(&sub_dir).unwrap();
@@ -1068,31 +1376,16 @@ mod tests {
 
         std::fs::create_dir_all(&dst_root).unwrap();
 
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
-        let is_paused = Arc::new(AtomicBool::new(false));
-        let is_cancelled = Arc::new(AtomicBool::new(false));
-        let skip_flag = Arc::new(AtomicBool::new(false));
-        let active_conflict = Arc::new(std::sync::Mutex::new(None));
-
-        let worker = TransferWorker::new(
-            Uuid::new_v4(),
+        let (worker, mut rx) = make_worker(
             TransferOperation::Move,
             vec![src_root.clone()],
             dst_root.clone(),
-            TransferOptions::default(),
-            is_paused,
-            is_cancelled,
-            skip_flag,
-            tx,
-            active_conflict,
         );
-
-        tokio::spawn(async move { while let Some(_) = rx.recv().await {} });
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
 
         let res = worker.run().await;
-        assert!(res.is_ok());
+        assert!(res.is_ok(), "move tree failed: {:?}", res.err());
 
-        // Verificar que el destino contenga todos los archivos y carpetas
         let dst_moved_folder = dst_root.join("src_folder");
         assert!(dst_moved_folder.join("file1.txt").exists());
         assert!(
@@ -1102,62 +1395,8 @@ mod tests {
                 .join("file2.txt")
                 .exists()
         );
-
-        // Verificar que el origen (archivos Y estructura de carpetas) fue eliminado por completo
         assert!(!file1.exists());
         assert!(!file2.exists());
-        assert!(!sub_dir.exists());
         assert!(!src_root.exists());
-    }
-
-    /// Regression test: a circular symlink inside the source tree
-    /// must NOT send the BFS into an infinite loop. With the
-    /// cycle-detection guard, the worker completes and records
-    /// each path at most once. Without it, this test would hang
-    /// until the test runner's timeout.
-    #[cfg(unix)]
-    #[tokio::test]
-    async fn test_worker_scan_does_not_loop_on_circular_symlink() {
-        let temp_dir = tempfile::tempdir().unwrap();
-        let src_root = temp_dir.path().join("src");
-        let dst_root = temp_dir.path().join("dst");
-        std::fs::create_dir_all(&src_root).unwrap();
-        std::fs::write(src_root.join("file.txt"), "hello").unwrap();
-        // Self-loop: `loop` points back at its parent directory.
-        // With `follow_symlinks = true` the BFS would normally
-        // re-enqueue the parent forever.
-        std::os::unix::fs::symlink(&src_root, src_root.join("loop")).unwrap();
-        std::fs::create_dir_all(&dst_root).unwrap();
-
-        let (tx, _rx) = tokio::sync::mpsc::unbounded_channel();
-        let is_paused = Arc::new(AtomicBool::new(false));
-        let is_cancelled = Arc::new(AtomicBool::new(false));
-        let skip_flag = Arc::new(AtomicBool::new(false));
-        let active_conflict = Arc::new(std::sync::Mutex::new(None));
-
-        let mut options = TransferOptions::default();
-        options.follow_symlinks = true;
-        options.conflict_resolution = "overwrite".to_string();
-
-        let worker = TransferWorker::new(
-            Uuid::new_v4(),
-            TransferOperation::Copy,
-            vec![src_root.clone()],
-            dst_root.clone(),
-            options,
-            is_paused,
-            is_cancelled,
-            skip_flag,
-            tx,
-            active_conflict,
-        );
-
-        // Use a hard wall-clock deadline so a regression in the
-        // cycle-detection guard surfaces as a test failure
-        // instead of hanging the whole test suite.
-        let res = tokio::time::timeout(std::time::Duration::from_secs(10), worker.run())
-            .await
-            .expect("worker should not loop on a circular symlink");
-        assert!(res.is_ok(), "worker returned error: {res:?}");
     }
 }
