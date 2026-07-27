@@ -75,6 +75,19 @@ pub enum TransferEvent {
         file: PathBuf,
         conflict: super::conflict::ConflictInfo,
     },
+    /// Emitted for every file that failed with
+    /// `AccessDenied` on a **local** endpoint. SSH failures
+    /// are reported as `FileError::IoError` instead and do
+    /// not trigger this event. The UI can use these to
+    /// show a per-file indicator (e.g. a red icon next to
+    /// the failed entry) but the actual retry prompt is
+    /// driven by [`Self::PermissionPrompt`] at the end of
+    /// the job.
+    PermissionDenied {
+        job_id: Uuid,
+        file: PathBuf,
+        error: String,
+    },
     /// Emitted at the end of a job when the
     /// [`super::policy::PromptPolicy`] has accumulated at
     /// least one `AccessDenied` failure. The UI is expected

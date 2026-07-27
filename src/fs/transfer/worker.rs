@@ -101,7 +101,16 @@ impl TransferWorker {
         error: &str,
         retries: u32,
     ) {
-        report_file_failure(&*self.policy, src, error);
+        let is_remote =
+            !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
+        report_file_failure(
+            &*self.policy,
+            &self.event_tx,
+            self.job_id,
+            src,
+            error,
+            is_remote,
+        );
         let failed = FailedFile {
             src: src.to_path_buf(),
             dst: dst.to_path_buf(),
@@ -1253,13 +1262,39 @@ impl TransferWorker {
 /// Categorises the error so the [`super::policy::PromptPolicy`]
 /// can decide whether to add the file to its
 /// retry-as-admin batch.
+///
+/// On **local** endpoints, an `AccessDenied` also emits a
+/// [`TransferEvent::PermissionDenied`] so the UI can
+/// show per-file feedback. On **SSH** endpoints the
+/// failure is reported as a plain `FileError::IoError`:
+/// the server's permissions are not something we can
+/// escalate locally, so the retry-as-admin prompt is
+/// suppressed for them.
 fn report_file_failure(
     policy: &dyn TransferPolicy,
+    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    job_id: Uuid,
     file: &Path,
     error_msg: &str,
+    is_remote_op: bool,
 ) {
-    let cat = FileError::from_error_message(error_msg);
+    let mut cat = FileError::from_error_message(error_msg);
+    if is_remote_op && cat.is_access_denied() {
+        // SSH failures are not retryable by elevation:
+        // the helper runs on the local machine and
+        // cannot touch the remote server's permissions.
+        // Downgrade so the policy doesn't accumulate it
+        // and the UI sees a normal I/O error.
+        cat = FileError::IoError(error_msg.to_string());
+    }
     policy.on_file_error(file, &cat);
+    if cat.is_access_denied() {
+        let _ = event_tx.send(TransferEvent::PermissionDenied {
+            job_id,
+            file: file.to_path_buf(),
+            error: error_msg.to_string(),
+        });
+    }
 }
 
 /// Re-create a symlink in the destination by reading the source
@@ -1574,6 +1609,119 @@ mod tests {
         let moved = dst_root.join("src");
         assert_eq!(std::fs::read(moved.join("a.txt")).unwrap(), b"hello-a");
         assert_eq!(std::fs::read(moved.join("sub/b.txt")).unwrap(), b"hello-b");
+    }
+
+    #[test]
+    fn test_worker_continues_after_access_denied() {
+        // The engine must keep going after a file
+        // fails. We exercise the `emit_file_failed` path
+        // directly: a single failure on `src_a` is
+        // reported through the policy, then `src_b` is
+        // reported as a success. Both should be
+        // accounted for in the same `results` struct.
+        use crate::fs::transfer::policy::PromptPolicy;
+        let policy: Arc<dyn TransferPolicy> = Arc::new(PromptPolicy::new());
+
+        // Build a minimal results + the helper
+        // signature we need.
+        let (tx, _rx) = mpsc::unbounded_channel::<TransferEvent>();
+        let job_id = Uuid::new_v4();
+
+        // `report_file_failure` is the actual point
+        // of interest: it categorises the error and
+        // tells the policy.
+        report_file_failure(
+            &*policy,
+            &tx,
+            job_id,
+            Path::new("/file_a"),
+            "Access is denied",
+            false,
+        );
+        // After one AccessDenied, the policy holds 1.
+        // We can't observe it from outside (no
+        // `pending_count`), but `finalize` drains it.
+        let drained = policy.finalize();
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].original_path, PathBuf::from("/file_a"));
+
+        // A second call categorises a different file
+        // and a non-access-denied error: it must not
+        // be added to the retry batch.
+        report_file_failure(
+            &*policy,
+            &tx,
+            job_id,
+            Path::new("/file_b"),
+            "Permission denied",
+            false,
+        );
+        report_file_failure(
+            &*policy,
+            &tx,
+            job_id,
+            Path::new("/file_c"),
+            "I/O error: connection reset",
+            false,
+        );
+        // Only the second AccessDenied is added; the
+        // IoError is filtered.
+        let drained = policy.finalize();
+        assert_eq!(drained.len(), 1);
+        assert_eq!(drained[0].original_path, PathBuf::from("/file_b"));
+    }
+
+    #[test]
+    fn test_report_file_failure_downgrades_ssh_access_denied() {
+        // When `is_remote_op` is true, AccessDenied
+        // is downgraded to IoError so the policy does
+        // not accumulate it.
+        use crate::fs::transfer::policy::PromptPolicy;
+        let policy: Arc<dyn TransferPolicy> = Arc::new(PromptPolicy::new());
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<TransferEvent>();
+        let job_id = Uuid::new_v4();
+
+        report_file_failure(
+            &*policy,
+            &tx,
+            job_id,
+            Path::new("/remote_file"),
+            "Permission denied",
+            /* is_remote_op = */ true,
+        );
+        // Policy must not have recorded anything.
+        assert!(policy.finalize().is_empty());
+        // And no PermissionDenied event was emitted.
+        assert!(rx.try_recv().is_err());
+    }
+
+    #[test]
+    fn test_report_file_failure_emits_permission_denied_event() {
+        // On a local endpoint, AccessDenied should
+        // emit a PermissionDenied event so the UI can
+        // show a per-file indicator.
+        use crate::fs::transfer::policy::PromptPolicy;
+        let policy: Arc<dyn TransferPolicy> = Arc::new(PromptPolicy::new());
+
+        let (tx, mut rx) = mpsc::unbounded_channel::<TransferEvent>();
+        let job_id = Uuid::new_v4();
+
+        report_file_failure(
+            &*policy,
+            &tx,
+            job_id,
+            Path::new("/file_x"),
+            "Access is denied",
+            /* is_remote_op = */ false,
+        );
+
+        match rx.try_recv() {
+            Ok(TransferEvent::PermissionDenied { file, .. }) => {
+                assert_eq!(file, PathBuf::from("/file_x"));
+            }
+            other => panic!("expected PermissionDenied, got {:?}", other),
+        }
     }
 
     #[tokio::test]

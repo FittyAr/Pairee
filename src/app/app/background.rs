@@ -511,6 +511,18 @@ pub fn process_background_updates(
                         }
                     });
                 }
+                TransferEvent::PermissionDenied { job_id, file, error } => {
+                    // Per-file log entry. The UI can use
+                    // this for a red icon in the transfer
+                    // panel; B4 wires the visual.
+                    transfer_state.engine.queue.update_job(job_id, |job| {
+                        job.log_lines.push(format!(
+                            "🔐 Access denied: {} ({})",
+                            file.to_string_lossy(),
+                            error
+                        ));
+                    });
+                }
                 TransferEvent::VerifyStarted {
                     job_id,
                     file,
