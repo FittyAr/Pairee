@@ -834,3 +834,30 @@ update_installed_restart = "Update installed! Please restart Pairee to use the n
 update_no_updates = "No updates available. You are running the latest version."
 update_available_ignored = "An update ({}) is available, but you have ignored this version."
 
+# ── Help document titles (F1 popup) ──────────────────────────────────────────
+# These override the auto-derived title from the .md filename. Add an entry per
+# help file to control how it appears in the F1 document list.
+help_title_00_index                                      = "📚 Help — Documentation Index"
+help_title_10_tutorial_getting_started                   = "🎓 Tutorial: Getting Started"
+help_title_11_tutorial_panels_and_screens                = "🎓 Tutorial: Panels and Screens"
+help_title_20_howto_file_operations                      = "🔧 How-To: File Operations"
+help_title_21_howto_search_filter_history                = "🔧 How-To: Search, Filter, History"
+help_title_22_howto_archives                             = "🔧 How-To: Archives (Compress, Extract)"
+help_title_23_howto_ssh_sftp                             = "🔧 How-To: SSH and SFTP Connections"
+help_title_24_howto_git_integration                      = "🔧 How-To: Git Integration"
+help_title_25_howto_appearance_themes                    = "🔧 How-To: Appearance and Themes"
+help_title_26_howto_keymaps_user_menu                    = "🔧 How-To: Keymaps and User Menu"
+help_title_27_howto_file_associations                    = "🔧 How-To: File Associations"
+help_title_28_howto_plugins                              = "🔧 How-To: Plugins (User Side)"
+help_title_29_howto_install_build_update                 = "🔧 How-To: Install, Build, and Update"
+help_title_30_howto_ssh_modifier_keys                    = "🔧 How-To: Modifier Keys over SSH"
+help_title_40_reference_keyboard_shortcuts               = "📖 Reference: Keyboard Shortcuts"
+help_title_41_reference_configuration                    = "📖 Reference: Configuration Settings"
+help_title_42_reference_themes                           = "📖 Reference: Theme TOML Schema"
+help_title_43_reference_actions                          = "📖 Reference: Action Enum and Keymap Schema"
+help_title_44_reference_ssh_fields                       = "📖 Reference: SSH Dialog and SFTP Operations"
+help_title_45_reference_plugins_api                      = "📖 Reference: Plugin Lua API"
+help_title_50_explanation_architecture                   = "💡 Explanation: Architecture, Async, Screens"
+help_title_51_explanation_plugin_sandbox                 = "💡 Explanation: Plugin Sandbox and Trust"
+help_title_52_explanation_update_system                  = "💡 Explanation: The Update System"
+
