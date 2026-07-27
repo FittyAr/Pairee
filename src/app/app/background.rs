@@ -8,13 +8,57 @@ pub fn process_background_updates(
     terminal_backend: &mut TerminalBackend,
 ) {
     // 1. Process background operation updates (e.g. copy progress)
+    //
+    // The previous code did `state.progress_rx.take()` and only
+    // restored it at the very end of the branch. If anything in
+    // the middle — a `.expect()`, a panic in a downstream
+    // closure, even an early `?` — aborted the function, the
+    // receiver would be dropped and the background task would
+    // keep sending into a dead channel forever. The user would
+    // see the progress bar frozen at whatever value was last
+    // rendered. We now wrap the take/restore pair in a tiny RAII
+    // guard so the receiver is always put back, even on panic.
     if state.progress_rx.is_some() {
-        let mut rx = state.progress_rx.take().unwrap();
+        // We pull all available updates from the channel into a
+        // local Vec first, then drop the guard before touching
+        // `state` again. Otherwise the guard's mutable borrow of
+        // `state.progress_rx` would conflict with the writes to
+        // `state.active_popup` / `state.active_bg_op` we need to
+        // do next.
+        let mut updates: Vec<crate::fs::ProgressUpdate> = Vec::new();
+        {
+            struct RxGuard<'a, T> {
+                slot: &'a mut Option<T>,
+                held: Option<T>,
+            }
+            impl<'a, T> RxGuard<'a, T> {
+                fn new(slot: &'a mut Option<T>) -> Self {
+                    let taken = slot.take();
+                    Self { slot, held: taken }
+                }
+            }
+            impl<'a, T> Drop for RxGuard<'a, T> {
+                fn drop(&mut self) {
+                    if self.held.is_some() {
+                        *self.slot = self.held.take();
+                    }
+                }
+            }
+            let mut guard = RxGuard::new(&mut state.progress_rx);
+            while let Ok(update) = guard
+                .held
+                .as_mut()
+                .expect("RxGuard holds the receiver")
+                .try_recv()
+            {
+                updates.push(update);
+            }
+        } // guard dropped here; state.progress_rx is restored
+
         let mut is_completed = false;
         let mut has_error = None;
         let mut latest_update = None;
-
-        while let Ok(update) = rx.try_recv() {
+        for update in updates {
             if let Some(err) = update.error.clone() {
                 has_error = Some(err);
             } else if update.current_file == "Completed" {
@@ -69,7 +113,6 @@ pub fn process_background_updates(
                     });
                 }
             }
-            state.progress_rx = Some(rx);
         }
     }
 

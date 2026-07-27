@@ -2,6 +2,44 @@ use anyhow::{Context as _, Result};
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
+/// Maximum size of a single release asset (200 MiB). Release artifacts
+/// are well under this in practice (a fully-static musl build is
+/// ~10 MiB). Anything larger is treated as a server bug or an
+/// active attack and aborted.
+pub const MAX_ASSET_BYTES: u64 = 200 * 1024 * 1024;
+
+/// Sanity-check that `filename` is a safe leaf name to write under
+/// `dest_dir`. Rejects:
+///   * empty strings
+///   * absolute paths (`/etc/passwd`, `C:\foo`)
+///   * path traversal (`../foo`, `foo/../../bar`)
+///   * NUL bytes and other control characters
+///   * path separators on Unix (`/`) and Windows (`\`)
+fn validate_filename(filename: &str) -> Result<()> {
+    if filename.is_empty() {
+        anyhow::bail!("download filename is empty");
+    }
+    if std::path::Path::new(filename).is_absolute() {
+        anyhow::bail!("download filename is absolute: {}", filename);
+    }
+    if filename.contains('\0') || filename.contains("..") {
+        anyhow::bail!(
+            "download filename contains a path traversal segment: {}",
+            filename
+        );
+    }
+    if filename.contains('/') || filename.contains('\\') {
+        anyhow::bail!("download filename contains a path separator: {}", filename);
+    }
+    if filename
+        .chars()
+        .any(|c| c.is_control() || c == '\n' || c == '\r')
+    {
+        anyhow::bail!("download filename contains control characters");
+    }
+    Ok(())
+}
+
 /// Download a release asset from `url` into `dest_dir`.
 /// Sends progress updates (0.0 – 1.0) via `progress_tx` (may be None).
 /// Returns the path to the downloaded file.
@@ -12,6 +50,18 @@ pub async fn download_asset(
     progress_tx: Option<mpsc::Sender<f32>>,
 ) -> Result<PathBuf> {
     use tokio::io::AsyncWriteExt as _;
+
+    // Refuse non-HTTPS downloads. Releases come from GitHub's
+    // `github.com` over HTTPS; if a release page ever points at a
+    // plain-HTTP URL the user has been served a malicious payload
+    // and we want to fail closed rather than ship an unverified
+    // binary.
+    if !url.starts_with("https://") {
+        anyhow::bail!("download URL must use https://, got: {}", url);
+    }
+
+    validate_filename(filename)
+        .with_context(|| format!("refusing to write unsafe filename {:?}", filename))?;
 
     let client = build_client()?;
     let mut response = client
@@ -28,6 +78,19 @@ pub async fn download_asset(
         anyhow::bail!("download returned status {}", response.status());
     }
 
+    // Honour the server's advertised size, but only if it is below
+    // our cap. A missing or larger Content-Length aborts the
+    // download before we write a single byte.
+    if let Some(len) = response.content_length() {
+        if len > MAX_ASSET_BYTES {
+            anyhow::bail!(
+                "download is too large: {} bytes advertised (max {})",
+                len,
+                MAX_ASSET_BYTES
+            );
+        }
+    }
+
     let total = response.content_length().unwrap_or(0);
     let dest_path = dest_dir.join(filename);
     let mut file = tokio::fs::File::create(&dest_path)
@@ -39,14 +102,32 @@ pub async fn download_asset(
     loop {
         match response.chunk().await.context("stream error")? {
             Some(chunk) => {
+                // Hard cap during streaming too, in case the server
+                // lies about Content-Length (returns a body larger
+                // than advertised).
+                downloaded = downloaded
+                    .checked_add(chunk.len() as u64)
+                    .context("byte counter overflow")?;
+                if downloaded > MAX_ASSET_BYTES {
+                    // Best-effort: truncate the partial file so the
+                    // user does not see a corrupt artifact.
+                    let _ = tokio::fs::remove_file(&dest_path).await;
+                    anyhow::bail!(
+                        "download exceeded the {} byte cap mid-stream; \
+                         the partial file has been removed",
+                        MAX_ASSET_BYTES
+                    );
+                }
                 file.write_all(&chunk)
                     .await
                     .context("failed to write chunk")?;
-                downloaded += chunk.len() as u64;
                 if total > 0 {
-                    let progress = downloaded as f32 / total as f32;
+                    // f64 to keep precision on large files
+                    // (f32's 7-digit mantissa makes 1GB progress
+                    // jump from ~99.99% straight to 100%).
+                    let progress = downloaded as f64 / total as f64;
                     if let Some(tx) = &progress_tx {
-                        let _ = tx.try_send(progress);
+                        let _ = tx.try_send(progress as f32);
                     }
                 }
             }
@@ -207,6 +288,44 @@ fn process_block(state: &mut [u32; 8], block: &[u8; 64]) {
 
 fn hex_encode(bytes: &[u8]) -> String {
     bytes.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_filename_accepts_normal_names() {
+        for good in &[
+            "pairee-v0.7.1-x86_64-unknown-linux-musl.tar.gz",
+            "pairee-setup-0.7.1-x64.exe",
+            "release.tar.gz",
+            "a.zip",
+        ] {
+            validate_filename(good)
+                .unwrap_or_else(|e| panic!("expected {:?} to be valid, got: {}", good, e));
+        }
+    }
+
+    #[test]
+    fn validate_filename_rejects_traversal_and_absolute() {
+        for bad in &[
+            "",
+            "../etc/passwd",
+            "/etc/passwd",
+            "foo/../bar",
+            "foo/bar",
+            "foo\\bar",
+            "foo\0bar",
+            "foo\nbar",
+        ] {
+            assert!(
+                validate_filename(bad).is_err(),
+                "expected {:?} to be rejected",
+                bad
+            );
+        }
+    }
 }
 
 // ─── Platform target selection ───────────────────────────────────────────────

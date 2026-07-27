@@ -7,6 +7,10 @@ use std::path::PathBuf;
 const SEVENZIP_WIN_URL: &str =
     "https://github.com/ip7z/7zip/releases/download/26.01/7z2601-extra.7z";
 
+/// Hard cap on the 7z archive we will download (~50 MiB is plenty for
+/// the standalone 7za.exe; the whole extra bundle is ~30 MiB).
+const MAX_SEVENZIP_BYTES: u64 = 50 * 1024 * 1024;
+
 /// Gets the local path where `7za.exe` (or `7z`) should reside.
 pub fn get_external_7z_path() -> Option<PathBuf> {
     if cfg!(target_os = "windows") {
@@ -43,12 +47,75 @@ pub async fn ensure_external_tools() -> Result<()> {
         fs::create_dir_all(parent)?;
     }
 
-    // 1. Download the 7z archive
-    let response = reqwest::get(SEVENZIP_WIN_URL).await?.bytes().await?;
+    // 1. Download the 7z archive with a hard size cap and a request
+    //    timeout. The old `reqwest::get` had no timeout and no size
+    //    limit, which meant a malicious or hung server could fill
+    //    the user's disk or hang the app indefinitely.
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(60))
+        .build()
+        .context("failed to build 7z download client")?;
+    let mut response = client
+        .get(SEVENZIP_WIN_URL)
+        .header(
+            "User-Agent",
+            format!("pairee/{}", env!("CARGO_PKG_VERSION")),
+        )
+        .send()
+        .await
+        .context("failed to start 7z download")?;
 
-    // 2. Save it to a temporary file
-    let temp_archive = std::env::temp_dir().join("pairee_7z_extra.7z");
-    fs::write(&temp_archive, &response)?;
+    if !response.status().is_success() {
+        anyhow::bail!("7z download returned status {}", response.status());
+    }
+    if let Some(len) = response.content_length() {
+        if len > MAX_SEVENZIP_BYTES {
+            anyhow::bail!(
+                "7z archive is too large: {} bytes advertised (max {})",
+                len,
+                MAX_SEVENZIP_BYTES
+            );
+        }
+    }
+
+    // 2. Save it to a *per-process* temp file. The previous code
+    //    used a fixed name (`pairee_7z_extra.7z`) which races with
+    //    any other Pairee instance and with any leftover file from
+    //    a previous crash. We now use the PID in the filename and
+    //    register a cleanup closure so the temp file is removed on
+    //    every exit path (success, error, panic).
+    let temp_archive =
+        std::env::temp_dir().join(format!("pairee_7z_extra_{}.7z", std::process::id()));
+    struct TempGuard(PathBuf);
+    impl Drop for TempGuard {
+        fn drop(&mut self) {
+            let _ = fs::remove_file(&self.0);
+        }
+    }
+    let _guard = TempGuard(temp_archive.clone());
+
+    {
+        use std::io::Write as _;
+        let mut file = fs::File::create(&temp_archive).context("failed to create 7z temp file")?;
+        let mut written: u64 = 0;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .context("error while streaming 7z archive")?
+        {
+            written = written
+                .checked_add(chunk.len() as u64)
+                .context("7z byte counter overflow")?;
+            if written > MAX_SEVENZIP_BYTES {
+                anyhow::bail!(
+                    "7z archive exceeded the {} byte cap mid-stream",
+                    MAX_SEVENZIP_BYTES
+                );
+            }
+            file.write_all(&chunk).context("failed to write 7z chunk")?;
+        }
+        file.flush().context("failed to flush 7z temp file")?;
+    }
 
     // 3. Extract 7za.exe using our internal sevenz-rust crate
     sevenz_rust::decompress_file_with_extract_fn(
@@ -68,8 +135,7 @@ pub async fn ensure_external_tools() -> Result<()> {
     )
     .context("Failed to extract 7za.exe from downloaded archive")?;
 
-    // Cleanup temp file
-    let _ = fs::remove_file(temp_archive);
+    // _guard drops here and removes the temp file.
 
     Ok(())
 }

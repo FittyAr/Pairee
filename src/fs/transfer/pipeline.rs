@@ -130,7 +130,26 @@ pub async fn copy_file_pipelined(
 
                 // Enviar bloque al escritor
                 if block_tx.blocking_send(chunk).is_err() {
-                    return Err(anyhow!("Writer thread disconnected"));
+                    // The writer's `blocking_recv` only returns
+                    // `None` (which makes `block_tx.send` fail)
+                    // when the writer dropped its end of the
+                    // channel — and the writer drops its end on
+                    // every error path, including the user
+                    // cancelling. Distinguishing "the user pressed
+                    // Cancel" from "the writer hit a real error"
+                    // is not possible from this side, so we
+                    // surface a more accurate error and let the
+                    // orchestrator pick the right user-facing
+                    // message. The old text ("Writer thread
+                    // disconnected") was technically true but
+                    // made every cancellation look like a bug.
+                    if is_cancelled_reader.load(Ordering::Relaxed) {
+                        return Err(anyhow!("Transfer cancelled by user"));
+                    }
+                    return Err(anyhow!(
+                        "Writer thread exited before the reader finished \
+                         (likely an I/O error on the destination side)"
+                    ));
                 }
 
                 offset += bytes_read as u64;

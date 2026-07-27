@@ -66,17 +66,6 @@ pub fn is_command_safe(cmd: &str) -> bool {
         .split_once('.')
         .map(|(s, _)| s)
         .unwrap_or(&bin_name);
-    // Detect a "version-like" suffix: anything whose non-letter
-    // characters are only digits, dots, and dashes, and that does
-    // not introduce letters after the version marker.
-    let looks_like_version_suffix = |s: &str| -> bool {
-        if s.is_empty() {
-            return true; // no suffix at all
-        }
-        // Reject any letter anywhere — a true version suffix is
-        // purely numeric/punctuation.
-        s.chars().all(|c| !c.is_ascii_alphabetic())
-    };
     if blacklist.contains(&stem) && !looks_like_version_suffix(&bin_name[stem.len()..]) {
         return false;
     }
@@ -94,6 +83,24 @@ pub fn is_command_safe(cmd: &str) -> bool {
     }
 
     true
+}
+
+/// Strict "is this a real version suffix?" check. A real version
+/// suffix starts with a digit (so we require at least one digit,
+/// ruling out `bash.` / `python3;` / `bash-` / `python3.` — all
+/// of which the previous implementation incorrectly accepted),
+/// and contains only digits, dots, and dashes thereafter.
+fn looks_like_version_suffix(s: &str) -> bool {
+    if s.is_empty() {
+        return true; // no suffix at all
+    }
+    if !s.chars().any(|c| c.is_ascii_digit()) {
+        // No digit anywhere in the suffix — `.`, `;`, `-`, `..` etc.
+        // are not legitimate version markers.
+        return false;
+    }
+    s.chars()
+        .all(|c| c.is_ascii_digit() || c == '.' || c == '-')
 }
 
 pub fn create_sandboxed_lua(
@@ -209,10 +216,16 @@ mod tests {
     fn test_is_command_safe_blocks_suffix_bypass() {
         // Each of these would have slipped through the original
         // (basename-only) check.
-        assert!(!is_command_safe("cmd.exe.bak"), "cmd.exe.bak must be blocked");
+        assert!(
+            !is_command_safe("cmd.exe.bak"),
+            "cmd.exe.bak must be blocked"
+        );
         assert!(!is_command_safe("cmd.bat"), "cmd.bat must be blocked");
         assert!(!is_command_safe("bash.sh"), "bash.sh must be blocked");
-        assert!(!is_command_safe("python3.real"), "python3.real must be blocked");
+        assert!(
+            !is_command_safe("python3.real"),
+            "python3.real must be blocked"
+        );
         assert!(!is_command_safe("/usr/bin/cmd.exe.bak"));
         assert!(!is_command_safe("/usr/bin/bash.sh"));
     }
@@ -234,6 +247,23 @@ mod tests {
         assert!(!is_command_safe("CURL"));
         assert!(!is_command_safe("Cmd.Exe"));
         assert!(!is_command_safe("PYTHON3"));
+    }
+
+    #[test]
+    fn test_looks_like_version_suffix_is_strict() {
+        // Real version suffixes
+        assert!(super::looks_like_version_suffix(".11"));
+        assert!(super::looks_like_version_suffix(".1.2"));
+        assert!(super::looks_like_version_suffix("-5.1"));
+        assert!(super::looks_like_version_suffix(""));
+        // Non-version suffixes (previously allowed)
+        assert!(!super::looks_like_version_suffix(".")); // bare dot
+        assert!(!super::looks_like_version_suffix(";"));
+        assert!(!super::looks_like_version_suffix("-")); // bare dash
+        assert!(!super::looks_like_version_suffix(".."));
+        assert!(!super::looks_like_version_suffix("abc"));
+        // Suffix must contain at least one digit
+        assert!(!super::looks_like_version_suffix(".x"));
     }
 
     #[tokio::test]

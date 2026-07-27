@@ -24,20 +24,21 @@ impl TransferQueue {
     }
 
     pub fn dequeue(&self) -> Option<TransferJob> {
+        // We used to clone the job twice (once into a local, then
+        // back into the deque after mutating `status`). `TransferJob`
+        // carries options, paths and metadata, so the double clone
+        // was a measurable cost. We now do the mutation in place
+        // and only clone once (to hand the snapshot back to the
+        // worker thread).
         let mut active_id = self.active_job_id.lock().unwrap();
         let mut jobs = self.jobs.lock().unwrap();
-        if let Some(idx) = jobs
+        let idx = jobs
             .iter()
-            .position(|j| j.status == TransferJobStatus::Queued)
-        {
-            let mut job = jobs[idx].clone();
-            *active_id = Some(job.id);
-            job.status = TransferJobStatus::Scanning;
-            jobs[idx] = job.clone();
-            Some(job)
-        } else {
-            None
-        }
+            .position(|j| j.status == TransferJobStatus::Queued)?;
+        let job_id = jobs[idx].id;
+        jobs[idx].status = TransferJobStatus::Scanning;
+        *active_id = Some(job_id);
+        Some(jobs[idx].clone())
     }
 
     pub fn remove(&self, job_id: Uuid) -> bool {

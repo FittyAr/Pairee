@@ -18,6 +18,13 @@ pub fn init_repo(path: &Path) -> anyhow::Result<git2::Repository> {
 }
 
 /// Clones a remote repository to the specified path.
+///
+/// Supports both SSH and HTTPS remotes. For SSH, the agent is tried
+/// first, then the standard `~/.ssh/id_ed25519` / `id_ecdsa` /
+/// `id_rsa` / `id_dsa` keys. For HTTPS, the user/pass helper or
+/// the OS credential store is tried; if neither has credentials
+/// the clone is attempted anonymously, which works for public
+/// repositories.
 pub fn clone_repo(url: &str, path: &Path) -> anyhow::Result<git2::Repository> {
     let mut cb = git2::RemoteCallbacks::new();
     cb.credentials(|_url, username_from_url, allowed_types| {
@@ -26,8 +33,33 @@ pub fn clone_repo(url: &str, path: &Path) -> anyhow::Result<git2::Repository> {
             if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
                 return Ok(cred);
             }
+            if let Some(proj_dir) = directories::BaseDirs::new() {
+                let ssh_dir = proj_dir.home_dir().join(".ssh");
+                for filename in crate::git::remote::SSH_KEY_FILENAMES {
+                    let key_path = ssh_dir.join(filename);
+                    if key_path.exists() {
+                        if let Ok(cred) = git2::Cred::ssh_key(username, None, &key_path, None) {
+                            return Ok(cred);
+                        }
+                    }
+                }
+            }
+            return Err(git2::Error::from_str(
+                "no usable SSH credentials: agent not running and no \
+                 standard key files in ~/.ssh/",
+            ));
         }
-        Err(git2::Error::from_str("Authentication failed or no credentials found"))
+
+        // HTTPS path. We delegate to `Cred::default`, which uses
+        // whatever credential helper the user has configured in
+        // their git config (`credential.helper = store` / `cache`
+        // / `osxkeychain` / `libsecret`). For public repositories
+        // no credentials are needed and `default` returns
+        // anonymous access. The previous code only configured
+        // SSH callbacks, so any HTTPS clone (including the very
+        // common `https://github.com/...` form) failed with a
+        // useless "Authentication failed" error.
+        return git2::Cred::default();
     });
 
     let mut fo = git2::FetchOptions::new();

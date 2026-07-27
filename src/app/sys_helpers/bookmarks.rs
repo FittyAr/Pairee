@@ -4,23 +4,24 @@ use std::path::PathBuf;
 /// Returns a list of default bookmarks/shortcuts.
 pub fn get_hotlist_bookmarks() -> Vec<(String, PathBuf)> {
     let mut bookmarks = Vec::new();
-    if let Some(path) = directories::UserDirs::new().map(|u| u.home_dir().to_path_buf()) {
-        bookmarks.push(("Home Directory".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.desktop_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Desktop".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.document_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Documents".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.download_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Downloads".to_string(), path));
+    // The previous code called `directories::UserDirs::new()`
+    // four separate times to extract `home_dir`, `desktop_dir`,
+    // `document_dir` and `download_dir`. Each call is a mini-
+    // scan of env vars (and on some distros, a hit to
+    // `passwd` / `useradd` shellouts), so the duplication was a
+    // measurable startup cost. We now call it once and read
+    // every field from the same instance.
+    if let Some(user) = directories::UserDirs::new() {
+        bookmarks.push(("Home Directory".to_string(), user.home_dir().to_path_buf()));
+        if let Some(p) = user.desktop_dir().map(|d| d.to_path_buf()) {
+            bookmarks.push(("Desktop".to_string(), p));
+        }
+        if let Some(p) = user.document_dir().map(|d| d.to_path_buf()) {
+            bookmarks.push(("Documents".to_string(), p));
+        }
+        if let Some(p) = user.download_dir().map(|d| d.to_path_buf()) {
+            bookmarks.push(("Downloads".to_string(), p));
+        }
     }
     bookmarks.push((
         "System Root".to_string(),

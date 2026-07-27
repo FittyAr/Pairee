@@ -1,3 +1,9 @@
+/// The list of SSH private-key filenames we will try, in priority
+/// order, when the agent is not available. The previous code only
+/// tried `id_rsa`, which means anyone whose only key is ed25519
+/// (the modern OpenSSH default) hit "Authentication failed" even
+/// though the key was right there in `~/.ssh/`.
+pub const SSH_KEY_FILENAMES: &[&str] = &["id_ed25519", "id_ecdsa", "id_rsa", "id_dsa"];
 
 /// Helper to configure SSH and basic authentication callbacks.
 fn create_callbacks() -> git2::RemoteCallbacks<'static> {
@@ -5,21 +11,35 @@ fn create_callbacks() -> git2::RemoteCallbacks<'static> {
     callbacks.credentials(|_url, username_from_url, allowed_types| {
         if allowed_types.contains(git2::CredentialType::SSH_KEY) {
             let username = username_from_url.unwrap_or("git");
+            // 1. Try the SSH agent first — it handles every key
+            //    type, has the user's key passphrase cached, and
+            //    is the recommended path on modern systems.
             if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
                 return Ok(cred);
             }
+            // 2. Agent unavailable (no agent running, or the key
+            //    is not loaded). Walk the standard locations
+            //    ourselves, trying ed25519 / ecdsa / rsa / dsa in
+            //    priority order, and use the first one that exists
+            //    AND whose private key actually opens. We do not
+            //    prompt for a passphrase here (None as the second
+            //    argument); users who protect their keys with a
+            //    passphrase should run an SSH agent.
             if let Some(proj_dir) = directories::BaseDirs::new() {
-                let mut home = proj_dir.home_dir().to_path_buf();
-                home.push(".ssh");
-                let id_rsa = home.join("id_rsa");
-                if id_rsa.exists() {
-                    if let Ok(cred) = git2::Cred::ssh_key(username, None, &id_rsa, None) {
-                        return Ok(cred);
+                let ssh_dir = proj_dir.home_dir().join(".ssh");
+                for filename in SSH_KEY_FILENAMES {
+                    let key_path = ssh_dir.join(filename);
+                    if key_path.exists() {
+                        if let Ok(cred) = git2::Cred::ssh_key(username, None, &key_path, None) {
+                            return Ok(cred);
+                        }
                     }
                 }
             }
         }
-        Err(git2::Error::from_str("Authentication failed or no credentials found"))
+        Err(git2::Error::from_str(
+            "Authentication failed or no credentials found",
+        ))
     });
     callbacks
 }
@@ -51,7 +71,13 @@ pub fn pull(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> an
         let mut reference = repo.find_reference(&refname)?;
         reference.set_target(annotated_commit.id(), "pull: Fast-forward")?;
         repo.set_head(&refname)?;
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
+        // Safe (non-`.force()`) checkout: refuses to overwrite
+        // uncommitted local changes. The previous code used
+        // `.force()` which silently destroyed hours of work on
+        // uncommitted edits, stashed-or-not. A safe checkout
+        // surfaces the conflict to the caller as a
+        // `git2::Error::Class::Reference` and we propagate it.
+        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().safe()))?;
     } else if analysis.is_normal() {
         let local_commit = repo.head()?.peel_to_commit()?;
         let remote_commit = repo.find_commit(annotated_commit.id())?;
@@ -64,10 +90,13 @@ pub fn pull(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> an
         let tree_id = index.write_tree_to(repo)?;
         let tree = repo.find_tree(tree_id)?;
 
-        let sig = repo.signature().unwrap_or_else(|_| {
-            git2::Signature::now("Pairee User", "pairee@localhost").unwrap()
-        });
-        let message = format!("Merge branch '{}/{}' into {}", remote_name, branch_name, branch_name);
+        let sig = repo
+            .signature()
+            .unwrap_or_else(|_| git2::Signature::now("Pairee User", "pairee@localhost").unwrap());
+        let message = format!(
+            "Merge branch '{}/{}' into {}",
+            remote_name, branch_name, branch_name
+        );
 
         repo.commit(
             Some("HEAD"),

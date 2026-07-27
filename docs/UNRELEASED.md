@@ -272,3 +272,126 @@ them are fixed in this release:
 - New translation key `error_elevated_helper_failed` was added
   to surface admin-operation failures from the elevated helper
   process.
+
+#### Second-pass bug sweep (2026-07-26)
+
+A follow-up audit of the downloader, git, transfer pipeline,
+queue, plugin sandbox, external tools, and editor code paths
+uncovered 12 more defects. All of them are fixed in this
+release.
+
+**Downloader (`src/update/downloader.rs`)**
+
+- Release assets are now downloaded with a hard cap
+  (`MAX_ASSET_BYTES = 200 MiB`); a malicious or compromised
+  release server returning a 100GB body can no longer fill
+  the user's disk.
+- The download URL is now required to be `https://`; plain
+  HTTP downloads fail closed so a MITM cannot replace the
+  binary before the SHA-256 check.
+- `validate_filename` rejects empty names, absolute paths,
+  `..` traversal segments, NUL bytes, and path separators
+  before any byte is written, closing a path-traversal
+  vulnerability in which a release asset named
+  `../../../etc/cron.d/pairee` would have been materialised
+  outside the destination directory.
+- Progress is now computed in `f64` so the UI does not get
+  stuck at 99.99% on multi-gigabyte downloads.
+
+**External tools (`src/fs/external_tools.rs`)**
+
+- The 7z download now uses a 60-second timeout, a 50 MiB
+  size cap, and a *per-PID* temp filename (the previous
+  fixed name `pairee_7z_extra.7z` raced with any other
+  Pairee instance). A `TempGuard` RAII type removes the temp
+  file on every exit path — success, error, panic.
+
+**Git (`src/git/remote.rs`, `src/git/repo.rs`)**
+
+- SSH key authentication now walks the standard key list
+  (`id_ed25519`, `id_ecdsa`, `id_rsa`, `id_dsa`) when the
+  SSH agent is unavailable. The previous code only tried
+  `id_rsa`, which made every fresh `git fetch` from a
+  modern ed25519-only setup fail.
+- `git pull` no longer uses `CheckoutBuilder::force()` —
+  uncommitted local changes now survive a fast-forward
+  pull, with a clear conflict surfaced to the user instead
+  of silent destruction.
+- `clone_repo` now handles HTTPS remotes via
+  `git2::Cred::default()` (which honours the user's
+  `credential.helper` config). The previous code only
+  configured SSH callbacks, so cloning a `https://...`
+  URL always failed with a useless "Authentication failed"
+  error.
+
+**Editor (`src/app/sys_helpers/editor.rs`)**
+
+- `find_next_in_editor` is now fully char-index safe. The
+  pre-fix version did `&line[current_x..]` directly, which
+  panicked with `"byte index N is not a char boundary"` the
+  moment a user pressed F3 on a line containing accented
+  characters, CJK, or emoji. A new `char_slice` helper
+  operates entirely in char-index space and converts back
+  to byte offsets only for the final `find`/`rfind` call.
+
+**Transfer pipeline (`src/fs/transfer/pipeline.rs`)**
+
+- The reader's "Writer thread disconnected" error has been
+  replaced with two distinct messages: `"Transfer cancelled
+  by user"` when the user actually cancelled, and a clear
+  I/O error message otherwise. The old text made every
+  cancellation look like a bug.
+
+**Transfer queue (`src/fs/transfer/queue.rs`)**
+
+- `dequeue` now mutates the job in place instead of
+  clone-then-clone-again. `TransferJob` carries options,
+  paths and metadata, so the double clone was a measurable
+  per-dispatch cost.
+
+**Background tasks (`src/app/app/background.rs`)**
+
+- `process_background_updates` now wraps the
+  `take`/restore of `state.progress_rx` in a tiny RAII
+  guard. If anything in the middle of the function
+  panics, the receiver is still put back and the
+  background task can keep delivering progress updates
+  instead of seeing its channel close and the progress
+  bar freeze forever.
+
+**Plugin sandbox (`src/plugin/sandbox.rs`)**
+
+- `looks_like_version_suffix` is now strict: the suffix
+  must contain at least one digit and may only contain
+  digits, dots, and dashes. The old
+  `chars().all(|c| !c.is_ascii_alphabetic())` accepted
+  non-version suffixes like `python3.`, `bash.`,
+  `python3;`, and `bash-`, which were potential bypasses
+  of the `is_command_safe` command blacklist.
+
+**Bookmarks (`src/app/sys_helpers/bookmarks.rs`)**
+
+- `get_hotlist_bookmarks` now calls
+  `directories::UserDirs::new()` once and reads every
+  field (`home_dir`, `desktop_dir`, `document_dir`,
+  `download_dir`) from the same instance. The previous
+  code constructed a fresh `UserDirs` for every field,
+  which is four separate env-var-and-passwd-DB scans at
+  startup.
+
+**Tests**
+
+- New tests in `app/sys_helpers::editor`: multi-byte
+  UTF-8 search must not panic on accented / CJK / emoji
+  lines.
+- New tests in `update::downloader`: `validate_filename`
+  accepts normal names, rejects traversal / absolute /
+  control-character names.
+- New tests in `plugin::sandbox::is_command_safe`: the
+  strict `looks_like_version_suffix` now rejects `.`,
+  `;`, `-`, `..` and suffixes with no digit.
+
+Verification
+- `cargo check --all-targets`: clean
+- `cargo clippy --all-targets`: 0 warnings
+- `cargo test -- --test-threads=1`: 246 passed, 0 failed
