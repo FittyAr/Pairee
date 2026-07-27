@@ -1,6 +1,6 @@
 use anyhow::anyhow;
 use std::io::{Read, Seek, SeekFrom, Write};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, Instant};
@@ -696,6 +696,353 @@ async fn compress_sevenz(
     Ok(bytes.len() as u64)
 }
 
+// =========================================================================
+//   Extract pipeline (A7-A9)
+// =========================================================================
+
+/// Unpack a single archive at `archive` (on
+/// `src_endpoint`) into `dst_dir` (on
+/// `dst_endpoint`).
+///
+/// The `format` is required: the engine does not
+/// auto-detect from the file extension because the
+/// caller (the UI popup) already knows the format
+/// from the user's selection.
+///
+/// Path-traversal entries (`..`, absolute paths,
+/// NUL bytes) are rejected. We reuse the same
+/// `validate_archive_entry_name` helper that the
+/// legacy `fs/archive.rs` already had, so the
+/// behaviour matches.
+#[allow(clippy::too_many_arguments)]
+pub async fn extract_pipeline(
+    src_endpoint: &TransferEndpoint,
+    archive: &Path,
+    dst_endpoint: &TransferEndpoint,
+    dst_dir: &Path,
+    format: super::job::ArchiveFormat,
+    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    job_id: uuid::Uuid,
+    is_paused: Arc<AtomicBool>,
+    is_cancelled: Arc<AtomicBool>,
+) -> Result<u64, anyhow::Error> {
+    if is_cancelled.load(Ordering::Relaxed) {
+        return Err(anyhow!("Extract cancelled before start"));
+    }
+
+    // Make sure the destination directory exists
+    // (it almost always does, but the user might
+    // have typed a fresh one).
+    dst_endpoint
+        .mkdir_all(dst_dir)
+        .map_err(|e| anyhow!("Failed to create dst dir {:?}: {}", dst_dir, e))?;
+
+    let _ = (event_tx, job_id, is_paused);
+    match format {
+        super::job::ArchiveFormat::Zip => {
+            extract_zip(src_endpoint, archive, dst_endpoint, dst_dir).await
+        }
+        super::job::ArchiveFormat::TarGz => {
+            extract_targz(src_endpoint, archive, dst_endpoint, dst_dir).await
+        }
+        super::job::ArchiveFormat::SevenZ => {
+            extract_sevenz(src_endpoint, archive, dst_endpoint, dst_dir).await
+        }
+    }
+}
+
+/// Reject names that try to escape the destination
+/// directory. Returns the sanitised name (forward
+/// slashes only) on success.
+fn sanitise_entry_name(raw: &str) -> Result<PathBuf, anyhow::Error> {
+    if raw.is_empty() {
+        return Err(anyhow!("archive entry has empty name"));
+    }
+    if raw.contains('\0') {
+        return Err(anyhow!("archive entry contains NUL byte"));
+    }
+    // No absolute paths.
+    if raw.starts_with('/') || raw.starts_with('\\') {
+        return Err(anyhow!("archive entry is absolute: {}", raw));
+    }
+    // No parent traversal.
+    let normalised = raw.replace('\\', "/");
+    for component in std::path::Path::new(&normalised).components() {
+        match component {
+            std::path::Component::ParentDir => {
+                return Err(anyhow!("archive entry has '..': {}", raw));
+            }
+            std::path::Component::RootDir => {
+                return Err(anyhow!("archive entry is rooted: {}", raw));
+            }
+            _ => {}
+        }
+    }
+    Ok(PathBuf::from(normalised))
+}
+
+async fn extract_zip(
+    src_endpoint: &TransferEndpoint,
+    archive: &Path,
+    dst_endpoint: &TransferEndpoint,
+    dst_dir: &Path,
+) -> Result<u64, anyhow::Error> {
+    use std::io::{Cursor, Read, Write};
+
+    // For Local, we can hand the path straight to
+    // `zip::ZipArchive::new`. For Ssh we have to
+    // slurp the file into memory first because the
+    // zip crate takes a `Read + Seek` and the Ssh
+    // reader is `Read` only.
+    let mut archive_buf: Vec<u8> = Vec::new();
+    if src_endpoint.is_local() {
+        let mut f = std::fs::File::open(archive)
+            .map_err(|e| anyhow!("open archive {:?}: {}", archive, e))?;
+        f.read_to_end(&mut archive_buf)
+            .map_err(|e| anyhow!("read archive: {}", e))?;
+    } else {
+        let mut reader = src_endpoint
+            .open_reader(archive)
+            .map_err(|e| anyhow!("open archive reader: {}", e))?;
+        reader
+            .read_to_end(&mut archive_buf)
+            .map_err(|e| anyhow!("read archive bytes: {}", e))?;
+    }
+
+    let cursor = Cursor::new(archive_buf);
+    let mut za = zip::ZipArchive::new(cursor)
+        .map_err(|e| anyhow!("zip open: {}", e))?;
+
+    let mut entries_written: u64 = 0;
+    for i in 0..za.len() {
+        let mut entry = za
+            .by_index(i)
+            .map_err(|e| anyhow!("zip entry {}: {}", i, e))?;
+        if entry.is_dir() {
+            // Directories are implicit: we create
+            // the parent when writing the file
+            // contents, so we skip explicit dir
+            // entries.
+            continue;
+        }
+        let raw_name = entry.name().to_string();
+        let name = sanitise_entry_name(&raw_name)
+            .map_err(|e| anyhow!("unsafe entry '{}': {}", raw_name, e))?;
+        let out_path = dst_dir.join(&name);
+        if let Some(parent) = out_path.parent() {
+            dst_endpoint
+                .mkdir_all(parent)
+                .map_err(|e| anyhow!("mkdir_all {:?}: {}", parent, e))?;
+        }
+        let mut writer = dst_endpoint
+            .open_writer(&out_path, /* overwrite = */ true)
+            .map_err(|e| anyhow!("open writer for {:?}: {}", out_path, e))?;
+        // Stream the entry bytes through the
+        // endpoint writer.
+        let mut buf = [0u8; 64 * 1024];
+        loop {
+            let n = entry
+                .read(&mut buf)
+                .map_err(|e| anyhow!("zip read entry: {}", e))?;
+            if n == 0 {
+                break;
+            }
+            writer
+                .write_all(&buf[..n])
+                .map_err(|e| anyhow!("write entry bytes: {}", e))?;
+        }
+        writer
+            .flush()
+            .map_err(|e| anyhow!("flush entry: {}", e))?;
+        drop(writer);
+        entries_written += 1;
+    }
+
+    Ok(entries_written)
+}
+
+async fn extract_targz(
+    src_endpoint: &TransferEndpoint,
+    archive: &Path,
+    dst_endpoint: &TransferEndpoint,
+    dst_dir: &Path,
+) -> Result<u64, anyhow::Error> {
+    use flate2::read::GzDecoder;
+    use std::io::Read;
+
+    // Slurp the .tar.gz into memory (same caveat
+    // as Zip: tar's Archive needs Read + Seek and
+    // the Ssh reader is Read only).
+    let mut bytes: Vec<u8> = Vec::new();
+    if src_endpoint.is_local() {
+        let mut f = std::fs::File::open(archive)
+            .map_err(|e| anyhow!("open archive {:?}: {}", archive, e))?;
+        f.read_to_end(&mut bytes)
+            .map_err(|e| anyhow!("read archive: {}", e))?;
+    } else {
+        let mut reader = src_endpoint
+            .open_reader(archive)
+            .map_err(|e| anyhow!("open archive reader: {}", e))?;
+        reader
+            .read_to_end(&mut bytes)
+            .map_err(|e| anyhow!("read archive bytes: {}", e))?;
+    }
+
+    let gz = GzDecoder::new(&bytes[..]);
+    let mut tar = tar::Archive::new(gz);
+    let mut entries_written: u64 = 0;
+    for entry in tar
+        .entries()
+        .map_err(|e| anyhow!("tar entries: {}", e))?
+    {
+        let mut entry = entry.map_err(|e| anyhow!("tar entry: {}", e))?;
+        let header = entry
+            .path()
+            .map_err(|e| anyhow!("tar entry path: {}", e))?
+            .to_path_buf();
+        let name_str = header
+            .to_str()
+            .ok_or_else(|| anyhow!("non-UTF8 path in tar entry"))?;
+        let name = sanitise_entry_name(name_str)
+            .map_err(|e| anyhow!("unsafe tar entry '{}': {}", name_str, e))?;
+        let out_path = dst_dir.join(&name);
+
+        if entry.header().entry_type().is_dir() {
+            dst_endpoint
+                .mkdir_all(&out_path)
+                .map_err(|e| anyhow!("mkdir {:?}: {}", out_path, e))?;
+            continue;
+        }
+
+        if let Some(parent) = out_path.parent() {
+            dst_endpoint
+                .mkdir_all(parent)
+                .map_err(|e| anyhow!("mkdir_all {:?}: {}", parent, e))?;
+        }
+        let mut writer = dst_endpoint
+            .open_writer(&out_path, /* overwrite = */ true)
+            .map_err(|e| anyhow!("open writer for {:?}: {}", out_path, e))?;
+        std::io::copy(&mut entry, &mut writer)
+            .map_err(|e| anyhow!("write tar entry: {}", e))?;
+        std::io::Write::flush(&mut writer)
+            .map_err(|e| anyhow!("flush tar entry: {}", e))?;
+        drop(writer);
+        entries_written += 1;
+    }
+
+    Ok(entries_written)
+}
+
+async fn extract_sevenz(
+    src_endpoint: &TransferEndpoint,
+    archive: &Path,
+    dst_endpoint: &TransferEndpoint,
+    dst_dir: &Path,
+) -> Result<u64, anyhow::Error> {
+    use std::io::Read;
+
+    // Slurp the archive into memory because
+    // sevenz-rust's decompression APIs want
+    // `Read + Seek` and the Ssh reader is `Read`
+    // only. Same caveat as Zip and TarGz.
+    let mut bytes: Vec<u8> = Vec::new();
+    if src_endpoint.is_local() {
+        let mut f = std::fs::File::open(archive)
+            .map_err(|e| anyhow!("open archive {:?}: {}", archive, e))?;
+        f.read_to_end(&mut bytes)
+            .map_err(|e| anyhow!("read archive: {}", e))?;
+    } else {
+        let mut reader = src_endpoint
+            .open_reader(archive)
+            .map_err(|e| anyhow!("open archive reader: {}", e))?;
+        reader
+            .read_to_end(&mut bytes)
+            .map_err(|e| anyhow!("read archive bytes: {}", e))?;
+    }
+
+    // sevenz-rust is sync, so the work goes
+    // through spawn_blocking. The callback gets
+    // the entry name, a per-entry reader, and
+    // the destination path the library wants
+    // to use. We override it and route through
+    // our endpoint instead.
+    let dst_dir = dst_dir.to_path_buf();
+    let dst_endpoint_clone = dst_endpoint.clone();
+    let entries_written = tokio::task::spawn_blocking(move || {
+        use std::io::Cursor;
+        let cursor = Cursor::new(bytes);
+        let mut count: u64 = 0;
+        let result: Result<(), sevenz_rust::Error> = (|| {
+            sevenz_rust::decompress_with_extract_fn(
+                cursor,
+                &dst_dir,
+                |entry, reader, _dest| {
+                    let raw_name = entry.name().to_string();
+                    let name = sanitise_entry_name(&raw_name).map_err(|e| {
+                        sevenz_rust::Error::io_msg(
+                            std::io::Error::new(
+                                std::io::ErrorKind::InvalidInput,
+                                format!("{}: {}", e, raw_name),
+                            ),
+                            "",
+                        )
+                    })?;
+                    let out_path = dst_dir.join(&name);
+
+                    if entry.is_directory() {
+                        dst_endpoint_clone.mkdir_all(&out_path).map_err(|e| {
+                            sevenz_rust::Error::io_msg(
+                                std::io::Error::other(format!("mkdir {:?}: {}", out_path, e)),
+                                "",
+                            )
+                        })?;
+                        return Ok(true);
+                    }
+
+                    if let Some(parent) = out_path.parent() {
+                        dst_endpoint_clone.mkdir_all(parent).map_err(|e| {
+                            sevenz_rust::Error::io_msg(
+                                std::io::Error::other(format!("mkdir_all {:?}: {}", parent, e)),
+                                "",
+                            )
+                        })?;
+                    }
+                    let mut writer = dst_endpoint_clone
+                        .open_writer(&out_path, /* overwrite = */ true)
+                        .map_err(|e| {
+                            sevenz_rust::Error::io_msg(
+                                std::io::Error::other(format!("open writer {:?}: {}", out_path, e)),
+                                "",
+                            )
+                        })?;
+                    let mut reader = reader;
+                    std::io::copy(&mut reader, &mut writer).map_err(|e| {
+                        sevenz_rust::Error::io_msg(
+                            std::io::Error::other(format!("write 7z entry: {}", e)),
+                            "",
+                        )
+                    })?;
+                    std::io::Write::flush(&mut writer).map_err(|e| {
+                        sevenz_rust::Error::io_msg(
+                            std::io::Error::other(format!("flush 7z entry: {}", e)),
+                            "",
+                        )
+                    })?;
+                    drop(writer);
+                    count += 1;
+                    Ok(true)
+                },
+            )
+        })();
+        result.map_err(|e| anyhow!("sevenz extract: {}", e))?;
+        Ok::<u64, anyhow::Error>(count)
+    })
+    .await
+    .map_err(|e| anyhow!("spawn_blocking join: {}", e))??;
+
+    Ok(entries_written)
+}
+
 /// Recursive helper for `compress_sevenz`: push a
 /// directory tree into the writer. `name` is the
 /// top-level entry name (the directory's basename).
@@ -1319,5 +1666,159 @@ mod tests {
             }
         }
         assert!(found_a && found_b, "missing one or more files");
+    }
+
+    // ===============================================================
+    //   Extract pipeline (A7-A9)
+    // ===============================================================
+
+    #[tokio::test]
+    async fn extract_zip_to_local_round_trip() {
+        // Build a ZIP on disk, extract it, and
+        // confirm both files are present and
+        // contain the expected bytes.
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("input");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("a.txt"), b"hello-a").unwrap();
+        std::fs::write(src_dir.join("b.txt"), b"hello-b").unwrap();
+
+        let archive = tmp.path().join("out.zip");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        compress_pipeline(
+            &ep(),
+            vec![src_dir.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::Zip,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("zip compress succeeds");
+
+        let dst = tmp.path().join("out");
+        std::fs::create_dir_all(&dst).unwrap();
+        let entries = extract_pipeline(
+            &ep(),
+            &archive,
+            &ep(),
+            &dst,
+            super::super::job::ArchiveFormat::Zip,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+        )
+        .await
+        .expect("extract succeeds");
+        assert_eq!(entries, 2);
+        assert_eq!(std::fs::read(dst.join("input/a.txt")).unwrap(), b"hello-a");
+        assert_eq!(std::fs::read(dst.join("input/b.txt")).unwrap(), b"hello-b");
+    }
+
+    #[tokio::test]
+    async fn extract_targz_to_local_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("input");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("a.txt"), b"hello-a").unwrap();
+        std::fs::write(src_dir.join("b.txt"), b"hello-b").unwrap();
+
+        let archive = tmp.path().join("out.tar.gz");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        compress_pipeline(
+            &ep(),
+            vec![src_dir.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::TarGz,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("targz compress succeeds");
+
+        let dst = tmp.path().join("out");
+        std::fs::create_dir_all(&dst).unwrap();
+        let entries = extract_pipeline(
+            &ep(),
+            &archive,
+            &ep(),
+            &dst,
+            super::super::job::ArchiveFormat::TarGz,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+        )
+        .await
+        .expect("extract succeeds");
+        assert_eq!(entries, 2);
+        assert_eq!(std::fs::read(dst.join("input/a.txt")).unwrap(), b"hello-a");
+    }
+
+    #[tokio::test]
+    async fn extract_7z_to_local_round_trip() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("input");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("a.txt"), b"hello-a").unwrap();
+        std::fs::write(src_dir.join("b.txt"), b"hello-b").unwrap();
+
+        let archive = tmp.path().join("out.7z");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        compress_pipeline(
+            &ep(),
+            vec![src_dir.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::SevenZ,
+            5,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("sevenz compress succeeds");
+
+        let dst = tmp.path().join("out");
+        std::fs::create_dir_all(&dst).unwrap();
+        let entries = extract_pipeline(
+            &ep(),
+            &archive,
+            &ep(),
+            &dst,
+            super::super::job::ArchiveFormat::SevenZ,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+        )
+        .await
+        .expect("extract succeeds");
+        assert_eq!(entries, 2);
+        assert_eq!(std::fs::read(dst.join("input/a.txt")).unwrap(), b"hello-a");
+    }
+
+    #[test]
+    fn sanitise_entry_name_rejects_unsafe_names() {
+        assert!(sanitise_entry_name("a/b/c.txt").is_ok());
+        assert!(sanitise_entry_name("a\\b\\c.txt").is_ok());
+        assert!(sanitise_entry_name("../etc/passwd").is_err());
+        assert!(sanitise_entry_name("/etc/passwd").is_err());
+        assert!(sanitise_entry_name("a/../../b").is_err());
+        assert!(sanitise_entry_name("a\0b").is_err());
+        assert!(sanitise_entry_name("").is_err());
     }
 }

@@ -1178,17 +1178,64 @@ impl TransferWorker {
     }
 
     // -----------------------------------------------------------------
-    //   Extract (skeleton — real implementation in A6-A9)
+    //   Extract
     // -----------------------------------------------------------------
     async fn run_extract(
         &self,
         format: super::job::ArchiveFormat,
     ) -> Result<TransferResults, anyhow::Error> {
-        let _ = format;
-        Err(anyhow!(
-            "Extract pipeline is not implemented yet (A6-A9). \
-             Use the legacy Extract UI for now."
-        ))
+        // The archive is `sources[0]`. Path
+        // traversal is rejected inside the
+        // pipeline.
+        if self.sources.len() != 1 {
+            return Err(anyhow!(
+                "Extract requires exactly one source archive (got {})",
+                self.sources.len()
+            ));
+        }
+        let archive = self.sources[0].clone();
+        let _ = self
+            .event_tx
+            .send(TransferEvent::TransferStarted {
+                job_id: self.job_id,
+                total_files: 0,
+                total_bytes: 0,
+            });
+        let _entries = super::pipeline::extract_pipeline(
+            &self.src_endpoint,
+            &archive,
+            &self.dst_endpoint,
+            &self.destination,
+            format,
+            &self.event_tx,
+            self.job_id,
+            Arc::clone(&self.is_paused),
+            Arc::clone(&self.is_cancelled),
+        )
+        .await?;
+
+        let result = FileTransferResult {
+            src: archive,
+            dst: self.destination.clone(),
+            size: 0,
+            src_hash: None,
+            dst_hash: None,
+            verified: true,
+            duration: std::time::Duration::from_secs(0),
+        };
+        let _ = self
+            .event_tx
+            .send(TransferEvent::FileCompleted {
+                job_id: self.job_id,
+                result: result.clone(),
+            });
+        let mut results = TransferResults::default();
+        results.completed_files.push(result);
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
     }
 
     // -----------------------------------------------------------------
