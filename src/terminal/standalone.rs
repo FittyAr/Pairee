@@ -18,6 +18,9 @@ pub fn check_and_launch_standalone() -> Result<bool> {
         // even in the edge case where a user renames the binary to
         // "--standalone" (and so argv[0] == "--standalone") we still
         // produce a sensible argv for the child.
+        // `mut` is needed on Windows (see `new_args.insert(0, ...)` below).
+        // On other platforms the value is only borrowed, so silence the warning.
+        #[allow(unused_mut)]
         let mut new_args: Vec<String> = args
             .iter()
             .enumerate()

@@ -207,21 +207,19 @@ fn is_nix_path(path: &std::path::Path) -> bool {
 fn is_command_available(cmd: &str) -> bool {
     // `which` blocks if the shell hangs (it shouldn't, but be paranoid).
     // 2 seconds is enough on every reasonable system.
-    run_with_timeout(
-        std::process::Command::new("which").arg(cmd),
-        std::time::Duration::from_secs(2),
-    )
-    .map(|o| o.status.success())
-    .unwrap_or(false)
+    let mut c = std::process::Command::new("which");
+    c.arg(cmd);
+    run_with_timeout(c, std::time::Duration::from_secs(2))
+        .map(|o| o.status.success())
+        .unwrap_or(false)
 }
 
 #[cfg(not(target_os = "windows"))]
 fn is_pacman_owned(exe: &std::path::Path) -> bool {
     // 5 seconds: pacman -Qo reads the local DB and is normally < 100ms,
     // but the DB lock can stall if another pacman is running.
-    let cmd = std::process::Command::new("pacman")
-        .arg("-Qo")
-        .arg(&exe.to_string_lossy());
+    let mut cmd = std::process::Command::new("pacman");
+    cmd.arg("-Qo").arg(exe);
     run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -229,9 +227,8 @@ fn is_pacman_owned(exe: &std::path::Path) -> bool {
 
 #[cfg(not(target_os = "windows"))]
 fn is_dpkg_owned(exe: &std::path::Path) -> bool {
-    let cmd = std::process::Command::new("dpkg")
-        .arg("-S")
-        .arg(&exe.to_string_lossy());
+    let mut cmd = std::process::Command::new("dpkg");
+    cmd.arg("-S").arg(exe);
     run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -239,9 +236,8 @@ fn is_dpkg_owned(exe: &std::path::Path) -> bool {
 
 #[cfg(not(target_os = "windows"))]
 fn is_rpm_owned(exe: &std::path::Path) -> bool {
-    let cmd = std::process::Command::new("rpm")
-        .arg("-qf")
-        .arg(&exe.to_string_lossy());
+    let mut cmd = std::process::Command::new("rpm");
+    cmd.arg("-qf").arg(exe);
     run_with_timeout(cmd, std::time::Duration::from_secs(5))
         .map(|o| o.status.success())
         .unwrap_or(false)
