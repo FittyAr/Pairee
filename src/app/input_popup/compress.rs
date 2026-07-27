@@ -43,16 +43,42 @@ pub fn handle(
                         out_name.push_str(".zip");
                     }
                     let final_dest = dest_dir.join(out_name);
-                    let rx = crate::fs::spawn_compress_task(targets, final_dest);
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: false,
-                        current_file: t("progress_compressing"),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
+
+                    // A5: enqueue a Compress job on the
+                    // unified transfer engine. The
+                    // legacy `fs::spawn_compress_task`
+                    // and the `state.progress_rx`
+                    // channel are no longer used.
+                    use crate::app::state::transfer_state::TransferUIState;
+                    use crate::fs::transfer::engine::TransferEngine;
+                    use crate::fs::transfer::job::{
+                        ArchiveFormat, TransferJob, TransferOperation,
+                    };
+                    use crate::fs::transfer::options::TransferOptions;
+
+                    if state.transfer.is_none() {
+                        let (engine, rx) = TransferEngine::new();
+                        state.transfer = Some(TransferUIState::new(engine, rx));
+                    }
+                    if let Some(ref mut ts) = state.transfer {
+                        let options = TransferOptions::default();
+                        let job = TransferJob::with_endpoints(
+                            TransferOperation::Compress {
+                                format: ArchiveFormat::Zip,
+                                level: 6,
+                            },
+                            targets,
+                            final_dest,
+                            options,
+                            crate::fs::transfer::endpoint::TransferEndpoint::Local,
+                            crate::fs::transfer::endpoint::TransferEndpoint::Local,
+                        );
+                        ts.engine.submit_job(job);
+                        ts.view_mode =
+                            crate::app::state::TransferViewMode::Minimized;
+                    }
+                    let _ = t("progress_compressing");
+                    state.active_popup = None;
                 } else {
                     state.active_popup = None;
                 }

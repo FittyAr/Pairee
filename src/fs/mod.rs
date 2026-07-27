@@ -18,7 +18,7 @@ pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;
 pub use list::read_directory_ext;
 pub use mkdir::create_directory;
-pub use ops_worker::{ProgressUpdate, spawn_compress_task, spawn_extract_task};
+pub use ops_worker::{ProgressUpdate, spawn_extract_task};
 pub mod elevated_helper;
 
 pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};

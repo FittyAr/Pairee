@@ -14,8 +14,9 @@ pub struct ProgressUpdate {
     pub error: Option<String>,
 }
 
-pub mod compress;
+/// The Compress path moved to the unified transfer
+/// engine (A5). The extract path still lives here
+/// and will migrate in A10.
 pub mod extract;
 
-pub use compress::spawn_compress_task;
 pub use extract::spawn_extract_task;
