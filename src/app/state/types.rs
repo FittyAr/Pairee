@@ -179,8 +179,6 @@ pub enum AdminOpKind {
     MkDir,
 }
 
-
-
 #[derive(Debug, Clone)]
 pub enum PopupType {
     // The `Clone` impl is auto-derived. We use `PluginReply<T>` (a

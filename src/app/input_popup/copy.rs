@@ -301,10 +301,10 @@ pub fn handle(
                 // symlink-mode / filter overrides that aren't
                 // reachable through the helper. We go through the
                 // engine via the helper after applying them.
+                use crate::fs::transfer::endpoint::TransferEndpoint;
                 use crate::fs::transfer::engine::TransferEngine;
                 use crate::fs::transfer::job::{TransferJob, TransferOperation};
                 use crate::fs::transfer::options::{BufferSize, HashAlgorithm, TransferOptions};
-                use crate::fs::transfer::endpoint::TransferEndpoint;
 
                 let mut options = TransferOptions::default();
                 options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
@@ -323,8 +323,7 @@ pub fn handle(
                     _ => BufferSize::_1MB,
                 };
                 options.direct_io = new_cache;
-                options.preserve_timestamps =
-                    context.config.settings.transfer_preserve_timestamps;
+                options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
                 options.preserve_attributes = new_ext;
                 options.preserve_acl = context.config.settings.transfer_preserve_acl;
                 options.preserve_streams = context.config.settings.transfer_preserve_streams;
@@ -385,9 +384,9 @@ pub fn handle(
 
                 if state.transfer.is_none() {
                     let (engine, rx) = TransferEngine::new();
-                    state.transfer = Some(
-                        crate::app::state::transfer_state::TransferUIState::new(engine, rx),
-                    );
+                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(
+                        engine, rx,
+                    ));
                 }
 
                 if let Some(ref mut ts) = state.transfer {

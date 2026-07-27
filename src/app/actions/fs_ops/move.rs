@@ -143,10 +143,7 @@ fn submit_move_job(
     options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
     options.halt_on_error = context.config.settings.transfer_halt_on_error;
     options.max_retries = context.config.settings.transfer_max_retries;
-    options.conflict_resolution = match popup_opts
-        .as_ref()
-        .map(|p| p.already_existing)
-        .unwrap_or(0)
+    options.conflict_resolution = match popup_opts.as_ref().map(|p| p.already_existing).unwrap_or(0)
     {
         1 => "overwrite".to_string(),
         2 => "skip".to_string(),

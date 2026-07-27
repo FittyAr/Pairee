@@ -117,7 +117,9 @@ pub enum TransferOperation {
     /// same (link across endpoints is rejected). Hard links
     /// over SSH are rejected with a clear error (SFTP v3 has
     /// no `link` command and we opted out of shell-out).
-    CreateLink { kind: LinkKind },
+    CreateLink {
+        kind: LinkKind,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

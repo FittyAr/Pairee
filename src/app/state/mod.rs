@@ -14,7 +14,8 @@ pub use panel::PanelState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
-    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
+    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
+    TreeNode,
 };
 
 use crate::fs::ProgressUpdate;

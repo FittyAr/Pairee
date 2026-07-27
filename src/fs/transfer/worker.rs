@@ -11,7 +11,9 @@ use super::conflict::resolve_filename_conflict;
 use super::endpoint::{StatInfo, TransferEndpoint};
 use super::events::TransferEvent;
 use super::filter::TransferFilter;
-use super::job::{FailedFile, FileTransferResult, LinkKind, SkippedFile, TransferOperation, TransferResults};
+use super::job::{
+    FailedFile, FileTransferResult, LinkKind, SkippedFile, TransferOperation, TransferResults,
+};
 use super::metadata::preserve_metadata;
 use super::options::{BufferSize, TransferOptions};
 use super::pipeline::copy_file_pipelined;
@@ -347,9 +349,7 @@ impl TransferWorker {
             }
             TransferOperation::CreateLink { kind } => {
                 if !self.src_endpoint.same_client(&self.dst_endpoint) {
-                    return Err(anyhow!(
-                        "Create link across endpoints is not supported"
-                    ));
+                    return Err(anyhow!("Create link across endpoints is not supported"));
                 }
                 self.run_create_link(kind).await
             }
@@ -1013,8 +1013,7 @@ impl TransferWorker {
                 // for the Windows code path; on Unix it does not
                 // matter. Read it through the endpoint.
                 let target_is_dir = self.src_endpoint.is_dir(&src);
-                self.dst_endpoint
-                    .create_symlink(&src, &dst, target_is_dir)
+                self.dst_endpoint.create_symlink(&src, &dst, target_is_dir)
             }
             LinkKind::Hard => self.dst_endpoint.create_hardlink(&src, &dst),
         };
@@ -1275,50 +1274,51 @@ fn recreate_symlink(
 /// from a previous owner).
 impl TransferWorker {
     fn secure_wipe(&self, path: &Path) -> std::io::Result<()> {
-    use std::io::{Seek, SeekFrom, Write};
+        use std::io::{Seek, SeekFrom, Write};
 
-    // Skip symlinks: a symlink deletion removes the link, not
-    // the target. Following it here would wipe a file the user
-    // did not ask us to wipe.
-    if self.src_endpoint.lstat(path).map(|m| m.is_symlink).unwrap_or(false) {
-        return Ok(());
-    }
-    let size = self
-        .src_endpoint
-        .lstat(path)
-        .map(|m| m.size)
-        .unwrap_or(0);
-    if size == 0 {
-        return Ok(());
-    }
-
-    // Cap to 3 passes; anything higher is bounded.
-    let passes = self.options.wipe_passes.clamp(1, 3);
-    let patterns: [u8; 3] = [0x00, 0xFF, 0x00];
-
-    let mut file = std::fs::OpenOptions::new()
-        .write(true)
-        .open(super::direct_io::to_long_path(path))?;
-    // Drop the read-only flag in case the user wiped a chmod 0444 file.
-    let _ = self.src_endpoint.make_writable(path);
-
-    for i in 0..passes as usize {
-        let pat = patterns[i % patterns.len()];
-        let chunk = vec![pat; 64 * 1024];
-        file.seek(SeekFrom::Start(0))?;
-        let mut written = 0u64;
-        while written < size {
-            let to_write = ((size - written) as usize).min(chunk.len());
-            file.write_all(&chunk[..to_write])?;
-            written += to_write as u64;
+        // Skip symlinks: a symlink deletion removes the link, not
+        // the target. Following it here would wipe a file the user
+        // did not ask us to wipe.
+        if self
+            .src_endpoint
+            .lstat(path)
+            .map(|m| m.is_symlink)
+            .unwrap_or(false)
+        {
+            return Ok(());
         }
+        let size = self.src_endpoint.lstat(path).map(|m| m.size).unwrap_or(0);
+        if size == 0 {
+            return Ok(());
+        }
+
+        // Cap to 3 passes; anything higher is bounded.
+        let passes = self.options.wipe_passes.clamp(1, 3);
+        let patterns: [u8; 3] = [0x00, 0xFF, 0x00];
+
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .open(super::direct_io::to_long_path(path))?;
+        // Drop the read-only flag in case the user wiped a chmod 0444 file.
+        let _ = self.src_endpoint.make_writable(path);
+
+        for i in 0..passes as usize {
+            let pat = patterns[i % patterns.len()];
+            let chunk = vec![pat; 64 * 1024];
+            file.seek(SeekFrom::Start(0))?;
+            let mut written = 0u64;
+            while written < size {
+                let to_write = ((size - written) as usize).min(chunk.len());
+                file.write_all(&chunk[..to_write])?;
+                written += to_write as u64;
+            }
+            file.sync_all()?;
+        }
+        // Truncate to zero so the directory entry really is gone
+        // before the unlink runs.
+        file.set_len(0)?;
         file.sync_all()?;
-    }
-    // Truncate to zero so the directory entry really is gone
-    // before the unlink runs.
-    file.set_len(0)?;
-    file.sync_all()?;
-    Ok(())
+        Ok(())
     }
 }
 

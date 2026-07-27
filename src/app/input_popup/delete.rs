@@ -31,8 +31,8 @@ pub fn handle(
                         if cursor_idx == 0 {
                             // Phase 6: unified engine handles Delete
                             // for both Local and SSH transparently.
-                            use crate::fs::transfer::engine::TransferEngine;
                             use crate::fs::transfer::endpoint::TransferEndpoint;
+                            use crate::fs::transfer::engine::TransferEngine;
                             use crate::fs::transfer::job::{TransferJob, TransferOperation};
                             use crate::fs::transfer::options::TransferOptions;
 
@@ -56,11 +56,10 @@ pub fn handle(
 
                             if state.transfer.is_none() {
                                 let (engine, rx) = TransferEngine::new();
-                                state.transfer = Some(
-                                    crate::app::state::transfer_state::TransferUIState::new(
+                                state.transfer =
+                                    Some(crate::app::state::transfer_state::TransferUIState::new(
                                         engine, rx,
-                                    ),
-                                );
+                                    ));
                             }
 
                             if let Some(ref mut ts) = state.transfer {
