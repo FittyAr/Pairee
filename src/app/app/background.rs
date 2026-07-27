@@ -590,4 +590,248 @@ pub fn process_background_updates(
         );
         state.refresh_both_panels(context.config.settings.show_hidden);
     }
+
+    // 1.10 Permission elevation answer
+    let show_hidden = context.config.settings.show_hidden;
+    if let Some((job_id, paths, answer)) =
+        state.pending_permission_answer.take()
+    {
+        handle_permission_answer(state, job_id, paths, answer, show_hidden);
+    }
+}
+
+/// Translate the user's answer on the
+/// [`crate::app::state::PopupType::PermissionPrompt`]
+/// into a real action:
+///
+/// * `Yes` — derive a list of [`FsOperation`]s from the
+///   originating job's operation kind and run them
+///   through the elevated helper.
+/// * `No` / `Cancel` — just log the choice; the failed
+///   files stay in the job's `failed_files` list and
+///   the panel refresh reflects the final state.
+fn handle_permission_answer(
+    state: &mut crate::app::state::AppState,
+    job_id: uuid::Uuid,
+    paths: Vec<std::path::PathBuf>,
+    answer: crate::app::state::types::PermissionAnswer,
+    show_hidden: bool,
+) {
+    use crate::app::state::types::PermissionAnswer;
+    match answer {
+        PermissionAnswer::No | PermissionAnswer::Cancel => {
+            // Nothing to do beyond logging. The job
+            // already finished; the failures are part
+            // of its `results`. We refresh the panels
+            // so the user sees the final state.
+            log::info!(
+                "transfer: user declined retry-as-admin for {} file(s)",
+                paths.len()
+            );
+            state.refresh_both_panels(show_hidden);
+        }
+        PermissionAnswer::Yes => {
+            // Look the originating job back up. It
+            // is still in the queue (we don't remove
+            // finished jobs automatically) so we can
+            // recover its operation kind and the
+            // destination folder for Copy / Move.
+            let ops = state
+                .transfer
+                .as_ref()
+                .and_then(|ts| {
+                    let job = ts
+                        .engine
+                        .queue
+                        .get_all()
+                        .into_iter()
+                        .find(|j| j.id == job_id)?;
+                    Some(derive_retry_ops(&job, &paths))
+                })
+                .unwrap_or_default();
+
+            if ops.is_empty() {
+                log::warn!(
+                    "transfer: retry-as-admin requested for job {} but no operations could be derived",
+                    job_id
+                );
+                return;
+            }
+
+            // Hand the operations to the elevated
+            // helper. This spawns a UAC prompt on
+            // Windows or `sudo` on Unix; the helper
+            // re-executes the binary with the ops and
+            // exits.
+            match crate::fs::privileges::run_in_elevated_helper(ops) {
+                Ok(()) => {
+                    log::info!(
+                        "transfer: elevated helper succeeded for job {}",
+                        job_id
+                    );
+                    if let Some(ref mut ts) = state.transfer {
+                        ts.engine.queue.update_job(job_id, |j| {
+                            j.log_lines.push(
+                                "🔐 Elevated helper completed; refreshing panels"
+                                    .to_string(),
+                            );
+                        });
+                    }
+                }
+                Err(e) => {
+                    log::warn!(
+                        "transfer: elevated helper failed for job {}: {}",
+                        job_id,
+                        e
+                    );
+                    if let Some(ref mut ts) = state.transfer {
+                        ts.engine.queue.update_job(job_id, |j| {
+                            j.log_lines.push(format!(
+                                "🔐 Elevated helper failed: {}",
+                                e
+                            ));
+                        });
+                    }
+                }
+            }
+            state.refresh_both_panels(show_hidden);
+        }
+    }
+}
+
+/// Build a list of [`crate::fs::privileges::FsOperation`]s
+/// to retry as admin for the given job and the list of
+/// source paths that failed with `AccessDenied`.
+///
+/// The mapping is operation-specific:
+///
+/// * `Copy` / `Move` — for each source path, derive the
+///   destination as
+///   `job.destination.join(source.file_name())` (single
+///   file) or as the original destination if the source
+///   was a directory. We use the simple per-file mapping
+///   because the elevated helper does not need to
+///   recreate the directory tree, just the files.
+/// * `Delete` — one `Delete` per path.
+/// * `Rename` / `CreateLink` / `Compress` / `Extract` —
+///   no retry, return an empty list (the user must
+///   re-run the operation manually).
+fn derive_retry_ops(
+    job: &crate::fs::transfer::job::TransferJob,
+    paths: &[std::path::PathBuf],
+) -> Vec<crate::fs::privileges::FsOperation> {
+    use crate::fs::privileges::FsOperation;
+    use crate::fs::transfer::job::TransferOperation;
+    let mut ops = Vec::with_capacity(paths.len());
+    match job.operation {
+        TransferOperation::Copy | TransferOperation::Move => {
+            for src in paths {
+                let dst = job
+                    .destination
+                    .join(src.file_name().unwrap_or_else(|| {
+                        std::path::Component::Normal(
+                            std::ffi::OsStr::new("(unknown)"),
+                        )
+                        .as_os_str()
+                    }));
+                if matches!(job.operation, TransferOperation::Copy) {
+                    ops.push(FsOperation::Copy { src: src.clone(), dst });
+                } else {
+                    ops.push(FsOperation::Move { src: src.clone(), dst });
+                }
+            }
+        }
+        TransferOperation::Delete => {
+            for p in paths {
+                ops.push(FsOperation::Delete { path: p.clone() });
+            }
+        }
+        TransferOperation::Rename
+        | TransferOperation::CreateLink { .. } => {
+            // No retry path for these.
+        }
+    }
+    ops
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::transfer::job::{
+        LinkKind, TransferJob, TransferOperation,
+    };
+    use crate::fs::transfer::options::TransferOptions;
+    use std::path::PathBuf;
+
+    fn sample_job(op: TransferOperation) -> TransferJob {
+        TransferJob::new(
+            op,
+            vec![PathBuf::from("/a/folder")],
+            PathBuf::from("/dest"),
+            TransferOptions::default(),
+        )
+    }
+
+    #[test]
+    fn derive_retry_ops_copy_builds_per_file_copies() {
+        let job = sample_job(TransferOperation::Copy);
+        let paths = vec![
+            PathBuf::from("/src/file_a.txt"),
+            PathBuf::from("/src/file_b.txt"),
+        ];
+        let ops = derive_retry_ops(&job, &paths);
+        assert_eq!(ops.len(), 2);
+        match &ops[0] {
+            crate::fs::privileges::FsOperation::Copy { src, dst } => {
+                assert_eq!(src, &PathBuf::from("/src/file_a.txt"));
+                assert_eq!(dst, &PathBuf::from("/dest/file_a.txt"));
+            }
+            other => panic!("expected Copy, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn derive_retry_ops_move_builds_per_file_moves() {
+        let job = sample_job(TransferOperation::Move);
+        let paths = vec![PathBuf::from("/src/x")];
+        let ops = derive_retry_ops(&job, &paths);
+        assert_eq!(ops.len(), 1);
+        match &ops[0] {
+            crate::fs::privileges::FsOperation::Move { src, dst } => {
+                assert_eq!(src, &PathBuf::from("/src/x"));
+                assert_eq!(dst, &PathBuf::from("/dest/x"));
+            }
+            other => panic!("expected Move, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn derive_retry_ops_delete_builds_per_file_deletes() {
+        let job = sample_job(TransferOperation::Delete);
+        let paths = vec![PathBuf::from("/a"), PathBuf::from("/b")];
+        let ops = derive_retry_ops(&job, &paths);
+        assert_eq!(ops.len(), 2);
+        match &ops[0] {
+            crate::fs::privileges::FsOperation::Delete { path } => {
+                assert_eq!(path, &PathBuf::from("/a"));
+            }
+            other => panic!("expected Delete, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn derive_retry_ops_rename_returns_empty() {
+        let job = sample_job(TransferOperation::Rename);
+        let ops = derive_retry_ops(&job, &[PathBuf::from("/x")]);
+        assert!(ops.is_empty());
+    }
+
+    #[test]
+    fn derive_retry_ops_create_link_returns_empty() {
+        let job = sample_job(TransferOperation::CreateLink {
+            kind: LinkKind::Symbolic,
+        });
+        let ops = derive_retry_ops(&job, &[PathBuf::from("/x")]);
+        assert!(ops.is_empty());
+    }
 }
