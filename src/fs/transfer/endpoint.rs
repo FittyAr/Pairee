@@ -540,11 +540,55 @@ mod local {
     }
 
     pub fn open_writer(path: &Path, overwrite: bool) -> Result<Writer, EndpointError> {
-        if !overwrite && path.exists() {
-            return Err(EndpointError::AlreadyExists(path.to_path_buf()));
+        // `std::fs::File::create` opens with
+        // O_CREAT | O_TRUNC | O_WRONLY, all of which follow
+        // symlinks by default. If `path` is (or has just
+        // become) a symlink, the call would follow the
+        // symlink and overwrite its target. We open with
+        // `O_NOFOLLOW` so the kernel errors out instead
+        // (ELOOP) when the last component is a symlink.
+        //
+        // On Windows the situation is different: there is
+        // no `O_NOFOLLOW` and the file is opened with the
+        // usual CreateFileW semantics. We accept that and
+        // rely on the user not having placed a hostile
+        // symlink in their own destination directory; the
+        // default per-user ACLs of `%TEMP%` and the
+        // typical extraction directory make a symlink
+        // pre-placement by a concurrent user unlikely.
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::OpenOptionsExt;
+            let mut opts = std::fs::OpenOptions::new();
+            opts.write(true).create(true).truncate(true);
+            if !overwrite {
+                // `create_new(true)` is the equivalent of
+                // O_EXCL: fail if the file already exists,
+                // without the TOCTOU window of `path.exists()
+                // ` followed by `File::create()`.
+                opts.create_new(true);
+            }
+            // O_NOFOLLOW = 0o400000 on Linux/macOS; using
+            // `custom_flags` keeps this portable.
+            opts.custom_flags(libc::O_NOFOLLOW);
+            let f = opts.open(path).map_err(|e| {
+                if e.kind() == std::io::ErrorKind::AlreadyExists {
+                    EndpointError::AlreadyExists(path.to_path_buf())
+                } else {
+                    map_io(e, path, "open_writer")
+                }
+            })?;
+            Ok(Box::new(f))
         }
-        let f = std::fs::File::create(path).map_err(|e| map_io(e, path, "open_writer"))?;
-        Ok(Box::new(f))
+        #[cfg(not(unix))]
+        {
+            if !overwrite && path.exists() {
+                return Err(EndpointError::AlreadyExists(path.to_path_buf()));
+            }
+            let f =
+                std::fs::File::create(path).map_err(|e| map_io(e, path, "open_writer"))?;
+            Ok(Box::new(f))
+        }
     }
 
     pub fn mkdir_all(path: &Path) -> Result<(), EndpointError> {

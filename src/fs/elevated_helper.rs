@@ -234,7 +234,24 @@ fn secure_wipe(path: &Path, passes: u8) -> std::io::Result<()> {
         return Ok(());
     }
 
-    let meta = std::fs::metadata(path)?;
+    // Open the file with O_NOFOLLOW (Unix) so a symlink
+    // swap between the `is_dir` check and the actual
+    // open cannot redirect our overwrite to an arbitrary
+    // target. The `metadata` call below uses `symlink_metadata`
+    // (via `std::fs::metadata`'s default) — combined with
+    // O_NOFOLLOW this closes the TOCTOU window.
+    #[cfg(unix)]
+    let f = {
+        use std::os::unix::fs::OpenOptionsExt;
+        std::fs::OpenOptions::new()
+            .write(true)
+            .custom_flags(libc::O_NOFOLLOW)
+            .open(path)?
+    };
+    #[cfg(not(unix))]
+    let f = std::fs::OpenOptions::new().write(true).open(path)?;
+
+    let meta = f.metadata()?;
     let len = meta.len() as usize;
     if len == 0 {
         return Ok(());
@@ -249,7 +266,7 @@ fn secure_wipe(path: &Path, passes: u8) -> std::io::Result<()> {
     for pass in 0..passes {
         let pattern: &[u8] = if pass % 2 == 0 { &zero } else { &ones };
         let mut written = 0usize;
-        let mut f = std::fs::OpenOptions::new().write(true).open(path)?;
+        let mut f = f.try_clone()?;
         while written < len {
             let chunk = pattern.len().min(len - written);
             f.write_all(&pattern[..chunk])?;
