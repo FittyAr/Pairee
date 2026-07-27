@@ -250,15 +250,6 @@ impl SharedSshClient {
         Ok(entries)
     }
 
-    pub fn create_dir(&self, path: &Path) -> Result<()> {
-        let client = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-        client.sftp.mkdir(path, 0o755)?;
-        Ok(())
-    }
-
     pub fn delete_recursive(&self, path: &Path) -> Result<()> {
         // We need to release the SFTP lock before recursing into
         // subdirectories (the recursive call would deadlock otherwise), but
@@ -330,45 +321,6 @@ impl SharedSshClient {
             .lock()
             .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         client.sftp.rmdir(path)?;
-        Ok(())
-    }
-
-    pub fn walk_dir(&self, root: &Path) -> Result<Vec<(PathBuf, bool, u64)>> {
-        let client = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-        let mut results = Vec::new();
-        let mut to_visit = vec![root.to_path_buf()];
-
-        while let Some(dir) = to_visit.pop() {
-            if let Ok(entries) = client.sftp.readdir(&dir) {
-                for (path_buf, stat) in entries {
-                    let name = path_buf
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default();
-                    if name == "." || name == ".." || name.is_empty() {
-                        continue;
-                    }
-                    let is_dir = stat.is_dir();
-                    let size = stat.size.unwrap_or(0);
-                    results.push((path_buf.clone(), is_dir, size));
-                    if is_dir {
-                        to_visit.push(path_buf);
-                    }
-                }
-            }
-        }
-        Ok(results)
-    }
-
-    pub fn rename_move(&self, src: &Path, dst: &Path) -> Result<()> {
-        let client = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-        client.sftp.rename(src, dst, None)?;
         Ok(())
     }
 }

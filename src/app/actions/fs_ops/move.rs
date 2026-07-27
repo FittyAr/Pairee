@@ -1,9 +1,16 @@
 use crate::app::context::AppContext;
+use crate::app::state::panel::PanelState;
 use crate::app::state::{AppState, PopupType};
-use crate::config::localization::t;
-use crate::fs::transfer::engine::TransferEngine;
-use crate::fs::transfer::job::{TransferJob, TransferOperation};
-use crate::fs::transfer::options::TransferOptions;
+use crate::fs::transfer::endpoint::TransferEndpoint;
+
+/// Build a `TransferEndpoint` from a `PanelState` — `Local` if the
+/// panel has no SSH connection, otherwise the Ssh wrapper.
+fn endpoint_for_panel(panel: &PanelState) -> TransferEndpoint {
+    match &panel.ssh_conn {
+        Some(client) => TransferEndpoint::Ssh(client.clone()),
+        None => TransferEndpoint::Local,
+    }
+}
 
 pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();
@@ -14,7 +21,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let dest_dir = state.get_passive_panel().current_path.clone();
 
     if !context.config.settings.confirmations.confirm_move {
-        submit_move_job(state, context, targets, dest_dir);
+        submit_move_job(state, context, targets, dest_dir, None);
         return true;
     }
 
@@ -48,7 +55,9 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
 }
 
 /// Build and dispatch a Move transfer job using the options stored on the popup state.
-/// Extracts the heavy lifting so it can be shared with the no-confirm code path.
+/// `src_paths`/`dest` and the per-popup options are passed in; the
+/// active/passive panel endpoints are derived from the panel state
+/// at the moment of dispatch.
 pub fn submit_move_job_from_popup(
     state: &mut AppState,
     context: &mut AppContext,
@@ -73,108 +82,79 @@ pub fn submit_move_job_from_popup(
         }
     };
 
-    submit_move_job_inner(
-        state,
-        context,
-        src_paths,
-        dest,
+    let popup_opts = PopupOptions {
         already_existing,
         copy_extended_attributes,
         disable_write_cache,
         symlink_mode,
         use_filter,
         filter_mask,
-    );
+    };
+    submit_move_job(state, context, src_paths, dest, Some(popup_opts));
 }
 
-fn submit_move_job(
-    state: &mut AppState,
-    context: &mut AppContext,
-    targets: Vec<std::path::PathBuf>,
-    dest_dir: std::path::PathBuf,
-) {
-    submit_move_job_inner(
-        state,
-        context,
-        targets,
-        dest_dir,
-        0,
-        false,
-        false,
-        0,
-        false,
-        String::new(),
-    );
-}
-
-fn submit_move_job_inner(
-    state: &mut AppState,
-    context: &mut AppContext,
-    targets: Vec<std::path::PathBuf>,
-    dest: std::path::PathBuf,
+#[derive(Clone)]
+struct PopupOptions {
     already_existing: usize,
     copy_extended_attributes: bool,
     disable_write_cache: bool,
     symlink_mode: usize,
     use_filter: bool,
     filter_mask: String,
-) {
-    let is_ssh =
-        state.get_active_panel().ssh_conn.is_some() || state.get_passive_panel().ssh_conn.is_some();
+}
 
-    if is_ssh {
-        let rx = crate::fs::spawn_copy_move_task(
-            targets.clone(),
-            dest.clone(),
-            state.get_active_panel().ssh_conn.clone(),
-            state.get_passive_panel().ssh_conn.clone(),
-            true,
-            context.config.settings.clone(),
-        );
-        state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Move);
-        state.progress_rx = Some(rx);
-        state.active_popup = Some(PopupType::CopyProgress {
-            is_move: true,
-            current_file: t("progress_initializing"),
-            files_copied: 0,
-            total_files: 0,
-            bytes_copied: 0,
-            total_bytes: 0,
-        });
-        return;
-    }
+fn submit_move_job(
+    state: &mut AppState,
+    context: &mut AppContext,
+    targets: Vec<std::path::PathBuf>,
+    dest: std::path::PathBuf,
+    popup_opts: Option<PopupOptions>,
+) {
+    use crate::fs::transfer::engine::TransferEngine;
+    use crate::fs::transfer::job::{TransferJob, TransferOperation};
+    use crate::fs::transfer::options::{BufferSize, HashAlgorithm, TransferOptions};
 
     let mut options = TransferOptions::default();
     options.verify_after_copy = context.config.settings.transfer_verify_after_copy;
     options.hash_algorithm = match context.config.settings.transfer_default_hash.as_str() {
-        "crc32" => crate::fs::transfer::options::HashAlgorithm::Crc32,
-        "md5" => crate::fs::transfer::options::HashAlgorithm::Md5,
-        "sha1" => crate::fs::transfer::options::HashAlgorithm::Sha1,
-        "sha256" => crate::fs::transfer::options::HashAlgorithm::Sha256,
-        _ => crate::fs::transfer::options::HashAlgorithm::Blake3,
+        "crc32" => HashAlgorithm::Crc32,
+        "md5" => HashAlgorithm::Md5,
+        "sha1" => HashAlgorithm::Sha1,
+        "sha256" => HashAlgorithm::Sha256,
+        _ => HashAlgorithm::Blake3,
     };
     options.buffer_size = match context.config.settings.transfer_buffer_size {
-        65536 => crate::fs::transfer::options::BufferSize::_64KB,
-        262144 => crate::fs::transfer::options::BufferSize::_256KB,
-        4194304 => crate::fs::transfer::options::BufferSize::_4MB,
-        _ => crate::fs::transfer::options::BufferSize::_1MB,
+        65536 => BufferSize::_64KB,
+        262144 => BufferSize::_256KB,
+        4194304 => BufferSize::_4MB,
+        _ => BufferSize::_1MB,
     };
-    options.direct_io = disable_write_cache;
+    options.direct_io = popup_opts
+        .as_ref()
+        .map(|p| p.disable_write_cache)
+        .unwrap_or(false);
     options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;
-    options.preserve_attributes = copy_extended_attributes;
+    options.preserve_attributes = popup_opts
+        .as_ref()
+        .map(|p| p.copy_extended_attributes)
+        .unwrap_or(false);
     options.preserve_acl = context.config.settings.transfer_preserve_acl;
     options.preserve_streams = context.config.settings.transfer_preserve_streams;
     options.limit_bandwidth_rate = context.config.settings.transfer_limit_bandwidth_rate;
     options.halt_on_error = context.config.settings.transfer_halt_on_error;
     options.max_retries = context.config.settings.transfer_max_retries;
-    options.conflict_resolution = match already_existing {
+    options.conflict_resolution = match popup_opts
+        .as_ref()
+        .map(|p| p.already_existing)
+        .unwrap_or(0)
+    {
         1 => "overwrite".to_string(),
         2 => "skip".to_string(),
         3 => "overwrite_older".to_string(),
         4 => "rename".to_string(),
         _ => "ask".to_string(),
     };
-    match symlink_mode {
+    match popup_opts.as_ref().map(|p| p.symlink_mode).unwrap_or(0) {
         1 => {
             options.skip_symlinks = false;
             options.follow_symlinks = true;
@@ -188,13 +168,22 @@ fn submit_move_job_inner(
             options.follow_symlinks = false;
         }
     }
-    options.filter_mask = if use_filter && !filter_mask.is_empty() {
-        Some(filter_mask)
-    } else {
-        None
-    };
+    options.filter_mask = popup_opts
+        .as_ref()
+        .filter(|p| p.use_filter && !p.filter_mask.is_empty())
+        .map(|p| p.filter_mask.clone());
 
-    let job = TransferJob::new(TransferOperation::Move, targets, dest, options);
+    let src_endpoint = endpoint_for_panel(state.get_active_panel());
+    let dst_endpoint = endpoint_for_panel(state.get_passive_panel());
+
+    let job = TransferJob::with_endpoints(
+        TransferOperation::Move,
+        targets,
+        dest,
+        options,
+        src_endpoint,
+        dst_endpoint,
+    );
 
     for src in &job.sources {
         crate::fs::transfer::history::add_source_path(src);

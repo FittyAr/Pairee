@@ -37,12 +37,13 @@ pub fn handle(
                     }
                     KeyCode::Esc => {
                         // Resume the progress popup; it will automatically receive progress updates on the next tick
-                        let is_move = matches!(
-                            state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move)
-                        );
+                        // Phase 5: Copy and Move now flow through the
+                        // engine's own TransferPanel popup, not the
+                        // legacy CopyProgress. Only the Delete path
+                        // still uses CopyProgress, and Delete is
+                        // never an is_move operation.
                         state.active_popup = Some(PopupType::CopyProgress {
-                            is_move,
+                            is_move: false,
                             current_file: t("progress_resuming"),
                             files_copied: 0,
                             total_files: 0,

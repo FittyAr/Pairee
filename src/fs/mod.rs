@@ -22,8 +22,8 @@ pub use link::{create_hardlink, create_symlink};
 pub use list::read_directory_ext;
 pub use mkdir::create_directory;
 pub use ops_worker::{
-    ProgressUpdate, spawn_compress_task, spawn_copy_move_task, spawn_extract_task,
-    spawn_ssh_delete_task, spawn_wipe_task,
+    ProgressUpdate, spawn_compress_task, spawn_extract_task, spawn_ssh_delete_task,
+    spawn_wipe_task,
 };
 pub mod elevated_helper;
 

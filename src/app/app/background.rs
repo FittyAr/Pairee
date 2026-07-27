@@ -71,9 +71,7 @@ pub fn process_background_updates(
         if let Some(err) = has_error {
             if !context.config.settings.req_admin_modification {
                 match state.active_bg_op.take() {
-                    Some(crate::app::state::BackgroundOpContext::Copy)
-                    | Some(crate::app::state::BackgroundOpContext::Move)
-                    | Some(crate::app::state::BackgroundOpContext::Delete) => {
+                    Some(crate::app::state::BackgroundOpContext::Delete) => {
                         state.active_popup = Some(PopupType::Error(err));
                     }
                     None => {
@@ -98,10 +96,7 @@ pub fn process_background_updates(
                     // Preserve the is_move flag from the current popup if present
                     let is_move = match &state.active_popup {
                         Some(PopupType::CopyProgress { is_move, .. }) => *is_move,
-                        _ => matches!(
-                            state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move { .. })
-                        ),
+                        _ => false,
                     };
                     state.active_popup = Some(PopupType::CopyProgress {
                         is_move,

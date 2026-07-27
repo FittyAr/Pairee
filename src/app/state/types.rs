@@ -183,10 +183,12 @@ pub enum AdminOpKind {
     },
 }
 
+/// The kind of background file operation in flight through the
+/// legacy `state.progress_rx` channel. Phase 5 migrated `Copy` and
+/// `Move` to the unified transfer engine; only `Delete` still uses
+/// the legacy path today (until Phase 6 lands).
 #[derive(Debug, Clone)]
 pub enum BackgroundOpContext {
-    Copy,
-    Move,
     Delete,
 }
 

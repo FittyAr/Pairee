@@ -53,7 +53,6 @@ pub fn render(
             f.render_widget(Clear, area);
 
             let title = match state.active_bg_op {
-                Some(crate::app::state::BackgroundOpContext::Move) => t("progress_move_title"),
                 Some(crate::app::state::BackgroundOpContext::Delete) => t("progress_delete_title"),
                 _ => {
                     if *is_move {
