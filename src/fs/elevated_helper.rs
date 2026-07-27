@@ -1,5 +1,7 @@
 use super::privileges::FsOperation;
+use crate::fs::transfer::job::LinkKind;
 use anyhow::{Context, Result};
+use std::io::Write;
 use std::path::Path;
 
 pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
@@ -37,6 +39,28 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
                 FsOperation::Chmod { path, mode } => {
                     set_mode(&path, mode)
                         .with_context(|| format!("Failed to set permissions on {:?}", path))?;
+                }
+                FsOperation::Rename { src, dst } => {
+                    std::fs::rename(&src, &dst).with_context(|| {
+                        format!("Failed to rename {:?} to {:?}", src, dst)
+                    })?;
+                }
+                FsOperation::CreateLink { src, dst, kind } => {
+                    create_link(&src, &dst, kind).with_context(|| {
+                        format!("Failed to create link {:?} -> {:?}", src, dst)
+                    })?;
+                }
+                FsOperation::Wipe { path, passes } => {
+                    let passes = passes.clamp(1, 3);
+                    secure_wipe(&path, passes)
+                        .with_context(|| format!("Failed to wipe {:?}", path))?;
+                    if path.is_dir() {
+                        std::fs::remove_dir_all(&path)
+                            .with_context(|| format!("Failed to delete directory: {:?}", path))?;
+                    } else {
+                        std::fs::remove_file(&path)
+                            .with_context(|| format!("Failed to delete file: {:?}", path))?;
+                    }
                 }
             }
         }
@@ -122,6 +146,74 @@ fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
     #[cfg(not(unix))]
     {
         let _ = (path, mode);
+    }
+    Ok(())
+}
+
+fn create_link(src: &Path, dst: &Path, kind: LinkKind) -> std::io::Result<()> {
+    match kind {
+        LinkKind::Symbolic => {
+            #[cfg(unix)]
+            {
+                std::os::unix::fs::symlink(src, dst)?;
+            }
+            #[cfg(windows)]
+            {
+                // The Windows API needs the target
+                // type (file vs. dir) to pick the
+                // right syscall. Probe the source
+                // to decide.
+                if src.is_dir() {
+                    std::os::windows::fs::symlink_dir(src, dst)?;
+                } else {
+                    std::os::windows::fs::symlink_file(src, dst)?;
+                }
+            }
+        }
+        LinkKind::Hard => {
+            // `std::fs::hard_link` is cross-platform.
+            std::fs::hard_link(src, dst)?;
+        }
+    }
+    Ok(())
+}
+
+/// Overwrite the file's bytes with alternating
+/// `0x00` and `0xFF` patterns, then unlink it.
+/// `passes` is clamped to 1-3 by the caller.
+fn secure_wipe(path: &Path, passes: u8) -> std::io::Result<()> {
+    if path.is_dir() {
+        // Wipe recursively: for each file, secure-wipe
+        // the contents; for each directory, recurse.
+        for entry in std::fs::read_dir(path)? {
+            let entry = entry?;
+            secure_wipe(&entry.path(), passes)?;
+        }
+        return Ok(());
+    }
+
+    let meta = std::fs::metadata(path)?;
+    let len = meta.len() as usize;
+    if len == 0 {
+        return Ok(());
+    }
+
+    // 64 KiB buffer is large enough to amortise the
+    // syscall cost without blowing up memory.
+    const BUF: usize = 64 * 1024;
+    let zero = vec![0u8; BUF.min(len)];
+    let ones = vec![0xFFu8; BUF.min(len)];
+
+    for pass in 0..passes {
+        let pattern: &[u8] = if pass % 2 == 0 { &zero } else { &ones };
+        let mut written = 0usize;
+        let mut f = std::fs::OpenOptions::new().write(true).open(path)?;
+        while written < len {
+            let chunk = pattern.len().min(len - written);
+            f.write_all(&pattern[..chunk])?;
+            written += chunk;
+        }
+        f.sync_all()?;
     }
     Ok(())
 }

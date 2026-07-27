@@ -3,6 +3,8 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
+use crate::fs::transfer::job::LinkKind;
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FsOperation {
     Delete { path: PathBuf },
@@ -10,6 +12,25 @@ pub enum FsOperation {
     Copy { src: PathBuf, dst: PathBuf },
     Move { src: PathBuf, dst: PathBuf },
     Chmod { path: PathBuf, mode: u32 },
+    /// Single-source / single-destination rename.
+    /// `src` is the current path; `dst` is the new
+    /// name. Both must live on the same endpoint
+    /// (the helper runs locally and cannot reach
+    /// SSH servers).
+    Rename { src: PathBuf, dst: PathBuf },
+    /// Create a symbolic or hard link at `dst`
+    /// pointing to `src`.
+    CreateLink {
+        src: PathBuf,
+        dst: PathBuf,
+        kind: LinkKind,
+    },
+    /// Secure-wipe a file before deletion. `passes`
+    /// is the number of overwrite passes (clamped
+    /// to 1-3, same as the engine's `wipe_passes`).
+    /// SSH endpoints are not supported (SFTP cannot
+    /// guarantee overwrite semantics).
+    Wipe { path: PathBuf, passes: u8 },
 }
 
 #[cfg(target_os = "windows")]
