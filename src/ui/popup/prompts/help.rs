@@ -6,8 +6,8 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     widgets::{
-        Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
+        Block, Borders, Clear, List, ListItem, ListState, Paragraph, Scrollbar,
+        ScrollbarOrientation, ScrollbarState,
     },
 };
 
@@ -115,10 +115,37 @@ pub fn render(
             ])));
         }
 
+        // ListState auto-adjusts its offset on render to keep the selected
+        // item visible, so the document list scrolls automatically when the
+        // list is longer than the visible area.
+        let mut list_state = ListState::default();
+        if !current_docs.is_empty() {
+            list_state.select(Some(*cursor_idx));
+        }
+
         let list = List::new(list_items)
             .block(left_block)
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
-        f.render_widget(list, list_area);
+        f.render_stateful_widget(list, list_area, &mut list_state);
+
+        // Scrollbar on the document list when it overflows the panel height.
+        // The block has BOTTOM|LEFT|RIGHT borders, so the inner area is
+        // list_area.height - 1 (just the bottom border). The scrollbar sits
+        // at the right edge, inside the block.
+        let list_inner_height = list_area.height.saturating_sub(1) as usize;
+        let total_items = current_docs.len();
+        if total_items > list_inner_height && list_inner_height > 0 {
+            let mut scrollbar_state = ScrollbarState::new(total_items.saturating_sub(list_inner_height))
+                .position(list_state.offset());
+            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+            let scrollbar_area = Rect {
+                x: left_area.x + left_area.width.saturating_sub(1),
+                y: list_area.y,
+                width: 1,
+                height: list_area.height.saturating_sub(1),
+            };
+            f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+        }
 
         // 2. Render Right panel (content viewer)
         let doc_title = current_docs
