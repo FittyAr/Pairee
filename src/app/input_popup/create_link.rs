@@ -50,15 +50,8 @@ pub fn handle(
             KeyCode::Enter => {
                 let dest = state.get_passive_panel().current_path.join(&dest_input);
                 state.active_popup = None;
-                let result = match kind {
-                    LinkKind::Symbolic => crate::fs::create_symlink(&src, &dest),
-                    LinkKind::Hard => crate::fs::create_hardlink(&src, &dest),
-                };
-                if let Err(e) = result {
-                    state.active_popup = Some(PopupType::Error(format!("Link failed: {}", e)));
-                } else {
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                }
+                crate::app::actions::fs_ops::link::commit(state, src, dest, kind);
+                state.refresh_both_panels(context.config.settings.show_hidden);
                 return Ok(None);
             }
             KeyCode::Esc => {

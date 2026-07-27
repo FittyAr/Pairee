@@ -11,7 +11,7 @@ use super::conflict::resolve_filename_conflict;
 use super::endpoint::{StatInfo, TransferEndpoint};
 use super::events::TransferEvent;
 use super::filter::TransferFilter;
-use super::job::{FailedFile, FileTransferResult, SkippedFile, TransferOperation, TransferResults};
+use super::job::{FailedFile, FileTransferResult, LinkKind, SkippedFile, TransferOperation, TransferResults};
 use super::metadata::preserve_metadata;
 use super::options::{BufferSize, TransferOptions};
 use super::pipeline::copy_file_pipelined;
@@ -344,6 +344,14 @@ impl TransferWorker {
                     ));
                 }
                 self.run_rename().await
+            }
+            TransferOperation::CreateLink { kind } => {
+                if !self.src_endpoint.same_client(&self.dst_endpoint) {
+                    return Err(anyhow!(
+                        "Create link across endpoints is not supported"
+                    ));
+                }
+                self.run_create_link(kind).await
             }
             TransferOperation::Move => {
                 // Same-endpoint move: try a direct rename for
@@ -938,6 +946,109 @@ impl TransferWorker {
                 job_id: self.job_id,
                 result,
             });
+        }
+
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
+    }
+
+    // -----------------------------------------------------------------
+    //   CreateLink (symlink or hardlink)
+    // -----------------------------------------------------------------
+    async fn run_create_link(&self, kind: LinkKind) -> Result<TransferResults, anyhow::Error> {
+        if self.sources.len() != 1 {
+            return Err(anyhow!(
+                "CreateLink requires exactly one source (got {})",
+                self.sources.len()
+            ));
+        }
+        let src = self.sources[0].clone();
+        let dst = self.destination.clone();
+
+        if self.is_cancelled.load(Ordering::Relaxed) {
+            return Err(anyhow!("Job cancelled"));
+        }
+        while self.is_paused.load(Ordering::Relaxed) {
+            if self.is_cancelled.load(Ordering::Relaxed) {
+                return Err(anyhow!("Job cancelled"));
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+
+        let mut results = TransferResults::default();
+        let _ = self.event_tx.send(TransferEvent::FileStarted {
+            job_id: self.job_id,
+            file: src.clone(),
+            index: 0,
+        });
+
+        // If the destination already exists, fail fast with
+        // a clear error (matches the behaviour of std::os::unix::fs::symlink).
+        if self.dst_endpoint.exists(&dst) {
+            let failed = FailedFile {
+                src: src.clone(),
+                dst: dst.clone(),
+                error: "Link target already exists".to_string(),
+                retries: 0,
+            };
+            results.failed_files.push(failed.clone());
+            let _ = self.event_tx.send(TransferEvent::FileFailed {
+                job_id: self.job_id,
+                error: failed,
+            });
+            let _ = self.event_tx.send(TransferEvent::JobCompleted {
+                job_id: self.job_id,
+                results: results.clone(),
+            });
+            return Ok(results);
+        }
+
+        let file_start = Instant::now();
+        let link_result = match kind {
+            LinkKind::Symbolic => {
+                // Need to know whether the target is a directory
+                // for the Windows code path; on Unix it does not
+                // matter. Read it through the endpoint.
+                let target_is_dir = self.src_endpoint.is_dir(&src);
+                self.dst_endpoint
+                    .create_symlink(&src, &dst, target_is_dir)
+            }
+            LinkKind::Hard => self.dst_endpoint.create_hardlink(&src, &dst),
+        };
+
+        match link_result {
+            Ok(_) => {
+                let result = FileTransferResult {
+                    src: src.clone(),
+                    dst: dst.clone(),
+                    size: 0,
+                    src_hash: None,
+                    dst_hash: None,
+                    verified: true,
+                    duration: file_start.elapsed(),
+                };
+                results.completed_files.push(result.clone());
+                let _ = self.event_tx.send(TransferEvent::FileCompleted {
+                    job_id: self.job_id,
+                    result,
+                });
+            }
+            Err(e) => {
+                let failed = FailedFile {
+                    src: src.clone(),
+                    dst: dst.clone(),
+                    error: e.to_string(),
+                    retries: 0,
+                };
+                results.failed_files.push(failed.clone());
+                let _ = self.event_tx.send(TransferEvent::FileFailed {
+                    job_id: self.job_id,
+                    error: failed,
+                });
+            }
         }
 
         let _ = self.event_tx.send(TransferEvent::JobCompleted {

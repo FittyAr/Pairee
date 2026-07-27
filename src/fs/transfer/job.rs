@@ -96,6 +96,12 @@ impl TransferJob {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum LinkKind {
+    Symbolic,
+    Hard,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TransferOperation {
     Copy,
     Move,
@@ -106,6 +112,12 @@ pub enum TransferOperation {
     /// directory). Both endpoints are the same: rename across
     /// filesystems / panels is rejected by the engine.
     Rename,
+    /// Create a symbolic or hard link at `destination` pointing
+    /// to the single entry in `sources`. Both endpoints are the
+    /// same (link across endpoints is rejected). Hard links
+    /// over SSH are rejected with a clear error (SFTP v3 has
+    /// no `link` command and we opted out of shell-out).
+    CreateLink { kind: LinkKind },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

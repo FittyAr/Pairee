@@ -146,6 +146,7 @@ fn render_jobs_sidebar(
             crate::fs::transfer::job::TransferOperation::Move => "Move",
             crate::fs::transfer::job::TransferOperation::Delete => "Delete",
             crate::fs::transfer::job::TransferOperation::Rename => "Rename",
+            crate::fs::transfer::job::TransferOperation::CreateLink { .. } => "CreateLink",
         };
 
         let (status_str, color) = match job.status {
