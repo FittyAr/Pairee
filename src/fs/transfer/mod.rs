@@ -1,5 +1,6 @@
 pub mod conflict;
 pub mod direct_io;
+pub mod endpoint;
 pub mod engine;
 pub mod events;
 pub mod filter;

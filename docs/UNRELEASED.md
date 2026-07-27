@@ -2,6 +2,8 @@
 
 ### Added
 
+- `TransferEndpoint` abstraction in `src/fs/transfer/endpoint.rs` that gives the engine a uniform interface to operate on local files and SFTP sessions alike. The `Local` variant wraps the existing `std::fs` / Windows-API surface; the `Ssh` variant wraps `SharedSshClient` and exposes only SFTP-native operations (no shell-out). Phase 1 of the unified-transfer refactor — the engine itself is still local-only and will be re-wired in later phases.
+- `xattr = "1.3"` dependency (Unix only) for extended-attribute preservation during transfers.
 - `lefthook` pre-commit hook that runs `cargo fmt --all -- --check` and `cargo clippy --all-targets -- -D warnings` before every `git commit`, so formatting and lint regressions get caught at commit time instead of failing the Rustfmt / Clippy CI jobs. Install once per clone with `cargo install lefthook --locked && lefthook install`.
 - Interactive dialog for file associations enabling navigation, addition, editing, and deletion, with clear visual prompts and helper hints on keys to use.
 - Expanded Git support with comprehensive backend APIs for individual file staging, unified diffs, remote syncing (fetch, pull, push), advanced branch management, stashing, resets, merges, and repository clone/initialization.

@@ -2279,6 +2279,7 @@ dependencies = [
  "uuid",
  "uzers",
  "windows-sys 0.61.2",
+ "xattr",
  "xxhash-rust",
  "zip",
 ]
