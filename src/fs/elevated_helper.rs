@@ -7,6 +7,16 @@ use std::path::Path;
 pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
     let res_file = temp_file_path.with_extension("res");
 
+    // The .res file is read by the *unprivileged* caller after
+    // we exit. If we create it with the default umask (022 →
+    // mode 0644 on Unix), any local user can read the result
+    // string and, more importantly, the error messages we
+    // surface (which include the paths we operated on, e.g.
+    // "Failed to delete /etc/shadow"). Write the result with
+    // an explicit 0600 mode so only the file owner can read it.
+    // On Windows, default ACLs are per-user and this is a no-op.
+    write_res_file(&res_file, "")?;
+
     let run = || -> Result<()> {
         let content = std::fs::read_to_string(temp_file_path)
             .context("Failed to read operations temp file")?;
@@ -69,14 +79,46 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
 
     match run() {
         Ok(_) => {
-            let _ = std::fs::write(&res_file, "OK");
+            let _ = write_res_file(&res_file, "OK");
             Ok(())
         }
         Err(e) => {
-            let _ = std::fs::write(&res_file, format!("{:#}", e));
+            let _ = write_res_file(&res_file, &format!("{:#}", e));
             Err(e)
         }
     }
+}
+
+/// Write the helper's result file with explicit 0600 perms so a
+/// concurrent local user cannot read the (potentially path-
+/// revealing) error message. `std::fs::write` would use the
+/// process umask, which is 022 by default on most systems →
+/// mode 0644 = world-readable.
+fn write_res_file(path: &Path, content: &str) -> std::io::Result<()> {
+    use std::io::Write;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .open(path)?;
+        f.write_all(content.as_bytes())?;
+        f.sync_all()?;
+    }
+    #[cfg(not(unix))]
+    {
+        let mut f = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .open(path)?;
+        f.write_all(content.as_bytes())?;
+        f.sync_all()?;
+    }
+    Ok(())
 }
 
 fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
