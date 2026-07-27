@@ -448,34 +448,13 @@ pub async fn compress_pipeline(
     let _ = (event_tx, job_id, is_paused, bytes_transferred_acc);
     match format {
         super::job::ArchiveFormat::Zip => {
-            compress_zip(
-                src_endpoint,
-                &sources,
-                dst_endpoint,
-                archive,
-                level,
-            )
-            .await
+            compress_zip(src_endpoint, &sources, dst_endpoint, archive, level).await
         }
         super::job::ArchiveFormat::TarGz => {
-            compress_targz(
-                src_endpoint,
-                &sources,
-                dst_endpoint,
-                archive,
-                level,
-            )
-            .await
+            compress_targz(src_endpoint, &sources, dst_endpoint, archive, level).await
         }
         super::job::ArchiveFormat::SevenZ => {
-            compress_sevenz(
-                src_endpoint,
-                &sources,
-                dst_endpoint,
-                archive,
-                level,
-            )
-            .await
+            compress_sevenz(src_endpoint, &sources, dst_endpoint, archive, level).await
         }
     }
 }
@@ -554,13 +533,7 @@ async fn compress_zip(
             let dir_prefix = Path::new(dir_name).to_path_buf();
             // Directories use the default 0o755; we don't
             // need a per-file mode for them.
-            write_zip_dir(
-                &mut zip,
-                src_endpoint,
-                src,
-                &dir_prefix,
-                options_for(None),
-            )?;
+            write_zip_dir(&mut zip, src_endpoint, src, &dir_prefix, options_for(None))?;
         } else {
             // Single-file source.
             let entry_name = src
@@ -568,11 +541,8 @@ async fn compress_zip(
                 .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
             let stat = src_endpoint.lstat(src).ok();
             let file_mode = stat.as_ref().and_then(|m| m.mode);
-            zip.start_file(
-                entry_name.to_string_lossy(),
-                options_for(file_mode),
-            )
-            .map_err(|e| anyhow!("zip start_file: {}", e))?;
+            zip.start_file(entry_name.to_string_lossy(), options_for(file_mode))
+                .map_err(|e| anyhow!("zip start_file: {}", e))?;
             let mut reader = src_endpoint
                 .open_reader(src)
                 .map_err(|e| anyhow!("open reader for {:?}: {}", src, e))?;
@@ -581,9 +551,7 @@ async fn compress_zip(
         }
     }
 
-    let cursor = zip
-        .finish()
-        .map_err(|e| anyhow!("zip finish: {}", e))?;
+    let cursor = zip.finish().map_err(|e| anyhow!("zip finish: {}", e))?;
     let bytes = cursor.into_inner();
 
     // Flush the assembled archive to the
@@ -642,8 +610,7 @@ async fn compress_sevenz(
 
         let buf: Vec<u8> = Vec::new();
         let cursor = Cursor::new(buf);
-        let mut writer = SevenZWriter::new(cursor)
-            .map_err(|e| anyhow!("sevenz writer: {}", e))?;
+        let mut writer = SevenZWriter::new(cursor).map_err(|e| anyhow!("sevenz writer: {}", e))?;
         // Configure the LZMA2 level globally on the
         // writer. The sevenz-rust API takes a
         // `MethodOptions::Num(level)` for the LZMA
@@ -706,8 +673,7 @@ async fn compress_sevenz(
         .map_err(|e| anyhow!("Failed to open archive for writing: {}", e))?;
     std::io::Write::write_all(&mut writer, &bytes)
         .map_err(|e| anyhow!("write archive bytes: {}", e))?;
-    std::io::Write::flush(&mut writer)
-        .map_err(|e| anyhow!("flush archive: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| anyhow!("flush archive: {}", e))?;
     drop(writer);
 
     Ok(bytes.len() as u64)
@@ -806,10 +772,7 @@ fn sanitise_entry_name(raw: &str) -> Result<PathBuf, anyhow::Error> {
             // the user thought they were extracting under
             // their chosen destination.
             std::path::Component::Prefix(_) => {
-                return Err(anyhow!(
-                    "archive entry has drive / device prefix: {}",
-                    raw
-                ));
+                return Err(anyhow!("archive entry has drive / device prefix: {}", raw));
             }
             _ => {}
         }
@@ -854,8 +817,7 @@ async fn extract_zip(
     }
 
     let cursor = Cursor::new(archive_buf);
-    let mut za = zip::ZipArchive::new(cursor)
-        .map_err(|e| anyhow!("zip open: {}", e))?;
+    let mut za = zip::ZipArchive::new(cursor).map_err(|e| anyhow!("zip open: {}", e))?;
 
     let mut entries_written: u64 = 0;
     for i in 0..za.len() {
@@ -895,9 +857,7 @@ async fn extract_zip(
                 .write_all(&buf[..n])
                 .map_err(|e| anyhow!("write entry bytes: {}", e))?;
         }
-        writer
-            .flush()
-            .map_err(|e| anyhow!("flush entry: {}", e))?;
+        writer.flush().map_err(|e| anyhow!("flush entry: {}", e))?;
         drop(writer);
         entries_written += 1;
     }
@@ -935,10 +895,7 @@ async fn extract_targz(
     let gz = GzDecoder::new(&bytes[..]);
     let mut tar = tar::Archive::new(gz);
     let mut entries_written: u64 = 0;
-    for entry in tar
-        .entries()
-        .map_err(|e| anyhow!("tar entries: {}", e))?
-    {
+    for entry in tar.entries().map_err(|e| anyhow!("tar entries: {}", e))? {
         let mut entry = entry.map_err(|e| anyhow!("tar entry: {}", e))?;
         let header = entry
             .path()
@@ -966,10 +923,8 @@ async fn extract_targz(
         let mut writer = dst_endpoint
             .open_writer(&out_path, /* overwrite = */ true)
             .map_err(|e| anyhow!("open writer for {:?}: {}", out_path, e))?;
-        std::io::copy(&mut entry, &mut writer)
-            .map_err(|e| anyhow!("write tar entry: {}", e))?;
-        std::io::Write::flush(&mut writer)
-            .map_err(|e| anyhow!("flush tar entry: {}", e))?;
+        std::io::copy(&mut entry, &mut writer).map_err(|e| anyhow!("write tar entry: {}", e))?;
+        std::io::Write::flush(&mut writer).map_err(|e| anyhow!("flush tar entry: {}", e))?;
         drop(writer);
         entries_written += 1;
     }
@@ -1017,66 +972,62 @@ async fn extract_sevenz(
         let cursor = Cursor::new(bytes);
         let mut count: u64 = 0;
         let result: Result<(), sevenz_rust::Error> = (|| {
-            sevenz_rust::decompress_with_extract_fn(
-                cursor,
-                &dst_dir,
-                |entry, reader, _dest| {
-                    let raw_name = entry.name().to_string();
-                    let name = sanitise_entry_name(&raw_name).map_err(|e| {
-                        sevenz_rust::Error::io_msg(
-                            std::io::Error::new(
-                                std::io::ErrorKind::InvalidInput,
-                                format!("{}: {}", e, raw_name),
-                            ),
-                            "",
-                        )
-                    })?;
-                    let out_path = dst_dir.join(&name);
+            sevenz_rust::decompress_with_extract_fn(cursor, &dst_dir, |entry, reader, _dest| {
+                let raw_name = entry.name().to_string();
+                let name = sanitise_entry_name(&raw_name).map_err(|e| {
+                    sevenz_rust::Error::io_msg(
+                        std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!("{}: {}", e, raw_name),
+                        ),
+                        "",
+                    )
+                })?;
+                let out_path = dst_dir.join(&name);
 
-                    if entry.is_directory() {
-                        dst_endpoint_clone.mkdir_all(&out_path).map_err(|e| {
-                            sevenz_rust::Error::io_msg(
-                                std::io::Error::other(format!("mkdir {:?}: {}", out_path, e)),
-                                "",
-                            )
-                        })?;
-                        return Ok(true);
-                    }
+                if entry.is_directory() {
+                    dst_endpoint_clone.mkdir_all(&out_path).map_err(|e| {
+                        sevenz_rust::Error::io_msg(
+                            std::io::Error::other(format!("mkdir {:?}: {}", out_path, e)),
+                            "",
+                        )
+                    })?;
+                    return Ok(true);
+                }
 
-                    if let Some(parent) = out_path.parent() {
-                        dst_endpoint_clone.mkdir_all(parent).map_err(|e| {
-                            sevenz_rust::Error::io_msg(
-                                std::io::Error::other(format!("mkdir_all {:?}: {}", parent, e)),
-                                "",
-                            )
-                        })?;
-                    }
-                    let mut writer = dst_endpoint_clone
-                        .open_writer(&out_path, /* overwrite = */ true)
-                        .map_err(|e| {
-                            sevenz_rust::Error::io_msg(
-                                std::io::Error::other(format!("open writer {:?}: {}", out_path, e)),
-                                "",
-                            )
-                        })?;
-                    let mut reader = reader;
-                    std::io::copy(&mut reader, &mut writer).map_err(|e| {
+                if let Some(parent) = out_path.parent() {
+                    dst_endpoint_clone.mkdir_all(parent).map_err(|e| {
                         sevenz_rust::Error::io_msg(
-                            std::io::Error::other(format!("write 7z entry: {}", e)),
+                            std::io::Error::other(format!("mkdir_all {:?}: {}", parent, e)),
                             "",
                         )
                     })?;
-                    std::io::Write::flush(&mut writer).map_err(|e| {
+                }
+                let mut writer = dst_endpoint_clone
+                    .open_writer(&out_path, /* overwrite = */ true)
+                    .map_err(|e| {
                         sevenz_rust::Error::io_msg(
-                            std::io::Error::other(format!("flush 7z entry: {}", e)),
+                            std::io::Error::other(format!("open writer {:?}: {}", out_path, e)),
                             "",
                         )
                     })?;
-                    drop(writer);
-                    count += 1;
-                    Ok(true)
-                },
-            )
+                let mut reader = reader;
+                std::io::copy(&mut reader, &mut writer).map_err(|e| {
+                    sevenz_rust::Error::io_msg(
+                        std::io::Error::other(format!("write 7z entry: {}", e)),
+                        "",
+                    )
+                })?;
+                std::io::Write::flush(&mut writer).map_err(|e| {
+                    sevenz_rust::Error::io_msg(
+                        std::io::Error::other(format!("flush 7z entry: {}", e)),
+                        "",
+                    )
+                })?;
+                drop(writer);
+                count += 1;
+                Ok(true)
+            })
         })();
         result.map_err(|e| anyhow!("sevenz extract: {}", e))?;
         Ok::<u64, anyhow::Error>(count)
@@ -1159,12 +1110,7 @@ async fn compress_targz(
             let dir_name = src
                 .file_name()
                 .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
-            append_tar_dir(
-                &mut builder,
-                src_endpoint,
-                src,
-                dir_name,
-            )?;
+            append_tar_dir(&mut builder, src_endpoint, src, dir_name)?;
         } else {
             // Single-file source. Entry name is
             // the basename. We use the low-level
@@ -1207,17 +1153,14 @@ async fn compress_targz(
     let encoder = builder
         .into_inner()
         .map_err(|e| anyhow!("tar finish: {}", e))?;
-    let bytes = encoder
-        .finish()
-        .map_err(|e| anyhow!("gz finish: {}", e))?;
+    let bytes = encoder.finish().map_err(|e| anyhow!("gz finish: {}", e))?;
 
     let mut writer = dst_endpoint
         .open_writer(archive, /* overwrite = */ true)
         .map_err(|e| anyhow!("Failed to open archive for writing: {}", e))?;
     std::io::Write::write_all(&mut writer, &bytes)
         .map_err(|e| anyhow!("write archive bytes: {}", e))?;
-    std::io::Write::flush(&mut writer)
-        .map_err(|e| anyhow!("flush archive: {}", e))?;
+    std::io::Write::flush(&mut writer).map_err(|e| anyhow!("flush archive: {}", e))?;
     drop(writer);
 
     Ok(bytes.len() as u64)
@@ -1764,22 +1707,20 @@ mod tests {
         // input.
         let out_dir = tmp.path().join("out");
         std::fs::create_dir_all(&out_dir).unwrap();
-        sevenz_rust::decompress_file_with_extract_fn(
-            &archive,
-            &out_dir,
-            |entry, reader, _dest| {
-                let mut buf = Vec::new();
-                use std::io::Read;
-                let _ = reader.read_to_end(&mut buf);
-                let name = entry.name().to_string();
-                if name.ends_with("a.txt") {
-                    assert_eq!(buf, b"hello-a");
-                } else if name.ends_with("b.txt") {
-                    assert_eq!(buf, b"hello-b");
-                }
-                Ok::<bool, sevenz_rust::Error>(true)
-            },
-        )
+        sevenz_rust::decompress_file_with_extract_fn(&archive, &out_dir, |entry, reader, _dest| {
+            let mut buf = Vec::new();
+            // sevenz-rust re-exports `Read` at the top of
+            // its prelude, so the trait is already in
+            // scope here.
+            let _ = reader.read_to_end(&mut buf);
+            let name = entry.name().to_string();
+            if name.ends_with("a.txt") {
+                assert_eq!(buf, b"hello-a");
+            } else if name.ends_with("b.txt") {
+                assert_eq!(buf, b"hello-b");
+            }
+            Ok::<bool, sevenz_rust::Error>(true)
+        })
         .expect("decode succeeds");
     }
 

@@ -129,7 +129,9 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             // Central format detection. Unknown
             // extensions used to silently fall back
             // to Zip; now we surface a clear error.
-            let format = match crate::fs::transfer::job::ArchiveFormat::detect_from_path(archive_path) {
+            let format = match crate::fs::transfer::job::ArchiveFormat::detect_from_path(
+                archive_path,
+            ) {
                 Some(f) => f,
                 None => {
                     state.active_popup = Some(PopupType::Error(format!(
@@ -141,10 +143,9 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             };
             if state.transfer.is_none() {
                 let (engine, rx) = crate::fs::transfer::engine::TransferEngine::new();
-                state.transfer =
-                    Some(crate::app::state::transfer_state::TransferUIState::new(
-                        engine, rx,
-                    ));
+                state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(
+                    engine, rx,
+                ));
             }
             if let Some(ref mut ts) = state.transfer {
                 let job = crate::fs::transfer::job::TransferJob::with_endpoints(

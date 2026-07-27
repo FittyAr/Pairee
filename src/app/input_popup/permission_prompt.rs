@@ -1,6 +1,6 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
 use crate::app::state::types::PermissionAnswer;
+use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -23,7 +23,11 @@ pub fn handle(
     {
         match key.code {
             KeyCode::Left | KeyCode::Char('h') => {
-                let next = if selected == 0 { BUTTONS - 1 } else { selected - 1 };
+                let next = if selected == 0 {
+                    BUTTONS - 1
+                } else {
+                    selected - 1
+                };
                 state.active_popup = Some(PopupType::PermissionPrompt {
                     paths,
                     job_id,
@@ -33,7 +37,11 @@ pub fn handle(
                 Ok(None)
             }
             KeyCode::Right | KeyCode::Char('l') => {
-                let next = if selected + 1 >= BUTTONS { 0 } else { selected + 1 };
+                let next = if selected + 1 >= BUTTONS {
+                    0
+                } else {
+                    selected + 1
+                };
                 state.active_popup = Some(PopupType::PermissionPrompt {
                     paths,
                     job_id,
@@ -53,7 +61,11 @@ pub fn handle(
                 Ok(None)
             }
             KeyCode::BackTab => {
-                let next = if selected == 0 { BUTTONS - 1 } else { selected - 1 };
+                let next = if selected == 0 {
+                    BUTTONS - 1
+                } else {
+                    selected - 1
+                };
                 state.active_popup = Some(PopupType::PermissionPrompt {
                     paths,
                     job_id,

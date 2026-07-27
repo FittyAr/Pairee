@@ -1,24 +1,40 @@
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use std::io::Write;
 
 use crate::fs::transfer::job::LinkKind;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub enum FsOperation {
-    Delete { path: PathBuf },
-    MkDir { path: PathBuf },
-    Copy { src: PathBuf, dst: PathBuf },
-    Move { src: PathBuf, dst: PathBuf },
-    Chmod { path: PathBuf, mode: u32 },
+    Delete {
+        path: PathBuf,
+    },
+    MkDir {
+        path: PathBuf,
+    },
+    Copy {
+        src: PathBuf,
+        dst: PathBuf,
+    },
+    Move {
+        src: PathBuf,
+        dst: PathBuf,
+    },
+    Chmod {
+        path: PathBuf,
+        mode: u32,
+    },
     /// Single-source / single-destination rename.
     /// `src` is the current path; `dst` is the new
     /// name. Both must live on the same endpoint
     /// (the helper runs locally and cannot reach
     /// SSH servers).
-    Rename { src: PathBuf, dst: PathBuf },
+    Rename {
+        src: PathBuf,
+        dst: PathBuf,
+    },
     /// Create a symbolic or hard link at `dst`
     /// pointing to `src`.
     CreateLink {
@@ -31,7 +47,10 @@ pub enum FsOperation {
     /// to 1-3, same as the engine's `wipe_passes`).
     /// SSH endpoints are not supported (SFTP cannot
     /// guarantee overwrite semantics).
-    Wipe { path: PathBuf, passes: u8 },
+    Wipe {
+        path: PathBuf,
+        passes: u8,
+    },
 }
 
 #[cfg(target_os = "windows")]
@@ -343,10 +362,12 @@ mod tests {
         // filename does NOT match the predictable
         // `pairee_op_<digits>.json` shape.
         assert!(
-            !name.starts_with("pairee_op_") || !name.trim_start_matches("pairee_op_")
-                .trim_end_matches(".json")
-                .chars()
-                .all(|c| c.is_ascii_digit()),
+            !name.starts_with("pairee_op_")
+                || !name
+                    .trim_start_matches("pairee_op_")
+                    .trim_end_matches(".json")
+                    .chars()
+                    .all(|c| c.is_ascii_digit()),
             "ops temp file name {name:?} looks predictable — should contain a random component"
         );
     }

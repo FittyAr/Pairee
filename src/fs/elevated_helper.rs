@@ -51,14 +51,12 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
                         .with_context(|| format!("Failed to set permissions on {:?}", path))?;
                 }
                 FsOperation::Rename { src, dst } => {
-                    std::fs::rename(&src, &dst).with_context(|| {
-                        format!("Failed to rename {:?} to {:?}", src, dst)
-                    })?;
+                    std::fs::rename(&src, &dst)
+                        .with_context(|| format!("Failed to rename {:?} to {:?}", src, dst))?;
                 }
                 FsOperation::CreateLink { src, dst, kind } => {
-                    create_link(&src, &dst, kind).with_context(|| {
-                        format!("Failed to create link {:?} -> {:?}", src, dst)
-                    })?;
+                    create_link(&src, &dst, kind)
+                        .with_context(|| format!("Failed to create link {:?} -> {:?}", src, dst))?;
                 }
                 FsOperation::Wipe { path, passes } => {
                     let passes = passes.clamp(1, 3);

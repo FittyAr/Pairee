@@ -412,27 +412,28 @@ pub fn process_background_updates(
                             count
                         ));
                         for f in &files {
-                            job.log_lines
-                                .push(format!("    - {}", f.to_string_lossy()));
+                            job.log_lines.push(format!("    - {}", f.to_string_lossy()));
                         }
                         if let Some(err) = &sample_error {
-                            job.log_lines
-                                .push(format!("    first error: {}", err));
+                            job.log_lines.push(format!("    first error: {}", err));
                         }
                     });
                     let no_popup_yet = state.active_popup.is_none();
                     if no_popup_yet {
-                        state.active_popup =
-                            Some(crate::app::state::PopupType::PermissionPrompt {
-                                paths: files.clone(),
-                                job_id,
-                                selected: 0,
-                                sample_error: sample_error.clone(),
-                            });
+                        state.active_popup = Some(crate::app::state::PopupType::PermissionPrompt {
+                            paths: files.clone(),
+                            job_id,
+                            selected: 0,
+                            sample_error: sample_error.clone(),
+                        });
                         refresh_needed = true;
                     }
                 }
-                TransferEvent::PermissionDenied { job_id, file, error } => {
+                TransferEvent::PermissionDenied {
+                    job_id,
+                    file,
+                    error,
+                } => {
                     // Per-file log entry. The UI can use
                     // this for a red icon in the transfer
                     // panel; B4 wires the visual.
@@ -501,9 +502,7 @@ pub fn process_background_updates(
 
     // 1.10 Permission elevation answer
     let show_hidden = context.config.settings.show_hidden;
-    if let Some((job_id, paths, answer)) =
-        state.pending_permission_answer.take()
-    {
+    if let Some((job_id, paths, answer)) = state.pending_permission_answer.take() {
         handle_permission_answer(state, job_id, paths, answer, show_hidden);
     }
 }
@@ -544,19 +543,16 @@ fn handle_permission_answer(
             // finished jobs automatically) so we can
             // recover its operation kind and the
             // destination folder for Copy / Move.
-            let derived = state
-                .transfer
-                .as_ref()
-                .and_then(|ts| {
-                    let job = ts
-                        .engine
-                        .queue
-                        .get_all()
-                        .into_iter()
-                        .find(|j| j.id == job_id)?;
-                    let ops = derive_retry_ops(&job, &paths);
-                    Some((job.operation.clone(), ops))
-                });
+            let derived = state.transfer.as_ref().and_then(|ts| {
+                let job = ts
+                    .engine
+                    .queue
+                    .get_all()
+                    .into_iter()
+                    .find(|j| j.id == job_id)?;
+                let ops = derive_retry_ops(&job, &paths);
+                Some((job.operation.clone(), ops))
+            });
 
             let (operation, ops) = match derived {
                 Some(v) => v,
@@ -596,20 +592,16 @@ fn handle_permission_answer(
                     // policy recorded a path we cannot
                     // resolve to a real file. Fall back to
                     // the generic hint.
-                    _ => {
-                        "Re-run the original command from the menu as administrator."
-                    }
+                    _ => "Re-run the original command from the menu as administrator.",
                 };
                 log::warn!(
                     "transfer: retry-as-admin not available for {:?}; showing user hint",
                     operation
                 );
-                state.active_popup = Some(
-                    crate::app::state::PopupType::Error(format!(
-                        "Retry as administrator is not available for this operation.\n\n{}",
-                        hint
-                    )),
-                );
+                state.active_popup = Some(crate::app::state::PopupType::Error(format!(
+                    "Retry as administrator is not available for this operation.\n\n{}",
+                    hint
+                )));
                 return;
             }
 
@@ -620,31 +612,21 @@ fn handle_permission_answer(
             // exits.
             match crate::fs::privileges::run_in_elevated_helper(ops) {
                 Ok(()) => {
-                    log::info!(
-                        "transfer: elevated helper succeeded for job {}",
-                        job_id
-                    );
+                    log::info!("transfer: elevated helper succeeded for job {}", job_id);
                     if let Some(ref mut ts) = state.transfer {
                         ts.engine.queue.update_job(job_id, |j| {
                             j.log_lines.push(
-                                "🔐 Elevated helper completed; refreshing panels"
-                                    .to_string(),
+                                "🔐 Elevated helper completed; refreshing panels".to_string(),
                             );
                         });
                     }
                 }
                 Err(e) => {
-                    log::warn!(
-                        "transfer: elevated helper failed for job {}: {}",
-                        job_id,
-                        e
-                    );
+                    log::warn!("transfer: elevated helper failed for job {}: {}", job_id, e);
                     if let Some(ref mut ts) = state.transfer {
                         ts.engine.queue.update_job(job_id, |j| {
-                            j.log_lines.push(format!(
-                                "🔐 Elevated helper failed: {}",
-                                e
-                            ));
+                            j.log_lines
+                                .push(format!("🔐 Elevated helper failed: {}", e));
                         });
                     }
                 }
@@ -681,18 +663,19 @@ fn derive_retry_ops(
     match job.operation {
         TransferOperation::Copy | TransferOperation::Move => {
             for src in paths {
-                let dst = job
-                    .destination
-                    .join(src.file_name().unwrap_or_else(|| {
-                        std::path::Component::Normal(
-                            std::ffi::OsStr::new("(unknown)"),
-                        )
-                        .as_os_str()
-                    }));
+                let dst = job.destination.join(src.file_name().unwrap_or_else(|| {
+                    std::path::Component::Normal(std::ffi::OsStr::new("(unknown)")).as_os_str()
+                }));
                 if matches!(job.operation, TransferOperation::Copy) {
-                    ops.push(FsOperation::Copy { src: src.clone(), dst });
+                    ops.push(FsOperation::Copy {
+                        src: src.clone(),
+                        dst,
+                    });
                 } else {
-                    ops.push(FsOperation::Move { src: src.clone(), dst });
+                    ops.push(FsOperation::Move {
+                        src: src.clone(),
+                        dst,
+                    });
                 }
             }
         }
@@ -714,9 +697,7 @@ fn derive_retry_ops(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fs::transfer::job::{
-        LinkKind, TransferJob, TransferOperation,
-    };
+    use crate::fs::transfer::job::{LinkKind, TransferJob, TransferOperation};
     use crate::fs::transfer::options::TransferOptions;
     use std::path::PathBuf;
 

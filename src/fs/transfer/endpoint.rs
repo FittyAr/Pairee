@@ -585,8 +585,7 @@ mod local {
             if !overwrite && path.exists() {
                 return Err(EndpointError::AlreadyExists(path.to_path_buf()));
             }
-            let f =
-                std::fs::File::create(path).map_err(|e| map_io(e, path, "open_writer"))?;
+            let f = std::fs::File::create(path).map_err(|e| map_io(e, path, "open_writer"))?;
             Ok(Box::new(f))
         }
     }

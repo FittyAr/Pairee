@@ -101,8 +101,7 @@ impl TransferWorker {
         error: &str,
         retries: u32,
     ) {
-        let is_remote =
-            !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
+        let is_remote = !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
         report_file_failure(
             &*self.policy,
             &self.event_tx,
@@ -134,8 +133,7 @@ impl TransferWorker {
     /// path, so the retry-as-admin prompt can be triggered
     /// on `AccessDenied`.
     fn report_compress_extract_failure(&self, path: &Path, error: &str) {
-        let is_remote =
-            !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
+        let is_remote = !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
         report_file_failure(
             &*self.policy,
             &self.event_tx,
@@ -737,13 +735,7 @@ impl TransferWorker {
             }
 
             if !copy_success {
-                self.emit_file_failed(
-                    &mut results,
-                    &src,
-                    &dst,
-                    &last_error,
-                    retries,
-                );
+                self.emit_file_failed(&mut results, &src, &dst, &last_error, retries);
                 if self.options.halt_on_error {
                     return Err(anyhow!("Halt on error: {}", last_error));
                 }
@@ -901,13 +893,7 @@ impl TransferWorker {
             }
 
             if !copy_success {
-                self.emit_file_failed(
-                    &mut results,
-                    &src,
-                    &dst,
-                    &last_error,
-                    retries,
-                );
+                self.emit_file_failed(&mut results, &src, &dst, &last_error, retries);
                 if self.options.halt_on_error {
                     return Err(anyhow!("Halt on error: {}", last_error));
                 }
@@ -1034,13 +1020,7 @@ impl TransferWorker {
         }
 
         if !success {
-            self.emit_file_failed(
-                &mut results,
-                &src,
-                &target,
-                &last_error,
-                retries,
-            );
+            self.emit_file_failed(&mut results, &src, &target, &last_error, retries);
             if self.options.halt_on_error {
                 return Err(anyhow!("Halt on error: {}", last_error));
             }
@@ -1101,13 +1081,7 @@ impl TransferWorker {
         // If the destination already exists, fail fast with
         // a clear error (matches the behaviour of std::os::unix::fs::symlink).
         if self.dst_endpoint.exists(&dst) {
-            self.emit_file_failed(
-                &mut results,
-                &src,
-                &dst,
-                "Link target already exists",
-                0,
-            );
+            self.emit_file_failed(&mut results, &src, &dst, "Link target already exists", 0);
             let _ = self.event_tx.send(TransferEvent::JobCompleted {
                 job_id: self.job_id,
                 results: results.clone(),
@@ -1145,13 +1119,7 @@ impl TransferWorker {
                 });
             }
             Err(e) => {
-                self.emit_file_failed(
-                    &mut results,
-                    &src,
-                    &dst,
-                    &e.to_string(),
-                    0,
-                );
+                self.emit_file_failed(&mut results, &src, &dst, &e.to_string(), 0);
             }
         }
 
@@ -1176,16 +1144,13 @@ impl TransferWorker {
         // shared flags. The pipeline itself handles
         // every format (zip today, tar.gz in A3, 7z
         // in A4).
-        let _ = self
-            .event_tx
-            .send(TransferEvent::TransferStarted {
-                job_id: self.job_id,
-                total_files: self.sources.len(),
-                total_bytes: 0,
-            });
+        let _ = self.event_tx.send(TransferEvent::TransferStarted {
+            job_id: self.job_id,
+            total_files: self.sources.len(),
+            total_bytes: 0,
+        });
 
-        let bytes_transferred_acc =
-            Arc::new(std::sync::atomic::AtomicU64::new(0));
+        let bytes_transferred_acc = Arc::new(std::sync::atomic::AtomicU64::new(0));
 
         let size = match super::pipeline::compress_pipeline(
             &self.src_endpoint,
@@ -1211,10 +1176,7 @@ impl TransferWorker {
                 // the pipeline tried to create, which is
                 // the only path the failure can really be
                 // blamed on for a single-output operation.
-                self.report_compress_extract_failure(
-                    &self.destination,
-                    &e.to_string(),
-                );
+                self.report_compress_extract_failure(&self.destination, &e.to_string());
                 return Err(e);
             }
         };
@@ -1228,12 +1190,10 @@ impl TransferWorker {
             verified: true,
             duration: std::time::Duration::from_secs(0),
         };
-        let _ = self
-            .event_tx
-            .send(TransferEvent::FileCompleted {
-                job_id: self.job_id,
-                result: result.clone(),
-            });
+        let _ = self.event_tx.send(TransferEvent::FileCompleted {
+            job_id: self.job_id,
+            result: result.clone(),
+        });
         let mut results = TransferResults::default();
         results.completed_files.push(result);
         let _ = self.event_tx.send(TransferEvent::JobCompleted {
@@ -1260,13 +1220,11 @@ impl TransferWorker {
             ));
         }
         let archive = self.sources[0].clone();
-        let _ = self
-            .event_tx
-            .send(TransferEvent::TransferStarted {
-                job_id: self.job_id,
-                total_files: 0,
-                total_bytes: 0,
-            });
+        let _ = self.event_tx.send(TransferEvent::TransferStarted {
+            job_id: self.job_id,
+            total_files: 0,
+            total_bytes: 0,
+        });
         let _entries = match super::pipeline::extract_pipeline(
             &self.src_endpoint,
             &archive,
@@ -1288,10 +1246,7 @@ impl TransferWorker {
                 // into the destination directory. The
                 // destination is the directory the
                 // pipeline tried to create or write into.
-                self.report_compress_extract_failure(
-                    &self.destination,
-                    &e.to_string(),
-                );
+                self.report_compress_extract_failure(&self.destination, &e.to_string());
                 return Err(e);
             }
         };
@@ -1305,12 +1260,10 @@ impl TransferWorker {
             verified: true,
             duration: std::time::Duration::from_secs(0),
         };
-        let _ = self
-            .event_tx
-            .send(TransferEvent::FileCompleted {
-                job_id: self.job_id,
-                result: result.clone(),
-            });
+        let _ = self.event_tx.send(TransferEvent::FileCompleted {
+            job_id: self.job_id,
+            result: result.clone(),
+        });
         let mut results = TransferResults::default();
         results.completed_files.push(result);
         let _ = self.event_tx.send(TransferEvent::JobCompleted {
@@ -1344,13 +1297,7 @@ impl TransferWorker {
                     index: idx,
                 });
                 if let Err(e) = send_to_recycle_bin_helper(src) {
-                    self.emit_file_failed(
-                        &mut results,
-                        src,
-                        &PathBuf::new(),
-                        &e.to_string(),
-                        0,
-                    );
+                    self.emit_file_failed(&mut results, src, &PathBuf::new(), &e.to_string(), 0);
                     if self.options.halt_on_error {
                         return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
                     }
@@ -1417,13 +1364,7 @@ impl TransferWorker {
                     res = self.src_endpoint.remove_file(&src);
                 }
                 if let Err(e) = res {
-                    self.emit_file_failed(
-                        &mut results,
-                        &src,
-                        &PathBuf::new(),
-                        &e.to_string(),
-                        0,
-                    );
+                    self.emit_file_failed(&mut results, &src, &PathBuf::new(), &e.to_string(), 0);
                     if self.options.halt_on_error {
                         return Err(anyhow!("Halt on error: Deletion failed"));
                     }
@@ -1455,13 +1396,7 @@ impl TransferWorker {
                     res = self.src_endpoint.remove_dir(&dir);
                 }
                 if let Err(e) = res {
-                    self.emit_file_failed(
-                        &mut results,
-                        &dir,
-                        &PathBuf::new(),
-                        &e.to_string(),
-                        0,
-                    );
+                    self.emit_file_failed(&mut results, &dir, &PathBuf::new(), &e.to_string(), 0);
                 }
             }
         }
@@ -1797,8 +1732,7 @@ mod tests {
             skip,
             tx,
             conflict,
-            Arc::new(crate::fs::transfer::policy::PromptPolicy::new())
-                as Arc<dyn TransferPolicy>,
+            Arc::new(crate::fs::transfer::policy::PromptPolicy::new()) as Arc<dyn TransferPolicy>,
         );
         (w, rx)
     }

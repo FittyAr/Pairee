@@ -188,12 +188,12 @@ impl TransferEngine {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::fs::transfer::policy::{FileError, RetryRequest, TransferPolicy};
     use crate::fs::transfer::job::{TransferJob, TransferOperation};
     use crate::fs::transfer::options::TransferOptions;
+    use crate::fs::transfer::policy::{FileError, RetryRequest, TransferPolicy};
     use std::path::{Path, PathBuf};
-    use std::sync::atomic::{AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
     fn default_engine_can_be_built() {
@@ -210,8 +210,9 @@ mod tests {
     fn with_policy_accepts_a_custom_trait_object() {
         // We don't keep the `Arc` around: we just want
         // to confirm the constructor accepts one.
-        let _engine =
-            TransferEngine::with_policy(Some(Arc::new(crate::fs::transfer::policy::PromptPolicy::new())));
+        let _engine = TransferEngine::with_policy(Some(Arc::new(
+            crate::fs::transfer::policy::PromptPolicy::new(),
+        )));
     }
 
     #[test]
@@ -260,18 +261,13 @@ mod tests {
         policy.on_file_error(Path::new("/a"), &FileError::AccessDenied);
         policy.on_file_error(Path::new("/b"), &FileError::AccessDenied);
         policy.on_file_error(Path::new("/c"), &FileError::NotFound);
-        policy.on_file_error(
-            Path::new("/d"),
-            &FileError::IoError("nope".to_string()),
-        );
+        policy.on_file_error(Path::new("/d"), &FileError::IoError("nope".to_string()));
         // `finalize` drains the accumulated list. Only
         // the two AccessDenied entries should be there.
         let snap = policy.finalize();
         assert_eq!(snap.len(), 2);
-        let paths: std::collections::HashSet<_> = snap
-            .iter()
-            .map(|r| r.original_path.clone())
-            .collect();
+        let paths: std::collections::HashSet<_> =
+            snap.iter().map(|r| r.original_path.clone()).collect();
         assert!(paths.contains(&PathBuf::from("/a")));
         assert!(paths.contains(&PathBuf::from("/b")));
         // Reset clears state.
@@ -307,10 +303,8 @@ mod tests {
         }
 
         let resets = Arc::new(AtomicUsize::new(0));
-        let policy: Arc<dyn TransferPolicy> =
-            Arc::new(Counter(resets.clone()));
-        let (mut engine, _rx) =
-            TransferEngine::with_policy(Some(policy));
+        let policy: Arc<dyn TransferPolicy> = Arc::new(Counter(resets.clone()));
+        let (mut engine, _rx) = TransferEngine::with_policy(Some(policy));
 
         let make_job = || {
             TransferJob::new(

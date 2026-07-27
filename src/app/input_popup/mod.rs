@@ -139,9 +139,7 @@ pub fn handle_popup_input(
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             PopupType::TransferPanel => transfer_panel::handle(state, key, context),
-            PopupType::PermissionPrompt { .. } => {
-                permission_prompt::handle(state, key, context)
-            }
+            PopupType::PermissionPrompt { .. } => permission_prompt::handle(state, key, context),
             PopupType::FileAssociationsDialog { .. } => {
                 file_associations::handle(state, key, context)
             }

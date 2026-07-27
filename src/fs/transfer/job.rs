@@ -276,7 +276,9 @@ mod tests {
             TransferOperation::Move,
             TransferOperation::Delete,
             TransferOperation::Rename,
-            TransferOperation::CreateLink { kind: LinkKind::Hard },
+            TransferOperation::CreateLink {
+                kind: LinkKind::Hard,
+            },
             TransferOperation::Compress {
                 format: ArchiveFormat::Zip,
                 level: 6,

@@ -106,13 +106,9 @@ fn list_7z(path: &Path) -> Result<Vec<String>> {
     File::open(path)?.read_to_end(&mut bytes)?;
     let cursor = std::io::Cursor::new(bytes);
     let mut names: Vec<String> = Vec::new();
-    sevenz_rust::decompress_with_extract_fn(
-        cursor,
-        path,
-        |entry, _reader, _dest| {
-            names.push(entry.name().to_string());
-            Ok(true)
-        },
-    )?;
+    sevenz_rust::decompress_with_extract_fn(cursor, path, |entry, _reader, _dest| {
+        names.push(entry.name().to_string());
+        Ok(true)
+    })?;
     Ok(names)
 }

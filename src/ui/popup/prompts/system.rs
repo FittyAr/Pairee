@@ -55,10 +55,7 @@ pub fn render(
                 body.push_str(&format!("  {}. {}\n", i + 1, p.display()));
             }
             if paths.len() > visible_count {
-                body.push_str(&format!(
-                    "\n  …and {} more\n",
-                    paths.len() - visible_count
-                ));
+                body.push_str(&format!("\n  …and {} more\n", paths.len() - visible_count));
             }
             body.push('\n');
             let labels = [

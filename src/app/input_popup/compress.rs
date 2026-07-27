@@ -51,9 +51,7 @@ pub fn handle(
                     // channel are no longer used.
                     use crate::app::state::transfer_state::TransferUIState;
                     use crate::fs::transfer::engine::TransferEngine;
-                    use crate::fs::transfer::job::{
-                        ArchiveFormat, TransferJob, TransferOperation,
-                    };
+                    use crate::fs::transfer::job::{ArchiveFormat, TransferJob, TransferOperation};
                     use crate::fs::transfer::options::TransferOptions;
 
                     if state.transfer.is_none() {
@@ -74,8 +72,7 @@ pub fn handle(
                             crate::fs::transfer::endpoint::TransferEndpoint::Local,
                         );
                         ts.engine.submit_job(job);
-                        ts.view_mode =
-                            crate::app::state::TransferViewMode::Minimized;
+                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
                     }
                     let _ = t("progress_compressing");
                     state.active_popup = None;

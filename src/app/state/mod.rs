@@ -34,7 +34,11 @@ pub struct AppState {
     /// handler fills it in; the background loop
     /// drains it and drives the elevated helper
     /// based on the choice.
-    pub pending_permission_answer: Option<(uuid::Uuid, Vec<std::path::PathBuf>, crate::app::state::types::PermissionAnswer)>,
+    pub pending_permission_answer: Option<(
+        uuid::Uuid,
+        Vec<std::path::PathBuf>,
+        crate::app::state::types::PermissionAnswer,
+    )>,
     /// Channel receiver for background SSH connection attempts
     pub ssh_connect_rx: Option<
         tokio::sync::oneshot::Receiver<(

@@ -185,9 +185,7 @@ impl TransferPolicy for PromptPolicy {
         // job starts from a clean slate. The engine
         // forwards the drained list as the
         // `PermissionPrompt` event payload.
-        std::mem::take(
-            &mut *self.denied.lock().expect("PromptPolicy mutex poisoned"),
-        )
+        std::mem::take(&mut *self.denied.lock().expect("PromptPolicy mutex poisoned"))
     }
 
     fn reset(&self) {
@@ -263,28 +261,18 @@ mod tests {
     fn prompt_policy_only_records_access_denied() {
         let policy = PromptPolicy::new();
 
-        policy.on_file_error(
-            Path::new("/file_a"),
-            &FileError::AccessDenied,
-        );
-        policy.on_file_error(
-            Path::new("/file_b"),
-            &FileError::NotFound,
-        );
+        policy.on_file_error(Path::new("/file_a"), &FileError::AccessDenied);
+        policy.on_file_error(Path::new("/file_b"), &FileError::NotFound);
         policy.on_file_error(
             Path::new("/file_c"),
             &FileError::IoError("nope".to_string()),
         );
-        policy.on_file_error(
-            Path::new("/file_d"),
-            &FileError::AccessDenied,
-        );
+        policy.on_file_error(Path::new("/file_d"), &FileError::AccessDenied);
 
         // Only the two AccessDenied ones are drained.
         let requests = policy.finalize();
         assert_eq!(requests.len(), 2);
-        let paths: Vec<&PathBuf> =
-            requests.iter().map(|r| &r.original_path).collect();
+        let paths: Vec<&PathBuf> = requests.iter().map(|r| &r.original_path).collect();
         assert!(paths.contains(&&PathBuf::from("/file_a")));
         assert!(paths.contains(&&PathBuf::from("/file_d")));
     }
@@ -292,10 +280,7 @@ mod tests {
     #[test]
     fn prompt_policy_drain_clears_state() {
         let policy = PromptPolicy::new();
-        policy.on_file_error(
-            Path::new("/x"),
-            &FileError::AccessDenied,
-        );
+        policy.on_file_error(Path::new("/x"), &FileError::AccessDenied);
 
         // The first drain returns the requests and
         // empties the buffer.
@@ -309,10 +294,7 @@ mod tests {
     #[test]
     fn prompt_policy_reset_clears_state() {
         let policy = PromptPolicy::new();
-        policy.on_file_error(
-            Path::new("/x"),
-            &FileError::AccessDenied,
-        );
+        policy.on_file_error(Path::new("/x"), &FileError::AccessDenied);
         policy.reset();
         assert!(policy.finalize().is_empty());
     }

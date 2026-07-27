@@ -1,10 +1,8 @@
+use crate::app::state::transfer_state::TransferUIState;
 use crate::app::state::{AppState, PopupType};
 use crate::fs::transfer::engine::TransferEngine;
-use crate::fs::transfer::job::{
-    ArchiveFormat, TransferJob, TransferOperation,
-};
+use crate::fs::transfer::job::{ArchiveFormat, TransferJob, TransferOperation};
 use crate::fs::transfer::options::TransferOptions;
-use crate::app::state::transfer_state::TransferUIState;
 
 pub fn handle(state: &mut AppState) -> bool {
     let active = state.get_active_panel();
