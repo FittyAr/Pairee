@@ -68,6 +68,101 @@ fn spawn_blocked_by_trust(lua: &Lua) -> bool {
     !is_trusted(lua)
 }
 
+/// §6 Secure-Mode: a denylist of environment variable names that
+/// influence dynamic linker behaviour. Letting a plugin set
+/// `LD_PRELOAD` is a sandbox-escape primitive: the preloaded
+/// library runs inside the child process with full code
+/// execution. The same applies to `LD_LIBRARY_PATH` (forces a
+/// custom library to be loaded instead of the system one) and
+/// the `DYLD_*` family on macOS.
+///
+/// The check is case-insensitive because the dynamic linker
+/// accepts several variants (e.g. `LD_PRELOAD`, `ld_preload`).
+fn env_blocked_in_secure_mode(lua: &Lua, name: &str) -> bool {
+    if !is_secure_mode(lua) {
+        return false;
+    }
+    let upper: String = name.to_ascii_uppercase();
+    const DENYLIST: &[&str] = &[
+        // ELF dynamic linker (Linux, *BSD, etc.)
+        "LD_PRELOAD",
+        "LD_LIBRARY_PATH",
+        "LD_AUDIT",
+        "LD_DEBUG",
+        "LD_DEBUG_OUTPUT",
+        "LD_BIND_NOW",
+        "LD_PROFILE",
+        "LD_SHOW_AUXV",
+        "LD_HWCAP_MASK",
+        "LD_ORIGIN_PATH",
+        "LD_DYNAMIC_WEAK",
+        "LD_USE_LOAD_BIAS",
+        // macOS dyld
+        "DYLD_INSERT_LIBRARIES",
+        "DYLD_LIBRARY_PATH",
+        "DYLD_FRAMEWORK_PATH",
+        "DYLD_FALLBACK_FRAMEWORK_PATH",
+        "DYLD_FALLBACK_LIBRARY_PATH",
+        "DYLD_ROOT_PATH",
+        "DYLD_SHARED_REGION",
+        "DYLD_SHARED_CACHE_DIR",
+    ];
+    DENYLIST.iter().any(|blocked| upper == *blocked)
+}
+
+/// §6 Secure-Mode: validate a cwd against the frozen sandbox
+/// roots. A plugin must not be able to spawn a child inside a
+/// directory outside the workspace — that would let the child
+/// read or write outside the sandbox with the same privileges
+/// as the plugin (which has only the workspace's read/write
+/// rights, but a child process can be a stepping stone to
+/// more). We re-use `fs::bindings::is_in_sandbox` by going
+/// through the same canonicalize path so the check matches
+/// what the file bindings do.
+///
+/// Returns `Ok(())` if Secure Mode is off (no validation), if
+/// the path is inside the sandbox, or if the path is missing
+/// entirely (an "open" cwd that the OS will reject on exec
+/// anyway — we don't want to give plugins a way to learn that
+/// a path is invalid by observing this check).
+fn cwd_in_sandbox(lua: &Lua, cwd: &str) -> bool {
+    if !is_secure_mode(lua) {
+        return true;
+    }
+    // Mirror the file-binding sandbox check: canonicalize, then
+    // ask the bindings module whether the result is in a
+    // permitted root. We import the function lazily to avoid a
+    // cycle between the process and fs binding modules.
+    let canonical = match std::fs::canonicalize(cwd) {
+        Ok(p) => p,
+        Err(_) => {
+            // Path doesn't exist. We can't tell if it's inside
+            // or outside the sandbox, so we err on the side of
+            // accepting (the spawn will fail at exec time with
+            // a clearer error anyway). The same trade-off is
+            // documented in `validate_path_with`.
+            return true;
+        }
+    };
+    crate::plugin::runtime::bindings::fs::is_in_sandbox(&canonical)
+}
+
+/// §6 hardening: minimum sensible value for `RLIMIT_AS`.
+/// Setting `RLIMIT_AS` to a value smaller than the loader
+/// itself needs causes the exec to fail with `ENOMEM` before
+/// the program even starts — a denial-of-service against the
+/// user's own machine. We pick 4 MiB as a floor (small enough
+/// to be useful for testing, large enough to host the dynamic
+/// linker on every platform we support).
+const MIN_RLIMIT_AS: u64 = 4 * 1024 * 1024;
+
+/// §6: clamp a user-supplied `RLIMIT_AS` request to a minimum
+/// sensible value. `pub(crate)` so the unit tests can verify
+/// the clamp behaviour without spawning a real process.
+pub(crate) fn clamp_rlimit_as(requested: u64) -> u64 {
+    requested.max(MIN_RLIMIT_AS)
+}
+
 /// The M3 `Command` userdata. Wraps the configuration needed
 /// to build up a `tokio::process::Command` (which is not
 /// `Clone`). When `:spawn()`/`:output()`/`:status()` is called
@@ -128,20 +223,53 @@ impl Command {
         }
         c.kill_on_drop(self.kill_on_drop);
         if let Some(max) = self.memory {
+            // §6 hardening: clamp the request to a minimum
+            // sensible value (see `clamp_rlimit_as` at module
+            // scope for the rationale). Setting `RLIMIT_AS`
+            // to a value smaller than the loader itself needs
+            // causes the exec to fail with `ENOMEM` before
+            // the program even starts.
+            let clamped = clamp_rlimit_as(max);
+            if clamped != max {
+                log::warn!(
+                    "Command.memory({}) is below the {} byte floor; clamping to {}",
+                    max,
+                    MIN_RLIMIT_AS,
+                    clamped
+                );
+            }
             #[cfg(unix)]
             {
                 // SAFETY: `pre_exec` runs in the forked child
                 // between `fork` and `exec`. We only call
                 // `libc::setrlimit` with a stack-local `rlimit`
                 // struct; we never touch the parent's address
-                // space. `RLIMIT_AS` caps the virtual address
-                // space — anything above `max` bytes raises
-                // `ENOMEM` on the next allocation.
+                // space.
+                //
+                // Platform notes for `RLIMIT_AS`:
+                //   * Linux: caps the virtual address space of
+                //     the process. Allocations above the limit
+                //     return `ENOMEM`. This is the "real"
+                //     enforcement.
+                //   * macOS: `RLIMIT_AS` is implemented but the
+                //     kernel may use it more loosely than on
+                //     Linux; the limit is *not* always honoured
+                //     for mmap'd files.
+                //   * FreeBSD/OpenBSD/NetBSD: behaviour is
+                //     similar to Linux; some kernels additionally
+                //     require `RLIMIT_DATA` to be lowered for
+                //     data-segment-heavy programs.
+                //
+                // We set `rlim_cur == rlim_max` so the limit is
+                // not a "soft" hint that the child can raise
+                // back. Note that non-root processes cannot
+                // raise `rlim_max` (only lower it), so this
+                // matters most for trusted plugins.
                 unsafe {
                     c.pre_exec(move || {
                         let rlim = libc::rlimit {
-                            rlim_cur: max as libc::rlim_t,
-                            rlim_max: max as libc::rlim_t,
+                            rlim_cur: clamped as libc::rlim_t,
+                            rlim_max: clamped as libc::rlim_t,
                         };
                         if libc::setrlimit(libc::RLIMIT_AS, &rlim) != 0 {
                             return Err(std::io::Error::last_os_error());
@@ -152,9 +280,15 @@ impl Command {
             }
             #[cfg(not(unix))]
             {
-                // M3 simplification: Windows can't enforce
-                // RLIMIT_AS. Log once and move on.
-                let _ = max;
+                // M3 simplification: Windows has no equivalent
+                // of `RLIMIT_AS`. The closest is the job-object
+                // `JOB_OBJECT_LIMIT_PROCESS_MEMORY`, but that
+                // requires the child to be wrapped in a job at
+                // spawn time, which `tokio::process` does not
+                // expose. Log once per call and move on; the
+                // plugin can still cap memory by using a
+                // child-monitoring helper.
+                let _ = clamped;
                 log::warn!(
                     "Command.memory({}) is set but RLIMIT_AS is not supported on this platform",
                     max
@@ -175,11 +309,36 @@ impl UserData for Command {
             this.args.extend(args);
             Ok(this.clone())
         });
-        methods.add_method_mut("cwd", |_lua, this, dir: String| {
+        methods.add_method_mut("cwd", |lua_ctx, this, dir: String| {
+            // §6 Secure-Mode: refuse a cwd that resolves to a
+            // path outside the sandbox. Without this check, a
+            // plugin could `cwd("/etc")` and then `spawn("ls")`
+            // — the child would still be subject to the binary
+            // blacklist, but its working directory would be
+            // outside the workspace, leaking the existence of
+            // arbitrary files via `getcwd` introspection in
+            // some libraries.
+            if is_secure_mode(lua_ctx) && !cwd_in_sandbox(lua_ctx, &dir) {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "Command:cwd({:?}) is blocked in Secure Mode (outside sandbox)",
+                    dir
+                )));
+            }
             this.cwd = Some(dir);
             Ok(this.clone())
         });
-        methods.add_method_mut("env", |_lua, this, (k, v): (String, String)| {
+        methods.add_method_mut("env", |lua_ctx, this, (k, v): (String, String)| {
+            // §6 Secure-Mode: refuse dynamic-linker hooks
+            // (`LD_PRELOAD`, `LD_LIBRARY_PATH`, `DYLD_*`, …).
+            // These are sandbox-escape primitives — a preloaded
+            // library runs in the child process with full code
+            // execution.
+            if env_blocked_in_secure_mode(lua_ctx, &k) {
+                return Err(mlua::Error::RuntimeError(format!(
+                    "Command:env({:?}, _) is blocked in Secure Mode (dynamic-linker hook)",
+                    k
+                )));
+            }
             this.env.push((k, v));
             Ok(this.clone())
         });
@@ -196,36 +355,39 @@ impl UserData for Command {
             Ok(this.clone())
         });
         methods.add_method_mut("stdin", |lua_ctx, this, stdio: mlua::AnyUserData| {
-            let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let s = stdio
+                .borrow::<Stdio>()
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             // §6 Secure-Mode: INHERIT is forbidden because it
             // exposes the terminal (and any sensitive input) to
             // the child process.
             if inherit_blocked_by_secure_mode(lua_ctx, *s) {
                 return Err(mlua::Error::RuntimeError(
-                    "Command.stdin(Stdio::INHERIT) is blocked in Secure Mode"
-                        .to_string(),
+                    "Command.stdin(Stdio::INHERIT) is blocked in Secure Mode".to_string(),
                 ));
             }
             this.stdin = Some(*s);
             Ok(this.clone())
         });
         methods.add_method_mut("stdout", |lua_ctx, this, stdio: mlua::AnyUserData| {
-            let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let s = stdio
+                .borrow::<Stdio>()
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             if inherit_blocked_by_secure_mode(lua_ctx, *s) {
                 return Err(mlua::Error::RuntimeError(
-                    "Command.stdout(Stdio::INHERIT) is blocked in Secure Mode"
-                        .to_string(),
+                    "Command.stdout(Stdio::INHERIT) is blocked in Secure Mode".to_string(),
                 ));
             }
             this.stdout = Some(*s);
             Ok(this.clone())
         });
         methods.add_method_mut("stderr", |lua_ctx, this, stdio: mlua::AnyUserData| {
-            let s = stdio.borrow::<Stdio>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let s = stdio
+                .borrow::<Stdio>()
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             if inherit_blocked_by_secure_mode(lua_ctx, *s) {
                 return Err(mlua::Error::RuntimeError(
-                    "Command.stderr(Stdio::INHERIT) is blocked in Secure Mode"
-                        .to_string(),
+                    "Command.stderr(Stdio::INHERIT) is blocked in Secure Mode".to_string(),
                 ));
             }
             this.stderr = Some(*s);
@@ -273,9 +435,7 @@ impl UserData for Command {
                     let stderr = child.stderr.take();
                     let wrapped = Child {
                         id,
-                        inner: std::sync::Arc::new(
-                            tokio::sync::Mutex::new(Some(child)),
-                        ),
+                        inner: std::sync::Arc::new(tokio::sync::Mutex::new(Some(child))),
                         stdin,
                         stdout,
                         stderr,
@@ -494,5 +654,141 @@ mod tests {
         lua.globals().set("pairee", pairee).unwrap();
         assert!(!is_trusted(&lua));
         assert!(spawn_blocked_by_trust(&lua));
+    }
+
+    // §6: in Secure Mode, `env_blocked_in_secure_mode` must
+    // reject every dynamic-linker hook. The denylist is
+    // case-insensitive (the linker accepts `ld_preload`).
+    #[test]
+    fn test_env_blocked_in_secure_mode_blocks_ld_preload() {
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        // All variants of the linker hooks are blocked.
+        let blocked = [
+            "LD_PRELOAD",
+            "ld_preload",
+            "LD_LIBRARY_PATH",
+            "LD_AUDIT",
+            "LD_DEBUG",
+            "LD_DEBUG_OUTPUT",
+            "LD_BIND_NOW",
+            "LD_PROFILE",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "DYLD_FRAMEWORK_PATH",
+            "DYLD_FALLBACK_FRAMEWORK_PATH",
+            "DYLD_ROOT_PATH",
+        ];
+        for name in blocked {
+            assert!(
+                env_blocked_in_secure_mode(&lua, name),
+                "expected {:?} to be blocked in Secure Mode",
+                name
+            );
+        }
+    }
+
+    // §6: in Secure Mode, `env_blocked_in_secure_mode` must
+    // *not* reject ordinary environment variables. The
+    // denylist is targeted at dynamic-linker hooks, not
+    // user-controlled application env.
+    #[test]
+    fn test_env_allows_ordinary_vars_in_secure_mode() {
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        let allowed = [
+            "LANG",
+            "PATH",
+            "HOME",
+            "USER",
+            "TMPDIR",
+            "CUSTOM_VAR",
+            "FOO_BAR",
+        ];
+        for name in allowed {
+            assert!(
+                !env_blocked_in_secure_mode(&lua, name),
+                "expected {:?} to be allowed in Secure Mode",
+                name
+            );
+        }
+    }
+
+    // §6: outside Secure Mode, the denylist is inert. A
+    // trusted plugin can still set LD_PRELOAD if it wants to.
+    #[test]
+    fn test_env_allows_all_outside_secure_mode() {
+        let lua = mlua::Lua::new();
+        // No _secure_mode set, is_secure_mode reads false.
+        assert!(!env_blocked_in_secure_mode(&lua, "LD_PRELOAD"));
+        assert!(!env_blocked_in_secure_mode(&lua, "DYLD_INSERT_LIBRARIES"));
+    }
+
+    // §6: `cwd_in_sandbox` must accept a path inside the
+    // workspace and refuse one outside. We use the test
+    // workspace (`std::env::current_dir`) as the in-sandbox
+    // path and `/tmp` as the out-of-sandbox path.
+    #[cfg(unix)]
+    #[test]
+    fn test_cwd_in_sandbox_accepts_workspace_path() {
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        let workspace = std::env::current_dir().expect("cwd");
+        // The workspace itself may not exist as a directory on
+        // some CI hosts; create it for the test if missing.
+        let _ = std::fs::create_dir_all(&workspace);
+        assert!(cwd_in_sandbox(&lua, &workspace.to_string_lossy()));
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn test_cwd_in_sandbox_rejects_path_outside_workspace() {
+        let lua = mlua::Lua::new();
+        let pairee = lua.create_table().unwrap();
+        pairee.set("_secure_mode", true).unwrap();
+        lua.globals().set("pairee", pairee).unwrap();
+        // /tmp/outside_sandbox_test must not exist AND its
+        // canonicalized parent must be /tmp (outside the
+        // workspace).
+        let bogus = "/tmp/pairee_audit_outside_sandbox_xyzzy";
+        // Make sure the path actually exists so canonicalize
+        // succeeds. We clean up after the test.
+        let _ = std::fs::create_dir_all(bogus);
+        assert!(!cwd_in_sandbox(&lua, bogus));
+        let _ = std::fs::remove_dir_all(bogus);
+    }
+
+    // §6: outside Secure Mode, the cwd check is a no-op.
+    #[test]
+    fn test_cwd_in_sandbox_outside_secure_mode() {
+        let lua = mlua::Lua::new();
+        // No _secure_mode set.
+        assert!(cwd_in_sandbox(&lua, "/tmp/anything"));
+        assert!(cwd_in_sandbox(&lua, "/etc"));
+    }
+
+    // §6: `clamp_rlimit_as` must lift requests below the
+    // floor up to the floor (otherwise the exec fails with
+    // ENOMEM) and pass through any request above the floor
+    // unchanged.
+    #[test]
+    fn test_clamp_rlimit_as_enforces_floor() {
+        // Below the floor → clamped up to 4 MiB.
+        assert_eq!(clamp_rlimit_as(0), 4 * 1024 * 1024);
+        assert_eq!(clamp_rlimit_as(1), 4 * 1024 * 1024);
+        assert_eq!(clamp_rlimit_as(4 * 1024 * 1024 - 1), 4 * 1024 * 1024);
+        // At the floor → unchanged.
+        assert_eq!(clamp_rlimit_as(4 * 1024 * 1024), 4 * 1024 * 1024);
+        // Above the floor → unchanged.
+        assert_eq!(clamp_rlimit_as(8 * 1024 * 1024), 8 * 1024 * 1024);
+        assert_eq!(clamp_rlimit_as(1_073_741_824), 1_073_741_824);
+        // u64::MAX → unchanged.
+        assert_eq!(clamp_rlimit_as(u64::MAX), u64::MAX);
     }
 }

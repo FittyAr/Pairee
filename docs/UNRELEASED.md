@@ -391,7 +391,154 @@ release.
   strict `looks_like_version_suffix` now rejects `.`,
   `;`, `-`, `..` and suffixes with no digit.
 
+#### Third-pass bug sweep (2026-07-26)
+
+A third audit pass focused on the archive pipeline, the
+plugin `fs` and `process` bindings, and the transfer
+conflict-resolver. 13 defects were found and fixed.
+
+**Archive extraction (`src/fs/archive.rs`)**
+
+- `sevenz-rust 0.6.1` does **not** validate entry names by
+  default. An entry named `../../../etc/cron.d/pairee` in
+  a 7z archive would be written to
+  `dest/../../../etc/cron.d/pairee`, which the OS resolves
+  to `/etc/cron.d/pairee`. We now pass a custom extract
+  callback to `decompress_file_with_extract_fn` that calls
+  `validate_archive_entry_name` on every entry, rejecting
+  empty names, `..`, absolute paths, NUL bytes, control
+  characters, Windows drive prefixes, and backslashes. The
+  zip and tar extract paths re-validate as defence in
+  depth, even though their crates check internally.
+- The 7z extract callback also refuses to write through a
+  pre-existing symlink in the destination tree. A symlink
+  planted in `dest_dir` before the extract runs would
+  otherwise have been followed by the writer.
+- The external 7z CLI (used for RAR/ISO) previously
+  concatenated `-o` with the destination directory. If
+  the directory happened to start with `-` (a perfectly
+  legal path on Linux), 7z would interpret it as an
+  unknown option. We now use `std::path::absolute` to
+  resolve the destination, then prefix with `./` when
+  the result is relative, so `-o<path>` never starts
+  with a dash.
+- `compress_zip` silently dropped every file inside a
+  directory argument; it only added the directory entry
+  itself, which is a user-visible data-loss bug. The
+  function now pre-walks the tree with
+  `collect_files_recursive` (symlink-aware) and then
+  `zip.start_file` for every regular file, with a
+  correct `total_files` count for the progress bar.
+- `compress_zip` used `file_name()` to derive the entry
+  name, which panicked on empty source paths. Sources
+  that are neither files nor directories now emit a
+  clear warning and are skipped.
+
+**Plugin `fs` bindings (`src/plugin/runtime/bindings/fs.rs`)**
+
+- `validate_path_with` previously returned the uncanonicalised
+  path verbatim when `canonicalize` failed (the "non-strict"
+  branch used by `mkdir` and `rename`). A non-existent path
+  outside the workspace therefore bypassed the sandbox check
+  entirely. The non-strict path now canonicalises the
+  *parent* of the missing target and refuses the operation
+  if the parent is outside the sandbox.
+- `is_in_sandbox` previously called `std::env::current_dir()`
+  on every check, so the sandbox anchor moved if a plugin
+  called `Command:cwd` between two calls. The roots are
+  now frozen in a `OnceLock` at first use (cwd, config
+  dir, cache dir).
+- `is_in_sandbox` used to silently fall back to the
+  uncanonicalised root on `canonicalize` failure, so any
+  path under `/nonexistent-root/` would pass the check.
+  The fallback is gone: the roots are canonicalised once
+  at startup, and the lookup is straightforward.
+- A new `resolve_safe_target` helper canonicalises the
+  parent of the write/rename/copy destination and joins
+  the original leaf, eliminating the TOCTOU window where
+  a local attacker could swap a symlink in the parent
+  between canonicalize and the I/O call. `mkdir`, `copy`,
+  and `rename` all use it; `rename` and `copy` also
+  refuse to operate *over* a pre-existing symlink at the
+  destination (which would otherwise let the rename
+  follow the symlink to overwrite files outside the
+  sandbox).
+- `fs.remove("dir_all", …)` and `fs.remove("dir", …)`
+  now refuse to follow a symlink target. The previous
+  behaviour would happily `remove_dir_all` through a
+  symlink and delete the symlink's target. `fs.remove(
+  "dir_clean", …)` also refuses any child symlink in
+  Secure Mode, for the same reason. `fs.remove(
+  "file", symlink)` is still allowed — it unlinks the
+  symlink itself, which is the intended use.
+
+**Plugin `process` bindings (`src/plugin/runtime/bindings/process/command.rs`)**
+
+- `Command:env(key, value)` had no Secure-Mode filter
+  at all. A plugin could set `LD_PRELOAD=/tmp/evil.so`
+  and the child would load the preloaded library on
+  startup, running arbitrary code inside the sandbox
+  boundary. We now deny a case-insensitive list of
+  dynamic-linker hooks: `LD_PRELOAD`, `LD_LIBRARY_PATH`,
+  `LD_AUDIT`, `LD_DEBUG`, `LD_DEBUG_OUTPUT`, `LD_BIND_NOW`,
+  `LD_PROFILE`, `LD_SHOW_AUXV`, `LD_HWCAP_MASK`,
+  `LD_ORIGIN_PATH`, `LD_DYNAMIC_WEAK`, `LD_USE_LOAD_BIAS`
+  (Linux/BSD), and the `DYLD_*` family on macOS.
+- `Command:cwd(path)` previously had no sandbox check.
+  A plugin could `cwd("/etc")` and then `spawn("ls")`,
+  which would let the child read arbitrary directories
+  even with the binary blacklist in effect. We now
+  validate the cwd against the same frozen sandbox
+  roots used by the file bindings.
+- `:memory(N)` clamped `rlim_cur` and `rlim_max` to `N`
+  with no lower bound. A plugin could request
+  `memory(1)`, which would cause the child to fail with
+  `ENOMEM` before the dynamic linker even loaded —
+  a self-DoS. We now clamp the request to a 4 MiB
+  floor (`MIN_RLIMIT_AS`) with a warning when the floor
+  kicks in, and we documented the per-platform
+  `RLIMIT_AS` behaviour (Linux is strict, macOS
+  looser, *BSD similar to Linux).
+
+**Transfer conflict resolver (`src/fs/transfer/conflict.rs`)**
+
+- `resolve_filename_conflict` used `rfind('.')` to find
+  the last dot, then sliced `&file_name[..dot_idx]`. If
+  the name contained a multi-byte UTF-8 character
+  immediately before the dot, the slice landed on a
+  non-char boundary and the subsequent `format!` call
+  panicked with "byte index … is not a char boundary",
+  aborting the transfer worker. The fix uses
+  `char_indices` to convert the byte offset to a char
+  index, then collects via `chars().take(char_idx)` so
+  multi-byte characters are respected.
+- The conflict loop had no upper bound; a pathological
+  case (a million `archivo (1).txt`, `archivo (2).txt`,
+  …) would have looped until `counter` overflowed. The
+  loop now caps at 10 000 attempts and returns the last
+  existing candidate so the caller can surface a "too
+  many conflicts" error instead of hanging the worker.
+
+**Tests**
+
+- `fs::archive::tests::test_validate_archive_entry_name_*`:
+  the zip-slip / 7z-slip denylist accepts safe names and
+  rejects every attack shape.
+- `fs::transfer::conflict::tests::test_conflict_resolution_*`:
+  multi-byte UTF-8 in base or extension, hidden files,
+  no-extension files, and the 10 000-attempt cap.
+- `plugin::runtime::bindings::fs::tests::test_fs_*`:
+  `copy` over a symlink is refused, `mkdir` works on
+  a missing path inside the workspace, `remove_dir_all`
+  refuses a symlink, `remove_file` allows a symlink.
+- `plugin::runtime::bindings::process::command::tests`:
+  `LD_PRELOAD` and friends are blocked in Secure Mode;
+  ordinary env vars (`LANG`, `PATH`, `HOME`) are still
+  allowed; `cwd_in_sandbox` accepts workspace paths and
+  refuses paths outside the workspace; the rlimit
+  clamp lifts sub-floor requests to the 4 MiB minimum.
+
 Verification
 - `cargo check --all-targets`: clean
 - `cargo clippy --all-targets`: 0 warnings
-- `cargo test -- --test-threads=1`: 246 passed, 0 failed
+- `cargo test -- --test-threads=1`: 259 passed, 0 failed
