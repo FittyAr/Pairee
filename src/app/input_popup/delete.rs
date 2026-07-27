@@ -89,17 +89,9 @@ pub fn handle(
             PopupType::WipeConfirm { paths } => {
                 match key.code {
                     KeyCode::Enter => {
-                        state.active_popup = None;
-                        let rx = crate::fs::spawn_wipe_task(paths);
-                        state.progress_rx = Some(rx);
-                        state.active_popup = Some(PopupType::CopyProgress {
-                            is_move: false,
-                            current_file: crate::config::localization::t("progress_wiping"),
-                            files_copied: 0,
-                            total_files: 0,
-                            bytes_copied: 0,
-                            total_bytes: 0,
-                        });
+                        // Phase 9: secure wipe goes through the
+                        // unified engine with wipe_passes = 3.
+                        crate::app::actions::fs_ops::wipe::commit(state, paths);
                         return Ok(None);
                     }
                     KeyCode::Esc => {

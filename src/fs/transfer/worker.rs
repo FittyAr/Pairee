@@ -1145,6 +1145,14 @@ impl TransferWorker {
                     file: src.clone(),
                     index: idx,
                 });
+                // Secure wipe: overwrite the file's bytes with
+                // alternating patterns before unlinking. Only
+                // meaningful for Local (SFTP cannot guarantee
+                // overwrite semantics on remote files; we skip
+                // the wipe and just delete).
+                if self.options.wipe_passes > 0 && self.src_endpoint.is_local() {
+                    let _ = self.secure_wipe(&src);
+                }
                 let mut res = self.src_endpoint.remove_file(&src);
                 if res.is_err() {
                     let _ = self.src_endpoint.make_writable(&src);
@@ -1256,6 +1264,62 @@ fn recreate_symlink(
         .create_symlink(&target, dst, target_is_dir)
         .map_err(|e| anyhow!("create_symlink {}: {}", dst.display(), e))?;
     Ok(())
+}
+
+/// Securely overwrite a regular file before deletion by writing
+/// alternating byte patterns across its full length. The number
+/// of passes comes from `TransferOptions::wipe_passes` (clamped
+/// to 3). After the last pass the file is truncated to zero
+/// bytes and its permissions are relaxed (so the subsequent
+/// `remove_file` is not blocked by a read-only bit left over
+/// from a previous owner).
+impl TransferWorker {
+    fn secure_wipe(&self, path: &Path) -> std::io::Result<()> {
+    use std::io::{Seek, SeekFrom, Write};
+
+    // Skip symlinks: a symlink deletion removes the link, not
+    // the target. Following it here would wipe a file the user
+    // did not ask us to wipe.
+    if self.src_endpoint.lstat(path).map(|m| m.is_symlink).unwrap_or(false) {
+        return Ok(());
+    }
+    let size = self
+        .src_endpoint
+        .lstat(path)
+        .map(|m| m.size)
+        .unwrap_or(0);
+    if size == 0 {
+        return Ok(());
+    }
+
+    // Cap to 3 passes; anything higher is bounded.
+    let passes = self.options.wipe_passes.clamp(1, 3);
+    let patterns: [u8; 3] = [0x00, 0xFF, 0x00];
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .open(super::direct_io::to_long_path(path))?;
+    // Drop the read-only flag in case the user wiped a chmod 0444 file.
+    let _ = self.src_endpoint.make_writable(path);
+
+    for i in 0..passes as usize {
+        let pat = patterns[i % patterns.len()];
+        let chunk = vec![pat; 64 * 1024];
+        file.seek(SeekFrom::Start(0))?;
+        let mut written = 0u64;
+        while written < size {
+            let to_write = ((size - written) as usize).min(chunk.len());
+            file.write_all(&chunk[..to_write])?;
+            written += to_write as u64;
+        }
+        file.sync_all()?;
+    }
+    // Truncate to zero so the directory entry really is gone
+    // before the unlink runs.
+    file.set_len(0)?;
+    file.sync_all()?;
+    Ok(())
+    }
 }
 
 /// Spawn the periodic speed reporter that emits

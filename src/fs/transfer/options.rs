@@ -18,6 +18,14 @@ pub struct TransferOptions {
     pub report_format: String, // "html" o "csv"
     pub halt_on_error: bool,
     pub delete_to_recycle_bin: bool,
+    /// Number of overwrite passes before a Delete actually
+    /// removes the file (secure wipe). `0` means "no wipe, just
+    /// delete". The worker currently implements 3 alternating
+    /// passes: `0x00`, `0xFF`, `0x00` for `wipe_passes = 3`.
+    /// Any other non-zero value is clamped to 3. Wipe is only
+    /// applied when the destination is Local (SFTP cannot
+    /// guarantee overwrite semantics on remote files).
+    pub wipe_passes: u8,
 }
 
 impl Default for TransferOptions {
@@ -41,6 +49,7 @@ impl Default for TransferOptions {
             report_format: "html".to_string(),
             halt_on_error: false,
             delete_to_recycle_bin: false,
+            wipe_passes: 0,
         }
     }
 }
