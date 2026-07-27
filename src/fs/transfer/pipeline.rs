@@ -457,9 +457,16 @@ pub async fn compress_pipeline(
             )
             .await
         }
-        super::job::ArchiveFormat::TarGz => Err(anyhow!(
-            "TarGz compress pipeline lands in A3"
-        )),
+        super::job::ArchiveFormat::TarGz => {
+            compress_targz(
+                src_endpoint,
+                &sources,
+                dst_endpoint,
+                archive,
+                level,
+            )
+            .await
+        }
         super::job::ArchiveFormat::SevenZ => Err(anyhow!(
             "7Z compress pipeline lands in A4"
         )),
@@ -569,6 +576,160 @@ async fn compress_zip(
     drop(writer);
 
     Ok(bytes.len() as u64)
+}
+
+/// TarGz implementation of [`compress_pipeline`].
+/// Pipes a `flate2::GzEncoder` into a `tar::Builder`,
+/// then through the source endpoint for each input.
+/// The tar builder writes entry headers followed by
+/// the file bytes; the gzip layer compresses the
+/// whole stream.
+///
+/// `level` is forwarded to the gzip layer
+/// (1-9 typical). `level == 0` falls back to
+/// `flate2::Compression::default()` (currently
+/// level 6) — the engine has already documented
+/// that tar/7z treat 0 as "no special meaning" and
+/// gzip always compresses, so we don't add a
+/// "store-only" path for it.
+async fn compress_targz(
+    src_endpoint: &TransferEndpoint,
+    sources: &[std::path::PathBuf],
+    dst_endpoint: &TransferEndpoint,
+    archive: &Path,
+    level: u8,
+) -> Result<u64, anyhow::Error> {
+    use flate2::Compression;
+    use flate2::write::GzEncoder;
+
+    let buf: Vec<u8> = Vec::new();
+    let compression = if level == 0 {
+        Compression::default()
+    } else {
+        Compression::new(level.clamp(1, 9) as u32)
+    };
+    let encoder = GzEncoder::new(buf, compression);
+    let mut builder = tar::Builder::new(encoder);
+
+    for src in sources {
+        if src_endpoint.is_dir(src) {
+            let dir_name = src
+                .file_name()
+                .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
+            append_tar_dir(
+                &mut builder,
+                src_endpoint,
+                src,
+                dir_name,
+            )?;
+        } else {
+            // Single-file source. Entry name is
+            // the basename. We use the low-level
+            // `append` API because `append_file`
+            // only accepts `&mut std::fs::File`,
+            // not our endpoint-agnostic reader.
+            let entry_name = src
+                .file_name()
+                .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
+            let size = src_endpoint
+                .lstat(src)
+                .map(|m| m.size)
+                .unwrap_or(0);
+            let mut header = tar::Header::new_gnu();
+            header
+                .set_path(entry_name)
+                .map_err(|e| anyhow!("tar header path: {}", e))?;
+            header.set_size(size);
+            header.set_entry_type(tar::EntryType::Regular);
+            header.set_mode(0o644);
+            header.set_cksum();
+            let mut reader = src_endpoint
+                .open_reader(src)
+                .map_err(|e| anyhow!("open reader for {:?}: {}", src, e))?;
+            builder
+                .append(&header, &mut reader)
+                .map_err(|e| anyhow!("tar append {:?}: {}", src, e))?;
+        }
+    }
+
+    let encoder = builder
+        .into_inner()
+        .map_err(|e| anyhow!("tar finish: {}", e))?;
+    let bytes = encoder
+        .finish()
+        .map_err(|e| anyhow!("gz finish: {}", e))?;
+
+    let mut writer = dst_endpoint
+        .open_writer(archive, /* overwrite = */ true)
+        .map_err(|e| anyhow!("Failed to open archive for writing: {}", e))?;
+    std::io::Write::write_all(&mut writer, &bytes)
+        .map_err(|e| anyhow!("write archive bytes: {}", e))?;
+    std::io::Write::flush(&mut writer)
+        .map_err(|e| anyhow!("flush archive: {}", e))?;
+    drop(writer);
+
+    Ok(bytes.len() as u64)
+}
+
+/// Recursive helper for `compress_targz`: append a
+/// directory tree to the tar builder. `name` is the
+/// top-level entry name (the directory's basename).
+/// Sub-entries are appended with `<name>/<sub_name>`.
+fn append_tar_dir<W: std::io::Write>(
+    builder: &mut tar::Builder<W>,
+    endpoint: &TransferEndpoint,
+    dir: &Path,
+    name: &std::ffi::OsStr,
+) -> Result<(), anyhow::Error> {
+    let entries = endpoint
+        .read_dir(dir)
+        .map_err(|e| anyhow!("read_dir {:?}: {}", dir, e))?;
+    let mut header = tar::Header::new_gnu();
+    header
+        .set_path(name)
+        .map_err(|e| anyhow!("tar header path: {}", e))?;
+    header.set_entry_type(tar::EntryType::Directory);
+    header.set_size(0);
+    header.set_cksum();
+    builder
+        .append(&header, std::io::empty())
+        .map_err(|e| anyhow!("tar append dir header: {}", e))?;
+
+    for entry in entries {
+        let entry_path = entry.path;
+        let entry_name = entry_path
+            .file_name()
+            .ok_or_else(|| anyhow!("entry has no name: {:?}", entry_path))?;
+        let child_name = {
+            let mut s = name.to_os_string();
+            s.push("/");
+            s.push(entry_name);
+            s
+        };
+        if entry.is_dir {
+            append_tar_dir(builder, endpoint, &entry_path, &child_name)?;
+        } else {
+            let size = endpoint
+                .lstat(&entry_path)
+                .map(|m| m.size)
+                .unwrap_or(0);
+            let mut header = tar::Header::new_gnu();
+            header
+                .set_path(&child_name)
+                .map_err(|e| anyhow!("tar header path: {}", e))?;
+            header.set_size(size);
+            header.set_entry_type(tar::EntryType::Regular);
+            header.set_mode(0o644);
+            header.set_cksum();
+            let mut reader = endpoint
+                .open_reader(&entry_path)
+                .map_err(|e| anyhow!("open reader for {:?}: {}", entry_path, e))?;
+            builder
+                .append(&header, &mut reader)
+                .map_err(|e| anyhow!("tar append {:?}: {}", entry_path, e))?;
+        }
+    }
+    Ok(())
 }
 
 /// Recursive helper for `compress_zip`: write a
@@ -898,5 +1059,57 @@ mod tests {
         )
         .await;
         assert!(res.is_err());
+    }
+
+    #[tokio::test]
+    async fn compress_local_to_local_targz_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("input");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("a.txt"), b"hello-a").unwrap();
+        std::fs::write(src_dir.join("b.txt"), b"hello-b").unwrap();
+
+        let archive = tmp.path().join("out.tar.gz");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let size = compress_pipeline(
+            &ep(),
+            vec![src_dir.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::TarGz,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("targz compress succeeds");
+        assert!(size > 0);
+        // Confirm the bytes actually decode back
+        // into the same files. We use flate2 +
+        // tar directly to keep the test self-
+        // contained.
+        let f = std::fs::File::open(&archive).unwrap();
+        let gz = flate2::read::GzDecoder::new(f);
+        let mut archive = tar::Archive::new(gz);
+        let mut found_a = false;
+        let mut found_b = false;
+        for entry in archive.entries().unwrap() {
+            let mut e = entry.unwrap();
+            let path = e.path().unwrap().to_string_lossy().to_string();
+            let mut buf = String::new();
+            use std::io::Read;
+            e.read_to_string(&mut buf).unwrap();
+            if path == "input/a.txt" {
+                assert_eq!(buf, "hello-a");
+                found_a = true;
+            } else if path == "input/b.txt" {
+                assert_eq!(buf, "hello-b");
+                found_b = true;
+            }
+        }
+        assert!(found_a && found_b, "missing one or more files");
     }
 }
