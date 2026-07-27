@@ -805,7 +805,13 @@ impl TransferWorker {
             }
 
             // Preservar metadatos
-            let _ = preserve_metadata(&src, &dst, &options);
+            let _ = preserve_metadata(
+                &super::endpoint::TransferEndpoint::Local,
+                &src,
+                &super::endpoint::TransferEndpoint::Local,
+                &dst,
+                &options,
+            );
 
             // Verificación del hash
             let verified = true;
