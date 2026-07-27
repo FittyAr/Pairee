@@ -36,11 +36,19 @@ pub struct AppState {
     /// drains it and drives the elevated helper
     /// based on the choice.
     pub pending_permission_answer: Option<(uuid::Uuid, Vec<std::path::PathBuf>, crate::app::state::types::PermissionAnswer)>,
-    /// Channel receiver for compress / extract operations (the
-    /// file-modulation paths that still use the legacy
-    /// `ops_worker` modal). The unified transfer engine
-    /// (`state.transfer`) handles copy / move / delete / rename
-    /// / create-link / wipe and has its own event bus.
+    /// Channel receiver for **legacy** compress / extract
+    /// operations only. These two paths still use the
+    /// `ops_worker` modal because their I/O shape (a
+    /// single archive with many readers on one side, or
+    /// many writers on the other) does not fit the
+    /// per-file `copy_file_pipelined` model.
+    ///
+    /// The unified transfer engine (`state.transfer`)
+    /// handles copy / move / delete / rename /
+    /// create-link / wipe and has its own event bus.
+    /// Sub-projects A1-A10 in `implementation_plan_2.md`
+    /// finish the migration: A5 deletes the Compress
+    /// call site, A10 deletes Extract and this field.
     pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
     /// Channel receiver for background SSH connection attempts
     pub ssh_connect_rx: Option<
