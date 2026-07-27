@@ -124,6 +124,38 @@ impl TransferWorker {
         });
     }
 
+    /// Report a failure of a single-output operation
+    /// (Compress or Extract) to the policy and the event
+    /// stream. Unlike per-file operations, these have no
+    /// `TransferResults` to push into (the dispatch is
+    /// short-circuited before the success path is built),
+    /// so we only notify the policy and emit `FileFailed`
+    /// with empty `src`/`dst`. The policy still gets the
+    /// path, so the retry-as-admin prompt can be triggered
+    /// on `AccessDenied`.
+    fn report_compress_extract_failure(&self, path: &Path, error: &str) {
+        let is_remote =
+            !self.src_endpoint.is_local() || !self.dst_endpoint.is_local();
+        report_file_failure(
+            &*self.policy,
+            &self.event_tx,
+            self.job_id,
+            path,
+            error,
+            is_remote,
+        );
+        let failed = FailedFile {
+            src: path.to_path_buf(),
+            dst: path.to_path_buf(),
+            error: error.to_string(),
+            retries: 0,
+        };
+        let _ = self.event_tx.send(TransferEvent::FileFailed {
+            job_id: self.job_id,
+            error: failed,
+        });
+    }
+
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
         // Reset the policy for this job. The engine does not
         // reset in `submit_job` (the policy is shared, and
@@ -1148,7 +1180,7 @@ impl TransferWorker {
         let bytes_transferred_acc =
             Arc::new(std::sync::atomic::AtomicU64::new(0));
 
-        let size = super::pipeline::compress_pipeline(
+        let size = match super::pipeline::compress_pipeline(
             &self.src_endpoint,
             self.sources.clone(),
             &self.dst_endpoint,
@@ -1161,7 +1193,24 @@ impl TransferWorker {
             Arc::clone(&self.is_cancelled),
             Arc::clone(&bytes_transferred_acc),
         )
-        .await?;
+        .await
+        {
+            Ok(s) => s,
+            Err(e) => {
+                // Surface the failure to the policy so the
+                // retry-as-admin prompt can be triggered
+                // when the user lacks permission to write
+                // the archive. The destination is the file
+                // the pipeline tried to create, which is
+                // the only path the failure can really be
+                // blamed on for a single-output operation.
+                self.report_compress_extract_failure(
+                    &self.destination,
+                    &e.to_string(),
+                );
+                return Err(e);
+            }
+        };
 
         let result = FileTransferResult {
             src: self.destination.clone(),
@@ -1211,7 +1260,7 @@ impl TransferWorker {
                 total_files: 0,
                 total_bytes: 0,
             });
-        let _entries = super::pipeline::extract_pipeline(
+        let _entries = match super::pipeline::extract_pipeline(
             &self.src_endpoint,
             &archive,
             &self.dst_endpoint,
@@ -1222,7 +1271,23 @@ impl TransferWorker {
             Arc::clone(&self.is_paused),
             Arc::clone(&self.is_cancelled),
         )
-        .await?;
+        .await
+        {
+            Ok(n) => n,
+            Err(e) => {
+                // Surface the failure to the policy so the
+                // retry-as-admin prompt can be triggered
+                // when the user lacks permission to write
+                // into the destination directory. The
+                // destination is the directory the
+                // pipeline tried to create or write into.
+                self.report_compress_extract_failure(
+                    &self.destination,
+                    &e.to_string(),
+                );
+                return Err(e);
+            }
+        };
 
         let result = FileTransferResult {
             src: archive,

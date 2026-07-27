@@ -538,7 +538,7 @@ fn handle_permission_answer(
             // finished jobs automatically) so we can
             // recover its operation kind and the
             // destination folder for Copy / Move.
-            let ops = state
+            let derived = state
                 .transfer
                 .as_ref()
                 .and_then(|ts| {
@@ -548,14 +548,61 @@ fn handle_permission_answer(
                         .get_all()
                         .into_iter()
                         .find(|j| j.id == job_id)?;
-                    Some(derive_retry_ops(&job, &paths))
-                })
-                .unwrap_or_default();
+                    let ops = derive_retry_ops(&job, &paths);
+                    Some((job.operation.clone(), ops))
+                });
+
+            let (operation, ops) = match derived {
+                Some(v) => v,
+                None => {
+                    log::warn!(
+                        "transfer: retry-as-admin requested for job {} but job is no longer in the queue",
+                        job_id
+                    );
+                    return;
+                }
+            };
 
             if ops.is_empty() {
+                // Compress / Extract / Rename / CreateLink
+                // cannot be safely retried as a sequence of
+                // per-file FsOperations (the helper does not
+                // know how to re-run the pipeline). Surface
+                // a clear, actionable error so the user
+                // understands what to do instead of silently
+                // doing nothing.
+                use crate::fs::transfer::job::TransferOperation;
+                let hint = match operation {
+                    TransferOperation::Compress { .. } => {
+                        "Re-run the Compress command from the menu as administrator."
+                    }
+                    TransferOperation::Extract { .. } => {
+                        "Re-run the Extract command from the menu as administrator."
+                    }
+                    TransferOperation::Rename => {
+                        "Re-run the Rename command from the menu as administrator."
+                    }
+                    TransferOperation::CreateLink { .. } => {
+                        "Re-run the Create Link command from the menu as administrator."
+                    }
+                    // For Copy / Move / Delete, an empty list
+                    // is unexpected and means the
+                    // policy recorded a path we cannot
+                    // resolve to a real file. Fall back to
+                    // the generic hint.
+                    _ => {
+                        "Re-run the original command from the menu as administrator."
+                    }
+                };
                 log::warn!(
-                    "transfer: retry-as-admin requested for job {} but no operations could be derived",
-                    job_id
+                    "transfer: retry-as-admin not available for {:?}; showing user hint",
+                    operation
+                );
+                state.active_popup = Some(
+                    crate::app::state::PopupType::Error(format!(
+                        "Retry as administrator is not available for this operation.\n\n{}",
+                        hint
+                    )),
                 );
                 return;
             }
