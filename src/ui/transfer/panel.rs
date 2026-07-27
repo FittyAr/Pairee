@@ -147,6 +147,18 @@ fn render_jobs_sidebar(
             crate::fs::transfer::job::TransferOperation::Delete => "Delete",
             crate::fs::transfer::job::TransferOperation::Rename => "Rename",
             crate::fs::transfer::job::TransferOperation::CreateLink { .. } => "CreateLink",
+            crate::fs::transfer::job::TransferOperation::Compress { format, .. } => {
+                match format {
+                    crate::fs::transfer::job::ArchiveFormat::Zip => "Compress (zip)",
+                    crate::fs::transfer::job::ArchiveFormat::TarGz => "Compress (tar.gz)",
+                    crate::fs::transfer::job::ArchiveFormat::SevenZ => "Compress (7z)",
+                }
+            }
+            crate::fs::transfer::job::TransferOperation::Extract { format } => match format {
+                crate::fs::transfer::job::ArchiveFormat::Zip => "Extract (zip)",
+                crate::fs::transfer::job::ArchiveFormat::TarGz => "Extract (tar.gz)",
+                crate::fs::transfer::job::ArchiveFormat::SevenZ => "Extract (7z)",
+            },
         };
 
         let (status_str, color) = match job.status {

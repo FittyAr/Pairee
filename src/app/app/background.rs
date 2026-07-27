@@ -747,7 +747,9 @@ fn derive_retry_ops(
             }
         }
         TransferOperation::Rename
-        | TransferOperation::CreateLink { .. } => {
+        | TransferOperation::CreateLink { .. }
+        | TransferOperation::Compress { .. }
+        | TransferOperation::Extract { .. } => {
             // No retry path for these.
         }
     }

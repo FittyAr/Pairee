@@ -421,6 +421,19 @@ impl TransferWorker {
                     })
                 }
             }
+            TransferOperation::Compress { format, level } => {
+                // The real implementation lands in
+                // A2-A4 (ZIP / TAR.GZ / 7Z). For now we
+                // return a clear "not yet wired" error
+                // so the call site compiles and the
+                // engine still dispatches without
+                // panicking.
+                self.run_compress(format, level).await
+            }
+            TransferOperation::Extract { format } => {
+                // A6-A9 land the real implementation.
+                self.run_extract(format).await
+            }
         };
 
         // -----------------------------------------------------------------
@@ -1098,6 +1111,40 @@ impl TransferWorker {
             results: results.clone(),
         });
         Ok(results)
+    }
+
+    // -----------------------------------------------------------------
+    //   Compress (skeleton — real implementation in A2-A4)
+    // -----------------------------------------------------------------
+    async fn run_compress(
+        &self,
+        format: super::job::ArchiveFormat,
+        level: u8,
+    ) -> Result<TransferResults, anyhow::Error> {
+        // Phases A2-A4 will fill this in. For now the
+        // engine returns a clear error so the call
+        // site stays compile-clean and the UI can
+        // decide to either disable the menu item or
+        // surface the error in the transfer log.
+        let _ = (format, level);
+        Err(anyhow!(
+            "Compress pipeline is not implemented yet (A2-A4). \
+             Use the legacy Compress UI for now."
+        ))
+    }
+
+    // -----------------------------------------------------------------
+    //   Extract (skeleton — real implementation in A6-A9)
+    // -----------------------------------------------------------------
+    async fn run_extract(
+        &self,
+        format: super::job::ArchiveFormat,
+    ) -> Result<TransferResults, anyhow::Error> {
+        let _ = format;
+        Err(anyhow!(
+            "Extract pipeline is not implemented yet (A6-A9). \
+             Use the legacy Extract UI for now."
+        ))
     }
 
     // -----------------------------------------------------------------

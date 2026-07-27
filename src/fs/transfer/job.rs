@@ -101,6 +101,26 @@ pub enum LinkKind {
     Hard,
 }
 
+/// Archive container format used by the
+/// `TransferOperation::Compress` and
+/// `TransferOperation::Extract` variants. The encoding
+/// is the same on both sides: a `Compress { format:
+/// ArchiveFormat::Zip, .. }` produces a file that
+/// `Extract { format: ArchiveFormat::Zip }` can read.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ArchiveFormat {
+    /// `.zip` with DEFLATE compression (level 0..=9,
+    /// where 0 = "store only" / no compression).
+    Zip,
+    /// `.tar.gz` (gzip-compressed tar). The level
+    /// applies to the gzip layer; tar itself does not
+    /// compress.
+    TarGz,
+    /// `.7z` (LZMA). `level` is the LZMA compression
+    /// level 0..=9.
+    SevenZ,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TransferOperation {
     Copy,
@@ -120,6 +140,99 @@ pub enum TransferOperation {
     CreateLink {
         kind: LinkKind,
     },
+    /// Bundle `sources` into a single archive at
+    /// `destination`. `format` drives the encoder
+    /// (zip / tar.gz / 7z); `level` is the compression
+    /// level 0..=9 where 0 means "store only" (zip
+    /// only — tar/7z treat 0 as a low level). For
+    /// `Compress`, `destination` is the path of the
+    /// archive itself (e.g. `backup.zip`); the engine
+    /// creates parents as needed. SSH endpoints are
+    /// supported: readers go through the source
+    /// endpoint, the writer goes through the
+    /// destination endpoint.
+    Compress {
+        format: ArchiveFormat,
+        level: u8,
+    },
+    /// Reverse of `Compress`: read a single archive
+    /// from `sources[0]` and unpack it into
+    /// `destination` (a directory). `format` is
+    /// required because the engine does not
+    /// auto-detect format from the file extension
+    /// (the caller / UI already knows the format
+    /// from the popup). Path-traversal entries
+    /// (`../`, absolute paths, NUL bytes) are
+    /// rejected by the extract pipeline.
+    Extract {
+        format: ArchiveFormat,
+    },
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn archive_format_serialises_round_trip() {
+        for f in [
+            ArchiveFormat::Zip,
+            ArchiveFormat::TarGz,
+            ArchiveFormat::SevenZ,
+        ] {
+            let json = serde_json::to_string(&f).unwrap();
+            let back: ArchiveFormat = serde_json::from_str(&json).unwrap();
+            assert_eq!(f, back);
+        }
+    }
+
+    #[test]
+    fn transfer_operation_serde_round_trip_for_all_variants() {
+        let ops = vec![
+            TransferOperation::Copy,
+            TransferOperation::Move,
+            TransferOperation::Delete,
+            TransferOperation::Rename,
+            TransferOperation::CreateLink { kind: LinkKind::Hard },
+            TransferOperation::Compress {
+                format: ArchiveFormat::Zip,
+                level: 6,
+            },
+            TransferOperation::Extract {
+                format: ArchiveFormat::TarGz,
+            },
+        ];
+        for op in ops {
+            let json = serde_json::to_string(&op).unwrap();
+            let back: TransferOperation = serde_json::from_str(&json).unwrap();
+            assert_eq!(op, back, "round-trip failed for {:?}", op);
+        }
+    }
+
+    #[test]
+    fn transfer_job_constructor_accepts_compress() {
+        // The TransferJob::new constructor doesn't
+        // care about the operation kind; the variant
+        // is just data. This is a smoke test that
+        // the new variants can ride through the
+        // same constructor as the older ones.
+        let job = TransferJob::new(
+            TransferOperation::Compress {
+                format: ArchiveFormat::SevenZ,
+                level: 9,
+            },
+            vec![PathBuf::from("/src/folder")],
+            PathBuf::from("/dest/archive.7z"),
+            super::super::options::TransferOptions::default(),
+        );
+        assert_eq!(
+            job.operation,
+            TransferOperation::Compress {
+                format: ArchiveFormat::SevenZ,
+                level: 9,
+            }
+        );
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
