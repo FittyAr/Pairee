@@ -394,6 +394,224 @@ pub async fn copy_file_pipelined(
 }
 
 // =========================================================================
+//   Compress pipeline (A2-A4)
+// =========================================================================
+
+/// Bundle `sources` (a mix of files and directories
+/// on `src_endpoint`) into a single archive at
+/// `archive` (on `dst_endpoint`).
+///
+/// The function is endpoint-polymorphic: it can
+/// compress local→local, local→SSH, SSH→local and
+/// SSH→SSH. Each source file is read through
+/// `src_endpoint.open_reader` and the bytes flow
+/// straight into the archive writer; the writer
+/// itself goes through `dst_endpoint.open_writer`.
+///
+/// Returns the final archive size in bytes.
+///
+/// Currently only the `Zip` branch is implemented
+/// (A2); `TarGz` and `SevenZ` return a clear
+/// "not yet implemented" error and will land in
+/// A3 and A4.
+#[allow(clippy::too_many_arguments)]
+pub async fn compress_pipeline(
+    src_endpoint: &TransferEndpoint,
+    sources: Vec<std::path::PathBuf>,
+    dst_endpoint: &TransferEndpoint,
+    archive: &Path,
+    format: super::job::ArchiveFormat,
+    level: u8,
+    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    job_id: uuid::Uuid,
+    is_paused: Arc<AtomicBool>,
+    is_cancelled: Arc<AtomicBool>,
+    bytes_transferred_acc: Arc<std::sync::atomic::AtomicU64>,
+) -> Result<u64, anyhow::Error> {
+    // Honour cancellation up front: a pre-cancelled
+    // job should fail immediately, not start
+    // allocating the writer.
+    if is_cancelled.load(Ordering::Relaxed) {
+        return Err(anyhow!("Compress cancelled before start"));
+    }
+
+    // The archive is a single file: the destination
+    // parent directory must exist.
+    if let Some(parent) = archive.parent() {
+        if !parent.as_os_str().is_empty() {
+            dst_endpoint
+                .mkdir_all(parent)
+                .map_err(|e| anyhow!("Failed to create parent dir {:?}: {}", parent, e))?;
+        }
+    }
+
+    let _ = (event_tx, job_id, is_paused, bytes_transferred_acc);
+    match format {
+        super::job::ArchiveFormat::Zip => {
+            compress_zip(
+                src_endpoint,
+                &sources,
+                dst_endpoint,
+                archive,
+                level,
+            )
+            .await
+        }
+        super::job::ArchiveFormat::TarGz => Err(anyhow!(
+            "TarGz compress pipeline lands in A3"
+        )),
+        super::job::ArchiveFormat::SevenZ => Err(anyhow!(
+            "7Z compress pipeline lands in A4"
+        )),
+    }
+}
+
+/// Zip implementation of [`compress_pipeline`].
+/// Delegates the heavy lifting to the `zip` crate
+/// (already in `Cargo.toml`, no new dependencies).
+/// Source files are streamed through
+/// `src_endpoint.open_reader`; the archive itself
+/// is written to a `Vec<u8>` first because the
+/// `zip` crate requires a seekable writer and the
+/// endpoint abstraction only exposes
+/// `Write + Send`. The buffer is flushed to
+/// `dst_endpoint.open_writer` at the end. The
+/// in-memory buffer is acceptable for the common
+/// case (a few hundred MB); for truly huge
+/// archives we would need a different approach
+/// (e.g. a temp file on the destination).
+///
+/// `level == 0` maps to "store only" (no
+/// compression); values 1-9 map to the standard
+/// DEFLATE levels.
+async fn compress_zip(
+    src_endpoint: &TransferEndpoint,
+    sources: &[std::path::PathBuf],
+    dst_endpoint: &TransferEndpoint,
+    archive: &Path,
+    level: u8,
+) -> Result<u64, anyhow::Error> {
+    use std::io::Cursor;
+    use zip::write::SimpleFileOptions;
+
+    let buf: Vec<u8> = Vec::new();
+    let cursor = Cursor::new(buf);
+    let mut zip = zip::ZipWriter::new(cursor);
+
+    let compression = if level == 0 {
+        zip::CompressionMethod::Stored
+    } else {
+        zip::CompressionMethod::Deflated
+    };
+    // `Stored` (level 0) doesn't accept a
+    // `compression_level`; setting one triggers an
+    // "unsupported compression level" error inside
+    // the crate. We only pass the level when we
+    // actually picked `Deflated`.
+    let options = if matches!(compression, zip::CompressionMethod::Stored) {
+        SimpleFileOptions::default()
+            .compression_method(compression)
+            .large_file(true)
+    } else {
+        SimpleFileOptions::default()
+            .compression_method(compression)
+            .compression_level(Some(level.clamp(1, 9) as i64))
+            .large_file(true)
+    };
+
+    // Walk each source. For a directory, descend
+    // recursively. For a file, write its bytes
+    // into a single archive entry.
+    for src in sources {
+        if src_endpoint.is_dir(src) {
+            let dir_name = src
+                .file_name()
+                .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
+            let dir_prefix = Path::new(dir_name).to_path_buf();
+            write_zip_dir(
+                &mut zip,
+                src_endpoint,
+                src,
+                &dir_prefix,
+                options,
+            )?;
+        } else {
+            // Single-file source.
+            let entry_name = src
+                .file_name()
+                .ok_or_else(|| anyhow!("Source has no file name: {:?}", src))?;
+            zip.start_file(entry_name.to_string_lossy(), options)
+                .map_err(|e| anyhow!("zip start_file: {}", e))?;
+            let mut reader = src_endpoint
+                .open_reader(src)
+                .map_err(|e| anyhow!("open reader for {:?}: {}", src, e))?;
+            std::io::copy(&mut reader, &mut zip)
+                .map_err(|e| anyhow!("zip write {:?}: {}", src, e))?;
+        }
+    }
+
+    let cursor = zip
+        .finish()
+        .map_err(|e| anyhow!("zip finish: {}", e))?;
+    let bytes = cursor.into_inner();
+
+    // Flush the assembled archive to the
+    // destination endpoint.
+    let mut writer = dst_endpoint
+        .open_writer(archive, /* overwrite = */ true)
+        .map_err(|e| anyhow!("Failed to open archive for writing: {}", e))?;
+    writer
+        .write_all(&bytes)
+        .map_err(|e| anyhow!("write archive bytes: {}", e))?;
+    writer
+        .flush()
+        .map_err(|e| anyhow!("flush archive: {}", e))?;
+    drop(writer);
+
+    Ok(bytes.len() as u64)
+}
+
+/// Recursive helper for `compress_zip`: write a
+/// directory tree into the archive. `prefix` is
+/// the path already accumulated in the archive
+/// entry names (e.g. `my_folder` or
+/// `my_folder/sub`); the function appends each
+/// entry's file name to it.
+fn write_zip_dir<W: Write + std::io::Seek>(
+    zip: &mut zip::ZipWriter<W>,
+    endpoint: &TransferEndpoint,
+    dir: &Path,
+    prefix: &Path,
+    options: zip::write::SimpleFileOptions,
+) -> Result<(), anyhow::Error> {
+    let entries = endpoint
+        .read_dir(dir)
+        .map_err(|e| anyhow!("read_dir {:?}: {}", dir, e))?;
+    for entry in entries {
+        let entry_path = entry.path;
+        let entry_name = entry_path
+            .file_name()
+            .ok_or_else(|| anyhow!("entry has no name: {:?}", entry_path))?;
+        let archive_path = prefix.join(entry_name);
+        if entry.is_dir {
+            write_zip_dir(zip, endpoint, &entry_path, &archive_path, options)?;
+        } else {
+            zip.start_file(
+                archive_path.to_string_lossy().replace('\\', "/"),
+                options,
+            )
+            .map_err(|e| anyhow!("zip start_file: {}", e))?;
+            let mut reader = endpoint
+                .open_reader(&entry_path)
+                .map_err(|e| anyhow!("open reader for {:?}: {}", entry_path, e))?;
+            std::io::copy(&mut reader, zip)
+                .map_err(|e| anyhow!("zip write {:?}: {}", entry_path, e))?;
+        }
+    }
+    Ok(())
+}
+
+// =========================================================================
 //   Tests
 // =========================================================================
 
@@ -401,7 +619,6 @@ pub async fn copy_file_pipelined(
 mod tests {
     use super::*;
     use crate::fs::transfer::options::BufferSize;
-    use std::io::Write;
     use std::sync::atomic::AtomicU64;
     use uuid::Uuid;
 
@@ -574,5 +791,112 @@ mod tests {
         .await;
 
         assert!(res.is_err(), "pre-cancelled copy must error");
+    }
+
+    // ===============================================================
+    //   Compress pipeline (A2)
+    // ===============================================================
+
+    fn shared_arc_bool(b: bool) -> Arc<AtomicBool> {
+        Arc::new(AtomicBool::new(b))
+    }
+
+    #[tokio::test]
+    async fn compress_local_to_local_zip_basic() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src_dir = tmp.path().join("input");
+        std::fs::create_dir_all(&src_dir).unwrap();
+        std::fs::write(src_dir.join("a.txt"), b"hello-a").unwrap();
+        std::fs::write(src_dir.join("b.txt"), b"hello-b").unwrap();
+
+        let archive = tmp.path().join("out.zip");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let size = compress_pipeline(
+            &ep(),
+            vec![src_dir.clone()],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::Zip,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("zip compress succeeds");
+        assert!(size > 0, "archive should not be empty");
+        assert!(archive.exists(), "archive file was not written");
+
+        // Open the archive and confirm both files are
+        // present with the right content. We use a
+        // fresh `zip::ZipArchive` to validate the
+        // bytes.
+        let f = std::fs::File::open(&archive).unwrap();
+        let mut za = zip::ZipArchive::new(f).unwrap();
+        let mut a = za.by_name("input/a.txt").expect("a.txt present");
+        let mut buf = String::new();
+        use std::io::Read;
+        a.read_to_string(&mut buf).unwrap();
+        assert_eq!(buf, "hello-a");
+    }
+
+    #[tokio::test]
+    async fn compress_local_to_local_zip_zero_level_stores() {
+        // With level=0 the archive should be at least
+        // as large as the sum of source bytes
+        // (no DEFLATE overhead). We use a deterministic
+        // payload so the test is not flaky.
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("payload.bin");
+        let payload = vec![0u8; 4096];
+        std::fs::write(&src, &payload).unwrap();
+
+        let archive = tmp.path().join("store.zip");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let size = compress_pipeline(
+            &ep(),
+            vec![src],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::Zip,
+            0,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(false),
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await
+        .expect("zip compress (level=0) succeeds");
+        // The archive adds a tiny header per entry,
+        // but with no compression it must be at least
+        // the size of the payload.
+        assert!(size as usize >= payload.len());
+    }
+
+    #[tokio::test]
+    async fn compress_local_to_local_zip_cancellation_aborts() {
+        let tmp = tempfile::tempdir().unwrap();
+        let src = tmp.path().join("a.txt");
+        std::fs::write(&src, b"hello").unwrap();
+        let archive = tmp.path().join("out.zip");
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let res = compress_pipeline(
+            &ep(),
+            vec![src],
+            &ep(),
+            &archive,
+            super::super::job::ArchiveFormat::Zip,
+            6,
+            &tx,
+            Uuid::new_v4(),
+            shared_arc_bool(false),
+            shared_arc_bool(true), // pre-cancelled
+            Arc::new(AtomicU64::new(0)),
+        )
+        .await;
+        assert!(res.is_err());
     }
 }

@@ -1114,23 +1114,67 @@ impl TransferWorker {
     }
 
     // -----------------------------------------------------------------
-    //   Compress (skeleton — real implementation in A2-A4)
+    //   Compress
     // -----------------------------------------------------------------
     async fn run_compress(
         &self,
         format: super::job::ArchiveFormat,
         level: u8,
     ) -> Result<TransferResults, anyhow::Error> {
-        // Phases A2-A4 will fill this in. For now the
-        // engine returns a clear error so the call
-        // site stays compile-clean and the UI can
-        // decide to either disable the menu item or
-        // surface the error in the transfer log.
-        let _ = (format, level);
-        Err(anyhow!(
-            "Compress pipeline is not implemented yet (A2-A4). \
-             Use the legacy Compress UI for now."
-        ))
+        // The compress pipeline takes the per-source
+        // `sources` from the job, the destination
+        // archive path, and a few worker-level
+        // shared flags. The pipeline itself handles
+        // every format (zip today, tar.gz in A3, 7z
+        // in A4).
+        let _ = self
+            .event_tx
+            .send(TransferEvent::TransferStarted {
+                job_id: self.job_id,
+                total_files: self.sources.len(),
+                total_bytes: 0,
+            });
+
+        let bytes_transferred_acc =
+            Arc::new(std::sync::atomic::AtomicU64::new(0));
+
+        let size = super::pipeline::compress_pipeline(
+            &self.src_endpoint,
+            self.sources.clone(),
+            &self.dst_endpoint,
+            &self.destination,
+            format,
+            level,
+            &self.event_tx,
+            self.job_id,
+            Arc::clone(&self.is_paused),
+            Arc::clone(&self.is_cancelled),
+            Arc::clone(&bytes_transferred_acc),
+        )
+        .await?;
+
+        let result = FileTransferResult {
+            src: self.destination.clone(),
+            dst: self.destination.clone(),
+            size,
+            src_hash: None,
+            dst_hash: None,
+            verified: true,
+            duration: std::time::Duration::from_secs(0),
+        };
+        let _ = self
+            .event_tx
+            .send(TransferEvent::FileCompleted {
+                job_id: self.job_id,
+                result: result.clone(),
+            });
+        let mut results = TransferResults::default();
+        results.completed_files.push(result);
+        let _ = self.event_tx.send(TransferEvent::JobCompleted {
+            job_id: self.job_id,
+            results: results.clone(),
+        });
+        Ok(results)
     }
 
     // -----------------------------------------------------------------
