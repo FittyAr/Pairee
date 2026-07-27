@@ -5,12 +5,14 @@ use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
+    text::Text,
     widgets::{
         Block, Borders, Clear, List, ListItem, ListState, Padding, Paragraph, Scrollbar,
-        ScrollbarOrientation, ScrollbarState,
+        ScrollbarOrientation, ScrollbarState, Wrap,
     },
 };
 use std::path::{Path, PathBuf};
+use the_other_tui_markdown::Theme as MdTheme;
 
 /// Returns the Diátaxis quadrant for a help doc path, or `"Plugins"` for
 /// anything that doesn't follow the `NN_<quadrant>_…` filename convention.
@@ -118,6 +120,67 @@ fn make_doc_row(
         text_style,
     )]);
     ListItem::new(line).style(Style::default().bg(row_bg))
+}
+
+/// Build a `the-other-tui-markdown` theme that maps the library's element
+/// styles to our popup theme tokens. This keeps markdown rendering visually
+/// consistent with the rest of the help popup (selection colors, border
+/// tones, etc.) without introducing new color literals.
+fn build_help_md_theme(popup_bg: Color, popup_fg: Color, popup_border: Color) -> MdTheme {
+    let mut theme = MdTheme::default();
+    theme.base = Style::default().bg(popup_bg).fg(popup_fg);
+    theme.h1 = Style::default()
+        .fg(Color::Yellow)
+        .add_modifier(Modifier::BOLD);
+    theme.h2 = Style::default()
+        .fg(Color::Yellow)
+        .add_modifier(Modifier::BOLD);
+    theme.h3 = Style::default()
+        .fg(Color::Yellow)
+        .add_modifier(Modifier::BOLD);
+    theme.h4 = Style::default()
+        .fg(popup_fg)
+        .add_modifier(Modifier::BOLD);
+    theme.h5 = Style::default().fg(popup_fg).add_modifier(Modifier::BOLD);
+    theme.h6 = Style::default().fg(popup_fg);
+    theme.strong = Style::default()
+        .fg(popup_fg)
+        .add_modifier(Modifier::BOLD);
+    theme.emphasis = Style::default()
+        .fg(popup_fg)
+        .add_modifier(Modifier::ITALIC);
+    theme.strikethrough = Style::default()
+        .fg(popup_fg)
+        .add_modifier(Modifier::CROSSED_OUT);
+    theme.inline_code = Style::default().fg(Color::Magenta);
+    theme.code_block = Style::default().fg(Color::Magenta);
+    theme.code_block_lang = Style::default()
+        .fg(Color::DarkGray)
+        .add_modifier(Modifier::ITALIC);
+    theme.link = Style::default()
+        .fg(Color::Cyan)
+        .add_modifier(Modifier::UNDERLINED);
+    theme.image = Style::default().fg(Color::Cyan);
+    theme.block_quote = Style::default().fg(popup_border);
+    theme.block_quote_note = Style::default().fg(Color::Cyan);
+    theme.block_quote_tip = Style::default().fg(Color::Green);
+    theme.block_quote_warning = Style::default().fg(Color::Yellow);
+    theme.block_quote_caution = Style::default().fg(Color::Red);
+    theme.block_quote_important = Style::default().fg(Color::Magenta);
+    theme.list_marker = Style::default().fg(Color::Cyan);
+    theme.table_header = Style::default()
+        .fg(popup_fg)
+        .bg(popup_bg)
+        .add_modifier(Modifier::BOLD);
+    theme.table_cell = Style::default().fg(popup_fg).bg(popup_bg);
+    theme.table_separator = Style::default().fg(popup_border);
+    theme.rule = Style::default().fg(popup_border);
+    theme.footnote_ref = Style::default().fg(Color::Cyan);
+    theme.footnote_def = Style::default()
+        .fg(popup_border)
+        .add_modifier(Modifier::ITALIC);
+    theme.html = Style::default().fg(popup_border);
+    theme
 }
 
 fn render_tab_bar(
@@ -296,18 +359,26 @@ pub fn render(
         .padding(Padding::horizontal(1));
 
     if let Some(content) = active_content {
-        let parsed_lines = parse_markdown_to_lines(content);
-        let inner_width = (right_area.width.saturating_sub(4)) as usize;
-        let wrapped_lines = wrap_lines(parsed_lines, inner_width);
+        // Delegate markdown parsing + rendering to `the-other-tui-markdown`,
+        // which understands tables, code blocks, blockquotes, GFM alerts,
+        // footnotes, and all the bits our hand-rolled parser was missing.
+        // The returned `Text<'static>` is fed directly to a `Paragraph` so
+        // it slots into the existing layout + scroll pipeline.
+        let md_theme = build_help_md_theme(popup_bg, popup_fg, popup_border);
+        let md_text: Text<'static> = the_other_tui_markdown::into_text_with_theme(content, md_theme);
 
-        let paragraph = Paragraph::new(wrapped_lines.clone())
+        let total_lines = md_text.lines.len();
+
+        let paragraph = Paragraph::new(md_text)
             .block(right_block)
             .scroll((*scroll_y as u16, 0))
-            .style(Style::default().fg(popup_fg));
+            .style(Style::default().fg(popup_fg))
+            // Don't trim trailing whitespace — table rows and code blocks
+            // rely on exact column widths to stay aligned.
+            .wrap(Wrap { trim: false });
         f.render_widget(paragraph, right_area);
 
-        // Scrollbar when the wrapped text overflows the panel.
-        let total_lines = wrapped_lines.len();
+        // Scrollbar when the rendered text overflows the panel.
         let inner_height = right_area.height.saturating_sub(2) as usize;
         if total_lines > inner_height {
             let mut scrollbar_state =
@@ -336,189 +407,4 @@ pub fn render(
         hint_area,
     );
     true
-}
-
-fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
-    use pulldown_cmark::{Event, HeadingLevel, Parser, Tag, TagEnd};
-    use ratatui::style::{Color, Modifier, Style};
-    use ratatui::text::{Line, Span};
-
-    let parser = Parser::new(text);
-    let mut lines = Vec::new();
-    let mut current_spans = Vec::new();
-
-    let mut bold = false;
-    let mut italic = false;
-    let code = false;
-    let mut link = false;
-
-    for event in parser {
-        match event {
-            Event::Start(tag) => match tag {
-                Tag::Heading { level, .. } => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                    if !lines.is_empty() {
-                        lines.push(Line::from(""));
-                    }
-
-                    let prefix = match level {
-                        HeadingLevel::H1 => "# ",
-                        HeadingLevel::H2 => "## ",
-                        HeadingLevel::H3 => "### ",
-                        _ => "#### ",
-                    };
-                    current_spans.push(Span::styled(
-                        prefix,
-                        Style::default()
-                            .fg(Color::Yellow)
-                            .add_modifier(Modifier::BOLD),
-                    ));
-                }
-                Tag::Paragraph => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                }
-                Tag::Emphasis => italic = true,
-                Tag::Strong => bold = true,
-                Tag::Link { .. } => link = true,
-                Tag::Item => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                    current_spans.push(Span::styled("• ", Style::default().fg(Color::Cyan)));
-                }
-                _ => {}
-            },
-            Event::End(tag) => match tag {
-                TagEnd::Heading(_) => {
-                    if !current_spans.is_empty() {
-                        for span in &mut current_spans {
-                            span.style = span.style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
-                        }
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                    lines.push(Line::from(""));
-                }
-                TagEnd::Paragraph => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                    lines.push(Line::from(""));
-                }
-                TagEnd::Emphasis => italic = false,
-                TagEnd::Strong => bold = false,
-                TagEnd::Link => link = false,
-                TagEnd::Item => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
-                }
-                _ => {}
-            },
-            Event::Text(t) => {
-                let mut style = Style::default();
-                if bold {
-                    style = style.add_modifier(Modifier::BOLD);
-                }
-                if italic {
-                    style = style.add_modifier(Modifier::ITALIC);
-                }
-                if code {
-                    style = style.fg(Color::Magenta);
-                } else if link {
-                    style = style.fg(Color::Blue).add_modifier(Modifier::UNDERLINED);
-                } else {
-                    style = style.fg(Color::White);
-                }
-                current_spans.push(Span::styled(t.into_string(), style));
-            }
-            Event::Code(c) => {
-                current_spans.push(Span::styled(
-                    format!(" `{}` ", c),
-                    Style::default().fg(Color::Magenta),
-                ));
-            }
-            Event::SoftBreak | Event::HardBreak => {
-                if !current_spans.is_empty() {
-                    lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                }
-            }
-            _ => {}
-        }
-    }
-
-    if !current_spans.is_empty() {
-        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-    }
-
-    lines
-}
-
-fn wrap_lines(
-    lines: Vec<ratatui::text::Line<'static>>,
-    width: usize,
-) -> Vec<ratatui::text::Line<'static>> {
-    let mut wrapped = Vec::new();
-    for line in lines {
-        let total_chars: usize = line.spans.iter().map(|s| s.content.chars().count()).sum();
-        if total_chars <= width {
-            wrapped.push(line);
-            continue;
-        }
-
-        let mut current_line_spans = Vec::new();
-        let mut current_width = 0;
-
-        for span in line.spans {
-            let text = span.content;
-            let style = span.style;
-
-            let mut words = Vec::new();
-            let mut word = String::new();
-            for c in text.chars() {
-                if c.is_whitespace() {
-                    if !word.is_empty() {
-                        words.push((word.clone(), false));
-                        word.clear();
-                    }
-                    words.push((c.to_string(), true));
-                } else {
-                    word.push(c);
-                }
-            }
-            if !word.is_empty() {
-                words.push((word, false));
-            }
-
-            for (w, is_space) in words {
-                let w_len = w.chars().count();
-                if current_width + w_len > width && !is_space && current_width > 0 {
-                    wrapped.push(ratatui::text::Line::from(current_line_spans));
-                    current_line_spans = Vec::new();
-                    current_width = 0;
-                }
-
-                if w_len > width {
-                    let chars: Vec<char> = w.chars().collect();
-                    for chunk in chars.chunks(width) {
-                        let chunk_str: String = chunk.iter().collect();
-                        wrapped.push(ratatui::text::Line::from(vec![
-                            ratatui::text::Span::styled(chunk_str, style),
-                        ]));
-                    }
-                    continue;
-                }
-
-                current_line_spans.push(ratatui::text::Span::styled(w, style));
-                current_width += w_len;
-            }
-        }
-        if !current_line_spans.is_empty() {
-            wrapped.push(ratatui::text::Line::from(current_line_spans));
-        }
-    }
-    wrapped
 }
