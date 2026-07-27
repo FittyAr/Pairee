@@ -30,7 +30,7 @@ pub fn handle(
             PopupType::ConfirmInterrupt => {
                 match key.code {
                     KeyCode::Enter => {
-                        state.progress_rx = None;
+                        // A10: progress_rx is gone.
                         state.active_popup = None;
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);

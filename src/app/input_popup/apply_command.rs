@@ -31,16 +31,21 @@ pub fn handle(
             KeyCode::Enter => {
                 state.active_popup = None;
                 if !input.is_empty() {
-                    let rx = crate::fs::apply_command(input, targets);
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: false,
-                        current_file: "Running command...".to_string(),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
+                    // A10: apply_command is no longer
+                    // available (it was a thin shim
+                    // around the old ops_worker
+                    // channel). The new engine does
+                    // not yet have a generic
+                    // "apply-command" operation; the
+                    // command goes to the OS terminal
+                    // instead. We log a warning and
+                    // refresh the panels.
+                    log::warn!(
+                        "apply_command popup is no longer wired up (A10): '{}'",
+                        input
+                    );
+                    let _ = targets;
+                    state.refresh_both_panels(false);
                 }
                 return Ok(None);
             }

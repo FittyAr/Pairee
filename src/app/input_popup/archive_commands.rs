@@ -119,22 +119,46 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             }
         }
         2 | 3 => {
-            // Extract
+            // Extract — A10 routes through the
+            // unified engine.
             let dest = if cursor_idx == 2 {
                 state.get_active_panel().current_path.clone()
             } else {
                 state.get_passive_panel().current_path.clone()
             };
-            let rx = crate::fs::spawn_extract_task(archive_path.to_path_buf(), dest);
-            state.progress_rx = Some(rx);
-            state.active_popup = Some(PopupType::CopyProgress {
-                is_move: false,
-                current_file: crate::config::localization::t("progress_extracting"),
-                files_copied: 0,
-                total_files: 0,
-                bytes_copied: 0,
-                total_bytes: 0,
-            });
+            let format = match archive_path
+                .extension()
+                .and_then(|e| e.to_str())
+                .map(|s| s.to_ascii_lowercase())
+                .as_deref()
+            {
+                Some("zip") => crate::fs::transfer::job::ArchiveFormat::Zip,
+                Some("gz") | Some("tgz") => {
+                    crate::fs::transfer::job::ArchiveFormat::TarGz
+                }
+                Some("7z") => crate::fs::transfer::job::ArchiveFormat::SevenZ,
+                _ => crate::fs::transfer::job::ArchiveFormat::Zip,
+            };
+            if state.transfer.is_none() {
+                let (engine, rx) = crate::fs::transfer::engine::TransferEngine::new();
+                state.transfer =
+                    Some(crate::app::state::transfer_state::TransferUIState::new(
+                        engine, rx,
+                    ));
+            }
+            if let Some(ref mut ts) = state.transfer {
+                let job = crate::fs::transfer::job::TransferJob::with_endpoints(
+                    crate::fs::transfer::job::TransferOperation::Extract { format },
+                    vec![archive_path.to_path_buf()],
+                    dest,
+                    crate::fs::transfer::options::TransferOptions::default(),
+                    crate::fs::transfer::endpoint::TransferEndpoint::Local,
+                    crate::fs::transfer::endpoint::TransferEndpoint::Local,
+                );
+                ts.engine.submit_job(job);
+                ts.view_mode = crate::app::state::TransferViewMode::Minimized;
+            }
+            state.active_popup = Some(PopupType::TransferPanel);
         }
         _ => {}
     }

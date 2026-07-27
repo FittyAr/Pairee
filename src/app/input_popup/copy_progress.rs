@@ -18,8 +18,10 @@ pub fn handle(
             {
                 state.active_popup = Some(PopupType::ConfirmInterrupt);
             } else {
-                // Drop channel to signal abort to tokio background thread
-                state.progress_rx = None;
+                // A10: progress_rx is gone. The
+                // unified engine handles cancel
+                // through the job's is_cancelled
+                // flag, not through the channel.
                 state.active_popup = None;
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }
