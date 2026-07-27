@@ -186,9 +186,7 @@ fn render_plugin_widget(
         } => {
             let inner_fg = fg.as_deref();
             let inner_bg = bg.as_deref();
-            let modifiers = (
-                *bold, *dim, *italic, *underline,
-            );
+            let modifiers = (*bold, *dim, *italic, *underline);
             let ratatui_spans: Vec<Span> = spans
                 .iter()
                 .map(|w| match w {
@@ -286,7 +284,15 @@ fn render_plugin_widget(
             let ratatui_lines: Vec<Line> = lines
                 .iter()
                 .map(|w| match w {
-                    PluginWidget::RichLine { spans, fg, bg, bold: _, dim: _, italic: _, underline: _ } => {
+                    PluginWidget::RichLine {
+                        spans,
+                        fg,
+                        bg,
+                        bold: _,
+                        dim: _,
+                        italic: _,
+                        underline: _,
+                    } => {
                         let inner_fg = fg.as_deref();
                         let inner_bg = bg.as_deref();
                         let ratatui_spans: Vec<Span> = spans

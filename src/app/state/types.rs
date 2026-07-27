@@ -641,7 +641,8 @@ pub enum PopupType {
         input: String,
         cursor_idx: usize,
         obscure: bool,
-        reply_tx: Option<tokio::sync::mpsc::UnboundedSender<crate::plugin::manager::InputDialogResult>>,
+        reply_tx:
+            Option<tokio::sync::mpsc::UnboundedSender<crate::plugin::manager::InputDialogResult>>,
     },
     /// Modal confirm dialog used by `pairee.confirm({...})`.
     PluginConfirmDialog {

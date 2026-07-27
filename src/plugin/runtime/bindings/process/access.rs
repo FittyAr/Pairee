@@ -119,7 +119,7 @@ impl UserData for Fd {
                 None => {
                     return Err(mlua::Error::RuntimeError(
                         "Fd.read: handle already consumed".to_string(),
-                    ))
+                    ));
                 }
             };
             let n = file

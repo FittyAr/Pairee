@@ -152,11 +152,8 @@ pub async fn load_plugin(
             let theme = cfg.theme.clone();
             let resolver = crate::keybindings::resolver::KeybindingResolver::new(&cfg);
             let _ = crate::plugin::runtime::bindings::cx::build_cx_table(&lua, &stub_state);
-            let _ = crate::plugin::runtime::bindings::rt_th_km::build_rt_table(
-                &lua,
-                &stub_state,
-                &cfg,
-            );
+            let _ =
+                crate::plugin::runtime::bindings::rt_th_km::build_rt_table(&lua, &stub_state, &cfg);
             let _ = crate::plugin::runtime::bindings::rt_th_km::build_th_table(&lua, &theme);
             let _ = crate::plugin::runtime::bindings::rt_th_km::build_km_table(&lua, &resolver);
         }
@@ -187,12 +184,7 @@ pub async fn load_plugin(
         //     surface; `pairee.state` is the scratch space).
         if let Some(rt) = lua.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
             let state_table = lua.create_table()?;
-            crate::plugin::runtime::bindings::state::attach(
-                &lua,
-                &rt,
-                name,
-                &state_table,
-            )?;
+            crate::plugin::runtime::bindings::state::attach(&lua, &rt, name, &state_table)?;
         }
 
         lua.create_registry_value(plugin_table)?

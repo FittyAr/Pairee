@@ -39,14 +39,18 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
                     let mut items = Vec::new();
                     for i in 1..=t.len().unwrap_or(0) {
                         if let Ok(v) = t.get::<_, mlua::String>(i) {
-                            if let Ok(c) = v.to_str() { items.push(c.to_string()); }
+                            if let Ok(c) = v.to_str() {
+                                items.push(c.to_string());
+                            }
                         }
                     }
                     List::new(items)
                 }
                 _ => List::new(Vec::new()),
             };
-            lua_ctx.create_userdata(item_list).map(mlua::Value::UserData)
+            lua_ctx
+                .create_userdata(item_list)
+                .map(mlua::Value::UserData)
         })?,
     )?;
     let mt = lua.create_table()?;

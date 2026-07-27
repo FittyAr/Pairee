@@ -33,8 +33,8 @@ pub use request::{
 // see the snapshot through `pairee.sync` and never need to name the
 // type directly. Re-exporting it triggers a dead-code warning.
 
-pub use dispatcher::process_plugin_requests;
 pub use dispatch_actions::drain_pending_emit_actions;
+pub use dispatcher::process_plugin_requests;
 
 /// Awaits a single value on a `tokio::sync::mpsc::UnboundedReceiver`,
 /// returning the value or `default()` if the sender is dropped (the
@@ -44,9 +44,7 @@ pub use dispatch_actions::drain_pending_emit_actions;
 /// sender can be cloned into the `PopupType` enum (the input handlers
 /// all `.clone()` the active popup before mutating it). The
 /// `UnboundedSender` is `Clone`; a true `oneshot::Sender` is not.
-pub async fn recv_single<T: Default>(
-    mut rx: tokio::sync::mpsc::UnboundedReceiver<T>,
-) -> T {
+pub async fn recv_single<T: Default>(mut rx: tokio::sync::mpsc::UnboundedReceiver<T>) -> T {
     match rx.recv().await {
         Some(v) => v,
         None => T::default(),

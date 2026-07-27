@@ -147,10 +147,7 @@ impl Url {
         match &self.scheme {
             Scheme::Local => self.path.to_string_lossy().to_string(),
             Scheme::Sftp { user, host, port } => {
-                let user_part = user
-                    .as_deref()
-                    .map(|u| format!("{u}@"))
-                    .unwrap_or_default();
+                let user_part = user.as_deref().map(|u| format!("{u}@")).unwrap_or_default();
                 let port_part = port.map(|p| format!(":{p}")).unwrap_or_default();
                 format!(
                     "sftp://{user_part}{host}{port_port}{path}",
@@ -175,11 +172,15 @@ impl UserData for Url {
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
         // ── Fields (read-only getters) ─────────────────────────────
-        methods.add_method("path", |_lua, this, ()| Ok(this.path.to_string_lossy().to_string()));
+        methods.add_method("path", |_lua, this, ()| {
+            Ok(this.path.to_string_lossy().to_string())
+        });
         methods.add_method("name", |_lua, this, ()| Ok(this.file_name()));
         methods.add_method("stem", |_lua, this, ()| Ok(this.file_stem()));
         methods.add_method("ext", |_lua, this, ()| Ok(this.file_ext()));
-        methods.add_method("scheme", |_lua, this, ()| Ok(this.scheme.as_str().to_string()));
+        methods.add_method("scheme", |_lua, this, ()| {
+            Ok(this.scheme.as_str().to_string())
+        });
         methods.add_method("domain", |_lua, this, ()| {
             let d = match &this.scheme {
                 Scheme::Local => None,
@@ -189,7 +190,10 @@ impl UserData for Url {
         });
         methods.add_method("is_absolute", |_lua, this, ()| Ok(this.path.is_absolute()));
         methods.add_method("has_root", |_lua, this, ()| {
-            Ok(this.path.components().any(|c| matches!(c, Component::RootDir)))
+            Ok(this
+                .path
+                .components()
+                .any(|c| matches!(c, Component::RootDir)))
         });
         methods.add_method("is_regular", |_lua, this, ()| {
             Ok(this.path.is_file() || !this.path.exists())
@@ -245,11 +249,10 @@ impl UserData for Url {
         });
 
         // ── Metamethods ────────────────────────────────────────────
-        methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| {
-            Ok(this.display())
-        });
-        methods.add_meta_method(MetaMethod::Eq, |_lua, this, other: mlua::Value| {
-            match other {
+        methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| Ok(this.display()));
+        methods.add_meta_method(
+            MetaMethod::Eq,
+            |_lua, this, other: mlua::Value| match other {
                 mlua::Value::UserData(ud) => {
                     if let Ok(other_url) = ud.borrow::<Self>() {
                         Ok(this.path == other_url.path && this.scheme == other_url.scheme)
@@ -258,8 +261,8 @@ impl UserData for Url {
                     }
                 }
                 _ => Ok(false),
-            }
-        });
+            },
+        );
         methods.add_meta_method(MetaMethod::Concat, |_lua, this, other: mlua::Value| {
             // `..` interpolation: turn the other side into a string
             // and concatenate.
@@ -286,9 +289,7 @@ impl UserData for Url {
 /// inner `Cha` to the outer `File` userdata. (See M2-T4 for the
 /// `Deref<Target = Cha>` pattern.)
 #[allow(dead_code)]
-pub fn url_borrow<'a>(
-    ud_ref: &'a UserDataRef<'_, Url>,
-) -> &'a Url {
+pub fn url_borrow<'a>(ud_ref: &'a UserDataRef<'_, Url>) -> &'a Url {
     &**ud_ref
 }
 
@@ -325,7 +326,9 @@ mod tests {
     fn test_url_lua_metamethods() {
         let lua = Lua::new();
         let url = Url::parse("/etc/hosts");
-        lua.globals().set("u", lua.create_userdata(url).unwrap()).unwrap();
+        lua.globals()
+            .set("u", lua.create_userdata(url).unwrap())
+            .unwrap();
         // __tostring
         let s: String = lua.load("return tostring(u)").eval().unwrap();
         assert_eq!(s, "/etc/hosts");

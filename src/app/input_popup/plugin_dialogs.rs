@@ -11,8 +11,8 @@
 //! step so the awaiting plugin worker wakes up immediately.
 
 use crate::app::state::{AppState, PopupType};
-use crate::keybindings::resolver::key_event_to_string;
 use crate::keybindings::Action;
+use crate::keybindings::resolver::key_event_to_string;
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// Top-level entry point. Returns `Ok(None)` when a popup was handled
@@ -37,8 +37,7 @@ fn handle_input(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
         cursor_idx,
         obscure,
         reply_tx,
-    } = popup
-    .ok_or(())?
+    } = popup.ok_or(())?
     else {
         // Not the right variant — restore and return.
         state.active_popup = Some(PopupType::Info(String::new()));
@@ -174,8 +173,7 @@ fn handle_confirm(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>,
         msg,
         cursor_idx,
         reply_tx,
-    } = popup
-    .ok_or(())?
+    } = popup.ok_or(())?
     else {
         state.active_popup = Some(PopupType::Info(String::new()));
         return Err(());
@@ -225,8 +223,7 @@ fn handle_which(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, (
         candidates,
         silent,
         reply_tx,
-    } = popup
-    .ok_or(())?
+    } = popup.ok_or(())?
     else {
         state.active_popup = Some(PopupType::Info(String::new()));
         return Err(());
@@ -292,7 +289,9 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Char('c'), KeyModifiers::NONE);
         let _ = handle(&mut state, key);
         match state.active_popup {
-            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+            Some(PopupType::PluginInputDialog {
+                input, cursor_idx, ..
+            }) => {
                 assert_eq!(input, "abc");
                 assert_eq!(cursor_idx, 3);
             }
@@ -492,7 +491,9 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Char('X'), KeyModifiers::NONE);
         let _ = handle(&mut state, key);
         match state.active_popup {
-            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+            Some(PopupType::PluginInputDialog {
+                input, cursor_idx, ..
+            }) => {
                 assert_eq!(input, "aXb");
                 assert_eq!(cursor_idx, 2);
             }
@@ -515,7 +516,9 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
         let _ = handle(&mut state, key);
         match state.active_popup {
-            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+            Some(PopupType::PluginInputDialog {
+                input, cursor_idx, ..
+            }) => {
                 assert_eq!(input, "a");
                 assert_eq!(cursor_idx, 1);
             }
@@ -539,7 +542,9 @@ mod tests {
         let key = KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE);
         let _ = handle(&mut state, key);
         match state.active_popup {
-            Some(PopupType::PluginInputDialog { input, cursor_idx, .. }) => {
+            Some(PopupType::PluginInputDialog {
+                input, cursor_idx, ..
+            }) => {
                 assert_eq!(input, "ab");
                 assert_eq!(cursor_idx, 0);
             }
@@ -547,4 +552,3 @@ mod tests {
         }
     }
 }
-

@@ -61,21 +61,33 @@ pub struct Table {
 
 impl Table {
     pub fn new() -> Self {
-        Self { header: None, rows: Vec::new(), widths: None }
+        Self {
+            header: None,
+            rows: Vec::new(),
+            widths: None,
+        }
     }
 }
 
-impl Default for Table { fn default() -> Self { Self::new() } }
+impl Default for Table {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl UserData for Table {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_method_mut("header", |_lua, this, row: mlua::AnyUserData| {
-            let r = row.borrow::<Row>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let r = row
+                .borrow::<Row>()
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             this.header = Some(r.clone());
             Ok(this.clone())
         });
         methods.add_method_mut("push", |_lua, this, row: mlua::AnyUserData| {
-            let r = row.borrow::<Row>().map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let r = row
+                .borrow::<Row>()
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             this.rows.push(r.clone());
             Ok(this.clone())
         });
@@ -105,7 +117,11 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
                             }
                         }
                     }
-                    Table { header: None, rows, widths: None }
+                    Table {
+                        header: None,
+                        rows,
+                        widths: None,
+                    }
                 }
                 _ => Table::new(),
             };

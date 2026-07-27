@@ -1,7 +1,7 @@
 //! M4-T1: `ui.Line` userdata — a sequence of styled Spans.
 
-use super::span::Span;
 use super::super::style::Style;
+use super::span::Span;
 use mlua::{MetaMethod, UserData, UserDataMethods};
 use ratatui::text::Line as RatLine;
 
@@ -46,19 +46,19 @@ impl Line {
                 .map(|s| {
                     // Per-span fg/bg win; fall back to line-level
                     // fg/bg.
-                    let effective_style = s.style.inner.patch(if self.style.inner.fg.is_some()
-                        || self.style.inner.bg.is_some()
-                    {
-                        ratatui::style::Style::new()
-                            .fg(self.style.inner.fg.unwrap_or_else(|| {
-                                s.style.inner.fg.unwrap_or(ratatui::style::Color::Reset)
-                            }))
-                            .bg(self.style.inner.bg.unwrap_or_else(|| {
-                                s.style.inner.bg.unwrap_or(ratatui::style::Color::Reset)
-                            }))
-                    } else {
-                        ratatui::style::Style::new()
-                    });
+                    let effective_style = s.style.inner.patch(
+                        if self.style.inner.fg.is_some() || self.style.inner.bg.is_some() {
+                            ratatui::style::Style::new()
+                                .fg(self.style.inner.fg.unwrap_or_else(|| {
+                                    s.style.inner.fg.unwrap_or(ratatui::style::Color::Reset)
+                                }))
+                                .bg(self.style.inner.bg.unwrap_or_else(|| {
+                                    s.style.inner.bg.unwrap_or(ratatui::style::Color::Reset)
+                                }))
+                        } else {
+                            ratatui::style::Style::new()
+                        },
+                    );
                     let _ = effective_style; // intentionally unused; we just return span
                     if s.style.inner == Default::default() {
                         ratatui::text::Span::raw(s.text.clone())
@@ -99,7 +99,7 @@ impl UserData for Line {
                 other => {
                     return Err(mlua::Error::RuntimeError(format!(
                         "Line.push: expected string or Span, got {other:?}"
-                    )))
+                    )));
                 }
             }
             Ok(this.clone())
@@ -134,7 +134,10 @@ impl UserData for Line {
             Ok(this.clone())
         });
         methods.add_method_mut("bold", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::BOLD);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::BOLD);
             Ok(this.clone())
         });
         methods.add_method_mut("dim", |_lua, this, ()| {
@@ -142,7 +145,10 @@ impl UserData for Line {
             Ok(this.clone())
         });
         methods.add_method_mut("italic", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::ITALIC);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::ITALIC);
             Ok(this.clone())
         });
         methods.add_method_mut("underline", |_lua, this, ()| {
@@ -154,7 +160,10 @@ impl UserData for Line {
         });
         methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| {
             let texts: Vec<String> = this.spans.iter().map(|s| s.text.clone()).collect();
-            Ok(format!("Line(spans={:?}, style={:?})", texts, this.style.inner))
+            Ok(format!(
+                "Line(spans={:?}, style={:?})",
+                texts, this.style.inner
+            ))
         });
     }
 }
@@ -225,8 +234,7 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
                             }
                             _ => {
                                 return Err(mlua::Error::RuntimeError(
-                                    "Line: sequence elements must be strings or Spans"
-                                        .to_string(),
+                                    "Line: sequence elements must be strings or Spans".to_string(),
                                 ));
                             }
                         }
@@ -270,32 +278,21 @@ mod tests {
         let r = line.to_ratatui();
         let _ = r;
         assert!(line.style.inner.fg.is_some());
-        assert!(line
-            .style
-            .inner
-            .add_modifier
-            .contains(ratatui::style::Modifier::BOLD));
+        assert!(
+            line.style
+                .inner
+                .add_modifier
+                .contains(ratatui::style::Modifier::BOLD)
+        );
     }
 
     #[test]
     fn test_line_lua_builder_chain() {
         let lua = Lua::new();
         let ui_table = lua.create_table().unwrap();
-        crate::plugin::runtime::bindings::ui::style::bind(
-            &lua,
-            &ui_table,
-        )
-        .unwrap();
-        crate::plugin::runtime::bindings::ui::elements::span::bind(
-            &lua,
-            &ui_table,
-        )
-        .unwrap();
-        crate::plugin::runtime::bindings::ui::elements::line::bind(
-            &lua,
-            &ui_table,
-        )
-        .unwrap();
+        crate::plugin::runtime::bindings::ui::style::bind(&lua, &ui_table).unwrap();
+        crate::plugin::runtime::bindings::ui::elements::span::bind(&lua, &ui_table).unwrap();
+        crate::plugin::runtime::bindings::ui::elements::line::bind(&lua, &ui_table).unwrap();
         lua.globals().set("ui", ui_table).unwrap();
         // The line builds; we just verify no panic and that the
         // returned value is a Line userdata.

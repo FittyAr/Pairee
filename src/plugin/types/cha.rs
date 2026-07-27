@@ -93,26 +93,74 @@ impl ChaMode {
     #[cfg(unix)]
     pub fn perm_string(self) -> Option<String> {
         let mut out = String::with_capacity(10);
-        out.push(if self.contains(ChaMode::P_OWNER_R) { 'r' } else { '-' });
-        out.push(if self.contains(ChaMode::P_OWNER_W) { 'w' } else { '-' });
+        out.push(if self.contains(ChaMode::P_OWNER_R) {
+            'r'
+        } else {
+            '-'
+        });
+        out.push(if self.contains(ChaMode::P_OWNER_W) {
+            'w'
+        } else {
+            '-'
+        });
         out.push(if self.contains(ChaMode::P_OWNER_X) {
-            if self.contains(ChaMode::S_SUID) { 's' } else { 'x' }
+            if self.contains(ChaMode::S_SUID) {
+                's'
+            } else {
+                'x'
+            }
         } else {
-            if self.contains(ChaMode::S_SUID) { 'S' } else { '-' }
+            if self.contains(ChaMode::S_SUID) {
+                'S'
+            } else {
+                '-'
+            }
         });
-        out.push(if self.contains(ChaMode::P_GROUP_R) { 'r' } else { '-' });
-        out.push(if self.contains(ChaMode::P_GROUP_W) { 'w' } else { '-' });
+        out.push(if self.contains(ChaMode::P_GROUP_R) {
+            'r'
+        } else {
+            '-'
+        });
+        out.push(if self.contains(ChaMode::P_GROUP_W) {
+            'w'
+        } else {
+            '-'
+        });
         out.push(if self.contains(ChaMode::P_GROUP_X) {
-            if self.contains(ChaMode::S_SGID) { 's' } else { 'x' }
+            if self.contains(ChaMode::S_SGID) {
+                's'
+            } else {
+                'x'
+            }
         } else {
-            if self.contains(ChaMode::S_SGID) { 'S' } else { '-' }
+            if self.contains(ChaMode::S_SGID) {
+                'S'
+            } else {
+                '-'
+            }
         });
-        out.push(if self.contains(ChaMode::P_OTHER_R) { 'r' } else { '-' });
-        out.push(if self.contains(ChaMode::P_OTHER_W) { 'w' } else { '-' });
-        out.push(if self.contains(ChaMode::P_OTHER_X) {
-            if self.contains(ChaMode::S_STICKY) { 't' } else { 'x' }
+        out.push(if self.contains(ChaMode::P_OTHER_R) {
+            'r'
         } else {
-            if self.contains(ChaMode::S_STICKY) { 'T' } else { '-' }
+            '-'
+        });
+        out.push(if self.contains(ChaMode::P_OTHER_W) {
+            'w'
+        } else {
+            '-'
+        });
+        out.push(if self.contains(ChaMode::P_OTHER_X) {
+            if self.contains(ChaMode::S_STICKY) {
+                't'
+            } else {
+                'x'
+            }
+        } else {
+            if self.contains(ChaMode::S_STICKY) {
+                'T'
+            } else {
+                '-'
+            }
         });
         Some(out)
     }
@@ -329,9 +377,15 @@ impl UserData for Cha {
             Ok(this.mode.contains(ChaMode::S_STICKY))
         });
         methods.add_method("len", |_lua, this, ()| Ok(this.len));
-        methods.add_method("atime", |_lua, this, ()| Ok(system_time_to_secs(this.atime)));
-        methods.add_method("btime", |_lua, this, ()| Ok(system_time_to_secs(this.btime)));
-        methods.add_method("mtime", |_lua, this, ()| Ok(system_time_to_secs(this.mtime)));
+        methods.add_method("atime", |_lua, this, ()| {
+            Ok(system_time_to_secs(this.atime))
+        });
+        methods.add_method("btime", |_lua, this, ()| {
+            Ok(system_time_to_secs(this.btime))
+        });
+        methods.add_method("mtime", |_lua, this, ()| {
+            Ok(system_time_to_secs(this.mtime))
+        });
         methods.add_method("uid", |_lua, this, ()| Ok(this.uid));
         methods.add_method("gid", |_lua, this, ()| Ok(this.gid));
         methods.add_method("nlink", |_lua, this, ()| Ok(this.nlink));
@@ -391,7 +445,9 @@ mod tests {
             nlink: 1,
             path: None,
         };
-        lua.globals().set("cha", lua.create_userdata(cha).unwrap()).unwrap();
+        lua.globals()
+            .set("cha", lua.create_userdata(cha).unwrap())
+            .unwrap();
         let is_dir: bool = lua.load("return cha:is_dir()").eval().unwrap();
         assert!(!is_dir);
         let len: u64 = lua.load("return cha:len()").eval().unwrap();
@@ -404,7 +460,9 @@ mod tests {
     fn test_cha_dummy_lua() {
         let lua = Lua::new();
         let cha = Cha::dummy();
-        lua.globals().set("cha", lua.create_userdata(cha).unwrap()).unwrap();
+        lua.globals()
+            .set("cha", lua.create_userdata(cha).unwrap())
+            .unwrap();
         let is_orphan: bool = lua.load("return cha:is_orphan()").eval().unwrap();
         assert!(is_orphan);
     }
@@ -443,9 +501,11 @@ mod tests {
         lua.globals()
             .set("visible", lua.create_userdata(cha_visible).unwrap())
             .unwrap();
-        let is_visible_hidden: bool =
-            lua.load("return visible:is_hidden()").eval().unwrap();
-        assert!(!is_visible_hidden, "file.txt must NOT be reported as hidden");
+        let is_visible_hidden: bool = lua.load("return visible:is_hidden()").eval().unwrap();
+        assert!(
+            !is_visible_hidden,
+            "file.txt must NOT be reported as hidden"
+        );
 
         // Cha with no path: must return false (unknown).
         let cha_no_path = Cha::dummy();
@@ -453,6 +513,9 @@ mod tests {
             .set("orphan", lua.create_userdata(cha_no_path).unwrap())
             .unwrap();
         let is_orphan_hidden: bool = lua.load("return orphan:is_hidden()").eval().unwrap();
-        assert!(!is_orphan_hidden, "Cha without a path must NOT be reported as hidden");
+        assert!(
+            !is_orphan_hidden,
+            "Cha without a path must NOT be reported as hidden"
+        );
     }
 }

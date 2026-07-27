@@ -48,15 +48,23 @@ impl UserData for Style {
         methods.add_method_mut("fg", |_lua, this, val: mlua::Value| {
             let parsed = parse_color_value(val)?;
             let mut __s = this.inner.clone();
-        if let Some(c) = parsed { __s = __s.fg(c); } else { __s.fg = None; }
-        this.inner = __s;
+            if let Some(c) = parsed {
+                __s = __s.fg(c);
+            } else {
+                __s.fg = None;
+            }
+            this.inner = __s;
             Ok(this.clone())
         });
         methods.add_method_mut("bg", |_lua, this, val: mlua::Value| {
             let parsed = parse_color_value(val)?;
             let mut __s = this.inner.clone();
-        if let Some(c) = parsed { __s = __s.bg(c); } else { __s.bg = None; }
-        this.inner = __s;
+            if let Some(c) = parsed {
+                __s = __s.bg(c);
+            } else {
+                __s.bg = None;
+            }
+            this.inner = __s;
             Ok(this.clone())
         });
         // Modifier folds — chainable.
@@ -158,9 +166,15 @@ pub fn parse_color_value(val: mlua::Value) -> mlua::Result<Option<RatColor>> {
             }
         }
         V::Table(t) => {
-            let r: u8 = t.get("r").map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
-            let g: u8 = t.get("g").map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
-            let b: u8 = t.get("b").map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let r: u8 = t
+                .get("r")
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let g: u8 = t
+                .get("g")
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
+            let b: u8 = t
+                .get("b")
+                .map_err(|e| mlua::Error::RuntimeError(format!("{e}")))?;
             Ok(Some(RatColor::Rgb(r, g, b)))
         }
         V::UserData(ud) => {
@@ -199,7 +213,9 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
             };
             let parsed = parse_color_value(dispatch_arg)?;
             match parsed {
-                Some(c) => lua.create_userdata(Color::new(c)).map(mlua::Value::UserData),
+                Some(c) => lua
+                    .create_userdata(Color::new(c))
+                    .map(mlua::Value::UserData),
                 None => Ok(mlua::Value::Nil),
             }
         })?,
@@ -254,7 +270,10 @@ mod tests {
     fn test_parse_color_value_hex() {
         let lua = Lua::new();
         let v = mlua::Value::String(lua.create_string("#ff0000").unwrap());
-        assert_eq!(parse_color_value(v).unwrap(), Some(RatColor::Rgb(255, 0, 0)));
+        assert_eq!(
+            parse_color_value(v).unwrap(),
+            Some(RatColor::Rgb(255, 0, 0))
+        );
     }
 
     #[test]

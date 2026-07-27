@@ -100,7 +100,11 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
             None
         }
     });
-    state.active_popup = Some(PopupType::PluginNotify { body, level, deadline });
+    state.active_popup = Some(PopupType::PluginNotify {
+        body,
+        level,
+        deadline,
+    });
     log::info!(
         "Plugin notify [{}]: {} - {} (timeout={:?}s)",
         payload.level.as_deref().unwrap_or("info"),
@@ -149,9 +153,7 @@ pub fn dispatch_emit_action(
                     | crate::keybindings::Action::Move
             )
         {
-            log::warn!(
-                "pairee.emit('{name}') is blocked in Secure Mode (destructive action)"
-            );
+            log::warn!("pairee.emit('{name}') is blocked in Secure Mode (destructive action)");
             return;
         }
         let mut q = match pending_actions().lock() {
@@ -323,7 +325,11 @@ mod tests {
             },
         );
         match state.active_popup {
-            Some(PopupType::PluginNotify { body, level, deadline }) => {
+            Some(PopupType::PluginNotify {
+                body,
+                level,
+                deadline,
+            }) => {
                 assert_eq!(body, "Hello: World");
                 assert_eq!(level, "warn");
                 assert!(deadline.is_some());
@@ -345,7 +351,11 @@ mod tests {
             },
         );
         match state.active_popup {
-            Some(PopupType::PluginNotify { body, level, deadline }) => {
+            Some(PopupType::PluginNotify {
+                body,
+                level,
+                deadline,
+            }) => {
                 assert_eq!(body, "Only");
                 assert_eq!(level, "info"); // default
                 assert!(deadline.is_none());
@@ -420,12 +430,7 @@ mod tests {
         let context = crate::app::context::AppContext::new(cfg);
 
         // `select_item` is a known Action name in the keybinding resolver.
-        dispatch_emit_action(
-            &mut state,
-            &context,
-            "select_item",
-            &serde_json::json!({}),
-        );
+        dispatch_emit_action(&mut state, &context, "select_item", &serde_json::json!({}));
         let queued = drain_pending_emit_actions();
         assert_eq!(queued.len(), 1, "expected exactly one queued action");
         assert_eq!(queued[0], crate::keybindings::Action::SelectItem);
@@ -470,12 +475,7 @@ mod tests {
         let context = crate::app::context::AppContext::new(secure_cfg);
 
         // `delete` is the canonical name (see `preset.rs`).
-        dispatch_emit_action(
-            &mut state,
-            &context,
-            "delete",
-            &serde_json::json!({}),
-        );
+        dispatch_emit_action(&mut state, &context, "delete", &serde_json::json!({}));
         let queued = drain_pending_emit_actions();
         assert!(
             queued.is_empty(),
@@ -494,12 +494,7 @@ mod tests {
         // accepted.
         assert!(!cfg.settings.secure_mode);
         let context = crate::app::context::AppContext::new(cfg);
-        dispatch_emit_action(
-            &mut state,
-            &context,
-            "delete",
-            &serde_json::json!({}),
-        );
+        dispatch_emit_action(&mut state, &context, "delete", &serde_json::json!({}));
         let queued = drain_pending_emit_actions();
         assert_eq!(
             queued.len(),

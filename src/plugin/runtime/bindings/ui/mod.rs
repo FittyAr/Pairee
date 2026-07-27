@@ -18,7 +18,8 @@ use tokio::sync::mpsc::error::TrySendError;
 /// main loop. The mpsc sender shape is the caller's choice
 /// (bounded or unbounded) — `bind` accepts any `Fn(PluginRequest)
 /// -> Result<(), TrySendError<PluginRequest>>`.
-pub type SendFn = Arc<dyn Fn(PluginRequest) -> Result<(), TrySendError<PluginRequest>> + Send + Sync>;
+pub type SendFn =
+    Arc<dyn Fn(PluginRequest) -> Result<(), TrySendError<PluginRequest>> + Send + Sync>;
 
 // `preview::bind` already requires the `Fn(PluginRequest) -> ...`
 // shape. The test for `ui::bind` uses it directly.
@@ -27,11 +28,7 @@ pub type SendFn = Arc<dyn Fn(PluginRequest) -> Result<(), TrySendError<PluginReq
 /// the `pairee.preview_widget` bridge on the same `pairee` table.
 ///
 /// NOTE: the `pairee` table parameter must already be a `mlua::Table`.
-pub fn bind(
-    lua: &mlua::Lua,
-    pairee: &mlua::Table<'_>,
-    tx: SendFn,
-) -> mlua::Result<()> {
+pub fn bind(lua: &mlua::Lua, pairee: &mlua::Table<'_>, tx: SendFn) -> mlua::Result<()> {
     let ui = legacy::bind(lua)?;
 
     // The new widget userdata constructors overwrite the legacy

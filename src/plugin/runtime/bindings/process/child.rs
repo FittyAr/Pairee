@@ -31,9 +31,7 @@ use mlua::UserData;
 use mlua::UserDataMethods;
 use std::sync::Arc;
 use tokio::io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{
-    Child as TokioChild, ChildStderr, ChildStdin, ChildStdout,
-};
+use tokio::process::{Child as TokioChild, ChildStderr, ChildStdin, ChildStdout};
 use tokio::sync::Mutex;
 
 /// The M3 `Child` userdata. Owns the `tokio::process::Child`
@@ -139,9 +137,10 @@ impl UserData for Child {
             // Close stdin so the child doesn't deadlock waiting
             // for input we're no longer going to send.
             drop(child.stdin.take());
-            let exit = child.wait().await.map_err(|e| {
-                mlua::Error::RuntimeError(format!("Child.wait failed: {e}"))
-            })?;
+            let exit = child
+                .wait()
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("Child.wait failed: {e}")))?;
             let status = Status::from_exit(exit);
             let ud = _lua.create_userdata(status)?;
             Ok(mlua::Value::UserData(ud))
@@ -161,9 +160,7 @@ impl UserData for Child {
                 None => return Ok(mlua::Value::Nil),
             };
             let out = child.wait_with_output().await.map_err(|e| {
-                mlua::Error::RuntimeError(format!(
-                    "Child.wait_with_output failed: {e}"
-                ))
+                mlua::Error::RuntimeError(format!("Child.wait_with_output failed: {e}"))
             })?;
             let output = Output::from_tokio(out);
             let ud = _lua.create_userdata(output)?;
@@ -177,9 +174,10 @@ impl UserData for Child {
                 None => return Ok(mlua::Value::Nil),
             };
             let mut buf = vec![0u8; len];
-            let n = stdout.read(&mut buf).await.map_err(|e| {
-                mlua::Error::RuntimeError(format!("Child.read failed: {e}"))
-            })?;
+            let n = stdout
+                .read(&mut buf)
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("Child.read failed: {e}")))?;
             buf.truncate(n);
             Ok(mlua::Value::String(_lua.create_string(&buf)?))
         });
@@ -192,9 +190,10 @@ impl UserData for Child {
             };
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
-            let n = reader.read_line(&mut line).await.map_err(|e| {
-                mlua::Error::RuntimeError(format!("Child.read_line failed: {e}"))
-            })?;
+            let n = reader
+                .read_line(&mut line)
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("Child.read_line failed: {e}")))?;
             if n == 0 {
                 return Ok(mlua::Value::Nil);
             }
@@ -222,9 +221,7 @@ impl UserData for Child {
                 let stdout_ref: &mut ChildStdout = stdout;
                 let mut reader = BufReader::new(stdout_ref);
                 let mut line = String::new();
-                let read_fut = async {
-                    reader.read_line(&mut line).await.map(|n| n)
-                };
+                let read_fut = async { reader.read_line(&mut line).await.map(|n| n) };
                 let result = if let Some(t) = timeout_secs {
                     tokio::select! {
                         biased;
@@ -246,27 +243,23 @@ impl UserData for Child {
         );
 
         // ── `write_all(src)` — async, preserves stdin ────────────
-        methods.add_async_method_mut(
-            "write_all",
-            |_lua, this, src: mlua::String| async move {
-                let stdin = match this.stdin.as_mut() {
-                    Some(s) => s,
-                    None => {
-                        return Err(mlua::Error::RuntimeError(
-                            "Child.write_all: stdin is None (already taken or \
+        methods.add_async_method_mut("write_all", |_lua, this, src: mlua::String| async move {
+            let stdin = match this.stdin.as_mut() {
+                Some(s) => s,
+                None => {
+                    return Err(mlua::Error::RuntimeError(
+                        "Child.write_all: stdin is None (already taken or \
                              never piped)"
-                                .to_string(),
-                        ));
-                    }
-                };
-                stdin.write_all(src.as_bytes()).await.map_err(|e| {
-                    mlua::Error::RuntimeError(format!(
-                        "Child.write_all failed: {e}"
-                    ))
-                })?;
-                Ok(true)
-            },
-        );
+                            .to_string(),
+                    ));
+                }
+            };
+            stdin
+                .write_all(src.as_bytes())
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("Child.write_all failed: {e}")))?;
+            Ok(true)
+        });
 
         // ── `flush()` — async ───────────────────────────────────
         methods.add_async_method_mut("flush", |_lua, this, ()| async move {
@@ -274,9 +267,10 @@ impl UserData for Child {
                 Some(s) => s,
                 None => return Ok(mlua::Value::Nil),
             };
-            stdin.flush().await.map_err(|e| {
-                mlua::Error::RuntimeError(format!("Child.flush failed: {e}"))
-            })?;
+            stdin
+                .flush()
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("Child.flush failed: {e}")))?;
             Ok(mlua::Value::Boolean(true))
         });
 
@@ -326,36 +320,29 @@ pub struct ChildInput {
 
 impl UserData for ChildInput {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_async_method_mut(
-            "write_all",
-            |_lua, this, src: mlua::String| async move {
-                let stdin = match this.inner.as_mut() {
-                    Some(s) => s,
-                    None => {
-                        return Err(mlua::Error::RuntimeError(
-                            "ChildInput.write_all: handle already closed"
-                                .to_string(),
-                        ));
-                    }
-                };
-                stdin.write_all(src.as_bytes()).await.map_err(|e| {
-                    mlua::Error::RuntimeError(format!(
-                        "ChildInput.write_all failed: {e}"
-                    ))
-                })?;
-                Ok(true)
-            },
-        );
+        methods.add_async_method_mut("write_all", |_lua, this, src: mlua::String| async move {
+            let stdin = match this.inner.as_mut() {
+                Some(s) => s,
+                None => {
+                    return Err(mlua::Error::RuntimeError(
+                        "ChildInput.write_all: handle already closed".to_string(),
+                    ));
+                }
+            };
+            stdin.write_all(src.as_bytes()).await.map_err(|e| {
+                mlua::Error::RuntimeError(format!("ChildInput.write_all failed: {e}"))
+            })?;
+            Ok(true)
+        });
         methods.add_async_method_mut("flush", |_lua, this, ()| async move {
             let stdin = match this.inner.as_mut() {
                 Some(s) => s,
                 None => return Ok(mlua::Value::Nil),
             };
-            stdin.flush().await.map_err(|e| {
-                mlua::Error::RuntimeError(format!(
-                    "ChildInput.flush failed: {e}"
-                ))
-            })?;
+            stdin
+                .flush()
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("ChildInput.flush failed: {e}")))?;
             Ok(mlua::Value::Boolean(true))
         });
         methods.add_method_mut("close", |_lua, this, ()| {
@@ -372,23 +359,19 @@ pub struct ChildOutput {
 
 impl UserData for ChildOutput {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_async_method_mut(
-            "read",
-            |_lua, this, len: usize| async move {
-                let stdout = match this.inner.as_mut() {
-                    Some(s) => s,
-                    None => return Ok(mlua::Value::Nil),
-                };
-                let mut buf = vec![0u8; len];
-                let n = stdout.read(&mut buf).await.map_err(|e| {
-                    mlua::Error::RuntimeError(format!(
-                        "ChildOutput.read failed: {e}"
-                    ))
-                })?;
-                buf.truncate(n);
-                Ok(mlua::Value::String(_lua.create_string(&buf)?))
-            },
-        );
+        methods.add_async_method_mut("read", |_lua, this, len: usize| async move {
+            let stdout = match this.inner.as_mut() {
+                Some(s) => s,
+                None => return Ok(mlua::Value::Nil),
+            };
+            let mut buf = vec![0u8; len];
+            let n = stdout
+                .read(&mut buf)
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("ChildOutput.read failed: {e}")))?;
+            buf.truncate(n);
+            Ok(mlua::Value::String(_lua.create_string(&buf)?))
+        });
         methods.add_async_method_mut("read_line", |_lua, this, ()| async move {
             let stdout = match this.inner.as_mut() {
                 Some(s) => s,
@@ -397,9 +380,7 @@ impl UserData for ChildOutput {
             let mut reader = BufReader::new(stdout);
             let mut line = String::new();
             let n = reader.read_line(&mut line).await.map_err(|e| {
-                mlua::Error::RuntimeError(format!(
-                    "ChildOutput.read_line failed: {e}"
-                ))
+                mlua::Error::RuntimeError(format!("ChildOutput.read_line failed: {e}"))
             })?;
             if n == 0 {
                 return Ok(mlua::Value::Nil);
@@ -420,23 +401,19 @@ pub struct ChildError {
 
 impl UserData for ChildError {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_async_method_mut(
-            "read",
-            |_lua, this, len: usize| async move {
-                let stderr = match this.inner.as_mut() {
-                    Some(s) => s,
-                    None => return Ok(mlua::Value::Nil),
-                };
-                let mut buf = vec![0u8; len];
-                let n = stderr.read(&mut buf).await.map_err(|e| {
-                    mlua::Error::RuntimeError(format!(
-                        "ChildError.read failed: {e}"
-                    ))
-                })?;
-                buf.truncate(n);
-                Ok(mlua::Value::String(_lua.create_string(&buf)?))
-            },
-        );
+        methods.add_async_method_mut("read", |_lua, this, len: usize| async move {
+            let stderr = match this.inner.as_mut() {
+                Some(s) => s,
+                None => return Ok(mlua::Value::Nil),
+            };
+            let mut buf = vec![0u8; len];
+            let n = stderr
+                .read(&mut buf)
+                .await
+                .map_err(|e| mlua::Error::RuntimeError(format!("ChildError.read failed: {e}")))?;
+            buf.truncate(n);
+            Ok(mlua::Value::String(_lua.create_string(&buf)?))
+        });
         methods.add_async_method_mut("read_line", |_lua, this, ()| async move {
             let stderr = match this.inner.as_mut() {
                 Some(s) => s,
@@ -445,9 +422,7 @@ impl UserData for ChildError {
             let mut reader = BufReader::new(stderr);
             let mut line = String::new();
             let n = reader.read_line(&mut line).await.map_err(|e| {
-                mlua::Error::RuntimeError(format!(
-                    "ChildError.read_line failed: {e}"
-                ))
+                mlua::Error::RuntimeError(format!("ChildError.read_line failed: {e}"))
             })?;
             if n == 0 {
                 return Ok(mlua::Value::Nil);
@@ -464,8 +439,8 @@ impl UserData for ChildError {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mlua::Lua;
     use mlua::AnyUserDataExt;
+    use mlua::Lua;
 
     /// Spawn `/bin/echo` via the public `Child` userdata surface
     /// and exercise `read_line` + `wait` end-to-end.

@@ -18,7 +18,11 @@ use mlua::Lua;
 ///   rt.mgr.sort_by / sort_reverse / show_hidden
 ///   rt.preview.wrap / tab_size
 ///   rt.tasks.count / running
-pub fn build_rt_table(lua: &Lua, state: &AppState, cfg: &crate::config::AppConfig) -> mlua::Result<()> {
+pub fn build_rt_table(
+    lua: &Lua,
+    state: &AppState,
+    cfg: &crate::config::AppConfig,
+) -> mlua::Result<()> {
     let rt = lua.create_table()?;
     // rt.args (placeholder — populated from CLI args; we expose
     // entries as nil since most plugins run after arg parsing).
@@ -95,21 +99,21 @@ pub fn build_rt_table(lua: &Lua, state: &AppState, cfg: &crate::config::AppConfi
 pub fn build_th_table(lua: &Lua, theme: &Theme) -> mlua::Result<()> {
     let th = lua.create_table()?;
     let leaves: [(&str, &str, &str); 15] = [
-        ("app",        &theme.popup_bg,   &theme.popup_fg),
-        ("mgr",        &theme.panel_bg,   &theme.panel_fg),
-        ("tabs",       &theme.popup_bg,   &theme.popup_fg),
-        ("mode",       &theme.header_fg,  &theme.header_bg),
-        ("indicator",  &theme.fkey_text_fg, &theme.fkey_bg),
-        ("status",     &theme.cli_fg,     &theme.cli_bg),
-        ("which",      &theme.popup_fg,   &theme.popup_bg),
-        ("confirm",    &theme.popup_fg,   &theme.popup_bg),
-        ("spot",       &theme.popup_fg,   &theme.popup_bg),
-        ("notify",     &theme.popup_fg,   &theme.popup_bg),
-        ("pick",       &theme.popup_fg,   &theme.popup_bg),
-        ("input",      &theme.popup_fg,   &theme.popup_bg),
-        ("cmp",        &theme.popup_fg,   &theme.popup_bg),
-        ("tasks",      &theme.popup_fg,   &theme.popup_bg),
-        ("help",       &theme.popup_fg,   &theme.popup_bg),
+        ("app", &theme.popup_bg, &theme.popup_fg),
+        ("mgr", &theme.panel_bg, &theme.panel_fg),
+        ("tabs", &theme.popup_bg, &theme.popup_fg),
+        ("mode", &theme.header_fg, &theme.header_bg),
+        ("indicator", &theme.fkey_text_fg, &theme.fkey_bg),
+        ("status", &theme.cli_fg, &theme.cli_bg),
+        ("which", &theme.popup_fg, &theme.popup_bg),
+        ("confirm", &theme.popup_fg, &theme.popup_bg),
+        ("spot", &theme.popup_fg, &theme.popup_bg),
+        ("notify", &theme.popup_fg, &theme.popup_bg),
+        ("pick", &theme.popup_fg, &theme.popup_bg),
+        ("input", &theme.popup_fg, &theme.popup_bg),
+        ("cmp", &theme.popup_fg, &theme.popup_bg),
+        ("tasks", &theme.popup_fg, &theme.popup_bg),
+        ("help", &theme.popup_fg, &theme.popup_bg),
     ];
     for (name, bg, fg) in leaves.iter() {
         let leaf = lua.create_table()?;
@@ -155,7 +159,9 @@ pub fn build_km_table(lua: &Lua, _resolver: &KeybindingResolver) -> mlua::Result
         ("Delete", "F8"),
     ];
 
-    let layers = ["default", "panels", "viewer", "editor", "terminal", "input", "which", "manager"];
+    let layers = [
+        "default", "panels", "viewer", "editor", "terminal", "input", "which", "manager",
+    ];
     for layer in layers.iter() {
         let table = lua.create_table()?;
         for (action, default_key) in known_actions.iter() {

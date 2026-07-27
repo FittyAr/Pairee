@@ -96,10 +96,8 @@ macro_rules! runtime_scope {
         let runtime = app_data
             .app_data_ref::<Runtime>()
             .expect("Runtime just initialised");
-        let _frame_guard = $crate::plugin::macros::ScopeGuard::new(
-            &*runtime,
-            RuntimeFrame::new($id, true),
-        );
+        let _frame_guard =
+            $crate::plugin::macros::ScopeGuard::new(&*runtime, RuntimeFrame::new($id, true));
         $body
     }};
 }

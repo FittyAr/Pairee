@@ -66,7 +66,11 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
 }
 
 /// Creates a new local branch starting at the specified point (commit, tag or branch name).
-pub fn create_branch(repo: &git2::Repository, branch_name: &str, start_point: &str) -> anyhow::Result<()> {
+pub fn create_branch(
+    repo: &git2::Repository,
+    branch_name: &str,
+    start_point: &str,
+) -> anyhow::Result<()> {
     let obj = repo.revparse_single(start_point)?;
     let commit = obj.peel_to_commit()?;
     repo.branch(branch_name, &commit, false)?;
@@ -81,7 +85,11 @@ pub fn delete_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Resu
 }
 
 /// Renames a local branch.
-pub fn rename_branch(repo: &git2::Repository, old_name: &str, new_name: &str) -> anyhow::Result<()> {
+pub fn rename_branch(
+    repo: &git2::Repository,
+    old_name: &str,
+    new_name: &str,
+) -> anyhow::Result<()> {
     let mut branch = repo.find_branch(old_name, git2::BranchType::Local)?;
     branch.rename(new_name, false)?;
     Ok(())

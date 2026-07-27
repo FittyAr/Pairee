@@ -11,11 +11,18 @@ pub struct Gauge {
 
 impl Gauge {
     pub fn new() -> Self {
-        Self { ratio: 0.0, label: String::new() }
+        Self {
+            ratio: 0.0,
+            label: String::new(),
+        }
     }
 }
 
-impl Default for Gauge { fn default() -> Self { Self::new() } }
+impl Default for Gauge {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl UserData for Gauge {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -40,9 +47,14 @@ impl UserData for Gauge {
 /// `ui.Gauge()` callable.
 pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     let gauge = lua.create_table()?;
-    gauge.set("__call", lua.create_function(|lua_ctx, _: mlua::MultiValue| {
-        lua_ctx.create_userdata(Gauge::new()).map(mlua::Value::UserData)
-    })?)?;
+    gauge.set(
+        "__call",
+        lua.create_function(|lua_ctx, _: mlua::MultiValue| {
+            lua_ctx
+                .create_userdata(Gauge::new())
+                .map(mlua::Value::UserData)
+        })?,
+    )?;
     let mt = lua.create_table()?;
     mt.set("__call", gauge.get::<_, mlua::Function>("__call")?)?;
     mt.set("__metatable", mlua::Value::Boolean(false))?;

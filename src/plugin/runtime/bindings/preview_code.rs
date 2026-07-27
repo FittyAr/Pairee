@@ -29,14 +29,8 @@ static THEME_SET: Lazy<ThemeSet> = Lazy::new(ThemeSet::load_defaults);
 /// Helper: pick the best syntect `SyntaxReference` for a file by
 /// extension or filename. Falls back to plain text on no match.
 fn pick_syntax(path: &Path) -> &SyntaxReference {
-    let name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("");
-    let ext = path
-        .extension()
-        .and_then(|e| e.to_str())
-        .unwrap_or("");
+    let name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+    let ext = path.extension().and_then(|e| e.to_str()).unwrap_or("");
     SYNTAX_SET
         .find_syntax_by_token(name)
         .or_else(|| SYNTAX_SET.find_syntax_by_extension(ext))
@@ -80,15 +74,10 @@ fn syn_color_to_string(c: SynColor) -> Option<String> {
 /// Build a `ui.Text` from a code file with syntect highlighting.
 /// The result is a sequence of `Line` userdata, each `Line` being
 /// a sequence of `Span` userdata carrying per-token styles.
-pub fn build_preview_text_for_file(
-    lua: &Lua,
-    path: &Path,
-    theme: &Theme,
-) -> mlua::Result<Text> {
+pub fn build_preview_text_for_file(lua: &Lua, path: &Path, theme: &Theme) -> mlua::Result<Text> {
     let syntax = pick_syntax(path);
-    let content = std::fs::read_to_string(path).map_err(|e| {
-        mlua::Error::RuntimeError(format!("preview_code: read failed: {e}"))
-    })?;
+    let content = std::fs::read_to_string(path)
+        .map_err(|e| mlua::Error::RuntimeError(format!("preview_code: read failed: {e}")))?;
     let mut highlighter = HighlightLines::new(syntax, theme);
     let mut lines = Text::new();
     for line in LinesWithEndings::from(&content) {
@@ -107,19 +96,25 @@ pub fn build_preview_text_for_file(
             // Style userdata (string form, since parse_color
             // accepts "#rrggbb").
             if let Some(c) = syn_color_to_string(style.foreground) {
-                if let Ok(Some(parsed)) = style::parse_color_value(
-                    mlua::Value::String(lua.create_string(&c)?),
-                ) {
+                if let Ok(Some(parsed)) =
+                    style::parse_color_value(mlua::Value::String(lua.create_string(&c)?))
+                {
                     span.style.inner = span.style.inner.fg(parsed);
                 }
             }
-            if style.font_style.contains(syntect::highlighting::FontStyle::BOLD) {
+            if style
+                .font_style
+                .contains(syntect::highlighting::FontStyle::BOLD)
+            {
                 span.style.inner = span
                     .style
                     .inner
                     .add_modifier(ratatui::style::Modifier::BOLD);
             }
-            if style.font_style.contains(syntect::highlighting::FontStyle::ITALIC) {
+            if style
+                .font_style
+                .contains(syntect::highlighting::FontStyle::ITALIC)
+            {
                 span.style.inner = span
                     .style
                     .inner
@@ -134,10 +129,7 @@ pub fn build_preview_text_for_file(
 
 /// `pairee.preview_code({path, mime?})` async binding. Returns a
 /// `ui.Text` userdata with per-token syntax-highlighted styles.
-pub fn bind(
-    lua: &Lua,
-    parent: &mlua::Table<'_>,
-) -> mlua::Result<()> {
+pub fn bind(lua: &Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     let preview_code = lua.create_function(|lua_ctx, opts: mlua::Table| {
         let path_str: String = opts
             .get::<_, mlua::String>("path")
@@ -151,9 +143,7 @@ pub fn bind(
         // includes line counts) to fingerprint files outside its
         // sandbox. Same workspace check as image/info.
         if !is_workspace_path(&path) {
-            log::warn!(
-                "pairee.preview_code refused: {path_str} is outside the workspace"
-            );
+            log::warn!("pairee.preview_code refused: {path_str} is outside the workspace");
             return Ok(mlua::Value::Nil);
         }
         let url = Url::parse(&path_str);

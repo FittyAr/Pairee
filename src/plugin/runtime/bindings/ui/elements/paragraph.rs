@@ -48,27 +48,44 @@ impl UserData for Paragraph {
         methods.add_method_mut("fg", |_lua, this, val: mlua::Value| {
             let parsed = super::super::style::parse_color_value(val)?;
             let mut s = this.style.inner.clone();
-            if let Some(c) = parsed { s = s.fg(c); } else { s.fg = None; }
+            if let Some(c) = parsed {
+                s = s.fg(c);
+            } else {
+                s.fg = None;
+            }
             this.style.inner = s;
             Ok(this.clone())
         });
         methods.add_method_mut("bg", |_lua, this, val: mlua::Value| {
             let parsed = super::super::style::parse_color_value(val)?;
             let mut s = this.style.inner.clone();
-            if let Some(c) = parsed { s = s.bg(c); } else { s.bg = None; }
+            if let Some(c) = parsed {
+                s = s.bg(c);
+            } else {
+                s.bg = None;
+            }
             this.style.inner = s;
             Ok(this.clone())
         });
         methods.add_method_mut("bold", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::BOLD);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::BOLD);
             Ok(this.clone())
         });
         methods.add_method_mut("italic", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::ITALIC);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::ITALIC);
             Ok(this.clone())
         });
         methods.add_method_mut("underline", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::UNDERLINED);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::UNDERLINED);
             Ok(this.clone())
         });
         methods.add_method_mut("align", |_lua, this, align: String| {
@@ -98,7 +115,9 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
             let mut iter = args.into_iter();
             let first = iter.next().unwrap_or(mlua::Value::Nil);
             let text = match first {
-                mlua::Value::String(s) => Some(s.to_str().ok().map(|c| c.to_string()).unwrap_or_default()),
+                mlua::Value::String(s) => {
+                    Some(s.to_str().ok().map(|c| c.to_string()).unwrap_or_default())
+                }
                 _ => None,
             };
             let para = match text {

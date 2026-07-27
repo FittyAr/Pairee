@@ -87,10 +87,7 @@ fn make_category_header(category: &str, popup_fg: Color, popup_bg: Color) -> Lis
     let header_style = Style::default()
         .fg(popup_fg)
         .add_modifier(Modifier::BOLD | Modifier::DIM);
-    let line = ratatui::text::Line::from(vec![ratatui::text::Span::styled(
-        label,
-        header_style,
-    )]);
+    let line = ratatui::text::Line::from(vec![ratatui::text::Span::styled(label, header_style)]);
     ListItem::new(line).style(Style::default().bg(popup_bg))
 }
 
@@ -168,17 +165,11 @@ fn build_help_md_theme(popup_bg: Color, popup_fg: Color, popup_border: Color) ->
     theme.h3 = Style::default()
         .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
-    theme.h4 = Style::default()
-        .fg(popup_fg)
-        .add_modifier(Modifier::BOLD);
+    theme.h4 = Style::default().fg(popup_fg).add_modifier(Modifier::BOLD);
     theme.h5 = Style::default().fg(popup_fg).add_modifier(Modifier::BOLD);
     theme.h6 = Style::default().fg(popup_fg);
-    theme.strong = Style::default()
-        .fg(popup_fg)
-        .add_modifier(Modifier::BOLD);
-    theme.emphasis = Style::default()
-        .fg(popup_fg)
-        .add_modifier(Modifier::ITALIC);
+    theme.strong = Style::default().fg(popup_fg).add_modifier(Modifier::BOLD);
+    theme.emphasis = Style::default().fg(popup_fg).add_modifier(Modifier::ITALIC);
     theme.strikethrough = Style::default()
         .fg(popup_fg)
         .add_modifier(Modifier::CROSSED_OUT);
@@ -249,7 +240,11 @@ fn render_tab_bar(
         Span::styled(" ]", Style::default().fg(Color::DarkGray)),
     ]);
 
-    let border_color = if mode == 0 { Color::Yellow } else { border_color };
+    let border_color = if mode == 0 {
+        Color::Yellow
+    } else {
+        border_color
+    };
     let block = Block::default()
         .borders(Borders::TOP | Borders::LEFT | Borders::RIGHT)
         .border_style(Style::default().fg(border_color))
@@ -333,7 +328,11 @@ pub fn render(
         selection_fg,
     );
 
-    let left_border_color = if *mode == 0 { Color::Yellow } else { popup_border };
+    let left_border_color = if *mode == 0 {
+        Color::Yellow
+    } else {
+        popup_border
+    };
     let left_block = Block::default()
         .borders(Borders::BOTTOM | Borders::LEFT | Borders::RIGHT)
         .border_style(Style::default().fg(left_border_color))
@@ -361,8 +360,8 @@ pub fn render(
     let list_last_row = doc_to_row.last().copied().unwrap_or(0).saturating_add(1);
     if list_inner_height > 0 && list_last_row > list_inner_height {
         let max_offset = list_last_row.saturating_sub(list_inner_height);
-        let mut scrollbar_state = ScrollbarState::new(max_offset)
-            .position(list_state.offset().min(max_offset));
+        let mut scrollbar_state =
+            ScrollbarState::new(max_offset).position(list_state.offset().min(max_offset));
         let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
         let scrollbar_area = Rect {
             x: left_area.x + left_area.width.saturating_sub(1),
@@ -378,7 +377,11 @@ pub fn render(
         .get(*cursor_idx)
         .map(|(t, _)| t.as_str())
         .unwrap_or(" Documentation ");
-    let right_border_color = if *mode == 1 { Color::Yellow } else { popup_border };
+    let right_border_color = if *mode == 1 {
+        Color::Yellow
+    } else {
+        popup_border
+    };
     let right_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(right_border_color))
@@ -401,7 +404,8 @@ pub fn render(
         // backticks from table rows before parsing.
         let sanitized = strip_table_inline_code(content);
         let md_theme = build_help_md_theme(popup_bg, popup_fg, popup_border);
-        let md_text: Text<'static> = the_other_tui_markdown::into_text_with_theme(&sanitized, md_theme);
+        let md_text: Text<'static> =
+            the_other_tui_markdown::into_text_with_theme(&sanitized, md_theme);
 
         let total_lines = md_text.lines.len();
 
@@ -417,9 +421,8 @@ pub fn render(
         // Scrollbar when the rendered text overflows the panel.
         let inner_height = right_area.height.saturating_sub(2) as usize;
         if total_lines > inner_height {
-            let mut scrollbar_state =
-                ScrollbarState::new(total_lines.saturating_sub(inner_height))
-                    .position((*scroll_y).min(total_lines.saturating_sub(inner_height)));
+            let mut scrollbar_state = ScrollbarState::new(total_lines.saturating_sub(inner_height))
+                .position((*scroll_y).min(total_lines.saturating_sub(inner_height)));
             let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
             let scrollbar_area = Rect {
                 x: right_area.x + right_area.width.saturating_sub(1),

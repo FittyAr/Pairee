@@ -20,7 +20,8 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         lua.create_async_function(move |lua_ctx, opts: mlua::Table| {
             let tx = tx_which.clone();
             async move {
-                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>()
+                {
                     if rt.is_blocking() {
                         return Err(mlua::Error::RuntimeError(
                             "pairee.which cannot be called inside a sync block (re-entry guard)"

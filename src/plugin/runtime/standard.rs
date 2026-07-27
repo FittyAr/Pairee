@@ -43,15 +43,14 @@ pub fn bind_runtime(
         // sender shape. The `try_send` failure mode is reported
         // back to the plugin as a Lua runtime error.
         let tx_for_ui = tx.clone();
-        let send_fn: super::bindings::ui::SendFn =
-            std::sync::Arc::new(move |req| {
-                tx_for_ui.try_send(req).map_err(|e| match e {
-                    tokio::sync::mpsc::error::TrySendError::Full(r)
-                    | tokio::sync::mpsc::error::TrySendError::Closed(r) => {
-                        tokio::sync::mpsc::error::TrySendError::Closed(r)
-                    }
-                })
-            });
+        let send_fn: super::bindings::ui::SendFn = std::sync::Arc::new(move |req| {
+            tx_for_ui.try_send(req).map_err(|e| match e {
+                tokio::sync::mpsc::error::TrySendError::Full(r)
+                | tokio::sync::mpsc::error::TrySendError::Closed(r) => {
+                    tokio::sync::mpsc::error::TrySendError::Closed(r)
+                }
+            })
+        });
         super::bindings::ui::bind(lua, &pairee, send_fn)?;
     }
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
@@ -64,7 +63,10 @@ pub fn bind_runtime(
     // M3: `pairee.async_fn(fn)` is a no-op shim today (M4 will
     // introduce the sync/async VM split). It exists so plugins
     // can write `pairee.async_fn(do_thing)` ahead of M4.
-    pairee.set("async_fn", super::bindings::sync::bind_async(lua, tx.clone())?)?;
+    pairee.set(
+        "async_fn",
+        super::bindings::sync::bind_async(lua, tx.clone())?,
+    )?;
     // utils_ext composes on top of utils_basic, so the M0 set
     // (target_os, target_family, time, hash) remains available, and the
     // M1 helpers (quote, percent_encode, percent_decode, json_encode,
@@ -159,7 +161,6 @@ fn register_top_level_aliases(
     }
     Ok(())
 }
-
 
 fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -> mlua::Result<()> {
     let settings_table = lua.create_table()?;

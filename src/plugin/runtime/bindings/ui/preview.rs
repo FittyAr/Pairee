@@ -53,12 +53,7 @@ fn line_to_plugin(line: &Line) -> PluginWidget {
             .spans
             .iter()
             .map(|s| {
-                span_to_plugin_with_inheritance(
-                    s,
-                    line_fg.clone(),
-                    line_bg.clone(),
-                    line_modifiers,
-                )
+                span_to_plugin_with_inheritance(s, line_fg.clone(), line_bg.clone(), line_modifiers)
             })
             .collect(),
         fg: line_fg,
@@ -76,8 +71,16 @@ fn text_to_plugin(text: &Text) -> PluginWidget {
         lines: text.lines.iter().map(line_to_plugin).collect(),
         fg,
         bg,
-        bold: text.style.inner.add_modifier.contains(ratatui::style::Modifier::BOLD),
-        dim: text.style.inner.add_modifier.contains(ratatui::style::Modifier::DIM),
+        bold: text
+            .style
+            .inner
+            .add_modifier
+            .contains(ratatui::style::Modifier::BOLD),
+        dim: text
+            .style
+            .inner
+            .add_modifier
+            .contains(ratatui::style::Modifier::DIM),
         italic: text
             .style
             .inner
@@ -193,11 +196,7 @@ fn truncate_string_in_place(s: &mut String) {
 /// `Text` (or the corresponding plain-table forms). The `opts`
 /// argument is a Lua table (currently unused — M4-T2 will add
 /// `path`, `area`, `scroll`, `bg`).
-pub fn bind(
-    lua: &mlua::Lua,
-    parent: &mlua::Table<'_>,
-    tx: super::SendFn,
-) -> mlua::Result<()> {
+pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>, tx: super::SendFn) -> mlua::Result<()> {
     let preview_fn = lua.create_function(
         move |_lua_ctx, (opts, widget): (mlua::Table, mlua::Value)| {
             // For M4-T1 the opts.path is used if provided; if
@@ -232,9 +231,15 @@ pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
     use crate::app::state::types::PluginWidget as PW;
     match val {
         mlua::Value::UserData(ud) => {
-            if let Ok(s) = ud.borrow::<Span>()        { return Ok(span_to_plugin(&s)); }
-            if let Ok(l) = ud.borrow::<Line>()        { return Ok(line_to_plugin(&l)); }
-            if let Ok(t) = ud.borrow::<Text>()        { return Ok(text_to_plugin(&t)); }
+            if let Ok(s) = ud.borrow::<Span>() {
+                return Ok(span_to_plugin(&s));
+            }
+            if let Ok(l) = ud.borrow::<Line>() {
+                return Ok(line_to_plugin(&l));
+            }
+            if let Ok(t) = ud.borrow::<Text>() {
+                return Ok(text_to_plugin(&t));
+            }
             if let Ok(p) = ud.borrow::<super::elements::paragraph::Paragraph>() {
                 // Convert the Paragraph's underlying Text to a
                 // RichText so each line preserves its per-span styles.
@@ -248,13 +253,20 @@ pub fn widget_to_plugin(val: mlua::Value) -> mlua::Result<PluginWidget> {
                 return Ok(PW::List(l.items.clone()));
             }
             if let Ok(g) = ud.borrow::<super::elements::gauge::Gauge>() {
-                return Ok(PW::Gauge { ratio: g.ratio, label: g.label.clone() });
+                return Ok(PW::Gauge {
+                    ratio: g.ratio,
+                    label: g.label.clone(),
+                });
             }
             if let Ok(t) = ud.borrow::<super::elements::table::Table>() {
-                let headers: Vec<String> = t.header.as_ref()
+                let headers: Vec<String> = t
+                    .header
+                    .as_ref()
                     .map(|r| r.cells.iter().map(|c| c.content.text.clone()).collect())
                     .unwrap_or_default();
-                let rows: Vec<Vec<String>> = t.rows.iter()
+                let rows: Vec<Vec<String>> = t
+                    .rows
+                    .iter()
                     .map(|r| r.cells.iter().map(|c| c.content.text.clone()).collect())
                     .collect();
                 return Ok(PW::Table { headers, rows });
@@ -291,12 +303,7 @@ mod tests {
         let span = ud.borrow::<Span>().expect("Span borrow").clone();
         let pw = span_to_plugin(&span);
         match pw {
-            PluginWidget::RichSpan {
-                text,
-                fg,
-                bold,
-                ..
-            } => {
+            PluginWidget::RichSpan { text, fg, bold, .. } => {
                 assert_eq!(text, "hello");
                 assert!(fg.is_some(), "fg should be set, got None");
                 assert!(bold, "bold should be set");

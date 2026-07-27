@@ -700,7 +700,9 @@ pub fn render_history_lists_popup(
             let available_width = width_total.saturating_sub(8);
             let mask_width = available_width * 46 / 100;
             let open_width = available_width * 26 / 100;
-            let view_width = available_width.saturating_sub(mask_width).saturating_sub(open_width);
+            let view_width = available_width
+                .saturating_sub(mask_width)
+                .saturating_sub(open_width);
 
             // 1. Renderizar Listado de Reglas
             let mut list_lines = Vec::new();
@@ -741,7 +743,9 @@ pub fn render_history_lists_popup(
                     let view_truncated = truncate_str(view_cmd_str, view_width);
                     let line_str = format!(
                         " {:<mw$} | {:<ow$} | {:<vw$} ",
-                        mask_truncated, open_truncated, view_truncated,
+                        mask_truncated,
+                        open_truncated,
+                        view_truncated,
                         mw = mask_width,
                         ow = open_width,
                         vw = view_width
@@ -758,8 +762,8 @@ pub fn render_history_lists_popup(
                 }
             }
 
-            let list_paragraph = Paragraph::new(list_lines)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+            let list_paragraph =
+                Paragraph::new(list_lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
             f.render_widget(list_paragraph, chunks[0]);
 
             // 2. Renderizar Cuadro de Edición

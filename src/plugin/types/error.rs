@@ -101,7 +101,11 @@ pub fn bind(lua: &mlua::Lua, pairee: &mlua::Table<'_>) -> mlua::Result<()> {
                 .ok()
                 .and_then(|s| s.to_str().ok().map(|cow| cow.to_string()))
                 .unwrap_or_default();
-            let e = Error { code, kind, message };
+            let e = Error {
+                code,
+                kind,
+                message,
+            };
             lua.create_userdata(e).map(mlua::Value::UserData)
         })?,
     )?;
@@ -119,7 +123,9 @@ mod tests {
     fn test_error_custom_lua() {
         let lua = Lua::new();
         let err = Error::custom("bad input");
-        lua.globals().set("e", lua.create_userdata(err).unwrap()).unwrap();
+        lua.globals()
+            .set("e", lua.create_userdata(err).unwrap())
+            .unwrap();
         let msg: String = lua.load("return e:message()").eval().unwrap();
         assert_eq!(msg, "bad input");
         let s: String = lua.load("return tostring(e)").eval().unwrap();

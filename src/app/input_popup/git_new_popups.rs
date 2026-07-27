@@ -1,12 +1,21 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
 use crate::app::state::types::GitConfirmedAction;
+use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// Restores the previous popup state (usually GitPanel) and refreshes its lists.
-fn restore_previous_and_refresh(state: &mut AppState, previous: PopupType, repo_path: &std::path::Path) {
-    if let PopupType::GitPanel { active_tab, cursor_idx, .. } = previous {
+fn restore_previous_and_refresh(
+    state: &mut AppState,
+    previous: PopupType,
+    repo_path: &std::path::Path,
+) {
+    if let PopupType::GitPanel {
+        active_tab,
+        cursor_idx,
+        ..
+    } = previous
+    {
         if let Some(mut repo) = crate::git::repo::find_repo(repo_path) {
             let new_branch = repo
                 .head()
@@ -139,8 +148,17 @@ pub fn handle_prompt(
                         if !input.trim().is_empty() {
                             if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                                 match crate::git::branches::create_branch(&repo, &input, "HEAD") {
-                                    Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                    Err(e) => state.active_popup = Some(PopupType::Error(format!("Failed to create branch: {}", e))),
+                                    Ok(_) => restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    ),
+                                    Err(e) => {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "Failed to create branch: {}",
+                                            e
+                                        )))
+                                    }
                                 }
                             }
                         } else {
@@ -189,9 +207,19 @@ pub fn handle_prompt(
                         }
                         if !input.trim().is_empty() && input != old_name {
                             if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                                match crate::git::branches::rename_branch(&repo, &old_name, &input) {
-                                    Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                    Err(e) => state.active_popup = Some(PopupType::Error(format!("Failed to rename branch: {}", e))),
+                                match crate::git::branches::rename_branch(&repo, &old_name, &input)
+                                {
+                                    Ok(_) => restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    ),
+                                    Err(e) => {
+                                        state.active_popup = Some(PopupType::Error(format!(
+                                            "Failed to rename branch: {}",
+                                            e
+                                        )))
+                                    }
                                 }
                             }
                         } else {
@@ -238,11 +266,20 @@ pub fn handle_prompt(
                             state.active_popup = Some(*previous_popup);
                             return Ok(None);
                         }
-                        let msg = if input.trim().is_empty() { None } else { Some(input.as_str()) };
+                        let msg = if input.trim().is_empty() {
+                            None
+                        } else {
+                            Some(input.as_str())
+                        };
                         if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::stash::stash_save(&mut repo, msg, true) {
-                                Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Stash save failed: {}", e))),
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Stash save failed: {}", e)))
+                                }
                             }
                         }
                         return Ok(None);
@@ -290,8 +327,15 @@ pub fn handle_confirm_action(
                     GitConfirmedAction::DeleteBranch(name) => {
                         if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::branches::delete_branch(&repo, &name) {
-                                Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Delete branch failed: {}", e))),
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => {
+                                    state.active_popup = Some(PopupType::Error(format!(
+                                        "Delete branch failed: {}",
+                                        e
+                                    )))
+                                }
                             }
                         }
                     }
@@ -299,39 +343,66 @@ pub fn handle_confirm_action(
                         if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::merge::merge(&repo, &name) {
                                 Ok(_analysis) => {
-                                    restore_previous_and_refresh(state, *previous_popup, &repo_path);
-                                    let has_conflicts = repo.index().map(|idx| idx.has_conflicts()).unwrap_or(false);
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    let has_conflicts = repo
+                                        .index()
+                                        .map(|idx| idx.has_conflicts())
+                                        .unwrap_or(false);
                                     if has_conflicts {
                                         state.active_popup = Some(PopupType::Error("Merge conflicts detected! Please resolve them manually.".to_string()));
                                     } else {
-                                        state.active_popup = Some(PopupType::Info("Merge completed successfully.".to_string()));
+                                        state.active_popup = Some(PopupType::Info(
+                                            "Merge completed successfully.".to_string(),
+                                        ));
                                     }
                                 }
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Merge failed: {}", e))),
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Merge failed: {}", e)))
+                                }
                             }
                         }
                     }
                     GitConfirmedAction::StashDrop(index) => {
                         if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::stash::stash_drop(&mut repo, index) {
-                                Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Stash drop failed: {}", e))),
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Stash drop failed: {}", e)))
+                                }
                             }
                         }
                     }
                     GitConfirmedAction::StashPop(index) => {
                         if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::stash::stash_pop(&mut repo, index) {
-                                Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Stash pop failed: {}", e))),
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Stash pop failed: {}", e)))
+                                }
                             }
                         }
                     }
                     GitConfirmedAction::ResetCommit(hash, mode) => {
                         if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::reset::reset(&repo, &hash, mode) {
-                                Ok(_) => restore_previous_and_refresh(state, *previous_popup, &repo_path),
-                                Err(e) => state.active_popup = Some(PopupType::Error(format!("Reset failed: {}", e))),
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => {
+                                    state.active_popup =
+                                        Some(PopupType::Error(format!("Reset failed: {}", e)))
+                                }
                             }
                         }
                     }

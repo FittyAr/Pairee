@@ -24,7 +24,12 @@ pub struct Rect {
 
 impl Rect {
     pub fn from_ratatui(r: RatRect) -> Self {
-        Self { x: r.x, y: r.y, w: r.width, h: r.height }
+        Self {
+            x: r.x,
+            y: r.y,
+            w: r.width,
+            h: r.height,
+        }
     }
 
     pub fn to_ratatui(self) -> RatRect {
@@ -34,10 +39,22 @@ impl Rect {
 
 impl UserData for Rect {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("x", |_lua, this, x: u16| { this.x = x; Ok(*this) });
-        methods.add_method_mut("y", |_lua, this, y: u16| { this.y = y; Ok(*this) });
-        methods.add_method_mut("w", |_lua, this, w: u16| { this.w = w; Ok(*this) });
-        methods.add_method_mut("h", |_lua, this, h: u16| { this.h = h; Ok(*this) });
+        methods.add_method_mut("x", |_lua, this, x: u16| {
+            this.x = x;
+            Ok(*this)
+        });
+        methods.add_method_mut("y", |_lua, this, y: u16| {
+            this.y = y;
+            Ok(*this)
+        });
+        methods.add_method_mut("w", |_lua, this, w: u16| {
+            this.w = w;
+            Ok(*this)
+        });
+        methods.add_method_mut("h", |_lua, this, h: u16| {
+            this.h = h;
+            Ok(*this)
+        });
         methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| {
             Ok(format!("Rect({}x{}@{},{})", this.w, this.h, this.x, this.y))
         });
@@ -52,10 +69,18 @@ pub fn bind_rect(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> 
         lua.create_function(|lua_ctx, args: mlua::MultiValue| {
             let v: Vec<u16> = args
                 .into_iter()
-                .filter_map(|a| match a { mlua::Value::Integer(n) => Some(n as u16), _ => None })
+                .filter_map(|a| match a {
+                    mlua::Value::Integer(n) => Some(n as u16),
+                    _ => None,
+                })
                 .collect();
             let r = match v.as_slice() {
-                [x, y, w, h] => Rect { x: *x, y: *y, w: *w, h: *h },
+                [x, y, w, h] => Rect {
+                    x: *x,
+                    y: *y,
+                    w: *w,
+                    h: *h,
+                },
                 _ => Rect::default(),
             };
             lua_ctx.create_userdata(r).map(mlua::Value::UserData)
@@ -74,12 +99,24 @@ pub fn bind_rect(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> 
 pub struct Constraint(pub RatConstraint);
 
 impl Constraint {
-    pub fn min(n: u16) -> Self { Self(RatConstraint::Min(n)) }
-    pub fn max(n: u16) -> Self { Self(RatConstraint::Max(n)) }
-    pub fn length(n: u16) -> Self { Self(RatConstraint::Length(n)) }
-    pub fn percentage(n: u16) -> Self { Self(RatConstraint::Percentage(n)) }
-    pub fn ratio(n: u32, m: u32) -> Self { Self(RatConstraint::Ratio(n, m)) }
-    pub fn fill(n: u16) -> Self { Self(RatConstraint::Fill(n)) }
+    pub fn min(n: u16) -> Self {
+        Self(RatConstraint::Min(n))
+    }
+    pub fn max(n: u16) -> Self {
+        Self(RatConstraint::Max(n))
+    }
+    pub fn length(n: u16) -> Self {
+        Self(RatConstraint::Length(n))
+    }
+    pub fn percentage(n: u16) -> Self {
+        Self(RatConstraint::Percentage(n))
+    }
+    pub fn ratio(n: u32, m: u32) -> Self {
+        Self(RatConstraint::Ratio(n, m))
+    }
+    pub fn fill(n: u16) -> Self {
+        Self(RatConstraint::Fill(n))
+    }
 }
 
 impl UserData for Constraint {
@@ -92,9 +129,14 @@ pub fn bind_constraint(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Resul
     let c = lua.create_table()?;
     macro_rules! factory {
         ($name:ident, $method:ident) => {
-            c.set(stringify!($name), lua.create_function(move |lua_ctx, n: u16| {
-                lua_ctx.create_userdata(Constraint::$method(n)).map(mlua::Value::UserData)
-            })?)?;
+            c.set(
+                stringify!($name),
+                lua.create_function(move |lua_ctx, n: u16| {
+                    lua_ctx
+                        .create_userdata(Constraint::$method(n))
+                        .map(mlua::Value::UserData)
+                })?,
+            )?;
         };
     }
     factory!(Min, min);
@@ -102,9 +144,14 @@ pub fn bind_constraint(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Resul
     factory!(Length, length);
     factory!(Percentage, percentage);
     factory!(Fill, fill);
-    c.set("Ratio", lua.create_function(|lua_ctx, (n, m): (u32, u32)| {
-        lua_ctx.create_userdata(Constraint::ratio(n, m)).map(mlua::Value::UserData)
-    })?)?;
+    c.set(
+        "Ratio",
+        lua.create_function(|lua_ctx, (n, m): (u32, u32)| {
+            lua_ctx
+                .create_userdata(Constraint::ratio(n, m))
+                .map(mlua::Value::UserData)
+        })?,
+    )?;
     let mt = lua.create_table()?;
     mt.set("__metatable", mlua::Value::Boolean(false))?;
     c.set_metatable(Some(mt));
@@ -121,34 +168,71 @@ pub struct Pad {
 }
 
 impl Pad {
-    pub fn uniform(n: u16) -> Self { Self { top: n, right: n, bottom: n, left: n } }
-    pub fn xy(x: u16, y: u16) -> Self { Self { top: y, right: x, bottom: y, left: x } }
+    pub fn uniform(n: u16) -> Self {
+        Self {
+            top: n,
+            right: n,
+            bottom: n,
+            left: n,
+        }
+    }
+    pub fn xy(x: u16, y: u16) -> Self {
+        Self {
+            top: y,
+            right: x,
+            bottom: y,
+            left: x,
+        }
+    }
 }
 
 impl UserData for Pad {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
-        methods.add_method_mut("top",    |_lua, this, n: u16| { this.top    = n; Ok(*this) });
-        methods.add_method_mut("right",  |_lua, this, n: u16| { this.right  = n; Ok(*this) });
-        methods.add_method_mut("bottom", |_lua, this, n: u16| { this.bottom = n; Ok(*this) });
-        methods.add_method_mut("left",   |_lua, this, n: u16| { this.left   = n; Ok(*this) });
+        methods.add_method_mut("top", |_lua, this, n: u16| {
+            this.top = n;
+            Ok(*this)
+        });
+        methods.add_method_mut("right", |_lua, this, n: u16| {
+            this.right = n;
+            Ok(*this)
+        });
+        methods.add_method_mut("bottom", |_lua, this, n: u16| {
+            this.bottom = n;
+            Ok(*this)
+        });
+        methods.add_method_mut("left", |_lua, this, n: u16| {
+            this.left = n;
+            Ok(*this)
+        });
     }
 }
 
 /// `ui.Pad(top, right, bottom, left)` callable.
 pub fn bind_pad(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     let p = lua.create_table()?;
-    p.set("__call", lua.create_function(|lua_ctx, args: mlua::MultiValue| {
-        let v: Vec<u16> = args
-            .into_iter()
-            .filter_map(|a| match a { mlua::Value::Integer(n) => Some(n as u16), _ => None })
-            .collect();
-        let pad = match v.as_slice() {
-            [t, r, b, l] => Pad { top: *t, right: *r, bottom: *b, left: *l },
-            [n] => Pad::uniform(*n),
-            _ => Pad::default(),
-        };
-        lua_ctx.create_userdata(pad).map(mlua::Value::UserData)
-    })?)?;
+    p.set(
+        "__call",
+        lua.create_function(|lua_ctx, args: mlua::MultiValue| {
+            let v: Vec<u16> = args
+                .into_iter()
+                .filter_map(|a| match a {
+                    mlua::Value::Integer(n) => Some(n as u16),
+                    _ => None,
+                })
+                .collect();
+            let pad = match v.as_slice() {
+                [t, r, b, l] => Pad {
+                    top: *t,
+                    right: *r,
+                    bottom: *b,
+                    left: *l,
+                },
+                [n] => Pad::uniform(*n),
+                _ => Pad::default(),
+            };
+            lua_ctx.create_userdata(pad).map(mlua::Value::UserData)
+        })?,
+    )?;
     let mt = lua.create_table()?;
     mt.set("__metatable", mlua::Value::Boolean(false))?;
     mt.set("__call", p.get::<_, mlua::Function>("__call")?)?;
@@ -166,7 +250,10 @@ impl UserData for Pos {}
 
 pub fn bind_pos(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     let p = lua.create_table()?;
-    p.set("__call", lua.create_function(|_lua_ctx, _: mlua::MultiValue| Ok(mlua::Value::Nil))?)?;
+    p.set(
+        "__call",
+        lua.create_function(|_lua_ctx, _: mlua::MultiValue| Ok(mlua::Value::Nil))?,
+    )?;
     let mt = lua.create_table()?;
     mt.set("__metatable", mlua::Value::Boolean(false))?;
     p.set_metatable(Some(mt));
@@ -175,7 +262,11 @@ pub fn bind_pos(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
 
 /// `ui.Align.LEFT` / `CENTER` / `RIGHT`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Align { Left, Center, Right }
+pub enum Align {
+    Left,
+    Center,
+    Right,
+}
 
 impl Align {
     pub fn to_ratatui(self) -> ratatui::layout::Alignment {
@@ -203,7 +294,11 @@ pub fn bind_align(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()>
 
 /// `ui.Wrap.NO` / `YES` / `TRIM`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Wrap { No, Yes, Trim }
+pub enum Wrap {
+    No,
+    Yes,
+    Trim,
+}
 
 impl Wrap {
     pub fn to_ratatui(self) -> ratatui::widgets::Wrap {
@@ -241,7 +336,9 @@ impl Edge {
     pub const ALL: u8 = 0b1111;
     pub const NONE: u8 = 0b0000;
 
-    pub fn contains(self, flag: u8) -> bool { (self.0 & flag) == flag }
+    pub fn contains(self, flag: u8) -> bool {
+        (self.0 & flag) == flag
+    }
 }
 
 impl UserData for Edge {
@@ -274,7 +371,10 @@ pub struct Layout {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LayoutDirection { Horizontal, Vertical }
+pub enum LayoutDirection {
+    Horizontal,
+    Vertical,
+}
 
 impl Layout {
     pub fn new() -> Self {
@@ -286,7 +386,11 @@ impl Layout {
     }
 }
 
-impl Default for Layout { fn default() -> Self { Self::new() } }
+impl Default for Layout {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl UserData for Layout {
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -319,9 +423,14 @@ impl UserData for Layout {
 /// `ui.Layout()` callable.
 pub fn bind_layout(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
     let l = lua.create_table()?;
-    l.set("__call", lua.create_function(|lua_ctx, _: mlua::MultiValue| {
-        lua_ctx.create_userdata(Layout::new()).map(mlua::Value::UserData)
-    })?)?;
+    l.set(
+        "__call",
+        lua.create_function(|lua_ctx, _: mlua::MultiValue| {
+            lua_ctx
+                .create_userdata(Layout::new())
+                .map(mlua::Value::UserData)
+        })?,
+    )?;
     let mt = lua.create_table()?;
     // Mirror `__call` on the metatable so Lua's method-lookup
     // chain (table → metatable) finds it.
@@ -426,7 +535,10 @@ mod tests {
         assert_eq!(Edge::BOTTOM, 0b0100);
         assert_eq!(Edge::LEFT, 0b1000);
         // The bitmask covers TOP|RIGHT|BOTTOM|LEFT fully.
-        assert_eq!(Edge::ALL, Edge::TOP | Edge::RIGHT | Edge::BOTTOM | Edge::LEFT);
+        assert_eq!(
+            Edge::ALL,
+            Edge::TOP | Edge::RIGHT | Edge::BOTTOM | Edge::LEFT
+        );
         // The `contains` method works on an Edge userdata.
         let e = Edge(0b1111);
         assert!(e.contains(0b0001));

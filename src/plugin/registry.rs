@@ -176,9 +176,7 @@ fn peek_value_to_plugin(lua: &mlua::Lua, val: mlua::Value) -> Option<PluginWidge
             // §N1/N2: cap depth + truncate oversized strings
             // before the widget leaves the plugin worker.
             let mut sanitized = pw;
-            crate::plugin::runtime::bindings::ui::preview::sanitize_plugin_widget(
-                &mut sanitized,
-            );
+            crate::plugin::runtime::bindings::ui::preview::sanitize_plugin_widget(&mut sanitized);
             return Some(sanitized);
         }
     }

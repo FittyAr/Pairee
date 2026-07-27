@@ -268,8 +268,7 @@ mod tests {
             // this synchronous test (its reply_tx requires a live
             // dispatcher loop), so test that `bind` inserts both
             // keys and that they are function userdata.
-            let result = crate::plugin::runtime::bindings::emit::bind(&lua, tx)
-                .expect("bind");
+            let result = crate::plugin::runtime::bindings::emit::bind(&lua, tx).expect("bind");
             assert!(result.contains_key("emit").unwrap());
             assert!(result.contains_key("exec").unwrap());
         });

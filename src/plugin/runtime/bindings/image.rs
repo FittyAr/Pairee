@@ -41,9 +41,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             async move {
                 let path = std::path::PathBuf::from(&url_str);
                 if !is_workspace_path(&path) {
-                    log::warn!(
-                        "pairee.image.show refused: {url_str} is outside the workspace"
-                    );
+                    log::warn!("pairee.image.show refused: {url_str} is outside the workspace");
                     return Ok(false);
                 }
                 match image::open(&path) {
@@ -70,12 +68,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                         // it later without further binding changes.
                         let _ = tx.send(PluginRequest::ImagePreview {
                             path,
-                            rect: crate::plugin::manager::ImageRect {
-                                x,
-                                y,
-                                w: rw,
-                                h: rh,
-                            },
+                            rect: crate::plugin::manager::ImageRect { x, y, w: rw, h: rh },
                         });
                         Ok(true)
                     }
@@ -91,19 +84,17 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
     // `pairee.image.precache(src, dist)` — resize + write.
     table.set(
         "precache",
-        lua.create_async_function(move |_lua, (src, dist): (String, String)| {
-            async move {
-                let src_path = std::path::PathBuf::from(&src);
-                let dist_path = std::path::PathBuf::from(&dist);
-                if !is_workspace_path(&src_path) || !is_workspace_path(&dist_path) {
-                    log::warn!("pairee.image.precache refused: path outside workspace");
-                    return Ok(false);
-                }
-                match image::open(&src_path) {
-                    Ok(img) => {
-                        let resized = if img.width() > PRECACHE_MAX_DIM
-                            || img.height() > PRECACHE_MAX_DIM
-                        {
+        lua.create_async_function(move |_lua, (src, dist): (String, String)| async move {
+            let src_path = std::path::PathBuf::from(&src);
+            let dist_path = std::path::PathBuf::from(&dist);
+            if !is_workspace_path(&src_path) || !is_workspace_path(&dist_path) {
+                log::warn!("pairee.image.precache refused: path outside workspace");
+                return Ok(false);
+            }
+            match image::open(&src_path) {
+                Ok(img) => {
+                    let resized =
+                        if img.width() > PRECACHE_MAX_DIM || img.height() > PRECACHE_MAX_DIM {
                             img.resize(
                                 PRECACHE_MAX_DIM,
                                 PRECACHE_MAX_DIM,
@@ -112,21 +103,20 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                         } else {
                             img
                         };
-                        if let Some(parent) = dist_path.parent() {
-                            let _ = std::fs::create_dir_all(parent);
-                        }
-                        match resized.save(&dist_path) {
-                            Ok(()) => Ok(true),
-                            Err(e) => {
-                                log::warn!("pairee.image.precache failed to save: {e}");
-                                Ok(false)
-                            }
+                    if let Some(parent) = dist_path.parent() {
+                        let _ = std::fs::create_dir_all(parent);
+                    }
+                    match resized.save(&dist_path) {
+                        Ok(()) => Ok(true),
+                        Err(e) => {
+                            log::warn!("pairee.image.precache failed to save: {e}");
+                            Ok(false)
                         }
                     }
-                    Err(e) => {
-                        log::warn!("pairee.image.precache failed to decode {src}: {e}");
-                        Ok(false)
-                    }
+                }
+                Err(e) => {
+                    log::warn!("pairee.image.precache failed to decode {src}: {e}");
+                    Ok(false)
                 }
             }
         })?,
@@ -144,9 +134,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                 // probe the filesystem (file dimensions, MIME type,
                 // colour-depth) outside its sandbox.
                 if !is_workspace_path(&path) {
-                    log::warn!(
-                        "pairee.image.info refused: {url_str} is outside the workspace"
-                    );
+                    log::warn!("pairee.image.info refused: {url_str} is outside the workspace");
                     return Ok(mlua::Value::Nil);
                 }
                 match image::open(&path) {

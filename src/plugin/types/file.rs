@@ -30,11 +30,7 @@ impl File {
         } else {
             None
         };
-        Self {
-            url,
-            cha,
-            link_to,
-        }
+        Self { url, cha, link_to }
     }
 
     /// Build a `File` for a URL whose on-disk metadata we have not
@@ -108,7 +104,9 @@ impl UserData for File {
         methods.add_method("url", |_lua, this, ()| Ok(this.url.clone()));
         methods.add_method("link_to", |_lua, this, ()| Ok(this.link_to.clone()));
         methods.add_method("name", |_lua, this, ()| Ok(this.url.file_name()));
-        methods.add_method("path", |_lua, this, ()| Ok(this.url.path.to_string_lossy().to_string()));
+        methods.add_method("path", |_lua, this, ()| {
+            Ok(this.url.path.to_string_lossy().to_string())
+        });
         methods.add_method("cache", |_lua, this, ()| {
             // `cache` is a placeholder for the M3 cache URL helper.
             // For M2 we just return a hash-based string under the

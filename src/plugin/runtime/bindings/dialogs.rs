@@ -12,9 +12,9 @@
 //! `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)`
 //! stubs still work but emit a deprecation warning.
 
-use crate::plugin::manager::{DialogPosition, PluginRequest, WhichCandidate};
 #[cfg(test)]
 use crate::plugin::manager::InputDialogResult;
+use crate::plugin::manager::{DialogPosition, PluginRequest, WhichCandidate};
 use tokio::sync::mpsc;
 
 pub fn bind(
@@ -33,7 +33,8 @@ pub fn bind(
                 // cannot be called from inside a sync block (the
                 // main thread is busy waiting for the dialog answer
                 // and would deadlock).
-                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>()
+                {
                     if rt.is_blocking() {
                         return Err(mlua::Error::RuntimeError(
                             "pairee.confirm cannot be called inside a sync block (re-entry guard)"
@@ -93,7 +94,8 @@ pub fn bind(
         lua.create_async_function(move |lua_ctx, opts: mlua::Table| {
             let tx = tx_input.clone();
             async move {
-                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>() {
+                if let Some(rt) = lua_ctx.app_data_ref::<crate::plugin::runtime::runtime::Runtime>()
+                {
                     if rt.is_blocking() {
                         return Err(mlua::Error::RuntimeError(
                             "pairee.input cannot be called inside a sync block (re-entry guard)"

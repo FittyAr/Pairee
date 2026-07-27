@@ -355,7 +355,9 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         // between then and now. Re-validate here so
                         // the I/O always targets the path the
                         // binding agreed to decode.
-                        let validated = match super::dispatch_actions::validate_workspace_path(&path) {
+                        let validated = match super::dispatch_actions::validate_workspace_path(
+                            &path,
+                        ) {
                             Some(p) => p,
                             None => {
                                 log::warn!(
@@ -378,13 +380,18 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                                 state.active_popup = Some(qvp);
                                 log::info!(
                                     "Plugin image preview rendered: path={:?} rect=({},{} {}x{})",
-                                    validated, rect.x, rect.y, rect.w, rect.h,
+                                    validated,
+                                    rect.x,
+                                    rect.y,
+                                    rect.w,
+                                    rect.h,
                                 );
                             }
                             Err(e) => {
                                 log::warn!(
                                     "Plugin image preview failed to decode {:?}: {}",
-                                    validated, e,
+                                    validated,
+                                    e,
                                 );
                             }
                         }
@@ -412,8 +419,7 @@ mod tests {
         INIT.call_once(|| {
             let (tx, rx) = tokio::sync::mpsc::channel::<super::PluginRequest>(8);
             let _ = super::super::manager::PLUGIN_REQ_TX.set(tx);
-            let _ = super::super::manager::PLUGIN_REQ_RX
-                .set(tokio::sync::Mutex::new(rx));
+            let _ = super::super::manager::PLUGIN_REQ_RX.set(tokio::sync::Mutex::new(rx));
         });
     }
 
@@ -480,7 +486,9 @@ mod tests {
         super::super::manager::PLUGIN_REQ_TX
             .get_or_init(|| panic!("PLUGIN_REQ_TX must be set up by AppState::new"))
             .send(super::PluginRequest::Cd {
-                path: PathBuf::from("/etc/should-be-rejected").to_string_lossy().to_string(),
+                path: PathBuf::from("/etc/should-be-rejected")
+                    .to_string_lossy()
+                    .to_string(),
             })
             .await
             .unwrap();

@@ -60,7 +60,9 @@ pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<m
             }
             Some(text) => {
                 // ── set ───────────────────────────────────────────────────
-                if secure && !text.is_empty() && looks_like_path(&text)
+                if secure
+                    && !text.is_empty()
+                    && looks_like_path(&text)
                     && !is_workspace_path(Path::new(&text))
                 {
                     log::warn!(
@@ -101,8 +103,8 @@ fn looks_like_path(s: &str) -> bool {
 /// clipboard is empty / not text / unavailable; returns `Err` for
 /// hard failures (e.g. on headless Linux without a display server).
 fn read_clipboard_text() -> anyhow::Result<Option<String>> {
-    let mut cb = arboard::Clipboard::new()
-        .map_err(|e| anyhow::anyhow!("could not open clipboard: {e}"))?;
+    let mut cb =
+        arboard::Clipboard::new().map_err(|e| anyhow::anyhow!("could not open clipboard: {e}"))?;
     match cb.get_text() {
         Ok(s) => Ok(Some(s)),
         Err(arboard::Error::ContentNotAvailable) => Ok(None),
@@ -112,8 +114,8 @@ fn read_clipboard_text() -> anyhow::Result<Option<String>> {
 
 /// Writes a string to the system clipboard.
 fn write_clipboard_text(text: &str) -> anyhow::Result<()> {
-    let mut cb = arboard::Clipboard::new()
-        .map_err(|e| anyhow::anyhow!("could not open clipboard: {e}"))?;
+    let mut cb =
+        arboard::Clipboard::new().map_err(|e| anyhow::anyhow!("could not open clipboard: {e}"))?;
     cb.set_text(text.to_string())
         .map_err(|e| anyhow::anyhow!("clipboard write failed: {e}"))
 }
@@ -196,8 +198,7 @@ mod tests {
         let pairee = lua.create_table().unwrap();
         pairee.set("_secure_mode", false).unwrap();
         lua.globals().set("pairee", pairee).unwrap();
-        let (tx, _rx) =
-            tokio::sync::mpsc::channel::<crate::plugin::manager::PluginRequest>(1);
+        let (tx, _rx) = tokio::sync::mpsc::channel::<crate::plugin::manager::PluginRequest>(1);
         let table = bind(&lua, tx).expect("clipboard table");
         let cb_fn: mlua::Function = table.get("clipboard").expect("clipboard function");
         // The function exists; we don't call it here because the

@@ -29,9 +29,9 @@ pub fn stash_save(
     message: Option<&str>,
     include_untracked: bool,
 ) -> anyhow::Result<()> {
-    let sig = repo.signature().unwrap_or_else(|_| {
-        git2::Signature::now("Pairee User", "pairee@localhost").unwrap()
-    });
+    let sig = repo
+        .signature()
+        .unwrap_or_else(|_| git2::Signature::now("Pairee User", "pairee@localhost").unwrap());
     let mut flags = git2::StashFlags::DEFAULT;
     if include_untracked {
         flags.insert(git2::StashFlags::INCLUDE_UNTRACKED);

@@ -133,30 +133,30 @@ pub fn register(lua: &mlua::Lua, pairee: &mlua::Table<'_>) -> mlua::Result<()> {
 
     // `Err(s, ...)` global helper.
     let err_globals = lua.globals();
-    let err_fn = lua.create_function(|lua, (fmt, args): (String, mlua::Variadic<mlua::Value>)| {
-        // Format the string with the provided args using Lua's
-        // `string.format` semantics. We do this from Rust by walking
-        // the args and substituting them in order — `string.format`
-        // is not exposed to us in mlua 0.9 without a Lua call, so
-        // we hand-roll a simple "%s" substitution.
-        let mut out = fmt.clone();
-        for v in args.iter() {
-            let piece = match v {
-                mlua::Value::String(s) => s.to_str().map(|c| c.to_string()).unwrap_or_default(),
-                mlua::Value::Integer(i) => i.to_string(),
-                mlua::Value::Number(n) => n.to_string(),
-                mlua::Value::Boolean(b) => b.to_string(),
-                mlua::Value::Nil => "nil".to_string(),
-                other => format!("{:?}", other),
-            };
-            if let Some(idx) = out.find("%s") {
-                out.replace_range(idx..idx + 2, &piece);
+    let err_fn =
+        lua.create_function(|lua, (fmt, args): (String, mlua::Variadic<mlua::Value>)| {
+            // Format the string with the provided args using Lua's
+            // `string.format` semantics. We do this from Rust by walking
+            // the args and substituting them in order — `string.format`
+            // is not exposed to us in mlua 0.9 without a Lua call, so
+            // we hand-roll a simple "%s" substitution.
+            let mut out = fmt.clone();
+            for v in args.iter() {
+                let piece = match v {
+                    mlua::Value::String(s) => s.to_str().map(|c| c.to_string()).unwrap_or_default(),
+                    mlua::Value::Integer(i) => i.to_string(),
+                    mlua::Value::Number(n) => n.to_string(),
+                    mlua::Value::Boolean(b) => b.to_string(),
+                    mlua::Value::Nil => "nil".to_string(),
+                    other => format!("{:?}", other),
+                };
+                if let Some(idx) = out.find("%s") {
+                    out.replace_range(idx..idx + 2, &piece);
+                }
             }
-        }
-        let e = Error::custom(out);
-        lua.create_userdata(e).map(mlua::Value::UserData)
-    })?;
+            let e = Error::custom(out);
+            lua.create_userdata(e).map(mlua::Value::UserData)
+        })?;
     err_globals.set("Err", err_fn)?;
     Ok(())
 }
-

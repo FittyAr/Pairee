@@ -1,7 +1,7 @@
 //! M4-T1: `ui.Text` userdata — a sequence of styled Lines.
 
-use super::line::Line;
 use super::super::style::Style;
+use super::line::Line;
 use mlua::{MetaMethod, UserData, UserDataMethods};
 use ratatui::text::Text as RatText;
 
@@ -78,7 +78,7 @@ impl UserData for Text {
                 other => {
                     return Err(mlua::Error::RuntimeError(format!(
                         "Text.push: expected string or Line, got {other:?}"
-                    )))
+                    )));
                 }
             }
             Ok(this.clone())
@@ -93,19 +93,30 @@ impl UserData for Text {
         methods.add_method_mut("fg", |_lua, this, val: mlua::Value| {
             let parsed = super::super::style::parse_color_value(val)?;
             let mut __s = this.style.inner.clone();
-        if let Some(c) = parsed { __s = __s.fg(c); } else { __s.fg = None; }
-        this.style.inner = __s;
+            if let Some(c) = parsed {
+                __s = __s.fg(c);
+            } else {
+                __s.fg = None;
+            }
+            this.style.inner = __s;
             Ok(this.clone())
         });
         methods.add_method_mut("bg", |_lua, this, val: mlua::Value| {
             let parsed = super::super::style::parse_color_value(val)?;
             let mut __s = this.style.inner.clone();
-        if let Some(c) = parsed { __s = __s.bg(c); } else { __s.bg = None; }
-        this.style.inner = __s;
+            if let Some(c) = parsed {
+                __s = __s.bg(c);
+            } else {
+                __s.bg = None;
+            }
+            this.style.inner = __s;
             Ok(this.clone())
         });
         methods.add_method_mut("bold", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::BOLD);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::BOLD);
             Ok(this.clone())
         });
         methods.add_method_mut("dim", |_lua, this, ()| {
@@ -113,7 +124,10 @@ impl UserData for Text {
             Ok(this.clone())
         });
         methods.add_method_mut("italic", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::ITALIC);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::ITALIC);
             Ok(this.clone())
         });
         methods.add_method_mut("underline", |_lua, this, ()| {
@@ -135,7 +149,11 @@ impl UserData for Text {
             Ok(this.clone())
         });
         methods.add_meta_method(MetaMethod::ToString, |_lua, this, ()| {
-            Ok(format!("Text(lines={}, style={:?})", this.lines.len(), this.style.inner))
+            Ok(format!(
+                "Text(lines={}, style={:?})",
+                this.lines.len(),
+                this.style.inner
+            ))
         });
     }
 }
@@ -195,8 +213,7 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
                             }
                             _ => {
                                 return Err(mlua::Error::RuntimeError(
-                                    "Text: sequence elements must be strings or Lines"
-                                        .to_string(),
+                                    "Text: sequence elements must be strings or Lines".to_string(),
                                 ));
                             }
                         }

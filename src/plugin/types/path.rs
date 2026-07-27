@@ -68,7 +68,10 @@ impl UserData for PathU {
         methods.add_method("parent", |_lua, this, ()| Ok(this.parent()));
         methods.add_method("is_absolute", |_lua, this, ()| Ok(this.path.is_absolute()));
         methods.add_method("has_root", |_lua, this, ()| {
-            Ok(this.path.components().any(|c| matches!(c, Component::RootDir)))
+            Ok(this
+                .path
+                .components()
+                .any(|c| matches!(c, Component::RootDir)))
         });
         methods.add_method("join", |_lua, this, other: String| {
             let joined = this.path.join(other);
@@ -82,7 +85,9 @@ impl UserData for PathU {
         });
         methods.add_method("strip_prefix", |_lua, this, base: String| {
             match this.path.strip_prefix(&base) {
-                Ok(p) => Ok(Some(Self { path: p.to_path_buf() })),
+                Ok(p) => Ok(Some(Self {
+                    path: p.to_path_buf(),
+                })),
                 Err(_) => Ok(None),
             }
         });
@@ -179,7 +184,8 @@ mod tests {
         #[cfg(unix)]
         let p = PathU::os("/usr/bin");
         #[cfg(windows)]
-        let p = PathU::os(&std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string()));
+        let p =
+            PathU::os(&std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".to_string()));
         lua.globals()
             .set("p", lua.create_userdata(p).unwrap())
             .unwrap();

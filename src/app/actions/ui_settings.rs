@@ -625,7 +625,8 @@ pub async fn handle_ui_settings_action(
                     let status_entries = crate::git::status::get_status(&repo);
                     let log_entries = crate::git::log::get_log(&repo, limit);
                     let branch_entries = crate::git::branches::get_branches(&repo);
-                    let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
+                    let stash_entries =
+                        crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
                     state.active_popup = Some(crate::app::state::PopupType::GitPanel {
                         repo_path,
                         active_tab: 0,

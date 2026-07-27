@@ -36,8 +36,12 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
             let mut iter = args.into_iter();
             let first = iter.next().unwrap_or(mlua::Value::Nil);
             let c = match first {
-                mlua::Value::String(s) => Cell::new(s.to_str().map(|c| c.to_string()).unwrap_or_default()),
-                mlua::Value::UserData(ud) if ud.borrow::<Span>().is_ok() => Cell::from_span(ud.borrow::<Span>().ok().unwrap().clone()),
+                mlua::Value::String(s) => {
+                    Cell::new(s.to_str().map(|c| c.to_string()).unwrap_or_default())
+                }
+                mlua::Value::UserData(ud) if ud.borrow::<Span>().is_ok() => {
+                    Cell::from_span(ud.borrow::<Span>().ok().unwrap().clone())
+                }
                 _ => Cell::new(""),
             };
             lua_ctx.create_userdata(c).map(mlua::Value::UserData)

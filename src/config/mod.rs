@@ -109,7 +109,8 @@ impl AppConfig {
                     format!("Failed to write default keymap file: {}.toml", preset_name)
                 })?;
             } else if let Ok(existing) = fs::read_to_string(&preset_path) {
-                if (!existing.contains("rename = \"F7\"") && !existing.contains("rename_fkey = \"F7\""))
+                if (!existing.contains("rename = \"F7\"")
+                    && !existing.contains("rename_fkey = \"F7\""))
                     || existing.contains("mkdir = \"F7\"")
                     || existing.contains("mkdir_fkey = \"F7\"")
                     || existing.contains("plugin_menu = \"F11\"")

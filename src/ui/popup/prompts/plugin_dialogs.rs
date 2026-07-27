@@ -187,10 +187,7 @@ pub fn render(
                     )));
                 } else {
                     lines.push(Line::from(vec![
-                        Span::styled(
-                            format!("  {:<10}", keys),
-                            Style::default().fg(Color::Cyan),
-                        ),
+                        Span::styled(format!("  {:<10}", keys), Style::default().fg(Color::Cyan)),
                         Span::raw(desc),
                     ]));
                 }

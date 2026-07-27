@@ -27,8 +27,8 @@
 //! rest of the tree is populated from a `CxSnapshot` that
 //! `pairee.state` builds on demand.
 
-use crate::app::state::types::{PanelViewMode, SortField};
 use crate::app::state::AppState;
+use crate::app::state::types::{PanelViewMode, SortField};
 use crate::plugin::types::{File, Url};
 use mlua::{Lua, UserData, UserDataFields, UserDataMethods};
 use std::path::PathBuf;
@@ -220,12 +220,15 @@ pub fn build_cx_table(lua: &mlua::Lua, state: &AppState) -> mlua::Result<()> {
 
     // tabs — for M4-T5 we expose a 1-element list (the active tab).
     let tabs = lua.create_table()?;
-    tabs.set(1, mlua::Value::Table({
-        let t = lua.create_table()?;
-        t.set("id", 0)?;
-        t.set("name", "default")?;
-        t
-    }))?;
+    tabs.set(
+        1,
+        mlua::Value::Table({
+            let t = lua.create_table()?;
+            t.set("id", 0)?;
+            t.set("name", "default")?;
+            t
+        }),
+    )?;
     cx.set("tabs", tabs)?;
 
     // tasks — empty counter placeholder
@@ -308,7 +311,10 @@ mod tests {
         // for the test state) and it should round-trip through
         // the Url userdata.
         let _parent_cwd: mlua::AnyUserData = parent.get("cwd").unwrap();
-        let path: String = lua.load("return tostring(cx.active.parent.cwd)").eval().unwrap();
+        let path: String = lua
+            .load("return tostring(cx.active.parent.cwd)")
+            .eval()
+            .unwrap();
         assert_eq!(path, "/tmp");
     }
 

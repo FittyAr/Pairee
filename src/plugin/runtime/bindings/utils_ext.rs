@@ -76,9 +76,7 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
                     _ => shell_escape_windows(&bytes),
                 },
             };
-            log::debug!(
-                "pairee.quote is deprecated; use pairee.quote_arg for argument passing"
-            );
+            log::debug!("pairee.quote is deprecated; use pairee.quote_arg for argument passing");
             Ok(mlua::Value::String(inner_lua.create_string(&escaped)?))
         })?,
     )?;
@@ -139,8 +137,9 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     table.set(
         "json_decode",
         lua.create_async_function(|lua_ctx, s: mlua::String| async move {
-            let v = serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes()))
-                .map_err(|e| {
+            let v =
+                serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes()))
+                    .map_err(|e| {
                     mlua::Error::RuntimeError(format!("pairee.json_decode failed: {e}"))
                 })?;
             mlua::LuaSerdeExt::to_value(lua_ctx, &v)
@@ -207,14 +206,8 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     }
     #[cfg(not(unix))]
     {
-        table.set(
-            "uid",
-            lua.create_function(|_, ()| Ok(mlua::Value::Nil))?,
-        )?;
-        table.set(
-            "gid",
-            lua.create_function(|_, ()| Ok(mlua::Value::Nil))?,
-        )?;
+        table.set("uid", lua.create_function(|_, ()| Ok(mlua::Value::Nil))?)?;
+        table.set("gid", lua.create_function(|_, ()| Ok(mlua::Value::Nil))?)?;
         table.set(
             "user_name",
             lua.create_function(|inner_lua, ()| {
@@ -483,7 +476,9 @@ mod tests {
         let lua = Lua::new();
         let table = bind(&lua).expect("utils table");
         let json_decode: mlua::Function = table.get("json_decode").expect("json_decode");
-        let result = json_decode.call_async::<_, mlua::Value>("not json".to_string()).await;
+        let result = json_decode
+            .call_async::<_, mlua::Value>("not json".to_string())
+            .await;
         assert!(
             result.is_err(),
             "json_decode must reject malformed JSON with a runtime error"

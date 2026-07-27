@@ -34,9 +34,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         // 0. Refresh the cached Secure-Mode flag so the hook
         //    broadcaster (which fires on every keystroke for
         //    `on_key`) reads from memory instead of the disk.
-        crate::plugin::hooks::set_secure_mode_cached(
-            context.config.settings.secure_mode,
-        );
+        crate::plugin::hooks::set_secure_mode_cached(context.config.settings.secure_mode);
 
         // 1. Process background operation updates (e.g. copy progress)
         background::process_background_updates(&mut state, &context, &mut terminal_backend);
@@ -51,8 +49,9 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         //      has elapsed. The deadline is set by
         //      `dispatch_actions::render_notify` when a
         //      `pairee.notify({timeout=...})` is invoked.
-        if let Some(crate::app::state::PopupType::PluginNotify { deadline: Some(d), .. }) =
-            state.active_popup
+        if let Some(crate::app::state::PopupType::PluginNotify {
+            deadline: Some(d), ..
+        }) = state.active_popup
         {
             if std::time::Instant::now() >= d {
                 state.active_popup = None;
@@ -64,9 +63,13 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         //      and the terminal backend.
         let pending = crate::plugin::drain_pending_emit_actions();
         for action in pending {
-            if let Err(e) =
-                crate::app::actions::handle_action(&mut state, action, &mut context, &mut terminal_backend)
-                    .await
+            if let Err(e) = crate::app::actions::handle_action(
+                &mut state,
+                action,
+                &mut context,
+                &mut terminal_backend,
+            )
+            .await
             {
                 log::warn!("pairee.emit action dispatch error: {e}");
             }

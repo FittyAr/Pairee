@@ -343,7 +343,11 @@ fn render_stash_lines(
             } else {
                 parse_color(&theme.popup_fg)
             };
-            let short_oid = if stash.oid.len() > 7 { &stash.oid[..7] } else { &stash.oid };
+            let short_oid = if stash.oid.len() > 7 {
+                &stash.oid[..7]
+            } else {
+                &stash.oid
+            };
             Line::from(vec![
                 Span::styled(
                     format!(" stash@{{{}}} ", stash.index),
@@ -361,4 +365,3 @@ fn render_stash_lines(
         })
         .collect()
 }
-

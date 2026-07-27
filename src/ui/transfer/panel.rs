@@ -775,7 +775,10 @@ mod tests {
         let rendered = busy_text("Scanning");
         assert!(rendered.starts_with("Scanning"));
         let suffix = &rendered["Scanning".len()..];
-        assert!(suffix.len() <= 3, "dot suffix must be 0..=3 chars, got {suffix:?}");
+        assert!(
+            suffix.len() <= 3,
+            "dot suffix must be 0..=3 chars, got {suffix:?}"
+        );
         assert!(suffix.chars().all(|c| c == '.'));
     }
 

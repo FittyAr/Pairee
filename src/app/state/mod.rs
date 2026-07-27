@@ -13,9 +13,9 @@ pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
-    ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot, LinkKind,
-    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
-    TreeNode, GitConfirmedAction,
+    ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot,
+    GitConfirmedAction, LinkKind, PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode,
+    SortField, TerminalUpdate, TreeNode,
 };
 
 use crate::fs::ProgressUpdate;
@@ -185,7 +185,6 @@ impl AppState {
             ActivePanel::Right => &mut self.right_panel,
         }
     }
-
 
     /// Returns a reference to the passive panel state.
     pub fn get_passive_panel(&self) -> &PanelState {

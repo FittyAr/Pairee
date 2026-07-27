@@ -68,7 +68,10 @@ impl UserData for Span {
         });
         // Modifier folds
         methods.add_method_mut("bold", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::BOLD);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::BOLD);
             Ok(this.clone())
         });
         methods.add_method_mut("dim", |_lua, this, ()| {
@@ -76,7 +79,10 @@ impl UserData for Span {
             Ok(this.clone())
         });
         methods.add_method_mut("italic", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::ITALIC);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::ITALIC);
             Ok(this.clone())
         });
         methods.add_method_mut("underline", |_lua, this, ()| {
@@ -87,15 +93,24 @@ impl UserData for Span {
             Ok(this.clone())
         });
         methods.add_method_mut("blink", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::SLOW_BLINK);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::SLOW_BLINK);
             Ok(this.clone())
         });
         methods.add_method_mut("reverse", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::REVERSED);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::REVERSED);
             Ok(this.clone())
         });
         methods.add_method_mut("hidden", |_lua, this, ()| {
-            this.style.inner = this.style.inner.add_modifier(ratatui::style::Modifier::HIDDEN);
+            this.style.inner = this
+                .style
+                .inner
+                .add_modifier(ratatui::style::Modifier::HIDDEN);
             Ok(this.clone())
         });
         methods.add_method_mut("crossed", |_lua, this, ()| {
@@ -138,10 +153,13 @@ pub fn bind(lua: &mlua::Lua, parent: &mlua::Table<'_>) -> mlua::Result<()> {
                 _ => first,
             };
             let text: String = match dispatch_arg {
-                mlua::Value::String(s) => s.to_str().ok().map(|c| c.to_string()).unwrap_or_default(),
+                mlua::Value::String(s) => {
+                    s.to_str().ok().map(|c| c.to_string()).unwrap_or_default()
+                }
                 _ => String::new(),
             };
-            lua.create_userdata(Span::new(text)).map(mlua::Value::UserData)
+            lua.create_userdata(Span::new(text))
+                .map(mlua::Value::UserData)
         })?,
     )?;
     let mt = lua.create_table()?;
