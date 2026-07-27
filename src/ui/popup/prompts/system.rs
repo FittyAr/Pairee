@@ -17,14 +17,21 @@ pub fn render(
     _state: &crate::app::state::AppState,
 ) -> bool {
     match popup {
-        PopupType::PermissionPrompt { paths, selected, .. } => {
+        PopupType::PermissionPrompt {
+            paths,
+            selected,
+            sample_error,
+            ..
+        } => {
             // 3-button dialog: Yes / No / Cancel.
             // The width is fixed at 70 cols and the
             // height grows with the number of failed
             // files (capped at 12 visible rows + a
-            // "and N more" footer).
+            // "and N more" footer + the sample-error
+            // line, if present).
             let visible_count = paths.len().min(12);
-            let height = (visible_count as u16) + 8;
+            let has_error = sample_error.is_some();
+            let height = (visible_count as u16) + 8 + if has_error { 2 } else { 0 };
             let area = centered_rect_fixed(70, height, size);
             f.render_widget(Clear, area);
 
@@ -37,6 +44,13 @@ pub fn render(
             let mut body = String::new();
             body.push_str(&t("permission_prompt_intro"));
             body.push('\n');
+            if let Some(err) = sample_error {
+                // Show the first observed error message
+                // (e.g. "Permission denied (os error 13)")
+                // so the user can tell at a glance why
+                // the retry is being offered.
+                body.push_str(&format!("  {}\n", err));
+            }
             for (i, p) in paths.iter().take(visible_count).enumerate() {
                 body.push_str(&format!("  {}. {}\n", i + 1, p.display()));
             }

@@ -16,6 +16,24 @@ pub fn handle(state: &mut AppState) -> bool {
         let archive = entry.path.clone();
         let dest = state.get_passive_panel().current_path.clone();
 
+        // Format detection: central helper so the
+        // rules stay in sync with
+        // `input_popup/archive_commands.rs`. An
+        // unrecognised extension used to silently fall
+        // back to Zip, which produced a confusing
+        // "not a zip file" error. Now we surface a
+        // clear popup instead.
+        let format = match ArchiveFormat::detect_from_path(&archive) {
+            Some(f) => f,
+            None => {
+                state.active_popup = Some(PopupType::Error(format!(
+                    "Unsupported archive format: {:?}. Supported: .zip, .tar.gz, .tgz, .tar, .7z",
+                    archive.extension()
+                )));
+                return true;
+            }
+        };
+
         // A10: enqueue an Extract job on the unified
         // transfer engine. The legacy
         // `spawn_extract_task` and the
@@ -26,23 +44,6 @@ pub fn handle(state: &mut AppState) -> bool {
             state.transfer = Some(TransferUIState::new(engine, rx));
         }
         if let Some(ref mut ts) = state.transfer {
-            // Format detection: use the file
-            // extension. The engine requires an
-            // explicit ArchiveFormat; we map
-            // .zip / .tar.gz / .7z here. Other
-            // extensions fall back to Zip (matches
-            // the legacy default).
-            let format = match archive
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_ascii_lowercase())
-                .as_deref()
-            {
-                Some("zip") => ArchiveFormat::Zip,
-                Some("gz") | Some("tgz") => ArchiveFormat::TarGz,
-                Some("7z") => ArchiveFormat::SevenZ,
-                _ => ArchiveFormat::Zip,
-            };
             let options = TransferOptions::default();
             let job = TransferJob::with_endpoints(
                 TransferOperation::Extract { format },

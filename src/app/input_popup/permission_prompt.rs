@@ -18,6 +18,7 @@ pub fn handle(
         paths,
         job_id,
         selected,
+        sample_error,
     }) = state.active_popup.clone()
     {
         match key.code {
@@ -27,6 +28,7 @@ pub fn handle(
                     paths,
                     job_id,
                     selected: next,
+                    sample_error,
                 });
                 Ok(None)
             }
@@ -36,6 +38,7 @@ pub fn handle(
                     paths,
                     job_id,
                     selected: next,
+                    sample_error,
                 });
                 Ok(None)
             }
@@ -45,6 +48,7 @@ pub fn handle(
                     paths,
                     job_id,
                     selected: next,
+                    sample_error,
                 });
                 Ok(None)
             }
@@ -54,6 +58,7 @@ pub fn handle(
                     paths,
                     job_id,
                     selected: next,
+                    sample_error,
                 });
                 Ok(None)
             }

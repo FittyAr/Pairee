@@ -397,6 +397,7 @@ pub fn process_background_updates(
                     job_id,
                     count,
                     files,
+                    sample_error,
                 } => {
                     // Log the prompt and open the
                     // user-facing dialog. We only open
@@ -414,6 +415,10 @@ pub fn process_background_updates(
                             job.log_lines
                                 .push(format!("    - {}", f.to_string_lossy()));
                         }
+                        if let Some(err) = &sample_error {
+                            job.log_lines
+                                .push(format!("    first error: {}", err));
+                        }
                     });
                     let no_popup_yet = state.active_popup.is_none();
                     if no_popup_yet {
@@ -422,6 +427,7 @@ pub fn process_background_updates(
                                 paths: files.clone(),
                                 job_id,
                                 selected: 0,
+                                sample_error: sample_error.clone(),
                             });
                         refresh_needed = true;
                     }

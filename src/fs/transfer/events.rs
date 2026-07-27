@@ -100,5 +100,12 @@ pub enum TransferEvent {
         job_id: Uuid,
         count: usize,
         files: Vec<PathBuf>,
+        /// First error message observed for this batch. The
+        /// UI can use it to display a short hint like
+        /// "Permission denied: /etc/shadow" without having
+        /// to round-trip back to the worker. We only keep
+        /// the first one to avoid leaking every path the
+        /// engine touched in a single event.
+        sample_error: Option<String>,
     },
 }

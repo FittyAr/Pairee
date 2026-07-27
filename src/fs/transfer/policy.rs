@@ -6,17 +6,17 @@
 //! implementation that the engine consults on every
 //! `FileFailed` event.
 //!
-//! Two implementations live in this module:
+//! One production implementation lives in this module:
 //!
-//! * [`LoggingPolicy`] — the default. Only writes to
-//!   `log::warn!` and `finalize()` returns the empty list.
-//!   No UI interaction, no prompting. Use this in unit
-//!   tests and headless contexts.
-//! * [`PromptPolicy`] — the production policy. Accumulates
+//! * [`PromptPolicy`] — the default. Accumulates
 //!   `AccessDenied` failures, batches them, and at the end
 //!   of the job emits a single `TransferEvent::PermissionPrompt`
 //!   asking the UI whether to retry as admin. Wired up in
 //!   phase B4.
+//!
+//! Tests may pass a custom `Arc<dyn TransferPolicy>` via
+//! [`crate::fs::transfer::engine::TransferEngine::with_policy`]
+//! to drive the error-handling path in isolation.
 //!
 //! # Why a trait?
 //!
@@ -97,20 +97,12 @@ impl FileError {
 /// A single file the policy wants the engine to retry as
 /// admin. The `original_path` is the path the failed
 /// operation tried to touch. The `error` is the original
-/// error message kept for logging.
-///
-/// In B5 the engine will turn this into one
-/// [`crate::fs::privileges::FsOperation`] per request and
-/// hand it to [`crate::fs::privileges::run_in_elevated_helper`].
-///
-/// `error` is stored on the struct for logging but the
-/// engine currently reads only `original_path`. The
-/// `#[allow(dead_code)]` keeps AGENTS.md happy while
-/// leaving the field as part of the public surface (it
-/// will be needed when the engine's retry log gains
-/// per-file error reporting in a later phase).
+/// error message; the engine surfaces the first one in
+/// the batch as a `sample_error` on
+/// [`super::events::TransferEvent::PermissionPrompt`]
+/// so the UI can show a one-line hint without
+/// round-tripping back to the worker.
 #[derive(Debug, Clone)]
-#[allow(dead_code)]
 pub struct RetryRequest {
     pub original_path: PathBuf,
     pub error: String,

@@ -126,18 +126,18 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             } else {
                 state.get_passive_panel().current_path.clone()
             };
-            let format = match archive_path
-                .extension()
-                .and_then(|e| e.to_str())
-                .map(|s| s.to_ascii_lowercase())
-                .as_deref()
-            {
-                Some("zip") => crate::fs::transfer::job::ArchiveFormat::Zip,
-                Some("gz") | Some("tgz") => {
-                    crate::fs::transfer::job::ArchiveFormat::TarGz
+            // Central format detection. Unknown
+            // extensions used to silently fall back
+            // to Zip; now we surface a clear error.
+            let format = match crate::fs::transfer::job::ArchiveFormat::detect_from_path(archive_path) {
+                Some(f) => f,
+                None => {
+                    state.active_popup = Some(PopupType::Error(format!(
+                        "Unsupported archive format: {:?}. Supported: .zip, .tar.gz, .tgz, .tar, .7z",
+                        archive_path.extension()
+                    )));
+                    return;
                 }
-                Some("7z") => crate::fs::transfer::job::ArchiveFormat::SevenZ,
-                _ => crate::fs::transfer::job::ArchiveFormat::Zip,
             };
             if state.transfer.is_none() {
                 let (engine, rx) = crate::fs::transfer::engine::TransferEngine::new();

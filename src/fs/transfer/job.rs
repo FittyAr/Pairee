@@ -114,11 +114,62 @@ pub enum ArchiveFormat {
     Zip,
     /// `.tar.gz` (gzip-compressed tar). The level
     /// applies to the gzip layer; tar itself does not
-    /// compress.
+    /// compress. Also used for plain `.tar` files:
+    /// the pipeline tries the gzip layer first and
+    /// surfaces a clear error if the stream is not
+    /// gzipped (we don't yet support raw tar without
+    /// a wrapper; that is a future ticket).
     TarGz,
     /// `.7z` (LZMA). `level` is the LZMA compression
     /// level 0..=9.
     SevenZ,
+}
+
+impl ArchiveFormat {
+    /// Detect the archive format from a file path's
+    /// extension. Returns `None` when the extension is
+    /// not recognised.
+    ///
+    /// Recognised extensions:
+    /// * `.zip`  → `Zip`
+    /// * `.gz`, `.tgz`, `.tar` → `TarGz`
+    /// * `.7z`   → `SevenZ`
+    ///
+    /// Both call sites that used to inline this match
+    /// (`actions/fs_ops/extract.rs` and
+    /// `input_popup/archive_commands.rs`) now go through
+    /// here so the rules stay in sync.
+    pub fn detect_from_path(path: &std::path::Path) -> Option<Self> {
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())?
+            .to_ascii_lowercase();
+        // Some archives carry a double extension
+        // (`.tar.gz`, `.tar.bz2`, ...). `Path::extension`
+        // only sees the last one, so peek at the
+        // file_name when the last extension is `.gz` /
+        // `.bz2` / `.xz` and try to recognise the
+        // combined form first.
+        if ext == "gz" || ext == "tgz" {
+            return Some(Self::TarGz);
+        }
+        if let Some(stem_ext) = path
+            .file_stem()
+            .and_then(|s| std::path::Path::new(s).extension())
+            .and_then(|e| e.to_str())
+        {
+            let combined = format!("{}.{}", stem_ext, ext).to_ascii_lowercase();
+            if combined == "tar.gz" || combined == "tar.tgz" {
+                return Some(Self::TarGz);
+            }
+        }
+        match ext.as_str() {
+            "zip" => Some(Self::Zip),
+            "7z" => Some(Self::SevenZ),
+            "tar" => Some(Self::TarGz),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
@@ -183,6 +234,38 @@ mod tests {
             let json = serde_json::to_string(&f).unwrap();
             let back: ArchiveFormat = serde_json::from_str(&json).unwrap();
             assert_eq!(f, back);
+        }
+    }
+
+    /// Centralised extension detection (security review
+    /// finding L6). The two call sites used to inline
+    /// this match and silently fall back to Zip for
+    /// unknown extensions including `.tar`; we now go
+    /// through this helper which also recognises `.tar`
+    /// and rejects unknown extensions explicitly.
+    #[test]
+    fn archive_format_detect_from_path() {
+        use std::path::Path;
+        let cases: &[(&str, Option<ArchiveFormat>)] = &[
+            ("foo.zip", Some(ArchiveFormat::Zip)),
+            ("FOO.ZIP", Some(ArchiveFormat::Zip)),
+            ("foo.tar.gz", Some(ArchiveFormat::TarGz)),
+            ("foo.tgz", Some(ArchiveFormat::TarGz)),
+            ("foo.tar", Some(ArchiveFormat::TarGz)),
+            ("foo.7z", Some(ArchiveFormat::SevenZ)),
+            // Unknown / unsupported extensions
+            ("foo.rar", None),
+            ("foo.iso", None),
+            ("foo", None),
+            // No extension
+            (".", None),
+        ];
+        for (input, expected) in cases {
+            let got = ArchiveFormat::detect_from_path(Path::new(input));
+            assert_eq!(
+                got, *expected,
+                "detect_from_path({input:?}) returned {got:?}, expected {expected:?}",
+            );
         }
     }
 

@@ -482,18 +482,25 @@ impl TransferWorker {
         // FASE 3: POLICY FINALIZE
         // -----------------------------------------------------------------
         // Ask the policy if any files should be retried as
-        // admin. The default `LoggingPolicy` always returns
-        // the empty list, so this is a no-op in tests. The
+        // admin. A no-op / counting policy returns the
+        // empty list (used in tests); the production
         // `PromptPolicy` returns the list of files that
         // failed with `AccessDenied`; we forward that as a
         // single `PermissionPrompt` event so the UI can show
         // one popup at the end of the job.
         let retries = self.policy.finalize();
         if !retries.is_empty() {
+            // Capture the first error message so the UI
+            // can show a one-line hint next to the file
+            // list. We only keep the first to avoid
+            // leaking every touched path in a single
+            // event.
+            let sample_error = retries.first().map(|r| r.error.clone());
             let _ = self.event_tx.send(TransferEvent::PermissionPrompt {
                 job_id: self.job_id,
                 count: retries.len(),
                 files: retries.iter().map(|r| r.original_path.clone()).collect(),
+                sample_error,
             });
         }
 

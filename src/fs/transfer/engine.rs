@@ -17,9 +17,9 @@ pub struct TransferEngine {
     /// Strategy the engine uses to react to file-level
     /// failures. Defaults to a [`PromptPolicy`] so the
     /// retry-as-admin prompt is wired end-to-end from the
-    /// start. Pass [`super::policy::LoggingPolicy`]
-    /// (or any custom impl) via [`Self::with_policy`] for
-    /// headless contexts.
+    /// start. Pass any custom impl via [`Self::with_policy`]
+    /// (e.g. for unit tests that want a counting / no-op
+    /// policy).
     policy: Arc<dyn TransferPolicy>,
 }
 

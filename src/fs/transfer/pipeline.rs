@@ -727,10 +727,9 @@ async fn compress_sevenz(
 /// from the user's selection.
 ///
 /// Path-traversal entries (`..`, absolute paths,
-/// NUL bytes) are rejected. We reuse the same
-/// `validate_archive_entry_name` helper that the
-/// legacy `fs/archive.rs` already had, so the
-/// behaviour matches.
+/// NUL bytes, Windows drive / UNC prefixes) are
+/// rejected by the [`sanitise_entry_name`] helper
+/// below. See that function for the exact rules.
 #[allow(clippy::too_many_arguments)]
 pub async fn extract_pipeline(
     src_endpoint: &TransferEndpoint,

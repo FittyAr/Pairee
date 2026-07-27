@@ -100,8 +100,12 @@ pub enum PermissionAnswer {
     /// Leave the files as-is; the failures stay
     /// in the job's results.
     No,
-    /// Same as `No` plus abort the job if it is
-    /// still running.
+    /// Same as `No` (the popup is shown at the end of
+    /// the job, after the worker has already returned,
+    /// so there is no running job to abort). Kept as a
+    /// distinct variant so the user can express
+    /// "definitely do nothing" without accidentally
+    /// saying yes to a retry.
     Cancel,
 }
 
@@ -354,6 +358,12 @@ pub enum PopupType {
         paths: Vec<PathBuf>,
         job_id: uuid::Uuid,
         selected: usize,
+        /// Optional one-line hint from the engine
+        /// (e.g. "Permission denied (os error 13)") so
+        /// the popup can show *why* the retry is being
+        /// offered without having to round-trip back
+        /// to the worker.
+        sample_error: Option<String>,
     },
     SaveSetupConfirm,
 
