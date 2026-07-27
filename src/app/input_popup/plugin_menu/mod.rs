@@ -71,6 +71,7 @@ pub fn handle(
             dev_loading_status,
             dev_loading_progress,
             install_in_progress,
+            action_in_flight,
         }) => (
             active_tab,
             cursor_idx,
@@ -89,6 +90,7 @@ pub fn handle(
             dev_loading_status,
             dev_loading_progress,
             install_in_progress,
+            action_in_flight,
         ),
         _ => return Err(()),
     };
@@ -111,6 +113,7 @@ pub fn handle(
         mut dev_loading_status,
         mut dev_loading_progress,
         install_in_progress,
+        action_in_flight,
     ) = popup_state;
 
     // Handle global escape to close if not editing query
@@ -143,6 +146,7 @@ pub fn handle(
                 dev_loading_status,
                 dev_loading_progress,
                 install_in_progress,
+                action_in_flight,
             });
             return Ok(None);
         } else {
@@ -189,6 +193,7 @@ pub fn handle(
                     dev_loading_status,
                     dev_loading_progress,
                     install_in_progress,
+                    action_in_flight,
                 });
                 return Ok(None);
             }
@@ -198,7 +203,13 @@ pub fn handle(
 
     let action = None;
     if active_tab == 0 {
-        installed::handle_installed(key, context, &mut cursor_idx, &mut installed);
+        installed::handle_installed(
+            key,
+            context,
+            &mut cursor_idx,
+            &mut installed,
+            action_in_flight,
+        );
     } else if active_tab == 1 {
         search::handle_search(
             key,
@@ -261,6 +272,7 @@ pub fn handle(
         dev_loading_status,
         dev_loading_progress,
         install_in_progress,
+        action_in_flight,
     });
 
     Ok(action)

@@ -426,6 +426,33 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 }
                 log::debug!("Plugin install finished: {}", name);
             }
+            PluginRequest::PluginActionStarted(kind) => {
+                // Acquire the Installed-tab per-popup action lock
+                // (used by `u` / `U`). Sent at the start of the
+                // action's `tokio::spawn` task in
+                // `app/input_popup/plugin_menu/installed.rs`.
+                if let Some(PopupType::PluginMenu {
+                    action_in_flight, ..
+                }) = &mut state.active_popup
+                {
+                    *action_in_flight = Some(kind);
+                }
+                log::debug!("Plugin action started: {:?}", kind);
+            }
+            PluginRequest::PluginActionFinished => {
+                // Release the Installed-tab per-popup action lock
+                // (used by `u` / `U`). Always sent by the action's
+                // `tokio::spawn` task in
+                // `app/input_popup/plugin_menu/installed.rs`,
+                // success or failure.
+                if let Some(PopupType::PluginMenu {
+                    action_in_flight, ..
+                }) = &mut state.active_popup
+                {
+                    *action_in_flight = None;
+                }
+                log::debug!("Plugin action finished (u/U)");
+            }
         }
     }
 }
@@ -550,6 +577,7 @@ mod tests {
             dev_loading_status: String::new(),
             dev_loading_progress: None,
             install_in_progress,
+            action_in_flight: None,
         });
         (state, tx)
     }
@@ -623,6 +651,74 @@ mod tests {
         })
         .await
         .unwrap();
+        process_plugin_requests(&mut state, &context);
+        assert!(state.active_popup.is_none());
+    }
+
+    // ─── PluginActionStarted / Finished clear the Installed-tab lock ─
+    // Regression test for the user-reported "stray stdout" issue:
+    // every TUI action that mutates the lockfile (`u` / `U`) must
+    // acquire the lock via a request and release it via a paired
+    // request, so the dispatcher can keep the popup state
+    // consistent without a synchronous call from the keypress
+    // handler.
+
+    #[tokio::test]
+    async fn plugin_action_started_sets_lock() {
+        use crate::plugin::manager::ActionKind;
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_plugin_menu(&tmp, None);
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::PluginActionStarted(ActionKind::Update))
+            .await
+            .unwrap();
+        process_plugin_requests(&mut state, &context);
+        if let Some(PopupType::PluginMenu {
+            action_in_flight, ..
+        }) = &state.active_popup
+        {
+            assert_eq!(
+                *action_in_flight,
+                Some(ActionKind::Update),
+                "PluginActionStarted must set the lock"
+            );
+        } else {
+            panic!("PluginMenu popup must still be present");
+        }
+    }
+
+    #[tokio::test]
+    async fn plugin_action_finished_clears_lock() {
+        use crate::plugin::manager::ActionKind;
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_plugin_menu(&tmp, None);
+        let context = fresh_context(&tmp);
+        // Acquire then release.
+        tx.send(PluginRequest::PluginActionStarted(ActionKind::UpdateAll))
+            .await
+            .unwrap();
+        process_plugin_requests(&mut state, &context);
+        tx.send(PluginRequest::PluginActionFinished).await.unwrap();
+        process_plugin_requests(&mut state, &context);
+        if let Some(PopupType::PluginMenu {
+            action_in_flight, ..
+        }) = &state.active_popup
+        {
+            assert!(
+                action_in_flight.is_none(),
+                "PluginActionFinished must clear the lock"
+            );
+        } else {
+            panic!("PluginMenu popup must still be present");
+        }
+    }
+
+    #[tokio::test]
+    async fn plugin_action_finished_is_noop_when_no_popup_active() {
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_channel(&tmp);
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::PluginActionFinished).await.unwrap();
         process_plugin_requests(&mut state, &context);
         assert!(state.active_popup.is_none());
     }

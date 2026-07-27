@@ -134,6 +134,30 @@ pub enum PluginRequest {
     InstallFinished {
         name: String,
     },
+    /// Sent by the Installed tab's update actions (`u` / `U`)
+    /// when the action starts. The dispatcher sets
+    /// `PluginMenu.action_in_flight` to the carried `ActionKind`
+    /// so a second keypress of the same key is rejected with a
+    /// "busy" toast until `PluginActionFinished` arrives.
+    PluginActionStarted(ActionKind),
+    /// Sent by the Installed tab's update actions (`u` / `U`)
+    /// when the action completes — success or failure. The
+    /// dispatcher clears `PluginMenu.action_in_flight` so the
+    /// user can start a new update right away.
+    PluginActionFinished,
+}
+
+/// Per-popup guard for the Installed tab's update actions. Mirrors
+/// the `install_in_progress` lock on the Search tab: a value of
+/// `Some(_)` means a `tokio::spawn` from a previous keypress is
+/// still resolving, so the handler must take the "busy" branch
+/// instead of spawning a second task.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionKind {
+    /// `u` — update a single installed plugin.
+    Update,
+    /// `U` — update every installed non-pinned plugin.
+    UpdateAll,
 }
 
 /// Rectangular region on the terminal, in cells, used by

@@ -440,6 +440,13 @@ pub enum PopupType {
         /// Cleared by the dispatcher when it receives a matching
         /// `PluginRequest::InstallFinished` request.
         install_in_progress: Option<String>,
+        /// Lock for the Installed-tab update actions (`u` = update one,
+        /// `U` = update all). Mirrors `install_in_progress` for the
+        /// other tab: rejects a second keypress while a previous
+        /// `tokio::spawn` is still resolving, prevents duplicate
+        /// downloads / network calls. Cleared by the dispatcher on a
+        /// matching `PluginRequest::PluginActionFinished` request.
+        action_in_flight: Option<crate::plugin::manager::ActionKind>,
     },
 
     // ── Sort modes ────────────────────────────────────────────────────────────

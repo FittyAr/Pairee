@@ -30,12 +30,19 @@ pub mod snapshot;
 pub use manager::PLUGIN_REQ_TX;
 pub use manager::PluginManager;
 pub use request::{
-    DialogPosition, ImageRect, InputDialogResult, NotifyPayload, PluginRequest, WhichCandidate,
+    ActionKind, DialogPosition, ImageRect, InputDialogResult, NotifyPayload, PluginRequest,
+    WhichCandidate,
 };
 // `FileEntrySnapshot` is intentionally not re-exported here: it is only
 // used internally by `dispatcher.rs` to build `AppStateSnapshot`. Plugins
 // see the snapshot through `pairee.sync` and never need to name the
 // type directly. Re-exporting it triggers a dead-code warning.
+//
+// `UpdateStatus` lives in `crate::plugin::updater` (it is the
+// per-plugin outcome of `updater::update`). Re-export it here so
+// callers can pattern-match without importing the deeper
+// `updater` path.
+pub use crate::plugin::updater::UpdateStatus;
 
 pub use dispatch_actions::drain_pending_emit_actions;
 pub use dispatcher::process_plugin_requests;

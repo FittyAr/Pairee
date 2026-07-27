@@ -85,6 +85,7 @@ pub fn render(
         dev_loading_status,
         dev_loading_progress,
         install_in_progress,
+        action_in_flight: _,
     } = popup
     {
         let area = super::centered_rect(85, 80, size);

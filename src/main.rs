@@ -55,12 +55,62 @@ async fn main() -> Result<()> {
             if args.len() > 2 {
                 match args[2].as_str() {
                     "list" => {
-                        plugin::updater::list_installed().await?;
+                        let rows = plugin::updater::list_installed().await?;
+                        if rows.is_empty() {
+                            println!("Installed Plugins:");
+                            println!("  (none)");
+                            return Ok(());
+                        }
+                        println!("Installed Plugins:");
+                        for r in &rows {
+                            let pin = if r.pinned { " [PINNED]" } else { "" };
+                            let trust = if r.trusted {
+                                " [TRUSTED]"
+                            } else {
+                                " [UNTRUSTED]"
+                            };
+                            let blocked = match &r.blocked {
+                                Some(_) => " [BLOCKED]".to_string(),
+                                None => String::new(),
+                            };
+                            let update = match &r.update_available {
+                                Some(v) => format!(" (Update available: v{})", v),
+                                None => String::new(),
+                            };
+                            println!(
+                                "  - {} v{}{}{}{}{}",
+                                r.name, r.version, pin, trust, blocked, update
+                            );
+                        }
                         return Ok(());
                     }
                     "search" => {
                         if args.len() > 3 {
-                            plugin::updater::search(&args[3]).await?;
+                            let matches = plugin::updater::search(&args[3]).await?;
+                            println!("Search results for '{}':", args[3]);
+                            for m in &matches {
+                                let langs = if m.languages.is_empty() {
+                                    String::new()
+                                } else {
+                                    format!(
+                                        " [{}]",
+                                        m.languages
+                                            .iter()
+                                            .map(|l| l.to_uppercase())
+                                            .collect::<Vec<_>>()
+                                            .join(" ")
+                                    )
+                                };
+                                let hook = if m.is_hook { " [Hook]" } else { "" };
+                                println!(
+                                    "* {} v{} by {}{}{}",
+                                    m.name, m.version, m.author, hook, langs
+                                );
+                                if let Some(d) = &m.description {
+                                    println!("  Description: {}", d);
+                                }
+                                println!();
+                            }
                         } else {
                             println!("Error: search requires a query string");
                         }
@@ -68,7 +118,35 @@ async fn main() -> Result<()> {
                     }
                     "info" => {
                         if args.len() > 3 {
-                            plugin::updater::show_info(&args[3]).await?;
+                            match plugin::updater::show_info(&args[3]).await {
+                                Ok(info) => {
+                                    println!("Plugin: {}", info.name);
+                                    println!("Version: {}", info.version);
+                                    println!("Author: {}", info.author);
+                                    if let Some(d) = &info.description {
+                                        println!("Description: {}", d);
+                                    }
+                                    if let Some(m) = &info.min_pairee {
+                                        println!("Requires Pairee: >= {}", m);
+                                    }
+                                    if !info.languages.is_empty() {
+                                        println!(
+                                            "Supported languages: {}",
+                                            info.languages.join(", ")
+                                        );
+                                    }
+                                    if !info.hooks.is_empty() {
+                                        println!("Subscribes to hooks: {}", info.hooks.join(", "));
+                                    }
+                                    if !info.files.is_empty() {
+                                        println!("Files:");
+                                        for f in &info.files {
+                                            println!("  - {}", f);
+                                        }
+                                    }
+                                }
+                                Err(e) => println!("Error: {:?}", e),
+                            }
                         } else {
                             println!("Error: info requires a plugin name");
                         }
@@ -93,8 +171,11 @@ async fn main() -> Result<()> {
                                     };
                                     (clean_name, None)
                                 };
-                                if let Err(e) = plugin::updater::install(&name, version).await {
-                                    println!("Error installing plugin '{}': {:?}", name, e);
+                                match plugin::updater::install(&name, version).await {
+                                    Ok(()) => println!("Installed plugin '{}'", name),
+                                    Err(e) => {
+                                        println!("Error installing plugin '{}': {:?}", name, e)
+                                    }
                                 }
                             }
                         } else {
@@ -104,7 +185,10 @@ async fn main() -> Result<()> {
                     }
                     "remove" => {
                         if args.len() > 3 {
-                            plugin::updater::remove(&args[3])?;
+                            match plugin::updater::remove(&args[3]) {
+                                Ok(()) => println!("Removed plugin '{}'", args[3]),
+                                Err(e) => println!("Error: {:?}", e),
+                            }
                         } else {
                             println!("Error: remove requires a plugin name");
                         }
@@ -112,7 +196,12 @@ async fn main() -> Result<()> {
                     }
                     "pin" => {
                         if args.len() > 3 {
-                            plugin::updater::pin(&args[3], true)?;
+                            match plugin::updater::pin(&args[3], true) {
+                                Ok(p) => {
+                                    println!("Set pin status of plugin '{}' to {}.", args[3], p)
+                                }
+                                Err(e) => println!("Error: {:?}", e),
+                            }
                         } else {
                             println!("Error: pin requires a plugin name");
                         }
@@ -120,18 +209,98 @@ async fn main() -> Result<()> {
                     }
                     "unpin" => {
                         if args.len() > 3 {
-                            plugin::updater::pin(&args[3], false)?;
+                            match plugin::updater::pin(&args[3], false) {
+                                Ok(p) => {
+                                    println!("Set pin status of plugin '{}' to {}.", args[3], p)
+                                }
+                                Err(e) => println!("Error: {:?}", e),
+                            }
                         } else {
                             println!("Error: unpin requires a plugin name");
                         }
                         return Ok(());
                     }
                     "verify" => {
-                        plugin::updater::verify().await?;
+                        let report = plugin::updater::verify().await?;
+                        for entry in &report.entries {
+                            println!("Plugin: {} v{}", entry.name, entry.version);
+                            for (file, status) in &entry.files {
+                                let status_str = match status {
+                                    plugin::updater::VerifyEntryStatus::Ok => "OK".to_string(),
+                                    plugin::updater::VerifyEntryStatus::MissingFile => {
+                                        "MISSING".to_string()
+                                    }
+                                    plugin::updater::VerifyEntryStatus::Blocked(r) => {
+                                        format!("BLOCKED ({})", r)
+                                    }
+                                    plugin::updater::VerifyEntryStatus::HashMismatch {
+                                        expected,
+                                        actual,
+                                    } => {
+                                        format!(
+                                            "HASH MISMATCH (expected {}, got {})",
+                                            expected, actual
+                                        )
+                                    }
+                                    plugin::updater::VerifyEntryStatus::HashError(e) => {
+                                        format!("HASH ERROR ({})", e)
+                                    }
+                                };
+                                println!("  - {}: {}", file, status_str);
+                            }
+                        }
+                        if report.clean {
+                            println!("All plugins verified successfully (integrity clean).");
+                        } else {
+                            println!("Integrity verification failed for one or more plugins.");
+                        }
                         return Ok(());
                     }
                     "check-updates" => {
-                        plugin::updater::check_updates().await?;
+                        let updates = plugin::updater::check_updates().await?;
+                        if updates.is_empty() {
+                            println!("No plugins installed.");
+                            return Ok(());
+                        }
+                        let mut count = 0;
+                        for u in &updates {
+                            match &u.status {
+                                plugin::updater::UpdateStatus::UpToDate => {
+                                    if let Some(latest) = &u.latest {
+                                        println!("  - {}: v{} (up to date)", u.name, latest);
+                                    }
+                                }
+                                plugin::updater::UpdateStatus::Pinned => {
+                                    println!(
+                                        "  - {}: {} -> {} [PINNED] (update skipped)",
+                                        u.name,
+                                        u.installed,
+                                        u.latest.as_deref().unwrap_or("?")
+                                    );
+                                    count += 1;
+                                }
+                                plugin::updater::UpdateStatus::Blocked(r) => {
+                                    println!(
+                                        "  - {}: v{} [BLOCKED] Reason: {}",
+                                        u.name, u.installed, r
+                                    );
+                                    count += 1;
+                                }
+                                plugin::updater::UpdateStatus::Updated { from, to } => {
+                                    println!("  - {}: {} -> {}", u.name, from, to);
+                                    count += 1;
+                                }
+                                plugin::updater::UpdateStatus::Failed(_) => {}
+                            }
+                        }
+                        if count == 0 {
+                            println!("All plugins are up to date.");
+                        } else {
+                            println!(
+                                "Found {} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins.",
+                                count
+                            );
+                        }
                         return Ok(());
                     }
                     "update" => {
@@ -140,7 +309,35 @@ async fn main() -> Result<()> {
                         } else {
                             None
                         };
-                        plugin::updater::update(name).await?;
+                        let report = plugin::updater::update(name).await?;
+                        for (n, status) in &report.items {
+                            match status {
+                                plugin::updater::UpdateStatus::Updated { from, to } => {
+                                    println!("Updated '{}': {} -> {}", n, from, to)
+                                }
+                                plugin::updater::UpdateStatus::UpToDate => {
+                                    println!("'{}' is already up to date.", n)
+                                }
+                                plugin::updater::UpdateStatus::Pinned => {
+                                    println!("Skipping pinned plugin '{}'.", n)
+                                }
+                                plugin::updater::UpdateStatus::Blocked(r) => {
+                                    println!(
+                                        "WARNING: plugin '{}' is BLOCKED: {}. Removing for safety.",
+                                        n, r
+                                    );
+                                    let _ = plugin::updater::remove(n);
+                                }
+                                plugin::updater::UpdateStatus::Failed(e) => {
+                                    println!("✗ Failed to update '{}': {}", n, e)
+                                }
+                            }
+                        }
+                        println!(
+                            "Updated {} plugin(s); {} failed.",
+                            report.updated_count(),
+                            report.failed_count()
+                        );
                         return Ok(());
                     }
                     _ => {
