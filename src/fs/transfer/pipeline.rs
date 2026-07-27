@@ -775,8 +775,36 @@ fn sanitise_entry_name(raw: &str) -> Result<PathBuf, anyhow::Error> {
             std::path::Component::RootDir => {
                 return Err(anyhow!("archive entry is rooted: {}", raw));
             }
+            // Reject Windows drive-relative and drive-absolute
+            // paths (e.g. `C:foo`, `C:/foo`, `C:\foo`,
+            // `\\?\C:\foo`, `\\server\share\foo`).
+            //
+            // Without this check, a name like `C:/Users/victim/
+            // .ssh/id_rsa` passes the leading-/\\ check on
+            // Windows (it does not start with `/` or `\\`),
+            // the component walker only rejects `ParentDir`
+            // and `RootDir`, and then `dst_dir.join("C:/...")
+            // ` is treated as **absolute** by `Path::join`,
+            // which replaces the base. The file would land
+            // on `C:\Users\victim\.ssh\id_rsa` even though
+            // the user thought they were extracting under
+            // their chosen destination.
+            std::path::Component::Prefix(_) => {
+                return Err(anyhow!(
+                    "archive entry has drive / device prefix: {}",
+                    raw
+                ));
+            }
             _ => {}
         }
+    }
+    // Belt and suspenders: on Windows, even a path the
+    // component walker accepted could be absolute (e.g.
+    // very long UNC-style names that the walker only sees
+    // partially). `is_absolute()` on the joined path is
+    // cheap, so reject anything that smells absolute.
+    if std::path::Path::new(&normalised).is_absolute() {
+        return Err(anyhow!("archive entry resolves to absolute: {}", raw));
     }
     Ok(PathBuf::from(normalised))
 }
@@ -1813,12 +1841,28 @@ mod tests {
 
     #[test]
     fn sanitise_entry_name_rejects_unsafe_names() {
+        // Safe names
         assert!(sanitise_entry_name("a/b/c.txt").is_ok());
         assert!(sanitise_entry_name("a\\b\\c.txt").is_ok());
+        assert!(sanitise_entry_name("./relative/file").is_ok());
+        // Path traversal variants
         assert!(sanitise_entry_name("../etc/passwd").is_err());
         assert!(sanitise_entry_name("/etc/passwd").is_err());
         assert!(sanitise_entry_name("a/../../b").is_err());
         assert!(sanitise_entry_name("a\0b").is_err());
         assert!(sanitise_entry_name("").is_err());
+        // Drive-prefix variants (security review finding M3).
+        // These pass the leading-/\\ check on Windows but
+        // are absolute and would escape `dst_dir` after
+        // `Path::join`.
+        #[cfg(windows)]
+        {
+            assert!(sanitise_entry_name("C:/foo/bar.txt").is_err());
+            assert!(sanitise_entry_name("C:\\foo\\bar.txt").is_err());
+            assert!(sanitise_entry_name("C:foo").is_err());
+            // UNC and device paths
+            assert!(sanitise_entry_name("//server/share/file").is_err());
+            assert!(sanitise_entry_name("\\\\?\\C:\\foo").is_err());
+        }
     }
 }
