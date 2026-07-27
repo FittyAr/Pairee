@@ -18,6 +18,7 @@ pub use types::{
     TreeNode,
 };
 
+use crate::plugin::manager::PluginRequest;
 use crate::update::{UpdateInfo, UpdateStatus};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -56,6 +57,17 @@ pub struct AppState {
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
+    /// Channel receiver for plugin requests (Cd, FsRead, Notify, ...).
+    /// Owned by `AppState` directly so the dispatcher in
+    /// `process_plugin_requests` can `try_recv` without locking a
+    /// global. The matching sender is registered into the
+    /// `PLUGIN_REQ_TX` `OnceLock` by [`AppState::new`] so the rest
+    /// of the app (and the plugin runtime) can publish requests
+    /// without holding a reference to the state. Tests that want
+    /// to inject requests should replace this field with their own
+    /// receiver and use the matching sender to drive the test
+    /// (no global shared between tests).
+    pub plugin_req_rx: tokio::sync::mpsc::Receiver<PluginRequest>,
     pub terminal_needs_clear: bool,
 
     // ── Screens Management ────────────────────────────────────────────────────
@@ -122,6 +134,15 @@ pub struct AppState {
 impl AppState {
     pub fn new(left_path: PathBuf, right_path: PathBuf) -> Self {
         let (term_tx, term_rx) = tokio::sync::mpsc::unbounded_channel();
+        // Create the plugin request channel pair. The receiver
+        // is owned by the state (so `process_plugin_requests`
+        // can `try_recv` without locking a global); the
+        // sender is registered into the `PLUGIN_REQ_TX`
+        // `OnceLock` so the plugin runtime and other call
+        // sites can publish requests without holding a
+        // reference to the state.
+        let (plugin_tx, plugin_rx) = tokio::sync::mpsc::channel(100);
+        let _ = crate::plugin::manager::manager::PLUGIN_REQ_TX.set(plugin_tx);
         let is_root = crate::fs::is_elevated();
         Self {
             left_panel: PanelState::new(left_path),
@@ -136,6 +157,7 @@ impl AppState {
             dev_progress_rx: None,
             term_tx,
             term_rx: Some(term_rx),
+            plugin_req_rx: plugin_rx,
             screens: vec![Screen::Panels],
             screen_popups: vec![None],
             active_screen_idx: 0,

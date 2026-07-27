@@ -253,8 +253,11 @@ async fn main() -> Result<()> {
         state.update_status = update::UpdateStatus::Checking;
     }
 
-    // 5.5. Initialize and load plugins
-    plugin::PluginManager::init();
+    // 5.5. Initialize and load plugins. The plugin request
+    // channel is already created by `AppState::new` (see
+    // `app::state::AppState::new` and
+    // `plugin::manager::PLUGIN_REQ_TX`); we just kick off
+    // the eager loader here.
     plugin::PluginManager::load_all_plugins(&context).await;
 
     // 6. Hand execution over to main loop

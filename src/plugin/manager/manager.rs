@@ -1,34 +1,39 @@
-//! Plugin manager lifecycle: channel initialization and eager plugin
-//! discovery at startup.
+//! Plugin manager lifecycle and eager plugin discovery at
+//! startup.
 //!
-//! All cross-thread communication with the main loop goes through the
-//! `mpsc` channels declared in this file. The dispatcher (in
-//! `dispatcher.rs`) drains the receiver on every main-loop tick.
+//! All cross-thread communication with the main loop goes through
+//! the plugin-request `mpsc` channel. The **receiver** is owned
+//! by `AppState` (see `app::state::AppState::new`) so the
+//! dispatcher can `try_recv` without a global lock; the
+//! **sender** is exposed through the `PLUGIN_REQ_TX` `OnceLock`
+//! so the plugin runtime and other call sites that don't have
+//! a state handle can publish requests.
+//!
+//! Note: the channel is created lazily on the first
+//! `AppState::new`. Callers that grab a sender before any state
+//! exists will see a panic from `get_sender`; in practice
+//! `AppState::new` is called early in `main`, well before any
+//! plugin code runs.
 
 use crate::app::context::AppContext;
 use std::sync::OnceLock;
-use tokio::sync::{Mutex, mpsc};
+use tokio::sync::mpsc;
 
 use super::request::PluginRequest;
 
 pub static PLUGIN_REQ_TX: OnceLock<mpsc::Sender<PluginRequest>> = OnceLock::new();
-pub static PLUGIN_REQ_RX: OnceLock<Mutex<mpsc::Receiver<PluginRequest>>> = OnceLock::new();
 
 pub struct PluginManager;
 
 impl PluginManager {
-    pub fn init() {
-        let (tx, rx) = mpsc::channel(100);
-        let _ = PLUGIN_REQ_TX.set(tx);
-        let _ = PLUGIN_REQ_RX.set(Mutex::new(rx));
-        log::info!("PluginManager initialized request channels.");
-    }
-
+    /// Return a clone of the global plugin request sender.
+    /// Panics if `AppState::new` has not been called yet
+    /// (which means the channel has not been created).
     pub fn get_sender() -> mpsc::Sender<PluginRequest> {
         PLUGIN_REQ_TX
             .get()
             .cloned()
-            .expect("PluginManager channels not initialized")
+            .expect("AppState must be constructed before calling PluginManager::get_sender")
     }
 
     pub async fn load_all_plugins(context: &AppContext) {
