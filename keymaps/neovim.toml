@@ -51,7 +51,11 @@ edit                = "e"
 # ── Panel operations ──────────────────────────────────────────────────────────
 toggle_both_panels  = "Ctrl+o"
 toggle_hidden       = "Ctrl+h"
-refresh             = "Ctrl+r"
+# Ctrl+R reserved for plugins (recent-files.pairee picker);
+# Refresh moved to F5 — the `copy_fkey = "F5"` entry below is
+# dropped because F5 is now the canonical Refresh shortcut in
+# this preset. The `copy = "y"` mnemonic still works.
+refresh             = "F5"
 swap_panels         = "Ctrl+s"
 change_panel_tab    = "Tab"
 
@@ -61,10 +65,11 @@ quit_f10            = "F10"
 
 # ── F-key fallbacks (for users who know Norton bindings) ──────────────────────
 help                = "F1"
-user_menu           = "F2"
+# F2 reserved for plugins (archive-inspect.pairee summary dialog);
+# User Menu moved to Alt+F2.
+user_menu           = "Alt+F2"
 view_fkey           = "F3"
 edit_fkey           = "F4"
-copy_fkey           = "F5"
 move_fkey           = "F6"
 rename_fkey         = "F7"
 delete_fkey         = "F8"
@@ -81,7 +86,8 @@ save_setup          = "Shift+F9"
 
 # ── Alt+F fallbacks ───────────────────────────────────────────────────────────
 drive_select_left   = "Alt+F1"
-drive_select_right  = "Alt+F2"
+# Alt+F2 is now User Menu; Drive Select Right moved to Alt+Shift+F2.
+drive_select_right  = "Alt+Shift+F2"
 view_alt            = "Alt+F3"
 print_file          = "Alt+F5"
 create_link         = "Alt+F6"

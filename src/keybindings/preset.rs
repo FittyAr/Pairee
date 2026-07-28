@@ -217,7 +217,11 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
 
     // ── F-key standard actions ────────────────────────────────────────────────
     map.insert("F1".to_string(), Action::Help);
-    map.insert("F2".to_string(), Action::UserMenu);
+    // F2 is reserved for plugins (archive-inspect.pairee uses
+    // it for the archive summary dialog). User Menu moved to
+    // Alt+F2 (and Drive Select Right moved to Alt+Shift+F2 in
+    // the Alt+F block below).
+    map.insert("Alt+F2".to_string(), Action::UserMenu);
     map.insert("F3".to_string(), Action::View);
     map.insert("F4".to_string(), Action::Edit);
     map.insert("F7".to_string(), Action::Rename);
@@ -237,7 +241,8 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
 
     // ── Alt+F actions ─────────────────────────────────────────────────────────
     map.insert("Alt+F1".to_string(), Action::DriveSelectLeft);
-    map.insert("Alt+F2".to_string(), Action::DriveSelectRight);
+    // Alt+F2 is now User Menu; Drive Select Right moved here.
+    map.insert("Alt+Shift+F2".to_string(), Action::DriveSelectRight);
     map.insert("Alt+F3".to_string(), Action::ViewAlt);
     map.insert("Alt+F4".to_string(), Action::Edit);
     map.insert("Alt+F5".to_string(), Action::PrintFile);
@@ -280,8 +285,10 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     // ── General ───────────────────────────────────────────────────────────────
     map.insert("Ctrl+h".to_string(), Action::ToggleHidden);
     map.insert("Ctrl+H".to_string(), Action::ToggleHidden);
-    map.insert("Ctrl+r".to_string(), Action::Refresh);
-    map.insert("Ctrl+R".to_string(), Action::Refresh);
+    // Ctrl+R is reserved for plugins (recent-files.pairee uses
+    // it for the recent-files picker). Refresh moved to
+    // Ctrl+Shift+R so the key is free for plugins to claim.
+    map.insert("Ctrl+Shift+R".to_string(), Action::Refresh);
     map.insert("Ctrl+p".to_string(), Action::CycleFKeysModifiers);
     map.insert("Ctrl+P".to_string(), Action::CycleFKeysModifiers);
     map.insert("Ctrl+Shift+S".to_string(), Action::SshConnect);
@@ -403,6 +410,12 @@ fn action_to_name(action: Action) -> String {
         Action::ToggleSortReverse => "toggle_sort_reverse",
         Action::CheckForUpdates => "check_for_updates",
         Action::ToggleTransferPanel => "toggle_transfer_panel",
+        // `PluginCommand` is a sentinel that only plugin / Lua
+        // registrations produce; we expose it in the
+        // (de)serialisation maps so a user can rebind a key to
+        // it in `keybindings.toml` if they want to wire a key to
+        // a specific plugin by hand. (No preset installs it.)
+        Action::PluginCommand => "plugin_command",
     }
     .to_string()
 }
@@ -553,6 +566,14 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
         "check_for_updates" => Some(Action::CheckForUpdates),
         "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
+
+        // Sentinel for plugin / Lua bindings. See the matching
+        // entry in `action_to_name`. Resolving it to `None` from
+        // a preset file would be cleaner, but accepting the name
+        // round-trips the variant in `get_builtin_preset_toml`
+        // and lets a power user type `plugin_command` into their
+        // `keybindings.toml` to force-claim a key for a plugin.
+        "plugin_command" => Some(Action::PluginCommand),
 
         _ => None,
     }

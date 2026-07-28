@@ -63,6 +63,7 @@ pub async fn register_plugin(
     lua: mlua::Lua,
     path: PathBuf,
     trusted: bool,
+    resolver: &std::sync::Arc<crate::keybindings::resolver::KeybindingResolver>,
 ) -> anyhow::Result<()> {
     let name = manifest.name.clone();
     let registry = get_registry();
@@ -75,11 +76,55 @@ pub async fn register_plugin(
     };
     registry.plugins.write().await.insert(name.clone(), info);
 
-    // Register keybindings
+    // Register keybindings. Two things happen here:
+    //   1. The plugin registry's `keybindings` map (legacy
+    //      storage, kept for the CLI command `pairee plugin
+    //      list-keys` and the upcoming Conflicts sub-screen) is
+    //      updated.
+    //   2. The live `KeybindingResolver` is asked to install each
+    //      binding. The resolver applies the priority + conflict
+    //      rules from `keybindings::source` and logs (and
+    //      optionally toasts) any conflicts it finds.
     if let Some(ref keymaps) = manifest.keybindings {
         let mut keybindings = registry.keybindings.write().await;
         for (key, action) in keymaps {
             keybindings.insert(key.clone(), (name.clone(), action.clone()));
+            // Mirror the binding into the resolver. Manifest
+            // entries use the default `Fallback` policy so a
+            // plugin never silently hijacks a Builtin key.
+            let outcome = resolver.register(
+                key,
+                crate::keybindings::source::ResolvedBinding::plugin(&name, action),
+                crate::keybindings::source::ConflictPolicy::Fallback,
+            );
+            match outcome {
+                crate::keybindings::source::RegisterOutcome::Bound => {
+                    log::info!(
+                        "plugin '{}': registered keybinding '{}' -> '{}'",
+                        name,
+                        key,
+                        action
+                    );
+                }
+                crate::keybindings::source::RegisterOutcome::Conflict { with } => {
+                    log::warn!(
+                        "plugin '{}': keybinding '{}' -> '{}' refused (key already owned by {}). \
+                         Adjust the manifest's [keybindings] entry, unbind the key in your \
+                         keybindings.toml, or use ConflictPolicy = 'override' (future API).",
+                        name,
+                        key,
+                        action,
+                        with
+                    );
+                }
+                crate::keybindings::source::RegisterOutcome::Invalid => {
+                    log::warn!(
+                        "plugin '{}': keybinding '{}' is invalid (empty or malformed)",
+                        name,
+                        key
+                    );
+                }
+            }
         }
     }
 
@@ -304,9 +349,4 @@ pub async fn emit_hook_event(plugin_name: &str, event_name: &str, data: String) 
 pub async fn get_loaded_plugins() -> Vec<PluginInfo> {
     let registry = get_registry();
     registry.plugins.read().await.values().cloned().collect()
-}
-
-pub async fn resolve_keybinding(key_str: &str) -> Option<(String, String)> {
-    let registry = get_registry();
-    registry.keybindings.read().await.get(key_str).cloned()
 }

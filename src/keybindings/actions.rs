@@ -220,4 +220,17 @@ pub enum Action {
     InstallDevPlugin,
     /// Toggle Transfer Panel (Ctrl+T)
     ToggleTransferPanel,
+
+    // ── Plugin dispatch ────────────────────────────────────────────────────
+    /// Sentinel action carried by every Plugin / Lua binding. The
+    /// actual plugin name and action name live on the
+    /// [`ResolvedBinding`](crate::keybindings::source::ResolvedBinding)
+    /// that the resolver returns alongside the action. The
+    /// dispatcher matches on this variant and forwards the
+    /// keypress to `plugin::registry::run_command`.
+    ///
+    /// Never bound in any preset — the only way to produce it is
+    /// for a plugin or Lua call to register a binding through
+    /// [`KeybindingResolver::register`](crate::keybindings::resolver::KeybindingResolver::register).
+    PluginCommand,
 }

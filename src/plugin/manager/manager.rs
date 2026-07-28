@@ -72,6 +72,16 @@ impl PluginManager {
                         let tx = Self::get_sender();
                         let name_clone = name.clone();
                         let path_clone = path.clone();
+                        // The resolver is shared between the host
+                        // (which reads it on every keypress) and
+                        // the plugin runtime (which writes it on
+                        // every manifest entry + every Lua
+                        // `pairee.keybindings.bind` call). `Arc`
+                        // lets both ends see the same instance
+                        // and is required by the Lua closure
+                        // lifetime — the binding callbacks live
+                        // as long as the plugin VM does.
+                        let resolver_arc = std::sync::Arc::clone(&context.resolver);
                         tokio::spawn(async move {
                             log::info!("Loading plugin {} from {:?}", name_clone, path_clone);
                             if let Err(e) = crate::plugin::loader::load_plugin(
@@ -79,6 +89,7 @@ impl PluginManager {
                                 &path_clone,
                                 trusted,
                                 tx,
+                                &resolver_arc,
                             )
                             .await
                             {

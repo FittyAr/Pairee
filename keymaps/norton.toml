@@ -56,7 +56,9 @@ sort_modes              = "Ctrl+F12"
 
 # ── Standard F-key actions ────────────────────────────────────────────────────
 help            = "F1"
-user_menu       = "F2"
+# F2 is reserved for plugins (archive-inspect.pairee uses it for
+# the archive summary dialog). User Menu moved to Alt+F2.
+user_menu       = "Alt+F2"
 view            = "F3"
 edit            = "F4"
 copy            = "F5"
@@ -77,7 +79,9 @@ save_setup          = "Shift+F9"
 
 # ── Alt+F actions ─────────────────────────────────────────────────────────────
 drive_select_left   = "Alt+F1"
-drive_select_right  = "Alt+F2"
+# Alt+F2 is now User Menu (see the F-key block above). Drive
+# Select Right moved to Alt+Shift+F2 to keep both reachable.
+drive_select_right  = "Alt+Shift+F2"
 view_alt            = "Alt+F3"
 # edit also on Alt+F4
 print_file          = "Alt+F5"
@@ -109,7 +113,9 @@ task_list           = "Ctrl+w"
 
 # ── General ───────────────────────────────────────────────────────────────────
 toggle_hidden           = "Ctrl+h"
-refresh                 = "Ctrl+r"
+# Ctrl+R is reserved for plugins (recent-files.pairee uses it for
+# the recent-files picker). Refresh moved to Ctrl+Shift+R.
+refresh                 = "Ctrl+Shift+R"
 cycle_fkeys_modifiers   = "Ctrl+p"
 ssh_connect             = "Ctrl+Shift+S"
 unfocus                 = "Esc"

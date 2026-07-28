@@ -58,7 +58,9 @@ context_menu        = "Menu"
 context_menu_shift  = "Shift+F10"
 menu                = "F9"
 help                = "F1"
-user_menu           = "F2"
+# F2 reserved for plugins (archive-inspect.pairee summary dialog);
+# User Menu moved to Alt+F2.
+user_menu           = "Alt+F2"
 
 # ── Panel operations ──────────────────────────────────────────────────────────
 toggle_panel_left   = "Ctrl+F1"

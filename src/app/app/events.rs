@@ -91,14 +91,57 @@ pub async fn handle_input_event(
                 }
             }
 
-            if let Some(action) = context.resolver.resolve(key) {
-                handle_action(state, action, context, terminal_backend).await?;
-            } else if !key_str.is_empty() {
-                if let Some((plugin_name, action_name)) =
-                    crate::plugin::registry::resolve_keybinding(&key_str).await
-                {
-                    crate::plugin::registry::run_command(&plugin_name, vec![action_name]).await;
-                }
+            // Single dispatch path: every keypress goes through
+            // the resolver. The `ResolvedBinding` carries source
+            // attribution so we know whether to run the built-in
+            // action handler or to forward the keypress to a
+            // plugin (manifest entry or Lua runtime bind).
+            //
+            // This replaces the old split where the preset won
+            // outright and the plugin registry was a fallback;
+            // that left plugin keybindings such as F2 /
+            // Ctrl+R / Ctrl+D silently dead whenever the preset
+            // happened to own the key. The new priority table is
+            // documented in `crate::keybindings::source`.
+            match context.resolver.resolve(key) {
+                Some(binding) => match binding.action {
+                    crate::keybindings::Action::PluginCommand => {
+                        // Manifest entry or Lua runtime bind —
+                        // forward to the plugin that registered
+                        // the key. The plugin name and action
+                        // name travel together on the binding so
+                        // there is no string-key indirection.
+                        let plugin_name = match &binding.source {
+                            crate::keybindings::BindingSource::Plugin { plugin }
+                            | crate::keybindings::BindingSource::Lua { plugin } => plugin.clone(),
+                            // The sentinel `PluginCommand` is
+                            // never produced by Builtin / User
+                            // sources today, but if a future
+                            // refactor ever does, route it to a
+                            // debug log rather than a panic.
+                            _ => {
+                                log::warn!(
+                                    "PluginCommand action with non-plugin source: {:?}",
+                                    binding.source
+                                );
+                                String::new()
+                            }
+                        };
+                        if !plugin_name.is_empty() {
+                            crate::plugin::registry::run_command(
+                                &plugin_name,
+                                vec![binding.plugin_action.clone()],
+                            )
+                            .await;
+                        }
+                    }
+                    _ => {
+                        // Builtin or User binding — the action
+                        // itself is the dispatcher key.
+                        handle_action(state, binding.action, context, terminal_backend).await?;
+                    }
+                },
+                None => {}
             }
         }
         Event::ModifiersChanged(modifiers) => {

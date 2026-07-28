@@ -1,4 +1,5 @@
 use crate::plugin::manager::PluginRequest;
+use crate::plugin::runtime::bindings::keybindings::build_bind_table;
 use std::path::Path;
 use tokio::sync::mpsc;
 
@@ -7,6 +8,8 @@ pub fn bind_runtime(
     plugin_dir: &Path,
     trusted: bool,
     tx: mpsc::Sender<PluginRequest>,
+    plugin_name: &str,
+    resolver: &std::sync::Arc<crate::keybindings::resolver::KeybindingResolver>,
 ) -> mlua::Result<()> {
     let globals = lua.globals();
 
@@ -85,6 +88,20 @@ pub fn bind_runtime(
     // M4-T9: `pairee.preview_code` — syntax-highlighted preview of a
     // code file, returns a `ui.Text` userdata with per-token styles.
     super::bindings::preview_code::bind(lua, &pairee)?;
+
+    // M4: `pairee.keybindings` — runtime binding API. Plugins can
+    // claim a key with `pairee.keybindings.bind(key, action, opts?)`
+    // and release it later with `pairee.keybindings.unbind_plugin()`.
+    // The `resolver` is the live host resolver; the binding
+    // registration flows through the same priority + conflict
+    // table as the manifest's `[keybindings]` section.
+    //
+    // We `Arc::clone` so the Lua closures can outlive this
+    // `bind_runtime` call (they live as long as the Lua VM
+    // does, which is the whole plugin worker lifetime).
+    let plugin_name_arc: std::sync::Arc<String> = std::sync::Arc::new(plugin_name.to_string());
+    let kb_table = build_bind_table(lua, std::sync::Arc::clone(resolver), plugin_name_arc)?;
+    pairee.set("keybindings", kb_table)?;
 
     // M3 process binding: `pairee.Command(name)`, `pairee.fs.access()`.
     super::bindings::process::command::register(lua, &pairee)?;

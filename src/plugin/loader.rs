@@ -101,6 +101,7 @@ pub async fn load_plugin(
     path: &Path,
     trusted: bool,
     tx: mpsc::Sender<PluginRequest>,
+    resolver: &std::sync::Arc<crate::keybindings::resolver::KeybindingResolver>,
 ) -> anyhow::Result<()> {
     // 1. Read manifest.toml
     let manifest_path = path.join("manifest.toml");
@@ -137,8 +138,13 @@ pub async fn load_plugin(
         }
     }
 
-    // 3. Create sandboxed Lua instance
-    let lua = crate::plugin::sandbox::create_sandboxed_lua(path, trusted, tx.clone())?;
+    // 3. Create sandboxed Lua instance. The sandbox is bound
+    // to the live `KeybindingResolver` so any Lua call to
+    // `pairee.keybindings.bind(...)` lands in the same store
+    // the manifest entries used and the dispatch loop reads
+    // from.
+    let lua =
+        crate::plugin::sandbox::create_sandboxed_lua(path, trusted, tx.clone(), name, resolver)?;
 
     // 3a. M4-T5/T6/T7/T8: seed `cx`, `rt`, `th`, and `km` globals
     //     with a snapshot of the live state. The full sync-context
@@ -197,6 +203,7 @@ pub async fn load_plugin(
         lua,
         path.to_path_buf(),
         trusted,
+        resolver,
     )
     .await?;
 

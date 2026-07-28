@@ -6,6 +6,7 @@ pub mod emit;
 pub mod file_cache;
 pub mod fs;
 pub mod image;
+pub mod keybindings;
 pub mod log;
 pub mod notify_ext;
 pub mod preview_code;

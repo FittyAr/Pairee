@@ -107,6 +107,8 @@ pub fn create_sandboxed_lua(
     plugin_dir: &Path,
     trusted: bool,
     tx: mpsc::Sender<PluginRequest>,
+    plugin_name: &str,
+    resolver: &std::sync::Arc<crate::keybindings::resolver::KeybindingResolver>,
 ) -> anyhow::Result<mlua::Lua> {
     // 1. Determine standard libraries to load
     let std_libs = if trusted {
@@ -131,7 +133,14 @@ pub fn create_sandboxed_lua(
     setup_require_wrapper(&lua, plugin_dir)?;
 
     // 4. Bind the pairee global namespace
-    crate::plugin::runtime::standard::bind_runtime(&lua, plugin_dir, trusted, tx)?;
+    crate::plugin::runtime::standard::bind_runtime(
+        &lua,
+        plugin_dir,
+        trusted,
+        tx,
+        plugin_name,
+        resolver,
+    )?;
 
     Ok(lua)
 }
@@ -270,7 +279,10 @@ mod tests {
     async fn test_create_sandboxed_lua_restrictions() {
         let dir = tempdir().unwrap();
         let (tx, _rx) = tokio::sync::mpsc::channel(10);
-        let lua = create_sandboxed_lua(dir.path(), false, tx).unwrap();
+        let cfg = crate::config::AppConfig::load_or_create().unwrap();
+        let resolver =
+            std::sync::Arc::new(crate::keybindings::resolver::KeybindingResolver::new(&cfg));
+        let lua = create_sandboxed_lua(dir.path(), false, tx, "test.pairee", &resolver).unwrap();
 
         // Standard restricted globals should be nil
         let globals = lua.globals();
