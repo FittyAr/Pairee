@@ -453,6 +453,24 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 }
                 log::debug!("Plugin action finished (u/U)");
             }
+            PluginRequest::InstalledPluginsRefreshed(rows) => {
+                // Replace the popup's `installed` list with the
+                // freshly built rows. Sent by the Search-tab
+                // install task and the Installed-tab `u` / `U`
+                // tasks so the user sees the new plugin (or the
+                // new version) without having to close and reopen
+                // the modal. A no-op when no `PluginMenu` popup
+                // is active (e.g. the user dismissed it while
+                // the install was still resolving).
+                if let Some(PopupType::PluginMenu {
+                    installed,
+                    ..
+                }) = &mut state.active_popup
+                {
+                    *installed = rows;
+                    log::debug!("PluginMenu.installed refreshed: {} rows", installed.len());
+                }
+            }
         }
     }
 }
@@ -719,6 +737,86 @@ mod tests {
         let (mut state, tx) = fresh_state_with_channel(&tmp);
         let context = fresh_context(&tmp);
         tx.send(PluginRequest::PluginActionFinished).await.unwrap();
+        process_plugin_requests(&mut state, &context);
+        assert!(state.active_popup.is_none());
+    }
+
+    // ─── InstalledPluginsRefreshed replaces the popup's installed list ───
+    // Regression test for the user-reported issue: after a Search-tab
+    // install (or an Installed-tab `u` / `U`) completes, the popup
+    // must reflect the new plugin / new version **without the user
+    // having to close and reopen the modal**. The dispatcher's only
+    // job is to swap `PluginMenu.installed` with the rows the spawn
+    // task sent over the channel.
+
+    #[tokio::test]
+    async fn installed_plugins_refreshed_replaces_list() {
+        let tmp = std::env::temp_dir();
+        // Open a PluginMenu with one stale row.
+        let (mut state, tx) = fresh_state_with_plugin_menu(&tmp, None);
+        if let Some(PopupType::PluginMenu {
+            ref mut installed, ..
+        }) = state.active_popup
+        {
+            installed.push((
+                "stale.pairee".to_string(),
+                "0.9.0".to_string(),
+                false,
+                false,
+                Some("1.0.0".to_string()),
+            ));
+        }
+        let context = fresh_context(&tmp);
+        // Send a fresh rows vec with a different plugin.
+        let fresh_rows = vec![(
+            "fresh.pairee".to_string(),
+            "1.0.0".to_string(),
+            true,
+            true,
+            None,
+        )];
+        tx.send(PluginRequest::InstalledPluginsRefreshed(fresh_rows))
+            .await
+            .unwrap();
+        process_plugin_requests(&mut state, &context);
+        if let Some(PopupType::PluginMenu { ref installed, .. }) = state.active_popup {
+            assert_eq!(
+                installed.len(),
+                1,
+                "the stale row must be replaced by exactly one fresh row"
+            );
+            assert_eq!(installed[0].0, "fresh.pairee");
+            assert_eq!(installed[0].1, "1.0.0");
+            assert!(installed[0].2, "pinned must be carried over");
+            assert!(installed[0].3, "trusted must be carried over");
+            assert!(
+                installed[0].4.is_none(),
+                "update_available must be carried over (None here)"
+            );
+        } else {
+            panic!("PluginMenu popup must still be present");
+        }
+    }
+
+    #[tokio::test]
+    async fn installed_plugins_refreshed_is_noop_when_no_popup_active() {
+        // Same pattern as `install_finished_is_noop_when_no_popup_active`:
+        // the install task may finish after the user dismissed the
+        // popup, so the dispatcher must tolerate a stray
+        // `InstalledPluginsRefreshed` without panicking. The rows
+        // are simply dropped.
+        let tmp = std::env::temp_dir();
+        let (mut state, tx) = fresh_state_with_channel(&tmp);
+        let context = fresh_context(&tmp);
+        tx.send(PluginRequest::InstalledPluginsRefreshed(vec![(
+            "orphan.pairee".to_string(),
+            "1.0.0".to_string(),
+            false,
+            false,
+            None,
+        )]))
+        .await
+        .unwrap();
         process_plugin_requests(&mut state, &context);
         assert!(state.active_popup.is_none());
     }

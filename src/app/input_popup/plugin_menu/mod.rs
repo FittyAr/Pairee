@@ -220,6 +220,7 @@ pub fn handle(
             &mut editing_query,
             install_in_progress.as_deref(),
             &installed,
+            context,
         );
     } else {
         let left_path = state.left_panel.current_path.clone();

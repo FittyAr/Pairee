@@ -248,6 +248,71 @@ pub async fn fetch_blocklist() -> anyhow::Result<Blocklist> {
 
 // ── Public command surface (silent) ────────────────────────────────────
 
+/// Build the per-popup `(name, version, pinned, trusted,
+/// update_available)` row from a `PluginsLock` + a registry index.
+/// Shared by the popup-open path (`ui_settings.rs`) and the
+/// post-action refresh path (the `tokio::spawn` in
+/// `app/input_popup/plugin_menu/{search,installed}.rs`).
+///
+/// Pass `index = None` when the registry is unreachable (the
+/// search install task is fresh and has not fetched it yet).
+/// In that case every row's `update_available` is `None` —
+/// the user can re-open the modal to get the real state.
+pub fn build_installed_rows(
+    lock: &PluginsLock,
+    index: Option<&RegistryIndex>,
+    blocklist: &Blocklist,
+    trust_overrides: &std::collections::HashMap<String, bool>,
+) -> Vec<(String, String, bool, bool, Option<String>)> {
+    let mut rows = Vec::with_capacity(lock.plugins.len());
+    for (name, info) in &lock.plugins {
+        let trusted = trust_overrides.get(name).copied().unwrap_or(false);
+        let blocked = blocklist.blocked.contains_key(name);
+        let update_available = if !blocked {
+            index
+                .and_then(|idx| idx.plugins.get(name))
+                .filter(|p| p.version != info.version)
+                .map(|p| p.version.clone())
+        } else {
+            None
+        };
+        rows.push((
+            name.clone(),
+            info.version.clone(),
+            info.pinned,
+            trusted,
+            update_available,
+        ));
+    }
+    rows
+}
+
+/// Async helper: fetch the latest registry + blocklist and build
+/// the `(name, version, pinned, trusted, update_available)` rows
+/// used by the popup's `installed` field.
+///
+/// Used by the post-action refresh path in
+/// `app/input_popup/plugin_menu/{search,installed}.rs` so the
+/// user sees the freshly installed plugin (or the new version
+/// after an update) without having to close and reopen the
+/// modal. Pays one HTTP call to the registry — acceptable
+/// because the user just kicked off an install / update that
+/// already cost a network round-trip; this is a follow-up
+/// refresh, not a separate user action.
+///
+/// `index` and `blocklist` failures are swallowed: an offline
+/// user still gets a refreshed list (just with every
+/// `update_available = None`). The lockfile read is
+/// authoritative for the `name` / `version` / `pinned` columns.
+pub async fn fetch_installed_rows_for_refresh(
+    trust_overrides: &std::collections::HashMap<String, bool>,
+) -> Vec<(String, String, bool, bool, Option<String>)> {
+    let lock = read_lockfile();
+    let index = fetch_index().await.ok();
+    let blocklist = fetch_blocklist().await.unwrap_or_default();
+    build_installed_rows(&lock, index.as_ref(), &blocklist, trust_overrides)
+}
+
 /// `pairee plugin list` — return every installed plugin with its
 /// metadata, trust state, and update availability.
 pub async fn list_installed() -> anyhow::Result<Vec<InstalledRow>> {
@@ -256,12 +321,20 @@ pub async fn list_installed() -> anyhow::Result<Vec<InstalledRow>> {
     let blocklist = fetch_blocklist().await.unwrap_or_default();
     let config = crate::config::AppConfig::load_or_create().ok();
 
+    let trust_overrides: std::collections::HashMap<String, bool> = config
+        .as_ref()
+        .map(|c| {
+            c.settings
+                .plugins
+                .iter()
+                .map(|(k, p)| (k.clone(), p.trusted))
+                .collect()
+        })
+        .unwrap_or_default();
+
     let mut rows = Vec::with_capacity(lock.plugins.len());
     for (name, info) in &lock.plugins {
-        let trusted = config
-            .as_ref()
-            .and_then(|c| c.settings.plugins.get(name).map(|p| p.trusted))
-            .unwrap_or(false);
+        let trusted = trust_overrides.get(name).copied().unwrap_or(false);
         let blocked = blocklist.blocked.get(name).cloned();
         let update_available = if blocked.is_none() {
             index

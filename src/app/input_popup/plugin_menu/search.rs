@@ -1,4 +1,6 @@
+use crate::app::context::AppContext;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::collections::HashMap;
 
 /// Visible page size — calculated externally and passed in.
 /// Defaults used in the handler (actual value is derived from the list area height at render time).
@@ -108,6 +110,7 @@ pub fn handle_search(
     editing_query: &mut bool,
     install_in_progress: Option<&str>,
     installed: &[(String, String, bool, bool, Option<String>)],
+    context: &AppContext,
 ) {
     match key.code {
         // ── Navigation — ALWAYS works regardless of edit mode ───────────────
@@ -168,6 +171,17 @@ pub fn handle_search(
                 let name_clone = name.clone();
                 let registry_version = version.clone();
                 let installed_status = install_status(&name, &registry_version, installed);
+                // Pre-compute the trust overrides so the post-install
+                // refresh keeps the same `trusted` column the popup
+                // already shows (the user has not had time to toggle
+                // trust between the install and the refresh).
+                let trust_overrides: HashMap<String, bool> = context
+                    .config
+                    .settings
+                    .plugins
+                    .iter()
+                    .map(|(k, p)| (k.clone(), p.trusted))
+                    .collect();
 
                 // Emit a "starting" toast so the user gets immediate
                 // feedback (and sees the right verb — Install /
@@ -191,8 +205,21 @@ pub fn handle_search(
                     // the user can install another plugin right
                     // away without having to dismiss anything.
                     let _ = tx.try_send(crate::plugin::manager::PluginRequest::InstallFinished {
-                        name: name_clone,
+                        name: name_clone.clone(),
                     });
+                    // Refresh the popup's `installed` list so the
+                    // user sees the freshly installed plugin (and
+                    // the `✓` / `↑` markers recompute correctly)
+                    // without having to close and reopen the
+                    // modal. Pays one HTTP call to the registry —
+                    // acceptable because the install itself just
+                    // cost a network round-trip.
+                    let rows =
+                        crate::plugin::updater::fetch_installed_rows_for_refresh(&trust_overrides)
+                            .await;
+                    let _ = tx.try_send(
+                        crate::plugin::manager::PluginRequest::InstalledPluginsRefreshed(rows),
+                    );
                 });
             }
         }
@@ -512,6 +539,11 @@ mod tests {
         let mut editing_query = false;
         // Empty `installed` list => plugin is "NotInstalled".
         let installed: Vec<(String, String, bool, bool, Option<String>)> = Vec::new();
+        // Minimal `AppContext` for the new `&AppContext` parameter
+        // — the install task uses it to build the trust map, so
+        // an empty map is the simplest reproducible fixture.
+        let cfg = crate::config::AppConfig::load_or_create().unwrap();
+        let context = AppContext::new(cfg);
 
         // First press: starts the install and sets the lock.
         // The lock is None initially.
@@ -525,6 +557,7 @@ mod tests {
             &mut editing_query,
             None,
             &installed,
+            &context,
         );
         // We can't easily read the popup's `install_in_progress`
         // from here (it lives on the popup state, not the search
@@ -548,6 +581,7 @@ mod tests {
             &mut editing_query,
             Some("foo.pairee"),
             &installed,
+            &context,
         );
     }
 }

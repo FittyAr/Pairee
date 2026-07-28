@@ -3,6 +3,7 @@ use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::app::sys_helpers::{build_info_panel_lines, get_hotlist_bookmarks, get_process_list};
 use crate::config::localization::t;
 use crate::keybindings::Action;
+use std::collections::HashMap;
 
 /// Handles UI, settings, and other configuration actions. Returns `true` if the action was handled.
 pub async fn handle_ui_settings_action(
@@ -519,35 +520,22 @@ pub async fn handle_ui_settings_action(
             tokio::spawn(async move {
                 let lock = crate::plugin::updater::read_lockfile();
                 let index = crate::plugin::updater::fetch_index().await.ok();
-                let mut installed = Vec::new();
-                for (name, info) in &lock.plugins {
-                    let trusted = plugins_settings
-                        .get(name)
-                        .map(|p| p.trusted)
-                        .unwrap_or(false);
-
-                    let update_available = if let Some(ref idx) = index {
-                        if let Some(reg_plugin) = idx.plugins.get(name) {
-                            if reg_plugin.version != info.version {
-                                Some(reg_plugin.version.clone())
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    };
-
-                    installed.push((
-                        name.clone(),
-                        info.version.clone(),
-                        info.pinned,
-                        trusted,
-                        update_available,
-                    ));
-                }
+                let blocklist = crate::plugin::updater::fetch_blocklist()
+                    .await
+                    .unwrap_or_default();
+                // Project the `PluginConfig` map down to the
+                // `(name, trusted)` shape the shared
+                // `build_installed_rows` helper expects.
+                let trust_overrides: HashMap<String, bool> = plugins_settings
+                    .iter()
+                    .map(|(k, p)| (k.clone(), p.trusted))
+                    .collect();
+                let installed = crate::plugin::updater::build_installed_rows(
+                    &lock,
+                    index.as_ref(),
+                    &blocklist,
+                    &trust_overrides,
+                );
                 // Build the full registry list (all available plugins) so the
                 // Search tab shows results immediately without requiring a query.
                 let registry: Vec<(String, String, String, String)> = index

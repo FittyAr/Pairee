@@ -145,6 +145,16 @@ pub enum PluginRequest {
     /// dispatcher clears `PluginMenu.action_in_flight` so the
     /// user can start a new update right away.
     PluginActionFinished,
+    /// Sent by any async plugin action (Search-tab install,
+    /// Installed-tab `u` / `U`) when the lockfile changed and
+    /// the popup's `installed` list is stale. The dispatcher
+    /// replaces the `installed` field on the active `PluginMenu`
+    /// with the carried rows so the user sees the new plugin
+    /// (or the new version) **without having to close and
+    /// reopen the modal**. The carried rows have
+    /// `(name, version, pinned, trusted, update_available)`
+    /// shape — same as `PluginMenu.installed`.
+    InstalledPluginsRefreshed(Vec<(String, String, bool, bool, Option<String>)>),
 }
 
 /// Per-popup guard for the Installed tab's update actions. Mirrors

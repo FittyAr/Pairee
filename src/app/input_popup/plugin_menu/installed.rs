@@ -3,6 +3,7 @@ use crate::app::context::AppContext;
 use crate::config::localization::t;
 use crate::plugin::manager::{ActionKind, NotifyPayload, PluginRequest, UpdateStatus};
 use crossterm::event::{KeyCode, KeyEvent};
+use std::collections::HashMap;
 
 // `ActionKind` is defined in `crate::plugin::manager` (next to
 // `PluginRequest`) so the dispatcher and the TUI handler can
@@ -131,6 +132,16 @@ pub fn handle_installed(
                     return;
                 }
                 let name_clone = name.clone();
+                // Pre-compute the trust overrides so the
+                // post-update refresh keeps the same `trusted`
+                // column the popup already shows.
+                let trust_overrides: HashMap<String, bool> = context
+                    .config
+                    .settings
+                    .plugins
+                    .iter()
+                    .map(|(k, p)| (k.clone(), p.trusted))
+                    .collect();
                 let tx = crate::plugin::PluginManager::get_sender();
                 // Acquire the per-popup action lock so a second
                 // `u` press is rejected with a "busy" toast while
@@ -155,6 +166,18 @@ pub fn handle_installed(
                     // Release the per-popup action lock so the
                     // user can run `u` / `U` again.
                     let _ = tx.send(PluginRequest::PluginActionFinished).await;
+                    // Refresh the popup's `installed` list so the
+                    // user sees the new version without having to
+                    // close and reopen the modal. The `update`
+                    // call already paid the registry round-trip;
+                    // this one extra fetch keeps the popup in
+                    // sync with the lockfile.
+                    let rows =
+                        crate::plugin::updater::fetch_installed_rows_for_refresh(&trust_overrides)
+                            .await;
+                    let _ = tx
+                        .send(PluginRequest::InstalledPluginsRefreshed(rows))
+                        .await;
                 });
             }
         }
@@ -163,6 +186,16 @@ pub fn handle_installed(
                 send_busy_toast();
                 return;
             }
+            // Pre-compute the trust overrides so the
+            // post-update refresh keeps the same `trusted`
+            // column the popup already shows.
+            let trust_overrides: HashMap<String, bool> = context
+                .config
+                .settings
+                .plugins
+                .iter()
+                .map(|(k, p)| (k.clone(), p.trusted))
+                .collect();
             let tx = crate::plugin::PluginManager::get_sender();
             // Acquire the per-popup action lock so a second `U`
             // press is rejected with a "busy" toast while this
@@ -217,6 +250,15 @@ pub fn handle_installed(
                 // Release the per-popup action lock so the user
                 // can run `u` / `U` again.
                 let _ = tx.send(PluginRequest::PluginActionFinished).await;
+                // Refresh the popup's `installed` list so the
+                // user sees the new versions without having to
+                // close and reopen the modal.
+                let rows =
+                    crate::plugin::updater::fetch_installed_rows_for_refresh(&trust_overrides)
+                        .await;
+                let _ = tx
+                    .send(PluginRequest::InstalledPluginsRefreshed(rows))
+                    .await;
             });
         }
         _ => {}
