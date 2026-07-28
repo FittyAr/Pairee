@@ -2,7 +2,10 @@ use super::types::MenuItemData;
 use crate::config::localization::t;
 use crate::keybindings::{Action, KeybindingResolver};
 
-pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
+pub fn get_items(
+    resolver: &KeybindingResolver,
+    settings: &crate::config::settings::Settings,
+) -> Vec<MenuItemData> {
     let shortcut_for = |action: Action, fallback: &str| -> String {
         resolver
             .key_for_action(action)
@@ -10,7 +13,7 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             .unwrap_or_else(|| fallback.to_string())
     };
 
-    vec![
+    let mut items = vec![
         MenuItemData::new(t("menu_help"), &shortcut_for(Action::Help, "F1"), false)
             .with_action(Action::Help),
         MenuItemData::new(t("menu_about"), &shortcut_for(Action::About, ""), false)
@@ -30,5 +33,35 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             false,
         )
         .with_action(Action::SaveSetup),
-    ]
+        MenuItemData::separator(),
+        MenuItemData::new(
+            t("menu_plugin_commands"),
+            &shortcut_for(Action::PluginMenu, ""),
+            false,
+        )
+        .with_action(Action::PluginMenu),
+    ];
+
+    // The "Install development plugin" entry is only meaningful when
+    // the user has opted into the developer mode (a setting that
+    // gates every Dev Tools surface in the popup). Keeping the
+    // visibility check here matches the previous behaviour from the
+    // Commands menu.
+    if settings.plugins_developer_mode {
+        items.push(
+            MenuItemData::new(
+                t("menu_install_dev_plugin"),
+                &shortcut_for(Action::InstallDevPlugin, "Shift+F11"),
+                false,
+            )
+            .with_action(Action::InstallDevPlugin),
+        );
+    }
+
+    items.push(
+        MenuItemData::new(t("menu_exit"), &shortcut_for(Action::Quit, "F10"), false)
+            .with_action(Action::Quit),
+    );
+
+    items
 }

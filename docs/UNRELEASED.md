@@ -41,12 +41,13 @@
 
 - Expanded default file association presets to support a wide range of popular formats (text, code, images, audio, video, documents, and web pages).
 - F6 dialog renamed from "Rename/Move" to "Move" only — Rename is its own modal now.
-- `Make Folder` and `Plugin commands` moved out of the F-key bar into the **Top Menu Bar → Files** submenu so the bar can focus on the most frequent operations.
-- The plugin system (`PluginMenu` action) is no longer reachable from `F11`. It is now accessible exclusively via **Top Menu Bar (`F9`) → Files → Plugin commands**. Power users can still rebind `F11` to `plugin_menu` in `keybindings.toml` if they prefer the old layout.
+- `Make Folder` and `Plugin commands` moved out of the F-key bar into the **Top Menu Bar → Options** submenu so the bar can focus on the most frequent operations.
+- The plugin system (`PluginMenu` action) is no longer reachable from `F11`. It is now accessible exclusively via **Top Menu Bar (`F9`) → Options → Plugin commands**. Power users can still rebind `F11` to `plugin_menu` in `keybindings.toml` if they prefer the old layout.
+- **Tres items consolidados en el menú "Options".** "Plugin commands" y "Exit" (que vivían al final del menú Files) junto con "Install development plugin" (que vivía al final del menú Commands y solo aparecía con `plugins_developer_mode = true`) ahora están todos en el menú Options, agrupados debajo de un separador propio. El submenú Options pasa a ser el destino natural de todo lo que es configuración / housekeeping de la app (Help, About, Configuration, Check updates, Save setup, Plugin commands, Install development plugin, Exit). Power users que prefieran la distribución anterior pueden reordenar moviendo los `MenuItemData` de vuelta a `files.rs` / `commands.rs`.
 
 ### Removed
 
-- Default keymap no longer binds `F7` to `MkDir` or `F11` to `PluginMenu`. `MkDir` lives in the User Menu (F2) and `PluginMenu` lives under the top menu bar (F9 → Files). Power users can still rebind the keys in `keybindings.toml`.
+- Default keymap no longer binds `F7` to `MkDir` or `F11` to `PluginMenu`. `MkDir` lives in the User Menu (F2) and `PluginMenu` lives under the top menu bar (F9 → Options). Power users can still rebind the keys in `keybindings.toml`.
 
 ### Fixed
 

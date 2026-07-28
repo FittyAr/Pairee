@@ -120,14 +120,5 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             false,
         )
         .with_action(Action::RestoreSelection),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_plugin_commands"),
-            &shortcut_for(Action::PluginMenu, ""),
-            false,
-        )
-        .with_action(Action::PluginMenu),
-        MenuItemData::new(t("menu_exit"), &shortcut_for(Action::Quit, "F10"), false)
-            .with_action(Action::Quit),
     ]
 }

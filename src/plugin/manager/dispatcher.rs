@@ -462,11 +462,7 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 // the modal. A no-op when no `PluginMenu` popup
                 // is active (e.g. the user dismissed it while
                 // the install was still resolving).
-                if let Some(PopupType::PluginMenu {
-                    installed,
-                    ..
-                }) = &mut state.active_popup
-                {
+                if let Some(PopupType::PluginMenu { installed, .. }) = &mut state.active_popup {
                     *installed = rows;
                     log::debug!("PluginMenu.installed refreshed: {} rows", installed.len());
                 }
