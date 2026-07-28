@@ -41,3 +41,10 @@ impl AppState {
         self.folders_history = store.visited_folders;
     }
 }
+
+// The history pushers above use the `mem::take` / restore pattern to
+// delegate to `HistoryStore`. The `HistoryStore` push methods are
+// already covered by the unit tests in `crate::config::history`. We
+// don't test the wrapper methods here because they would require
+// constructing a full `AppState` (100+ fields) for very little
+// additional coverage — the wrapper is essentially mechanical.

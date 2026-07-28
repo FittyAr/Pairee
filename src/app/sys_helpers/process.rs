@@ -1,5 +1,6 @@
 use crate::app::state::ProcessEntry;
 use std::path::PathBuf;
+use std::time::Duration;
 
 /// Suspends raw mode in-place and kills the specified process by PID.
 ///
@@ -309,6 +310,180 @@ pub fn refresh_env_vars() {
                     }
                 }
             }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Spawn a long-running child that we can later try to kill.
+    /// The platform-specific commands are picked to be guaranteed to
+    /// exist on the respective OS.
+    fn spawn_sleepy_child() -> std::process::Child {
+        #[cfg(unix)]
+        let mut cmd = {
+            let mut c = std::process::Command::new("sleep");
+            c.arg("60");
+            c
+        };
+        #[cfg(windows)]
+        let mut cmd = {
+            // `timeout` waits for the given number of seconds before
+            // exiting. We use it instead of `ping localhost -n 60`
+            // because it has no side effects.
+            let mut c = std::process::Command::new("timeout");
+            c.arg("/t").arg("60").arg("/nobreak");
+            c
+        };
+        cmd.stdin(std::process::Stdio::null());
+        cmd.stdout(std::process::Stdio::null());
+        cmd.stderr(std::process::Stdio::null());
+        cmd.spawn().expect("failed to spawn test child")
+    }
+
+    #[test]
+    fn kill_process_terminates_a_running_child() {
+        let mut child = spawn_sleepy_child();
+        let pid = child.id();
+        assert!(pid > 0, "child must have a valid pid");
+
+        // The child should be running before we kill it. If it has
+        // already exited (e.g. on a very fast box, `timeout /t 60`
+        // might somehow not block), the test is meaningless — skip.
+        if let Ok(Some(_)) = child.try_wait() {
+            // The child died on its own before we could test. Skip
+            // the rest of the test on this iteration.
+            eprintln!("child exited before kill_process; skipping");
+            return;
+        }
+
+        // The kill may legitimately fail if the child has already
+        // exited between `try_wait` and `kill_process` — on a
+        // heavily loaded CI box the process can be rescheduled away
+        // for longer than expected. We accept either outcome as
+        // long as the process is gone afterwards.
+        let _ = kill_process(pid);
+
+        // After kill, the child must have terminated. `wait` will
+        // return immediately with the exit status.
+        let status = child
+            .wait_timeout(Duration::from_secs(5))
+            .expect("wait_timeout");
+        assert!(status.is_some(), "child must have exited within 5s");
+    }
+
+    #[test]
+    fn kill_process_handles_already_dead_pid() {
+        // PID 1 is unlikely to be killable by an unprivileged test
+        // process — but a definitely-dead high PID will return ESRCH
+        // which the helper treats as success. Use a PID well above
+        // any reasonable value: 4_000_000 on Unix, 99_999_999 on
+        // Windows (DWORD max). These are guaranteed not to be in use.
+        let dead_pid: u32 = {
+            #[cfg(unix)]
+            {
+                4_000_000
+            }
+            #[cfg(target_os = "windows")]
+            {
+                99_999_999
+            }
+        };
+        // We don't strictly assert success here because the kill
+        // helper may legitimately error on a PID owned by another
+        // user. The contract is "doesn't panic and returns a
+        // Result", so we just exercise the code path.
+        let _ = kill_process(dead_pid);
+    }
+
+    #[test]
+    fn get_process_list_returns_non_empty_on_supported_platforms() {
+        // The current process must always show up in the list on
+        // platforms that implement get_process_list (Linux, Windows).
+        // On macOS and other Unix variants the helper returns an
+        // empty list, so we don't assert anything there.
+        let procs = get_process_list();
+        #[cfg(any(target_os = "linux", target_os = "windows"))]
+        {
+            assert!(
+                !procs.is_empty(),
+                "process list must include at least one entry"
+            );
+            // Each entry must have a non-empty name (even if it's
+            // a synthetic `[<pid>]` placeholder for kernel threads).
+            for p in &procs {
+                assert!(
+                    !p.name.is_empty(),
+                    "process name must not be empty: {:?}",
+                    p
+                );
+            }
+        }
+        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+        {
+            // On unsupported Unix variants the helper is allowed to
+            // return an empty list.
+            let _ = procs;
+        }
+    }
+
+    #[test]
+    fn pid_is_alive_distinguishes_live_and_dead_pids() {
+        // Spawn a child and check that pid_is_alive agrees with
+        // reality: true while running, false after kill.
+        #[cfg(unix)]
+        {
+            let child = spawn_sleepy_child();
+            let pid = child.id();
+            assert!(pid_is_alive(pid), "freshly spawned child must be alive");
+            // Kill it and reap.
+            let _ = kill_process(pid);
+            let _ = child.wait_timeout(Duration::from_secs(5));
+            // After the wait, the pid must be gone (or the child
+            // reaped to a state where we can't signal it).
+            // We don't strictly assert `!pid_is_alive` because the
+            // process might be a zombie until the parent reaps it
+            // — but kill_process + wait should have reaped it.
+            // If the child is still alive here, something is wrong.
+            assert!(!pid_is_alive(pid), "child must be dead after kill+wait");
+        }
+        // pid_is_alive is Unix-only (uses `kill -0`).
+        #[cfg(not(unix))]
+        {
+            // Just call the function to ensure the test compiles.
+            // We don't run the spawn path on Windows because
+            // `taskkill /F` is a force-kill and the test would be
+            // noisy.
+        }
+    }
+}
+
+/// Extension trait on `std::process::Child` to add a `wait_timeout`
+/// helper without taking a new dependency on the `wait-timeout` crate.
+/// The implementation polls with a short sleep.
+trait ChildWaitTimeout {
+    fn wait_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> std::io::Result<Option<std::process::ExitStatus>>;
+}
+
+impl ChildWaitTimeout for std::process::Child {
+    fn wait_timeout(
+        &mut self,
+        timeout: Duration,
+    ) -> std::io::Result<Option<std::process::ExitStatus>> {
+        let start = std::time::Instant::now();
+        loop {
+            if let Some(status) = self.try_wait()? {
+                return Ok(Some(status));
+            }
+            if start.elapsed() >= timeout {
+                return Ok(None);
+            }
+            std::thread::sleep(Duration::from_millis(20));
         }
     }
 }

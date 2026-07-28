@@ -671,3 +671,260 @@ pub fn normalize_key_string(key: &str) -> String {
         format!("{}+{}", canonical_parts.join("+"), code_str)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── parse_action_name / action_to_name roundtrip ───────────────────────
+
+    #[test]
+    fn action_name_roundtrip_covers_common_actions() {
+        // For every action the user can bind in a preset, going
+        // `name → Action → name` must be the identity (modulo the
+        // `GoFolderShortcut(n)` case which is parameterised).
+        //
+        // Note: a few action names like `view_alt` share a suffix
+        // (`_alt`) with a stripped cosmetic suffix, so the parser
+        // normalises them to the base action. We exclude those from
+        // the strict roundtrip list and test them separately below.
+        let names = [
+            "move_up",
+            "move_down",
+            "page_up",
+            "page_down",
+            "go_to_top",
+            "go_to_bottom",
+            "change_panel",
+            "select_item",
+            "execute",
+            "go_parent",
+            "panel_view_brief",
+            "panel_view_medium",
+            "panel_view_full",
+            "panel_view_wide",
+            "panel_view_detailed",
+            "panel_view_descriptions",
+            "panel_view_file_owners",
+            "panel_view_file_links",
+            "panel_view_alt_full",
+            "help",
+            "about",
+            "user_menu",
+            "view",
+            "edit",
+            "copy",
+            "move",
+            "rename",
+            "mkdir",
+            "delete",
+            "menu",
+            "quit",
+            "plugin_menu",
+            "install_dev_plugin",
+            "screens_list",
+            "next_screen",
+            "prev_screen",
+            "print_file",
+            "create_link",
+            "wipe_file",
+            "file_attributes",
+            "apply_command",
+            "describe_file",
+            "compress_files",
+            "extract_archive",
+            "archive_commands",
+            "select_group",
+            "unselect_group",
+            "invert_selection",
+            "restore_selection",
+            "find_file",
+            "command_history",
+            "file_view_history",
+            "folders_history",
+            "compare_folder",
+            "edit_user_menu",
+            "file_associations",
+            "folder_shortcuts_config",
+            "file_panel_filter",
+            "quick_filter",
+            "task_list",
+            "save_setup",
+            "system_settings",
+            "toggle_hidden",
+            "focus_cli",
+            "unfocus",
+            "refresh",
+            "reread_panel",
+            "swap_panels",
+            "drive_select_left",
+            "drive_select_right",
+            "context_menu",
+            "video_mode",
+            "tree_view",
+            "cycle_fkeys_modifiers",
+            "ssh_connect",
+            "ssh_disconnect",
+            "open_git_panel",
+            "toggle_sort_reverse",
+            "check_for_updates",
+            "toggle_transfer_panel",
+            "plugin_command",
+        ];
+        for name in names {
+            let action = parse_action_name(name).unwrap_or_else(|| panic!("parse {name}"));
+            let back = action_to_name(action);
+            assert_eq!(back, name, "roundtrip mismatch for {name}");
+        }
+    }
+
+    #[test]
+    fn view_alt_is_normalised_to_view_due_to_alt_suffix_strip() {
+        // Documents the (intentional) behaviour: `parse_action_name`
+        // strips cosmetic suffixes including `_alt`, so `view_alt`
+        // resolves to `View` rather than `ViewAlt`. This is a
+        // pre-existing quirk in the parser — the test pins it so a
+        // future fix is a deliberate change.
+        assert_eq!(parse_action_name("view_alt"), Some(Action::View));
+    }
+
+    #[test]
+    fn action_name_go_folder_shortcut_roundtrip() {
+        for n in 1u8..=9 {
+            let action = Action::GoFolderShortcut(n);
+            let name = action_to_name(action);
+            assert_eq!(name, format!("go_folder_shortcut_{n}"));
+            let back = parse_action_name(&name).unwrap();
+            assert_eq!(back, action);
+        }
+    }
+
+    #[test]
+    fn parse_action_name_rejects_out_of_range_shortcut() {
+        // Only 1..=9 are valid; 0 and 10+ must return None.
+        assert!(parse_action_name("go_folder_shortcut_0").is_none());
+        assert!(parse_action_name("go_folder_shortcut_10").is_none());
+        assert!(parse_action_name("go_folder_shortcut_99").is_none());
+    }
+
+    #[test]
+    fn parse_action_name_rejects_unknown_name() {
+        assert!(parse_action_name("not_a_real_action").is_none());
+        assert!(parse_action_name("").is_none());
+    }
+
+    #[test]
+    fn parse_action_name_is_case_insensitive() {
+        // The parser lowercases the input, so "MOVE_UP" and "Move_Up"
+        // both resolve to MoveUp. This is the documented contract;
+        // we pin it so a future change shows up as a deliberate
+        // test edit.
+        assert_eq!(parse_action_name("MOVE_UP"), Some(Action::MoveUp));
+        assert_eq!(parse_action_name("Move_Up"), Some(Action::MoveUp));
+        assert_eq!(parse_action_name("move_up"), Some(Action::MoveUp));
+    }
+
+    // ── normalize_key_string ───────────────────────────────────────────────
+
+    #[test]
+    fn normalize_lowercases_modifiers_and_keeps_key_case() {
+        // Without shift, single-letter keys must be lowercased.
+        assert_eq!(normalize_key_string("ctrl+w"), "Ctrl+w");
+        assert_eq!(normalize_key_string("CTRL+W"), "Ctrl+w");
+    }
+
+    #[test]
+    fn normalize_uppercases_letter_after_shift() {
+        // shift+w means "uppercase W" — must be stored as "W".
+        assert_eq!(normalize_key_string("shift+w"), "W");
+        assert_eq!(normalize_key_string("Shift+w"), "W");
+    }
+
+    #[test]
+    fn normalize_combines_modifiers_in_canonical_order() {
+        // Canonical order is Ctrl, Alt, then key. The single-letter
+        // alphabetic case at the end lowercases the key (or
+        // uppercases it if shift is set).
+        assert_eq!(normalize_key_string("ctrl+alt+delete"), "Ctrl+Alt+Delete");
+        assert_eq!(
+            normalize_key_string("ctrl+shift+insert"),
+            "Ctrl+Shift+Insert"
+        );
+    }
+
+    #[test]
+    fn normalize_handles_f_keys_and_special_names() {
+        assert_eq!(normalize_key_string("F5"), "F5");
+        assert_eq!(normalize_key_string("f12"), "F12");
+        assert_eq!(normalize_key_string("ctrl+f5"), "Ctrl+F5");
+        assert_eq!(normalize_key_string("Esc"), "Esc");
+        assert_eq!(normalize_key_string("escape"), "Esc");
+        assert_eq!(normalize_key_string("pageup"), "PageUp");
+        assert_eq!(normalize_key_string("pgup"), "PageUp");
+        assert_eq!(normalize_key_string("pagedown"), "PageDown");
+        assert_eq!(normalize_key_string("pgdn"), "PageDown");
+    }
+
+    #[test]
+    fn normalize_ctrl_shift_letter_preserves_shift() {
+        // The current implementation correctly preserves the shift
+        // modifier for single alphabetic keys: `Ctrl+Shift+a`
+        // becomes `Ctrl+Shift+A` (not `Ctrl+a`).
+        assert_eq!(normalize_key_string("ctrl+shift+a"), "Ctrl+Shift+A");
+    }
+
+    #[test]
+    fn normalize_shift_letter_alone_collapses_to_uppercase() {
+        // Pure "Shift+letter" canonicalises to just the uppercase
+        // letter (the "Shift" prefix is redundant).
+        assert_eq!(normalize_key_string("shift+a"), "A");
+        assert_eq!(normalize_key_string("shift+z"), "Z");
+    }
+
+    #[test]
+    fn normalize_empty_input_returns_empty() {
+        assert_eq!(normalize_key_string(""), "");
+    }
+
+    // ── Built-in preset sanity ──────────────────────────────────────────────
+
+    #[test]
+    fn builtin_preset_contains_canonical_essentials() {
+        for preset in ["norton", "vim", "modern"] {
+            let map = get_builtin_preset_bindings(preset);
+            // Every preset must bind these navigation keys —
+            // otherwise the app would be unusable.
+            assert!(map.contains_key("F10"), "{preset} must bind F10 (Quit)");
+            assert!(map.contains_key("F1"), "{preset} must bind F1 (Help)");
+            assert!(map.contains_key("F3"), "{preset} must bind F3 (View)");
+        }
+    }
+
+    #[test]
+    fn builtin_preset_toml_is_valid_toml() {
+        // The output of `get_builtin_preset_toml` is what we write
+        // to `<keymaps>/<preset>.toml` on first run. If the
+        // serialiser drifts (e.g. drops a binding) the user gets a
+        // broken config file. Roundtrip through TOML to catch it.
+        for preset in ["norton", "vim", "modern", "totally-unknown-preset"] {
+            let toml_str = get_builtin_preset_toml(preset);
+            // The TOML must be parseable back into the struct.
+            let parsed: PresetFile = toml::from_str(&toml_str)
+                .unwrap_or_else(|e| panic!("{preset} TOML invalid: {e}\n{toml_str}"));
+            assert!(
+                !parsed.bindings.is_empty(),
+                "{preset} should have at least one binding"
+            );
+        }
+    }
+
+    #[test]
+    fn unknown_preset_falls_back_to_norton_bindings() {
+        // The helper must return a usable map for an unknown name
+        // rather than an empty one — otherwise the app would have
+        // no keybindings.
+        let unknown = get_builtin_preset_bindings("does-not-exist");
+        let norton = get_builtin_preset_bindings("norton");
+        assert_eq!(unknown, norton);
+    }
+}

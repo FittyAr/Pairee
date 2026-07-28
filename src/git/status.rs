@@ -89,3 +89,76 @@ pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
         })
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git::commit::commit;
+    use crate::git::repo::init_repo;
+    use crate::git::stage::stage_file;
+    use std::fs::File;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, git2::Repository) {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        let mut c = repo.config().unwrap();
+        c.set_str("user.name", "T").unwrap();
+        c.set_str("user.email", "t@t").unwrap();
+        (dir, repo)
+    }
+
+    #[test]
+    fn status_kind_label_is_single_char() {
+        // Each variant must map to a single character for the
+        // panel display. Pin the exact chars so a rename shows up
+        // as a deliberate test change.
+        assert_eq!(StatusKind::Modified.label(), "M");
+        assert_eq!(StatusKind::Added.label(), "A");
+        assert_eq!(StatusKind::Deleted.label(), "D");
+        assert_eq!(StatusKind::Untracked.label(), "?");
+        assert_eq!(StatusKind::Renamed.label(), "R");
+        assert_eq!(StatusKind::Conflicted.label(), "!");
+    }
+
+    #[test]
+    fn status_kind_equality_works() {
+        assert_eq!(StatusKind::Modified, StatusKind::Modified);
+        assert_ne!(StatusKind::Modified, StatusKind::Added);
+    }
+
+    #[test]
+    fn get_status_on_clean_repo_is_empty() {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        assert!(get_status(&repo).is_empty());
+    }
+
+    #[test]
+    fn get_status_picks_up_untracked_files() {
+        let (dir, repo) = setup();
+        // Add an untracked file (no stage, no commit).
+        File::create(dir.path().join("new.txt")).unwrap();
+        let statuses = get_status(&repo);
+        assert_eq!(statuses.len(), 1);
+        assert_eq!(statuses[0].kind, StatusKind::Untracked);
+        assert_eq!(statuses[0].path, "new.txt");
+    }
+
+    #[test]
+    fn get_status_picks_up_modified_after_commit() {
+        let (dir, repo) = setup();
+        // Initial commit of a.txt.
+        File::create(dir.path().join("a.txt")).unwrap();
+        stage_file(&repo, "a.txt").unwrap();
+        commit(&repo, "init", "T", "t@t").unwrap();
+        // Modify a.txt in the working tree (not staged).
+        std::fs::write(dir.path().join("a.txt"), "changed").unwrap();
+        let statuses = get_status(&repo);
+        let modified: Vec<_> = statuses.iter().filter(|s| s.path == "a.txt").collect();
+        assert_eq!(modified.len(), 1);
+        // Working-tree modifications are reported as `Modified` by
+        // the current mapping.
+        assert_eq!(modified[0].kind, StatusKind::Modified);
+    }
+}

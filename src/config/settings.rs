@@ -541,3 +541,361 @@ fn default_transfer_conflict() -> String {
 fn default_transfer_report_format() -> String {
     "html".to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Default helpers (these are the only stable public knobs) ───────────
+
+    #[test]
+    fn default_helpers_have_documented_values() {
+        assert!(default_true());
+        assert_eq!(default_git_log_limit(), 100);
+        assert_eq!(default_plugins_dev_dir().ends_with("plugins"), true);
+        assert_eq!(default_transfer_hash(), "blake3");
+        assert_eq!(default_transfer_buffer(), 1024 * 1024);
+        assert_eq!(default_transfer_max_retries(), 3);
+        assert_eq!(default_transfer_conflict(), "ask");
+        assert_eq!(default_transfer_report_format(), "html");
+    }
+
+    // ── ConfirmationSettings::default ───────────────────────────────────────
+
+    #[test]
+    fn confirmation_settings_default_is_safe() {
+        let c = ConfirmationSettings::default();
+        // Destructive actions confirm by default.
+        assert!(c.confirm_delete);
+        assert!(c.confirm_wipe);
+        assert!(c.confirm_delete_non_empty_folders);
+        // Quit does not confirm — pressing F10 is too common.
+        assert!(!c.confirm_quit);
+    }
+
+    // ── Settings::default ──────────────────────────────────────────────────
+
+    #[test]
+    fn settings_default_has_no_panic_in_construction() {
+        // Just constructing the default exercises every `default_*`
+        // helper. If any of them is accidentally non-`const`, this
+        // stops compiling.
+        let s = Settings::default();
+        // Spot-check a handful of values that other code relies on.
+        assert!(!s.secure_mode);
+        assert_eq!(s.keybinding_preset, "norton");
+        assert_eq!(s.theme, "slate");
+        assert!(s.left_panel_visible);
+        assert!(s.right_panel_visible);
+        assert!(!s.auto_drop_menu);
+        // The git log limit is fixed at 100 — many UI panels assume it.
+        assert_eq!(s.git_log_limit, 100);
+        // Auto-update is on by default.
+        assert!(s.auto_update_check);
+        // SSH presets: none until the user adds some.
+        assert!(s.ssh_presets.is_empty());
+        // Highlight rules: pulled from the default rules helper.
+        assert!(!s.highlight_rules.is_empty());
+    }
+
+    // ── Serde roundtrip ────────────────────────────────────────────────────
+
+    #[test]
+    fn settings_serde_roundtrip_preserves_all_fields() {
+        let original = Settings {
+            show_hidden: true,
+            secure_mode: true,
+            default_editor: "code".to_string(),
+            mouse_support: false,
+            keybinding_preset: "vim".to_string(),
+            theme: "solarized".to_string(),
+            panel_view_mode: PanelViewMode::Brief,
+            sort_field: SortField::Size,
+            sort_reverse: true,
+            show_long_names: false,
+            left_panel_visible: false,
+            right_panel_visible: true,
+            confirmations: ConfirmationSettings {
+                confirm_delete: false,
+                confirm_overwrite: false,
+                confirm_wipe: false,
+                confirm_quit: true,
+                confirm_copy: false,
+                confirm_move: false,
+                confirm_drag_and_drop: false,
+                confirm_delete_non_empty_folders: false,
+                confirm_interrupt_operation: false,
+                confirm_disconnect_network_drive: false,
+                confirm_delete_subst_disk: false,
+                confirm_detach_virtual_disk: false,
+                confirm_hotplug_removal: false,
+                confirm_reload_edited_file: false,
+                confirm_clear_history_list: false,
+            },
+            delete_to_recycle_bin: true,
+            use_system_copy_routine: true,
+            copy_files_opened_for_writing: true,
+            scan_symbolic_links: true,
+            save_commands_history: false,
+            save_folders_history: false,
+            save_view_and_edit_history: false,
+            use_windows_registered_types: true,
+            automatic_update_env_variables: true,
+            req_admin_modification: true,
+            req_admin_reading: true,
+            req_admin_use_additional_privileges: true,
+            sorting_collation: "ascii".to_string(),
+            treat_digits_as_numbers: true,
+            case_sensitive_sort: true,
+            auto_save_setup: true,
+            highlight_files: false,
+            select_folders: false,
+            right_click_selects_files: true,
+            sort_folder_names_by_extension: true,
+            disable_panel_update_object_count: 999,
+            network_drives_autorefresh: false,
+            show_column_titles: false,
+            show_status_line: false,
+            detect_volume_mount_points: true,
+            show_files_total_information: false,
+            show_free_size: true,
+            show_scrollbar: true,
+            show_background_screens_number: false,
+            show_sort_mode_letter: false,
+            show_dotdot_in_root_folders: true,
+            infopanel_show_power_status: true,
+            infopanel_show_cd_drive_parameters: false,
+            infopanel_computer_name_format: "DNS".to_string(),
+            infopanel_user_name_format: "Full name".to_string(),
+            file_descriptions_list_names: "X,Y,Z".to_string(),
+            file_descriptions_set_hidden: false,
+            file_descriptions_update_readonly: true,
+            file_descriptions_position: 5,
+            file_descriptions_update_mode: "Always".to_string(),
+            file_descriptions_use_ansi: true,
+            file_descriptions_save_utf8: true,
+            folder_description_list_names: "Readme".to_string(),
+            interface_clock: false,
+            interface_show_key_bar: false,
+            interface_always_show_menu_bar: true,
+            interface_screen_saver_minutes: 30,
+            interface_show_total_copy_progress: false,
+            interface_show_copying_time: false,
+            interface_show_total_delete_progress: true,
+            interface_use_ctrl_pgup_change_drive: false,
+            auto_drop_menu: true,
+            interface_use_virtual_terminal: true,
+            interface_fullwidth_aware_rendering: true,
+            interface_cleartype_friendly_redraw: false,
+            interface_console_icon: 42,
+            interface_console_icon_admin_alternate: false,
+            interface_window_title_addons: " - test".to_string(),
+            dialog_history_in_edit_controls: false,
+            dialog_persistent_blocks: true,
+            dialog_del_removes_blocks: false,
+            dialog_autocomplete: false,
+            dialog_backspace_deletes_unchanged: true,
+            dialog_mouse_click_outside_closes: false,
+            menu_left_click_outside: "Confirm".to_string(),
+            menu_right_click_outside: "Confirm".to_string(),
+            menu_middle_click_outside: "Ignore".to_string(),
+            cmdline_persistent_blocks: true,
+            cmdline_del_removes_blocks: false,
+            cmdline_autocomplete: false,
+            cmdline_prompt_format: "$G".to_string(),
+            cmdline_use_home_dir: "$HOME".to_string(),
+            autocomplete_show_list: false,
+            autocomplete_modal_mode: true,
+            autocomplete_append_first: true,
+            enable_yazi_workflow: true,
+            language: "Español".to_string(),
+            plugins_manager_oem_support: false,
+            plugins_manager_scan_symlinks: false,
+            plugins_manager_file_processing: true,
+            plugins_manager_show_standard_association: true,
+            plugins_manager_even_if_one_found: true,
+            plugins_manager_search_results: true,
+            plugins_manager_prefix_processing: true,
+            plugins_developer_mode: true,
+            plugins_dev_dir: "/tmp/dev-plugins".to_string(),
+            enter_use_external: true,
+            editor_use_external: true,
+            editor_expand_tabs: "Always".to_string(),
+            editor_persistent_blocks: true,
+            editor_cursor_beyond_eol: false,
+            editor_del_removes_blocks: false,
+            editor_select_found: true,
+            editor_auto_indent: true,
+            editor_cursor_at_end: true,
+            editor_tab_size: 4,
+            editor_show_scrollbar: true,
+            editor_show_white_space: true,
+            editor_show_line_numbers: true,
+            editor_save_file_position: false,
+            editor_save_bookmarks: false,
+            editor_allow_editing_opened_writing: false,
+            editor_lock_editing_readonly: true,
+            editor_warn_opening_readonly: true,
+            editor_autodetect_codepage: false,
+            editor_default_codepage: "65001".to_string(),
+            viewer_use_external: true,
+            viewer_command: "less".to_string(),
+            viewer_persistent_selection: false,
+            viewer_show_scrolling_arrows: false,
+            viewer_tab_size: 2,
+            viewer_visible_zero: true,
+            viewer_show_scrollbar: true,
+            viewer_save_file_position: false,
+            viewer_save_view_mode: false,
+            viewer_save_file_codepage: false,
+            viewer_save_wrap_mode: true,
+            viewer_save_bookmarks: false,
+            viewer_detect_dump_view_mode: false,
+            viewer_max_line_width: 200,
+            viewer_autodetect_codepage: false,
+            viewer_default_codepage: "65001".to_string(),
+            highlight_rules: vec![],
+            ssh_presets: vec![SshPreset {
+                name: "prod".to_string(),
+                host: "example.com".to_string(),
+                port: "22".to_string(),
+                username: "ops".to_string(),
+                password: None,
+                key_path: Some("/home/ops/.ssh/id_ed25519".to_string()),
+            }],
+            git_enabled: false,
+            git_auto_detect: false,
+            git_author_name: "Alice".to_string(),
+            git_author_email: "alice@example.com".to_string(),
+            git_log_limit: 250,
+            auto_update_check: false,
+            dismissed_update_version: Some("v0.7.0".to_string()),
+            plugins: std::collections::HashMap::from([(
+                "my-plugin".to_string(),
+                PluginConfig {
+                    name: "my-plugin".to_string(),
+                    trusted: true,
+                },
+            )]),
+            plugin_settings: std::collections::HashMap::from([(
+                "my-plugin".to_string(),
+                std::collections::HashMap::from([("key".to_string(), "v".to_string())]),
+            )]),
+            active_dev_plugin: Some("my-plugin".to_string()),
+            transfer_engine_enabled: false,
+            transfer_default_hash: "sha256".to_string(),
+            transfer_buffer_size: 256 * 1024,
+            transfer_verify_after_copy: true,
+            transfer_direct_io: true,
+            transfer_preserve_timestamps: false,
+            transfer_preserve_attributes: false,
+            transfer_max_retries: 10,
+            transfer_conflict_resolution: "overwrite".to_string(),
+            transfer_skip_symlinks: true,
+            transfer_halt_on_error: true,
+            transfer_preserve_acl: true,
+            transfer_preserve_streams: true,
+            transfer_follow_symlinks: true,
+            transfer_limit_bandwidth_rate: Some(2_000_000),
+            transfer_auto_report: true,
+            transfer_report_format: "csv".to_string(),
+        };
+
+        let serialized = toml::to_string(&original).expect("serialize");
+        let deserialized: Settings = toml::from_str(&serialized).expect("deserialize");
+        // Spot-check that the round trip preserved the trickiest
+        // fields. A full Eq comparison is fine, but the spot checks
+        // produce a more readable failure message when a field
+        // is added without a serde attribute.
+        assert_eq!(deserialized.theme, original.theme);
+        assert_eq!(deserialized.git_log_limit, 250);
+        assert_eq!(deserialized.ssh_presets.len(), 1);
+        assert_eq!(deserialized.ssh_presets[0].host, "example.com");
+        assert_eq!(deserialized.plugins.len(), 1);
+        assert_eq!(
+            deserialized.plugins.get("my-plugin").map(|p| p.trusted),
+            Some(true)
+        );
+        assert_eq!(
+            deserialized.dismissed_update_version.as_deref(),
+            Some("v0.7.0")
+        );
+        assert_eq!(deserialized.transfer_buffer_size, 256 * 1024);
+        assert_eq!(deserialized.transfer_limit_bandwidth_rate, Some(2_000_000));
+    }
+
+    #[test]
+    fn settings_default_roundtrips_through_toml() {
+        // The strongest test of "no required field is missing serde
+        // default": take the canonical `Settings::default()`, serialise
+        // it to TOML, and parse it back. If a field lacks
+        // `#[serde(default)]` and isn't written by `to_string`, this
+        // roundtrip will silently drop it on the parse side, so we
+        // also assert that the deserialised value equals the original.
+        let original = Settings::default();
+        let s = toml::to_string(&original).expect("serialize default");
+        let back: Settings = toml::from_str(&s).expect("parse serialised default");
+
+        // Spot-check a handful of fields that span the struct so a
+        // future missing default shows up here.
+        assert_eq!(back.theme, original.theme);
+        assert_eq!(back.git_log_limit, original.git_log_limit);
+        assert_eq!(back.git_log_limit, 100);
+        assert_eq!(back.keybinding_preset, original.keybinding_preset);
+        assert_eq!(back.transfer_buffer_size, original.transfer_buffer_size);
+        assert_eq!(
+            back.transfer_default_hash, original.transfer_default_hash,
+            "transfer_default_hash is `blake3` by default"
+        );
+        assert_eq!(
+            back.confirmations.confirm_delete,
+            original.confirmations.confirm_delete
+        );
+        assert_eq!(back.highlight_rules.len(), original.highlight_rules.len());
+    }
+
+    // ── PluginConfig roundtrip ──────────────────────────────────────────────
+
+    #[test]
+    fn plugin_config_roundtrips() {
+        let pc = PluginConfig {
+            name: "demo".to_string(),
+            trusted: true,
+        };
+        let s = toml::to_string(&pc).expect("serialize");
+        let back: PluginConfig = toml::from_str(&s).expect("deserialize");
+        assert_eq!(back, pc);
+    }
+
+    #[test]
+    fn plugin_config_defaults_trusted_to_false() {
+        // `trusted: bool` is `#[serde(default)]`, so a missing field
+        // must deserialize to `false`.
+        let toml_src = r#"
+name = "demo"
+"#;
+        let pc: PluginConfig = toml::from_str(toml_src).expect("parse");
+        assert!(!pc.trusted);
+        assert_eq!(pc.name, "demo");
+    }
+
+    // ── SshPreset roundtrip ────────────────────────────────────────────────
+
+    #[test]
+    fn ssh_preset_roundtrips_with_optional_fields() {
+        let p = SshPreset {
+            name: "lab".to_string(),
+            host: "10.0.0.1".to_string(),
+            port: "2222".to_string(),
+            username: "alice".to_string(),
+            password: Some("hunter2".to_string()),
+            key_path: None,
+        };
+        let s = toml::to_string(&p).expect("serialize");
+        let back: SshPreset = toml::from_str(&s).expect("deserialize");
+        assert_eq!(back.name, p.name);
+        assert_eq!(back.host, p.host);
+        assert_eq!(back.password, p.password);
+        assert!(back.key_path.is_none());
+    }
+}

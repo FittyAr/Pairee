@@ -58,3 +58,75 @@ pub fn get_log(repo: &git2::Repository, limit: usize) -> Vec<CommitInfo> {
         .take(limit)
         .collect()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git::commit::commit;
+    use crate::git::repo::init_repo;
+    use crate::git::stage::stage_file;
+    use std::fs::File;
+    use tempfile::TempDir;
+
+    fn setup_with_commits(n: usize) -> (TempDir, git2::Repository) {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        let mut c = repo.config().unwrap();
+        c.set_str("user.name", "T").unwrap();
+        c.set_str("user.email", "t@t").unwrap();
+        for i in 0..n {
+            let f = dir.path().join(format!("f{i}.txt"));
+            File::create(&f).unwrap();
+            stage_file(&repo, &format!("f{i}.txt")).unwrap();
+            commit(&repo, &format!("commit {i}"), "T", "t@t").unwrap();
+        }
+        (dir, repo)
+    }
+
+    #[test]
+    fn get_log_returns_empty_for_fresh_repo() {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        assert!(get_log(&repo, 10).is_empty());
+    }
+
+    #[test]
+    fn get_log_returns_all_commits_up_to_limit() {
+        let (_dir, repo) = setup_with_commits(3);
+        let log = get_log(&repo, 10);
+        assert_eq!(log.len(), 3);
+        // Newest first.
+        assert_eq!(log[0].message, "commit 2");
+        assert_eq!(log[1].message, "commit 1");
+        assert_eq!(log[2].message, "commit 0");
+    }
+
+    #[test]
+    fn get_log_respects_limit() {
+        let (_dir, repo) = setup_with_commits(5);
+        let log = get_log(&repo, 2);
+        assert_eq!(log.len(), 2);
+    }
+
+    #[test]
+    fn get_log_short_hash_is_seven_chars() {
+        let (_dir, repo) = setup_with_commits(1);
+        let log = get_log(&repo, 1);
+        assert_eq!(log[0].hash_short.len(), 7);
+        assert_eq!(log[0].hash_full.len(), 40);
+        // The short hash is a prefix of the full hash.
+        assert!(log[0].hash_full.starts_with(&log[0].hash_short));
+    }
+
+    #[test]
+    fn commit_info_carries_author_and_date() {
+        let (_dir, repo) = setup_with_commits(1);
+        let log = get_log(&repo, 1);
+        // Author comes from the git config we set in setup.
+        assert_eq!(log[0].author, "T");
+        // Date is `YYYY-MM-DD` (10 chars, hyphens at 4 and 7).
+        assert_eq!(log[0].date.len(), 10);
+        assert_eq!(log[0].date.as_bytes()[4], b'-');
+        assert_eq!(log[0].date.as_bytes()[7], b'-');
+    }
+}

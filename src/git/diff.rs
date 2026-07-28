@@ -62,3 +62,59 @@ fn diff_to_string(diff: &git2::Diff) -> anyhow::Result<String> {
     })?;
     Ok(out)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git::commit::commit;
+    use crate::git::repo::init_repo;
+    use crate::git::stage::stage_file;
+    use std::fs::File;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, git2::Repository) {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        let mut c = repo.config().unwrap();
+        c.set_str("user.name", "T").unwrap();
+        c.set_str("user.email", "t@t").unwrap();
+        let f = dir.path().join("a.txt");
+        File::create(&f).unwrap();
+        stage_file(&repo, "a.txt").unwrap();
+        commit(&repo, "init", "T", "t@t").unwrap();
+        (dir, repo)
+    }
+
+    #[test]
+    fn get_file_diff_staged_returns_no_changes_for_clean_tree() {
+        let (_dir, repo) = setup();
+        // No modifications after the initial commit → empty diff.
+        let diff = get_file_diff(&repo, "a.txt", true).unwrap();
+        assert!(diff.trim().is_empty(), "expected empty diff, got: {diff}");
+    }
+
+    #[test]
+    fn get_file_diff_unstaged_returns_no_changes_for_clean_tree() {
+        let (_dir, repo) = setup();
+        let diff = get_file_diff(&repo, "a.txt", false).unwrap();
+        assert!(diff.trim().is_empty(), "expected empty diff, got: {diff}");
+    }
+
+    #[test]
+    fn get_file_diff_unstaged_picks_up_modifications() {
+        let (dir, repo) = setup();
+        let f = dir.path().join("a.txt");
+        std::fs::write(&f, "new content").unwrap();
+        let diff = get_file_diff(&repo, "a.txt", false).unwrap();
+        // The new content must show up in the diff with a leading '+'.
+        assert!(diff.contains("+new content"), "diff was: {diff}");
+    }
+
+    #[test]
+    fn get_file_diff_for_nonexistent_file_does_not_panic() {
+        let (_dir, repo) = setup();
+        // Filtering by a path that doesn't exist yields an empty diff.
+        let diff = get_file_diff(&repo, "missing.txt", false).unwrap();
+        assert!(diff.trim().is_empty());
+    }
+}

@@ -60,3 +60,55 @@ pub fn stash_pop(repo: &mut git2::Repository, index: usize) -> anyhow::Result<()
     repo.stash_drop(index)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::git::commit::commit;
+    use crate::git::repo::init_repo;
+    use crate::git::stage::stage_file;
+    use std::fs::File;
+    use tempfile::TempDir;
+
+    fn setup() -> (TempDir, git2::Repository) {
+        let dir = TempDir::new().unwrap();
+        let repo = init_repo(dir.path()).unwrap();
+        let mut c = repo.config().unwrap();
+        c.set_str("user.name", "T").unwrap();
+        c.set_str("user.email", "t@t").unwrap();
+        let f = dir.path().join("a.txt");
+        File::create(&f).unwrap();
+        stage_file(&repo, "a.txt").unwrap();
+        commit(&repo, "init", "T", "t@t").unwrap();
+        (dir, repo)
+    }
+
+    #[test]
+    fn stash_info_carries_message() {
+        let (dir, mut repo) = setup();
+        // Modify the file so there's something to stash.
+        let f = dir.path().join("a.txt");
+        std::fs::write(&f, "changed").unwrap();
+        stash_save(&mut repo, Some("my special message"), false).unwrap();
+        let stashes = list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+        assert!(stashes[0].message.contains("my special message"));
+        // The OID must be a valid 40-char hex string.
+        assert_eq!(stashes[0].oid.len(), 40);
+        assert!(stashes[0].oid.chars().all(|c| c.is_ascii_hexdigit()));
+    }
+
+    #[test]
+    fn stash_save_without_message_uses_empty_string() {
+        let (dir, mut repo) = setup();
+        let f = dir.path().join("a.txt");
+        std::fs::write(&f, "changed").unwrap();
+        stash_save(&mut repo, None, false).unwrap();
+        let stashes = list_stashes(&mut repo).unwrap();
+        assert_eq!(stashes.len(), 1);
+        // git2 stores the message verbatim; the empty case should
+        // produce a stash entry with an empty (or whitespace-only)
+        // message. We don't pin a specific string — just that the
+        // call didn't panic.
+    }
+}

@@ -1542,6 +1542,125 @@ impl TransferWorker {
     }
 }
 
+#[cfg(test)]
+mod secure_wipe_tests {
+    use super::*;
+    use crate::fs::transfer::endpoint::TransferEndpoint;
+    use crate::fs::transfer::job::TransferOperation;
+    use crate::fs::transfer::options::TransferOptions;
+    use crate::fs::transfer::policy::{PromptPolicy, TransferPolicy};
+    use std::path::PathBuf;
+    use std::sync::Arc;
+    use std::sync::atomic::AtomicBool;
+    use tokio::sync::mpsc;
+
+    /// Build a `TransferWorker` wired against a no-op `PromptPolicy`
+    /// and a dummy `mpsc` channel. Useful for testing the per-file
+    /// helpers (like `secure_wipe`) without running the full engine.
+    fn make_worker(wipe_passes: u8) -> TransferWorker {
+        let (tx, _rx) = mpsc::unbounded_channel();
+        let mut options = TransferOptions::default();
+        options.wipe_passes = wipe_passes;
+        TransferWorker {
+            job_id: Uuid::new_v4(),
+            operation: TransferOperation::Delete,
+            sources: vec![],
+            destination: PathBuf::new(),
+            src_endpoint: TransferEndpoint::Local,
+            dst_endpoint: TransferEndpoint::Local,
+            options,
+            is_paused: Arc::new(AtomicBool::new(false)),
+            is_cancelled: Arc::new(AtomicBool::new(false)),
+            skip_file_flag: Arc::new(AtomicBool::new(false)),
+            event_tx: tx,
+            active_conflict: Arc::new(std::sync::Mutex::new(None)),
+            policy: Arc::new(PromptPolicy::new()),
+        }
+    }
+
+    #[test]
+    fn secure_wipe_zero_passes_clamps_to_one() {
+        // When wipe_passes is 0, secure_wipe clamps to (1..=3),
+        // so it always performs at least 1 pass. Verify the file
+        // ends up zeroed (after the single mandatory 0x00 pass).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("target.bin");
+        std::fs::write(&path, b"original content").unwrap();
+
+        let worker = make_worker(0);
+        let res = worker.secure_wipe(&path);
+        assert!(res.is_ok(), "secure_wipe should succeed: {:?}", res);
+
+        // After the mandatory single pass of 0x00 bytes, the file
+        // is truncated to zero. The wipe routine always truncates
+        // at the end.
+        let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(size, 0, "file should be empty after wipe+truncate");
+    }
+
+    #[test]
+    fn secure_wipe_three_passes_ends_with_zero_bytes() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("target.bin");
+        std::fs::write(&path, vec![0xAB; 4096]).unwrap();
+
+        let worker = make_worker(3);
+        let res = worker.secure_wipe(&path);
+        assert!(res.is_ok());
+
+        // The final state must be a zero-length file.
+        let size = std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0);
+        assert_eq!(size, 0);
+    }
+
+    #[test]
+    fn secure_wipe_clamps_passes_above_three() {
+        // Anything above 3 is bounded — the function should not
+        // attempt 100 passes for `wipe_passes = 100`.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("target.bin");
+        std::fs::write(&path, vec![0u8; 1024]).unwrap();
+
+        let worker = make_worker(100);
+        let start = std::time::Instant::now();
+        let res = worker.secure_wipe(&path);
+        let elapsed = start.elapsed();
+        assert!(res.is_ok());
+        // Three 1 KiB passes on any modern disk finish in well
+        // under a second. 100 passes would take ~30x longer.
+        assert!(
+            elapsed < std::time::Duration::from_secs(2),
+            "wipe took {elapsed:?} — pass count is not being clamped"
+        );
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn secure_wipe_skips_zero_size_files() {
+        // An empty file is reported as 0 bytes by lstat. Wipe
+        // must short-circuit and not open the file.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.txt");
+        std::fs::File::create(&path).unwrap();
+
+        let worker = make_worker(3);
+        let res = worker.secure_wipe(&path);
+        assert!(res.is_ok());
+        // The file still exists, still empty.
+        assert!(path.exists());
+        assert_eq!(std::fs::metadata(&path).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn prompt_policy_default_is_send_and_sync() {
+        // The `Arc<dyn TransferPolicy>` field on TransferWorker
+        // requires the concrete policy to be both Send and Sync.
+        // Pin that contract here so a future change to PromptPolicy
+        // (e.g. adding a non-Sync field) shows up as a compile error.
+        let _: Arc<dyn TransferPolicy> = Arc::new(PromptPolicy::new());
+    }
+}
+
 /// Spawn the periodic speed reporter that emits
 /// `TransferEvent::SpeedUpdate` for the UI.
 fn spawn_speed_reporter(

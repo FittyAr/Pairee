@@ -48,6 +48,9 @@ tempfile = "3.27"
 
 
 [dev-dependencies]
+proptest = "1.5"
+rstest = "0.23"
+tempfile = "3.27"
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }

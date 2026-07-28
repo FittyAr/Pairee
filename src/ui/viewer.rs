@@ -155,6 +155,216 @@ impl ViewerState {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+
+    #[test]
+    fn viewer_mode_default_is_hex_for_binary_files() {
+        // A file with invalid UTF-8 bytes must default to Hex mode.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("bin.dat");
+        {
+            let mut f = std::fs::File::create(&path).unwrap();
+            f.write_all(&[0xFF, 0xFE, 0x00, 0x01, 0x80, 0x90]).unwrap();
+        }
+        let state = ViewerState::load(path);
+        assert_eq!(state.mode, ViewerMode::Hex);
+        assert!(!state.is_text);
+        assert!(!state.is_image);
+    }
+
+    #[test]
+    fn viewer_mode_default_is_text_for_utf8_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("hello.txt");
+        std::fs::write(&path, "Hello, world!\nLine 2\n").unwrap();
+        let state = ViewerState::load(path);
+        assert_eq!(state.mode, ViewerMode::Text);
+        assert!(state.is_text);
+        assert!(!state.is_image);
+        // The lines must be split on newlines (no trailing empty line).
+        assert_eq!(state.lines, vec!["Hello, world!", "Line 2"]);
+    }
+
+    #[test]
+    fn viewer_load_empty_file_is_text_with_no_lines() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("empty.txt");
+        std::fs::File::create(&path).unwrap();
+        let state = ViewerState::load(path);
+        // An empty file is valid UTF-8, so it ends up in Text mode
+        // with zero lines.
+        assert_eq!(state.mode, ViewerMode::Text);
+        assert!(state.lines.is_empty());
+        assert!(state.raw.is_empty());
+    }
+
+    #[test]
+    fn viewer_load_missing_file_does_not_panic() {
+        // `std::fs::read` returns Err on missing paths; the loader
+        // swallows it via `unwrap_or_default()` and produces an
+        // empty Hex-mode state.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("does-not-exist");
+        let state = ViewerState::load(path);
+        assert!(state.raw.is_empty());
+        assert!(state.lines.is_empty());
+    }
+
+    #[test]
+    fn viewer_toggle_text_cycles_text_to_hex() {
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec!["a".to_string()],
+            raw: vec![b'a'],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Text,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.toggle_mode();
+        assert_eq!(state.mode, ViewerMode::Hex);
+    }
+
+    #[test]
+    fn viewer_toggle_hex_cycles_to_text() {
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec!["a".to_string()],
+            raw: vec![b'a'],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Hex,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.toggle_mode();
+        assert_eq!(state.mode, ViewerMode::Text);
+    }
+
+    #[test]
+    fn viewer_toggle_image_cycles_image_to_hex() {
+        // A 1x1 black PNG is the smallest valid image. We don't
+        // actually need the bytes to test the toggle — we just need
+        // `is_image=true, is_text=false` so the toggle path goes
+        // Image→Hex.
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy.png"),
+            lines: vec![],
+            raw: vec![0x89, 0x50, 0x4E, 0x47], // PNG magic
+            image_data: None,
+            is_image: true,
+            is_text: false,
+            mode: ViewerMode::Image,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.toggle_mode();
+        assert_eq!(state.mode, ViewerMode::Hex);
+    }
+
+    #[test]
+    fn viewer_toggle_resets_scroll_to_zero() {
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec!["a".to_string(); 100],
+            raw: vec![b'a'; 1000],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Text,
+            scroll: 42,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.toggle_mode();
+        assert_eq!(state.scroll, 0, "toggle must reset scroll position");
+    }
+
+    #[test]
+    fn viewer_scroll_up_saturates_at_zero() {
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec!["a".to_string(); 10],
+            raw: vec![b'a'; 100],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Text,
+            scroll: 3,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.scroll_up(5);
+        assert_eq!(state.scroll, 0, "scroll_up must saturate at 0");
+    }
+
+    #[test]
+    fn viewer_scroll_down_caps_at_max_line() {
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec!["a".to_string(); 10], // max scroll = 10-1 = 9
+            raw: vec![b'a'; 100],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Text,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.scroll_down(100);
+        assert_eq!(state.scroll, 9);
+    }
+
+    #[test]
+    fn viewer_scroll_down_in_hex_mode_uses_raw_length() {
+        // 32 bytes → 2 hex rows (16 bytes per row). Max scroll = 1.
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec![],
+            raw: vec![0u8; 32],
+            image_data: None,
+            is_image: false,
+            is_text: false,
+            mode: ViewerMode::Hex,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.scroll_down(50);
+        assert_eq!(state.scroll, 1);
+    }
+
+    #[test]
+    fn viewer_scroll_down_in_empty_file_is_a_noop() {
+        // An empty file has max scroll = 0 (saturating_sub). Scrolling
+        // down by 5 must not panic or move below 0.
+        let mut state = ViewerState {
+            path: std::path::PathBuf::from("dummy"),
+            lines: vec![],
+            raw: vec![],
+            image_data: None,
+            is_image: false,
+            is_text: true,
+            mode: ViewerMode::Text,
+            scroll: 0,
+            last_search: None,
+            last_case_sensitive: false,
+        };
+        state.scroll_down(5);
+        assert_eq!(state.scroll, 0);
+    }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Public rendering entry point — satisfies the Viewer trait pattern from plan
 // ─────────────────────────────────────────────────────────────────────────────

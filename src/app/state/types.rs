@@ -1,6 +1,7 @@
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ActivePanel {
     Left,
     Right,
@@ -109,6 +110,123 @@ pub enum PermissionAnswer {
     Cancel,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── Default impls ──────────────────────────────────────────────────────
+
+    #[test]
+    fn panel_view_mode_default_is_full() {
+        // The "Full" view is the most balanced (name + size + date)
+        // and is what NC/Far users expect on first launch.
+        assert_eq!(PanelViewMode::default(), PanelViewMode::Full);
+    }
+
+    #[test]
+    fn sort_field_default_is_name() {
+        // Sorting by name is the most common and the most
+        // predictable default — matches every other file manager.
+        assert_eq!(SortField::default(), SortField::Name);
+    }
+
+    #[test]
+    fn panel_view_mode_has_all_documented_variants() {
+        // Pin the variant set so a future refactor that renames or
+        // removes one of the Ctrl+1..9 view modes shows up as a
+        // compile error here, not as a silent UI regression.
+        let _ = PanelViewMode::Brief;
+        let _ = PanelViewMode::Medium;
+        let _ = PanelViewMode::Full;
+        let _ = PanelViewMode::Wide;
+        let _ = PanelViewMode::Detailed;
+        let _ = PanelViewMode::Descriptions;
+        let _ = PanelViewMode::FileOwners;
+        let _ = PanelViewMode::FileLinks;
+        let _ = PanelViewMode::AltFull;
+    }
+
+    // ── Serde roundtrip ────────────────────────────────────────────────────
+
+    #[test]
+    fn panel_view_mode_serde_roundtrip() {
+        for v in [
+            PanelViewMode::Brief,
+            PanelViewMode::Medium,
+            PanelViewMode::Full,
+            PanelViewMode::Wide,
+            PanelViewMode::Detailed,
+            PanelViewMode::Descriptions,
+            PanelViewMode::FileOwners,
+            PanelViewMode::FileLinks,
+            PanelViewMode::AltFull,
+        ] {
+            let s = serde_json::to_string(&v).expect("serialize");
+            let back: PanelViewMode = serde_json::from_str(&s).expect("parse");
+            assert_eq!(v, back);
+        }
+    }
+
+    #[test]
+    fn sort_field_serde_roundtrip() {
+        for f in [
+            SortField::Name,
+            SortField::Extension,
+            SortField::Size,
+            SortField::Date,
+            SortField::Unsorted,
+        ] {
+            let s = serde_json::to_string(&f).expect("serialize");
+            let back: SortField = serde_json::from_str(&s).expect("parse");
+            assert_eq!(f, back);
+        }
+    }
+
+    // ── PermissionAnswer ──────────────────────────────────────────────────
+
+    #[test]
+    fn permission_answer_variants_are_distinct() {
+        // The three answers must compare as distinct so the
+        // background loop never confuses "Yes" with "Cancel".
+        assert_ne!(PermissionAnswer::Yes, PermissionAnswer::No);
+        assert_ne!(PermissionAnswer::Yes, PermissionAnswer::Cancel);
+        assert_ne!(PermissionAnswer::No, PermissionAnswer::Cancel);
+    }
+
+    // ── ActivePanel ───────────────────────────────────────────────────────
+
+    #[test]
+    fn active_panel_variants_are_distinct() {
+        assert_eq!(ActivePanel::Left, ActivePanel::Left);
+        assert_eq!(ActivePanel::Right, ActivePanel::Right);
+        assert_ne!(ActivePanel::Left, ActivePanel::Right);
+    }
+
+    #[test]
+    fn active_panel_serializes_to_left_right() {
+        // The serialised form is used by plugin events (`on_cd` with
+        // `side: "left"` / `side: "right"`) and is part of the
+        // public contract with plugin authors.
+        assert_eq!(
+            serde_json::to_string(&ActivePanel::Left).unwrap(),
+            "\"left\""
+        );
+        assert_eq!(
+            serde_json::to_string(&ActivePanel::Right).unwrap(),
+            "\"right\""
+        );
+    }
+
+    // ── LinkKind ──────────────────────────────────────────────────────────
+
+    #[test]
+    fn link_kind_variants_are_distinct() {
+        // Symbolic and Hard links behave very differently at the OS
+        // level. Make sure they're not accidentally aliased.
+        assert_ne!(LinkKind::Symbolic, LinkKind::Hard);
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum TreeViewCaller {
     Panel(ActivePanel),
@@ -116,7 +234,7 @@ pub enum TreeViewCaller {
     MovePrompt { previous: Box<PopupType> },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum LinkKind {
     Symbolic,
     Hard,
