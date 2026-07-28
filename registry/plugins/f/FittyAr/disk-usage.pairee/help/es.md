@@ -39,3 +39,63 @@ panel de previsualización.
 El plugin necesita lanzar `du` / `powershell`, por lo que se ejecuta en
 modo **confiable** (trusted). Se te pedirá que confíes en él la primera
 vez que lo instales.
+
+## Ejemplos
+
+### Ejecución por defecto (depth=2, top_n=20)
+
+Con el cursor parado sobre una carpeta de proyecto típica, pulsa
+`Ctrl+D`. El panel de previsualización se reemplazará por un widget
+`pairee.ui.Table` similar a:
+
+```text
+┌──────────────────┬──────────────────────────┐
+│ Tamaño           │ Ruta                     │
+├──────────────────┼──────────────────────────┤
+│ 1.4 G (48%)      │ node_modules/            │
+│ 820 M (28%)      │ target/                  │
+│ 240 M (8%)       │ .git/                    │
+│ 180 M (6%)       │ vendor/                  │
+│ …                │ …                        │
+└──────────────────┴──────────────────────────┘
+
+/home/me/projects/pairee
+Escaneados: 18 elementos · Total: 2.9 G · Profundidad: 2
+
+Las 20 entradas más grandes:
+```
+
+Una notificación en la parte inferior reporta el total escaneado
+y el límite top-N.
+
+### Ajustar la profundidad de recursión
+
+Pon `depth = 1` en el diálogo (`Opciones → Plugins → disk-usage`)
+para medir sólo el **primer nivel** del cwd (un nivel de
+recursión, sin contar archivos anidados). Útil para "¿qué
+subcarpeta debería borrar para liberar más espacio?".
+
+### Incluir archivos ocultos
+
+Activa `include_hidden = true` si tu directorio home tiene
+`~/.cache` o `~/.local/share` que quieras ver en el reporte.
+
+### Pasar argumentos extra a `du`
+
+Si tu versión de `du` soporta `--exclude`, puedes pasarlo a
+través de `extra_args` para que se salten carpetas como
+`build-artifacts/`:
+
+```text
+extra_args = "--exclude=build-artifacts"
+```
+
+## Resolución de problemas
+
+| Síntoma | Causa probable | Solución |
+|---------|----------------|----------|
+| La notificación dice "Required tool 'du' is not on PATH" | El binario falta o el `$PATH` no incluye `/usr/bin` | Instala `coreutils` (Linux) o `du` viene preinstalado en macOS. En Windows, asegúrate de tener `du` (Cygwin / MSYS) — si no, debería activarse la rama de PowerShell. |
+| El reporte está vacío (`No scannable entries were found in this directory`) | El cwd está vacío o pusiste `depth = 0` | Sube `depth` al menos a `1`, o cambia a una carpeta con archivos. |
+| Los errores de permiso se descartan en silencio | El plugin ignora los archivos que no puede leer (evita spam en el reporte) | Vuelve a correr como administrador si necesitas esas entradas, o excluye la subcarpeta problemática con `extra_args`. |
+| El plugin no carga | El hash de `main.lua` en el [files] del `manifest.toml` ya no coincide con el archivo en disco | Reinstala con `pairee plugin install disk-usage.pairee`. |
+| El resultado es `0 B` para todas las entradas | `depth` es muy bajo para tu estructura, o el cwd está en un sistema de archivos distinto (p. ej. una unidad de red) | Prueba con `depth = 3` o más; en FS remotos, trabaja con una copia local. |

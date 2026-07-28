@@ -57,3 +57,46 @@ The plugin implements the previewer contract:
 
 The listing output is parsed by a small per-format parser, so no external
 Lua dependencies are required.
+
+## Examples
+
+### `peek()` on a `.zip` file
+
+Hover over `release-0.7.0.zip` in the active panel. The preview pane
+will be replaced with a `pairee.ui.Table` widget like:
+
+```text
+┌──────────────────────────────┬───────┬─────────────────────┐
+│ Path                         │ Size  │ Modified            │
+├──────────────────────────────┼───────┼─────────────────────┤
+│ release-0.7.0/CHANGELOG.md   │ 1.2 K │ 2026-07-26 21:14:00 │
+│ release-0.7.0/pairee         │ 24 M  │ 2026-07-26 21:14:00 │
+│ release-0.7.0/pairee.sig     │  512  │ 2026-07-26 21:14:00 │
+└──────────────────────────────┴───────┴─────────────────────┘
+```
+
+Use `seek(job)` (or scroll with the keyboard in the preview pane)
+to paginate through larger lists.
+
+### `entry()` on a `.zip` file
+
+Press `F2` while hovering over `release-0.7.0.zip` to get a quick
+summary toast like:
+
+```text
+release-0.7.0.zip
+
+3 entries
+Total size: 24.0 M
+```
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| The preview pane shows "Could not list archive contents" | The required tool (`unzip`, `tar`, or `7z`) is missing on `PATH` | Install it: `apt install unzip / p7zip`, `brew install p7zip`, etc. |
+| The `peek()` returns an empty table | The archive is password-protected | The plugin does not support encrypted archives; decrypt first or open in a tool that handles the password. |
+| `F2` shows "Not a supported archive: …" | The hovered file is not a `.zip` / `.tar(.gz)` / `.tgz` / `.7z` | This is expected; the plugin only inspects those four families. |
+| Listings look truncated past a few hundred entries | The `max_entries` setting is too low | Bump it from `Options → Plugins → archive-inspect` (default: `500`). |
+| Sort order seems wrong | The `sort_by` setting was changed from the default | Restore it to `path`, `size`, or `date` from the same dialog. |
+| Plugin fails to load | The `manifest.toml` [files] hash for `main.lua` no longer matches the on-disk file | The lockfile was tampered with; reinstall via `pairee plugin install archive-inspect.pairee`. |

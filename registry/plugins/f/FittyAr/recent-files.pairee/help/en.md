@@ -56,3 +56,51 @@ end)
 The plugin only uses the Pairee FS API (`pairee.fs.read` / `pairee.fs.write`)
 to persist state. It does **not** spawn external processes, so it runs
 safely in untrusted (sandboxed) mode.
+
+## Examples
+
+### The on-disk state
+
+`recent-files.json` lives in the Pairee config directory and looks
+like:
+
+```json
+{
+  "_recent_files_v1": true,
+  "entries": [
+    { "path": "/home/me/projects/pairee", "kind": "dir",  "at": 1722115200 },
+    { "path": "/home/me/projects/pairee/README.md", "kind": "file", "at": 1722111600 },
+    { "path": "/home/me/Downloads", "kind": "dir",  "at": 1722024000 }
+  ]
+}
+```
+
+The newest entry is always first. The shape is versioned with the
+`_recent_files_v1` sentinel so a future migration can detect and
+upgrade older files.
+
+### The picker
+
+Press `Ctrl+R` with the cursor over any panel. You will get a
+`pairee.which` prompt that lists every recent entry:
+
+```text
+[1]  /home/me/projects/pairee
+[2]  /home/me/projects/pairee/README.md
+[3]  /home/me/Downloads
+[4]  /tmp/scratch.txt
+```
+
+Type the number (or use the arrow keys) and press `Enter` to jump.
+`Esc` cancels.
+
+## Troubleshooting
+
+| Symptom | Likely cause | Fix |
+|---------|--------------|-----|
+| Toast says "No recent files tracked yet — visit a few directories first" | The state file is empty (fresh install) or its `_recent_files_v1` sentinel is missing | Visit a few directories so `on_cd` populates the list. If the file was hand-edited and lost the sentinel, delete it — the plugin will recreate it on the next `on_cd`. |
+| The picker opens but jumps to the wrong directory | Two recent entries share a parent and you picked the wrong one | Re-run the picker and read the index more carefully. The plugin picks the entry by *index*, not by name. |
+| Nothing is being recorded | `record_dirs = false` in the plugin settings | Flip it back to `true` from `Options → Plugins → recent-files`. The default is `true`, but a previous user may have turned it off. |
+| Disk-usage is also slow because the history grew unbounded | `max_entries` is too high or `record_hover = true` on a big directory | Lower `max_entries` (default: 50), or turn `record_hover` off. The plugin does not write on every keystroke — it debounces — but a 100k-entry file is still a lot to parse. |
+| Plugin fails to load | The `manifest.toml` [files] hash for `main.lua` no longer matches the on-disk file | Reinstall via `pairee plugin install recent-files.pairee`. |
+| Another plugin cannot subscribe to `recent-files:added` | The subscribing plugin was loaded before this one | Plugins must be loaded in dependency order. The `recent-files.pairee` plugin should appear in `Plugins → Installed` before any plugin that subscribes to its pub/sub event. |
