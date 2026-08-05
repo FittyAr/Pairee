@@ -75,9 +75,11 @@ pub fn commit_registry_changes_with_progress(
     let tree = repo.find_tree(oid)?;
 
     // Try to get signature from git config, fallback if none
-    let signature = repo
-        .signature()
-        .unwrap_or_else(|_| git2::Signature::now("Pairee Developer", "dev@pairee.org").unwrap());
+    let signature = match repo.signature() {
+        Ok(s) => s,
+        Err(_) => git2::Signature::now("Pairee Developer", "dev@pairee.org")
+            .map_err(|e| anyhow::anyhow!("Failed to build fallback git signature: {}", e))?,
+    };
 
     let parent_commit = repo.head()?.peel_to_commit()?;
 

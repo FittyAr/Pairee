@@ -167,19 +167,21 @@ fn handle_wizard_enter(
         );
 
         let tx = begin_dev_op(state, t("plugin_dev_progress_creating_dir"));
+        // Pass the absolute target parent directory explicitly. We
+        // intentionally do NOT mutate the process working directory: any
+        // thread that resolves a relative path during the spawn_blocking
+        // (the TUI render loop, async FS tasks) would otherwise observe
+        // the change and behave non-deterministically.
+        let parent_for_task = plugins_dev_dir.clone();
         tokio::task::spawn_blocking(move || {
-            let prev = std::env::current_dir().ok();
-            let _ = std::env::set_current_dir(&plugins_dev_dir);
-            let res = developer_tool::init_with_progress(
+            let res = developer_tool::init_with_progress_in(
                 &folder_name,
                 &desc,
                 &author,
                 false,
                 Some(tx.clone()),
+                &parent_for_task,
             );
-            if let Some(prev) = prev {
-                let _ = std::env::set_current_dir(&prev);
-            }
             match res {
                 Ok(_) => {
                     let name_without_suffix = folder_name

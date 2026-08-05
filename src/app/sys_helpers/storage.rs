@@ -55,10 +55,16 @@ pub fn get_free_space(path: &Path) -> Option<u64> {
     }
     #[cfg(not(target_os = "windows"))]
     {
-        // Use `df` command as a portable cross-platform fallback
+        // Use `df` command as a portable cross-platform fallback. We
+        // pass `--` before the path so a path that happens to start
+        // with `-` (e.g. `-x`) is not parsed as a command-line option
+        // by `df`. Without this, a user with a file literally named
+        // `-something` in their working directory could trick the
+        // free-space probe.
         let output = std::process::Command::new("df")
             .arg("--output=avail")
             .arg("-k")
+            .arg("--")
             .arg(path)
             .output()
             .ok()?;

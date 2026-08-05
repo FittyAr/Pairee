@@ -64,9 +64,11 @@ pub fn pull(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> an
         let tree_id = index.write_tree_to(repo)?;
         let tree = repo.find_tree(tree_id)?;
 
-        let sig = repo.signature().unwrap_or_else(|_| {
-            git2::Signature::now("Pairee User", "pairee@localhost").unwrap()
-        });
+        let sig = match repo.signature() {
+            Ok(s) => s,
+            Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")
+                .map_err(|e| anyhow::anyhow!("Failed to build fallback git signature: {}", e))?,
+        };
         let message = format!("Merge branch '{}/{}' into {}", remote_name, branch_name, branch_name);
 
         repo.commit(

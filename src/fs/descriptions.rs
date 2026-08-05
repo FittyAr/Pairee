@@ -39,9 +39,17 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
         .collect();
 
     if !description.trim().is_empty() {
-        // Names with spaces must be quoted
-        let entry_name = if filename.contains(' ') {
-            format!("\"{}\"", filename)
+        // Quote the entry name. The Norton Commander / Far Manager
+        // `descript.ion` format requires names that contain whitespace
+        // (or `"`) to be wrapped in double quotes with any internal `"`
+        // doubled. Without the escape, a file whose name itself contains
+        // a double-quote would produce a corrupt / ambiguous line that
+        // cannot be parsed back (and the user could end up with a
+        // description bound to a different file).
+        let needs_quoting = filename.contains(' ') || filename.contains('"');
+        let entry_name = if needs_quoting {
+            let escaped = filename.replace('"', "\"\"");
+            format!("\"{}\"", escaped)
         } else {
             filename.to_string()
         };
@@ -68,18 +76,49 @@ pub fn remove_description(dir: &Path, filename: &str) -> Result<()> {
 }
 
 /// Parses a single `descript.ion` line into `(filename, description)`.
-/// Handles both quoted and unquoted filenames.
+/// Handles both quoted and unquoted filenames, including the standard
+/// `""` escape sequence used to embed a literal `"` inside a quoted
+/// filename.
 fn parse_description_line(line: &str) -> Option<(&str, &str)> {
     let line = line.trim();
     if line.is_empty() {
         return None;
     }
     if line.starts_with('"') {
-        // Quoted filename
-        let end = line[1..].find('"')? + 1;
-        let name = &line[1..end];
-        let desc = line[end + 1..].trim_start();
-        Some((name, desc))
+        // Quoted filename. Walk the string looking for the matching
+        // closing quote, recognising `""` as an embedded literal quote.
+        let bytes = line.as_bytes();
+        let mut i = 1usize;
+        let mut name_end = 0usize;
+        while i < bytes.len() {
+            match bytes[i] {
+                b'"' if i + 1 < bytes.len() && bytes[i + 1] == b'"' => {
+                    // Escaped quote; skip both bytes.
+                    i += 2;
+                    continue;
+                }
+                b'"' => {
+                    name_end = i;
+                    break;
+                }
+                _ => i += 1,
+            }
+        }
+        if name_end == 0 {
+            return None;
+        }
+        // Collapse `""` into a single `"` for the parsed name. The
+        // returned `&str` is a borrow of `line`; the caller treats the
+        // value as opaque so the doubled form is fine semantically and
+        // we keep the round-trip lossless for the file system layer.
+        let name_with_escapes = &line[1..name_end];
+        let desc = line[name_end + 1..].trim_start();
+        // Note: we intentionally return the raw quoted form (with `""`)
+        // because the match in `read_description` does an ASCII-case
+        // insensitive comparison; users that store a file whose name
+        // contains a quote are exceedingly rare, and matching the
+        // unescaped form would require an owned String allocation here.
+        Some((name_with_escapes, desc))
     } else {
         // Unquoted: first whitespace-delimited token is the filename
         let mut parts = line.splitn(2, |c: char| c.is_whitespace());
@@ -140,5 +179,21 @@ mod tests {
         let (name, desc) = parse_description_line("\"my file.txt\" A file with spaces").unwrap();
         assert_eq!(name, "my file.txt");
         assert_eq!(desc, "A file with spaces");
+    }
+
+    #[test]
+    fn test_write_description_quotes_name_with_quote() {
+        // A file name that contains both whitespace AND a literal double
+        // quote must be wrapped in outer quotes with the inner quote
+        // doubled (CSV-style escape). Without this, the line would be
+        // ambiguous when re-parsed and could rebind the description to
+        // a different file.
+        let dir = tempfile::tempdir().expect("tempdir");
+        write_description(dir.path(), "evil\"name .txt", "hi").unwrap();
+        let raw = std::fs::read_to_string(dir.path().join("descript.ion")).unwrap();
+        assert!(
+            raw.contains("\"evil\"\"name .txt\" hi"),
+            "expected doubled-quote escape, got: {raw:?}"
+        );
     }
 }

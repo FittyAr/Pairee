@@ -134,8 +134,25 @@ pub fn handle_cli_input(
                             }
                         };
 
-                        let stdout = child.stdout.take().unwrap();
-                        let stderr = child.stderr.take().unwrap();
+                        // `Command` is configured with `Stdio::piped()` for
+                        // both handles above, so `take()` must succeed. We
+                        // still `match` instead of `unwrap` so that a
+                        // future refactor that drops the `.stdout(...)`
+                        // call cannot panic the spawned task and crash
+                        // the whole terminal screen.
+                        let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+                            let _ = tx.send(crate::app::state::TerminalUpdate {
+                                screen_idx,
+                                line: Some(
+                                    "Internal error: child stdio handles not piped".to_string(),
+                                ),
+                            });
+                            let _ = tx.send(crate::app::state::TerminalUpdate {
+                                screen_idx,
+                                line: None,
+                            });
+                            return;
+                        };
 
                         let tx_out = tx.clone();
                         let tx_err = tx.clone();

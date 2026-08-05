@@ -31,6 +31,10 @@ fn replace_placeholders(
     Ok(())
 }
 
+/// Clones the plugin template into `target_path`. The path must be
+/// absolute; the caller is responsible for resolving the final
+/// destination. We never change the process working directory here so
+/// that other threads (the TUI loop, async tasks) are not affected.
 fn clone_from_template(
     target_path: &std::path::Path,
     manifest_name: &str,
@@ -66,6 +70,21 @@ fn clone_from_template(
                                         Some(b) => b,
                                         None => return git2::TreeWalkResult::Ok,
                                     };
+                                    // Reject entries that try to escape
+                                    // the target via parent-dir components.
+                                    // libgit2 tree paths are not user input
+                                    // here, but defense-in-depth is cheap.
+                                    if rel_path
+                                        .split(['/', '\\'])
+                                        .any(|seg| seg == "..")
+                                    {
+                                        log::warn!(
+                                            "plugin-template: refusing template entry \
+                                             with parent-dir component: {}",
+                                            rel_path
+                                        );
+                                        return git2::TreeWalkResult::Ok;
+                                    }
                                     let dest = target_path.join(&rel_path);
                                     if let Some(parent) = dest.parent() {
                                         let _ = std::fs::create_dir_all(parent);
@@ -120,7 +139,7 @@ fn clone_from_template(
                 let _ = std::fs::remove_dir_all(&git_dir);
             }
 
-            progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
+            progress_status(&progress, t("plugin_dev_progress_replacing_placeholders"));
             replace_placeholders(target_path, manifest_name, description, author)?;
             log::info!("plugin-template: Plugin initialized from remote git branch.");
             Ok(true)
@@ -133,15 +152,28 @@ fn clone_from_template(
 }
 
 pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> anyhow::Result<()> {
-    init_with_progress(name, description, author, print_output, None)
+    // CLI entry: the process is single-threaded at this point, so reading
+    // the cwd is safe. The interactive UI must NOT use this helper — it
+    // should call `init_in` with an explicit `target_parent` so the
+    // process-wide cwd is never mutated while other tasks are running.
+    let target_parent = std::env::current_dir()?;
+    init_in(name, description, author, print_output, None, &target_parent)
 }
 
-pub fn init_with_progress(
+/// Initialises a new plugin inside `target_parent` (an absolute path).
+///
+/// Prefer this over [`init`] from any UI / multi-threaded context: the
+/// process current working directory is never mutated, so concurrent
+/// async tasks and the TUI render loop cannot accidentally observe the
+/// change. The caller is responsible for passing an absolute
+/// destination that the user actually wants to write into.
+pub fn init_in(
     name: &str,
     description: &str,
     author: &str,
     print_output: bool,
     progress: Option<UnboundedSender<DevProgress>>,
+    target_parent: &std::path::Path,
 ) -> anyhow::Result<()> {
     let folder_name = if name.ends_with(".pairee") {
         name.to_string()
@@ -153,7 +185,7 @@ pub fn init_with_progress(
         .unwrap_or(&folder_name)
         .to_string();
 
-    let path = std::env::current_dir()?.join(&folder_name);
+    let path = target_parent.join(&folder_name);
     std::fs::create_dir_all(&path)?;
 
     progress_status(&progress, t("plugin_dev_progress_creating_dir"));
@@ -170,6 +202,21 @@ pub fn init_with_progress(
         println!("{}", ok_msg);
     }
     Ok(())
+}
+
+/// Like [`init_in`] but always reports progress over the optional
+/// `progress` channel. Currently the only call site is the
+/// interactive plugin wizard, which threads the channel through to
+/// the UI.
+pub fn init_with_progress_in(
+    name: &str,
+    description: &str,
+    author: &str,
+    print_output: bool,
+    progress: Option<UnboundedSender<DevProgress>>,
+    target_parent: &std::path::Path,
+) -> anyhow::Result<()> {
+    init_in(name, description, author, print_output, progress, target_parent)
 }
 
 #[cfg(test)]
