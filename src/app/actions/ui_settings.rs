@@ -199,7 +199,7 @@ pub async fn handle_ui_settings_action(
         }
         Action::ToggleHidden => {
             context.config.settings.show_hidden = !context.config.settings.show_hidden;
-            let _ = context.config.save();
+            context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
             true
         }

@@ -114,7 +114,13 @@ impl AppConfig {
                     || existing.contains("mkdir_fkey = \"F7\"")
                     || existing.contains("plugin_menu = \"F11\"")
                 {
-                    let _ = fs::write(&preset_path, &toml_content);
+                    if let Err(e) = fs::write(&preset_path, &toml_content) {
+                        log::warn!(
+                            "Failed to refresh preset keymap {:?}: {}",
+                            preset_path,
+                            e
+                        );
+                    }
                 }
             }
         }
@@ -167,5 +173,21 @@ impl AppConfig {
         fs::write(theme_path, theme_toml)?;
 
         Ok(())
+    }
+
+    /// Same as [`Self::save`] but never returns an error to the caller:
+    /// failures are logged at WARN level instead. Use this for
+    /// non-critical write paths (e.g. after a settings change) where a
+    /// failed persist should not abort the action the user just
+    /// performed — but it must not be silent, otherwise the user
+    /// thinks their preference was saved when it was not.
+    pub fn save_logging(&self) {
+        if let Err(e) = self.save() {
+            log::warn!(
+                "Failed to persist Pairee configuration; the user's last \
+                 setting change may be lost on next launch: {}",
+                e
+            );
+        }
     }
 }

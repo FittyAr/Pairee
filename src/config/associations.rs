@@ -82,13 +82,17 @@ impl AssociationsConfig {
                     && config.rules[3].mask == "*.{zip,tar,gz,bz2,xz,7z}";
                 if is_old {
                     config = Self::default_rules();
-                    let _ = config.save();
+                    if let Err(e) = config.save() {
+                        log::warn!("Failed to refresh associations.toml: {}", e);
+                    }
                 }
                 config
             }
             Err(_) => {
                 let default_rules = Self::default_rules();
-                let _ = default_rules.save();
+                if let Err(e) = default_rules.save() {
+                    log::warn!("Failed to write default associations.toml: {}", e);
+                }
                 default_rules
             }
         }

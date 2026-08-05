@@ -128,7 +128,7 @@ pub fn handle(
                         context.config.settings.theme = "custom".to_string();
                     }
                     context.config.theme = theme.clone();
-                    let _ = context.config.save(); // Save configuration
+                    context.config.save_logging(); // Save configuration
                     state.refresh_both_panels(context.config.settings.show_hidden);
 
                     // Return to Configuration Dialog

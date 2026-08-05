@@ -72,8 +72,17 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                 options.buffer_size = match context.config.settings.transfer_buffer_size {
                     65536 => crate::fs::transfer::options::BufferSize::_64KB,
                     262144 => crate::fs::transfer::options::BufferSize::_256KB,
+                    1048576 => crate::fs::transfer::options::BufferSize::_1MB,
                     4194304 => crate::fs::transfer::options::BufferSize::_4MB,
-                    _ => crate::fs::transfer::options::BufferSize::_1MB,
+                    // Round any other value to the closest supported
+                    // BufferSize. Without this branch, a user who set a
+                    // custom value (e.g. `8388608` for 8 MiB) would
+                    // silently get the 1 MiB default and never see their
+                    // preference applied.
+                    n if n <= 65536 => crate::fs::transfer::options::BufferSize::_64KB,
+                    n if n <= 262144 => crate::fs::transfer::options::BufferSize::_256KB,
+                    n if n <= 1048576 => crate::fs::transfer::options::BufferSize::_1MB,
+                    _ => crate::fs::transfer::options::BufferSize::_4MB,
                 };
                 options.direct_io = context.config.settings.transfer_direct_io;
                 options.preserve_timestamps = context.config.settings.transfer_preserve_timestamps;

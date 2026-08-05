@@ -42,7 +42,7 @@ pub fn handle_dev(
         };
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
             context.config.settings.active_dev_plugin = None;
-            let _ = context.config.save();
+            context.config.save_logging();
             *dev_results = t("plugin_dev_stale_deselected");
             *installed = super::reload_installed_plugins(context, &None);
         }
@@ -358,7 +358,7 @@ fn handle_navigation_or_enter(
         KeyCode::Backspace | KeyCode::Delete | KeyCode::Char('d') | KeyCode::Char('D') => {
             if *cursor_idx == 0 && context.config.settings.active_dev_plugin.is_some() {
                 context.config.settings.active_dev_plugin = None;
-                let _ = context.config.save();
+                context.config.save_logging();
                 *dev_results = t("plugin_dev_deselected");
                 *installed = super::reload_installed_plugins(context, &None);
             }

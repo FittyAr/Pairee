@@ -57,10 +57,10 @@ pub fn handle_select_popup(
                 let (_, value) = &options[cursor_idx];
                 if value.is_empty() || value == "deselect" {
                     context.config.settings.active_dev_plugin = None;
-                    let _ = context.config.save();
+                    context.config.save_logging();
                 } else {
                     context.config.settings.active_dev_plugin = Some(value.clone());
-                    let _ = context.config.save();
+                    context.config.save_logging();
                 }
             }
 

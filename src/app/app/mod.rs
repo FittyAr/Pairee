@@ -52,7 +52,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
         // 3. Exit check
         if state.should_quit {
             if context.config.settings.auto_save_setup {
-                let _ = context.config.save();
+                context.config.save_logging();
             }
             // Save history store to disk
             let mut history_store = crate::config::history::HistoryStore::default();

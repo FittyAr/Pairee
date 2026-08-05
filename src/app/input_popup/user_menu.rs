@@ -155,7 +155,7 @@ fn execute_item(
             return Ok(None);
         } else if act == Action::ToggleHidden {
             context.config.settings.show_hidden = !context.config.settings.show_hidden;
-            let _ = context.config.save();
+            context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
             return Ok(None);
         } else if act == Action::SwapPanels {

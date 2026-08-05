@@ -86,7 +86,7 @@ pub fn handle(
                 KeyCode::Char('s') | KeyCode::Char('S') => {
                     // Apply rules to context
                     context.config.settings.highlight_rules = rules.clone();
-                    let _ = context.config.save(); // Save configuration
+                    context.config.save_logging(); // Save configuration
                     state.refresh_both_panels(context.config.settings.show_hidden);
 
                     // Return to Configuration Dialog

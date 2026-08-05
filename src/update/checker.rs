@@ -103,7 +103,9 @@ fn save_cache(release: &GhRelease) {
             .collect(),
     };
     if let Ok(json) = serde_json::to_string_pretty(&cached) {
-        let _ = std::fs::write(cache_path(), json);
+        if let Err(e) = std::fs::write(cache_path(), json) {
+            log::warn!("Failed to write update cache: {}", e);
+        }
     }
 }
 

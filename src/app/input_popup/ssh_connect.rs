@@ -350,7 +350,7 @@ pub fn handle(
                     }
 
                     context.config.settings.ssh_presets = presets;
-                    let _ = context.config.save();
+                    context.config.save_logging();
 
                     // Stay on Save button but refresh state
                     update_popup(
@@ -372,7 +372,7 @@ pub fn handle(
                         if idx < presets.len() {
                             presets.remove(idx);
                             context.config.settings.ssh_presets = presets;
-                            let _ = context.config.save();
+                            context.config.save_logging();
 
                             let next_presets = &context.config.settings.ssh_presets;
                             if !next_presets.is_empty() {

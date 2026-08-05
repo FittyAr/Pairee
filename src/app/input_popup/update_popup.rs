@@ -119,7 +119,7 @@ pub fn handle(
                 // 2 = "Ignore this version" — save dismissed tag to settings
                 2 => {
                     context.config.settings.dismissed_update_version = Some(info_clone.tag.clone());
-                    let _ = context.config.save();
+                    context.config.save_logging();
                     state.active_popup = None;
                     state.update_available = None;
                 }

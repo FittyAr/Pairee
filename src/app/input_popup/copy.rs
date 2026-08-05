@@ -328,8 +328,12 @@ pub fn handle(
                     options.buffer_size = match context.config.settings.transfer_buffer_size {
                         65536 => crate::fs::transfer::options::BufferSize::_64KB,
                         262144 => crate::fs::transfer::options::BufferSize::_256KB,
+                        1048576 => crate::fs::transfer::options::BufferSize::_1MB,
                         4194304 => crate::fs::transfer::options::BufferSize::_4MB,
-                        _ => crate::fs::transfer::options::BufferSize::_1MB,
+                        n if n <= 65536 => crate::fs::transfer::options::BufferSize::_64KB,
+                        n if n <= 262144 => crate::fs::transfer::options::BufferSize::_256KB,
+                        n if n <= 1048576 => crate::fs::transfer::options::BufferSize::_1MB,
+                        _ => crate::fs::transfer::options::BufferSize::_4MB,
                     };
                     options.direct_io = new_cache;
                     options.preserve_timestamps =
