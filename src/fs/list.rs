@@ -5,25 +5,79 @@ use std::path::Path;
 
 #[cfg(target_os = "windows")]
 fn read_directory_as_admin(path: &Path) -> Result<Vec<FileEntry>> {
+    use std::io::Write;
     use std::process::Command;
+
+    // The previous implementation built a PowerShell command by string-
+    // concatenation of the user-supplied path. The path was escaped for
+    // `"` only, leaving it vulnerable to PowerShell injection via `$`,
+    // `` ` ``, or `'` in the path. Worse, the inner script was passed as
+    // a single-quoted argument to `Start-Process -ArgumentList`, and the
+    // inner script's quotes weren't escaped for that context either.
+    //
+    // The fix: ship a static PowerShell script that takes `-Path` and
+    // `-OutputFile` parameters. The path is delivered as a parameter and
+    // never re-parsed by PowerShell, so metacharacters are inert.
+    let script_dir = std::env::temp_dir().join("pairee-admin");
+    std::fs::create_dir_all(&script_dir)
+        .map_err(|e| anyhow::anyhow!("Failed to create temp script directory: {}", e))?;
+    let script_path = script_dir.join("ListDirectory.ps1");
+
+    // Script body is fully static; no path interpolation.
+    let script_body = r#"param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string] $Path,
+    [Parameter(Mandatory = $true, Position = 1)]
+    [string] $OutputFile
+)
+
+$ErrorActionPreference = 'Stop'
+$utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+$writer = New-Object System.IO.StreamWriter($OutputFile, $false, $utf8NoBom)
+
+try {
+    Get-ChildItem -Path $Path -Force -ErrorAction Stop | ForEach-Object {
+        $name = $_.Name
+        $length = $_.Length
+        $mode = $_.Mode
+        $ticks = $_.LastWriteTime.Ticks
+        $writer.WriteLine(("{0}|{1}|{2}|{3}" -f $name, $length, $mode, $ticks))
+    }
+} finally {
+    $writer.Close()
+}
+"#;
+    if !script_path.exists() {
+        std::fs::File::create(&script_path)
+            .and_then(|mut f| f.write_all(script_body.as_bytes()))
+            .map_err(|e| anyhow::anyhow!("Failed to write admin-listing script: {}", e))?;
+    }
+
     let temp_dir = std::env::temp_dir();
     let temp_file = temp_dir.join(format!("pairee_dir_{}.txt", std::process::id()));
-    let temp_file_str = temp_file.to_string_lossy().replace('"', "\\\"");
-    let path_str = path.to_string_lossy().replace('"', "\\\"");
+    // We need to pass the *absolute* path to the script because the elevated
+    // process will run with a different working directory and we cannot rely
+    // on relative paths to resolve to the same location.
+    let script_arg = script_path
+        .canonicalize()
+        .unwrap_or_else(|_| script_path.clone());
+    let temp_file_arg = temp_file
+        .canonicalize()
+        .unwrap_or_else(|_| temp_file.clone());
 
-    // PowerShell script to run as admin. It will write Name|Length|Mode|LastWriteTime to a temp file.
-    // Mode contains 'd' if it is a directory.
-    let ps_cmd = format!(
-        "Get-ChildItem -Path \\\"{}\\\" -Force | % {{ \\\"$($_.Name)|$($_.Length)|$($_.Mode)|$($_.LastWriteTime.Ticks)\\\" }} | Out-File -FilePath \\\"{}\\\" -Encoding utf8",
-        path_str, temp_file_str
-    );
-
-    let ps_run = format!(
-        "Start-Process powershell -ArgumentList '-NoProfile -Command {}' -Verb RunAs -WindowStyle Hidden -Wait",
-        ps_cmd
-    );
+    // The wrapper that elevates the helper script. We pass the path to the
+    // .ps1 and its arguments through `-ArgumentList` (which is parsed by
+    // PowerShell at the elevated prompt, NOT as a string), so the path is
+    // never re-interpreted.
     let status = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_run])
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(format!(
+            "Start-Process powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',\"{}\",'-Path',\"{}\",'-OutputFile',\"{}\") -Verb RunAs -WindowStyle Hidden -Wait",
+            script_arg.display(),
+            path.display(),
+            temp_file_arg.display(),
+        ))
         .status()?;
 
     if status.success() && temp_file.exists() {

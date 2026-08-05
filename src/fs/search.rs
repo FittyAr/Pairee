@@ -111,14 +111,29 @@ async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<
 }
 
 /// Returns true if the text file at `path` contains `needle` (case-insensitive unless configured).
-/// Non-UTF-8 / binary files return false.
+/// Non-UTF-8 / binary files return false. Files larger than 16 MiB are
+/// skipped to keep the case-insensitive search from allocating two full
+/// copies of the file in memory.
 async fn file_contains(path: &std::path::Path, needle: &str, case_sensitive: bool) -> bool {
+    // Bail out on files we are not going to scan in full. 16 MiB is a
+    // generous ceiling for a content search; most text files are well
+    // under this. The user can still find the file by name.
+    const MAX_FILE_BYTES: u64 = 16 * 1024 * 1024;
+    let size_ok = match tokio::fs::metadata(path).await {
+        Ok(m) => m.len() <= MAX_FILE_BYTES,
+        Err(_) => false,
+    };
+    if !size_ok {
+        return false;
+    }
     match tokio::fs::read_to_string(path).await {
         Ok(content) => {
             if case_sensitive {
                 content.contains(needle)
             } else {
-                content.to_lowercase().contains(&needle.to_lowercase())
+                content
+                    .to_lowercase()
+                    .contains(&needle.to_lowercase())
             }
         }
         Err(_) => false, // Binary or unreadable file — skip

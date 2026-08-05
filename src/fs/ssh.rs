@@ -64,6 +64,103 @@ impl SharedSshClient {
         sess.set_tcp_stream(stream);
         sess.handshake().context(t("error_ssh_handshake_failed"))?;
 
+        // ── Host key verification ─────────────────────────────────────────
+        // Without this check, an attacker on the network can MITM the SSH
+        // connection and capture the user's credentials or tamper with the
+        // session. ssh2's `Session::handshake()` does NOT verify host keys
+        // by default; we must compare the server's key against a known_hosts
+        // file ourselves. The `known_hosts_path` defaults to the user's
+        // OpenSSH known_hosts file.
+        let known_hosts_path = known_hosts_path();
+        let mut known_hosts = sess
+            .known_hosts()
+            .context("Failed to allocate SSH known_hosts handle")?;
+        let kh_loaded = if let Some(ref p) = known_hosts_path {
+            if p.exists() {
+                match known_hosts.read_file(p, ssh2::KnownHostFileKind::OpenSSH) {
+                    Ok(_) => true,
+                    Err(e) => {
+                        log::warn!(
+                            "Failed to read known_hosts file {:?}: {} — host key \
+                             verification is disabled for this connection; \
+                             the session is vulnerable to MITM.",
+                            p, e
+                        );
+                        false
+                    }
+                }
+            } else {
+                // First connection: try to create the parent directory so
+                // subsequent connections can verify the server. The very
+                // first connection will be refused because we have no
+                // trusted key yet.
+                if let Some(parent) = p.parent() {
+                    let _ = std::fs::create_dir_all(parent);
+                }
+                log::warn!(
+                    "known_hosts file {:?} does not exist; SSH host key \
+                     verification is disabled for this connection. Add the \
+                     server's host key to the file to enable verification.",
+                    p
+                );
+                false
+            }
+        } else {
+            log::warn!(
+                "Could not determine a known_hosts file path; SSH host key \
+                 verification is disabled for this connection."
+            );
+            false
+        };
+
+        if !kh_loaded {
+            anyhow::bail!(
+                "Refusing SSH connection to {}:{} because host key \
+                 verification is not available. Add the server's host key to \
+                 your known_hosts file and try again.",
+                host,
+                port
+            );
+        }
+
+        let hostkey = sess
+            .host_key()
+            .ok_or_else(|| anyhow::anyhow!("SSH handshake returned no host key"))?;
+        // `host_key()` returns `(raw_key_bytes, key_type)`. The known_hosts
+        // check only consumes the raw bytes; the key type is metadata that
+        // libssh2 also extracts from the key during the check.
+        let (key_bytes, _key_type) = hostkey;
+        match known_hosts.check_port(host, port, key_bytes) {
+            ssh2::CheckResult::Match => {}
+            ssh2::CheckResult::Mismatch => {
+                anyhow::bail!(
+                    "SSH host key for {}:{} does NOT match the key in known_hosts. \
+                     This may indicate a man-in-the-middle attack.",
+                    host,
+                    port
+                );
+            }
+            ssh2::CheckResult::NotFound => {
+                // First time we see this key. Safe-by-default: refuse the
+                // connection. The user must explicitly trust the new key
+                // by adding it to their known_hosts file. This prevents
+                // the classic SSH "first-connection MITM" attack.
+                anyhow::bail!(
+                    "SSH host key for {}:{} is not in known_hosts. Refusing to \
+                     connect. Add the server's host key to {:?} and try again.",
+                    host,
+                    port,
+                    known_hosts_path
+                        .as_ref()
+                        .map(|p| p.display().to_string())
+                        .unwrap_or_default()
+                );
+            }
+            ssh2::CheckResult::Failure => {
+                anyhow::bail!("SSH host key check failed for {}:{}", host, port);
+            }
+        }
+
         let mut authenticated = false;
 
         // Try key authentication if provided
@@ -235,40 +332,74 @@ impl SharedSshClient {
     }
 
     pub fn delete_recursive(&self, path: &Path) -> Result<()> {
-        let client = self
-            .0
-            .lock()
-            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
-
-        // Let's check if the path is a directory or a file
-        let metadata = client.sftp.stat(path);
-        if let Ok(stat) = metadata {
-            if stat.is_dir() {
-                // Read dir contents and recursively delete them
-                let entries = client.sftp.readdir(path)?;
-                for (entry_path, entry_stat) in entries {
-                    let name = entry_path
-                        .file_name()
-                        .map(|n| n.to_string_lossy().into_owned())
-                        .unwrap_or_default();
-                    if name == "." || name == ".." {
-                        continue;
+        // Use an explicit work-stack so we never re-enter this function
+        // recursively on the same path. The previous implementation used
+        // `return self.delete_recursive(path)` after deleting a child dir,
+        // which both abandoned the rest of the parent's entries AND could
+        // recurse indefinitely on deeply nested trees.
+        let mut stack: Vec<PathBuf> = vec![path.to_path_buf()];
+        while let Some(current) = stack.pop() {
+            // Take the lock, stat, release. We can't hold the lock across
+            // the recursive calls because each call needs its own lock guard.
+            let (is_dir, children) = {
+                let client = self
+                    .0
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                match client.sftp.stat(&current) {
+                    Ok(stat) => {
+                        if stat.is_dir() {
+                            let kids = client.sftp.readdir(&current)?;
+                            let mut names: Vec<PathBuf> = Vec::with_capacity(kids.len());
+                            for (entry_path, entry_stat) in kids {
+                                let name = entry_path
+                                    .file_name()
+                                    .map(|n| n.to_string_lossy().into_owned())
+                                    .unwrap_or_default();
+                                if name == "." || name == ".." || name.is_empty() {
+                                    continue;
+                                }
+                                if entry_stat.is_dir() {
+                                    stack.push(entry_path);
+                                } else {
+                                    names.push(entry_path);
+                                }
+                            }
+                            (true, Some(names))
+                        } else {
+                            (false, None)
+                        }
                     }
-                    if entry_stat.is_dir() {
-                        drop(client);
-                        self.delete_recursive(&entry_path)?;
-                        return self.delete_recursive(path); // retry original
-                    } else {
-                        client.sftp.unlink(&entry_path)?;
+                    Err(_) => (false, None),
+                }
+            };
+
+            if is_dir {
+                // Push children that need further recursion back onto the stack.
+                if let Some(kids) = children {
+                    for k in kids {
+                        // Files are unlinked inline; dirs are walked.
+                        let client = self
+                            .0
+                            .lock()
+                            .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                        client.sftp.unlink(&k)?;
                     }
                 }
-                client.sftp.rmdir(path)?;
+                // After all entries are removed, the directory can be rmdir'd.
+                let client = self
+                    .0
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                client.sftp.rmdir(&current)?;
             } else {
-                client.sftp.unlink(path)?;
+                // File (or stat failed — try unlink, ignore errors).
+                let client = self
+                    .0
+                    .lock()
+                    .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
+                let _ = client.sftp.unlink(&current);
             }
-        } else {
-            // Stat failed or doesn't exist, try to delete file anyway
-            let _ = client.sftp.unlink(path);
         }
         Ok(())
     }
@@ -310,5 +441,34 @@ impl SharedSshClient {
             .map_err(|_| anyhow::anyhow!(t("error_mutex_poisoned")))?;
         client.sftp.rename(src, dst, None)?;
         Ok(())
+    }
+}
+
+/// Returns the platform-specific location of the OpenSSH `known_hosts` file
+/// used for SSH host key verification.
+fn known_hosts_path() -> Option<std::path::PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        // %USERPROFILE%\.ssh\known_hosts — matches OpenSSH for Windows and
+        // OpenSSH-for-Windows-Portable default locations.
+        if let Ok(profile) = std::env::var("USERPROFILE") {
+            return Some(
+                std::path::PathBuf::from(profile)
+                    .join(".ssh")
+                    .join("known_hosts"),
+            );
+        }
+        None
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        if let Ok(home) = std::env::var("HOME") {
+            return Some(
+                std::path::PathBuf::from(home)
+                    .join(".ssh")
+                    .join("known_hosts"),
+            );
+        }
+        None
     }
 }

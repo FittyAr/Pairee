@@ -82,10 +82,16 @@ pub fn execute_shell_command(
     Ok(())
 }
 
-// Suspends TUI and launches an external editor or viewer command (reserved for custom user command association bindings).
-pub fn execute_external_command(
+// Suspends TUI and launches an external program with a fully-resolved argv.
+//
+// This intentionally does NOT route through a shell, so a file path that
+// contains shell metacharacters cannot trigger command injection. Use this
+// for file-association handlers where the file path is derived from a
+// (potentially attacker-controlled) filename.
+pub fn execute_external_program(
     _target_path: &Path,
-    utility_command: &str,
+    program: &str,
+    args: &[String],
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
@@ -93,30 +99,21 @@ pub fn execute_external_command(
         crate::app::sys_helpers::refresh_env_vars();
     }
 
+    if program.is_empty() {
+        anyhow::bail!("Cannot execute empty program");
+    }
+
     // Suspend TUI
     terminal_backend.terminal.flush()?;
     disable_raw_mode()?;
     execute!(std::io::stdout(), LeaveAlternateScreen, Show)?;
 
-    let shell = if cfg!(target_os = "windows") {
-        "cmd"
-    } else {
-        "sh"
-    };
-    let flag = if cfg!(target_os = "windows") {
-        "/c"
-    } else {
-        "-c"
-    };
-    let mut child = std::process::Command::new(shell)
-        .arg(flag)
-        .arg(utility_command)
+    let status = std::process::Command::new(program)
+        .args(args)
         .stdin(std::process::Stdio::inherit())
         .stdout(std::process::Stdio::inherit())
         .stderr(std::process::Stdio::inherit())
-        .spawn()?;
-
-    let _ = child.wait();
+        .status();
 
     println!("\n[Press Enter to return to Pairee]");
     let mut buffer = String::new();
@@ -126,5 +123,10 @@ pub fn execute_external_command(
     enable_raw_mode()?;
     execute!(std::io::stdout(), EnterAlternateScreen)?;
     terminal_backend.terminal.clear()?;
-    Ok(())
+
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        Ok(s) => anyhow::bail!("Program exited with status {}", s),
+        Err(e) => Err(e.into()),
+    }
 }

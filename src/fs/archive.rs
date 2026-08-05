@@ -143,9 +143,83 @@ fn extract_7z(
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
 ) -> Result<()> {
+    use std::path::Component;
+
     fs::create_dir_all(dest_dir)?;
+    // Canonicalise the destination so we can verify that no extracted
+    // entry escapes it via `..` components or absolute paths.
+    let canonical_dest = std::fs::canonicalize(dest_dir)
+        .unwrap_or_else(|_| dest_dir.to_path_buf());
 
     sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
+        // The `sevenz-rust` 0.6.x API does not sanitise entry names; it
+        // simply `dest.join(entry.name())` and lets the extract function
+        // create the file. A malicious 7z archive can therefore write
+        // outside the chosen destination by including entries like
+        // `..\..\..\Windows\System32\evil.dll`. We refuse any entry whose
+        // path resolves outside the canonical destination directory.
+        let entry_name = entry.name();
+        let candidate = std::path::Path::new(entry_name);
+        let mut has_traversal = false;
+        for component in candidate.components() {
+            match component {
+                Component::ParentDir => {
+                    has_traversal = true;
+                    break;
+                }
+                Component::Prefix(_) | Component::RootDir => {
+                    // Absolute paths or Windows drive prefixes are never
+                    // legitimate inside an archive entry.
+                    has_traversal = true;
+                    break;
+                }
+                _ => {}
+            }
+        }
+        if has_traversal {
+            // Skip the entry entirely; do not call the default extractor.
+            let file_name = entry.name().to_string();
+            let _ = tx.blocking_send(ProgressUpdate {
+                current_file: file_name,
+                files_copied: 0,
+                total_files: 0,
+                bytes_copied: 0,
+                total_bytes: 0,
+                error: Some(format!(
+                    "Refusing to extract entry with unsafe path: {}",
+                    entry.name()
+                )),
+            });
+            return Ok(false);
+        }
+
+        // Resolve the entry's final path and make sure it stays under
+        // `canonical_dest`. The resolved path may not exist yet, so we
+        // canonicalize what we can and compare by prefix. We also
+        // canonicalise the parent so symlinks cannot redirect the write
+        // outside the destination.
+        let dest_path = dest.to_path_buf();
+        let check_target = dest_path
+            .parent()
+            .map(|p| p.to_path_buf())
+            .unwrap_or_else(|| dest_path.clone());
+        if let Ok(canon) = std::fs::canonicalize(&check_target) {
+            if !canon.starts_with(&canonical_dest) {
+                let _ = tx.blocking_send(ProgressUpdate {
+                    current_file: entry.name().to_string(),
+                    files_copied: 0,
+                    total_files: 0,
+                    bytes_copied: 0,
+                    total_bytes: 0,
+                    error: Some(format!(
+                        "Refusing to extract entry outside destination: {}",
+                        entry.name()
+                    )),
+                });
+                return Ok(false);
+            }
+        }
+
         let file_name = entry.name().to_string();
         let _ = tx.blocking_send(ProgressUpdate {
             current_file: file_name,
@@ -156,7 +230,7 @@ fn extract_7z(
             error: None,
         });
 
-        sevenz_rust::default_entry_extract_fn(entry, reader, dest)
+        sevenz_rust::default_entry_extract_fn(entry, reader, &dest_path)
     })
     .map_err(|e| anyhow!("7z extraction failed: {:?}", e))?;
 

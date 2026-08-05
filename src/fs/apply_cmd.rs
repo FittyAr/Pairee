@@ -4,7 +4,12 @@ use tokio::sync::mpsc;
 
 /// Spawns a background Tokio task that applies `cmd_template` to each path in `targets`.
 ///
-/// The template may contain `%f` which will be replaced by the quoted absolute path.
+/// The template may contain `%f` which will be replaced by the shell-quoted
+/// absolute path. The path is shell-quoted using the platform-appropriate
+/// escape rules so that filenames containing shell metacharacters (`;`, `|`,
+/// `$`, `` ` ``, `"`, etc.) cannot break out of the quoted argument and
+/// inject extra commands.
+///
 /// Progress updates are sent through the returned channel.
 ///
 /// # Example
@@ -21,8 +26,12 @@ pub fn apply_command(
         let total = targets.len();
         for (idx, path) in targets.iter().enumerate() {
             let path_str = path.to_string_lossy();
-            // Replace %f with the quoted path
-            let cmd = cmd_template.replace("%f", &format!("\"{}\"", path_str));
+            // Replace %f with a shell-quoted path. The shell-quote helper
+            // wraps the path in the right quoting for the platform shell
+            // (single-quotes on POSIX, double-quotes with internal `"`
+            // doubled on Windows) and escapes every internal metacharacter.
+            let quoted = crate::app::actions::fs_ops::helper::shell_quote(path);
+            let cmd = cmd_template.replace("%f", &quoted);
 
             // Notify UI of current file
             let _ = tx

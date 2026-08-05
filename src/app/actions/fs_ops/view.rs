@@ -42,12 +42,13 @@ pub fn handle(
 
         if use_external {
             if let Some(ref r) = rule {
-                let cmd = r.resolve_view_cmd(&path);
-                if command_exists(&cmd) {
+                let (program, args) = r.resolve_view_cmd(&path);
+                if !program.is_empty() && command_exists(&program) {
                     ran_external = true;
-                    if let Err(e) = crate::app::actions::exec::execute_external_command(
+                    if let Err(e) = crate::app::actions::exec::execute_external_program(
                         &path,
-                        &cmd,
+                        &program,
+                        &args,
                         context,
                         terminal_backend,
                     ) {

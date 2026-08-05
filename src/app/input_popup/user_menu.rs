@@ -168,10 +168,22 @@ fn execute_item(
     if let Some(cmd_template) = &item.command {
         let active_panel = state.get_active_panel();
         let highlighted = active_panel.entries.get(active_panel.cursor_index);
+        // Substitute `{f}` (file name) and `{p}` (full path) with
+        // shell-quoted values so a filename containing shell
+        // metacharacters (`;`, `|`, `$`, `` ` ``, etc.) cannot break out
+        // of the surrounding command and execute arbitrary code.
+        // `execute_shell_command` later routes the resulting string
+        // through the platform shell, so unquoted substitutions would be
+        // a command-injection vector.
         let final_cmd = if let Some(e) = highlighted {
+            let quoted_path = crate::app::actions::fs_ops::helper::shell_quote(&e.path);
+            // `e.name` is a String, not a Path; build a borrowed path so
+            // we can reuse the same shell-quote helper for consistency.
+            let name_path = std::path::Path::new(&e.name);
+            let quoted_name = crate::app::actions::fs_ops::helper::shell_quote(name_path);
             cmd_template
-                .replace("{f}", &e.name)
-                .replace("{p}", &e.path.to_string_lossy())
+                .replace("{f}", &quoted_name)
+                .replace("{p}", &quoted_path)
         } else {
             cmd_template.clone()
         };

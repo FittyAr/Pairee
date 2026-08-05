@@ -20,16 +20,48 @@ impl AssocRule {
         crate::app::state::glob_matches(&self.mask, filename)
     }
 
-    /// Returns the resolved open command with `%f` substituted by the file path.
-    pub fn resolve_open_cmd(&self, path: &std::path::Path) -> String {
-        self.open_cmd.replace("%f", &path.to_string_lossy())
+    /// Returns the resolved open command as a `(program, args)` pair with the
+    /// file path substituted for `%f`. The args are passed directly to the OS
+    /// (via `Command::arg`) and never go through a shell, so a file path that
+    /// contains shell metacharacters cannot trigger command injection.
+    pub fn resolve_open_cmd(&self, path: &std::path::Path) -> (String, Vec<String>) {
+        resolve_template(&self.open_cmd, path)
     }
 
-    /// Returns the resolved view command with `%f` substituted by the file path.
-    pub fn resolve_view_cmd(&self, path: &std::path::Path) -> String {
-        let cmd = self.view_cmd.as_deref().unwrap_or(&self.open_cmd);
-        cmd.replace("%f", &path.to_string_lossy())
+    /// Returns the resolved view command as a `(program, args)` pair.
+    /// Falls back to `open_cmd` if `view_cmd` is not set.
+    pub fn resolve_view_cmd(&self, path: &std::path::Path) -> (String, Vec<String>) {
+        let template = self.view_cmd.as_deref().unwrap_or(&self.open_cmd);
+        resolve_template(template, path)
     }
+}
+
+/// Splits a command template into `(program, args)` and substitutes `%f` with
+/// the file path. Whitespace separates tokens, but the path is delivered as
+/// a single argument regardless of any whitespace it contains, so a file name
+/// with spaces (e.g. `My File.txt`) does not get split into multiple argv
+/// entries.
+fn resolve_template(template: &str, path: &std::path::Path) -> (String, Vec<String>) {
+    let path_str = path.to_string_lossy().into_owned();
+    // We use a sentinel that cannot appear in a user-authored command
+    // template (the NUL byte is not a valid character in a Windows or
+    // Unix path and is not a meaningful token in a shell command). We
+    // substitute it in for `%f` so the splitter never breaks the path
+    // apart, then expand the sentinel back to the real path string.
+    const SENTINEL: &str = "\u{1f}PaireeFileSentinel\u{1f}";
+    let substituted = template.replace("%f", SENTINEL);
+    let mut parts = substituted.split_whitespace();
+    let program = parts.next().unwrap_or("").to_string();
+    let args = parts
+        .map(|s| {
+            if s == SENTINEL {
+                path_str.clone()
+            } else {
+                s.to_string()
+            }
+        })
+        .collect();
+    (program, args)
 }
 
 /// Holds all file association rules. Loaded from / saved to `associations.toml`.
@@ -228,7 +260,37 @@ mod tests {
             view_cmd: None,
         };
         let path = PathBuf::from("/home/user/README.md");
-        assert_eq!(rule.resolve_open_cmd(&path), "nano /home/user/README.md");
+        let (prog, args) = rule.resolve_open_cmd(&path);
+        assert_eq!(prog, "nano");
+        assert_eq!(args, vec!["/home/user/README.md".to_string()]);
+    }
+
+    #[test]
+    fn test_resolve_open_cmd_with_extra_args() {
+        let rule = AssocRule {
+            mask: "*.rs".to_string(),
+            open_cmd: "code --new-window %f".to_string(),
+            view_cmd: None,
+        };
+        let path = PathBuf::from("/tmp/main.rs");
+        let (prog, args) = rule.resolve_open_cmd(&path);
+        assert_eq!(prog, "code");
+        assert_eq!(args, vec!["--new-window".to_string(), "/tmp/main.rs".to_string()]);
+    }
+
+    #[test]
+    fn test_resolve_open_cmd_injection_neutralised() {
+        // A file name that looks like a shell-injection payload should be
+        // passed verbatim to the program as a single argument, never to a shell.
+        let rule = AssocRule {
+            mask: "*.txt".to_string(),
+            open_cmd: "notepad %f".to_string(),
+            view_cmd: None,
+        };
+        let path = PathBuf::from("/tmp/evil; rm -rf ~ #.txt");
+        let (prog, args) = rule.resolve_open_cmd(&path);
+        assert_eq!(prog, "notepad");
+        assert_eq!(args, vec!["/tmp/evil; rm -rf ~ #.txt".to_string()]);
     }
 
     #[test]

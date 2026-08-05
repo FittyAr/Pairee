@@ -745,8 +745,17 @@ impl TransferWorker {
                             retries += 1;
                             last_error = e.to_string();
                             if retries <= options.max_retries {
-                                // Backoff exponencial simple: 100ms, 200ms, 400ms...
-                                let backoff = Duration::from_millis(100 * (1 << retries));
+                                // Backoff exponencial: 100ms, 200ms, 400ms, 800ms…
+                                // We clamp `retries` to a safe range before
+                                // shifting to avoid overflowing `u32`. With
+                                // `100 * (1 << retries)`, the shift must stay
+                                // below 32 to keep the expression defined,
+                                // and we also cap the total backoff so the
+                                // user never waits more than a few seconds
+                                // between attempts.
+                                let shift = retries.min(20);
+                                let backoff_ms = 100u64.saturating_mul(1u64 << shift);
+                                let backoff = Duration::from_millis(backoff_ms.min(30_000));
                                 tokio::time::sleep(backoff).await;
                             }
                         }
@@ -881,22 +890,68 @@ impl TransferWorker {
 
 #[cfg(target_os = "windows")]
 fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
+    use std::io::Write;
     use std::process::Command;
-    let path_str = path.to_string_lossy().replace('\'', "''");
-    let ps_cmd = if path.is_dir() {
-        format!(
-            "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory('{}', 'OnlyErrorDialogs', 'SendToRecycleBin')",
-            path_str
-        )
-    } else {
-        format!(
-            "Add-Type -AssemblyName Microsoft.VisualBasic; [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile('{}', 'OnlyErrorDialogs', 'SendToRecycleBin')",
-            path_str
-        )
-    };
+
+    // The previous implementation built a PowerShell command by string-
+    // concatenation of the user-supplied file path. Any path containing a
+    // PowerShell metacharacter (`'`, `$`, `` ` ``, `"`, `;`, etc.) could
+    // break out of the quoted argument and execute arbitrary PowerShell.
+    //
+    // The fix is to ship a static script and pass the path as a parameter
+    // (which PowerShell never re-parses for metacharacters). We write the
+    // script to a uniquely-named temp file and pass the path as the
+    // `-Path` argument so the file name is never concatenated into source.
+    let script_dir = std::env::temp_dir().join("pairee-recycle");
+    std::fs::create_dir_all(&script_dir).map_err(|e| {
+        anyhow::anyhow!("Failed to create temp script directory: {}", e)
+    })?;
+    let script_path = script_dir.join("SendToRecycleBin.ps1");
+    // The script body is fully static; the path is delivered as a parameter.
+    let script_body = r#"param(
+    [Parameter(Mandatory = $true, Position = 0)]
+    [string] $Path,
+    [Parameter(Mandatory = $true)]
+    [bool] $IsDirectory
+)
+
+$ErrorActionPreference = 'Stop'
+Add-Type -AssemblyName Microsoft.VisualBasic
+
+if ($IsDirectory) {
+    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteDirectory(
+        $Path,
+        'OnlyErrorDialogs',
+        'SendToRecycleBin'
+    )
+} else {
+    [Microsoft.VisualBasic.FileIO.FileSystem]::DeleteFile(
+        $Path,
+        'OnlyErrorDialogs',
+        'SendToRecycleBin'
+    )
+}
+"#;
+    if !script_path.exists() {
+        let mut f = std::fs::File::create(&script_path).map_err(|e| {
+            anyhow::anyhow!("Failed to write recycle helper script: {}", e)
+        })?;
+        f.write_all(script_body.as_bytes())?;
+    }
+
+    let is_dir = path.is_dir();
     let output = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_cmd])
+        .arg("-NoProfile")
+        .arg("-ExecutionPolicy")
+        .arg("Bypass")
+        .arg("-File")
+        .arg(&script_path)
+        .arg("-Path")
+        .arg(path)
+        .arg("-IsDirectory")
+        .arg(if is_dir { "true" } else { "false" })
         .output();
+
     let output = match output {
         Ok(o) => o,
         Err(e) => anyhow::bail!("Failed to execute PowerShell trash command: {}", e),

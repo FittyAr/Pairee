@@ -202,42 +202,53 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
                 if !context.config.settings.enter_use_external {
                     open_file_path = Some(entry.path.clone());
                 } else {
-                    let path = entry.path.to_string_lossy().to_string();
                     let rule = crate::config::associations::AssociationsConfig::load()
                         .find_rule(&entry.name)
                         .cloned();
 
-                    let (cmd_to_run, should_spawn) = if let Some(r) = rule {
-                        (Some(r.resolve_open_cmd(&entry.path)), true)
-                    } else if cfg!(target_os = "windows") {
-                        if context.config.settings.use_windows_registered_types {
-                            (Some(format!("start \"\" \"{}\"", path)), true)
-                        } else {
-                            (None, false)
-                        }
-                    } else {
-                        (Some(format!("xdg-open \"{}\" 2>/dev/null", path)), true)
-                    };
-
-                    if should_spawn {
-                        if let Some(cmd) = cmd_to_run {
+                    if let Some(r) = rule {
+                        // Association: parse command into (program, args) and
+                        // exec directly without a shell. File path is passed as
+                        // a single argv entry, so a malicious filename cannot
+                        // inject shell commands.
+                        let (program, args) = r.resolve_open_cmd(&entry.path);
+                        if !program.is_empty() {
                             if context.config.settings.automatic_update_env_variables {
                                 crate::app::sys_helpers::refresh_env_vars();
                             }
-                            let args = if cfg!(target_os = "windows") {
-                                vec!["/c", &cmd]
-                            } else {
-                                vec!["-c", &cmd]
-                            };
-
-                            let _ = std::process::Command::new(if cfg!(target_os = "windows") {
-                                "cmd"
-                            } else {
-                                "sh"
-                            })
-                            .args(&args)
-                            .spawn();
+                            let _ = std::process::Command::new(&program)
+                                .args(&args)
+                                .spawn();
                         }
+                    } else if cfg!(target_os = "windows") {
+                        if context.config.settings.use_windows_registered_types {
+                            // No matching association: hand the path to the
+                            // shell-registered handler via `start`. We route
+                            // through `cmd /c` because `start` is a cmd.exe
+                            // builtin, but the file path is shell-quoted to
+                            // neutralise any metacharacters in the filename.
+                            let path_quoted =
+                                crate::app::actions::fs_ops::helper::shell_quote(&entry.path);
+                            if context.config.settings.automatic_update_env_variables {
+                                crate::app::sys_helpers::refresh_env_vars();
+                            }
+                            let _ = std::process::Command::new("cmd")
+                                .arg("/c")
+                                .arg(format!("start \"\" {}", path_quoted))
+                                .spawn();
+                        }
+                    } else {
+                        // No association on Unix: fall back to xdg-open. The
+                        // path is passed as a separate argv entry rather than
+                        // concatenated into a shell string.
+                        if context.config.settings.automatic_update_env_variables {
+                            crate::app::sys_helpers::refresh_env_vars();
+                        }
+                        let _ = std::process::Command::new("xdg-open")
+                            .arg(&entry.path)
+                            .stdout(std::process::Stdio::null())
+                            .stderr(std::process::Stdio::null())
+                            .spawn();
                     }
                 }
             }

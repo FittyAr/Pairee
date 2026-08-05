@@ -82,16 +82,20 @@ pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
 
 #[cfg(target_os = "windows")]
 fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
-    let exe_str = exe.to_string_lossy().replace('"', "\\\"");
-    let temp_str = temp_file.to_string_lossy().replace('"', "\\\"");
-
-    let ps_arg = format!(
-        "Start-Process -FilePath \"{}\" -ArgumentList \"--elevated-helper \\\"{}\\\"\" -Verb RunAs -WindowStyle Hidden -Wait",
-        exe_str, temp_str
-    );
-
+    // Avoid string-interpolating the executable path and temp file path into
+    // a PowerShell command. PowerShell re-parses the inner string for
+    // metacharacters (`$`, `` ` ``, `"`, `;`), so a path containing any of
+    // these could escape the quoted argument and execute arbitrary code.
+    // Instead, we pass every argument to Start-Process as a separate
+    // element of `-ArgumentList`, which PowerShell does not re-parse.
     let status = Command::new("powershell")
-        .args(&["-NoProfile", "-Command", &ps_arg])
+        .arg("-NoProfile")
+        .arg("-Command")
+        .arg(format!(
+            "$exe = $args[0]; $tf = $args[1]; Start-Process -FilePath $exe -ArgumentList @('--elevated-helper', $tf) -Verb RunAs -WindowStyle Hidden -Wait",
+        ))
+        .arg(exe)
+        .arg(temp_file)
         .status()
         .context("Failed to run elevated helper via PowerShell")?;
 

@@ -57,6 +57,11 @@ fn overwrite_with_chunk(path: &Path, file_size: usize, chunk: &[u8]) -> Result<(
         written += to_write;
     }
     file.flush().context("Flushing wipe pass")?;
+    // Force the kernel to flush the wipe data to disk before we move on to
+    // the next pass. Without this, the OS may keep the overwrite in the page
+    // cache and later writes (or even the unlink) could return success
+    // before the bytes are actually on the storage, defeating the wipe.
+    file.sync_all().context("Syncing wipe pass to disk")?;
     Ok(())
 }
 
