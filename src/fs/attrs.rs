@@ -102,19 +102,47 @@ pub fn format_unix_mode(mode: u32) -> String {
 
 #[cfg(unix)]
 fn get_unix_owner_name(uid: u32) -> String {
-    // Use getpwuid if available via libc; fallback to numeric UID.
-    // We avoid pulling in libc directly — read /etc/passwd instead.
-    if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
+    // Map uid -> name by reading /etc/passwd once per process. Without
+    // the cache, every `read_attrs` call (and therefore every visible
+    // file in the panels) re-reads the whole file — that is O(N*M) in
+    // files * passwd lines and adds noticeable latency on panel refresh
+    // for directories with thousands of entries.
+    use std::collections::HashMap;
+    use std::sync::OnceLock;
+
+    static PASSWD_CACHE: OnceLock<std::sync::RwLock<HashMap<u32, String>>> = OnceLock::new();
+    let cache = PASSWD_CACHE.get_or_init(|| std::sync::RwLock::new(HashMap::new()));
+
+    if let Ok(map) = cache.read() {
+        if let Some(name) = map.get(&uid) {
+            return name.clone();
+        }
+    }
+
+    let resolved = if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
+        let mut map = HashMap::new();
         for line in content.lines() {
             let mut parts = line.split(':');
             if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next()) {
-                if uid_str.trim() == uid.to_string() {
-                    return name.to_string();
+                if let Ok(parsed_uid) = uid_str.trim().parse::<u32>() {
+                    map.entry(parsed_uid).or_insert_with(|| name.to_string());
                 }
             }
         }
-    }
-    uid.to_string()
+        let name = map.get(&uid).cloned();
+        // Best-effort write of the freshly-parsed cache. If another
+        // thread raced us we just keep our own map; the read paths
+        // tolerate that.
+        if let Ok(mut writable) = cache.write() {
+            for (k, v) in map {
+                writable.entry(k).or_insert(v);
+            }
+        }
+        name.unwrap_or_else(|| uid.to_string())
+    } else {
+        uid.to_string()
+    };
+    resolved
 }
 
 #[cfg(test)]

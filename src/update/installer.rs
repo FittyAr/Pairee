@@ -212,19 +212,39 @@ async fn install_windows_zip(archive: &Path) -> Result<InstallResult> {
     let new_exe = find_binary_in_dir_windows(&extract_dir)
         .ok_or_else(|| anyhow::anyhow!("pairee.exe not found in archive"))?;
 
-    // Write a small .bat helper that will replace the exe after Pairee exits
+    // Write a small .bat helper that will replace the exe after Pairee exits.
+    //
+    // Both `new_exe` and `exe` are paths derived from the downloaded
+    // archive (the archive controls the directory layout of `new_exe`).
+    // Naively interpolating them into a `.bat` body is a code-injection
+    // vector: cmd.exe treats `&`, `|`, `<`, `>`, `^`, `!`, `%` and
+    // unbalanced `"` as metacharacters inside batch files. A directory
+    // named e.g. `& calc` in the archive would be rendered as
+    // `copy /y "C:\extract\& calc\pairee.exe" "..."` and the `&` would
+    // chain an extra `calc` invocation.
+    //
+    // To eliminate this, the helper does not mention either path in the
+    // script body. Instead the paths are passed as `%~1` and `%~2` and
+    // expanded by cmd at runtime, after cmd's batch parser has finished
+    // its pass over the literal body. This keeps the literal body
+    // entirely metacharacter-free.
     let helper_bat = install_dir.join("pairee_update.bat");
-    let bat_content = format!(
-        "@echo off\r\ntimeout /t 2 /nobreak >nul\r\ncopy /y \"{}\" \"{}\"\r\ndel \"%~f0\"\r\nstart \"\" \"{}\"\r\n",
-        new_exe.display(),
-        exe.display(),
-        exe.display()
-    );
+    let bat_content = "@echo off\r\n\
+                       setlocal DisableDelayedExpansion\r\n\
+                       timeout /t 2 /nobreak >nul\r\n\
+                       copy /y \"%~1\" \"%~2\"\r\n\
+                       del \"%~f0\"\r\n\
+                       start \"\" \"%~2\"\r\n";
     std::fs::write(&helper_bat, bat_content).context("failed to write update helper")?;
 
-    // Launch the bat detached
+    // Launch the bat detached. The two paths are appended to the bat's
+    // argv so they reach the script as `%~1` and `%~2` (see the comment
+    // above for why we don't interpolate them into the script body).
+    let helper_bat_str = helper_bat.to_string_lossy().into_owned();
+    let new_exe_str = new_exe.to_string_lossy().into_owned();
+    let exe_str = exe.to_string_lossy().into_owned();
     std::process::Command::new("cmd")
-        .args(["/c", "start", "", helper_bat.to_str().unwrap_or("")])
+        .args(["/c", "start", "", &helper_bat_str, &new_exe_str, &exe_str])
         .spawn()
         .context("failed to launch update helper")?;
 

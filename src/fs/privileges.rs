@@ -66,7 +66,13 @@ pub fn acquire_admin_privileges() -> Result<()> {
 
 pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
     let temp_dir = std::env::temp_dir();
-    let temp_file_path = temp_dir.join(format!("pairee_op_{}.json", std::process::id()));
+    // Use a UUID rather than the (guessable) process id so a local
+    // attacker cannot pre-create the JSON file with their own operations
+    // and have the helper execute them as root / as Administrator. Pairs
+    // with the matching helper-side fix in `main.rs` which builds the
+    // res-file path from the same operations envelope.
+    let unique = uuid::Uuid::new_v4();
+    let temp_file_path = temp_dir.join(format!("pairee_op_{}.json", unique));
 
     let json_content = serde_json::to_string(&ops)?;
     std::fs::write(&temp_file_path, json_content)?;
@@ -75,6 +81,8 @@ pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
 
     let run_res = run_helper_process(&current_exe, &temp_file_path);
 
+    // Best-effort cleanup; if the helper crashed before deleting, the
+    // unique name means it won't collide with a future run.
     let _ = std::fs::remove_file(&temp_file_path);
 
     run_res

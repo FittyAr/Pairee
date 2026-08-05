@@ -681,24 +681,35 @@ impl TransferWorker {
             if recreate_link {
                 match (|| -> std::io::Result<()> {
                     let target = std::fs::read_link(&src)?;
+                    // Resolve a relative target against the *source*'s
+                    // parent so the new symlink points at the same file as
+                    // the original. Without this resolution, copying a
+                    // symlink like `link -> ./payload` into a sibling
+                    // directory produces `link -> ./payload` (still
+                    // relative), which then resolves to a *different* file
+                    // in the destination directory. The pre-fix code
+                    // computed `absolute_target` for Windows but then
+                    // forgot to use it and re-used the original `target`,
+                    // making relative symlinks point to the wrong file
+                    // after the move.
+                    let resolved_target = if target.is_relative() {
+                        src.parent()
+                            .map(|p| p.join(&target))
+                            .unwrap_or_else(|| target.clone())
+                    } else {
+                        target.clone()
+                    };
                     #[cfg(target_os = "windows")]
                     {
-                        let absolute_target = if target.is_relative() {
-                            src.parent()
-                                .map(|p| p.join(&target))
-                                .unwrap_or_else(|| target.clone())
-                        } else {
-                            target.clone()
-                        };
-                        let is_dir = absolute_target.is_dir();
+                        let is_dir = resolved_target.is_dir();
                         if dst.exists() {
                             let _ = std::fs::remove_file(&dst);
                             let _ = std::fs::remove_dir_all(&dst);
                         }
                         if is_dir {
-                            std::os::windows::fs::symlink_dir(&target, &dst)?;
+                            std::os::windows::fs::symlink_dir(&resolved_target, &dst)?;
                         } else {
-                            std::os::windows::fs::symlink_file(&target, &dst)?;
+                            std::os::windows::fs::symlink_file(&resolved_target, &dst)?;
                         }
                     }
                     #[cfg(not(target_os = "windows"))]
@@ -706,7 +717,7 @@ impl TransferWorker {
                         if dst.exists() {
                             let _ = std::fs::remove_file(&dst);
                         }
-                        std::os::unix::fs::symlink(&target, &dst)?;
+                        std::os::unix::fs::symlink(&resolved_target, &dst)?;
                     }
                     Ok(())
                 })() {

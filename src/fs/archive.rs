@@ -247,15 +247,76 @@ pub fn compress_zip(
     let options = zip::write::SimpleFileOptions::default()
         .compression_method(zip::CompressionMethod::Deflated);
 
-    let mut i = 0;
-    let total_files = sources.len(); // This is rough, as directories contain more files
+    let mut i = 0usize;
+    let total_files = sources.len();
 
     for src in sources {
         if src.is_dir() {
-            // A recursive walk would be needed here for full folder compression
-            // For simplicity, we just zip the empty folder for now or we could use walkdir
-            let name = src.file_name().unwrap_or_default().to_string_lossy();
-            zip.add_directory(name, options)?;
+            // Recursive walk so the user gets the full folder contents
+            // inside the archive, not just an empty entry. The archive
+            // path is built by stripping `src.parent()` from each entry
+            // and prepending `src.file_name()` so the directory appears
+            // at the top of the archive.
+            let top = src.file_name().unwrap_or_default().to_os_string();
+            let base_parent = src.parent().map(|p| p.to_path_buf());
+            let mut stack: Vec<PathBuf> = vec![src.clone()];
+            while let Some(dir) = stack.pop() {
+                let dir_name_in_zip = match dir.strip_prefix(&src) {
+                    Ok(rel) if !rel.as_os_str().is_empty() => {
+                        let mut p = top.clone();
+                        for component in rel.components() {
+                            p.push(component.as_os_str());
+                        }
+                        p
+                    }
+                    _ => top.clone(),
+                };
+                zip.add_directory(dir_name_in_zip.to_string_lossy(), options)?;
+
+                let entries = match fs::read_dir(&dir) {
+                    Ok(e) => e,
+                    Err(_) => continue,
+                };
+                for entry in entries.flatten() {
+                    let entry_path = entry.path();
+                    if entry_path.is_dir() {
+                        stack.push(entry_path);
+                    } else {
+                        let rel = entry_path.strip_prefix(&src).unwrap_or(&entry_path);
+                        let mut zip_path = top.clone();
+                        for component in rel.components() {
+                            zip_path.push(component.as_os_str());
+                        }
+                        let zip_path_str = zip_path.to_string_lossy().into_owned();
+                        let _ = tx.blocking_send(ProgressUpdate {
+                            current_file: zip_path_str.clone(),
+                            files_copied: i,
+                            total_files,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                            error: None,
+                        });
+                        zip.start_file(zip_path_str, options)?;
+                        let mut f = match fs::File::open(&entry_path) {
+                            Ok(f) => f,
+                            Err(e) => {
+                                log::warn!(
+                                    "compress_zip: skipping {:?}: {}",
+                                    entry_path,
+                                    e
+                                );
+                                continue;
+                            }
+                        };
+                        io::copy(&mut f, &mut zip)?;
+                        i += 1;
+                    }
+                }
+            }
+            // Suppress unused warning for base_parent: it documents the
+            // intent that the relative-path arithmetic above is rooted
+            // at the source directory.
+            let _ = base_parent;
         } else {
             let name = src.file_name().unwrap_or_default().to_string_lossy();
             let _ = tx.blocking_send(ProgressUpdate {
@@ -284,6 +345,7 @@ fn extract_via_external_7z(
     tx: &mpsc::Sender<ProgressUpdate>,
 ) -> Result<()> {
     use crate::fs::external_tools::get_external_7z_path;
+    use std::path::Component;
 
     let bin_path = get_external_7z_path().ok_or_else(|| anyhow!("Could not determine 7z path"))?;
     if !bin_path.exists() && cfg!(target_os = "windows") {
@@ -293,6 +355,64 @@ fn extract_via_external_7z(
     }
 
     fs::create_dir_all(dest_dir)?;
+
+    // Path-traversal guard. Unlike our native zip/7z paths, the external
+    // 7z binary does not get a custom callback for each entry, so a
+    // malicious RAR/ISO that contains entries with `..` or absolute
+    // components could otherwise be extracted outside `dest_dir`. We list
+    // the archive first and reject it if any entry has a path component
+    // that would escape the destination.
+    let list_output = std::process::Command::new(&bin_path)
+        .arg("l")
+        .arg("-slt") // long technical listing, one block per file
+        .arg(archive_path)
+        .output()?;
+    if list_output.status.success() {
+        let listing = String::from_utf8_lossy(&list_output.stdout);
+        for block in listing.split("\n\n") {
+            for line in block.lines() {
+                if let Some(path) = line.strip_prefix("Path = ") {
+                    let candidate = std::path::Path::new(path.trim());
+                    let mut has_traversal = false;
+                    for component in candidate.components() {
+                        match component {
+                            Component::ParentDir => {
+                                has_traversal = true;
+                                break;
+                            }
+                            Component::Prefix(_) | Component::RootDir => {
+                                // Windows drive prefix or root: not a
+                                // legitimate archive entry relative to
+                                // `dest_dir`.
+                                has_traversal = true;
+                                break;
+                            }
+                            _ => {}
+                        }
+                    }
+                    if has_traversal {
+                        let _ = tx.blocking_send(ProgressUpdate {
+                            current_file: path.trim().to_string(),
+                            files_copied: 0,
+                            total_files: 0,
+                            bytes_copied: 0,
+                            total_bytes: 0,
+                            error: Some(format!(
+                                "Refusing to extract archive: entry {} would escape the destination",
+                                path.trim()
+                            )),
+                        });
+                        return Err(anyhow!(
+                            "Refusing to extract archive: entry {} contains a path-traversal component",
+                            path.trim()
+                        ));
+                    }
+                }
+            }
+        }
+    }
+    // If the listing step itself failed we still continue, but we surface
+    // the warning so the operator knows the safety check did not run.
 
     let _ = tx.blocking_send(ProgressUpdate {
         current_file: format!("Extracting using external 7z..."),

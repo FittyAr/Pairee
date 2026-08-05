@@ -156,11 +156,11 @@ impl AppConfig {
     pub fn save(&self) -> Result<()> {
         let settings_path = paths::get_config_file_path();
         let settings_toml = toml::to_string_pretty(&self.settings)?;
-        fs::write(settings_path, settings_toml)?;
+        write_atomic(&settings_path, settings_toml.as_bytes())?;
 
         let keybindings_path = paths::get_keybindings_file_path();
         let keybindings_toml = toml::to_string_pretty(&self.keybindings)?;
-        fs::write(keybindings_path, keybindings_toml)?;
+        write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
 
         // Save active theme
         let theme_name = &self.settings.theme;
@@ -170,7 +170,7 @@ impl AppConfig {
         }
         let theme_path = themes_dir.join(format!("{}.toml", theme_name));
         let theme_toml = toml::to_string_pretty(&self.theme)?;
-        fs::write(theme_path, theme_toml)?;
+        write_atomic(&theme_path, theme_toml.as_bytes())?;
 
         Ok(())
     }
@@ -189,5 +189,97 @@ impl AppConfig {
                 e
             );
         }
+    }
+}
+
+/// Atomically replaces `path` with `data` by writing to a unique temp
+/// file in the same directory and then renaming it over the target. The
+/// rename step is atomic on the same filesystem, so a crash or power
+/// loss cannot leave a half-written config file behind.
+fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
+    use std::io::Write;
+
+    if let Some(parent) = path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent).context("Creating parent directory for atomic write")?;
+        }
+    }
+    let tmp_path = if let Some(parent) = path.parent() {
+        let name = format!(
+            ".{}.{}.tmp",
+            path.file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("pairee"),
+            uuid::Uuid::new_v4()
+        );
+        parent.join(name)
+    } else {
+        // No parent — fall back to writing the file in place. This path
+        // is only reachable for pathological inputs (a relative
+        // `config.toml` with no parent), which the rest of the app does
+        // not produce.
+        return fs::write(path, data).context("Atomic write fallback (no parent dir)");
+    };
+
+    // Write the data to the temp file, fsync to flush to disk, then
+    // rename onto the target. If any step fails we try to remove the
+    // temp file so we do not leak a `.tmp` next to the config.
+    let write_result = (|| -> Result<()> {
+        let mut f = fs::File::create(&tmp_path).context("Creating temp file for atomic write")?;
+        f.write_all(data).context("Writing to temp file")?;
+        f.sync_all().context("Syncing temp file to disk")?;
+        // On Windows `fs::rename` is not atomic when the destination
+        // exists. We use `std::fs::rename` which still does the right
+        // thing in practice (it falls back to MoveFileEx with
+        // MOVEFILE_REPLACE_EXISTING); on POSIX it is a single rename(2)
+        // syscall.
+        fs::rename(&tmp_path, path).context("Renaming temp file onto target")?;
+        Ok(())
+    })();
+
+    if write_result.is_err() {
+        let _ = fs::remove_file(&tmp_path);
+    }
+    write_result
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_write_atomic_replaces_file() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("data.toml");
+        fs::write(&path, b"original").unwrap();
+        write_atomic(&path, b"new content").expect("atomic write");
+        let read = fs::read(&path).expect("read back");
+        assert_eq!(read, b"new content");
+    }
+
+    #[test]
+    fn test_write_atomic_creates_missing_parent() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("nested").join("data.toml");
+        write_atomic(&path, b"hi").expect("atomic write to nested path");
+        assert_eq!(fs::read(&path).unwrap(), b"hi");
+    }
+
+    #[test]
+    fn test_write_atomic_does_not_leak_tmp() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("data.toml");
+        write_atomic(&path, b"a").unwrap();
+        // No `.tmp` leftovers next to the target.
+        let stray: Vec<_> = fs::read_dir(dir.path())
+            .unwrap()
+            .flatten()
+            .filter(|e| {
+                e.file_name()
+                    .to_string_lossy()
+                    .contains(".tmp")
+            })
+            .collect();
+        assert!(stray.is_empty(), "atomic write left temp file behind: {:?}", stray);
     }
 }

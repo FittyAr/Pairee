@@ -31,14 +31,27 @@ pub fn find_files(query: SearchQuery) -> mpsc::Receiver<(PathBuf, bool)> {
     let (tx, rx) = mpsc::channel(256);
 
     tokio::spawn(async move {
-        search_recursive(&query.root, &query, &tx).await;
+        search_recursive(&query.root, &query, &tx, 0).await;
     });
 
     rx
 }
 
 /// Recursive async search through a directory tree.
-async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<(PathBuf, bool)>) {
+///
+/// `depth` is the current nesting level; the walk stops descending
+/// once it exceeds [`MAX_SEARCH_DEPTH`], so a search rooted at the
+/// filesystem root cannot pin a worker for an unbounded time.
+async fn search_recursive(
+    dir: &PathBuf,
+    query: &SearchQuery,
+    tx: &mpsc::Sender<(PathBuf, bool)>,
+    depth: usize,
+) {
+    if depth > MAX_SEARCH_DEPTH {
+        return;
+    }
+
     let read_dir = match tokio::fs::read_dir(dir).await {
         Ok(rd) => rd,
         Err(_) => return,
@@ -61,8 +74,11 @@ async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<
             let is_file = file_type.is_file();
 
             if is_dir {
-                // 1. Recurse into subdirectory (Box::pin to avoid infinite type recursion)
-                Box::pin(search_recursive(&path, query, tx)).await;
+                // 1. Recurse into subdirectory (Box::pin to avoid infinite type recursion).
+                // The depth bound caps how deep the walk can go; without
+                // it a search rooted at `/` would traverse the whole
+                // filesystem.
+                Box::pin(search_recursive(&path, query, tx, depth + 1)).await;
 
                 // 2. Check if the directory itself matches
                 if query.target == SearchTarget::Any || query.target == SearchTarget::Directory {
@@ -110,6 +126,13 @@ async fn search_recursive(dir: &PathBuf, query: &SearchQuery, tx: &mpsc::Sender<
     }
 }
 
+/// Upper bound on the depth of the recursive directory walk. Without
+/// this, a search rooted at `/` (or any deep workspace) would happily
+/// traverse the entire filesystem and pin a worker thread for as long
+/// as the walk takes. 32 levels is far more than any real project
+/// structure and matches the depth limits in similar tools.
+const MAX_SEARCH_DEPTH: usize = 32;
+
 /// Returns true if the text file at `path` contains `needle` (case-insensitive unless configured).
 /// Non-UTF-8 / binary files return false. Files larger than 16 MiB are
 /// skipped to keep the case-insensitive search from allocating two full
@@ -126,18 +149,41 @@ async fn file_contains(path: &std::path::Path, needle: &str, case_sensitive: boo
     if !size_ok {
         return false;
     }
-    match tokio::fs::read_to_string(path).await {
-        Ok(content) => {
-            if case_sensitive {
-                content.contains(needle)
-            } else {
-                content
-                    .to_lowercase()
-                    .contains(&needle.to_lowercase())
+    // Stream the file with a 64 KiB buffer so we never hold more than
+    // (buffer + needle) in memory. The previous implementation read the
+    // whole file into a `String` and then lowercased it, which doubled
+    // peak memory and amplified the OOM risk on huge text files.
+    use tokio::io::{AsyncBufReadExt, BufReader};
+    let Ok(file) = tokio::fs::File::open(path).await else {
+        return false;
+    };
+    let reader = BufReader::with_capacity(64 * 1024, file);
+    let mut lines = reader.lines();
+    // For case-insensitive search, pre-lowercase the needle once.
+    let needle_lc = if case_sensitive {
+        None
+    } else {
+        Some(needle.to_lowercase())
+    };
+    while let Ok(Some(line)) = lines.next_line().await {
+        if case_sensitive {
+            if line.contains(needle) {
+                return true;
+            }
+        } else {
+            // The lowercase form may split a UTF-8 character across the
+            // 64 KiB chunk boundary in pathological cases; lowercasing
+            // per-line and using `.contains` is safe (each line is a
+            // complete UTF-8 string thanks to `lines()`).
+            let lower = line.to_lowercase();
+            if let Some(ref n) = needle_lc {
+                if lower.contains(n) {
+                    return true;
+                }
             }
         }
-        Err(_) => false, // Binary or unreadable file — skip
     }
+    false
 }
 
 #[cfg(test)]
@@ -245,5 +291,46 @@ mod tests {
             found_files_fail.push(path);
         }
         assert_eq!(found_files_fail.len(), 0);
+    }
+
+    /// The depth cap on the recursive walk must prevent a runaway search
+    /// from descending past `MAX_SEARCH_DEPTH` even when the directory
+    /// tree itself is deeper. We build a linear chain of directories and
+    /// confirm the search stops descending before reaching the leaf.
+    #[tokio::test]
+    async fn test_find_files_respects_depth_cap() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        // Build a chain `root/a/a/a/.../a/deep.txt` deeper than the cap.
+        let mut current = dir.path().to_path_buf();
+        for _ in 0..(MAX_SEARCH_DEPTH + 4) {
+            current = current.join("a");
+            std::fs::create_dir(&current).unwrap();
+        }
+        std::fs::write(current.join("deep.txt"), b"x").unwrap();
+
+        let query = SearchQuery {
+            name_glob: "deep.txt".to_string(),
+            content: None,
+            root: dir.path().to_path_buf(),
+            case_sensitive: true,
+            target: SearchTarget::File,
+        };
+        let mut rx = find_files(query);
+        let mut found = Vec::new();
+        // Bound the wait so the test fails fast if the cap is broken.
+        let timeout = std::time::Duration::from_secs(5);
+        let start = std::time::Instant::now();
+        while let Some((path, _)) =
+            tokio::time::timeout(timeout - start.elapsed(), rx.recv())
+                .await
+                .unwrap_or(None)
+        {
+            found.push(path);
+        }
+        assert!(
+            found.is_empty(),
+            "search should not descend past the depth cap; found: {:?}",
+            found
+        );
     }
 }
