@@ -9,6 +9,12 @@ on:
 permissions:
   contents: write
 
+# Force all JavaScript actions to run on Node.js 24. GitHub will also force
+# this for actions that target Node 20, but pinning it here makes the intent
+# explicit and silences the deprecation warnings.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+
 jobs:
   # Extract changelog section for the tagged version
   release-notes:
@@ -18,7 +24,7 @@ jobs:
       body: ${{ steps.extract.outputs.body }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Extract changelog section
         id: extract
@@ -188,7 +194,7 @@ jobs:
           done
 
       - name: Upload build artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-${{ matrix.target }}
           path: dist/*
@@ -202,7 +208,7 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     steps:
       - name: Download all build artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
