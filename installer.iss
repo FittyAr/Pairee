@@ -1,6 +1,6 @@
 ; installer.iss
 #define AppName "Pairee"
-#define AppVersion "0.7.1"
+#define AppVersion "0.7.2"
 #define AppPublisher "FittyAr"
 #define AppURL "https://github.com/FittyAr/Pairee"
 #define AppExeName "pairee.exe"
@@ -45,6 +45,7 @@ Name: "{autodesktop}\{#AppName}"; Filename: "{app}\{#AppExeName}"; Tasks: deskto
 [Registry]
 ; Safely append to user PATH environment variable
 Root: HKCU; Subkey: "Environment"; ValueType: expandsz; ValueName: "Path"; ValueData: "{localappdata}\Programs\pairee;{olddata}"; Flags: preservestringtype
+
 
 
 
