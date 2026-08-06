@@ -2,6 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::app::sys_helpers::find_next_in_editor;
 use crate::config::localization::t;
+use crate::config::write_atomic;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn handle_editor_screen(
@@ -125,7 +126,7 @@ pub fn handle_editor_screen(
             }
             KeyCode::F(2) => {
                 let content = ed.lines.join("\n");
-                if let Err(e) = std::fs::write(&ed.path, content) {
+                if let Err(e) = write_atomic(&ed.path, content.as_bytes()) {
                     state.active_popup = Some(PopupType::Error(
                         t("error_save_failed").replace("{}", &e.to_string()),
                     ));
@@ -135,7 +136,7 @@ pub fn handle_editor_screen(
             }
             KeyCode::Char('s') if is_ctrl => {
                 let content = ed.lines.join("\n");
-                if let Err(e) = std::fs::write(&ed.path, content) {
+                if let Err(e) = write_atomic(&ed.path, content.as_bytes()) {
                     state.active_popup = Some(PopupType::Error(
                         t("error_save_failed").replace("{}", &e.to_string()),
                     ));
@@ -162,9 +163,18 @@ pub fn handle_editor_screen(
                             } else {
                                 reloaded_lines
                             };
+                            // Both cursor axes must be re-clamped to the
+                            // new line count / line length, otherwise a
+                            // shorter reloaded file would leave the
+                            // editor in a state where cursor_y points
+                            // past the end and the next keystroke would
+                            // panic on `ed.lines[ed.cursor_y]`.
+                            if ed.cursor_y >= ed.lines.len() {
+                                ed.cursor_y = ed.lines.len() - 1;
+                            }
                             ed.cursor_x = ed
                                 .cursor_x
-                                .min(ed.lines.get(ed.cursor_y).map(|l| l.len()).unwrap_or(0));
+                                .min(ed.lines[ed.cursor_y].len());
                             ed.is_dirty = false;
                         }
                         Err(e) => {

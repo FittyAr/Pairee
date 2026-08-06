@@ -195,8 +195,10 @@ impl AppConfig {
 /// Atomically replaces `path` with `data` by writing to a unique temp
 /// file in the same directory and then renaming it over the target. The
 /// rename step is atomic on the same filesystem, so a crash or power
-/// loss cannot leave a half-written config file behind.
-fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
+/// loss cannot leave a half-written file behind. Returns the wrapped
+/// `io::Error` (or its `Context`) on failure so callers can surface a
+/// user-facing message.
+pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::io::Write;
 
     if let Some(parent) = path.parent() {

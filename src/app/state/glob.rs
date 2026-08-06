@@ -1,3 +1,18 @@
+/// Maximum depth of nested `{a,b,c,...}` brace groups we will expand.
+/// Each level can multiply the number of produced patterns by the
+/// number of comma-separated alternatives, so 6 levels with binary
+/// options already reach 64 patterns and growing from there quickly
+/// blows memory. 4 levels is enough for any sensible user-authored
+/// glob and keeps the worst-case expansion bounded.
+const MAX_BRACE_DEPTH: usize = 4;
+
+/// Hard cap on the total number of patterns produced by a single
+/// brace expansion. Even within `MAX_BRACE_DEPTH`, a pattern like
+/// `{a,b,c,d}{a,b,c,d}{a,b,c,d}{a,b,c,d}` would explode to 256; with
+/// the cap we refuse to expand further and treat the pattern as
+/// non-matching instead of allocating an unbounded `Vec`.
+const MAX_BRACE_PATTERNS: usize = 256;
+
 /// Matches `name` against a shell-style glob pattern supporting `*`, `?`, and `{a,b}` brace expansion.
 pub fn glob_matches(pattern: &str, name: &str) -> bool {
     glob_matches_case(pattern, name, false)
@@ -5,7 +20,7 @@ pub fn glob_matches(pattern: &str, name: &str) -> bool {
 
 /// Matches `name` against a shell-style glob pattern supporting case-sensitivity option.
 pub fn glob_matches_case(pattern: &str, name: &str, case_sensitive: bool) -> bool {
-    for pat in expand_braces(pattern) {
+    for pat in expand_braces(pattern, 0) {
         if glob_match_iter(&pat, name, case_sensitive) {
             return true;
         }
@@ -13,7 +28,14 @@ pub fn glob_matches_case(pattern: &str, name: &str, case_sensitive: bool) -> boo
     false
 }
 
-fn expand_braces(pattern: &str) -> Vec<String> {
+fn expand_braces(pattern: &str, depth: usize) -> Vec<String> {
+    if depth >= MAX_BRACE_DEPTH {
+        // Beyond the depth cap we keep the literal pattern. `glob_match_iter`
+        // will treat the unbalanced `{` and `}` as ordinary characters, so the
+        // pattern will not match a sensible name — that is the desired
+        // "refuse to expand" behaviour.
+        return vec![pattern.to_string()];
+    }
     if let Some(start) = pattern.find('{') {
         if let Some(end) = pattern[start..].find('}') {
             let end = start + end;
@@ -35,7 +57,16 @@ fn expand_braces(pattern: &str) -> Vec<String> {
                 // product of every alternative count, but each recursion
                 // strictly reduces the remaining brace depth.
                 let expanded = format!("{}{}{}", pre, opt, post);
-                results.extend(expand_braces(&expanded));
+                results.extend(expand_braces(&expanded, depth + 1));
+                if results.len() > MAX_BRACE_PATTERNS {
+                    // Bail out before allocating the rest of the
+                    // cross-product. The caller will iterate over the
+                    // truncated list and may not match, which is the
+                    // intended behaviour for a hostile / pathological
+                    // pattern.
+                    results.truncate(MAX_BRACE_PATTERNS);
+                    return results;
+                }
             }
             return results;
         }
@@ -144,6 +175,44 @@ mod tests {
         assert!(
             elapsed < std::time::Duration::from_millis(500),
             "glob match took too long: {:?}",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_glob_brace_explosion_is_capped() {
+        // 5 levels of binary alternation would produce 32 patterns, well
+        // under the cap. Anything beyond 4 nesting levels must NOT
+        // explode exponentially — the function must return promptly
+        // regardless of how many braces the user provides.
+        let pattern = "{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}{a,b}";
+        let start = std::time::Instant::now();
+        let _ = glob_matches(pattern, "a");
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_millis(500),
+            "brace explosion cap failed: took {:?} to reject a deeply nested pattern",
+            elapsed
+        );
+    }
+
+    #[test]
+    fn test_glob_brace_total_patterns_is_capped() {
+        // Even within the depth cap, a pattern with 5 binary options at
+        // the same level produces 32 patterns which is fine; a pattern
+        // that exceeds MAX_BRACE_PATTERNS must be truncated, not
+        // continued to exhaustion. We assert the cap by expanding
+        // directly via the public entry point and checking the call
+        // returns within a tight time bound.
+        let pattern = "{a,b,c,d}{a,b,c,d}{a,b,c,d}{a,b,c,d}{a,b,c,d}";
+        // 5^5 = 3125 patterns without the cap; with the cap (256) the
+        // expansion must be truncated well before that.
+        let start = std::time::Instant::now();
+        let _ = glob_matches(pattern, "a");
+        let elapsed = start.elapsed();
+        assert!(
+            elapsed < std::time::Duration::from_millis(500),
+            "brace expansion cap failed: took {:?}",
             elapsed
         );
     }

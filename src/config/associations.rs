@@ -2,6 +2,8 @@ use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+use super::write_atomic;
+
 /// A single file association rule: maps a glob mask to open/view commands.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AssocRule {
@@ -112,7 +114,7 @@ impl AssociationsConfig {
             std::fs::create_dir_all(parent).context("Creating config directory")?;
         }
         let toml_str = toml::to_string_pretty(self).context("Serializing associations")?;
-        std::fs::write(&path, toml_str)
+        write_atomic(&path, toml_str.as_bytes())
             .with_context(|| format!("Writing associations file {:?}", path))
     }
 

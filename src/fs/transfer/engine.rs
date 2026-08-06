@@ -128,7 +128,18 @@ impl TransferEngine {
                                 }
                                 Err(e) => {
                                     let err_msg = e.to_string();
-                                    let is_cancel = err_msg.contains("cancelled");
+                                    // Cancellation must be detected from the
+                                    // job's atomic flag, not from the error
+                                    // message string. A future refactor that
+                                    // changes the wording of the "cancelled"
+                                    // error would otherwise silently flip
+                                    // user-cancelled jobs into "Failed".
+                                    let is_cancel = queue_clone
+                                        .get_all()
+                                        .iter()
+                                        .find(|j| j.id == job_id)
+                                        .map(|j| j.is_cancelled.load(std::sync::atomic::Ordering::Relaxed))
+                                        .unwrap_or(false);
                                     queue_clone.update_job(job_id, |j| {
                                         j.status = if is_cancel {
                                             TransferJobStatus::Cancelled

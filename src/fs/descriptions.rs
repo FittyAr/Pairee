@@ -1,4 +1,5 @@
 use anyhow::{Context, Result};
+use crate::config::write_atomic;
 use std::path::Path;
 
 /// Filename used for per-directory file descriptions (Norton Commander style).
@@ -64,7 +65,8 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
         Ok(())
     } else {
         let output = lines.join("\n") + "\n";
-        std::fs::write(&desc_path, output).with_context(|| format!("Writing {:?}", desc_path))
+        write_atomic(&desc_path, output.as_bytes())
+            .with_context(|| format!("Writing {:?}", desc_path))
     }
 }
 
