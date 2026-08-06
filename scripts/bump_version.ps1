@@ -325,22 +325,102 @@ if ($cargoToml -match '(?m)^version\s*=\s*"([^"]+)"') {
     
     # Push to origin
     Write-Host "Pushing commits and tag to origin..." -ForegroundColor Yellow
+    $pushOk = $true
     try {
         git push origin $branch
+        if ($LASTEXITCODE -ne 0) { throw "git push origin $branch failed" }
         git push origin "v$newVersion"
+        if ($LASTEXITCODE -ne 0) { throw "git push origin v$newVersion failed" }
         Write-Host "Successfully bumped version to v$newVersion and pushed to GitHub!" -ForegroundColor Green
-        Write-Host "GitHub Actions will now build binaries and create a draft release." -ForegroundColor Green
-        Write-Host "Review the draft release on GitHub and publish it when ready." -ForegroundColor Cyan
+        Write-Host "GitHub Actions will now build binaries and publish the release." -ForegroundColor Green
         Write-Host ""
         Write-Host "[WinGet Notice]" -ForegroundColor Yellow
-        Write-Host "Once you publish the draft release on GitHub, the automated WinGet action will run" -ForegroundColor Yellow
+        Write-Host "Once the release is published on GitHub, the automated WinGet action will run" -ForegroundColor Yellow
         Write-Host "and automatically submit the update to microsoft/winget-pkgs." -ForegroundColor Yellow
         Write-Host "NOTE: Make sure your WINGET_TOKEN secret is set in the repo." -ForegroundColor Yellow
     } catch {
+        $pushOk = $false
         Write-Error "Failed to push to GitHub. Check your internet connection or repository permissions."
         Write-Host "Note: The commit and tag were created locally. You can push manually using:" -ForegroundColor Yellow
         Write-Host "  git push origin $branch"
         Write-Host "  git push origin v$newVersion"
+    }
+
+    # Verify the GitHub Actions workflow actually got triggered. GitHub occasionally
+    # loses the PushEvent (known glitch on tag pushes) so the run never starts even
+    # though the push itself succeeded. Poll for up to 60s and fall back to a
+    # manual workflow_dispatch if nothing appears.
+    if ($pushOk) {
+        $tagRef = "v$newVersion"
+        $oldEAP = $ErrorActionPreference
+        $ErrorActionPreference = "Continue"
+        $ghPath = (Get-Command gh -ErrorAction SilentlyContinue)
+        $ghAuth = $null
+        if ($ghPath) {
+            gh auth status 2>&1 | Out-Null
+            $ghAuth = $LASTEXITCODE
+        }
+        $ErrorActionPreference = $oldEAP
+
+        if (-not $ghPath) {
+            Write-Host ""
+            Write-Host "[NOTICE] gh CLI not found on PATH. Skipping workflow trigger check." -ForegroundColor Yellow
+            Write-Host "  Install GitHub CLI (https://cli.github.com) to enable automatic fallback." -ForegroundColor Yellow
+        } elseif ($ghAuth -ne 0) {
+            Write-Host ""
+            Write-Host "[NOTICE] gh CLI is not authenticated. Skipping workflow trigger check." -ForegroundColor Yellow
+            Write-Host "  Run 'gh auth login' to enable automatic fallback." -ForegroundColor Yellow
+        } else {
+            Write-Host ""
+            Write-Host "Verifying GitHub Actions workflow was triggered by the tag push..." -ForegroundColor Yellow
+            $pollDeadline = (Get-Date).AddSeconds(60)
+            $runTriggered = $false
+            $attempt = 0
+
+            while ((Get-Date) -lt $pollDeadline) {
+                $attempt++
+                Start-Sleep -Seconds 5
+                $oldEAP = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                $runJson = gh run list --workflow "Release" --limit 10 --json databaseId,event,headBranch,createdAt 2>&1
+                $ghExit = $LASTEXITCODE
+                $ErrorActionPreference = $oldEAP
+
+                if ($ghExit -eq 0 -and $runJson) {
+                    try {
+                        $runs = $runJson | ConvertFrom-Json
+                        $matching = $runs | Where-Object {
+                            $_.event -eq "push" -and $_.headBranch -eq $tagRef
+                        } | Select-Object -First 1
+                        if ($matching) {
+                            $runTriggered = $true
+                            Write-Host "  Workflow run $($matching.databaseId) detected for $tagRef (poll #$($attempt))." -ForegroundColor Green
+                            break
+                        }
+                    } catch {
+                        # JSON parse failed; treat as "not yet" and keep polling
+                    }
+                }
+                Write-Host "  Poll #$($attempt): no run yet, retrying in 5s..." -ForegroundColor Gray
+            }
+
+            if (-not $runTriggered) {
+                Write-Host ""
+                Write-Host "[FALLBACK] No workflow run appeared within 60s for tag $tagRef." -ForegroundColor Yellow
+                Write-Host "  GitHub may have lost the push event. Triggering workflow manually..." -ForegroundColor Yellow
+                $oldEAP = $ErrorActionPreference
+                $ErrorActionPreference = "Continue"
+                gh workflow run "Release" --ref $tagRef 2>&1 | Out-Null
+                $triggerExit = $LASTEXITCODE
+                $ErrorActionPreference = $oldEAP
+                if ($triggerExit -eq 0) {
+                    Write-Host "  Workflow triggered successfully. It will appear in the Actions tab shortly." -ForegroundColor Green
+                } else {
+                    Write-Host "  Failed to trigger workflow automatically. Run manually:" -ForegroundColor Red
+                    Write-Host "    gh workflow run `"Release`" --ref $tagRef" -ForegroundColor Yellow
+                }
+            }
+        }
     }
 } else {
     Write-Error "Could not find 'version = \"...\"' in Cargo.toml"
