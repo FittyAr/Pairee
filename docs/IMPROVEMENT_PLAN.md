@@ -34,16 +34,13 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 
 | P | Tema | Estado |
 |---|------|--------|
-| P0 | CI en `master` + matrix multi-OS | **Hecho** |
-| P0 | Quitar `allow(clippy::all)` + tool configs | **Hecho** |
-| P0 | README / MSRV / docs status | **Hecho** |
-| P0 | Limpieza de archivos obsoletos | **Hecho** |
-| P1 | Unificar transferencias (legacy vs engine) | Pendiente |
-| P1 | Partir God objects (`AppState`, `PopupType`) | Pendiente (allow temporal en enum) |
-| P1 | Tests de integración + cobertura | En curso (2 tests base) |
-| P2 | Roadmap plugins (G1–G14) | Pendiente |
-| P2 | Sincronizar design docs con código real | Parcial (banners + índice) |
-| P3 | Feature flags, binario, i18n, command palette | Pendiente |
+| P0 | CI / Clippy / docs / limpieza | **Hecho** (Fase A) |
+| P1 | Transfer Engine unificado + sin legacy progress | **Hecho** (Fase B) |
+| **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Siguiente (Fase F)** |
+| P1 | Partir God objects (`AppState`, `PopupType`) | Pendiente (Fase C) |
+| P1 | Tests de integración + cobertura | En curso |
+| P2 | Roadmap plugins (G1–G14) | Pendiente (Fase D) |
+| P3 | Feature flags, i18n extra, onboarding | Parcial (palette hecho) |
 
 ---
 
@@ -165,9 +162,144 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ---
 
-## 6. Fase C — Estado y modularidad (P1)
+## 6. Fase F — Input moderno, scrollbars y estabilidad TUI (P1) ⬅ **siguiente**
 
-**Patrones:** State objects, Dialog stack, Facade de servicios, Event bus.
+> Objetivo: simplificar atajos, mejorar discoverability, scrollbars correctos y eliminar glitches gráficos en Windows/Linux.  
+> Referencias de estudio: crates `keybinds`, `ratatui-which-key`, `tui-scrollbar`; y patrones del repo [xai-org/grok-build](https://github.com/xai-org/grok-build) (clon temporal de análisis, no se vendoría en Pairee).
+
+### 6.1 Decisión: `keybinds` vs `ratatui-which-key` (juntos o uno)
+
+| Criterio | [`keybinds`](https://crates.io/crates/keybinds) | [`ratatui-which-key`](https://crates.io/crates/ratatui-which-key) |
+|----------|--------------------------------------------------|-------------------------------------------------------------------|
+| Rol | Dispatcher/parser/generator de atajos (agnóstico de UI) | Keymap + routing por **scope** + popup estilo Neovim which-key |
+| Config TOML/serde | Sí (feature `serde`) | API de builder en código; strings tipo `"<c-c>"`, secuencias |
+| Secuencias multi-tecla | Sí (`Ctrl+x Ctrl+s`, timeout) | Sí (árbol de secuencias + groups) |
+| Scopes (panel vs popup vs insert) | Manual (capas de `Keybinds`) | Nativo (`Scope`) |
+| UI discoverability | No (solo lógica) | Popup which-key integrado |
+| Crossterm | Feature opcional; **no** reemplaza el event loop | Feature `crossterm`; consume `KeyEvent` / `Event` |
+| Licencia | MIT | **LGPL-3.0-or-later** (compatible con GPL-3, pero hay que documentar) |
+| Encaje Norton/Far | Excelente para F-keys + config usuario | Excelente si añadimos leader/secuencias y ayuda contextual |
+
+#### Recomendación oficial para Pairee
+
+**Opción A (recomendada): `keybinds` como sistema único de atajos.**
+
+1. Sustituye `src/keybindings/{resolver,preset}` y el string-matching casero de `key_event_to_string`.
+2. Crossterm **sigue** capturando eventos de terminal (raw mode, resize, mouse, paste); **deja de “ser” el mapa de atajos**. El flujo queda:
+
+   ```text
+   crossterm Event → (KeyPress) → keybinds::Keybinds::dispatch → Action → handlers
+   ```
+
+3. Presets Norton/Vim/Modern = tablas `keybinds` cargadas desde TOML (`keybinds` + `serde`).
+4. Command palette y F-key bar leen el **mismo** registro de bindings (una sola fuente de verdad).
+5. **No** montar un segundo keymap paralelo.
+
+**¿Y `ratatui-which-key`?**
+
+- **No usarlo junto a `keybinds` como dos keymaps completos** (doble verdad, scopes duplicados, peor mantenimiento).
+- **Opcional en fase posterior (F.3):** evaluar which-key **solo** si queremos popup de leader/secuencias *después* de migrar a `keybinds`, **o** migrar el input entero a which-key y **no** usar `keybinds`.
+- Si en el futuro se prefiere which-key solo: conviene cuando el producto priorice leader-keys y ayuda contextual tipo modal over F-keys clásicas. Hoy Pairee es Norton/Far → F-keys + presets → **`keybinds` primero**.
+
+**Resumen:** implementar **`keybinds` obligatorio**; `ratatui-which-key` **no** en el primer PR (salvo spike de 1 día que demuestre que puede reemplazar todo el stack sin dualismo).
+
+### 6.2 Checklist — keybinds (F.1)
+
+- [ ] Añadir dependencia `keybinds` con features `crossterm` + `serde`
+- [ ] Definir `Action` como tipo despachable (ya existe; añadir `Display` si falta para help)
+- [ ] Cargar presets Norton/Vim/Modern vía `Keybinds::bind` / deserialización TOML
+- [ ] Migrar `KeybindingResolver::resolve` → `keybinds.dispatch(KeyInput::from(key_event))`
+- [ ] Eliminar o reducir a thin wrappers: `preset.rs` monolítico, `normalize_key_string` casero
+- [ ] Mantener F1–F10 footer leyendo el mismo registry
+- [ ] Tests: secuencias, modifiers, preset load, custom overrides
+- [ ] Documentar breaking change de formato de `keymaps/*.toml` (migración o compat layer)
+
+### 6.3 Checklist — `tui-scrollbar` (F.2)
+
+Crate: [`tui-scrollbar`](https://crates.io/crates/tui-scrollbar) (Joshka / tui-widgets). Grok Build ya lo usa en pager-render y textarea.
+
+- [ ] Añadir `tui-scrollbar` al `Cargo.toml` (alineado a `ratatui` 0.30)
+- [ ] Integrar en paneles con scroll real:
+  - [ ] Help F1 / markdown reader
+  - [ ] Viewer F3 / quickview
+  - [ ] History lists (commands / folders / files)
+  - [ ] Transfer panel log + file list
+  - [ ] Plugin menu / config dialog largos
+  - [ ] Git log / diff views
+- [ ] Mouse drag/jump opcional vía API de interacción del crate (si mouse capture está on)
+- [ ] Tema: colores de thumb/track desde `Theme` (sin hardcode)
+
+### 6.4 Estabilidad TUI y anti-glitch (F.3) — lecciones de Grok Build
+
+Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches aleatorios en Windows y Linux**.
+
+#### Causas probables en Pairee hoy
+
+| Síntoma | Causa probable en código actual |
+|---------|----------------------------------|
+| Parpadeo / frames a medias | `draw` **cada tick ~50 ms** aunque no haya cambios (`app/app/mod.rs`) |
+| Destellos al refrescar | `terminal.clear()` completo bajo `terminal_needs_clear` |
+| Layout “roto” con Unicode | Cálculo de anchos sin `unicode-width` / segmentación |
+| Resize glitchy | Falta de protocolo **synchronized update** (DEC 2026) alrededor del frame |
+| Input raro en algunos emuladores | Keyboard enhancement flags + focus change sin degradación unificada |
+
+#### Patrones de Grok Build a **traer** (adaptados, no copiar monorepo)
+
+| Patrón en Grok Build | Aplicación en Pairee | Prioridad |
+|----------------------|----------------------|-----------|
+| `BeginSynchronizedUpdate` / `EndSynchronizedUpdate` (`crossterm`) alrededor del draw | Envolver `terminal.draw` en sync update → menos tearing | **P0 anti-glitch** |
+| Draw **dirty / on-demand** (no pintar si no hay cambio) | Flag `ui_dirty` + redibujar solo tras input/events/background | **P0** |
+| `tui-scrollbar` + métricas de thumb fraccional | Ver F.2 | P1 |
+| `unicode-width` + `unicode-segmentation` | Truncate/pad de nombres de archivo, columnas de panel | P1 |
+| Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | P1 (junto a keybinds) |
+| `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | P1 |
+| `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | P2 |
+| `shlex` | Parse seguro de comandos usuario (apply / user menu) | P2 |
+| Terminal capability detection (brand, KKP unreliable) | Degradar features en conhost / tmux viejo | P2 |
+| Tests PTY e2e de render | Smoke resize + draw en CI | P2 |
+| `xai-ratatui-inline` (viewport inline + scrollback nativo) | **No** copiar de entrada: es chat/REPL, no dual-panel fullscreen | Fuera de alcance |
+| Mermaid / markdown heavy stack | Solo si un día el help necesita más; hoy `pulldown-cmark` basta | Fuera / P3 |
+
+#### Checklist anti-glitch
+
+- [ ] Envolver frame draw en synchronized update (con fallback si el terminal no soporta)
+- [ ] Introducir `ui_dirty` / skip draw cuando no hay eventos ni updates de transfer/plugin
+- [ ] Evitar `clear()` full-screen salvo resize o cambio de screen mode
+- [ ] `unicode-width` en listados de paneles y popups
+- [ ] Revisar `KeyboardEnhancementFlags` / focus: feature-detect + no spamear restore
+- [ ] Rate-limit redraw de progreso de transfer (p. ej. 10–15 Hz) para no saturar el TTY
+- [ ] Reproducir glitch en Windows Terminal + conhost + Linux (xterm/kitty) y checklist en docs
+
+### 6.5 Otras librerías de Grok Build candidatas (evaluación)
+
+| Crate / idea | ¿Traer a Pairee? | Notas |
+|--------------|------------------|-------|
+| `tui-scrollbar` | **Sí** | F.2 |
+| `unicode-width` / `unicode-segmentation` | **Sí** | layout estable |
+| `keybinds` | **Sí** | F.1 |
+| `ratatui-which-key` | Spike / opcional | Solo si no dual-keymap (ver 6.1) |
+| `ansi-to-tui` | Candidato | terminal embebido / logs con color |
+| `nucleo` (fuzzy) | Candidato | mejorar command palette / find file |
+| `tracing` (+ subscriber) | Candidato | sustituir o complementar `simplelog` |
+| `arboard` | Candidato | copy path al clipboard del SO |
+| `signal-hook` | Candidato Unix | SIGWINCH / graceful signals |
+| `xai-ratatui-textarea` | No (interno monorepo) | Evaluar `tui-textarea` público si hace falta editor embebido |
+| `alacritty_terminal` | No de momento | PTY embebido completo es otro producto |
+
+### 6.6 Orden de implementación sugerido (F)
+
+1. **F.3a** Synchronized update + dirty draw (ROI glitches, bajo riesgo de producto)
+2. **F.1** Migración `keybinds` + presets TOML + borrar resolver casero
+3. **F.2** `tui-scrollbar` en viewers/help/history/transfer
+4. **F.3b** unicode-width + paste + rate-limit progress redraw
+5. Spike which-key **solo** si tras F.1 se echa de menos discoverability de secuencias
+
+---
+
+## 7. Fase C — Estado y modularidad (P1)
+
+**Patrones:** State objects, Dialog stack, Facade de servicios, Event bus.  
+**Nota:** tras Fase F, `keybindings/preset.rs` se reduce o desaparece; priorizar monólitos UI restantes.
 
 - [ ] Extraer de `AppState`: `TransferUiState`, `UpdateState`, `PluginHostState`, `HistoryState`, `PanelPair`
 - [ ] Reemplazar mega-enum `PopupType` por stack de diálogos tipados (un módulo por familia)
@@ -185,7 +317,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 | `src/app/actions/ui_settings.rs` | ~766 | [ ] |
 | `src/ui/popup/history_lists.rs` | ~742 | [ ] |
 | `src/ui/transfer/panel.rs` | ~676 | [ ] |
-| `src/keybindings/preset.rs` | ~602 | [ ] |
+| `src/keybindings/preset.rs` | ~602 | [ ] → **absorber en Fase F.1 (`keybinds`)** |
 | `src/app/state/types.rs` | ~598 | [ ] |
 | `src/plugin/updater.rs` | ~552 | [ ] |
 | `src/fs/list.rs` | ~521 | [ ] |
@@ -193,7 +325,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ---
 
-## 7. Fase D — Plugins productivos (P2)
+## 8. Fase D — Plugins productivos (P2)
 
 Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
@@ -207,10 +339,10 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
 ---
 
-## 8. Fase E — Producto y distribución (P3)
+## 9. Fase E — Producto y distribución (P3)
 
 - [x] Command palette sobre `Action` (`Ctrl+Shift+P`, filtro + Enter)
-- [ ] Onboarding / primer arranque (elegir preset de teclas)
+- [ ] Onboarding / primer arranque (elegir preset de teclas) — **después de F.1 keybinds**
 - [ ] Más idiomas (pipeline localize-helper)
 - [ ] Feature flags (`ssh`, `git`, `plugins`, `image-preview`)
 - [ ] CI macOS si se declara soporte oficial
@@ -219,7 +351,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
 ---
 
-## 9. Métricas objetivo (3 meses)
+## 10. Métricas objetivo (3 meses)
 
 | Métrica | Baseline | Objetivo | Actual |
 |---------|----------|----------|--------|
@@ -229,51 +361,47 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | Tests | 115 unit | 115+ y ≥15 integration | **116 unit + 4 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
-| Gaps plugins P0 | Abiertos | Diálogos + 1 ejemplo E2E | Abiertos |
-| Transfer dual path | Sí | Solo legacy wipe/archive | **Copy/move/delete unificados** |
-| Command palette | No | Sí | **Sí (Ctrl+Shift+P)** |
+| Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
+| Command palette | No | Sí | **Sí** |
+| Keymap stack | Casero crossterm strings | `keybinds` (+ which-key solo si no dual) | **Pendiente F.1** |
+| Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Pendiente F.2** |
+| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Pendiente F.3** |
 
 ---
 
-## 10. Registro de commits de este plan
+## 11. Registro de commits de este plan
 
 | Fecha | Commit | Qué se hizo |
 |-------|--------|-------------|
-| 2026-08-12 | `a8bc062` | docs: plan de mejora con checkboxes |
-| 2026-08-12 | `b50ffd9` | chore: `.gitignore` propio de Pairee |
-| 2026-08-12 | `ae0c3d8` | docs: README, índice, banners de estado, UNRELEASED |
-| 2026-08-12 | `537128b` | ci: `master`/`main` + matrix OS + policy Clippy |
-| 2026-08-12 | `b78ec6f` | refactor: Clippy real, MSRV, fmt, tests integración |
-| 2026-08-12 | `04cf8ec` | docs: SHAs de Fase A en el plan |
-| 2026-08-12 | `777fd23` | refactor: partir transfer worker en módulos Facade/fases |
-| 2026-08-12 | `27eeb1d` | docs: marcar worker split en el plan |
-| 2026-08-12 | _(serie)_ | feat: backends SSH+local, submit unificado, command palette, tests |
+| 2026-08-12 | `a8bc062` … `9b9c5a0` | Fases A–B: higiene, CI, clippy, transfer engine, purge legacy |
+| 2026-08-12 | _(este doc)_ | Añadir **Fase F**: keybinds / which-key / tui-scrollbar / lecciones Grok Build |
 
 Ver también `git log --oneline master` para el detalle.
 
 ---
 
-## 11. Roadmap visual
+## 12. Roadmap visual
 
 ```text
-Alto impacto │  [x CI master] [x Clippy real] [~ Unificar transfer]
-             │  [x Partir worker] [ Partir AppState/PopupType ]
-             │  [ Tests integración+ ] [ Plugins diálogos ]
-             │  [x Docs sync base] [ Feature flags ]
-Bajo impacto │  [ Más idiomas ] [ Command palette ] [ macOS CI ]
+Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
+             │  [→ keybinds + anti-glitch] [→ tui-scrollbar]
+             │  [ Partir AppState/PopupType ] [ Plugins ]
+             │  [x Docs sync] [ Feature flags ]
+Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
 ```
 
 ---
 
-## 12. Conclusión operativa
+## 13. Conclusión operativa
 
-**Fase A cerrada.**  
-**Fase B cerrada por completo:** una sola UI de trabajos; legacy de progreso eliminado.  
-**Fase E:** command palette disponible.  
-**Pendiente fuerte:** monólitos UI (C), plugins (D).
+**Fase A y B cerradas.**  
+**Siguiente bloque de trabajo: Fase F** (input con `keybinds`, scrollbars, estabilidad de render).  
+Crossterm permanece como backend de **eventos de terminal**; el **mapa de atajos** pasa a `keybinds` (no a lógica ad-hoc).  
+`ratatui-which-key` solo si se elige como reemplazo total del keymap o como capa posterior sin dualismo.  
+Grok Build aporta patrones de **synchronized update**, dirty draw, scrollbars fraccionales y registro de acciones — no el monorepo entero.
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (Fase B completa: apply + cancel archive + purge legacy).*
+*Última actualización del progreso: 2026-08-12 (plan: Fase F input/UI/anti-glitch documentada; sin código de implementación aún).*

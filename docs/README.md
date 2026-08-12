@@ -18,7 +18,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 
 | Doc | Status | Notes |
 |-----|--------|-------|
-| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | Checklist de mejoras, fases A–E y registro de progreso |
+| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | Checklist de mejoras (A–B hechas; **F** input/UI/anti-glitch siguiente; C–E) |
 
 ---
 

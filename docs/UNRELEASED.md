@@ -11,6 +11,7 @@
 
 ### Improved
 
+- Improvement plan documents **Phase F**: migrate keymaps to `keybinds`, evaluate `ratatui-which-key`, adopt `tui-scrollbar`, and anti-glitch TUI patterns inspired by Grok Build.
 - CI `check` workflow now targets `master`/`main`, runs tests on Ubuntu and Windows, uses Node 24-aligned actions, and rejects crate-level `clippy::all` allows.
 - Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
