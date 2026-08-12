@@ -237,7 +237,7 @@ Crate: [`tui-scrollbar`](https://crates.io/crates/tui-scrollbar) (Joshka / tui-w
   - [x] Transfer panel log + file list (+ jobs sidebar)
   - [x] Plugin menu (select) / About / Update notes
   - [x] Git panel (status / log / branches / stash)
-- [ ] Mouse drag/jump opcional vía API de interacción del crate (si mouse capture está on) — helper listo (`vertical_bar`); wiring de `ScrollBarInteraction` pendiente
+- [x] Mouse drag/jump vía `ScrollBarInteraction` + hit targets por frame (`EnableMouseCapture`, `TrackClickBehavior::JumpToClick`)
 - [x] Tema: colores de thumb/track desde `Theme` (`ScrollbarSurface::Panel` / `Popup`)
 
 ### 6.4 Estabilidad TUI y anti-glitch (F.3) — lecciones de Grok Build
@@ -277,7 +277,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 - [x] Introducir `ui_dirty` / skip draw cuando no hace falta pintar
 - [x] Rate-limit redraw de progreso de transfer (~12 Hz)
 - [ ] Evitar `clear()` full-screen salvo resize o cambio de screen mode (reducir usos restantes)
-- [ ] `unicode-width` en listados de paneles y popups
+- [x] `unicode-width` + `unicode-segmentation` en listados de paneles (brief/wide/medium/detailed) e history truncate
 - [ ] Revisar `KeyboardEnhancementFlags` / focus: feature-detect
 - [ ] Checklist manual Windows Terminal + conhost + Linux
 
@@ -369,14 +369,14 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **125 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **132 unit + 5 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
 | Command palette | No | Sí | **Sí** |
 | Keymap stack | Casero crossterm strings | `keybinds` validado | **Hecho F.1** |
-| Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Hecho F.2** (mouse drag opcional pendiente) |
-| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Parcial F.3a** |
+| Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Hecho F.2** (+ mouse drag/jump) |
+| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Parcial F.3a/b** (unicode-width listados) |
 
 ---
 
@@ -387,7 +387,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | `a8bc062` … `9b9c5a0` | Fases A–B: higiene, CI, clippy, transfer engine, purge legacy |
 | 2026-08-12 | `007eca7` | docs: plan Fase F |
 | 2026-08-12 | _(prev)_ | feat: `keybinds` + validación + dirty/sync draw |
-| 2026-08-12 | _(este)_ | feat: `tui-scrollbar` helper + integración UI (F.2) |
+| 2026-08-12 | _(prev)_ | feat: `tui-scrollbar` helper + integración UI (F.2) |
+| 2026-08-12 | _(este)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -398,8 +399,8 @@ Ver también `git log --oneline master` para el detalle.
 ```text
 Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
-             │  [ Partir AppState/PopupType ] [ Plugins ]
-             │  [x Docs sync] [ Feature flags ]
+             │  [x unicode-width paneles] [ Partir AppState/PopupType ]
+             │  [x Docs sync] [ Feature flags ] [ Plugins ]
 Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -410,10 +411,10 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 ## 13. Conclusión operativa
 
 **Fase A y B cerradas.**  
-**F.1 keybinds + F.2 tui-scrollbar + F.3a anti-glitch (parcial) implementados.**  
-Siguiente: **F.3b unicode-width**, mouse drag en scrollbars (opcional), y pulido anti-glitch.  
+**Fase F (F.1–F.3b parcial) cerrada en lo principal:** keybinds, tui-scrollbar (+ mouse), dirty/sync draw, unicode-width en listados.  
+Siguiente: **Fase C** (AppState/PopupType modularidad) o resto anti-glitch (`clear()` / keyboard enhancement).  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (F.2 tui-scrollbar).*
+*Última actualización del progreso: 2026-08-12 (F.2 mouse + F.3b unicode-width + clippy).*

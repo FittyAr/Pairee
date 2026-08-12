@@ -40,24 +40,22 @@ pub fn handle(
             _ => false,
         };
 
-        if use_external {
-            if let Some(ref r) = rule {
-                let (program, args) = r.resolve_view_cmd(&path);
-                if !program.is_empty() && command_exists(&program) {
-                    ran_external = true;
-                    if let Err(e) = crate::app::actions::exec::execute_external_program(
-                        &path,
-                        &program,
-                        &args,
-                        context,
-                        terminal_backend,
-                    ) {
-                        state.active_popup = Some(PopupType::Error(format!(
-                            "{} {}",
-                            t("error_viewer_failed"),
-                            e
-                        )));
-                    }
+        if use_external && let Some(ref r) = rule {
+            let (program, args) = r.resolve_view_cmd(&path);
+            if !program.is_empty() && command_exists(&program) {
+                ran_external = true;
+                if let Err(e) = crate::app::actions::exec::execute_external_program(
+                    &path,
+                    &program,
+                    &args,
+                    context,
+                    terminal_backend,
+                ) {
+                    state.active_popup = Some(PopupType::Error(format!(
+                        "{} {}",
+                        t("error_viewer_failed"),
+                        e
+                    )));
                 }
             }
         }

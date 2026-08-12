@@ -90,10 +90,8 @@ impl AppState {
                         .unwrap_or(false);
 
                     let mut image_data = None;
-                    if is_image_ext {
-                        if let Ok(img) = image::open(&path) {
-                            image_data = Some(img);
-                        }
+                    if is_image_ext && let Ok(img) = image::open(&path) {
+                        image_data = Some(img);
                     }
 
                     let is_pdf = path

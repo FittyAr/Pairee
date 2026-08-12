@@ -1,6 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::PanelState;
-use crate::ui::panel::helpers::{build_row_style, entry_display_name};
+use crate::ui::panel::helpers::{build_row_style, entry_display_name_truncated};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -66,9 +66,11 @@ pub(crate) fn render_brief(
                     highlight_files,
                     is_dimmed,
                 );
-                Row::new(vec![Cell::from(entry_display_name(
+                let name_width = cols[col_idx].width.saturating_sub(2) as usize;
+                Row::new(vec![Cell::from(entry_display_name_truncated(
                     &entry.name,
                     entry.is_dir,
+                    name_width.max(4),
                 ))])
                 .style(style)
             })

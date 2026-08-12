@@ -185,19 +185,19 @@ pub fn handle_editor_screen(
                 }
             }
             KeyCode::F(7) if is_shift => {
-                if let Some(ref q) = ed.last_search {
-                    if let Some((found_x, found_y)) = find_next_in_editor(
+                if let Some(ref q) = ed.last_search
+                    && let Some((found_x, found_y)) = find_next_in_editor(
                         &ed.lines,
                         ed.cursor_x,
                         ed.cursor_y,
                         q,
                         ed.last_case_sensitive,
-                    ) {
-                        ed.cursor_x = found_x;
-                        ed.cursor_y = found_y;
-                        if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
-                            ed.scroll_y = ed.cursor_y.saturating_sub(edit_height / 2);
-                        }
+                    )
+                {
+                    ed.cursor_x = found_x;
+                    ed.cursor_y = found_y;
+                    if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
+                        ed.scroll_y = ed.cursor_y.saturating_sub(edit_height / 2);
                     }
                 }
             }
@@ -210,19 +210,19 @@ pub fn handle_editor_screen(
                 return Ok(());
             }
             KeyCode::F(3) => {
-                if let Some(ref q) = ed.last_search {
-                    if let Some((found_x, found_y)) = find_next_in_editor(
+                if let Some(ref q) = ed.last_search
+                    && let Some((found_x, found_y)) = find_next_in_editor(
                         &ed.lines,
                         ed.cursor_x,
                         ed.cursor_y,
                         q,
                         ed.last_case_sensitive,
-                    ) {
-                        ed.cursor_x = found_x;
-                        ed.cursor_y = found_y;
-                        if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
-                            ed.scroll_y = ed.cursor_y.saturating_sub(edit_height / 2);
-                        }
+                    )
+                {
+                    ed.cursor_x = found_x;
+                    ed.cursor_y = found_y;
+                    if ed.cursor_y < ed.scroll_y || ed.cursor_y >= ed.scroll_y + edit_height {
+                        ed.scroll_y = ed.cursor_y.saturating_sub(edit_height / 2);
                     }
                 }
             }

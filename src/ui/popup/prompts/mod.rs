@@ -18,7 +18,7 @@ pub fn render_prompt_popup(
     state: &AppState,
 ) -> bool {
     match popup {
-        PopupType::Help { .. } => help::render(f, popup, theme, size),
+        PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
 
         PopupType::MkDirPrompt { .. }
         | PopupType::CopyPrompt { .. }

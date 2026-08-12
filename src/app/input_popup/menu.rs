@@ -75,18 +75,17 @@ pub fn handle(
             KeyCode::Right => {
                 if active_submenu_idx.is_none() {
                     // If the current highlighted item has a submenu, open it!
-                    if let Some(idx) = active_item_idx {
-                        if let Some(item) = items.get(idx) {
-                            if let Some(sub_idx) = item.submenu_idx {
-                                state.active_popup = Some(PopupType::Menu {
-                                    active_menu_idx,
-                                    active_item_idx,
-                                    active_submenu_idx: Some(sub_idx),
-                                    active_submenu_item_idx: Some(0),
-                                });
-                                return Ok(None);
-                            }
-                        }
+                    if let Some(idx) = active_item_idx
+                        && let Some(item) = items.get(idx)
+                        && let Some(sub_idx) = item.submenu_idx
+                    {
+                        state.active_popup = Some(PopupType::Menu {
+                            active_menu_idx,
+                            active_item_idx,
+                            active_submenu_idx: Some(sub_idx),
+                            active_submenu_item_idx: Some(0),
+                        });
+                        return Ok(None);
                     }
 
                     // Otherwise, move to next top-level menu
@@ -187,17 +186,17 @@ pub fn handle(
                         return Ok(action);
                     }
                 } else if let Some(idx) = active_item_idx {
-                    if let Some(item) = items.get(idx) {
-                        if let Some(sub_idx) = item.submenu_idx {
-                            // Open submenu
-                            state.active_popup = Some(PopupType::Menu {
-                                active_menu_idx,
-                                active_item_idx,
-                                active_submenu_idx: Some(sub_idx),
-                                active_submenu_item_idx: Some(0),
-                            });
-                            return Ok(None);
-                        }
+                    if let Some(item) = items.get(idx)
+                        && let Some(sub_idx) = item.submenu_idx
+                    {
+                        // Open submenu
+                        state.active_popup = Some(PopupType::Menu {
+                            active_menu_idx,
+                            active_item_idx,
+                            active_submenu_idx: Some(sub_idx),
+                            active_submenu_item_idx: Some(0),
+                        });
+                        return Ok(None);
                     }
                     state.active_popup = None;
                     let action = trigger_menu_item(state, context, active_menu_idx, idx);
@@ -223,23 +222,22 @@ pub fn handle(
                             continue;
                         }
                         let parsed = crate::ui::hotkey::parse_hotkey(&item.label);
-                        if let Some(hotkey) = parsed.hotkey {
-                            if hotkey == lower_c {
-                                if item.submenu_idx.is_some() {
-                                    // Open submenu instead of triggering action
-                                    state.active_popup = Some(PopupType::Menu {
-                                        active_menu_idx,
-                                        active_item_idx,
-                                        active_submenu_idx: item.submenu_idx,
-                                        active_submenu_item_idx: Some(0),
-                                    });
-                                    return Ok(None);
-                                } else {
-                                    state.active_popup = None;
-                                    let action =
-                                        trigger_menu_item(state, context, current_menu_idx, i);
-                                    return Ok(action);
-                                }
+                        if let Some(hotkey) = parsed.hotkey
+                            && hotkey == lower_c
+                        {
+                            if item.submenu_idx.is_some() {
+                                // Open submenu instead of triggering action
+                                state.active_popup = Some(PopupType::Menu {
+                                    active_menu_idx,
+                                    active_item_idx,
+                                    active_submenu_idx: item.submenu_idx,
+                                    active_submenu_item_idx: Some(0),
+                                });
+                                return Ok(None);
+                            } else {
+                                state.active_popup = None;
+                                let action = trigger_menu_item(state, context, current_menu_idx, i);
+                                return Ok(action);
                             }
                         }
                     }
@@ -250,16 +248,16 @@ pub fn handle(
                     let titles = crate::ui::menu::get_menu_titles();
                     for (i, title) in titles.iter().enumerate() {
                         let parsed = crate::ui::hotkey::parse_hotkey(title);
-                        if let Some(hotkey) = parsed.hotkey {
-                            if hotkey == lower_c {
-                                state.active_popup = Some(PopupType::Menu {
-                                    active_menu_idx: i,
-                                    active_item_idx: Some(0),
-                                    active_submenu_idx: None,
-                                    active_submenu_item_idx: None,
-                                });
-                                return Ok(None);
-                            }
+                        if let Some(hotkey) = parsed.hotkey
+                            && hotkey == lower_c
+                        {
+                            state.active_popup = Some(PopupType::Menu {
+                                active_menu_idx: i,
+                                active_item_idx: Some(0),
+                                active_submenu_idx: None,
+                                active_submenu_item_idx: None,
+                            });
+                            return Ok(None);
                         }
                     }
                 }

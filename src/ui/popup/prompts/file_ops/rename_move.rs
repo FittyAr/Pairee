@@ -101,14 +101,13 @@ pub fn render(
                     .destinations
                     .iter()
                     .find(|d| d.to_lowercase().starts_with(&input.to_lowercase()))
+                    && suggestion.len() > input.len()
                 {
-                    if suggestion.len() > input.len() {
-                        let suffix = &suggestion[input.len()..];
-                        input_spans.push(ratatui::text::Span::styled(
-                            suffix.to_string(),
-                            Style::default().fg(Color::DarkGray),
-                        ));
-                    }
+                    let suffix = &suggestion[input.len()..];
+                    input_spans.push(ratatui::text::Span::styled(
+                        suffix.to_string(),
+                        Style::default().fg(Color::DarkGray),
+                    ));
                 }
             }
         }

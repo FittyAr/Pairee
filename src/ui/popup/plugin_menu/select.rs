@@ -1,5 +1,5 @@
 use crate::app::state::PopupType;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -14,6 +14,7 @@ pub fn render_dev_select(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
     if let PopupType::SelectDevPlugin {
         options,
@@ -78,6 +79,8 @@ pub fn render_dev_select(
             offset,
             theme,
             ScrollbarSurface::Popup,
+            scrollbar,
+            ScrollTargetId::PluginSelect,
         );
 
         true

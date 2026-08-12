@@ -22,10 +22,10 @@ pub fn find_next_in_editor(
     if current_y < lines.len() {
         let line = &lines[current_y];
         let start_idx = current_x + 1;
-        if start_idx < line.len() {
-            if let Some(pos) = match_fn(&line[start_idx..], query) {
-                return Some((start_idx + pos, current_y));
-            }
+        if start_idx < line.len()
+            && let Some(pos) = match_fn(&line[start_idx..], query)
+        {
+            return Some((start_idx + pos, current_y));
         }
     }
 

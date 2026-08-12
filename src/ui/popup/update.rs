@@ -1,7 +1,7 @@
 use super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -13,7 +13,13 @@ use ratatui::{
 
 /// Render the "Update Available" popup.
 /// Returns true if the popup was handled (consumed).
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
+pub fn render(
+    f: &mut Frame,
+    popup: &PopupType,
+    theme: &Theme,
+    size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
+) -> bool {
     let (info, cursor_idx, install_progress, error, scroll_y) = match popup {
         PopupType::UpdateAvailable {
             info,
@@ -163,6 +169,8 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         clamped_scroll,
         theme,
         ScrollbarSurface::Popup,
+        scrollbar,
+        ScrollTargetId::UpdateNotes,
     );
 
     // Separator

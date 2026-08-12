@@ -92,10 +92,10 @@ pub fn load_language(language_name: &str) {
 
 /// Returns the active language code (e.g. "en", "es").
 pub fn get_active_language_code() -> String {
-    if let Some(lock) = CURRENT_LANGUAGE_CODE.get() {
-        if let Ok(reader) = lock.read() {
-            return reader.clone();
-        }
+    if let Some(lock) = CURRENT_LANGUAGE_CODE.get()
+        && let Ok(reader) = lock.read()
+    {
+        return reader.clone();
     }
     // Fallback if not initialized (e.g. called early or in tests)
     if let Ok(config) = crate::config::AppConfig::load_or_create() {

@@ -150,10 +150,10 @@ fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<Strin
 
     // 2) CWD / shipped keymaps next to binary
     for candidate in shipped_keymap_candidates(&name) {
-        if candidate.exists() {
-            if let Ok(s) = std::fs::read_to_string(&candidate) {
-                return Some(s);
-            }
+        if candidate.exists()
+            && let Ok(s) = std::fs::read_to_string(&candidate)
+        {
+            return Some(s);
         }
     }
 
@@ -178,14 +178,14 @@ fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
     if let Ok(cwd) = std::env::current_dir() {
         out.push(cwd.join("keymaps").join(format!("{name}.toml")));
     }
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            out.push(dir.join("keymaps").join(format!("{name}.toml")));
-            out.push(
-                dir.join("../share/pairee/keymaps")
-                    .join(format!("{name}.toml")),
-            );
-        }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+    {
+        out.push(dir.join("keymaps").join(format!("{name}.toml")));
+        out.push(
+            dir.join("../share/pairee/keymaps")
+                .join(format!("{name}.toml")),
+        );
     }
     out
 }

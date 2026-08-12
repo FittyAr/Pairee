@@ -62,19 +62,18 @@ fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -
     let mut plugin_name = String::new();
     let mut default_settings = std::collections::HashMap::new();
 
-    if manifest_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-            if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content) {
-                plugin_name = manifest.name.clone();
-                if let Some(schema) = manifest.settings_schema {
-                    for (k, v) in schema {
-                        // Extract default value
-                        if let Some(tbl) = v.as_table() {
-                            if let Some(default_val) = tbl.get("default") {
-                                default_settings.insert(k, default_val.clone());
-                            }
-                        }
-                    }
+    if manifest_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&manifest_path)
+        && let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content)
+    {
+        plugin_name = manifest.name.clone();
+        if let Some(schema) = manifest.settings_schema {
+            for (k, v) in schema {
+                // Extract default value
+                if let Some(tbl) = v.as_table()
+                    && let Some(default_val) = tbl.get("default")
+                {
+                    default_settings.insert(k, default_val.clone());
                 }
             }
         }
@@ -82,11 +81,11 @@ fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -
 
     // Load active settings from config
     let mut active_settings = std::collections::HashMap::new();
-    if let Ok(config) = crate::config::AppConfig::load_or_create() {
-        if let Some(user_settings) = config.settings.plugin_settings.get(&plugin_name) {
-            for (k, v) in user_settings {
-                active_settings.insert(k.clone(), v.clone());
-            }
+    if let Ok(config) = crate::config::AppConfig::load_or_create()
+        && let Some(user_settings) = config.settings.plugin_settings.get(&plugin_name)
+    {
+        for (k, v) in user_settings {
+            active_settings.insert(k.clone(), v.clone());
         }
     }
 
@@ -129,14 +128,12 @@ fn bind_translations(
     let mut default_lang = "en".to_string();
     let manifest_path = plugin_dir.join("manifest.toml");
 
-    if manifest_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&manifest_path) {
-            if let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content) {
-                if let Some(ref dl) = manifest.default_language {
-                    default_lang = dl.clone();
-                }
-            }
-        }
+    if manifest_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&manifest_path)
+        && let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content)
+        && let Some(ref dl) = manifest.default_language
+    {
+        default_lang = dl.clone();
     }
 
     let lang_dir = plugin_dir.join("lang");
@@ -145,23 +142,21 @@ fn bind_translations(
     // Load active locale TOML
     let mut active_dict = toml::Table::default();
     let active_path = lang_dir.join(format!("{}.toml", current_lang));
-    if active_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&active_path) {
-            if let Ok(dict) = toml::from_str::<toml::Table>(&content) {
-                active_dict = dict;
-            }
-        }
+    if active_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&active_path)
+        && let Ok(dict) = toml::from_str::<toml::Table>(&content)
+    {
+        active_dict = dict;
     }
 
     // Load fallback default locale TOML
     let mut fallback_dict = toml::Table::default();
     let fallback_path = lang_dir.join(format!("{}.toml", default_lang));
-    if fallback_path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&fallback_path) {
-            if let Ok(dict) = toml::from_str::<toml::Table>(&content) {
-                fallback_dict = dict;
-            }
-        }
+    if fallback_path.exists()
+        && let Ok(content) = std::fs::read_to_string(&fallback_path)
+        && let Ok(dict) = toml::from_str::<toml::Table>(&content)
+    {
+        fallback_dict = dict;
     }
 
     let t_fn = lua.create_function(

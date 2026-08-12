@@ -10,7 +10,7 @@ use crate::app::state::{AppState, TransferTab, TransferUIState, TransferViewMode
 use crate::config::localization::t;
 use crate::fs::transfer::job::{TransferJobStatus, TransferProgress, TransferResults};
 use crate::ui::popup::centered_rect;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
 
 pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppContext) {
     let transfer_state = match &state.transfer {
@@ -50,7 +50,14 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
     let theme = &context.config.theme;
 
     // --- 1. RENDER SIDEBAR (COL IZQUIERDA) ---
-    render_jobs_sidebar(f, main_layout[0], transfer_state, &jobs, theme);
+    render_jobs_sidebar(
+        f,
+        main_layout[0],
+        transfer_state,
+        &jobs,
+        theme,
+        Some(&state.scrollbar),
+    );
 
     // --- 2. RENDER INSPECTOR (COL DERECHA) ---
     if jobs.is_empty() {
@@ -107,16 +114,28 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
 
             // Content
             match transfer_state.active_tab {
-                TransferTab::FileList => {
-                    render_file_list_tab(f, chunks[2], transfer_state, results, theme)
-                }
+                TransferTab::FileList => render_file_list_tab(
+                    f,
+                    chunks[2],
+                    transfer_state,
+                    results,
+                    theme,
+                    Some(&state.scrollbar),
+                ),
                 TransferTab::Options => {
                     render_options_tab(f, chunks[2], transfer_state, selected_job)
                 }
                 TransferTab::Status => {
                     render_status_tab(f, chunks[2], transfer_state, progress, results)
                 }
-                TransferTab::Log => render_log_tab(f, chunks[2], log_lines, theme),
+                TransferTab::Log => render_log_tab(
+                    f,
+                    chunks[2],
+                    log_lines,
+                    theme,
+                    transfer_state,
+                    Some(&state.scrollbar),
+                ),
             }
 
             // Footer
@@ -131,6 +150,7 @@ fn render_jobs_sidebar(
     ts: &TransferUIState,
     jobs: &[crate::fs::transfer::job::TransferJob],
     theme: &crate::config::theme::Theme,
+    scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {
     let mut list_items = Vec::new();
     let selected_job = jobs.get(ts.queue_cursor);
@@ -228,6 +248,8 @@ fn render_jobs_sidebar(
         offset,
         theme,
         ScrollbarSurface::Popup,
+        scrollbar,
+        ScrollTargetId::TransferJobs,
     );
 }
 
@@ -392,6 +414,7 @@ fn render_file_list_tab(
     ts: &TransferUIState,
     res: &TransferResults,
     theme: &crate::config::theme::Theme,
+    scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {
     let total_files = res.failed_files.len() + res.skipped_files.len() + res.completed_files.len();
 
@@ -519,6 +542,8 @@ fn render_file_list_tab(
         start,
         theme,
         ScrollbarSurface::Popup,
+        scrollbar,
+        ScrollTargetId::TransferFiles,
     );
 }
 
@@ -710,11 +735,20 @@ fn render_log_tab(
     area: Rect,
     log_lines: &[String],
     theme: &crate::config::theme::Theme,
+    ts: &TransferUIState,
+    scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {
     let viewport = area.height.saturating_sub(2) as usize;
     let total = log_lines.len();
-    // Show newest lines at the bottom of the visible window.
-    let start = total.saturating_sub(viewport);
+    let max_start = total.saturating_sub(viewport);
+    // Prefer user scroll; default to following the end.
+    let start = if ts.log_scroll > max_start {
+        max_start
+    } else if total > viewport {
+        ts.log_scroll
+    } else {
+        0
+    };
 
     let items: Vec<ListItem> = log_lines
         .iter()
@@ -739,6 +773,8 @@ fn render_log_tab(
         start,
         theme,
         ScrollbarSurface::Popup,
+        scrollbar,
+        ScrollTargetId::TransferLog,
     );
 }
 
@@ -762,17 +798,17 @@ fn render_footer(f: &mut Frame, area: Rect, _job: &crate::fs::transfer::job::Tra
 
 pub fn summarize_path(path: &std::path::Path) -> String {
     if let Some(file_name) = path.file_name() {
-        if let Some(parent) = path.parent() {
-            if let Some(parent_name) = parent.file_name() {
-                let sep = std::path::MAIN_SEPARATOR;
-                return format!(
-                    "..{}{}{}{}",
-                    sep,
-                    parent_name.to_string_lossy(),
-                    sep,
-                    file_name.to_string_lossy()
-                );
-            }
+        if let Some(parent) = path.parent()
+            && let Some(parent_name) = parent.file_name()
+        {
+            let sep = std::path::MAIN_SEPARATOR;
+            return format!(
+                "..{}{}{}{}",
+                sep,
+                parent_name.to_string_lossy(),
+                sep,
+                file_name.to_string_lossy()
+            );
         }
         return file_name.to_string_lossy().into_owned();
     }

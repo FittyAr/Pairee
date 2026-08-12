@@ -11,10 +11,10 @@ fn create_callbacks() -> git2::RemoteCallbacks<'static> {
                 let mut home = proj_dir.home_dir().to_path_buf();
                 home.push(".ssh");
                 let id_rsa = home.join("id_rsa");
-                if id_rsa.exists() {
-                    if let Ok(cred) = git2::Cred::ssh_key(username, None, &id_rsa, None) {
-                        return Ok(cred);
-                    }
+                if id_rsa.exists()
+                    && let Ok(cred) = git2::Cred::ssh_key(username, None, &id_rsa, None)
+                {
+                    return Ok(cred);
                 }
             }
         }

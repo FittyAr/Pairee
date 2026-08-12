@@ -32,13 +32,13 @@ impl AppConfig {
         } else {
             // Clean up legacy JSON translation files from previous versions
             let lang_dir = config_dir.join("lang");
-            if lang_dir.exists() {
-                if let Ok(entries) = fs::read_dir(&lang_dir) {
-                    for entry in entries.filter_map(Result::ok) {
-                        let path = entry.path();
-                        if path.extension().is_some_and(|ext| ext == "json") {
-                            let _ = fs::remove_file(path);
-                        }
+            if lang_dir.exists()
+                && let Ok(entries) = fs::read_dir(&lang_dir)
+            {
+                for entry in entries.filter_map(Result::ok) {
+                    let path = entry.path();
+                    if path.extension().is_some_and(|ext| ext == "json") {
+                        let _ = fs::remove_file(path);
                     }
                 }
             }
@@ -108,17 +108,15 @@ impl AppConfig {
                 fs::write(&preset_path, &toml_content).with_context(|| {
                     format!("Failed to write default keymap file: {}.toml", preset_name)
                 })?;
-            } else if let Ok(existing) = fs::read_to_string(&preset_path) {
-                if (!existing.contains("rename = \"F7\"")
+            } else if let Ok(existing) = fs::read_to_string(&preset_path)
+                && ((!existing.contains("rename = \"F7\"")
                     && !existing.contains("rename_fkey = \"F7\""))
                     || existing.contains("mkdir = \"F7\"")
                     || existing.contains("mkdir_fkey = \"F7\"")
-                    || existing.contains("plugin_menu = \"F11\"")
-                {
-                    if let Err(e) = fs::write(&preset_path, &toml_content) {
-                        log::warn!("Failed to refresh preset keymap {:?}: {}", preset_path, e);
-                    }
-                }
+                    || existing.contains("plugin_menu = \"F11\""))
+                && let Err(e) = fs::write(&preset_path, &toml_content)
+            {
+                log::warn!("Failed to refresh preset keymap {:?}: {}", preset_path, e);
             }
         }
 
@@ -198,10 +196,10 @@ impl AppConfig {
 pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::io::Write;
 
-    if let Some(parent) = path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent).context("Creating parent directory for atomic write")?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent).context("Creating parent directory for atomic write")?;
     }
     let tmp_path = if let Some(parent) = path.parent() {
         let name = format!(

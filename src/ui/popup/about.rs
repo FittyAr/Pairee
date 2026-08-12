@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -15,6 +15,7 @@ pub fn render_about_popup(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
     if let PopupType::About { scroll_y } = popup {
         // Center the rectangle (width: 70 columns, height: 20 lines)
@@ -262,6 +263,8 @@ pub fn render_about_popup(
             clamped_scroll,
             theme,
             ScrollbarSurface::Popup,
+            scrollbar,
+            ScrollTargetId::About,
         );
 
         // Render bottom hint

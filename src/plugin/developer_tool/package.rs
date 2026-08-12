@@ -134,25 +134,24 @@ pub fn fetch_or_clone_registry(temp_dir: &std::path::Path) -> anyhow::Result<git
             };
             let mut reset_ok = false;
             let mut commit_oid = None;
-            if fetched {
-                if let Ok(fetch_head) = repo.find_reference("refs/remotes/origin/plugin-registry") {
-                    if let Ok(commit) = fetch_head.peel_to_commit() {
-                        commit_oid = Some(commit.id());
-                    }
-                }
+            if fetched
+                && let Ok(fetch_head) = repo.find_reference("refs/remotes/origin/plugin-registry")
+                && let Ok(commit) = fetch_head.peel_to_commit()
+            {
+                commit_oid = Some(commit.id());
             }
-            if let Some(oid) = commit_oid {
-                if let Ok(commit) = repo.find_commit(oid) {
-                    let mut checkout_builder = git2::build::CheckoutBuilder::new();
-                    checkout_builder.force();
-                    let _ = repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder));
-                    let _ = repo.set_head("refs/heads/plugin-registry");
-                    if repo
-                        .reset(commit.as_object(), git2::ResetType::Hard, None)
-                        .is_ok()
-                    {
-                        reset_ok = true;
-                    }
+            if let Some(oid) = commit_oid
+                && let Ok(commit) = repo.find_commit(oid)
+            {
+                let mut checkout_builder = git2::build::CheckoutBuilder::new();
+                checkout_builder.force();
+                let _ = repo.checkout_tree(commit.as_object(), Some(&mut checkout_builder));
+                let _ = repo.set_head("refs/heads/plugin-registry");
+                if repo
+                    .reset(commit.as_object(), git2::ResetType::Hard, None)
+                    .is_ok()
+                {
+                    reset_ok = true;
                 }
             }
             if reset_ok {

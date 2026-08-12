@@ -8,6 +8,7 @@ pub mod panel;
 pub mod popup;
 pub mod quickview;
 pub mod scrollbar;
+pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;
 pub mod viewer;
@@ -61,6 +62,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     &context.config.theme,
                                     image_data,
                                     plugin_widget,
+                                    Some(&state.scrollbar),
                                 );
                             } else {
                                 panel::render_panel(
@@ -69,6 +71,8 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     &state.left_panel,
                                     left_active,
                                     context,
+                                    Some(&state.scrollbar),
+                                    crate::ui::scrollbar::ScrollTargetId::PanelLeft,
                                 );
                             }
                         } else {
@@ -78,6 +82,8 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                 &state.left_panel,
                                 left_active,
                                 context,
+                                Some(&state.scrollbar),
+                                crate::ui::scrollbar::ScrollTargetId::PanelLeft,
                             );
                         }
                     }
@@ -102,6 +108,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     &context.config.theme,
                                     image_data,
                                     plugin_widget,
+                                    Some(&state.scrollbar),
                                 );
                             } else {
                                 panel::render_panel(
@@ -110,6 +117,8 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                     &state.right_panel,
                                     right_active,
                                     context,
+                                    Some(&state.scrollbar),
+                                    crate::ui::scrollbar::ScrollTargetId::PanelRight,
                                 );
                             }
                         } else {
@@ -119,6 +128,8 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                                 &state.right_panel,
                                 right_active,
                                 context,
+                                Some(&state.scrollbar),
+                                crate::ui::scrollbar::ScrollTargetId::PanelRight,
                             );
                         }
                     }
@@ -146,6 +157,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     &context.config.theme,
                     &state.active_popup,
                     context.config.settings.viewer_show_scrollbar,
+                    Some(&state.scrollbar),
                 );
             }
             crate::app::state::Screen::Terminal(ts) => {
@@ -173,12 +185,11 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     // 5. Render Transfer Panel overlay if active
     transfer::panel::render_transfer_panel(f, state, context);
 
-    if let Some(ref ts) = state.transfer {
-        if ts.active_conflict_info.is_some()
-            && ts.view_mode == crate::app::state::TransferViewMode::Expanded
-        {
-            let size = f.area();
-            transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
-        }
+    if let Some(ref ts) = state.transfer
+        && ts.active_conflict_info.is_some()
+        && ts.view_mode == crate::app::state::TransferViewMode::Expanded
+    {
+        let size = f.area();
+        transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
     }
 }

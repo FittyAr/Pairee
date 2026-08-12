@@ -49,10 +49,10 @@ pub(super) async fn run_delete_phase(
                 index: idx,
             });
 
-            if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
-                if let Some(filename_str) = filename.to_str() {
-                    let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-                }
+            if let (Some(parent), Some(filename)) = (src.parent(), src.file_name())
+                && let Some(filename_str) = filename.to_str()
+            {
+                let _ = crate::fs::descriptions::remove_description(parent, filename_str);
             }
 
             let res = send_to_recycle_bin_helper(src);
@@ -129,10 +129,10 @@ pub(super) async fn run_delete_phase(
                 index: idx,
             });
 
-            if let (Some(parent), Some(filename)) = (src.parent(), src.file_name()) {
-                if let Some(filename_str) = filename.to_str() {
-                    let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-                }
+            if let (Some(parent), Some(filename)) = (src.parent(), src.file_name())
+                && let Some(filename_str) = filename.to_str()
+            {
+                let _ = crate::fs::descriptions::remove_description(parent, filename_str);
             }
 
             let mut res = std::fs::remove_file(&src);
@@ -182,10 +182,10 @@ pub(super) async fn run_delete_phase(
 
         dirs_to_delete.sort_by_key(|p| std::cmp::Reverse(p.as_os_str().len()));
         for dir in dirs_to_delete {
-            if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
-                if let Some(filename_str) = filename.to_str() {
-                    let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-                }
+            if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name())
+                && let Some(filename_str) = filename.to_str()
+            {
+                let _ = crate::fs::descriptions::remove_description(parent, filename_str);
             }
             let mut res = std::fs::remove_dir(&dir);
             if res.is_err() {

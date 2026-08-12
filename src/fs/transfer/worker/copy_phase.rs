@@ -292,19 +292,19 @@ async fn resolve_existing_destination(
         "overwrite_older" => {
             let src_time = src.metadata().and_then(|m| m.modified()).ok();
             let dst_time = dst.metadata().and_then(|m| m.modified()).ok();
-            if let (Some(s_time), Some(d_time)) = (src_time, dst_time) {
-                if s_time <= d_time {
-                    results.skipped_files.push(SkippedFile {
-                        src: src.to_path_buf(),
-                        reason: "Destination is newer or equal (skipped)".to_string(),
-                    });
-                    let _ = event_tx.send(TransferEvent::FileSkipped {
-                        job_id,
-                        file: src.to_path_buf(),
-                        reason: "Destination is newer or equal".to_string(),
-                    });
-                    return Ok(ConflictAction::Skip);
-                }
+            if let (Some(s_time), Some(d_time)) = (src_time, dst_time)
+                && s_time <= d_time
+            {
+                results.skipped_files.push(SkippedFile {
+                    src: src.to_path_buf(),
+                    reason: "Destination is newer or equal (skipped)".to_string(),
+                });
+                let _ = event_tx.send(TransferEvent::FileSkipped {
+                    job_id,
+                    file: src.to_path_buf(),
+                    reason: "Destination is newer or equal".to_string(),
+                });
+                return Ok(ConflictAction::Skip);
             }
             Ok(ConflictAction::Proceed)
         }
@@ -484,10 +484,10 @@ fn cleanup_source_dirs(dirs_to_delete: &mut [PathBuf], is_cancelled: &AtomicBool
         if is_cancelled.load(Ordering::Relaxed) {
             break;
         }
-        if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
-            if let Some(filename_str) = filename.to_str() {
-                let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-            }
+        if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name())
+            && let Some(filename_str) = filename.to_str()
+        {
+            let _ = crate::fs::descriptions::remove_description(parent, filename_str);
         }
         if std::fs::remove_dir(dir).is_err() {
             let _ = make_writable_helper(dir);

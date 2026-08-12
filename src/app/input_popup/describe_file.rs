@@ -37,10 +37,10 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 state.active_popup = None;
-                if let Some(dir) = path.parent() {
-                    if let Some(name) = path.file_name() {
-                        let _ = crate::fs::write_description(dir, &name.to_string_lossy(), &input);
-                    }
+                if let Some(dir) = path.parent()
+                    && let Some(name) = path.file_name()
+                {
+                    let _ = crate::fs::write_description(dir, &name.to_string_lossy(), &input);
                 }
                 state.refresh_both_panels(context.config.settings.show_hidden);
                 return Ok(None);

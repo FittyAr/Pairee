@@ -287,21 +287,20 @@ pub fn handle(
         }
         KeyCode::Char('+') | KeyCode::Char('=') => {
             let jobs = transfer.engine.queue.get_all();
-            if let Some(job) = jobs.get(transfer.queue_cursor) {
-                if transfer.engine.queue.reorder(job.id, -1) {
-                    transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
-                }
+            if let Some(job) = jobs.get(transfer.queue_cursor)
+                && transfer.engine.queue.reorder(job.id, -1)
+            {
+                transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
             }
             Ok(None)
         }
         KeyCode::Char('-') => {
             let jobs = transfer.engine.queue.get_all();
-            if let Some(job) = jobs.get(transfer.queue_cursor) {
-                if transfer.engine.queue.reorder(job.id, 1)
-                    && transfer.queue_cursor < jobs.len().saturating_sub(1)
-                {
-                    transfer.queue_cursor += 1;
-                }
+            if let Some(job) = jobs.get(transfer.queue_cursor)
+                && transfer.engine.queue.reorder(job.id, 1)
+                && transfer.queue_cursor < jobs.len().saturating_sub(1)
+            {
+                transfer.queue_cursor += 1;
             }
             Ok(None)
         }
@@ -312,10 +311,10 @@ pub fn handle(
         }
         KeyCode::Delete => {
             let jobs = transfer.engine.queue.get_all();
-            if let Some(job) = jobs.get(transfer.queue_cursor) {
-                if transfer.engine.queue.remove(job.id) {
-                    transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
-                }
+            if let Some(job) = jobs.get(transfer.queue_cursor)
+                && transfer.engine.queue.remove(job.id)
+            {
+                transfer.queue_cursor = transfer.queue_cursor.saturating_sub(1);
             }
             Ok(None)
         }

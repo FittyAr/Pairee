@@ -79,15 +79,15 @@ pub fn process_background_updates(
                 }
             }
         }
-        if !new_results.is_empty() {
-            if let Some(PopupType::SearchResults { results, .. }) = &mut state.active_popup {
-                for (path, is_dir) in new_results {
-                    if results.len() < 500 {
-                        results.push((path, is_dir));
-                    } else {
-                        closed = true;
-                        break;
-                    }
+        if !new_results.is_empty()
+            && let Some(PopupType::SearchResults { results, .. }) = &mut state.active_popup
+        {
+            for (path, is_dir) in new_results {
+                if results.len() < 500 {
+                    results.push((path, is_dir));
+                } else {
+                    closed = true;
+                    break;
                 }
             }
         }
@@ -142,22 +142,21 @@ pub fn process_background_updates(
                 *dev_loading_status = String::new();
                 *dev_loading_progress = None;
             }
-        } else if let Some(update) = latest {
-            if let Some(PopupType::PluginMenu {
+        } else if let Some(update) = latest
+            && let Some(PopupType::PluginMenu {
                 dev_loading,
                 dev_loading_status,
                 dev_loading_progress,
                 ..
             }) = &mut state.active_popup
-            {
-                *dev_loading = true;
-                *dev_loading_status = update.status;
-                *dev_loading_progress = if let (Some(c), Some(t)) = (update.current, update.total) {
-                    if t > 0 { Some((c, t)) } else { None }
-                } else {
-                    None
-                };
-            }
+        {
+            *dev_loading = true;
+            *dev_loading_status = update.status;
+            *dev_loading_progress = if let (Some(c), Some(t)) = (update.current, update.total) {
+                if t > 0 { Some((c, t)) } else { None }
+            } else {
+                None
+            };
         }
         if !disconnected {
             state.dev_progress_rx = Some(rx);

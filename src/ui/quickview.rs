@@ -1,5 +1,5 @@
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use image::GenericImageView;
 use ratatui::{
@@ -27,6 +27,7 @@ pub fn draw_quick_view(
     theme: &crate::config::theme::Theme,
     image_data: &Option<image::DynamicImage>,
     plugin_widget: &Option<PluginWidget>,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     let file_name = path
         .file_name()
@@ -47,7 +48,7 @@ pub fn draw_quick_view(
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
     if let Some(widget) = plugin_widget {
-        render_plugin_widget(f, area, widget, block, theme, scroll);
+        render_plugin_widget(f, area, widget, block, theme, scroll, scrollbar);
     } else if let Some(img) = image_data {
         render_quick_view_image(f, area, img, block, theme, scroll);
     } else {
@@ -74,6 +75,8 @@ pub fn draw_quick_view(
             scroll,
             theme,
             ScrollbarSurface::Panel,
+            scrollbar,
+            ScrollTargetId::QuickView,
         );
     }
 }
@@ -85,6 +88,7 @@ fn render_plugin_widget(
     block: Block,
     theme: &crate::config::theme::Theme,
     scroll: usize,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     match widget {
         PluginWidget::Paragraph(text) => {
@@ -104,6 +108,8 @@ fn render_plugin_widget(
                 scroll,
                 theme,
                 ScrollbarSurface::Panel,
+                scrollbar,
+                ScrollTargetId::QuickView,
             );
         }
         PluginWidget::Gauge { ratio, label } => {
@@ -133,6 +139,8 @@ fn render_plugin_widget(
                 scroll,
                 theme,
                 ScrollbarSurface::Panel,
+                scrollbar,
+                ScrollTargetId::QuickView,
             );
         }
         PluginWidget::Table { headers, rows } => {

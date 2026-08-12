@@ -1,6 +1,7 @@
 use crate::app::state::PanelState;
 use crate::config::theme::Theme;
 use crate::fs::FileEntry;
+use crate::ui::text_width::truncate_to_width;
 use crate::ui::theme_apply::parse_color;
 use ratatui::style::{Modifier, Style};
 use std::path::Path;
@@ -62,6 +63,11 @@ pub(crate) fn entry_display_name(name: &str, is_dir: bool) -> String {
     } else {
         name.to_string()
     }
+}
+
+/// Display name truncated to `max_width` terminal columns (Unicode-aware).
+pub(crate) fn entry_display_name_truncated(name: &str, is_dir: bool, max_width: usize) -> String {
+    truncate_to_width(&entry_display_name(name, is_dir), max_width)
 }
 
 pub(crate) fn format_file_size(size: u64) -> String {

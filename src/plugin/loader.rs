@@ -49,10 +49,10 @@ fn collect_files_rec(dir: &Path, base_dir: &Path, files: &mut Vec<(String, std::
                     files.push((rel.to_string_lossy().to_string(), path));
                 }
             } else if path.is_dir() {
-                if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                    if name.starts_with('.') {
-                        continue;
-                    }
+                if let Some(name) = path.file_name().and_then(|n| n.to_str())
+                    && name.starts_with('.')
+                {
+                    continue;
                 }
                 collect_files_rec(&path, base_dir, files);
             }
@@ -75,10 +75,10 @@ pub async fn load_plugin(
     let manifest = PluginManifest::parse(&manifest_content)?;
 
     // 2. Validate version compatibility
-    if let Some(ref min_version) = manifest.min_pairee {
-        if let Err(e) = check_version_compatibility(min_version) {
-            anyhow::bail!("Version check failed for plugin {}: {}", name, e);
-        }
+    if let Some(ref min_version) = manifest.min_pairee
+        && let Err(e) = check_version_compatibility(min_version)
+    {
+        anyhow::bail!("Version check failed for plugin {}: {}", name, e);
     }
 
     // 3. Create sandboxed Lua instance

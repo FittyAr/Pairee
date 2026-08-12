@@ -173,17 +173,17 @@ pub fn handle(
 
             // ── Tab 0 (Status) Actions ───────────────────────────────────────
             KeyCode::Char(' ') if active_tab == 0 => {
-                if let Some(entry) = status_entries.get(cursor_idx) {
-                    if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                        let res = match entry.kind {
-                            crate::git::status::StatusKind::Added => {
-                                crate::git::stage::unstage_file(&repo, &entry.path)
-                            }
-                            _ => crate::git::stage::stage_file(&repo, &entry.path),
-                        };
-                        if res.is_ok() {
-                            refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
+                if let Some(entry) = status_entries.get(cursor_idx)
+                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                {
+                    let res = match entry.kind {
+                        crate::git::status::StatusKind::Added => {
+                            crate::git::stage::unstage_file(&repo, &entry.path)
                         }
+                        _ => crate::git::stage::stage_file(&repo, &entry.path),
+                    };
+                    if res.is_ok() {
+                        refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
                     }
                 }
                 return Ok(None);
@@ -197,22 +197,22 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char('d') | KeyCode::Char('D') if active_tab == 0 => {
-                if let Some(entry) = status_entries.get(cursor_idx) {
-                    if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                        let is_staged = matches!(entry.kind, crate::git::status::StatusKind::Added);
-                        if let Ok(diff_content) =
-                            crate::git::diff::get_file_diff(&repo, &entry.path, is_staged)
-                        {
-                            let current_popup = state.active_popup.clone().unwrap();
-                            state.active_popup = Some(PopupType::GitDiffView {
-                                repo_path: repo_path.clone(),
-                                file_path: Some(entry.path.clone()),
-                                commit_hash: None,
-                                diff_content,
-                                scroll_y: 0,
-                                previous_popup: Box::new(current_popup),
-                            });
-                        }
+                if let Some(entry) = status_entries.get(cursor_idx)
+                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                {
+                    let is_staged = matches!(entry.kind, crate::git::status::StatusKind::Added);
+                    if let Ok(diff_content) =
+                        crate::git::diff::get_file_diff(&repo, &entry.path, is_staged)
+                    {
+                        let current_popup = state.active_popup.clone().unwrap();
+                        state.active_popup = Some(PopupType::GitDiffView {
+                            repo_path: repo_path.clone(),
+                            file_path: Some(entry.path.clone()),
+                            commit_hash: None,
+                            diff_content,
+                            scroll_y: 0,
+                            previous_popup: Box::new(current_popup),
+                        });
                     }
                 }
                 return Ok(None);
@@ -230,22 +230,20 @@ pub fn handle(
 
             // ── Tab 1 (Log) Actions ──────────────────────────────────────────
             KeyCode::Char('d') | KeyCode::Char('D') if active_tab == 1 => {
-                if let Some(commit) = log_entries.get(cursor_idx) {
-                    if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                        if let Ok(diff_content) =
-                            crate::git::diff::get_commit_diff(&repo, &commit.hash_full)
-                        {
-                            let current_popup = state.active_popup.clone().unwrap();
-                            state.active_popup = Some(PopupType::GitDiffView {
-                                repo_path: repo_path.clone(),
-                                file_path: None,
-                                commit_hash: Some(commit.hash_short.clone()),
-                                diff_content,
-                                scroll_y: 0,
-                                previous_popup: Box::new(current_popup),
-                            });
-                        }
-                    }
+                if let Some(commit) = log_entries.get(cursor_idx)
+                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                    && let Ok(diff_content) =
+                        crate::git::diff::get_commit_diff(&repo, &commit.hash_full)
+                {
+                    let current_popup = state.active_popup.clone().unwrap();
+                    state.active_popup = Some(PopupType::GitDiffView {
+                        repo_path: repo_path.clone(),
+                        file_path: None,
+                        commit_hash: Some(commit.hash_short.clone()),
+                        diff_content,
+                        scroll_y: 0,
+                        previous_popup: Box::new(current_popup),
+                    });
                 }
                 return Ok(None);
             }
@@ -326,77 +324,77 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete if active_tab == 2 => {
-                if let Some(branch) = branch_entries.get(cursor_idx) {
-                    if !branch.is_current {
-                        let current_popup = state.active_popup.clone().unwrap();
-                        let msg = crate::config::localization::t("git_confirm_delete_branch")
-                            .replace("{}", &branch.name);
-                        state.active_popup = Some(PopupType::GitConfirmAction {
-                            message: msg,
-                            repo_path: repo_path.clone(),
-                            action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
-                            previous_popup: Box::new(current_popup),
-                        });
-                    }
+                if let Some(branch) = branch_entries.get(cursor_idx)
+                    && !branch.is_current
+                {
+                    let current_popup = state.active_popup.clone().unwrap();
+                    let msg = crate::config::localization::t("git_confirm_delete_branch")
+                        .replace("{}", &branch.name);
+                    state.active_popup = Some(PopupType::GitConfirmAction {
+                        message: msg,
+                        repo_path: repo_path.clone(),
+                        action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
+                        previous_popup: Box::new(current_popup),
+                    });
                 }
                 return Ok(None);
             }
             KeyCode::Char('r') | KeyCode::Char('R') if active_tab == 2 => {
-                if let Some(branch) = branch_entries.get(cursor_idx) {
-                    if !branch.is_remote {
-                        let current_popup = state.active_popup.clone().unwrap();
-                        state.active_popup = Some(PopupType::GitBranchRenamePrompt {
-                            input: branch.name.clone(),
-                            cursor_idx: branch.name.len(),
-                            old_name: branch.name.clone(),
-                            repo_path: repo_path.clone(),
-                            previous_popup: Box::new(current_popup),
-                        });
-                    }
+                if let Some(branch) = branch_entries.get(cursor_idx)
+                    && !branch.is_remote
+                {
+                    let current_popup = state.active_popup.clone().unwrap();
+                    state.active_popup = Some(PopupType::GitBranchRenamePrompt {
+                        input: branch.name.clone(),
+                        cursor_idx: branch.name.len(),
+                        old_name: branch.name.clone(),
+                        repo_path: repo_path.clone(),
+                        previous_popup: Box::new(current_popup),
+                    });
                 }
                 return Ok(None);
             }
             KeyCode::Char('m') | KeyCode::Char('M') if active_tab == 2 => {
-                if let Some(branch) = branch_entries.get(cursor_idx) {
-                    if !branch.is_current && !branch.is_remote {
-                        let current_popup = state.active_popup.clone().unwrap();
-                        let msg = crate::config::localization::t("git_confirm_merge_branch")
-                            .replace("{}", &branch.name)
-                            .replace("{}", &current_branch);
-                        state.active_popup = Some(PopupType::GitConfirmAction {
-                            message: msg,
-                            repo_path: repo_path.clone(),
-                            action: GitConfirmedAction::MergeBranch(branch.name.clone()),
-                            previous_popup: Box::new(current_popup),
-                        });
-                    }
+                if let Some(branch) = branch_entries.get(cursor_idx)
+                    && !branch.is_current
+                    && !branch.is_remote
+                {
+                    let current_popup = state.active_popup.clone().unwrap();
+                    let msg = crate::config::localization::t("git_confirm_merge_branch")
+                        .replace("{}", &branch.name)
+                        .replace("{}", &current_branch);
+                    state.active_popup = Some(PopupType::GitConfirmAction {
+                        message: msg,
+                        repo_path: repo_path.clone(),
+                        action: GitConfirmedAction::MergeBranch(branch.name.clone()),
+                        previous_popup: Box::new(current_popup),
+                    });
                 }
                 return Ok(None);
             }
             KeyCode::Enter if active_tab == 2 => {
-                if let Some(branch) = branch_entries.get(cursor_idx) {
-                    if !branch.is_remote {
-                        state.active_popup = Some(PopupType::GitConfirmCheckout {
-                            target: branch.name.clone(),
-                            is_branch: true,
-                            repo_path,
-                        });
-                        return Ok(None);
-                    }
+                if let Some(branch) = branch_entries.get(cursor_idx)
+                    && !branch.is_remote
+                {
+                    state.active_popup = Some(PopupType::GitConfirmCheckout {
+                        target: branch.name.clone(),
+                        is_branch: true,
+                        repo_path,
+                    });
+                    return Ok(None);
                 }
             }
 
             // ── Tab 3 (Stash) Actions ────────────────────────────────────────
             KeyCode::Char('a') | KeyCode::Char('A') if active_tab == 3 => {
-                if let Some(stash) = stash_entries.get(cursor_idx) {
-                    if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
-                        if crate::git::stash::stash_apply(&mut repo, stash.index).is_ok() {
-                            refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
-                            state.active_popup = Some(PopupType::Info(
-                                crate::config::localization::t("git_operation_success"),
-                            ));
-                        }
-                    }
+                if let Some(stash) = stash_entries.get(cursor_idx)
+                    && let Some(mut repo) = crate::git::repo::find_repo(&repo_path)
+                    && crate::git::stash::stash_apply(&mut repo, stash.index).is_ok()
+                {
+                    refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
+                    state.active_popup = Some(PopupType::Info(crate::config::localization::t(
+                        "git_operation_success",
+                    )));
                 }
                 return Ok(None);
             }

@@ -35,10 +35,10 @@ fn action_label(action: Action) -> Option<&'static str> {
 /// Queries the resolver first so the bar always matches the actual binding.
 fn slot_label(context: &AppContext, slot: usize, fallback_key: &str) -> String {
     let key = format!("F{}", slot + 1);
-    if let Some(action) = context.resolver.resolve_for_key_string(&key) {
-        if let Some(label_key) = action_label(action) {
-            return t(label_key);
-        }
+    if let Some(action) = context.resolver.resolve_for_key_string(&key)
+        && let Some(label_key) = action_label(action)
+    {
+        return t(label_key);
     }
     t(fallback_key)
 }

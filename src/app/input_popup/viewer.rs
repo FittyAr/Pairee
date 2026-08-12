@@ -48,42 +48,41 @@ pub fn handle(
                     return Ok(None);
                 }
 
-                if !query.is_empty() {
-                    if let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx)
-                    {
-                        let is_repeat = vw.last_search.as_ref() == Some(&query);
-                        let start_from = if is_repeat { vw.scroll + 1 } else { vw.scroll };
+                if !query.is_empty()
+                    && let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx)
+                {
+                    let is_repeat = vw.last_search.as_ref() == Some(&query);
+                    let start_from = if is_repeat { vw.scroll + 1 } else { vw.scroll };
 
-                        vw.last_search = Some(query.clone());
-                        vw.last_case_sensitive = case_sensitive;
-                        if vw.mode == crate::ui::viewer::ViewerMode::Text {
-                            let match_fn = |l: &str| {
-                                if case_sensitive {
-                                    l.contains(&query)
-                                } else {
-                                    l.to_lowercase().contains(&query.to_lowercase())
-                                }
-                            };
-                            // simple downward search from current line
-                            if let Some(found_idx) = vw
-                                .lines
-                                .iter()
-                                .enumerate()
-                                .skip(start_from)
-                                .find(|(_, l)| match_fn(l))
-                                .map(|(i, _)| i)
-                            {
-                                vw.scroll = found_idx;
-                            } else if let Some(found_idx) = vw
-                                .lines
-                                .iter()
-                                .enumerate()
-                                .take(start_from)
-                                .find(|(_, l)| match_fn(l))
-                                .map(|(i, _)| i)
-                            {
-                                vw.scroll = found_idx;
+                    vw.last_search = Some(query.clone());
+                    vw.last_case_sensitive = case_sensitive;
+                    if vw.mode == crate::ui::viewer::ViewerMode::Text {
+                        let match_fn = |l: &str| {
+                            if case_sensitive {
+                                l.contains(&query)
+                            } else {
+                                l.to_lowercase().contains(&query.to_lowercase())
                             }
+                        };
+                        // simple downward search from current line
+                        if let Some(found_idx) = vw
+                            .lines
+                            .iter()
+                            .enumerate()
+                            .skip(start_from)
+                            .find(|(_, l)| match_fn(l))
+                            .map(|(i, _)| i)
+                        {
+                            vw.scroll = found_idx;
+                        } else if let Some(found_idx) = vw
+                            .lines
+                            .iter()
+                            .enumerate()
+                            .take(start_from)
+                            .find(|(_, l)| match_fn(l))
+                            .map(|(i, _)| i)
+                        {
+                            vw.scroll = found_idx;
                         }
                     }
                 }

@@ -58,45 +58,44 @@ pub async fn handle_ui_settings_action(
                 help_dir = resolve_help_dir().map(|r| r.join("en"));
             }
 
-            if let Some(ref dir_path) = help_dir {
-                if let Ok(entries) = std::fs::read_dir(dir_path) {
-                    let mut files = Vec::new();
-                    for entry in entries.filter_map(Result::ok) {
-                        let path = entry.path();
-                        if path.is_file() {
-                            if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
-                                if ext.to_lowercase() == "md" {
-                                    files.push(path);
-                                }
-                            }
-                        }
+            if let Some(ref dir_path) = help_dir
+                && let Ok(entries) = std::fs::read_dir(dir_path)
+            {
+                let mut files = Vec::new();
+                for entry in entries.filter_map(Result::ok) {
+                    let path = entry.path();
+                    if path.is_file()
+                        && let Some(ext) = path.extension().and_then(|e| e.to_str())
+                        && ext.to_lowercase() == "md"
+                    {
+                        files.push(path);
                     }
-                    // Sort files alphabetically by filename
-                    files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
+                }
+                // Sort files alphabetically by filename
+                files.sort_by(|a, b| a.file_name().cmp(&b.file_name()));
 
-                    for path in files {
-                        if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                            let translation_key = format!("help_title_{}", stem);
-                            let title = crate::config::localization::t(&translation_key);
-                            let display_title = if title == translation_key {
-                                stem.split('_')
-                                    .map(|word| {
-                                        let mut chars = word.chars();
-                                        match chars.next() {
-                                            None => String::new(),
-                                            Some(first) => {
-                                                first.to_uppercase().collect::<String>()
-                                                    + chars.as_str()
-                                            }
+                for path in files {
+                    if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
+                        let translation_key = format!("help_title_{}", stem);
+                        let title = crate::config::localization::t(&translation_key);
+                        let display_title = if title == translation_key {
+                            stem.split('_')
+                                .map(|word| {
+                                    let mut chars = word.chars();
+                                    match chars.next() {
+                                        None => String::new(),
+                                        Some(first) => {
+                                            first.to_uppercase().collect::<String>()
+                                                + chars.as_str()
                                         }
-                                    })
-                                    .collect::<Vec<String>>()
-                                    .join(" ")
-                            } else {
-                                title
-                            };
-                            docs.push((display_title, path));
-                        }
+                                    }
+                                })
+                                .collect::<Vec<String>>()
+                                .join(" ")
+                        } else {
+                            title
+                        };
+                        docs.push((display_title, path));
                     }
                 }
             }
@@ -339,17 +338,15 @@ pub async fn handle_ui_settings_action(
             match crate::fs::compare_directories(&left, &right) {
                 Ok(diff) => {
                     for entry in &diff {
-                        if entry.status != crate::fs::CompareStatus::Equal {
-                            if let Some(e) = state
+                        if entry.status != crate::fs::CompareStatus::Equal
+                            && let Some(e) = state
                                 .left_panel
                                 .entries
                                 .iter()
                                 .find(|e| e.name == entry.name)
-                            {
-                                if state.left_panel.selected_paths.insert(e.path.clone()) {
-                                    state.left_panel.selection_order.push(e.path.clone());
-                                }
-                            }
+                            && state.left_panel.selected_paths.insert(e.path.clone())
+                        {
+                            state.left_panel.selection_order.push(e.path.clone());
                         }
                     }
                     state.active_popup = Some(PopupType::CompareFoldersResult {
@@ -678,85 +675,81 @@ pub async fn handle_ui_settings_action(
             let current_dir = &active_panel.current_path;
 
             let mut target_dir = current_dir.clone();
-            if let Some(entry) = active_panel.entries.get(active_panel.cursor_index) {
-                if entry.path.is_dir() && entry.path.join("manifest.toml").exists() {
-                    target_dir = entry.path.clone();
-                }
+            if let Some(entry) = active_panel.entries.get(active_panel.cursor_index)
+                && entry.path.is_dir()
+                && entry.path.join("manifest.toml").exists()
+            {
+                target_dir = entry.path.clone();
             }
 
             let manifest_path = target_dir.join("manifest.toml");
-            if manifest_path.exists() {
-                if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                    if let Ok(manifest) =
-                        crate::plugin::loader::PluginManifest::parse(&manifest_content)
-                    {
-                        let name = manifest.name.clone();
-                        let version = manifest.version.clone();
-                        let dest_dir = crate::config::paths::get_config_dir()
-                            .join("plugins")
-                            .join(format!("{}.pairee", name));
+            if manifest_path.exists()
+                && let Ok(manifest_content) = std::fs::read_to_string(&manifest_path)
+                && let Ok(manifest) =
+                    crate::plugin::loader::PluginManifest::parse(&manifest_content)
+            {
+                let name = manifest.name.clone();
+                let version = manifest.version.clone();
+                let dest_dir = crate::config::paths::get_config_dir()
+                    .join("plugins")
+                    .join(format!("{}.pairee", name));
 
-                        let _ = std::fs::create_dir_all(&dest_dir);
-                        let mut success = true;
-                        if let Ok(entries) = std::fs::read_dir(&target_dir) {
-                            for entry in entries.filter_map(Result::ok) {
-                                let path = entry.path();
-                                if path.is_file() {
-                                    if let Some(filename) = path.file_name() {
-                                        let _ = std::fs::copy(&path, dest_dir.join(filename));
-                                    }
-                                } else if path.is_dir()
-                                    && path.file_name().map(|n| n == "lang").unwrap_or(false)
-                                {
-                                    let lang_dest = dest_dir.join("lang");
-                                    let _ = std::fs::create_dir_all(&lang_dest);
-                                    if let Ok(lang_entries) = std::fs::read_dir(&path) {
-                                        for le in lang_entries.filter_map(Result::ok) {
-                                            if le.path().is_file() {
-                                                if let Some(fn_lang) = le.path().file_name() {
-                                                    let _ = std::fs::copy(
-                                                        le.path(),
-                                                        lang_dest.join(fn_lang),
-                                                    );
-                                                }
-                                            }
-                                        }
+                let _ = std::fs::create_dir_all(&dest_dir);
+                let mut success = true;
+                if let Ok(entries) = std::fs::read_dir(&target_dir) {
+                    for entry in entries.filter_map(Result::ok) {
+                        let path = entry.path();
+                        if path.is_file() {
+                            if let Some(filename) = path.file_name() {
+                                let _ = std::fs::copy(&path, dest_dir.join(filename));
+                            }
+                        } else if path.is_dir()
+                            && path.file_name().map(|n| n == "lang").unwrap_or(false)
+                        {
+                            let lang_dest = dest_dir.join("lang");
+                            let _ = std::fs::create_dir_all(&lang_dest);
+                            if let Ok(lang_entries) = std::fs::read_dir(&path) {
+                                for le in lang_entries.filter_map(Result::ok) {
+                                    if le.path().is_file()
+                                        && let Some(fn_lang) = le.path().file_name()
+                                    {
+                                        let _ = std::fs::copy(le.path(), lang_dest.join(fn_lang));
                                     }
                                 }
                             }
-                        } else {
-                            success = false;
-                        }
-
-                        if success {
-                            let mut lock = crate::plugin::updater::read_lockfile();
-                            let mut files_hash = std::collections::HashMap::new();
-                            for (rel, p) in crate::plugin::loader::get_plugin_files(&dest_dir) {
-                                if let Ok(h) = crate::update::downloader::compute_sha256(&p) {
-                                    files_hash.insert(rel, h);
-                                }
-                            }
-                            lock.plugins.insert(
-                                name.clone(),
-                                crate::plugin::updater::PinnedPlugin {
-                                    version,
-                                    pinned: false,
-                                    files: files_hash,
-                                },
-                            );
-                            let _ = crate::plugin::updater::write_lockfile(&lock);
-
-                            state.active_popup = Some(crate::app::state::PopupType::Info(
-                                t("plugin_toast_install_dev_ok")
-                                    .replace("{}", &name)
-                                    .replace("{:?}", &format!("{:?}", dest_dir)),
-                            ));
-                        } else {
-                            state.active_popup = Some(crate::app::state::PopupType::Error(
-                                t("plugin_toast_install_dev_failed").replace("{}", &name),
-                            ));
                         }
                     }
+                } else {
+                    success = false;
+                }
+
+                if success {
+                    let mut lock = crate::plugin::updater::read_lockfile();
+                    let mut files_hash = std::collections::HashMap::new();
+                    for (rel, p) in crate::plugin::loader::get_plugin_files(&dest_dir) {
+                        if let Ok(h) = crate::update::downloader::compute_sha256(&p) {
+                            files_hash.insert(rel, h);
+                        }
+                    }
+                    lock.plugins.insert(
+                        name.clone(),
+                        crate::plugin::updater::PinnedPlugin {
+                            version,
+                            pinned: false,
+                            files: files_hash,
+                        },
+                    );
+                    let _ = crate::plugin::updater::write_lockfile(&lock);
+
+                    state.active_popup = Some(crate::app::state::PopupType::Info(
+                        t("plugin_toast_install_dev_ok")
+                            .replace("{}", &name)
+                            .replace("{:?}", &format!("{:?}", dest_dir)),
+                    ));
+                } else {
+                    state.active_popup = Some(crate::app::state::PopupType::Error(
+                        t("plugin_toast_install_dev_failed").replace("{}", &name),
+                    ));
                 }
             }
             true

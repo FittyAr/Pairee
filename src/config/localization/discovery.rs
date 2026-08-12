@@ -9,25 +9,25 @@ pub fn discover_languages() -> Vec<(String, PathBuf)> {
 
     // 1. Scan the project's root folder 'lang'
     let mut project_lang_dir = PathBuf::from("lang");
-    if !project_lang_dir.exists() {
-        if let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR") {
-            let manifest_path = PathBuf::from(manifest_dir).join("lang");
-            if manifest_path.exists() {
-                project_lang_dir = manifest_path;
-            }
+    if !project_lang_dir.exists()
+        && let Some(manifest_dir) = option_env!("CARGO_MANIFEST_DIR")
+    {
+        let manifest_path = PathBuf::from(manifest_dir).join("lang");
+        if manifest_path.exists() {
+            project_lang_dir = manifest_path;
         }
     }
-    if !project_lang_dir.exists() {
-        if let Ok(exe) = std::env::current_exe() {
-            let mut current = exe.parent();
-            while let Some(dir) = current {
-                let candidate = dir.join("lang");
-                if candidate.exists() {
-                    project_lang_dir = candidate;
-                    break;
-                }
-                current = dir.parent();
+    if !project_lang_dir.exists()
+        && let Ok(exe) = std::env::current_exe()
+    {
+        let mut current = exe.parent();
+        while let Some(dir) = current {
+            let candidate = dir.join("lang");
+            if candidate.exists() {
+                project_lang_dir = candidate;
+                break;
             }
+            current = dir.parent();
         }
     }
 
@@ -85,12 +85,11 @@ pub fn discover_languages_in_dir(dir: &Path) -> Vec<(String, PathBuf)> {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.extension().is_some_and(|ext| ext == "toml") {
-                if let Ok(content) = fs::read_to_string(&path) {
-                    if let Ok(lang_file) = toml::from_str::<LanguageFile>(&content) {
-                        langs.push((lang_file.language_name, path));
-                    }
-                }
+            if path.extension().is_some_and(|ext| ext == "toml")
+                && let Ok(content) = fs::read_to_string(&path)
+                && let Ok(lang_file) = toml::from_str::<LanguageFile>(&content)
+            {
+                langs.push((lang_file.language_name, path));
             }
         }
     }

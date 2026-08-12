@@ -45,71 +45,65 @@ fn clone_from_template(
     progress_status(progress, t("plugin_dev_progress_locating_template"));
 
     // 1. Try local repository first
-    if let Some(repo_dir) = find_pairee_repo() {
-        if let Ok(repo) = git2::Repository::open(&repo_dir) {
-            let branch_ref = format!("refs/heads/{}", TEMPLATE_BRANCH);
-            if let Ok(reference) = repo.find_reference(&branch_ref) {
-                if let Ok(commit) = reference.peel_to_commit() {
-                    if let Ok(tree) = commit.tree() {
-                        progress_status(progress, t("plugin_dev_progress_copying_template"));
-                        let walk_res = tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
-                            use git2::ObjectType;
-                            let rel_path = if root.is_empty() {
-                                entry.name().unwrap_or("").to_string()
-                            } else {
-                                format!("{}{}", root, entry.name().unwrap_or(""))
-                            };
+    if let Some(repo_dir) = find_pairee_repo()
+        && let Ok(repo) = git2::Repository::open(&repo_dir)
+    {
+        let branch_ref = format!("refs/heads/{}", TEMPLATE_BRANCH);
+        if let Ok(reference) = repo.find_reference(&branch_ref)
+            && let Ok(commit) = reference.peel_to_commit()
+            && let Ok(tree) = commit.tree()
+        {
+            progress_status(progress, t("plugin_dev_progress_copying_template"));
+            let walk_res = tree.walk(git2::TreeWalkMode::PreOrder, |root, entry| {
+                use git2::ObjectType;
+                let rel_path = if root.is_empty() {
+                    entry.name().unwrap_or("").to_string()
+                } else {
+                    format!("{}{}", root, entry.name().unwrap_or(""))
+                };
 
-                            match entry.kind() {
-                                Some(ObjectType::Blob) => {
-                                    let obj = match entry.to_object(&repo) {
-                                        Ok(o) => o,
-                                        Err(_) => return git2::TreeWalkResult::Ok,
-                                    };
-                                    let blob = match obj.as_blob() {
-                                        Some(b) => b,
-                                        None => return git2::TreeWalkResult::Ok,
-                                    };
-                                    // Reject entries that try to escape
-                                    // the target via parent-dir components.
-                                    // libgit2 tree paths are not user input
-                                    // here, but defense-in-depth is cheap.
-                                    if rel_path.split(['/', '\\']).any(|seg| seg == "..") {
-                                        log::warn!(
-                                            "plugin-template: refusing template entry \
+                match entry.kind() {
+                    Some(ObjectType::Blob) => {
+                        let obj = match entry.to_object(&repo) {
+                            Ok(o) => o,
+                            Err(_) => return git2::TreeWalkResult::Ok,
+                        };
+                        let blob = match obj.as_blob() {
+                            Some(b) => b,
+                            None => return git2::TreeWalkResult::Ok,
+                        };
+                        // Reject entries that try to escape
+                        // the target via parent-dir components.
+                        // libgit2 tree paths are not user input
+                        // here, but defense-in-depth is cheap.
+                        if rel_path.split(['/', '\\']).any(|seg| seg == "..") {
+                            log::warn!(
+                                "plugin-template: refusing template entry \
                                              with parent-dir component: {}",
-                                            rel_path
-                                        );
-                                        return git2::TreeWalkResult::Ok;
-                                    }
-                                    let dest = target_path.join(&rel_path);
-                                    if let Some(parent) = dest.parent() {
-                                        let _ = std::fs::create_dir_all(parent);
-                                    }
-                                    let _ = std::fs::write(&dest, blob.content());
-                                }
-                                Some(ObjectType::Tree) => {
-                                    let dir = target_path.join(&rel_path);
-                                    let _ = std::fs::create_dir_all(&dir);
-                                }
-                                _ => {}
-                            }
-                            git2::TreeWalkResult::Ok
-                        });
-
-                        if walk_res.is_ok() {
-                            progress_status(
-                                progress,
-                                t("plugin_dev_progress_replacing_placeholders"),
+                                rel_path
                             );
-                            replace_placeholders(target_path, manifest_name, description, author)?;
-                            log::info!(
-                                "plugin-template: Plugin initialized from local git branch."
-                            );
-                            return Ok(true);
+                            return git2::TreeWalkResult::Ok;
                         }
+                        let dest = target_path.join(&rel_path);
+                        if let Some(parent) = dest.parent() {
+                            let _ = std::fs::create_dir_all(parent);
+                        }
+                        let _ = std::fs::write(&dest, blob.content());
                     }
+                    Some(ObjectType::Tree) => {
+                        let dir = target_path.join(&rel_path);
+                        let _ = std::fs::create_dir_all(&dir);
+                    }
+                    _ => {}
                 }
+                git2::TreeWalkResult::Ok
+            });
+
+            if walk_res.is_ok() {
+                progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
+                replace_placeholders(target_path, manifest_name, description, author)?;
+                log::info!("plugin-template: Plugin initialized from local git branch.");
+                return Ok(true);
             }
         }
     }

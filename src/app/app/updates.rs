@@ -10,10 +10,10 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
         match rx.try_recv() {
             Ok(Some(info)) => {
                 // If we had a "Checking for updates..." popup active, dismiss it
-                if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == &t("update_checking") {
-                        state.active_popup = None;
-                    }
+                if let Some(PopupType::Info(ref msg)) = state.active_popup
+                    && msg == &t("update_checking")
+                {
+                    state.active_popup = None;
                 }
 
                 // Don't show if the user already dismissed this version
@@ -47,10 +47,10 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             }
             Ok(None) => {
                 // No update available. If we had "Checking for updates..." popup, show info.
-                if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == &t("update_checking") {
-                        state.active_popup = Some(PopupType::Info(t("update_no_updates")));
-                    }
+                if let Some(PopupType::Info(ref msg)) = state.active_popup
+                    && msg == &t("update_checking")
+                {
+                    state.active_popup = Some(PopupType::Info(t("update_no_updates")));
                 }
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
@@ -58,10 +58,10 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Channel closed / check failed. If we had "Checking for updates..." popup, show error.
-                if let Some(PopupType::Info(ref msg)) = state.active_popup {
-                    if msg == &t("update_checking") {
-                        state.active_popup = Some(PopupType::Info(t("update_check_failed")));
-                    }
+                if let Some(PopupType::Info(ref msg)) = state.active_popup
+                    && msg == &t("update_checking")
+                {
+                    state.active_popup = Some(PopupType::Info(t("update_check_failed")));
                 }
             }
         }

@@ -111,6 +111,9 @@ pub struct AppState {
     >,
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
+
+    // ── Scrollbar mouse hit-testing (filled each paint) ───────────
+    pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
 }
 
 impl AppState {
@@ -167,6 +170,7 @@ impl AppState {
             update_install_rx: None,
             // Transfer Engine
             transfer: None,
+            scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
         }
     }
 

@@ -20,12 +20,11 @@ pub fn get_default_english_translation(key: &str) -> String {
 /// Translates a key using the active language translation map.
 /// Falls back to the centralized English translation if the key is not found.
 pub fn t(key: &str) -> String {
-    if let Some(lock) = CURRENT_TRANSLATIONS.get() {
-        if let Ok(reader) = lock.read() {
-            if let Some(val) = reader.get(key) {
-                return val.clone();
-            }
-        }
+    if let Some(lock) = CURRENT_TRANSLATIONS.get()
+        && let Ok(reader) = lock.read()
+        && let Some(val) = reader.get(key)
+    {
+        return val.clone();
     }
     get_default_english_translation(key)
 }

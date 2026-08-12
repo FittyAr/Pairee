@@ -131,27 +131,19 @@ async fn run_ssh_copy_move(
     }
 
     // Same-server fast move via SFTP rename
-    if is_move {
-        if let (Some(src_client), Some(dst_client)) = (&src_conn, &dst_conn) {
-            if src_client.is_same_server(dst_client) {
-                return fast_remote_rename(
-                    sources,
-                    destination_dir,
-                    src_client,
-                    &dst_conn,
-                    control,
-                )
-                .await;
-            }
-        }
+    if is_move
+        && let (Some(src_client), Some(dst_client)) = (&src_conn, &dst_conn)
+        && src_client.is_same_server(dst_client)
+    {
+        return fast_remote_rename(sources, destination_dir, src_client, &dst_conn, control).await;
     }
 
     let is_dir_for_conn = |path: &Path, conn: &Option<SharedSshClient>| -> bool {
         if let Some(client) = conn {
-            if let Ok(c) = client.0.lock() {
-                if let Ok(stat) = c.sftp.stat(path) {
-                    return stat.is_dir();
-                }
+            if let Ok(c) = client.0.lock()
+                && let Ok(stat) = c.sftp.stat(path)
+            {
+                return stat.is_dir();
             }
             false
         } else {
@@ -435,10 +427,10 @@ async fn fast_remote_rename(
 ) -> Result<TransferResults, anyhow::Error> {
     let is_dir_for_conn = |path: &Path, conn: &Option<SharedSshClient>| -> bool {
         if let Some(client) = conn {
-            if let Ok(c) = client.0.lock() {
-                if let Ok(stat) = c.sftp.stat(path) {
-                    return stat.is_dir();
-                }
+            if let Ok(c) = client.0.lock()
+                && let Ok(stat) = c.sftp.stat(path)
+            {
+                return stat.is_dir();
             }
             false
         } else {

@@ -31,15 +31,14 @@ pub fn handle(
                 attrs.readonly = !attrs.readonly;
             }
             KeyCode::Enter => {
-                if !mode_input.is_empty() {
-                    if let Ok(mode) = u32::from_str_radix(&mode_input, 8) {
-                        if let Err(e) = crate::fs::attrs::set_unix_mode(&attrs.path, mode) {
-                            state.active_popup = Some(PopupType::Error(
-                                t("error_set_unix_mode_failed").replace("{}", &e.to_string()),
-                            ));
-                            return Ok(None);
-                        }
-                    }
+                if !mode_input.is_empty()
+                    && let Ok(mode) = u32::from_str_radix(&mode_input, 8)
+                    && let Err(e) = crate::fs::attrs::set_unix_mode(&attrs.path, mode)
+                {
+                    state.active_popup = Some(PopupType::Error(
+                        t("error_set_unix_mode_failed").replace("{}", &e.to_string()),
+                    ));
+                    return Ok(None);
                 }
                 if let Err(e) = crate::fs::attrs::set_readonly(&attrs.path, attrs.readonly) {
                     state.active_popup = Some(PopupType::Error(

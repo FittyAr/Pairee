@@ -47,29 +47,26 @@ pub fn handle(
                         return Ok(None);
                     }
                     KeyCode::F(3) => {
-                        if cursor_idx < state.screens.len() {
-                            if let Screen::Terminal(ref ts) = state.screens[cursor_idx] {
-                                let lines = ts.output_lines.clone();
-                                let raw = ts.output_lines.join("\n").into_bytes();
-                                let vw = crate::ui::viewer::ViewerState {
-                                    path: std::path::PathBuf::from(format!(
-                                        "Terminal: {}",
-                                        ts.command
-                                    )),
-                                    lines,
-                                    raw,
-                                    image_data: None,
-                                    is_image: false,
-                                    is_text: true,
-                                    mode: crate::ui::viewer::ViewerMode::Text,
-                                    scroll: 0,
-                                    last_search: None,
-                                    last_case_sensitive: false,
-                                };
-                                state.push_screen(Screen::Viewer(vw));
-                                state.active_popup = None;
-                                return Ok(None);
-                            }
+                        if cursor_idx < state.screens.len()
+                            && let Screen::Terminal(ref ts) = state.screens[cursor_idx]
+                        {
+                            let lines = ts.output_lines.clone();
+                            let raw = ts.output_lines.join("\n").into_bytes();
+                            let vw = crate::ui::viewer::ViewerState {
+                                path: std::path::PathBuf::from(format!("Terminal: {}", ts.command)),
+                                lines,
+                                raw,
+                                image_data: None,
+                                is_image: false,
+                                is_text: true,
+                                mode: crate::ui::viewer::ViewerMode::Text,
+                                scroll: 0,
+                                last_search: None,
+                                last_case_sensitive: false,
+                            };
+                            state.push_screen(Screen::Viewer(vw));
+                            state.active_popup = None;
+                            return Ok(None);
                         }
                     }
                     KeyCode::Esc | KeyCode::F(12) => {

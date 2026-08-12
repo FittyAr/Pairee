@@ -242,16 +242,15 @@ pub fn refresh_env_vars() {
         if let Ok(output) = Command::new("powershell")
             .args(["-NoProfile", "-Command", cmd])
             .output()
+            && output.status.success()
         {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                for line in stdout.lines() {
-                    if let Some(pos) = line.find('=') {
-                        let key = &line[..pos];
-                        let val = &line[pos + 1..];
-                        unsafe {
-                            std::env::set_var(key, val);
-                        }
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            for line in stdout.lines() {
+                if let Some(pos) = line.find('=') {
+                    let key = &line[..pos];
+                    let val = &line[pos + 1..];
+                    unsafe {
+                        std::env::set_var(key, val);
                     }
                 }
             }

@@ -1,6 +1,6 @@
 use super::super::centered_rect;
 use crate::app::state::PopupType;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -14,6 +14,7 @@ pub fn render(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
     if let PopupType::Help {
         mode,
@@ -156,6 +157,8 @@ pub fn render(
                 *scroll_y,
                 theme,
                 ScrollbarSurface::Popup,
+                scrollbar,
+                ScrollTargetId::HelpContent,
             );
         } else {
             let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);

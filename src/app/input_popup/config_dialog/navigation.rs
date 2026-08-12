@@ -224,25 +224,25 @@ pub fn handle_navigation(
             ];
             for (i, title) in tab_titles.iter().enumerate() {
                 let parsed = crate::ui::hotkey::parse_hotkey(title);
-                if let Some(hotkey) = parsed.hotkey {
-                    if hotkey == lower_c {
-                        active_tab = i;
-                        cursor_idx = 0;
-                        focus_on_tabs = false;
-                        current_rows = rows::get_rows_for_tab(
-                            active_tab,
-                            &settings,
-                            editing_value,
-                            cursor_idx,
-                            &edit_buffer,
-                        );
-                        while cursor_idx < current_rows.len()
-                            && !rows::is_selectable(cursor_idx, &current_rows)
-                        {
-                            cursor_idx += 1;
-                        }
-                        break;
+                if let Some(hotkey) = parsed.hotkey
+                    && hotkey == lower_c
+                {
+                    active_tab = i;
+                    cursor_idx = 0;
+                    focus_on_tabs = false;
+                    current_rows = rows::get_rows_for_tab(
+                        active_tab,
+                        &settings,
+                        editing_value,
+                        cursor_idx,
+                        &edit_buffer,
+                    );
+                    while cursor_idx < current_rows.len()
+                        && !rows::is_selectable(cursor_idx, &current_rows)
+                    {
+                        cursor_idx += 1;
                     }
+                    break;
                 }
             }
         }

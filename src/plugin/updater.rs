@@ -43,12 +43,11 @@ fn get_lockfile_path() -> PathBuf {
 
 pub fn read_lockfile() -> PluginsLock {
     let path = get_lockfile_path();
-    if path.exists() {
-        if let Ok(content) = std::fs::read_to_string(&path) {
-            if let Ok(lock) = toml::from_str(&content) {
-                return lock;
-            }
-        }
+    if path.exists()
+        && let Ok(content) = std::fs::read_to_string(&path)
+        && let Ok(lock) = toml::from_str(&content)
+    {
+        return lock;
     }
     PluginsLock::default()
 }
@@ -171,19 +170,19 @@ pub async fn check_updates() -> anyhow::Result<()> {
             updates_available += 1;
             continue;
         }
-        if let Some(reg_plugin) = index.plugins.get(name) {
-            if reg_plugin.version != info.version {
-                let pin_str = if info.pinned {
-                    " [PINNED] (update skipped)"
-                } else {
-                    ""
-                };
-                println!(
-                    "  - {}: {} -> {}{}",
-                    name, info.version, reg_plugin.version, pin_str
-                );
-                updates_available += 1;
-            }
+        if let Some(reg_plugin) = index.plugins.get(name)
+            && reg_plugin.version != info.version
+        {
+            let pin_str = if info.pinned {
+                " [PINNED] (update skipped)"
+            } else {
+                ""
+            };
+            println!(
+                "  - {}: {} -> {}{}",
+                name, info.version, reg_plugin.version, pin_str
+            );
+            updates_available += 1;
         }
     }
 
@@ -256,10 +255,10 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
                 println!("Skipping pinned plugin '{}'.", n);
                 continue;
             }
-            if let Some(reg_plugin) = index.plugins.get(n) {
-                if reg_plugin.version != info.version {
-                    plugins_to_update.push(n.clone());
-                }
+            if let Some(reg_plugin) = index.plugins.get(n)
+                && reg_plugin.version != info.version
+            {
+                plugins_to_update.push(n.clone());
             }
         }
 
@@ -390,19 +389,15 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
         "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/manifest.toml",
         first_char_str, author, name
     );
-    if let Ok(resp) = client.get(&manifest_url).send().await {
-        if resp.status().is_success() {
-            if let Ok(text) = resp.text().await {
-                if let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text)
-                {
-                    if let Some(files) = manifest_wrapper.files {
-                        println!("Files:");
-                        for file in files.keys() {
-                            println!("  - {}", file);
-                        }
-                    }
-                }
-            }
+    if let Ok(resp) = client.get(&manifest_url).send().await
+        && resp.status().is_success()
+        && let Ok(text) = resp.text().await
+        && let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text)
+        && let Some(files) = manifest_wrapper.files
+    {
+        println!("Files:");
+        for file in files.keys() {
+            println!("  - {}", file);
         }
     }
     Ok(())
@@ -425,14 +420,14 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         .ok_or_else(|| anyhow::anyhow!("Plugin '{}' not found in registry", name))?;
 
     // Check version
-    if let Some(ver) = version {
-        if plugin.version != ver {
-            anyhow::bail!(
-                "Requested version '{}' does not match registry version '{}' (Registry only lists latest currently)",
-                ver,
-                plugin.version
-            );
-        }
+    if let Some(ver) = version
+        && plugin.version != ver
+    {
+        anyhow::bail!(
+            "Requested version '{}' does not match registry version '{}' (Registry only lists latest currently)",
+            ver,
+            plugin.version
+        );
     }
 
     let plugins_dir = crate::config::paths::get_config_dir()

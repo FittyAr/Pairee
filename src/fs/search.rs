@@ -172,10 +172,10 @@ async fn file_contains(path: &std::path::Path, needle: &str, case_sensitive: boo
             // per-line and using `.contains` is safe (each line is a
             // complete UTF-8 string thanks to `lines()`).
             let lower = line.to_lowercase();
-            if let Some(ref n) = needle_lc {
-                if lower.contains(n) {
-                    return true;
-                }
+            if let Some(ref n) = needle_lc
+                && lower.contains(n)
+            {
+                return true;
             }
         }
     }

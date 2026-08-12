@@ -12,10 +12,10 @@ pub fn read_description(dir: &Path, filename: &str) -> Option<String> {
     let desc_path = dir.join(DESCRIPTIONS_FILE);
     let content = std::fs::read_to_string(&desc_path).ok()?;
     for line in content.lines() {
-        if let Some((name, desc)) = parse_description_line(line) {
-            if name.eq_ignore_ascii_case(filename) {
-                return Some(desc.to_string());
-            }
+        if let Some((name, desc)) = parse_description_line(line)
+            && name.eq_ignore_ascii_case(filename)
+        {
+            return Some(desc.to_string());
         }
     }
     None

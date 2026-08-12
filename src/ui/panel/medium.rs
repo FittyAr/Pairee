@@ -2,7 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::PanelState;
 use crate::config::localization::t;
 use crate::ui::panel::helpers::{
-    build_row_style, entry_display_name, format_file_size, visible_range,
+    build_row_style, entry_display_name_truncated, format_file_size, visible_range,
 };
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -62,8 +62,14 @@ pub(crate) fn render_medium(
                     .map(|e| e.to_string_lossy().to_uppercase())
                     .unwrap_or_default()
             };
+            // ~60% of inner width for name column (matches table constraints).
+            let name_width = ((area.width.saturating_sub(2) as usize) * 60 / 100).max(8);
             Row::new(vec![
-                Cell::from(entry_display_name(&entry.name, entry.is_dir)),
+                Cell::from(entry_display_name_truncated(
+                    &entry.name,
+                    entry.is_dir,
+                    name_width,
+                )),
                 Cell::from(ext),
                 Cell::from(if entry.is_dir {
                     String::new()

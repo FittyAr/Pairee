@@ -109,18 +109,18 @@ impl TransferWorker {
         }
 
         // Verificar espacio libre en destino
-        if let Ok(free_space) = super::network::get_free_space(&self.destination) {
-            if free_space < scan_outcome.total_bytes {
-                let _ = self.event_tx.send(TransferEvent::FileSkipped {
-                    job_id: self.job_id,
-                    file: self.destination.clone(),
-                    reason: format!(
-                        "Warning: Low disk space. Required: {}, Available: {}",
-                        bytesize::ByteSize(scan_outcome.total_bytes),
-                        bytesize::ByteSize(free_space)
-                    ),
-                });
-            }
+        if let Ok(free_space) = super::network::get_free_space(&self.destination)
+            && free_space < scan_outcome.total_bytes
+        {
+            let _ = self.event_tx.send(TransferEvent::FileSkipped {
+                job_id: self.job_id,
+                file: self.destination.clone(),
+                reason: format!(
+                    "Warning: Low disk space. Required: {}, Available: {}",
+                    bytesize::ByteSize(scan_outcome.total_bytes),
+                    bytesize::ByteSize(free_space)
+                ),
+            });
         }
 
         // --- FASE 2: TRANSFERENCIA ---

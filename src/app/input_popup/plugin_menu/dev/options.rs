@@ -271,12 +271,11 @@ fn handle_wizard_enter(
             let commit_msg_async = commit_msg.clone();
             let manifest_path = plugin_path.join("manifest.toml");
             let mut plugin_name = String::new();
-            if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path) {
-                if let Ok(manifest) =
+            if let Ok(manifest_content) = std::fs::read_to_string(&manifest_path)
+                && let Ok(manifest) =
                     crate::plugin::loader::PluginManifest::parse(&manifest_content)
-                {
-                    plugin_name = manifest.name;
-                }
+            {
+                plugin_name = manifest.name;
             }
 
             tokio::spawn(async move {
@@ -454,38 +453,39 @@ fn handle_option_select_active_plugin(
         if let Ok(entries) = std::fs::read_dir(&plugins_dev_dir_for_task) {
             for entry in entries.filter_map(Result::ok) {
                 let path = entry.path();
-                if path.is_dir() && path.join("manifest.toml").exists() {
-                    if let Some(name) = path.file_name().and_then(|n| n.to_str()) {
-                        options.push((name.to_string(), name.to_string()));
-                    }
+                if path.is_dir()
+                    && path.join("manifest.toml").exists()
+                    && let Some(name) = path.file_name().and_then(|n| n.to_str())
+                {
+                    options.push((name.to_string(), name.to_string()));
                 }
             }
         }
 
-        if left.join("manifest.toml").exists() {
-            if let Some(name) = left.file_name().and_then(|n| n.to_str()) {
-                options.push((
-                    t("plugin_dev_panel1").replacen("{}", name, 1).replacen(
-                        "{}",
-                        &left.display().to_string(),
-                        1,
-                    ),
-                    left.to_string_lossy().to_string(),
-                ));
-            }
+        if left.join("manifest.toml").exists()
+            && let Some(name) = left.file_name().and_then(|n| n.to_str())
+        {
+            options.push((
+                t("plugin_dev_panel1").replacen("{}", name, 1).replacen(
+                    "{}",
+                    &left.display().to_string(),
+                    1,
+                ),
+                left.to_string_lossy().to_string(),
+            ));
         }
 
-        if right.join("manifest.toml").exists() {
-            if let Some(name) = right.file_name().and_then(|n| n.to_str()) {
-                options.push((
-                    t("plugin_dev_panel2").replacen("{}", name, 1).replacen(
-                        "{}",
-                        &right.display().to_string(),
-                        1,
-                    ),
-                    right.to_string_lossy().to_string(),
-                ));
-            }
+        if right.join("manifest.toml").exists()
+            && let Some(name) = right.file_name().and_then(|n| n.to_str())
+        {
+            options.push((
+                t("plugin_dev_panel2").replacen("{}", name, 1).replacen(
+                    "{}",
+                    &right.display().to_string(),
+                    1,
+                ),
+                right.to_string_lossy().to_string(),
+            ));
         }
 
         let _ = tx.blocking_send(crate::plugin::manager::PluginRequest::DevPluginScan { options });

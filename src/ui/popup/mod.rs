@@ -82,7 +82,7 @@ fn render_specific_popup(
     if viewer::render_viewer_popup(f, popup, theme, size) {
         return;
     }
-    if history_lists::render_history_lists_popup(f, popup, theme, size) {
+    if history_lists::render_history_lists_popup(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
     if config_dialog::render_config_dialog_popup(f, popup, theme, size) {
@@ -97,16 +97,16 @@ fn render_specific_popup(
     if info::render_info_popup(f, popup, theme, size) {
         return;
     }
-    if about::render_about_popup(f, popup, theme, size) {
+    if about::render_about_popup(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
     if plugin_menu::render(f, popup, theme, size, context) {
         return;
     }
-    if plugin_menu::select::render_dev_select(f, popup, theme, size) {
+    if plugin_menu::select::render_dev_select(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
-    if git_panel::render(f, popup, theme, size) {
+    if git_panel::render(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
     if git_commit_prompt::render(f, popup, theme, size) {
@@ -118,7 +118,7 @@ fn render_specific_popup(
     if git_new_popups::render(f, popup, theme, size) {
         return;
     }
-    if update::render(f, popup, theme, size) {
+    if update::render(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
     if command_palette::render(f, popup, theme, size) {}

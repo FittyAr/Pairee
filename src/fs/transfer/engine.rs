@@ -42,38 +42,37 @@ impl TransferEngine {
 
             loop {
                 // Verificar si el trabajador activo ha terminado (o entrado en pánico/abortado)
-                if let Some((job_id, ref worker_handle)) = active_worker {
-                    if worker_handle.is_finished() {
-                        let jobs = queue.get_all();
-                        if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
-                            if !job.is_terminal() {
-                                // The worker task exited without producing a
-                                // terminal status, which almost always means
-                                // it panicked. We do not have the panic
-                                // payload because the handle was already
-                                // detached, so we log a warning that includes
-                                // the job id so the operator can correlate
-                                // with a core file or backtrace. The user
-                                // sees the generic message in the UI.
-                                log::warn!(
-                                    "Transfer worker for job {} terminated unexpectedly \
+                if let Some((job_id, ref worker_handle)) = active_worker
+                    && worker_handle.is_finished()
+                {
+                    let jobs = queue.get_all();
+                    if let Some(job) = jobs.iter().find(|j| j.id == job_id)
+                        && !job.is_terminal()
+                    {
+                        // The worker task exited without producing a
+                        // terminal status, which almost always means
+                        // it panicked. We do not have the panic
+                        // payload because the handle was already
+                        // detached, so we log a warning that includes
+                        // the job id so the operator can correlate
+                        // with a core file or backtrace. The user
+                        // sees the generic message in the UI.
+                        log::warn!(
+                            "Transfer worker for job {} terminated unexpectedly \
                                      (likely a panic); marking job as failed",
-                                    job_id
-                                );
-                                queue.update_job(job_id, |j| {
-                                    j.status = TransferJobStatus::Failed;
-                                    j.log_lines.push(
-                                        "Error: Worker task terminated unexpectedly.".to_string(),
-                                    );
-                                });
-                                let _ = event_tx.send(TransferEvent::JobFailed {
-                                    job_id,
-                                    error: "Worker task terminated unexpectedly".to_string(),
-                                });
-                            }
-                        }
-                        active_worker = None;
+                            job_id
+                        );
+                        queue.update_job(job_id, |j| {
+                            j.status = TransferJobStatus::Failed;
+                            j.log_lines
+                                .push("Error: Worker task terminated unexpectedly.".to_string());
+                        });
+                        let _ = event_tx.send(TransferEvent::JobFailed {
+                            job_id,
+                            error: "Worker task terminated unexpectedly".to_string(),
+                        });
                     }
+                    active_worker = None;
                 }
 
                 let jobs = queue.get_all();

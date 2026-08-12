@@ -11,7 +11,7 @@ mod wide;
 use crate::app::context::AppContext;
 use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -39,6 +39,8 @@ pub fn render_panel(
     panel: &PanelState,
     is_active: bool,
     context: &AppContext,
+    scrollbar: Option<&ScrollbarUiState>,
+    scroll_id: ScrollTargetId,
 ) {
     let theme = &context.config.theme;
     let settings = &context.config.settings;
@@ -218,6 +220,8 @@ pub fn render_panel(
             offset,
             theme,
             ScrollbarSurface::Panel,
+            scrollbar,
+            scroll_id,
         );
     }
 

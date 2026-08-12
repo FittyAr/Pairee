@@ -165,24 +165,22 @@ impl SharedSshClient {
         let mut authenticated = false;
 
         // Try key authentication if provided
-        if let Some(kp) = key_path {
-            if !kp.trim().is_empty() {
-                let path = Path::new(kp);
-                if path.exists() {
-                    sess.userauth_pubkey_file(username, None, path, password)
-                        .context(t("error_ssh_key_auth_failed"))?;
-                    authenticated = true;
-                }
+        if let Some(kp) = key_path
+            && !kp.trim().is_empty()
+        {
+            let path = Path::new(kp);
+            if path.exists() {
+                sess.userauth_pubkey_file(username, None, path, password)
+                    .context(t("error_ssh_key_auth_failed"))?;
+                authenticated = true;
             }
         }
 
         // Try password authentication if key failed/not provided
-        if !authenticated {
-            if let Some(pass) = password {
-                sess.userauth_password(username, pass)
-                    .context(t("error_ssh_password_auth_failed"))?;
-                authenticated = true;
-            }
+        if !authenticated && let Some(pass) = password {
+            sess.userauth_password(username, pass)
+                .context(t("error_ssh_password_auth_failed"))?;
+            authenticated = true;
         }
 
         // Try default keys if still not authenticated

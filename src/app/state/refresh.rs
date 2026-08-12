@@ -44,17 +44,17 @@ impl AppState {
             };
 
             if let Ok(mut entries) = res {
-                if let Some(ref mask) = self.left_panel.filter_mask {
-                    if !mask.is_empty() {
-                        entries.retain(|e| {
-                            e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
-                        });
-                    }
+                if let Some(ref mask) = self.left_panel.filter_mask
+                    && !mask.is_empty()
+                {
+                    entries.retain(|e| {
+                        e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
+                    });
                 }
-                if let Some(ref qmask) = self.left_panel.quick_filter_mask {
-                    if !qmask.is_empty() {
-                        entries = partition_entries_by_mask(entries, qmask);
-                    }
+                if let Some(ref qmask) = self.left_panel.quick_filter_mask
+                    && !qmask.is_empty()
+                {
+                    entries = partition_entries_by_mask(entries, qmask);
                 }
                 self.left_panel.entries = entries;
                 if self.left_panel.cursor_index >= self.left_panel.entries.len() {
@@ -108,17 +108,17 @@ impl AppState {
             };
 
             if let Ok(mut entries) = res {
-                if let Some(ref mask) = self.right_panel.filter_mask {
-                    if !mask.is_empty() {
-                        entries.retain(|e| {
-                            e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
-                        });
-                    }
+                if let Some(ref mask) = self.right_panel.filter_mask
+                    && !mask.is_empty()
+                {
+                    entries.retain(|e| {
+                        e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
+                    });
                 }
-                if let Some(ref qmask) = self.right_panel.quick_filter_mask {
-                    if !qmask.is_empty() {
-                        entries = partition_entries_by_mask(entries, qmask);
-                    }
+                if let Some(ref qmask) = self.right_panel.quick_filter_mask
+                    && !qmask.is_empty()
+                {
+                    entries = partition_entries_by_mask(entries, qmask);
                 }
                 self.right_panel.entries = entries;
                 if self.right_panel.cursor_index >= self.right_panel.entries.len() {
@@ -172,10 +172,10 @@ impl AppState {
         );
 
         // 2. If there is a quick filter mask, partition the entries in-memory!
-        if let Some(ref m) = panel.quick_filter_mask {
-            if !m.is_empty() {
-                panel.entries = partition_entries_by_mask(panel.entries.clone(), m);
-            }
+        if let Some(ref m) = panel.quick_filter_mask
+            && !m.is_empty()
+        {
+            panel.entries = partition_entries_by_mask(panel.entries.clone(), m);
         }
 
         // 3. Restore cursor position if possible

@@ -210,21 +210,21 @@ fn extract_7z(
             .parent()
             .map(|p| p.to_path_buf())
             .unwrap_or_else(|| dest_path.clone());
-        if let Ok(canon) = std::fs::canonicalize(&check_target) {
-            if !canon.starts_with(&canonical_dest) {
-                let _ = tx.blocking_send(ProgressUpdate {
-                    current_file: entry.name().to_string(),
-                    files_copied: 0,
-                    total_files: 0,
-                    bytes_copied: 0,
-                    total_bytes: 0,
-                    error: Some(format!(
-                        "Refusing to extract entry outside destination: {}",
-                        entry.name()
-                    )),
-                });
-                return Ok(false);
-            }
+        if let Ok(canon) = std::fs::canonicalize(&check_target)
+            && !canon.starts_with(&canonical_dest)
+        {
+            let _ = tx.blocking_send(ProgressUpdate {
+                current_file: entry.name().to_string(),
+                files_copied: 0,
+                total_files: 0,
+                bytes_copied: 0,
+                total_bytes: 0,
+                error: Some(format!(
+                    "Refusing to extract entry outside destination: {}",
+                    entry.name()
+                )),
+            });
+            return Ok(false);
         }
 
         let file_name = entry.name().to_string();

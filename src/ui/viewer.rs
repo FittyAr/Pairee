@@ -1,5 +1,5 @@
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use image::GenericImageView;
 use ratatui::{
@@ -67,11 +67,9 @@ impl ViewerState {
         let mut image_data = None;
         let mut mode = ViewerMode::Hex;
 
-        if is_image_ext {
-            if let Ok(img) = image::open(&path) {
-                image_data = Some(img);
-                mode = ViewerMode::Image;
-            }
+        if is_image_ext && let Ok(img) = image::open(&path) {
+            image_data = Some(img);
+            mode = ViewerMode::Image;
         }
 
         let is_image = image_data.is_some();
@@ -242,6 +240,7 @@ pub fn render_viewer(
     theme: &crate::config::theme::Theme,
     active_popup: &Option<crate::app::state::PopupType>,
     show_scrollbar: bool,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     let mode_label = match state.mode {
         ViewerMode::Text => t("view_text_mode"),
@@ -270,9 +269,18 @@ pub fn render_viewer(
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
     match state.mode {
-        ViewerMode::Text => render_text(f, area, state, block, theme, active_popup, show_scrollbar),
-        ViewerMode::Hex => render_hex(f, area, state, block, theme, show_scrollbar),
-        ViewerMode::Image => render_image(f, area, state, block, theme, show_scrollbar),
+        ViewerMode::Text => render_text(
+            f,
+            area,
+            state,
+            block,
+            theme,
+            active_popup,
+            show_scrollbar,
+            scrollbar,
+        ),
+        ViewerMode::Hex => render_hex(f, area, state, block, theme, show_scrollbar, scrollbar),
+        ViewerMode::Image => render_image(f, area, state, block, theme, show_scrollbar, scrollbar),
     }
 }
 
@@ -288,6 +296,7 @@ fn render_text(
     theme: &crate::config::theme::Theme,
     active_popup: &Option<crate::app::state::PopupType>,
     show_scrollbar: bool,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height.saturating_sub(2) as usize;
 
@@ -336,6 +345,8 @@ fn render_text(
             state.scroll,
             theme,
             ScrollbarSurface::Panel,
+            scrollbar,
+            ScrollTargetId::Viewer,
         );
     }
 }
@@ -351,6 +362,7 @@ fn render_hex(
     block: Block,
     theme: &crate::config::theme::Theme,
     show_scrollbar: bool,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height.saturating_sub(2) as usize;
     let bytes_per_row = 16usize;
@@ -405,6 +417,8 @@ fn render_hex(
             state.scroll,
             theme,
             ScrollbarSurface::Panel,
+            scrollbar,
+            ScrollTargetId::Viewer,
         );
     }
 }
@@ -420,6 +434,7 @@ fn render_image(
     block: Block,
     theme: &crate::config::theme::Theme,
     show_scrollbar: bool,
+    scrollbar: Option<&ScrollbarUiState>,
 ) {
     let inner_area = block.inner(area);
     let inner_w = inner_area.width;
@@ -488,6 +503,8 @@ fn render_image(
             scroll_offset,
             theme,
             ScrollbarSurface::Panel,
+            scrollbar,
+            ScrollTargetId::Viewer,
         );
     }
 

@@ -16,10 +16,10 @@ pub fn is_destination_parent_dir(
         return true;
     }
     if is_dir_fn(destination) {
-        if let Some(src) = sources.first() {
-            if let (Some(dest_name), Some(src_name)) = (destination.file_name(), src.file_name()) {
-                return dest_name != src_name;
-            }
+        if let Some(src) = sources.first()
+            && let (Some(dest_name), Some(src_name)) = (destination.file_name(), src.file_name())
+        {
+            return dest_name != src_name;
         }
         return true;
     }

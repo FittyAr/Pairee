@@ -3,7 +3,7 @@ use crate::app::state::PanelState;
 use crate::config::localization::t;
 use crate::fs::attrs::format_unix_mode;
 use crate::ui::panel::helpers::{
-    build_row_style, entry_display_name, format_file_size, visible_range,
+    build_row_style, entry_display_name_truncated, format_file_size, visible_range,
 };
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -61,8 +61,13 @@ pub(crate) fn render_detailed(
             } else {
                 ("?????????".to_string(), "?".to_string())
             };
+            let name_width = ((area.width.saturating_sub(2) as usize) * 40 / 100).max(8);
             Row::new(vec![
-                Cell::from(entry_display_name(&entry.name, entry.is_dir)),
+                Cell::from(entry_display_name_truncated(
+                    &entry.name,
+                    entry.is_dir,
+                    name_width,
+                )),
                 Cell::from(perm_str),
                 Cell::from(owner),
                 Cell::from(if entry.is_dir {

@@ -33,12 +33,12 @@ pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<m
     ps.set(
         "pub",
         lua.create_function(|lua_ctx, (event_name, data): (String, mlua::Value)| {
-            if let Ok(serialized) = lua_ctx.to_value(&data) {
-                if let Ok(json_val) = serde_json::to_value(&serialized) {
-                    tokio::spawn(async move {
-                        crate::plugin::hooks::emit_event(&event_name, json_val).await;
-                    });
-                }
+            if let Ok(serialized) = lua_ctx.to_value(&data)
+                && let Ok(json_val) = serde_json::to_value(&serialized)
+            {
+                tokio::spawn(async move {
+                    crate::plugin::hooks::emit_event(&event_name, json_val).await;
+                });
             }
             Ok(())
         })?,

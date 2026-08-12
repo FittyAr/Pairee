@@ -69,11 +69,11 @@ pub(super) fn scan(
                     return Err(anyhow!("Job cancelled during scan"));
                 }
 
-                if operation == TransferOperation::Copy || operation == TransferOperation::Move {
-                    if let Ok(rel) = dir.strip_prefix(src) {
-                        let dst_dir = base_dst.join(rel);
-                        let _ = std::fs::create_dir_all(&dst_dir);
-                    }
+                if (operation == TransferOperation::Copy || operation == TransferOperation::Move)
+                    && let Ok(rel) = dir.strip_prefix(src)
+                {
+                    let dst_dir = base_dst.join(rel);
+                    let _ = std::fs::create_dir_all(&dst_dir);
                 }
 
                 let entries = match std::fs::read_dir(&dir) {

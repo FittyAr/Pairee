@@ -23,10 +23,10 @@ pub fn get_builtin_preset_toml(preset: &str) -> String {
 pub fn parse_action_name(name: &str) -> Option<Action> {
     // Handle parameterised variants first
     if let Some(rest) = name.strip_prefix("go_folder_shortcut_") {
-        if let Ok(n) = rest.parse::<u8>() {
-            if (1..=9).contains(&n) {
-                return Some(Action::GoFolderShortcut(n));
-            }
+        if let Ok(n) = rest.parse::<u8>()
+            && (1..=9).contains(&n)
+        {
+            return Some(Action::GoFolderShortcut(n));
         }
         return None;
     }

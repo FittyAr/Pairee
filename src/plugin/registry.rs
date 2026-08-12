@@ -173,23 +173,21 @@ fn execute_event_internal(
 ) {
     // Look up callbacks for event in global Pub/Sub channel list
     let globals = lua.globals();
-    if let Ok(pairee_table) = globals.get::<_, mlua::Table>("pairee") {
-        if let Ok(ps_table) = pairee_table.get::<_, mlua::Table>("ps") {
-            if let Ok(callbacks) = ps_table.get::<_, mlua::Table>("_callbacks") {
-                if let Ok(callback_list) = callbacks.get::<_, mlua::Table>(event_name) {
-                    let parsed_data: mlua::Value =
-                        if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
-                            lua.to_value(&val).unwrap_or(mlua::Value::Nil)
-                        } else {
-                            mlua::Value::Nil
-                        };
-                    let len = callback_list.len().unwrap_or(0);
-                    for i in 1..=len {
-                        if let Ok(func) = callback_list.get::<_, mlua::Function>(i) {
-                            let _: Result<(), mlua::Error> = func.call(parsed_data.clone());
-                        }
-                    }
-                }
+    if let Ok(pairee_table) = globals.get::<_, mlua::Table>("pairee")
+        && let Ok(ps_table) = pairee_table.get::<_, mlua::Table>("ps")
+        && let Ok(callbacks) = ps_table.get::<_, mlua::Table>("_callbacks")
+        && let Ok(callback_list) = callbacks.get::<_, mlua::Table>(event_name)
+    {
+        let parsed_data: mlua::Value =
+            if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
+                lua.to_value(&val).unwrap_or(mlua::Value::Nil)
+            } else {
+                mlua::Value::Nil
+            };
+        let len = callback_list.len().unwrap_or(0);
+        for i in 1..=len {
+            if let Ok(func) = callback_list.get::<_, mlua::Function>(i) {
+                let _: Result<(), mlua::Error> = func.call(parsed_data.clone());
             }
         }
     }

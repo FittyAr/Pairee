@@ -9,12 +9,15 @@
 - Transfer Strategy backends (`local` / `ssh`) under `src/fs/transfer/backend/` with unified job submission.
 - Command palette (`Ctrl+Shift+P`) to filter and run logical actions.
 - Fractional scrollbars via `tui-scrollbar` (shared helper in `src/ui/scrollbar.rs`) on help, viewer/quickview, history lists, transfer panel, git panel, and related popups.
+- Mouse drag and jump-to-click on scrollbars (`ScrollBarInteraction`, hit targets registered each frame, `EnableMouseCapture`).
+- Unicode-aware file-name truncation helpers (`unicode-width` + `unicode-segmentation`) for panel columns.
 
 ### Improved
 
 - Keybindings engine rebuilt on the `keybinds` crate: invalid chords are rejected, duplicate chords across actions are rejected, and Norton/Neovim/VSCode presets load from validated TOML.
 - TUI draw path uses synchronized updates and dirty-flag rendering to reduce flicker/glitches.
 - Scroll indicators use theme colors and proportional thumbs instead of ratatui’s full-cell default.
+- Clippy collapsible-if and related lint cleanups so `cargo clippy -- -D warnings` is green again.
 - CI `check` workflow now targets `master`/`main`, runs tests on Ubuntu and Windows, uses Node 24-aligned actions, and rejects crate-level `clippy::all` allows.
 - Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.

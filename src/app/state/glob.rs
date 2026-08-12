@@ -36,40 +36,40 @@ fn expand_braces(pattern: &str, depth: usize) -> Vec<String> {
         // "refuse to expand" behaviour.
         return vec![pattern.to_string()];
     }
-    if let Some(start) = pattern.find('{') {
-        if let Some(end) = pattern[start..].find('}') {
-            let end = start + end;
-            let pre = &pattern[..start];
-            let post = &pattern[end + 1..];
-            let options = &pattern[start + 1..end];
-            // If the brace group is empty (`{}`), or a single option with
-            // no nested braces remains, keep the literal so we do not loop.
-            if options.is_empty() {
-                let mut s = String::with_capacity(pre.len() + post.len());
-                s.push_str(pre);
-                s.push_str(post);
-                return vec![s];
-            }
-            let mut results = Vec::new();
-            for opt in options.split(',') {
-                // `opt` itself is allowed to contain nested braces; recurse
-                // so the caller's upper bound on output size is still the
-                // product of every alternative count, but each recursion
-                // strictly reduces the remaining brace depth.
-                let expanded = format!("{}{}{}", pre, opt, post);
-                results.extend(expand_braces(&expanded, depth + 1));
-                if results.len() > MAX_BRACE_PATTERNS {
-                    // Bail out before allocating the rest of the
-                    // cross-product. The caller will iterate over the
-                    // truncated list and may not match, which is the
-                    // intended behaviour for a hostile / pathological
-                    // pattern.
-                    results.truncate(MAX_BRACE_PATTERNS);
-                    return results;
-                }
-            }
-            return results;
+    if let Some(start) = pattern.find('{')
+        && let Some(end) = pattern[start..].find('}')
+    {
+        let end = start + end;
+        let pre = &pattern[..start];
+        let post = &pattern[end + 1..];
+        let options = &pattern[start + 1..end];
+        // If the brace group is empty (`{}`), or a single option with
+        // no nested braces remains, keep the literal so we do not loop.
+        if options.is_empty() {
+            let mut s = String::with_capacity(pre.len() + post.len());
+            s.push_str(pre);
+            s.push_str(post);
+            return vec![s];
         }
+        let mut results = Vec::new();
+        for opt in options.split(',') {
+            // `opt` itself is allowed to contain nested braces; recurse
+            // so the caller's upper bound on output size is still the
+            // product of every alternative count, but each recursion
+            // strictly reduces the remaining brace depth.
+            let expanded = format!("{}{}{}", pre, opt, post);
+            results.extend(expand_braces(&expanded, depth + 1));
+            if results.len() > MAX_BRACE_PATTERNS {
+                // Bail out before allocating the rest of the
+                // cross-product. The caller will iterate over the
+                // truncated list and may not match, which is the
+                // intended behaviour for a hostile / pathological
+                // pattern.
+                results.truncate(MAX_BRACE_PATTERNS);
+                return results;
+            }
+        }
+        return results;
     }
     vec![pattern.to_string()]
 }

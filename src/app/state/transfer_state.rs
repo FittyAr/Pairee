@@ -25,6 +25,8 @@ pub struct TransferUIState {
     pub file_list_cursor: usize,
     pub queue_cursor: usize,
     pub options_cursor: usize,
+    /// First visible line in the transfer event log tab.
+    pub log_scroll: usize,
 
     // Snaphots de tiempo real para renderizar sin bloquear el hilo principal
     pub speed_info: (f64, Option<u64>), // (bytes_per_second, eta_seconds)
@@ -46,6 +48,7 @@ impl TransferUIState {
             file_list_cursor: 0,
             queue_cursor: 0,
             options_cursor: 0,
+            log_scroll: 0,
             speed_info: (0.0, None),
             post_action: crate::fs::transfer::post_action::PostAction::None,
             active_conflict_info: None,

@@ -42,36 +42,36 @@ pub fn handle_viewer_screen(
                 return Ok(());
             }
             KeyCode::F(3) => {
-                if let Some(ref q) = vw.last_search {
-                    if vw.mode == crate::ui::viewer::ViewerMode::Text {
-                        let cs = vw.last_case_sensitive;
-                        let match_fn = |l: &str| {
-                            if cs {
-                                l.contains(q)
-                            } else {
-                                l.to_lowercase().contains(&q.to_lowercase())
-                            }
-                        };
-                        // basic search downward from current scroll
-                        if let Some(found_idx) = vw
-                            .lines
-                            .iter()
-                            .enumerate()
-                            .skip(vw.scroll + 1)
-                            .find(|(_, l)| match_fn(l))
-                            .map(|(i, _)| i)
-                        {
-                            vw.scroll = found_idx;
-                        } else if let Some(found_idx) = vw
-                            .lines
-                            .iter()
-                            .enumerate()
-                            .take(vw.scroll + 1)
-                            .find(|(_, l)| match_fn(l))
-                            .map(|(i, _)| i)
-                        {
-                            vw.scroll = found_idx;
+                if let Some(ref q) = vw.last_search
+                    && vw.mode == crate::ui::viewer::ViewerMode::Text
+                {
+                    let cs = vw.last_case_sensitive;
+                    let match_fn = |l: &str| {
+                        if cs {
+                            l.contains(q)
+                        } else {
+                            l.to_lowercase().contains(&q.to_lowercase())
                         }
+                    };
+                    // basic search downward from current scroll
+                    if let Some(found_idx) = vw
+                        .lines
+                        .iter()
+                        .enumerate()
+                        .skip(vw.scroll + 1)
+                        .find(|(_, l)| match_fn(l))
+                        .map(|(i, _)| i)
+                    {
+                        vw.scroll = found_idx;
+                    } else if let Some(found_idx) = vw
+                        .lines
+                        .iter()
+                        .enumerate()
+                        .take(vw.scroll + 1)
+                        .find(|(_, l)| match_fn(l))
+                        .map(|(i, _)| i)
+                    {
+                        vw.scroll = found_idx;
                     }
                 }
             }

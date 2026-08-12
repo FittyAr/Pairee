@@ -105,16 +105,17 @@ impl PanelState {
     /// Selects / tags the highlighted entry.
     /// `select_folders` controls whether directory entries can be tagged.
     pub fn toggle_selection_with_opts(&mut self, select_folders: bool) {
-        if let Some(entry) = self.entries.get(self.cursor_index) {
-            if entry.name != ".." && (!entry.is_dir || select_folders) {
-                let path = entry.path.clone();
-                if self.selected_paths.contains(&path) {
-                    self.selected_paths.remove(&path);
-                    self.selection_order.retain(|p| p != &path);
-                } else {
-                    self.selected_paths.insert(path.clone());
-                    self.selection_order.push(path);
-                }
+        if let Some(entry) = self.entries.get(self.cursor_index)
+            && entry.name != ".."
+            && (!entry.is_dir || select_folders)
+        {
+            let path = entry.path.clone();
+            if self.selected_paths.contains(&path) {
+                self.selected_paths.remove(&path);
+                self.selection_order.retain(|p| p != &path);
+            } else {
+                self.selected_paths.insert(path.clone());
+                self.selection_order.push(path);
             }
         }
     }

@@ -271,16 +271,15 @@ fn is_winget_managed() -> bool {
 #[cfg(target_os = "windows")]
 fn is_inno_setup_install() -> bool {
     // Look for unins*.exe next to the running exe
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            if let Ok(entries) = std::fs::read_dir(dir) {
-                for entry in entries.flatten() {
-                    let name = entry.file_name();
-                    let name_str = name.to_string_lossy().to_lowercase();
-                    if name_str.starts_with("unins") && name_str.ends_with(".exe") {
-                        return true;
-                    }
-                }
+    if let Ok(exe) = std::env::current_exe()
+        && let Some(dir) = exe.parent()
+        && let Ok(entries) = std::fs::read_dir(dir)
+    {
+        for entry in entries.flatten() {
+            let name = entry.file_name();
+            let name_str = name.to_string_lossy().to_lowercase();
+            if name_str.starts_with("unins") && name_str.ends_with(".exe") {
+                return true;
             }
         }
     }

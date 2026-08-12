@@ -1,7 +1,7 @@
 use super::centered_rect;
 use crate::app::state::{CompareStatus, PopupType};
 use crate::config::localization::t;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -12,17 +12,7 @@ use ratatui::{
 };
 
 fn truncate_str(s: &str, max_len: usize) -> String {
-    let chars: Vec<char> = s.chars().collect();
-    if chars.len() > max_len {
-        if max_len > 3 {
-            let truncated: String = chars[..max_len - 3].iter().collect();
-            format!("{}...", truncated)
-        } else {
-            chars[..max_len].iter().collect()
-        }
-    } else {
-        s.to_string()
-    }
+    crate::ui::text_width::truncate_to_width(s, max_len)
 }
 
 pub fn render_history_lists_popup(
@@ -30,6 +20,7 @@ pub fn render_history_lists_popup(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
     match popup {
         PopupType::CommandHistoryList {
@@ -95,6 +86,8 @@ pub fn render_history_lists_popup(
                     scroll_start,
                     theme,
                     ScrollbarSurface::Popup,
+                    scrollbar,
+                    ScrollTargetId::HistoryCommand,
                 );
             }
             true
@@ -163,6 +156,8 @@ pub fn render_history_lists_popup(
                     scroll_start,
                     theme,
                     ScrollbarSurface::Popup,
+                    scrollbar,
+                    ScrollTargetId::HistoryView,
                 );
             }
             true
@@ -231,6 +226,8 @@ pub fn render_history_lists_popup(
                     scroll_start,
                     theme,
                     ScrollbarSurface::Popup,
+                    scrollbar,
+                    ScrollTargetId::HistoryFolder,
                 );
             }
             true
@@ -815,8 +812,7 @@ pub fn render_history_lists_popup(
                     .unwrap()
                     .as_millis()
                     / 500)
-                    % 2
-                    == 0
+                    .is_multiple_of(2)
                 {
                     "_"
                 } else {

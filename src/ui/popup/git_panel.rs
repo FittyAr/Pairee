@@ -1,7 +1,7 @@
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect;
-use crate::ui::scrollbar::{self, ScrollbarSurface};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -12,7 +12,13 @@ use ratatui::{
 };
 
 /// Renders the main Git panel popup with Status / Log / Branches tabs.
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
+pub fn render(
+    f: &mut Frame,
+    popup: &PopupType,
+    theme: &Theme,
+    size: Rect,
+    scrollbar: Option<&ScrollbarUiState>,
+) -> bool {
     if let PopupType::GitPanel {
         active_tab,
         cursor_idx,
@@ -166,6 +172,8 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
                 effective_scroll,
                 theme,
                 ScrollbarSurface::Popup,
+                scrollbar,
+                ScrollTargetId::GitList,
             );
         }
 

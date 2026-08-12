@@ -71,12 +71,13 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
                         let stream_name =
                             String::from_utf16_lossy(&find_data.cStreamName[..name_len]);
 
-                        if !stream_name.is_empty() && stream_name != "::$DATA" {
-                            if let Some(clean_name) = stream_name.strip_suffix(":$DATA") {
-                                let src_ads = format!("{}{}", src.to_string_lossy(), clean_name);
-                                let dst_ads = format!("{}{}", dst.to_string_lossy(), clean_name);
-                                let _ = std::fs::copy(src_ads, dst_ads);
-                            }
+                        if !stream_name.is_empty()
+                            && stream_name != "::$DATA"
+                            && let Some(clean_name) = stream_name.strip_suffix(":$DATA")
+                        {
+                            let src_ads = format!("{}{}", src.to_string_lossy(), clean_name);
+                            let dst_ads = format!("{}{}", dst.to_string_lossy(), clean_name);
+                            let _ = std::fs::copy(src_ads, dst_ads);
                         }
 
                         if FindNextStreamW(handle, &mut find_data as *mut _ as *mut _) == 0 {

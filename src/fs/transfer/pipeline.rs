@@ -137,15 +137,15 @@ pub async fn copy_file_pipelined(
                 total_bytes_read += bytes_read as u64;
 
                 // Throttling: Limitar ancho de banda
-                if let Some(rate) = options_reader.limit_bandwidth_rate {
-                    if rate > 0 {
-                        let expected_duration =
-                            Duration::from_secs_f64(total_bytes_read as f64 / rate as f64);
-                        let actual_duration = start_time.elapsed();
-                        if actual_duration < expected_duration {
-                            let sleep_dur = expected_duration - actual_duration;
-                            std::thread::sleep(sleep_dur);
-                        }
+                if let Some(rate) = options_reader.limit_bandwidth_rate
+                    && rate > 0
+                {
+                    let expected_duration =
+                        Duration::from_secs_f64(total_bytes_read as f64 / rate as f64);
+                    let actual_duration = start_time.elapsed();
+                    if actual_duration < expected_duration {
+                        let sleep_dur = expected_duration - actual_duration;
+                        std::thread::sleep(sleep_dur);
                     }
                 }
             }

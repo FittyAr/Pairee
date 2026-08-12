@@ -46,17 +46,17 @@ pub async fn handle_input_event(
                 return Ok(());
             }
 
-            if context.config.settings.enable_yazi_workflow && state.cli_input.is_empty() {
-                if let crossterm::event::KeyCode::Char(c) = key.code {
-                    if key.modifiers.is_empty() {
-                        if c == 's' {
-                            state.active_popup = Some(PopupType::YaziSortPopup);
-                            return Ok(());
-                        } else if c == 'v' {
-                            state.active_popup = Some(PopupType::YaziViewPopup);
-                            return Ok(());
-                        }
-                    }
+            if context.config.settings.enable_yazi_workflow
+                && state.cli_input.is_empty()
+                && let crossterm::event::KeyCode::Char(c) = key.code
+                && key.modifiers.is_empty()
+            {
+                if c == 's' {
+                    state.active_popup = Some(PopupType::YaziSortPopup);
+                    return Ok(());
+                } else if c == 'v' {
+                    state.active_popup = Some(PopupType::YaziViewPopup);
+                    return Ok(());
                 }
             }
 
@@ -77,12 +77,11 @@ pub async fn handle_input_event(
             if let Some(action) = context.resolver.resolve(key) {
                 state.mark_ui_dirty();
                 handle_action(state, action, context, terminal_backend).await?;
-            } else if !key_str.is_empty() {
-                if let Some((plugin_name, action_name)) =
+            } else if !key_str.is_empty()
+                && let Some((plugin_name, action_name)) =
                     crate::plugin::registry::resolve_keybinding(&key_str).await
-                {
-                    crate::plugin::registry::run_command(&plugin_name, vec![action_name]).await;
-                }
+            {
+                crate::plugin::registry::run_command(&plugin_name, vec![action_name]).await;
             }
         }
         Event::ModifiersChanged(modifiers) => {
@@ -94,6 +93,11 @@ pub async fn handle_input_event(
         Event::Tick => {}
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);
+            if context.config.settings.mouse_support
+                && super::scrollbar_mouse::handle_scrollbar_mouse(state, mouse)
+            {
+                state.mark_ui_dirty();
+            }
         }
     }
     Ok(())
