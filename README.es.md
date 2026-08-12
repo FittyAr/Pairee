@@ -3,7 +3,7 @@
 > Tu mundo, en dos paneles.
 
 [![Licencia: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
@@ -15,7 +15,7 @@ Pairee es un gestor de archivos para terminal moderno, multiplataforma y altamen
 - 💪 **Planificación de Tareas Asíncronas**: Seguimiento del progreso en tiempo real con ventanas emergentes de barras de progreso y cancelación de tareas para trabajadores concurrentes.
 - 🎨 **Temas Visuales y Diseños**: Cargador de temas visuales personalizados (como Slate, Blue, entre otros) y distribución adaptable del diseño de pantalla.
 - ⚙️ **Atajos de Teclado Flexibles**: Resolutor de atajos dinámico con perfiles predefinidos para Norton Clásico (F1-F10), navegación Vim y teclas modernas.
-- 🔌 **Sistema de Complementos Extensible (Planificado)**: Soporte futuro para complementos concurrentes en Lua para agregar visores de archivos a medida, adaptadores de búsqueda y widgets de interfaz.
+- 🔌 **Sistema de Complementos Extensible**: Plugins Lua con sandbox (`mlua`), CLI de registro, herramientas de desarrollador y modo seguro. La API sigue creciendo (ver roadmap de plugins).
 - 🧰 **Herramientas Avanzadas**: Búsqueda integrada por nombre/contenido, comparación de carpetas, menú de comandos personalizados del usuario, gestor de procesos del sistema y visor de atributos.
 - 📦 **Actualizaciones Automáticas Inteligentes**: Comprobaciones seguras de actualización con detección automática entre 13 métodos de instalación y validación de firmas SHA-256.
 - 🌐 **Traducciones Centralizadas**: Motor de traducción centralizado que soporta inglés y español, diseñado para extenderse fácilmente a nuevos idiomas.
@@ -33,29 +33,28 @@ Beta pública. Lo suficientemente estable para su uso diario. Pairee está bajo 
 ```text
 Pairee/
 ├── Cargo.toml                     # Configuración de Cargo
-├── install.sh                     # Script de instalación para Linux (compatible con curl)
-├── install.ps1                    # Script de instalación para Windows (compatible con PowerShell)
-├── LICENSE                        # Licencia GNU GPL v3
-├── README.md                      # Índice de documentación en inglés
-├── README.es.md                   # Índice de documentación en español (Este archivo)
-├── .agents/                       # Directrices para desarrolladores de IA y habilidades personalizadas
-├── docs/                          # Documentación para desarrolladores
-│   └── technical/
-│       ├── architecture_en.md     # Arquitectura y diseño del código (Inglés)
-│       └── architecture_es.md     # Arquitectura y diseño del código (Español)
-├── help/                          # Documentación de ayuda al usuario (cargada por F1)
-│   ├── features_en.md             # Manual de características (Inglés)
-│   ├── features_es.md             # Manual de características (Español)
-│   ├── user_guide_en.md           # Guía de configuración y personalización (Inglés)
-│   └── user_guide_es.md           # Guía de configuración y personalización (Español)
-└── src/                           # Código fuente
-    ├── main.rs                    # Punto de entrada de la aplicación
-    ├── app/                       # Bucles de eventos, acciones y gestión de estado
-    ├── config/                    # Configuración TOML, temas y traducciones
-    ├── fs/                        # Operaciones del sistema de archivos y canales asíncronos
-    ├── keybindings/               # Mapeo de entradas y motor de atajos de teclado
-    ├── ui/                        # Paneles, menús y ventanas emergentes de Ratatui
-    └── terminal/                  # Controlador de pantalla raw y configuración del backend
+├── install.sh / install.ps1       # Instaladores rápidos
+├── docs/
+│   ├── IMPROVEMENT_PLAN.md        # Plan de mejora y progreso
+│   ├── README.md                  # Índice de documentación (estado)
+│   └── technical/                 # Arquitectura, transfer, plugins, packaging
+├── help/
+│   ├── en/                        # Ayuda in-app (inglés)
+│   └── es/                        # Ayuda in-app (español)
+├── lang/                          # Traducciones UI
+├── keymaps/                       # Presets de teclado
+├── .agents/                       # Directrices y skills para agentes
+└── src/
+    ├── main.rs                    # Entrada
+    ├── app/                       # Bucle, acciones, estado
+    ├── config/                    # Settings, temas, i18n
+    ├── fs/                        # FS + transfer engine
+    ├── git/                       # Integración Git
+    ├── keybindings/               # Resolver y presets
+    ├── plugin/                    # Runtime Lua y registro
+    ├── ui/                        # Render Ratatui
+    ├── terminal/                  # Backend y launcher
+    └── update/                    # Auto-actualización
 ```
 
 ---
@@ -97,7 +96,7 @@ NCRust ofrece binarios precompilados de forma automática mediante GitHub Action
 ### Compilar desde el Código Fuente
 
 #### Prerrequisitos
-Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install) (versión 1.70 o superior).
+Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install) **1.85 o superior** (edition 2024 / MSRV en `Cargo.toml`).
 
 #### Compilar y Ejecutar
 ```bash
@@ -135,9 +134,11 @@ Para manuales detallados, principios de diseño y opciones de configuración, co
 | Tema | Inglés | Español |
 | :--- | :--- | :--- |
 | **Wiki del Proyecto** | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) |
-| **Referencia de Funciones** | [Features Manual](help/features_en.md) | [Manual de Funciones](help/features_es.md) |
+| **Índice de docs y estado** | [docs/README.md](docs/README.md) | [docs/README.md](docs/README.md) |
+| **Plan de mejora** | [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) | [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) |
+| **Referencia de Funciones** | [Features Manual](help/en/features.md) | [Manual de Funciones](help/es/features.md) |
 | **Arquitectura del Sistema** | [Architecture Guide](docs/technical/architecture_en.md) | [Guía de Arquitectura](docs/technical/architecture_es.md) |
-| **Configuración y Opciones** | [User Guide](help/user_guide_en.md) | [Guía de Usuario](help/user_guide_es.md) |
+| **Configuración y Opciones** | [User Guide](help/en/user_guide.md) | [Guía de Usuario](help/es/user_guide.md) |
 
 ---
 

@@ -3,7 +3,7 @@
 > Tu mundo, en dos paneles. (Your world, in two panels.)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
@@ -15,7 +15,7 @@ Pairee is a modern, highly modular, and cross-platform terminal file manager ins
 - 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.
 - 🎨 **Visual Themes & Layouts**: Customizable theme loader supporting Slate, Blue, and other custom styles, alongside responsive layout division.
 - ⚙️ **Flexible Keybindings**: Dynamic keybinding resolver featuring preset profiles for Classic Norton (F1-F10), Vim navigation, and Modern keys.
-- 🔌 **Extensible Plugin System (Planned)**: Future support for concurrent Lua-based plugins to add custom file previewers, search adapters, and UI widgets.
+- 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with registry CLI, developer tools, and secure mode. Surface is expanding (see plugin roadmap).
 - 🧰 **Advanced Utilities**: Built-in file search by name/content, folder comparison, custom user commands menu, OS process manager, and file attributes viewer.
 - 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods with SHA-256 verification.
 - 🌐 **Centralized Translations**: Core translation engine supporting English, Spanish, and easily extendable to new languages.
@@ -33,29 +33,28 @@ Public beta. Stable enough to be used as a daily driver. Pairee is in active dev
 ```text
 Pairee/
 ├── Cargo.toml                     # Cargo configuration
-├── install.sh                     # Linux installer script (curl-compatible)
-├── install.ps1                    # Windows installer script (PowerShell-compatible)
-├── LICENSE                        # GNU GPL v3 License
-├── README.md                      # English documentation index (This file)
-├── README.es.md                   # Spanish documentation index
-├── .agents/                       # AI Developer Guidelines and Custom Skills
-├── docs/                          # Developer documentation
-│   └── technical/
-│       ├── architecture_en.md     # Architecture & codebase design (English)
-│       └── architecture_es.md     # Architecture & codebase design (Spanish)
-├── help/                          # User help documentation (loaded in-app via F1)
-│   ├── features_en.md             # In-depth feature manual (English)
-│   ├── features_es.md             # In-depth feature manual (Spanish)
-│   ├── user_guide_en.md           # Configuration & customization guide (English)
-│   └── user_guide_es.md           # Configuration & customization guide (Spanish)
-└── src/                           # Source code
-    ├── main.rs                    # Application entry point
-    ├── app/                       # Event loops, actions, and state management
-    ├── config/                    # TOML settings, themes, and translations
-    ├── fs/                        # Filesystem actions and background task channels
-    ├── keybindings/               # Input mappings and resolver engine
-    ├── ui/                        # Ratatui panels, menus, and popups
-    └── terminal/                  # Raw terminal screen controller & backend setup
+├── install.sh / install.ps1       # Quick installers
+├── docs/
+│   ├── IMPROVEMENT_PLAN.md        # Improvement checklist & progress
+│   ├── README.md                  # Documentation index (status legend)
+│   └── technical/                 # Architecture, transfer, plugins, packaging
+├── help/
+│   ├── en/                        # In-app help (English)
+│   └── es/                        # In-app help (Spanish)
+├── lang/                          # UI translations (en.toml, es.toml)
+├── keymaps/                       # Keybinding presets
+├── .agents/                       # AI developer guidelines & skills
+└── src/
+    ├── main.rs                    # Entry point
+    ├── app/                       # Event loop, actions, state
+    ├── config/                    # Settings, themes, localization
+    ├── fs/                        # Filesystem + transfer engine
+    ├── git/                       # Git integration
+    ├── keybindings/               # Action resolver & presets
+    ├── plugin/                    # Lua plugin runtime & registry
+    ├── ui/                        # Ratatui rendering
+    ├── terminal/                  # Backend & standalone launcher
+    └── update/                    # Auto-update pipeline
 ```
 
 ---
@@ -97,7 +96,7 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (sup
 ### Build from Source
 
 #### Prerequisites
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) (version 1.70 or higher) installed.
+Make sure you have [Rust](https://www.rust-lang.org/tools/install) **1.85 or higher** (edition 2024 / MSRV declared in `Cargo.toml`).
 
 #### Build and Run
 ```bash
@@ -135,9 +134,11 @@ For deep-dive instructions, design principles, and config options, refer to the 
 | Topic | English | Español |
 | :--- | :--- | :--- |
 | **Project Wiki & Docs** | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) | [DeepWiki](https://deepwiki.com/FittyAr/Pairee) |
-| **Full Features Reference** | [Features Manual](help/features_en.md) | [Manual de Funciones](help/features_es.md) |
+| **Docs index & status** | [docs/README.md](docs/README.md) | [docs/README.md](docs/README.md) |
+| **Improvement plan** | [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) | [IMPROVEMENT_PLAN.md](docs/IMPROVEMENT_PLAN.md) |
+| **Full Features Reference** | [Features Manual](help/en/features.md) | [Manual de Funciones](help/es/features.md) |
 | **System Architecture** | [Architecture Guide](docs/technical/architecture_en.md) | [Guía de Arquitectura](docs/technical/architecture_es.md) |
-| **Configuration & Options** | [User Guide](help/user_guide_en.md) | [Guía de Usuario](help/user_guide_es.md) |
+| **Configuration & Options** | [User Guide](help/en/user_guide.md) | [Guía de Usuario](help/es/user_guide.md) |
 
 ---
 

@@ -1,9 +1,11 @@
 # Pairee Transfer Engine — Documento de Diseño Técnico
 
-> **Rama:** `feature/transfer-engine`
-> **Tipo:** Feature + Reforge del subsistema de copia/movimiento
-> **Versión objetivo:** 0.7.0
-> **Estado:** En planificación
+> **Rama histórica:** `feature/transfer-engine` (integrado en `master`)  
+> **Tipo:** Feature + Reforge del subsistema de copia/movimiento  
+> **Versión objetivo:** 0.7.x  
+> **Estado: Partial (Implemented core).** El motor vive en `src/fs/transfer/`.  
+> Aún coexiste un path legacy (`src/fs/ops_worker/`) para SSH/archivos comprimidos.  
+> Seguimiento: [IMPROVEMENT_PLAN.md](../IMPROVEMENT_PLAN.md) Fase B.
 
 ---
 

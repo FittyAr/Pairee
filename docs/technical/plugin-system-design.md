@@ -1,6 +1,9 @@
 # Pairee Plugin System — Technical Design Reference
 
-> **This document describes the planned Lua-based plugin architecture for Pairee. It is a forward-looking technical specification; no code implementing this system exists yet.**
+> **Status: Partial (Implemented core + gaps).**  
+> The Lua plugin runtime, sandbox, registry CLI, and developer tools **exist** under `src/plugin/`.  
+> This document remains a design reference; treat sections that predate the code as historical where they conflict.  
+> For gap inventory and next milestones, see [plugin-roadmap.md](./plugin-roadmap.md) and [IMPROVEMENT_PLAN.md](../IMPROVEMENT_PLAN.md).
 
 ---
 
