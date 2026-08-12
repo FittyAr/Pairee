@@ -248,9 +248,11 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | `537128b` | ci: `master`/`main` + matrix OS + policy Clippy |
 | 2026-08-12 | `b78ec6f` | refactor: Clippy real, MSRV, fmt, tests integración |
 | 2026-08-12 | `04cf8ec` | docs: SHAs de Fase A en el plan |
-| 2026-08-12 | _(siguiente)_ | refactor: partir transfer worker en módulos Facade/fases |
+| 2026-08-12 | `777fd23` | refactor: partir transfer worker en módulos Facade/fases |
 
-Ver también `git log --oneline master` para el detalle.---
+Ver también `git log --oneline master` para el detalle.
+
+---
 
 ## 11. Roadmap visual
 
@@ -269,8 +271,8 @@ Bajo impacto │  [ Más idiomas ] [ Command palette ] [ macOS CI ]
 ## 12. Conclusión operativa
 
 **Fase A (higiene) cerrada.**  
-Siguiente bloque de trabajo recomendado: **Fase B — unificar Transfer Engine** partiendo `worker.rs` en módulos Strategy/Facade, sin path dual `ops_worker` vs `transfer`.
+**Fase B en curso:** worker partido en módulos (Facade + fases). Falta trait `TransferBackend` y absorber SSH/compress/wipe en el engine.
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (Fase A completada y pusheada a `origin/master`).*
+*Última actualización del progreso: 2026-08-12 (worker split `777fd23` + inventario dual path).*
