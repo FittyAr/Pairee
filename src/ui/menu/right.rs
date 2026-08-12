@@ -82,18 +82,18 @@ pub fn get_items(
         );
     }
 
-    if settings.git_enabled {
-        if crate::git::repo::find_repo(&state.right_panel.current_path).is_some() {
-            items.push(MenuItemData::separator());
-            items.push(
-                MenuItemData::new(
-                    t("menu_git"),
-                    &shortcut_for(Action::OpenGitPanel, "Alt+G"),
-                    false,
-                )
-                .with_action(Action::OpenGitPanel),
-            );
-        }
+    if settings.git_enabled
+        && crate::git::repo::find_repo(&state.right_panel.current_path).is_some()
+    {
+        items.push(MenuItemData::separator());
+        items.push(
+            MenuItemData::new(
+                t("menu_git"),
+                &shortcut_for(Action::OpenGitPanel, "Alt+G"),
+                false,
+            )
+            .with_action(Action::OpenGitPanel),
+        );
     }
 
     items

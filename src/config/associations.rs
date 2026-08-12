@@ -281,7 +281,10 @@ mod tests {
         let path = PathBuf::from("/tmp/main.rs");
         let (prog, args) = rule.resolve_open_cmd(&path);
         assert_eq!(prog, "code");
-        assert_eq!(args, vec!["--new-window".to_string(), "/tmp/main.rs".to_string()]);
+        assert_eq!(
+            args,
+            vec!["--new-window".to_string(), "/tmp/main.rs".to_string()]
+        );
     }
 
     #[test]

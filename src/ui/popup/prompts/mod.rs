@@ -32,7 +32,7 @@ pub fn render_prompt_popup(
 
         PopupType::ConfirmQuit
         | PopupType::ConfirmInterrupt
-        | PopupType::ConfirmReload { .. }
+        | PopupType::ConfirmReload
         | PopupType::ConfirmClearHistory { .. }
         | PopupType::SaveSetupConfirm => confirm::render(f, popup, theme, size),
 

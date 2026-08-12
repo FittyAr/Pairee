@@ -49,7 +49,7 @@ pub fn apply_edit(setting_id: usize, settings: &mut Settings, edit_buffer: &str)
         803 => settings.git_author_email = edit_buffer.to_string(),
         804 => {
             if let Ok(n) = edit_buffer.parse::<u32>() {
-                settings.git_log_limit = n.max(1).min(10_000);
+                settings.git_log_limit = n.clamp(1, 10_000);
             }
         }
         _ => {}

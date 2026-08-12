@@ -119,7 +119,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Left => {
-                if new_idx >= 10 && new_idx <= 13 {
+                if (10..=13).contains(&new_idx) {
                     new_idx = if new_idx > 10 { new_idx - 1 } else { 13 };
                     update_popup(
                         state,
@@ -166,7 +166,7 @@ pub fn handle(
                             );
                         }
                     }
-                } else if new_idx >= 10 && new_idx <= 13 {
+                } else if (10..=13).contains(&new_idx) {
                     new_idx = if new_idx < 13 { new_idx + 1 } else { 10 };
                     update_popup(
                         state,

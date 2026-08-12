@@ -138,7 +138,10 @@ impl TransferEngine {
                                         .get_all()
                                         .iter()
                                         .find(|j| j.id == job_id)
-                                        .map(|j| j.is_cancelled.load(std::sync::atomic::Ordering::Relaxed))
+                                        .map(|j| {
+                                            j.is_cancelled
+                                                .load(std::sync::atomic::Ordering::Relaxed)
+                                        })
                                         .unwrap_or(false);
                                     queue_clone.update_job(job_id, |j| {
                                         j.status = if is_cancel {

@@ -49,7 +49,7 @@ pub fn render_search(
     let total_pages = if registry.is_empty() {
         1
     } else {
-        (registry.len() + page_size - 1) / page_size
+        registry.len().div_ceil(page_size)
     };
     let slice_start = page * page_size;
     let slice_end = (slice_start + page_size).min(registry.len());

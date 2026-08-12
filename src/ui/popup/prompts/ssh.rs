@@ -126,12 +126,12 @@ pub fn render(
             format!(" {:<width$} ", s, width = width)
         };
 
-        let l_name = pad_label(&t("prompt_ssh_name").trim(), 14);
-        let l_host = pad_label(&t("prompt_ssh_host").trim(), 14);
-        let l_port = pad_label(&t("prompt_ssh_port").trim(), 14);
-        let l_user = pad_label(&t("prompt_ssh_user").trim(), 14);
-        let l_pass = pad_label(&t("prompt_ssh_pass").trim(), 14);
-        let l_key = pad_label(&t("prompt_ssh_key_path").trim(), 14);
+        let l_name = pad_label(t("prompt_ssh_name").trim(), 14);
+        let l_host = pad_label(t("prompt_ssh_host").trim(), 14);
+        let l_port = pad_label(t("prompt_ssh_port").trim(), 14);
+        let l_user = pad_label(t("prompt_ssh_user").trim(), 14);
+        let l_pass = pad_label(t("prompt_ssh_pass").trim(), 14);
+        let l_key = pad_label(t("prompt_ssh_key_path").trim(), 14);
 
         let render_input_line =
             |f: &mut Frame, chunk: Rect, label: &str, val: &str, idx: usize, is_pass: bool| {

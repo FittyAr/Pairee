@@ -51,7 +51,7 @@ pub fn get_free_space(path: &Path) -> Option<u64> {
         if ret != 0 {
             return Some(free_bytes);
         }
-        return None;
+        None
     }
     #[cfg(not(target_os = "windows"))]
     {

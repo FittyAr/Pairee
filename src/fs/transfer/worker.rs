@@ -92,7 +92,7 @@ impl TransferWorker {
                 return Err(anyhow!("Job cancelled during scan"));
             }
 
-            if src.is_dir() && !(src.is_symlink() && !options.follow_symlinks) {
+            if src.is_dir() && (!src.is_symlink() || options.follow_symlinks) {
                 let base_dst = if is_parent_dir {
                     let folder_name = src.file_name().unwrap_or_default();
                     self.destination.join(folder_name)
@@ -419,7 +419,7 @@ impl TransferWorker {
                     }
                 }
 
-                dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+                dirs_to_delete.sort_by_key(|p| std::cmp::Reverse(p.as_os_str().len()));
                 for dir in dirs_to_delete {
                     if let (Some(parent), Some(filename)) = (dir.parent(), dir.file_name()) {
                         if let Some(filename_str) = filename.to_str() {
@@ -553,42 +553,39 @@ impl TransferWorker {
             if dst.exists() {
                 let mut resolution = options.conflict_resolution.clone();
                 if resolution == "ask" {
-                    let chosen =
-                        if let Some(auto_res) = auto_resolution {
-                            auto_res
-                        } else {
-                            // Notificar conflicto
-                            let _ = self.event_tx.send(TransferEvent::ConflictDetected {
-                                job_id: self.job_id,
-                                file: dst.clone(),
-                                conflict: crate::fs::transfer::conflict::ConflictInfo {
-                                    src_path: src.clone(),
-                                    dst_path: dst.clone(),
-                                    src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
-                                    dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
-                                    src_modified: src.metadata().and_then(|m| m.modified()).ok(),
-                                    dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
-                                },
-                            });
+                    let chosen = if let Some(auto_res) = auto_resolution {
+                        auto_res
+                    } else {
+                        // Notificar conflicto
+                        let _ = self.event_tx.send(TransferEvent::ConflictDetected {
+                            job_id: self.job_id,
+                            file: dst.clone(),
+                            conflict: crate::fs::transfer::conflict::ConflictInfo {
+                                src_path: src.clone(),
+                                dst_path: dst.clone(),
+                                src_size: src.metadata().map(|m| m.len()).unwrap_or(0),
+                                dst_size: dst.metadata().map(|m| m.len()).unwrap_or(0),
+                                src_modified: src.metadata().and_then(|m| m.modified()).ok(),
+                                dst_modified: dst.metadata().and_then(|m| m.modified()).ok(),
+                            },
+                        });
 
-                            // Limpiar conflicto anterior y esperar respuesta de la UI
-                            {
-                                let mut guard = self.active_conflict.lock().unwrap();
-                                *guard = None;
+                        // Limpiar conflicto anterior y esperar respuesta de la UI
+                        {
+                            let mut guard = self.active_conflict.lock().unwrap();
+                            *guard = None;
+                        }
+
+                        while self.active_conflict.lock().unwrap().is_none() {
+                            if self.is_cancelled.load(Ordering::Relaxed) {
+                                return Err(anyhow!("Job cancelled"));
                             }
+                            tokio::time::sleep(Duration::from_millis(100)).await;
+                        }
 
-                            while self.active_conflict.lock().unwrap().is_none() {
-                                if self.is_cancelled.load(Ordering::Relaxed) {
-                                    return Err(anyhow!("Job cancelled"));
-                                }
-                                tokio::time::sleep(Duration::from_millis(100)).await;
-                            }
-
-                            let ch =
-                                self.active_conflict.lock().unwrap().clone().unwrap_or(
-                                    crate::fs::transfer::conflict::ConflictResolution::Skip,
-                                );
-                            match ch {
+                        let ch = (*self.active_conflict.lock().unwrap())
+                            .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+                        match ch {
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteAll |
                             crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll |
                             crate::fs::transfer::conflict::ConflictResolution::SkipAll |
@@ -597,8 +594,8 @@ impl TransferWorker {
                             }
                             _ => {}
                         }
-                            ch
-                        };
+                        ch
+                    };
 
                     resolution = match chosen {
                         crate::fs::transfer::conflict::ConflictResolution::Overwrite
@@ -872,7 +869,7 @@ impl TransferWorker {
 
         // Si la operación es MOVE, eliminar las carpetas de origen vacías (de más profunda a más superficial)
         if self.operation == TransferOperation::Move {
-            dirs_to_delete.sort_by(|a, b| b.as_os_str().len().cmp(&a.as_os_str().len()));
+            dirs_to_delete.sort_by_key(|p| std::cmp::Reverse(p.as_os_str().len()));
             for dir in dirs_to_delete {
                 if self.is_cancelled.load(Ordering::Relaxed) {
                     break;
@@ -914,9 +911,8 @@ fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Result<()> {
     // script to a uniquely-named temp file and pass the path as the
     // `-Path` argument so the file name is never concatenated into source.
     let script_dir = std::env::temp_dir().join("pairee-recycle");
-    std::fs::create_dir_all(&script_dir).map_err(|e| {
-        anyhow::anyhow!("Failed to create temp script directory: {}", e)
-    })?;
+    std::fs::create_dir_all(&script_dir)
+        .map_err(|e| anyhow::anyhow!("Failed to create temp script directory: {}", e))?;
     let script_path = script_dir.join("SendToRecycleBin.ps1");
     // The script body is fully static; the path is delivered as a parameter.
     let script_body = r#"param(
@@ -944,9 +940,8 @@ if ($IsDirectory) {
 }
 "#;
     if !script_path.exists() {
-        let mut f = std::fs::File::create(&script_path).map_err(|e| {
-            anyhow::anyhow!("Failed to write recycle helper script: {}", e)
-        })?;
+        let mut f = std::fs::File::create(&script_path)
+            .map_err(|e| anyhow::anyhow!("Failed to write recycle helper script: {}", e))?;
         f.write_all(script_body.as_bytes())?;
     }
 
@@ -1018,6 +1013,8 @@ fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
     }
     #[cfg(target_os = "windows")]
     {
+        // Windows: clear readonly bit before delete
+        #[allow(clippy::permissions_set_readonly_false)]
         perms.set_readonly(false);
     }
     std::fs::set_permissions(path, perms)
@@ -1122,7 +1119,7 @@ mod tests {
             active_conflict,
         );
 
-        tokio::spawn(async move { while let Some(_) = rx.recv().await {} });
+        tokio::spawn(async move { while rx.recv().await.is_some() {} });
 
         let res = worker.run().await;
         assert!(res.is_ok());

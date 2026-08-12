@@ -122,10 +122,11 @@ impl PanelState {
     /// Selects all entries matching a glob mask.
     pub fn select_group(&mut self, mask: &str) {
         for entry in &self.entries {
-            if entry.name != ".." && glob_matches(mask, &entry.name) {
-                if self.selected_paths.insert(entry.path.clone()) {
-                    self.selection_order.push(entry.path.clone());
-                }
+            if entry.name != ".."
+                && glob_matches(mask, &entry.name)
+                && self.selected_paths.insert(entry.path.clone())
+            {
+                self.selection_order.push(entry.path.clone());
             }
         }
     }

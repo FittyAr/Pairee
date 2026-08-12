@@ -1,4 +1,3 @@
-#![allow(clippy::all)]
 use anyhow::{Context, Result};
 use simplelog::*;
 use std::env;

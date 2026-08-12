@@ -29,7 +29,7 @@ pub const THEME_PROPS: [&str; 16] = [
     "popup_border",
 ];
 
-pub fn get_theme_prop<'a>(theme: &'a Theme, idx: usize) -> &'a String {
+pub fn get_theme_prop(theme: &Theme, idx: usize) -> &String {
     match idx {
         0 => &theme.panel_bg,
         1 => &theme.panel_fg,
@@ -79,12 +79,12 @@ pub fn render_color_groups_popup(
         let mut lines = Vec::new();
         let scroll_start = cursor_idx.saturating_sub(inner.height as usize / 2);
 
-        for i in scroll_start..scroll_start + inner.height as usize {
-            if i >= THEME_PROPS.len() {
-                break;
-            }
-
-            let prop_name = THEME_PROPS[i];
+        for (i, prop_name) in THEME_PROPS
+            .iter()
+            .enumerate()
+            .skip(scroll_start)
+            .take(inner.height as usize)
+        {
             let is_cursor = i == *cursor_idx;
 
             let prop_value = if is_cursor && *editing {

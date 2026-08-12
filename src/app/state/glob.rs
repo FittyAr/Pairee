@@ -116,7 +116,7 @@ fn glob_match_iter(pattern: &str, text: &str, case_sensitive: bool) -> bool {
                 let matches = if case_sensitive {
                     p == t
                 } else {
-                    p.to_ascii_lowercase() == t.to_ascii_lowercase()
+                    p.eq_ignore_ascii_case(&t)
                 };
                 if matches || p == '?' {
                     p_idx += 1;
@@ -164,7 +164,7 @@ mod tests {
         // A naive recursive matcher blows up on this kind of input. The
         // iterative version must return in well under a second.
         let pattern = "*a*a*a*a*a*a*a*a*a*a*b";
-        let text: String = std::iter::repeat('a').take(30).collect();
+        let text: String = std::iter::repeat_n('a', 30).collect();
         let start = std::time::Instant::now();
         let matched = glob_matches(pattern, &text);
         let elapsed = start.elapsed();

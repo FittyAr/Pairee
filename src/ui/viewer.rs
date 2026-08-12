@@ -440,7 +440,7 @@ fn render_image(
     let resized = img.resize_exact(dw, dh, image::imageops::FilterType::Nearest);
 
     let cols = dw as usize;
-    let rows = (dh as usize + 1) / 2;
+    let rows = (dh as usize).div_ceil(2);
     let scroll_offset = state.scroll;
 
     // Center layout calculations (relative to inner_area)

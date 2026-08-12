@@ -192,7 +192,7 @@ fn render_quick_view_image(
     let resized = img.resize_exact(dw, dh, image::imageops::FilterType::Nearest);
 
     let cols = dw as usize;
-    let rows = (dh as usize + 1) / 2;
+    let rows = (dh as usize).div_ceil(2);
 
     let start_x = inner_area.x + ((inner_w - dw as u16) / 2);
     let start_y = inner_area.y + ((inner_h - rows as u16) / 2);

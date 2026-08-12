@@ -129,9 +129,7 @@ pub fn handle(
             // Mode 1: Scrolling Document Content
             match key.code {
                 KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                    if scroll_y > 0 {
-                        scroll_y -= 1;
-                    }
+                    scroll_y = scroll_y.saturating_sub(1);
                     state.active_popup = Some(PopupType::Help {
                         mode,
                         docs,

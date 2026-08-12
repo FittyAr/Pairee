@@ -46,17 +46,17 @@ pub fn process_background_updates(
             state.refresh_both_panels(context.config.settings.show_hidden);
         } else {
             if let Some(update) = latest_update {
-                let should_update = match &state.active_popup {
-                    None | Some(PopupType::CopyProgress { .. }) => true,
-                    _ => false,
-                };
+                let should_update = matches!(
+                    &state.active_popup,
+                    None | Some(PopupType::CopyProgress { .. })
+                );
                 if should_update {
                     // Preserve the is_move flag from the current popup if present
                     let is_move = match &state.active_popup {
                         Some(PopupType::CopyProgress { is_move, .. }) => *is_move,
                         _ => matches!(
                             state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move { .. })
+                            Some(crate::app::state::BackgroundOpContext::Move)
                         ),
                     };
                     state.active_popup = Some(PopupType::CopyProgress {

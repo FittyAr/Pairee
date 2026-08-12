@@ -69,7 +69,7 @@ pub async fn handle_input_event(
             let key_str = crate::keybindings::resolver::key_event_to_string(key);
             if !key_str.is_empty() {
                 let payload = serde_json::json!({ "key": key_str });
-                let _ = tokio::spawn(async move {
+                tokio::spawn(async move {
                     crate::plugin::hooks::emit_event("on_key", payload).await;
                 });
             }

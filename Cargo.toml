@@ -2,8 +2,12 @@
 name = "pairee"
 version = "0.7.2"
 edition = "2024"
+rust-version = "1.85"
 description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
+license = "GPL-3.0-only"
+repository = "https://github.com/FittyAr/Pairee"
+readme = "README.md"
 
 [dependencies]
 ratatui = "0.30.2"

@@ -49,7 +49,9 @@ fn render_diff_view(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect)
             .border_style(border_style)
             .title(Span::styled(
                 title,
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
@@ -105,19 +107,28 @@ fn render_diff_view(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect)
 /// Renders inputs prompts (Branch create/rename, Stash save).
 fn render_git_prompt(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
     let (title, label, input, cursor_idx) = match popup {
-        PopupType::GitBranchCreatePrompt { input, cursor_idx, .. } => (
+        PopupType::GitBranchCreatePrompt {
+            input, cursor_idx, ..
+        } => (
             crate::config::localization::t("git_branch_create_title"),
             crate::config::localization::t("git_branch_create_prompt"),
             input,
             cursor_idx,
         ),
-        PopupType::GitBranchRenamePrompt { input, cursor_idx, old_name, .. } => (
+        PopupType::GitBranchRenamePrompt {
+            input,
+            cursor_idx,
+            old_name,
+            ..
+        } => (
             crate::config::localization::t("git_branch_rename_title"),
             crate::config::localization::t("git_branch_rename_prompt").replace("{}", old_name),
             input,
             cursor_idx,
         ),
-        PopupType::GitStashSavePrompt { input, cursor_idx, .. } => (
+        PopupType::GitStashSavePrompt {
+            input, cursor_idx, ..
+        } => (
             crate::config::localization::t("git_stash_save_title"),
             crate::config::localization::t("git_stash_save_prompt"),
             input,
@@ -135,7 +146,9 @@ fn render_git_prompt(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect
         .border_style(border_style)
         .title(Span::styled(
             title,
-            Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+            Style::default()
+                .fg(Color::Cyan)
+                .add_modifier(Modifier::BOLD),
         ))
         .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
@@ -157,22 +170,32 @@ fn render_git_prompt(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect
 
     // 2. Input Box
     let is_input_focused = *cursor_idx == 0;
-    let input_border_color = if is_input_focused { Color::Yellow } else { Color::DarkGray };
+    let input_border_color = if is_input_focused {
+        Color::Yellow
+    } else {
+        Color::DarkGray
+    };
     let input_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(input_border_color));
-    
+
     let input_para = Paragraph::new(input.as_str()).block(input_block);
     f.render_widget(input_para, chunks[1]);
 
     // 3. Buttons
     let ok_style = if *cursor_idx == 1 {
-        Style::default().bg(parse_color(&theme.selection_bg)).fg(parse_color(&theme.selection_fg)).add_modifier(Modifier::BOLD)
+        Style::default()
+            .bg(parse_color(&theme.selection_bg))
+            .fg(parse_color(&theme.selection_fg))
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(parse_color(&theme.popup_fg))
     };
     let cancel_style = if *cursor_idx == 2 {
-        Style::default().bg(parse_color(&theme.selection_bg)).fg(parse_color(&theme.selection_fg)).add_modifier(Modifier::BOLD)
+        Style::default()
+            .bg(parse_color(&theme.selection_bg))
+            .fg(parse_color(&theme.selection_fg))
+            .add_modifier(Modifier::BOLD)
     } else {
         Style::default().fg(parse_color(&theme.popup_fg))
     };
@@ -182,7 +205,7 @@ fn render_git_prompt(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect
         Span::raw("    "),
         Span::styled(" [ Cancel ] ", cancel_style),
     ]);
-    
+
     let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
     f.render_widget(buttons_para, chunks[3]);
 
@@ -202,7 +225,9 @@ fn render_confirm_action(f: &mut Frame, popup: &PopupType, theme: &Theme, size: 
             .border_style(border_style)
             .title(Span::styled(
                 " Confirm Git Action ",
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD),
+                Style::default()
+                    .fg(Color::Cyan)
+                    .add_modifier(Modifier::BOLD),
             ))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
@@ -236,7 +261,8 @@ fn render_confirm_action(f: &mut Frame, popup: &PopupType, theme: &Theme, size: 
             Span::raw("    "),
             Span::styled(" [ No (Esc) ] ", no_style),
         ]);
-        let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
+        let buttons_para =
+            Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
         f.render_widget(buttons_para, chunks[2]);
 
         true

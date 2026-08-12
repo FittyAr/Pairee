@@ -605,8 +605,8 @@ pub fn normalize_key_string(key: &str) -> String {
         "pagedown" | "pgdn" => "PageDown".to_string(),
         _ => {
             let lower = key_code.to_lowercase();
-            if lower.starts_with('f') {
-                if let Ok(num) = lower[1..].parse::<u32>() {
+            if let Some(rest) = lower.strip_prefix('f') {
+                if let Ok(num) = rest.parse::<u32>() {
                     format!("F{}", num)
                 } else {
                     key_code.to_string()

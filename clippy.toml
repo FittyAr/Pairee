@@ -1,0 +1,9 @@
+# Project-level Clippy policy. Prefer fixing lints over allowing them.
+# God-file growth is discouraged; see docs/IMPROVEMENT_PLAN.md and .agents/AGENTS.md.
+#
+# Argument threshold is transitional (Phase C will pack params into structs/builders).
+cognitive-complexity-threshold = 40
+too-many-arguments-threshold = 12
+type-complexity-threshold = 250
+allow-expect-in-tests = true
+allow-unwrap-in-tests = true

@@ -288,10 +288,10 @@ pub fn handle(
         KeyCode::Char('-') => {
             let jobs = transfer.engine.queue.get_all();
             if let Some(job) = jobs.get(transfer.queue_cursor) {
-                if transfer.engine.queue.reorder(job.id, 1) {
-                    if transfer.queue_cursor < jobs.len().saturating_sub(1) {
-                        transfer.queue_cursor += 1;
-                    }
+                if transfer.engine.queue.reorder(job.id, 1)
+                    && transfer.queue_cursor < jobs.len().saturating_sub(1)
+                {
+                    transfer.queue_cursor += 1;
                 }
             }
             Ok(None)
@@ -343,10 +343,8 @@ pub fn handle(
                 if transfer.file_list_cursor < max_idx {
                     transfer.file_list_cursor += 1;
                 }
-            } else if transfer.active_tab == TransferTab::Options {
-                if transfer.options_cursor < 11 {
-                    transfer.options_cursor += 1;
-                }
+            } else if transfer.active_tab == TransferTab::Options && transfer.options_cursor < 11 {
+                transfer.options_cursor += 1;
             }
             Ok(None)
         }

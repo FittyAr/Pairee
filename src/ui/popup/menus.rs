@@ -402,7 +402,7 @@ pub fn render_menu_popup(
                 ActivePanel::Left => left_rect,
                 ActivePanel::Right => right_rect,
             };
-            let height_percent = std::cmp::min(100, std::cmp::max(20, (items.len() * 10) as u16));
+            let height_percent = ((items.len() * 10) as u16).clamp(20, 100);
             let area = centered_rect_in(50, height_percent, panel_rect);
             f.render_widget(Clear, area);
 

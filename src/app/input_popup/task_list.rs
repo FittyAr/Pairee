@@ -72,9 +72,7 @@ pub fn handle(
                     is_filtering = true;
                 }
                 KeyCode::Up => {
-                    if cursor_idx > 0 {
-                        cursor_idx -= 1;
-                    }
+                    cursor_idx = cursor_idx.saturating_sub(1);
                 }
                 KeyCode::Down => {
                     let limit = get_matching_count(&tasks, &filter_query);

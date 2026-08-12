@@ -36,7 +36,7 @@ impl AppConfig {
                 if let Ok(entries) = fs::read_dir(&lang_dir) {
                     for entry in entries.filter_map(Result::ok) {
                         let path = entry.path();
-                        if path.extension().map_or(false, |ext| ext == "json") {
+                        if path.extension().is_some_and(|ext| ext == "json") {
                             let _ = fs::remove_file(path);
                         }
                     }
@@ -109,17 +109,14 @@ impl AppConfig {
                     format!("Failed to write default keymap file: {}.toml", preset_name)
                 })?;
             } else if let Ok(existing) = fs::read_to_string(&preset_path) {
-                if (!existing.contains("rename = \"F7\"") && !existing.contains("rename_fkey = \"F7\""))
+                if (!existing.contains("rename = \"F7\"")
+                    && !existing.contains("rename_fkey = \"F7\""))
                     || existing.contains("mkdir = \"F7\"")
                     || existing.contains("mkdir_fkey = \"F7\"")
                     || existing.contains("plugin_menu = \"F11\"")
                 {
                     if let Err(e) = fs::write(&preset_path, &toml_content) {
-                        log::warn!(
-                            "Failed to refresh preset keymap {:?}: {}",
-                            preset_path,
-                            e
-                        );
+                        log::warn!("Failed to refresh preset keymap {:?}: {}", preset_path, e);
                     }
                 }
             }
@@ -276,12 +273,12 @@ mod tests {
         let stray: Vec<_> = fs::read_dir(dir.path())
             .unwrap()
             .flatten()
-            .filter(|e| {
-                e.file_name()
-                    .to_string_lossy()
-                    .contains(".tmp")
-            })
+            .filter(|e| e.file_name().to_string_lossy().contains(".tmp"))
             .collect();
-        assert!(stray.is_empty(), "atomic write left temp file behind: {:?}", stray);
+        assert!(
+            stray.is_empty(),
+            "atomic write left temp file behind: {:?}",
+            stray
+        );
     }
 }

@@ -85,7 +85,7 @@ pub fn discover_languages_in_dir(dir: &Path) -> Vec<(String, PathBuf)> {
     if let Ok(entries) = fs::read_dir(dir) {
         for entry in entries.filter_map(Result::ok) {
             let path = entry.path();
-            if path.extension().map_or(false, |ext| ext == "toml") {
+            if path.extension().is_some_and(|ext| ext == "toml") {
                 if let Ok(content) = fs::read_to_string(&path) {
                     if let Ok(lang_file) = toml::from_str::<LanguageFile>(&content) {
                         langs.push((lang_file.language_name, path));

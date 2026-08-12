@@ -99,9 +99,7 @@ fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
     let status = Command::new("powershell")
         .arg("-NoProfile")
         .arg("-Command")
-        .arg(format!(
-            "$exe = $args[0]; $tf = $args[1]; Start-Process -FilePath $exe -ArgumentList @('--elevated-helper', $tf) -Verb RunAs -WindowStyle Hidden -Wait",
-        ))
+        .arg("$exe = $args[0]; $tf = $args[1]; Start-Process -FilePath $exe -ArgumentList @('--elevated-helper', $tf) -Verb RunAs -WindowStyle Hidden -Wait")
         .arg(exe)
         .arg(temp_file)
         .status()

@@ -1,4 +1,3 @@
-
 /// Helper to configure SSH and basic authentication callbacks.
 fn create_callbacks() -> git2::RemoteCallbacks<'static> {
     let mut callbacks = git2::RemoteCallbacks::new();
@@ -19,7 +18,9 @@ fn create_callbacks() -> git2::RemoteCallbacks<'static> {
                 }
             }
         }
-        Err(git2::Error::from_str("Authentication failed or no credentials found"))
+        Err(git2::Error::from_str(
+            "Authentication failed or no credentials found",
+        ))
     });
     callbacks
 }
@@ -69,7 +70,10 @@ pub fn pull(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> an
             Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")
                 .map_err(|e| anyhow::anyhow!("Failed to build fallback git signature: {}", e))?,
         };
-        let message = format!("Merge branch '{}/{}' into {}", remote_name, branch_name, branch_name);
+        let message = format!(
+            "Merge branch '{}/{}' into {}",
+            remote_name, branch_name, branch_name
+        );
 
         repo.commit(
             Some("HEAD"),

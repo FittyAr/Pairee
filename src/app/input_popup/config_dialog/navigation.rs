@@ -223,7 +223,7 @@ pub fn handle_navigation(
                 crate::config::localization::t("tab_git"),
             ];
             for (i, title) in tab_titles.iter().enumerate() {
-                let parsed = crate::ui::hotkey::parse_hotkey(&title);
+                let parsed = crate::ui::hotkey::parse_hotkey(title);
                 if let Some(hotkey) = parsed.hotkey {
                     if hotkey == lower_c {
                         active_tab = i;

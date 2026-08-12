@@ -85,7 +85,7 @@ fn extract_zip(
             error: None,
         });
 
-        if (&*file.name()).ends_with('/') {
+        if file.name().ends_with('/') {
             fs::create_dir_all(&outpath)?;
         } else {
             if let Some(p) = outpath.parent() {
@@ -111,8 +111,7 @@ fn extract_tar_gz(
     fs::create_dir_all(dest_dir)?;
 
     // We don't know total files in tar easily without reading it twice, so we just show 0 or an arbitrary number
-    let mut i = 0;
-    for entry in archive.entries()? {
+    for (i, entry) in archive.entries()?.enumerate() {
         let mut file = entry?;
         let path = file.path()?;
 
@@ -132,7 +131,6 @@ fn extract_tar_gz(
         });
 
         file.unpack_in(dest_dir)?;
-        i += 1;
     }
 
     Ok(())
@@ -148,8 +146,7 @@ fn extract_7z(
     fs::create_dir_all(dest_dir)?;
     // Canonicalise the destination so we can verify that no extracted
     // entry escapes it via `..` components or absolute paths.
-    let canonical_dest = std::fs::canonicalize(dest_dir)
-        .unwrap_or_else(|_| dest_dir.to_path_buf());
+    let canonical_dest = std::fs::canonicalize(dest_dir).unwrap_or_else(|_| dest_dir.to_path_buf());
 
     sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
         // The `sevenz-rust` 0.6.x API does not sanitise entry names; it
@@ -300,11 +297,7 @@ pub fn compress_zip(
                         let mut f = match fs::File::open(&entry_path) {
                             Ok(f) => f,
                             Err(e) => {
-                                log::warn!(
-                                    "compress_zip: skipping {:?}: {}",
-                                    entry_path,
-                                    e
-                                );
+                                log::warn!("compress_zip: skipping {:?}: {}", entry_path, e);
                                 continue;
                             }
                         };
@@ -415,7 +408,7 @@ fn extract_via_external_7z(
     // the warning so the operator knows the safety check did not run.
 
     let _ = tx.blocking_send(ProgressUpdate {
-        current_file: format!("Extracting using external 7z..."),
+        current_file: "Extracting using external 7z...".to_string(),
         files_copied: 0,
         total_files: 0,
         bytes_copied: 0,
@@ -456,11 +449,9 @@ pub fn list_archive_files(path: &Path) -> Result<Vec<String>> {
             let tar = GzDecoder::new(tar_gz);
             let mut archive = Archive::new(tar);
             let mut list = Vec::new();
-            for entry in archive.entries()? {
-                if let Ok(entry) = entry {
-                    if let Ok(path) = entry.path() {
-                        list.push(path.to_string_lossy().into_owned());
-                    }
+            for entry in archive.entries()?.flatten() {
+                if let Ok(path) = entry.path() {
+                    list.push(path.to_string_lossy().into_owned());
                 }
             }
             Ok(list)

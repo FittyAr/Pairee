@@ -84,7 +84,8 @@ impl SharedSshClient {
                             "Failed to read known_hosts file {:?}: {} — host key \
                              verification is disabled for this connection; \
                              the session is vulnerable to MITM.",
-                            p, e
+                            p,
+                            e
                         );
                         false
                     }
@@ -193,23 +194,20 @@ impl SharedSshClient {
             ];
             for key in keys {
                 let path = Path::new(&key);
-                if path.exists() {
-                    if sess
+                if path.exists()
+                    && sess
                         .userauth_pubkey_file(username, None, path, None)
                         .is_ok()
-                    {
-                        authenticated = true;
-                        break;
-                    }
+                {
+                    authenticated = true;
+                    break;
                 }
             }
         }
 
         // Try agent if still not authenticated
-        if !authenticated {
-            if sess.userauth_agent(username).is_ok() {
-                authenticated = true;
-            }
+        if !authenticated && sess.userauth_agent(username).is_ok() {
+            authenticated = true;
         }
 
         if !authenticated {

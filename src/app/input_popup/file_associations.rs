@@ -131,9 +131,9 @@ pub fn handle(
                         original_rule = Some(rule);
                     }
                 }
-                KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
+                KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete
                     // Eliminar regla actual
-                    if !rules.is_empty() && cursor_idx < rules.len() {
+                    if !rules.is_empty() && cursor_idx < rules.len() => {
                         rules.remove(cursor_idx);
                         if cursor_idx >= rules.len() && !rules.is_empty() {
                             cursor_idx = rules.len() - 1;
@@ -144,7 +144,6 @@ pub fn handle(
                         };
                         let _ = config.save();
                     }
-                }
                 _ => {}
             }
         }

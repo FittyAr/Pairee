@@ -8,12 +8,14 @@ pub enum ActivePanel {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum PanelViewMode {
     /// Filename-only, multi-column (Ctrl+1)
     Brief,
     /// Name + basic attributes (Ctrl+2)
     Medium,
     /// Name + size + date (Ctrl+3)
+    #[default]
     Full,
     /// Wide single column (Ctrl+4)
     Wide,
@@ -29,26 +31,16 @@ pub enum PanelViewMode {
     AltFull,
 }
 
-impl Default for PanelViewMode {
-    fn default() -> Self {
-        PanelViewMode::Full
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
+#[derive(Default)]
 pub enum SortField {
+    #[default]
     Name,
     Extension,
     Size,
     Date,
     Unsorted,
-}
-
-impl Default for SortField {
-    fn default() -> Self {
-        SortField::Name
-    }
 }
 
 // File attribute snapshot (cross-platform subset)
@@ -190,6 +182,8 @@ pub enum BackgroundOpContext {
     Delete,
 }
 
+// Phase C: dialog stack will box/split variants
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum PopupType {
     // ── Basic ────────────────────────────────────────────────────────────────

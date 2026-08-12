@@ -5,8 +5,8 @@ pub mod editor;
 pub mod files_highlighting;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
-pub mod git_panel;
 pub mod git_new_popups;
+pub mod git_panel;
 pub mod history_lists;
 pub mod info;
 pub mod menus;
@@ -117,9 +117,7 @@ fn render_specific_popup(
     if git_new_popups::render(f, popup, theme, size) {
         return;
     }
-    if update::render(f, popup, theme, size) {
-        return;
-    }
+    if update::render(f, popup, theme, size) {}
 }
 
 /// Centers a rectangle of `percent_x` × `percent_y` over the full screen.

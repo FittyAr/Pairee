@@ -36,21 +36,16 @@ pub async fn download_asset(
 
     let mut downloaded: u64 = 0;
 
-    loop {
-        match response.chunk().await.context("stream error")? {
-            Some(chunk) => {
-                file.write_all(&chunk)
-                    .await
-                    .context("failed to write chunk")?;
-                downloaded += chunk.len() as u64;
-                if total > 0 {
-                    let progress = downloaded as f32 / total as f32;
-                    if let Some(tx) = &progress_tx {
-                        let _ = tx.try_send(progress);
-                    }
-                }
+    while let Some(chunk) = response.chunk().await.context("stream error")? {
+        file.write_all(&chunk)
+            .await
+            .context("failed to write chunk")?;
+        downloaded += chunk.len() as u64;
+        if total > 0 {
+            let progress = downloaded as f32 / total as f32;
+            if let Some(tx) = &progress_tx {
+                let _ = tx.try_send(progress);
             }
-            None => break,
         }
     }
 

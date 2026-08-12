@@ -30,15 +30,14 @@ pub fn find_next_in_editor(
     }
 
     // 2. Search subsequent lines forward
-    for y in (current_y + 1)..lines.len() {
-        if let Some(pos) = match_fn(&lines[y], query) {
+    for (y, line) in lines.iter().enumerate().skip(current_y + 1) {
+        if let Some(pos) = match_fn(line, query) {
             return Some((pos, y));
         }
     }
 
     // 3. Wrap around: Search from start of file up to current_y
-    for y in 0..=current_y {
-        let line = &lines[y];
+    for (y, line) in lines.iter().enumerate().take(current_y + 1) {
         let limit = if y == current_y {
             current_x
         } else {

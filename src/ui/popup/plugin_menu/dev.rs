@@ -140,11 +140,7 @@ pub fn render_dev(
         )]);
         f.render_widget(Paragraph::new(status_line).style(bg_style), v_chunks[0]);
 
-        let gauge_area = if inner_h >= 4 {
-            v_chunks[1]
-        } else {
-            v_chunks[1]
-        };
+        let gauge_area = v_chunks[1];
         if let Some((cur, total)) = dev_loading_progress {
             let ratio = if total == 0 {
                 0.0

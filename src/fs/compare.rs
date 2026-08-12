@@ -38,9 +38,9 @@ pub fn compare_directories(left: &Path, right: &Path) -> Result<Vec<CompareEntry
                 (Some(_), None) => CompareStatus::OnlyLeft,
                 (None, Some(_)) => CompareStatus::OnlyRight,
                 (Some(l), Some(r)) => {
-                    if l.is_dir != r.is_dir {
-                        CompareStatus::Different
-                    } else if !l.is_dir && (l.size != r.size || !mtime_eq(l.modified, r.modified)) {
+                    if l.is_dir != r.is_dir
+                        || (!l.is_dir && (l.size != r.size || !mtime_eq(l.modified, r.modified)))
+                    {
                         CompareStatus::Different
                     } else {
                         CompareStatus::Equal

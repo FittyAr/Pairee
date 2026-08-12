@@ -34,8 +34,7 @@ pub fn save_history(history: &TransferHistory) -> std::io::Result<()> {
         std::fs::create_dir_all(parent)?;
     }
 
-    let content = toml::to_string_pretty(history)
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+    let content = toml::to_string_pretty(history).map_err(std::io::Error::other)?;
     std::fs::write(path, content)
 }
 

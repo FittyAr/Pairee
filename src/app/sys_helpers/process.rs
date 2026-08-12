@@ -30,10 +30,10 @@ pub fn kill_process(pid: u32) -> std::io::Result<()> {
             Ok(())
         } else {
             let err_msg = String::from_utf8_lossy(&output.stderr);
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("taskkill failed: {}", err_msg),
-            ))
+            Err(std::io::Error::other(format!(
+                "taskkill failed: {}",
+                err_msg
+            )))
         }
     }
 }
@@ -78,7 +78,7 @@ pub fn get_process_list() -> Vec<ProcessEntry> {
     {
         use std::process::Command;
         if let Ok(output) = Command::new("tasklist")
-            .args(&["/FO", "CSV", "/NH"])
+            .args(["/FO", "CSV", "/NH"])
             .output()
         {
             let stdout = String::from_utf8_lossy(&output.stdout);
@@ -171,7 +171,7 @@ fn get_process_restart_info(pid: u32) -> Option<(String, Vec<String>, Option<Pat
         pid
     );
     let output = Command::new("powershell")
-        .args(&["-Command", &ps_cmd])
+        .args(["-Command", &ps_cmd])
         .output()
         .ok()?;
     if !output.status.success() {
@@ -240,7 +240,7 @@ pub fn refresh_env_vars() {
         use std::process::Command;
         let cmd = "[Environment]::GetEnvironmentVariables('Machine').GetEnumerator() | % { \"$($_.Key)=$($_.Value)\" }; [Environment]::GetEnvironmentVariables('User').GetEnumerator() | % { \"$($_.Key)=$($_.Value)\" }";
         if let Ok(output) = Command::new("powershell")
-            .args(&["-NoProfile", "-Command", cmd])
+            .args(["-NoProfile", "-Command", cmd])
             .output()
         {
             if output.status.success() {

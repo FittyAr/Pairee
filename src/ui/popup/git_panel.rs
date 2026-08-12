@@ -295,13 +295,7 @@ fn render_branch_lines(
             } else {
                 parse_color(&theme.popup_fg)
             };
-            let prefix = if branch.is_current {
-                "* "
-            } else if branch.is_remote {
-                "  "
-            } else {
-                "  "
-            };
+            let prefix = if branch.is_current { "* " } else { "  " };
             let type_label = if branch.is_remote {
                 "[remote] "
             } else {
@@ -343,7 +337,11 @@ fn render_stash_lines(
             } else {
                 parse_color(&theme.popup_fg)
             };
-            let short_oid = if stash.oid.len() > 7 { &stash.oid[..7] } else { &stash.oid };
+            let short_oid = if stash.oid.len() > 7 {
+                &stash.oid[..7]
+            } else {
+                &stash.oid
+            };
             Line::from(vec![
                 Span::styled(
                     format!(" stash@{{{}}} ", stash.index),
@@ -361,4 +359,3 @@ fn render_stash_lines(
         })
         .collect()
 }
-

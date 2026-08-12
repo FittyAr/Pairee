@@ -18,10 +18,7 @@ pub struct HistoryStore {
 impl HistoryStore {
     /// Loads history from `<cache_dir>/pairee/history.toml`, returning a default on missing file.
     pub fn load() -> Self {
-        match Self::try_load() {
-            Ok(store) => store,
-            Err(_) => Self::default(),
-        }
+        Self::try_load().unwrap_or_default()
     }
 
     fn try_load() -> Result<Self> {

@@ -34,8 +34,7 @@ pub fn render_dev_select(
 
         let menu_width = (max_width as u16 + 6).min(size.width.saturating_sub(4));
         let menu_height = (items.len() as u16 + 2)
-            .max(5)
-            .min(15)
+            .clamp(5, 15)
             .min(size.height.saturating_sub(4));
 
         let area = Rect {

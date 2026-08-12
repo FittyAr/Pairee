@@ -125,10 +125,8 @@ pub fn handle(
                         rules[cursor_idx].color = cycle_color(&rules[cursor_idx].color, -1);
                     }
                 }
-                KeyCode::Right => {
-                    if !rules.is_empty() {
-                        rules[cursor_idx].color = cycle_color(&rules[cursor_idx].color, 1);
-                    }
+                KeyCode::Right if !rules.is_empty() => {
+                    rules[cursor_idx].color = cycle_color(&rules[cursor_idx].color, 1);
                 }
                 _ => {}
             }

@@ -27,7 +27,9 @@ pub fn clone_repo(url: &str, path: &Path) -> anyhow::Result<git2::Repository> {
                 return Ok(cred);
             }
         }
-        Err(git2::Error::from_str("Authentication failed or no credentials found"))
+        Err(git2::Error::from_str(
+            "Authentication failed or no credentials found",
+        ))
     });
 
     let mut fo = git2::FetchOptions::new();

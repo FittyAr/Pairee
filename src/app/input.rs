@@ -140,7 +140,9 @@ pub fn handle_cli_input(
                         // future refactor that drops the `.stdout(...)`
                         // call cannot panic the spawned task and crash
                         // the whole terminal screen.
-                        let (Some(stdout), Some(stderr)) = (child.stdout.take(), child.stderr.take()) else {
+                        let (Some(stdout), Some(stderr)) =
+                            (child.stdout.take(), child.stderr.take())
+                        else {
                             let _ = tx.send(crate::app::state::TerminalUpdate {
                                 screen_idx,
                                 line: Some(
@@ -233,9 +235,7 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
                             if context.config.settings.automatic_update_env_variables {
                                 crate::app::sys_helpers::refresh_env_vars();
                             }
-                            let _ = std::process::Command::new(&program)
-                                .args(&args)
-                                .spawn();
+                            let _ = std::process::Command::new(&program).args(&args).spawn();
                         }
                     } else if cfg!(target_os = "windows") {
                         if context.config.settings.use_windows_registered_types {

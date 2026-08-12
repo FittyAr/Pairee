@@ -7,7 +7,7 @@
 //! - `request` — `PluginRequest` enum + the structured payload structs
 //!   (`DialogPosition`, `WhichCandidate`, `NotifyPayload`,
 //!   `InputDialogResult`).
-//! - `manager` — `PluginManager` (channel init, eager discovery) and the
+//! - `lifecycle` — `PluginManager` (channel init, eager discovery) and the
 //!   static `PLUGIN_REQ_TX/RX` channels.
 //! - `dispatcher` — the main-loop `process_plugin_requests` function that
 //!   routes every `PluginRequest` variant to its side effect.
@@ -20,11 +20,11 @@
 
 pub mod dispatch_actions;
 pub mod dispatcher;
-pub mod manager;
+pub mod lifecycle;
 pub mod request;
 pub mod snapshot;
 
-pub use manager::PluginManager;
+pub use lifecycle::PluginManager;
 pub use request::{
     DialogPosition, InputDialogResult, NotifyPayload, PluginRequest, WhichCandidate,
 };

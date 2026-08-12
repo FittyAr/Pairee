@@ -3,7 +3,11 @@ use std::str;
 /// Returns the unified diff of a specific file.
 /// If `is_staged` is true, returns the diff between HEAD and the index (staged changes).
 /// If `is_staged` is false, returns the diff between the index and the working directory (unstaged changes).
-pub fn get_file_diff(repo: &git2::Repository, file_path: &str, is_staged: bool) -> anyhow::Result<String> {
+pub fn get_file_diff(
+    repo: &git2::Repository,
+    file_path: &str,
+    is_staged: bool,
+) -> anyhow::Result<String> {
     let mut opts = git2::DiffOptions::new();
     opts.pathspec(file_path);
 

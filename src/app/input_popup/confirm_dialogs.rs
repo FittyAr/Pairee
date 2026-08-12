@@ -124,10 +124,11 @@ pub fn handle(
                         }
 
                         // Save history store to disk
-                        let mut history_store = crate::config::history::HistoryStore::default();
-                        history_store.commands = state.command_history.clone();
-                        history_store.viewed_files = state.file_view_history.clone();
-                        history_store.visited_folders = state.folders_history.clone();
+                        let history_store = crate::config::history::HistoryStore {
+                            commands: state.command_history.clone(),
+                            viewed_files: state.file_view_history.clone(),
+                            visited_folders: state.folders_history.clone(),
+                        };
                         let _ = history_store.save();
 
                         state.active_popup = None;

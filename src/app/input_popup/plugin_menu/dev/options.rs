@@ -465,7 +465,7 @@ fn handle_option_select_active_plugin(
         if left.join("manifest.toml").exists() {
             if let Some(name) = left.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    t("plugin_dev_panel1").replacen("{}", &name, 1).replacen(
+                    t("plugin_dev_panel1").replacen("{}", name, 1).replacen(
                         "{}",
                         &left.display().to_string(),
                         1,
@@ -478,7 +478,7 @@ fn handle_option_select_active_plugin(
         if right.join("manifest.toml").exists() {
             if let Some(name) = right.file_name().and_then(|n| n.to_str()) {
                 options.push((
-                    t("plugin_dev_panel2").replacen("{}", &name, 1).replacen(
+                    t("plugin_dev_panel2").replacen("{}", name, 1).replacen(
                         "{}",
                         &right.display().to_string(),
                         1,

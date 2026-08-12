@@ -172,9 +172,7 @@ pub fn handle_editor_screen(
                             if ed.cursor_y >= ed.lines.len() {
                                 ed.cursor_y = ed.lines.len() - 1;
                             }
-                            ed.cursor_x = ed
-                                .cursor_x
-                                .min(ed.lines[ed.cursor_y].len());
+                            ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
                             ed.is_dirty = false;
                         }
                         Err(e) => {

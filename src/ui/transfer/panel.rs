@@ -170,7 +170,7 @@ fn render_jobs_sidebar(
             "Dest: {}",
             job.destination
                 .file_name()
-                .unwrap_or(&job.destination.as_os_str())
+                .unwrap_or(job.destination.as_os_str())
                 .to_string_lossy()
         );
 
@@ -267,7 +267,7 @@ fn render_header(
     } else {
         "0 B".to_string()
     };
-    let eta_text = match prog.and_then(|_| ts.speed_info.1) {
+    let eta_text = match prog.and(ts.speed_info.1) {
         Some(secs)
             if job.status == TransferJobStatus::Transferring
                 || job.status == TransferJobStatus::Verifying =>
@@ -629,10 +629,7 @@ fn render_status_tab(
             p.files_skipped,
             bytesize::ByteSize(p.bytes_total).to_string(),
             bytesize::ByteSize(p.bytes_transferred).to_string(),
-            format!(
-                "{}/s",
-                bytesize::ByteSize(ts.speed_info.0 as u64).to_string()
-            ),
+            format!("{}/s", bytesize::ByteSize(ts.speed_info.0 as u64)),
             match ts.speed_info.1 {
                 Some(secs) => format!("{} seconds", secs),
                 None => "Calculating...".to_string(),

@@ -12,17 +12,17 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             let globals = lua_ctx.globals();
             let pairee: mlua::Table = globals.get("pairee")?;
             let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(snapshot_val) = app_table.get::<_, mlua::Value>("_current_snapshot") {
-                if let mlua::Value::Table(ref t) = snapshot_val {
-                    let active_panel: String =
-                        t.get("active_panel").unwrap_or_else(|_| "left".to_string());
-                    let resolved_cwd: String = if active_panel == "left" {
-                        t.get("left_cwd").unwrap_or_default()
-                    } else {
-                        t.get("right_cwd").unwrap_or_default()
-                    };
-                    return Ok(resolved_cwd);
-                }
+            if let Ok(mlua::Value::Table(ref t)) =
+                app_table.get::<_, mlua::Value>("_current_snapshot")
+            {
+                let active_panel: String =
+                    t.get("active_panel").unwrap_or_else(|_| "left".to_string());
+                let resolved_cwd: String = if active_panel == "left" {
+                    t.get("left_cwd").unwrap_or_default()
+                } else {
+                    t.get("right_cwd").unwrap_or_default()
+                };
+                return Ok(resolved_cwd);
             }
             Ok(String::new())
         })?,
@@ -48,12 +48,12 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             let globals = lua_ctx.globals();
             let pairee: mlua::Table = globals.get("pairee")?;
             let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(snapshot_val) = app_table.get::<_, mlua::Value>("_current_snapshot") {
-                if let mlua::Value::Table(ref t) = snapshot_val {
-                    let active_panel: String =
-                        t.get("active_panel").unwrap_or_else(|_| "left".to_string());
-                    return Ok(active_panel);
-                }
+            if let Ok(mlua::Value::Table(ref t)) =
+                app_table.get::<_, mlua::Value>("_current_snapshot")
+            {
+                let active_panel: String =
+                    t.get("active_panel").unwrap_or_else(|_| "left".to_string());
+                return Ok(active_panel);
             }
             Ok("left".to_string())
         })?,
@@ -147,11 +147,11 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             let globals = lua_ctx.globals();
             let pairee: mlua::Table = globals.get("pairee")?;
             let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(snapshot_val) = app_table.get::<_, mlua::Value>("_current_snapshot") {
-                if let mlua::Value::Table(ref t) = snapshot_val {
-                    let hovered: mlua::Value = t.get("hovered_file").unwrap_or(mlua::Value::Nil);
-                    return Ok(hovered);
-                }
+            if let Ok(mlua::Value::Table(ref t)) =
+                app_table.get::<_, mlua::Value>("_current_snapshot")
+            {
+                let hovered: mlua::Value = t.get("hovered_file").unwrap_or(mlua::Value::Nil);
+                return Ok(hovered);
             }
             Ok(mlua::Value::Nil)
         })?,

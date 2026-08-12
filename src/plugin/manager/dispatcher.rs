@@ -17,7 +17,7 @@ use super::dispatch_actions::compute_file_cache_path;
 
 /// Processes plugin requests in the main application loop.
 pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
-    if let Some(rx_mutex) = super::manager::PLUGIN_REQ_RX.get() {
+    if let Some(rx_mutex) = super::lifecycle::PLUGIN_REQ_RX.get() {
         if let Ok(mut rx) = rx_mutex.try_lock() {
             while let Ok(req) = rx.try_recv() {
                 match req {

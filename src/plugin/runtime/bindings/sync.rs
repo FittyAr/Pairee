@@ -42,7 +42,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                 app.set("_current_snapshot", snapshot_value)?;
 
                 // 4. Run the user function
-                let user_fn: mlua::Function = lua_ctx2.registry_value(&*func_key)?;
+                let user_fn: mlua::Function = lua_ctx2.registry_value(&func_key)?;
                 let result: mlua::Value = user_fn.call(())?;
 
                 // 5. Clear snapshot

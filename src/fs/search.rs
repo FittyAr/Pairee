@@ -91,34 +91,30 @@ async fn search_recursive(
                     // Directories have no content to search, so if query.content is Some, it doesn't match
                     let content_matches = query.content.is_none();
 
-                    if name_matches && content_matches {
-                        if tx.send((path, true)).await.is_err() {
-                            return;
-                        }
+                    if name_matches && content_matches && tx.send((path, true)).await.is_err() {
+                        return;
                     }
                 }
-            } else if is_file {
-                if query.target == SearchTarget::Any || query.target == SearchTarget::File {
-                    let name_matches = query.name_glob.is_empty()
-                        || crate::app::state::glob_matches_case(
-                            &query.name_glob,
-                            &name,
-                            query.case_sensitive,
-                        );
+            } else if is_file
+                && (query.target == SearchTarget::Any || query.target == SearchTarget::File)
+            {
+                let name_matches = query.name_glob.is_empty()
+                    || crate::app::state::glob_matches_case(
+                        &query.name_glob,
+                        &name,
+                        query.case_sensitive,
+                    );
 
-                    if name_matches {
-                        let content_matches = match &query.content {
-                            None => true,
-                            Some(needle) => {
-                                file_contains(path.as_path(), needle, query.case_sensitive).await
-                            }
-                        };
-
-                        if content_matches {
-                            if tx.send((path, false)).await.is_err() {
-                                return;
-                            }
+                if name_matches {
+                    let content_matches = match &query.content {
+                        None => true,
+                        Some(needle) => {
+                            file_contains(path.as_path(), needle, query.case_sensitive).await
                         }
+                    };
+
+                    if content_matches && tx.send((path, false)).await.is_err() {
+                        return;
                     }
                 }
             }
@@ -320,10 +316,9 @@ mod tests {
         // Bound the wait so the test fails fast if the cap is broken.
         let timeout = std::time::Duration::from_secs(5);
         let start = std::time::Instant::now();
-        while let Some((path, _)) =
-            tokio::time::timeout(timeout - start.elapsed(), rx.recv())
-                .await
-                .unwrap_or(None)
+        while let Some((path, _)) = tokio::time::timeout(timeout - start.elapsed(), rx.recv())
+            .await
+            .unwrap_or(None)
         {
             found.push(path);
         }

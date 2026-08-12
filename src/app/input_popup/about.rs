@@ -15,9 +15,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                if scroll_y > 0 {
-                    scroll_y -= 1;
-                }
+                scroll_y = scroll_y.saturating_sub(1);
                 state.active_popup = Some(PopupType::About { scroll_y });
                 return Ok(None);
             }

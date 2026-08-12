@@ -40,7 +40,7 @@ pub fn handle(
                 } else {
                     state.active_popup = None;
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Left => {
                 if active_submenu_idx.is_some() {
@@ -70,7 +70,7 @@ pub fn handle(
                         active_submenu_item_idx: None,
                     });
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Right => {
                 if active_submenu_idx.is_none() {
@@ -107,7 +107,7 @@ pub fn handle(
                         active_submenu_item_idx: None,
                     });
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Up => {
                 if !items.is_empty() {
@@ -118,7 +118,7 @@ pub fn handle(
                     };
                     while items
                         .get(new_item_idx)
-                        .map_or(false, |item| item.is_separator)
+                        .is_some_and(|item| item.is_separator)
                     {
                         new_item_idx = if new_item_idx > 0 {
                             new_item_idx - 1
@@ -142,7 +142,7 @@ pub fn handle(
                         });
                     }
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Down => {
                 if !items.is_empty() {
@@ -153,7 +153,7 @@ pub fn handle(
                     };
                     while items
                         .get(new_item_idx)
-                        .map_or(false, |item| item.is_separator)
+                        .is_some_and(|item| item.is_separator)
                     {
                         new_item_idx = if new_item_idx < items.len() - 1 {
                             new_item_idx + 1
@@ -177,18 +177,13 @@ pub fn handle(
                         });
                     }
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Enter => {
-                if active_submenu_idx.is_some() {
+                if let Some(sub_idx) = active_submenu_idx {
                     if let Some(sub_item_idx) = active_submenu_item_idx {
                         state.active_popup = None;
-                        let action = trigger_menu_item(
-                            state,
-                            context,
-                            active_submenu_idx.unwrap(),
-                            sub_item_idx,
-                        );
+                        let action = trigger_menu_item(state, context, sub_idx, sub_item_idx);
                         return Ok(action);
                     }
                 } else if let Some(idx) = active_item_idx {
@@ -216,7 +211,7 @@ pub fn handle(
                     });
                     return Ok(None);
                 }
-                return Ok(None);
+                Ok(None)
             }
             KeyCode::Char(c) => {
                 let lower_c = c.to_ascii_lowercase();
@@ -254,7 +249,7 @@ pub fn handle(
                 if active_submenu_idx.is_none() {
                     let titles = crate::ui::menu::get_menu_titles();
                     for (i, title) in titles.iter().enumerate() {
-                        let parsed = crate::ui::hotkey::parse_hotkey(&title);
+                        let parsed = crate::ui::hotkey::parse_hotkey(title);
                         if let Some(hotkey) = parsed.hotkey {
                             if hotkey == lower_c {
                                 state.active_popup = Some(PopupType::Menu {
@@ -268,9 +263,9 @@ pub fn handle(
                         }
                     }
                 }
-                return Ok(None);
+                Ok(None)
             }
-            _ => return Ok(None),
+            _ => Ok(None),
         }
     } else {
         Err(())

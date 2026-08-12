@@ -52,7 +52,7 @@ pub fn render(
             f.render_widget(paragraph, area);
             true
         }
-        PopupType::ConfirmReload { .. } => {
+        PopupType::ConfirmReload => {
             let area = centered_rect_fixed(50, 8, size);
             f.render_widget(Clear, area);
 

@@ -206,16 +206,12 @@ pub fn package_to_registry_with_progress(
     // Check for LICENSE file (case-insensitive)
     let mut license_file = None;
     if let Ok(entries) = std::fs::read_dir(plugin_dir) {
-        for entry in entries {
-            if let Ok(entry) = entry {
-                let name_lower = entry.file_name().to_string_lossy().to_lowercase();
-                if name_lower == "license"
-                    || name_lower == "license.txt"
-                    || name_lower == "license.md"
-                {
-                    license_file = Some(entry.path());
-                    break;
-                }
+        for entry in entries.flatten() {
+            let name_lower = entry.file_name().to_string_lossy().to_lowercase();
+            if name_lower == "license" || name_lower == "license.txt" || name_lower == "license.md"
+            {
+                license_file = Some(entry.path());
+                break;
             }
         }
     }

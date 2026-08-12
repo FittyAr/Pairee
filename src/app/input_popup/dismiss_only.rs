@@ -36,7 +36,7 @@ pub fn handle(
                 }
                 if key.code == KeyCode::PageDown {
                     let max_scroll = if let Some(ref img) = image_data {
-                        let rows = (img.height() as usize + 1) / 2;
+                        let rows = (img.height() as usize).div_ceil(2);
                         rows.saturating_sub(5)
                     } else {
                         let visible_height = 20;

@@ -207,7 +207,7 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
             Event::Start(tag) => match tag {
                 Tag::Heading { level, .. } => {
                     if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                     if !lines.is_empty() {
                         lines.push(Line::from(""));
@@ -228,7 +228,7 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
                 }
                 Tag::Paragraph => {
                     if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                 }
                 Tag::Emphasis => italic = true,
@@ -236,7 +236,7 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
                 Tag::Link { .. } => link = true,
                 Tag::Item => {
                     if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                     current_spans.push(Span::styled("• ", Style::default().fg(Color::Cyan)));
                 }
@@ -248,23 +248,21 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
                         for span in &mut current_spans {
                             span.style = span.style.fg(Color::Yellow).add_modifier(Modifier::BOLD);
                         }
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                     lines.push(Line::from(""));
                 }
                 TagEnd::Paragraph => {
                     if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+                        lines.push(Line::from(std::mem::take(&mut current_spans)));
                     }
                     lines.push(Line::from(""));
                 }
                 TagEnd::Emphasis => italic = false,
                 TagEnd::Strong => bold = false,
                 TagEnd::Link => link = false,
-                TagEnd::Item => {
-                    if !current_spans.is_empty() {
-                        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                    }
+                TagEnd::Item if !current_spans.is_empty() => {
+                    lines.push(Line::from(std::mem::take(&mut current_spans)));
                 }
                 _ => {}
             },
@@ -291,17 +289,15 @@ fn parse_markdown_to_lines(text: &str) -> Vec<ratatui::text::Line<'static>> {
                     Style::default().fg(Color::Magenta),
                 ));
             }
-            Event::SoftBreak | Event::HardBreak => {
-                if !current_spans.is_empty() {
-                    lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
-                }
+            Event::SoftBreak | Event::HardBreak if !current_spans.is_empty() => {
+                lines.push(Line::from(std::mem::take(&mut current_spans)));
             }
             _ => {}
         }
     }
 
     if !current_spans.is_empty() {
-        lines.push(Line::from(current_spans.drain(..).collect::<Vec<_>>()));
+        lines.push(Line::from(std::mem::take(&mut current_spans)));
     }
 
     lines

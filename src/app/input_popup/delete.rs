@@ -51,9 +51,13 @@ pub fn handle(
                                 use crate::fs::transfer::job::{TransferJob, TransferOperation};
                                 use crate::fs::transfer::options::TransferOptions;
 
-                                let mut options = TransferOptions::default();
-                                options.delete_to_recycle_bin =
-                                    context.config.settings.delete_to_recycle_bin;
+                                let options = TransferOptions {
+                                    delete_to_recycle_bin: context
+                                        .config
+                                        .settings
+                                        .delete_to_recycle_bin,
+                                    ..Default::default()
+                                };
 
                                 let job = TransferJob::new(
                                     TransferOperation::Delete,

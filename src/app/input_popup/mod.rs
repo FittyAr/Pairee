@@ -13,9 +13,9 @@ pub mod create_link;
 pub mod delete;
 pub mod describe_file;
 pub mod dismiss_only;
-pub mod file_associations;
 pub mod drive_select;
 pub mod editor;
+pub mod file_associations;
 pub mod file_attributes;
 pub mod file_filter;
 pub mod files_highlighting;
@@ -40,8 +40,8 @@ pub mod viewer;
 
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
-pub mod git_panel;
 pub mod git_new_popups;
+pub mod git_panel;
 pub mod ssh_connect;
 pub mod update_popup;
 pub mod yazi_popup;
@@ -66,7 +66,7 @@ pub fn handle_popup_input(
             PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
             PopupType::ConfirmQuit
             | PopupType::ConfirmInterrupt
-            | PopupType::ConfirmReload { .. }
+            | PopupType::ConfirmReload
             | PopupType::ConfirmDiscardEditorChanges
             | PopupType::ConfirmClearHistory { .. }
             | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle(state, key, context),
@@ -125,12 +125,18 @@ pub fn handle_popup_input(
             PopupType::GitDiffView { .. } => git_new_popups::handle_diff(state, key, context),
             PopupType::GitBranchCreatePrompt { .. }
             | PopupType::GitBranchRenamePrompt { .. }
-            | PopupType::GitStashSavePrompt { .. } => git_new_popups::handle_prompt(state, key, context),
-            PopupType::GitConfirmAction { .. } => git_new_popups::handle_confirm_action(state, key, context),
+            | PopupType::GitStashSavePrompt { .. } => {
+                git_new_popups::handle_prompt(state, key, context)
+            }
+            PopupType::GitConfirmAction { .. } => {
+                git_new_popups::handle_confirm_action(state, key, context)
+            }
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             PopupType::TransferPanel => transfer_panel::handle(state, key, context),
-            PopupType::FileAssociationsDialog { .. } => file_associations::handle(state, key, context),
+            PopupType::FileAssociationsDialog { .. } => {
+                file_associations::handle(state, key, context)
+            }
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

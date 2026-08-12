@@ -85,8 +85,7 @@ pub async fn ensure_external_tools() -> Result<()> {
         // Try the older layout (7z extra used to ship `7za.exe` at the root).
         let alt = scratch_dir.join("7za.exe");
         if alt.exists() {
-            fs::copy(&alt, &bin_path)
-                .context("Failed to copy 7za.exe to bin directory")?;
+            fs::copy(&alt, &bin_path).context("Failed to copy 7za.exe to bin directory")?;
         } else {
             let _ = fs::remove_dir_all(&scratch_dir);
             anyhow::bail!(

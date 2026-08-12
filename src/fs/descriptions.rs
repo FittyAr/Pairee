@@ -1,5 +1,5 @@
-use anyhow::{Context, Result};
 use crate::config::write_atomic;
+use anyhow::{Context, Result};
 use std::path::Path;
 
 /// Filename used for per-directory file descriptions (Norton Commander style).

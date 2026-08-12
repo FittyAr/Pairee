@@ -87,9 +87,7 @@ pub fn handle(
                 }
             }
             KeyCode::Left => {
-                if cursor_idx > 0 {
-                    cursor_idx -= 1;
-                }
+                cursor_idx = cursor_idx.saturating_sub(1);
             }
             KeyCode::Right => {
                 if cursor_idx < input.len() {

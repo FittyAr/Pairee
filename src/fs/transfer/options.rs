@@ -75,7 +75,7 @@ pub enum BufferSize {
 }
 
 impl BufferSize {
-    pub fn to_bytes(&self) -> usize {
+    pub fn to_bytes(self) -> usize {
         match self {
             BufferSize::_64KB => 64 * 1024,
             BufferSize::_256KB => 256 * 1024,

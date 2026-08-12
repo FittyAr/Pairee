@@ -21,7 +21,7 @@ pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> any
     if manifest
         .default_language
         .as_ref()
-        .map_or(true, |l| l.trim().is_empty())
+        .is_none_or(|l| l.trim().is_empty())
     {
         anyhow::bail!(t("plugin_dev_lint_err_default_lang"));
     }

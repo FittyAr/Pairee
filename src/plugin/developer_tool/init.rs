@@ -74,10 +74,7 @@ fn clone_from_template(
                                     // the target via parent-dir components.
                                     // libgit2 tree paths are not user input
                                     // here, but defense-in-depth is cheap.
-                                    if rel_path
-                                        .split(['/', '\\'])
-                                        .any(|seg| seg == "..")
-                                    {
+                                    if rel_path.split(['/', '\\']).any(|seg| seg == "..") {
                                         log::warn!(
                                             "plugin-template: refusing template entry \
                                              with parent-dir component: {}",
@@ -139,7 +136,7 @@ fn clone_from_template(
                 let _ = std::fs::remove_dir_all(&git_dir);
             }
 
-            progress_status(&progress, t("plugin_dev_progress_replacing_placeholders"));
+            progress_status(progress, t("plugin_dev_progress_replacing_placeholders"));
             replace_placeholders(target_path, manifest_name, description, author)?;
             log::info!("plugin-template: Plugin initialized from remote git branch.");
             Ok(true)
@@ -157,7 +154,14 @@ pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> 
     // should call `init_in` with an explicit `target_parent` so the
     // process-wide cwd is never mutated while other tasks are running.
     let target_parent = std::env::current_dir()?;
-    init_in(name, description, author, print_output, None, &target_parent)
+    init_in(
+        name,
+        description,
+        author,
+        print_output,
+        None,
+        &target_parent,
+    )
 }
 
 /// Initialises a new plugin inside `target_parent` (an absolute path).
@@ -216,7 +220,14 @@ pub fn init_with_progress_in(
     progress: Option<UnboundedSender<DevProgress>>,
     target_parent: &std::path::Path,
 ) -> anyhow::Result<()> {
-    init_in(name, description, author, print_output, progress, target_parent)
+    init_in(
+        name,
+        description,
+        author,
+        print_output,
+        progress,
+        target_parent,
+    )
 }
 
 #[cfg(test)]

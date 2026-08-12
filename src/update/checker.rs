@@ -114,7 +114,7 @@ fn save_cache(release: &GhRelease) {
 fn parse_version(v: &str) -> Option<(u32, u32, u32)> {
     let v = v.trim_start_matches('v');
     // Accept "0.5.0" or "0.5.0-beta" (just compare numeric parts)
-    let parts: Vec<&str> = v.splitn(2, '-').next()?.split('.').collect();
+    let parts: Vec<&str> = v.split('-').next()?.split('.').collect();
     if parts.len() < 3 {
         if parts.len() == 2 {
             return Some((parts[0].parse().ok()?, parts[1].parse().ok()?, 0));

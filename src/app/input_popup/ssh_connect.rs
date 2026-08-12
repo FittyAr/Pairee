@@ -75,12 +75,12 @@ pub fn handle(
                         new_pass = p.password.clone().unwrap_or_default();
                         new_key_path = p.key_path.clone().unwrap_or_default();
                     }
-                } else if new_idx >= 7 && new_idx <= 10 {
+                } else if (7..=10).contains(&new_idx) {
                     // Up from buttons goes to key path field (index 6)
                     new_idx = 6;
                 } else {
                     // Normal fields
-                    new_idx = if new_idx > 1 { new_idx - 1 } else { 0 };
+                    new_idx = new_idx.saturating_sub(1);
                 }
                 update_popup(
                     state,
@@ -118,7 +118,7 @@ pub fn handle(
                 } else if new_idx == 6 {
                     // Down from key path goes to Connect button (index 7)
                     new_idx = 7;
-                } else if new_idx >= 7 && new_idx <= 10 {
+                } else if (7..=10).contains(&new_idx) {
                     // Down from buttons loops back to presets list (index 0)
                     new_idx = 0;
                 } else {
@@ -138,7 +138,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Left => {
-                if new_idx >= 7 && new_idx <= 10 {
+                if (7..=10).contains(&new_idx) {
                     // Horizontal navigation between buttons
                     new_idx = if new_idx > 7 { new_idx - 1 } else { 10 };
                 } else if new_idx > 0 && new_idx <= 6 {
@@ -159,7 +159,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Right => {
-                if new_idx >= 7 && new_idx <= 10 {
+                if (7..=10).contains(&new_idx) {
                     // Horizontal navigation between buttons
                     new_idx = if new_idx < 10 { new_idx + 1 } else { 7 };
                 } else if new_idx == 0 {

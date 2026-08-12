@@ -57,10 +57,7 @@ try {
     // UUID rather than the (guessable) process id so a local attacker
     // cannot pre-create the output file with a forged directory listing
     // that the unprivileged parent would then trust.
-    let temp_file = temp_dir.join(format!(
-        "pairee_dir_{}.txt",
-        uuid::Uuid::new_v4()
-    ));
+    let temp_file = temp_dir.join(format!("pairee_dir_{}.txt", uuid::Uuid::new_v4()));
     // We need to pass the *absolute* path to the script because the elevated
     // process will run with a different working directory and we cannot rely
     // on relative paths to resolve to the same location.

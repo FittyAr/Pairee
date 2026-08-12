@@ -31,23 +31,22 @@ impl TransferFilter {
                 continue;
             }
 
-            if part.starts_with('!') {
-                let pattern = part[1..].to_string();
-                rules.push(FilterRule::ExcludeGlob(pattern));
-            } else if part.starts_with('>') {
-                if let Some(bytes) = parse_size(&part[1..]) {
+            if let Some(pattern) = part.strip_prefix('!') {
+                rules.push(FilterRule::ExcludeGlob(pattern.to_string()));
+            } else if let Some(size_str) = part.strip_prefix('>') {
+                if let Some(bytes) = parse_size(size_str) {
                     rules.push(FilterRule::SizeMin(bytes));
                 }
-            } else if part.starts_with('<') {
-                if let Some(bytes) = parse_size(&part[1..]) {
+            } else if let Some(size_str) = part.strip_prefix('<') {
+                if let Some(bytes) = parse_size(size_str) {
                     rules.push(FilterRule::SizeMax(bytes));
                 }
-            } else if part.starts_with("newer:") {
-                if let Some(time) = parse_date(&part[6..]) {
+            } else if let Some(date_str) = part.strip_prefix("newer:") {
+                if let Some(time) = parse_date(date_str) {
                     rules.push(FilterRule::DateNewer(time));
                 }
-            } else if part.starts_with("older:") {
-                if let Some(time) = parse_date(&part[6..]) {
+            } else if let Some(date_str) = part.strip_prefix("older:") {
+                if let Some(time) = parse_date(date_str) {
                     rules.push(FilterRule::DateOlder(time));
                 }
             } else {

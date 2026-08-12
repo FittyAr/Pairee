@@ -1,8 +1,10 @@
 pub mod discovery;
 pub mod loader;
-pub mod tests;
 pub mod translator;
 pub mod types;
+
+#[cfg(test)]
+mod tests;
 
 // Re-exports
 pub use discovery::discover_languages;

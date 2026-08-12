@@ -112,7 +112,7 @@ pub fn handle(
 
     // Handle global escape to close if not editing query
     if key.code == KeyCode::Esc {
-        if (active_tab == 1 && editing_query) || (active_tab == 2 && editing_query) {
+        if editing_query && (active_tab == 1 || active_tab == 2) {
             // Esc from search mode: clear query and restore full list
             editing_query = false;
             if active_tab == 1 {
@@ -147,48 +147,44 @@ pub fn handle(
         }
     }
 
-    match key.code {
-        KeyCode::Tab => {
-            let dev_mode = context.config.settings.plugins_developer_mode;
-            if !(active_tab == 2 && editing_query) {
-                active_tab = if active_tab == 0 {
-                    1
-                } else if active_tab == 1 {
-                    if dev_mode { 2 } else { 0 }
-                } else {
-                    0
-                };
-                cursor_idx =
-                    if active_tab == 2 && context.config.settings.active_dev_plugin.is_none() {
-                        1
-                    } else {
-                        0
-                    };
-                // Auto-enter edit mode when switching to the Search tab
-                editing_query = active_tab == 1;
-                dev_results = String::new();
-                state.active_popup = Some(PopupType::PluginMenu {
-                    active_tab,
-                    cursor_idx,
-                    installed,
-                    all_registry,
-                    registry,
-                    search_query,
-                    is_searching,
-                    editing_query,
-                    dev_results,
-                    dev_wizard_step: 0,
-                    dev_wizard_data: Vec::new(),
-                    installed_loading,
-                    installed_loading_status,
-                    dev_loading,
-                    dev_loading_status,
-                    dev_loading_progress,
-                });
-                return Ok(None);
-            }
+    if key.code == KeyCode::Tab {
+        let dev_mode = context.config.settings.plugins_developer_mode;
+        if !(active_tab == 2 && editing_query) {
+            active_tab = if active_tab == 0 {
+                1
+            } else if active_tab == 1 {
+                if dev_mode { 2 } else { 0 }
+            } else {
+                0
+            };
+            cursor_idx = if active_tab == 2 && context.config.settings.active_dev_plugin.is_none() {
+                1
+            } else {
+                0
+            };
+            // Auto-enter edit mode when switching to the Search tab
+            editing_query = active_tab == 1;
+            dev_results = String::new();
+            state.active_popup = Some(PopupType::PluginMenu {
+                active_tab,
+                cursor_idx,
+                installed,
+                all_registry,
+                registry,
+                search_query,
+                is_searching,
+                editing_query,
+                dev_results,
+                dev_wizard_step: 0,
+                dev_wizard_data: Vec::new(),
+                installed_loading,
+                installed_loading_status,
+                dev_loading,
+                dev_loading_status,
+                dev_loading_progress,
+            });
+            return Ok(None);
         }
-        _ => {}
     }
 
     let action = None;
