@@ -129,17 +129,44 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ---
 
-## 5. Fase B — Unificación del Transfer Engine (P1) ⬅ siguiente
+## 5. Fase B — Unificación del Transfer Engine (P1) ⬅ en curso
 
-**Patrones:** Strategy (backend Local/Ssh), Facade (`TransferEngine`), Builder (`TransferJob`/`TransferOptions`), Observer (eventos de progreso).
+**Patrones:** Strategy (backend Local/Ssh), Facade (`TransferEngine` + `TransferWorker::run`), Builder (`TransferJob`/`TransferOptions`), Observer (eventos de progreso).
 
-- [ ] Inventario de call sites: `ops_worker` vs `transfer`
+- [x] Inventario de call sites: `ops_worker` vs `transfer` (ver §5.1)
 - [ ] Diseñar trait `TransferBackend` (local + SSH) en módulos finos (no un solo archivo)
 - [ ] Migrar copy/move/delete SSH al engine
 - [ ] Deprecar `spawn_copy_move_task` path dual en UI
 - [ ] Un solo modelo de progreso/UI
-- [ ] Tests: conflicto, cancel, verify hash, move tree
-- [ ] Partir `fs/transfer/worker.rs` (>1000 LOC) en módulos (`scan`, `copy_file`, `verify`, `ssh_ops`, …)
+- [x] Tests worker: destino parent + move tree (5 tests verdes)
+- [ ] Tests ampliados: conflicto, cancel, verify hash
+- [x] Partir `fs/transfer/worker.rs` en módulos finos (Facade + fases)
+
+### 5.1 Inventario dual path (2026-08-12)
+
+| Capacidad | Path actual | Call sites principales |
+|-----------|-------------|------------------------|
+| Copy/Move **local** | `TransferEngine` | `actions/fs_ops/copy.rs`, `move.rs`, `input_popup/copy.rs`, plugin dispatcher |
+| Copy/Move **SSH** | `ops_worker::spawn_copy_move_task` | mismos call sites con rama SSH |
+| Delete **local** | `TransferEngine` | `actions/fs_ops/delete.rs`, `input_popup/delete.rs` |
+| Delete **SSH** | `ops_worker::spawn_ssh_delete_task` | (vía ops_worker) |
+| Wipe | `ops_worker::spawn_wipe_task` | `actions/fs_ops/wipe.rs`, delete popup |
+| Compress / Extract | `ops_worker` | compress/extract actions + archive popups |
+| Progreso legacy | `progress_rx: Option<Receiver<ProgressUpdate>>` | `AppState` + `background.rs` |
+| Progreso engine | `TransferUIState` + `TransferEvent` | barra minimizable |
+
+### 5.2 Layout post-split de `worker/`
+
+| Archivo | Rol | ~LOC |
+|---------|-----|------|
+| `worker/mod.rs` | Facade: `TransferWorker::run` | ~129 |
+| `worker/scan.rs` | Fase escaneo → `ScanOutcome` | ~163 |
+| `worker/delete_phase.rs` | Delete / recycle | ~205 |
+| `worker/copy_phase.rs` | Copy/move, conflictos, verify | ~460 |
+| `worker/destination.rs` | `is_destination_parent_dir` | ~59 |
+| `worker/fs_helpers.rs` | recycle bin + make writable | ~116 |
+| `worker/speed.rs` | reporter de velocidad (DRY) | ~43 |
+| `worker/tests.rs` | test move tree | ~54 |
 
 ---
 
@@ -158,7 +185,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 | Archivo | ~LOC | Estado |
 |---------|------|--------|
-| `src/fs/transfer/worker.rs` | ~1037 | [ ] |
+| `src/fs/transfer/worker.rs` | ~1037 | [x] → `worker/` multi-módulo |
 | `src/app/input_popup/plugin_menu/dev/options.rs` | ~793 | [ ] |
 | `src/app/actions/ui_settings.rs` | ~766 | [ ] |
 | `src/ui/popup/history_lists.rs` | ~742 | [ ] |
@@ -205,7 +232,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
 | Tests | 115 unit | 115+ y ≥15 integration | **115 + 2** |
-| Archivos >800 LOC | ≥2 | 0 | ≥2 (pendiente Fase C) |
+| Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan otros monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Gaps plugins P0 | Abiertos | Diálogos + 1 ejemplo E2E | Abiertos |
 
@@ -220,16 +247,17 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | `ae0c3d8` | docs: README, índice, banners de estado, UNRELEASED |
 | 2026-08-12 | `537128b` | ci: `master`/`main` + matrix OS + policy Clippy |
 | 2026-08-12 | `b78ec6f` | refactor: Clippy real, MSRV, fmt, tests integración |
+| 2026-08-12 | `04cf8ec` | docs: SHAs de Fase A en el plan |
+| 2026-08-12 | _(siguiente)_ | refactor: partir transfer worker en módulos Facade/fases |
 
-Ver también `git log --oneline master` para el detalle.
----
+Ver también `git log --oneline master` para el detalle.---
 
 ## 11. Roadmap visual
 
 ```text
-Alto impacto │  [x CI master] [x Clippy real] [ Unificar transfer ]
-             │  [ Partir AppState/PopupType ] [ Tests integración+ ]
-             │  [ Plugins: diálogos + userdata ]
+Alto impacto │  [x CI master] [x Clippy real] [~ Unificar transfer]
+             │  [x Partir worker] [ Partir AppState/PopupType ]
+             │  [ Tests integración+ ] [ Plugins diálogos ]
              │  [x Docs sync base] [ Feature flags ]
 Bajo impacto │  [ Más idiomas ] [ Command palette ] [ macOS CI ]
              └────────────────────────────────────────────
