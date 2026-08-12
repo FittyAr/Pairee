@@ -3,7 +3,9 @@ use crate::fs::ssh::SharedSshClient;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-/// Spawns a background task to delete remote files/directories over SSH SFTP.
+/// Legacy SSH delete path (ProgressUpdate channel).
+/// Prefer `crate::fs::transfer::submit_simple` with `TransferOperation::Delete`.
+#[allow(dead_code)]
 pub fn spawn_ssh_delete_task(
     client: SharedSshClient,
     targets: Vec<PathBuf>,

@@ -1,3 +1,4 @@
+pub mod command_palette;
 pub mod exec;
 pub mod fs_ops;
 pub mod navigation;

@@ -2,6 +2,7 @@ pub mod about;
 pub mod apply_command;
 pub mod archive_commands;
 pub mod color_groups;
+pub mod command_palette;
 pub mod compress;
 pub mod config_dialog;
 pub mod confirm_dialogs;
@@ -137,6 +138,7 @@ pub fn handle_popup_input(
             PopupType::FileAssociationsDialog { .. } => {
                 file_associations::handle(state, key, context)
             }
+            PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

@@ -129,31 +129,30 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ---
 
-## 5. Fase B — Unificación del Transfer Engine (P1) ⬅ en curso
+## 5. Fase B — Unificación del Transfer Engine (P1) ⬅ mayormente hecha
 
-**Patrones:** Strategy (backend Local/Ssh), Facade (`TransferEngine` + `TransferWorker::run`), Builder (`TransferJob`/`TransferOptions`), Observer (eventos de progreso).
+**Patrones:** Strategy (`backend/local` + `backend/ssh`), Facade (`TransferEngine` + `submit_simple`), Builder (`TransferJob`/`options_from_settings`), Observer (`TransferEvent`).
 
 - [x] Inventario de call sites: `ops_worker` vs `transfer` (ver §5.1)
-- [ ] Diseñar trait `TransferBackend` (local + SSH) en módulos finos (no un solo archivo)
-- [ ] Migrar copy/move/delete SSH al engine
-- [ ] Deprecar `spawn_copy_move_task` path dual en UI
-- [ ] Un solo modelo de progreso/UI
-- [x] Tests worker: destino parent + move tree (5 tests verdes)
-- [ ] Tests ampliados: conflicto, cancel, verify hash
+- [x] Backends Strategy en `src/fs/transfer/backend/` (local + SSH)
+- [x] Migrar copy/move/delete SSH al engine (`TransferJob.ssh` + `submit_simple`)
+- [x] UI unificada: copy/move/delete ya no abren `CopyProgress` legacy por SSH
+- [x] `spawn_copy_move_task` / `spawn_ssh_delete_task` deprecados y fuera de la API pública
+- [x] Tests worker: destino, move tree, **cancel**
+- [x] Tests integración FS transfer (`tests/transfer_local_integration.rs`)
 - [x] Partir `fs/transfer/worker.rs` en módulos finos (Facade + fases)
+- [ ] Wipe / compress / extract aún en `ops_worker` + `progress_rx` (siguiente iteración)
+- [ ] Tests hash-verify E2E
 
-### 5.1 Inventario dual path (2026-08-12)
+### 5.1 Inventario dual path (actualizado)
 
-| Capacidad | Path actual | Call sites principales |
-|-----------|-------------|------------------------|
-| Copy/Move **local** | `TransferEngine` | `actions/fs_ops/copy.rs`, `move.rs`, `input_popup/copy.rs`, plugin dispatcher |
-| Copy/Move **SSH** | `ops_worker::spawn_copy_move_task` | mismos call sites con rama SSH |
-| Delete **local** | `TransferEngine` | `actions/fs_ops/delete.rs`, `input_popup/delete.rs` |
-| Delete **SSH** | `ops_worker::spawn_ssh_delete_task` | (vía ops_worker) |
-| Wipe | `ops_worker::spawn_wipe_task` | `actions/fs_ops/wipe.rs`, delete popup |
-| Compress / Extract | `ops_worker` | compress/extract actions + archive popups |
-| Progreso legacy | `progress_rx: Option<Receiver<ProgressUpdate>>` | `AppState` + `background.rs` |
-| Progreso engine | `TransferUIState` + `TransferEvent` | barra minimizable |
+| Capacidad | Path actual | Notas |
+|-----------|-------------|-------|
+| Copy/Move **local + SSH** | `TransferEngine` + `backend::{local,ssh}` | UI vía `submit_simple` |
+| Delete **local + SSH** | `TransferEngine` | idem |
+| Wipe | `ops_worker::spawn_wipe_task` | legacy `progress_rx` |
+| Compress / Extract | `ops_worker` | legacy `progress_rx` |
+| Progreso engine | `TransferUIState` + `TransferEvent` | path principal copy/move/delete |
 
 ### 5.2 Layout post-split de `worker/`
 
@@ -214,7 +213,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
 ## 8. Fase E — Producto y distribución (P3)
 
-- [ ] Command palette sobre `Action`
+- [x] Command palette sobre `Action` (`Ctrl+Shift+P`, filtro + Enter)
 - [ ] Onboarding / primer arranque (elegir preset de teclas)
 - [ ] Más idiomas (pipeline localize-helper)
 - [ ] Feature flags (`ssh`, `git`, `plugins`, `image-preview`)
@@ -231,10 +230,12 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **115 + 2** |
-| Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan otros monólitos UI |
+| Tests | 115 unit | 115+ y ≥15 integration | **116 unit + 4 integration** |
+| Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Gaps plugins P0 | Abiertos | Diálogos + 1 ejemplo E2E | Abiertos |
+| Transfer dual path | Sí | Solo legacy wipe/archive | **Copy/move/delete unificados** |
+| Command palette | No | Sí | **Sí (Ctrl+Shift+P)** |
 
 ---
 
@@ -249,6 +250,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | `b78ec6f` | refactor: Clippy real, MSRV, fmt, tests integración |
 | 2026-08-12 | `04cf8ec` | docs: SHAs de Fase A en el plan |
 | 2026-08-12 | `777fd23` | refactor: partir transfer worker en módulos Facade/fases |
+| 2026-08-12 | `27eeb1d` | docs: marcar worker split en el plan |
+| 2026-08-12 | _(serie)_ | feat: backends SSH+local, submit unificado, command palette, tests |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -270,9 +273,11 @@ Bajo impacto │  [ Más idiomas ] [ Command palette ] [ macOS CI ]
 
 ## 12. Conclusión operativa
 
-**Fase A (higiene) cerrada.**  
-**Fase B en curso:** worker partido en módulos (Facade + fases). Falta trait `TransferBackend` y absorber SSH/compress/wipe en el engine.
+**Fase A cerrada.**  
+**Fase B:** copy/move/delete unificados (local+SSH) vía Strategy backends; quedan wipe/compress/extract.  
+**Fase E:** command palette disponible.  
+**Pendiente fuerte:** monólitos UI (C), plugins G1–G14 (D), wipe/archive en engine.
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (worker split `777fd23` + inventario dual path).*
+*Última actualización del progreso: 2026-08-12 (backends SSH + command palette + tests).*

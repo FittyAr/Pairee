@@ -175,7 +175,10 @@ pub enum AdminOpKind {
     },
 }
 
+/// Legacy progress-popup context for ops still on `progress_rx` (wipe/extract/compress).
+/// Copy/Move/Delete variants remain for UI title mapping while those ops migrate fully.
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum BackgroundOpContext {
     Copy,
     Move,
@@ -611,6 +614,14 @@ pub enum PopupType {
         error: Option<String>,
         /// Scroll offset for release notes.
         scroll_y: usize,
+    },
+
+    /// Fuzzy command palette (Ctrl+Shift+P): filter and run logical `Action`s.
+    CommandPalette {
+        query: String,
+        cursor_idx: usize,
+        /// Display label + action pairs currently matching `query`.
+        items: Vec<(String, crate::keybindings::Action)>,
     },
 }
 

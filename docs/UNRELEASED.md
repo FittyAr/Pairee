@@ -3,9 +3,11 @@
 ### Added
 
 - Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.
-- Integration smoke tests under `tests/` for isolated temp workspace and settings TOML roundtrip.
+- Integration smoke tests under `tests/` for isolated temp workspace, settings TOML roundtrip, and transfer filesystem contracts.
 - Project-level `rustfmt.toml` and `clippy.toml` for consistent CI quality gates.
 - Declared MSRV (`rust-version = "1.85"`) and package metadata in `Cargo.toml`.
+- Transfer Strategy backends (`local` / `ssh`) under `src/fs/transfer/backend/` with unified job submission.
+- Command palette (`Ctrl+Shift+P`) to filter and run logical actions.
 
 ### Improved
 
@@ -13,11 +15,13 @@
 - Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
 - Transfer worker split into focused modules (scan, delete, copy, helpers) under `src/fs/transfer/worker/` using a facade orchestrator.
+- Copy, move, and delete (including SSH) now use the Transfer Engine progress UI instead of the legacy modal-only path.
 
 ### Changed
 
 - Replaced inherited rustc-style `.gitignore` with a Pairee-specific ignore list.
 - Plugin manager core module renamed to `lifecycle` to avoid module-inception nesting.
+- Legacy `spawn_copy_move_task` / `spawn_ssh_delete_task` are no longer part of the public `fs` re-exports.
 
 ### Deprecated
 

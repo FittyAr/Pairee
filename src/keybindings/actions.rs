@@ -220,4 +220,6 @@ pub enum Action {
     InstallDevPlugin,
     /// Toggle Transfer Panel (Ctrl+T)
     ToggleTransferPanel,
+    /// Fuzzy command palette over logical actions (Ctrl+Shift+P)
+    CommandPalette,
 }

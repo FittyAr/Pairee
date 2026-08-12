@@ -1,6 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::config::localization::t;
+use crate::fs::transfer::job::TransferOperation;
+use crate::fs::transfer::options::TransferOptions;
+use crate::fs::transfer::submit_simple;
 
 fn is_non_empty_dir(path: &std::path::Path) -> bool {
     if path.is_dir() {
@@ -42,50 +44,22 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                 cursor_idx: 0,
             });
         } else {
-            let active_panel = state.get_active_panel();
-            if let Some(client) = &active_panel.ssh_conn {
-                let rx = crate::fs::spawn_ssh_delete_task(client.clone(), targets.clone());
-                state.active_bg_op = Some(crate::app::state::BackgroundOpContext::Delete);
-                state.progress_rx = Some(rx);
-                state.active_popup = Some(PopupType::CopyProgress {
-                    is_move: false,
-                    current_file: t("progress_initializing"),
-                    files_copied: 0,
-                    total_files: 0,
-                    bytes_copied: 0,
-                    total_bytes: 0,
-                });
-            } else {
-                use crate::fs::transfer::engine::TransferEngine;
-                use crate::fs::transfer::job::{TransferJob, TransferOperation};
-                use crate::fs::transfer::options::TransferOptions;
-
-                let options = TransferOptions {
-                    delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
-                    ..Default::default()
-                };
-
-                let job = TransferJob::new(
-                    TransferOperation::Delete,
-                    targets.clone(),
-                    std::path::PathBuf::new(),
-                    options,
-                );
-
-                if state.transfer.is_none() {
-                    let (engine, rx) = TransferEngine::new();
-                    state.transfer = Some(crate::app::state::transfer_state::TransferUIState::new(
-                        engine, rx,
-                    ));
-                }
-
-                if let Some(ref mut ts) = state.transfer {
-                    ts.engine.submit_job(job);
-                    ts.view_mode = crate::app::state::TransferViewMode::Minimized;
-                }
-                state.get_active_panel_mut().clear_selection();
-                state.refresh_both_panels(context.config.settings.show_hidden);
-            }
+            let ssh = state.get_active_panel().ssh_conn.clone();
+            let options = TransferOptions {
+                delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
+                ..Default::default()
+            };
+            submit_simple(
+                state,
+                TransferOperation::Delete,
+                targets.clone(),
+                std::path::PathBuf::new(),
+                options,
+                ssh,
+                None,
+            );
+            state.get_active_panel_mut().clear_selection();
+            state.refresh_both_panels(context.config.settings.show_hidden);
         }
     }
     true

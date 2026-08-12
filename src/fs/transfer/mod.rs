@@ -1,3 +1,4 @@
+pub mod backend;
 pub mod conflict;
 pub mod direct_io;
 pub mod engine;
@@ -9,8 +10,13 @@ pub mod job;
 pub mod metadata;
 pub mod network;
 pub mod options;
+pub mod options_from_settings;
 pub mod pipeline;
 pub mod post_action;
 pub mod queue;
 pub mod report;
+pub mod submit;
 pub mod worker;
+
+pub use options_from_settings::transfer_options_from_settings;
+pub use submit::submit_simple;

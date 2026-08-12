@@ -214,6 +214,8 @@ fn insert_common_norton_bindings(map: &mut HashMap<String, Action>) {
     map.insert("Ctrl+N".to_string(), Action::ToggleLongNames);
     map.insert("Ctrl+t".to_string(), Action::ToggleTransferPanel);
     map.insert("Ctrl+T".to_string(), Action::ToggleTransferPanel);
+    map.insert("Ctrl+Shift+p".to_string(), Action::CommandPalette);
+    map.insert("Ctrl+Shift+P".to_string(), Action::CommandPalette);
 
     // ── F-key standard actions ────────────────────────────────────────────────
     map.insert("F1".to_string(), Action::Help);
@@ -403,6 +405,7 @@ fn action_to_name(action: Action) -> String {
         Action::ToggleSortReverse => "toggle_sort_reverse",
         Action::CheckForUpdates => "check_for_updates",
         Action::ToggleTransferPanel => "toggle_transfer_panel",
+        Action::CommandPalette => "command_palette",
     }
     .to_string()
 }
@@ -553,6 +556,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
         "check_for_updates" => Some(Action::CheckForUpdates),
         "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
+        "command_palette" => Some(Action::CommandPalette),
 
         _ => None,
     }

@@ -2,6 +2,13 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
+/// Optional SSH endpoints for a transfer (Strategy: non-local backend).
+#[derive(Debug, Clone)]
+pub struct SshEndpoints {
+    pub src: Option<crate::fs::ssh::SharedSshClient>,
+    pub dst: Option<crate::fs::ssh::SharedSshClient>,
+}
+
 #[derive(Debug, Clone)]
 pub struct TransferJob {
     pub id: Uuid,
@@ -17,6 +24,8 @@ pub struct TransferJob {
     pub is_cancelled: Arc<std::sync::atomic::AtomicBool>,
     pub skip_file_flag: Arc<std::sync::atomic::AtomicBool>,
     pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
+    /// When `Some`, the engine runs the SSH backend instead of the local worker.
+    pub ssh: Option<SshEndpoints>,
 }
 
 impl TransferJob {
@@ -40,7 +49,14 @@ impl TransferJob {
             is_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             active_conflict: Arc::new(std::sync::Mutex::new(None)),
+            ssh: None,
         }
+    }
+
+    /// Attach SSH endpoints (copy/move/delete over SFTP).
+    pub fn with_ssh(mut self, ssh: SshEndpoints) -> Self {
+        self.ssh = Some(ssh);
+        self
     }
 
     pub fn is_active(&self) -> bool {

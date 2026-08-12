@@ -1,13 +1,11 @@
-use std::sync::Arc;
-
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::task::JoinHandle;
 
+use super::backend;
 use super::events::TransferEvent;
 use super::job::{TransferJob, TransferJobStatus};
 use super::queue::TransferQueue;
-use super::worker::TransferWorker;
 
 pub struct TransferEngine {
     pub queue: TransferQueue,
@@ -99,41 +97,21 @@ impl TransferEngine {
                         let event_tx_clone = event_tx.clone();
 
                         let worker_handle = tokio::spawn(async move {
-                            let worker = TransferWorker::new(
-                                job.id,
-                                job.operation,
-                                job.sources,
-                                job.destination,
-                                job.options.clone(),
-                                Arc::clone(&job.is_paused),
-                                Arc::clone(&job.is_cancelled),
-                                Arc::clone(&job.skip_file_flag),
-                                event_tx_clone.clone(),
-                                job.active_conflict.clone(),
-                            );
-
                             queue_clone.update_job(job_id, |j| {
                                 j.status = TransferJobStatus::Scanning;
                             });
-                            let _ = event_tx_clone.send(TransferEvent::ScanStarted { job_id });
 
-                            match worker.run().await {
+                            match backend::run_job(job, event_tx_clone.clone()).await {
                                 Ok(results) => {
                                     queue_clone.update_job(job_id, |j| {
                                         j.status = TransferJobStatus::Completed;
                                         j.results = results.clone();
                                     });
-                                    let _ = event_tx_clone
-                                        .send(TransferEvent::JobCompleted { job_id, results });
+                                    // Local/SSH backends already emit JobCompleted;
+                                    // keep queue in sync without double UI noise.
                                 }
                                 Err(e) => {
                                     let err_msg = e.to_string();
-                                    // Cancellation must be detected from the
-                                    // job's atomic flag, not from the error
-                                    // message string. A future refactor that
-                                    // changes the wording of the "cancelled"
-                                    // error would otherwise silently flip
-                                    // user-cancelled jobs into "Failed".
                                     let is_cancel = queue_clone
                                         .get_all()
                                         .iter()
@@ -150,14 +128,17 @@ impl TransferEngine {
                                             TransferJobStatus::Failed
                                         };
                                     });
-                                    let _ = event_tx_clone.send(TransferEvent::JobFailed {
-                                        job_id,
-                                        error: if is_cancel {
-                                            "Job cancelled by user".to_string()
-                                        } else {
-                                            err_msg
-                                        },
-                                    });
+                                    if !is_cancel {
+                                        let _ = event_tx_clone.send(TransferEvent::JobFailed {
+                                            job_id,
+                                            error: err_msg,
+                                        });
+                                    } else {
+                                        let _ = event_tx_clone.send(TransferEvent::JobFailed {
+                                            job_id,
+                                            error: "Job cancelled by user".to_string(),
+                                        });
+                                    }
                                 }
                             }
                         });

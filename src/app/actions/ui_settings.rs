@@ -761,6 +761,10 @@ pub async fn handle_ui_settings_action(
             }
             true
         }
+        Action::CommandPalette => {
+            crate::app::actions::command_palette::open_palette(state);
+            true
+        }
         Action::ToggleTransferPanel => {
             if let Some(ref mut ts) = state.transfer {
                 match ts.view_mode {

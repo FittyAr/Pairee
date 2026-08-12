@@ -1,5 +1,6 @@
 pub mod about;
 pub mod color_groups;
+pub mod command_palette;
 pub mod config_dialog;
 pub mod editor;
 pub mod files_highlighting;
@@ -117,7 +118,10 @@ fn render_specific_popup(
     if git_new_popups::render(f, popup, theme, size) {
         return;
     }
-    if update::render(f, popup, theme, size) {}
+    if update::render(f, popup, theme, size) {
+        return;
+    }
+    if command_palette::render(f, popup, theme, size) {}
 }
 
 /// Centers a rectangle of `percent_x` × `percent_y` over the full screen.

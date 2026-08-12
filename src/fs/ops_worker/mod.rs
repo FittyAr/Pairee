@@ -22,7 +22,12 @@ pub mod helper;
 pub mod wipe;
 
 pub use compress::spawn_compress_task;
-pub use copy_move::spawn_copy_move_task;
-pub use delete::spawn_ssh_delete_task;
 pub use extract::spawn_extract_task;
 pub use wipe::spawn_wipe_task;
+
+// SSH copy/move/delete now go through `crate::fs::transfer` backends.
+// Modules remain for reference / possible offline tooling.
+#[allow(unused_imports)]
+pub use copy_move::spawn_copy_move_task;
+#[allow(unused_imports)]
+pub use delete::spawn_ssh_delete_task;

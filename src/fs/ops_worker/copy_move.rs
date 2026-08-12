@@ -5,7 +5,10 @@ use crate::fs::ssh::SharedSshClient;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc;
 
-/// Spawns a background task to copy or move multiple files between panels (supports remote panels).
+/// Legacy SSH copy/move path (ProgressUpdate channel).
+///
+/// Prefer `crate::fs::transfer::submit_simple` / Transfer Engine backends.
+#[allow(dead_code)]
 pub fn spawn_copy_move_task(
     sources: Vec<PathBuf>,
     destination_dir: PathBuf,
