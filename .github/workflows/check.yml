@@ -2,20 +2,41 @@ name: Check
 
 on:
   push:
-    branches: [main]
+    branches: [master, main]
   pull_request:
-    branches: [main]
+    branches: [master, main]
 
 permissions:
   contents: read
 
+# Align JS actions with Node 24 (same policy as release.yml).
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 jobs:
-  clippy:
-    name: Clippy
+  policy:
+    name: Policy checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+
+      - name: Forbid crate-level clippy::all allow
+        shell: bash
+        run: |
+          if grep -n '#!\[allow(clippy::all)\]' src/main.rs; then
+            echo "::error::src/main.rs must not use #![allow(clippy::all)] — fix lints instead"
+            exit 1
+          fi
+          echo "Policy OK: no crate-level clippy::all allow"
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    needs: policy
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -33,7 +54,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -44,11 +65,16 @@ jobs:
         run: cargo fmt --all -- --check
 
   test:
-    name: Run tests
-    runs-on: ubuntu-latest
+    name: Run tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: policy
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -56,5 +82,11 @@ jobs:
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
 
-      - name: Run unit tests
+      - name: Install Linux build deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Run unit and integration tests
         run: cargo test
