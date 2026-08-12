@@ -205,14 +205,25 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ### 6.2 Checklist — keybinds (F.1)
 
-- [ ] Añadir dependencia `keybinds` con features `crossterm` + `serde`
-- [ ] Definir `Action` como tipo despachable (ya existe; añadir `Display` si falta para help)
-- [ ] Cargar presets Norton/Vim/Modern vía `Keybinds::bind` / deserialización TOML
-- [ ] Migrar `KeybindingResolver::resolve` → `keybinds.dispatch(KeyInput::from(key_event))`
-- [ ] Eliminar o reducir a thin wrappers: `preset.rs` monolítico, `normalize_key_string` casero
-- [ ] Mantener F1–F10 footer leyendo el mismo registry
-- [ ] Tests: secuencias, modifiers, preset load, custom overrides
-- [ ] Documentar breaking change de formato de `keymaps/*.toml` (migración o compat layer)
+**Problemas que resolvemos (historial Pairee):**
+
+| Problema | Antes | Ahora |
+|----------|-------|--------|
+| Atajos imposibles (`Ctrl+rj`) | Se aceptaban como strings opacos | **`keybinds` parse → error** (`KeymapLoadReport`) |
+| Mismo chord en dos acciones | Last-wins silencioso en `HashMap` | **Conflicto detectado y rechazado** |
+| Presets Norton / Vim / VSCode | HashMap monolítico + TOML a medias | **TOML validado** (`keymaps/*.toml` + embed) |
+| Crossterm como “mapa” | `key_event_to_string` casero | Crossterm = eventos; **mapa = `keybinds`** |
+
+- [x] Añadir dependencia `keybinds` (`crossterm` + `serde`)
+- [x] Loader con validación: parse de chords + detección de duplicados (`loader.rs`)
+- [x] Migrar resolver → `Keybinds::dispatch` / `would_trigger`
+- [x] Presets Norton / Neovim / VSCode desde TOML (embed + disco)
+- [x] Rechazar custom bindings inválidos o en conflicto (log + no insertar)
+- [x] Mantener F1–F10 vía `resolve_for_key_string` / inverse map
+- [x] Tests: impossible chord, duplicate, norton core keys
+- [x] Slim `preset.rs` (solo `parse_action_name` + TOML embed)
+- [ ] UI de settings que muestre errores de keymap al usuario (hoy log)
+- [ ] Migración documentada de aliases `Gray+` → `Plus` (ya mapeados en loader)
 
 ### 6.3 Checklist — `tui-scrollbar` (F.2)
 
@@ -262,13 +273,13 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 
 #### Checklist anti-glitch
 
-- [ ] Envolver frame draw en synchronized update (con fallback si el terminal no soporta)
-- [ ] Introducir `ui_dirty` / skip draw cuando no hay eventos ni updates de transfer/plugin
-- [ ] Evitar `clear()` full-screen salvo resize o cambio de screen mode
+- [x] Envolver frame draw en synchronized update (`Begin/EndSynchronizedUpdate`)
+- [x] Introducir `ui_dirty` / skip draw cuando no hace falta pintar
+- [x] Rate-limit redraw de progreso de transfer (~12 Hz)
+- [ ] Evitar `clear()` full-screen salvo resize o cambio de screen mode (reducir usos restantes)
 - [ ] `unicode-width` en listados de paneles y popups
-- [ ] Revisar `KeyboardEnhancementFlags` / focus: feature-detect + no spamear restore
-- [ ] Rate-limit redraw de progreso de transfer (p. ej. 10–15 Hz) para no saturar el TTY
-- [ ] Reproducir glitch en Windows Terminal + conhost + Linux (xterm/kitty) y checklist en docs
+- [ ] Revisar `KeyboardEnhancementFlags` / focus: feature-detect
+- [ ] Checklist manual Windows Terminal + conhost + Linux
 
 ### 6.5 Otras librerías de Grok Build candidatas (evaluación)
 
@@ -363,9 +374,9 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
 | Command palette | No | Sí | **Sí** |
-| Keymap stack | Casero crossterm strings | `keybinds` (+ which-key solo si no dual) | **Pendiente F.1** |
+| Keymap stack | Casero crossterm strings | `keybinds` validado | **Hecho F.1** |
 | Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Pendiente F.2** |
-| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Pendiente F.3** |
+| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Parcial F.3a** |
 
 ---
 
@@ -374,7 +385,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | Fecha | Commit | Qué se hizo |
 |-------|--------|-------------|
 | 2026-08-12 | `a8bc062` … `9b9c5a0` | Fases A–B: higiene, CI, clippy, transfer engine, purge legacy |
-| 2026-08-12 | _(este doc)_ | Añadir **Fase F**: keybinds / which-key / tui-scrollbar / lecciones Grok Build |
+| 2026-08-12 | `007eca7` | docs: plan Fase F |
+| 2026-08-12 | _(este)_ | feat: `keybinds` + validación + dirty/sync draw |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -397,11 +409,10 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 ## 13. Conclusión operativa
 
 **Fase A y B cerradas.**  
-**Siguiente bloque de trabajo: Fase F** (input con `keybinds`, scrollbars, estabilidad de render).  
-Crossterm permanece como backend de **eventos de terminal**; el **mapa de atajos** pasa a `keybinds` (no a lógica ad-hoc).  
-`ratatui-which-key` solo si se elige como reemplazo total del keymap o como capa posterior sin dualismo.  
-Grok Build aporta patrones de **synchronized update**, dirty draw, scrollbars fraccionales y registro de acciones — no el monorepo entero.
+**F.1 keybinds + F.3a anti-glitch (parcial) implementados.**  
+Siguiente: **F.2 tui-scrollbar**, unicode-width, y pulido anti-glitch.  
+`ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (plan: Fase F input/UI/anti-glitch documentada; sin código de implementación aún).*
+*Última actualización del progreso: 2026-08-12 (F.1 keybinds + F.3a sync/dirty draw).*

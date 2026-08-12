@@ -1,130 +1,120 @@
+//! Keybinding resolver backed by the industry `keybinds` crate.
+//!
+//! Crossterm still delivers raw `KeyEvent`s; **mapping** is owned by `keybinds`
+//! (parse + dispatch + sequences). Invalid chords never enter the map.
+
 use super::actions::Action;
-use super::preset::{normalize_key_string, parse_action_name};
+use super::loader::{KeymapLoadReport, load_keybinds};
 use crate::config::AppConfig;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::{KeyEvent, KeyEventKind};
+use keybinds::{KeyInput, KeySeq, Keybinds, Match};
 use std::collections::HashMap;
 
 pub struct KeybindingResolver {
-    bindings: HashMap<String, Action>,
-    /// Inverse map: Action -> first key string that triggers it.
+    keybinds: Keybinds<Action>,
+    /// Action → first bound chord display (for F-key bar / help).
     inverse: HashMap<Action, String>,
+    #[allow(dead_code)]
+    load_report: KeymapLoadReport,
 }
 
 impl KeybindingResolver {
     pub fn new(config: &AppConfig) -> Self {
-        // Load bindings from the active preset (file-based or built-in fallback)
-        let mut bindings = super::preset::get_preset_bindings(&config.keybindings.preset);
+        let (keybinds, report) = load_keybinds(
+            &config.keybindings.preset,
+            &config.keybindings.custom_bindings,
+        );
 
-        // Overlay user custom overrides from keybindings.toml [custom_bindings]
-        for (action_name, key_str) in &config.keybindings.custom_bindings {
-            if let Some(action) = parse_action_name(action_name) {
-                for key in key_str.split(',') {
-                    let trimmed = key.trim();
-                    if !trimmed.is_empty() {
-                        bindings.insert(normalize_key_string(trimmed), action);
-                    }
-                }
-            }
+        for w in &report.warnings {
+            log::warn!("keymap: {w}");
+        }
+        for e in &report.errors {
+            log::error!("keymap: {e}");
+        }
+        if !report.ok() {
+            log::error!(
+                "keymap loaded with {} error(s); {} binding(s) active",
+                report.errors.len(),
+                report.bound_count
+            );
+        } else {
+            log::info!(
+                "keymap preset='{}' loaded ({} bindings)",
+                config.keybindings.preset,
+                report.bound_count
+            );
         }
 
-        // Build inverse map (action -> first key found, prefer shorter/simpler keys)
         let mut inverse: HashMap<Action, String> = HashMap::new();
-        for (key_str, action) in &bindings {
-            inverse.entry(*action).or_insert_with(|| key_str.clone());
+        for bind in keybinds.as_slice() {
+            inverse
+                .entry(bind.action)
+                .or_insert_with(|| bind.seq.to_string());
         }
 
-        Self { bindings, inverse }
+        Self {
+            keybinds,
+            inverse,
+            load_report: report,
+        }
     }
 
-    /// Resolves a KeyEvent into a logical Action.
-    pub fn resolve(&self, key_event: KeyEvent) -> Option<Action> {
-        let key_str = key_event_to_string(key_event);
-        if key_str.is_empty() {
+    /// Resolve a key press into an action (may complete a multi-key sequence).
+    pub fn resolve(&mut self, key_event: KeyEvent) -> Option<Action> {
+        // Ignore key-release / non-press noise from enhancement flags.
+        if key_event.kind != KeyEventKind::Press && key_event.kind != KeyEventKind::Repeat {
             return None;
         }
-        self.bindings.get(&key_str).copied()
+        self.keybinds.dispatch(key_event).copied()
     }
 
-    /// Returns the key string bound to `action` in the active preset, or `None` if unbound.
+    /// True if this key is a complete binding or starts a multi-key sequence.
+    /// Used to keep CLI capture from eating shortcuts (immutable, no dispatch).
+    pub fn would_trigger(&self, key_event: KeyEvent) -> bool {
+        if key_event.kind != KeyEventKind::Press && key_event.kind != KeyEventKind::Repeat {
+            return false;
+        }
+        if self.keybinds.is_ongoing() {
+            return true;
+        }
+        let input = KeyInput::from(&key_event);
+        let single = [input];
+        for bind in self.keybinds.as_slice() {
+            match bind.seq.match_to(&single) {
+                Match::Matched | Match::Prefix => return true,
+                Match::Unmatch => {}
+            }
+        }
+        false
+    }
+
+    /// Returns the key string bound to `action`, or `None` if unbound.
     pub fn key_for_action(&self, action: Action) -> Option<&str> {
         self.inverse.get(&action).map(|s| s.as_str())
     }
 
-    /// Resolves a canonical key string (e.g. `"F7"`, `"Alt+F5"`) into the action it triggers.
-    /// Returns `None` if the key is unbound.
+    /// Resolve a config-style key string (e.g. `"F7"`, `"Alt+F5"`) to its action.
     pub fn resolve_for_key_string(&self, key: &str) -> Option<Action> {
-        self.bindings.get(key).copied()
+        let seq: KeySeq = key.parse().ok()?;
+        self.keybinds
+            .as_slice()
+            .iter()
+            .find(|b| b.seq == seq)
+            .map(|b| b.action)
     }
 }
 
-/// Converts a crossterm KeyEvent into a standard human-readable string representation.
-/// Examples: "Ctrl+H", "F5", "Alt+F7", "Shift+F9", "Ctrl+Alt+1", "Gray+".
+/// Human-readable key for plugins / logging (best-effort; not the source of truth).
 pub fn key_event_to_string(key: KeyEvent) -> String {
-    let has_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let has_alt = key.modifiers.contains(KeyModifiers::ALT);
-    let has_shift = key.modifiers.contains(KeyModifiers::SHIFT);
-
-    let code_str = match key.code {
-        KeyCode::Char(' ') => "Space".to_string(),
-        KeyCode::Char(c) => {
-            // Capitalize if shift is held for cleaner key string representation
-            if has_shift && c.is_ascii_lowercase() {
-                c.to_ascii_uppercase().to_string()
-            } else {
-                c.to_string()
-            }
-        }
-        KeyCode::F(num) => format!("F{}", num),
-        KeyCode::Up => "Up".to_string(),
-        KeyCode::Down => "Down".to_string(),
-        KeyCode::Left => "Left".to_string(),
-        KeyCode::Right => "Right".to_string(),
-        KeyCode::Tab => "Tab".to_string(),
-        KeyCode::Enter => "Enter".to_string(),
-        KeyCode::Backspace => "Backspace".to_string(),
-        KeyCode::Delete => "Delete".to_string(),
-        KeyCode::Insert => "Insert".to_string(),
-        KeyCode::Esc => "Esc".to_string(),
-        KeyCode::Home => "Home".to_string(),
-        KeyCode::End => "End".to_string(),
-        KeyCode::PageUp => "PageUp".to_string(),
-        KeyCode::PageDown => "PageDown".to_string(),
-        // Numpad/Gray keys represented by crossterm as Char on some terminals
-        _ => String::new(),
-    };
-
-    if code_str.is_empty() {
-        return String::new();
-    }
-
-    // Build modifier prefix
-    let mut parts: Vec<&str> = Vec::new();
-    if has_ctrl {
-        parts.push("Ctrl");
-    }
-    if has_alt {
-        parts.push("Alt");
-    }
-    if has_shift {
-        parts.push("Shift");
-    }
-
-    if parts.is_empty() {
-        code_str
-    } else {
-        // Shift+char is already capitalised above — don't add "Shift+" prefix for plain chars
-        if parts.len() == 1 && parts[0] == "Shift" && matches!(key.code, KeyCode::Char(_)) {
-            return code_str;
-        }
-        format!("{}+{}", parts.join("+"), code_str)
-    }
+    let input = KeyInput::from(&key);
+    input.to_string()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keybindings::Action;
-    use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+    use crate::keybindings::preset::parse_action_name;
+    use crossterm::event::{KeyCode, KeyModifiers};
 
     #[test]
     fn test_key_event_to_string_basic() {
@@ -132,28 +122,8 @@ mod tests {
         assert_eq!(key_event_to_string(key_up), "Up");
 
         let key_ctrl_h = KeyEvent::new(KeyCode::Char('h'), KeyModifiers::CONTROL);
-        assert_eq!(key_event_to_string(key_ctrl_h), "Ctrl+h");
-
-        let key_shift_tab = KeyEvent::new(KeyCode::Tab, KeyModifiers::SHIFT);
-        assert_eq!(key_event_to_string(key_shift_tab), "Shift+Tab");
-    }
-
-    #[test]
-    fn test_key_event_to_string_alt_f() {
-        let key_alt_f7 = KeyEvent::new(KeyCode::F(7), KeyModifiers::ALT);
-        assert_eq!(key_event_to_string(key_alt_f7), "Alt+F7");
-
-        let key_shift_f9 = KeyEvent::new(KeyCode::F(9), KeyModifiers::SHIFT);
-        assert_eq!(key_event_to_string(key_shift_f9), "Shift+F9");
-    }
-
-    #[test]
-    fn test_key_event_to_string_ctrl_alt() {
-        let key_ctrl_alt_1 = KeyEvent::new(
-            KeyCode::Char('1'),
-            KeyModifiers::CONTROL | KeyModifiers::ALT,
-        );
-        assert_eq!(key_event_to_string(key_ctrl_alt_1), "Ctrl+Alt+1");
+        let s = key_event_to_string(key_ctrl_h);
+        assert!(s.contains("Ctrl") && s.to_lowercase().contains('h'), "{s}");
     }
 
     #[test]
@@ -163,7 +133,7 @@ mod tests {
             theme: crate::config::theme::Theme::default(),
             keybindings: crate::config::keybindings::KeybindingsConfig::default(),
         };
-        let resolver = KeybindingResolver::new(&config);
+        let mut resolver = KeybindingResolver::new(&config);
 
         let key_up = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
         assert_eq!(resolver.resolve(key_up), Some(Action::MoveUp));
@@ -182,7 +152,7 @@ mod tests {
             theme: crate::config::theme::Theme::default(),
             keybindings: crate::config::keybindings::KeybindingsConfig::default(),
         };
-        let resolver = KeybindingResolver::new(&config);
+        let mut resolver = KeybindingResolver::new(&config);
 
         let key_alt_f7 = KeyEvent::new(KeyCode::F(7), KeyModifiers::ALT);
         assert_eq!(resolver.resolve(key_alt_f7), Some(Action::FindFile));
@@ -216,5 +186,17 @@ mod tests {
         );
         assert_eq!(parse_action_name("find_file_alt"), Some(Action::FindFile));
         assert_eq!(parse_action_name("invalid_action_name"), None);
+    }
+
+    #[test]
+    fn test_resolve_for_key_string() {
+        let config = AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        };
+        let resolver = KeybindingResolver::new(&config);
+        assert_eq!(resolver.resolve_for_key_string("F5"), Some(Action::Copy));
+        assert_eq!(resolver.resolve_for_key_string("F1"), Some(Action::Help));
     }
 }

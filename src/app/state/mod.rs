@@ -47,6 +47,10 @@ pub struct AppState {
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
     pub terminal_needs_clear: bool,
+    /// When false, the main loop may skip `terminal.draw` (dirty-flag rendering).
+    pub ui_dirty: bool,
+    /// Last time transfer progress forced a redraw (rate-limit).
+    pub last_transfer_draw: Option<std::time::Instant>,
 
     // ── Screens Management ────────────────────────────────────────────────────
     pub screens: Vec<Screen>,
@@ -151,6 +155,8 @@ impl AppState {
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
             terminal_needs_clear: false,
+            ui_dirty: true,
+            last_transfer_draw: None,
             pending_custom_command: None,
             is_root,
             // Update
@@ -162,6 +168,16 @@ impl AppState {
             // Transfer Engine
             transfer: None,
         }
+    }
+
+    pub fn mark_ui_dirty(&mut self) {
+        self.ui_dirty = true;
+    }
+
+    /// True when the frame should be painted this tick.
+    /// Transfer/update progress must call [`Self::mark_ui_dirty`] (rate-limited in the main loop).
+    pub fn needs_redraw(&self) -> bool {
+        self.ui_dirty || self.terminal_needs_clear
     }
 
     /// Returns a reference to the active panel state.

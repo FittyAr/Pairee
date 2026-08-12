@@ -11,7 +11,8 @@
 
 ### Improved
 
-- Improvement plan documents **Phase F**: migrate keymaps to `keybinds`, evaluate `ratatui-which-key`, adopt `tui-scrollbar`, and anti-glitch TUI patterns inspired by Grok Build.
+- Keybindings engine rebuilt on the `keybinds` crate: invalid chords are rejected, duplicate chords across actions are rejected, and Norton/Neovim/VSCode presets load from validated TOML.
+- TUI draw path uses synchronized updates and dirty-flag rendering to reduce flicker/glitches.
 - CI `check` workflow now targets `master`/`main`, runs tests on Ubuntu and Windows, uses Node 24-aligned actions, and rejects crate-level `clippy::all` allows.
 - Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.

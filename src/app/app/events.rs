@@ -75,6 +75,7 @@ pub async fn handle_input_event(
             }
 
             if let Some(action) = context.resolver.resolve(key) {
+                state.mark_ui_dirty();
                 handle_action(state, action, context, terminal_backend).await?;
             } else if !key_str.is_empty() {
                 if let Some((plugin_name, action_name)) =

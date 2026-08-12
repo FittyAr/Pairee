@@ -10,7 +10,9 @@ pub fn process_background_updates(
     // 1. Process Terminal background updates
     if state.term_rx.is_some() {
         let mut rx = state.term_rx.take().unwrap();
+        let mut got = false;
         while let Ok(update) = rx.try_recv() {
+            got = true;
             if let Some(Screen::Terminal(ts)) = state.screens.get_mut(update.screen_idx) {
                 match update.line {
                     Some(line) => ts.output_lines.push(line),
@@ -19,6 +21,9 @@ pub fn process_background_updates(
             }
         }
         state.term_rx = Some(rx);
+        if got {
+            state.mark_ui_dirty();
+        }
     }
 
     // 1.6 Process background SSH connection attempts
@@ -37,6 +42,7 @@ pub fn process_background_updates(
                     p.clear_selection();
                     state.active_popup = None;
                     state.refresh_both_panels(context.config.settings.show_hidden);
+                    state.mark_ui_dirty();
                 }
                 Err(e) => {
                     state.active_popup = Some(PopupType::Error(format!(
@@ -44,6 +50,7 @@ pub fn process_background_updates(
                         crate::config::localization::t("error_ssh_failed"),
                         e
                     )));
+                    state.mark_ui_dirty();
                 }
             },
             Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {

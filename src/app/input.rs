@@ -15,8 +15,9 @@ pub fn handle_cli_input(
         return Err(());
     }
 
-    // Bypass CLI input capture if command line is empty and the key matches a resolved shortcut
-    if state.cli_input.is_empty() && context.resolver.resolve(key).is_some() {
+    // Bypass CLI capture when this key is (or starts) a bound shortcut.
+    // Uses immutable peek so multi-key sequences are not consumed here.
+    if state.cli_input.is_empty() && context.resolver.would_trigger(key) {
         return Err(());
     }
 
