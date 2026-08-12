@@ -10,6 +10,7 @@ use crate::app::state::{AppState, TransferTab, TransferUIState, TransferViewMode
 use crate::config::localization::t;
 use crate::fs::transfer::job::{TransferJobStatus, TransferProgress, TransferResults};
 use crate::ui::popup::centered_rect;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 
 pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppContext) {
     let transfer_state = match &state.transfer {
@@ -46,8 +47,10 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
 
     let jobs = transfer_state.engine.queue.get_all();
 
+    let theme = &context.config.theme;
+
     // --- 1. RENDER SIDEBAR (COL IZQUIERDA) ---
-    render_jobs_sidebar(f, main_layout[0], transfer_state, &jobs);
+    render_jobs_sidebar(f, main_layout[0], transfer_state, &jobs, theme);
 
     // --- 2. RENDER INSPECTOR (COL DERECHA) ---
     if jobs.is_empty() {
@@ -105,7 +108,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
             // Content
             match transfer_state.active_tab {
                 TransferTab::FileList => {
-                    render_file_list_tab(f, chunks[2], transfer_state, results)
+                    render_file_list_tab(f, chunks[2], transfer_state, results, theme)
                 }
                 TransferTab::Options => {
                     render_options_tab(f, chunks[2], transfer_state, selected_job)
@@ -113,7 +116,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
                 TransferTab::Status => {
                     render_status_tab(f, chunks[2], transfer_state, progress, results)
                 }
-                TransferTab::Log => render_log_tab(f, chunks[2], log_lines),
+                TransferTab::Log => render_log_tab(f, chunks[2], log_lines, theme),
             }
 
             // Footer
@@ -127,6 +130,7 @@ fn render_jobs_sidebar(
     area: Rect,
     ts: &TransferUIState,
     jobs: &[crate::fs::transfer::job::TransferJob],
+    theme: &crate::config::theme::Theme,
 ) {
     let mut list_items = Vec::new();
     let selected_job = jobs.get(ts.queue_cursor);
@@ -212,6 +216,19 @@ fn render_jobs_sidebar(
     list_state.select(Some(ts.queue_cursor));
 
     f.render_stateful_widget(jobs_list, area, &mut list_state);
+
+    // Jobs list items are multi-line (~3 rows each); approximate viewport by area height.
+    let viewport = area.height.saturating_sub(2) as usize;
+    let offset = scrollbar::centered_scroll(ts.queue_cursor, jobs.len(), viewport.max(1));
+    scrollbar::render_vertical_inside_block(
+        f,
+        area,
+        jobs.len(),
+        viewport.max(1),
+        offset,
+        theme,
+        ScrollbarSurface::Popup,
+    );
 }
 
 fn render_header(
@@ -369,7 +386,13 @@ fn render_tabs(
     }
 }
 
-fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &TransferResults) {
+fn render_file_list_tab(
+    f: &mut Frame,
+    area: Rect,
+    ts: &TransferUIState,
+    res: &TransferResults,
+    theme: &crate::config::theme::Theme,
+) {
     let total_files = res.failed_files.len() + res.skipped_files.len() + res.completed_files.len();
 
     if total_files == 0 {
@@ -385,16 +408,7 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &T
     let height = area.height.saturating_sub(3) as usize;
     let cursor = ts.file_list_cursor;
 
-    let start = if cursor > height / 2 {
-        cursor.saturating_sub(height / 2)
-    } else {
-        0
-    };
-    let start = if start + height > total_files {
-        total_files.saturating_sub(height)
-    } else {
-        start
-    };
+    let start = scrollbar::centered_scroll(cursor, total_files, height);
     let end = start + height.min(total_files.saturating_sub(start));
 
     let mut rows = Vec::new();
@@ -496,6 +510,16 @@ fn render_file_list_tab(f: &mut Frame, area: Rect, ts: &TransferUIState, res: &T
     table_state.select(Some(cursor.saturating_sub(start)));
 
     f.render_stateful_widget(table, area, &mut table_state);
+
+    scrollbar::render_vertical_inside_block(
+        f,
+        area,
+        total_files,
+        height.max(1),
+        start,
+        theme,
+        ScrollbarSurface::Popup,
+    );
 }
 
 fn render_options_tab(
@@ -681,11 +705,21 @@ fn render_status_tab(
     f.render_widget(p, area);
 }
 
-fn render_log_tab(f: &mut Frame, area: Rect, log_lines: &[String]) {
+fn render_log_tab(
+    f: &mut Frame,
+    area: Rect,
+    log_lines: &[String],
+    theme: &crate::config::theme::Theme,
+) {
+    let viewport = area.height.saturating_sub(2) as usize;
+    let total = log_lines.len();
+    // Show newest lines at the bottom of the visible window.
+    let start = total.saturating_sub(viewport);
+
     let items: Vec<ListItem> = log_lines
         .iter()
-        .rev()
-        .take(15)
+        .skip(start)
+        .take(viewport)
         .map(|line| ListItem::new(line.as_str()).style(Style::default().fg(Color::Gray)))
         .collect();
 
@@ -696,6 +730,16 @@ fn render_log_tab(f: &mut Frame, area: Rect, log_lines: &[String]) {
             .border_type(BorderType::Rounded),
     );
     f.render_widget(list, area);
+
+    scrollbar::render_vertical_inside_block(
+        f,
+        area,
+        total,
+        viewport.max(1),
+        start,
+        theme,
+        ScrollbarSurface::Popup,
+    );
 }
 
 fn render_footer(f: &mut Frame, area: Rect, _job: &crate::fs::transfer::job::TransferJob) {

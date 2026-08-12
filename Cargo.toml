@@ -2,7 +2,7 @@
 name = "pairee"
 version = "0.7.2"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
 license = "GPL-3.0-only"
@@ -44,6 +44,7 @@ bytesize = "1.3.0"
 # Features: crossterm KeyEvent conversion, sequences, invalid-binding errors.
 keybinds = { version = "0.2", features = ["crossterm", "serde"] }
 unicode-width = "0.2"
+tui-scrollbar = { version = "0.2.7", features = ["crossterm"] }
 
 [dev-dependencies]
 tempfile = "3.27"

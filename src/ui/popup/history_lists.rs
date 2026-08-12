@@ -1,6 +1,7 @@
 use super::centered_rect;
 use crate::app::state::{CompareStatus, PopupType};
 use crate::config::localization::t;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -53,7 +54,8 @@ pub fn render_history_lists_popup(
                 f.render_widget(paragraph, inner);
             } else {
                 let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start = cursor_idx.saturating_sub(list_height / 2);
+                let scroll_start =
+                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
                 let mut lines = Vec::new();
 
                 for (i, entry) in entries
@@ -84,6 +86,16 @@ pub fn render_history_lists_popup(
                 let paragraph =
                     Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
+
+                scrollbar::render_vertical_right(
+                    f,
+                    inner,
+                    entries.len(),
+                    list_height,
+                    scroll_start,
+                    theme,
+                    ScrollbarSurface::Popup,
+                );
             }
             true
         }
@@ -109,7 +121,8 @@ pub fn render_history_lists_popup(
                 f.render_widget(paragraph, inner);
             } else {
                 let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start = cursor_idx.saturating_sub(list_height / 2);
+                let scroll_start =
+                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
                 let mut lines = Vec::new();
 
                 for (i, entry) in entries
@@ -141,6 +154,16 @@ pub fn render_history_lists_popup(
                 let paragraph =
                     Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
+
+                scrollbar::render_vertical_right(
+                    f,
+                    inner,
+                    entries.len(),
+                    list_height,
+                    scroll_start,
+                    theme,
+                    ScrollbarSurface::Popup,
+                );
             }
             true
         }
@@ -166,7 +189,8 @@ pub fn render_history_lists_popup(
                 f.render_widget(paragraph, inner);
             } else {
                 let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start = cursor_idx.saturating_sub(list_height / 2);
+                let scroll_start =
+                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
                 let mut lines = Vec::new();
 
                 for (i, entry) in entries
@@ -198,6 +222,16 @@ pub fn render_history_lists_popup(
                 let paragraph =
                     Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
                 f.render_widget(paragraph, inner);
+
+                scrollbar::render_vertical_right(
+                    f,
+                    inner,
+                    entries.len(),
+                    list_height,
+                    scroll_start,
+                    theme,
+                    ScrollbarSurface::Popup,
+                );
             }
             true
         }

@@ -1,4 +1,5 @@
 use crate::config::localization::t;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use image::GenericImageView;
 use ratatui::{
@@ -64,6 +65,16 @@ pub fn draw_quick_view(
             .wrap(Wrap { trim: false });
 
         f.render_widget(para, area);
+
+        scrollbar::render_vertical_inside_block(
+            f,
+            area,
+            content.len(),
+            visible_height,
+            scroll,
+            theme,
+            ScrollbarSurface::Panel,
+        );
     }
 }
 
@@ -77,12 +88,23 @@ fn render_plugin_widget(
 ) {
     match widget {
         PluginWidget::Paragraph(text) => {
+            let viewport = area.height.saturating_sub(2) as usize;
+            let content_len = text.lines().count().max(1);
             let para = Paragraph::new(text.as_str())
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.panel_fg)))
                 .wrap(Wrap { trim: false })
                 .scroll((scroll as u16, 0));
             f.render_widget(para, area);
+            scrollbar::render_vertical_inside_block(
+                f,
+                area,
+                content_len,
+                viewport,
+                scroll,
+                theme,
+                ScrollbarSurface::Panel,
+            );
         }
         PluginWidget::Gauge { ratio, label } => {
             let gauge = Gauge::default()
@@ -93,6 +115,7 @@ fn render_plugin_widget(
             f.render_widget(gauge, area);
         }
         PluginWidget::List(items) => {
+            let viewport = area.height.saturating_sub(2) as usize;
             let list_items: Vec<ListItem> = items
                 .iter()
                 .skip(scroll)
@@ -102,6 +125,15 @@ fn render_plugin_widget(
                 .block(block)
                 .style(Style::default().fg(parse_color(&theme.panel_fg)));
             f.render_widget(list, area);
+            scrollbar::render_vertical_inside_block(
+                f,
+                area,
+                items.len(),
+                viewport,
+                scroll,
+                theme,
+                ScrollbarSurface::Panel,
+            );
         }
         PluginWidget::Table { headers, rows } => {
             let header_row =

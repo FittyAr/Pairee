@@ -7,6 +7,7 @@ pub mod menu;
 pub mod panel;
 pub mod popup;
 pub mod quickview;
+pub mod scrollbar;
 pub mod theme_apply;
 pub mod transfer;
 pub mod viewer;
@@ -144,6 +145,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     vw,
                     &context.config.theme,
                     &state.active_popup,
+                    context.config.settings.viewer_show_scrollbar,
                 );
             }
             crate::app::state::Screen::Terminal(ts) => {

@@ -1,6 +1,7 @@
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -149,6 +150,23 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             );
         } else {
             f.render_widget(Paragraph::new(lines), content_area);
+
+            let total = match active_tab {
+                0 => status_entries.len(),
+                1 => log_entries.len(),
+                2 => branch_entries.len(),
+                3 => stash_entries.len(),
+                _ => 0,
+            };
+            scrollbar::render_vertical_right(
+                f,
+                content_area,
+                total,
+                list_height,
+                effective_scroll,
+                theme,
+                ScrollbarSurface::Popup,
+            );
         }
 
         // ── Hint bar ─────────────────────────────────────────────────────────

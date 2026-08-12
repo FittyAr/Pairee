@@ -1,12 +1,13 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
 pub fn render_about_popup(
@@ -247,18 +248,21 @@ pub fn render_about_popup(
             .style(text_style);
         f.render_widget(paragraph, popup_chunks[0]);
 
-        // Render scrollbar if needed
-        if total_lines > inner_height {
-            let mut scrollbar_state = ScrollbarState::new(max_scroll).position(clamped_scroll);
-            let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-            let scrollbar_area = Rect {
+        // Fractional scrollbar on the content pane
+        scrollbar::render_vertical(
+            f,
+            Rect {
                 x: area.x + area.width.saturating_sub(1),
                 y: area.y + 1,
                 width: 1,
                 height: area.height.saturating_sub(3),
-            };
-            f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-        }
+            },
+            total_lines,
+            inner_height,
+            clamped_scroll,
+            theme,
+            ScrollbarSurface::Popup,
+        );
 
         // Render bottom hint
         let hint_text = t("about_hint");

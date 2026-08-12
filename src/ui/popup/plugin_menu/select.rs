@@ -1,4 +1,5 @@
 use crate::app::state::PopupType;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -66,6 +67,18 @@ pub fn render_dev_select(
             .style(Style::default().fg(parse_color(&theme.popup_fg)));
 
         f.render_stateful_widget(list, area, &mut list_state);
+
+        let viewport = area.height.saturating_sub(2) as usize;
+        let offset = scrollbar::centered_scroll(*cursor_idx, options.len(), viewport.max(1));
+        scrollbar::render_vertical_inside_block(
+            f,
+            area,
+            options.len(),
+            viewport.max(1),
+            offset,
+            theme,
+            ScrollbarSurface::Popup,
+        );
 
         true
     } else {

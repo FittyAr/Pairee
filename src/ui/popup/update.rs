@@ -1,15 +1,14 @@
 use super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{
-        Block, Borders, Clear, Gauge, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState,
-    },
+    widgets::{Block, Borders, Clear, Gauge, Paragraph},
 };
 
 /// Render the "Update Available" popup.
@@ -156,18 +155,15 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         .style(bg_style);
     f.render_widget(paragraph, layout[2]);
 
-    // Render scrollbar if needed
-    if total_lines > inner_height {
-        let mut scrollbar_state = ScrollbarState::new(max_scroll).position(clamped_scroll);
-        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let scrollbar_area = Rect {
-            x: layout[2].x + layout[2].width.saturating_sub(1),
-            y: layout[2].y,
-            width: 1,
-            height: layout[2].height,
-        };
-        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-    }
+    scrollbar::render_vertical_right(
+        f,
+        layout[2],
+        total_lines,
+        inner_height,
+        clamped_scroll,
+        theme,
+        ScrollbarSurface::Popup,
+    );
 
     // Separator
     let sep = "─".repeat(inner.width as usize);

@@ -11,13 +11,14 @@ mod wide;
 use crate::app::context::AppContext;
 use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState},
+    widgets::{Block, Borders, Paragraph},
 };
 
 use brief::render_brief;
@@ -204,20 +205,20 @@ pub fn render_panel(
         ),
     }
 
-    // ── Optional scrollbar ────────────────────────────────────────────────────
+    // ── Optional scrollbar (fractional thumb via tui-scrollbar) ───────────────
     if show_scrollbar && !panel.entries.is_empty() {
         let inner_height = list_area.height.saturating_sub(2) as usize;
         let total = panel.entries.len();
-        let mut scrollbar_state = ScrollbarState::new(total.saturating_sub(inner_height))
-            .position(panel.cursor_index.min(total.saturating_sub(inner_height)));
-        let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let scrollbar_area = Rect {
-            x: list_area.x + list_area.width.saturating_sub(1),
-            y: list_area.y + 1,
-            width: 1,
-            height: list_area.height.saturating_sub(2),
-        };
-        f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
+        let offset = scrollbar::centered_scroll(panel.cursor_index, total, inner_height);
+        scrollbar::render_vertical_inside_block(
+            f,
+            list_area,
+            total,
+            inner_height,
+            offset,
+            theme,
+            ScrollbarSurface::Panel,
+        );
     }
 
     // ── Optional footer lines ─────────────────────────────────────────────────

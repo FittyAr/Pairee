@@ -1,14 +1,12 @@
 use super::super::centered_rect;
 use crate::app::state::PopupType;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{
-        Block, Borders, Clear, List, ListItem, Paragraph, Scrollbar, ScrollbarOrientation,
-        ScrollbarState,
-    },
+    widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
 pub fn render(
@@ -147,22 +145,18 @@ pub fn render(
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
             f.render_widget(paragraph, right_area);
 
-            // Render scrollbar if text is longer than panel height
+            // Fractional scrollbar when content overflows the viewer pane
             let total_lines = wrapped_lines.len();
             let inner_height = right_area.height.saturating_sub(2) as usize;
-            if total_lines > inner_height {
-                let mut scrollbar_state =
-                    ScrollbarState::new(total_lines.saturating_sub(inner_height))
-                        .position((*scroll_y).min(total_lines.saturating_sub(inner_height)));
-                let scrollbar = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-                let scrollbar_area = Rect {
-                    x: right_area.x + right_area.width.saturating_sub(1),
-                    y: right_area.y + 1,
-                    width: 1,
-                    height: right_area.height.saturating_sub(2),
-                };
-                f.render_stateful_widget(scrollbar, scrollbar_area, &mut scrollbar_state);
-            }
+            scrollbar::render_vertical_inside_block(
+                f,
+                right_area,
+                total_lines,
+                inner_height,
+                *scroll_y,
+                theme,
+                ScrollbarSurface::Popup,
+            );
         } else {
             let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);
             f.render_widget(empty_paragraph, right_area);

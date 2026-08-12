@@ -1,4 +1,5 @@
 use crate::config::localization::t;
+use crate::ui::scrollbar::{self, ScrollbarSurface};
 use crate::ui::theme_apply::parse_color;
 use image::GenericImageView;
 use ratatui::{
@@ -240,6 +241,7 @@ pub fn render_viewer(
     state: &ViewerState,
     theme: &crate::config::theme::Theme,
     active_popup: &Option<crate::app::state::PopupType>,
+    show_scrollbar: bool,
 ) {
     let mode_label = match state.mode {
         ViewerMode::Text => t("view_text_mode"),
@@ -268,9 +270,9 @@ pub fn render_viewer(
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
     match state.mode {
-        ViewerMode::Text => render_text(f, area, state, block, theme, active_popup),
-        ViewerMode::Hex => render_hex(f, area, state, block, theme),
-        ViewerMode::Image => render_image(f, area, state, block, theme),
+        ViewerMode::Text => render_text(f, area, state, block, theme, active_popup, show_scrollbar),
+        ViewerMode::Hex => render_hex(f, area, state, block, theme, show_scrollbar),
+        ViewerMode::Image => render_image(f, area, state, block, theme, show_scrollbar),
     }
 }
 
@@ -285,6 +287,7 @@ fn render_text(
     block: Block,
     theme: &crate::config::theme::Theme,
     active_popup: &Option<crate::app::state::PopupType>,
+    show_scrollbar: bool,
 ) {
     let height = area.height.saturating_sub(2) as usize;
 
@@ -323,6 +326,18 @@ fn render_text(
         .wrap(Wrap { trim: false });
 
     f.render_widget(para, area);
+
+    if show_scrollbar {
+        scrollbar::render_vertical_inside_block(
+            f,
+            area,
+            state.lines.len(),
+            height,
+            state.scroll,
+            theme,
+            ScrollbarSurface::Panel,
+        );
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -335,10 +350,12 @@ fn render_hex(
     state: &ViewerState,
     block: Block,
     theme: &crate::config::theme::Theme,
+    show_scrollbar: bool,
 ) {
     let height = area.height.saturating_sub(2) as usize;
     let bytes_per_row = 16usize;
     let start_byte = state.scroll * bytes_per_row;
+    let total_rows = state.raw.len().div_ceil(bytes_per_row).max(1);
 
     let lines: Vec<Line> = (0..height)
         .map(|row_offset| {
@@ -378,6 +395,18 @@ fn render_hex(
         .block(block)
         .style(Style::default().fg(parse_color(&theme.panel_fg)));
     f.render_widget(para, area);
+
+    if show_scrollbar {
+        scrollbar::render_vertical_inside_block(
+            f,
+            area,
+            total_rows,
+            height,
+            state.scroll,
+            theme,
+            ScrollbarSurface::Panel,
+        );
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -390,6 +419,7 @@ fn render_image(
     state: &ViewerState,
     block: Block,
     theme: &crate::config::theme::Theme,
+    show_scrollbar: bool,
 ) {
     let inner_area = block.inner(area);
     let inner_w = inner_area.width;
@@ -448,6 +478,18 @@ fn render_image(
     let start_y = inner_area.y + ((inner_h - rows as u16) / 2);
 
     f.render_widget(block, area);
+
+    if show_scrollbar && rows > inner_h as usize {
+        scrollbar::render_vertical_right(
+            f,
+            inner_area,
+            rows,
+            inner_h as usize,
+            scroll_offset,
+            theme,
+            ScrollbarSurface::Panel,
+        );
+    }
 
     let buf = f.buffer_mut();
 
