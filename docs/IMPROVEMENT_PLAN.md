@@ -215,10 +215,13 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
 | Fecha | Commit | Qué se hizo |
 |-------|--------|-------------|
-| 2026-08-12 | _(serie de commits en esta sesión)_ | Fase A: plan, CI, clippy real, docs, limpieza, tests integración |
+| 2026-08-12 | `a8bc062` | docs: plan de mejora con checkboxes |
+| 2026-08-12 | `b50ffd9` | chore: `.gitignore` propio de Pairee |
+| 2026-08-12 | `ae0c3d8` | docs: README, índice, banners de estado, UNRELEASED |
+| 2026-08-12 | `537128b` | ci: `master`/`main` + matrix OS + policy Clippy |
+| 2026-08-12 | `b78ec6f` | refactor: Clippy real, MSRV, fmt, tests integración |
 
-Ver historial git de `master` con mensajes `docs:`, `ci:`, `chore:`, `refactor:`, `test:`.
-
+Ver también `git log --oneline master` para el detalle.
 ---
 
 ## 11. Roadmap visual
@@ -242,4 +245,4 @@ Siguiente bloque de trabajo recomendado: **Fase B — unificar Transfer Engine**
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (Fase A completada localmente; push pendiente en la serie de commits).*
+*Última actualización del progreso: 2026-08-12 (Fase A completada y pusheada a `origin/master`).*
