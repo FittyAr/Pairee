@@ -175,16 +175,6 @@ pub enum AdminOpKind {
     },
 }
 
-/// Legacy progress-popup context for ops still on `progress_rx` (wipe/extract/compress).
-/// Copy/Move/Delete variants remain for UI title mapping while those ops migrate fully.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub enum BackgroundOpContext {
-    Copy,
-    Move,
-    Delete,
-}
-
 // Phase C: dialog stack will box/split variants
 #[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
@@ -322,15 +312,6 @@ pub enum PopupType {
     },
     SaveSetupConfirm,
 
-    // ── Progress ──────────────────────────────────────────────────────────────
-    CopyProgress {
-        is_move: bool,
-        current_file: String,
-        files_copied: usize,
-        total_files: usize,
-        bytes_copied: u64,
-        total_bytes: u64,
-    },
     TransferPanel,
 
     // ── Menus / lists ─────────────────────────────────────────────────────────

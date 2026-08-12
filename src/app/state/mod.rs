@@ -13,12 +13,11 @@ pub use glob::{glob_matches, glob_matches_case};
 pub use panel::PanelState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
-    ActivePanel, AdminOpKind, BackgroundOpContext, DevProgress, FileAttrsSnapshot,
-    GitConfirmedAction, LinkKind, PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode,
-    SortField, TerminalUpdate, TreeNode,
+    ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
+    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
+    TreeNode,
 };
 
-use crate::fs::ProgressUpdate;
 use crate::update::{UpdateInfo, UpdateStatus};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -30,8 +29,6 @@ pub struct AppState {
     pub cli_input: String,
     pub active_popup: Option<PopupType>,
     pub should_quit: bool,
-    /// Channel receiver for running copy/move/extract/wipe operations
-    pub progress_rx: Option<tokio::sync::mpsc::Receiver<ProgressUpdate>>,
     /// Channel receiver for background SSH connection attempts
     pub ssh_connect_rx: Option<
         tokio::sync::oneshot::Receiver<(
@@ -49,7 +46,6 @@ pub struct AppState {
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
-    pub active_bg_op: Option<BackgroundOpContext>,
     pub terminal_needs_clear: bool,
 
     // ── Screens Management ────────────────────────────────────────────────────
@@ -124,7 +120,6 @@ impl AppState {
             cli_input: String::new(),
             active_popup: None,
             should_quit: false,
-            progress_rx: None,
             ssh_connect_rx: None,
             search_rx: None,
             dev_progress_rx: None,
@@ -155,7 +150,6 @@ impl AppState {
             free_space_right: None,
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
-            active_bg_op: None,
             terminal_needs_clear: false,
             pending_custom_command: None,
             is_root,

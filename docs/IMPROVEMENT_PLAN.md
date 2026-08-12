@@ -129,31 +129,26 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 ---
 
-## 5. Fase B — Unificación del Transfer Engine (P1) ✅ cerrada (salvo apply-command legacy)
+## 5. Fase B — Unificación del Transfer Engine (P1) ✅ cerrada
 
-**Patrones:** Strategy (`backend/local` + `backend/ssh` + `backend/ops_jobs`), Facade (`submit_simple`), Builder (`options_from_settings`), Adapter (ProgressUpdate → TransferEvent para archive), Observer (`TransferEvent`).
+**Patrones:** Strategy (`backend/local` + `backend/ssh` + `backend/ops_jobs`), Facade (`submit_simple` / `submit_apply_command`), Builder (`options_from_settings`), Observer (`TransferEvent`), cooperative cancel (`AtomicBool` + `ensure_not_cancelled`).
 
-**Decisión de diseño (wipe / compress / extract):**  
-Sí forman parte del engine como `TransferOperation::{Wipe,Compress,Extract}`. No son “copias de bytes” clásicas, pero **sí son trabajos de cola con progreso** que el usuario debe aprender una sola vez (barra minimizable, log, cancel, cola). Separar UI modal por cada acción rompe la costumbre de uso.
+**Decisión de diseño:** copy/move/delete/wipe/compress/extract/**apply-command** comparten **una** UI de trabajos (cola, minimizar, log, cancel). Beta: se eliminó el stack legacy (`ops_worker` spawns, `progress_rx`, modal `CopyProgress`).
 
-- [x] Inventario de call sites
-- [x] Backends Strategy: local, SSH, **ops_jobs** (wipe/compress/extract)
-- [x] Migrar copy/move/delete (+ SSH) al engine
-- [x] Migrar **wipe / compress / extract** al engine + misma Transfer UI
-- [x] UI unificada: sin `CopyProgress` modal para estas ops
-- [x] Spawns legacy deprecados / fuera de API pública de `fs`
-- [x] Tests worker + integración transfer + zip smoke
-- [x] Partir `worker` en módulos
-- [ ] Apply command genérico aún en `progress_rx` + `CopyProgress` (no es transfer; candidata futura)
-- [ ] Cancel cooperativo mid-archive (hoy cancela el bridge; el zip bloqueante puede terminar)
+- [x] Backends Strategy: local, SSH, ops_jobs (wipe/compress/extract/**ApplyCommand**)
+- [x] UI unificada Transfer Engine (sin modal de progreso paralelo)
+- [x] **Apply command** en engine (`shell_template` + `%f`)
+- [x] **Cancel mid-archive** cooperativo en zip/tar/7z nativo + kill del 7z externo
+- [x] Eliminado `src/fs/ops_worker/`, `apply_cmd` spawn, `CopyProgress`, `progress_rx`, `BackgroundOpContext`
+- [x] Tests + clippy verdes
+- [x] SSH wipe/compress/extract/apply: no soportados (explícito)
 
-### 5.1 Inventario de paths (actualizado)
+### 5.1 Inventario de paths
 
-| Capacidad | Path actual | UI |
-|-----------|-------------|-----|
+| Capacidad | Path | UI |
+|-----------|------|-----|
 | Copy/Move/Delete local+SSH | `backend::{local,ssh}` | Transfer panel |
-| Wipe / Compress / Extract | `backend::ops_jobs` | Transfer panel |
-| Apply command (shell) | `ops_worker` / apply | legacy modal (fuera de B) |
+| Wipe / Compress / Extract / Apply | `backend::ops_jobs` | Transfer panel |
 
 ### 5.2 Layout post-split de `worker/`
 
@@ -275,10 +270,10 @@ Bajo impacto │  [ Más idiomas ] [ Command palette ] [ macOS CI ]
 ## 12. Conclusión operativa
 
 **Fase A cerrada.**  
-**Fase B cerrada** para el conjunto de ops de archivos largas: copy/move/delete/wipe/compress/extract comparten Transfer Engine + UI.  
+**Fase B cerrada por completo:** una sola UI de trabajos; legacy de progreso eliminado.  
 **Fase E:** command palette disponible.  
-**Pendiente fuerte:** monólitos UI (C), plugins (D), apply-command legacy, cancel mid-archive.
+**Pendiente fuerte:** monólitos UI (C), plugins (D).
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (Fase B: wipe/compress/extract en engine).*
+*Última actualización del progreso: 2026-08-12 (Fase B completa: apply + cancel archive + purge legacy).*

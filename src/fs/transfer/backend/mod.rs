@@ -18,6 +18,7 @@ use tokio::sync::mpsc;
 use uuid::Uuid;
 
 /// Shared control surface for any backend run.
+#[derive(Clone)]
 pub struct BackendControl {
     pub job_id: Uuid,
     pub is_paused: Arc<AtomicBool>,
@@ -45,7 +46,7 @@ pub async fn run_job(
     job: TransferJob,
     event_tx: mpsc::UnboundedSender<TransferEvent>,
 ) -> Result<TransferResults, anyhow::Error> {
-    // Wipe / compress / extract are local-only Strategy backends (same UI).
+    // Wipe / compress / extract / apply-command are local-only Strategy backends.
     if job.operation.uses_ops_backend() {
         if job.ssh.is_some() {
             return Err(anyhow::anyhow!(
@@ -61,7 +62,14 @@ pub async fn run_job(
         };
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
-        return ops_jobs::run_ops_job(job.operation, job.sources, job.destination, control).await;
+        return ops_jobs::run_ops_job(
+            job.operation,
+            job.sources,
+            job.destination,
+            job.shell_template,
+            control,
+        )
+        .await;
     }
 
     if let Some(ssh) = job.ssh {

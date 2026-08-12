@@ -7,73 +7,7 @@ pub fn process_background_updates(
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) {
-    // 1. Process background operation updates (e.g. copy progress)
-    if state.progress_rx.is_some() {
-        let mut rx = state.progress_rx.take().unwrap();
-        let mut is_completed = false;
-        let mut has_error = None;
-        let mut latest_update = None;
-
-        while let Ok(update) = rx.try_recv() {
-            if let Some(err) = update.error.clone() {
-                has_error = Some(err);
-            } else if update.current_file == "Completed" {
-                is_completed = true;
-            } else {
-                latest_update = Some(update);
-            }
-        }
-
-        if let Some(err) = has_error {
-            if !context.config.settings.req_admin_modification {
-                match state.active_bg_op.take() {
-                    Some(crate::app::state::BackgroundOpContext::Copy)
-                    | Some(crate::app::state::BackgroundOpContext::Move)
-                    | Some(crate::app::state::BackgroundOpContext::Delete) => {
-                        state.active_popup = Some(PopupType::Error(err));
-                    }
-                    None => {
-                        state.active_popup = Some(PopupType::Error(err));
-                    }
-                }
-            } else {
-                state.active_popup = Some(PopupType::Error(err));
-                state.active_bg_op = None;
-            }
-        } else if is_completed {
-            state.active_popup = None;
-            state.active_bg_op = None;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-        } else {
-            if let Some(update) = latest_update {
-                let should_update = matches!(
-                    &state.active_popup,
-                    None | Some(PopupType::CopyProgress { .. })
-                );
-                if should_update {
-                    // Preserve the is_move flag from the current popup if present
-                    let is_move = match &state.active_popup {
-                        Some(PopupType::CopyProgress { is_move, .. }) => *is_move,
-                        _ => matches!(
-                            state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move)
-                        ),
-                    };
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move,
-                        current_file: update.current_file,
-                        files_copied: update.files_copied,
-                        total_files: update.total_files,
-                        bytes_copied: update.bytes_copied,
-                        total_bytes: update.total_bytes,
-                    });
-                }
-            }
-            state.progress_rx = Some(rx);
-        }
-    }
-
-    // 1.5 Process Terminal background updates
+    // 1. Process Terminal background updates
     if state.term_rx.is_some() {
         let mut rx = state.term_rx.take().unwrap();
         while let Ok(update) = rx.try_recv() {
@@ -254,6 +188,9 @@ pub fn process_background_updates(
                             crate::fs::transfer::job::TransferOperation::Extract => {
                                 "Preparing archive for extraction...".to_string()
                             }
+                            crate::fs::transfer::job::TransferOperation::ApplyCommand => {
+                                "Preparing apply-command targets...".to_string()
+                            }
                             _ => "Scanning source files...".to_string(),
                         };
                         job.log_lines.push(msg);
@@ -311,6 +248,9 @@ pub fn process_background_updates(
                             crate::fs::transfer::job::TransferOperation::Extract => {
                                 format!("[{}] Extracting: {}", index + 1, file.to_string_lossy())
                             }
+                            crate::fs::transfer::job::TransferOperation::ApplyCommand => {
+                                format!("[{}] Applying: {}", index + 1, file.to_string_lossy())
+                            }
                             _ => format!("[{}] Copying: {}", index + 1, file.to_string_lossy()),
                         };
                         job.log_lines.push(msg);
@@ -346,6 +286,9 @@ pub fn process_background_updates(
                             }
                             crate::fs::transfer::job::TransferOperation::Extract => {
                                 format!("✓ OK: Extracted {}", result.src.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::ApplyCommand => {
+                                format!("✓ OK: Applied {}", result.src.to_string_lossy())
                             }
                             _ => {
                                 let verified_marker = if result.verified { " ✓hash" } else { "" };

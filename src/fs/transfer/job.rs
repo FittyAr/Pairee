@@ -26,6 +26,8 @@ pub struct TransferJob {
     pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
     /// When `Some`, the engine runs the SSH backend instead of the local worker.
     pub ssh: Option<SshEndpoints>,
+    /// Shell command template for [`TransferOperation::ApplyCommand`] (`%f` = path).
+    pub shell_template: Option<String>,
 }
 
 impl TransferJob {
@@ -50,12 +52,19 @@ impl TransferJob {
             skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             active_conflict: Arc::new(std::sync::Mutex::new(None)),
             ssh: None,
+            shell_template: None,
         }
     }
 
     /// Attach SSH endpoints (copy/move/delete over SFTP).
     pub fn with_ssh(mut self, ssh: SshEndpoints) -> Self {
         self.ssh = Some(ssh);
+        self
+    }
+
+    /// Attach shell template for ApplyCommand (`%f` expands to each source path).
+    pub fn with_shell_template(mut self, template: impl Into<String>) -> Self {
+        self.shell_template = Some(template.into());
         self
     }
 
@@ -93,6 +102,8 @@ pub enum TransferOperation {
     Compress,
     /// Unpack archive `sources[0]` into `destination` directory.
     Extract,
+    /// Run a shell template once per source path (`shell_template`, `%f`).
+    ApplyCommand,
 }
 
 impl TransferOperation {
@@ -104,6 +115,7 @@ impl TransferOperation {
             Self::Wipe => "Wipe",
             Self::Compress => "Compress",
             Self::Extract => "Extract",
+            Self::ApplyCommand => "Apply",
         }
     }
 
@@ -112,9 +124,12 @@ impl TransferOperation {
         matches!(self, Self::Copy | Self::Move | Self::Delete)
     }
 
-    /// Ops implemented by the archive/wipe Strategy backends (local only today).
+    /// Ops implemented by the wipe/archive/apply Strategy backends (local only).
     pub fn uses_ops_backend(self) -> bool {
-        matches!(self, Self::Wipe | Self::Compress | Self::Extract)
+        matches!(
+            self,
+            Self::Wipe | Self::Compress | Self::Extract | Self::ApplyCommand
+        )
     }
 }
 

@@ -16,19 +16,21 @@
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
 - Transfer worker split into focused modules (scan, delete, copy, helpers) under `src/fs/transfer/worker/` using a facade orchestrator.
 - Copy, move, and delete (including SSH) now use the Transfer Engine progress UI instead of the legacy modal-only path.
-- Wipe, compress, and extract jobs now join the same Transfer Engine queue and minimized panel (one consistent progress UX).
+- Wipe, compress, extract, and apply-command jobs use the Transfer Engine queue and minimized panel (one consistent progress UX).
+- Cooperative cancel for archive compress/extract (native formats check cancel between entries; external 7z is killed on cancel).
 
 ### Changed
 
 - Replaced inherited rustc-style `.gitignore` with a Pairee-specific ignore list.
 - Plugin manager core module renamed to `lifecycle` to avoid module-inception nesting.
-- Legacy `spawn_copy_move_task` / `spawn_ssh_delete_task` are no longer part of the public `fs` re-exports.
+- Long-running file jobs no longer use a separate modal progress dialog.
 
 ### Deprecated
 
 ### Removed
 
 - Local temporary `.tmp*` workspaces and the vendored local `example/` reference tree from the working tree (still ignored by git).
+- Legacy `ops_worker` spawn stack, `progress_rx` / `BackgroundOpContext`, and the `CopyProgress` modal UI.
 
 ### Fixed
 

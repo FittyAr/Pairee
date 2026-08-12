@@ -1,18 +1,17 @@
-//! Wipe / Compress / Extract backends for the Transfer Engine.
+//! Wipe / Compress / Extract / ApplyCommand backends for the Transfer Engine.
 //!
-//! These are not classic copy/move transfers, but they share the same job
-//! queue and [`TransferEvent`] UI so users keep one interaction model.
-//!
-//! Pattern: **Strategy** (per-op runner) + **Adapter** (ProgressUpdate → events
-//! for existing `archive` helpers).
+//! Pattern: **Strategy** (per-op runner) with cooperative cancel via
+//! [`crate::fs::progress::ensure_not_cancelled`] inside archive loops.
 
 use super::super::events::TransferEvent;
 use super::super::job::{FailedFile, FileTransferResult, TransferOperation, TransferResults};
 use super::BackendControl;
 use crate::config::localization::t;
-use crate::fs::ops_worker::ProgressUpdate;
+use crate::fs::progress::ProgressUpdate;
 use anyhow::anyhow;
 use std::path::PathBuf;
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 use tokio::sync::mpsc;
 
@@ -20,13 +19,20 @@ pub async fn run_ops_job(
     operation: TransferOperation,
     sources: Vec<PathBuf>,
     destination: PathBuf,
+    shell_template: Option<String>,
     control: BackendControl,
 ) -> Result<TransferResults, anyhow::Error> {
     match operation {
         TransferOperation::Wipe => run_wipe(sources, control).await,
         TransferOperation::Compress => run_compress(sources, destination, control).await,
         TransferOperation::Extract => run_extract(sources, destination, control).await,
-        other => Err(anyhow!("ops backend does not handle {:?}", other.label())),
+        TransferOperation::ApplyCommand => {
+            let template = shell_template
+                .filter(|s| !s.trim().is_empty())
+                .ok_or_else(|| anyhow!("ApplyCommand requires a shell template"))?;
+            run_apply_command(sources, template, control).await
+        }
+        other => Err(anyhow!("ops backend does not handle {}", other.label())),
     }
 }
 
@@ -59,7 +65,6 @@ async fn run_wipe(
             index: idx,
         });
 
-        // wipe_file is sync/blocking; run off the UI reactor.
         let wipe_path = path.clone();
         let wipe_res = tokio::task::spawn_blocking(move || crate::fs::wipe::wipe_file(&wipe_path))
             .await
@@ -86,31 +91,12 @@ async fn run_wipe(
                 let err_msg = t("error_wipe_failed_for")
                     .replacen("{}", &path.to_string_lossy(), 1)
                     .replacen("{}", &e.to_string(), 1);
-                let failed = FailedFile {
-                    src: path.clone(),
-                    dst: PathBuf::new(),
-                    error: err_msg.clone(),
-                    retries: 0,
-                };
-                results.failed_files.push(failed.clone());
-                let _ = control.event_tx.send(TransferEvent::FileFailed {
-                    job_id: control.job_id,
-                    error: failed,
-                });
-                let _ = control.event_tx.send(TransferEvent::JobFailed {
-                    job_id: control.job_id,
-                    error: err_msg.clone(),
-                });
-                return Err(anyhow!(err_msg));
+                return fail_file(&control, &mut results, path.clone(), err_msg);
             }
         }
     }
 
-    let _ = control.event_tx.send(TransferEvent::JobCompleted {
-        job_id: control.job_id,
-        results: results.clone(),
-    });
-    Ok(results)
+    complete_ok(&control, results)
 }
 
 async fn run_compress(
@@ -118,34 +104,13 @@ async fn run_compress(
     dest_archive: PathBuf,
     control: BackendControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    let (tx, rx) = mpsc::channel::<ProgressUpdate>(64);
-    let dest = dest_archive.clone();
-    let sources_clone = sources.clone();
-
-    let work = tokio::task::spawn_blocking(move || {
-        crate::fs::archive::compress_zip(sources_clone, &dest, &tx)
-    });
-
-    let results = bridge_progress_to_events(rx, &control, sources.len().max(1)).await?;
-
-    match work.await {
-        Ok(Ok(())) => {
-            let _ = control.event_tx.send(TransferEvent::JobCompleted {
-                job_id: control.job_id,
-                results: results.clone(),
-            });
-            Ok(results)
-        }
-        Ok(Err(e)) => {
-            let err_msg = t("error_compression_failed").replacen("{}", &e.to_string(), 1);
-            let _ = control.event_tx.send(TransferEvent::JobFailed {
-                job_id: control.job_id,
-                error: err_msg.clone(),
-            });
-            Err(anyhow!(err_msg))
-        }
-        Err(e) => Err(anyhow!("compress task join error: {e}")),
-    }
+    run_archive_blocking(
+        control,
+        sources.len().max(1),
+        move |tx, cancel| crate::fs::archive::compress_zip(sources, &dest_archive, tx, cancel),
+        "error_compression_failed",
+    )
+    .await
 }
 
 async fn run_extract(
@@ -157,51 +122,152 @@ async fn run_extract(
         .first()
         .cloned()
         .ok_or_else(|| anyhow!("Extract requires an archive path in sources"))?;
-
-    let (tx, rx) = mpsc::channel::<ProgressUpdate>(64);
-    let archive_for_work = archive.clone();
     let dest = destination_dir.clone();
+    let archive_for_complete = archive.clone();
 
-    let work = tokio::task::spawn_blocking(move || {
-        crate::fs::archive::extract_archive(&archive_for_work, &dest, &tx)
+    let mut results = run_archive_blocking(
+        control,
+        1,
+        move |tx, cancel| crate::fs::archive::extract_archive(&archive, &dest, tx, cancel),
+        "error_extraction_failed",
+    )
+    .await?;
+
+    if results.completed_files.is_empty() && results.failed_files.is_empty() {
+        results.completed_files.push(FileTransferResult {
+            src: archive_for_complete,
+            dst: destination_dir,
+            size: 0,
+            src_hash: None,
+            dst_hash: None,
+            verified: true,
+            duration: std::time::Duration::ZERO,
+        });
+    }
+    Ok(results)
+}
+
+async fn run_apply_command(
+    sources: Vec<PathBuf>,
+    cmd_template: String,
+    control: BackendControl,
+) -> Result<TransferResults, anyhow::Error> {
+    let total = sources.len();
+    let _ = control.event_tx.send(TransferEvent::ScanComplete {
+        job_id: control.job_id,
+        total_files: total,
+        total_bytes: 0,
     });
 
-    let results = bridge_progress_to_events(rx, &control, 1).await?;
+    let mut results = TransferResults::default();
 
-    match work.await {
-        Ok(Ok(())) => {
-            // Ensure at least one completed entry for the archive itself.
-            let mut results = results;
-            if results.completed_files.is_empty() {
-                results.completed_files.push(FileTransferResult {
-                    src: archive,
-                    dst: destination_dir,
+    for (idx, path) in sources.iter().enumerate() {
+        if control.cancelled() {
+            return Err(anyhow!("Job cancelled"));
+        }
+        control.wait_if_paused();
+        if control.cancelled() {
+            return Err(anyhow!("Job cancelled"));
+        }
+
+        let start = Instant::now();
+        let _ = control.event_tx.send(TransferEvent::FileStarted {
+            job_id: control.job_id,
+            file: path.clone(),
+            index: idx,
+        });
+
+        let quoted = crate::app::actions::fs_ops::helper::shell_quote(path);
+        let cmd = cmd_template.replace("%f", &quoted);
+
+        match run_shell_command(&cmd).await {
+            Ok(()) => {
+                let result = FileTransferResult {
+                    src: path.clone(),
+                    dst: PathBuf::new(),
                     size: 0,
                     src_hash: None,
                     dst_hash: None,
                     verified: true,
-                    duration: std::time::Duration::ZERO,
+                    duration: start.elapsed(),
+                };
+                results.completed_files.push(result.clone());
+                let _ = control.event_tx.send(TransferEvent::FileCompleted {
+                    job_id: control.job_id,
+                    result,
                 });
             }
-            let _ = control.event_tx.send(TransferEvent::JobCompleted {
-                job_id: control.job_id,
-                results: results.clone(),
-            });
-            Ok(results)
+            Err(e) => {
+                let err_msg = format!("Command failed for {:?}: {}", path, e);
+                return fail_file(&control, &mut results, path.clone(), err_msg);
+            }
+        }
+    }
+
+    complete_ok(&control, results)
+}
+
+async fn run_shell_command(cmd: &str) -> anyhow::Result<()> {
+    #[cfg(unix)]
+    let output = tokio::process::Command::new("sh")
+        .arg("-c")
+        .arg(cmd)
+        .output()
+        .await?;
+
+    #[cfg(windows)]
+    let output = tokio::process::Command::new("cmd")
+        .arg("/C")
+        .arg(cmd)
+        .output()
+        .await?;
+
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+        anyhow::bail!("{}", stderr.trim());
+    }
+    Ok(())
+}
+
+async fn run_archive_blocking<F>(
+    control: BackendControl,
+    default_total: usize,
+    work: F,
+    err_key: &str,
+) -> Result<TransferResults, anyhow::Error>
+where
+    F: FnOnce(&mpsc::Sender<ProgressUpdate>, &AtomicBool) -> anyhow::Result<()> + Send + 'static,
+{
+    let (tx, rx) = mpsc::channel::<ProgressUpdate>(64);
+    let cancel = Arc::clone(&control.is_cancelled);
+
+    let work_handle = tokio::task::spawn_blocking(move || work(&tx, cancel.as_ref()));
+
+    let results = bridge_progress_to_events(rx, &control, default_total).await?;
+
+    match work_handle.await {
+        Ok(Ok(())) => {
+            if control.cancelled() {
+                return Err(anyhow!("Job cancelled"));
+            }
+            complete_ok(&control, results)
         }
         Ok(Err(e)) => {
-            let err_msg = t("error_extraction_failed").replacen("{}", &e.to_string(), 1);
+            let msg = e.to_string();
+            if msg.to_lowercase().contains("cancel") || control.cancelled() {
+                return Err(anyhow!("Job cancelled"));
+            }
+            let err_msg = t(err_key).replacen("{}", &msg, 1);
             let _ = control.event_tx.send(TransferEvent::JobFailed {
                 job_id: control.job_id,
                 error: err_msg.clone(),
             });
             Err(anyhow!(err_msg))
         }
-        Err(e) => Err(anyhow!("extract task join error: {e}")),
+        Err(e) => Err(anyhow!("archive task join error: {e}")),
     }
 }
 
-/// Adapter: map legacy [`ProgressUpdate`] stream into [`TransferEvent`]s.
 async fn bridge_progress_to_events(
     mut rx: mpsc::Receiver<ProgressUpdate>,
     control: &BackendControl,
@@ -212,8 +278,7 @@ async fn bridge_progress_to_events(
 
     while let Some(update) = rx.recv().await {
         if control.cancelled() {
-            // Drop remaining progress; join will still finish the blocking work.
-            // Ideal cancel would abort archive mid-write; not supported yet.
+            while rx.try_recv().is_ok() {}
             break;
         }
 
@@ -235,7 +300,7 @@ async fn bridge_progress_to_events(
         if let Some(err) = update.error {
             let path = PathBuf::from(&update.current_file);
             let failed = FailedFile {
-                src: path.clone(),
+                src: path,
                 dst: PathBuf::new(),
                 error: err.clone(),
                 retries: 0,
@@ -252,12 +317,11 @@ async fn bridge_progress_to_events(
             continue;
         }
 
-        let index = update.files_copied;
         let path = PathBuf::from(&update.current_file);
         let _ = control.event_tx.send(TransferEvent::FileStarted {
             job_id: control.job_id,
             file: path.clone(),
-            index,
+            index: update.files_copied,
         });
         if update.total_bytes > 0 {
             let _ = control.event_tx.send(TransferEvent::FileProgress {
@@ -267,7 +331,6 @@ async fn bridge_progress_to_events(
             });
         }
 
-        // compress_zip / extract emit one progress tick per entry; treat as completed.
         let result = FileTransferResult {
             src: path.clone(),
             dst: path,
@@ -284,5 +347,40 @@ async fn bridge_progress_to_events(
         });
     }
 
+    Ok(results)
+}
+
+fn fail_file(
+    control: &BackendControl,
+    results: &mut TransferResults,
+    path: PathBuf,
+    err_msg: String,
+) -> Result<TransferResults, anyhow::Error> {
+    let failed = FailedFile {
+        src: path,
+        dst: PathBuf::new(),
+        error: err_msg.clone(),
+        retries: 0,
+    };
+    results.failed_files.push(failed.clone());
+    let _ = control.event_tx.send(TransferEvent::FileFailed {
+        job_id: control.job_id,
+        error: failed,
+    });
+    let _ = control.event_tx.send(TransferEvent::JobFailed {
+        job_id: control.job_id,
+        error: err_msg.clone(),
+    });
+    Err(anyhow!(err_msg))
+}
+
+fn complete_ok(
+    control: &BackendControl,
+    results: TransferResults,
+) -> Result<TransferResults, anyhow::Error> {
+    let _ = control.event_tx.send(TransferEvent::JobCompleted {
+        job_id: control.job_id,
+        results: results.clone(),
+    });
     Ok(results)
 }

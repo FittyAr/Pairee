@@ -42,8 +42,7 @@ pub fn render_prompt_popup(
 
         PopupType::SshConnectPrompt { .. } => ssh::render(f, popup, theme, size, context),
 
-        PopupType::CopyProgress { .. }
-        | PopupType::ConfirmRetryAsAdmin { .. }
+        PopupType::ConfirmRetryAsAdmin { .. }
         | PopupType::Error(_)
         | PopupType::Info(_)
         | PopupType::ApplyCommandPrompt { .. }

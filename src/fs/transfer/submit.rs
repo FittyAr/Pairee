@@ -32,11 +32,9 @@ pub fn submit_job(state: &mut AppState, job: TransferJob) {
         ts.view_mode = TransferViewMode::Minimized;
     }
     state.active_popup = None;
-    state.progress_rx = None;
-    state.active_bg_op = None;
 }
 
-/// Convenience: copy/move/delete with optional SSH endpoints.
+/// Convenience: enqueue a job with optional SSH endpoints.
 pub fn submit_simple(
     state: &mut AppState,
     operation: TransferOperation,
@@ -53,5 +51,17 @@ pub fn submit_simple(
             dst: dst_ssh,
         });
     }
+    submit_job(state, job);
+}
+
+/// Enqueue ApplyCommand (`%f` = each source path) on the Transfer Engine UI.
+pub fn submit_apply_command(state: &mut AppState, template: String, targets: Vec<PathBuf>) {
+    let job = TransferJob::new(
+        TransferOperation::ApplyCommand,
+        targets,
+        PathBuf::new(),
+        TransferOptions::default(),
+    )
+    .with_shell_template(template);
     submit_job(state, job);
 }

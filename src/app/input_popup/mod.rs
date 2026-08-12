@@ -9,7 +9,6 @@ pub mod confirm_dialogs;
 pub mod context_menu;
 pub mod copy;
 pub mod copy_filter;
-pub mod copy_progress;
 pub mod create_link;
 pub mod delete;
 pub mod describe_file;
@@ -74,7 +73,6 @@ pub fn handle_popup_input(
             PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => {
                 delete::handle(state, key, context)
             }
-            PopupType::CopyProgress { .. } => copy_progress::handle(state, key, context),
             PopupType::UserMenu { .. } => user_menu::handle(state, key, context),
             PopupType::EditorSearchPrompt { .. } => editor::handle(state, key, context),
             PopupType::ViewerSearchPrompt { .. } => viewer::handle(state, key, context),

@@ -30,25 +30,32 @@ pub fn handle(
             PopupType::ConfirmInterrupt => {
                 match key.code {
                     KeyCode::Enter => {
-                        state.progress_rx = None;
+                        // Cancel selected (or all active) transfer-engine jobs.
+                        if let Some(ref ts) = state.transfer {
+                            let jobs = ts.engine.queue.get_all();
+                            if let Some(job) = jobs.get(ts.queue_cursor) {
+                                job.is_cancelled
+                                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                                ts.engine.queue.update_job(job.id, |j| {
+                                    j.status =
+                                        crate::fs::transfer::job::TransferJobStatus::Cancelled;
+                                });
+                            } else {
+                                for job in jobs {
+                                    if job.is_active() {
+                                        job.is_cancelled
+                                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                                    }
+                                }
+                            }
+                        }
                         state.active_popup = None;
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        // Resume the progress popup; it will automatically receive progress updates on the next tick
-                        let is_move = matches!(
-                            state.active_bg_op,
-                            Some(crate::app::state::BackgroundOpContext::Move)
-                        );
-                        state.active_popup = Some(PopupType::CopyProgress {
-                            is_move,
-                            current_file: t("progress_resuming"),
-                            files_copied: 0,
-                            total_files: 0,
-                            bytes_copied: 0,
-                            total_bytes: 0,
-                        });
+                        // Keep transfer jobs running; just dismiss the confirm dialog.
+                        state.active_popup = None;
                         return Ok(None);
                     }
                     _ => {}

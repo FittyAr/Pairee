@@ -31,16 +31,7 @@ pub fn handle(
             KeyCode::Enter => {
                 state.active_popup = None;
                 if !input.is_empty() {
-                    let rx = crate::fs::apply_command(input, targets);
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: false,
-                        current_file: "Running command...".to_string(),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
+                    crate::fs::transfer::submit_apply_command(state, input, targets);
                 }
                 return Ok(None);
             }

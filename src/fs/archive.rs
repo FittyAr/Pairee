@@ -7,7 +7,8 @@ use tar::Archive;
 use tokio::sync::mpsc;
 use zip::ZipArchive;
 
-use crate::fs::ops_worker::ProgressUpdate;
+use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use std::sync::atomic::AtomicBool;
 
 pub enum ArchiveFormat {
     Zip,
@@ -40,13 +41,14 @@ pub fn extract_archive(
     archive_path: &Path,
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     match detect_format(archive_path) {
-        ArchiveFormat::Zip => extract_zip(archive_path, dest_dir, tx),
-        ArchiveFormat::TarGz => extract_tar_gz(archive_path, dest_dir, tx),
-        ArchiveFormat::SevenZ => extract_7z(archive_path, dest_dir, tx),
+        ArchiveFormat::Zip => extract_zip(archive_path, dest_dir, tx, cancel),
+        ArchiveFormat::TarGz => extract_tar_gz(archive_path, dest_dir, tx, cancel),
+        ArchiveFormat::SevenZ => extract_7z(archive_path, dest_dir, tx, cancel),
         ArchiveFormat::Rar | ArchiveFormat::Iso => {
-            extract_via_external_7z(archive_path, dest_dir, tx)
+            extract_via_external_7z(archive_path, dest_dir, tx, cancel)
         }
         ArchiveFormat::Unsupported => Err(anyhow!("Unsupported archive format")),
     }
@@ -56,6 +58,7 @@ fn extract_zip(
     archive_path: &Path,
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     let file = fs::File::open(archive_path)?;
     let mut archive = ZipArchive::new(file)?;
@@ -64,6 +67,7 @@ fn extract_zip(
     fs::create_dir_all(dest_dir)?;
 
     for i in 0..total_files {
+        ensure_not_cancelled(cancel)?;
         let mut file = archive.by_index(i)?;
         let outpath = match file.enclosed_name() {
             Some(path) => dest_dir.join(path),
@@ -103,6 +107,7 @@ fn extract_tar_gz(
     archive_path: &Path,
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     let tar_gz = fs::File::open(archive_path)?;
     let tar = GzDecoder::new(tar_gz);
@@ -112,6 +117,7 @@ fn extract_tar_gz(
 
     // We don't know total files in tar easily without reading it twice, so we just show 0 or an arbitrary number
     for (i, entry) in archive.entries()?.enumerate() {
+        ensure_not_cancelled(cancel)?;
         let mut file = entry?;
         let path = file.path()?;
 
@@ -140,6 +146,7 @@ fn extract_7z(
     archive_path: &Path,
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     use std::path::Component;
 
@@ -149,6 +156,9 @@ fn extract_7z(
     let canonical_dest = std::fs::canonicalize(dest_dir).unwrap_or_else(|_| dest_dir.to_path_buf());
 
     sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
+        if ensure_not_cancelled(cancel).is_err() {
+            return Ok(false);
+        }
         // The `sevenz-rust` 0.6.x API does not sanitise entry names; it
         // simply `dest.join(entry.name())` and lets the extract function
         // create the file. A malicious 7z archive can therefore write
@@ -238,6 +248,7 @@ pub fn compress_zip(
     sources: Vec<PathBuf>,
     dest_archive: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     let file = fs::File::create(dest_archive)?;
     let mut zip = zip::ZipWriter::new(file);
@@ -248,6 +259,7 @@ pub fn compress_zip(
     let total_files = sources.len();
 
     for src in sources {
+        ensure_not_cancelled(cancel)?;
         if src.is_dir() {
             // Recursive walk so the user gets the full folder contents
             // inside the archive, not just an empty entry. The archive
@@ -258,6 +270,7 @@ pub fn compress_zip(
             let base_parent = src.parent().map(|p| p.to_path_buf());
             let mut stack: Vec<PathBuf> = vec![src.clone()];
             while let Some(dir) = stack.pop() {
+                ensure_not_cancelled(cancel)?;
                 let dir_name_in_zip = match dir.strip_prefix(&src) {
                     Ok(rel) if !rel.as_os_str().is_empty() => {
                         let mut p = top.clone();
@@ -275,6 +288,7 @@ pub fn compress_zip(
                     Err(_) => continue,
                 };
                 for entry in entries.flatten() {
+                    ensure_not_cancelled(cancel)?;
                     let entry_path = entry.path();
                     if entry_path.is_dir() {
                         stack.push(entry_path);
@@ -336,6 +350,7 @@ fn extract_via_external_7z(
     archive_path: &Path,
     dest_dir: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
+    cancel: &AtomicBool,
 ) -> Result<()> {
     use crate::fs::external_tools::get_external_7z_path;
     use std::path::Component;
@@ -407,6 +422,7 @@ fn extract_via_external_7z(
     // If the listing step itself failed we still continue, but we surface
     // the warning so the operator knows the safety check did not run.
 
+    ensure_not_cancelled(cancel)?;
     let _ = tx.blocking_send(ProgressUpdate {
         current_file: "Extracting using external 7z...".to_string(),
         files_copied: 0,
@@ -416,16 +432,30 @@ fn extract_via_external_7z(
         error: None,
     });
 
-    let output = std::process::Command::new(&bin_path)
+    // Cooperative cancel: poll child and kill if the transfer job is cancelled.
+    let mut child = std::process::Command::new(&bin_path)
         .arg("x")
-        .arg("-y") // yes to all queries
+        .arg("-y")
         .arg(format!("-o{}", dest_dir.to_string_lossy()))
         .arg(archive_path)
-        .output()?;
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::piped())
+        .spawn()?;
 
-    if !output.status.success() {
-        let err_msg = String::from_utf8_lossy(&output.stderr);
-        return Err(anyhow!("External 7z extraction failed: {}", err_msg));
+    let status = loop {
+        if ensure_not_cancelled(cancel).is_err() {
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err(anyhow!("Job cancelled"));
+        }
+        match child.try_wait()? {
+            Some(status) => break status,
+            None => std::thread::sleep(std::time::Duration::from_millis(50)),
+        }
+    };
+
+    if !status.success() {
+        return Err(anyhow!("External 7z extraction failed"));
     }
 
     Ok(())

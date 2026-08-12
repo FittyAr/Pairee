@@ -1,9 +1,11 @@
+//! Local recursive delete helper (used by SSH transfer backend after download-side move).
+
 use crate::config::localization::t;
 use anyhow::Result;
 use std::fs;
 use std::path::Path;
 
-pub(crate) fn delete_recursive(path: &Path) -> Result<()> {
+pub fn delete_recursive(path: &Path) -> Result<()> {
     if path
         .symlink_metadata()
         .map(|m| m.file_type().is_symlink())

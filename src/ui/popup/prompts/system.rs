@@ -4,9 +4,9 @@ use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::Rect,
     style::{Color, Style},
-    widgets::{Block, Borders, Clear, Gauge, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph},
 };
 
 pub fn render(
@@ -14,7 +14,7 @@ pub fn render(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
-    state: &crate::app::state::AppState,
+    _state: &crate::app::state::AppState,
 ) -> bool {
     match popup {
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
@@ -39,73 +39,6 @@ pub fn render(
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
 
             f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::CopyProgress {
-            is_move,
-            current_file,
-            files_copied,
-            total_files,
-            bytes_copied,
-            total_bytes,
-        } => {
-            let area = centered_rect_fixed(55, 10, size);
-            f.render_widget(Clear, area);
-
-            let title = match state.active_bg_op {
-                Some(crate::app::state::BackgroundOpContext::Move) => t("progress_move_title"),
-                Some(crate::app::state::BackgroundOpContext::Delete) => t("progress_delete_title"),
-                _ => {
-                    if *is_move {
-                        t("progress_move_title")
-                    } else {
-                        t("progress_copy_title")
-                    }
-                }
-            };
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .title(title)
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let percent = bytes_copied
-                .checked_mul(100)
-                .and_then(|v| v.checked_div(*total_bytes))
-                .unwrap_or(0) as u16;
-
-            let inner_chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(1), // Spacer
-                    Constraint::Length(2), // File labels
-                    Constraint::Length(3), // Progress bar
-                    Constraint::Min(1),    // Size counts
-                ])
-                .split(block.inner(area));
-
-            let file_label = t("progress_file_label").replacen("{}", current_file, 1);
-            let paragraph =
-                Paragraph::new(file_label).style(Style::default().fg(parse_color(&theme.popup_fg)));
-            f.render_widget(paragraph, inner_chunks[1]);
-
-            let gauge = Gauge::default()
-                .gauge_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray))
-                .percent(percent.min(100))
-                .label(format!("{}%", percent.min(100)));
-            f.render_widget(gauge, inner_chunks[2]);
-
-            let size_label = t("progress_size_label")
-                .replacen("{}", &files_copied.to_string(), 1)
-                .replacen("{}", &total_files.to_string(), 1)
-                .replacen("{}", &(*bytes_copied / (1024 * 1024)).to_string(), 1)
-                .replacen("{}", &(*total_bytes / (1024 * 1024)).to_string(), 1);
-            let size_paragraph =
-                Paragraph::new(size_label).style(Style::default().fg(parse_color(&theme.popup_fg)));
-            f.render_widget(size_paragraph, inner_chunks[3]);
-
-            f.render_widget(block, area);
             true
         }
         PopupType::Error(message) => {

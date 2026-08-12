@@ -6,7 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
-    _context: &mut AppContext,
+    context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let transfer = match &mut state.transfer {
         Some(t) => t,
@@ -213,14 +213,23 @@ pub fn handle(
             Ok(None)
         }
         KeyCode::Char('x') | KeyCode::Char('X') => {
-            // Cancelar la tarea seleccionada
-            let jobs = transfer.engine.queue.get_all();
-            if let Some(job) = jobs.get(transfer.queue_cursor) {
-                job.is_cancelled
-                    .store(true, std::sync::atomic::Ordering::SeqCst);
-                transfer.engine.queue.update_job(job.id, |j| {
-                    j.status = crate::fs::transfer::job::TransferJobStatus::Cancelled;
-                });
+            // Cancel selected job (optional confirm dialog for interrupt habit).
+            if context
+                .config
+                .settings
+                .confirmations
+                .confirm_interrupt_operation
+            {
+                state.active_popup = Some(crate::app::state::PopupType::ConfirmInterrupt);
+            } else {
+                let jobs = transfer.engine.queue.get_all();
+                if let Some(job) = jobs.get(transfer.queue_cursor) {
+                    job.is_cancelled
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    transfer.engine.queue.update_job(job.id, |j| {
+                        j.status = crate::fs::transfer::job::TransferJobStatus::Cancelled;
+                    });
+                }
             }
             Ok(None)
         }
@@ -252,12 +261,12 @@ pub fn handle(
             let jobs = transfer.engine.queue.get_all();
             if let Some(job) = jobs.get(transfer.queue_cursor) {
                 let res = &job.results;
-                let content = if _context.config.settings.transfer_report_format == "csv" {
+                let content = if context.config.settings.transfer_report_format == "csv" {
                     crate::fs::transfer::report::generate_csv_report(res)
                 } else {
                     crate::fs::transfer::report::generate_html_report(res, "Manual Export")
                 };
-                let format = _context.config.settings.transfer_report_format.clone();
+                let format = context.config.settings.transfer_report_format.clone();
                 let dest_dir = if let Some(first_file) = res.completed_files.first() {
                     first_file.dst.parent().unwrap_or(std::path::Path::new("."))
                 } else {

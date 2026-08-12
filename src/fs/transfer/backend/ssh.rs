@@ -8,7 +8,7 @@ use super::super::job::{FailedFile, FileTransferResult, TransferOperation, Trans
 use super::super::worker::is_destination_parent_dir;
 use super::BackendControl;
 use crate::config::localization::t;
-use crate::fs::ops_worker::helper::delete_recursive;
+use crate::fs::delete_util::delete_recursive;
 use crate::fs::ssh::SharedSshClient;
 use crate::fs::transfer::job::SshEndpoints;
 use anyhow::anyhow;
@@ -31,7 +31,10 @@ pub async fn run_ssh_job(
         TransferOperation::Move => {
             run_ssh_copy_move(sources, destination, ssh, true, control).await
         }
-        TransferOperation::Wipe | TransferOperation::Compress | TransferOperation::Extract => {
+        TransferOperation::Wipe
+        | TransferOperation::Compress
+        | TransferOperation::Extract
+        | TransferOperation::ApplyCommand => {
             Err(anyhow!("{} is not available over SSH", operation.label()))
         }
     }
