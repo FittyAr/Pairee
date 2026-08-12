@@ -10,6 +10,10 @@ pub async fn run_local_job(
     job: TransferJob,
     event_tx: mpsc::UnboundedSender<TransferEvent>,
 ) -> Result<TransferResults, anyhow::Error> {
+    debug_assert!(
+        job.operation.uses_local_worker(),
+        "ops backends must not enter the local transfer worker"
+    );
     let worker = TransferWorker::new(
         job.id,
         job.operation,

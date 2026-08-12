@@ -141,11 +141,7 @@ fn render_jobs_sidebar(
     for (idx, job) in jobs.iter().enumerate() {
         let is_selected = idx == ts.queue_cursor;
 
-        let op_name = match job.operation {
-            crate::fs::transfer::job::TransferOperation::Copy => "Copy",
-            crate::fs::transfer::job::TransferOperation::Move => "Move",
-            crate::fs::transfer::job::TransferOperation::Delete => "Delete",
-        };
+        let op_name = job.operation.label();
 
         let (status_str, color) = match job.status {
             TransferJobStatus::Queued => ("Queued".to_string(), Color::Gray),

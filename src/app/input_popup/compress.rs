@@ -1,6 +1,5 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -43,16 +42,15 @@ pub fn handle(
                         out_name.push_str(".zip");
                     }
                     let final_dest = dest_dir.join(out_name);
-                    let rx = crate::fs::spawn_compress_task(targets, final_dest);
-                    state.progress_rx = Some(rx);
-                    state.active_popup = Some(PopupType::CopyProgress {
-                        is_move: false,
-                        current_file: t("progress_compressing"),
-                        files_copied: 0,
-                        total_files: 0,
-                        bytes_copied: 0,
-                        total_bytes: 0,
-                    });
+                    crate::fs::transfer::submit_simple(
+                        state,
+                        crate::fs::transfer::job::TransferOperation::Compress,
+                        targets,
+                        final_dest,
+                        crate::fs::transfer::options::TransferOptions::default(),
+                        None,
+                        None,
+                    );
                 } else {
                     state.active_popup = None;
                 }

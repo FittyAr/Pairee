@@ -16,6 +16,7 @@
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
 - Transfer worker split into focused modules (scan, delete, copy, helpers) under `src/fs/transfer/worker/` using a facade orchestrator.
 - Copy, move, and delete (including SSH) now use the Transfer Engine progress UI instead of the legacy modal-only path.
+- Wipe, compress, and extract jobs now join the same Transfer Engine queue and minimized panel (one consistent progress UX).
 
 ### Changed
 

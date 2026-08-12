@@ -241,12 +241,20 @@ pub fn process_background_updates(
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.status = crate::fs::transfer::job::TransferJobStatus::Scanning;
                         job.progress = Some(crate::fs::transfer::job::TransferProgress::default());
-                        let msg = if job.operation
-                            == crate::fs::transfer::job::TransferOperation::Delete
-                        {
-                            "Scanning source files for deletion...".to_string()
-                        } else {
-                            "Scanning source files...".to_string()
+                        let msg = match job.operation {
+                            crate::fs::transfer::job::TransferOperation::Delete => {
+                                "Scanning source files for deletion...".to_string()
+                            }
+                            crate::fs::transfer::job::TransferOperation::Wipe => {
+                                "Scanning source files for secure wipe...".to_string()
+                            }
+                            crate::fs::transfer::job::TransferOperation::Compress => {
+                                "Preparing files for compression...".to_string()
+                            }
+                            crate::fs::transfer::job::TransferOperation::Extract => {
+                                "Preparing archive for extraction...".to_string()
+                            }
+                            _ => "Scanning source files...".to_string(),
                         };
                         job.log_lines.push(msg);
                     });
@@ -291,8 +299,17 @@ pub fn process_background_updates(
                             crate::fs::transfer::job::TransferOperation::Delete => {
                                 format!("[{}] Deleting: {}", index + 1, file.to_string_lossy())
                             }
+                            crate::fs::transfer::job::TransferOperation::Wipe => {
+                                format!("[{}] Wiping: {}", index + 1, file.to_string_lossy())
+                            }
                             crate::fs::transfer::job::TransferOperation::Move => {
                                 format!("[{}] Moving: {}", index + 1, file.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Compress => {
+                                format!("[{}] Compressing: {}", index + 1, file.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Extract => {
+                                format!("[{}] Extracting: {}", index + 1, file.to_string_lossy())
                             }
                             _ => format!("[{}] Copying: {}", index + 1, file.to_string_lossy()),
                         };
@@ -317,13 +334,23 @@ pub fn process_background_updates(
                             prog.files_completed += 1;
                         }
                         job.results.completed_files.push(result.clone());
-                        let msg = if job.operation
-                            == crate::fs::transfer::job::TransferOperation::Delete
-                        {
-                            format!("✓ OK: Deleted {}", result.src.to_string_lossy())
-                        } else {
-                            let verified_marker = if result.verified { " ✓hash" } else { "" };
-                            format!("✓ OK{}: {}", verified_marker, result.dst.to_string_lossy())
+                        let msg = match job.operation {
+                            crate::fs::transfer::job::TransferOperation::Delete => {
+                                format!("✓ OK: Deleted {}", result.src.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Wipe => {
+                                format!("✓ OK: Wiped {}", result.src.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Compress => {
+                                format!("✓ OK: Packed {}", result.src.to_string_lossy())
+                            }
+                            crate::fs::transfer::job::TransferOperation::Extract => {
+                                format!("✓ OK: Extracted {}", result.src.to_string_lossy())
+                            }
+                            _ => {
+                                let verified_marker = if result.verified { " ✓hash" } else { "" };
+                                format!("✓ OK{}: {}", verified_marker, result.dst.to_string_lossy())
+                            }
                         };
                         job.log_lines.push(msg);
                     });

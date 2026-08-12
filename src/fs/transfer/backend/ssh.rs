@@ -31,6 +31,9 @@ pub async fn run_ssh_job(
         TransferOperation::Move => {
             run_ssh_copy_move(sources, destination, ssh, true, control).await
         }
+        TransferOperation::Wipe | TransferOperation::Compress | TransferOperation::Extract => {
+            Err(anyhow!("{} is not available over SSH", operation.label()))
+        }
     }
 }
 

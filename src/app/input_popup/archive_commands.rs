@@ -125,16 +125,15 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             } else {
                 state.get_passive_panel().current_path.clone()
             };
-            let rx = crate::fs::spawn_extract_task(archive_path.to_path_buf(), dest);
-            state.progress_rx = Some(rx);
-            state.active_popup = Some(PopupType::CopyProgress {
-                is_move: false,
-                current_file: crate::config::localization::t("progress_extracting"),
-                files_copied: 0,
-                total_files: 0,
-                bytes_copied: 0,
-                total_bytes: 0,
-            });
+            crate::fs::transfer::submit_simple(
+                state,
+                crate::fs::transfer::job::TransferOperation::Extract,
+                vec![archive_path.to_path_buf()],
+                dest,
+                crate::fs::transfer::options::TransferOptions::default(),
+                None,
+                None,
+            );
         }
         _ => {}
     }

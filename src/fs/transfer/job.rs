@@ -77,11 +77,45 @@ impl TransferJob {
     }
 }
 
+/// Long-running batch operations shown in the unified Transfer UI.
+///
+/// Not every variant is a classic “byte copy”: wipe / compress / extract are
+/// included so the user learns **one** progress surface (queue, minimize,
+/// cancel, log) instead of a separate modal per feature.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum TransferOperation {
     Copy,
     Move,
     Delete,
+    /// Secure overwrite-then-delete (local paths).
+    Wipe,
+    /// Pack sources into `destination` archive (e.g. `.zip`).
+    Compress,
+    /// Unpack archive `sources[0]` into `destination` directory.
+    Extract,
+}
+
+impl TransferOperation {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Copy => "Copy",
+            Self::Move => "Move",
+            Self::Delete => "Delete",
+            Self::Wipe => "Wipe",
+            Self::Compress => "Compress",
+            Self::Extract => "Extract",
+        }
+    }
+
+    /// Byte-oriented path ops that use the local transfer worker scan/copy phases.
+    pub fn uses_local_worker(self) -> bool {
+        matches!(self, Self::Copy | Self::Move | Self::Delete)
+    }
+
+    /// Ops implemented by the archive/wipe Strategy backends (local only today).
+    pub fn uses_ops_backend(self) -> bool {
+        matches!(self, Self::Wipe | Self::Compress | Self::Extract)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

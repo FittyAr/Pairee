@@ -3,8 +3,9 @@ use crate::config::localization::t;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-/// Spawns a background task that securely wipes each file in `targets`.
-/// Uses the same progress channel pattern as `spawn_copy_task`.
+/// Legacy ProgressUpdate wipe spawn.
+/// Prefer `TransferOperation::Wipe` via `crate::fs::transfer::submit_simple`.
+#[allow(dead_code)]
 pub fn spawn_wipe_task(targets: Vec<PathBuf>) -> mpsc::Receiver<ProgressUpdate> {
     let (tx, rx) = mpsc::channel(64);
     let total = targets.len();

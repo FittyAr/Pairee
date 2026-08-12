@@ -4,6 +4,9 @@ use crate::fs::archive::compress_zip;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
+/// Legacy ProgressUpdate compress spawn.
+/// Prefer `TransferOperation::Compress` via `crate::fs::transfer::submit_simple`.
+#[allow(dead_code)]
 pub fn spawn_compress_task(
     sources: Vec<PathBuf>,
     dest_archive: PathBuf,

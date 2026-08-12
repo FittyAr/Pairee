@@ -4,6 +4,9 @@ use crate::fs::archive::extract_archive;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
+/// Legacy ProgressUpdate extract spawn.
+/// Prefer `TransferOperation::Extract` via `crate::fs::transfer::submit_simple`.
+#[allow(dead_code)]
 pub fn spawn_extract_task(
     archive_path: PathBuf,
     destination_dir: PathBuf,

@@ -21,8 +21,13 @@ pub mod extract;
 pub mod helper;
 pub mod wipe;
 
+// Legacy ProgressUpdate spawns kept for archive helpers / offline tooling.
+// UI uses Transfer Engine (`TransferOperation::{Wipe,Compress,Extract}`).
+#[allow(unused_imports)]
 pub use compress::spawn_compress_task;
+#[allow(unused_imports)]
 pub use extract::spawn_extract_task;
+#[allow(unused_imports)]
 pub use wipe::spawn_wipe_task;
 
 // SSH copy/move/delete now go through `crate::fs::transfer` backends.

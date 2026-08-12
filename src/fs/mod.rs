@@ -21,7 +21,7 @@ pub use entry::FileEntry;
 pub use link::{create_hardlink, create_symlink};
 pub use list::read_directory_ext;
 pub use mkdir::create_directory;
-pub use ops_worker::{ProgressUpdate, spawn_compress_task, spawn_extract_task, spawn_wipe_task};
+pub use ops_worker::ProgressUpdate;
 pub mod elevated_helper;
 
 pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};
