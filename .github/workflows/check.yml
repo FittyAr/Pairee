@@ -88,5 +88,5 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y pkg-config libssl-dev
 
-      - name: Run unit and integration tests
+      - name: Run unit, integration, and plugin acceptance tests
         run: cargo test

@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-surface"
+version = "1.0.0"
+description = "CI acceptance: public pairee.* surface inventory"
+author = "Pairee"
+default_language = "en"

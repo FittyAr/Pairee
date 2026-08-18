@@ -1,6 +1,6 @@
 # Referencia de la API Lua de Plugins de Pairee
 
-Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee, incluyendo las nuevas vinculaciones introducidas en la evolución M0 del sistema de plugins. Para la arquitectura completa y la justificación de diseño, consulta [`docs/technical/plugin-system-design-es.md`](../technical/plugin-system-design-es.md) y [`docs/technical/plugin-roadmap-es.md`](../technical/plugin-roadmap-es.md). Para una guía paso a paso de cómo escribir un plugin, consulta [`docs/plugin-dev-guide-es.md`](../plugin-dev-guide-es.md).
+Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee. El contrato versionado es **API Lua v1.0.0** (`pairee._lua_api_version`) — ver [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). Arquitectura: [`plugin-system-design-es.md`](../../docs/technical/plugin-system-design-es.md). Guía: [`plugin-dev-guide-es.md`](../../docs/plugin-dev-guide-es.md).
 
 ---
 
@@ -31,6 +31,7 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.settings.*` | Acceso de lectura a los settings resueltos del plugin | Estable |
 | `pairee.t(key, vars)` | Búsqueda de cadenas localizadas con interpolación de variables | Estable |
 | `pairee._secure_mode` | Booleano: `true` cuando Secure Mode global está activo | Estable |
+| `pairee._lua_api_version` | Semver de esta superficie Lua (`1.0.0`) | Estable |
 
 ---
 

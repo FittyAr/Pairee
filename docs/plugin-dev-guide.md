@@ -114,6 +114,7 @@ A plugin is a folder containing a main Lua script, manifest, and optional submod
 ### `pairee.app` — Application Control
 
 ```lua
+pairee._lua_api_version                 -- "1.0.0" (Lua surface semver)
 pairee.app.cwd()                        -- string: current directory
 pairee.app.cd(path)                     -- navigate to path
 pairee.app.focus()                      -- "left" | "right"

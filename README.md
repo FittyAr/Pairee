@@ -3,7 +3,7 @@
 > Tu mundo, en dos paneles. (Your world, in two panels.)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.85%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
@@ -15,7 +15,7 @@ Pairee is a modern, highly modular, and cross-platform terminal file manager ins
 - 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.
 - 🎨 **Visual Themes & Layouts**: Customizable theme loader supporting Slate, Blue, and other custom styles, alongside responsive layout division.
 - ⚙️ **Flexible Keybindings**: Dynamic keybinding resolver featuring preset profiles for Classic Norton (F1-F10), Vim navigation, and Modern keys.
-- 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with registry CLI, developer tools, and secure mode. Surface is expanding (see plugin roadmap).
+- 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with real confirm/input/which dialogs, `pairee.cx` + `File` userdata, `pairee.fs` extras, and `pairee.Command` streaming. Lua API **v1.0** ([docs/api/lua](docs/api/lua/README.md)).
 - 🧰 **Advanced Utilities**: Built-in file search by name/content, folder comparison, custom user commands menu, OS process manager, and file attributes viewer.
 - 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods with SHA-256 verification.
 - 🌐 **Centralized Translations**: Core translation engine supporting English, Spanish, and easily extendable to new languages.
@@ -37,7 +37,10 @@ Pairee/
 ├── docs/
 │   ├── IMPROVEMENT_PLAN.md        # Improvement checklist & progress
 │   ├── README.md                  # Documentation index (status legend)
+│   ├── api/lua/                   # Versioned Lua plugin API (semver)
 │   └── technical/                 # Architecture, transfer, plugins, packaging
+├── tests/
+│   └── plugin_acceptance/         # Lua plugins run by CI (`cargo test`)
 ├── help/
 │   ├── en/                        # In-app help (English)
 │   └── es/                        # In-app help (Spanish)

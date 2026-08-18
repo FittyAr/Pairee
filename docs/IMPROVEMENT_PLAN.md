@@ -341,11 +341,11 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
 - [x] Diálogos reales end-to-end (confirm/input/select) — `766f2fe`
 - [x] Userdata tipados (`File` básico: name/path/size/is_dir) — metadata/mime pendientes
-- [x] API async FS + `Command` builder con streaming — (este)
+- [x] API async FS + `Command` builder con streaming — `20ccb90`
 - [x] Contexto vivo `cx` (snapshot en `pairee.sync` → `pairee.cx` + `File`)
-- [ ] Plugins de aceptación en CI
-- [ ] API docs versionadas (semver de superficie Lua)
-- [ ] Actualizar README + help de plugins
+- [x] Plugins de aceptación en CI — `tests/plugin_acceptance/` + `cargo test`
+- [x] API docs versionadas (semver de superficie Lua) — `docs/api/lua` v1.0.0
+- [x] Actualizar README + help de plugins
 
 ---
 
@@ -368,7 +368,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **171 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **178 unit + 5 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -392,7 +392,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | _(prev)_ | refactor: C.2 PopupType module + split updater/list/settings |
 | 2026-08-12 | _(prev)_ | refactor: C.3 DialogStack + PluginHostState + receiver poll |
 | 2026-08-18 | `766f2fe` | feat: Fase D — diálogos plugin reales + File userdata + `pairee.cx` |
-| 2026-08-18 | _(este)_ | feat: Fase D — `pairee.fs` extra + `Command`/`Child` streaming |
+| 2026-08-18 | `20ccb90` | feat: Fase D — `pairee.fs` extra + `Command`/`Child` streaming |
+| 2026-08-18 | _(este)_ | feat: Fase D — aceptación CI + Lua API v1.0 + README/help |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -404,7 +405,7 @@ Ver también `git log --oneline master` para el detalle.
 Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
              │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
-             │  [x Docs sync] [ Feature flags ] [x Plugin dialogs + File/cx]
+             │  [x Docs sync] [ Feature flags ] [x Plugins D + Lua API v1]
 Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -416,8 +417,8 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 
 **Fase A, B y F (principal) cerradas.**  
 **Fase C:** grupos de estado + `DialogStack`.  
-**Fase D (parcial):** diálogos, `File`/`cx`, `fs` extra, `Command` streaming.  
-Siguiente: plugins de aceptación en CI, API docs versionadas, o resto anti-glitch / `src/lib.rs`.  
+**Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
+Siguiente: **Fase E** (onboarding, flags, threat model) o resto anti-glitch / `src/lib.rs`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

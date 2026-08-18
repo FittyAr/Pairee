@@ -10,51 +10,44 @@ use crate::plugin::manager::PluginRequest;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
-    let table = lua.create_table()?;
-
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
     let tx_cache = tx;
-    table.set(
-        "file_cache",
-        lua.create_async_function(move |_lua, (file, skip): (Option<String>, Option<usize>)| {
-            let tx = tx_cache.clone();
-            async move {
-                let file_path = match file {
-                    Some(p) => PathBuf::from(p),
-                    None => {
-                        log::warn!("pairee.file_cache called without a `file` argument");
-                        return Ok(mlua::Value::Nil);
-                    }
-                };
-                let skip = skip.unwrap_or(0);
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-                if tx
-                    .send(PluginRequest::FileCache {
-                        file_path,
-                        skip,
-                        reply_tx,
-                    })
-                    .await
-                    .is_err()
-                {
-                    log::error!("pairee.file_cache could not enqueue; main loop not running");
+    lua.create_async_function(move |_lua, (file, skip): (Option<String>, Option<usize>)| {
+        let tx = tx_cache.clone();
+        async move {
+            let file_path = match file {
+                Some(p) => PathBuf::from(p),
+                None => {
+                    log::warn!("pairee.file_cache called without a `file` argument");
                     return Ok(mlua::Value::Nil);
                 }
-                match reply_rx.await {
-                    Ok(Some(p)) => Ok(mlua::Value::String(
-                        _lua.create_string(p.to_string_lossy().as_ref())?,
-                    )),
-                    Ok(None) => Ok(mlua::Value::Nil),
-                    Err(_) => {
-                        log::error!("pairee.file_cache reply channel closed");
-                        Ok(mlua::Value::Nil)
-                    }
+            };
+            let skip = skip.unwrap_or(0);
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+            if tx
+                .send(PluginRequest::FileCache {
+                    file_path,
+                    skip,
+                    reply_tx,
+                })
+                .await
+                .is_err()
+            {
+                log::error!("pairee.file_cache could not enqueue; main loop not running");
+                return Ok(mlua::Value::Nil);
+            }
+            match reply_rx.await {
+                Ok(Some(p)) => Ok(mlua::Value::String(
+                    _lua.create_string(p.to_string_lossy().as_ref())?,
+                )),
+                Ok(None) => Ok(mlua::Value::Nil),
+                Err(_) => {
+                    log::error!("pairee.file_cache reply channel closed");
+                    Ok(mlua::Value::Nil)
                 }
             }
-        })?,
-    )?;
-
-    Ok(table)
+        }
+    })
 }
 
 #[cfg(test)]

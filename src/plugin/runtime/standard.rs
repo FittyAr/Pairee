@@ -20,6 +20,7 @@ pub fn bind_runtime(
         secure_mode_active = config.settings.secure_mode;
     }
     pairee.set("_secure_mode", secure_mode_active)?;
+    pairee.set("_lua_api_version", super::api_version::LUA_API_VERSION)?;
 
     // 2. Bind submodules
     pairee.set("app", super::bindings::app::bind(lua, tx.clone())?)?;

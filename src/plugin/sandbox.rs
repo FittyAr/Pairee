@@ -50,7 +50,9 @@ pub fn create_sandboxed_lua(
 ) -> anyhow::Result<mlua::Lua> {
     // 1. Determine standard libraries to load
     let std_libs = if trusted {
-        mlua::StdLib::ALL
+        // ALL includes `debug`, which `new_with` rejects. Trusted plugins
+        // get io/os/package via ALL_SAFE (no debug/ffi).
+        mlua::StdLib::ALL_SAFE
     } else {
         mlua::StdLib::TABLE | mlua::StdLib::STRING | mlua::StdLib::UTF8 | mlua::StdLib::MATH
     };
@@ -167,5 +169,15 @@ mod tests {
         assert!(globals.get::<_, mlua::Value>("io").unwrap().is_nil());
         // os module should not exist
         assert!(globals.get::<_, mlua::Value>("os").unwrap().is_nil());
+    }
+
+    #[test]
+    fn trusted_lua_loads_without_debug() {
+        let dir = tempdir().unwrap();
+        let (tx, _rx) = tokio::sync::mpsc::channel(4);
+        let lua = create_sandboxed_lua(dir.path(), true, tx).unwrap();
+        let globals = lua.globals();
+        assert!(!globals.get::<_, mlua::Value>("pairee").unwrap().is_nil());
+        assert!(!globals.get::<_, mlua::Value>("io").unwrap().is_nil());
     }
 }

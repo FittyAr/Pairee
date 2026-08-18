@@ -1,3 +1,4 @@
+pub mod acceptance;
 pub mod developer_tool;
 pub mod hooks;
 pub mod loader;

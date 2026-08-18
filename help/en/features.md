@@ -182,5 +182,5 @@ For complex modules, please consult their dedicated documentation guides:
 * **Git Integration:** See [Git Integration Reference Manual](file:///home/fitty/GitHub/Pairee/help/git_integration_en.md).
 * **Detailed Configurations:** See [Configuration Settings Manual](file:///home/fitty/GitHub/Pairee/help/configuration_details_en.md).
 * **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_en.md).
-* **Plugin Developer Guide:** See [Plugin Developer Guide](file:///home/fitty/GitHub/Pairee/docs/plugin-dev-guide.md).
+* **Plugin Developer Guide:** See [Plugin Developer Guide](../../docs/plugin-dev-guide.md) and [Lua API v1](../../docs/api/lua/v1.md).
 

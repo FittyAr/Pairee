@@ -14,52 +14,44 @@
 use crate::plugin::manager::PluginRequest;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
-    let emit = lua.create_table()?;
-
-    // `pairee.emit(name, args)` — generic dispatch.
-    let tx_emit = tx.clone();
-    emit.set(
-        "emit",
-        lua.create_async_function(move |_lua, (name, args): (String, Option<mlua::Value>)| {
-            let tx = tx_emit.clone();
-            async move {
-                // Coerce the optional Lua args into a `serde_json::Value`.
-                // When the plugin does not pass an arg table, we treat it
-                // as an empty JSON object so downstream dispatchers
-                // always see a value they can read keys from.
-                let args_json = match args {
-                    Some(mlua::Value::Nil) | None => serde_json::json!({}),
-                    Some(mlua::Value::Table(t)) => {
-                        lua_table_to_json(t).unwrap_or_else(|_| serde_json::json!({}))
-                    }
-                    Some(v) => {
-                        let s = serde_json::to_string(&v).unwrap_or_else(|_| "null".to_string());
-                        serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)
-                    }
-                };
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-                if tx
-                    .send(PluginRequest::EmitAction {
-                        name: name.clone(),
-                        args: args_json,
-                        reply_tx: Some(reply_tx),
-                    })
-                    .await
-                    .is_err()
-                {
-                    log::error!("pairee.emit('{name}') could not enqueue; main loop not running");
-                    return Ok(mlua::Value::Nil);
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
+    let tx_emit = tx;
+    lua.create_async_function(move |_lua, (name, args): (String, Option<mlua::Value>)| {
+        let tx = tx_emit.clone();
+        async move {
+            // Coerce the optional Lua args into a `serde_json::Value`.
+            // When the plugin does not pass an arg table, we treat it
+            // as an empty JSON object so downstream dispatchers
+            // always see a value they can read keys from.
+            let args_json = match args {
+                Some(mlua::Value::Nil) | None => serde_json::json!({}),
+                Some(mlua::Value::Table(t)) => {
+                    lua_table_to_json(t).unwrap_or_else(|_| serde_json::json!({}))
                 }
-                // M0: we do not yet route through the resolver, so the
-                // dispatch is fire-and-forget; ignore the reply.
-                let _ = reply_rx.await;
-                Ok(mlua::Value::Nil)
+                Some(v) => {
+                    let s = serde_json::to_string(&v).unwrap_or_else(|_| "null".to_string());
+                    serde_json::from_str(&s).unwrap_or(serde_json::Value::Null)
+                }
+            };
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+            if tx
+                .send(PluginRequest::EmitAction {
+                    name: name.clone(),
+                    args: args_json,
+                    reply_tx: Some(reply_tx),
+                })
+                .await
+                .is_err()
+            {
+                log::error!("pairee.emit('{name}') could not enqueue; main loop not running");
+                return Ok(mlua::Value::Nil);
             }
-        })?,
-    )?;
-
-    Ok(emit)
+            // M0: we do not yet route through the resolver, so the
+            // dispatch is fire-and-forget; ignore the reply.
+            let _ = reply_rx.await;
+            Ok(mlua::Value::Nil)
+        }
+    })
 }
 
 /// Best-effort conversion of a Lua table into a JSON value. Supports

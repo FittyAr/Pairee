@@ -1,0 +1,7 @@
+[plugin]
+name = "acceptance-command-echo"
+version = "1.0.0"
+description = "CI acceptance: pairee.Command builder + :output()"
+author = "Pairee"
+default_language = "en"
+trusted = true

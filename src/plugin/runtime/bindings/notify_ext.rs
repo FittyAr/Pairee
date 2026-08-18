@@ -11,55 +11,48 @@
 use crate::plugin::manager::{NotifyPayload, PluginRequest};
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
-    let table = lua.create_table()?;
-
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
     let tx_notify = tx;
-    table.set(
-        "notify",
-        lua.create_async_function(move |_lua, opts: mlua::Table| {
-            let tx = tx_notify.clone();
-            async move {
-                let title = match opts.get::<_, mlua::String>("title") {
-                    Ok(s) => s.to_str()?.to_string(),
-                    Err(_) => {
-                        log::warn!("pairee.notify: missing or non-string `title`");
-                        return Ok(mlua::Value::Nil);
-                    }
-                };
-                let content = opts
-                    .get::<_, mlua::String>("content")
-                    .ok()
-                    .map(|s| s.to_str().map(|s| s.to_string()))
-                    .transpose()?
-                    .unwrap_or_default();
-                let level = opts
-                    .get::<_, mlua::String>("level")
-                    .ok()
-                    .map(|s| s.to_str().map(|s| s.to_string()))
-                    .transpose()?
-                    .or_else(|| Some("info".to_string()));
-                let timeout_secs = opts.get::<_, f64>("timeout").ok();
-
-                let payload = NotifyPayload {
-                    title,
-                    content,
-                    level,
-                    timeout_secs,
-                };
-                if tx
-                    .send(PluginRequest::NotifyStructured(payload))
-                    .await
-                    .is_err()
-                {
-                    log::error!("pairee.notify could not enqueue; main loop not running");
+    lua.create_async_function(move |_lua, opts: mlua::Table| {
+        let tx = tx_notify.clone();
+        async move {
+            let title = match opts.get::<_, mlua::String>("title") {
+                Ok(s) => s.to_str()?.to_string(),
+                Err(_) => {
+                    log::warn!("pairee.notify: missing or non-string `title`");
+                    return Ok(mlua::Value::Nil);
                 }
-                Ok(mlua::Value::Nil)
-            }
-        })?,
-    )?;
+            };
+            let content = opts
+                .get::<_, mlua::String>("content")
+                .ok()
+                .map(|s| s.to_str().map(|s| s.to_string()))
+                .transpose()?
+                .unwrap_or_default();
+            let level = opts
+                .get::<_, mlua::String>("level")
+                .ok()
+                .map(|s| s.to_str().map(|s| s.to_string()))
+                .transpose()?
+                .or_else(|| Some("info".to_string()));
+            let timeout_secs = opts.get::<_, f64>("timeout").ok();
 
-    Ok(table)
+            let payload = NotifyPayload {
+                title,
+                content,
+                level,
+                timeout_secs,
+            };
+            if tx
+                .send(PluginRequest::NotifyStructured(payload))
+                .await
+                .is_err()
+            {
+                log::error!("pairee.notify could not enqueue; main loop not running");
+            }
+            Ok(mlua::Value::Nil)
+        }
+    })
 }
 
 #[cfg(test)]

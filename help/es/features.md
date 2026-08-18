@@ -182,5 +182,5 @@ Para módulos más complejos y detallados, por favor consultá sus manuales espe
 * **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
-* **Guía para Desarrolladores de Complementos:** Consulta la [Guía para Desarrolladores de Complementos](file:///home/fitty/GitHub/Pairee/docs/plugin-dev-guide-es.md).
+* **Guía para Desarrolladores de Complementos:** Consulta la [Guía para Desarrolladores de Complementos](../../docs/plugin-dev-guide-es.md) y la [API Lua v1](../../docs/api/lua/v1.md).
 

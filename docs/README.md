@@ -18,7 +18,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 
 | Doc | Status | Notes |
 |-----|--------|-------|
-| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | Checklist de mejoras (A–B hechas; **F** input/UI/anti-glitch siguiente; C–E) |
+| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | A–B y F principal hechas; D casi cerrada; C resto / E |
 
 ---
 
@@ -42,11 +42,13 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [technical/transfer-engine-design.md](./technical/transfer-engine-design.md) | Partial | Engine under `src/fs/transfer/`; dual path with `ops_worker` remains |
 | [technical/plugin-system-design.md](./technical/plugin-system-design.md) | Partial | Runtime exists; original banner was outdated |
 | [technical/plugin-system-design-es.md](./technical/plugin-system-design-es.md) | Partial | Same as EN |
-| [technical/plugin-roadmap.md](./technical/plugin-roadmap.md) | Partial | Gap inventory G1–G14 still driving work |
+| [technical/plugin-roadmap.md](./technical/plugin-roadmap.md) | Partial | Dialogs/File/cx/Command done; G1–G14 leftovers remain |
 | [technical/plugin-registry-spec.md](./technical/plugin-registry-spec.md) | Partial | |
 | [technical/plugin-dev-guide.md](../docs/plugin-dev-guide.md) | Partial | See also ES guide |
 | [plugin-dev-guide.md](./plugin-dev-guide.md) | Partial | |
 | [plugin-dev-guide-es.md](./plugin-dev-guide-es.md) | Partial | |
+| [api/lua/README.md](./api/lua/README.md) | **Implemented** | Lua API semver **1.0.0** |
+| [api/lua/v1.md](./api/lua/v1.md) | **Implemented** | Inventario estable v1 |
 | [technical/installer_guide.md](./technical/installer_guide.md) | Implemented | |
 | [technical/microsoft-store-publishing.md](./technical/microsoft-store-publishing.md) | Planned / process | |
 

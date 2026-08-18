@@ -1,6 +1,6 @@
 # Pairee Plugin Lua API Reference
 
-This document describes the Lua API surface exposed to Pairee plugins, including the new bindings introduced in the M0 plugin system evolution. For full architecture and design rationale, see [`docs/technical/plugin-system-design.md`](../technical/plugin-system-design.md) and [`docs/technical/plugin-roadmap.md`](../technical/plugin-roadmap.md). For a step-by-step guide to writing a plugin, see [`docs/plugin-dev-guide.md`](../plugin-dev-guide.md).
+This document describes the Lua API surface exposed to Pairee plugins. The versioned contract is **Lua API v1.0.0** (`pairee._lua_api_version`) — see [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). For architecture see [`docs/technical/plugin-system-design.md`](../../docs/technical/plugin-system-design.md) and the [plugin roadmap](../../docs/technical/plugin-roadmap.md). How-to: [`docs/plugin-dev-guide.md`](../../docs/plugin-dev-guide.md).
 
 ---
 
@@ -31,6 +31,7 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.settings.*` | Read access to the plugin's resolved settings | Stable |
 | `pairee.t(key, vars)` | Localised string lookup with variable interpolation | Stable |
 | `pairee._secure_mode` | Boolean: `true` when global Secure Mode is active | Stable |
+| `pairee._lua_api_version` | Semver string of this Lua surface (`1.0.0`) | Stable |
 
 ---
 

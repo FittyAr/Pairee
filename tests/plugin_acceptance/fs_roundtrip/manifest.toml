@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-fs-roundtrip"
+version = "1.0.0"
+description = "CI acceptance: mkdir/write/read/copy/rename/remove + File userdata"
+author = "Pairee"
+default_language = "en"

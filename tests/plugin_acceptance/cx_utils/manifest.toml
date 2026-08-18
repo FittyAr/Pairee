@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-cx-utils"
+version = "1.0.0"
+description = "CI acceptance: pairee.cx shape and utils helpers"
+author = "Pairee"
+default_language = "en"
