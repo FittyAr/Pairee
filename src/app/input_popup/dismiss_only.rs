@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::Error(_)
@@ -17,14 +17,14 @@ pub fn handle(
             | PopupType::InfoPanel { .. }
             | PopupType::CompareFoldersResult { .. } => {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Enter {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
                 Err(())
             }
             PopupType::QuickViewPanel(mut qv) => {
                 if key.code == KeyCode::Esc {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     state.panels.quick_view_active = false;
                     return Ok(None);
                 }
@@ -37,12 +37,12 @@ pub fn handle(
                         qv.content.len().saturating_sub(visible_height)
                     };
                     qv.scroll = (qv.scroll + 15).min(max_scroll);
-                    state.active_popup = Some(PopupType::QuickViewPanel(qv));
+                    state.dialogs.replace(PopupType::QuickViewPanel(qv));
                     return Ok(None);
                 }
                 if key.code == KeyCode::PageUp {
                     qv.scroll = qv.scroll.saturating_sub(15);
-                    state.active_popup = Some(PopupType::QuickViewPanel(qv));
+                    state.dialogs.replace(PopupType::QuickViewPanel(qv));
                     return Ok(None);
                 }
                 Err(())

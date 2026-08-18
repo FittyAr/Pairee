@@ -8,30 +8,30 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::About { mut scroll_y }) = state.active_popup.clone() {
+    if let Some(PopupType::About { mut scroll_y }) = state.dialogs.top().cloned() {
         match key.code {
             KeyCode::Esc | KeyCode::Enter => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
                 scroll_y = scroll_y.saturating_sub(1);
-                state.active_popup = Some(PopupType::About { scroll_y });
+                state.dialogs.replace(PopupType::About { scroll_y });
                 return Ok(None);
             }
             KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
                 scroll_y = scroll_y.saturating_add(1);
-                state.active_popup = Some(PopupType::About { scroll_y });
+                state.dialogs.replace(PopupType::About { scroll_y });
                 return Ok(None);
             }
             KeyCode::PageUp => {
                 scroll_y = scroll_y.saturating_sub(15);
-                state.active_popup = Some(PopupType::About { scroll_y });
+                state.dialogs.replace(PopupType::About { scroll_y });
                 return Ok(None);
             }
             KeyCode::PageDown => {
                 scroll_y = scroll_y.saturating_add(15);
-                state.active_popup = Some(PopupType::About { scroll_y });
+                state.dialogs.replace(PopupType::About { scroll_y });
                 return Ok(None);
             }
             _ => {}

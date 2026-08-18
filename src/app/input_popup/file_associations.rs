@@ -15,7 +15,7 @@ pub fn handle(
         mut editing_field,
         mut edit_buffer,
         mut original_rule,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         if let Some(idx) = editing_idx {
             // Modo Edición
@@ -85,7 +85,7 @@ pub fn handle(
             // Modo Navegación / Operaciones
             match key.code {
                 KeyCode::Esc => {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
                 KeyCode::Up => {
@@ -148,7 +148,7 @@ pub fn handle(
             }
         }
 
-        state.active_popup = Some(PopupType::FileAssociationsDialog {
+        state.dialogs.replace(PopupType::FileAssociationsDialog {
             rules,
             cursor_idx,
             editing_idx,

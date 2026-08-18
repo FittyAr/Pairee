@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         let is_alt = key.modifiers.contains(KeyModifiers::ALT);
 
@@ -56,11 +56,11 @@ pub fn handle(
                         if !entries.is_empty() && cursor_idx < entries.len() {
                             state.cli_input = entries[cursor_idx].clone();
                         }
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Delete if is_alt => {
@@ -71,7 +71,7 @@ pub fn handle(
                             .confirmations
                             .confirm_clear_history_list
                         {
-                            state.active_popup = Some(PopupType::ConfirmClearHistory {
+                            state.dialogs.replace(PopupType::ConfirmClearHistory {
                                 history_type: "command".to_string(),
                             });
                         } else {
@@ -82,7 +82,7 @@ pub fn handle(
                                 visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
@@ -99,7 +99,7 @@ pub fn handle(
                             let _ = history_store.save();
 
                             if entries.is_empty() {
-                                state.active_popup = None;
+                                state.dialogs.clear();
                                 return Ok(None);
                             } else if cursor_idx >= entries.len() {
                                 cursor_idx = entries.len() - 1;
@@ -107,7 +107,7 @@ pub fn handle(
                         }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::CommandHistoryList {
+                state.dialogs.replace(PopupType::CommandHistoryList {
                     entries,
                     cursor_idx,
                 });
@@ -155,16 +155,16 @@ pub fn handle(
                     KeyCode::Enter => {
                         if !entries.is_empty() && cursor_idx < entries.len() {
                             let path = entries[cursor_idx].clone();
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             let viewer = crate::ui::viewer::ViewerState::load(path);
                             state.push_screen(crate::app::state::Screen::Viewer(viewer));
                         } else {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Delete if is_alt => {
@@ -175,7 +175,7 @@ pub fn handle(
                             .confirmations
                             .confirm_clear_history_list
                         {
-                            state.active_popup = Some(PopupType::ConfirmClearHistory {
+                            state.dialogs.replace(PopupType::ConfirmClearHistory {
                                 history_type: "view".to_string(),
                             });
                         } else {
@@ -186,7 +186,7 @@ pub fn handle(
                                 visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
@@ -203,7 +203,7 @@ pub fn handle(
                             let _ = history_store.save();
 
                             if entries.is_empty() {
-                                state.active_popup = None;
+                                state.dialogs.clear();
                                 return Ok(None);
                             } else if cursor_idx >= entries.len() {
                                 cursor_idx = entries.len() - 1;
@@ -211,7 +211,7 @@ pub fn handle(
                         }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::FileViewHistoryList {
+                state.dialogs.replace(PopupType::FileViewHistoryList {
                     entries,
                     cursor_idx,
                 });
@@ -265,11 +265,11 @@ pub fn handle(
                             panel.clear_selection();
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         }
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Delete if is_alt => {
@@ -280,7 +280,7 @@ pub fn handle(
                             .confirmations
                             .confirm_clear_history_list
                         {
-                            state.active_popup = Some(PopupType::ConfirmClearHistory {
+                            state.dialogs.replace(PopupType::ConfirmClearHistory {
                                 history_type: "folder".to_string(),
                             });
                         } else {
@@ -291,7 +291,7 @@ pub fn handle(
                                 visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
@@ -308,7 +308,7 @@ pub fn handle(
                             let _ = history_store.save();
 
                             if entries.is_empty() {
-                                state.active_popup = None;
+                                state.dialogs.clear();
                                 return Ok(None);
                             } else if cursor_idx >= entries.len() {
                                 cursor_idx = entries.len() - 1;
@@ -316,7 +316,7 @@ pub fn handle(
                         }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::FoldersHistoryList {
+                state.dialogs.replace(PopupType::FoldersHistoryList {
                     entries,
                     cursor_idx,
                 });
@@ -356,7 +356,7 @@ mod tests {
         let mut context = AppContext::new(config);
 
         let entries = vec!["cmd1".to_string(), "cmd2".to_string(), "cmd3".to_string()];
-        state.active_popup = Some(PopupType::CommandHistoryList {
+        state.dialogs.replace(PopupType::CommandHistoryList {
             entries: entries.clone(),
             cursor_idx: 0,
         });
@@ -368,8 +368,8 @@ mod tests {
             &mut context,
         );
         assert!(res.is_ok());
-        if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.active_popup {
-            assert_eq!(cursor_idx, 1);
+        if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.dialogs.top() {
+            assert_eq!(*cursor_idx, 1);
         } else {
             panic!("Expected CommandHistoryList popup");
         }
@@ -381,8 +381,8 @@ mod tests {
             &mut context,
         );
         assert!(res.is_ok());
-        if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.active_popup {
-            assert_eq!(cursor_idx, 0);
+        if let Some(PopupType::CommandHistoryList { cursor_idx, .. }) = state.dialogs.top() {
+            assert_eq!(*cursor_idx, 0);
         } else {
             panic!("Expected CommandHistoryList popup");
         }

@@ -9,7 +9,7 @@ pub fn handle(state: &mut AppState) -> bool {
         match crate::fs::read_attrs(&entry.path) {
             Ok(attrs) => {
                 let mode_octal = format!("{:o}", attrs.mode & 0o7777);
-                state.active_popup = Some(PopupType::FileAttributesDialog {
+                state.dialogs.replace(PopupType::FileAttributesDialog {
                     attrs: FileAttrsSnapshot {
                         path: attrs.path,
                         readonly: attrs.readonly,
@@ -23,7 +23,7 @@ pub fn handle(state: &mut AppState) -> bool {
                 });
             }
             Err(e) => {
-                state.active_popup = Some(PopupType::Error(format!(
+                state.dialogs.replace(PopupType::Error(format!(
                     "{} {}",
                     t("error_read_attrs_failed"),
                     e

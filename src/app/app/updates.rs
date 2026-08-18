@@ -5,152 +5,160 @@ use crate::update::UpdateStatus;
 
 pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
     // 1.8 Process background update check result
-    if state.update.check_rx.is_some() {
-        let mut rx = state.update.check_rx.take().unwrap();
-        match rx.try_recv() {
-            Ok(Some(info)) => {
-                // If we had a "Checking for updates..." popup active, dismiss it
-                if let Some(PopupType::Info(ref msg)) = state.active_popup
-                    && msg == &t("update_checking")
-                {
-                    state.active_popup = None;
-                }
+    let check = state
+        .update
+        .check_rx
+        .as_mut()
+        .map(|rx| rx.try_recv())
+        .unwrap_or(Err(tokio::sync::oneshot::error::TryRecvError::Empty));
+    match check {
+        Ok(Some(info)) => {
+            state.update.check_rx = None;
+            if let Some(PopupType::Info(msg)) = state.dialogs.top()
+                && msg == &t("update_checking")
+            {
+                state.dialogs.clear();
+            }
 
-                // Don't show if the user already dismissed this version
-                let dismissed = context
-                    .config
-                    .settings
-                    .dismissed_update_version
-                    .as_deref()
-                    .map(|d| d == info.tag)
-                    .unwrap_or(false);
-                if !dismissed {
-                    state.update.available = Some(info.clone());
-                    // Only show popup if no other popup is active
-                    if state.active_popup.is_none() {
-                        state.active_popup = Some(PopupType::UpdateAvailable {
-                            info,
-                            cursor_idx: 0,
-                            install_progress: None,
-                            error: None,
-                            scroll_y: 0,
-                        });
-                    }
-                } else {
-                    // If it's already dismissed and we forced a check, we still show a message
-                    if state.active_popup.is_none() {
-                        state.active_popup = Some(PopupType::Info(
-                            t("update_available_ignored").replace("{}", &info.tag),
-                        ));
-                    }
+            let dismissed = context
+                .config
+                .settings
+                .dismissed_update_version
+                .as_deref()
+                .map(|d| d == info.tag)
+                .unwrap_or(false);
+            if !dismissed {
+                state.update.available = Some(info.clone());
+                if state.dialogs.is_none() {
+                    state.dialogs.replace(PopupType::UpdateAvailable {
+                        info,
+                        cursor_idx: 0,
+                        install_progress: None,
+                        error: None,
+                        scroll_y: 0,
+                    });
                 }
+            } else if state.dialogs.is_none() {
+                state.dialogs.replace(PopupType::Info(
+                    t("update_available_ignored").replace("{}", &info.tag),
+                ));
             }
-            Ok(None) => {
-                // No update available. If we had "Checking for updates..." popup, show info.
-                if let Some(PopupType::Info(ref msg)) = state.active_popup
-                    && msg == &t("update_checking")
-                {
-                    state.active_popup = Some(PopupType::Info(t("update_no_updates")));
-                }
+        }
+        Ok(None) => {
+            state.update.check_rx = None;
+            if let Some(PopupType::Info(msg)) = state.dialogs.top()
+                && msg == &t("update_checking")
+            {
+                state
+                    .dialogs
+                    .replace(PopupType::Info(t("update_no_updates")));
             }
-            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
-                state.update.check_rx = Some(rx); // Still waiting
-            }
-            Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
-                // Channel closed / check failed. If we had "Checking for updates..." popup, show error.
-                if let Some(PopupType::Info(ref msg)) = state.active_popup
-                    && msg == &t("update_checking")
-                {
-                    state.active_popup = Some(PopupType::Info(t("update_check_failed")));
-                }
+        }
+        Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
+        Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+            state.update.check_rx = None;
+            if let Some(PopupType::Info(msg)) = state.dialogs.top()
+                && msg == &t("update_checking")
+            {
+                state
+                    .dialogs
+                    .replace(PopupType::Info(t("update_check_failed")));
             }
         }
     }
 
     // 1.9 Process download progress for ongoing self-update
-    if state.update.progress_rx.is_some() {
-        let mut rx = state.update.progress_rx.take().unwrap();
+    if let Some(rx) = state.update.progress_rx.as_mut() {
         let mut latest_progress = None;
+        let mut disconnected = false;
         loop {
             match rx.try_recv() {
-                Ok(p) => {
-                    latest_progress = Some(p);
-                }
+                Ok(p) => latest_progress = Some(p),
                 Err(tokio::sync::mpsc::error::TryRecvError::Empty) => break,
-                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => break,
+                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
+                    disconnected = true;
+                    break;
+                }
             }
         }
         if let Some(p) = latest_progress {
             if let Some(PopupType::UpdateAvailable {
                 install_progress, ..
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 *install_progress = Some(p);
             }
             state.update.status = UpdateStatus::Downloading(p);
         }
-        state.update.progress_rx = Some(rx);
+        if disconnected {
+            state.update.progress_rx = None;
+        }
     }
 
     // 1.10 Process installation result for self-update
-    if state.update.install_rx.is_some() {
-        let mut rx = state.update.install_rx.take().unwrap();
-        match rx.try_recv() {
-            Ok(result) => {
-                // Task finished
-                state.update.progress_rx = None; // Clean up progress rx
-                match result {
-                    Ok(crate::update::installer::InstallResult::RestartRequired) => {
-                        state.update.status = UpdateStatus::Done;
-                        state.active_popup = Some(PopupType::Info(t("update_installed_restart")));
-                    }
-                    Ok(crate::update::installer::InstallResult::ManagedCommandShown) => {
-                        state.update.status = UpdateStatus::Done;
-                    }
-                    #[cfg(target_os = "windows")]
-                    Ok(crate::update::installer::InstallResult::WindowsInstallerLaunched) => {
-                        state.update.status = UpdateStatus::Done;
-                        state.should_quit = true; // Quit so installer can run
-                    }
-                    Err(err) => {
-                        state.update.status = UpdateStatus::Error(err.clone());
-                        if let Some(PopupType::UpdateAvailable {
-                            error,
-                            install_progress,
-                            ..
-                        }) = &mut state.active_popup
-                        {
-                            *error = Some(err);
-                            *install_progress = None;
-                        } else {
-                            state.active_popup =
-                                Some(PopupType::Info(t("update_failed").replace("{}", &err)));
-                        }
+    let install = state
+        .update
+        .install_rx
+        .as_mut()
+        .map(|rx| rx.try_recv())
+        .unwrap_or(Err(tokio::sync::oneshot::error::TryRecvError::Empty));
+    match install {
+        Ok(result) => {
+            state.update.install_rx = None;
+            state.update.progress_rx = None;
+            match result {
+                Ok(crate::update::installer::InstallResult::RestartRequired) => {
+                    state.update.status = UpdateStatus::Done;
+                    state
+                        .dialogs
+                        .replace(PopupType::Info(t("update_installed_restart")));
+                }
+                Ok(crate::update::installer::InstallResult::ManagedCommandShown) => {
+                    state.update.status = UpdateStatus::Done;
+                }
+                #[cfg(target_os = "windows")]
+                Ok(crate::update::installer::InstallResult::WindowsInstallerLaunched) => {
+                    state.update.status = UpdateStatus::Done;
+                    state.should_quit = true;
+                }
+                Err(err) => {
+                    state.update.status = UpdateStatus::Error(err.clone());
+                    if let Some(PopupType::UpdateAvailable {
+                        error,
+                        install_progress,
+                        ..
+                    }) = state.dialogs.top_mut()
+                    {
+                        *error = Some(err);
+                        *install_progress = None;
+                    } else {
+                        state
+                            .dialogs
+                            .replace(PopupType::Info(t("update_failed").replace("{}", &err)));
                     }
                 }
             }
-            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
-                state.update.install_rx = Some(rx); // Still running
-                // If download is complete (or not active), set status to Installing
-                if state.update.progress_rx.is_none()
-                    && state.update.status != UpdateStatus::Installing
-                {
-                    state.update.status = UpdateStatus::Installing;
-                }
+        }
+        Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
+            if state.update.install_rx.is_some()
+                && state.update.progress_rx.is_none()
+                && state.update.status != UpdateStatus::Installing
+            {
+                state.update.status = UpdateStatus::Installing;
             }
-            Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
-                // Task died/panicked
-                state.update.progress_rx = None;
-                state.update.status = UpdateStatus::Error(t("update_installation_task_terminated"));
-                if let Some(PopupType::UpdateAvailable {
-                    error,
-                    install_progress,
-                    ..
-                }) = &mut state.active_popup
-                {
-                    *error = Some(t("update_installation_task_terminated"));
-                    *install_progress = None;
-                }
+        }
+        Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+            state.update.install_rx = None;
+            state.update.progress_rx = None;
+            state.update.status = UpdateStatus::Error(t("update_installation_task_terminated"));
+            if let Some(PopupType::UpdateAvailable {
+                error,
+                install_progress,
+                ..
+            }) = state.dialogs.top_mut()
+            {
+                *error = Some(t("update_installation_task_terminated"));
+                *install_progress = None;
             }
         }
     }

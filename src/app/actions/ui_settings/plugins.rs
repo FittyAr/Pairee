@@ -6,7 +6,7 @@ pub fn open_plugin_menu(state: &mut AppState, context: &AppContext) {
     // Open the popup immediately so the UI stays responsive while we
     // fetch the registry index and assemble the installed list in the
     // background. The status line + spinner shows progress to the user.
-    state.active_popup = Some(PopupType::PluginMenu {
+    state.dialogs.replace(PopupType::PluginMenu {
         active_tab: 0,
         cursor_idx: 0,
         installed: Vec::new(),
@@ -163,13 +163,13 @@ pub fn install_dev_plugin(state: &mut AppState, context: &AppContext) -> bool {
             );
             let _ = crate::plugin::updater::write_lockfile(&lock);
 
-            state.active_popup = Some(crate::app::state::PopupType::Info(
+            state.dialogs.replace(crate::app::state::PopupType::Info(
                 t("plugin_toast_install_dev_ok")
                     .replace("{}", &name)
                     .replace("{:?}", &format!("{:?}", dest_dir)),
             ));
         } else {
-            state.active_popup = Some(crate::app::state::PopupType::Error(
+            state.dialogs.replace(crate::app::state::PopupType::Error(
                 t("plugin_toast_install_dev_failed").replace("{}", &name),
             ));
         }

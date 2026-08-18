@@ -45,8 +45,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     // Left panel — replaced by quick view if active and the left panel is passive
                     if state.panels.left_visible && layout.left_rect.width > 1 {
                         if state.panels.quick_view_active && !left_active {
-                            if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_ref()
-                            {
+                            if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top() {
                                 quickview::draw_quick_view(
                                     f,
                                     layout.left_rect,
@@ -85,8 +84,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     // Right panel — replaced by quick view if active and the right panel is passive
                     if state.panels.right_visible && layout.right_rect.width > 1 {
                         if state.panels.quick_view_active && !right_active {
-                            if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_ref()
-                            {
+                            if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top() {
                                 quickview::draw_quick_view(
                                     f,
                                     layout.right_rect,
@@ -134,7 +132,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     ed.scroll_y,
                     ed.is_dirty,
                     &context.config.theme,
-                    &state.active_popup,
+                    state.dialogs.top(),
                 );
             }
             crate::app::state::Screen::Viewer(vw) => {
@@ -143,7 +141,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     layout.main_rect,
                     vw,
                     &context.config.theme,
-                    &state.active_popup,
+                    state.dialogs.top(),
                     context.config.settings.viewer_show_scrollbar,
                     Some(&state.scrollbar),
                 );

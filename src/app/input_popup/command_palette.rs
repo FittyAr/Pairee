@@ -15,19 +15,19 @@ pub fn handle(
         query,
         cursor_idx,
         items,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     else {
         return Err(());
     };
 
     match key.code {
         KeyCode::Esc => {
-            state.active_popup = None;
+            state.dialogs.clear();
             Ok(None)
         }
         KeyCode::Up => {
             let new_idx = cursor_idx.saturating_sub(1);
-            state.active_popup = Some(PopupType::CommandPalette {
+            state.dialogs.replace(PopupType::CommandPalette {
                 query,
                 cursor_idx: new_idx,
                 items,
@@ -37,7 +37,7 @@ pub fn handle(
         KeyCode::Down => {
             let max = items.len().saturating_sub(1);
             let new_idx = (cursor_idx + 1).min(max);
-            state.active_popup = Some(PopupType::CommandPalette {
+            state.dialogs.replace(PopupType::CommandPalette {
                 query,
                 cursor_idx: new_idx,
                 items,
@@ -47,17 +47,17 @@ pub fn handle(
         KeyCode::Enter => {
             if let Some((_, action)) = items.get(cursor_idx) {
                 let action = *action;
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(Some(action));
             }
-            state.active_popup = None;
+            state.dialogs.clear();
             Ok(None)
         }
         KeyCode::Backspace => {
             let mut q = query;
             q.pop();
             let items = filter_items(&q);
-            state.active_popup = Some(PopupType::CommandPalette {
+            state.dialogs.replace(PopupType::CommandPalette {
                 query: q,
                 cursor_idx: 0,
                 items,
@@ -68,7 +68,7 @@ pub fn handle(
             let mut q = query;
             q.push(c);
             let items = filter_items(&q);
-            state.active_popup = Some(PopupType::CommandPalette {
+            state.dialogs.replace(PopupType::CommandPalette {
                 query: q,
                 cursor_idx: 0,
                 items,

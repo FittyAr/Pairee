@@ -32,7 +32,7 @@ pub fn render_popup(
     left_rect: Rect,
     right_rect: Rect,
 ) {
-    let popup = match &state.active_popup {
+    let popup = match state.dialogs.top() {
         Some(p) => p,
         None => return,
     };

@@ -25,7 +25,7 @@ pub fn handle(
         symlink_mode,
         use_filter,
         filter_mask,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let mut new_input = input.clone();
         let mut new_idx = cursor_idx;
@@ -53,7 +53,7 @@ pub fn handle(
                             sy: usize,
                             f: bool,
                             fm: String| {
-            s.active_popup = Some(PopupType::CopyPrompt {
+            s.dialogs.replace(PopupType::CopyPrompt {
                 input: i,
                 src_paths: src_paths.clone(),
                 dest_dir: dest_dir.clone(),
@@ -260,31 +260,31 @@ pub fn handle(
             KeyCode::Enter => {
                 if new_idx == 13 {
                     // Cancel
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
 
                 if new_idx == 11 {
                     let nodes = crate::app::sys_helpers::build_tree_nodes(&dest_dir, 0, 3);
-                    state.active_popup = Some(PopupType::TreeView {
+                    let previous = Box::new(state.dialogs.take().unwrap());
+                    state.dialogs.replace(PopupType::TreeView {
                         nodes,
                         cursor_idx: 0,
-                        caller: crate::app::state::types::TreeViewCaller::CopyPrompt {
-                            previous: Box::new(state.active_popup.take().unwrap()),
-                        },
+                        caller: crate::app::state::types::TreeViewCaller::CopyPrompt { previous },
                     });
                     return Ok(None);
                 }
                 if new_idx == 12 {
-                    state.active_popup = Some(PopupType::CopyMoveFilterPrompt {
+                    let previous = Box::new(state.dialogs.take().unwrap());
+                    state.dialogs.replace(PopupType::CopyMoveFilterPrompt {
                         input: new_filter_mask,
-                        previous: Box::new(state.active_popup.take().unwrap()),
+                        previous,
                     });
                     return Ok(None);
                 }
 
                 // Copy logic — unified TransferEngine (local + SSH backends)
-                state.active_popup = None;
+                state.dialogs.clear();
                 let targets = src_paths;
                 let dest = dest_dir.join(&new_input);
 
@@ -332,17 +332,16 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::F(10) => {
                 let nodes = crate::app::sys_helpers::build_tree_nodes(&dest_dir, 0, 3);
-                state.active_popup = Some(PopupType::TreeView {
+                let previous = Box::new(state.dialogs.take().unwrap());
+                state.dialogs.replace(PopupType::TreeView {
                     nodes,
                     cursor_idx: 0,
-                    caller: crate::app::state::types::TreeViewCaller::CopyPrompt {
-                        previous: Box::new(state.active_popup.take().unwrap()),
-                    },
+                    caller: crate::app::state::types::TreeViewCaller::CopyPrompt { previous },
                 });
                 return Ok(None);
             }

@@ -8,7 +8,9 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();
     if !targets.is_empty() {
         if context.config.settings.confirmations.confirm_wipe {
-            state.active_popup = Some(PopupType::WipeConfirm { paths: targets });
+            state
+                .dialogs
+                .replace(PopupType::WipeConfirm { paths: targets });
         } else {
             submit_simple(
                 state,

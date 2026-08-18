@@ -37,7 +37,7 @@ pub fn handle_navigation(
 
     match key.code {
         KeyCode::Esc => {
-            state.active_popup = None;
+            state.dialogs.clear();
             return Ok(None);
         }
         KeyCode::Tab => {
@@ -133,7 +133,7 @@ pub fn handle_navigation(
                     super::apply::apply_settings(state, context, settings);
                     return Ok(None);
                 } else if cursor_idx == cancel_idx {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
 
@@ -201,7 +201,7 @@ pub fn handle_navigation(
                 };
 
                 if let Some(popup) = next_popup {
-                    state.active_popup = Some(popup);
+                    state.dialogs.replace(popup);
                     return Ok(None);
                 }
             }
@@ -249,7 +249,7 @@ pub fn handle_navigation(
         _ => {}
     }
 
-    state.active_popup = Some(PopupType::ConfigurationDialog {
+    state.dialogs.replace(PopupType::ConfigurationDialog {
         active_tab,
         cursor_idx,
         editing_value,

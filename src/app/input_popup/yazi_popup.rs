@@ -8,9 +8,9 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    match state.active_popup {
+    match state.dialogs.top() {
         Some(PopupType::YaziSortPopup) => {
-            state.active_popup = None; // always close on keypress
+            state.dialogs.clear(); // always close on keypress
             if let KeyCode::Char(c) = key.code {
                 let action = match c {
                     'n' => Some(Action::SortByName),
@@ -31,7 +31,7 @@ pub fn handle(
             }
         }
         Some(PopupType::YaziViewPopup) => {
-            state.active_popup = None; // always close on keypress
+            state.dialogs.clear(); // always close on keypress
             if let KeyCode::Char(c) = key.code {
                 let action = match c {
                     '1' | 'b' => Some(Action::PanelViewBrief),

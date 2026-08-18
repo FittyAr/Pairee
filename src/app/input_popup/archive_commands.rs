@@ -13,11 +13,11 @@ pub fn handle(
         archive_path,
         items,
         mut cursor_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
@@ -27,7 +27,7 @@ pub fn handle(
                     } else {
                         items.len() - 1
                     };
-                    state.active_popup = Some(PopupType::ArchiveCommandsMenu {
+                    state.dialogs.replace(PopupType::ArchiveCommandsMenu {
                         archive_path,
                         items,
                         cursor_idx,
@@ -42,7 +42,7 @@ pub fn handle(
                     } else {
                         0
                     };
-                    state.active_popup = Some(PopupType::ArchiveCommandsMenu {
+                    state.dialogs.replace(PopupType::ArchiveCommandsMenu {
                         archive_path,
                         items,
                         cursor_idx,
@@ -76,7 +76,7 @@ pub fn handle(
 }
 
 fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) {
-    state.active_popup = None;
+    state.dialogs.clear();
     match cursor_idx {
         0 => {
             // List contents
@@ -97,8 +97,9 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
                     state.push_screen(Screen::Viewer(viewer));
                 }
                 Err(e) => {
-                    state.active_popup =
-                        Some(PopupType::Error(format!("Failed to list archive: {}", e)));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(format!("Failed to list archive: {}", e)));
                 }
             }
         }
@@ -106,12 +107,14 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             // Test integrity
             match crate::fs::archive::list_archive_files(archive_path) {
                 Ok(_) => {
-                    state.active_popup = Some(PopupType::Info(crate::config::localization::t(
-                        "archive_test_ok",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Info(crate::config::localization::t(
+                            "archive_test_ok",
+                        )));
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!(
+                    state.dialogs.replace(PopupType::Error(format!(
                         "Archive integrity check failed: {}",
                         e
                     )));

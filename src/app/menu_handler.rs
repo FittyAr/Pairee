@@ -40,7 +40,7 @@ pub fn trigger_menu_item(
 
     if item.label == crate::config::localization::t("menu_hotplug_devices") {
         let drives = get_system_drives();
-        state.active_popup = Some(PopupType::DriveSelect {
+        state.dialogs.replace(PopupType::DriveSelect {
             panel: state.panels.active,
             drives,
             cursor_idx: 0,

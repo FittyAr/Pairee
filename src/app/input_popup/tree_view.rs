@@ -12,19 +12,19 @@ pub fn handle(
         nodes,
         cursor_idx,
         caller,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Esc | KeyCode::F(10) => {
                 match caller {
                     crate::app::state::types::TreeViewCaller::Panel(_) => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                     }
                     crate::app::state::types::TreeViewCaller::CopyPrompt { previous } => {
-                        state.active_popup = Some(*previous);
+                        state.dialogs.replace(*previous);
                     }
                     crate::app::state::types::TreeViewCaller::MovePrompt { previous } => {
-                        state.active_popup = Some(*previous);
+                        state.dialogs.replace(*previous);
                     }
                 }
                 return Ok(None);
@@ -36,7 +36,7 @@ pub fn handle(
                     } else {
                         nodes.len() - 1
                     };
-                    state.active_popup = Some(PopupType::TreeView {
+                    state.dialogs.replace(PopupType::TreeView {
                         nodes,
                         cursor_idx: new_idx,
                         caller,
@@ -51,7 +51,7 @@ pub fn handle(
                     } else {
                         0
                     };
-                    state.active_popup = Some(PopupType::TreeView {
+                    state.dialogs.replace(PopupType::TreeView {
                         nodes,
                         cursor_idx: new_idx,
                         caller,
@@ -83,20 +83,20 @@ pub fn handle(
                                     state.panels.right.clear_selection();
                                 }
                             }
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         }
                         crate::app::state::types::TreeViewCaller::CopyPrompt { mut previous } => {
                             if let PopupType::CopyPrompt { ref mut input, .. } = *previous {
                                 *input = target.to_string_lossy().to_string();
                             }
-                            state.active_popup = Some(*previous);
+                            state.dialogs.replace(*previous);
                         }
                         crate::app::state::types::TreeViewCaller::MovePrompt { mut previous } => {
                             if let PopupType::MovePrompt { ref mut input, .. } = *previous {
                                 *input = target.to_string_lossy().to_string();
                             }
-                            state.active_popup = Some(*previous);
+                            state.dialogs.replace(*previous);
                         }
                     }
                 }

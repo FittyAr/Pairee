@@ -5,7 +5,7 @@ pub fn handle(state: &mut AppState) -> bool {
     if let Some(entry) = active.entries.get(active.cursor_index)
         && entry.name != ".."
     {
-        state.active_popup = Some(PopupType::CreateLinkPrompt {
+        state.dialogs.replace(PopupType::CreateLinkPrompt {
             src: entry.path.clone(),
             dest_input: entry.name.clone(),
             kind: LinkKind::Symbolic,

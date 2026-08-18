@@ -312,10 +312,10 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 **Patrones:** State objects, Dialog stack, Facade de servicios, Event bus.  
 **Nota:** tras Fase F, `keybindings/preset.rs` se reduce o desaparece; priorizar monólitos UI restantes.
 
-- [x] Extraer de `AppState`: `HistoryState`, `UpdateState`, `PanelPair` (`TransferUIState` ya existía; `PluginHostState` pendiente)
-- [x] `PopupType` vive en `state/popup/` (familias + `QuickViewDialog` boxed; `Settings` boxed en config dialog). Stack tipado completo pendiente
+- [x] Extraer de `AppState`: `HistoryState`, `UpdateState`, `PanelPair`, `PluginHostState`
+- [x] `PopupType` en `state/popup/` + `DialogStack` (`replace`/`push`/`pop`; overlay en `state.dialogs`)
 - [x] Partir archivos >500 LOC de la lista baseline (`types`, `updater`, `list`, `settings`)
-- [ ] Sustituir poll `take/unwrap/put-back` de receivers por bus o `select!` idiomático
+- [x] Receivers de fondo: `try_recv` sobre `&mut` (sin take/put-back). `select!` de event-loop queda fuera (loop síncrono + poll)
 - [ ] Valorar `src/lib.rs` + binario fino para tests/benches
 
 ### Archivos monolíticos a partir (baseline)
@@ -389,7 +389,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | _(prev)_ | feat: `tui-scrollbar` helper + integración UI (F.2) |
 | 2026-08-12 | _(prev)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
 | 2026-08-12 | _(prev)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
-| 2026-08-12 | _(este)_ | refactor: C.2 PopupType module + split updater/list/settings |
+| 2026-08-12 | _(prev)_ | refactor: C.2 PopupType module + split updater/list/settings |
+| 2026-08-12 | _(este)_ | refactor: C.3 DialogStack + PluginHostState + receiver poll |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -413,7 +414,7 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 
 **Fase A, B y F (principal) cerradas.**  
 **Fase C.1:** `HistoryState` / `UpdateState` / `PanelPair` extraídos; monólitos UI partidos.  
-Siguiente: **C.3** stack de diálogos (push/pop), `select!` de receivers, `PluginHostState`.  
+Siguiente: **Fase D** (plugins productivos) o resto anti-glitch / `src/lib.rs`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

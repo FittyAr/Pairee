@@ -12,7 +12,7 @@ pub fn handle(
         mut query,
         mut case_sensitive,
         mut cursor_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Tab | KeyCode::Down => {
@@ -39,12 +39,12 @@ pub fn handle(
                 }
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Enter => {
                 if cursor_idx == 3 {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
 
@@ -86,7 +86,7 @@ pub fn handle(
                         }
                     }
                 }
-                state.active_popup = Some(PopupType::ViewerSearchPrompt {
+                state.dialogs.replace(PopupType::ViewerSearchPrompt {
                     query,
                     case_sensitive,
                     cursor_idx,
@@ -95,7 +95,7 @@ pub fn handle(
             }
             _ => {}
         }
-        state.active_popup = Some(PopupType::ViewerSearchPrompt {
+        state.dialogs.replace(PopupType::ViewerSearchPrompt {
             query,
             case_sensitive,
             cursor_idx,

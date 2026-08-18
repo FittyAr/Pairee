@@ -17,7 +17,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
             } else {
                 dest_dir.to_string_lossy().to_string()
             };
-            state.active_popup = Some(PopupType::CopyPrompt {
+            state.dialogs.replace(PopupType::CopyPrompt {
                 input: default_input,
                 src_paths: targets,
                 dest_dir,

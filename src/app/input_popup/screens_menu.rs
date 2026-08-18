@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::ScreensMenu {
@@ -34,15 +34,19 @@ pub fn handle(
                         if cursor_idx < state.screens.len() {
                             // save current screen's popup if not staying on same screen
                             if cursor_idx != state.active_screen_idx {
-                                state.screen_popups[state.active_screen_idx] =
-                                    suspended_popup.map(|b| *b);
+                                let mut parked = crate::app::state::DialogStack::new();
+                                if let Some(p) = suspended_popup {
+                                    parked.replace(*p);
+                                }
+                                state.screen_dialogs[state.active_screen_idx] = parked;
                                 state.active_screen_idx = cursor_idx;
-                                state.active_popup = state.screen_popups[cursor_idx].take();
+                                state.dialogs =
+                                    std::mem::take(&mut state.screen_dialogs[cursor_idx]);
                             } else {
-                                state.active_popup = suspended_popup.map(|b| *b);
+                                state.dialogs.set(suspended_popup.map(|b| *b));
                             }
                         } else {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
@@ -65,17 +69,17 @@ pub fn handle(
                                 last_case_sensitive: false,
                             };
                             state.push_screen(Screen::Viewer(vw));
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             return Ok(None);
                         }
                     }
                     KeyCode::Esc | KeyCode::F(12) => {
-                        state.active_popup = suspended_popup.map(|b| *b);
+                        state.dialogs.set(suspended_popup.map(|b| *b));
                         return Ok(None);
                     }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::ScreensMenu {
+                state.dialogs.replace(PopupType::ScreensMenu {
                     cursor_idx,
                     suspended_popup,
                 });

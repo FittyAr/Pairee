@@ -71,7 +71,7 @@ pub fn handle(
         KeyCode::Esc => {
             // Minimizar a barra compacta
             transfer.view_mode = TransferViewMode::Minimized;
-            state.active_popup = None;
+            state.dialogs.clear();
             Ok(None)
         }
         KeyCode::Tab => {
@@ -220,7 +220,9 @@ pub fn handle(
                 .confirmations
                 .confirm_interrupt_operation
             {
-                state.active_popup = Some(crate::app::state::PopupType::ConfirmInterrupt);
+                state
+                    .dialogs
+                    .replace(crate::app::state::PopupType::ConfirmInterrupt);
             } else {
                 let jobs = transfer.engine.queue.get_all();
                 if let Some(job) = jobs.get(transfer.queue_cursor) {

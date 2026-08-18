@@ -12,11 +12,11 @@ pub fn handle(
     if let Some(PopupType::FileAttributesDialog {
         mut attrs,
         mut mode_input,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Char(c) if c.is_digit(8) => {
@@ -35,24 +35,26 @@ pub fn handle(
                     && let Ok(mode) = u32::from_str_radix(&mode_input, 8)
                     && let Err(e) = crate::fs::attrs::set_unix_mode(&attrs.path, mode)
                 {
-                    state.active_popup = Some(PopupType::Error(
+                    state.dialogs.replace(PopupType::Error(
                         t("error_set_unix_mode_failed").replace("{}", &e.to_string()),
                     ));
                     return Ok(None);
                 }
                 if let Err(e) = crate::fs::attrs::set_readonly(&attrs.path, attrs.readonly) {
-                    state.active_popup = Some(PopupType::Error(
+                    state.dialogs.replace(PopupType::Error(
                         t("error_set_readonly_failed").replace("{}", &e.to_string()),
                     ));
                     return Ok(None);
                 }
                 state.refresh_both_panels(context.config.settings.show_hidden);
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}
         }
-        state.active_popup = Some(PopupType::FileAttributesDialog { attrs, mode_input });
+        state
+            .dialogs
+            .replace(PopupType::FileAttributesDialog { attrs, mode_input });
         return Ok(None);
     }
     Err(())

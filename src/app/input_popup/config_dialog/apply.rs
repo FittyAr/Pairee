@@ -24,5 +24,5 @@ pub fn apply_settings(state: &mut AppState, context: &mut AppContext, settings: 
     context.config.save_logging();
     crate::config::localization::load_language(&lang_to_load);
     state.refresh_both_panels(context.config.settings.show_hidden);
-    state.active_popup = None;
+    state.dialogs.clear();
 }

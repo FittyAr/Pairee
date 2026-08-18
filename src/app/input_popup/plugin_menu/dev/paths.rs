@@ -15,7 +15,7 @@ pub const DEV_OPT_COUNT: usize = 9;
 pub fn move_active_panel_to(state: &mut AppState, path: PathBuf, show_hidden: bool) {
     state.get_active_panel_mut().current_path = path;
     state.refresh_both_panels(show_hidden);
-    state.active_popup = None;
+    state.dialogs.clear();
 }
 
 /// Compute the absolute path of the active development plugin, falling

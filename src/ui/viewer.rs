@@ -238,7 +238,7 @@ pub fn render_viewer(
     area: Rect,
     state: &ViewerState,
     theme: &crate::config::theme::Theme,
-    active_popup: &Option<crate::app::state::PopupType>,
+    active_popup: Option<&crate::app::state::PopupType>,
     show_scrollbar: bool,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
@@ -294,7 +294,7 @@ fn render_text(
     state: &ViewerState,
     block: Block,
     theme: &crate::config::theme::Theme,
-    active_popup: &Option<crate::app::state::PopupType>,
+    active_popup: Option<&crate::app::state::PopupType>,
     show_scrollbar: bool,
     scrollbar: Option<&ScrollbarUiState>,
 ) {

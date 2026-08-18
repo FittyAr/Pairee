@@ -37,7 +37,7 @@ fn restore_previous_and_refresh(
             };
             let safe_cursor = cursor_idx.min(list_len.saturating_sub(1));
 
-            state.active_popup = Some(PopupType::GitPanel {
+            state.dialogs.replace(PopupType::GitPanel {
                 repo_path: repo_path.to_path_buf(),
                 active_tab,
                 cursor_idx: safe_cursor,
@@ -50,10 +50,10 @@ fn restore_previous_and_refresh(
                 pending_action: None,
             });
         } else {
-            state.active_popup = None;
+            state.dialogs.clear();
         }
     } else {
-        state.active_popup = Some(previous);
+        state.dialogs.replace(previous);
     }
 }
 
@@ -70,7 +70,7 @@ pub fn handle_diff(
         diff_content,
         mut scroll_y,
         previous_popup,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let lines_count = diff_content.lines().count();
 
@@ -90,13 +90,13 @@ pub fn handle_diff(
                 scroll_y = (scroll_y + 15).min(lines_count.saturating_sub(5));
             }
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
-                state.active_popup = Some(*previous_popup);
+                state.dialogs.replace(*previous_popup);
                 return Ok(None);
             }
             _ => {}
         }
 
-        state.active_popup = Some(PopupType::GitDiffView {
+        state.dialogs.replace(PopupType::GitDiffView {
             repo_path,
             file_path,
             commit_hash,
@@ -116,7 +116,7 @@ pub fn handle_prompt(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::GitBranchCreatePrompt {
@@ -140,7 +140,7 @@ pub fn handle_prompt(
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 2 {
-                            state.active_popup = Some(*previous_popup);
+                            state.dialogs.replace(*previous_popup);
                             return Ok(None);
                         }
                         if !input.trim().is_empty() {
@@ -151,26 +151,24 @@ pub fn handle_prompt(
                                         *previous_popup,
                                         &repo_path,
                                     ),
-                                    Err(e) => {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "Failed to create branch: {}",
-                                            e
-                                        )))
-                                    }
+                                    Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                        "Failed to create branch: {}",
+                                        e
+                                    ))),
                                 }
                             }
                         } else {
-                            state.active_popup = Some(*previous_popup);
+                            state.dialogs.replace(*previous_popup);
                         }
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = Some(*previous_popup);
+                        state.dialogs.replace(*previous_popup);
                         return Ok(None);
                     }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::GitBranchCreatePrompt {
+                state.dialogs.replace(PopupType::GitBranchCreatePrompt {
                     input,
                     cursor_idx,
                     repo_path,
@@ -200,7 +198,7 @@ pub fn handle_prompt(
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 2 {
-                            state.active_popup = Some(*previous_popup);
+                            state.dialogs.replace(*previous_popup);
                             return Ok(None);
                         }
                         if !input.trim().is_empty() && input != old_name {
@@ -212,26 +210,24 @@ pub fn handle_prompt(
                                         *previous_popup,
                                         &repo_path,
                                     ),
-                                    Err(e) => {
-                                        state.active_popup = Some(PopupType::Error(format!(
-                                            "Failed to rename branch: {}",
-                                            e
-                                        )))
-                                    }
+                                    Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                        "Failed to rename branch: {}",
+                                        e
+                                    ))),
                                 }
                             }
                         } else {
-                            state.active_popup = Some(*previous_popup);
+                            state.dialogs.replace(*previous_popup);
                         }
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = Some(*previous_popup);
+                        state.dialogs.replace(*previous_popup);
                         return Ok(None);
                     }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::GitBranchRenamePrompt {
+                state.dialogs.replace(PopupType::GitBranchRenamePrompt {
                     input,
                     cursor_idx,
                     old_name,
@@ -261,7 +257,7 @@ pub fn handle_prompt(
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 2 {
-                            state.active_popup = Some(*previous_popup);
+                            state.dialogs.replace(*previous_popup);
                             return Ok(None);
                         }
                         let msg = if input.trim().is_empty() {
@@ -274,21 +270,20 @@ pub fn handle_prompt(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Stash save failed: {}", e)))
-                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Stash save failed: {}", e))),
                             }
                         }
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = Some(*previous_popup);
+                        state.dialogs.replace(*previous_popup);
                         return Ok(None);
                     }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::GitStashSavePrompt {
+                state.dialogs.replace(PopupType::GitStashSavePrompt {
                     input,
                     cursor_idx,
                     repo_path,
@@ -314,7 +309,7 @@ pub fn handle_confirm_action(
         repo_path,
         action,
         previous_popup,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         // 0 = OK / Yes, 1 = Cancel / No. Let's make Enter confirm, and arrow navigation.
         // We will hold focus state on a small selection state or just simple Enter / Esc.
@@ -328,12 +323,10 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => {
-                                    state.active_popup = Some(PopupType::Error(format!(
-                                        "Delete branch failed: {}",
-                                        e
-                                    )))
-                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Delete branch failed: {}",
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -351,17 +344,16 @@ pub fn handle_confirm_action(
                                         .map(|idx| idx.has_conflicts())
                                         .unwrap_or(false);
                                     if has_conflicts {
-                                        state.active_popup = Some(PopupType::Error("Merge conflicts detected! Please resolve them manually.".to_string()));
+                                        state.dialogs.replace(PopupType::Error("Merge conflicts detected! Please resolve them manually.".to_string()));
                                     } else {
-                                        state.active_popup = Some(PopupType::Info(
+                                        state.dialogs.replace(PopupType::Info(
                                             "Merge completed successfully.".to_string(),
                                         ));
                                     }
                                 }
-                                Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Merge failed: {}", e)))
-                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Merge failed: {}", e))),
                             }
                         }
                     }
@@ -371,10 +363,9 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Stash drop failed: {}", e)))
-                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Stash drop failed: {}", e))),
                             }
                         }
                     }
@@ -384,10 +375,9 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Stash pop failed: {}", e)))
-                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Stash pop failed: {}", e))),
                             }
                         }
                     }
@@ -397,10 +387,9 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => {
-                                    state.active_popup =
-                                        Some(PopupType::Error(format!("Reset failed: {}", e)))
-                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Reset failed: {}", e))),
                             }
                         }
                     }
@@ -408,7 +397,7 @@ pub fn handle_confirm_action(
                 return Ok(None);
             }
             KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
-                state.active_popup = Some(*previous_popup);
+                state.dialogs.replace(*previous_popup);
                 return Ok(None);
             }
             _ => {}

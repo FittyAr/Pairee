@@ -57,7 +57,7 @@ pub fn handle_popup_input(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::Help { .. } => help::handle(state, key, context),

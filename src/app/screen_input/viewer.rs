@@ -34,7 +34,7 @@ pub fn handle_viewer_screen(
             }
             KeyCode::F(4) => vw.toggle_mode(),
             KeyCode::F(7) => {
-                state.active_popup = Some(PopupType::ViewerSearchPrompt {
+                state.dialogs.replace(PopupType::ViewerSearchPrompt {
                     query: String::new(),
                     case_sensitive: false,
                     cursor_idx: 0,

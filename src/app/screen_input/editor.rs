@@ -127,7 +127,7 @@ pub fn handle_editor_screen(
             KeyCode::F(2) => {
                 let content = ed.lines.join("\n");
                 if let Err(e) = write_atomic(&ed.path, content.as_bytes()) {
-                    state.active_popup = Some(PopupType::Error(
+                    state.dialogs.replace(PopupType::Error(
                         t("error_save_failed").replace("{}", &e.to_string()),
                     ));
                     return Ok(());
@@ -137,7 +137,7 @@ pub fn handle_editor_screen(
             KeyCode::Char('s') if is_ctrl => {
                 let content = ed.lines.join("\n");
                 if let Err(e) = write_atomic(&ed.path, content.as_bytes()) {
-                    state.active_popup = Some(PopupType::Error(
+                    state.dialogs.replace(PopupType::Error(
                         t("error_save_failed").replace("{}", &e.to_string()),
                     ));
                     return Ok(());
@@ -151,7 +151,7 @@ pub fn handle_editor_screen(
                     .confirmations
                     .confirm_reload_edited_file
                 {
-                    state.active_popup = Some(PopupType::ConfirmReload);
+                    state.dialogs.replace(PopupType::ConfirmReload);
                     return Ok(());
                 } else {
                     match std::fs::read_to_string(&ed.path) {
@@ -176,7 +176,7 @@ pub fn handle_editor_screen(
                             ed.is_dirty = false;
                         }
                         Err(e) => {
-                            state.active_popup = Some(PopupType::Error(
+                            state.dialogs.replace(PopupType::Error(
                                 t("error_reload_file_failed").replace("{}", &e.to_string()),
                             ));
                             return Ok(());
@@ -202,7 +202,7 @@ pub fn handle_editor_screen(
                 }
             }
             KeyCode::F(7) | KeyCode::Char('f') if is_ctrl || key.code == KeyCode::F(7) => {
-                state.active_popup = Some(PopupType::EditorSearchPrompt {
+                state.dialogs.replace(PopupType::EditorSearchPrompt {
                     query: String::new(),
                     case_sensitive: false,
                     cursor_idx: 0,
@@ -234,12 +234,16 @@ pub fn handle_editor_screen(
                 return Ok(());
             }
             KeyCode::F(8) => {
-                state.active_popup = Some(PopupType::ConfirmDiscardEditorChanges);
+                state
+                    .dialogs
+                    .replace(PopupType::ConfirmDiscardEditorChanges);
                 return Ok(());
             }
             KeyCode::Esc | KeyCode::F(10) => {
                 if ed.is_dirty {
-                    state.active_popup = Some(PopupType::ConfirmDiscardEditorChanges);
+                    state
+                        .dialogs
+                        .replace(PopupType::ConfirmDiscardEditorChanges);
                 } else {
                     state.close_current_screen();
                 }

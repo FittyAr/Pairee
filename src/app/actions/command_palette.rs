@@ -72,7 +72,7 @@ pub fn filter_items(query: &str) -> Vec<(String, Action)> {
 /// Open the palette popup on `state`.
 pub fn open_palette(state: &mut AppState) {
     let items = all_palette_items();
-    state.active_popup = Some(PopupType::CommandPalette {
+    state.dialogs.replace(PopupType::CommandPalette {
         query: String::new(),
         cursor_idx: 0,
         items,

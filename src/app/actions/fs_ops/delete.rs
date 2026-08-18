@@ -39,7 +39,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
                 }));
 
         if show_prompt {
-            state.active_popup = Some(PopupType::ConfirmDelete {
+            state.dialogs.replace(PopupType::ConfirmDelete {
                 paths: targets,
                 cursor_idx: 0,
             });

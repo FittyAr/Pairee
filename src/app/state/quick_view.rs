@@ -35,7 +35,7 @@ impl AppState {
                     });
                 }
 
-                let needs_load = match &self.active_popup {
+                let needs_load = match self.dialogs.top() {
                     Some(PopupType::QuickViewPanel(qv)) => qv.path != path,
                     _ => true,
                 };
@@ -115,8 +115,8 @@ impl AppState {
                         crate::ui::quickview::load_quick_view_content(&path)
                     };
 
-                    self.active_popup =
-                        Some(PopupType::QuickViewPanel(Box::new(QuickViewDialog {
+                    self.dialogs
+                        .replace(PopupType::QuickViewPanel(Box::new(QuickViewDialog {
                             path,
                             content,
                             scroll: 0,
@@ -125,7 +125,7 @@ impl AppState {
                         })));
                 }
             } else {
-                self.active_popup = None;
+                self.dialogs.clear();
             }
         }
     }

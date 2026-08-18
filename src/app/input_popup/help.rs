@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(PopupType::Help {
         mode,
         docs,
@@ -23,12 +23,12 @@ pub fn handle(
 
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Tab => {
                 let new_mode = if mode == 0 { 1 } else { 0 };
-                state.active_popup = Some(PopupType::Help {
+                state.dialogs.replace(PopupType::Help {
                     mode: new_mode,
                     docs,
                     plugin_docs,
@@ -55,7 +55,7 @@ pub fn handle(
                     } else {
                         None
                     };
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -77,7 +77,7 @@ pub fn handle(
                         active_content = std::fs::read_to_string(path).ok();
                         scroll_y = 0;
                     }
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -99,7 +99,7 @@ pub fn handle(
                         active_content = std::fs::read_to_string(path).ok();
                         scroll_y = 0;
                     }
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -112,7 +112,7 @@ pub fn handle(
                 }
                 KeyCode::Enter => {
                     // Switch focus to right pane
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode: 1,
                         docs,
                         plugin_docs,
@@ -130,7 +130,7 @@ pub fn handle(
             match key.code {
                 KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
                     scroll_y = scroll_y.saturating_sub(1);
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -143,7 +143,7 @@ pub fn handle(
                 }
                 KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
                     scroll_y += 1;
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -160,7 +160,7 @@ pub fn handle(
                     } else {
                         scroll_y = 0;
                     }
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -173,7 +173,7 @@ pub fn handle(
                 }
                 KeyCode::PageDown => {
                     scroll_y += 15;
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode,
                         docs,
                         plugin_docs,
@@ -186,7 +186,7 @@ pub fn handle(
                 }
                 KeyCode::Backspace => {
                     // Backspace returns to list pane
-                    state.active_popup = Some(PopupType::Help {
+                    state.dialogs.replace(PopupType::Help {
                         mode: 0,
                         docs,
                         plugin_docs,

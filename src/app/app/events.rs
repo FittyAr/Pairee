@@ -25,7 +25,7 @@ pub async fn handle_input_event(
             }
 
             // Popups consume inputs first
-            let popup_active = state.active_popup.is_some();
+            let popup_active = state.dialogs.is_some();
             match handle_popup_input(state, key, context) {
                 Ok(Some(action)) => {
                     handle_action(state, action, context, terminal_backend).await?;
@@ -52,10 +52,10 @@ pub async fn handle_input_event(
                 && key.modifiers.is_empty()
             {
                 if c == 's' {
-                    state.active_popup = Some(PopupType::YaziSortPopup);
+                    state.dialogs.replace(PopupType::YaziSortPopup);
                     return Ok(());
                 } else if c == 'v' {
-                    state.active_popup = Some(PopupType::YaziViewPopup);
+                    state.dialogs.replace(PopupType::YaziViewPopup);
                     return Ok(());
                 }
             }

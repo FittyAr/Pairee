@@ -17,7 +17,7 @@ pub fn handle(
         src_path,
         parent_dir,
         cursor_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     else {
         return Err(());
     };
@@ -26,7 +26,7 @@ pub fn handle(
     let mut new_idx = cursor_idx;
 
     let update = |s: &mut AppState, i: String, idx: usize| {
-        s.active_popup = Some(PopupType::RenamePrompt {
+        s.dialogs.replace(PopupType::RenamePrompt {
             input: i,
             original: original.clone(),
             src_path: src_path.clone(),
@@ -37,7 +37,7 @@ pub fn handle(
 
     match key.code {
         KeyCode::Esc => {
-            state.active_popup = None;
+            state.dialogs.clear();
             Ok(None)
         }
         KeyCode::Up | KeyCode::BackTab => {
@@ -81,7 +81,7 @@ pub fn handle(
         }
         KeyCode::Enter => {
             if new_idx == 2 {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             rename_action::commit(state, context, new_input, original, src_path, parent_dir);

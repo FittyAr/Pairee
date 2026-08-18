@@ -12,13 +12,13 @@ pub fn handle(
         path,
         current_desc,
         input,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Char(c) => {
                 let mut new_input = input;
                 new_input.push(c);
-                state.active_popup = Some(PopupType::DescribeFilePrompt {
+                state.dialogs.replace(PopupType::DescribeFilePrompt {
                     path,
                     current_desc,
                     input: new_input,
@@ -28,7 +28,7 @@ pub fn handle(
             KeyCode::Backspace => {
                 let mut new_input = input;
                 new_input.pop();
-                state.active_popup = Some(PopupType::DescribeFilePrompt {
+                state.dialogs.replace(PopupType::DescribeFilePrompt {
                     path,
                     current_desc,
                     input: new_input,
@@ -36,7 +36,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Enter => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 if let Some(dir) = path.parent()
                     && let Some(name) = path.file_name()
                 {
@@ -46,7 +46,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

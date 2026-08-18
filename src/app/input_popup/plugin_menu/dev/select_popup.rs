@@ -11,7 +11,7 @@ pub fn handle_select_popup(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let (options, mut cursor_idx, previous_popup) = match state.active_popup.clone() {
+    let (options, mut cursor_idx, previous_popup) = match state.dialogs.top().cloned() {
         Some(PopupType::SelectDevPlugin {
             options,
             cursor_idx,
@@ -22,7 +22,7 @@ pub fn handle_select_popup(
 
     match key.code {
         KeyCode::Esc => {
-            state.active_popup = Some(*previous_popup);
+            state.dialogs.replace(*previous_popup);
         }
         KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
             if !options.is_empty() {
@@ -32,7 +32,7 @@ pub fn handle_select_popup(
                     cursor_idx -= 1;
                 }
             }
-            state.active_popup = Some(PopupType::SelectDevPlugin {
+            state.dialogs.replace(PopupType::SelectDevPlugin {
                 options,
                 cursor_idx,
                 previous_popup,
@@ -46,7 +46,7 @@ pub fn handle_select_popup(
                     cursor_idx += 1;
                 }
             }
-            state.active_popup = Some(PopupType::SelectDevPlugin {
+            state.dialogs.replace(PopupType::SelectDevPlugin {
                 options,
                 cursor_idx,
                 previous_popup,
@@ -78,7 +78,7 @@ pub fn handle_select_popup(
                     *dev_results = t("plugin_dev_deselected");
                 }
             }
-            state.active_popup = Some(prev);
+            state.dialogs.replace(prev);
         }
         _ => {}
     }

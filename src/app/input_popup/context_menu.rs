@@ -8,10 +8,10 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::ContextMenu { items, cursor_idx }) = state.active_popup.clone() {
+    if let Some(PopupType::ContextMenu { items, cursor_idx }) = state.dialogs.top().cloned() {
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up => {
@@ -21,7 +21,7 @@ pub fn handle(
                     } else {
                         items.len() - 1
                     };
-                    state.active_popup = Some(PopupType::ContextMenu {
+                    state.dialogs.replace(PopupType::ContextMenu {
                         items,
                         cursor_idx: new_idx,
                     });
@@ -35,7 +35,7 @@ pub fn handle(
                     } else {
                         0
                     };
-                    state.active_popup = Some(PopupType::ContextMenu {
+                    state.dialogs.replace(PopupType::ContextMenu {
                         items,
                         cursor_idx: new_idx,
                     });
@@ -44,7 +44,7 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 if let Some(item) = items.get(cursor_idx) {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     if item.contains("View") {
                         return Ok(Some(Action::View));
                     } else if item.contains("Edit") {

@@ -21,21 +21,23 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
             let log_entries = crate::git::log::get_log(&repo, limit);
             let branch_entries = crate::git::branches::get_branches(&repo);
             let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
-            state.active_popup = Some(crate::app::state::PopupType::GitPanel {
-                repo_path,
-                active_tab: 0,
-                cursor_idx: 0,
-                scroll: 0,
-                status_entries,
-                log_entries,
-                branch_entries,
-                stash_entries,
-                current_branch,
-                pending_action: None,
-            });
+            state
+                .dialogs
+                .replace(crate::app::state::PopupType::GitPanel {
+                    repo_path,
+                    active_tab: 0,
+                    cursor_idx: 0,
+                    scroll: 0,
+                    status_entries,
+                    log_entries,
+                    branch_entries,
+                    stash_entries,
+                    current_branch,
+                    pending_action: None,
+                });
         }
         None => {
-            state.active_popup = Some(crate::app::state::PopupType::Error(
+            state.dialogs.replace(crate::app::state::PopupType::Error(
                 crate::config::localization::t("git_not_a_repo"),
             ));
         }

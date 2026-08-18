@@ -60,7 +60,7 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
 
     let active_menu_idx = if let Some(PopupType::Menu {
         active_menu_idx, ..
-    }) = state.active_popup
+    }) = state.dialogs.top()
     {
         Some(active_menu_idx)
     } else {
@@ -70,7 +70,7 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     let mut spans = Vec::new();
     let titles = get_menu_titles();
     for (i, title) in titles.iter().enumerate() {
-        let is_active = Some(i) == active_menu_idx;
+        let is_active = Some(i) == active_menu_idx.copied();
         let style = if is_active {
             Style::default()
                 .bg(parse_color(&theme.selection_bg))

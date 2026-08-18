@@ -95,7 +95,7 @@ pub fn render_editor_widget(
     scroll_y: usize,
     is_dirty: bool,
     theme: &crate::config::theme::Theme,
-    active_popup: &Option<PopupType>,
+    active_popup: Option<&PopupType>,
 ) {
     let title = t("editor_title")
         .replacen("{}", &path.to_string_lossy(), 1)

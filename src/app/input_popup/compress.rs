@@ -12,13 +12,13 @@ pub fn handle(
         input,
         targets,
         dest_dir,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Char(c) => {
                 let mut new_input = input;
                 new_input.push(c);
-                state.active_popup = Some(PopupType::CompressPrompt {
+                state.dialogs.replace(PopupType::CompressPrompt {
                     input: new_input,
                     targets,
                     dest_dir,
@@ -28,7 +28,7 @@ pub fn handle(
             KeyCode::Backspace => {
                 let mut new_input = input;
                 new_input.pop();
-                state.active_popup = Some(PopupType::CompressPrompt {
+                state.dialogs.replace(PopupType::CompressPrompt {
                     input: new_input,
                     targets,
                     dest_dir,
@@ -52,12 +52,12 @@ pub fn handle(
                         None,
                     );
                 } else {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                 }
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

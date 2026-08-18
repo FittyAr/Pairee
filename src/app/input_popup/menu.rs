@@ -14,7 +14,7 @@ pub fn handle(
         active_item_idx,
         active_submenu_idx,
         active_submenu_item_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         // 1. Get the items currently being interacted with (submenu or main menu)
         let current_menu_idx = active_submenu_idx.unwrap_or(active_menu_idx);
@@ -31,21 +31,21 @@ pub fn handle(
             KeyCode::Esc => {
                 if active_submenu_idx.is_some() {
                     // Close submenu, return to main menu
-                    state.active_popup = Some(PopupType::Menu {
+                    state.dialogs.replace(PopupType::Menu {
                         active_menu_idx,
                         active_item_idx,
                         active_submenu_idx: None,
                         active_submenu_item_idx: None,
                     });
                 } else {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                 }
                 Ok(None)
             }
             KeyCode::Left => {
                 if active_submenu_idx.is_some() {
                     // Close submenu, return to main menu
-                    state.active_popup = Some(PopupType::Menu {
+                    state.dialogs.replace(PopupType::Menu {
                         active_menu_idx,
                         active_item_idx,
                         active_submenu_idx: None,
@@ -63,7 +63,7 @@ pub fn handle(
                     } else {
                         None
                     };
-                    state.active_popup = Some(PopupType::Menu {
+                    state.dialogs.replace(PopupType::Menu {
                         active_menu_idx: new_idx,
                         active_item_idx: new_item_idx,
                         active_submenu_idx: None,
@@ -79,7 +79,7 @@ pub fn handle(
                         && let Some(item) = items.get(idx)
                         && let Some(sub_idx) = item.submenu_idx
                     {
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx,
                             active_submenu_idx: Some(sub_idx),
@@ -99,7 +99,7 @@ pub fn handle(
                     } else {
                         None
                     };
-                    state.active_popup = Some(PopupType::Menu {
+                    state.dialogs.replace(PopupType::Menu {
                         active_menu_idx: new_idx,
                         active_item_idx: new_item_idx,
                         active_submenu_idx: None,
@@ -126,14 +126,14 @@ pub fn handle(
                         };
                     }
                     if active_submenu_idx.is_some() {
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx,
                             active_submenu_idx,
                             active_submenu_item_idx: Some(new_item_idx),
                         });
                     } else {
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx: Some(new_item_idx),
                             active_submenu_idx: None,
@@ -161,14 +161,14 @@ pub fn handle(
                         };
                     }
                     if active_submenu_idx.is_some() {
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx,
                             active_submenu_idx,
                             active_submenu_item_idx: Some(new_item_idx),
                         });
                     } else {
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx: Some(new_item_idx),
                             active_submenu_idx: None,
@@ -181,7 +181,7 @@ pub fn handle(
             KeyCode::Enter => {
                 if let Some(sub_idx) = active_submenu_idx {
                     if let Some(sub_item_idx) = active_submenu_item_idx {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         let action = trigger_menu_item(state, context, sub_idx, sub_item_idx);
                         return Ok(action);
                     }
@@ -190,7 +190,7 @@ pub fn handle(
                         && let Some(sub_idx) = item.submenu_idx
                     {
                         // Open submenu
-                        state.active_popup = Some(PopupType::Menu {
+                        state.dialogs.replace(PopupType::Menu {
                             active_menu_idx,
                             active_item_idx,
                             active_submenu_idx: Some(sub_idx),
@@ -198,11 +198,11 @@ pub fn handle(
                         });
                         return Ok(None);
                     }
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     let action = trigger_menu_item(state, context, active_menu_idx, idx);
                     return Ok(action);
                 } else {
-                    state.active_popup = Some(PopupType::Menu {
+                    state.dialogs.replace(PopupType::Menu {
                         active_menu_idx,
                         active_item_idx: Some(0),
                         active_submenu_idx: None,
@@ -227,7 +227,7 @@ pub fn handle(
                         {
                             if item.submenu_idx.is_some() {
                                 // Open submenu instead of triggering action
-                                state.active_popup = Some(PopupType::Menu {
+                                state.dialogs.replace(PopupType::Menu {
                                     active_menu_idx,
                                     active_item_idx,
                                     active_submenu_idx: item.submenu_idx,
@@ -235,7 +235,7 @@ pub fn handle(
                                 });
                                 return Ok(None);
                             } else {
-                                state.active_popup = None;
+                                state.dialogs.clear();
                                 let action = trigger_menu_item(state, context, current_menu_idx, i);
                                 return Ok(action);
                             }
@@ -251,7 +251,7 @@ pub fn handle(
                         if let Some(hotkey) = parsed.hotkey
                             && hotkey == lower_c
                         {
-                            state.active_popup = Some(PopupType::Menu {
+                            state.dialogs.replace(PopupType::Menu {
                                 active_menu_idx: i,
                                 active_item_idx: Some(0),
                                 active_submenu_idx: None,

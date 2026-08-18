@@ -13,27 +13,29 @@ pub fn handle(
         mut input,
         mut cursor_idx,
         repo_path,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Enter => {
                 let message = input.trim().to_string();
                 if message.is_empty() {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
-                        "git_commit_empty_msg",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(crate::config::localization::t(
+                            "git_commit_empty_msg",
+                        )));
                     return Ok(None);
                 }
                 if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                     // Stage all
                     if let Err(e) = crate::git::commit::stage_all(&repo) {
-                        state.active_popup = Some(PopupType::Error(format!(
+                        state.dialogs.replace(PopupType::Error(format!(
                             "{}: {}",
                             crate::config::localization::t("git_error_stage_failed"),
                             e
@@ -50,14 +52,14 @@ pub fn handle(
                         Ok(oid) => {
                             let short = oid.to_string();
                             let short = &short[..7.min(short.len())];
-                            state.active_popup = Some(PopupType::Info(format!(
+                            state.dialogs.replace(PopupType::Info(format!(
                                 "{} [{}]",
                                 crate::config::localization::t("git_commit_success"),
                                 short
                             )));
                         }
                         Err(e) => {
-                            state.active_popup = Some(PopupType::Error(format!(
+                            state.dialogs.replace(PopupType::Error(format!(
                                 "{}: {}",
                                 crate::config::localization::t("git_error_commit_failed"),
                                 e
@@ -65,9 +67,11 @@ pub fn handle(
                         }
                     }
                 } else {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
-                        "git_not_a_repo",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(crate::config::localization::t(
+                            "git_not_a_repo",
+                        )));
                 }
                 return Ok(None);
             }
@@ -103,7 +107,7 @@ pub fn handle(
             _ => return Ok(None),
         }
 
-        state.active_popup = Some(PopupType::GitCommitPrompt {
+        state.dialogs.replace(PopupType::GitCommitPrompt {
             input,
             cursor_idx,
             repo_path,

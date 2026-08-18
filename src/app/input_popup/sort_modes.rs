@@ -12,7 +12,7 @@ pub fn handle(
         current,
         reverse,
         cursor_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let fields = [
             SortField::Name,
@@ -25,7 +25,7 @@ pub fn handle(
 
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up => {
@@ -34,7 +34,7 @@ pub fn handle(
                 } else {
                     total_items - 1
                 };
-                state.active_popup = Some(PopupType::SortModesDialog {
+                state.dialogs.replace(PopupType::SortModesDialog {
                     current,
                     reverse,
                     cursor_idx: new_idx,
@@ -47,7 +47,7 @@ pub fn handle(
                 } else {
                     0
                 };
-                state.active_popup = Some(PopupType::SortModesDialog {
+                state.dialogs.replace(PopupType::SortModesDialog {
                     current,
                     reverse,
                     cursor_idx: new_idx,
@@ -64,7 +64,7 @@ pub fn handle(
                     let panel = state.get_active_panel_mut();
                     panel.sort_reverse = !reverse;
                 }
-                state.active_popup = None;
+                state.dialogs.clear();
                 state.refresh_both_panels(context.config.settings.show_hidden);
                 return Ok(None);
             }
@@ -73,7 +73,7 @@ pub fn handle(
                     let chosen_field = fields[cursor_idx];
                     let panel = state.get_active_panel_mut();
                     panel.sort_field = chosen_field;
-                    state.active_popup = Some(PopupType::SortModesDialog {
+                    state.dialogs.replace(PopupType::SortModesDialog {
                         current: chosen_field,
                         reverse,
                         cursor_idx,
@@ -81,7 +81,7 @@ pub fn handle(
                 } else {
                     let panel = state.get_active_panel_mut();
                     panel.sort_reverse = !reverse;
-                    state.active_popup = Some(PopupType::SortModesDialog {
+                    state.dialogs.replace(PopupType::SortModesDialog {
                         current,
                         reverse: !reverse,
                         cursor_idx,

@@ -13,7 +13,7 @@ pub fn handle(
         target,
         is_branch,
         repo_path,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
@@ -25,14 +25,14 @@ pub fn handle(
                     };
                     match result {
                         Ok(()) => {
-                            state.active_popup = Some(PopupType::Info(format!(
+                            state.dialogs.replace(PopupType::Info(format!(
                                 "{}: {}",
                                 crate::config::localization::t("git_checkout_success"),
                                 target
                             )));
                         }
                         Err(e) => {
-                            state.active_popup = Some(PopupType::Error(format!(
+                            state.dialogs.replace(PopupType::Error(format!(
                                 "{}: {}",
                                 crate::config::localization::t("git_checkout_error"),
                                 e
@@ -40,13 +40,15 @@ pub fn handle(
                         }
                     }
                 } else {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
-                        "git_not_a_repo",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(crate::config::localization::t(
+                            "git_not_a_repo",
+                        )));
                 }
             }
             KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
-                state.active_popup = None;
+                state.dialogs.clear();
             }
             _ => return Ok(None),
         }

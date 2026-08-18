@@ -1,7 +1,7 @@
 use crate::app::state::{AppState, PopupType};
 
 pub fn open_about(state: &mut AppState) {
-    state.active_popup = Some(PopupType::About { scroll_y: 0 });
+    state.dialogs.replace(PopupType::About { scroll_y: 0 });
 }
 
 pub async fn open_help(state: &mut AppState) {
@@ -111,7 +111,7 @@ pub async fn open_help(state: &mut AppState) {
         None
     };
 
-    state.active_popup = Some(PopupType::Help {
+    state.dialogs.replace(PopupType::Help {
         mode: 0,
         docs,
         plugin_docs,

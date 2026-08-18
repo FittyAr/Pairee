@@ -44,22 +44,22 @@ fn apply_scroll_offset(
             }
         }
         ScrollTargetId::HelpContent => {
-            if let Some(PopupType::Help { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::Help { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = offset;
             }
         }
         ScrollTargetId::About => {
-            if let Some(PopupType::About { scroll_y }) = &mut state.active_popup {
+            if let Some(PopupType::About { scroll_y }) = state.dialogs.top_mut() {
                 *scroll_y = offset;
             }
         }
         ScrollTargetId::UpdateNotes => {
-            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = offset;
             }
         }
         ScrollTargetId::QuickView => {
-            if let Some(PopupType::QuickViewPanel(qv)) = &mut state.active_popup {
+            if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top_mut() {
                 qv.scroll = offset;
             }
         }
@@ -82,7 +82,7 @@ fn apply_scroll_offset(
         ScrollTargetId::GitList => {
             if let Some(PopupType::GitPanel {
                 cursor_idx, scroll, ..
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 *scroll = offset;
                 scrollbar::clamp_cursor_to_offset(cursor_idx, offset, viewport, content_len);
@@ -92,7 +92,7 @@ fn apply_scroll_offset(
             if let Some(PopupType::CommandHistoryList {
                 cursor_idx,
                 entries,
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 scrollbar::clamp_cursor_to_offset(
                     cursor_idx,
@@ -106,7 +106,7 @@ fn apply_scroll_offset(
             if let Some(PopupType::FileViewHistoryList {
                 cursor_idx,
                 entries,
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 scrollbar::clamp_cursor_to_offset(
                     cursor_idx,
@@ -120,7 +120,7 @@ fn apply_scroll_offset(
             if let Some(PopupType::FoldersHistoryList {
                 cursor_idx,
                 entries,
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 scrollbar::clamp_cursor_to_offset(
                     cursor_idx,
@@ -160,7 +160,7 @@ fn apply_scroll_offset(
                 cursor_idx,
                 options,
                 ..
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 scrollbar::clamp_cursor_to_offset(
                     cursor_idx,

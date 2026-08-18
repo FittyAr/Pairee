@@ -31,7 +31,7 @@ pub fn submit_job(state: &mut AppState, job: TransferJob) {
         ts.engine.submit_job(job);
         ts.view_mode = TransferViewMode::Minimized;
     }
-    state.active_popup = None;
+    state.dialogs.clear();
 }
 
 /// Convenience: enqueue a job with optional SSH endpoints.

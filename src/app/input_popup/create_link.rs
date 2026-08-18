@@ -12,7 +12,7 @@ pub fn handle(
         src,
         dest_input,
         kind,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Char('s') | KeyCode::Char('h') => {
@@ -20,7 +20,7 @@ pub fn handle(
                     KeyCode::Char('s') => LinkKind::Symbolic,
                     _ => LinkKind::Hard,
                 };
-                state.active_popup = Some(PopupType::CreateLinkPrompt {
+                state.dialogs.replace(PopupType::CreateLinkPrompt {
                     src,
                     dest_input,
                     kind: new_kind,
@@ -30,7 +30,7 @@ pub fn handle(
             KeyCode::Char(c) => {
                 let mut new_input = dest_input;
                 new_input.push(c);
-                state.active_popup = Some(PopupType::CreateLinkPrompt {
+                state.dialogs.replace(PopupType::CreateLinkPrompt {
                     src,
                     dest_input: new_input,
                     kind,
@@ -40,7 +40,7 @@ pub fn handle(
             KeyCode::Backspace => {
                 let mut new_input = dest_input;
                 new_input.pop();
-                state.active_popup = Some(PopupType::CreateLinkPrompt {
+                state.dialogs.replace(PopupType::CreateLinkPrompt {
                     src,
                     dest_input: new_input,
                     kind,
@@ -49,20 +49,22 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 let dest = state.get_passive_panel().current_path.join(&dest_input);
-                state.active_popup = None;
+                state.dialogs.clear();
                 let result = match kind {
                     LinkKind::Symbolic => crate::fs::create_symlink(&src, &dest),
                     LinkKind::Hard => crate::fs::create_hardlink(&src, &dest),
                 };
                 if let Err(e) = result {
-                    state.active_popup = Some(PopupType::Error(format!("Link failed: {}", e)));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(format!("Link failed: {}", e)));
                 } else {
                     state.refresh_both_panels(context.config.settings.show_hidden);
                 }
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

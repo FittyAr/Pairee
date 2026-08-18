@@ -20,7 +20,7 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
     } else {
         format!("{}: {}", payload.title, payload.content)
     };
-    state.active_popup = Some(PopupType::Info(body));
+    state.dialogs.replace(PopupType::Info(body));
     log::info!(
         "Plugin notify [{}]: {} - {} (timeout={:?}s)",
         level,
@@ -161,7 +161,7 @@ mod tests {
                 timeout_secs: Some(2.5),
             },
         );
-        match state.active_popup {
+        match state.dialogs.top() {
             Some(PopupType::Info(text)) => assert_eq!(text, "Hello: World"),
             other => panic!("expected Info popup, got {:?}", other),
         }
@@ -179,7 +179,7 @@ mod tests {
                 timeout_secs: None,
             },
         );
-        match state.active_popup {
+        match state.dialogs.top() {
             Some(PopupType::Info(text)) => assert_eq!(text, "Only"),
             other => panic!("expected Info popup, got {:?}", other),
         }

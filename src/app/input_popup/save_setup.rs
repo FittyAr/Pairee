@@ -9,15 +9,17 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::SaveSetupConfirm) = state.active_popup {
+    if let Some(PopupType::SaveSetupConfirm) = state.dialogs.top() {
         match key.code {
             KeyCode::Enter => {
                 match context.config.save() {
                     Ok(_) => {
-                        state.active_popup = Some(PopupType::Info(t("setup_saved_success")));
+                        state
+                            .dialogs
+                            .replace(PopupType::Info(t("setup_saved_success")));
                     }
                     Err(e) => {
-                        state.active_popup = Some(PopupType::Error(
+                        state.dialogs.replace(PopupType::Error(
                             t("error_save_setup_failed").replace("{}", &e.to_string()),
                         ));
                     }
@@ -25,7 +27,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

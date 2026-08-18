@@ -8,12 +8,12 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::ApplyCommandPrompt { input, targets }) = state.active_popup.clone() {
+    if let Some(PopupType::ApplyCommandPrompt { input, targets }) = state.dialogs.top().cloned() {
         match key.code {
             KeyCode::Char(c) => {
                 let mut new_input = input;
                 new_input.push(c);
-                state.active_popup = Some(PopupType::ApplyCommandPrompt {
+                state.dialogs.replace(PopupType::ApplyCommandPrompt {
                     input: new_input,
                     targets,
                 });
@@ -22,21 +22,21 @@ pub fn handle(
             KeyCode::Backspace => {
                 let mut new_input = input;
                 new_input.pop();
-                state.active_popup = Some(PopupType::ApplyCommandPrompt {
+                state.dialogs.replace(PopupType::ApplyCommandPrompt {
                     input: new_input,
                     targets,
                 });
                 return Ok(None);
             }
             KeyCode::Enter => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 if !input.is_empty() {
                     crate::fs::transfer::submit_apply_command(state, input, targets);
                 }
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

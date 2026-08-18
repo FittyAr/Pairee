@@ -26,7 +26,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
         dest_dir.to_string_lossy().to_string()
     };
 
-    state.active_popup = Some(PopupType::MovePrompt {
+    state.dialogs.replace(PopupType::MovePrompt {
         input: default_input,
         src_paths: targets,
         dest_dir,

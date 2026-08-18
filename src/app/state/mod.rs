@@ -1,7 +1,9 @@
+pub mod dialog_stack;
 pub mod glob;
 pub mod history;
 pub mod panel;
 pub mod panel_pair;
+pub mod plugin_host;
 pub mod popup;
 pub mod transfer_state;
 pub mod types;
@@ -12,10 +14,12 @@ pub mod refresh;
 pub mod screens;
 
 pub use crate::fs::compare::CompareStatus;
+pub use dialog_stack::DialogStack;
 pub use glob::{glob_matches, glob_matches_case};
 pub use history::HistoryState;
 pub use panel::PanelState;
 pub use panel_pair::PanelPair;
+pub use plugin_host::PluginHostState;
 pub use popup::PopupType;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
@@ -32,7 +36,8 @@ pub struct AppState {
     pub history: HistoryState,
     pub update: UpdateState,
     pub cli_input: String,
-    pub active_popup: Option<PopupType>,
+    /// Overlay dialogs (top frame is the active popup).
+    pub dialogs: DialogStack,
     pub should_quit: bool,
     /// Channel receiver for background SSH connection attempts
     pub ssh_connect_rx: Option<
@@ -43,11 +48,7 @@ pub struct AppState {
     >,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
-    /// Channel receiver for in-progress Developer Tools operations
-    /// (init / lint / package / install / submit). Drained each frame in
-    /// `process_background_updates` to update the `PluginMenu` popup's
-    /// progress fields without blocking the UI thread.
-    pub dev_progress_rx: Option<tokio::sync::mpsc::UnboundedReceiver<DevProgress>>,
+    pub plugins: PluginHostState,
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
@@ -59,7 +60,7 @@ pub struct AppState {
 
     // ── Screens Management ────────────────────────────────────────────────────
     pub screens: Vec<Screen>,
-    pub screen_popups: Vec<Option<PopupType>>,
+    pub screen_dialogs: Vec<DialogStack>,
     pub active_screen_idx: usize,
 
     // ── Folder shortcuts: number 1–9 → absolute path ─────────────────────────
@@ -104,15 +105,15 @@ impl AppState {
             history: HistoryState::default(),
             update: UpdateState::default(),
             cli_input: String::new(),
-            active_popup: None,
+            dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect_rx: None,
             search_rx: None,
-            dev_progress_rx: None,
+            plugins: PluginHostState::default(),
             term_tx,
             term_rx: Some(term_rx),
             screens: vec![Screen::Panels],
-            screen_popups: vec![None],
+            screen_dialogs: vec![DialogStack::new()],
             active_screen_idx: 0,
             folder_shortcuts: HashMap::new(),
             last_selection_snapshot: HashSet::new(),

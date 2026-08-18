@@ -8,8 +8,7 @@ pub fn process_background_updates(
     terminal_backend: &mut TerminalBackend,
 ) {
     // 1. Process Terminal background updates
-    if state.term_rx.is_some() {
-        let mut rx = state.term_rx.take().unwrap();
+    if let Some(rx) = state.term_rx.as_mut() {
         let mut got = false;
         while let Ok(update) = rx.try_recv() {
             got = true;
@@ -20,17 +19,21 @@ pub fn process_background_updates(
                 }
             }
         }
-        state.term_rx = Some(rx);
         if got {
             state.mark_ui_dirty();
         }
     }
 
     // 1.6 Process background SSH connection attempts
-    if state.ssh_connect_rx.is_some() {
-        let mut rx = state.ssh_connect_rx.take().unwrap();
-        match rx.try_recv() {
-            Ok((panel, res)) => match res {
+    let ssh_done = state
+        .ssh_connect_rx
+        .as_mut()
+        .map(|rx| rx.try_recv())
+        .unwrap_or(Err(tokio::sync::oneshot::error::TryRecvError::Empty));
+    match ssh_done {
+        Ok((panel, res)) => {
+            state.ssh_connect_rx = None;
+            match res {
                 Ok(client) => {
                     let p = match panel {
                         crate::app::state::ActivePanel::Left => &mut state.panels.left,
@@ -40,29 +43,28 @@ pub fn process_background_updates(
                     p.current_path = std::path::PathBuf::from("/");
                     p.cursor_index = 0;
                     p.clear_selection();
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     state.refresh_both_panels(context.config.settings.show_hidden);
                     state.mark_ui_dirty();
                 }
                 Err(e) => {
-                    state.active_popup = Some(PopupType::Error(format!(
+                    state.dialogs.replace(PopupType::Error(format!(
                         "{} {}",
                         crate::config::localization::t("error_ssh_failed"),
                         e
                     )));
                     state.mark_ui_dirty();
                 }
-            },
-            Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
-                state.ssh_connect_rx = Some(rx);
             }
-            Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {}
+        }
+        Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
+        Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
+            state.ssh_connect_rx = None;
         }
     }
 
     // 1.7 Process background search updates
-    if state.search_rx.is_some() {
-        let mut rx = state.search_rx.take().unwrap();
+    if let Some(rx) = state.search_rx.as_mut() {
         let mut new_results = Vec::new();
         let mut closed = false;
         loop {
@@ -80,7 +82,7 @@ pub fn process_background_updates(
             }
         }
         if !new_results.is_empty()
-            && let Some(PopupType::SearchResults { results, .. }) = &mut state.active_popup
+            && let Some(PopupType::SearchResults { results, .. }) = state.dialogs.top_mut()
         {
             for (path, is_dir) in new_results {
                 if results.len() < 500 {
@@ -92,17 +94,15 @@ pub fn process_background_updates(
             }
         }
         if closed {
-            if let Some(PopupType::SearchResults { searching, .. }) = &mut state.active_popup {
+            if let Some(PopupType::SearchResults { searching, .. }) = state.dialogs.top_mut() {
                 *searching = false;
             }
-        } else {
-            state.search_rx = Some(rx);
+            state.search_rx = None;
         }
     }
 
     // 1.8 Process Developer Tools progress updates (async init/lint/package/install/submit)
-    if state.dev_progress_rx.is_some() {
-        let mut rx = state.dev_progress_rx.take().unwrap();
+    if let Some(rx) = state.plugins.dev_progress_rx.as_mut() {
         let mut latest: Option<DevProgress> = None;
         let mut finished: Option<DevProgress> = None;
         let mut disconnected = false;
@@ -131,7 +131,7 @@ pub fn process_background_updates(
                 dev_loading_status,
                 dev_loading_progress,
                 ..
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
             {
                 if let Some(err) = update.error {
                     *dev_results = err;
@@ -148,7 +148,7 @@ pub fn process_background_updates(
                 dev_loading_status,
                 dev_loading_progress,
                 ..
-            }) = &mut state.active_popup
+            }) = state.dialogs.top_mut()
         {
             *dev_loading = true;
             *dev_loading_status = update.status;
@@ -158,8 +158,8 @@ pub fn process_background_updates(
                 None
             };
         }
-        if !disconnected {
-            state.dev_progress_rx = Some(rx);
+        if disconnected {
+            state.plugins.dev_progress_rx = None;
         }
     }
 
@@ -414,7 +414,9 @@ pub fn process_background_updates(
                     });
                     transfer_state.active_conflict_info = Some((job_id, file, conflict));
                     transfer_state.view_mode = crate::app::state::TransferViewMode::Expanded;
-                    state.active_popup = Some(crate::app::state::types::PopupType::TransferPanel);
+                    state
+                        .dialogs
+                        .replace(crate::app::state::types::PopupType::TransferPanel);
                     refresh_needed = true;
                 }
                 TransferEvent::VerifyStarted {

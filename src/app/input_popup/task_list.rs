@@ -15,7 +15,7 @@ pub fn handle(
         mut cursor_idx,
         mut filter_query,
         mut is_filtering,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         if is_filtering {
             match key.code {
@@ -64,7 +64,7 @@ pub fn handle(
                         cursor_idx = 0;
                         apply_filter(&mut tasks, &filter_query);
                     } else {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                 }
@@ -95,7 +95,7 @@ pub fn handle(
                                 }
                             }
                             Err(e) => {
-                                state.active_popup = Some(PopupType::Error(
+                                state.dialogs.replace(PopupType::Error(
                                     t("error_kill_process_failed").replace("{}", &e.to_string()),
                                 ));
                                 return Ok(None);
@@ -118,7 +118,7 @@ pub fn handle(
                                 }
                             }
                             Err(e) => {
-                                state.active_popup = Some(PopupType::Error(
+                                state.dialogs.replace(PopupType::Error(
                                     t("error_restart_process_failed").replace("{}", &e.to_string()),
                                 ));
                                 return Ok(None);
@@ -129,7 +129,7 @@ pub fn handle(
                 _ => {}
             }
         }
-        state.active_popup = Some(PopupType::TaskListDialog {
+        state.dialogs.replace(PopupType::TaskListDialog {
             tasks,
             cursor_idx,
             filter_query,

@@ -15,14 +15,14 @@ pub fn handle(
         input,
         cursor_idx,
         process_multiple,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let mut new_input = input.clone();
         let mut new_idx = cursor_idx;
         let mut new_multi = process_multiple;
 
         let update_popup = |s: &mut AppState, i: String, idx: usize, m: bool| {
-            s.active_popup = Some(PopupType::MkDirPrompt {
+            s.dialogs.replace(PopupType::MkDirPrompt {
                 input: i,
                 cursor_idx: idx,
                 process_multiple: m,
@@ -68,7 +68,7 @@ pub fn handle(
             KeyCode::Enter => {
                 if new_idx == 3 {
                     // Cancel
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 }
 
@@ -79,28 +79,31 @@ pub fn handle(
                         context.config.settings.req_admin_modification,
                     ) {
                         if !context.config.settings.req_admin_modification {
-                            state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                            state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {
                                 paths: vec![path],
                                 op_kind: crate::app::state::AdminOpKind::MkDir,
                             });
                         } else {
-                            state.active_popup =
-                                Some(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+                            state.dialogs.replace(PopupType::Error(format!(
+                                "{} {}",
+                                t("error_dir_error"),
+                                e
+                            )));
                         }
                     } else {
                         if context.config.settings.req_admin_modification {
                             state.terminal_needs_clear = true;
                         }
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                     }
                 } else {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                 }
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::F(10) => {

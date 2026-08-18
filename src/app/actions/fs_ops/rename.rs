@@ -6,7 +6,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
     let active = state.get_active_panel();
     if let Some(entry) = active.entries.get(active.cursor_index) {
         let original = entry.name.clone();
-        state.active_popup = Some(PopupType::RenamePrompt {
+        state.dialogs.replace(PopupType::RenamePrompt {
             input: original.clone(),
             original,
             src_path: entry.path.clone(),
@@ -15,7 +15,9 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
         });
         true
     } else {
-        state.active_popup = Some(PopupType::Error(t("error_no_entry_rename")));
+        state
+            .dialogs
+            .replace(PopupType::Error(t("error_no_entry_rename")));
         true
     }
 }
@@ -32,12 +34,12 @@ pub fn commit(
 ) {
     let trimmed = input.trim().to_string();
     if trimmed.is_empty() || trimmed == original {
-        state.active_popup = None;
+        state.dialogs.clear();
         return;
     }
     let target = parent_dir.join(&trimmed);
     if target == src_path {
-        state.active_popup = None;
+        state.dialogs.clear();
         return;
     }
     match std::fs::rename(&src_path, &target) {
@@ -45,12 +47,12 @@ pub fn commit(
             if context.config.settings.req_admin_modification {
                 state.terminal_needs_clear = true;
             }
-            state.active_popup = None;
+            state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
         Err(e) => {
             if !context.config.settings.req_admin_modification {
-                state.active_popup = Some(PopupType::ConfirmRetryAsAdmin {
+                state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {
                     paths: vec![src_path.clone()],
                     op_kind: crate::app::state::AdminOpKind::Rename {
                         src: src_path,
@@ -58,7 +60,7 @@ pub fn commit(
                     },
                 });
             } else {
-                state.active_popup = Some(PopupType::Error(format!(
+                state.dialogs.replace(PopupType::Error(format!(
                     "{} {}",
                     t("error_rename_error"),
                     e

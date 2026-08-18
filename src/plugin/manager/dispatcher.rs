@@ -50,7 +50,9 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     let _ = reply_tx.send(snapshot);
                 }
                 PluginRequest::Notify { title, msg, level } => {
-                    state.active_popup = Some(PopupType::Info(format!("{}: {}", title, msg)));
+                    state
+                        .dialogs
+                        .replace(PopupType::Info(format!("{}: {}", title, msg)));
                     log::info!("Plugin notify [{}]: {} - {}", level, title, msg);
                 }
                 PluginRequest::NotifyStructured(payload) => {
@@ -241,7 +243,7 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     }
                 }
                 PluginRequest::UpdatePluginWidget { path, widget } => {
-                    if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_mut()
+                    if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top_mut()
                         && qv.path == path
                     {
                         qv.plugin_widget = Some(widget);
@@ -252,18 +254,16 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     registry,
                 } => {
                     if let Some(PopupType::PluginMenu {
-                        installed: ref mut existing,
-                        all_registry: ref mut existing_all,
-                        registry: ref mut existing_registry,
-                        installed_loading: ref mut loading,
-                        installed_loading_status: ref mut loading_status,
+                        installed: existing,
+                        all_registry: existing_all,
+                        registry: existing_registry,
+                        installed_loading: loading,
+                        installed_loading_status: loading_status,
                         ..
-                    }) = state.active_popup
+                    }) = state.dialogs.top_mut()
                     {
                         *existing = installed;
-                        // all_registry stays as the full list for filtering
                         *existing_all = registry.clone();
-                        // registry shows all entries until the user narrows it
                         *existing_registry = registry;
                         *loading = false;
                         *loading_status = String::new();
@@ -272,11 +272,12 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 PluginRequest::DevPluginScan { options } => {
                     // Convert the scan into an open SelectDevPlugin popup.
                     let previous_popup = state
-                        .active_popup
-                        .clone()
+                        .dialogs
+                        .top()
+                        .cloned()
                         .map(Box::new)
                         .unwrap_or_else(|| Box::new(PopupType::Info(String::new())));
-                    state.active_popup = Some(PopupType::SelectDevPlugin {
+                    state.dialogs.replace(PopupType::SelectDevPlugin {
                         options,
                         cursor_idx: 0,
                         previous_popup,

@@ -25,7 +25,7 @@ pub fn calculate_layout(
     settings: &crate::config::settings::Settings,
 ) -> AppLayout {
     let menu_active = matches!(
-        state.active_popup,
+        state.dialogs.top(),
         Some(crate::app::state::PopupType::Menu { .. })
     );
     let menu_height = if settings.interface_always_show_menu_bar || menu_active {

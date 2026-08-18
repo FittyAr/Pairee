@@ -8,20 +8,20 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::ConfirmDelete { paths, cursor_idx } => {
                 match key.code {
                     KeyCode::Left => {
-                        state.active_popup = Some(PopupType::ConfirmDelete {
+                        state.dialogs.replace(PopupType::ConfirmDelete {
                             paths,
                             cursor_idx: 0,
                         });
                         return Ok(None);
                     }
                     KeyCode::Right | KeyCode::Tab => {
-                        state.active_popup = Some(PopupType::ConfirmDelete {
+                        state.dialogs.replace(PopupType::ConfirmDelete {
                             paths,
                             cursor_idx: if cursor_idx == 0 { 1 } else { 0 },
                         });
@@ -47,14 +47,14 @@ pub fn handle(
                                 None,
                             );
                         } else {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         state.get_active_panel_mut().clear_selection();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -78,7 +78,7 @@ pub fn handle(
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}

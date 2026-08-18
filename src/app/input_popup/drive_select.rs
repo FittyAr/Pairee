@@ -12,11 +12,11 @@ pub fn handle(
         panel,
         drives,
         cursor_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up => {
@@ -26,7 +26,7 @@ pub fn handle(
                     } else {
                         drives.len() - 1
                     };
-                    state.active_popup = Some(PopupType::DriveSelect {
+                    state.dialogs.replace(PopupType::DriveSelect {
                         panel,
                         drives,
                         cursor_idx: new_idx,
@@ -41,7 +41,7 @@ pub fn handle(
                     } else {
                         0
                     };
-                    state.active_popup = Some(PopupType::DriveSelect {
+                    state.dialogs.replace(PopupType::DriveSelect {
                         panel,
                         drives,
                         cursor_idx: new_idx,
@@ -64,7 +64,7 @@ pub fn handle(
                             state.panels.right.clear_selection();
                         }
                     }
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     state.refresh_both_panels(context.config.settings.show_hidden);
                 }
                 return Ok(None);

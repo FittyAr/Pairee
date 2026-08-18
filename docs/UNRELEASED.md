@@ -30,6 +30,8 @@
 - Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
 - Overlay dialogs live in `src/app/state/popup/` (`QuickViewDialog` boxed; config settings boxed) so `PopupType` is no longer a huge enum payload.
 - Plugin updater, directory listing, and Settings split into focused modules.
+- Dialogs use a `DialogStack` (`state.dialogs`) with replace/push/pop instead of a single `Option` popup.
+- Background channels (search, SSH, terminal, updates, plugin progress) are polled in place instead of take/put-back.
 
 ### Changed
 

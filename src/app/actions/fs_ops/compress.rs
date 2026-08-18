@@ -10,7 +10,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "archive".to_string());
         let dest_dir = state.get_passive_panel().current_path.clone();
-        state.active_popup = Some(PopupType::CompressPrompt {
+        state.dialogs.replace(PopupType::CompressPrompt {
             input: default_name,
             targets,
             dest_dir,

@@ -22,7 +22,7 @@ pub fn get_items(
         MenuItemData::new(
             t("menu_info_panel"),
             &shortcut_for(Action::InfoPanel, "Ctrl+L"),
-            matches!(state.active_popup, Some(PopupType::InfoPanel { .. })),
+            matches!(state.dialogs.top(), Some(PopupType::InfoPanel { .. })),
         )
         .with_action(Action::InfoPanel),
         MenuItemData::new(

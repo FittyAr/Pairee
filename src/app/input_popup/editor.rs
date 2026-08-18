@@ -9,7 +9,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::EditorSearchPrompt {
@@ -47,12 +47,12 @@ pub fn handle(
                         }
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 3 {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             return Ok(None);
                         }
                         let q = query.clone();
@@ -76,26 +76,27 @@ pub fn handle(
                                     }
                                     ed.last_search = Some(q.clone());
                                     ed.last_case_sensitive = case_sensitive;
-                                    state.active_popup = Some(PopupType::EditorSearchPrompt {
+                                    state.dialogs.replace(PopupType::EditorSearchPrompt {
                                         query,
                                         case_sensitive,
                                         cursor_idx,
                                     });
                                 } else {
-                                    state.active_popup =
-                                        Some(PopupType::Error("Text not found".to_string()));
+                                    state
+                                        .dialogs
+                                        .replace(PopupType::Error("Text not found".to_string()));
                                 }
                             } else {
-                                state.active_popup = None;
+                                state.dialogs.clear();
                             }
                         } else {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
                     _ => {}
                 }
-                state.active_popup = Some(PopupType::EditorSearchPrompt {
+                state.dialogs.replace(PopupType::EditorSearchPrompt {
                     query,
                     case_sensitive,
                     cursor_idx,

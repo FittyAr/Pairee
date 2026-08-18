@@ -21,7 +21,7 @@ pub fn handle(
         input_key_path,
         cursor_idx,
         selected_preset_idx,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         let mut new_name = input_name;
         let mut new_host = input_host;
@@ -41,7 +41,7 @@ pub fn handle(
                             kp: String,
                             idx: usize,
                             sp_idx: Option<usize>| {
-            s.active_popup = Some(PopupType::SshConnectPrompt {
+            s.dialogs.replace(PopupType::SshConnectPrompt {
                 panel,
                 input_name: name,
                 input_host: host,
@@ -300,19 +300,22 @@ pub fn handle(
                     }
                 } else if new_idx == 10 {
                     // Cancel button
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return Ok(None);
                 } else if new_idx == 8 {
                     // Save Preset button
                     if new_name.trim().is_empty() {
-                        state.active_popup =
-                            Some(PopupType::Error(t("error_ssh_preset_name_empty")));
+                        state
+                            .dialogs
+                            .replace(PopupType::Error(t("error_ssh_preset_name_empty")));
                         return Ok(None);
                     }
                     if new_host.trim().is_empty() {
-                        state.active_popup = Some(PopupType::Error(
-                            crate::config::localization::t("error_ssh_host_empty"),
-                        ));
+                        state
+                            .dialogs
+                            .replace(PopupType::Error(crate::config::localization::t(
+                                "error_ssh_host_empty",
+                            )));
                         return Ok(None);
                     }
                     let mut presets = context.config.settings.ssh_presets.clone();
@@ -414,15 +417,19 @@ pub fn handle(
 
                 // If not Cancel/Save/Delete, Enter triggers connect logic
                 if new_host.trim().is_empty() {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
-                        "error_ssh_host_empty",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(crate::config::localization::t(
+                            "error_ssh_host_empty",
+                        )));
                     return Ok(None);
                 }
                 if new_user.trim().is_empty() {
-                    state.active_popup = Some(PopupType::Error(crate::config::localization::t(
-                        "error_ssh_user_empty",
-                    )));
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(crate::config::localization::t(
+                            "error_ssh_user_empty",
+                        )));
                     return Ok(None);
                 }
 
@@ -443,9 +450,11 @@ pub fn handle(
                 // Create channel
                 let (tx, rx) = tokio::sync::oneshot::channel();
                 state.ssh_connect_rx = Some(rx);
-                state.active_popup = Some(PopupType::Info(crate::config::localization::t(
-                    "progress_connecting_ssh",
-                )));
+                state
+                    .dialogs
+                    .replace(PopupType::Info(crate::config::localization::t(
+                        "progress_connecting_ssh",
+                    )));
 
                 tokio::spawn(async move {
                     let res = crate::fs::ssh::SharedSshClient::connect(
@@ -461,7 +470,7 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             _ => {}

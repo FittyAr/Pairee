@@ -31,7 +31,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
                 }));
             }
             Err(e) => {
-                state.active_popup = Some(PopupType::Error(format!(
+                state.dialogs.replace(PopupType::Error(format!(
                     "{} {}",
                     t("error_read_file_failed"),
                     e

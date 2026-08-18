@@ -13,7 +13,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let (info_clone, cursor_idx) = match &state.active_popup {
+    let (info_clone, cursor_idx) = match state.dialogs.top() {
         Some(PopupType::UpdateAvailable {
             info,
             cursor_idx,
@@ -23,7 +23,7 @@ pub fn handle(
             // Block navigation while installing, but allow Esc or 'q' to close the popup
             if install_progress.is_some() {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                 }
                 return Ok(None);
             }
@@ -35,25 +35,25 @@ pub fn handle(
     match key.code {
         // Scroll release notes
         KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = scroll_y.saturating_sub(1);
             }
             Ok(None)
         }
         KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
-            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = scroll_y.saturating_add(1);
             }
             Ok(None)
         }
         KeyCode::PageUp => {
-            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = scroll_y.saturating_sub(5);
             }
             Ok(None)
         }
         KeyCode::PageDown => {
-            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { scroll_y, .. }) = state.dialogs.top_mut() {
                 *scroll_y = scroll_y.saturating_add(5);
             }
             Ok(None)
@@ -61,13 +61,13 @@ pub fn handle(
 
         // Navigate buttons
         KeyCode::Left | KeyCode::BackTab | KeyCode::Char('h') => {
-            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = state.dialogs.top_mut() {
                 *cursor_idx = cursor_idx.saturating_sub(1);
             }
             Ok(None)
         }
         KeyCode::Right | KeyCode::Tab | KeyCode::Char('l') => {
-            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = &mut state.active_popup {
+            if let Some(PopupType::UpdateAvailable { cursor_idx, .. }) = state.dialogs.top_mut() {
                 *cursor_idx = (*cursor_idx + 1).min(2);
             }
             Ok(None)
@@ -82,9 +82,10 @@ pub fn handle(
                         // Copy command to clipboard (best-effort)
                         if let Some(cmd) = method.managed_upgrade_command() {
                             copy_to_clipboard(&cmd);
-                            state.active_popup = None;
-                            state.active_popup =
-                                Some(PopupType::Info(t("update_cmd_copied").replace("{}", &cmd)));
+                            state.dialogs.clear();
+                            state.dialogs.replace(PopupType::Info(
+                                t("update_cmd_copied").replace("{}", &cmd),
+                            ));
                         }
                     } else {
                         // Start the actual self-update
@@ -95,7 +96,7 @@ pub fn handle(
                         // Set the progress marker in popup
                         if let Some(PopupType::UpdateAvailable {
                             install_progress, ..
-                        }) = &mut state.active_popup
+                        }) = state.dialogs.top_mut()
                         {
                             *install_progress = Some(0.0);
                         }
@@ -114,13 +115,13 @@ pub fn handle(
                 }
                 // 1 = "Remind me later" — close popup, will show again next session
                 1 => {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                 }
                 // 2 = "Ignore this version" — save dismissed tag to settings
                 2 => {
                     context.config.settings.dismissed_update_version = Some(info_clone.tag.clone());
                     context.config.save_logging();
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     state.update.available = None;
                 }
                 _ => {}
@@ -129,7 +130,7 @@ pub fn handle(
         }
 
         KeyCode::Esc | KeyCode::Char('q') => {
-            state.active_popup = None;
+            state.dialogs.clear();
             Ok(None)
         }
 

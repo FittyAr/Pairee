@@ -62,7 +62,7 @@ pub fn handle_navigation_action(
         }
         Action::DriveSelectLeft => {
             let drives = get_system_drives();
-            state.active_popup = Some(PopupType::DriveSelect {
+            state.dialogs.replace(PopupType::DriveSelect {
                 panel: ActivePanel::Left,
                 drives,
                 cursor_idx: 0,
@@ -71,7 +71,7 @@ pub fn handle_navigation_action(
         }
         Action::DriveSelectRight => {
             let drives = get_system_drives();
-            state.active_popup = Some(PopupType::DriveSelect {
+            state.dialogs.replace(PopupType::DriveSelect {
                 panel: ActivePanel::Right,
                 drives,
                 cursor_idx: 0,
@@ -104,7 +104,7 @@ pub fn handle_navigation_action(
                         1,
                     )
                 };
-            state.active_popup = Some(PopupType::SshConnectPrompt {
+            state.dialogs.replace(PopupType::SshConnectPrompt {
                 panel: state.panels.active,
                 input_name: name,
                 input_host: host,
@@ -138,7 +138,7 @@ pub fn handle_navigation_action(
                 panel.clear_selection();
                 state.refresh_both_panels(context.config.settings.show_hidden);
             } else {
-                state.active_popup = Some(PopupType::Info(
+                state.dialogs.replace(PopupType::Info(
                     crate::config::localization::t("error_no_folder_shortcut")
                         .replace("{}", &n.to_string()),
                 ));
@@ -146,14 +146,14 @@ pub fn handle_navigation_action(
             true
         }
         Action::SelectGroup => {
-            state.active_popup = Some(PopupType::SelectGroupPrompt {
+            state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Add,
                 query: String::new(),
             });
             true
         }
         Action::UnselectGroup => {
-            state.active_popup = Some(PopupType::SelectGroupPrompt {
+            state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Remove,
                 query: String::new(),
             });
@@ -171,7 +171,7 @@ pub fn handle_navigation_action(
         Action::TreeView => {
             let root = state.get_active_panel().current_path.clone();
             let nodes = build_tree_nodes(&root, 0, 3);
-            state.active_popup = Some(PopupType::TreeView {
+            state.dialogs.replace(PopupType::TreeView {
                 nodes,
                 cursor_idx: 0,
                 caller: crate::app::state::types::TreeViewCaller::Panel(state.panels.active),
@@ -180,7 +180,7 @@ pub fn handle_navigation_action(
         }
         Action::CommandHistory => {
             let entries = state.history.commands.clone();
-            state.active_popup = Some(PopupType::CommandHistoryList {
+            state.dialogs.replace(PopupType::CommandHistoryList {
                 entries,
                 cursor_idx: 0,
             });
@@ -188,7 +188,7 @@ pub fn handle_navigation_action(
         }
         Action::FileViewHistory => {
             let entries = state.history.viewed_files.clone();
-            state.active_popup = Some(PopupType::FileViewHistoryList {
+            state.dialogs.replace(PopupType::FileViewHistoryList {
                 entries,
                 cursor_idx: 0,
             });
@@ -196,7 +196,7 @@ pub fn handle_navigation_action(
         }
         Action::FoldersHistory => {
             let entries = state.history.folders.clone();
-            state.active_popup = Some(PopupType::FoldersHistoryList {
+            state.dialogs.replace(PopupType::FoldersHistoryList {
                 entries,
                 cursor_idx: 0,
             });

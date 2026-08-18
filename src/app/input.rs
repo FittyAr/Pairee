@@ -11,7 +11,7 @@ pub fn handle_cli_input(
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
-    if state.active_popup.is_some() {
+    if state.dialogs.is_some() {
         return Err(());
     }
 

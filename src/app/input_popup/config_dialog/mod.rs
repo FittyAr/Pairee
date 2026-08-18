@@ -29,10 +29,10 @@ pub fn handle(
         edit_buffer,
         settings,
         focus_on_tabs,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         if editing_value {
-            state.active_popup = editing::handle_editing(
+            state.dialogs.set(editing::handle_editing(
                 key,
                 active_tab,
                 cursor_idx,
@@ -40,7 +40,7 @@ pub fn handle(
                 edit_buffer,
                 *settings,
                 focus_on_tabs,
-            );
+            ));
             return Ok(None);
         }
 

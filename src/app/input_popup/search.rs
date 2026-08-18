@@ -8,7 +8,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::SearchPrompt {
@@ -22,7 +22,7 @@ pub fn handle(
                 match key.code {
                     KeyCode::Tab | KeyCode::Down => {
                         let next_idx = (cursor_idx + 1) % 6;
-                        state.active_popup = Some(PopupType::SearchPrompt {
+                        state.dialogs.replace(PopupType::SearchPrompt {
                             query,
                             content_query,
                             search_root,
@@ -34,7 +34,7 @@ pub fn handle(
                     }
                     KeyCode::Up => {
                         let next_idx = if cursor_idx == 0 { 5 } else { cursor_idx - 1 };
-                        state.active_popup = Some(PopupType::SearchPrompt {
+                        state.dialogs.replace(PopupType::SearchPrompt {
                             query,
                             content_query,
                             search_root,
@@ -70,7 +70,7 @@ pub fn handle(
                             };
                         }
 
-                        state.active_popup = Some(PopupType::SearchPrompt {
+                        state.dialogs.replace(PopupType::SearchPrompt {
                             query: new_query,
                             content_query: new_content,
                             search_root,
@@ -105,7 +105,7 @@ pub fn handle(
                                     }
                                 }
                             };
-                            state.active_popup = Some(PopupType::SearchPrompt {
+                            state.dialogs.replace(PopupType::SearchPrompt {
                                 query,
                                 content_query,
                                 search_root,
@@ -115,7 +115,7 @@ pub fn handle(
                             });
                         } else if cursor_idx == 4 || cursor_idx == 5 {
                             let next_idx = if cursor_idx == 4 { 5 } else { 4 };
-                            state.active_popup = Some(PopupType::SearchPrompt {
+                            state.dialogs.replace(PopupType::SearchPrompt {
                                 query,
                                 content_query,
                                 search_root,
@@ -134,7 +134,7 @@ pub fn handle(
                         } else if cursor_idx == 1 {
                             new_content.pop();
                         }
-                        state.active_popup = Some(PopupType::SearchPrompt {
+                        state.dialogs.replace(PopupType::SearchPrompt {
                             query: new_query,
                             content_query: new_content,
                             search_root,
@@ -146,7 +146,7 @@ pub fn handle(
                     }
                     KeyCode::Enter => {
                         if cursor_idx == 5 {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             return Ok(None);
                         }
 
@@ -176,19 +176,19 @@ pub fn handle(
                             let rx = crate::fs::search::find_files(q_struct);
                             state.search_rx = Some(rx);
 
-                            state.active_popup = Some(PopupType::SearchResults {
+                            state.dialogs.replace(PopupType::SearchResults {
                                 query: if q.is_empty() { c_q } else { q },
                                 results: Vec::new(),
                                 cursor_idx: 0,
                                 searching: true,
                             });
                         } else {
-                            state.active_popup = None;
+                            state.dialogs.clear();
                         }
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -205,7 +205,7 @@ pub fn handle(
                     KeyCode::Esc => {
                         // Cancel active background search if Esc is pressed
                         state.search_rx = None;
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Up => {
@@ -215,7 +215,7 @@ pub fn handle(
                             } else {
                                 results.len() - 1
                             };
-                            state.active_popup = Some(PopupType::SearchResults {
+                            state.dialogs.replace(PopupType::SearchResults {
                                 query,
                                 results,
                                 cursor_idx: new_idx,
@@ -231,7 +231,7 @@ pub fn handle(
                             } else {
                                 0
                             };
-                            state.active_popup = Some(PopupType::SearchResults {
+                            state.dialogs.replace(PopupType::SearchResults {
                                 query,
                                 results,
                                 cursor_idx: new_idx,
@@ -255,7 +255,7 @@ pub fn handle(
                             panel.current_path = target_dir;
                             panel.cursor_index = 0;
                             panel.clear_selection();
-                            state.active_popup = None;
+                            state.dialogs.clear();
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         }
                         return Ok(None);

@@ -44,7 +44,7 @@ pub fn handle(
         mut editing,
         mut edit_buffer,
         mut rules,
-    }) = state.active_popup.clone()
+    }) = state.dialogs.top().cloned()
     {
         if editing {
             match key.code {
@@ -67,7 +67,7 @@ pub fn handle(
             match key.code {
                 KeyCode::Esc => {
                     // Return to Configuration Dialog
-                    state.active_popup = Some(PopupType::ConfigurationDialog {
+                    state.dialogs.replace(PopupType::ConfigurationDialog {
                         active_tab: 6, // Colors tab
                         cursor_idx: 2, // Files highlighting
                         editing_value: false,
@@ -90,7 +90,7 @@ pub fn handle(
                     state.refresh_both_panels(context.config.settings.show_hidden);
 
                     // Return to Configuration Dialog
-                    state.active_popup = Some(PopupType::ConfigurationDialog {
+                    state.dialogs.replace(PopupType::ConfigurationDialog {
                         active_tab: 6,
                         cursor_idx: 2,
                         editing_value: false,
@@ -131,7 +131,7 @@ pub fn handle(
                 _ => {}
             }
         }
-        state.active_popup = Some(PopupType::FilesHighlightingDialog {
+        state.dialogs.replace(PopupType::FilesHighlightingDialog {
             cursor_idx,
             editing,
             edit_buffer,

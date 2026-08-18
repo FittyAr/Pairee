@@ -89,12 +89,12 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::UserMenu { mut cursor_idx }) = state.active_popup.clone() {
+    if let Some(PopupType::UserMenu { mut cursor_idx }) = state.dialogs.top().cloned() {
         let items = get_user_menu_items();
 
         match key.code {
             KeyCode::Esc => {
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
@@ -104,7 +104,7 @@ pub fn handle(
                     } else {
                         items.len() - 1
                     };
-                    state.active_popup = Some(PopupType::UserMenu { cursor_idx });
+                    state.dialogs.replace(PopupType::UserMenu { cursor_idx });
                 }
                 return Ok(None);
             }
@@ -115,22 +115,22 @@ pub fn handle(
                     } else {
                         0
                     };
-                    state.active_popup = Some(PopupType::UserMenu { cursor_idx });
+                    state.dialogs.replace(PopupType::UserMenu { cursor_idx });
                 }
                 return Ok(None);
             }
             KeyCode::Enter => {
                 if let Some(item) = items.get(cursor_idx) {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return execute_item(state, context, item);
                 }
-                state.active_popup = None;
+                state.dialogs.clear();
                 return Ok(None);
             }
             KeyCode::Char(c) => {
                 let shortcut = c.to_string().to_uppercase();
                 if let Some(item) = items.iter().find(|it| it.key.to_uppercase() == shortcut) {
-                    state.active_popup = None;
+                    state.dialogs.clear();
                     return execute_item(state, context, item);
                 }
                 return Ok(None);

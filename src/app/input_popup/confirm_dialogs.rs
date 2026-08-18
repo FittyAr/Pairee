@@ -9,18 +9,18 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.active_popup.clone();
+    let popup = state.dialogs.top().cloned();
     if let Some(p) = popup {
         match p {
             PopupType::ConfirmQuit => {
                 match key.code {
                     KeyCode::Enter => {
                         state.should_quit = true;
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -49,13 +49,13 @@ pub fn handle(
                                 }
                             }
                         }
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         state.refresh_both_panels(context.config.settings.show_hidden);
                         return Ok(None);
                     }
                     KeyCode::Esc => {
                         // Keep transfer jobs running; just dismiss the confirm dialog.
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -84,7 +84,7 @@ pub fn handle(
                                     ed.is_dirty = false;
                                 }
                                 Err(e) => {
-                                    state.active_popup = Some(PopupType::Error(format!(
+                                    state.dialogs.replace(PopupType::Error(format!(
                                         "{} {}",
                                         t("error_reload_failed"),
                                         e
@@ -93,11 +93,11 @@ pub fn handle(
                                 }
                             }
                         }
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -107,12 +107,12 @@ pub fn handle(
             PopupType::ConfirmDiscardEditorChanges => {
                 match key.code {
                     KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         state.close_current_screen();
                         return Ok(None);
                     }
                     KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}
@@ -138,23 +138,23 @@ pub fn handle(
                         };
                         let _ = history_store.save();
 
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     KeyCode::Esc => {
                         // Reopen the corresponding history list
                         if history_type == "command" {
-                            state.active_popup = Some(PopupType::CommandHistoryList {
+                            state.dialogs.replace(PopupType::CommandHistoryList {
                                 entries: state.history.commands.clone(),
                                 cursor_idx: 0,
                             });
                         } else if history_type == "view" {
-                            state.active_popup = Some(PopupType::FileViewHistoryList {
+                            state.dialogs.replace(PopupType::FileViewHistoryList {
                                 entries: state.history.viewed_files.clone(),
                                 cursor_idx: 0,
                             });
                         } else if history_type == "folder" {
-                            state.active_popup = Some(PopupType::FoldersHistoryList {
+                            state.dialogs.replace(PopupType::FoldersHistoryList {
                                 entries: state.history.folders.clone(),
                                 cursor_idx: 0,
                             });
@@ -168,10 +168,10 @@ pub fn handle(
             PopupType::ConfirmRetryAsAdmin { paths, op_kind } => {
                 match key.code {
                     KeyCode::Enter => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
 
                         if let Err(e) = crate::fs::acquire_admin_privileges() {
-                            state.active_popup = Some(PopupType::Error(format!(
+                            state.dialogs.replace(PopupType::Error(format!(
                                 "{} {}",
                                 t("error_acquire_admin_failed"),
                                 e
@@ -187,7 +187,7 @@ pub fn handle(
                             crate::app::state::AdminOpKind::MkDir => {
                                 for path in &paths {
                                     if let Err(e) = crate::fs::create_directory(path, true) {
-                                        state.active_popup = Some(PopupType::Error(format!(
+                                        state.dialogs.replace(PopupType::Error(format!(
                                             "{} {}",
                                             t("error_mkdir_failed"),
                                             e
@@ -199,7 +199,7 @@ pub fn handle(
                             }
                             crate::app::state::AdminOpKind::Rename { src, target } => {
                                 if let Err(e) = std::fs::rename(&src, &target) {
-                                    state.active_popup = Some(PopupType::Error(format!(
+                                    state.dialogs.replace(PopupType::Error(format!(
                                         "{} {}",
                                         t("error_rename_error"),
                                         e
@@ -212,7 +212,7 @@ pub fn handle(
                         return Ok(None);
                     }
                     KeyCode::Esc => {
-                        state.active_popup = None;
+                        state.dialogs.clear();
                         return Ok(None);
                     }
                     _ => {}

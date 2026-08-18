@@ -52,7 +52,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup_state = match state.active_popup.clone() {
+    let popup_state = match state.dialogs.top().cloned() {
         Some(PopupType::PluginMenu {
             active_tab,
             cursor_idx,
@@ -122,7 +122,7 @@ pub fn handle(
             }
             dev_wizard_step = 0;
             dev_wizard_data.clear();
-            state.active_popup = Some(PopupType::PluginMenu {
+            state.dialogs.replace(PopupType::PluginMenu {
                 active_tab,
                 cursor_idx,
                 installed,
@@ -142,7 +142,7 @@ pub fn handle(
             });
             return Ok(None);
         } else {
-            state.active_popup = None;
+            state.dialogs.clear();
             return Ok(None);
         }
     }
@@ -165,7 +165,7 @@ pub fn handle(
             // Auto-enter edit mode when switching to the Search tab
             editing_query = active_tab == 1;
             dev_results = String::new();
-            state.active_popup = Some(PopupType::PluginMenu {
+            state.dialogs.replace(PopupType::PluginMenu {
                 active_tab,
                 cursor_idx,
                 installed,
@@ -224,7 +224,7 @@ pub fn handle(
             dev_loading_status: dls,
             dev_loading_progress: dlp,
             ..
-        }) = &state.active_popup
+        }) = state.dialogs.top()
         {
             dev_loading = *dl;
             dev_loading_status = dls.clone();
@@ -232,7 +232,7 @@ pub fn handle(
         }
     }
 
-    state.active_popup = Some(PopupType::PluginMenu {
+    state.dialogs.replace(PopupType::PluginMenu {
         active_tab,
         cursor_idx,
         installed,
