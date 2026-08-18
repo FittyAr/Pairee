@@ -12,9 +12,10 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 |---|---|---|
 | `pairee.app` | Superficie de aplicación legacy (cwd, cd, focus, set_focus, notify, confirm, input, hovered) | Estable; `confirm`/`input` emiten un aviso de deprecación — usa las formas top-level |
 | `pairee.emit(action, args)` | Despacha cualquier acción registrada por nombre | Nuevo en M0 |
-| `pairee.confirm({pos, title, body})` | Abre un diálogo de confirmación real (Sí/No) | Nuevo en M0 (la UI del popup llega en M1) |
-| `pairee.input({pos, title, value, obscure, realtime, debounce})` | Abre un diálogo de entrada real | Nuevo en M0 (la UI del popup llega en M1) |
-| `pairee.which({cands, silent})` | Pide al usuario presionar una de varias teclas candidatas | Nuevo en M0 (la UI del popup llega en M1) |
+| `pairee.confirm({pos, title, body})` | Abre un diálogo de confirmación real (Sí/No) | Implementado (TUI) |
+| `pairee.input({pos, title, value, obscure, realtime, debounce})` | Abre un diálogo de entrada real | Implementado (TUI; streaming realtime más adelante) |
+| `pairee.which({cands, silent})` | Pide al usuario presionar una de varias teclas candidatas | Implementado (TUI) |
+| `pairee.cx` | Contexto vivo del panel (`active.cwd`, `hovered` File, `selected`) | Se rellena dentro de `pairee.sync` |
 | `pairee.notify({title, content, level, timeout})` | Muestra una notificación estructurada | Nuevo en M0 |
 | `pairee.file_cache({file, skip})` | Obtiene una ruta de caché estable para un par `(archivo, skip)` | Nuevo en M0 |
 | `pairee.utils.target_os()` | Devuelve `"linux"` / `"macos"` / `"windows"` / ... | Nuevo en M0 |
@@ -91,11 +92,11 @@ end
 | 2 | cancelado (Esc) |
 | 3 | tecleado (solo realtime) |
 
-**Nota M0**: el despachador enruta la solicitud, pero el cableado real del popup TUI llega en M1. En M0 ambos diálogos devuelven valores placeholder (`false` para confirm, `submitted` con el valor por defecto para input) para que los plugins que migren temprano obtengan una respuesta determinista.
+El usuario ve un overlay real. Confirm termina con **S/Enter** (true) o **N/Esc** (false). Input devuelve `{ value, event }` con **Enter** (`event = 1`) o **Esc** (`event = 2`, valor vacío). `obscure = true` oculta el texto. El streaming realtime (`event = 3`) queda reservado; el diálogo acepta `realtime`/`debounce` pero solo responde una vez.
 
 ### 3.1 Legacy `pairee.app.confirm(title, msg)` y `pairee.app.input(title, default)`
 
-Siguen funcionando pero loguean un aviso de deprecación. Migra a las formas estructuradas anteriores.
+Siguen funcionando (abren el mismo TUI) pero loguean un aviso de deprecación. Migra a las formas estructuradas anteriores.
 
 ---
 
@@ -119,7 +120,7 @@ end
 
 `on` puede ser una sola cadena de tecla o una lista de teclas equivalentes. `desc` es una descripción legible opcional que se muestra junto al candidato.
 
-**Nota M0**: el cableado real del popup TUI llega en M1. En M0 el despachador devuelve `nil` (cancelar) para que los plugins que migren temprano obtengan un placeholder determinista.
+El overlay lista los candidatos (salvo `silent = true`). Esc cancela (`nil`). La coincidencia no distingue mayúsculas y acepta tanto el estilo Lua (`<C-c>`, `<Down>`) como el del resolver (`Ctrl+c`, `Down`).
 
 ---
 
@@ -199,10 +200,11 @@ Consulta la sección `[sandbox]` en `docs/plugin-dev-guide-es.md` para la matriz
 |---|---|---|
 | `pairee.app.cd(path)` | `pairee.emit("cd", path)` o `pairee.emit("cd", { path = path })` | La forma antigua sigue funcionando |
 | `pairee.app.set_focus(side)` | `pairee.emit("set_focus", side)` o `pairee.emit("focus", side)` | La forma antigua sigue funcionando |
-| `pairee.app.confirm(title, msg)` | `pairee.confirm({pos=..., title=title, body=msg})` | La forma antigua loguea deprecación, devuelve `true` |
-| `pairee.app.input(title, default)` | `pairee.input({pos=..., title=title, value=default, obscure=..., realtime=..., debounce=...})` | La forma antigua loguea deprecación, devuelve `default` |
+| `pairee.app.confirm(title, msg)` | `pairee.confirm({pos=..., title=title, body=msg})` | La forma antigua loguea deprecación; ambas abren el TUI real |
+| `pairee.app.input(title, default)` | `pairee.input({pos=..., title=title, value=default, obscure=..., realtime=..., debounce=...})` | La forma antigua loguea deprecación; ambas abren el TUI real |
 | `pairee.app.notify(title, msg, level)` | `pairee.notify({title=title, content=msg, level=level, timeout=...})` | La forma antigua sigue funcionando |
-| (sin equivalente) | `pairee.which({cands=..., silent=...})` | M0 devuelve `nil` (cancelar); M1 cablea el popup |
+| (sin equivalente) | `pairee.which({cands=..., silent=...})` | Overlay real de teclas |
+| (sin equivalente) | `pairee.cx.active.hovered` / `.selected` / `.cwd` | Userdata `File` dentro de `pairee.sync` |
 | (sin equivalente) | `pairee.file_cache({file=..., skip=...})` | M0 totalmente funcional |
 | (sin equivalente) | `pairee.utils.target_os / target_family / time / hash` | M0 totalmente funcional |
 

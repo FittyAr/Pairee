@@ -7,16 +7,18 @@
 //! `dispatch_actions.rs`; this file is the routing layer.
 
 use super::dispatch_actions::dispatch_emit_action;
-use super::request::{InputDialogResult, PluginRequest};
+use super::request::PluginRequest;
 use super::snapshot::FileEntrySnapshot;
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{AppState, PendingPluginReply, PopupType};
 use std::path::PathBuf;
 
 use super::dispatch_actions::compute_file_cache_path;
 
 /// Processes plugin requests in the main application loop.
 pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
+    super::dialogs::settle_orphaned_plugin_dialogs(state);
+
     if let Some(rx_mutex) = super::lifecycle::PLUGIN_REQ_RX.get()
         && let Ok(mut rx) = rx_mutex.try_lock()
     {
@@ -75,34 +77,31 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     msg,
                     reply_tx,
                 } => {
-                    // Deprecated stub path. M0 fix: emit a loud `log::warn!`
-                    // so plugin authors notice the API has been replaced by
-                    // `pairee.confirm({pos, title, body})`. We also
-                    // forward the request to the new `ConfirmDialog`
-                    // dispatcher so the variants are exercised end-to-end
-                    // (M0 returns a placeholder `false` until M1 wires
-                    // the TUI popup).
                     log::warn!(
                         "Plugin called deprecated `pairee.app.confirm(title, msg)`; \
                              migrate to `pairee.confirm({{ pos = ..., title = ..., body = ... }}) \
                              for a real dialog."
                     );
-                    log::info!("Plugin confirm dialog requested: {} - {}", title, msg);
-                    let _ = reply_tx.send(true);
+                    super::dialogs::open_confirm(state, title, msg, None, reply_tx);
                 }
                 PluginRequest::Input {
                     title,
                     default,
                     reply_tx,
                 } => {
-                    // Deprecated stub path. M0 fix: see comment above.
                     log::warn!(
                         "Plugin called deprecated `pairee.app.input(title, default)`; \
                              migrate to `pairee.input({{ pos = ..., title = ..., value = ..., \
                              obscure = ..., realtime = ..., debounce = ... }}) for a real dialog."
                     );
-                    log::info!("Plugin input dialog requested: {} - {}", title, default);
-                    let _ = reply_tx.send(default);
+                    super::dialogs::open_input(
+                        state,
+                        title,
+                        default,
+                        false,
+                        None,
+                        PendingPluginReply::LegacyInput(reply_tx),
+                    );
                 }
                 PluginRequest::InputDialog {
                     title,
@@ -113,26 +112,24 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     debounce_secs,
                     reply_tx,
                 } => {
-                    // M0 wires the dispatcher; the actual TUI popup will
-                    // replace this with a real one in M1. Until then, we
-                    // return a `Submitted` event with the default value so
-                    // plugins that migrated early still get a deterministic
-                    // answer (matches the old stub behaviour) and a clear
-                    // log message so authors know the placeholder is in
-                    // place.
                     log::info!(
-                        "Plugin input dialog requested (M0 stub; M1 will route to the TUI popup): \
-                             title={:?} position={:?} obscure={} realtime={} debounce={}s",
+                        "Plugin input dialog: title={:?} obscure={} realtime={} debounce={}s",
                         title,
-                        position,
                         obscure,
                         realtime,
                         debounce_secs
                     );
-                    let _ = reply_tx.send(InputDialogResult {
-                        value: default,
-                        event: 1, // submitted
-                    });
+                    // Realtime streaming needs an mpsc Recv (later). The
+                    // dialog still honours obscure + default + submit/cancel.
+                    let _ = realtime;
+                    super::dialogs::open_input(
+                        state,
+                        title,
+                        default,
+                        obscure,
+                        position,
+                        PendingPluginReply::Input(reply_tx),
+                    );
                 }
                 PluginRequest::ConfirmDialog {
                     title,
@@ -140,29 +137,14 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     position,
                     reply_tx,
                 } => {
-                    log::info!(
-                        "Plugin confirm dialog requested (M0 stub; M1 will route to the TUI popup): \
-                             title={:?}, msg={:?}, position={:?}",
-                        title,
-                        msg,
-                        position
-                    );
-                    let _ = reply_tx.send(false);
+                    super::dialogs::open_confirm(state, title, msg, position, reply_tx);
                 }
                 PluginRequest::WhichPrompt {
                     candidates,
                     silent,
                     reply_tx,
                 } => {
-                    log::info!(
-                        "Plugin which-prompt requested for {} candidate(s), silent={} (M0 stub; \
-                             M1 will route to the TUI popup).",
-                        candidates.len(),
-                        silent
-                    );
-                    // No candidate can be selected without a TUI, so the
-                    // canonical placeholder is `None` (cancel).
-                    let _ = reply_tx.send(None);
+                    super::dialogs::open_which(state, candidates, silent, reply_tx);
                 }
                 PluginRequest::EmitAction {
                     name,

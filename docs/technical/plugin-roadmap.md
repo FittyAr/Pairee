@@ -151,19 +151,7 @@ This alone prevents the entire class of interactive plugins (fuzzy finders, hist
 
 ### 3.8 Dialogs are stubbed — G8
 
-`src/plugin/manager.rs:207-223`:
-```rust
-PluginRequest::Confirm { title, msg, reply_tx } => {
-    log::info!("Plugin confirm dialog requested: {} - {}", title, msg);
-    let _ = reply_tx.send(true);  // <-- always true; user never sees a dialog
-}
-PluginRequest::Input { title, default, reply_tx } => {
-    log::info!("Plugin input dialog requested: {} - {}", title, default);
-    let _ = reply_tx.send(default);  // <-- always default
-}
-```
-
-Both dialogs are logged and a canned response is sent. The user never sees a real dialog. The `notify` path (`manager.rs:191-194`) at least sets `state.active_popup = Some(PopupType::Info(...))`, so notifications work.
+**Status (2026-08-18):** closed. `pairee.confirm` / `pairee.input` / `pairee.which` open real `PopupType::Plugin*` overlays. Replies go through oneshots on `PluginHostState`. Legacy `pairee.app.confirm` / `input` open the same TUI (deprecation warning). Realtime input streaming is still pending.
 
 ### 3.9 Preloader and seek not routed — G9
 

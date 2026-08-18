@@ -119,9 +119,31 @@ pairee.app.cd(path)                     -- navegar a path
 pairee.app.focus()                      -- "left" | "right"
 pairee.app.set_focus(side)              -- cambiar panel
 pairee.app.notify(title, msg, level)   -- mostrar popup ("info","warn","error")
-pairee.app.confirm(title, msg)          -- boolean: diálogo de confirmación
-pairee.app.input(title, default)        -- string: diálogo de entrada de texto
-pairee.app.hovered()                    -- Entry: archivo actualmente resaltado
+pairee.app.confirm(title, msg)          -- boolean (deprecado; abre TUI real)
+pairee.app.input(title, default)        -- string (deprecado; abre TUI real)
+pairee.app.hovered()                    -- snapshot tabla del archivo resaltado
+```
+
+### `pairee.confirm` / `pairee.input` / `pairee.which` — Diálogos interactivos
+
+```lua
+pairee.confirm({ pos, title, body })    -- boolean (S/Enter o N/Esc)
+pairee.input({ pos, title, value, obscure, realtime, debounce })
+                                        -- { value, event } o nil
+pairee.which({ cands, silent })         -- índice 1-based o nil
+```
+
+### `pairee.cx` — Contexto del panel (dentro de `pairee.sync`)
+
+```lua
+pairee.sync(function()
+    local cwd = pairee.cx.active.cwd
+    local hovered = pairee.cx.active.hovered  -- userdata File o nil
+    if hovered then
+        print(hovered.name, hovered.size, hovered.is_dir)
+    end
+    local selected = pairee.cx.active.selected -- File[]
+end)
 ```
 
 ### `pairee.fs` — Sistema de Archivos y Procesos

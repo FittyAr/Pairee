@@ -2,6 +2,7 @@ pub mod confirm;
 pub mod file_ops;
 pub mod filter;
 pub mod help;
+pub mod plugin;
 pub mod ssh;
 pub mod system;
 
@@ -47,6 +48,10 @@ pub fn render_prompt_popup(
         | PopupType::Info(_)
         | PopupType::ApplyCommandPrompt { .. }
         | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
+
+        PopupType::PluginConfirm { .. }
+        | PopupType::PluginInput { .. }
+        | PopupType::PluginWhich { .. } => plugin::render(f, popup, theme, size),
 
         _ => false,
     }

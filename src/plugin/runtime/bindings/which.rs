@@ -2,58 +2,46 @@
 //!
 //! Prompts the user to press one of the candidate keys and returns the
 //! 1-based index of the selected candidate, or `nil` if the user cancels.
-//!
-//! In M0, the actual TUI popup is not yet wired; the dispatcher in
-//! `process_plugin_requests` returns `nil` (cancel) so plugins that
-//! migrate to this API get a deterministic placeholder. A future phase
-//! will replace the M0 placeholder with a real popup.
 
 use crate::plugin::manager::{PluginRequest, WhichCandidate};
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
-    let table = lua.create_table()?;
-
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
     let tx_which = tx;
-    table.set(
-        "which",
-        lua.create_async_function(move |_lua, opts: mlua::Table| {
-            let tx = tx_which.clone();
-            async move {
-                let silent = opts.get::<_, bool>("silent").unwrap_or(false);
-                let candidates = match read_candidates(&opts) {
-                    Ok(c) => c,
-                    Err(e) => {
-                        log::warn!("pairee.which: failed to read candidates: {e}");
-                        return Ok(mlua::Value::Nil);
-                    }
-                };
-                if candidates.is_empty() {
-                    log::warn!("pairee.which: no candidates provided");
+    lua.create_async_function(move |_lua, opts: mlua::Table| {
+        let tx = tx_which.clone();
+        async move {
+            let silent = opts.get::<_, bool>("silent").unwrap_or(false);
+            let candidates = match read_candidates(&opts) {
+                Ok(c) => c,
+                Err(e) => {
+                    log::warn!("pairee.which: failed to read candidates: {e}");
                     return Ok(mlua::Value::Nil);
                 }
-                let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-                if tx
-                    .send(PluginRequest::WhichPrompt {
-                        candidates,
-                        silent,
-                        reply_tx,
-                    })
-                    .await
-                    .is_err()
-                {
-                    log::error!("pairee.which could not enqueue; main loop not running");
-                    return Ok(mlua::Value::Nil);
-                }
-                match reply_rx.await {
-                    Ok(Some(idx)) => Ok(mlua::Value::Integer(idx as i64)),
-                    Ok(None) | Err(_) => Ok(mlua::Value::Nil),
-                }
+            };
+            if candidates.is_empty() {
+                log::warn!("pairee.which: no candidates provided");
+                return Ok(mlua::Value::Nil);
             }
-        })?,
-    )?;
-
-    Ok(table)
+            let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
+            if tx
+                .send(PluginRequest::WhichPrompt {
+                    candidates,
+                    silent,
+                    reply_tx,
+                })
+                .await
+                .is_err()
+            {
+                log::error!("pairee.which could not enqueue; main loop not running");
+                return Ok(mlua::Value::Nil);
+            }
+            match reply_rx.await {
+                Ok(Some(idx)) => Ok(mlua::Value::Integer(idx as i64)),
+                Ok(None) | Err(_) => Ok(mlua::Value::Nil),
+            }
+        }
+    })
 }
 
 /// Reads the `cands` table from a `pairee.which` opts table and converts
@@ -154,8 +142,6 @@ mod tests {
     fn test_read_candidates_missing_cands_key() {
         let lua = Lua::new();
         let opts = lua.create_table().unwrap();
-        // no `cands` field — read_candidates should propagate the Lua
-        // error rather than panicking.
         let result = read_candidates(&opts);
         assert!(result.is_err());
     }

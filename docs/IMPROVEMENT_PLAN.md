@@ -39,7 +39,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Siguiente (Fase F)** |
 | P1 | Partir God objects (`AppState`, `PopupType`) | Pendiente (Fase C) |
 | P1 | Tests de integración + cobertura | En curso |
-| P2 | Roadmap plugins (G1–G14) | Pendiente (Fase D) |
+| P2 | Roadmap plugins (G1–G14) | En curso (D: diálogos + File/`cx`) |
 | P3 | Feature flags, i18n extra, onboarding | Parcial (palette hecho) |
 
 ---
@@ -339,10 +339,10 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 
 Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
-- [ ] Diálogos reales end-to-end (confirm/input/select)
-- [ ] Userdata tipados (`File`, metadata, mime)
+- [x] Diálogos reales end-to-end (confirm/input/select) — `3f5709f`+ (este)
+- [x] Userdata tipados (`File` básico: name/path/size/is_dir) — metadata/mime pendientes
 - [ ] API async FS + `Command` builder con streaming
-- [ ] Contexto vivo `cx` (no solo snapshot)
+- [x] Contexto vivo `cx` (snapshot en `pairee.sync` → `pairee.cx` + `File`)
 - [ ] Plugins de aceptación en CI
 - [ ] API docs versionadas (semver de superficie Lua)
 - [ ] Actualizar README + help de plugins
@@ -368,7 +368,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **132 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **157 unit + 5 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -390,7 +390,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | _(prev)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
 | 2026-08-12 | _(prev)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
 | 2026-08-12 | _(prev)_ | refactor: C.2 PopupType module + split updater/list/settings |
-| 2026-08-12 | _(este)_ | refactor: C.3 DialogStack + PluginHostState + receiver poll |
+| 2026-08-12 | _(prev)_ | refactor: C.3 DialogStack + PluginHostState + receiver poll |
+| 2026-08-18 | _(este)_ | feat: Fase D — diálogos plugin reales + File userdata + `pairee.cx` |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -401,8 +402,8 @@ Ver también `git log --oneline master` para el detalle.
 ```text
 Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
-             │  [x unicode-width paneles] [x AppState groups] [ PopupType stack ]
-             │  [x Docs sync] [ Feature flags ] [ Plugins ]
+             │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
+             │  [x Docs sync] [ Feature flags ] [x Plugin dialogs + File/cx]
 Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -413,8 +414,9 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 ## 13. Conclusión operativa
 
 **Fase A, B y F (principal) cerradas.**  
-**Fase C.1:** `HistoryState` / `UpdateState` / `PanelPair` extraídos; monólitos UI partidos.  
-Siguiente: **Fase D** (plugins productivos) o resto anti-glitch / `src/lib.rs`.  
+**Fase C:** grupos de estado + `DialogStack`.  
+**Fase D (parcial):** diálogos plugin reales, `File` userdata, `pairee.cx`.  
+Siguiente: async FS + `Command` builder, o resto anti-glitch / `src/lib.rs`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

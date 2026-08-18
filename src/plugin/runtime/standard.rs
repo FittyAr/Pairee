@@ -43,6 +43,7 @@ pub fn bind_runtime(
     pairee.set("sync", super::bindings::sync::bind(lua, tx.clone())?)?;
     pairee.set("utils", super::bindings::utils_ext::bind(lua)?)?;
     pairee.set("which", super::bindings::which::bind(lua, tx.clone())?)?;
+    super::bindings::cx::bind_empty(lua, &pairee)?;
 
     // 3. Bind settings
     bind_settings(lua, &pairee, plugin_dir)?;

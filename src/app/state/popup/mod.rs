@@ -440,6 +440,27 @@ pub enum PopupType {
         /// Display label + action pairs currently matching `query`.
         items: Vec<(String, crate::keybindings::Action)>,
     },
+
+    // ── Plugin dialogs (`pairee.confirm` / `input` / `which`) ───────────────
+    /// Reply oneshot lives in [`super::PluginHostState::pending_dialog`].
+    PluginConfirm {
+        title: String,
+        msg: String,
+        /// 0 = Yes, 1 = No
+        cursor_idx: usize,
+        position: Option<crate::plugin::manager::DialogPosition>,
+    },
+    PluginInput {
+        title: String,
+        input: String,
+        obscure: bool,
+        position: Option<crate::plugin::manager::DialogPosition>,
+    },
+    PluginWhich {
+        candidates: Vec<crate::plugin::manager::WhichCandidate>,
+        silent: bool,
+        position: Option<crate::plugin::manager::DialogPosition>,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

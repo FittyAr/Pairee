@@ -2,6 +2,8 @@
 
 ### Added
 
+- Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
+- Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
 - Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.
 - Integration smoke tests under `tests/` for isolated temp workspace, settings TOML roundtrip, and transfer filesystem contracts.
 - Project-level `rustfmt.toml` and `clippy.toml` for consistent CI quality gates.

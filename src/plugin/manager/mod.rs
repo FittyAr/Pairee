@@ -18,6 +18,7 @@
 //! `crate::plugin::manager::{PluginRequest, PluginManager,
 //! process_plugin_requests, …}` keeps working unchanged.
 
+pub mod dialogs;
 pub mod dispatch_actions;
 pub mod dispatcher;
 pub mod lifecycle;

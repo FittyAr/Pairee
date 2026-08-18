@@ -40,6 +40,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
 
                 let snapshot_value = lua_ctx2.to_value(&snapshot)?;
                 app.set("_current_snapshot", snapshot_value)?;
+                super::cx::install(lua_ctx2, &snapshot)?;
 
                 // 4. Run the user function
                 let user_fn: mlua::Function = lua_ctx2.registry_value(&func_key)?;

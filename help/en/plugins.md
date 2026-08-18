@@ -12,9 +12,10 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 |---|---|---|
 | `pairee.app` | Legacy application surface (cwd, cd, focus, set_focus, notify, confirm, input, hovered) | Stable; `confirm`/`input` emit a deprecation warning — use the top-level forms |
 | `pairee.emit(action, args)` | Dispatch any registered action by name | New in M0 |
-| `pairee.confirm({pos, title, body})` | Open a real confirm dialog (Y/N) | New in M0 (popup UI ships in M1) |
-| `pairee.input({pos, title, value, obscure, realtime, debounce})` | Open a real input dialog | New in M0 (popup UI ships in M1) |
-| `pairee.which({cands, silent})` | Prompt the user to press one of several candidate keys | New in M0 (popup UI ships in M1) |
+| `pairee.confirm({pos, title, body})` | Open a real confirm dialog (Y/N) | Implemented (TUI) |
+| `pairee.input({pos, title, value, obscure, realtime, debounce})` | Open a real input dialog | Implemented (TUI; realtime streaming later) |
+| `pairee.which({cands, silent})` | Prompt the user to press one of several candidate keys | Implemented (TUI) |
+| `pairee.cx` | Live panel context (`active.cwd`, `hovered` File, `selected`) | Filled inside `pairee.sync` |
 | `pairee.notify({title, content, level, timeout})` | Show a structured notification | New in M0 |
 | `pairee.file_cache({file, skip})` | Get a stable cache path for a `(file, skip)` pair | New in M0 |
 | `pairee.utils.target_os()` | Return `"linux"` / `"macos"` / `"windows"` / ... | New in M0 |
@@ -91,11 +92,11 @@ end
 | 2 | cancelled (Esc) |
 | 3 | typed (realtime only) |
 
-**M0 note**: the dispatcher routes the request, but the actual TUI popup wiring ships in M1. In M0 both dialogs return placeholder values (`false` for confirm, `submitted` with the default value for input) so plugins that migrate early still get a deterministic answer.
+The user sees a real overlay. Confirm returns after **Y/Enter** (true) or **N/Esc** (false). Input returns `{ value, event }` after **Enter** (`event = 1`) or **Esc** (`event = 2`, empty value). Password-style input uses `obscure = true`. Realtime streaming (`event = 3`) is reserved; the dialog still accepts `realtime`/`debounce` but only replies once.
 
 ### 3.1 Legacy `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)`
 
-These still work but log a deprecation warning. Migrate to the structured forms above.
+These still work (they open the same TUI) but log a deprecation warning. Migrate to the structured forms above.
 
 ---
 
@@ -119,7 +120,7 @@ end
 
 `on` may be a single key string or a list of equivalent keys. `desc` is an optional human-readable description shown next to the candidate.
 
-**M0 note**: the actual TUI popup wiring ships in M1. In M0 the dispatcher returns `nil` (cancel) so plugins that migrate early get a deterministic placeholder.
+The overlay lists candidates (unless `silent = true`). Esc cancels (`nil`). Matching is case-insensitive and accepts both Lua (`<C-c>`, `<Down>`) and resolver (`Ctrl+c`, `Down`) key spellings.
 
 ---
 
@@ -199,10 +200,11 @@ See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.
 |---|---|---|
 | `pairee.app.cd(path)` | `pairee.emit("cd", path)` or `pairee.emit("cd", { path = path })` | Old form still works |
 | `pairee.app.set_focus(side)` | `pairee.emit("set_focus", side)` or `pairee.emit("focus", side)` | Old form still works |
-| `pairee.app.confirm(title, msg)` | `pairee.confirm({pos=..., title=title, body=msg})` | Old form logs deprecation, returns `true` |
-| `pairee.app.input(title, default)` | `pairee.input({pos=..., title=title, value=default, obscure=..., realtime=..., debounce=...})` | Old form logs deprecation, returns `default` |
+| `pairee.app.confirm(title, msg)` | `pairee.confirm({pos=..., title=title, body=msg})` | Old form logs deprecation; both open the real TUI |
+| `pairee.app.input(title, default)` | `pairee.input({pos=..., title=title, value=default, obscure=..., realtime=..., debounce=...})` | Old form logs deprecation; both open the real TUI |
 | `pairee.app.notify(title, msg, level)` | `pairee.notify({title=title, content=msg, level=level, timeout=...})` | Old form still works |
-| (no equivalent) | `pairee.which({cands=..., silent=...})` | M0 returns `nil` (cancel); M1 wires the popup |
+| (no equivalent) | `pairee.which({cands=..., silent=...})` | Real key-prompt overlay |
+| (no equivalent) | `pairee.cx.active.hovered` / `.selected` / `.cwd` | `File` userdata inside `pairee.sync` |
 | (no equivalent) | `pairee.file_cache({file=..., skip=...})` | M0 fully functional |
 | (no equivalent) | `pairee.utils.target_os / target_family / time / hash` | M0 fully functional |
 

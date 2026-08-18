@@ -1,16 +1,12 @@
-//! Lua binding for the new structured dialog APIs (M0 dispatcher envelope).
+//! Lua binding for structured dialog APIs.
 //!
 //! - `pairee.input({pos, title, value, obscure, realtime, debounce})` —
-//!   dispatches a real input dialog request (`PluginRequest::InputDialog`).
-//!   In M0 the dispatcher returns a placeholder `submitted` result with
-//!   the default value; M1 will route the request to a TUI popup.
-//! - `pairee.confirm({pos, title, body})` — dispatches a real confirm
-//!   dialog request (`PluginRequest::ConfirmDialog`). In M0 the
-//!   dispatcher returns a placeholder `false` (cancel).
+//!   opens a real TUI input dialog (`PluginRequest::InputDialog`).
+//! - `pairee.confirm({pos, title, body})` — opens a real TUI confirm
+//!   dialog (`PluginRequest::ConfirmDialog`).
 //!
-//! These are the new recommended entry points; the legacy
-//! `pairee.app.confirm(title, msg)` and `pairee.app.input(title, default)`
-//! stubs still work but emit a deprecation warning.
+//! Legacy `pairee.app.confirm` / `pairee.app.input` still work and also
+//! open the real dialogs (with a deprecation warning).
 
 use crate::plugin::manager::{DialogPosition, InputDialogResult, PluginRequest, WhichCandidate};
 use tokio::sync::mpsc;

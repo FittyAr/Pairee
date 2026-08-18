@@ -24,6 +24,7 @@ pub mod history_list;
 pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
+pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
 pub mod rename_move;
@@ -137,6 +138,9 @@ pub fn handle_popup_input(
                 file_associations::handle(state, key, context)
             }
             PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
+            PopupType::PluginConfirm { .. }
+            | PopupType::PluginInput { .. }
+            | PopupType::PluginWhich { .. } => plugin_dialogs::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {
