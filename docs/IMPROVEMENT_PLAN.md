@@ -313,9 +313,8 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 **Nota:** tras Fase F, `keybindings/preset.rs` se reduce o desaparece; priorizar monólitos UI restantes.
 
 - [x] Extraer de `AppState`: `HistoryState`, `UpdateState`, `PanelPair` (`TransferUIState` ya existía; `PluginHostState` pendiente)
-- [ ] Reemplazar mega-enum `PopupType` por stack de diálogos tipados (un módulo por familia)
-  - Nota: hoy tiene `#[allow(clippy::large_enum_variant)]` temporal
-- [x] Partir archivos >500 LOC de la lista UI baseline (quedan types/updater/list/settings)
+- [x] `PopupType` vive en `state/popup/` (familias + `QuickViewDialog` boxed; `Settings` boxed en config dialog). Stack tipado completo pendiente
+- [x] Partir archivos >500 LOC de la lista baseline (`types`, `updater`, `list`, `settings`)
 - [ ] Sustituir poll `take/unwrap/put-back` de receivers por bus o `select!` idiomático
 - [ ] Valorar `src/lib.rs` + binario fino para tests/benches
 
@@ -329,10 +328,10 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `src/ui/popup/history_lists.rs` | ~742 | [x] → `history_lists/` (lists/search/tree/compare/task/assoc) |
 | `src/ui/transfer/panel.rs` | ~676 | [x] → `panel/{mod,jobs,inspector,file_list}.rs` |
 | `src/keybindings/preset.rs` | ~602 | [x] → **absorber en Fase F.1 (`keybinds`)** |
-| `src/app/state/types.rs` | ~598 | [ ] PopupType sigue monolítico |
-| `src/plugin/updater.rs` | ~552 | [ ] |
-| `src/fs/list.rs` | ~521 | [ ] |
-| `src/config/settings.rs` | ~518 | [ ] |
+| `src/app/state/types.rs` | ~598 | [x] PopupType → `state/popup/`; types.rs ~180 LOC |
+| `src/plugin/updater.rs` | ~552 | [x] → `updater/{mod,types,lockfile,registry,ops}.rs` |
+| `src/fs/list.rs` | ~521 | [x] → `list/{mod,admin,sort}.rs` |
+| `src/config/settings.rs` | ~518 | [x] → `settings/{mod,confirmations,defaults}.rs` |
 
 ---
 
@@ -389,7 +388,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | _(prev)_ | feat: `keybinds` + validación + dirty/sync draw |
 | 2026-08-12 | _(prev)_ | feat: `tui-scrollbar` helper + integración UI (F.2) |
 | 2026-08-12 | _(prev)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
-| 2026-08-12 | _(este)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
+| 2026-08-12 | _(prev)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
+| 2026-08-12 | _(este)_ | refactor: C.2 PopupType module + split updater/list/settings |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -413,7 +413,7 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 
 **Fase A, B y F (principal) cerradas.**  
 **Fase C.1:** `HistoryState` / `UpdateState` / `PanelPair` extraídos; monólitos UI partidos.  
-Siguiente: **C.2** stack de diálogos (`PopupType`) y resto >500 LOC (`types`, `updater`, `list`, `settings`).  
+Siguiente: **C.3** stack de diálogos (push/pop), `select!` de receivers, `PluginHostState`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

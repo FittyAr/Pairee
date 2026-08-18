@@ -2,6 +2,7 @@ pub mod glob;
 pub mod history;
 pub mod panel;
 pub mod panel_pair;
+pub mod popup;
 pub mod transfer_state;
 pub mod types;
 pub mod update_state;
@@ -15,11 +16,11 @@ pub use glob::{glob_matches, glob_matches_case};
 pub use history::HistoryState;
 pub use panel::PanelState;
 pub use panel_pair::PanelPair;
+pub use popup::PopupType;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
-    PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
-    TreeNode,
+    PanelViewMode, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
 };
 pub use update_state::UpdateState;
 

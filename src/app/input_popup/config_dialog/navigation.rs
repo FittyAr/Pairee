@@ -254,7 +254,7 @@ pub fn handle_navigation(
         cursor_idx,
         editing_value,
         edit_buffer,
-        settings,
+        settings: Box::new(settings),
         focus_on_tabs,
     });
     Ok(None)

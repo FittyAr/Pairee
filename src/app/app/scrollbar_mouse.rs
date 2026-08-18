@@ -59,8 +59,8 @@ fn apply_scroll_offset(
             }
         }
         ScrollTargetId::QuickView => {
-            if let Some(PopupType::QuickViewPanel { scroll, .. }) = &mut state.active_popup {
-                *scroll = offset;
+            if let Some(PopupType::QuickViewPanel(qv)) = &mut state.active_popup {
+                qv.scroll = offset;
             }
         }
         ScrollTargetId::PanelLeft => {

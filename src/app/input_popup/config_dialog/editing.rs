@@ -62,7 +62,7 @@ pub fn handle_editing(
         cursor_idx,
         editing_value,
         edit_buffer,
-        settings,
+        settings: Box::new(settings),
         focus_on_tabs,
     })
 }

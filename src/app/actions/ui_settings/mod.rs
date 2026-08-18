@@ -167,7 +167,7 @@ pub async fn handle_ui_settings_action(
         Action::QuickView => {
             state.panels.quick_view_active = !state.panels.quick_view_active;
             if !state.panels.quick_view_active {
-                if let Some(PopupType::QuickViewPanel { .. }) = state.active_popup {
+                if let Some(PopupType::QuickViewPanel(_)) = state.active_popup {
                     state.active_popup = None;
                 }
             } else {
@@ -356,7 +356,7 @@ pub async fn handle_ui_settings_action(
                 cursor_idx: 0,
                 editing_value: false,
                 edit_buffer: String::new(),
-                settings: context.config.settings.clone(),
+                settings: Box::new(context.config.settings.clone()),
                 focus_on_tabs: true,
             });
             true

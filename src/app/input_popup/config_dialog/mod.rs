@@ -38,7 +38,7 @@ pub fn handle(
                 cursor_idx,
                 editing_value,
                 edit_buffer,
-                settings,
+                *settings,
                 focus_on_tabs,
             );
             return Ok(None);
@@ -52,7 +52,7 @@ pub fn handle(
             cursor_idx,
             editing_value,
             edit_buffer,
-            settings,
+            *settings,
             focus_on_tabs,
         );
     }

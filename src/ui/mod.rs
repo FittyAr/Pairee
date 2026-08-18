@@ -45,23 +45,17 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     // Left panel — replaced by quick view if active and the left panel is passive
                     if state.panels.left_visible && layout.left_rect.width > 1 {
                         if state.panels.quick_view_active && !left_active {
-                            if let Some(PopupType::QuickViewPanel {
-                                ref path,
-                                ref content,
-                                scroll,
-                                ref image_data,
-                                ref plugin_widget,
-                            }) = state.active_popup
+                            if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_ref()
                             {
                                 quickview::draw_quick_view(
                                     f,
                                     layout.left_rect,
-                                    path,
-                                    content,
-                                    scroll,
+                                    &qv.path,
+                                    &qv.content,
+                                    qv.scroll,
                                     &context.config.theme,
-                                    image_data,
-                                    plugin_widget,
+                                    &qv.image_data,
+                                    &qv.plugin_widget,
                                     Some(&state.scrollbar),
                                 );
                             } else {
@@ -91,23 +85,17 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                     // Right panel — replaced by quick view if active and the right panel is passive
                     if state.panels.right_visible && layout.right_rect.width > 1 {
                         if state.panels.quick_view_active && !right_active {
-                            if let Some(PopupType::QuickViewPanel {
-                                ref path,
-                                ref content,
-                                scroll,
-                                ref image_data,
-                                ref plugin_widget,
-                            }) = state.active_popup
+                            if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_ref()
                             {
                                 quickview::draw_quick_view(
                                     f,
                                     layout.right_rect,
-                                    path,
-                                    content,
-                                    scroll,
+                                    &qv.path,
+                                    &qv.content,
+                                    qv.scroll,
                                     &context.config.theme,
-                                    image_data,
-                                    plugin_widget,
+                                    &qv.image_data,
+                                    &qv.plugin_widget,
                                     Some(&state.scrollbar),
                                 );
                             } else {

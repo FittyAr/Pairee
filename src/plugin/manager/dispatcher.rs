@@ -241,14 +241,10 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     }
                 }
                 PluginRequest::UpdatePluginWidget { path, widget } => {
-                    if let Some(PopupType::QuickViewPanel {
-                        path: ref cur_path,
-                        ref mut plugin_widget,
-                        ..
-                    }) = state.active_popup
-                        && cur_path == &path
+                    if let Some(PopupType::QuickViewPanel(qv)) = state.active_popup.as_mut()
+                        && qv.path == path
                     {
-                        *plugin_widget = Some(widget);
+                        qv.plugin_widget = Some(widget);
                     }
                 }
                 PluginRequest::PluginMenuLoaded {

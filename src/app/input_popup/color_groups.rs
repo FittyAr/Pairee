@@ -91,7 +91,7 @@ pub fn handle(
                         cursor_idx: 1, // Color groups
                         editing_value: false,
                         edit_buffer: String::new(),
-                        settings: context.config.settings.clone(),
+                        settings: Box::new(context.config.settings.clone()),
                         focus_on_tabs: false,
                     });
                     return Ok(None);
@@ -137,7 +137,7 @@ pub fn handle(
                         cursor_idx: 1,
                         editing_value: false,
                         edit_buffer: String::new(),
-                        settings: context.config.settings.clone(),
+                        settings: Box::new(context.config.settings.clone()),
                         focus_on_tabs: false,
                     });
                     return Ok(None);

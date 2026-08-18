@@ -28,6 +28,8 @@
 
 - Session state grouped into `PanelPair`, `HistoryState`, and `UpdateState` on `AppState`.
 - Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
+- Overlay dialogs live in `src/app/state/popup/` (`QuickViewDialog` boxed; config settings boxed) so `PopupType` is no longer a huge enum payload.
+- Plugin updater, directory listing, and Settings split into focused modules.
 
 ### Changed
 

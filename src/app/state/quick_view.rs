@@ -1,5 +1,5 @@
 use super::AppState;
-use super::types::PopupType;
+use super::popup::{PopupType, QuickViewDialog};
 use flate2::read::ZlibDecoder;
 use std::io::Read;
 
@@ -36,9 +36,7 @@ impl AppState {
                 }
 
                 let needs_load = match &self.active_popup {
-                    Some(PopupType::QuickViewPanel {
-                        path: current_path, ..
-                    }) => current_path != &path,
+                    Some(PopupType::QuickViewPanel(qv)) => qv.path != path,
                     _ => true,
                 };
 
@@ -117,13 +115,14 @@ impl AppState {
                         crate::ui::quickview::load_quick_view_content(&path)
                     };
 
-                    self.active_popup = Some(PopupType::QuickViewPanel {
-                        path,
-                        content,
-                        scroll: 0,
-                        image_data,
-                        plugin_widget: None,
-                    });
+                    self.active_popup =
+                        Some(PopupType::QuickViewPanel(Box::new(QuickViewDialog {
+                            path,
+                            content,
+                            scroll: 0,
+                            image_data,
+                            plugin_widget: None,
+                        })));
                 }
             } else {
                 self.active_popup = None;
