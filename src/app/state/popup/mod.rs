@@ -433,6 +433,11 @@ pub enum PopupType {
         scroll_y: usize,
     },
 
+    /// First-run keymap picker (Norton / Neovim / VS Code).
+    OnboardingKeymap {
+        cursor_idx: usize,
+    },
+
     /// Fuzzy command palette (Ctrl+Shift+P): filter and run logical `Action`s.
     CommandPalette {
         query: String,

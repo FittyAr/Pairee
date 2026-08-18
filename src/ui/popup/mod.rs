@@ -11,6 +11,7 @@ pub mod git_panel;
 pub mod history_lists;
 pub mod info;
 pub mod menus;
+pub mod onboarding;
 pub mod plugin_menu;
 pub mod prompts;
 pub mod screens_menu;
@@ -119,6 +120,9 @@ fn render_specific_popup(
         return;
     }
     if update::render(f, popup, theme, size, Some(&state.scrollbar)) {
+        return;
+    }
+    if onboarding::render(f, popup, theme, size) {
         return;
     }
     if command_palette::render(f, popup, theme, size) {}

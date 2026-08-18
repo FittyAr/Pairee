@@ -23,6 +23,8 @@ The compiled output is located at:
 You can place the binary in your system path (e.g. `/usr/local/bin/` or `C:\Windows\System32\`) or run it directly from the target folder.
 Make sure the `lang/` and `help/` directories are located alongside the executable or in the system share path (`/usr/share/pairee/` on Linux) to ensure localizations and manuals load correctly.
 
+On the **first launch** (new config directory), Pairee asks which keyboard preset to use: **Norton Commander**, **Neovim**, or **VS Code**. Enter selects; Esc keeps Norton. Change it later under Settings → Interface → Keybindings preset.
+
 ---
 
 ## 🎨 2. Custom TOML Themes

@@ -2,10 +2,13 @@
 
 ### Added
 
+- Short threat model (`docs/THREAT_MODEL.md`) for plugins, SSH presets, updates, and the elevated helper.
+
 - Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
 - Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
 - Plugin filesystem extras: `mkdir`, `remove`, `rename`, `copy`, `read_dir`, and `file()` (File userdata).
 - `pairee.Command` process builder with piped `Child` streaming (`write_all`, `read`, `wait_with_output`).
+- First-run keymap onboarding (Norton / Neovim / VS Code). Existing configs skip the dialog.
 - Versioned Lua plugin API **v1.0.0** (`pairee._lua_api_version`, `docs/api/lua/`).
 - CI acceptance plugins under `tests/plugin_acceptance/` (surface, fs, cx/utils, Command echo).
 - `pairee.emit`, `pairee.notify`, and `pairee.file_cache` are callable functions (they were nested tables).

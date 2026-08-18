@@ -13,6 +13,7 @@ impl Default for Settings {
             },
             mouse_support: true,
             keybinding_preset: "norton".to_string(),
+            onboarding_completed: false,
             theme: "slate".to_string(),
             panel_view_mode: PanelViewMode::default(),
             sort_field: SortField::default(),

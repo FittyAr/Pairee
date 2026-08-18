@@ -24,6 +24,11 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
     // Initial folder scans
     state.refresh_both_panels(context.config.settings.show_hidden);
+    if !context.config.settings.onboarding_completed {
+        state
+            .dialogs
+            .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
+    }
     state.mark_ui_dirty();
 
     // Launch background external tools download/check

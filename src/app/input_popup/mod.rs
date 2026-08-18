@@ -24,6 +24,7 @@ pub mod history_list;
 pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
+pub mod onboarding;
 pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
@@ -137,6 +138,7 @@ pub fn handle_popup_input(
             PopupType::FileAssociationsDialog { .. } => {
                 file_associations::handle(state, key, context)
             }
+            PopupType::OnboardingKeymap { .. } => onboarding::handle(state, key, context),
             PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
             PopupType::PluginConfirm { .. }
             | PopupType::PluginInput { .. }

@@ -29,6 +29,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [CHANGELOG.md](./CHANGELOG.md) | Implemented (releases) |
 | [UNRELEASED.md](./UNRELEASED.md) | Implemented (staging) |
 | [PRIVACY.md](./PRIVACY.md) | Implemented |
+| [THREAT_MODEL.md](./THREAT_MODEL.md) | **Implemented** | Plugins, SSH, update, elevated helper |
 | [winget-submission-guide.md](./winget-submission-guide.md) | Implemented |
 
 ---

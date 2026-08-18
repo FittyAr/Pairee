@@ -18,6 +18,10 @@ pub struct Settings {
     pub mouse_support: bool,
     /// Active keybinding preset profile: "norton", "vim", "modern", "custom"
     pub keybinding_preset: String,
+    /// False only on a freshly created config. Existing files without the
+    /// field deserialize as `true` so upgrades skip the first-run dialog.
+    #[serde(default = "default_true")]
+    pub onboarding_completed: bool,
     /// The name of the active theme
     pub theme: String,
 
@@ -316,4 +320,27 @@ fn default_transfer_conflict() -> String {
 }
 fn default_transfer_report_format() -> String {
     "html".to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn new_install_default_needs_onboarding() {
+        assert!(!Settings::default().onboarding_completed);
+    }
+
+    #[test]
+    fn existing_config_without_field_skips_onboarding() {
+        let mut table: toml::Table =
+            toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
+        table.remove("onboarding_completed");
+        let stripped = toml::to_string(&table).unwrap();
+        let loaded: Settings = toml::from_str(&stripped).unwrap();
+        assert!(
+            loaded.onboarding_completed,
+            "missing field must mean already onboarded"
+        );
+    }
 }

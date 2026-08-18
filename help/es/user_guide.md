@@ -23,6 +23,8 @@ El archivo ejecutable compilado estará ubicado en:
 Puedes copiar el ejecutable a una ruta del sistema (ej. `/usr/local/bin/` o `C:\Windows\System32\`) o ejecutarlo directamente desde la carpeta compilada.
 Asegúrate de colocar los directorios `lang/` y `help/` junto al ejecutable o en el directorio de recursos compartidos del sistema (`/usr/share/pairee/` en Linux) para que las traducciones y los manuales se carguen correctamente.
 
+En el **primer arranque** (config nueva) Pairee pregunta el preset de teclado: **Norton Commander**, **Neovim** o **VS Code**. Enter elige; Esc deja Norton. Luego se cambia en Ajustes → Interfaz → preset de teclas.
+
 ---
 
 ## 🎨 2. Temas de Color Personalizados (TOML)
