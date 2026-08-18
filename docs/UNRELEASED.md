@@ -4,6 +4,8 @@
 
 - Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
 - Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
+- Plugin filesystem extras: `mkdir`, `remove`, `rename`, `copy`, `read_dir`, and `file()` (File userdata).
+- `pairee.Command` process builder with piped `Child` streaming (`write_all`, `read`, `wait_with_output`).
 - Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.
 - Integration smoke tests under `tests/` for isolated temp workspace, settings TOML roundtrip, and transfer filesystem contracts.
 - Project-level `rustfmt.toml` and `clippy.toml` for consistent CI quality gates.

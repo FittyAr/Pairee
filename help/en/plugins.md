@@ -22,7 +22,8 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.utils.target_family()` | Return `"unix"` / `"windows"` / `"wasm"` | New in M0 |
 | `pairee.utils.time()` | Return the current UNIX epoch in seconds (float) | New in M0 |
 | `pairee.utils.hash(str)` | Return a stable 64-bit hash of `str` as a hex string | New in M0 |
-| `pairee.fs.*` | Filesystem operations (`read`, `write`, `exists`, `stat`, `list`, `spawn`, `spawn_copy_task`) | Stable |
+| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Stable + mkdir/remove/rename/copy |
+| `pairee.Command` | Process builder (`:arg` `:cwd` `:env` `:stdin/out/err` `:spawn` `:output`) | Implemented; Child streams via pipes |
 | `pairee.ui.*` | Widget constructors (`Paragraph`, `Gauge`, `List`, `Table`, `Span`, `Line`) | Stable; richer userdata widgets land in M4 |
 | `pairee.ps.sub / pub / unsub` | Local pub/sub | Stable |
 | `pairee.log.*` | Log a message at the given level | Stable |
@@ -168,7 +169,28 @@ local hash = pairee.utils.hash("payload")  -- 16-char hex string
 
 ---
 
-## 8. Sandbox and secure mode
+## 8. `pairee.Command` — process builder
+
+Trusted plugins can spawn processes with streaming stdio. Untrusted plugins are rejected; Secure Mode still applies the command blacklist.
+
+```lua
+local out = pairee.Command("rg"):arg("-n"):arg("TODO"):output()
+print(out.stdout, out.status.code)
+
+local child = pairee.Command("cat")
+    :stdin(pairee.Command.PIPED)
+    :stdout(pairee.Command.PIPED)
+    :spawn()
+child:write_all("hello\n")
+child:close_stdin()
+local streamed = child:wait_with_output()
+```
+
+`Command.NULL` / `PIPED` / `INHERIT` select stdio. Child methods: `id`, `write_all`, `read`, `read_line`, `close_stdin`, `wait`, `wait_with_output`, `try_wait`, `start_kill`.
+
+---
+
+## 9. Sandbox and secure mode
 
 Plugins run in a Lua sandbox that:
 
@@ -186,7 +208,7 @@ See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.
 
 ---
 
-## 9. Cross-platform notes
+## 10. Cross-platform notes
 
 - `pairee.utils.target_os()` returns the compile-time OS string from `std::env::consts::OS`. Use it to gate OS-specific code paths.
 - `pairee.utils.target_family()` returns `"unix"`, `"windows"`, or `"wasm"`. Prefer it over `target_os` for portability checks.
@@ -194,7 +216,7 @@ See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.
 
 ---
 
-## 10. Migration cheatsheet
+## 11. Migration cheatsheet
 
 | Old (M0 and earlier) | New (M0+) | Notes |
 |---|---|---|
@@ -205,6 +227,7 @@ See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.
 | `pairee.app.notify(title, msg, level)` | `pairee.notify({title=title, content=msg, level=level, timeout=...})` | Old form still works |
 | (no equivalent) | `pairee.which({cands=..., silent=...})` | Real key-prompt overlay |
 | (no equivalent) | `pairee.cx.active.hovered` / `.selected` / `.cwd` | `File` userdata inside `pairee.sync` |
+| `pairee.fs.spawn(cmd, args)` | `pairee.Command(cmd):arg(...):output()` | Streaming Child + PIPED stdio |
 | (no equivalent) | `pairee.file_cache({file=..., skip=...})` | M0 fully functional |
 | (no equivalent) | `pairee.utils.target_os / target_family / time / hash` | M0 fully functional |
 

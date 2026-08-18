@@ -1,7 +1,7 @@
 //! Typed `File` userdata passed to Lua plugins.
 
 use crate::plugin::manager::snapshot::FileEntrySnapshot;
-use mlua::{MetaMethod, UserData, UserDataFields, UserDataMethods};
+use mlua::{FromLua, MetaMethod, UserData, UserDataFields, UserDataMethods, Value};
 
 /// A file or directory visible to a plugin (`pairee.cx.active.hovered`, etc.).
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -25,6 +25,39 @@ impl LuaFile {
             is_symlink: entry.is_symlink,
         }
     }
+
+    pub fn from_path(path: &std::path::Path) -> Self {
+        let path_str = path.to_string_lossy().to_string();
+        let name = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| path_str.clone());
+        let meta = std::fs::symlink_metadata(path).ok();
+        Self {
+            name,
+            path: path_str.clone(),
+            url: path_str,
+            size: meta.as_ref().map(|m| m.len()).unwrap_or(0),
+            is_dir: path.is_dir(),
+            is_symlink: meta
+                .as_ref()
+                .map(|m| m.file_type().is_symlink())
+                .unwrap_or(false),
+        }
+    }
+}
+
+impl<'lua> FromLua<'lua> for LuaFile {
+    fn from_lua(value: Value<'lua>, _lua: &'lua mlua::Lua) -> mlua::Result<Self> {
+        match value {
+            Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
+            _ => Err(mlua::Error::FromLuaConversionError {
+                from: value.type_name(),
+                to: "File",
+                message: Some("expected File userdata".into()),
+            }),
+        }
+    }
 }
 
 impl UserData for LuaFile {
@@ -39,12 +72,13 @@ impl UserData for LuaFile {
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
         methods.add_meta_method(MetaMethod::ToString, |_, this, ()| Ok(this.path.clone()));
-        methods.add_meta_method(MetaMethod::Eq, |_, this, other: mlua::AnyUserData| {
-            match other.borrow::<LuaFile>() {
+        methods.add_meta_method(
+            MetaMethod::Eq,
+            |_, this, other: mlua::AnyUserData| match other.borrow::<LuaFile>() {
                 Ok(other) => Ok(this.path == other.path),
                 Err(_) => Ok(false),
-            }
-        });
+            },
+        );
     }
 }
 
@@ -90,6 +124,19 @@ mod tests {
         assert_eq!(shown, "/tmp/readme.md");
         assert!(same);
         assert!(!different);
+    }
+
+    #[test]
+    fn from_path_reads_metadata() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), b"abc").unwrap();
+        let f = LuaFile::from_path(tmp.path());
+        assert_eq!(f.size, 3);
+        assert!(!f.is_dir);
+        assert_eq!(
+            f.name,
+            tmp.path().file_name().unwrap().to_string_lossy().as_ref()
+        );
     }
 
     #[test]

@@ -33,6 +33,10 @@ pub fn bind_runtime(
     // are discoverable alongside the existing `pairee.app.*` stubs.
     super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
     pairee.set("fs", super::bindings::fs::bind(lua, trusted, tx.clone())?)?;
+    pairee.set(
+        "Command",
+        super::bindings::process::bind(lua, trusted, secure_mode_active)?,
+    )?;
     pairee.set("ui", super::bindings::ui::bind(lua)?)?;
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
     pairee.set("log", super::bindings::log::bind(lua)?)?;

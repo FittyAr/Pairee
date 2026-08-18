@@ -205,7 +205,7 @@ mod tests {
         open_confirm(&mut state, "one".into(), "a".into(), None, tx1);
         let (tx2, _rx2) = oneshot::channel();
         open_confirm(&mut state, "two".into(), "b".into(), None, tx2);
-        assert_eq!(rx1.blocking_recv().unwrap(), false);
+        assert!(!rx1.blocking_recv().unwrap());
         assert!(matches!(
             state.dialogs.top(),
             Some(PopupType::PluginConfirm { title, .. }) if title == "two"

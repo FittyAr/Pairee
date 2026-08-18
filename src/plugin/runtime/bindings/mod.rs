@@ -6,6 +6,7 @@ pub mod file_cache;
 pub mod fs;
 pub mod log;
 pub mod notify_ext;
+pub mod process;
 pub mod ps;
 pub mod sync;
 pub mod ui;

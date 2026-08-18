@@ -74,16 +74,15 @@ This section lists everything the current Pairee plugin system actually exposes 
 | `pairee.app.focus` | Read (snapshot) | `app.rs:45-60` |
 | `pairee.app.set_focus` | Write | `app.rs:63-73` (sends `PluginRequest::SetFocus`) |
 | `pairee.app.notify` | Write (real) | `app.rs:75-86` → `manager.rs:191-194` opens a real `PopupType::Info` |
-| `pairee.app.confirm` | **STUB** | `app.rs:88-111` → `manager.rs:207-215` always returns `true` |
-| `pairee.app.input` | **STUB** | `app.rs:113-136` → `manager.rs:215-223` always returns `default` |
+| `pairee.app.confirm` | Real TUI | Opens `PluginConfirm`; legacy path still works |
+| `pairee.app.input` | Real TUI | Opens `PluginInput`; legacy path still works |
 | `pairee.app.hovered` | Read (snapshot) | `app.rs:139-153` |
-| `pairee.fs.read` | Sync, blocking | `bindings/fs.rs:43-50` uses `std::fs::read_to_string` |
-| `pairee.fs.write` | Sync, blocking | `bindings/fs.rs:52-60` uses `std::fs::write` |
-| `pairee.fs.exists` | Sync, blocking | `bindings/fs.rs:62-69` |
-| `pairee.fs.stat` | Sync, blocking | `bindings/fs.rs:71-96` |
-| `pairee.fs.list` | Sync, blocking | `bindings/fs.rs:98-127` (no glob/limit/resolve options) |
-| `pairee.fs.spawn` | Fire-and-forget | `bindings/fs.rs:130-161` (no streaming, no stdin, no env, no kill) |
-| `pairee.fs.spawn_copy_task` | Async (UI-bound) | `bindings/fs.rs:163-176` (no plain `copy`/`mkdir`/`remove`/`rename`) |
+| `pairee.fs.read/write/exists` | Sync API, tokio::fs on worker | `bindings/fs/` |
+| `pairee.fs.stat/list/file/read_dir` | File userdata | `bindings/fs/` |
+| `pairee.fs.mkdir/remove/rename/copy` | Implemented | `bindings/fs/extra.rs` |
+| `pairee.fs.spawn` | Async output table | Legacy; prefer `pairee.Command` |
+| `pairee.Command` | Builder + Child streaming | `bindings/process/` |
+| `pairee.fs.spawn_copy_task` | Async (UI-bound) | Transfer engine job |
 | `pairee.ui.Paragraph` | Table-only | `bindings/ui.rs:4-12` returns plain table |
 | `pairee.ui.Gauge` | Table-only | `bindings/ui.rs:14-23` |
 | `pairee.ui.List` | Table-only | `bindings/ui.rs:25-33` |

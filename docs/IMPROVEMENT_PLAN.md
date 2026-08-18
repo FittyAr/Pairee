@@ -339,9 +339,9 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 
 Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 
-- [x] Diálogos reales end-to-end (confirm/input/select) — `3f5709f`+ (este)
+- [x] Diálogos reales end-to-end (confirm/input/select) — `766f2fe`
 - [x] Userdata tipados (`File` básico: name/path/size/is_dir) — metadata/mime pendientes
-- [ ] API async FS + `Command` builder con streaming
+- [x] API async FS + `Command` builder con streaming — (este)
 - [x] Contexto vivo `cx` (snapshot en `pairee.sync` → `pairee.cx` + `File`)
 - [ ] Plugins de aceptación en CI
 - [ ] API docs versionadas (semver de superficie Lua)
@@ -368,7 +368,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **157 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **171 unit + 5 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -391,7 +391,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | _(prev)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
 | 2026-08-12 | _(prev)_ | refactor: C.2 PopupType module + split updater/list/settings |
 | 2026-08-12 | _(prev)_ | refactor: C.3 DialogStack + PluginHostState + receiver poll |
-| 2026-08-18 | _(este)_ | feat: Fase D — diálogos plugin reales + File userdata + `pairee.cx` |
+| 2026-08-18 | `766f2fe` | feat: Fase D — diálogos plugin reales + File userdata + `pairee.cx` |
+| 2026-08-18 | _(este)_ | feat: Fase D — `pairee.fs` extra + `Command`/`Child` streaming |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -415,8 +416,8 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 
 **Fase A, B y F (principal) cerradas.**  
 **Fase C:** grupos de estado + `DialogStack`.  
-**Fase D (parcial):** diálogos plugin reales, `File` userdata, `pairee.cx`.  
-Siguiente: async FS + `Command` builder, o resto anti-glitch / `src/lib.rs`.  
+**Fase D (parcial):** diálogos, `File`/`cx`, `fs` extra, `Command` streaming.  
+Siguiente: plugins de aceptación en CI, API docs versionadas, o resto anti-glitch / `src/lib.rs`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

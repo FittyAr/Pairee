@@ -152,10 +152,36 @@ end)
 pairee.fs.read(path)                    -- string: file contents
 pairee.fs.write(path, data)            -- write data to file
 pairee.fs.exists(path)                 -- boolean
-pairee.fs.stat(path)                   -- Entry: file metadata
-pairee.fs.list(path)                   -- Entry[]: directory listing
+pairee.fs.stat(path)                   -- File userdata (or nil)
+pairee.fs.list(path)                   -- File[]: directory listing
+pairee.fs.read_dir(path)               -- File[] (same as list)
+pairee.fs.file(path)                   -- File userdata
+pairee.fs.mkdir("dir"|"dir_all", path)
+pairee.fs.remove("file"|"dir"|"dir_all"|"dir_clean", path)
+pairee.fs.rename(from, to)
+pairee.fs.copy(from, to)               -- bytes copied
 pairee.fs.spawn(cmd, args)             -- Output: {stdout, stderr, status}
 pairee.fs.spawn_copy_task(from, to)    -- background copy with progress popup
+```
+
+### `pairee.Command` — process builder (trusted plugins)
+
+```lua
+local out = pairee.Command("rg")
+    :arg("-n")
+    :arg(pattern)
+    :cwd(pairee.cx.active.cwd)
+    :stdout(pairee.Command.PIPED)
+    :stderr(pairee.Command.PIPED)
+    :output()                       -- Output { stdout, stderr, status }
+
+local child = pairee.Command("cat")
+    :stdin(pairee.Command.PIPED)
+    :stdout(pairee.Command.PIPED)
+    :spawn()
+child:write_all("hello\n")
+child:close_stdin()
+local streamed = child:wait_with_output()
 ```
 
 ### `pairee.ui` — Widget Constructors

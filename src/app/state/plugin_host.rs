@@ -57,7 +57,7 @@ mod tests {
         host.pending_dialog = Some(PendingPluginReply::Confirm(tx));
         host.cancel_pending();
         assert!(host.pending_dialog.is_none());
-        assert_eq!(rx.blocking_recv().unwrap(), false);
+        assert!(!rx.blocking_recv().unwrap());
     }
 
     #[test]

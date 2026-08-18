@@ -192,7 +192,7 @@ mod tests {
         open_confirm(&mut state, "t".into(), "m".into(), None, tx);
         let res = handle(&mut state, make_key(KeyCode::Enter), &mut context);
         assert!(res.is_ok());
-        assert_eq!(rx.blocking_recv().unwrap(), true);
+        assert!(rx.blocking_recv().unwrap());
         assert!(state.dialogs.is_none());
     }
 
@@ -203,7 +203,7 @@ mod tests {
         let (tx, rx) = oneshot::channel();
         open_confirm(&mut state, "t".into(), "m".into(), None, tx);
         handle(&mut state, make_key(KeyCode::Esc), &mut context).unwrap();
-        assert_eq!(rx.blocking_recv().unwrap(), false);
+        assert!(!rx.blocking_recv().unwrap());
         assert!(state.dialogs.is_none());
     }
 
@@ -215,7 +215,7 @@ mod tests {
         open_confirm(&mut state, "t".into(), "m".into(), None, tx);
         handle(&mut state, make_key(KeyCode::Tab), &mut context).unwrap();
         handle(&mut state, make_key(KeyCode::Enter), &mut context).unwrap();
-        assert_eq!(rx.blocking_recv().unwrap(), false);
+        assert!(!rx.blocking_recv().unwrap());
     }
 
     #[test]
