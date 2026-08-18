@@ -1,31 +1,35 @@
 pub mod glob;
+pub mod history;
 pub mod panel;
+pub mod panel_pair;
 pub mod transfer_state;
 pub mod types;
+pub mod update_state;
 
-pub mod history;
 pub mod quick_view;
 pub mod refresh;
 pub mod screens;
 
 pub use crate::fs::compare::CompareStatus;
 pub use glob::{glob_matches, glob_matches_case};
+pub use history::HistoryState;
 pub use panel::PanelState;
+pub use panel_pair::PanelPair;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
     PanelViewMode, PopupType, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate,
     TreeNode,
 };
+pub use update_state::UpdateState;
 
-use crate::update::{UpdateInfo, UpdateStatus};
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
 pub struct AppState {
-    pub left_panel: PanelState,
-    pub right_panel: PanelState,
-    pub active_panel: ActivePanel,
+    pub panels: PanelPair,
+    pub history: HistoryState,
+    pub update: UpdateState,
     pub cli_input: String,
     pub active_popup: Option<PopupType>,
     pub should_quit: bool,
@@ -57,19 +61,6 @@ pub struct AppState {
     pub screen_popups: Vec<Option<PopupType>>,
     pub active_screen_idx: usize,
 
-    // ── Panel visibility ──────────────────────────────────────────────────────
-    pub left_panel_visible: bool,
-    pub right_panel_visible: bool,
-    /// Ctrl+O: hide both panels to reveal the full terminal output below
-    pub both_panels_hidden: bool,
-    /// Whether quick-view is active (passive panel shows file preview)
-    pub quick_view_active: bool,
-
-    // ── History lists (in-memory; persisted via config::history) ─────────────
-    pub command_history: Vec<String>,
-    pub file_view_history: Vec<PathBuf>,
-    pub folders_history: Vec<PathBuf>,
-
     // ── Folder shortcuts: number 1–9 → absolute path ─────────────────────────
     pub folder_shortcuts: HashMap<u8, PathBuf>,
 
@@ -96,19 +87,6 @@ pub struct AppState {
     pub pending_custom_command: Option<String>,
     pub is_root: bool,
 
-    // ── Auto-update ────────────────────────────────────────────────
-    /// Pending oneshot receiver for the background update check.
-    pub update_check_rx: Option<tokio::sync::oneshot::Receiver<Option<crate::update::UpdateInfo>>>,
-    /// Available update info (set after the background check completes).
-    pub update_available: Option<UpdateInfo>,
-    /// Current status of an ongoing update installation.
-    pub update_status: UpdateStatus,
-    /// Receiver for download progress (0.0–1.0).
-    pub update_progress_rx: Option<tokio::sync::mpsc::Receiver<f32>>,
-    /// Pending oneshot receiver for the final installation result.
-    pub update_install_rx: Option<
-        tokio::sync::oneshot::Receiver<Result<crate::update::installer::InstallResult, String>>,
-    >,
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
 
@@ -121,9 +99,9 @@ impl AppState {
         let (term_tx, term_rx) = tokio::sync::mpsc::unbounded_channel();
         let is_root = crate::fs::is_elevated();
         Self {
-            left_panel: PanelState::new(left_path),
-            right_panel: PanelState::new(right_path),
-            active_panel: ActivePanel::Left,
+            panels: PanelPair::new(left_path, right_path),
+            history: HistoryState::default(),
+            update: UpdateState::default(),
             cli_input: String::new(),
             active_popup: None,
             should_quit: false,
@@ -135,13 +113,6 @@ impl AppState {
             screens: vec![Screen::Panels],
             screen_popups: vec![None],
             active_screen_idx: 0,
-            left_panel_visible: true,
-            right_panel_visible: true,
-            both_panels_hidden: false,
-            quick_view_active: false,
-            command_history: Vec::new(),
-            file_view_history: Vec::new(),
-            folders_history: Vec::new(),
             folder_shortcuts: HashMap::new(),
             last_selection_snapshot: HashSet::new(),
             last_selection_order_snapshot: Vec::new(),
@@ -162,12 +133,6 @@ impl AppState {
             last_transfer_draw: None,
             pending_custom_command: None,
             is_root,
-            // Update
-            update_check_rx: None,
-            update_available: None,
-            update_status: UpdateStatus::Idle,
-            update_progress_rx: None,
-            update_install_rx: None,
             // Transfer Engine
             transfer: None,
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
@@ -186,39 +151,27 @@ impl AppState {
 
     /// Returns a reference to the active panel state.
     pub fn get_active_panel(&self) -> &PanelState {
-        match self.active_panel {
-            ActivePanel::Left => &self.left_panel,
-            ActivePanel::Right => &self.right_panel,
-        }
+        self.panels.active()
     }
 
     /// Returns a mutable reference to the active panel state.
     pub fn get_active_panel_mut(&mut self) -> &mut PanelState {
-        match self.active_panel {
-            ActivePanel::Left => &mut self.left_panel,
-            ActivePanel::Right => &mut self.right_panel,
-        }
+        self.panels.active_mut()
     }
 
     /// Returns a reference to the passive panel state.
     pub fn get_passive_panel(&self) -> &PanelState {
-        match self.active_panel {
-            ActivePanel::Left => &self.right_panel,
-            ActivePanel::Right => &self.left_panel,
-        }
+        self.panels.passive()
     }
 
     /// Swaps the paths (and lists) of the left and right panels.
     pub fn swap_panels(&mut self) {
-        std::mem::swap(&mut self.left_panel, &mut self.right_panel);
+        self.panels.swap();
     }
 
     /// Switches keyboard focus between panels.
     pub fn toggle_focus(&mut self) {
-        self.active_panel = match self.active_panel {
-            ActivePanel::Left => ActivePanel::Right,
-            ActivePanel::Right => ActivePanel::Left,
-        };
+        self.panels.toggle_focus();
     }
 
     /// Saves the current selection snapshot for later RestoreSelection.

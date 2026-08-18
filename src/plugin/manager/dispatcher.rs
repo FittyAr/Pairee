@@ -36,9 +36,14 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                         .collect();
 
                     let snapshot = super::snapshot::AppStateSnapshot {
-                        active_panel: format!("{:?}", state.active_panel).to_lowercase(),
-                        left_cwd: state.left_panel.current_path.to_string_lossy().to_string(),
-                        right_cwd: state.right_panel.current_path.to_string_lossy().to_string(),
+                        active_panel: format!("{:?}", state.panels.active).to_lowercase(),
+                        left_cwd: state.panels.left.current_path.to_string_lossy().to_string(),
+                        right_cwd: state
+                            .panels
+                            .right
+                            .current_path
+                            .to_string_lossy()
+                            .to_string(),
                         hovered_file: hovered,
                         selected_files: selected,
                     };
@@ -58,9 +63,9 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                 }
                 PluginRequest::SetFocus { side } => {
                     if side == "left" {
-                        state.active_panel = crate::app::state::ActivePanel::Left;
+                        state.panels.active = crate::app::state::ActivePanel::Left;
                     } else if side == "right" {
-                        state.active_panel = crate::app::state::ActivePanel::Right;
+                        state.panels.active = crate::app::state::ActivePanel::Right;
                     }
                 }
                 PluginRequest::Confirm {

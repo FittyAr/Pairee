@@ -65,18 +65,18 @@ fn apply_scroll_offset(
         }
         ScrollTargetId::PanelLeft => {
             scrollbar::clamp_cursor_to_offset(
-                &mut state.left_panel.cursor_index,
+                &mut state.panels.left.cursor_index,
                 offset,
                 viewport,
-                content_len.min(state.left_panel.entries.len()),
+                content_len.min(state.panels.left.entries.len()),
             );
         }
         ScrollTargetId::PanelRight => {
             scrollbar::clamp_cursor_to_offset(
-                &mut state.right_panel.cursor_index,
+                &mut state.panels.right.cursor_index,
                 offset,
                 viewport,
-                content_len.min(state.right_panel.entries.len()),
+                content_len.min(state.panels.right.entries.len()),
             );
         }
         ScrollTargetId::GitList => {

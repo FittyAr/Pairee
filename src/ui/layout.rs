@@ -63,7 +63,7 @@ pub fn calculate_layout(
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(menu_height), // Dropdown menu bar (F9)
-            if state.both_panels_hidden {
+            if state.panels.both_hidden {
                 Constraint::Length(0) // Both panels hidden → 0 height
             } else {
                 Constraint::Min(3) // Normal: panels take remaining space
@@ -76,7 +76,7 @@ pub fn calculate_layout(
 
     // Determine panel width constraints based on individual visibility flags
     let (left_constraint, right_constraint) =
-        match (state.left_panel_visible, state.right_panel_visible) {
+        match (state.panels.left_visible, state.panels.right_visible) {
             (true, true) => (Constraint::Percentage(50), Constraint::Percentage(50)),
             (true, false) => (Constraint::Percentage(100), Constraint::Length(0)),
             (false, true) => (Constraint::Length(0), Constraint::Percentage(100)),

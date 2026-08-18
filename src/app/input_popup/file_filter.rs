@@ -47,7 +47,7 @@ pub fn handle(
                 original_mask,
                 original_cursor,
             } => {
-                let active_panel = state.active_panel;
+                let active_panel = state.panels.active;
                 match key.code {
                     KeyCode::Char(c) => {
                         let mut new_input = input;
@@ -79,8 +79,8 @@ pub fn handle(
                         state.active_popup = None;
                         state.update_panel_filter(active_panel, original_mask);
                         let panel = match active_panel {
-                            crate::app::state::ActivePanel::Left => &mut state.left_panel,
-                            crate::app::state::ActivePanel::Right => &mut state.right_panel,
+                            crate::app::state::ActivePanel::Left => &mut state.panels.left,
+                            crate::app::state::ActivePanel::Right => &mut state.panels.right,
                         };
                         panel.cursor_index = original_cursor;
                         return Ok(None);

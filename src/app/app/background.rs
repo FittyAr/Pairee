@@ -33,8 +33,8 @@ pub fn process_background_updates(
             Ok((panel, res)) => match res {
                 Ok(client) => {
                     let p = match panel {
-                        crate::app::state::ActivePanel::Left => &mut state.left_panel,
-                        crate::app::state::ActivePanel::Right => &mut state.right_panel,
+                        crate::app::state::ActivePanel::Left => &mut state.panels.left,
+                        crate::app::state::ActivePanel::Right => &mut state.panels.right,
                     };
                     p.ssh_conn = Some(client);
                     p.current_path = std::path::PathBuf::from("/");

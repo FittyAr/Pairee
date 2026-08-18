@@ -28,7 +28,7 @@ pub fn get_items(
         MenuItemData::new(
             t("menu_quick_view"),
             &shortcut_for(Action::QuickView, "Ctrl+Q"),
-            state.quick_view_active,
+            state.panels.quick_view_active,
         )
         .with_action(Action::QuickView),
         MenuItemData::separator(),
@@ -42,13 +42,13 @@ pub fn get_items(
         MenuItemData::new(
             t("menu_show_long_names"),
             &shortcut_for(Action::ToggleLongNames, "Ctrl+N"),
-            state.left_panel.show_long_names,
+            state.panels.left.show_long_names,
         )
         .with_action(Action::ToggleLongNames),
         MenuItemData::new(
             t("menu_panel_on_off"),
             &shortcut_for(Action::TogglePanelLeft, "Ctrl+F1"),
-            state.left_panel_visible,
+            state.panels.left_visible,
         )
         .with_action(Action::TogglePanelLeft),
         MenuItemData::new(
@@ -71,7 +71,7 @@ pub fn get_items(
         .with_action(Action::SshConnect),
     ];
 
-    if state.left_panel.ssh_conn.is_some() {
+    if state.panels.left.ssh_conn.is_some() {
         items.push(
             MenuItemData::new(
                 t("menu_disconnect_ssh"),
@@ -82,7 +82,8 @@ pub fn get_items(
         );
     }
 
-    if settings.git_enabled && crate::git::repo::find_repo(&state.left_panel.current_path).is_some()
+    if settings.git_enabled
+        && crate::git::repo::find_repo(&state.panels.left.current_path).is_some()
     {
         items.push(MenuItemData::separator());
         items.push(

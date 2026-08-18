@@ -105,7 +105,7 @@ pub fn handle_navigation_action(
                     )
                 };
             state.active_popup = Some(PopupType::SshConnectPrompt {
-                panel: state.active_panel,
+                panel: state.panels.active,
                 input_name: name,
                 input_host: host,
                 input_port: port,
@@ -174,12 +174,12 @@ pub fn handle_navigation_action(
             state.active_popup = Some(PopupType::TreeView {
                 nodes,
                 cursor_idx: 0,
-                caller: crate::app::state::types::TreeViewCaller::Panel(state.active_panel),
+                caller: crate::app::state::types::TreeViewCaller::Panel(state.panels.active),
             });
             true
         }
         Action::CommandHistory => {
-            let entries = state.command_history.clone();
+            let entries = state.history.commands.clone();
             state.active_popup = Some(PopupType::CommandHistoryList {
                 entries,
                 cursor_idx: 0,
@@ -187,7 +187,7 @@ pub fn handle_navigation_action(
             true
         }
         Action::FileViewHistory => {
-            let entries = state.file_view_history.clone();
+            let entries = state.history.viewed_files.clone();
             state.active_popup = Some(PopupType::FileViewHistoryList {
                 entries,
                 cursor_idx: 0,
@@ -195,7 +195,7 @@ pub fn handle_navigation_action(
             true
         }
         Action::FoldersHistory => {
-            let entries = state.folders_history.clone();
+            let entries = state.history.folders.clone();
             state.active_popup = Some(PopupType::FoldersHistoryList {
                 entries,
                 cursor_idx: 0,

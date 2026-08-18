@@ -4,28 +4,28 @@ use crate::fs;
 impl AppState {
     /// Refreshes directories inside left and right panels, using full panel settings.
     pub fn refresh_both_panels(&mut self, show_hidden: bool) {
-        let left_path = self.left_panel.current_path.clone();
-        if left_path != self.left_panel.last_path {
-            self.left_panel.quick_filter_mask = None;
-            self.left_panel.last_path = left_path.clone();
+        let left_path = self.panels.left.current_path.clone();
+        if left_path != self.panels.left.last_path {
+            self.panels.left.quick_filter_mask = None;
+            self.panels.left.last_path = left_path.clone();
             let path_str = left_path.to_string_lossy().to_string();
             tokio::spawn(async move {
                 let payload = serde_json::json!({ "path": path_str, "side": "left" });
                 crate::plugin::hooks::emit_event("on_cd", payload).await;
             });
         }
-        let left_count = self.left_panel.entries.len();
+        let left_count = self.panels.left.entries.len();
         let skip_left = self.disable_panel_update_object_count > 0
             && left_count as u32 > self.disable_panel_update_object_count;
         if !skip_left {
-            let res = if let Some(client) = &self.left_panel.ssh_conn {
+            let res = if let Some(client) = &self.panels.left.ssh_conn {
                 client.read_directory(
                     &left_path,
                     show_hidden,
                     self.case_sensitive_sort,
                     self.treat_digits_as_numbers,
-                    self.left_panel.sort_field,
-                    self.left_panel.sort_reverse,
+                    self.panels.left.sort_field,
+                    self.panels.left.sort_reverse,
                     self.show_dotdot_in_root_folders,
                 )
             } else {
@@ -36,60 +36,61 @@ impl AppState {
                     self.treat_digits_as_numbers,
                     &self.sorting_collation,
                     self.req_admin_reading,
-                    self.left_panel.sort_field,
-                    self.left_panel.sort_reverse,
+                    self.panels.left.sort_field,
+                    self.panels.left.sort_reverse,
                     self.sort_folder_names_by_extension,
                     self.show_dotdot_in_root_folders,
                 )
             };
 
             if let Ok(mut entries) = res {
-                if let Some(ref mask) = self.left_panel.filter_mask
+                if let Some(ref mask) = self.panels.left.filter_mask
                     && !mask.is_empty()
                 {
                     entries.retain(|e| {
                         e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
                     });
                 }
-                if let Some(ref qmask) = self.left_panel.quick_filter_mask
+                if let Some(ref qmask) = self.panels.left.quick_filter_mask
                     && !qmask.is_empty()
                 {
                     entries = partition_entries_by_mask(entries, qmask);
                 }
-                self.left_panel.entries = entries;
-                if self.left_panel.cursor_index >= self.left_panel.entries.len() {
-                    self.left_panel.cursor_index = self.left_panel.entries.len().saturating_sub(1);
+                self.panels.left.entries = entries;
+                if self.panels.left.cursor_index >= self.panels.left.entries.len() {
+                    self.panels.left.cursor_index =
+                        self.panels.left.entries.len().saturating_sub(1);
                 }
             }
-            self.free_space_left = if self.left_panel.ssh_conn.is_none() {
+            self.free_space_left = if self.panels.left.ssh_conn.is_none() {
                 crate::app::sys_helpers::get_free_space(&left_path)
             } else {
                 None
             };
         }
 
-        let right_path = self.right_panel.current_path.clone();
-        if right_path != self.right_panel.last_path {
-            self.right_panel.quick_filter_mask = None;
-            self.right_panel.last_path = right_path.clone();
+        let right_path = self.panels.right.current_path.clone();
+        if right_path != self.panels.right.last_path {
+            self.panels.right.quick_filter_mask = None;
+            self.panels.right.last_path = right_path.clone();
             let path_str = right_path.to_string_lossy().to_string();
             tokio::spawn(async move {
                 let payload = serde_json::json!({ "path": path_str, "side": "right" });
                 crate::plugin::hooks::emit_event("on_cd", payload).await;
             });
         }
-        let right_count = self.right_panel.entries.len();
+        let right_count = self.panels.right.entries.len();
         let skip_right = self.disable_panel_update_object_count > 0
             && right_count as u32 > self.disable_panel_update_object_count;
         if !skip_right {
-            let res = if let Some(client) = &self.right_panel.ssh_conn {
+            let res = if let Some(client) = &self.panels.right.ssh_conn {
                 client.read_directory(
                     &right_path,
                     show_hidden,
                     self.case_sensitive_sort,
                     self.treat_digits_as_numbers,
-                    self.right_panel.sort_field,
-                    self.right_panel.sort_reverse,
+                    self.panels.right.sort_field,
+                    self.panels.right.sort_reverse,
                     self.show_dotdot_in_root_folders,
                 )
             } else {
@@ -100,33 +101,33 @@ impl AppState {
                     self.treat_digits_as_numbers,
                     &self.sorting_collation,
                     self.req_admin_reading,
-                    self.right_panel.sort_field,
-                    self.right_panel.sort_reverse,
+                    self.panels.right.sort_field,
+                    self.panels.right.sort_reverse,
                     self.sort_folder_names_by_extension,
                     self.show_dotdot_in_root_folders,
                 )
             };
 
             if let Ok(mut entries) = res {
-                if let Some(ref mask) = self.right_panel.filter_mask
+                if let Some(ref mask) = self.panels.right.filter_mask
                     && !mask.is_empty()
                 {
                     entries.retain(|e| {
                         e.name == ".." || crate::app::state::glob::glob_matches(mask, &e.name)
                     });
                 }
-                if let Some(ref qmask) = self.right_panel.quick_filter_mask
+                if let Some(ref qmask) = self.panels.right.quick_filter_mask
                     && !qmask.is_empty()
                 {
                     entries = partition_entries_by_mask(entries, qmask);
                 }
-                self.right_panel.entries = entries;
-                if self.right_panel.cursor_index >= self.right_panel.entries.len() {
-                    self.right_panel.cursor_index =
-                        self.right_panel.entries.len().saturating_sub(1);
+                self.panels.right.entries = entries;
+                if self.panels.right.cursor_index >= self.panels.right.entries.len() {
+                    self.panels.right.cursor_index =
+                        self.panels.right.entries.len().saturating_sub(1);
                 }
             }
-            self.free_space_right = if self.right_panel.ssh_conn.is_none() {
+            self.free_space_right = if self.panels.right.ssh_conn.is_none() {
                 crate::app::sys_helpers::get_free_space(&right_path)
             } else {
                 None
@@ -138,13 +139,13 @@ impl AppState {
     pub fn update_panel_filter(&mut self, active_panel: ActivePanel, mask: Option<String>) {
         let (panel, case_sensitive, digits_as_numbers, folder_by_ext) = match active_panel {
             ActivePanel::Left => (
-                &mut self.left_panel,
+                &mut self.panels.left,
                 self.case_sensitive_sort,
                 self.treat_digits_as_numbers,
                 self.sort_folder_names_by_extension,
             ),
             ActivePanel::Right => (
-                &mut self.right_panel,
+                &mut self.panels.right,
                 self.case_sensitive_sort,
                 self.treat_digits_as_numbers,
                 self.sort_folder_names_by_extension,

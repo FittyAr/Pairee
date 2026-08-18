@@ -231,8 +231,8 @@ async fn main() -> Result<()> {
     if context.config.settings.auto_update_check {
         let (tx, rx) = tokio::sync::oneshot::channel();
         update::checker::UpdateChecker::check_in_background(tx);
-        state.update_check_rx = Some(rx);
-        state.update_status = update::UpdateStatus::Checking;
+        state.update.check_rx = Some(rx);
+        state.update.status = update::UpdateStatus::Checking;
     }
 
     // 5.5. Initialize and load plugins

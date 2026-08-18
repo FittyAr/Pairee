@@ -85,9 +85,9 @@ pub fn dispatch_emit_action(
                 }
             };
             if side == "left" {
-                state.active_panel = crate::app::state::ActivePanel::Left;
+                state.panels.active = crate::app::state::ActivePanel::Left;
             } else if side == "right" {
-                state.active_panel = crate::app::state::ActivePanel::Right;
+                state.panels.active = crate::app::state::ActivePanel::Right;
             } else {
                 log::warn!(
                     "pairee.emit('{}') got unknown side {:?}; expected 'left' or 'right'",

@@ -96,7 +96,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::UserMenu { cursor_idx } => {
-            let panel_rect = match state.active_panel {
+            let panel_rect = match state.panels.active {
                 ActivePanel::Left => left_rect,
                 ActivePanel::Right => right_rect,
             };
@@ -398,7 +398,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::ContextMenu { items, cursor_idx } => {
-            let panel_rect = match state.active_panel {
+            let panel_rect = match state.panels.active {
                 ActivePanel::Left => left_rect,
                 ActivePanel::Right => right_rect,
             };

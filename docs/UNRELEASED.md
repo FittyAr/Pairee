@@ -26,6 +26,9 @@
 - Wipe, compress, extract, and apply-command jobs use the Transfer Engine queue and minimized panel (one consistent progress UX).
 - Cooperative cancel for archive compress/extract (native formats check cancel between entries; external 7z is killed on cancel).
 
+- Session state grouped into `PanelPair`, `HistoryState`, and `UpdateState` on `AppState`.
+- Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
+
 ### Changed
 
 - Replaced inherited rustc-style `.gitignore` with a Pairee-specific ignore list.

@@ -312,10 +312,10 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 **Patrones:** State objects, Dialog stack, Facade de servicios, Event bus.  
 **Nota:** tras Fase F, `keybindings/preset.rs` se reduce o desaparece; priorizar monólitos UI restantes.
 
-- [ ] Extraer de `AppState`: `TransferUiState`, `UpdateState`, `PluginHostState`, `HistoryState`, `PanelPair`
+- [x] Extraer de `AppState`: `HistoryState`, `UpdateState`, `PanelPair` (`TransferUIState` ya existía; `PluginHostState` pendiente)
 - [ ] Reemplazar mega-enum `PopupType` por stack de diálogos tipados (un módulo por familia)
   - Nota: hoy tiene `#[allow(clippy::large_enum_variant)]` temporal
-- [ ] Partir archivos >500 LOC (lista baseline abajo)
+- [x] Partir archivos >500 LOC de la lista UI baseline (quedan types/updater/list/settings)
 - [ ] Sustituir poll `take/unwrap/put-back` de receivers por bus o `select!` idiomático
 - [ ] Valorar `src/lib.rs` + binario fino para tests/benches
 
@@ -324,12 +324,12 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | Archivo | ~LOC | Estado |
 |---------|------|--------|
 | `src/fs/transfer/worker.rs` | ~1037 | [x] → `worker/` multi-módulo |
-| `src/app/input_popup/plugin_menu/dev/options.rs` | ~793 | [ ] |
-| `src/app/actions/ui_settings.rs` | ~766 | [ ] |
-| `src/ui/popup/history_lists.rs` | ~742 | [ ] |
-| `src/ui/transfer/panel.rs` | ~676 | [ ] |
-| `src/keybindings/preset.rs` | ~602 | [ ] → **absorber en Fase F.1 (`keybinds`)** |
-| `src/app/state/types.rs` | ~598 | [ ] |
+| `src/app/input_popup/plugin_menu/dev/options.rs` | ~793 | [x] → `options.rs` + `actions.rs` |
+| `src/app/actions/ui_settings.rs` | ~766 | [x] → `ui_settings/{mod,help,plugins,git}.rs` |
+| `src/ui/popup/history_lists.rs` | ~742 | [x] → `history_lists/` (lists/search/tree/compare/task/assoc) |
+| `src/ui/transfer/panel.rs` | ~676 | [x] → `panel/{mod,jobs,inspector,file_list}.rs` |
+| `src/keybindings/preset.rs` | ~602 | [x] → **absorber en Fase F.1 (`keybinds`)** |
+| `src/app/state/types.rs` | ~598 | [ ] PopupType sigue monolítico |
 | `src/plugin/updater.rs` | ~552 | [ ] |
 | `src/fs/list.rs` | ~521 | [ ] |
 | `src/config/settings.rs` | ~518 | [ ] |
@@ -388,7 +388,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-12 | `007eca7` | docs: plan Fase F |
 | 2026-08-12 | _(prev)_ | feat: `keybinds` + validación + dirty/sync draw |
 | 2026-08-12 | _(prev)_ | feat: `tui-scrollbar` helper + integración UI (F.2) |
-| 2026-08-12 | _(este)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
+| 2026-08-12 | _(prev)_ | feat: scrollbar mouse drag/jump, clippy collapsible_if, unicode-width (F.2+F.3b) |
+| 2026-08-12 | _(este)_ | refactor: Fase C.1 History/Update/PanelPair + partir monólitos UI |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -399,7 +400,7 @@ Ver también `git log --oneline master` para el detalle.
 ```text
 Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
-             │  [x unicode-width paneles] [ Partir AppState/PopupType ]
+             │  [x unicode-width paneles] [x AppState groups] [ PopupType stack ]
              │  [x Docs sync] [ Feature flags ] [ Plugins ]
 Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
@@ -410,11 +411,11 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 
 ## 13. Conclusión operativa
 
-**Fase A y B cerradas.**  
-**Fase F (F.1–F.3b parcial) cerrada en lo principal:** keybinds, tui-scrollbar (+ mouse), dirty/sync draw, unicode-width en listados.  
-Siguiente: **Fase C** (AppState/PopupType modularidad) o resto anti-glitch (`clear()` / keyboard enhancement).  
+**Fase A, B y F (principal) cerradas.**  
+**Fase C.1:** `HistoryState` / `UpdateState` / `PanelPair` extraídos; monólitos UI partidos.  
+Siguiente: **C.2** stack de diálogos (`PopupType`) y resto >500 LOC (`types`, `updater`, `list`, `settings`).  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (F.2 mouse + F.3b unicode-width + clippy).*
+*Última actualización del progreso: 2026-08-12 (Fase C.1 estado + split).*

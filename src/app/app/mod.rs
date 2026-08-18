@@ -19,10 +19,8 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
     let mut event_handler = EventHandler::new(Duration::from_millis(50));
 
     // Load history store from disk
-    let history_store = crate::config::history::HistoryStore::load();
-    state.command_history = history_store.commands.clone();
-    state.file_view_history = history_store.viewed_files.clone();
-    state.folders_history = history_store.visited_folders.clone();
+    state.history =
+        crate::app::state::HistoryState::from_store(crate::config::history::HistoryStore::load());
 
     // Initial folder scans
     state.refresh_both_panels(context.config.settings.show_hidden);
@@ -96,11 +94,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                 context.config.save_logging();
             }
             // Save history store to disk
-            let history_store = crate::config::history::HistoryStore {
-                commands: state.command_history.clone(),
-                viewed_files: state.file_view_history.clone(),
-                visited_folders: state.folders_history.clone(),
-            };
+            let history_store = state.history.to_store();
             let _ = history_store.save();
             break;
         }

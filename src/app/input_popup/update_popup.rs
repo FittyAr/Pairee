@@ -89,8 +89,8 @@ pub fn handle(
                     } else {
                         // Start the actual self-update
                         let (progress_tx, progress_rx) = mpsc::channel::<f32>(64);
-                        state.update_progress_rx = Some(progress_rx);
-                        state.update_status = UpdateStatus::Downloading(0.0);
+                        state.update.progress_rx = Some(progress_rx);
+                        state.update.status = UpdateStatus::Downloading(0.0);
 
                         // Set the progress marker in popup
                         if let Some(PopupType::UpdateAvailable {
@@ -101,7 +101,7 @@ pub fn handle(
                         }
 
                         let (install_tx, install_rx) = tokio::sync::oneshot::channel();
-                        state.update_install_rx = Some(install_rx);
+                        state.update.install_rx = Some(install_rx);
 
                         // Spawn background task
                         let info_clone2 = info_clone.clone();
@@ -121,7 +121,7 @@ pub fn handle(
                     context.config.settings.dismissed_update_version = Some(info_clone.tag.clone());
                     context.config.save_logging();
                     state.active_popup = None;
-                    state.update_available = None;
+                    state.update.available = None;
                 }
                 _ => {}
             }

@@ -6,7 +6,7 @@ use std::io::Read;
 impl AppState {
     /// Dynamically updates the quick view panel preview content.
     pub fn update_quick_view(&mut self) {
-        if self.quick_view_active {
+        if self.panels.quick_view_active {
             let active = self.get_active_panel();
             let mut hovered_entry = None;
             let target_path = if !active.selection_order.is_empty() {

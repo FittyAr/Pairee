@@ -312,9 +312,9 @@ pub fn handle_backspace_key(state: &mut AppState, show_hidden: bool) {
         state.refresh_both_panels(show_hidden);
 
         // Reposition cursor on directory we just exited
-        let active_ref = match state.active_panel {
-            ActivePanel::Left => &mut state.left_panel,
-            ActivePanel::Right => &mut state.right_panel,
+        let active_ref = match state.panels.active {
+            ActivePanel::Left => &mut state.panels.left,
+            ActivePanel::Right => &mut state.panels.right,
         };
         active_ref.cursor_index = active_ref
             .entries

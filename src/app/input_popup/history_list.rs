@@ -75,11 +75,11 @@ pub fn handle(
                                 history_type: "command".to_string(),
                             });
                         } else {
-                            state.command_history.clear();
+                            state.history.commands.clear();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
                             state.active_popup = None;
@@ -90,11 +90,11 @@ pub fn handle(
                         // Delete single item from history list
                         if !entries.is_empty() && cursor_idx < entries.len() => {
                             entries.remove(cursor_idx);
-                            state.command_history = entries.clone();
+                            state.history.commands = entries.clone();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
 
@@ -179,11 +179,11 @@ pub fn handle(
                                 history_type: "view".to_string(),
                             });
                         } else {
-                            state.file_view_history.clear();
+                            state.history.viewed_files.clear();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
                             state.active_popup = None;
@@ -194,11 +194,11 @@ pub fn handle(
                         // Delete single item from history list
                         if !entries.is_empty() && cursor_idx < entries.len() => {
                             entries.remove(cursor_idx);
-                            state.file_view_history = entries.clone();
+                            state.history.viewed_files = entries.clone();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
 
@@ -284,11 +284,11 @@ pub fn handle(
                                 history_type: "folder".to_string(),
                             });
                         } else {
-                            state.folders_history.clear();
+                            state.history.folders.clear();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
                             state.active_popup = None;
@@ -299,11 +299,11 @@ pub fn handle(
                         // Delete single item from history list
                         if !entries.is_empty() && cursor_idx < entries.len() => {
                             entries.remove(cursor_idx);
-                            state.folders_history = entries.clone();
+                            state.history.folders = entries.clone();
                             let history_store = crate::config::history::HistoryStore {
-                                commands: state.command_history.clone(),
-                                viewed_files: state.file_view_history.clone(),
-                                visited_folders: state.folders_history.clone(),
+                                commands: state.history.commands.clone(),
+                                viewed_files: state.history.viewed_files.clone(),
+                                visited_folders: state.history.folders.clone(),
                             };
                             let _ = history_store.save();
 

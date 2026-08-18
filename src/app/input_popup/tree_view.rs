@@ -73,14 +73,14 @@ pub fn handle(
                         crate::app::state::types::TreeViewCaller::Panel(panel) => {
                             match panel {
                                 crate::app::state::ActivePanel::Left => {
-                                    state.left_panel.current_path = target;
-                                    state.left_panel.cursor_index = 0;
-                                    state.left_panel.clear_selection();
+                                    state.panels.left.current_path = target;
+                                    state.panels.left.cursor_index = 0;
+                                    state.panels.left.clear_selection();
                                 }
                                 crate::app::state::ActivePanel::Right => {
-                                    state.right_panel.current_path = target;
-                                    state.right_panel.cursor_index = 0;
-                                    state.right_panel.clear_selection();
+                                    state.panels.right.current_path = target;
+                                    state.panels.right.cursor_index = 0;
+                                    state.panels.right.clear_selection();
                                 }
                             }
                             state.active_popup = None;

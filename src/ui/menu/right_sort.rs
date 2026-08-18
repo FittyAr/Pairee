@@ -15,31 +15,31 @@ pub fn get_items(state: &AppState, resolver: &KeybindingResolver) -> Vec<MenuIte
         MenuItemData::new(
             t("menu_sort_name"),
             &shortcut_for(Action::SortByName, "Ctrl+F3"),
-            state.right_panel.sort_field == SortField::Name,
+            state.panels.right.sort_field == SortField::Name,
         )
         .with_action(Action::SortByName),
         MenuItemData::new(
             t("menu_sort_ext"),
             &shortcut_for(Action::SortByExtension, "Ctrl+F4"),
-            state.right_panel.sort_field == SortField::Extension,
+            state.panels.right.sort_field == SortField::Extension,
         )
         .with_action(Action::SortByExtension),
         MenuItemData::new(
             t("menu_sort_write"),
             &shortcut_for(Action::SortByWriteTime, "Ctrl+F5"),
-            state.right_panel.sort_field == SortField::Date,
+            state.panels.right.sort_field == SortField::Date,
         )
         .with_action(Action::SortByWriteTime),
         MenuItemData::new(
             t("menu_sort_size"),
             &shortcut_for(Action::SortBySize, "Ctrl+F6"),
-            state.right_panel.sort_field == SortField::Size,
+            state.panels.right.sort_field == SortField::Size,
         )
         .with_action(Action::SortBySize),
         MenuItemData::new(
             t("menu_sort_unsorted"),
             &shortcut_for(Action::SortUnsorted, "Ctrl+F7"),
-            state.right_panel.sort_field == SortField::Unsorted,
+            state.panels.right.sort_field == SortField::Unsorted,
         )
         .with_action(Action::SortUnsorted),
         MenuItemData::new(

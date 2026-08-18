@@ -200,8 +200,8 @@ pub fn handle(
             &mut editing_query,
         );
     } else {
-        let left_path = state.left_panel.current_path.clone();
-        let right_path = state.right_panel.current_path.clone();
+        let left_path = state.panels.left.current_path.clone();
+        let right_path = state.panels.right.current_path.clone();
         dev::handle_dev(
             key,
             state,

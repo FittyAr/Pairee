@@ -5,8 +5,8 @@ use crate::update::UpdateStatus;
 
 pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
     // 1.8 Process background update check result
-    if state.update_check_rx.is_some() {
-        let mut rx = state.update_check_rx.take().unwrap();
+    if state.update.check_rx.is_some() {
+        let mut rx = state.update.check_rx.take().unwrap();
         match rx.try_recv() {
             Ok(Some(info)) => {
                 // If we had a "Checking for updates..." popup active, dismiss it
@@ -25,7 +25,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                     .map(|d| d == info.tag)
                     .unwrap_or(false);
                 if !dismissed {
-                    state.update_available = Some(info.clone());
+                    state.update.available = Some(info.clone());
                     // Only show popup if no other popup is active
                     if state.active_popup.is_none() {
                         state.active_popup = Some(PopupType::UpdateAvailable {
@@ -54,7 +54,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 }
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
-                state.update_check_rx = Some(rx); // Still waiting
+                state.update.check_rx = Some(rx); // Still waiting
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Channel closed / check failed. If we had "Checking for updates..." popup, show error.
@@ -68,8 +68,8 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
     }
 
     // 1.9 Process download progress for ongoing self-update
-    if state.update_progress_rx.is_some() {
-        let mut rx = state.update_progress_rx.take().unwrap();
+    if state.update.progress_rx.is_some() {
+        let mut rx = state.update.progress_rx.take().unwrap();
         let mut latest_progress = None;
         loop {
             match rx.try_recv() {
@@ -87,33 +87,33 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
             {
                 *install_progress = Some(p);
             }
-            state.update_status = UpdateStatus::Downloading(p);
+            state.update.status = UpdateStatus::Downloading(p);
         }
-        state.update_progress_rx = Some(rx);
+        state.update.progress_rx = Some(rx);
     }
 
     // 1.10 Process installation result for self-update
-    if state.update_install_rx.is_some() {
-        let mut rx = state.update_install_rx.take().unwrap();
+    if state.update.install_rx.is_some() {
+        let mut rx = state.update.install_rx.take().unwrap();
         match rx.try_recv() {
             Ok(result) => {
                 // Task finished
-                state.update_progress_rx = None; // Clean up progress rx
+                state.update.progress_rx = None; // Clean up progress rx
                 match result {
                     Ok(crate::update::installer::InstallResult::RestartRequired) => {
-                        state.update_status = UpdateStatus::Done;
+                        state.update.status = UpdateStatus::Done;
                         state.active_popup = Some(PopupType::Info(t("update_installed_restart")));
                     }
                     Ok(crate::update::installer::InstallResult::ManagedCommandShown) => {
-                        state.update_status = UpdateStatus::Done;
+                        state.update.status = UpdateStatus::Done;
                     }
                     #[cfg(target_os = "windows")]
                     Ok(crate::update::installer::InstallResult::WindowsInstallerLaunched) => {
-                        state.update_status = UpdateStatus::Done;
+                        state.update.status = UpdateStatus::Done;
                         state.should_quit = true; // Quit so installer can run
                     }
                     Err(err) => {
-                        state.update_status = UpdateStatus::Error(err.clone());
+                        state.update.status = UpdateStatus::Error(err.clone());
                         if let Some(PopupType::UpdateAvailable {
                             error,
                             install_progress,
@@ -130,18 +130,18 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
                 }
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {
-                state.update_install_rx = Some(rx); // Still running
+                state.update.install_rx = Some(rx); // Still running
                 // If download is complete (or not active), set status to Installing
-                if state.update_progress_rx.is_none()
-                    && state.update_status != UpdateStatus::Installing
+                if state.update.progress_rx.is_none()
+                    && state.update.status != UpdateStatus::Installing
                 {
-                    state.update_status = UpdateStatus::Installing;
+                    state.update.status = UpdateStatus::Installing;
                 }
             }
             Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
                 // Task died/panicked
-                state.update_progress_rx = None;
-                state.update_status = UpdateStatus::Error(t("update_installation_task_terminated"));
+                state.update.progress_rx = None;
+                state.update.status = UpdateStatus::Error(t("update_installation_task_terminated"));
                 if let Some(PopupType::UpdateAvailable {
                     error,
                     install_progress,

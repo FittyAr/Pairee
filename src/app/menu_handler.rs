@@ -31,7 +31,7 @@ pub fn trigger_menu_item(
         || menu_idx == 7
         || menu_idx == 8
     {
-        state.active_panel = if menu_idx == 4 || menu_idx == 7 || menu_idx == 8 {
+        state.panels.active = if menu_idx == 4 || menu_idx == 7 || menu_idx == 8 {
             crate::app::state::ActivePanel::Right
         } else {
             crate::app::state::ActivePanel::Left
@@ -41,7 +41,7 @@ pub fn trigger_menu_item(
     if item.label == crate::config::localization::t("menu_hotplug_devices") {
         let drives = get_system_drives();
         state.active_popup = Some(PopupType::DriveSelect {
-            panel: state.active_panel,
+            panel: state.panels.active,
             drives,
             cursor_idx: 0,
         });

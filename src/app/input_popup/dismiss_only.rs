@@ -31,7 +31,7 @@ pub fn handle(
             } => {
                 if key.code == KeyCode::Esc {
                     state.active_popup = None;
-                    state.quick_view_active = false;
+                    state.panels.quick_view_active = false;
                     return Ok(None);
                 }
                 if key.code == KeyCode::PageDown {

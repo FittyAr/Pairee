@@ -123,18 +123,18 @@ pub fn handle(
                 match key.code {
                     KeyCode::Enter => {
                         if history_type == "command" {
-                            state.command_history.clear();
+                            state.history.commands.clear();
                         } else if history_type == "view" {
-                            state.file_view_history.clear();
+                            state.history.viewed_files.clear();
                         } else if history_type == "folder" {
-                            state.folders_history.clear();
+                            state.history.folders.clear();
                         }
 
                         // Save history store to disk
                         let history_store = crate::config::history::HistoryStore {
-                            commands: state.command_history.clone(),
-                            viewed_files: state.file_view_history.clone(),
-                            visited_folders: state.folders_history.clone(),
+                            commands: state.history.commands.clone(),
+                            viewed_files: state.history.viewed_files.clone(),
+                            visited_folders: state.history.folders.clone(),
                         };
                         let _ = history_store.save();
 
@@ -145,17 +145,17 @@ pub fn handle(
                         // Reopen the corresponding history list
                         if history_type == "command" {
                             state.active_popup = Some(PopupType::CommandHistoryList {
-                                entries: state.command_history.clone(),
+                                entries: state.history.commands.clone(),
                                 cursor_idx: 0,
                             });
                         } else if history_type == "view" {
                             state.active_popup = Some(PopupType::FileViewHistoryList {
-                                entries: state.file_view_history.clone(),
+                                entries: state.history.viewed_files.clone(),
                                 cursor_idx: 0,
                             });
                         } else if history_type == "folder" {
                             state.active_popup = Some(PopupType::FoldersHistoryList {
-                                entries: state.folders_history.clone(),
+                                entries: state.history.folders.clone(),
                                 cursor_idx: 0,
                             });
                         }

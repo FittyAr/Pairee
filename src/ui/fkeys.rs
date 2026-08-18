@@ -193,7 +193,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
     }
 
     // Update-available badge: render on top of the last fkey cell
-    if state.update_available.is_some() {
+    if state.update.available.is_some() {
         let last_col = columns[11];
         // Build the badge text (fits in the 9-char fkey cell)
         let badge = Span::styled(

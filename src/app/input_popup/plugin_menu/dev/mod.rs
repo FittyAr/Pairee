@@ -10,6 +10,7 @@
 //!   `dev_op_running`).
 //! - `options` — the `handle_dev` key-event handler that dispatches the
 //!   nine developer options.
+//! - `actions` — per-option implementations (init/lint/package/submit).
 //! - `select_popup` — the `handle_select_popup` handler for the
 //!   "Select active plugin" modal.
 //!
@@ -17,6 +18,7 @@
 //! `crate::app::input_popup::plugin_menu::dev::{handle_dev,
 //! handle_select_popup}` path keeps working unchanged.
 
+mod actions;
 pub mod options;
 pub mod paths;
 pub mod progress;

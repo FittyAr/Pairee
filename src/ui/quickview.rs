@@ -14,7 +14,7 @@ use crate::app::state::types::PluginWidget;
 use ratatui::widgets::{Gauge, List, ListItem, Row, Table};
 
 /// Renders a quick-view panel showing the text or image content of a file, or a custom plugin widget.
-/// Called when `state.quick_view_active` is true; renders into the passive panel area.
+/// Called when `state.panels.quick_view_active` is true; renders into the passive panel area.
 ///
 /// - Scrolls vertically via `scroll` offset.
 /// - Non-UTF-8 files show a binary notice.
