@@ -2,8 +2,9 @@ use anyhow::Result;
 use crossterm::{
     cursor::{Hide, Show},
     event::{
-        DisableFocusChange, DisableMouseCapture, EnableFocusChange, EnableMouseCapture,
-        KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+        DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
+        EnableFocusChange, EnableMouseCapture, KeyboardEnhancementFlags,
+        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
     terminal::{
@@ -21,6 +22,7 @@ pub struct TerminalBackend {
     pub terminal: Terminal<CrosstermBackend<Stdout>>,
     keyboard_enhancement: bool,
     focus_change: bool,
+    bracketed_paste: bool,
 }
 
 /// Maps the kitty-protocol probe to a push/pop decision.
@@ -71,12 +73,18 @@ impl TerminalBackend {
             log::debug!("EnableFocusChange not supported; continuing without focus events");
         }
 
+        let bracketed_paste = execute!(stdout, EnableBracketedPaste).is_ok();
+        if !bracketed_paste {
+            log::debug!("Bracketed paste not supported; paste may arrive as key events");
+        }
+
         let backend = CrosstermBackend::new(stdout);
         let terminal = Terminal::new(backend)?;
         Ok(Self {
             terminal,
             keyboard_enhancement,
             focus_change,
+            bracketed_paste,
         })
     }
 
@@ -90,6 +98,10 @@ impl TerminalBackend {
         if self.focus_change {
             let _ = execute!(io::stdout(), DisableFocusChange);
             self.focus_change = false;
+        }
+        if self.bracketed_paste {
+            let _ = execute!(io::stdout(), DisableBracketedPaste);
+            self.bracketed_paste = false;
         }
 
         execute!(

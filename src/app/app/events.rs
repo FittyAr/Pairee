@@ -90,6 +90,9 @@ pub async fn handle_input_event(
         Event::Resize(w, h) => {
             apply_terminal_resize(state, w, h);
         }
+        Event::Paste(text) => {
+            crate::app::input::handle_paste(state, &text);
+        }
         Event::Tick => {}
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);

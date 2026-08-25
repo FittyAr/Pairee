@@ -2,7 +2,7 @@ use crossterm::event::{self, Event as CrossEvent, KeyEvent, MouseEvent};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub enum Event {
     /// Keyboard key pressed
     Key(KeyEvent),
@@ -12,6 +12,8 @@ pub enum Event {
     Resize(u16, u16),
     /// Modifier state changed (poll on tick)
     ModifiersChanged(crossterm::event::KeyModifiers),
+    /// Bracketed-paste payload (single string, not per-character key events).
+    Paste(String),
     /// Periodic tick event for UI updates
     Tick,
 }
@@ -59,6 +61,11 @@ impl EventHandler {
                             }
                             Ok(CrossEvent::Resize(w, h)) => {
                                 if sender.blocking_send(Event::Resize(w, h)).is_err() {
+                                    break;
+                                }
+                            }
+                            Ok(CrossEvent::Paste(text)) => {
+                                if sender.blocking_send(Event::Paste(text)).is_err() {
                                     break;
                                 }
                             }

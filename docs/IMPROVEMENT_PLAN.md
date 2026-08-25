@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **198 unit + 7 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **206 unit + 7 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -263,11 +263,11 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `tui-scrollbar` + métricas de thumb fraccional | Ver F.2 | P1 |
 | `unicode-width` + `unicode-segmentation` | Truncate/pad de nombres de archivo, columnas de panel | P1 |
 | Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | P1 (junto a keybinds) |
-| `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | P1 |
+| `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | **P1 — hecho** |
 | `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | P2 |
 | `shlex` | Parse seguro de comandos usuario (apply / user menu) | P2 |
 | Terminal capability detection (brand, KKP unreliable) | Degradar features en conhost / tmux viejo | P2 |
-| Tests PTY e2e de render | Smoke resize + draw en CI | P2 |
+| Tests PTY e2e de render | Smoke resize + draw en CI (`TestBackend`; PTY real pendiente) | **P2 — smoke CI** |
 | `xai-ratatui-inline` (viewport inline + scrollback nativo) | **No** copiar de entrada: es chat/REPL, no dual-panel fullscreen | Fuera de alcance |
 | Mermaid / markdown heavy stack | Solo si un día el help necesita más; hoy `pulldown-cmark` basta | Fuera / P3 |
 
@@ -279,7 +279,13 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 - [x] Evitar `clear()` full-screen salvo resize o cambio de screen mode (admin TTY / exec nativo)
 - [x] `unicode-width` + `unicode-segmentation` en listados de paneles (brief/wide/medium/detailed) e history truncate
 - [x] Revisar `KeyboardEnhancementFlags` / focus: feature-detect (`supports_keyboard_enhancement` en Unix; CSI push en Windows; restore solo si se empujó)
-- [ ] Checklist manual Windows Terminal + conhost + Linux
+- [x] `EnableBracketedPaste`: paste llega como un evento, no como teclas sueltas (CLI / rename / apply / prompts de texto)
+- [x] Smoke de draw/resize en CI con `ratatui::backend::TestBackend` (no es un PTY real)
+- [ ] Checklist **manual** Windows Terminal + conhost + Linux — **pendiente de pase humano**
+  - Las sesiones de implementación **no pudieron verificar el TUI a ojo** (resize, destellos, teclado en WT vs conhost vs Linux). El smoke de `TestBackend` no sustituye emuladores reales.
+  - [ ] Windows Terminal: arranque, resize, sin destello al refrescar, teclas (kitty/KKP si aplica), paste en CLI y rename
+  - [ ] conhost / `cmd.exe`: arranque sin espera larga, teclas legacy, resize sin layout roto
+  - [ ] Linux (kitty / gnome-terminal / xterm): resize + paste CLI/rename + focus in/out
 
 ### 6.5 Otras librerías de Grok Build candidatas (evaluación)
 
@@ -302,7 +308,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 1. **F.3a** Synchronized update + dirty draw (ROI glitches, bajo riesgo de producto)
 2. **F.1** Migración `keybinds` + presets TOML + borrar resolver casero
 3. **F.2** `tui-scrollbar` en viewers/help/history/transfer
-4. **F.3b** unicode-width + paste + rate-limit progress redraw
+4. **F.3b** unicode-width + paste + rate-limit progress redraw — **hecho** (paste = bracketed paste)
 5. Spike which-key **solo** si tras F.1 se echa de menos discoverability de secuencias
 
 ---
@@ -368,14 +374,14 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **194 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **206 unit + 7 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
 | Command palette | No | Sí | **Sí** |
 | Keymap stack | Casero crossterm strings | `keybinds` validado | **Hecho F.1** |
 | Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Hecho F.2** (+ mouse drag/jump) |
-| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Parcial F.3a/b** (unicode-width listados) |
+| Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Código F.3 hecho**; checklist manual WT/conhost/Linux **pendiente** |
 
 ---
 
@@ -396,7 +402,9 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-18 | `9891b92` | feat: Fase D — aceptación CI + Lua API v1.0 + README/help |
 | 2026-08-18 | `00cddbd` | feat: Fase E — onboarding keymap + threat model |
 | 2026-08-18 | `b7bc71f` | feat: Fase E — feature flags SSH/plugins/image |
-| 2026-08-18 | _(este)_ | feat: Fase E — macOS CI, i18n parity, parser fuzz |
+| 2026-08-18 | `f127215` | feat: Fase E — macOS CI, i18n parity, parser fuzz |
+| 2026-08-25 | `a2b21fa` | feat: `src/lib.rs` + anti-glitch clear/KKP |
+| 2026-08-25 | _(este)_ | feat: checklist TTY anotada, bracketed paste, TestBackend smoke |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -409,8 +417,10 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
              │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
              │  [x Docs sync] [x Onboarding] [x Feature flags] [x Plugins D]
-             │  [x src/lib.rs] [x anti-glitch clear/KKP]
+             │  [x src/lib.rs] [x anti-glitch clear/KKP] [x bracketed paste]
+             │  [x TestBackend draw/resize]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
+             │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
 ```
@@ -423,10 +433,10 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase C:** grupos de estado + `DialogStack` + `src/lib.rs`.  
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
-**Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect.  
-Siguiente: which-key opcional, checklist TTY manual, PTY e2e, monólitos UI restantes.  
+**Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
+Siguiente: **checklist TTY manual** (WT / conhost / Linux — no verificable en CI), which-key opcional, PTY real, monólitos UI restantes.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-25 (F.3 resto + `src/lib.rs`).*
+*Última actualización del progreso: 2026-08-25 (checklist TTY anotada + paste + TestBackend).*

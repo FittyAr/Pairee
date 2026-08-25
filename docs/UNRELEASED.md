@@ -25,6 +25,8 @@
 - Fractional scrollbars via `tui-scrollbar` (shared helper in `src/ui/scrollbar.rs`) on help, viewer/quickview, history lists, transfer panel, git panel, and related popups.
 - Mouse drag and jump-to-click on scrollbars (`ScrollBarInteraction`, hit targets registered each frame, `EnableMouseCapture`).
 - Unicode-aware file-name truncation helpers (`unicode-width` + `unicode-segmentation`) for panel columns.
+- Bracketed paste: pasted text lands in the CLI or the open text prompt (rename, apply command, mkdir, …) as one string instead of fake keystrokes.
+- CI draw/resize smoke tests via `ratatui` TestBackend (not a substitute for a human pass on Windows Terminal / conhost / Linux).
 
 ### Improved
 

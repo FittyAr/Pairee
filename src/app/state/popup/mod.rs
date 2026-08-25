@@ -468,6 +468,52 @@ pub enum PopupType {
     },
 }
 
+impl PopupType {
+    /// Append a single-line paste into the focused text field, if any.
+    /// Returns true when the overlay consumed the paste.
+    pub fn apply_paste(&mut self, paste: &str) -> bool {
+        if paste.is_empty() {
+            return false;
+        }
+        match self {
+            PopupType::MkDirPrompt {
+                input, cursor_idx, ..
+            }
+            | PopupType::RenamePrompt {
+                input, cursor_idx, ..
+            }
+            | PopupType::CopyPrompt {
+                input, cursor_idx, ..
+            }
+            | PopupType::MovePrompt {
+                input, cursor_idx, ..
+            } if *cursor_idx == 0 => {
+                input.push_str(paste);
+                true
+            }
+            PopupType::ApplyCommandPrompt { input, .. }
+            | PopupType::CompressPrompt { input, .. }
+            | PopupType::FilePanelFilterPrompt { input, .. }
+            | PopupType::QuickFilterPrompt { input, .. }
+            | PopupType::DescribeFilePrompt { input, .. }
+            | PopupType::PluginInput { input, .. } => {
+                input.push_str(paste);
+                true
+            }
+            PopupType::SelectGroupPrompt { query, .. }
+            | PopupType::CommandPalette { query, .. } => {
+                query.push_str(paste);
+                true
+            }
+            PopupType::CreateLinkPrompt { dest_input, .. } => {
+                dest_input.push_str(paste);
+                true
+            }
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum PluginWidget {
     Paragraph(String),
