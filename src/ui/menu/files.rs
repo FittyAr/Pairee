@@ -1,8 +1,9 @@
 use super::types::MenuItemData;
 use crate::config::localization::t;
+use crate::config::settings::Settings;
 use crate::keybindings::{Action, KeybindingResolver};
 
-pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
+pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<MenuItemData> {
     let shortcut_for = |action: Action, fallback: &str| -> String {
         resolver
             .key_for_action(action)
@@ -10,7 +11,7 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
             .unwrap_or_else(|| fallback.to_string())
     };
 
-    vec![
+    let mut items = vec![
         MenuItemData::new(t("menu_view"), &shortcut_for(Action::View, "F3"), false)
             .with_action(Action::View),
         MenuItemData::new(
@@ -121,13 +122,21 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
         )
         .with_action(Action::RestoreSelection),
         MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_plugin_commands"),
-            &shortcut_for(Action::PluginMenu, ""),
-            false,
-        )
-        .with_action(Action::PluginMenu),
+    ];
+
+    if settings.plugins_enabled {
+        items.push(
+            MenuItemData::new(
+                t("menu_plugin_commands"),
+                &shortcut_for(Action::PluginMenu, ""),
+                false,
+            )
+            .with_action(Action::PluginMenu),
+        );
+    }
+    items.push(
         MenuItemData::new(t("menu_exit"), &shortcut_for(Action::Quit, "F10"), false)
             .with_action(Action::Quit),
-    ]
+    );
+    items
 }

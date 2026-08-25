@@ -275,7 +275,10 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
 
     if let Some(path) = open_file_path {
         state.push_file_view_history(path.clone());
-        let viewer = crate::ui::viewer::ViewerState::load(path);
+        let viewer = crate::ui::viewer::ViewerState::load_with_images(
+            path,
+            context.config.settings.image_preview_enabled,
+        );
         state.push_screen(Screen::Viewer(viewer));
         return;
     }

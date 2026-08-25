@@ -156,7 +156,10 @@ pub fn handle(
                         if !entries.is_empty() && cursor_idx < entries.len() {
                             let path = entries[cursor_idx].clone();
                             state.dialogs.clear();
-                            let viewer = crate::ui::viewer::ViewerState::load(path);
+                            let viewer = crate::ui::viewer::ViewerState::load_with_images(
+                                path,
+                                context.config.settings.image_preview_enabled,
+                            );
                             state.push_screen(crate::app::state::Screen::Viewer(viewer));
                         } else {
                             state.dialogs.clear();

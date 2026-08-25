@@ -18,6 +18,11 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
 * **Scan symbolic links (Escanear enlaces simbólicos):**
   - *Descripción:* Sigue la ruta física original de los enlaces simbólicos durante las operaciones de archivos.
 
+### Funciones opcionales
+* **SSH / SFTP:** muestra Conectar SSH en los menús de panel.
+* **Plugins Lua:** carga plugins al arrancar y muestra Comandos plugin.
+* **Vista previa de imágenes:** decodifica PNG/JPEG en F3 y vista rápida.
+
 ### Historial
 * **Save commands history (Guardar historial de comandos):**
   - *Descripción:* Guarda el historial de la línea de comandos entre diferentes sesiones.

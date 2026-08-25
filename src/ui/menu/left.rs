@@ -63,13 +63,18 @@ pub fn get_items(
             false,
         )
         .with_action(Action::DriveSelectLeft),
-        MenuItemData::new(
-            t("menu_connect_ssh"),
-            &shortcut_for(Action::SshConnect, "Ctrl+Shift+S"),
-            false,
-        )
-        .with_action(Action::SshConnect),
     ];
+
+    if settings.ssh_enabled {
+        items.push(
+            MenuItemData::new(
+                t("menu_connect_ssh"),
+                &shortcut_for(Action::SshConnect, "Ctrl+Shift+S"),
+                false,
+            )
+            .with_action(Action::SshConnect),
+        );
+    }
 
     if state.panels.left.ssh_conn.is_some() {
         items.push(

@@ -237,7 +237,11 @@ async fn main() -> Result<()> {
 
     // 5.5. Initialize and load plugins
     plugin::PluginManager::init();
-    plugin::PluginManager::load_all_plugins(&context).await;
+    if context.config.settings.plugins_enabled {
+        plugin::PluginManager::load_all_plugins(&context).await;
+    } else {
+        log::info!("Plugins disabled by feature flag; skipping load");
+    }
 
     // 6. Hand execution over to main loop
     app::run(context, state).await?;

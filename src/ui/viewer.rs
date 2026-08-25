@@ -40,7 +40,8 @@ pub struct ViewerState {
 
 impl ViewerState {
     /// Loads a file for viewing. Tries to read as UTF-8 text; falls back to hex mode on failure.
-    pub fn load(path: std::path::PathBuf) -> Self {
+    /// Load a file for viewing. Skips image decoding when `allow_image` is false.
+    pub fn load_with_images(path: std::path::PathBuf, allow_image: bool) -> Self {
         let raw = std::fs::read(&path).unwrap_or_default();
 
         let is_image_ext = path
@@ -67,7 +68,10 @@ impl ViewerState {
         let mut image_data = None;
         let mut mode = ViewerMode::Hex;
 
-        if is_image_ext && let Ok(img) = image::open(&path) {
+        if allow_image
+            && is_image_ext
+            && let Ok(img) = image::open(&path)
+        {
             image_data = Some(img);
             mode = ViewerMode::Image;
         }
@@ -546,5 +550,25 @@ fn render_image(
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn load_with_images_false_skips_decode() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("dot.png");
+        image::RgbImage::new(1, 1).save(&path).unwrap();
+
+        let with_img = ViewerState::load_with_images(path.clone(), true);
+        assert!(with_img.image_data.is_some());
+        assert_eq!(with_img.mode, ViewerMode::Image);
+
+        let no_img = ViewerState::load_with_images(path, false);
+        assert!(no_img.image_data.is_none());
+        assert_ne!(no_img.mode, ViewerMode::Image);
     }
 }

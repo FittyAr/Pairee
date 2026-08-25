@@ -171,7 +171,7 @@ pub async fn handle_ui_settings_action(
                     state.dialogs.clear();
                 }
             } else {
-                state.update_quick_view();
+                state.update_quick_view_images(context.config.settings.image_preview_enabled);
             }
             true
         }
@@ -376,6 +376,12 @@ pub async fn handle_ui_settings_action(
             true
         }
         Action::PluginMenu => {
+            if !context.config.settings.plugins_enabled {
+                state
+                    .dialogs
+                    .replace(PopupType::Info(t("feature_plugins_disabled")));
+                return true;
+            }
             plugins::open_plugin_menu(state, context);
             true
         }

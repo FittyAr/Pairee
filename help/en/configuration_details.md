@@ -18,6 +18,14 @@ This tab controls file processing, history recording, escalation permissions, an
 * **Scan symbolic links:**
   - *Description:* Traverses and follows symbolic links (symlinks) during directory operations.
 
+### Optional features
+* **SSH / SFTP connections:**
+  - *Description:* Shows Connect SSH in the panel menus and allows the connect action. Disconnect still works if a session is already open.
+* **Lua plugin system:**
+  - *Description:* Loads plugins at startup and shows Plugin commands. Turning this off skips plugin load until the next launch after you re-enable it.
+* **Image preview (F3 / quick view):**
+  - *Description:* Decodes PNG/JPEG/etc. in the internal viewer and quick view. Off = treat images as text/hex.
+
 ### History Preservation
 * **Save commands history:**
   - *Description:* Saves terminal command-line prompt history across sessions.

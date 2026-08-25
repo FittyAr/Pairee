@@ -2,6 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::input::{handle_backspace_key, handle_enter_key};
 use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
 use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 
 /// Handles navigation, selection, and history actions. Returns `true` if the action was handled.
@@ -79,6 +80,12 @@ pub fn handle_navigation_action(
             true
         }
         Action::SshConnect => {
+            if !context.config.settings.ssh_enabled {
+                state
+                    .dialogs
+                    .replace(PopupType::Info(t("feature_ssh_disabled")));
+                return true;
+            }
             let (name, host, port, user, pass, key_path, preset_idx, cursor_idx) =
                 if !context.config.settings.ssh_presets.is_empty() {
                     let p = &context.config.settings.ssh_presets[0];
@@ -203,5 +210,36 @@ pub fn handle_navigation_action(
             true
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+    use std::path::PathBuf;
+
+    fn ctx() -> AppContext {
+        AppContext::new(AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        })
+    }
+
+    #[test]
+    fn ssh_connect_disabled_shows_info() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        let mut context = ctx();
+        context.config.settings.ssh_enabled = false;
+        assert!(handle_navigation_action(
+            &mut state,
+            &Action::SshConnect,
+            &mut context
+        ));
+        match state.dialogs.top() {
+            Some(PopupType::Info(msg)) => assert!(!msg.is_empty()),
+            other => panic!("expected Info, got {other:?}"),
+        }
     }
 }

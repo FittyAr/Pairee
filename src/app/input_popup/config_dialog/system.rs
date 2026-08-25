@@ -39,7 +39,27 @@ pub fn handle_row(
         14 => settings.treat_digits_as_numbers = !settings.treat_digits_as_numbers,
         15 => settings.case_sensitive_sort = !settings.case_sensitive_sort,
         16 => settings.auto_save_setup = !settings.auto_save_setup,
+        17 => settings.ssh_enabled = !settings.ssh_enabled,
+        18 => settings.plugins_enabled = !settings.plugins_enabled,
+        19 => settings.image_preview_enabled = !settings.image_preview_enabled,
         _ => {}
     }
     None
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn optional_feature_ids_toggle_flags() {
+        let mut settings = Settings::default();
+        assert!(settings.ssh_enabled);
+        handle_row(17, &mut settings, &mut false, &mut String::new());
+        assert!(!settings.ssh_enabled);
+        handle_row(18, &mut settings, &mut false, &mut String::new());
+        assert!(!settings.plugins_enabled);
+        handle_row(19, &mut settings, &mut false, &mut String::new());
+        assert!(!settings.image_preview_enabled);
+    }
 }

@@ -24,7 +24,7 @@ pub async fn handle_action(
         || ui_settings::handle_ui_settings_action(state, &action, context).await;
 
     if handled {
-        state.update_quick_view();
+        state.update_quick_view_images(context.config.settings.image_preview_enabled);
     }
     Ok(())
 }

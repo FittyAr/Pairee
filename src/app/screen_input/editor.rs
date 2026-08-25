@@ -228,7 +228,10 @@ pub fn handle_editor_screen(
             }
             KeyCode::F(4) => {
                 let path = ed.path.clone();
-                let mut viewer_state = crate::ui::viewer::ViewerState::load(path);
+                let mut viewer_state = crate::ui::viewer::ViewerState::load_with_images(
+                    path,
+                    context.config.settings.image_preview_enabled,
+                );
                 viewer_state.mode = crate::ui::viewer::ViewerMode::Hex;
                 state.push_screen(Screen::Viewer(viewer_state));
                 return Ok(());

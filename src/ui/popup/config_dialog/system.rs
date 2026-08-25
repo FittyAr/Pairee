@@ -193,4 +193,34 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, RowType)>) {
         ),
         RowType::Setting(16),
     ));
+
+    rows.push((t("feature_section"), RowType::Title));
+    rows.push((
+        format!(
+            "[{}] {}",
+            if settings.ssh_enabled { "x" } else { " " },
+            t("feature_ssh")
+        ),
+        RowType::Setting(17),
+    ));
+    rows.push((
+        format!(
+            "[{}] {}",
+            if settings.plugins_enabled { "x" } else { " " },
+            t("feature_plugins")
+        ),
+        RowType::Setting(18),
+    ));
+    rows.push((
+        format!(
+            "[{}] {}",
+            if settings.image_preview_enabled {
+                "x"
+            } else {
+                " "
+            },
+            t("feature_image_preview")
+        ),
+        RowType::Setting(19),
+    ));
 }

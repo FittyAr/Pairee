@@ -40,7 +40,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | P1 | Partir God objects (`AppState`, `PopupType`) | Pendiente (Fase C) |
 | P1 | Tests de integración + cobertura | En curso |
 | P2 | Roadmap plugins (G1–G14) | En curso (D: diálogos + File/`cx`) |
-| P3 | Feature flags, i18n extra, onboarding | Parcial (palette + onboarding + threat model) |
+| P3 | Feature flags, i18n extra, onboarding | Parcial (palette + onboarding + flags + threat model) |
 
 ---
 
@@ -354,7 +354,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 - [x] Command palette sobre `Action` (`Ctrl+Shift+P`, filtro + Enter)
 - [x] Onboarding / primer arranque (elegir preset de teclas) — (este)
 - [ ] Más idiomas (pipeline localize-helper)
-- [ ] Feature flags (`ssh`, `git`, `plugins`, `image-preview`)
+- [x] Feature flags (`ssh`, `git`, `plugins`, `image-preview`) — (este)
 - [ ] CI macOS si se declara soporte oficial
 - [x] Threat model corto (plugins, SSH, update, elevated helper) — `docs/THREAT_MODEL.md`
 - [ ] Fuzzing parsers (config TOML, manifests, descript.ion, globs)
@@ -368,7 +368,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Sí** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **184 unit + 5 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **189 unit + 5 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -394,7 +394,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-18 | `766f2fe` | feat: Fase D — diálogos plugin reales + File userdata + `pairee.cx` |
 | 2026-08-18 | `20ccb90` | feat: Fase D — `pairee.fs` extra + `Command`/`Child` streaming |
 | 2026-08-18 | `9891b92` | feat: Fase D — aceptación CI + Lua API v1.0 + README/help |
-| 2026-08-18 | _(este)_ | feat: Fase E — onboarding keymap + threat model |
+| 2026-08-18 | `00cddbd` | feat: Fase E — onboarding keymap + threat model |
+| 2026-08-18 | _(este)_ | feat: Fase E — feature flags SSH/plugins/image |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -406,7 +407,7 @@ Ver también `git log --oneline master` para el detalle.
 Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
              │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
-             │  [x Docs sync] [x Onboarding] [ Feature flags ] [x Plugins D]
+             │  [x Docs sync] [x Onboarding] [x Feature flags] [x Plugins D]
 Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -419,8 +420,8 @@ Bajo impacto │  [ Más idiomas ] [ which-key opcional ] [ macOS CI ]
 **Fase A, B y F (principal) cerradas.**  
 **Fase C:** grupos de estado + `DialogStack`.  
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
-**Fase E (parcial):** onboarding keymap + threat model.  
-Siguiente: feature flags, más idiomas, fuzz, o resto anti-glitch / `src/lib.rs`.  
+**Fase E (parcial):** onboarding, threat model, feature flags.  
+Siguiente: más idiomas, fuzz, CI macOS, o resto anti-glitch / `src/lib.rs`.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---

@@ -32,7 +32,7 @@ pub fn get_menu_items(
 ) -> Vec<MenuItemData> {
     match menu_idx {
         0 => left::get_items(state, resolver, settings),
-        1 => files::get_items(resolver),
+        1 => files::get_items(resolver, settings),
         2 => commands::get_items(resolver, settings),
         3 => options::get_items(resolver),
         4 => right::get_items(state, resolver, settings),

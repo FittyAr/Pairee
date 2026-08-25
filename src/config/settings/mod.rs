@@ -189,6 +189,15 @@ pub struct Settings {
     /// Whether the Git panel feature is enabled
     #[serde(default = "default_true")]
     pub git_enabled: bool,
+    /// SSH/SFTP connect UI and actions
+    #[serde(default = "default_true")]
+    pub ssh_enabled: bool,
+    /// Load and run Lua plugins
+    #[serde(default = "default_true")]
+    pub plugins_enabled: bool,
+    /// Decode images in the F3 viewer and quick view
+    #[serde(default = "default_true")]
+    pub image_preview_enabled: bool,
     /// Auto-detect git repos when changing directory
     #[serde(default = "default_true")]
     pub git_auto_detect: bool,
@@ -325,6 +334,30 @@ fn default_transfer_report_format() -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn feature_flags_default_on() {
+        let s = Settings::default();
+        assert!(s.git_enabled);
+        assert!(s.ssh_enabled);
+        assert!(s.plugins_enabled);
+        assert!(s.image_preview_enabled);
+    }
+
+    #[test]
+    fn feature_flags_missing_fields_stay_on() {
+        let mut table: toml::Table =
+            toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
+        table.remove("ssh_enabled");
+        table.remove("plugins_enabled");
+        table.remove("image_preview_enabled");
+        table.remove("git_enabled");
+        let loaded: Settings = toml::from_str(&toml::to_string(&table).unwrap()).unwrap();
+        assert!(loaded.ssh_enabled);
+        assert!(loaded.plugins_enabled);
+        assert!(loaded.image_preview_enabled);
+        assert!(loaded.git_enabled);
+    }
 
     #[test]
     fn new_install_default_needs_onboarding() {

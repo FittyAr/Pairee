@@ -162,6 +162,9 @@ impl Default for Settings {
 
             // Git integration
             git_enabled: true,
+            ssh_enabled: true,
+            plugins_enabled: true,
+            image_preview_enabled: true,
             git_auto_detect: true,
             git_author_name: String::new(),
             git_author_email: String::new(),

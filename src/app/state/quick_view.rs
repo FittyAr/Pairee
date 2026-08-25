@@ -5,7 +5,8 @@ use std::io::Read;
 
 impl AppState {
     /// Dynamically updates the quick view panel preview content.
-    pub fn update_quick_view(&mut self) {
+    /// Refresh quick view; skip image decode when `allow_image` is false.
+    pub fn update_quick_view_images(&mut self, allow_image: bool) {
         if self.panels.quick_view_active {
             let active = self.get_active_panel();
             let mut hovered_entry = None;
@@ -88,7 +89,10 @@ impl AppState {
                         .unwrap_or(false);
 
                     let mut image_data = None;
-                    if is_image_ext && let Ok(img) = image::open(&path) {
+                    if allow_image
+                        && is_image_ext
+                        && let Ok(img) = image::open(&path)
+                    {
                         image_data = Some(img);
                     }
 
