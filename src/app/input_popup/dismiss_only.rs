@@ -17,7 +17,11 @@ pub fn handle(
             | PopupType::InfoPanel { .. }
             | PopupType::CompareFoldersResult { .. } => {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Enter {
-                    state.dialogs.clear();
+                    if state.dialogs.depth() > 1 {
+                        state.dialogs.pop();
+                    } else {
+                        state.dialogs.clear();
+                    }
                     return Ok(None);
                 }
                 Err(())

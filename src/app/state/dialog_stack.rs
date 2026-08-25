@@ -87,7 +87,6 @@ impl DialogStack {
         }
     }
 
-    #[allow(dead_code)]
     pub fn depth(&self) -> usize {
         self.frames.len()
     }

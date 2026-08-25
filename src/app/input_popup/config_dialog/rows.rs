@@ -1,5 +1,6 @@
 use crate::config::settings::Settings;
 use crate::ui::popup::config_dialog::RowType;
+use std::collections::HashMap;
 
 pub fn get_rows_for_tab(
     tab: usize,
@@ -7,13 +8,19 @@ pub fn get_rows_for_tab(
     editing: bool,
     c_idx: usize,
     buf: &str,
+    custom_bindings: &HashMap<String, String>,
 ) -> Vec<(String, RowType)> {
     let mut rows = Vec::new();
     match tab {
         0 => crate::ui::popup::config_dialog::system::populate_rows(settings, &mut rows),
         1 => crate::ui::popup::config_dialog::panel::populate_rows(settings, &mut rows),
         2 => crate::ui::popup::config_dialog::interface::populate_rows(
-            settings, editing, c_idx, buf, &mut rows,
+            settings,
+            editing,
+            c_idx,
+            buf,
+            &mut rows,
+            custom_bindings,
         ),
         3 => crate::ui::popup::config_dialog::confirmations::populate_rows(settings, &mut rows),
         4 => crate::ui::popup::config_dialog::plugins::populate_rows(settings, &mut rows),

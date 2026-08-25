@@ -8,6 +8,7 @@
 
 use super::actions::Action;
 use super::preset::parse_action_name;
+use crate::config::localization::t;
 use crate::config::paths;
 use keybinds::{KeySeq, Keybind, Keybinds};
 use serde::Deserialize;
@@ -34,6 +35,28 @@ pub struct KeymapLoadReport {
 impl KeymapLoadReport {
     pub fn ok(&self) -> bool {
         self.errors.is_empty()
+    }
+
+    /// One-line status for the Settings → Interface keymap row.
+    pub fn summary_line(&self) -> String {
+        if self.ok() && self.warnings.is_empty() {
+            format!("{} ({})", t("int_keymap_ok"), self.bound_count)
+        } else {
+            format!("{} ({})", t("int_keymap_bad"), self.errors.len())
+        }
+    }
+
+    /// Multi-line report for the nested keymap-issues overlay.
+    pub fn detail_lines(&self) -> Vec<String> {
+        let mut lines = vec![self.summary_line()];
+        for e in &self.errors {
+            lines.push(format!("! {e}"));
+        }
+        for w in &self.warnings {
+            lines.push(format!("* {w}"));
+        }
+        lines.push(t("int_keymap_gray"));
+        lines
     }
 }
 
@@ -268,5 +291,34 @@ mod tests {
     fn impossible_chord_fails_keybinds_parse() {
         let err = "Ctrl+rj".parse::<KeySeq>();
         assert!(err.is_err(), "Ctrl+rj must not parse as a valid chord");
+    }
+
+    #[test]
+    fn gray_plus_aliases_map_to_keybinds_names() {
+        assert_eq!(normalize_user_chord("Gray+"), "Plus");
+        assert_eq!(normalize_user_chord("gray-"), "-");
+        assert_eq!(normalize_user_chord("GRAY*"), "*");
+        assert!(
+            "Plus".parse::<KeySeq>().is_ok(),
+            "keybinds must accept Plus (Gray+ target)"
+        );
+        let mut custom = HashMap::new();
+        custom.insert("select_group".into(), "Gray+".into());
+        let (_kb, report) = load_keybinds("norton", &custom);
+        assert!(
+            !report.errors.iter().any(|e| e.contains("Gray+")),
+            "Gray+ must be rewritten before parse: {:?}",
+            report.errors
+        );
+    }
+
+    #[test]
+    fn custom_invalid_chord_appears_in_detail_lines() {
+        let mut custom = HashMap::new();
+        custom.insert("copy".into(), "Ctrl+rj".into());
+        let (_kb, report) = load_keybinds("norton", &custom);
+        let details = report.detail_lines().join("\n");
+        assert!(details.contains("Ctrl+rj"), "details={details}");
+        assert!(!report.ok());
     }
 }

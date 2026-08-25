@@ -28,6 +28,12 @@ use std::collections::HashMap;
 /// `custom_bindings` overlays individual key assignments on top of the active
 /// preset without replacing the whole file. This is the recommended way to
 /// tweak one or two shortcuts without duplicating an entire preset file.
+///
+/// ## Far-style gray keys
+/// Legacy chords `Gray+`, `Gray-`, and `Gray*` (numpad keys in Far Manager
+/// docs) are accepted in keymap TOML and mapped to `Plus`, `-`, and `*`.
+/// Prefer the `keybinds` names (`Plus`) in new files. Invalid or duplicate
+/// chords are rejected and listed in Settings → Interface.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeybindingsConfig {
     /// Active preset profile name. Must match a file in the `keymaps/` directory.

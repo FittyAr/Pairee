@@ -14,7 +14,6 @@ pub struct KeybindingResolver {
     keybinds: Keybinds<Action>,
     /// Action → first bound chord display (for F-key bar / help).
     inverse: HashMap<Action, String>,
-    #[allow(dead_code)]
     load_report: KeymapLoadReport,
 }
 
@@ -57,6 +56,11 @@ impl KeybindingResolver {
             inverse,
             load_report: report,
         }
+    }
+
+    /// Validation result of the last keymap load (preset + custom overlays).
+    pub fn load_report(&self) -> &KeymapLoadReport {
+        &self.load_report
     }
 
     /// Resolve a key press into an action (may complete a multi-key sequence).

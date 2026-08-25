@@ -74,6 +74,8 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `+` (Keypad) | Tag a group of files matching a glob mask (e.g. `*.rs`). |
 | `-` (Keypad) | Untag a group of files matching a glob mask. |
 | `*` (Keypad) | Invert selection state of the entire panel. |
+
+> **Keymap TOML:** Far-style `Gray+` / `Gray-` / `Gray*` are accepted and mapped to `Plus` / `-` / `*`. Prefer `Plus` in new keymap files. Invalid or duplicate chords are rejected; Settings → Interface lists them.
 | `Ctrl+M` | Restore the last tagged selection group. |
 | `Ctrl+I` | Apply a persistent file name search filter on the active panel. |
 

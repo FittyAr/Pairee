@@ -1,6 +1,8 @@
 use super::RowType;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
+use crate::keybindings::loader::load_keybinds;
+use std::collections::HashMap;
 
 pub fn populate_rows(
     settings: &Settings,
@@ -8,6 +10,7 @@ pub fn populate_rows(
     cursor_idx: usize,
     edit_buffer: &str,
     rows: &mut Vec<(String, RowType)>,
+    custom_bindings: &HashMap<String, String>,
 ) {
     rows.push(("General".to_string(), RowType::Title));
     rows.push((
@@ -387,6 +390,15 @@ pub fn populate_rows(
         ),
         RowType::Setting(36),
     ));
+    let (_, keymap_report) = load_keybinds(&settings.keybinding_preset, custom_bindings);
+    let status_row = if keymap_report.ok() && keymap_report.warnings.is_empty() {
+        RowType::Hint
+    } else {
+        RowType::Subtitle
+    };
+    rows.push((keymap_report.summary_line(), status_row));
+    rows.push((t("int_keymap_gray"), RowType::Hint));
+    rows.push((t("int_keymap_view"), RowType::Setting(38)));
     rows.push((
         format!(
             "[{}] {}",
@@ -399,4 +411,40 @@ pub fn populate_rows(
         ),
         RowType::Setting(37),
     ));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::settings::Settings;
+    use std::collections::HashMap;
+
+    #[test]
+    fn keymap_section_always_has_status_and_view_rows() {
+        let settings = Settings::default();
+        let mut rows = Vec::new();
+        populate_rows(&settings, false, 0, "", &mut rows, &HashMap::new());
+        assert!(
+            rows.iter()
+                .any(|(_, kind)| matches!(kind, RowType::Setting(36))),
+            "preset row"
+        );
+        assert!(
+            rows.iter()
+                .any(|(_, kind)| matches!(kind, RowType::Setting(38))),
+            "view issues row"
+        );
+        assert!(
+            rows.iter().any(
+                |(label, kind)| matches!(kind, RowType::Hint | RowType::Subtitle)
+                    && (label.contains("OK")
+                        || label.contains("error")
+                        || label.contains("errores")
+                        || label.contains("Keymap")
+                        || label.contains("Mapa"))
+            ),
+            "status line present: {:?}",
+            rows
+        );
+    }
 }

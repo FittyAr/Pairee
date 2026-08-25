@@ -31,6 +31,7 @@ pub fn render_config_dialog_popup(
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
+    custom_bindings: &std::collections::HashMap<String, String>,
 ) -> bool {
     match popup {
         PopupType::ConfigurationDialog {
@@ -158,6 +159,7 @@ pub fn render_config_dialog_popup(
                     *cursor_idx,
                     edit_buffer,
                     &mut rows,
+                    custom_bindings,
                 ),
                 3 => confirmations::populate_rows(settings, &mut rows),
                 4 => plugins::populate_rows(settings, &mut rows),

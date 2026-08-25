@@ -24,5 +24,14 @@ pub fn apply_settings(state: &mut AppState, context: &mut AppContext, settings: 
     context.config.save_logging();
     crate::config::localization::load_language(&lang_to_load);
     state.refresh_both_panels(context.config.settings.show_hidden);
-    state.dialogs.clear();
+    let report = context.resolver.load_report();
+    if !report.ok() {
+        state
+            .dialogs
+            .replace(crate::app::state::PopupType::InfoPanel {
+                lines: report.detail_lines(),
+            });
+    } else {
+        state.dialogs.clear();
+    }
 }

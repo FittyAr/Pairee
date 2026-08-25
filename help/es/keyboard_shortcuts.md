@@ -74,6 +74,8 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
 | `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
 | `*` (Teclado numérico) | Invierte la selección en todo el panel. |
+
+> **TOML de atajos:** los acordes Far `Gray+` / `Gray-` / `Gray*` se aceptan y se traducen a `Plus` / `-` / `*`. En archivos nuevos usa `Plus`. Los acordes inválidos o duplicados se rechazan; Ajustes → Interfaz los lista.
 | `Ctrl+M` | Restaura el último grupo de selección marcado. |
 | `Ctrl+I` | Aplica un filtro de búsqueda persistente en el panel activo. |
 

@@ -86,7 +86,13 @@ fn render_specific_popup(
     if history_lists::render_history_lists_popup(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
-    if config_dialog::render_config_dialog_popup(f, popup, theme, size) {
+    if config_dialog::render_config_dialog_popup(
+        f,
+        popup,
+        theme,
+        size,
+        &context.config.keybindings.custom_bindings,
+    ) {
         return;
     }
     if color_groups::render_color_groups_popup(f, popup, theme, size) {

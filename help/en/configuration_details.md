@@ -135,6 +135,10 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 * **ClearType friendly redraw:** Tweaks redraw patterns to prevent visual font glitches.
 * **Window Title Format:** Define title bar format tokens (e.g. `%Platform`).
 
+### Keybindings
+* **Keybindings preset:** Cycle Norton / Neovim / VS Code. A status line shows whether the selected preset (plus your `custom_bindings`) loaded cleanly.
+* **View keymap issues:** Opens the full list of rejected chords, duplicates, and warnings. Far-style `Gray+` / `Gray-` / `Gray*` aliases map to `Plus` / `-` / `*`.
+
 ### Workflow
 * **Enable Yazi workflow:**
   - *Description:* Enables Yazi/Ranger-style modal keyboard workflow. Pressing `s` opens the Sort panel and `v` opens the View panel at the bottom (only active when the command line is empty).

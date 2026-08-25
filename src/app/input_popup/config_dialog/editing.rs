@@ -33,6 +33,7 @@ pub fn handle_editing(
                     editing_value,
                     cursor_idx,
                     &edit_buffer,
+                    &std::collections::HashMap::new(),
                 );
                 // Extract setting ID
                 if cursor_idx < current_rows.len()

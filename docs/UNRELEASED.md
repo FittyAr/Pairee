@@ -26,6 +26,7 @@
 - Mouse drag and jump-to-click on scrollbars (`ScrollBarInteraction`, hit targets registered each frame, `EnableMouseCapture`).
 - Unicode-aware file-name truncation helpers (`unicode-width` + `unicode-segmentation`) for panel columns.
 - Bracketed paste: pasted text lands in the CLI or the open text prompt (rename, apply command, mkdir, …) as one string instead of fake keystrokes.
+- Settings → Interface shows keymap validation (errors, warnings, bound count) and a “View keymap issues” overlay. Far-style `Gray+` / `Gray-` / `Gray*` aliases are documented as mapping to `Plus` / `-` / `*`.
 - CI draw/resize smoke tests via `ratatui` TestBackend (not a substitute for a human pass on Windows Terminal / conhost / Linux).
 
 ### Improved

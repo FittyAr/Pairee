@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **206 unit + 7 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **210 unit + 7 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -222,8 +222,8 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 - [x] Mantener F1–F10 vía `resolve_for_key_string` / inverse map
 - [x] Tests: impossible chord, duplicate, norton core keys
 - [x] Slim `preset.rs` (solo `parse_action_name` + TOML embed)
-- [ ] UI de settings que muestre errores de keymap al usuario (hoy log)
-- [ ] Migración documentada de aliases `Gray+` → `Plus` (ya mapeados en loader)
+- [x] UI de settings que muestre errores de keymap al usuario (hoy log) — Interface + overlay
+- [x] Migración documentada de aliases `Gray+` → `Plus` (ya mapeados en loader) — help EN/ES + rustdoc
 
 ### 6.3 Checklist — `tui-scrollbar` (F.2)
 
@@ -374,7 +374,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **206 unit + 7 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **210 unit + 7 integration** |
 | Archivos >800 LOC | ≥2 | 0 | worker.rs eliminado; quedan monólitos UI |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -404,7 +404,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-18 | `b7bc71f` | feat: Fase E — feature flags SSH/plugins/image |
 | 2026-08-18 | `f127215` | feat: Fase E — macOS CI, i18n parity, parser fuzz |
 | 2026-08-25 | `a2b21fa` | feat: `src/lib.rs` + anti-glitch clear/KKP |
-| 2026-08-25 | _(este)_ | feat: checklist TTY anotada, bracketed paste, TestBackend smoke |
+| 2026-08-25 | `6b8bb13` | feat: checklist TTY anotada, bracketed paste, TestBackend smoke |
+| 2026-08-25 | _(este)_ | feat: Settings muestra errores de keymap; docs Gray+ → Plus |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -418,7 +419,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
              │  [x Docs sync] [x Onboarding] [x Feature flags] [x Plugins D]
              │  [x src/lib.rs] [x anti-glitch clear/KKP] [x bracketed paste]
-             │  [x TestBackend draw/resize]
+             │  [x TestBackend draw/resize] [x keymap errors UI] [x Gray+ docs]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -434,9 +435,9 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual** (WT / conhost / Linux — no verificable en CI), which-key opcional, PTY real, monólitos UI restantes.  
+Siguiente: **checklist TTY manual** (WT / conhost / Linux — no verificable en CI), which-key opcional, PTY real, monólitos UI restantes (`viewer.rs` >500).  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-25 (checklist TTY anotada + paste + TestBackend).*
+*Última actualización del progreso: 2026-08-25 (F.1 keymap errors UI + Gray+ docs).*

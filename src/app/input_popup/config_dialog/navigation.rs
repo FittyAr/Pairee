@@ -16,12 +16,14 @@ pub fn handle_navigation(
     mut settings: Settings,
     mut focus_on_tabs: bool,
 ) -> Result<Option<Action>, ()> {
+    let custom_bindings = context.config.keybindings.custom_bindings.clone();
     let mut current_rows = rows::get_rows_for_tab(
         active_tab,
         &settings,
         editing_value,
         cursor_idx,
         &edit_buffer,
+        &custom_bindings,
     );
     let max_rows = current_rows.len() + 2;
 
@@ -70,6 +72,7 @@ pub fn handle_navigation(
                     editing_value,
                     cursor_idx,
                     &edit_buffer,
+                    &custom_bindings,
                 );
                 while cursor_idx < current_rows.len()
                     && !rows::is_selectable(cursor_idx, &current_rows)
@@ -103,6 +106,7 @@ pub fn handle_navigation(
                     editing_value,
                     cursor_idx,
                     &edit_buffer,
+                    &custom_bindings,
                 );
                 while cursor_idx < current_rows.len()
                     && !rows::is_selectable(cursor_idx, &current_rows)
@@ -165,6 +169,7 @@ pub fn handle_navigation(
                         &mut settings,
                         &mut editing_value,
                         &mut edit_buffer,
+                        context,
                     ),
                     3 => confirmations::handle_row(
                         setting_id,
@@ -201,7 +206,19 @@ pub fn handle_navigation(
                 };
 
                 if let Some(popup) = next_popup {
-                    state.dialogs.replace(popup);
+                    if matches!(popup, PopupType::Info(_) | PopupType::InfoPanel { .. }) {
+                        state.dialogs.replace(PopupType::ConfigurationDialog {
+                            active_tab,
+                            cursor_idx,
+                            editing_value,
+                            edit_buffer,
+                            settings: Box::new(settings),
+                            focus_on_tabs,
+                        });
+                        state.dialogs.push(popup);
+                    } else {
+                        state.dialogs.replace(popup);
+                    }
                     return Ok(None);
                 }
             }
@@ -236,6 +253,7 @@ pub fn handle_navigation(
                         editing_value,
                         cursor_idx,
                         &edit_buffer,
+                        &custom_bindings,
                     );
                     while cursor_idx < current_rows.len()
                         && !rows::is_selectable(cursor_idx, &current_rows)

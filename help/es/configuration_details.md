@@ -132,6 +132,10 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 * **ClearType friendly redraw:** Optimiza el redibujado para evitar distorsiones de fuentes tipográficas en terminales específicas.
 * **Window Title Format (Formato del Título):** Define las variables del título del terminal (ej. `%Platform`).
 
+### Atajos de teclado
+* **Preajuste de atajos:** Alterna Norton / Neovim / VS Code. Una línea de estado indica si el preset (más `custom_bindings`) cargó bien.
+* **Ver problemas del mapa de teclas:** Lista acordes rechazados, duplicados y avisos. Los alias Far `Gray+` / `Gray-` / `Gray*` se traducen a `Plus` / `-` / `*`.
+
 ### Flujo de Trabajo
 * **Enable Yazi workflow (Habilitar flujo de trabajo Yazi):**
   - *Descripción:* Activa menús modales rápidos. Al presionar `s` se abre la ventana de ordenación y al presionar `v` la de vista en la parte inferior (solo disponible si la línea de comandos está vacía).
