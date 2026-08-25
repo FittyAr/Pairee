@@ -46,6 +46,26 @@ fn test_discovery_and_translation() {
 }
 
 #[test]
+fn en_and_es_translation_keys_match() {
+    let en: LanguageFile = toml::from_str(include_str!("../../../lang/en.toml")).unwrap();
+    let es: LanguageFile = toml::from_str(include_str!("../../../lang/es.toml")).unwrap();
+    let missing_es: Vec<&String> = en
+        .translations
+        .keys()
+        .filter(|k| !es.translations.contains_key(*k))
+        .collect();
+    let extra_es: Vec<&String> = es
+        .translations
+        .keys()
+        .filter(|k| !en.translations.contains_key(*k))
+        .collect();
+    assert!(
+        missing_es.is_empty() && extra_es.is_empty(),
+        "key mismatch: missing in es={missing_es:?} extra in es={extra_es:?}"
+    );
+}
+
+#[test]
 fn test_embedded_translations() {
     // Test embedded English fallback
     assert_eq!(get_default_english_translation("tab_system"), "&System");
@@ -58,6 +78,7 @@ fn test_embedded_translations() {
     // Test embedded Spanish fallback
     load_language("Español");
     assert_eq!(t("tab_system"), "&Sistema");
-    // Check a key that exists only in English to verify fallback
-    assert_eq!(t("git_checkout_branch"), "branch");
+    assert_eq!(t("git_checkout_branch"), "rama");
+    load_language("English");
+    assert_eq!(t("unknown_missing_key_xyz"), "unknown_missing_key_xyz");
 }

@@ -81,7 +81,7 @@ pub fn remove_description(dir: &Path, filename: &str) -> Result<()> {
 /// Handles both quoted and unquoted filenames, including the standard
 /// `""` escape sequence used to embed a literal `"` inside a quoted
 /// filename.
-fn parse_description_line(line: &str) -> Option<(&str, &str)> {
+pub(crate) fn parse_description_line(line: &str) -> Option<(&str, &str)> {
     let line = line.trim();
     if line.is_empty() {
         return None;

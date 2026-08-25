@@ -30,6 +30,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [UNRELEASED.md](./UNRELEASED.md) | Implemented (staging) |
 | [PRIVACY.md](./PRIVACY.md) | Implemented |
 | [THREAT_MODEL.md](./THREAT_MODEL.md) | **Implemented** | Plugins, SSH, update, elevated helper |
+| [i18n.md](./i18n.md) | **Implemented** | How to add a language; EN/ES key parity in CI |
 | [winget-submission-guide.md](./winget-submission-guide.md) | Implemented |
 
 ---

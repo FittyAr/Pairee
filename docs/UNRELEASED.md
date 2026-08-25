@@ -9,6 +9,9 @@
 - Plugin filesystem extras: `mkdir`, `remove`, `rename`, `copy`, `read_dir`, and `file()` (File userdata).
 - `pairee.Command` process builder with piped `Child` streaming (`write_all`, `read`, `wait_with_output`).
 - Optional feature flags in Settings → System: SSH, plugins, and image preview (Git already had a toggle). Existing configs stay enabled.
+- EN/ES translation keys are now complete and checked in CI (`scripts/check_translations.py`, `docs/i18n.md`).
+- Parser smoke-fuzz tests (globs, descript.ion, plugin manifests, settings TOML) so junk input cannot panic.
+- CI tests run on macOS as well as Linux and Windows.
 - First-run keymap onboarding (Norton / Neovim / VS Code). Existing configs skip the dialog.
 - Versioned Lua plugin API **v1.0.0** (`pairee._lua_api_version`, `docs/api/lua/`).
 - CI acceptance plugins under `tests/plugin_acceptance/` (surface, fs, cx/utils, Command echo).

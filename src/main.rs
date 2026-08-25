@@ -13,6 +13,9 @@ mod terminal;
 mod ui;
 mod update;
 
+#[cfg(test)]
+mod test_fuzz;
+
 #[tokio::main]
 async fn main() -> Result<()> {
     // Install the rustls ring crypto provider for reqwest on non-Windows platforms
