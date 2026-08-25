@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **115 unit + 2 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **198 unit + 7 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -36,8 +36,8 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 |---|------|--------|
 | P0 | CI / Clippy / docs / limpieza | **Hecho** (Fase A) |
 | P1 | Transfer Engine unificado + sin legacy progress | **Hecho** (Fase B) |
-| **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Siguiente (Fase F)** |
-| P1 | Partir God objects (`AppState`, `PopupType`) | Pendiente (Fase C) |
+| **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Hecho** (Fase F; which-key opcional) |
+| P1 | Partir God objects (`AppState`, `PopupType`) | **Hecho** (Fase C; `src/lib.rs`) |
 | P1 | Tests de integración + cobertura | En curso |
 | P2 | Roadmap plugins (G1–G14) | En curso (D: diálogos + File/`cx`) |
 | P3 | Feature flags, i18n extra, onboarding | **Hecho** (palette, onboarding, flags, threat, i18n, fuzz, macOS CI) |
@@ -276,9 +276,9 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 - [x] Envolver frame draw en synchronized update (`Begin/EndSynchronizedUpdate`)
 - [x] Introducir `ui_dirty` / skip draw cuando no hace falta pintar
 - [x] Rate-limit redraw de progreso de transfer (~12 Hz)
-- [ ] Evitar `clear()` full-screen salvo resize o cambio de screen mode (reducir usos restantes)
+- [x] Evitar `clear()` full-screen salvo resize o cambio de screen mode (admin TTY / exec nativo)
 - [x] `unicode-width` + `unicode-segmentation` en listados de paneles (brief/wide/medium/detailed) e history truncate
-- [ ] Revisar `KeyboardEnhancementFlags` / focus: feature-detect
+- [x] Revisar `KeyboardEnhancementFlags` / focus: feature-detect (`supports_keyboard_enhancement` en Unix; CSI push en Windows; restore solo si se empujó)
 - [ ] Checklist manual Windows Terminal + conhost + Linux
 
 ### 6.5 Otras librerías de Grok Build candidatas (evaluación)
@@ -316,7 +316,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 - [x] `PopupType` en `state/popup/` + `DialogStack` (`replace`/`push`/`pop`; overlay en `state.dialogs`)
 - [x] Partir archivos >500 LOC de la lista baseline (`types`, `updater`, `list`, `settings`)
 - [x] Receivers de fondo: `try_recv` sobre `&mut` (sin take/put-back). `select!` de event-loop queda fuera (loop síncrono + poll)
-- [ ] Valorar `src/lib.rs` + binario fino para tests/benches
+- [x] `src/lib.rs` + binario fino (`pairee::run`; `src/main.rs` es `#[tokio::main]`) para tests/benches
 
 ### Archivos monolíticos a partir (baseline)
 
@@ -409,6 +409,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x keybinds + anti-glitch] [x tui-scrollbar]
              │  [x unicode-width paneles] [x AppState groups] [x DialogStack]
              │  [x Docs sync] [x Onboarding] [x Feature flags] [x Plugins D]
+             │  [x src/lib.rs] [x anti-glitch clear/KKP]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -418,13 +419,14 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 
 ## 13. Conclusión operativa
 
-**Fase A, B y F (principal) cerradas.**  
-**Fase C:** grupos de estado + `DialogStack`.  
+**Fase A, B, C, D, E y F (principal) cerradas.**  
+**Fase C:** grupos de estado + `DialogStack` + `src/lib.rs`.  
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
-Siguiente: resto anti-glitch / `src/lib.rs`, o which-key opcional.  
+**Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect.  
+Siguiente: which-key opcional, checklist TTY manual, PTY e2e, monólitos UI restantes.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-12 (Fase C.1 estado + split).*
+*Última actualización del progreso: 2026-08-25 (F.3 resto + `src/lib.rs`).*

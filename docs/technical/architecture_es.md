@@ -11,7 +11,7 @@ Pairee se rige bajo el principio fundamental de **separar estrictamente la lógi
 ```mermaid
 graph TD
     subgraph Motor Core
-        A[main.rs Entry] --> B[AppConfig Loader]
+        A[pairee::run] --> B[AppConfig Loader]
         B --> C[AppContext Settings]
         C --> D[AppState Data]
         D --> E[fs::ops Operaciones Físicas]
@@ -35,11 +35,11 @@ El núcleo del gestor de archivos (lectura de directorios, ordenamientos, filtro
 
 ### 1.2 Bucle de Eventos Principal (`app::run`)
 El flujo general de ejecución se comporta de la siguiente manera:
-1. `main.rs` carga la configuración e inicializa `AppContext` y `AppState`.
+1. `src/main.rs` es un envoltorio fino `#[tokio::main]`; `pairee::run` (`src/run.rs`) carga la configuración e inicializa `AppContext` y `AppState`.
 2. `app::run()` activa el modo raw de la consola mediante `terminal::backend`.
 3. Un bucle asíncrono monitoriza los eventos del sistema (pulsaciones de teclas y redimensionamientos) utilizando `terminal::events`.
 4. El resolutor traduce la entrada de teclado en una acción de la aplicación.
-5. El estado se modifica y se invoca la actualización visual (Redraw) en el siguiente ciclo.
+5. La TUI pinta cuando el flag dirty está activo (actualización sincronizada DEC 2026; `clear` a pantalla completa solo en resize o al restaurar el TTY).
 
 ---
 
@@ -119,7 +119,7 @@ La traducción de la interfaz de usuario se implementa de manera estructurada pa
 ## 🖥️ 5. Lanzador de Ventana Independiente (Standalone)
 
 Pairee puede iniciarse de manera nativa sin requerir que el usuario abra una consola previamente:
-* Al arrancar, `main.rs` ejecuta `terminal::standalone::check_and_launch_standalone()`.
+* Al arrancar, `pairee::run` ejecuta `terminal::standalone::check_and_launch_standalone()`.
 * **En Windows:** Comprueba si el binario fue lanzado directamente desde el Explorador de Archivos (sin consola contenedora activa). De ser así, crea un proceso nuevo llamando a una instancia del terminal del sistema (`cmd.exe` o `powershell.exe`) configurando las dimensiones apropiadas y lanzando Pairee dentro de él.
 * **En Linux/macOS:** Invoca un emulador de terminal instalado en el sistema (ej. `xterm`, `gnome-terminal`, `kitty`) pasándole como argumento el binario de Pairee.
 

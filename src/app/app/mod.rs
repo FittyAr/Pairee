@@ -74,15 +74,15 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
         // 2. Draw only when dirty / needed (anti-glitch + less TTY load)
         if state.needs_redraw() {
+            // DEC 2026 synchronized update: present clear+frame atomically when supported.
+            let mut stdout = io::stdout();
+            let _ = stdout.queue(BeginSynchronizedUpdate);
+            let _ = stdout.flush();
+
             if state.terminal_needs_clear {
                 let _ = terminal_backend.terminal.clear();
                 state.terminal_needs_clear = false;
             }
-
-            // DEC 2026 synchronized update: present the frame atomically when supported.
-            let mut stdout = io::stdout();
-            let _ = stdout.queue(BeginSynchronizedUpdate);
-            let _ = stdout.flush();
 
             state.scrollbar.clear_targets();
             terminal_backend.terminal.draw(|f| {

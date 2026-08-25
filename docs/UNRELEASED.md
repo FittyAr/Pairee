@@ -28,6 +28,8 @@
 
 ### Improved
 
+- Full-screen terminal clear runs inside the synchronized-update region, and only on resize or after a native TTY/admin restore.
+- Keyboard enhancement and focus-change sequences are enabled only when the terminal supports them (Unix query; Windows CSI push), and popped only if they were pushed.
 - Keybindings engine rebuilt on the `keybinds` crate: invalid chords are rejected, duplicate chords across actions are rejected, and Norton/Neovim/VSCode presets load from validated TOML.
 - TUI draw path uses synchronized updates and dirty-flag rendering to reduce flicker/glitches.
 - Scroll indicators use theme colors and proportional thumbs instead of ratatui’s full-cell default.
@@ -49,6 +51,7 @@
 
 ### Changed
 
+- Application logic lives in the `pairee` library crate; `src/main.rs` is a thin tokio entry so tests can `use pairee`.
 - Replaced inherited rustc-style `.gitignore` with a Pairee-specific ignore list.
 - Plugin manager core module renamed to `lifecycle` to avoid module-inception nesting.
 - Long-running file jobs no longer use a separate modal progress dialog.

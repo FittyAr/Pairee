@@ -18,7 +18,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 
 | Doc | Status | Notes |
 |-----|--------|-------|
-| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | A–B y F principal hechas; D casi cerrada; C resto / E |
+| [IMPROVEMENT_PLAN.md](./IMPROVEMENT_PLAN.md) | **Active** | A–F principales cerradas; which-key / PTY e2e / monólitos UI opcionales |
 
 ---
 

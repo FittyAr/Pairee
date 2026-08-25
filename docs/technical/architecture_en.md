@@ -11,7 +11,7 @@ Pairee is built on the core principle of **separating core application logic fro
 ```mermaid
 graph TD
     subgraph Core Engine
-        A[main.rs Entry] --> B[AppConfig Loader]
+        A[pairee::run] --> B[AppConfig Loader]
         B --> C[AppContext Settings]
         C --> D[AppState Data]
         D --> E[fs::ops System Operations]
@@ -35,11 +35,11 @@ The core business logic does not import `ratatui` or handle console outputs dire
 
 ### 1.2 The Event Loop (`app::run`)
 The main execution sequence:
-1. `main.rs` builds `AppContext` and `AppState`.
+1. `src/main.rs` is a thin `#[tokio::main]` wrapper; `pairee::run` (`src/run.rs`) builds `AppContext` and `AppState`.
 2. `app::run()` starts terminal raw mode using `terminal::backend`.
 3. An asynchronous loop listens for terminal resize and key inputs via `terminal::events`.
 4. Resolved inputs mutate state parameters and trigger corresponding filesystem changes.
-5. The TUI drawing layer renders the modified status on every loop tick.
+5. The TUI drawing layer paints when the dirty flag is set (DEC 2026 synchronized update; full-screen clear only on resize or screen-mode restore).
 
 ---
 
@@ -118,7 +118,7 @@ Translations are handled systematically to prevent code redundancy and hardcoded
 ## 🖥️ 5. Standalone Terminal Launcher
 
 To support launching Pairee as a desktop app without an open parent terminal session:
-* On startup, `main.rs` invokes `terminal::standalone::check_and_launch_standalone()`.
+* On startup, `pairee::run` invokes `terminal::standalone::check_and_launch_standalone()`.
 * **Windows Behavior:** The program detects if it was launched from explorer (no parent console attached). If so, it invokes a new shell wrapper (e.g., `cmd.exe` or `powershell.exe`) with the necessary window parameters, hosting the Pairee executable.
 * **Linux/macOS Behavior:** Spins up a default system terminal emulator (e.g., `xterm`, `gnome-terminal`, `kitty`) to launch the application.
 

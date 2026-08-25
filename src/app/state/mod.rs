@@ -52,6 +52,8 @@ pub struct AppState {
     /// Channel for communicating with the background terminal
     pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
     pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
+    /// Full-screen clear on next paint (resize or native TTY/admin restore).
+    /// Applied inside the synchronized-update region to avoid a visible flash.
     pub terminal_needs_clear: bool,
     /// When false, the main loop may skip `terminal.draw` (dirty-flag rendering).
     pub ui_dirty: bool,
@@ -188,5 +190,20 @@ impl AppState {
         self.get_active_panel_mut().selected_paths = snapshot;
         let order_snapshot = self.last_selection_order_snapshot.clone();
         self.get_active_panel_mut().selection_order = order_snapshot;
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn needs_redraw_when_only_terminal_needs_clear() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.ui_dirty = false;
+        assert!(!state.needs_redraw());
+        state.terminal_needs_clear = true;
+        assert!(state.needs_redraw());
     }
 }
