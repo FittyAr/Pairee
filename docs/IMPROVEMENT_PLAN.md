@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **223 unit + 7 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **226 unit + 7 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -265,7 +265,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | P1 (junto a keybinds) |
 | `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | **P1 — hecho** |
 | `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | P2 |
-| `shlex` | Parse seguro de comandos usuario (apply / user menu) | P2 |
+| `shlex` | Parse seguro de comandos usuario (apply / user menu) | **P2 — hecho** (associations + CLI first token; apply sigue en shell con `%f` quoted) |
 | Terminal capability detection (brand, KKP unreliable) | Degradar features en conhost / tmux viejo | P2 |
 | Tests PTY e2e de render | Smoke resize + draw en CI (`TestBackend`; PTY real pendiente) | **P2 — smoke CI** |
 | `xai-ratatui-inline` (viewport inline + scrollback nativo) | **No** copiar de entrada: es chat/REPL, no dual-panel fullscreen | Fuera de alcance |
@@ -376,7 +376,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **223 unit + 7 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **226 unit + 7 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -410,7 +410,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-25 | `a07644d` | feat: Settings muestra errores de keymap; docs Gray+ → Plus |
 | 2026-08-25 | `3aef747` | refactor: partir `src/ui/viewer.rs` |
 | 2026-08-25 | `db0bac2` | refactor: partir `popup/mod.rs` (paste + PluginWidget) |
-| 2026-08-25 | _(este)_ | feat: Lua File mime/mtime/hidden/exec (API 1.1.0) |
+| 2026-08-25 | `c8d6e8f` | feat: Lua File mime/mtime/hidden/exec (API 1.1.0) |
+| 2026-08-25 | _(este)_ | feat: shlex / quoted command-line split |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -426,7 +427,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x src/lib.rs] [x anti-glitch clear/KKP] [x bracketed paste]
              │  [x TestBackend draw/resize] [x keymap errors UI] [x Gray+ docs]
              │  [x viewer.rs split] [x popup paste/widget split]
-             │  [x File mime/mtime]
+             │  [x File mime/mtime] [x shlex cmdline]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -442,9 +443,9 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key opcional, PTY real, `shlex` / `ansi-to-tui` (P2). Segmentación de archivos (~450 LOC) **al final**.  
+Siguiente: **checklist TTY manual**, which-key opcional, PTY real, `ansi-to-tui` (P2). Segmentación de archivos (~450 LOC) **al final**.  
 `ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-08-25 (Lua File metadata 1.1.0).*
+*Última actualización del progreso: 2026-08-25 (shlex command-line split).*

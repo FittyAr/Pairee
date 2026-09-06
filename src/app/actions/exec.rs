@@ -32,10 +32,10 @@ pub fn execute_shell_command(
         "gdb", "python", "node", "mysql", "psql", "sqlite3", "bash", "sh", "zsh", "fish", "tmux",
         "screen", "ftp", "sftp", "telnet", "w3m", "lynx", "su", "sudo", "login",
     ];
-    let cmd_name = command_str
-        .split_whitespace()
+    let cmd_name = crate::app::actions::fs_ops::helper::split_command_line(command_str)
+        .into_iter()
         .next()
-        .unwrap_or("")
+        .unwrap_or_default()
         .to_lowercase();
     let is_interactive = interactive.contains(&cmd_name.as_str());
 

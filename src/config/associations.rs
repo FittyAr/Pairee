@@ -52,18 +52,11 @@ fn resolve_template(template: &str, path: &std::path::Path) -> (String, Vec<Stri
     // apart, then expand the sentinel back to the real path string.
     const SENTINEL: &str = "\u{1f}PaireeFileSentinel\u{1f}";
     let substituted = template.replace("%f", SENTINEL);
-    let mut parts = substituted.split_whitespace();
-    let program = parts.next().unwrap_or("").to_string();
-    let args = parts
-        .map(|s| {
-            if s == SENTINEL {
-                path_str.clone()
-            } else {
-                s.to_string()
-            }
-        })
-        .collect();
-    (program, args)
+    let mut parts =
+        crate::app::actions::fs_ops::helper::split_command_line(&substituted).into_iter();
+    let program = parts.next().unwrap_or_default();
+    let args: Vec<String> = parts.map(|s| s.replace(SENTINEL, &path_str)).collect();
+    (program.replace(SENTINEL, &path_str), args)
 }
 
 /// Holds all file association rules. Loaded from / saved to `associations.toml`.
@@ -284,6 +277,22 @@ mod tests {
         assert_eq!(
             args,
             vec!["--new-window".to_string(), "/tmp/main.rs".to_string()]
+        );
+    }
+
+    #[test]
+    fn test_resolve_quoted_program_with_spaces() {
+        let rule = AssocRule {
+            mask: "*.txt".to_string(),
+            open_cmd: r#""C:\Program Files\Editor\edit.exe" --wait %f"#.to_string(),
+            view_cmd: None,
+        };
+        let path = PathBuf::from(r"C:\docs\My File.txt");
+        let (prog, args) = rule.resolve_open_cmd(&path);
+        assert_eq!(prog, r"C:\Program Files\Editor\edit.exe");
+        assert_eq!(
+            args,
+            vec!["--wait".to_string(), r"C:\docs\My File.txt".to_string()]
         );
     }
 
