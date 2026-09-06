@@ -6,6 +6,7 @@
 
 - Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
 - Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
+- Lua `File` metadata: `mime`, `mtime`, `is_hidden`, `is_exec` (Lua API **1.1.0**).
 - Plugin filesystem extras: `mkdir`, `remove`, `rename`, `copy`, `read_dir`, and `file()` (File userdata).
 - `pairee.Command` process builder with piped `Child` streaming (`write_all`, `read`, `wait_with_output`).
 - Optional feature flags in Settings → System: SSH, plugins, and image preview (Git already had a toggle). Existing configs stay enabled.
@@ -13,7 +14,7 @@
 - Parser smoke-fuzz tests (globs, descript.ion, plugin manifests, settings TOML) so junk input cannot panic.
 - CI tests run on macOS as well as Linux and Windows.
 - First-run keymap onboarding (Norton / Neovim / VS Code). Existing configs skip the dialog.
-- Versioned Lua plugin API **v1.0.0** (`pairee._lua_api_version`, `docs/api/lua/`).
+- Versioned Lua plugin API **v1.1.0** (`pairee._lua_api_version`, `docs/api/lua/`).
 - CI acceptance plugins under `tests/plugin_acceptance/` (surface, fs, cx/utils, Command echo).
 - `pairee.emit`, `pairee.notify`, and `pairee.file_cache` are callable functions (they were nested tables).
 - Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.

@@ -1,13 +1,19 @@
 # Lua API Changelog
 
 Semver of the **plugin Lua surface** (`pairee.*`), independent of the Pairee
-crate version. Current: **1.0.0** (`pairee._lua_api_version`).
+crate version. Current: **1.1.0** (`pairee._lua_api_version`).
 
 Policy:
 
 - **MAJOR** — remove or rename a stable binding
 - **MINOR** — add a binding, field, or documented return shape
 - **PATCH** — bugfix with the same signature
+
+## [1.1.0] — 2026-08-25
+
+### Added
+
+- `File` metadata fields: `mime`, `mtime`, `is_hidden`, `is_exec` (additive; 1.0 plugins keep working).
 
 ## [1.0.0] — 2026-08-18
 

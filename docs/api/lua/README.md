@@ -5,7 +5,7 @@ without a Lua major bump if `pairee.*` stays compatible.
 
 | Item | Location |
 |------|----------|
-| Current version | **1.0.0** (`pairee._lua_api_version`) |
+| Current version | **1.1.0** (`pairee._lua_api_version`) |
 | Surface inventory | [v1.md](./v1.md) |
 | Lua-only changelog | [CHANGELOG.md](./CHANGELOG.md) |
 | How-to | [plugin-dev-guide.md](../../plugin-dev-guide.md) |

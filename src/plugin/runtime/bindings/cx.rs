@@ -92,6 +92,10 @@ mod tests {
                 size: 4,
                 is_dir: false,
                 is_symlink: false,
+                mime: "text/plain".into(),
+                mtime: None,
+                is_hidden: false,
+                is_exec: false,
             }),
             selected_files: vec![FileEntrySnapshot {
                 name: "b.txt".into(),
@@ -100,6 +104,10 @@ mod tests {
                 size: 2,
                 is_dir: false,
                 is_symlink: false,
+                mime: "text/plain".into(),
+                mtime: None,
+                is_hidden: false,
+                is_exec: false,
             }],
         }
     }

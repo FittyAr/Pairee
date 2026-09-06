@@ -49,7 +49,7 @@ User-facing help loaded in-app (F1) lives under [`help/`](../help/).
 | [technical/plugin-dev-guide.md](../docs/plugin-dev-guide.md) | Partial | See also ES guide |
 | [plugin-dev-guide.md](./plugin-dev-guide.md) | Partial | |
 | [plugin-dev-guide-es.md](./plugin-dev-guide-es.md) | Partial | |
-| [api/lua/README.md](./api/lua/README.md) | **Implemented** | Lua API semver **1.0.0** |
+| [api/lua/README.md](./api/lua/README.md) | **Implemented** | Lua API semver **1.1.0** |
 | [api/lua/v1.md](./api/lua/v1.md) | **Implemented** | Inventario estable v1 |
 | [technical/installer_guide.md](./technical/installer_guide.md) | Implemented | |
 | [technical/microsoft-store-publishing.md](./technical/microsoft-store-publishing.md) | Planned / process | |

@@ -6,7 +6,7 @@ Real plugin trees loaded by `src/plugin/acceptance.rs` during `cargo test`
 | Plugin | What it proves |
 |--------|----------------|
 | `surface` | Stable `pairee.*` bindings exist; `_lua_api_version` matches Rust |
-| `fs_roundtrip` | `mkdir` / `write` / `read` / `copy` / `rename` / `remove` / `File` |
+| `fs_roundtrip` | `mkdir` / `write` / `read` / `copy` / `rename` / `remove` / `File` (incl. mime/mtime/hidden) |
 | `cx_utils` | `pairee.cx` shape + `utils.target_os/hash/quote` |
 | `command_echo` | `pairee.Command` builder and `:output()` (async) |
 

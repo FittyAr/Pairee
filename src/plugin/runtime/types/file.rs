@@ -12,6 +12,10 @@ pub struct LuaFile {
     pub size: u64,
     pub is_dir: bool,
     pub is_symlink: bool,
+    pub mime: String,
+    pub mtime: Option<u64>,
+    pub is_hidden: bool,
+    pub is_exec: bool,
 }
 
 impl LuaFile {
@@ -23,6 +27,10 @@ impl LuaFile {
             size: entry.size,
             is_dir: entry.is_dir,
             is_symlink: entry.is_symlink,
+            mime: entry.mime.clone(),
+            mtime: entry.mtime,
+            is_hidden: entry.is_hidden,
+            is_exec: entry.is_exec,
         }
     }
 
@@ -33,16 +41,22 @@ impl LuaFile {
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path_str.clone());
         let meta = std::fs::symlink_metadata(path).ok();
+        let is_dir = path.is_dir();
+        let modified = meta.as_ref().and_then(|m| m.modified().ok());
         Self {
-            name,
+            name: name.clone(),
             path: path_str.clone(),
             url: path_str,
             size: meta.as_ref().map(|m| m.len()).unwrap_or(0),
-            is_dir: path.is_dir(),
+            is_dir,
             is_symlink: meta
                 .as_ref()
                 .map(|m| m.file_type().is_symlink())
                 .unwrap_or(false),
+            mime: crate::plugin::manager::snapshot::guess_mime(&name, is_dir),
+            mtime: crate::plugin::manager::snapshot::mtime_unix(modified),
+            is_hidden: crate::plugin::manager::snapshot::is_hidden_name(&name),
+            is_exec: crate::plugin::manager::snapshot::is_executable(path, &name),
         }
     }
 }
@@ -68,6 +82,10 @@ impl UserData for LuaFile {
         fields.add_field_method_get("size", |_, this| Ok(this.size));
         fields.add_field_method_get("is_dir", |_, this| Ok(this.is_dir));
         fields.add_field_method_get("is_symlink", |_, this| Ok(this.is_symlink));
+        fields.add_field_method_get("mime", |_, this| Ok(this.mime.clone()));
+        fields.add_field_method_get("mtime", |_, this| Ok(this.mtime));
+        fields.add_field_method_get("is_hidden", |_, this| Ok(this.is_hidden));
+        fields.add_field_method_get("is_exec", |_, this| Ok(this.is_exec));
     }
 
     fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
@@ -95,6 +113,10 @@ mod tests {
             size: 12,
             is_dir: false,
             is_symlink: false,
+            mime: "text/plain".into(),
+            mtime: None,
+            is_hidden: false,
+            is_exec: false,
         }
     }
 
@@ -105,9 +127,13 @@ mod tests {
         let name: String = lua.load("return f.name").eval().unwrap();
         let size: u64 = lua.load("return f.size").eval().unwrap();
         let is_dir: bool = lua.load("return f.is_dir").eval().unwrap();
+        let mime: String = lua.load("return f.mime").eval().unwrap();
+        let hidden: bool = lua.load("return f.is_hidden").eval().unwrap();
         assert_eq!(name, "readme.md");
         assert_eq!(size, 12);
         assert!(!is_dir);
+        assert_eq!(mime, "text/plain");
+        assert!(!hidden);
     }
 
     #[test]
@@ -137,6 +163,24 @@ mod tests {
             f.name,
             tmp.path().file_name().unwrap().to_string_lossy().as_ref()
         );
+        assert!(f.mtime.is_some());
+        assert_eq!(f.mime, "application/octet-stream");
+    }
+
+    #[test]
+    fn from_path_marks_dotfile_hidden_and_guesses_mime() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join(".hidden.txt");
+        std::fs::write(&path, b"x").unwrap();
+        let f = LuaFile::from_path(&path);
+        assert!(f.is_hidden);
+        assert_eq!(f.mime, "text/plain");
+        let exec: bool = {
+            let lua = Lua::new();
+            lua.globals().set("f", f).unwrap();
+            lua.load("return f.is_exec").eval().unwrap()
+        };
+        assert!(!exec);
     }
 
     #[test]
@@ -148,6 +192,10 @@ mod tests {
             size: 3,
             is_dir: true,
             is_symlink: true,
+            mime: "inode/directory".into(),
+            mtime: Some(1),
+            is_hidden: false,
+            is_exec: false,
         };
         let f = LuaFile::from_snapshot(&snap);
         assert_eq!(f.name, "x");
@@ -155,5 +203,7 @@ mod tests {
         assert_eq!(f.size, 3);
         assert!(f.is_dir);
         assert!(f.is_symlink);
+        assert_eq!(f.mime, "inode/directory");
+        assert_eq!(f.mtime, Some(1));
     }
 }
