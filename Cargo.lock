@@ -51,6 +51,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ansi-to-tui"
+version = "8.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e42366bb9d958f042bf58f0a85e1b2d091997c1257ca49bddd7e4827aadc65fd"
+dependencies = [
+ "nom 8.0.0",
+ "ratatui-core",
+ "simdutf8",
+ "smallvec",
+ "thiserror 2.0.18",
+]
+
+[[package]]
 name = "anyhow"
 version = "1.0.103"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2047,6 +2060,7 @@ dependencies = [
 name = "pairee"
 version = "0.7.2"
 dependencies = [
+ "ansi-to-tui",
  "anyhow",
  "blake3",
  "bytesize",

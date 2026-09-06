@@ -32,6 +32,7 @@
 
 ### Improved
 
+- Background Terminal screen (`command &`) renders ANSI SGR colors from captured stdout/stderr instead of showing raw escape codes.
 - Full-screen terminal clear runs inside the synchronized-update region, and only on resize or after a native TTY/admin restore.
 - Keyboard enhancement and focus-change sequences are enabled only when the terminal supports them (Unix query; Windows CSI push), and popped only if they were pushed.
 - File-association and CLI command lines split with POSIX `shlex` (quoted words) on Unix, and quote-aware tokens on Windows so `"C:\\Program Files\\App\\app.exe" %f` stays one program name.

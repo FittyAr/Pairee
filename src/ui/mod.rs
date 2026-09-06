@@ -15,7 +15,23 @@ pub mod viewer;
 
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType};
+use ansi_to_tui::IntoText as _;
 use ratatui::Frame;
+use ratatui::text::Text;
+
+/// Visible terminal scrollback as ratatui `Text`, with SGR colors applied.
+///
+/// Only the last `max_lines` captured lines are parsed so color can still
+/// span newlines inside the viewport without re-parsing the whole buffer.
+/// If parsing fails, the joined text is shown unstyled.
+fn terminal_output_text(output_lines: &[String], max_lines: usize) -> Text<'static> {
+    if output_lines.is_empty() || max_lines == 0 {
+        return Text::default();
+    }
+    let start = output_lines.len().saturating_sub(max_lines);
+    let joined = output_lines[start..].join("\n");
+    joined.into_text().unwrap_or_else(|_| Text::from(joined))
+}
 
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
@@ -147,15 +163,9 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
                 );
             }
             crate::app::state::Screen::Terminal(ts) => {
-                let lines: Vec<ratatui::text::Line> = ts
-                    .output_lines
-                    .iter()
-                    .rev()
-                    .take((layout.main_rect.height.saturating_sub(2)) as usize)
-                    .rev()
-                    .map(|l| ratatui::text::Line::from(l.as_str()))
-                    .collect();
-                let p = ratatui::widgets::Paragraph::new(lines).block(
+                let max_lines = layout.main_rect.height.saturating_sub(2) as usize;
+                let text = terminal_output_text(&ts.output_lines, max_lines);
+                let p = ratatui::widgets::Paragraph::new(text).block(
                     ratatui::widgets::Block::default()
                         .borders(ratatui::widgets::Borders::ALL)
                         .title(format!(" Terminal: {} ", ts.command)),
@@ -183,11 +193,13 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::state::PopupType;
+    use crate::app::state::types::TerminalState;
+    use crate::app::state::{PopupType, Screen};
     use crate::config::{
         AppConfig, keybindings::KeybindingsConfig, settings::Settings, theme::Theme,
     };
     use crate::fs::FileEntry;
+    use ratatui::style::Color;
     use ratatui::{Terminal, backend::TestBackend, layout::Rect};
     use std::path::PathBuf;
 
@@ -282,5 +294,102 @@ mod tests {
             .draw(|f| draw_ui(f, &context, &state))
             .expect("draw rename overlay");
         assert!(buffer_nonblank_count(&terminal) > 10);
+    }
+
+    fn span_has_fg(text: &Text, needle: &str, color: Color) -> bool {
+        text.lines.iter().any(|line| {
+            line.spans
+                .iter()
+                .any(|span| span.content.contains(needle) && span.style.fg == Some(color))
+        })
+    }
+
+    fn text_plain(text: &Text) -> String {
+        text.lines
+            .iter()
+            .map(|line| {
+                line.spans
+                    .iter()
+                    .map(|span| span.content.as_ref())
+                    .collect::<String>()
+            })
+            .collect::<Vec<_>>()
+            .join("\n")
+    }
+
+    #[test]
+    fn terminal_output_parses_sgr_red() {
+        let lines = vec!["\x1b[31mred\x1b[0m".to_string()];
+        let text = terminal_output_text(&lines, 10);
+        assert!(
+            span_has_fg(&text, "red", Color::Red),
+            "expected SGR 31 to paint 'red' as Color::Red, got {:?}",
+            text.lines
+        );
+        assert!(!text_plain(&text).contains('\u{1b}'));
+    }
+
+    #[test]
+    fn terminal_output_keeps_sgr_across_visible_newlines() {
+        let lines = vec!["\x1b[32mhello".to_string(), "world\x1b[0m".to_string()];
+        let text = terminal_output_text(&lines, 10);
+        assert!(
+            span_has_fg(&text, "hello", Color::Green),
+            "first line should stay green, got {:?}",
+            text.lines
+        );
+        assert!(
+            span_has_fg(&text, "world", Color::Green),
+            "joined SGR should color the second line, got {:?}",
+            text.lines
+        );
+    }
+
+    #[test]
+    fn terminal_output_limits_to_last_max_lines() {
+        let lines = vec!["hidden".to_string(), "visible".to_string()];
+        let text = terminal_output_text(&lines, 1);
+        let plain = text_plain(&text);
+        assert!(plain.contains("visible"), "got {plain:?}");
+        assert!(
+            !plain.contains("hidden"),
+            "viewport should drop older lines, got {plain:?}"
+        );
+    }
+
+    #[test]
+    fn draw_ui_terminal_screen_renders_ansi_without_escape_codes() {
+        let (context, mut state) = test_app();
+        state.push_screen(Screen::Terminal(TerminalState {
+            command: "echo".into(),
+            output_lines: vec!["\x1b[31mred\x1b[0m".into(), "plain".into()],
+            is_running: false,
+            pid: None,
+        }));
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|f| draw_ui(f, &context, &state))
+            .expect("draw terminal screen");
+
+        let buf = terminal.backend().buffer();
+        let painted: String = buf.content().iter().map(|cell| cell.symbol()).collect();
+        assert!(
+            painted.contains("red"),
+            "terminal screen should show decoded text"
+        );
+        assert!(painted.contains("plain"));
+        assert!(
+            !painted.contains('\u{1b}') && !painted.contains("[31m"),
+            "SGR escapes must not leak into the buffer, got a slice around red"
+        );
+        let has_red_cell = buf.content().iter().any(|cell| {
+            cell.symbol() == "r" && cell.fg == Color::Red
+                || cell.symbol() == "e" && cell.fg == Color::Red
+        });
+        assert!(
+            has_red_cell,
+            "decoded 'red' should be painted with Color::Red"
+        );
     }
 }
