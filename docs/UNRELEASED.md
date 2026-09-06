@@ -49,6 +49,7 @@
 - Session state grouped into `PanelPair`, `HistoryState`, and `UpdateState` on `AppState`.
 - Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
 - Internal F3 viewer split into `src/ui/viewer/{state,text,hex,image}.rs`.
+- Overlay `PopupType` paste handling and plugin widgets live in focused files under `src/app/state/popup/`.
 - Overlay dialogs live in `src/app/state/popup/` (`QuickViewDialog` boxed; config settings boxed) so `PopupType` is no longer a huge enum payload.
 - Plugin updater, directory listing, and Settings split into focused modules.
 - Dialogs use a `DialogStack` (`state.dialogs`) with replace/push/pop instead of a single `Option` popup.
