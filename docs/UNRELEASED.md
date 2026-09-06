@@ -18,7 +18,7 @@
 - CI acceptance plugins under `tests/plugin_acceptance/` (surface, fs, cx/utils, Command echo).
 - `pairee.emit`, `pairee.notify`, and `pairee.file_cache` are callable functions (they were nested tables).
 - Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.
-- Integration smoke tests under `tests/` for isolated temp workspace, settings TOML roundtrip, and transfer filesystem contracts.
+- Integration tests under `tests/` cover isolated temp workspace, Settings TOML roundtrip, shipped keymap presets, packaged EN/ES keys, AppState panel roots, and zip extract.
 - Project-level `rustfmt.toml` and `clippy.toml` for consistent CI quality gates.
 - Declared MSRV (`rust-version = "1.88"`, required by `tui-scrollbar`) and package metadata in `Cargo.toml`.
 - Transfer Strategy backends (`local` / `ssh`) under `src/fs/transfer/backend/` with unified job submission.

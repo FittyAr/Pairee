@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **230 unit + 7 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **230 unit + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -38,7 +38,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | P1 | Transfer Engine unificado + sin legacy progress | **Hecho** (Fase B) |
 | **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Hecho** (Fase F; which-key opcional) |
 | P1 | Partir God objects (`AppState`, `PopupType`) | **Hecho** (Fase C; `src/lib.rs`) |
-| P1 | Tests de integración + cobertura | En curso |
+| P1 | Tests de integración + cobertura | **≥15 integration**; cobertura aún no medida |
 | P2 | Roadmap plugins (G1–G14) | En curso (D: diálogos + File/`cx`) |
 | P3 | Feature flags, i18n extra, onboarding | **Hecho** (palette, onboarding, flags, threat, i18n, fuzz, macOS CI) |
 
@@ -376,7 +376,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **230 unit + 7 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **230 unit + 15 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -412,7 +412,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-25 | `db0bac2` | refactor: partir `popup/mod.rs` (paste + PluginWidget) |
 | 2026-08-25 | `c8d6e8f` | feat: Lua File mime/mtime/hidden/exec (API 1.1.0) |
 | 2026-08-25 | `5d1ed7c` | feat: shlex / quoted command-line split |
-| 2026-09-06 | _(este)_ | feat: ANSI SGR en pantalla Terminal (`ansi-to-tui`) |
+| 2026-09-06 | `76df38f` | feat: ANSI SGR en pantalla Terminal (`ansi-to-tui`) |
+| 2026-09-06 | _(este)_ | test: 15 integration (keymaps, settings TOML, zip extract, i18n) |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -429,6 +430,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x TestBackend draw/resize] [x keymap errors UI] [x Gray+ docs]
              │  [x viewer.rs split] [x popup paste/widget split]
              │  [x File mime/mtime] [x shlex cmdline] [x ansi-to-tui Terminal]
+             │  [x ≥15 integration tests]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -444,10 +446,10 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key opcional, PTY real. Segmentación de archivos (~450 LOC) **al final**.  
+Siguiente: **checklist TTY manual**, which-key opcional, PTY real, `cargo deny` opcional. Segmentación de archivos (~450 LOC) **al final**.  
 `ratatui-which-key` sigue opcional (no dual-keymap).  
 Apply-command sigue sin capturar stdout (solo éxito/error en el panel de transfer).
 
 ---
 
-*Última actualización del progreso: 2026-09-06 (ansi-to-tui Terminal SGR).*
+*Última actualización del progreso: 2026-09-06 (15 tests de integración).*
