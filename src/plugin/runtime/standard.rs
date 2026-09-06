@@ -171,17 +171,11 @@ fn bind_translations(
                 let parts: Vec<&str> = k.split('.').collect();
                 let mut current = dict;
                 for (i, &part) in parts.iter().enumerate() {
-                    if let Some(val) = current.get(part) {
-                        if i == parts.len() - 1 {
-                            return val.as_str().map(|s| s.to_string());
-                        } else if let Some(tbl) = val.as_table() {
-                            current = tbl;
-                        } else {
-                            return None;
-                        }
-                    } else {
-                        return None;
+                    let val = current.get(part)?;
+                    if i == parts.len() - 1 {
+                        return val.as_str().map(|s| s.to_string());
                     }
+                    current = val.as_table()?;
                 }
                 None
             };

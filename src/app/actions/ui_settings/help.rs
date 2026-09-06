@@ -94,7 +94,7 @@ pub async fn open_help(state: &mut AppState) {
         let help_dir = p.path.join("help");
         if help_dir.exists() && help_dir.is_dir() {
             let lang_code = crate::config::localization::get_active_language_code();
-            let mut help_path = help_dir.join(format!("{}.md", &lang_code));
+            let mut help_path = help_dir.join(format!("{}.md", lang_code));
             if !help_path.exists() {
                 let default_lang = p.manifest.default_language.as_deref().unwrap_or("en");
                 help_path = help_dir.join(format!("{}.md", default_lang));

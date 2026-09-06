@@ -37,6 +37,7 @@
 - TUI draw path uses synchronized updates and dirty-flag rendering to reduce flicker/glitches.
 - Scroll indicators use theme colors and proportional thumbs instead of ratatui’s full-cell default.
 - Clippy collapsible-if and related lint cleanups so `cargo clippy -- -D warnings` is green again.
+- Clippy 1.98 cleanups (`useless_borrows_in_formatting`, `question_mark` in Lua `t()` lookup).
 - CI `check` workflow now targets `master`/`main`, runs tests on Ubuntu and Windows, uses Node 24-aligned actions, and rejects crate-level `clippy::all` allows.
 - Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
 - README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
@@ -47,6 +48,7 @@
 
 - Session state grouped into `PanelPair`, `HistoryState`, and `UpdateState` on `AppState`.
 - Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
+- Internal F3 viewer split into `src/ui/viewer/{state,text,hex,image}.rs`.
 - Overlay dialogs live in `src/app/state/popup/` (`QuickViewDialog` boxed; config settings boxed) so `PopupType` is no longer a huge enum payload.
 - Plugin updater, directory listing, and Settings split into focused modules.
 - Dialogs use a `DialogStack` (`state.dialogs`) with replace/push/pop instead of a single `Option` popup.
