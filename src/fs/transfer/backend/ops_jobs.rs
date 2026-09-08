@@ -179,9 +179,11 @@ async fn run_apply_command(
 
         let quoted = crate::app::actions::fs_ops::helper::shell_quote(path);
         let cmd = cmd_template.replace("%f", &quoted);
+        emit_command_output(&control, &format!("$ {cmd}"));
 
         match run_shell_command(&cmd).await {
-            Ok(()) => {
+            Ok(text) => {
+                emit_command_output(&control, &text);
                 let result = FileTransferResult {
                     src: path.clone(),
                     dst: PathBuf::new(),
@@ -198,6 +200,7 @@ async fn run_apply_command(
                 });
             }
             Err(e) => {
+                emit_command_output(&control, &e.to_string());
                 let err_msg = format!("Command failed for {:?}: {}", path, e);
                 return fail_file(&control, &mut results, path.clone(), err_msg);
             }
@@ -207,7 +210,41 @@ async fn run_apply_command(
     complete_ok(&control, results)
 }
 
-async fn run_shell_command(cmd: &str) -> anyhow::Result<()> {
+/// Split captured command output into terminal lines (strip CR, drop a trailing empty line).
+pub(crate) fn split_command_output(text: &str) -> Vec<String> {
+    if text.is_empty() {
+        return Vec::new();
+    }
+    let text = text.trim_end_matches(['\n', '\r']);
+    if text.is_empty() {
+        return Vec::new();
+    }
+    text.split('\n')
+        .map(|line| line.trim_end_matches('\r').to_string())
+        .collect()
+}
+
+fn emit_command_output(control: &BackendControl, text: &str) {
+    for line in split_command_output(text) {
+        let _ = control.event_tx.send(TransferEvent::CommandOutput {
+            job_id: control.job_id,
+            line,
+        });
+    }
+}
+
+fn combine_stdio(stdout: &[u8], stderr: &[u8]) -> String {
+    let out = String::from_utf8_lossy(stdout);
+    let err = String::from_utf8_lossy(stderr);
+    match (out.is_empty(), err.is_empty()) {
+        (true, true) => String::new(),
+        (false, true) => out.into_owned(),
+        (true, false) => err.into_owned(),
+        (false, false) => format!("{out}{err}"),
+    }
+}
+
+async fn run_shell_command(cmd: &str) -> anyhow::Result<String> {
     #[cfg(unix)]
     let output = tokio::process::Command::new("sh")
         .arg("-c")
@@ -222,11 +259,11 @@ async fn run_shell_command(cmd: &str) -> anyhow::Result<()> {
         .output()
         .await?;
 
+    let text = combine_stdio(&output.stdout, &output.stderr);
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
-        anyhow::bail!("{}", stderr.trim());
+        anyhow::bail!("{}", text.trim());
     }
-    Ok(())
+    Ok(text)
 }
 
 async fn run_archive_blocking<F>(
@@ -383,4 +420,42 @@ fn complete_ok(
         results: results.clone(),
     });
     Ok(results)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{combine_stdio, split_command_output};
+
+    #[test]
+    fn split_command_output_strips_cr_and_keeps_sgr() {
+        let lines = split_command_output("\x1b[31mred\x1b[0m\r\nnext\n");
+        assert_eq!(
+            lines,
+            vec!["\x1b[31mred\x1b[0m".to_string(), "next".to_string()]
+        );
+    }
+
+    #[test]
+    fn split_command_output_empty_is_empty() {
+        assert!(split_command_output("").is_empty());
+        assert!(split_command_output("\n").is_empty());
+    }
+
+    #[test]
+    fn combine_stdio_joins_stdout_then_stderr() {
+        assert_eq!(combine_stdio(b"out\n", b"err\n"), "out\nerr\n");
+        assert_eq!(combine_stdio(b"", b"err"), "err");
+        assert!(combine_stdio(b"", b"").is_empty());
+    }
+
+    #[tokio::test]
+    async fn run_shell_command_captures_echo() {
+        let text = super::run_shell_command("echo hello")
+            .await
+            .expect("echo should succeed");
+        assert!(
+            text.to_lowercase().contains("hello"),
+            "expected echo output, got {text:?}"
+        );
+    }
 }

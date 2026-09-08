@@ -165,6 +165,7 @@ pub fn process_background_updates(
 
     // 1.9 Process Transfer Engine events
     let mut refresh_needed = false;
+    let mut term_forwards: Vec<(uuid::Uuid, Option<String>)> = Vec::new();
     if let Some(ref mut transfer_state) = state.transfer {
         while let Ok(event) = transfer_state.event_rx.try_recv() {
             use crate::fs::transfer::events::TransferEvent;
@@ -274,6 +275,9 @@ pub fn process_background_updates(
                         }
                     });
                 }
+                TransferEvent::CommandOutput { job_id, line } => {
+                    term_forwards.push((job_id, Some(line)));
+                }
                 TransferEvent::FileCompleted { job_id, result } => {
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         if let Some(ref mut prog) = job.progress {
@@ -353,6 +357,7 @@ pub fn process_background_updates(
                     });
                 }
                 TransferEvent::JobCompleted { results, job_id } => {
+                    term_forwards.push((job_id, None));
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.log_lines
                             .push(format!("[{}] Job completed successfully", job_id));
@@ -397,6 +402,7 @@ pub fn process_background_updates(
                     }
                 }
                 TransferEvent::JobFailed { error, job_id } => {
+                    term_forwards.push((job_id, None));
                     transfer_state.engine.queue.update_job(job_id, |job| {
                         job.log_lines
                             .push(format!("[{}] Job failed: {}", job_id, error));
@@ -458,6 +464,21 @@ pub fn process_background_updates(
                 });
             }
         }
+    }
+    if !term_forwards.is_empty() {
+        for (job_id, line) in term_forwards {
+            for screen in &mut state.screens {
+                if let Screen::Terminal(ts) = screen
+                    && ts.job_id == Some(job_id)
+                {
+                    match &line {
+                        Some(text) => ts.output_lines.push(text.clone()),
+                        None => ts.is_running = false,
+                    }
+                }
+            }
+        }
+        state.mark_ui_dirty();
     }
     if refresh_needed {
         state.refresh_both_panels(context.config.settings.show_hidden);

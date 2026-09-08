@@ -92,6 +92,7 @@ pub fn handle_cli_input(
                         output_lines: vec![],
                         is_running: true,
                         pid: None,
+                        job_id: None,
                     };
 
                     state.push_screen(crate::app::state::Screen::Terminal(ts));

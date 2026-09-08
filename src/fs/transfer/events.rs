@@ -33,6 +33,11 @@ pub enum TransferEvent {
         job_id: Uuid,
         result: FileTransferResult,
     },
+    /// One captured stdout/stderr line from ApplyCommand (may include SGR).
+    CommandOutput {
+        job_id: Uuid,
+        line: String,
+    },
     FileFailed {
         job_id: Uuid,
         error: FailedFile,

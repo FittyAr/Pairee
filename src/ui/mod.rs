@@ -365,6 +365,7 @@ mod tests {
             output_lines: vec!["\x1b[31mred\x1b[0m".into(), "plain".into()],
             is_running: false,
             pid: None,
+            job_id: None,
         }));
         let backend = TestBackend::new(80, 24);
         let mut terminal = Terminal::new(backend).expect("test terminal");

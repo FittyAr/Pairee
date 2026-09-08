@@ -3,6 +3,7 @@
 use super::engine::TransferEngine;
 use super::job::{SshEndpoints, TransferJob, TransferOperation};
 use super::options::TransferOptions;
+use crate::app::state::types::{Screen, TerminalState};
 use crate::app::state::{AppState, TransferViewMode};
 use crate::fs::ssh::SharedSshClient;
 use std::path::PathBuf;
@@ -55,6 +56,8 @@ pub fn submit_simple(
 }
 
 /// Enqueue ApplyCommand (`%f` = each source path) on the Transfer Engine UI.
+///
+/// Opens a Terminal screen so captured stdout/stderr (including SGR) is visible.
 pub fn submit_apply_command(state: &mut AppState, template: String, targets: Vec<PathBuf>) {
     let job = TransferJob::new(
         TransferOperation::ApplyCommand,
@@ -62,6 +65,34 @@ pub fn submit_apply_command(state: &mut AppState, template: String, targets: Vec
         PathBuf::new(),
         TransferOptions::default(),
     )
-    .with_shell_template(template);
+    .with_shell_template(template.clone());
+    state.push_screen(Screen::Terminal(TerminalState {
+        command: template,
+        output_lines: Vec::new(),
+        is_running: true,
+        pid: None,
+        job_id: Some(job.id),
+    }));
     submit_job(state, job);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::AppState;
+
+    #[tokio::test]
+    async fn submit_apply_command_opens_running_terminal_screen() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        submit_apply_command(&mut state, "echo %f".into(), vec![PathBuf::from("a.txt")]);
+        match state.screens.last() {
+            Some(Screen::Terminal(ts)) => {
+                assert_eq!(ts.command, "echo %f");
+                assert!(ts.is_running);
+                assert!(ts.job_id.is_some());
+                assert!(ts.output_lines.is_empty());
+            }
+            other => panic!("expected Terminal screen, got {other:?}"),
+        }
+    }
 }

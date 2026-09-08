@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **244 unit + 15 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **249 unit + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -264,7 +264,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `unicode-width` + `unicode-segmentation` | Truncate/pad de nombres de archivo, columnas de panel | P1 |
 | Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | **P1 — hecho** (catálogo + paleta; F-keys/help siguen en i18n) |
 | `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | **P1 — hecho** |
-| `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | **P2 — hecho** (pantalla Terminal; apply-command no captura stdout) |
+| `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | **P2 — hecho** (Terminal + apply-command stdout/stderr) |
 | `shlex` | Parse seguro de comandos usuario (apply / user menu) | **P2 — hecho** (associations + CLI first token; apply sigue en shell con `%f` quoted) |
 | Terminal capability detection (brand, KKP unreliable) | Degradar features en conhost / tmux viejo | P2 |
 | Tests PTY e2e de render | Smoke resize + draw en CI (`TestBackend`; PTY real pendiente) | **P2 — smoke CI** |
@@ -377,7 +377,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **244 unit + 15 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **249 unit + 15 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -418,7 +418,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-09-06 | `f5af573` | feat: `arboard` + Copy path (`Ctrl+Shift+C`) |
 | 2026-09-07 | `aaae1e4` | ci: `cargo deny` (licenses, advisories, sources) |
 | 2026-09-07 | `046fed9` | feat: sevenz-rust2 + nucleo-matcher palette |
-| 2026-09-07 | _(este)_ | feat: ActionDef catalogue for command palette |
+| 2026-09-07 | `5a15a63` | feat: ActionDef catalogue for command palette |
+| 2026-09-07 | _(este)_ | feat: apply-command stdout on Terminal (ANSI) |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -437,6 +438,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x File mime/mtime] [x shlex cmdline] [x ansi-to-tui Terminal]
              │  [x ≥15 integration tests] [x arboard Copy path] [x cargo deny]
              │  [x sevenz-rust2] [x nucleo palette] [x ActionDef catalogue]
+             │  [x apply-command Terminal stdout]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -452,10 +454,9 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key opcional, PTY real. Segmentación de archivos (~450 LOC) **al final**.  
-`ratatui-which-key` sigue opcional (no dual-keymap).  
-Apply-command sigue sin capturar stdout (solo éxito/error en el panel de transfer).
+Siguiente: **checklist TTY manual**, which-key overlay sobre el keymap actual (no dual), PTY real. Segmentación de archivos (~450 LOC) **al final**.  
+`ratatui-which-key` sigue opcional (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-09-07 (ActionDef catalogue).*
+*Última actualización del progreso: 2026-09-07 (apply-command stdout Terminal).*

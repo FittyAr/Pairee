@@ -128,6 +128,8 @@ pub struct TerminalState {
     pub is_running: bool,
     #[allow(dead_code)]
     pub pid: Option<u32>,
+    /// When set, Transfer Engine apply-command stdout is routed here.
+    pub job_id: Option<uuid::Uuid>,
 }
 
 /// Progress message emitted by a long-running Developer Tools operation
