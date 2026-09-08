@@ -1,63 +1,20 @@
 //! Load and **validate** keymaps using the `keybinds` crate.
-//!
-//! Guarantees:
-//! - Invalid chords (e.g. `Ctrl+rj`) fail parse → rejected, never silently ignored as no-ops.
-//! - Duplicate chords (same sequence bound to two actions) are rejected (last-wins is forbidden).
-//! - Multiple chords per action remain allowed (`"Insert, Space"`).
-//! - Presets Norton / Neovim / VSCode ship as TOML under `keymaps/`.
+
+pub mod disk;
+pub mod report;
+
+pub use disk::normalize_user_chord;
+pub use report::KeymapLoadReport;
 
 use super::actions::Action;
 use super::preset::parse_action_name;
-use crate::config::localization::t;
-use crate::config::paths;
 use keybinds::{KeySeq, Keybind, Keybinds};
 use serde::Deserialize;
 use std::collections::HashMap;
-use std::path::PathBuf;
-
-const EMBEDDED_NORTON: &str = include_str!("../../keymaps/norton.toml");
-const EMBEDDED_NEOVIM: &str = include_str!("../../keymaps/neovim.toml");
-const EMBEDDED_VSCODE: &str = include_str!("../../keymaps/vscode.toml");
 
 #[derive(Debug, Deserialize)]
 struct PresetFile {
     bindings: HashMap<String, String>,
-}
-
-/// Issues found while loading a keymap (invalid chords, conflicts, unknown actions).
-#[derive(Debug, Default, Clone)]
-pub struct KeymapLoadReport {
-    pub errors: Vec<String>,
-    pub warnings: Vec<String>,
-    pub bound_count: usize,
-}
-
-impl KeymapLoadReport {
-    pub fn ok(&self) -> bool {
-        self.errors.is_empty()
-    }
-
-    /// One-line status for the Settings → Interface keymap row.
-    pub fn summary_line(&self) -> String {
-        if self.ok() && self.warnings.is_empty() {
-            format!("{} ({})", t("int_keymap_ok"), self.bound_count)
-        } else {
-            format!("{} ({})", t("int_keymap_bad"), self.errors.len())
-        }
-    }
-
-    /// Multi-line report for the nested keymap-issues overlay.
-    pub fn detail_lines(&self) -> Vec<String> {
-        let mut lines = vec![self.summary_line()];
-        for e in &self.errors {
-            lines.push(format!("! {e}"));
-        }
-        for w in &self.warnings {
-            lines.push(format!("* {w}"));
-        }
-        lines.push(t("int_keymap_gray"));
-        lines
-    }
 }
 
 /// Build a validated [`Keybinds`] dispatcher for the active preset + user overrides.
@@ -67,10 +24,9 @@ pub fn load_keybinds(
 ) -> (Keybinds<Action>, KeymapLoadReport) {
     let mut report = KeymapLoadReport::default();
     let mut keybinds = Keybinds::default();
-    // chord_display → action name already bound (for conflict detection)
     let mut chord_owner: HashMap<String, String> = HashMap::new();
 
-    let toml_src = load_preset_toml(preset, &mut report);
+    let toml_src = disk::load_preset_toml(preset, &mut report);
     let mut pairs: Vec<(String, String)> = Vec::new();
 
     if let Some(content) = toml_src {
@@ -88,7 +44,6 @@ pub fn load_keybinds(
         }
     }
 
-    // User overrides last so they can replace preset chords (still validated).
     for (action, keys) in custom_bindings {
         pairs.push((action.clone(), keys.clone()));
     }
@@ -107,7 +62,6 @@ pub fn load_keybinds(
                 continue;
             }
 
-            // Parse with keybinds grammar — rejects impossible chords like "Ctrl+rj".
             let seq: KeySeq = match chord.parse() {
                 Ok(s) => s,
                 Err(e) => {
@@ -126,11 +80,9 @@ pub fn load_keybinds(
                     ));
                     continue;
                 }
-                // Same action rebound — ignore duplicate entry.
                 continue;
             }
 
-            // Also reject if an existing Keybind already owns this sequence (defensive).
             if keybinds
                 .as_slice()
                 .iter()
@@ -157,90 +109,6 @@ pub fn load_keybinds(
     (keybinds, report)
 }
 
-fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<String> {
-    let name = normalize_preset_name(preset);
-
-    // 1) User config dir
-    let path = paths::get_keymaps_dir().join(format!("{name}.toml"));
-    if path.exists() {
-        match std::fs::read_to_string(&path) {
-            Ok(s) => return Some(s),
-            Err(e) => report
-                .warnings
-                .push(format!("Could not read '{}': {e}", path.display())),
-        }
-    }
-
-    // 2) CWD / shipped keymaps next to binary
-    for candidate in shipped_keymap_candidates(&name) {
-        if candidate.exists()
-            && let Ok(s) = std::fs::read_to_string(&candidate)
-        {
-            return Some(s);
-        }
-    }
-
-    // 3) Embedded defaults
-    let embedded = match name.as_str() {
-        "neovim" | "vim" => Some(EMBEDDED_NEOVIM),
-        "vscode" | "modern" => Some(EMBEDDED_VSCODE),
-        _ => {
-            if name != "norton" {
-                report.warnings.push(format!(
-                    "Preset '{preset}' not found on disk — falling back to embedded norton"
-                ));
-            }
-            Some(EMBEDDED_NORTON)
-        }
-    };
-    embedded.map(|s| s.to_string())
-}
-
-fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
-    let mut out = Vec::new();
-    if let Ok(cwd) = std::env::current_dir() {
-        out.push(cwd.join("keymaps").join(format!("{name}.toml")));
-    }
-    if let Ok(exe) = std::env::current_exe()
-        && let Some(dir) = exe.parent()
-    {
-        out.push(dir.join("keymaps").join(format!("{name}.toml")));
-        out.push(
-            dir.join("../share/pairee/keymaps")
-                .join(format!("{name}.toml")),
-        );
-    }
-    out
-}
-
-fn normalize_preset_name(preset: &str) -> String {
-    match preset.to_lowercase().as_str() {
-        "vim" => "neovim".into(),
-        "modern" => "vscode".into(),
-        other => other.to_string(),
-    }
-}
-
-/// Map legacy / friendly aliases to keybinds grammar.
-/// Rejects empty; does not invent multi-character keys after modifiers.
-fn normalize_user_chord(raw: &str) -> String {
-    let s = raw.trim();
-    if s.is_empty() {
-        return String::new();
-    }
-    // Legacy Far-style gray keys → named keys supported by keybinds.
-    match s {
-        // Numpad / "gray" keys from Far-style docs → logical keys accepted by keybinds.
-        "Gray+" | "gray+" | "GRAY+" => return "Plus".into(),
-        "Gray-" | "gray-" | "GRAY-" => return "-".into(),
-        "Gray*" | "gray*" | "GRAY*" => return "*".into(),
-        "Menu" | "menu" => return "Menu".into(),
-        _ => {}
-    }
-    // keybinds accepts Ctrl/Alt/Shift mixed case; leave as-is for parse.
-    s.to_string()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -263,7 +131,6 @@ mod tests {
     #[test]
     fn rejects_duplicate_chords_across_actions() {
         let mut custom = HashMap::new();
-        // F5 is already copy in norton; force conflict with delete.
         custom.insert("delete".into(), "F5".into());
         let (_kb, report) = load_keybinds("norton", &custom);
         assert!(
@@ -277,7 +144,6 @@ mod tests {
     fn norton_loads_core_bindings() {
         let (mut kb, report) = load_keybinds("norton", &HashMap::new());
         assert!(report.bound_count > 20, "bound={}", report.bound_count);
-        // Invalid-only custom shouldn't wipe base if we only add bad custom — full load should work
         assert!(report.ok() || report.errors.is_empty() || report.bound_count > 0);
 
         use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
