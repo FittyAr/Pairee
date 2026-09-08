@@ -50,6 +50,9 @@ ansi-to-tui = "8.0"
 arboard = "3.6.1"
 sevenz-rust2 = "0.22"
 nucleo-matcher = "0.3.1"
+# Unix openpty / Windows ConPTY for background Terminal (`command &`) and apply-command.
+# Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
+portable-pty = "0.8.1"
 
 [dev-dependencies]
 tempfile = "3.27"

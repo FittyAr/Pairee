@@ -35,6 +35,7 @@
 
 ### Improved
 
+- Background Terminal (`command &`) and apply-command run on a real PTY (Windows ConPTY / Unix pty), so programs that check for a TTY can emit colors and use normal line buffering.
 - Apply-command (`Ctrl+G`) opens the Terminal screen and shows captured stdout/stderr with ANSI colors, while the Transfer Engine still tracks progress.
 - Command palette entries come from a shared `ActionDef` catalogue (`id` + category) instead of a second hardcoded name list.
 - Native 7z extract/list uses maintained `sevenz-rust2` instead of unmaintained `sevenz-rust` (Zip-Slip sanitization kept).

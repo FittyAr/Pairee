@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod events;
+pub mod pty_cmd;
 pub mod standalone;
 #[cfg(target_os = "linux")]
 pub mod x11_poll;

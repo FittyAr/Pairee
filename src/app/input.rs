@@ -99,92 +99,24 @@ pub fn handle_cli_input(
                     let screen_idx = state.screens.len() - 1;
                     let tx = state.term_tx.clone();
 
-                    let shell = if cfg!(target_os = "windows") {
-                        "cmd"
-                    } else {
-                        "sh"
-                    };
-                    let arg = if cfg!(target_os = "windows") {
-                        "/c"
-                    } else {
-                        "-c"
-                    };
-
-                    tokio::spawn(async move {
-                        use std::process::Stdio;
-                        use tokio::io::AsyncBufReadExt;
-
-                        let mut child = match tokio::process::Command::new(shell)
-                            .arg(arg)
-                            .arg(&cmd_bg)
-                            .current_dir(current_dir)
-                            .stdout(Stdio::piped())
-                            .stderr(Stdio::piped())
-                            .spawn()
-                        {
-                            Ok(c) => c,
-                            Err(e) => {
-                                let _ = tx.send(crate::app::state::TerminalUpdate {
-                                    screen_idx,
-                                    line: Some(format!("Failed to spawn: {}", e)),
-                                });
-                                let _ = tx.send(crate::app::state::TerminalUpdate {
-                                    screen_idx,
-                                    line: None,
-                                });
-                                return;
-                            }
-                        };
-
-                        // `Command` is configured with `Stdio::piped()` for
-                        // both handles above, so `take()` must succeed. We
-                        // still `match` instead of `unwrap` so that a
-                        // future refactor that drops the `.stdout(...)`
-                        // call cannot panic the spawned task and crash
-                        // the whole terminal screen.
-                        let (Some(stdout), Some(stderr)) =
-                            (child.stdout.take(), child.stderr.take())
-                        else {
-                            let _ = tx.send(crate::app::state::TerminalUpdate {
-                                screen_idx,
-                                line: Some(
-                                    "Internal error: child stdio handles not piped".to_string(),
-                                ),
-                            });
-                            let _ = tx.send(crate::app::state::TerminalUpdate {
-                                screen_idx,
-                                line: None,
-                            });
-                            return;
-                        };
-
-                        let tx_out = tx.clone();
-                        let tx_err = tx.clone();
-
-                        let mut out_reader = tokio::io::BufReader::new(stdout).lines();
-                        let mut err_reader = tokio::io::BufReader::new(stderr).lines();
-
-                        let out_task = tokio::spawn(async move {
-                            while let Ok(Some(line)) = out_reader.next_line().await {
-                                let _ = tx_out.send(crate::app::state::TerminalUpdate {
+                    tokio::task::spawn_blocking(move || {
+                        let tx_line = tx.clone();
+                        let run = crate::terminal::pty_cmd::stream_shell_on_pty(
+                            &cmd_bg,
+                            Some(&current_dir),
+                            |line| {
+                                let _ = tx_line.send(crate::app::state::TerminalUpdate {
                                     screen_idx,
                                     line: Some(line),
                                 });
-                            }
-                        });
-
-                        let err_task = tokio::spawn(async move {
-                            while let Ok(Some(line)) = err_reader.next_line().await {
-                                let _ = tx_err.send(crate::app::state::TerminalUpdate {
-                                    screen_idx,
-                                    line: Some(line),
-                                });
-                            }
-                        });
-
-                        let _ = tokio::join!(out_task, err_task);
-                        let _ = child.wait().await;
-
+                            },
+                        );
+                        if let Err(e) = run {
+                            let _ = tx.send(crate::app::state::TerminalUpdate {
+                                screen_idx,
+                                line: Some(format!("Failed to spawn: {e}")),
+                            });
+                        }
                         let _ = tx.send(crate::app::state::TerminalUpdate {
                             screen_idx,
                             line: None,

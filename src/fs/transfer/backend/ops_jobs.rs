@@ -233,6 +233,7 @@ fn emit_command_output(control: &BackendControl, text: &str) {
     }
 }
 
+#[cfg(test)]
 fn combine_stdio(stdout: &[u8], stderr: &[u8]) -> String {
     let out = String::from_utf8_lossy(stdout);
     let err = String::from_utf8_lossy(stderr);
@@ -245,25 +246,15 @@ fn combine_stdio(stdout: &[u8], stderr: &[u8]) -> String {
 }
 
 async fn run_shell_command(cmd: &str) -> anyhow::Result<String> {
-    #[cfg(unix)]
-    let output = tokio::process::Command::new("sh")
-        .arg("-c")
-        .arg(cmd)
-        .output()
-        .await?;
-
-    #[cfg(windows)]
-    let output = tokio::process::Command::new("cmd")
-        .arg("/C")
-        .arg(cmd)
-        .output()
-        .await?;
-
-    let text = combine_stdio(&output.stdout, &output.stderr);
-    if !output.status.success() {
-        anyhow::bail!("{}", text.trim());
+    let cmd = cmd.to_string();
+    let result =
+        tokio::task::spawn_blocking(move || crate::terminal::pty_cmd::run_shell_on_pty(&cmd, None))
+            .await
+            .map_err(|e| anyhow!("pty task join error: {e}"))??;
+    if !result.success {
+        anyhow::bail!("{}", result.output.trim());
     }
-    Ok(text)
+    Ok(result.output)
 }
 
 async fn run_archive_blocking<F>(
