@@ -111,7 +111,8 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                 | crate::terminal::Event::Mouse(_)
                 | crate::terminal::Event::Resize(_, _)
                 | crate::terminal::Event::ModifiersChanged(_)
-                | crate::terminal::Event::Paste(_) => {
+                | crate::terminal::Event::Paste(_)
+                | crate::terminal::Event::Terminate => {
                     state.mark_ui_dirty();
                 }
                 crate::terminal::Event::Tick => {}

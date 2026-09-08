@@ -10,12 +10,13 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+use crate::app::state::popup::GitPromptPopup;
+
 /// Renders the git commit message input prompt.
 pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
-    if let PopupType::GitCommitPrompt {
-        input, cursor_idx, ..
-    } = popup
-    {
+    if let PopupType::GitPrompt(GitPromptPopup::CommitPrompt(state)) = popup {
+        let input = &state.input;
+        let cursor_idx = &state.cursor_idx;
         let area = centered_rect_fixed(60, 7, size);
         f.render_widget(Clear, area);
 

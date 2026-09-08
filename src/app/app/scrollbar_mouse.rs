@@ -80,12 +80,14 @@ fn apply_scroll_offset(
             );
         }
         ScrollTargetId::GitList => {
-            if let Some(PopupType::GitPanel {
-                cursor_idx, scroll, ..
-            }) = state.dialogs.top_mut()
-            {
-                *scroll = offset;
-                scrollbar::clamp_cursor_to_offset(cursor_idx, offset, viewport, content_len);
+            if let Some(PopupType::GitPanel(panel)) = state.dialogs.top_mut() {
+                panel.scroll = offset;
+                scrollbar::clamp_cursor_to_offset(
+                    &mut panel.cursor_idx,
+                    offset,
+                    viewport,
+                    content_len,
+                );
             }
         }
         ScrollTargetId::HistoryCommand => {

@@ -17,7 +17,7 @@ pub fn render(
     size: Rect,
     context: &AppContext,
 ) -> bool {
-    if let PopupType::SshConnectPrompt {
+    if let PopupType::SshConnectPrompt(crate::app::state::SshConnectPromptState {
         panel: _,
         input_name,
         input_host,
@@ -27,7 +27,7 @@ pub fn render(
         input_key_path,
         cursor_idx,
         selected_preset_idx,
-    } = popup
+    }) = popup
     {
         let area = centered_rect_fixed(75, 12, size);
         f.render_widget(Clear, area);

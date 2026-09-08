@@ -10,12 +10,13 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+use crate::app::state::popup::GitPromptPopup;
+
 /// Renders the git checkout confirmation dialog.
 pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
-    if let PopupType::GitConfirmCheckout {
-        target, is_branch, ..
-    } = popup
-    {
+    if let PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(state)) = popup {
+        let target = &state.target;
+        let is_branch = &state.is_branch;
         let area = centered_rect_fixed(60, 8, size);
         f.render_widget(Clear, area);
 

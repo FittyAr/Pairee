@@ -22,14 +22,14 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::ConfigurationDialog {
+    if let Some(PopupType::ConfigurationDialog(crate::app::state::ConfigurationDialogState {
         active_tab,
         cursor_idx,
         editing_value,
         edit_buffer,
         settings,
         focus_on_tabs,
-    }) = state.dialogs.top().cloned()
+    })) = state.dialogs.top().cloned()
     {
         if editing_value {
             state.dialogs.set(editing::handle_editing(

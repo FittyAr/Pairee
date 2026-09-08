@@ -87,14 +87,14 @@ pub fn handle(
                             state.refresh_both_panels(context.config.settings.show_hidden);
                         }
                         crate::app::state::types::TreeViewCaller::CopyPrompt { mut previous } => {
-                            if let PopupType::CopyPrompt { ref mut input, .. } = *previous {
-                                *input = target.to_string_lossy().to_string();
+                            if let PopupType::CopyPrompt(ref mut prompt) = *previous {
+                                prompt.input = target.to_string_lossy().to_string();
                             }
                             state.dialogs.replace(*previous);
                         }
                         crate::app::state::types::TreeViewCaller::MovePrompt { mut previous } => {
-                            if let PopupType::MovePrompt { ref mut input, .. } = *previous {
-                                *input = target.to_string_lossy().to_string();
+                            if let PopupType::MovePrompt(ref mut prompt) = *previous {
+                                prompt.input = target.to_string_lossy().to_string();
                             }
                             state.dialogs.replace(*previous);
                         }

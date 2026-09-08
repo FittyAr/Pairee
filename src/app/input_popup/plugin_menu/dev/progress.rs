@@ -14,16 +14,10 @@ pub fn begin_dev_op(
 ) -> tokio::sync::mpsc::UnboundedSender<DevProgress> {
     let (tx, rx) = tokio::sync::mpsc::unbounded_channel::<DevProgress>();
     state.plugins.dev_progress_rx = Some(rx);
-    if let Some(PopupType::PluginMenu {
-        dev_loading,
-        dev_loading_status,
-        dev_loading_progress,
-        ..
-    }) = state.dialogs.top_mut()
-    {
-        *dev_loading = true;
-        *dev_loading_status = initial_status;
-        *dev_loading_progress = None;
+    if let Some(PopupType::PluginMenu(menu)) = state.dialogs.top_mut() {
+        menu.dev_loading = true;
+        menu.dev_loading_status = initial_status;
+        menu.dev_loading_progress = None;
     }
     tx
 }
@@ -47,8 +41,8 @@ pub fn progress_status(
 
 /// Returns true if a Developer Tools operation is currently in flight.
 pub fn dev_op_running(state: &AppState) -> bool {
-    if let Some(PopupType::PluginMenu { dev_loading, .. }) = state.dialogs.top() {
-        *dev_loading
+    if let Some(PopupType::PluginMenu(menu)) = state.dialogs.top() {
+        menu.dev_loading
     } else {
         false
     }

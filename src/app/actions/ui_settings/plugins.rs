@@ -6,24 +6,26 @@ pub fn open_plugin_menu(state: &mut AppState, context: &AppContext) {
     // Open the popup immediately so the UI stays responsive while we
     // fetch the registry index and assemble the installed list in the
     // background. The status line + spinner shows progress to the user.
-    state.dialogs.replace(PopupType::PluginMenu {
-        active_tab: 0,
-        cursor_idx: 0,
-        installed: Vec::new(),
-        all_registry: Vec::new(),
-        registry: Vec::new(),
-        search_query: String::new(),
-        is_searching: false,
-        editing_query: false,
-        dev_results: String::new(),
-        dev_wizard_step: 0,
-        dev_wizard_data: Vec::new(),
-        installed_loading: true,
-        installed_loading_status: t("plugin_dev_progress_loading_index"),
-        dev_loading: false,
-        dev_loading_status: String::new(),
-        dev_loading_progress: None,
-    });
+    state
+        .dialogs
+        .replace(PopupType::PluginMenu(crate::app::state::PluginMenuState {
+            active_tab: 0,
+            cursor_idx: 0,
+            installed: Vec::new(),
+            all_registry: Vec::new(),
+            registry: Vec::new(),
+            search_query: String::new(),
+            is_searching: false,
+            editing_query: false,
+            dev_results: String::new(),
+            dev_wizard_step: 0,
+            dev_wizard_data: Vec::new(),
+            installed_loading: true,
+            installed_loading_status: t("plugin_dev_progress_loading_index"),
+            dev_loading: false,
+            dev_loading_status: String::new(),
+            dev_loading_progress: None,
+        }));
 
     // Snapshot the data we need from `context` (which is borrowed
     // mutably) so the background task does not capture a reference

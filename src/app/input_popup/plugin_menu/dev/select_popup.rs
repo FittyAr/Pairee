@@ -65,17 +65,12 @@ pub fn handle_select_popup(
             }
 
             let mut prev = *previous_popup;
-            if let PopupType::PluginMenu {
-                ref mut installed,
-                ref mut dev_results,
-                ..
-            } = prev
-            {
-                *installed = super::reload_installed_plugins(context, &None);
+            if let PopupType::PluginMenu(ref mut menu) = prev {
+                menu.installed = super::reload_installed_plugins(context, &None);
                 if let Some(ref active) = context.config.settings.active_dev_plugin {
-                    *dev_results = t("plugin_dev_selected").replace("{}", active);
+                    menu.dev_results = t("plugin_dev_selected").replace("{}", active);
                 } else {
-                    *dev_results = t("plugin_dev_deselected");
+                    menu.dev_results = t("plugin_dev_deselected");
                 }
             }
             state.dialogs.replace(prev);

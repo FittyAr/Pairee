@@ -58,12 +58,14 @@ pub fn handle_editing(
         }
     }
 
-    Some(PopupType::ConfigurationDialog {
-        active_tab,
-        cursor_idx,
-        editing_value,
-        edit_buffer,
-        settings: Box::new(settings),
-        focus_on_tabs,
-    })
+    Some(PopupType::ConfigurationDialog(
+        crate::app::state::ConfigurationDialogState {
+            active_tab,
+            cursor_idx,
+            editing_value,
+            edit_buffer,
+            settings: Box::new(settings),
+            focus_on_tabs,
+        },
+    ))
 }

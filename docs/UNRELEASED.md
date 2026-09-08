@@ -5,6 +5,9 @@
 - Which-key overlay (`Ctrl+Shift+K`) lists the live keymap chords with labels, fuzzy-filters them, and runs the selected action with Enter. While a multi-key sequence is in progress, a prefix hint shows the remaining chords (same `keybinds` map, not a second keymap). Esc cancels the prefix.
 - Copy path (`Ctrl+Shift+C`, Files menu, command palette) puts the hovered or tagged full path(s) on the OS clipboard. Command palette is bound as `Ctrl+Shift+P` in the shipped keymaps.
 - Short threat model (`docs/THREAT_MODEL.md`) for plugins, SSH presets, updates, and the elevated helper.
+- Structured tracing architecture (`tracing`, `tracing-subscriber`, `tracing-appender`) with rolling daily logs and environment filter control.
+- Cross-platform POSIX and Windows signal handling (`SIGTERM`, `SIGINT`, `SIGHUP`, `SIGQUIT`, and console control events) for clean TUI restoration.
+- CI test coverage workflow using `cargo-llvm-cov` to measure and report codebase test coverage.
 
 - Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
 - Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
@@ -35,6 +38,8 @@
 
 ### Improved
 
+- Complete codebase modularization under the Single Responsibility Principle (SRP), bringing all `.rs` files across the project strictly below 300 lines (zero files exceed 300 lines).
+- Decoupled `PopupType` variants into dedicated sub-structures (`GitPanelState`, `SshConnectPromptState`, `ConfigurationDialogState`, `PluginMenuState`, `CopyMovePromptState`) to keep overlay payloads modular, lightweight, and maintainable.
 - Background Terminal (`command &`) and apply-command run on a real PTY (Windows ConPTY / Unix pty), so programs that check for a TTY can emit colors and use normal line buffering.
 - Apply-command (`Ctrl+G`) opens the Terminal screen and shows captured stdout/stderr with ANSI colors, while the Transfer Engine still tracks progress.
 - Command palette entries come from a shared `ActionDef` catalogue (`id` + category) instead of a second hardcoded name list.

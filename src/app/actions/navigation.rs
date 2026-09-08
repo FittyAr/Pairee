@@ -111,17 +111,19 @@ pub fn handle_navigation_action(
                         1,
                     )
                 };
-            state.dialogs.replace(PopupType::SshConnectPrompt {
-                panel: state.panels.active,
-                input_name: name,
-                input_host: host,
-                input_port: port,
-                input_user: user,
-                input_pass: pass,
-                input_key_path: key_path,
-                cursor_idx,
-                selected_preset_idx: preset_idx,
-            });
+            state.dialogs.replace(PopupType::SshConnectPrompt(
+                crate::app::state::SshConnectPromptState {
+                    panel: state.panels.active,
+                    input_name: name,
+                    input_host: host,
+                    input_port: port,
+                    input_user: user,
+                    input_pass: pass,
+                    input_key_path: key_path,
+                    cursor_idx,
+                    selected_preset_idx: preset_idx,
+                },
+            ));
             true
         }
         Action::SshDisconnect => {

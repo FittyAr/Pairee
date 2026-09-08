@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::GitPromptPopup;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -9,12 +10,12 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::GitConfirmCheckout {
-        target,
-        is_branch,
-        repo_path,
-    }) = state.dialogs.top().cloned()
+    if let Some(PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(checkout_state))) =
+        state.dialogs.top().cloned()
     {
+        let target = checkout_state.target;
+        let is_branch = checkout_state.is_branch;
+        let repo_path = checkout_state.repo_path;
         match key.code {
             KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
                 if let Some(repo) = crate::git::repo::find_repo(&repo_path) {

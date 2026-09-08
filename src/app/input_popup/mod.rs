@@ -66,7 +66,7 @@ pub fn handle_popup_input(
             PopupType::Help { .. } => help::handle(state, key, context),
             PopupType::About { .. } => about::handle(state, key, context),
             PopupType::MkDirPrompt { .. } => mkdir::handle(state, key, context),
-            PopupType::CopyPrompt { .. } => copy::handle(state, key, context),
+            PopupType::CopyPrompt(..) => copy::handle(state, key, context),
             PopupType::ConfirmQuit
             | PopupType::ConfirmInterrupt
             | PopupType::ConfirmReload
@@ -86,7 +86,7 @@ pub fn handle_popup_input(
             PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
             PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
             PopupType::Hotlist { .. } => hotlist::handle(state, key, context),
-            PopupType::MovePrompt { .. } => rename_move::handle(state, key, context),
+            PopupType::MovePrompt(..) => rename_move::handle(state, key, context),
             PopupType::RenamePrompt { .. } => rename::handle(state, key, context),
             PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => {
                 search::handle(state, key, context)
@@ -104,12 +104,12 @@ pub fn handle_popup_input(
                 file_filter::handle(state, key, context)
             }
             PopupType::TaskListDialog { .. } => task_list::handle(state, key, context),
-            PopupType::PluginMenu { .. } => plugin_menu::handle(state, key, context),
+            PopupType::PluginMenu(..) => plugin_menu::handle(state, key, context),
             PopupType::SelectDevPlugin { .. } => {
                 plugin_menu::dev::handle_select_popup(state, key, context)
             }
             PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
-            PopupType::ConfigurationDialog { .. } => config_dialog::handle(state, key, context),
+            PopupType::ConfigurationDialog(..) => config_dialog::handle(state, key, context),
             PopupType::ColorGroupsDialog { .. } => color_groups::handle(state, key, context),
             PopupType::FilesHighlightingDialog { .. } => {
                 files_highlighting::handle(state, key, context)
@@ -118,19 +118,23 @@ pub fn handle_popup_input(
             PopupType::CommandHistoryList { .. }
             | PopupType::FileViewHistoryList { .. }
             | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
-            PopupType::SshConnectPrompt { .. } => ssh_connect::handle(state, key, context),
-            PopupType::GitPanel { .. } => git_panel::handle(state, key, context),
-            PopupType::GitCommitPrompt { .. } => git_commit_prompt::handle(state, key, context),
-            PopupType::GitConfirmCheckout { .. } => {
+            PopupType::SshConnectPrompt(..) => ssh_connect::handle(state, key, context),
+            PopupType::GitPanel(..) => git_panel::handle(state, key, context),
+            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
+                git_commit_prompt::handle(state, key, context)
+            }
+            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(_)) => {
                 git_confirm_checkout::handle(state, key, context)
             }
-            PopupType::GitDiffView { .. } => git_new_popups::handle_diff(state, key, context),
-            PopupType::GitBranchCreatePrompt { .. }
-            | PopupType::GitBranchRenamePrompt { .. }
-            | PopupType::GitStashSavePrompt { .. } => {
-                git_new_popups::handle_prompt(state, key, context)
+            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
+                git_new_popups::handle_diff(state, key, context)
             }
-            PopupType::GitConfirmAction { .. } => {
+            PopupType::GitPrompt(
+                crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
+                | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
+                | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_),
+            ) => git_new_popups::handle_prompt(state, key, context),
+            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
                 git_new_popups::handle_confirm_action(state, key, context)
             }
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
@@ -142,9 +146,7 @@ pub fn handle_popup_input(
             PopupType::OnboardingKeymap { .. } => onboarding::handle(state, key, context),
             PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
             PopupType::WhichKey { .. } => which_key::handle(state, key, context),
-            PopupType::PluginConfirm { .. }
-            | PopupType::PluginInput { .. }
-            | PopupType::PluginWhich { .. } => plugin_dialogs::handle(state, key, context),
+            PopupType::Plugin(_) => plugin_dialogs::handle(state, key, context),
             _ => dismiss_only::handle(state, key, context),
         }
     } else {

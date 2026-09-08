@@ -207,14 +207,16 @@ pub fn handle_navigation(
 
                 if let Some(popup) = next_popup {
                     if matches!(popup, PopupType::Info(_) | PopupType::InfoPanel { .. }) {
-                        state.dialogs.replace(PopupType::ConfigurationDialog {
-                            active_tab,
-                            cursor_idx,
-                            editing_value,
-                            edit_buffer,
-                            settings: Box::new(settings),
-                            focus_on_tabs,
-                        });
+                        state.dialogs.replace(PopupType::ConfigurationDialog(
+                            crate::app::state::ConfigurationDialogState {
+                                active_tab,
+                                cursor_idx,
+                                editing_value,
+                                edit_buffer,
+                                settings: Box::new(settings),
+                                focus_on_tabs,
+                            },
+                        ));
                         state.dialogs.push(popup);
                     } else {
                         state.dialogs.replace(popup);
@@ -267,13 +269,15 @@ pub fn handle_navigation(
         _ => {}
     }
 
-    state.dialogs.replace(PopupType::ConfigurationDialog {
-        active_tab,
-        cursor_idx,
-        editing_value,
-        edit_buffer,
-        settings: Box::new(settings),
-        focus_on_tabs,
-    });
+    state.dialogs.replace(PopupType::ConfigurationDialog(
+        crate::app::state::ConfigurationDialogState {
+            active_tab,
+            cursor_idx,
+            editing_value,
+            edit_buffer,
+            settings: Box::new(settings),
+            focus_on_tabs,
+        },
+    ));
     Ok(None)
 }

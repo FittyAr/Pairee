@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::{GitCommitPromptState, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -9,12 +10,12 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::GitCommitPrompt {
-        mut input,
-        mut cursor_idx,
-        repo_path,
-    }) = state.dialogs.top().cloned()
+    if let Some(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(prompt_state))) =
+        state.dialogs.top().cloned()
     {
+        let mut input = prompt_state.input;
+        let mut cursor_idx = prompt_state.cursor_idx;
+        let repo_path = prompt_state.repo_path;
         let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
         match key.code {
@@ -107,11 +108,15 @@ pub fn handle(
             _ => return Ok(None),
         }
 
-        state.dialogs.replace(PopupType::GitCommitPrompt {
-            input,
-            cursor_idx,
-            repo_path,
-        });
+        state
+            .dialogs
+            .replace(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(
+                GitCommitPromptState {
+                    input,
+                    cursor_idx,
+                    repo_path,
+                },
+            )));
         Ok(None)
     } else {
         Err(())

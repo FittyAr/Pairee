@@ -52,94 +52,24 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup_state = match state.dialogs.top().cloned() {
-        Some(PopupType::PluginMenu {
-            active_tab,
-            cursor_idx,
-            installed,
-            all_registry,
-            registry,
-            search_query,
-            is_searching,
-            editing_query,
-            dev_results,
-            dev_wizard_step,
-            dev_wizard_data,
-            installed_loading,
-            installed_loading_status,
-            dev_loading,
-            dev_loading_status,
-            dev_loading_progress,
-        }) => (
-            active_tab,
-            cursor_idx,
-            installed,
-            all_registry,
-            registry,
-            search_query,
-            is_searching,
-            editing_query,
-            dev_results,
-            dev_wizard_step,
-            dev_wizard_data,
-            installed_loading,
-            installed_loading_status,
-            dev_loading,
-            dev_loading_status,
-            dev_loading_progress,
-        ),
+    let mut menu = match state.dialogs.top().cloned() {
+        Some(PopupType::PluginMenu(m)) => m,
         _ => return Err(()),
     };
 
-    let (
-        mut active_tab,
-        mut cursor_idx,
-        mut installed,
-        all_registry,
-        mut registry,
-        mut search_query,
-        is_searching,
-        mut editing_query,
-        mut dev_results,
-        mut dev_wizard_step,
-        mut dev_wizard_data,
-        installed_loading,
-        installed_loading_status,
-        mut dev_loading,
-        mut dev_loading_status,
-        mut dev_loading_progress,
-    ) = popup_state;
-
     // Handle global escape to close if not editing query
     if key.code == KeyCode::Esc {
-        if editing_query && (active_tab == 1 || active_tab == 2) {
+        if menu.editing_query && (menu.active_tab == 1 || menu.active_tab == 2) {
             // Esc from search mode: clear query and restore full list
-            editing_query = false;
-            if active_tab == 1 {
-                search_query.clear();
-                registry = all_registry.clone();
-                cursor_idx = 0;
+            menu.editing_query = false;
+            if menu.active_tab == 1 {
+                menu.search_query.clear();
+                menu.registry = menu.all_registry.clone();
+                menu.cursor_idx = 0;
             }
-            dev_wizard_step = 0;
-            dev_wizard_data.clear();
-            state.dialogs.replace(PopupType::PluginMenu {
-                active_tab,
-                cursor_idx,
-                installed,
-                all_registry,
-                registry,
-                search_query,
-                is_searching,
-                editing_query,
-                dev_results,
-                dev_wizard_step,
-                dev_wizard_data,
-                installed_loading,
-                installed_loading_status,
-                dev_loading,
-                dev_loading_status,
-                dev_loading_progress,
-            });
+            menu.dev_wizard_step = 0;
+            menu.dev_wizard_data.clear();
+            state.dialogs.replace(PopupType::PluginMenu(menu));
             return Ok(None);
         } else {
             state.dialogs.clear();
@@ -149,55 +79,41 @@ pub fn handle(
 
     if key.code == KeyCode::Tab {
         let dev_mode = context.config.settings.plugins_developer_mode;
-        if !(active_tab == 2 && editing_query) {
-            active_tab = if active_tab == 0 {
+        if !(menu.active_tab == 2 && menu.editing_query) {
+            menu.active_tab = if menu.active_tab == 0 {
                 1
-            } else if active_tab == 1 {
+            } else if menu.active_tab == 1 {
                 if dev_mode { 2 } else { 0 }
             } else {
                 0
             };
-            cursor_idx = if active_tab == 2 && context.config.settings.active_dev_plugin.is_none() {
-                1
-            } else {
-                0
-            };
+            menu.cursor_idx =
+                if menu.active_tab == 2 && context.config.settings.active_dev_plugin.is_none() {
+                    1
+                } else {
+                    0
+                };
             // Auto-enter edit mode when switching to the Search tab
-            editing_query = active_tab == 1;
-            dev_results = String::new();
-            state.dialogs.replace(PopupType::PluginMenu {
-                active_tab,
-                cursor_idx,
-                installed,
-                all_registry,
-                registry,
-                search_query,
-                is_searching,
-                editing_query,
-                dev_results,
-                dev_wizard_step: 0,
-                dev_wizard_data: Vec::new(),
-                installed_loading,
-                installed_loading_status,
-                dev_loading,
-                dev_loading_status,
-                dev_loading_progress,
-            });
+            menu.editing_query = menu.active_tab == 1;
+            menu.dev_results = String::new();
+            menu.dev_wizard_step = 0;
+            menu.dev_wizard_data.clear();
+            state.dialogs.replace(PopupType::PluginMenu(menu));
             return Ok(None);
         }
     }
 
     let action = None;
-    if active_tab == 0 {
-        installed::handle_installed(key, context, &mut cursor_idx, &mut installed);
-    } else if active_tab == 1 {
+    if menu.active_tab == 0 {
+        installed::handle_installed(key, context, &mut menu.cursor_idx, &mut menu.installed);
+    } else if menu.active_tab == 1 {
         search::handle_search(
             key,
-            &mut cursor_idx,
-            &mut registry,
-            &all_registry,
-            &mut search_query,
-            &mut editing_query,
+            &mut menu.cursor_idx,
+            &mut menu.registry,
+            &menu.all_registry,
+            &mut menu.search_query,
+            &mut menu.editing_query,
         );
     } else {
         let left_path = state.panels.left.current_path.clone();
@@ -208,48 +124,25 @@ pub fn handle(
             context,
             &left_path,
             &right_path,
-            &mut cursor_idx,
-            &mut installed,
-            &mut search_query,
-            &mut editing_query,
-            &mut dev_results,
-            &mut dev_wizard_step,
-            &mut dev_wizard_data,
+            &mut menu.cursor_idx,
+            &mut menu.installed,
+            &mut menu.search_query,
+            &mut menu.editing_query,
+            &mut menu.dev_results,
+            &mut menu.dev_wizard_step,
+            &mut menu.dev_wizard_data,
         );
         // Pull back the live loading fields from the popup state because
         // `handle_dev` may have flipped them (e.g. when starting a new op
         // or when a background update landed).
-        if let Some(PopupType::PluginMenu {
-            dev_loading: dl,
-            dev_loading_status: dls,
-            dev_loading_progress: dlp,
-            ..
-        }) = state.dialogs.top()
-        {
-            dev_loading = *dl;
-            dev_loading_status = dls.clone();
-            dev_loading_progress = *dlp;
+        if let Some(PopupType::PluginMenu(live)) = state.dialogs.top() {
+            menu.dev_loading = live.dev_loading;
+            menu.dev_loading_status = live.dev_loading_status.clone();
+            menu.dev_loading_progress = live.dev_loading_progress;
         }
     }
 
-    state.dialogs.replace(PopupType::PluginMenu {
-        active_tab,
-        cursor_idx,
-        installed,
-        all_registry,
-        registry,
-        search_query,
-        is_searching,
-        editing_query,
-        dev_results,
-        dev_wizard_step,
-        dev_wizard_data,
-        installed_loading,
-        installed_loading_status,
-        dev_loading,
-        dev_loading_status,
-        dev_loading_progress,
-    });
+    state.dialogs.replace(PopupType::PluginMenu(menu));
 
     Ok(action)
 }

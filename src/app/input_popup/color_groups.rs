@@ -86,14 +86,16 @@ pub fn handle(
             match key.code {
                 KeyCode::Esc => {
                     // Return to Configuration Dialog
-                    state.dialogs.replace(PopupType::ConfigurationDialog {
-                        active_tab: 6, // Colors tab
-                        cursor_idx: 1, // Color groups
-                        editing_value: false,
-                        edit_buffer: String::new(),
-                        settings: Box::new(context.config.settings.clone()),
-                        focus_on_tabs: false,
-                    });
+                    state.dialogs.replace(PopupType::ConfigurationDialog(
+                        crate::app::state::ConfigurationDialogState {
+                            active_tab: 6, // Colors tab
+                            cursor_idx: 1, // Color groups
+                            editing_value: false,
+                            edit_buffer: String::new(),
+                            settings: Box::new(context.config.settings.clone()),
+                            focus_on_tabs: false,
+                        },
+                    ));
                     return Ok(None);
                 }
                 KeyCode::Enter => {
@@ -132,14 +134,16 @@ pub fn handle(
                     state.refresh_both_panels(context.config.settings.show_hidden);
 
                     // Return to Configuration Dialog
-                    state.dialogs.replace(PopupType::ConfigurationDialog {
-                        active_tab: 6,
-                        cursor_idx: 1,
-                        editing_value: false,
-                        edit_buffer: String::new(),
-                        settings: Box::new(context.config.settings.clone()),
-                        focus_on_tabs: false,
-                    });
+                    state.dialogs.replace(PopupType::ConfigurationDialog(
+                        crate::app::state::ConfigurationDialogState {
+                            active_tab: 6,
+                            cursor_idx: 1,
+                            editing_value: false,
+                            edit_buffer: String::new(),
+                            settings: Box::new(context.config.settings.clone()),
+                            focus_on_tabs: false,
+                        },
+                    ));
                     return Ok(None);
                 }
                 KeyCode::Up => {

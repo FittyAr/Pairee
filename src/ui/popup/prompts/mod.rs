@@ -22,8 +22,8 @@ pub fn render_prompt_popup(
         PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
 
         PopupType::MkDirPrompt { .. }
-        | PopupType::CopyPrompt { .. }
-        | PopupType::MovePrompt { .. }
+        | PopupType::CopyPrompt(..)
+        | PopupType::MovePrompt(..)
         | PopupType::RenamePrompt { .. }
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }
@@ -41,7 +41,7 @@ pub fn render_prompt_popup(
         | PopupType::QuickFilterPrompt { .. }
         | PopupType::CopyMoveFilterPrompt { .. } => filter::render(f, popup, theme, size),
 
-        PopupType::SshConnectPrompt { .. } => ssh::render(f, popup, theme, size, context),
+        PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
 
         PopupType::ConfirmRetryAsAdmin { .. }
         | PopupType::Error(_)
@@ -49,9 +49,7 @@ pub fn render_prompt_popup(
         | PopupType::ApplyCommandPrompt { .. }
         | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
 
-        PopupType::PluginConfirm { .. }
-        | PopupType::PluginInput { .. }
-        | PopupType::PluginWhich { .. } => plugin::render(f, popup, theme, size),
+        PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
 
         _ => false,
     }

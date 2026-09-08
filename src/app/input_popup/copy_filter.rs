@@ -21,17 +21,9 @@ pub fn handle(
             KeyCode::Enter => {
                 let mut prev = *previous;
                 match prev {
-                    PopupType::CopyPrompt {
-                        ref mut filter_mask,
-                        ..
-                    } => {
-                        *filter_mask = input;
-                    }
-                    PopupType::MovePrompt {
-                        ref mut filter_mask,
-                        ..
-                    } => {
-                        *filter_mask = input;
+                    PopupType::CopyPrompt(ref mut prompt)
+                    | PopupType::MovePrompt(ref mut prompt) => {
+                        prompt.filter_mask = input;
                     }
                     _ => {}
                 }

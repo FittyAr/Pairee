@@ -1,31 +1,39 @@
 mod git;
 mod help;
 mod plugins;
+mod tools;
+mod view_sort;
 
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PanelViewMode, PopupType};
-use crate::app::sys_helpers::{build_info_panel_lines, get_hotlist_bookmarks, get_process_list};
+use crate::app::state::{AppState, PopupType};
+use crate::app::sys_helpers::build_info_panel_lines;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 
-/// Handles UI, settings, and other configuration actions. Returns `true` if the action was handled.
+/// Handles UI, settings, and other configuration actions. Returns true if the action was handled.
 pub async fn handle_ui_settings_action(
     state: &mut AppState,
     action: &Action,
     context: &mut AppContext,
 ) -> bool {
+    // 1. Help & About
     match action {
         Action::About => {
             help::open_about(state);
-            true
+            return true;
         }
         Action::Help => {
             help::open_help(state).await;
-            true
+            return true;
         }
+        _ => {}
+    }
+
+    // 2. Menus & general app controls
+    match action {
         Action::UserMenu => {
             state.dialogs.replace(PopupType::UserMenu { cursor_idx: 0 });
-            true
+            return true;
         }
         Action::Menu => {
             if let Some(PopupType::Menu { .. }) = state.dialogs.top() {
@@ -43,7 +51,7 @@ pub async fn handle_ui_settings_action(
                     active_submenu_item_idx: None,
                 });
             }
-            true
+            return true;
         }
         Action::ContextMenu => {
             let targets = state.get_active_panel().get_targeted_paths();
@@ -75,7 +83,7 @@ pub async fn handle_ui_settings_action(
                     cursor_idx: 0,
                 });
             }
-            true
+            return true;
         }
         Action::Quit => {
             if context.config.settings.confirmations.confirm_quit {
@@ -83,298 +91,35 @@ pub async fn handle_ui_settings_action(
             } else {
                 state.should_quit = true;
             }
-            true
+            return true;
         }
         Action::ToggleHidden => {
             context.config.settings.show_hidden = !context.config.settings.show_hidden;
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
-            true
+            return true;
         }
         Action::FocusCli => {
             state.cli_input.push(' ');
             state.cli_input.clear();
-            true
+            return true;
         }
         Action::Unfocus => {
             state.dialogs.clear();
             state.cli_input.clear();
             state.fkeys_modifier_override = None;
-            true
+            return true;
         }
         Action::Refresh | Action::RereadPanel => {
             state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::PanelViewBrief => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Brief;
-            true
-        }
-        Action::PanelViewMedium => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Medium;
-            true
-        }
-        Action::PanelViewFull => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Full;
-            true
-        }
-        Action::PanelViewWide => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Wide;
-            true
-        }
-        Action::PanelViewDetailed => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Detailed;
-            true
-        }
-        Action::PanelViewDescriptions => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Descriptions;
-            true
-        }
-        Action::PanelViewFileOwners => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::FileOwners;
-            true
-        }
-        Action::PanelViewFileLinks => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::FileLinks;
-            true
-        }
-        Action::PanelViewAltFull => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::AltFull;
-            true
-        }
-        Action::TogglePanelLeft => {
-            state.panels.left_visible = !state.panels.left_visible;
-            true
-        }
-        Action::TogglePanelRight => {
-            state.panels.right_visible = !state.panels.right_visible;
-            true
-        }
-        Action::ToggleBothPanels => {
-            state.panels.both_hidden = !state.panels.both_hidden;
-            true
-        }
-        Action::ToggleLongNames => {
-            let panel = state.get_active_panel_mut();
-            panel.show_long_names = !panel.show_long_names;
-            true
+            return true;
         }
         Action::InfoPanel => {
             let lines = build_info_panel_lines(state);
             state.dialogs.replace(PopupType::InfoPanel { lines });
-            true
+            return true;
         }
-        Action::QuickView => {
-            state.panels.quick_view_active = !state.panels.quick_view_active;
-            if !state.panels.quick_view_active {
-                if let Some(PopupType::QuickViewPanel(_)) = state.dialogs.top() {
-                    state.dialogs.clear();
-                }
-            } else {
-                state.update_quick_view_images(context.config.settings.image_preview_enabled);
-            }
-            true
-        }
-        Action::SortModes => {
-            let current = state.get_active_panel().sort_field;
-            let reverse = state.get_active_panel().sort_reverse;
-            state.dialogs.replace(PopupType::SortModesDialog {
-                current,
-                reverse,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::ToggleSortReverse => {
-            let current = state.get_active_panel().sort_reverse;
-            state.get_active_panel_mut().sort_reverse = !current;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByName => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByExtension => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Extension;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByWriteTime | Action::SortByCreationTime | Action::SortByAccessTime => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Date;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortBySize => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Size;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortUnsorted => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Unsorted;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::SortByDescription | Action::SortByOwner => {
-            state.get_active_panel_mut().sort_field = crate::app::state::SortField::Name;
-            state.refresh_both_panels(context.config.settings.show_hidden);
-            true
-        }
-        Action::CompareFolder => {
-            let left = state.panels.left.current_path.clone();
-            let right = state.panels.right.current_path.clone();
-            match crate::fs::compare_directories(&left, &right) {
-                Ok(diff) => {
-                    for entry in &diff {
-                        if entry.status != crate::fs::CompareStatus::Equal
-                            && let Some(e) = state
-                                .panels
-                                .left
-                                .entries
-                                .iter()
-                                .find(|e| e.name == entry.name)
-                            && state.panels.left.selected_paths.insert(e.path.clone())
-                        {
-                            state.panels.left.selection_order.push(e.path.clone());
-                        }
-                    }
-                    state.dialogs.replace(PopupType::CompareFoldersResult {
-                        diff,
-                        cursor_idx: 0,
-                    });
-                }
-                Err(e) => {
-                    state.dialogs.replace(PopupType::Error(
-                        t("error_compare_failed").replace("{}", &e.to_string()),
-                    ));
-                }
-            }
-            true
-        }
-        Action::EditUserMenu => {
-            let path = crate::config::paths::get_config_dir().join("usermenu.toml");
-            if !path.exists() {
-                let default_template = r#"# Pairee User Custom Commands Menu
-#
-# Define your own custom commands here.
-# Format:
-# [commands]
-# "Key" = "Command"
-#
-# Examples:
-# "1" = "cargo build"
-# "2" = "git status"
-# "3" = "echo 'Hello World!'"
-# "4" = "systemctl status docker"
-"#;
-                let _ = std::fs::write(&path, default_template);
-            }
-            match std::fs::read_to_string(&path) {
-                Ok(content) => {
-                    let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-                    state.push_screen(crate::app::state::Screen::Editor(
-                        crate::app::state::types::EditorState {
-                            path,
-                            lines: if lines.is_empty() {
-                                vec![String::new()]
-                            } else {
-                                lines
-                            },
-                            cursor_x: 0,
-                            cursor_y: 0,
-                            scroll_y: 0,
-                            is_dirty: false,
-                            last_search: None,
-                            last_case_sensitive: false,
-                        },
-                    ));
-                }
-                Err(e) => {
-                    state.dialogs.replace(PopupType::Error(
-                        t("error_read_usermenu_failed").replace("{}", &e.to_string()),
-                    ));
-                }
-            }
-            true
-        }
-        Action::FileAssociations => {
-            let config = crate::config::associations::AssociationsConfig::load();
-            state.dialogs.replace(PopupType::FileAssociationsDialog {
-                rules: config.rules,
-                cursor_idx: 0,
-                editing_idx: None,
-                editing_field: 0,
-                edit_buffer: String::new(),
-                original_rule: None,
-            });
-            true
-        }
-        Action::FolderShortcutsConfig => {
-            let bookmarks = get_hotlist_bookmarks();
-            state.dialogs.replace(PopupType::Hotlist {
-                bookmarks,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::FilePanelFilter => {
-            let active = state.get_active_panel();
-            let current = active.filter_mask.clone().unwrap_or_default();
-            state
-                .dialogs
-                .replace(PopupType::FilePanelFilterPrompt { input: current });
-            true
-        }
-        Action::QuickFilter => {
-            let active = state.get_active_panel();
-            let current = active.quick_filter_mask.clone().unwrap_or_default();
-            let original_mask = active.quick_filter_mask.clone();
-            let original_cursor = active.cursor_index;
-            state.dialogs.replace(PopupType::QuickFilterPrompt {
-                input: current,
-                original_mask,
-                original_cursor,
-            });
-            true
-        }
-        Action::TaskList => {
-            let tasks = get_process_list();
-            state.dialogs.replace(PopupType::TaskListDialog {
-                tasks,
-                cursor_idx: 0,
-                filter_query: String::new(),
-                is_filtering: false,
-            });
-            true
-        }
-        Action::SaveSetup => {
-            state.dialogs.replace(PopupType::SaveSetupConfirm);
-            true
-        }
-        Action::SystemSettings => {
-            state.dialogs.replace(PopupType::ConfigurationDialog {
-                active_tab: 0,
-                cursor_idx: 0,
-                editing_value: false,
-                edit_buffer: String::new(),
-                settings: Box::new(context.config.settings.clone()),
-                focus_on_tabs: true,
-            });
-            true
-        }
-        Action::FindFile => {
-            let root = state.get_active_panel().current_path.clone();
-            state.dialogs.replace(PopupType::SearchPrompt {
-                query: String::new(),
-                content_query: String::new(),
-                search_root: root,
-                case_sensitive: false,
-                search_target: crate::fs::search::SearchTarget::Any,
-                cursor_idx: 0,
-            });
-            true
-        }
+        Action::OpenGitPanel => return git::open_git_panel(state, context),
         Action::PluginMenu => {
             if !context.config.settings.plugins_enabled {
                 state
@@ -383,94 +128,17 @@ pub async fn handle_ui_settings_action(
                 return true;
             }
             plugins::open_plugin_menu(state, context);
-            true
+            return true;
         }
-        Action::ScreensList => {
-            let suspended = state.dialogs.take();
-            state.dialogs.replace(PopupType::ScreensMenu {
-                cursor_idx: state.active_screen_idx,
-                suspended_popup: suspended.map(Box::new),
-            });
-            true
-        }
-        Action::NextScreen => {
-            state.next_screen();
-            true
-        }
-        Action::PrevScreen => {
-            state.prev_screen();
-            true
-        }
-        Action::VideoMode => {
-            state.dialogs.replace(PopupType::Info(t("video_mode_hint")));
-            true
-        }
-        Action::CycleFKeysModifiers => {
-            use crossterm::event::KeyModifiers;
-            state.fkeys_modifier_override = match state.fkeys_modifier_override {
-                None => Some(KeyModifiers::CONTROL),
-                Some(KeyModifiers::CONTROL) => Some(KeyModifiers::ALT),
-                Some(KeyModifiers::ALT) => None,
-                _ => None,
-            };
-            true
-        }
-        Action::OpenGitPanel => git::open_git_panel(state, context),
-        Action::CheckForUpdates => {
-            if let Some(info) = state.update.available.clone() {
-                // Re-open the popup with existing info
-                state
-                    .dialogs
-                    .replace(crate::app::state::PopupType::UpdateAvailable {
-                        info,
-                        cursor_idx: 0,
-                        install_progress: None,
-                        error: None,
-                        scroll_y: 0,
-                    });
-            } else {
-                // Force a fresh check (bypass cache by deleting cache file first)
-                let cache = crate::config::paths::get_config_dir().join("update_cache.json");
-                let _ = std::fs::remove_file(&cache);
-                let (tx, rx) = tokio::sync::oneshot::channel();
-                crate::update::checker::UpdateChecker::check_in_background(tx);
-                state.update.check_rx = Some(rx);
-                state.update.status = crate::update::UpdateStatus::Checking;
-                state
-                    .dialogs
-                    .replace(crate::app::state::PopupType::Info(t("update_checking")));
-            }
-            true
-        }
-        Action::InstallDevPlugin => plugins::install_dev_plugin(state, context),
-        Action::CommandPalette => {
-            crate::app::actions::command_palette::open_palette(state);
-            true
-        }
-        Action::WhichKey => {
-            crate::app::actions::which_key::open_which_key(state, &context.resolver);
-            true
-        }
-        Action::ToggleTransferPanel => {
-            if let Some(ref mut ts) = state.transfer {
-                match ts.view_mode {
-                    crate::app::state::TransferViewMode::Hidden
-                    | crate::app::state::TransferViewMode::Minimized => {
-                        ts.view_mode = crate::app::state::TransferViewMode::Expanded;
-                        state.dialogs.replace(PopupType::TransferPanel);
-                    }
-                    crate::app::state::TransferViewMode::Expanded => {
-                        ts.view_mode = crate::app::state::TransferViewMode::Minimized;
-                        state.dialogs.clear();
-                    }
-                }
-            } else {
-                state
-                    .dialogs
-                    .replace(PopupType::Info(t("transfer_no_active")));
-            }
-            true
-        }
-        _ => false,
+        Action::InstallDevPlugin => return plugins::install_dev_plugin(state, context),
+        _ => {}
     }
+
+    // 3. View modes & sorting
+    if view_sort::handle_view_sort_action(state, action, context) {
+        return true;
+    }
+
+    // 4. Auxiliary tools, screens, dialogs
+    tools::handle_tools_action(state, action, context)
 }

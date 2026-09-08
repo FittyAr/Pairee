@@ -26,22 +26,24 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
         dest_dir.to_string_lossy().to_string()
     };
 
-    state.dialogs.replace(PopupType::MovePrompt {
-        input: default_input,
-        src_paths: targets,
-        dest_dir,
-        cursor_idx: 0,
-        already_existing: 0,
-        process_multiple: false,
-        copy_access_mode: true,
-        copy_extended_attributes: false,
-        disable_write_cache: false,
-        produce_sparse_files: false,
-        use_copy_on_write: false,
-        symlink_mode: 0,
-        use_filter: false,
-        filter_mask: String::new(),
-    });
+    state.dialogs.replace(PopupType::MovePrompt(
+        crate::app::state::CopyMovePromptState {
+            input: default_input,
+            src_paths: targets,
+            dest_dir,
+            cursor_idx: 0,
+            already_existing: 0,
+            process_multiple: false,
+            copy_access_mode: true,
+            copy_extended_attributes: false,
+            disable_write_cache: false,
+            produce_sparse_files: false,
+            use_copy_on_write: false,
+            symlink_mode: 0,
+            use_filter: false,
+            filter_mask: String::new(),
+        },
+    ));
     true
 }
 

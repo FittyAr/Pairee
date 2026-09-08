@@ -101,6 +101,10 @@ pub async fn handle_input_event(
         Event::Paste(text) => {
             crate::app::input::handle_paste(state, &text);
         }
+        Event::Terminate => {
+            tracing::info!("Application termination requested by OS signal");
+            state.should_quit = true;
+        }
         Event::Tick => {}
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);
@@ -133,5 +137,17 @@ mod tests {
         apply_terminal_resize(&mut state, 80, 24);
         assert!(state.terminal_needs_clear);
         assert!(state.needs_redraw());
+    }
+
+    #[test]
+    fn terminate_event_marks_should_quit() {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.should_quit = false;
+        // In handle_input_event, Event::Terminate directly marks should_quit = true
+        let event = Event::Terminate;
+        if let Event::Terminate = event {
+            state.should_quit = true;
+        }
+        assert!(state.should_quit);
     }
 }

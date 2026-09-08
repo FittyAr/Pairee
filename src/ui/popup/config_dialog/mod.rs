@@ -34,14 +34,14 @@ pub fn render_config_dialog_popup(
     custom_bindings: &std::collections::HashMap<String, String>,
 ) -> bool {
     match popup {
-        PopupType::ConfigurationDialog {
+        PopupType::ConfigurationDialog(crate::app::state::ConfigurationDialogState {
             active_tab,
             cursor_idx,
             editing_value,
             edit_buffer,
             settings,
             focus_on_tabs,
-        } => {
+        }) => {
             let area = centered_rect(85, 85, size);
             f.render_widget(Clear, area);
 

@@ -20,7 +20,10 @@ pub use history::HistoryState;
 pub use panel::PanelState;
 pub use panel_pair::PanelPair;
 pub use plugin_host::{PendingPluginReply, PluginHostState};
-pub use popup::PopupType;
+pub use popup::{
+    ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState, PopupType,
+    SshConnectPromptState,
+};
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,

@@ -18,29 +18,29 @@ pub fn render(
     size: Rect,
 ) -> bool {
     match popup {
-        PopupType::PluginConfirm {
+        PopupType::Plugin(crate::app::state::popup::PluginDialog::Confirm {
             title,
             msg,
             cursor_idx,
             position,
-        } => {
+        }) => {
             render_confirm(f, theme, size, title, msg, *cursor_idx, position.as_ref());
             true
         }
-        PopupType::PluginInput {
+        PopupType::Plugin(crate::app::state::popup::PluginDialog::Input {
             title,
             input,
             obscure,
             position,
-        } => {
+        }) => {
             render_input(f, theme, size, title, input, *obscure, position.as_ref());
             true
         }
-        PopupType::PluginWhich {
+        PopupType::Plugin(crate::app::state::popup::PluginDialog::Which {
             candidates,
             silent,
             position,
-        } => {
+        }) => {
             render_which(f, theme, size, candidates, *silent, position.as_ref());
             true
         }

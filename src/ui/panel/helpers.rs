@@ -1,4 +1,6 @@
-use crate::app::state::PanelState;
+use crate::app::state::{PanelState, PanelViewMode, SortField};
+use crate::config::localization::t;
+use crate::config::settings::Settings;
 use crate::config::theme::Theme;
 use crate::fs::FileEntry;
 use crate::ui::text_width::truncate_to_width;
@@ -6,6 +8,52 @@ use crate::ui::theme_apply::parse_color;
 use ratatui::style::{Modifier, Style};
 use std::path::Path;
 use std::time::SystemTime;
+
+pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> String {
+    let mode_label = match panel.view_mode {
+        PanelViewMode::Brief => t("panel_mode_brief"),
+        PanelViewMode::Medium => t("panel_mode_medium"),
+        PanelViewMode::Full => t("panel_mode_full"),
+        PanelViewMode::Wide => t("panel_mode_wide"),
+        PanelViewMode::Detailed => t("panel_mode_detailed"),
+        PanelViewMode::Descriptions => t("panel_mode_desc"),
+        PanelViewMode::FileOwners => t("panel_mode_owners"),
+        PanelViewMode::FileLinks => t("panel_mode_links"),
+        PanelViewMode::AltFull => t("panel_mode_alt"),
+    };
+
+    let sort_letter = if settings.show_sort_mode_letter {
+        let letter = match panel.sort_field {
+            SortField::Name => "N",
+            SortField::Extension => "X",
+            SortField::Size => "S",
+            SortField::Date => "D",
+            SortField::Unsorted => "U",
+        };
+        let rev = if panel.sort_reverse { "▼" } else { "▲" };
+        format!("|{}{}", letter, rev)
+    } else {
+        String::new()
+    };
+
+    let ssh_suffix = if let Some(client) = &panel.ssh_conn {
+        if let Ok(c) = client.0.lock() {
+            format!(" [SSH: {}@{}]", c.username, c.host)
+        } else {
+            " [SSH: Locked]".to_string()
+        }
+    } else {
+        String::new()
+    };
+
+    format!(
+        " {}{} [{}{}] ",
+        panel.current_path.to_string_lossy(),
+        ssh_suffix,
+        mode_label,
+        sort_letter,
+    )
+}
 
 pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize) {
     let start = if panel.cursor_index > height / 2 {

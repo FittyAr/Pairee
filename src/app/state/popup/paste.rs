@@ -13,14 +13,14 @@ impl PopupType {
             }
             | PopupType::RenamePrompt {
                 input, cursor_idx, ..
-            }
-            | PopupType::CopyPrompt {
-                input, cursor_idx, ..
-            }
-            | PopupType::MovePrompt {
-                input, cursor_idx, ..
             } if *cursor_idx == 0 => {
                 input.push_str(paste);
+                true
+            }
+            PopupType::CopyPrompt(prompt) | PopupType::MovePrompt(prompt)
+                if prompt.cursor_idx == 0 =>
+            {
+                prompt.input.push_str(paste);
                 true
             }
             PopupType::ApplyCommandPrompt { input, .. }
@@ -28,7 +28,7 @@ impl PopupType {
             | PopupType::FilePanelFilterPrompt { input, .. }
             | PopupType::QuickFilterPrompt { input, .. }
             | PopupType::DescribeFilePrompt { input, .. }
-            | PopupType::PluginInput { input, .. } => {
+            | PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
                 input.push_str(paste);
                 true
             }
