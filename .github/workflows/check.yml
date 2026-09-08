@@ -34,6 +34,18 @@ jobs:
         shell: bash
         run: python scripts/check_translations.py
 
+  cargo-deny:
+    name: cargo deny
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Check licenses, advisories, and crate sources
+        uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          command: check
+
   clippy:
     name: Clippy
     runs-on: ubuntu-latest

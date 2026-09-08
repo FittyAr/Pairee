@@ -91,7 +91,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 - [x] Matrix de tests: `ubuntu-latest` + `windows-latest`
 - [x] Alinear actions a Node 24 (`checkout@v7`, `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
 - [x] Job policy: fallar si reaparece `#![allow(clippy::all)]` en `src/main.rs`
-- [ ] (Opcional) `cargo deny` / audit de dependencias
+- [x] (Opcional) `cargo deny` / audit de dependencias — `deny.toml` + job CI (`EmbarkStudios/cargo-deny-action@v2`)
 
 ### A.3 Clippy / formato / MSRV
 
@@ -122,7 +122,7 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 - [x] Primer test de integración en `tests/` (settings TOML + temp isolation)
 - [x] Verificar CONTRIBUTING (fmt/clippy/test) sigue válido
 
-**Fase A: completa salvo `cargo deny` opcional.**
+**Fase A: completa** (incluye `cargo deny`).
 
 ---
 
@@ -297,6 +297,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `ratatui-which-key` | Spike / opcional | Solo si no dual-keymap (ver 6.1) |
 | `ansi-to-tui` | **Sí** | pantalla Terminal (`command &`); SGR en viewport |
 | `nucleo` (fuzzy) | Candidato | mejorar command palette / find file |
+| `sevenz-rust2` | Candidato | sustituir `sevenz-rust` 0.6 (unmaintained + RUSTSEC-2026-0245) |
 | `tracing` (+ subscriber) | Candidato | sustituir o complementar `simplelog` |
 | `arboard` | **Sí** | Copy path + comando de update al clipboard del SO |
 | `signal-hook` | Candidato Unix | SIGWINCH / graceful signals |
@@ -414,7 +415,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-08-25 | `5d1ed7c` | feat: shlex / quoted command-line split |
 | 2026-09-06 | `76df38f` | feat: ANSI SGR en pantalla Terminal (`ansi-to-tui`) |
 | 2026-09-06 | `2921f53` | test: 15 integration (keymaps, settings TOML, zip extract, i18n) |
-| 2026-09-06 | _(este)_ | feat: `arboard` + Copy path (`Ctrl+Shift+C`) |
+| 2026-09-06 | `f5af573` | feat: `arboard` + Copy path (`Ctrl+Shift+C`) |
+| 2026-09-07 | _(este)_ | ci: `cargo deny` (licenses, advisories, sources) |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -431,7 +433,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x TestBackend draw/resize] [x keymap errors UI] [x Gray+ docs]
              │  [x viewer.rs split] [x popup paste/widget split]
              │  [x File mime/mtime] [x shlex cmdline] [x ansi-to-tui Terminal]
-             │  [x ≥15 integration tests] [x arboard Copy path]
+             │  [x ≥15 integration tests] [x arboard Copy path] [x cargo deny]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -447,10 +449,10 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key opcional, PTY real, `cargo deny` opcional. Segmentación de archivos (~450 LOC) **al final**.  
+Siguiente: **checklist TTY manual**, which-key opcional, PTY real, migrar `sevenz-rust` → `sevenz-rust2`. Segmentación de archivos (~450 LOC) **al final**.  
 `ratatui-which-key` sigue opcional (no dual-keymap).  
 Apply-command sigue sin capturar stdout (solo éxito/error en el panel de transfer).
 
 ---
 
-*Última actualización del progreso: 2026-09-06 (arboard Copy path).*
+*Última actualización del progreso: 2026-09-07 (cargo deny).*

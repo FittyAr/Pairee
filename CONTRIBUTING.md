@@ -49,6 +49,10 @@ Before submitting code, you must ensure that formatting and lints pass:
    ```sh
    cargo test
    ```
+4. **Dependency policy** (optional locally; required in CI): licenses, advisories, and crate sources.
+   ```sh
+   cargo deny check
+   ```
 
 ## Developer Guidelines
 
