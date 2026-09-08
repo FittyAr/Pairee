@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **240 unit + 15 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **244 unit + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -262,7 +262,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | Draw **dirty / on-demand** (no pintar si no hay cambio) | Flag `ui_dirty` + redibujar solo tras input/events/background | **P0** |
 | `tui-scrollbar` + métricas de thumb fraccional | Ver F.2 | P1 |
 | `unicode-width` + `unicode-segmentation` | Truncate/pad de nombres de archivo, columnas de panel | P1 |
-| Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | P1 (junto a keybinds) |
+| Registro central de acciones (`ActionDef`: id, label, keys, category, when) | Unificar F-keys + palette + help de atajos | **P1 — hecho** (catálogo + paleta; F-keys/help siguen en i18n) |
 | `bracketed-paste` en crossterm | CLI / rename / apply-command sin basura de paste | **P1 — hecho** |
 | `ansi-to-tui` | Panel de terminal / salida de apply-command con ANSI | **P2 — hecho** (pantalla Terminal; apply-command no captura stdout) |
 | `shlex` | Parse seguro de comandos usuario (apply / user menu) | **P2 — hecho** (associations + CLI first token; apply sigue en shell con `%f` quoted) |
@@ -377,7 +377,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **240 unit + 15 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **244 unit + 15 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -417,7 +417,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-09-06 | `2921f53` | test: 15 integration (keymaps, settings TOML, zip extract, i18n) |
 | 2026-09-06 | `f5af573` | feat: `arboard` + Copy path (`Ctrl+Shift+C`) |
 | 2026-09-07 | `aaae1e4` | ci: `cargo deny` (licenses, advisories, sources) |
-| 2026-09-07 | _(este)_ | feat: sevenz-rust2 + nucleo-matcher palette |
+| 2026-09-07 | `046fed9` | feat: sevenz-rust2 + nucleo-matcher palette |
+| 2026-09-07 | _(este)_ | feat: ActionDef catalogue for command palette |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -435,7 +436,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x viewer.rs split] [x popup paste/widget split]
              │  [x File mime/mtime] [x shlex cmdline] [x ansi-to-tui Terminal]
              │  [x ≥15 integration tests] [x arboard Copy path] [x cargo deny]
-             │  [x sevenz-rust2] [x nucleo palette]
+             │  [x sevenz-rust2] [x nucleo palette] [x ActionDef catalogue]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -457,4 +458,4 @@ Apply-command sigue sin capturar stdout (solo éxito/error en el panel de transf
 
 ---
 
-*Última actualización del progreso: 2026-09-07 (sevenz-rust2 + nucleo palette).*
+*Última actualización del progreso: 2026-09-07 (ActionDef catalogue).*

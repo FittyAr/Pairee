@@ -2,59 +2,15 @@
 
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crate::keybindings::preset::parse_action_name;
+use crate::keybindings::registry::{self, ActionDef};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 /// Build the full catalogue of palette entries (label, action).
 pub fn all_palette_items() -> Vec<(String, Action)> {
-    // Keep labels human-readable; filter matches against both label and key.
-    let names = [
-        "move_up",
-        "move_down",
-        "change_panel",
-        "help",
-        "about",
-        "copy",
-        "copy_path",
-        "move",
-        "rename",
-        "delete",
-        "mkdir",
-        "view",
-        "edit",
-        "find_file",
-        "refresh",
-        "toggle_hidden",
-        "swap_panels",
-        "open_git_panel",
-        "ssh_connect",
-        "ssh_disconnect",
-        "plugin_menu",
-        "system_settings",
-        "check_for_updates",
-        "toggle_transfer_panel",
-        "quit",
-        "compare_folder",
-        "task_list",
-        "tree_view",
-        "command_history",
-        "folders_history",
-        "file_view_history",
-        "save_setup",
-        "user_menu",
-        "file_associations",
-        "compress_files",
-        "extract_archive",
-    ];
-
-    let mut items = Vec::with_capacity(names.len());
-    for name in names {
-        if let Some(action) = parse_action_name(name) {
-            let label = name.replace('_', " ");
-            items.push((label, action));
-        }
-    }
+    let mut items: Vec<(String, Action)> = registry::palette_defs()
+        .map(|def: &ActionDef| (def.palette_label(), def.action))
+        .collect();
     items.sort_by(|a, b| a.0.cmp(&b.0));
     items
 }

@@ -34,6 +34,7 @@
 
 ### Improved
 
+- Command palette entries come from a shared `ActionDef` catalogue (`id` + category) instead of a second hardcoded name list.
 - Native 7z extract/list uses maintained `sevenz-rust2` instead of unmaintained `sevenz-rust` (Zip-Slip sanitization kept).
 - Command palette filters with Helix `nucleo-matcher` (fuzzy ranking) instead of substring `contains`.
 - MSRV is **1.93** (required by `sevenz-rust2`).
