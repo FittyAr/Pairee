@@ -14,6 +14,7 @@ pub fn all_palette_items() -> Vec<(String, Action)> {
         "help",
         "about",
         "copy",
+        "copy_path",
         "move",
         "rename",
         "delete",
@@ -77,4 +78,24 @@ pub fn open_palette(state: &mut AppState) {
         cursor_idx: 0,
         items,
     });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn palette_includes_copy_path() {
+        assert!(
+            all_palette_items()
+                .iter()
+                .any(|(_, action)| *action == Action::CopyPath)
+        );
+    }
+
+    #[test]
+    fn filter_copy_path_matches_query() {
+        let items = filter_items("copy path");
+        assert!(items.iter().any(|(_, action)| *action == Action::CopyPath));
+    }
 }

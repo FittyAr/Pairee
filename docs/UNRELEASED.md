@@ -2,6 +2,7 @@
 
 ### Added
 
+- Copy path (`Ctrl+Shift+C`, Files menu, command palette) puts the hovered or tagged full path(s) on the OS clipboard. Command palette is bound as `Ctrl+Shift+P` in the shipped keymaps.
 - Short threat model (`docs/THREAT_MODEL.md`) for plugins, SSH presets, updates, and the elevated helper.
 
 - Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
@@ -32,6 +33,7 @@
 
 ### Improved
 
+- Clipboard writes use `arboard` instead of shelling out to `clip` / `xclip` / `wl-copy` (update “copy command” and Copy path).
 - Background Terminal screen (`command &`) renders ANSI SGR colors from captured stdout/stderr instead of showing raw escape codes.
 - Full-screen terminal clear runs inside the synchronized-update region, and only on resize or after a native TTY/admin restore.
 - Keyboard enhancement and focus-change sequences are enabled only when the terminal supports them (Unix query; Windows CSI push), and popped only if they were pushed.

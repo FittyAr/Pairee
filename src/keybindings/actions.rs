@@ -94,6 +94,8 @@ pub enum Action {
     Edit,
     /// Copy selected items to the other panel (F5)
     Copy,
+    /// Copy full path(s) of the targeted item(s) to the OS clipboard (Ctrl+Shift+C)
+    CopyPath,
     /// Rename or Move selected items (F6)
     Move,
     /// Rename a single item in place (F7)

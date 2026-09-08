@@ -25,6 +25,12 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
         MenuItemData::new(t("menu_copy"), &shortcut_for(Action::Copy, "F5"), false)
             .with_action(Action::Copy),
         MenuItemData::new(
+            t("menu_copy_path"),
+            &shortcut_for(Action::CopyPath, "Ctrl+Shift+C"),
+            false,
+        )
+        .with_action(Action::CopyPath),
+        MenuItemData::new(
             t("menu_print"),
             &shortcut_for(Action::PrintFile, "Alt+F5"),
             false,

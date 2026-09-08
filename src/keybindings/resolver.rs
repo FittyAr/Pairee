@@ -189,6 +189,7 @@ mod tests {
             Some(Action::ContextMenu)
         );
         assert_eq!(parse_action_name("find_file_alt"), Some(Action::FindFile));
+        assert_eq!(parse_action_name("copy_path"), Some(Action::CopyPath));
         assert_eq!(parse_action_name("invalid_action_name"), None);
     }
 

@@ -3,6 +3,7 @@ pub mod archive_cmd;
 pub mod attributes;
 pub mod compress;
 pub mod copy;
+pub mod copy_path;
 pub mod delete;
 pub mod describe;
 pub mod edit;
@@ -30,6 +31,7 @@ pub fn handle_fs_action(
         Action::View | Action::ViewAlt => view::handle(state, action, context, terminal_backend),
         Action::Edit => edit::handle(state, context),
         Action::Copy => copy::handle(state, context),
+        Action::CopyPath => copy_path::handle(state),
         Action::Move => r#move::handle(state, context),
         Action::Rename => rename::handle(state, context),
         Action::CompressFiles => compress::handle(state, context),

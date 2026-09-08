@@ -27,6 +27,7 @@ unfocus             = "Esc"
 
 # ── File operations (VS Code Explorer style) ──────────────────────────────────
 copy                = "Ctrl+c"
+copy_path           = "Ctrl+Shift+c"
 move                = "Ctrl+x"
 delete              = "Delete"
 wipe_file           = "Shift+Delete"
@@ -44,6 +45,7 @@ command_history     = "Ctrl+Shift+h"
 # ── Application ───────────────────────────────────────────────────────────────
 quit                = "Ctrl+q"
 system_settings     = "Ctrl+,"
+command_palette     = "Ctrl+Shift+p"
 refresh             = "Ctrl+Shift+e"
 toggle_hidden       = "Ctrl+Shift+."
 save_setup          = "Ctrl+s"

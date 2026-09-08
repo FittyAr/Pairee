@@ -1,4 +1,5 @@
 pub mod bookmarks;
+pub mod clipboard;
 pub mod config;
 pub mod editor;
 pub mod process;

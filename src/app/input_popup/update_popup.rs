@@ -79,13 +79,20 @@ pub fn handle(
                 0 => {
                     let method = detect_install_method();
                     if method.is_managed() {
-                        // Copy command to clipboard (best-effort)
                         if let Some(cmd) = method.managed_upgrade_command() {
-                            copy_to_clipboard(&cmd);
-                            state.dialogs.clear();
-                            state.dialogs.replace(PopupType::Info(
-                                t("update_cmd_copied").replace("{}", &cmd),
-                            ));
+                            match crate::app::sys_helpers::clipboard::set_text(&cmd) {
+                                Ok(()) => {
+                                    state.dialogs.clear();
+                                    state.dialogs.replace(PopupType::Info(
+                                        t("update_cmd_copied").replace("{}", &cmd),
+                                    ));
+                                }
+                                Err(e) => {
+                                    state.dialogs.replace(PopupType::Error(
+                                        t("clipboard_failed").replace("{}", &e),
+                                    ));
+                                }
+                            }
                         }
                     } else {
                         // Start the actual self-update
@@ -135,41 +142,5 @@ pub fn handle(
         }
 
         _ => Ok(None),
-    }
-}
-
-fn copy_to_clipboard(text: &str) {
-    // Try xclip, xsel, wl-copy on Linux; clip.exe on Windows
-    #[cfg(not(target_os = "windows"))]
-    {
-        for (cmd, args) in &[
-            ("wl-copy", vec![text]),
-            ("xclip", vec!["-selection", "clipboard"]),
-            ("xsel", vec!["--clipboard", "--input"]),
-        ] {
-            let mut child = std::process::Command::new(cmd);
-            child.args(args);
-            if let Ok(mut c) = child.stdin(std::process::Stdio::piped()).spawn() {
-                use std::io::Write as _;
-                if let Some(stdin) = c.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
-                }
-                let _ = c.wait();
-                return;
-            }
-        }
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let _ = std::process::Command::new("clip")
-            .stdin(std::process::Stdio::piped())
-            .spawn()
-            .map(|mut c| {
-                use std::io::Write as _;
-                if let Some(stdin) = c.stdin.as_mut() {
-                    let _ = stdin.write_all(text.as_bytes());
-                }
-                let _ = c.wait();
-            });
     }
 }

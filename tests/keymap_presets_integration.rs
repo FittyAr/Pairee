@@ -42,6 +42,10 @@ fn norton_keymap_uses_arrow_and_f_keys() {
         !preset.bindings.values().any(|v| v.trim().is_empty()),
         "Norton chords must not be empty"
     );
+    assert_eq!(
+        preset.bindings.get("copy_path").map(String::as_str),
+        Some("Ctrl+Shift+c")
+    );
 }
 
 #[test]
@@ -63,6 +67,10 @@ fn neovim_keymap_uses_hjkl_for_navigation() {
         preset.bindings.get("execute").map(String::as_str),
         Some("l")
     );
+    assert_eq!(
+        preset.bindings.get("copy_path").map(String::as_str),
+        Some("Ctrl+Shift+c")
+    );
 }
 
 #[test]
@@ -77,4 +85,8 @@ fn vscode_keymap_uses_ctrl_c_for_copy() {
         Some("Ctrl+x")
     );
     assert!(preset.bindings.contains_key("select_item"));
+    assert_eq!(
+        preset.bindings.get("copy_path").map(String::as_str),
+        Some("Ctrl+Shift+c")
+    );
 }

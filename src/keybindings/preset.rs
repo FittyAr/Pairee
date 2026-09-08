@@ -79,6 +79,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "view_alt" => Some(Action::ViewAlt),
         "edit" => Some(Action::Edit),
         "copy" => Some(Action::Copy),
+        "copy_path" => Some(Action::CopyPath),
         "move" => Some(Action::Move),
         "rename" => Some(Action::Rename),
         "mkdir" => Some(Action::MkDir),
