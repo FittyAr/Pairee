@@ -13,6 +13,103 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/):
 
 ---
 
+## [v0.8.0] - 2026-09-08
+
+### Added
+
+- Which-key overlay (`Ctrl+Shift+K`) lists the live keymap chords with labels, fuzzy-filters them, and runs the selected action with Enter. While a multi-key sequence is in progress, a prefix hint shows the remaining chords (same `keybinds` map, not a second keymap). Esc cancels the prefix.
+- Copy path (`Ctrl+Shift+C`, Files menu, command palette) puts the hovered or tagged full path(s) on the OS clipboard. Command palette is bound as `Ctrl+Shift+P` in the shipped keymaps.
+- Short threat model (`docs/THREAT_MODEL.md`) for plugins, SSH presets, updates, and the elevated helper.
+- Structured tracing architecture (`tracing`, `tracing-subscriber`, `tracing-appender`) with rolling daily logs and environment filter control.
+- Cross-platform POSIX and Windows signal handling (`SIGTERM`, `SIGINT`, `SIGHUP`, `SIGQUIT`, and console control events) for clean TUI restoration.
+- CI test coverage workflow using `cargo-llvm-cov` to measure and report codebase test coverage.
+
+- Plugin confirm, input, and which-key dialogs are real TUI overlays (`pairee.confirm` / `pairee.input` / `pairee.which`); Enter/Esc (and Y/N) reply to the waiting plugin.
+- Typed `File` userdata (`name`, `path`, `url`, `size`, `is_dir`, `is_symlink`) and `pairee.cx` (cwd, hovered, selected) filled inside `pairee.sync`.
+- Lua `File` metadata: `mime`, `mtime`, `is_hidden`, `is_exec` (Lua API **1.1.0**).
+- Plugin filesystem extras: `mkdir`, `remove`, `rename`, `copy`, `read_dir`, and `file()` (File userdata).
+- `pairee.Command` process builder with piped `Child` streaming (`write_all`, `read`, `wait_with_output`).
+- Optional feature flags in Settings → System: SSH, plugins, and image preview (Git already had a toggle). Existing configs stay enabled.
+- EN/ES translation keys are now complete and checked in CI (`scripts/check_translations.py`, `docs/i18n.md`).
+- Parser smoke-fuzz tests (globs, descript.ion, plugin manifests, settings TOML) so junk input cannot panic.
+- CI tests run on macOS as well as Linux and Windows.
+- First-run keymap onboarding (Norton / Neovim / VS Code). Existing configs skip the dialog.
+- Versioned Lua plugin API **v1.1.0** (`pairee._lua_api_version`, `docs/api/lua/`).
+- CI acceptance plugins under `tests/plugin_acceptance/` (surface, fs, cx/utils, Command echo).
+- `pairee.emit`, `pairee.notify`, and `pairee.file_cache` are callable functions (they were nested tables).
+- Improvement tracking document at `docs/IMPROVEMENT_PLAN.md` with phased roadmap and progress checkboxes.
+- Integration tests under `tests/` cover isolated temp workspace, Settings TOML roundtrip, shipped keymap presets, packaged EN/ES keys, AppState panel roots, and zip extract.
+- Project-level `rustfmt.toml` and `clippy.toml` for consistent CI quality gates.
+- Declared MSRV (`rust-version = "1.88"`, required by `tui-scrollbar`) and package metadata in `Cargo.toml`.
+- Transfer Strategy backends (`local` / `ssh`) under `src/fs/transfer/backend/` with unified job submission.
+- Command palette (`Ctrl+Shift+P`) to filter and run logical actions.
+- Fractional scrollbars via `tui-scrollbar` (shared helper in `src/ui/scrollbar.rs`) on help, viewer/quickview, history lists, transfer panel, git panel, and related popups.
+- Mouse drag and jump-to-click on scrollbars (`ScrollBarInteraction`, hit targets registered each frame, `EnableMouseCapture`).
+- Unicode-aware file-name truncation helpers (`unicode-width` + `unicode-segmentation`) for panel columns.
+- Bracketed paste: pasted text lands in the CLI or the open text prompt (rename, apply command, mkdir, …) as one string instead of fake keystrokes.
+- Settings → Interface shows keymap validation (errors, warnings, bound count) and a “View keymap issues” overlay. Far-style `Gray+` / `Gray-` / `Gray*` aliases are documented as mapping to `Plus` / `-` / `*`.
+- CI draw/resize smoke tests via `ratatui` TestBackend (not a substitute for a human pass on Windows Terminal / conhost / Linux).
+- CI `cargo deny` job checks licenses, RustSec advisories, yanked crates, and crate sources (`deny.toml`).
+
+### Improved
+
+- Complete codebase modularization under the Single Responsibility Principle (SRP), bringing all `.rs` files across the project strictly below 300 lines (zero files exceed 300 lines).
+- Decoupled `PopupType` variants into dedicated sub-structures (`GitPanelState`, `SshConnectPromptState`, `ConfigurationDialogState`, `PluginMenuState`, `CopyMovePromptState`) to keep overlay payloads modular, lightweight, and maintainable.
+- Background Terminal (`command &`) and apply-command run on a real PTY (Windows ConPTY / Unix pty), so programs that check for a TTY can emit colors and use normal line buffering.
+- Apply-command (`Ctrl+G`) opens the Terminal screen and shows captured stdout/stderr with ANSI colors, while the Transfer Engine still tracks progress.
+- Command palette entries come from a shared `ActionDef` catalogue (`id` + category) instead of a second hardcoded name list.
+- Native 7z extract/list uses maintained `sevenz-rust2` instead of unmaintained `sevenz-rust` (Zip-Slip sanitization kept).
+- Command palette filters with Helix `nucleo-matcher` (fuzzy ranking) instead of substring `contains`.
+- MSRV is **1.93** (required by `sevenz-rust2`).
+- Clipboard writes use `arboard` instead of shelling out to `clip` / `xclip` / `wl-copy` (update “copy command” and Copy path).
+- Background Terminal screen (`command &`) renders ANSI SGR colors from captured stdout/stderr instead of showing raw escape codes.
+- Full-screen terminal clear runs inside the synchronized-update region, and only on resize or after a native TTY/admin restore.
+- Keyboard enhancement and focus-change sequences are enabled only when the terminal supports them (Unix query; Windows CSI push), and popped only if they were pushed.
+- File-association and CLI command lines split with POSIX `shlex` (quoted words) on Unix, and quote-aware tokens on Windows so `"C:\\Program Files\\App\\app.exe" %f` stays one program name.
+- Keybindings engine rebuilt on the `keybinds` crate: invalid chords are rejected, duplicate chords across actions are rejected, and Norton/Neovim/VSCode presets load from validated TOML.
+- TUI draw path uses synchronized updates and dirty-flag rendering to reduce flicker/glitches.
+- Scroll indicators use theme colors and proportional thumbs instead of ratatui’s full-cell default.
+- Clippy collapsible-if and related lint cleanups so `cargo clippy -- -D warnings` is green again.
+- Clippy 1.98 cleanups (`useless_borrows_in_formatting`, `question_mark` in Lua `t()` lookup).
+- CI `check` workflow now targets `master`/`main`, runs tests on Ubuntu and Windows, uses Node 24-aligned actions, and rejects crate-level `clippy::all` allows.
+- Documentation index (`docs/README.md`) lists design docs with Implemented/Partial/Planned status.
+- README (EN/ES) links corrected to `help/en` and `help/es`, project tree updated, plugin system no longer labeled as only planned.
+- Transfer worker split into focused modules (scan, delete, copy, helpers) under `src/fs/transfer/worker/` using a facade orchestrator.
+- Copy, move, and delete (including SSH) now use the Transfer Engine progress UI instead of the legacy modal-only path.
+- Wipe, compress, extract, and apply-command jobs use the Transfer Engine queue and minimized panel (one consistent progress UX).
+- Cooperative cancel for archive compress/extract (native formats check cancel between entries; external 7z is killed on cancel).
+
+- Session state grouped into `PanelPair`, `HistoryState`, and `UpdateState` on `AppState`.
+- Split oversized UI modules (transfer panel, history lists, settings actions, plugin dev options) into focused files.
+- Internal F3 viewer split into `src/ui/viewer/{state,text,hex,image}.rs`.
+- Overlay `PopupType` paste handling and plugin widgets live in focused files under `src/app/state/popup/`.
+- Overlay dialogs live in `src/app/state/popup/` (`QuickViewDialog` boxed; config settings boxed) so `PopupType` is no longer a huge enum payload.
+- Plugin updater, directory listing, and Settings split into focused modules.
+- Dialogs use a `DialogStack` (`state.dialogs`) with replace/push/pop instead of a single `Option` popup.
+- Background channels (search, SSH, terminal, updates, plugin progress) are polled in place instead of take/put-back.
+
+### Changed
+
+- Application logic lives in the `pairee` library crate; `src/main.rs` is a thin tokio entry so tests can `use pairee`.
+- Replaced inherited rustc-style `.gitignore` with a Pairee-specific ignore list.
+- Plugin manager core module renamed to `lifecycle` to avoid module-inception nesting.
+- Long-running file jobs no longer use a separate modal progress dialog.
+
+### Deprecated
+
+### Removed
+
+- Local temporary `.tmp*` workspaces and the vendored local `example/` reference tree from the working tree (still ignored by git).
+- Legacy `ops_worker` spawn stack, `progress_rx` / `BackgroundOpContext`, and the `CopyProgress` modal UI.
+
+### Fixed
+
+- Trusted Lua plugins load again (`StdLib::ALL_SAFE` instead of `ALL`, which rejected `debug` under `new_with`).
+- Clippy is enforced without `#![allow(clippy::all)]` in `src/main.rs`.
+- Outdated status banners on transfer-engine and plugin-system design docs.
+
+---
+
 ## [v0.7.2] - 2026-08-06
 
 ### Added
