@@ -14,6 +14,8 @@ pub enum Event {
     ModifiersChanged(crossterm::event::KeyModifiers),
     /// Bracketed-paste payload (single string, not per-character key events).
     Paste(String),
+    /// Signal-requested application termination (SIGINT, SIGTERM, SIGHUP, SIGQUIT on Unix)
+    Terminate,
     /// Periodic tick event for UI updates
     Tick,
 }
@@ -26,6 +28,18 @@ impl EventHandler {
     /// Starts a background thread polling Crossterm input events and returns the handler.
     pub fn new(tick_rate: Duration) -> Self {
         let (sender, receiver) = mpsc::channel(100);
+
+        #[cfg(unix)]
+        {
+            let sig_sender = sender.clone();
+            let _ = crate::terminal::signals::spawn_signal_listener(sig_sender);
+        }
+
+        #[cfg(windows)]
+        {
+            let sig_sender = sender.clone();
+            crate::terminal::signals_windows::setup_windows_ctrl_handler(sig_sender);
+        }
 
         std::thread::spawn(move || {
             let mut last_modifiers = crossterm::event::KeyModifiers::empty();
