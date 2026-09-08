@@ -17,6 +17,7 @@ pub mod prompts;
 pub mod screens_menu;
 pub mod update;
 pub mod viewer;
+pub mod which_key;
 pub mod yazi;
 
 use crate::app::context::AppContext;
@@ -131,7 +132,10 @@ fn render_specific_popup(
     if onboarding::render(f, popup, theme, size) {
         return;
     }
-    if command_palette::render(f, popup, theme, size) {}
+    if command_palette::render(f, popup, theme, size) {
+        return;
+    }
+    if which_key::render(f, popup, theme, size, context) {}
 }
 
 /// Centers a rectangle of `percent_x` × `percent_y` over the full screen.

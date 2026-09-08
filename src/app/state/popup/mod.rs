@@ -451,6 +451,14 @@ pub enum PopupType {
         items: Vec<(String, crate::keybindings::Action)>,
     },
 
+    /// Which-key overlay over the live `keybinds` map (Ctrl+Shift+K).
+    WhichKey {
+        query: String,
+        cursor_idx: usize,
+        /// Chord + label + action snapshot of the current keymap.
+        items: Vec<(String, String, crate::keybindings::Action)>,
+    },
+
     // ── Plugin dialogs (`pairee.confirm` / `input` / `which`) ───────────────
     /// Reply oneshot lives in [`super::PluginHostState::pending_dialog`].
     PluginConfirm {

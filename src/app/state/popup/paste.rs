@@ -33,7 +33,8 @@ impl PopupType {
                 true
             }
             PopupType::SelectGroupPrompt { query, .. }
-            | PopupType::CommandPalette { query, .. } => {
+            | PopupType::CommandPalette { query, .. }
+            | PopupType::WhichKey { query, .. } => {
                 query.push_str(paste);
                 true
             }
@@ -111,6 +112,20 @@ mod tests {
                 assert_eq!(dest_input, "b/c");
             }
             _ => panic!("expected link prompt"),
+        }
+    }
+
+    #[test]
+    fn which_key_appends_to_query() {
+        let mut popup = PopupType::WhichKey {
+            query: "F".into(),
+            cursor_idx: 0,
+            items: vec![],
+        };
+        assert!(popup.apply_paste("5"));
+        match popup {
+            PopupType::WhichKey { query, .. } => assert_eq!(query, "F5"),
+            _ => panic!("expected which-key"),
         }
     }
 

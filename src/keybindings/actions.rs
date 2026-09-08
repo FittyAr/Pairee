@@ -224,4 +224,6 @@ pub enum Action {
     ToggleTransferPanel,
     /// Fuzzy command palette over logical actions (Ctrl+Shift+P)
     CommandPalette,
+    /// Overlay of the live `keybinds` map (chords + labels, Ctrl+Shift+K)
+    WhichKey,
 }

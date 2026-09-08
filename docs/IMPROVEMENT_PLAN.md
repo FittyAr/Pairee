@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **249 unit + 15 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **260 unit + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -36,7 +36,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 |---|------|--------|
 | P0 | CI / Clippy / docs / limpieza | **Hecho** (Fase A) |
 | P1 | Transfer Engine unificado + sin legacy progress | **Hecho** (Fase B) |
-| **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Hecho** (Fase F; which-key opcional) |
+| **P1** | **Input (`keybinds` / which-key) + scrollbars + anti-glitch TUI** | **Hecho** (Fase F; overlay which-key sobre `keybinds`) |
 | P1 | Partir God objects (`AppState`, `PopupType`) | **Hecho** (Fase C; `src/lib.rs`) |
 | P1 | Tests de integración + cobertura | **≥15 integration**; cobertura aún no medida |
 | P2 | Roadmap plugins (G1–G14) | En curso (D: diálogos + File/`cx`) |
@@ -294,7 +294,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `tui-scrollbar` | **Sí** | F.2 |
 | `unicode-width` / `unicode-segmentation` | **Sí** | layout estable |
 | `keybinds` | **Sí** | F.1 |
-| `ratatui-which-key` | Spike / opcional | Solo si no dual-keymap (ver 6.1) |
+| `ratatui-which-key` | **No** | Overlay propio sobre `keybinds` (ver 6.1); no dual-keymap |
 | `ansi-to-tui` | **Sí** | pantalla Terminal (`command &`); SGR en viewport |
 | `nucleo` (fuzzy) | **Sí** (`nucleo-matcher`) | command palette |
 | `sevenz-rust2` | **Sí** | sustituye `sevenz-rust` 0.6 (RUSTSEC-2026-0245) |
@@ -310,7 +310,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 2. **F.1** Migración `keybinds` + presets TOML + borrar resolver casero
 3. **F.2** `tui-scrollbar` en viewers/help/history/transfer
 4. **F.3b** unicode-width + paste + rate-limit progress redraw — **hecho** (paste = bracketed paste)
-5. Spike which-key **solo** si tras F.1 se echa de menos discoverability de secuencias
+5. Overlay which-key **sobre el keymap de `keybinds`** (lista filtrable + HUD de prefijo; **no** `ratatui-which-key` / dual-keymap) — **hecho**
 
 ---
 
@@ -377,11 +377,12 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **249 unit + 15 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **260 unit + 15 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
 | Command palette | No | Sí | **Sí** |
+| Which-key overlay | No | Sobre el keymap actual | **Sí** (`Ctrl+Shift+K` + HUD de prefijo) |
 | Keymap stack | Casero crossterm strings | `keybinds` validado | **Hecho F.1** |
 | Scrollbars | Ratatui default / ninguno | `tui-scrollbar` en listas largas | **Hecho F.2** (+ mouse drag/jump) |
 | Glitches TUI Win/Linux | Presentes | Sync update + dirty draw | **Código F.3 hecho**; checklist manual WT/conhost/Linux **pendiente** |
@@ -419,7 +420,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-09-07 | `aaae1e4` | ci: `cargo deny` (licenses, advisories, sources) |
 | 2026-09-07 | `046fed9` | feat: sevenz-rust2 + nucleo-matcher palette |
 | 2026-09-07 | `5a15a63` | feat: ActionDef catalogue for command palette |
-| 2026-09-07 | _(este)_ | feat: apply-command stdout on Terminal (ANSI) |
+| 2026-09-07 | `041b186` | feat: apply-command stdout on Terminal (ANSI) |
+| 2026-09-08 | _(este)_ | feat: overlay which-key sobre el keymap de `keybinds` |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -439,7 +441,8 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x ≥15 integration tests] [x arboard Copy path] [x cargo deny]
              │  [x sevenz-rust2] [x nucleo palette] [x ActionDef catalogue]
              │  [x apply-command Terminal stdout]
-Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
+             │  [x which-key overlay sobre keybinds]
+Bajo impacto │  [x Más idiomas pipeline ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
                Bajo esfuerzo              Alto esfuerzo
@@ -453,10 +456,10 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase C:** grupos de estado + `DialogStack` + `src/lib.rs`.  
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
-**Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key overlay sobre el keymap actual (no dual), PTY real. Segmentación de archivos (~450 LOC) **al final**.  
-`ratatui-which-key` sigue opcional (no dual-keymap).
+**Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke, overlay which-key sobre el keymap actual.  
+Siguiente: **checklist TTY manual**, PTY real. Segmentación de archivos (~450 LOC) **al final**.  
+`ratatui-which-key` no se usa (no dual-keymap).
 
 ---
 
-*Última actualización del progreso: 2026-09-07 (apply-command stdout Terminal).*
+*Última actualización del progreso: 2026-09-08 (overlay which-key sobre keybinds).*

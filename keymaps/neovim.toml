@@ -129,6 +129,7 @@ task_list               = "Ctrl+w"
 cycle_fkeys_modifiers   = "Ctrl+p"
 ssh_connect             = "Ctrl+Shift+S"
 command_palette         = "Ctrl+Shift+p"
+which_key               = "Ctrl+Shift+k"
 context_menu            = "Menu"
 context_menu_alt        = "Alt+m"
 

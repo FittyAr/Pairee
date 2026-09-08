@@ -39,6 +39,7 @@ pub mod transfer_panel;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
+pub mod which_key;
 
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
@@ -140,6 +141,7 @@ pub fn handle_popup_input(
             }
             PopupType::OnboardingKeymap { .. } => onboarding::handle(state, key, context),
             PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
+            PopupType::WhichKey { .. } => which_key::handle(state, key, context),
             PopupType::PluginConfirm { .. }
             | PopupType::PluginInput { .. }
             | PopupType::PluginWhich { .. } => plugin_dialogs::handle(state, key, context),

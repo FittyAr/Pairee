@@ -178,11 +178,34 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Files,
     ),
+    d("which_key", Action::WhichKey, true, ActionCategory::System),
 ];
 
 /// Palette-visible catalogue rows.
 pub fn palette_defs() -> impl Iterator<Item = &'static ActionDef> {
     CATALOG.iter().filter(|def| def.in_palette)
+}
+
+/// Human label for an action (catalogue id, else a readable Debug name).
+pub fn label_for(action: Action) -> String {
+    if let Some(def) = CATALOG.iter().find(|d| d.action == action) {
+        return def.palette_label();
+    }
+    match action {
+        Action::GoFolderShortcut(n) => format!("go folder shortcut {n}"),
+        other => pascal_to_words(&format!("{other:?}")),
+    }
+}
+
+fn pascal_to_words(name: &str) -> String {
+    let mut out = String::new();
+    for (i, c) in name.chars().enumerate() {
+        if i > 0 && c.is_uppercase() {
+            out.push(' ');
+        }
+        out.extend(c.to_lowercase());
+    }
+    out
 }
 
 #[cfg(test)]
@@ -222,6 +245,18 @@ mod tests {
         let ids: Vec<&str> = palette_defs().map(|d| d.id).collect();
         assert!(ids.contains(&"copy_path"));
         assert!(ids.contains(&"extract_archive"));
+        assert!(ids.contains(&"which_key"));
         assert_eq!(ids.len(), CATALOG.len());
+    }
+
+    #[test]
+    fn label_for_uses_catalog_then_debug() {
+        assert_eq!(label_for(Action::CopyPath), "copy path");
+        assert_eq!(label_for(Action::WhichKey), "which key");
+        assert_eq!(label_for(Action::CommandPalette), "command palette");
+        assert_eq!(
+            label_for(Action::GoFolderShortcut(3)),
+            "go folder shortcut 3"
+        );
     }
 }

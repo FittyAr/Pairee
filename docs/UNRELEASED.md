@@ -2,6 +2,7 @@
 
 ### Added
 
+- Which-key overlay (`Ctrl+Shift+K`) lists the live keymap chords with labels, fuzzy-filters them, and runs the selected action with Enter. While a multi-key sequence is in progress, a prefix hint shows the remaining chords (same `keybinds` map, not a second keymap). Esc cancels the prefix.
 - Copy path (`Ctrl+Shift+C`, Files menu, command palette) puts the hovered or tagged full path(s) on the OS clipboard. Command palette is bound as `Ctrl+Shift+P` in the shipped keymaps.
 - Short threat model (`docs/THREAT_MODEL.md`) for plugins, SSH presets, updates, and the elevated helper.
 

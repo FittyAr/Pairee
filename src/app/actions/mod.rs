@@ -3,6 +3,7 @@ pub mod exec;
 pub mod fs_ops;
 pub mod navigation;
 pub mod ui_settings;
+pub mod which_key;
 
 pub use exec::execute_shell_command;
 

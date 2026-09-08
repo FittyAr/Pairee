@@ -145,6 +145,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "check_for_updates" => Some(Action::CheckForUpdates),
         "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
         "command_palette" => Some(Action::CommandPalette),
+        "which_key" => Some(Action::WhichKey),
         _ => None,
     }
 }

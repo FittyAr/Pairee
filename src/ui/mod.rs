@@ -12,6 +12,7 @@ pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;
 pub mod viewer;
+pub mod which_key_prefix;
 
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType};
@@ -178,6 +179,11 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     // 4. Overlay active popup dialogs if present
     popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
 
+    // 4b. Prefix HUD for in-progress multi-key sequences (not a second keymap).
+    if state.dialogs.is_none() {
+        which_key_prefix::render(f, context, f.area());
+    }
+
     // 5. Render Transfer Panel overlay if active
     transfer::panel::render_transfer_panel(f, state, context);
 
@@ -294,6 +300,72 @@ mod tests {
             .draw(|f| draw_ui(f, &context, &state))
             .expect("draw rename overlay");
         assert!(buffer_nonblank_count(&terminal) > 10);
+    }
+
+    fn buffer_joined(terminal: &Terminal<TestBackend>) -> String {
+        terminal
+            .backend()
+            .buffer()
+            .content()
+            .iter()
+            .map(|cell| cell.symbol())
+            .collect()
+    }
+
+    #[test]
+    fn draw_ui_which_key_overlay_lists_live_chords() {
+        let (context, mut state) = test_app();
+        crate::app::actions::which_key::open_which_key(&mut state, &context.resolver);
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|f| draw_ui(f, &context, &state))
+            .expect("draw which-key overlay");
+        let painted = buffer_joined(&terminal);
+        assert!(
+            painted.contains("Which-key"),
+            "overlay title missing, got {painted:?}"
+        );
+        assert!(
+            painted.contains("F5") || painted.contains("copy"),
+            "live keymap rows missing, got {painted:?}"
+        );
+    }
+
+    #[test]
+    fn draw_ui_prefix_hud_while_sequence_ongoing() {
+        let mut config = AppConfig {
+            settings: Settings::default(),
+            theme: Theme::default(),
+            keybindings: KeybindingsConfig::default(),
+        };
+        config
+            .keybindings
+            .custom_bindings
+            .insert("about".into(), "Alt+q x".into());
+        config
+            .keybindings
+            .custom_bindings
+            .insert("help".into(), "Alt+q h".into());
+        let mut context = AppContext::new(config);
+        let state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        let alt_q = crossterm::event::KeyEvent::new(
+            crossterm::event::KeyCode::Char('q'),
+            crossterm::event::KeyModifiers::ALT,
+        );
+        assert_eq!(context.resolver.resolve(alt_q), None);
+        assert!(context.resolver.is_ongoing());
+
+        let backend = TestBackend::new(80, 24);
+        let mut terminal = Terminal::new(backend).expect("test terminal");
+        terminal
+            .draw(|f| draw_ui(f, &context, &state))
+            .expect("draw prefix HUD");
+        let painted = buffer_joined(&terminal);
+        assert!(
+            painted.contains("Prefix") || painted.contains("about") || painted.contains("help"),
+            "prefix HUD should show remaining chords, got {painted:?}"
+        );
     }
 
     fn span_has_fg(text: &Text, needle: &str, color: Color) -> bool {

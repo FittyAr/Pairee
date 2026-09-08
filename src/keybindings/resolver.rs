@@ -106,6 +106,56 @@ impl KeybindingResolver {
             .find(|b| b.seq == seq)
             .map(|b| b.action)
     }
+
+    /// Live keymap rows: display chord + action (one row per bound sequence).
+    pub fn bindings(&self) -> impl Iterator<Item = (String, Action)> + '_ {
+        self.keybinds
+            .as_slice()
+            .iter()
+            .map(|b| (b.seq.to_string(), b.action))
+    }
+
+    /// True while a multi-key sequence is waiting for the next chord.
+    pub fn is_ongoing(&self) -> bool {
+        self.keybinds.is_ongoing()
+    }
+
+    /// Drop an in-progress sequence (Esc / timeout UX).
+    pub fn reset(&mut self) {
+        self.keybinds.reset();
+    }
+
+    /// Human-readable prefix currently being matched (`"Alt+q"`).
+    pub fn ongoing_prefix_display(&self) -> String {
+        self.keybinds
+            .ongoing_inputs()
+            .iter()
+            .map(ToString::to_string)
+            .collect::<Vec<_>>()
+            .join(" ")
+    }
+
+    /// Remaining suffix + label + action for bindings that continue the prefix.
+    pub fn prefix_completions(&self) -> Vec<(String, String, Action)> {
+        let prefix = self.keybinds.ongoing_inputs();
+        if prefix.is_empty() {
+            return Vec::new();
+        }
+        let mut out = Vec::new();
+        for bind in self.keybinds.as_slice() {
+            if bind.seq.match_to(prefix) != Match::Prefix {
+                continue;
+            }
+            let rest = bind.seq.as_slice()[prefix.len()..]
+                .iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(" ");
+            out.push((rest, super::registry::label_for(bind.action), bind.action));
+        }
+        out.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
+        out
+    }
 }
 
 /// Human-readable key for plugins / logging (best-effort; not the source of truth).
@@ -203,5 +253,67 @@ mod tests {
         let resolver = KeybindingResolver::new(&config);
         assert_eq!(resolver.resolve_for_key_string("F5"), Some(Action::Copy));
         assert_eq!(resolver.resolve_for_key_string("F1"), Some(Action::Help));
+    }
+
+    #[test]
+    fn custom_which_key_chord_resolves() {
+        let mut config = AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        };
+        config
+            .keybindings
+            .custom_bindings
+            .insert("which_key".into(), "Ctrl+Alt+Shift+F11".into());
+        let resolver = KeybindingResolver::new(&config);
+        assert_eq!(
+            resolver.resolve_for_key_string("Ctrl+Alt+Shift+F11"),
+            Some(Action::WhichKey)
+        );
+    }
+
+    #[test]
+    fn prefix_completions_list_remaining_suffixes() {
+        let mut config = AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        };
+        config
+            .keybindings
+            .custom_bindings
+            .insert("about".into(), "Alt+q x".into());
+        config
+            .keybindings
+            .custom_bindings
+            .insert("help".into(), "Alt+q h".into());
+        let mut resolver = KeybindingResolver::new(&config);
+
+        let alt_q = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::ALT);
+        assert_eq!(resolver.resolve(alt_q), None);
+        assert!(resolver.is_ongoing());
+        assert!(
+            resolver
+                .ongoing_prefix_display()
+                .to_lowercase()
+                .contains('q'),
+            "prefix display should mention q, got {}",
+            resolver.ongoing_prefix_display()
+        );
+
+        let comps = resolver.prefix_completions();
+        assert!(
+            comps.iter().any(|(_, _, a)| *a == Action::About),
+            "expected about in {comps:?}"
+        );
+        assert!(
+            comps.iter().any(|(_, _, a)| *a == Action::Help),
+            "expected help in {comps:?}"
+        );
+
+        resolver.reset();
+        assert!(!resolver.is_ongoing());
+        assert!(resolver.prefix_completions().is_empty());
     }
 }

@@ -74,9 +74,17 @@ pub async fn handle_input_event(
                 });
             }
 
+            if matches!(key.code, crossterm::event::KeyCode::Esc) && context.resolver.is_ongoing() {
+                context.resolver.reset();
+                state.mark_ui_dirty();
+                return Ok(());
+            }
+
             if let Some(action) = context.resolver.resolve(key) {
                 state.mark_ui_dirty();
                 handle_action(state, action, context, terminal_backend).await?;
+            } else if context.resolver.is_ongoing() {
+                state.mark_ui_dirty();
             } else if !key_str.is_empty()
                 && let Some((plugin_name, action_name)) =
                     crate::plugin::registry::resolve_keybinding(&key_str).await
