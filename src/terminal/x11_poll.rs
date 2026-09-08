@@ -57,10 +57,28 @@ fn load_x11() -> Option<X11Lib> {
             if sym.is_null() { None } else { Some(sym) }
         };
 
-        let x_open_display = std::mem::transmute(load_sym("XOpenDisplay")?);
-        let x_close_display = std::mem::transmute(load_sym("XCloseDisplay")?);
-        let x_keysym_to_keycode = std::mem::transmute(load_sym("XKeysymToKeycode")?);
-        let x_query_keymap = std::mem::transmute(load_sym("XQueryKeymap")?);
+        let x_open_display = std::mem::transmute::<
+            *mut std::ffi::c_void,
+            unsafe extern "C" fn(*const std::os::raw::c_char) -> *mut std::ffi::c_void,
+        >(load_sym("XOpenDisplay")?);
+        let x_close_display = std::mem::transmute::<
+            *mut std::ffi::c_void,
+            unsafe extern "C" fn(*mut std::ffi::c_void) -> std::os::raw::c_int,
+        >(load_sym("XCloseDisplay")?);
+        let x_keysym_to_keycode = std::mem::transmute::<
+            *mut std::ffi::c_void,
+            unsafe extern "C" fn(
+                *mut std::ffi::c_void,
+                std::os::raw::c_ulong,
+            ) -> std::os::raw::c_uchar,
+        >(load_sym("XKeysymToKeycode")?);
+        let x_query_keymap = std::mem::transmute::<
+            *mut std::ffi::c_void,
+            unsafe extern "C" fn(
+                *mut std::ffi::c_void,
+                *mut std::os::raw::c_char,
+            ) -> std::os::raw::c_int,
+        >(load_sym("XQueryKeymap")?);
 
         Some(X11Lib {
             x_open_display,

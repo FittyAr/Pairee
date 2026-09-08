@@ -79,16 +79,16 @@ pub(super) fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Resu
         .arg("--")
         .arg(path)
         .status();
-    if let Ok(s) = status {
-        if s.success() {
-            return Ok(());
-        }
+    if let Ok(s) = status
+        && s.success()
+    {
+        return Ok(());
     }
     let status = Command::new("trash-put").arg("--").arg(path).status();
-    if let Ok(s) = status {
-        if s.success() {
-            return Ok(());
-        }
+    if let Ok(s) = status
+        && s.success()
+    {
+        return Ok(());
     }
     // Fallback to standard delete if trash command fails
     if path.is_dir() {

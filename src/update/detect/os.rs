@@ -19,24 +19,18 @@ pub fn detect_os() -> InstallMethod {
             return InstallMethod::Nix;
         }
         // 4. AUR / pacman: query pacman database
-        if is_command_available("pacman") {
-            if is_pacman_owned(&exe) {
-                return InstallMethod::AurPacman;
-            }
+        if is_command_available("pacman") && is_pacman_owned(&exe) {
+            return InstallMethod::AurPacman;
         }
 
         // 5. dpkg: query dpkg database
-        if is_command_available("dpkg") {
-            if is_dpkg_owned(&exe) {
-                return InstallMethod::Deb;
-            }
+        if is_command_available("dpkg") && is_dpkg_owned(&exe) {
+            return InstallMethod::Deb;
         }
 
         // 6. rpm: query rpm database
-        if is_command_available("rpm") {
-            if is_rpm_owned(&exe) {
-                return InstallMethod::Rpm;
-            }
+        if is_command_available("rpm") && is_rpm_owned(&exe) {
+            return InstallMethod::Rpm;
         }
     }
 

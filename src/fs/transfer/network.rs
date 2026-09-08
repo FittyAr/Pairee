@@ -107,10 +107,10 @@ pub fn get_free_space(path: &Path) -> std::io::Result<u64> {
             .output()
         {
             let text = String::from_utf8_lossy(&output.stdout);
-            if let Some(line) = text.lines().nth(1) {
-                if let Ok(kb) = line.trim().parse::<u64>() {
-                    return Ok(kb * 1024);
-                }
+            if let Some(line) = text.lines().nth(1)
+                && let Ok(kb) = line.trim().parse::<u64>()
+            {
+                return Ok(kb * 1024);
             }
         }
         Ok(u64::MAX)

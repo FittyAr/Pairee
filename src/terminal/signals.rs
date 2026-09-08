@@ -24,10 +24,10 @@ pub fn spawn_signal_listener(sender: mpsc::Sender<Event>) -> io::Result<()> {
             for sig in signals.forever() {
                 match sig {
                     SIGWINCH => {
-                        if let Ok((w, h)) = crossterm::terminal::size() {
-                            if sender.blocking_send(Event::Resize(w, h)).is_err() {
-                                break;
-                            }
+                        if let Ok((w, h)) = crossterm::terminal::size()
+                            && sender.blocking_send(Event::Resize(w, h)).is_err()
+                        {
+                            break;
                         }
                     }
                     SIGINT | SIGTERM | SIGHUP | SIGQUIT => {

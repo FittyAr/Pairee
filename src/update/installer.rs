@@ -156,10 +156,10 @@ fn extract_tar_gz(archive: &Path, dest: &Path) -> Result<()> {
 #[cfg(not(target_os = "windows"))]
 fn find_binary_in_dir(dir: &Path, name: &str) -> Option<PathBuf> {
     for entry in walkdir_simple(dir) {
-        if entry.file_name().to_string_lossy() == name {
-            if entry.metadata().map(|m| !m.is_dir()).unwrap_or(false) {
-                return Some(entry.path().to_path_buf());
-            }
+        if entry.file_name().to_string_lossy() == name
+            && entry.metadata().map(|m| !m.is_dir()).unwrap_or(false)
+        {
+            return Some(entry.path().to_path_buf());
         }
     }
     None

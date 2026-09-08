@@ -113,20 +113,20 @@ fn get_unix_owner_name(uid: u32) -> String {
     static PASSWD_CACHE: OnceLock<std::sync::RwLock<HashMap<u32, String>>> = OnceLock::new();
     let cache = PASSWD_CACHE.get_or_init(|| std::sync::RwLock::new(HashMap::new()));
 
-    if let Ok(map) = cache.read() {
-        if let Some(name) = map.get(&uid) {
-            return name.clone();
-        }
+    if let Ok(map) = cache.read()
+        && let Some(name) = map.get(&uid)
+    {
+        return name.clone();
     }
 
-    let resolved = if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
+    if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
         let mut map = HashMap::new();
         for line in content.lines() {
             let mut parts = line.split(':');
-            if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next()) {
-                if let Ok(parsed_uid) = uid_str.trim().parse::<u32>() {
-                    map.entry(parsed_uid).or_insert_with(|| name.to_string());
-                }
+            if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next())
+                && let Ok(parsed_uid) = uid_str.trim().parse::<u32>()
+            {
+                map.entry(parsed_uid).or_insert_with(|| name.to_string());
             }
         }
         let name = map.get(&uid).cloned();
@@ -141,8 +141,7 @@ fn get_unix_owner_name(uid: u32) -> String {
         name.unwrap_or_else(|| uid.to_string())
     } else {
         uid.to_string()
-    };
-    resolved
+    }
 }
 
 #[cfg(test)]

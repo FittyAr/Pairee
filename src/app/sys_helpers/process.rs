@@ -13,10 +13,7 @@ pub fn kill_process(pid: u32) -> std::io::Result<()> {
             Ok(())
         } else {
             let err_msg = String::from_utf8_lossy(&output.stderr);
-            Err(std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("kill failed: {}", err_msg),
-            ))
+            Err(std::io::Error::other(format!("kill failed: {}", err_msg)))
         }
     }
     #[cfg(not(unix))]
@@ -149,10 +146,10 @@ fn get_process_restart_info(pid: u32) -> Option<(String, Vec<String>, Option<Pat
             current.push(b);
         }
     }
-    if !current.is_empty() {
-        if let Ok(s) = String::from_utf8(current) {
-            args.push(s);
-        }
+    if !current.is_empty()
+        && let Ok(s) = String::from_utf8(current)
+    {
+        args.push(s);
     }
     if args.is_empty() {
         return None;
