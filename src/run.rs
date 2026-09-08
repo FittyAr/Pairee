@@ -1,5 +1,4 @@
 use anyhow::{Context, Result};
-use simplelog::*;
 use std::env;
 use std::path::PathBuf;
 
@@ -191,14 +190,9 @@ pub async fn run() -> Result<()> {
     let config =
         config::AppConfig::load_or_create().context("Failed to initialize config files")?;
 
-    // 2. Setup application debug logger
+    // 2. Setup application debug logger (structured tracing)
     let log_path = config::paths::get_log_file_path();
-    if let Some(parent) = log_path.parent() {
-        let _ = std::fs::create_dir_all(parent);
-    }
-    if let Ok(file) = std::fs::File::create(&log_path) {
-        let _ = WriteLogger::init(LevelFilter::Debug, Config::default(), file);
-    }
+    let _ = crate::logging::init_logging(&log_path);
 
     log::info!("Starting Pairee application...");
     git::unused_keepalive();

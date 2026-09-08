@@ -20,7 +20,9 @@ directories = "6.0"
 anyhow = "1.0"
 thiserror = "2.0"
 log = "0.4"
-simplelog = "0.12"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+tracing-log = "0.2"
 chrono = "0.4"
 zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
@@ -66,6 +68,7 @@ ssh2 = { version = "0.9" }
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
+signal-hook = { version = "0.3", features = ["iterator"] }
 
 [package.metadata.deb]
 name = "pairee"
