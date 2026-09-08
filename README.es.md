@@ -3,7 +3,7 @@
 > Tu mundo, en dos paneles.
 
 [![Licencia: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.93%2B-orange.svg)](https://www.rust-lang.org)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
@@ -99,7 +99,7 @@ NCRust ofrece binarios precompilados de forma automática mediante GitHub Action
 ### Compilar desde el Código Fuente
 
 #### Prerrequisitos
-Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install) **1.85 o superior** (edition 2024 / MSRV en `Cargo.toml`).
+Asegúrate de tener instalado [Rust](https://www.rust-lang.org/tools/install) **1.93 o superior** (edition 2024 / MSRV en `Cargo.toml`).
 
 #### Compilar y Ejecutar
 ```bash

@@ -3,6 +3,8 @@
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::keybindings::preset::parse_action_name;
+use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
+use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 /// Build the full catalogue of palette entries (label, action).
 pub fn all_palette_items() -> Vec<(String, Action)> {
@@ -58,15 +60,26 @@ pub fn all_palette_items() -> Vec<(String, Action)> {
 }
 
 pub fn filter_items(query: &str) -> Vec<(String, Action)> {
-    let q = query.trim().to_lowercase();
+    let items = all_palette_items();
+    let q = query.trim();
     if q.is_empty() {
-        return all_palette_items();
+        return items;
     }
-    all_palette_items()
+    let mut matcher = Matcher::new(Config::DEFAULT);
+    let pattern = Pattern::parse(q, CaseMatching::Ignore, Normalization::Smart);
+    let mut buf = Vec::new();
+    let mut scored: Vec<(u32, String, Action)> = Vec::new();
+    for (label, action) in items {
+        let hay = format!("{label} {}", label.replace(' ', "_"));
+        let utf = Utf32Str::new(&hay, &mut buf);
+        if let Some(score) = pattern.score(utf, &mut matcher) {
+            scored.push((score, label, action));
+        }
+    }
+    scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    scored
         .into_iter()
-        .filter(|(label, _)| {
-            label.to_lowercase().contains(&q) || label.replace(' ', "_").contains(&q)
-        })
+        .map(|(_, label, action)| (label, action))
         .collect()
 }
 
@@ -97,5 +110,31 @@ mod tests {
     fn filter_copy_path_matches_query() {
         let items = filter_items("copy path");
         assert!(items.iter().any(|(_, action)| *action == Action::CopyPath));
+    }
+
+    #[test]
+    fn filter_fuzzy_abbreviation_finds_copy_path() {
+        let items = filter_items("cpth");
+        assert!(
+            items.iter().any(|(_, action)| *action == Action::CopyPath),
+            "nucleo should fuzzy-match 'cpth' to copy path, got {items:?}"
+        );
+    }
+
+    #[test]
+    fn filter_ranks_better_matches_first() {
+        let items = filter_items("copy");
+        let pos_copy = items.iter().position(|(_, a)| *a == Action::Copy);
+        let pos_path = items.iter().position(|(_, a)| *a == Action::CopyPath);
+        assert!(pos_copy.is_some() && pos_path.is_some());
+        assert!(
+            pos_copy.unwrap() <= pos_path.unwrap(),
+            "exact 'copy' should rank at least as high as 'copy path', got {items:?}"
+        );
+    }
+
+    #[test]
+    fn filter_unknown_query_is_empty() {
+        assert!(filter_items("zzzz-no-such-action").is_empty());
     }
 }

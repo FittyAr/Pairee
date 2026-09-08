@@ -16,8 +16,6 @@ targets = [
 [advisories]
 yanked = "deny"
 ignore = [
-    { id = "RUSTSEC-2026-0245", reason = "User-facing 7z extract wraps sevenz-rust with path sanitization (src/fs/archive.rs). Remaining decompress_file use is the trusted 7z-extra helper unpack. Migrate to sevenz-rust2." },
-    { id = "RUSTSEC-2026-0246", reason = "sevenz-rust is unmaintained; same crate as RUSTSEC-2026-0245. Tracked for sevenz-rust2." },
     { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained and pulled by image/rav1e for previews; no safe upgrade on image 0.25." },
 ]
 
@@ -47,6 +45,7 @@ allow = [
     "OpenSSL",
     "CDLA-Permissive-2.0",
     "NCSA",
+    "bzip2-1.0.6",
 ]
 
 [bans]

@@ -155,16 +155,13 @@ fn extract_7z(
     // entry escapes it via `..` components or absolute paths.
     let canonical_dest = std::fs::canonicalize(dest_dir).unwrap_or_else(|_| dest_dir.to_path_buf());
 
-    sevenz_rust::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
+    sevenz_rust2::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
         if ensure_not_cancelled(cancel).is_err() {
             return Ok(false);
         }
-        // The `sevenz-rust` 0.6.x API does not sanitise entry names; it
-        // simply `dest.join(entry.name())` and lets the extract function
-        // create the file. A malicious 7z archive can therefore write
-        // outside the chosen destination by including entries like
-        // `..\..\..\Windows\System32\evil.dll`. We refuse any entry whose
-        // path resolves outside the canonical destination directory.
+        // `sevenz-rust2` still joins `dest` with `entry.name()` before calling
+        // the extract function. A malicious 7z archive can write outside the
+        // destination via `..` or absolute paths. Refuse those entries.
         let entry_name = entry.name();
         let candidate = std::path::Path::new(entry_name);
         let mut has_traversal = false;
@@ -237,7 +234,7 @@ fn extract_7z(
             error: None,
         });
 
-        sevenz_rust::default_entry_extract_fn(entry, reader, &dest_path)
+        sevenz_rust2::default_entry_extract_fn(entry, reader, &dest_path)
     })
     .map_err(|e| anyhow!("7z extraction failed: {:?}", e))?;
 
@@ -487,11 +484,11 @@ pub fn list_archive_files(path: &Path) -> Result<Vec<String>> {
             Ok(list)
         }
         ArchiveFormat::SevenZ => {
-            let archive = sevenz_rust::Archive::open(path)
+            let archive = sevenz_rust2::Archive::open(path)
                 .map_err(|e| anyhow!("Failed to open 7z: {:?}", e))?;
             let mut list = Vec::new();
             for entry in &archive.files {
-                list.push(entry.name.clone());
+                list.push(entry.name().to_string());
             }
             Ok(list)
         }

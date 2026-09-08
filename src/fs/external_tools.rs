@@ -70,7 +70,7 @@ pub async fn ensure_external_tools() -> Result<()> {
     //    against future 7-Zip releases that change the layout.
     let scratch_dir = std::env::temp_dir().join(format!("pairee_7z_scratch_{}", unique));
     fs::create_dir_all(&scratch_dir)?;
-    let extract_result = sevenz_rust::decompress_file(&temp_archive, &scratch_dir)
+    let extract_result = sevenz_rust2::decompress_file(&temp_archive, &scratch_dir)
         .context("Failed to extract 7z-extra archive");
 
     // Whether or not the extraction succeeded, clean up the temp

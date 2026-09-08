@@ -158,9 +158,9 @@ pub fn render_about_popup(
                 "https://github.com/rust-lang/flate2-rs",
             ),
             (
-                "sevenz-rust",
+                "sevenz-rust2",
                 "Apache-2.0",
-                "https://github.com/dyxushuai/sevenz-rust",
+                "https://github.com/hasenbanck/sevenz-rust2",
             ),
             (
                 "pulldown-cmark",

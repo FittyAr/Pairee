@@ -3,7 +3,7 @@
 > Tu mundo, en dos paneles. (Your world, in two panels.)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Rust](https://img.shields.io/badge/rust-1.88%2B-orange.svg)](https://www.rust-lang.org)
+[![Rust](https://img.shields.io/badge/rust-1.93%2B-orange.svg)](https://www.rust-lang.org)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/FittyAr/Pairee)
 ![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/FittyAr/Pairee?utm_source=oss&utm_medium=github&utm_campaign=FittyAr%2FPairee&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
@@ -99,7 +99,7 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (sup
 ### Build from Source
 
 #### Prerequisites
-Make sure you have [Rust](https://www.rust-lang.org/tools/install) **1.85 or higher** (edition 2024 / MSRV declared in `Cargo.toml`).
+Make sure you have [Rust](https://www.rust-lang.org/tools/install) **1.93 or higher** (edition 2024 / MSRV declared in `Cargo.toml`).
 
 #### Build and Run
 ```bash

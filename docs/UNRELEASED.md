@@ -34,6 +34,9 @@
 
 ### Improved
 
+- Native 7z extract/list uses maintained `sevenz-rust2` instead of unmaintained `sevenz-rust` (Zip-Slip sanitization kept).
+- Command palette filters with Helix `nucleo-matcher` (fuzzy ranking) instead of substring `contains`.
+- MSRV is **1.93** (required by `sevenz-rust2`).
 - Clipboard writes use `arboard` instead of shelling out to `clip` / `xclip` / `wl-copy` (update “copy command” and Copy path).
 - Background Terminal screen (`command &`) renders ANSI SGR colors from captured stdout/stderr instead of showing raw escape codes.
 - Full-screen terminal clear runs inside the synchronized-update region, and only on resize or after a native TTY/admin restore.

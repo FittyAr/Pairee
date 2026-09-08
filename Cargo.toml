@@ -2,7 +2,7 @@
 name = "pairee"
 version = "0.7.2"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.93"
 description = "A sleek, modern dual-panel terminal file manager written in Rust"
 default-run = "pairee"
 license = "GPL-3.0-only"
@@ -25,7 +25,6 @@ chrono = "0.4"
 zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
-sevenz-rust = "0.6.1"
 pulldown-cmark = "0.13"
 image = "0.25.10"
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https"] }
@@ -49,6 +48,8 @@ unicode-segmentation = "1.13.3"
 shlex = "1.3"
 ansi-to-tui = "8.0"
 arboard = "3.6.1"
+sevenz-rust2 = "0.22"
+nucleo-matcher = "0.3.1"
 
 [dev-dependencies]
 tempfile = "3.27"

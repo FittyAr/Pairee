@@ -23,7 +23,7 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
 | Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **237 unit + 15 integration** |
+| Tests | 115 unitarios; `tests/` vacío | **240 unit + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
@@ -296,8 +296,8 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `keybinds` | **Sí** | F.1 |
 | `ratatui-which-key` | Spike / opcional | Solo si no dual-keymap (ver 6.1) |
 | `ansi-to-tui` | **Sí** | pantalla Terminal (`command &`); SGR en viewport |
-| `nucleo` (fuzzy) | Candidato | mejorar command palette / find file |
-| `sevenz-rust2` | Candidato | sustituir `sevenz-rust` 0.6 (unmaintained + RUSTSEC-2026-0245) |
+| `nucleo` (fuzzy) | **Sí** (`nucleo-matcher`) | command palette |
+| `sevenz-rust2` | **Sí** | sustituye `sevenz-rust` 0.6 (RUSTSEC-2026-0245) |
 | `tracing` (+ subscriber) | Candidato | sustituir o complementar `simplelog` |
 | `arboard` | **Sí** | Copy path + comando de update al clipboard del SO |
 | `signal-hook` | Candidato Unix | SIGWINCH / graceful signals |
@@ -377,7 +377,7 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | CI en rama default | No | Sí | **Sí (`master`/`main`)** |
 | Platforms en CI | Linux (mal cableado) | Linux + Windows | **Linux + Windows + macOS** |
 | Clippy crate allow all | Sí | No | **No** |
-| Tests | 115 unit | 115+ y ≥15 integration | **237 unit + 15 integration** |
+| Tests | 115 unit | 115+ y ≥15 integration | **240 unit + 15 integration** |
 | Archivos >800 LOC | ≥2 | 0 | 0 archivos >500 LOC (popup/mod.rs ~446) |
 | Docs con status real | Desfasadas | Índice OK | **Índice + banners** |
 | Transfer dual path | Sí | Engine unificado | **Hecho (Fase B)** |
@@ -416,7 +416,8 @@ Basado en `docs/technical/plugin-roadmap.md` (G1–G14).
 | 2026-09-06 | `76df38f` | feat: ANSI SGR en pantalla Terminal (`ansi-to-tui`) |
 | 2026-09-06 | `2921f53` | test: 15 integration (keymaps, settings TOML, zip extract, i18n) |
 | 2026-09-06 | `f5af573` | feat: `arboard` + Copy path (`Ctrl+Shift+C`) |
-| 2026-09-07 | _(este)_ | ci: `cargo deny` (licenses, advisories, sources) |
+| 2026-09-07 | `aaae1e4` | ci: `cargo deny` (licenses, advisories, sources) |
+| 2026-09-07 | _(este)_ | feat: sevenz-rust2 + nucleo-matcher palette |
 
 Ver también `git log --oneline master` para el detalle.
 
@@ -434,6 +435,7 @@ Alto impacto │  [x CI] [x Clippy] [x Transfer unificado]
              │  [x viewer.rs split] [x popup paste/widget split]
              │  [x File mime/mtime] [x shlex cmdline] [x ansi-to-tui Terminal]
              │  [x ≥15 integration tests] [x arboard Copy path] [x cargo deny]
+             │  [x sevenz-rust2] [x nucleo palette]
 Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI ]
              │  [ checklist TTY manual WT/conhost/Linux ]
              └────────────────────────────────────────────
@@ -449,10 +451,10 @@ Bajo impacto │  [x Más idiomas pipeline ] [ which-key opcional ] [x macOS CI 
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke.  
-Siguiente: **checklist TTY manual**, which-key opcional, PTY real, migrar `sevenz-rust` → `sevenz-rust2`. Segmentación de archivos (~450 LOC) **al final**.  
+Siguiente: **checklist TTY manual**, which-key opcional, PTY real. Segmentación de archivos (~450 LOC) **al final**.  
 `ratatui-which-key` sigue opcional (no dual-keymap).  
 Apply-command sigue sin capturar stdout (solo éxito/error en el panel de transfer).
 
 ---
 
-*Última actualización del progreso: 2026-09-07 (cargo deny).*
+*Última actualización del progreso: 2026-09-07 (sevenz-rust2 + nucleo palette).*
