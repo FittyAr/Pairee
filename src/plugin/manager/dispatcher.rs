@@ -235,20 +235,12 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
                     installed,
                     registry,
                 } => {
-                    if let Some(PopupType::PluginMenu {
-                        installed: existing,
-                        all_registry: existing_all,
-                        registry: existing_registry,
-                        installed_loading: loading,
-                        installed_loading_status: loading_status,
-                        ..
-                    }) = state.dialogs.top_mut()
-                    {
-                        *existing = installed;
-                        *existing_all = registry.clone();
-                        *existing_registry = registry;
-                        *loading = false;
-                        *loading_status = String::new();
+                    if let Some(PopupType::PluginMenu(menu)) = state.dialogs.top_mut() {
+                        menu.installed = installed;
+                        menu.all_registry = registry.clone();
+                        menu.registry = registry;
+                        menu.installed_loading = false;
+                        menu.installed_loading_status = String::new();
                     }
                 }
                 PluginRequest::DevPluginScan { options } => {

@@ -8,12 +8,7 @@ use crate::app::state::{AppState, PendingPluginReply, PopupType};
 use tokio::sync::oneshot;
 
 pub fn is_plugin_dialog(popup: &PopupType) -> bool {
-    matches!(
-        popup,
-        PopupType::PluginConfirm { .. }
-            | PopupType::PluginInput { .. }
-            | PopupType::PluginWhich { .. }
-    )
+    matches!(popup, PopupType::Plugin(_))
 }
 
 /// If a reply is pending but the plugin dialog is gone, cancel the waiter.
@@ -34,12 +29,14 @@ pub fn open_confirm(
 ) {
     state.plugins.cancel_pending();
     state.plugins.pending_dialog = Some(PendingPluginReply::Confirm(reply_tx));
-    state.dialogs.replace(PopupType::PluginConfirm {
-        title,
-        msg,
-        cursor_idx: 0,
-        position,
-    });
+    state.dialogs.replace(PopupType::Plugin(
+        crate::app::state::popup::PluginDialog::Confirm {
+            title,
+            msg,
+            cursor_idx: 0,
+            position,
+        },
+    ));
     state.mark_ui_dirty();
 }
 
@@ -53,12 +50,14 @@ pub fn open_input(
 ) {
     state.plugins.cancel_pending();
     state.plugins.pending_dialog = Some(reply);
-    state.dialogs.replace(PopupType::PluginInput {
-        title,
-        input: default,
-        obscure,
-        position,
-    });
+    state.dialogs.replace(PopupType::Plugin(
+        crate::app::state::popup::PluginDialog::Input {
+            title,
+            input: default,
+            obscure,
+            position,
+        },
+    ));
     state.mark_ui_dirty();
 }
 
@@ -70,11 +69,13 @@ pub fn open_which(
 ) {
     state.plugins.cancel_pending();
     state.plugins.pending_dialog = Some(PendingPluginReply::Which(reply_tx));
-    state.dialogs.replace(PopupType::PluginWhich {
-        candidates,
-        silent,
-        position: None,
-    });
+    state.dialogs.replace(PopupType::Plugin(
+        crate::app::state::popup::PluginDialog::Which {
+            candidates,
+            silent,
+            position: None,
+        },
+    ));
     state.mark_ui_dirty();
 }
 
@@ -188,7 +189,7 @@ mod tests {
         );
         assert!(matches!(
             state.dialogs.top(),
-            Some(PopupType::PluginConfirm { title, .. }) if title == "Overwrite?"
+            Some(PopupType::Plugin(crate::app::state::popup::PluginDialog::Confirm { title, .. })) if title == "Overwrite?"
         ));
         assert!(matches!(
             state.plugins.pending_dialog,
@@ -208,7 +209,7 @@ mod tests {
         assert!(!rx1.blocking_recv().unwrap());
         assert!(matches!(
             state.dialogs.top(),
-            Some(PopupType::PluginConfirm { title, .. }) if title == "two"
+            Some(PopupType::Plugin(crate::app::state::popup::PluginDialog::Confirm { title, .. })) if title == "two"
         ));
     }
 
