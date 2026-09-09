@@ -17,6 +17,7 @@ targets = [
 yanked = "deny"
 ignore = [
     { id = "RUSTSEC-2024-0436", reason = "paste is unmaintained and pulled by image/rav1e for previews; no safe upgrade on image 0.25." },
+    { id = "RUSTSEC-2017-0008", reason = "serial is unmaintained and pulled transitively by portable-pty 0.8.1; no direct usage." },
 ]
 
 [licenses]
