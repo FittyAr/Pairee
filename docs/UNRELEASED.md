@@ -22,6 +22,10 @@
 - Ahead and behind commit counter indicators (`[↑X ↓Y]`) displayed for local branches.
 - Dedicated Tags tab in Git panel (`git_tab_tags`) displaying tags with target commit hash and annotated messages.
 - Full tag management in Git panel: create (`n`), delete (`d`/`Delete`), checkout (`Enter`), and push tags to remote (`u`).
+- Git repository initialization action (`GitInit`) accessible from top menu to initialize repositories directly in the active panel.
+- Interactive Git Clone dialog (`GitClone`) accessible from top menu with HTTPS/SSH credentials and auto-derived target directories.
+- Active Git branch indicator in navigation panel headers (e.g. `[git: main]`).
+- File Git status indicators (`[M]`, `[A]`, `[?]`, `[D]`, `[!]`) and status color highlighting in all file navigation panels.
 
 ### Improved
 

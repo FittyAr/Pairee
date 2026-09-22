@@ -90,6 +90,8 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Git,
     ),
+    d("git_init", Action::GitInit, true, ActionCategory::Git),
+    d("git_clone", Action::GitClone, true, ActionCategory::Git),
     d(
         "ssh_connect",
         Action::SshConnect,

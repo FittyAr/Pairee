@@ -47,3 +47,50 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
     }
     true
 }
+
+pub fn init_repo_action(state: &mut AppState, context: &AppContext) -> bool {
+    if !context.config.settings.git_enabled {
+        return false;
+    }
+    let panel_path = state.get_active_panel().current_path.clone();
+    match crate::git::repo::init_repo(&panel_path) {
+        Ok(_) => {
+            state.refresh_both_panels(context.config.settings.show_hidden);
+            state
+                .dialogs
+                .replace(crate::app::state::PopupType::Info(t("git_init_success")));
+        }
+        Err(e) => {
+            state
+                .dialogs
+                .replace(crate::app::state::PopupType::Error(format!(
+                    "{}: {}",
+                    t("git_init_error"),
+                    e
+                )));
+        }
+    }
+    true
+}
+
+pub fn clone_repo_prompt_action(state: &mut AppState, context: &AppContext) -> bool {
+    if !context.config.settings.git_enabled {
+        return false;
+    }
+    let target_parent_path = state.get_active_panel().current_path.clone();
+    state
+        .dialogs
+        .replace(crate::app::state::PopupType::GitPrompt(
+            crate::app::state::popup::GitPromptPopup::ClonePrompt(
+                crate::app::state::popup::GitClonePromptState {
+                    target_parent_path,
+                    url_input: String::new(),
+                    dir_input: String::new(),
+                    focus_dir: false,
+                    url_cursor: 0,
+                    dir_cursor: 0,
+                },
+            ),
+        ));
+    true
+}

@@ -226,4 +226,8 @@ pub enum Action {
     CommandPalette,
     /// Overlay of the live `keybinds` map (chords + labels, Ctrl+Shift+K)
     WhichKey,
+    /// Initialize a new Git repository in the active panel
+    GitInit,
+    /// Clone a remote Git repository into the active panel
+    GitClone,
 }

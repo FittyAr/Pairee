@@ -32,6 +32,10 @@ pub struct PanelState {
     pub last_path: PathBuf,
     /// Active SSH connection detail, if any
     pub ssh_conn: Option<crate::fs::ssh::SharedSshClient>,
+    /// Active Git branch name if current_path is inside a Git repository
+    pub git_branch: Option<String>,
+    /// Map of entry filename -> Git status label (e.g. "M", "A", "?", "D")
+    pub git_statuses: std::collections::HashMap<String, String>,
 }
 
 impl PanelState {
@@ -50,6 +54,8 @@ impl PanelState {
             quick_filter_mask: None,
             last_path: path,
             ssh_conn: None,
+            git_branch: None,
+            git_statuses: std::collections::HashMap::new(),
         }
     }
 

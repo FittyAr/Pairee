@@ -1,3 +1,4 @@
+pub mod clone_dialog;
 pub mod confirm;
 pub mod diff;
 pub mod prompts;
@@ -34,6 +35,9 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         }
         PopupType::GitPrompt(GitPromptPopup::TagCreatePrompt(prompt_state)) => {
             prompts::render_tag_create(f, prompt_state, theme, size)
+        }
+        PopupType::GitPrompt(GitPromptPopup::ClonePrompt(clone_state)) => {
+            clone_dialog::render_clone(f, clone_state, theme, size)
         }
         _ => false,
     }

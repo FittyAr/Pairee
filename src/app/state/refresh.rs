@@ -62,6 +62,7 @@ impl AppState {
                         self.panels.left.entries.len().saturating_sub(1);
                 }
             }
+            update_panel_git_state(&mut self.panels.left, &left_path);
             self.free_space_left = if self.panels.left.ssh_conn.is_none() {
                 crate::app::sys_helpers::get_free_space(&left_path)
             } else {
@@ -127,6 +128,7 @@ impl AppState {
                         self.panels.right.entries.len().saturating_sub(1);
                 }
             }
+            update_panel_git_state(&mut self.panels.right, &right_path);
             self.free_space_right = if self.panels.right.ssh_conn.is_none() {
                 crate::app::sys_helpers::get_free_space(&right_path)
             } else {
@@ -219,6 +221,57 @@ fn partition_entries_by_mask(
     result.extend(matching);
     result.extend(non_matching);
     result
+}
+
+fn update_panel_git_state(panel: &mut super::PanelState, path: &std::path::Path) {
+    if panel.ssh_conn.is_some() {
+        panel.git_branch = None;
+        panel.git_statuses.clear();
+        return;
+    }
+
+    if let Some(repo) = crate::git::repo::find_repo(path) {
+        let branch = repo
+            .head()
+            .ok()
+            .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
+            .unwrap_or_else(|| crate::config::localization::t("git_detached_head"));
+        panel.git_branch = Some(branch);
+
+        let mut map = std::collections::HashMap::new();
+        let statuses = crate::git::status::get_status(&repo);
+        if let Some(workdir) = repo.workdir() {
+            let norm_path = path.to_string_lossy().replace('\\', "/").to_lowercase();
+            for s in statuses {
+                let full_p = workdir.join(&s.path);
+                let norm_full = full_p.to_string_lossy().replace('\\', "/").to_lowercase();
+
+                let rel_str = if norm_full.starts_with(&norm_path) {
+                    let suffix = &norm_full[norm_path.len()..];
+                    suffix.trim_start_matches('/')
+                } else {
+                    continue;
+                };
+
+                let entry_name = rel_str.split('/').next().unwrap_or("");
+                if !entry_name.is_empty() {
+                    let actual_name = panel
+                        .entries
+                        .iter()
+                        .find(|e| e.name.eq_ignore_ascii_case(entry_name))
+                        .map(|e| e.name.clone())
+                        .unwrap_or_else(|| entry_name.to_string());
+
+                    map.entry(actual_name)
+                        .or_insert_with(|| s.kind.label().to_string());
+                }
+            }
+        }
+        panel.git_statuses = map;
+    } else {
+        panel.git_branch = None;
+        panel.git_statuses.clear();
+    }
 }
 
 #[cfg(test)]

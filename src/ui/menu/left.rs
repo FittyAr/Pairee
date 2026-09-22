@@ -87,17 +87,34 @@ pub fn get_items(
         );
     }
 
-    if settings.git_enabled
-        && crate::git::repo::find_repo(&state.panels.left.current_path).is_some()
-    {
+    if settings.git_enabled {
         items.push(MenuItemData::separator());
+        if crate::git::repo::find_repo(&state.panels.left.current_path).is_some() {
+            items.push(
+                MenuItemData::new(
+                    t("menu_git"),
+                    &shortcut_for(Action::OpenGitPanel, "Alt+G"),
+                    false,
+                )
+                .with_action(Action::OpenGitPanel),
+            );
+        } else {
+            items.push(
+                MenuItemData::new(
+                    t("menu_git_init"),
+                    &shortcut_for(Action::GitInit, ""),
+                    false,
+                )
+                .with_action(Action::GitInit),
+            );
+        }
         items.push(
             MenuItemData::new(
-                t("menu_git"),
-                &shortcut_for(Action::OpenGitPanel, "Alt+G"),
+                t("menu_git_clone"),
+                &shortcut_for(Action::GitClone, ""),
                 false,
             )
-            .with_action(Action::OpenGitPanel),
+            .with_action(Action::GitClone),
         );
     }
 

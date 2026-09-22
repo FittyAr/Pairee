@@ -144,6 +144,9 @@ pub fn handle_popup_input(
             PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteAdd(_)) => {
                 git_new_popups::handle_remote_add(state, key, context)
             }
+            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
+                git_new_popups::handle_clone(state, key, context)
+            }
             PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
             PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
             PopupType::TransferPanel => transfer_panel::handle(state, key, context),

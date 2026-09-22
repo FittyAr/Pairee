@@ -57,6 +57,7 @@ pub(crate) fn render_brief(
                 } else {
                     false
                 };
+                let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
                 let style = build_row_style(
                     entry,
                     i == panel.cursor_index,
@@ -65,12 +66,14 @@ pub(crate) fn render_brief(
                     theme,
                     highlight_files,
                     is_dimmed,
+                    git_status,
                 );
                 let name_width = cols[col_idx].width.saturating_sub(2) as usize;
                 Row::new(vec![Cell::from(entry_display_name_truncated(
                     &entry.name,
                     entry.is_dir,
                     name_width.max(4),
+                    git_status,
                 ))])
                 .style(style)
             })

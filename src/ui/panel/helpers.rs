@@ -46,10 +46,21 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
         String::new()
     };
 
+    let git_suffix = if settings.git_enabled {
+        if let Some(ref branch) = panel.git_branch {
+            format!(" [git: {}]", branch)
+        } else {
+            String::new()
+        }
+    } else {
+        String::new()
+    };
+
     format!(
-        " {}{} [{}{}] ",
+        " {}{}{} [{}{}] ",
         panel.current_path.to_string_lossy(),
         ssh_suffix,
+        git_suffix,
         mode_label,
         sort_letter,
     )
@@ -80,6 +91,7 @@ pub(crate) fn build_row_style(
     theme: &Theme,
     highlight_files: bool,
     is_dimmed: bool,
+    git_status: Option<&str>,
 ) -> Style {
     let base_style = Style::default().fg(parse_color(&theme.panel_fg));
     let mut style = if highlight_files {
@@ -88,6 +100,19 @@ pub(crate) fn build_row_style(
     } else {
         base_style
     };
+    if let Some(st) = git_status
+        && !is_selected
+        && (!is_cursor || !is_active)
+    {
+        match st {
+            "M" => style = style.fg(ratatui::style::Color::Yellow),
+            "A" => style = style.fg(ratatui::style::Color::Green),
+            "?" => style = style.fg(ratatui::style::Color::Magenta),
+            "D" => style = style.fg(ratatui::style::Color::Red),
+            "!" => style = style.fg(ratatui::style::Color::LightRed),
+            _ => {}
+        }
+    }
     if is_dimmed {
         style = style.fg(ratatui::style::Color::DarkGray);
     }
@@ -105,17 +130,26 @@ pub(crate) fn build_row_style(
     style
 }
 
-pub(crate) fn entry_display_name(name: &str, is_dir: bool) -> String {
+pub(crate) fn entry_display_name(name: &str, is_dir: bool, git_status: Option<&str>) -> String {
+    let prefix = match git_status {
+        Some(st) => format!("[{}] ", st),
+        None => String::new(),
+    };
     if is_dir && name != ".." {
-        format!("/{}", name)
+        format!("{}/{}", prefix, name)
     } else {
-        name.to_string()
+        format!("{}{}", prefix, name)
     }
 }
 
 /// Display name truncated to `max_width` terminal columns (Unicode-aware).
-pub(crate) fn entry_display_name_truncated(name: &str, is_dir: bool, max_width: usize) -> String {
-    truncate_to_width(&entry_display_name(name, is_dir), max_width)
+pub(crate) fn entry_display_name_truncated(
+    name: &str,
+    is_dir: bool,
+    max_width: usize,
+    git_status: Option<&str>,
+) -> String {
+    truncate_to_width(&entry_display_name(name, is_dir, git_status), max_width)
 }
 
 pub(crate) fn format_file_size(size: u64) -> String {
@@ -144,5 +178,42 @@ pub(crate) fn get_free_space_text(path: &Path) -> String {
     match crate::app::sys_helpers::get_free_space(path) {
         Some(bytes) => format_file_size(bytes),
         None => "?".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_build_panel_title_git() {
+        let mut panel = PanelState::new(PathBuf::from("/test/repo"));
+        let mut settings = Settings {
+            git_enabled: true,
+            ..Default::default()
+        };
+
+        let title_no_git = build_panel_title(&panel, &settings);
+        assert!(!title_no_git.contains("[git:"));
+
+        panel.git_branch = Some("feature-xyz".to_string());
+        let title_with_git = build_panel_title(&panel, &settings);
+        assert!(title_with_git.contains("[git: feature-xyz]"));
+
+        settings.git_enabled = false;
+        let title_disabled = build_panel_title(&panel, &settings);
+        assert!(!title_disabled.contains("[git:"));
+    }
+
+    #[test]
+    fn test_entry_display_name_git_status() {
+        assert_eq!(entry_display_name("file.txt", false, None), "file.txt");
+        assert_eq!(
+            entry_display_name("file.txt", false, Some("M")),
+            "[M] file.txt"
+        );
+        assert_eq!(entry_display_name("sub", true, Some("?")), "[?] /sub");
+        assert_eq!(entry_display_name("..", true, None), "..");
     }
 }

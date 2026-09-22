@@ -45,6 +45,7 @@ pub(crate) fn render_medium(
             } else {
                 false
             };
+            let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -53,6 +54,7 @@ pub(crate) fn render_medium(
                 theme,
                 highlight_files,
                 is_dimmed,
+                git_status,
             );
             let ext = if entry.is_dir {
                 "<DIR>".to_string()
@@ -69,6 +71,7 @@ pub(crate) fn render_medium(
                     &entry.name,
                     entry.is_dir,
                     name_width,
+                    git_status,
                 )),
                 Cell::from(ext),
                 Cell::from(if entry.is_dir {

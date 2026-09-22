@@ -34,6 +34,7 @@ pub(crate) fn render_wide(
             } else {
                 false
             };
+            let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -42,12 +43,14 @@ pub(crate) fn render_wide(
                 theme,
                 highlight_files,
                 is_dimmed,
+                git_status,
             );
             let name_width = area.width.saturating_sub(4) as usize;
             Row::new(vec![Cell::from(entry_display_name_truncated(
                 &entry.name,
                 entry.is_dir,
                 name_width.max(4),
+                git_status,
             ))])
             .style(style)
         })

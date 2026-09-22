@@ -43,6 +43,7 @@ pub(crate) fn render_descriptions(
             } else {
                 false
             };
+            let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -51,10 +52,11 @@ pub(crate) fn render_descriptions(
                 theme,
                 highlight_files,
                 is_dimmed,
+                git_status,
             );
             let desc = read_description(&panel.current_path, &entry.name).unwrap_or_default();
             Row::new(vec![
-                Cell::from(entry_display_name(&entry.name, entry.is_dir)),
+                Cell::from(entry_display_name(&entry.name, entry.is_dir, git_status)),
                 Cell::from(desc),
             ])
             .style(style)

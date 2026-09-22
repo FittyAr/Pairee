@@ -120,6 +120,8 @@ pub async fn handle_ui_settings_action(
             return true;
         }
         Action::OpenGitPanel => return git::open_git_panel(state, context),
+        Action::GitInit => return git::init_repo_action(state, context),
+        Action::GitClone => return git::clone_repo_prompt_action(state, context),
         Action::PluginMenu => {
             if !context.config.settings.plugins_enabled {
                 state

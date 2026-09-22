@@ -844,3 +844,41 @@ fn test_push_tags() {
     // Verify remote bare repository received the tag
     assert!(remote_repo.find_reference("refs/tags/v1.5.0").is_ok());
 }
+
+#[test]
+fn test_init_repo() {
+    let dir = TempDir::new().unwrap();
+    let repo = init_repo(dir.path()).unwrap();
+    assert!(!repo.is_bare());
+    assert!(dir.path().join(".git").exists());
+    assert!(find_repo(dir.path()).is_some());
+}
+
+#[test]
+fn test_clone_repo() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("cloned_file.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "hello clone").unwrap();
+    stage_file(&repo, "cloned_file.txt").unwrap();
+    let src_oid = commit(
+        &repo,
+        "initial clone commit",
+        "Test User",
+        "test@example.com",
+    )
+    .unwrap();
+
+    let target_dir = TempDir::new().unwrap();
+    let clone_target_path = target_dir.path().join("cloned_sub");
+    let src_url = dir.path().to_str().unwrap().replace('\\', "/");
+
+    let cloned_repo = clone_repo(&src_url, &clone_target_path).unwrap();
+    assert!(clone_target_path.join("cloned_file.txt").exists());
+
+    let content = std::fs::read_to_string(clone_target_path.join("cloned_file.txt")).unwrap();
+    assert!(content.contains("hello clone"));
+
+    let cloned_head = cloned_repo.head().unwrap().peel_to_commit().unwrap();
+    assert_eq!(cloned_head.id(), src_oid);
+}

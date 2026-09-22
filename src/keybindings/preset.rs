@@ -141,6 +141,8 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "ssh_connect" => Some(Action::SshConnect),
         "ssh_disconnect" => Some(Action::SshDisconnect),
         "open_git_panel" => Some(Action::OpenGitPanel),
+        "git_init" => Some(Action::GitInit),
+        "git_clone" => Some(Action::GitClone),
         "toggle_sort_reverse" => Some(Action::ToggleSortReverse),
         "check_for_updates" => Some(Action::CheckForUpdates),
         "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),

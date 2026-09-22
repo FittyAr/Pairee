@@ -91,6 +91,16 @@ pub struct GitTagCreatePromptState {
 }
 
 #[derive(Debug, Clone)]
+pub struct GitClonePromptState {
+    pub target_parent_path: PathBuf,
+    pub url_input: String,
+    pub dir_input: String,
+    pub focus_dir: bool,
+    pub url_cursor: usize,
+    pub dir_cursor: usize,
+}
+
+#[derive(Debug, Clone)]
 pub enum GitPromptPopup {
     CommitPrompt(GitCommitPromptState),
     ConfirmCheckout(GitConfirmCheckoutState),
@@ -102,4 +112,5 @@ pub enum GitPromptPopup {
     RemoteManage(GitRemoteManageState),
     RemoteAdd(GitRemoteAddState),
     TagCreatePrompt(GitTagCreatePromptState),
+    ClonePrompt(GitClonePromptState),
 }

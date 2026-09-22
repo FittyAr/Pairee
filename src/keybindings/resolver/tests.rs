@@ -72,6 +72,8 @@ fn test_action_parsing_with_suffixes() {
     );
     assert_eq!(parse_action_name("find_file_alt"), Some(Action::FindFile));
     assert_eq!(parse_action_name("copy_path"), Some(Action::CopyPath));
+    assert_eq!(parse_action_name("git_init"), Some(Action::GitInit));
+    assert_eq!(parse_action_name("git_clone"), Some(Action::GitClone));
     assert_eq!(parse_action_name("invalid_action_name"), None);
 }
 

@@ -45,6 +45,7 @@ pub(crate) fn render_detailed(
             } else {
                 false
             };
+            let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,
@@ -53,6 +54,7 @@ pub(crate) fn render_detailed(
                 theme,
                 highlight_files,
                 is_dimmed,
+                git_status,
             );
             let (perm_str, owner) = if panel.ssh_conn.is_some() {
                 ("?????????".to_string(), "?".to_string())
@@ -67,6 +69,7 @@ pub(crate) fn render_detailed(
                     &entry.name,
                     entry.is_dir,
                     name_width,
+                    git_status,
                 )),
                 Cell::from(perm_str),
                 Cell::from(owner),
