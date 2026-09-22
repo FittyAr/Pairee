@@ -49,6 +49,7 @@ pub struct GitBranchRenamePromptState {
 pub struct GitStashSavePromptState {
     pub input: String,
     pub cursor_idx: usize,
+    pub include_untracked: bool,
     pub repo_path: PathBuf,
     pub previous_popup: Box<super::PopupType>,
 }

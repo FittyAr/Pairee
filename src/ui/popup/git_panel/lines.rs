@@ -152,6 +152,19 @@ pub fn render_branch_lines(
             } else {
                 "         "
             };
+            let sync_label = if !branch.is_remote {
+                if branch.ahead > 0 && branch.behind > 0 {
+                    format!(" [↑{} ↓{}]", branch.ahead, branch.behind)
+                } else if branch.ahead > 0 {
+                    format!(" [↑{}]", branch.ahead)
+                } else if branch.behind > 0 {
+                    format!(" [↓{}]", branch.behind)
+                } else {
+                    String::new()
+                }
+            } else {
+                String::new()
+            };
             Line::from(vec![
                 Span::styled(
                     format!(" {}", prefix),
@@ -159,6 +172,7 @@ pub fn render_branch_lines(
                 ),
                 Span::styled(type_label, Style::default().fg(Color::DarkGray).bg(bg)),
                 Span::styled(branch.name.clone(), Style::default().fg(name_color).bg(bg)),
+                Span::styled(sync_label, Style::default().fg(Color::Cyan).bg(bg)),
             ])
         })
         .collect()

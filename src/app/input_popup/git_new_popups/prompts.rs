@@ -6,7 +6,7 @@ use crate::app::state::popup::{
 };
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn handle_prompt(
     state: &mut AppState,
@@ -154,10 +154,14 @@ pub fn handle_prompt(
             PopupType::GitPrompt(GitPromptPopup::StashSavePrompt(GitStashSavePromptState {
                 mut input,
                 mut cursor_idx,
+                mut include_untracked,
                 repo_path,
                 previous_popup,
             })) => {
                 match key.code {
+                    KeyCode::Char('u') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+                        include_untracked = !include_untracked;
+                    }
                     KeyCode::Up | KeyCode::BackTab => {
                         cursor_idx = if cursor_idx > 0 { cursor_idx - 1 } else { 2 };
                     }
@@ -181,7 +185,7 @@ pub fn handle_prompt(
                             Some(input.as_str())
                         };
                         if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
-                            match crate::git::stash::stash_save(&mut repo, msg, true) {
+                            match crate::git::stash::stash_save(&mut repo, msg, include_untracked) {
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
@@ -204,6 +208,7 @@ pub fn handle_prompt(
                         GitStashSavePromptState {
                             input,
                             cursor_idx,
+                            include_untracked,
                             repo_path,
                             previous_popup,
                         },

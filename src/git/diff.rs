@@ -44,6 +44,11 @@ pub fn get_commit_diff(repo: &git2::Repository, commit_hash: &str) -> anyhow::Re
     diff_to_string(&diff)
 }
 
+/// Returns the unified diff showing changes saved in a stash entry.
+pub fn get_stash_diff(repo: &git2::Repository, stash_oid: &str) -> anyhow::Result<String> {
+    get_commit_diff(repo, stash_oid)
+}
+
 /// Helper function to convert a git2::Diff object to a unified patch string.
 fn diff_to_string(diff: &git2::Diff) -> anyhow::Result<String> {
     let mut out = String::new();

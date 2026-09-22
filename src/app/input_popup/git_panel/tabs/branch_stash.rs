@@ -130,6 +130,27 @@ pub fn handle_branch_tab(
             }
             true
         }
+        KeyCode::Char('b') | KeyCode::Char('B') => {
+            if let Some(branch) = branch_entries.get(cursor_idx)
+                && !branch.is_current
+            {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                let msg = crate::config::localization::t("git_confirm_rebase")
+                    .replace("{current}", current_branch)
+                    .replace("{onto}", &branch.name);
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                        crate::app::state::popup::GitConfirmActionState {
+                            message: msg,
+                            repo_path: repo_path.to_path_buf(),
+                            action: GitConfirmedAction::RebaseBranch(branch.name.clone()),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
         KeyCode::Enter => {
             if let Some(branch) = branch_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned();
@@ -190,7 +211,28 @@ pub fn handle_stash_tab(
             }
             true
         }
-        KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
+        KeyCode::Char('d') | KeyCode::Char('D') => {
+            if let Some(stash) = stash_entries.get(cursor_idx)
+                && let Some(repo) = crate::git::repo::find_repo(repo_path)
+                && let Ok(diff_content) = crate::git::diff::get_stash_diff(&repo, &stash.oid)
+            {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::DiffView(
+                        crate::app::state::popup::GitDiffViewState {
+                            repo_path: repo_path.to_path_buf(),
+                            file_path: None,
+                            commit_hash: Some(format!("stash@{{{}}}", stash.index)),
+                            diff_content,
+                            scroll_y: 0,
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Delete | KeyCode::Char('x') | KeyCode::Char('X') => {
             if let Some(stash) = stash_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_stash_drop")
@@ -201,6 +243,23 @@ pub fn handle_stash_tab(
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::StashDrop(stash.index),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('C') => {
+            if !stash_entries.is_empty() {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                let msg = crate::config::localization::t("git_confirm_stash_clear");
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                        crate::app::state::popup::GitConfirmActionState {
+                            message: msg,
+                            repo_path: repo_path.to_path_buf(),
+                            action: GitConfirmedAction::StashClear,
                             previous_popup: Box::new(current_popup),
                         },
                     ),

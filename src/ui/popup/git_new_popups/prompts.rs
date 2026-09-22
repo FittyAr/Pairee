@@ -56,7 +56,17 @@ pub fn render_stash_save(
     size: Rect,
 ) -> bool {
     let title = crate::config::localization::t("git_stash_save_title");
-    let label = crate::config::localization::t("git_stash_save_prompt");
+    let untracked_str = if state.include_untracked {
+        "[X]"
+    } else {
+        "[ ]"
+    };
+    let label = format!(
+        "{}  {} {}",
+        crate::config::localization::t("git_stash_save_prompt"),
+        untracked_str,
+        crate::config::localization::t("git_stash_untracked_hint")
+    );
     render_prompt_box(
         f,
         theme,

@@ -62,3 +62,11 @@ pub fn stash_pop(repo: &mut git2::Repository, index: usize) -> anyhow::Result<()
     repo.stash_drop(index)?;
     Ok(())
 }
+
+/// Clears all stash entries.
+pub fn stash_clear(repo: &mut git2::Repository) -> anyhow::Result<()> {
+    if let Ok(mut reference) = repo.find_reference("refs/stash") {
+        reference.delete()?;
+    }
+    Ok(())
+}

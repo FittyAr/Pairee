@@ -15,6 +15,11 @@
 - Cherry-pick and Revert operations with confirmation dialogs from the Git Log tab (`c` and `r`).
 - Clipboard copy of commit SHA in Git Log tab (`y`).
 - Incremental pagination and continuous loading when scrolling through commit history.
+- Stash entry diff inspection (`d` in Stash tab).
+- Stash clearing operation (`C` in Stash tab) with confirmation dialog.
+- Include untracked files toggle (`Ctrl+U`) in Stash Save prompt.
+- Interactive branch rebase (`b` in Branches tab) with confirmation dialog.
+- Ahead and behind commit counter indicators (`[↑X ↓Y]`) displayed for local branches.
 
 ### Improved
 

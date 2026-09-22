@@ -139,6 +139,7 @@ pub fn handle_status_tab(
                     crate::app::state::popup::GitStashSavePromptState {
                         input: String::new(),
                         cursor_idx: 0,
+                        include_untracked: false,
                         repo_path: repo_path.to_path_buf(),
                         previous_popup: Box::new(current_popup),
                     },

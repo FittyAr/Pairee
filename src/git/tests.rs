@@ -5,6 +5,7 @@ use crate::git::commit::*;
 use crate::git::diff::*;
 use crate::git::log::*;
 use crate::git::merge::*;
+use crate::git::rebase::*;
 use crate::git::remote::*;
 use crate::git::repo::*;
 use crate::git::reset::*;
@@ -657,4 +658,133 @@ fn test_revert() {
     let status = get_status(&repo);
     let found = status.iter().any(|s| s.path == "revert.txt" && s.is_staged);
     assert!(found);
+}
+
+#[test]
+fn test_stash_clear_and_diff() {
+    let (dir, mut repo) = setup_temp_repo();
+    let file_path = dir.path().join("stash_diff.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "initial").unwrap();
+    stage_file(&repo, "stash_diff.txt").unwrap();
+    commit(&repo, "base", "Test User", "test@example.com").unwrap();
+
+    // Modify file and stash
+    let mut f2 = File::create(&file_path).unwrap();
+    writeln!(f2, "modified content for stash").unwrap();
+    stash_save(&mut repo, Some("diff test stash"), false).unwrap();
+
+    let stashes = list_stashes(&mut repo).unwrap();
+    assert_eq!(stashes.len(), 1);
+
+    let diff = get_stash_diff(&repo, &stashes[0].oid).unwrap();
+    assert!(diff.contains("+modified content for stash"));
+
+    // Clear stashes
+    stash_clear(&mut repo).unwrap();
+    let stashes_after = list_stashes(&mut repo).unwrap();
+    assert_eq!(stashes_after.len(), 0);
+}
+
+#[test]
+fn test_stash_untracked() {
+    let (dir, mut repo) = setup_temp_repo();
+    let file_path = dir.path().join("base.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "base").unwrap();
+    stage_file(&repo, "base.txt").unwrap();
+    commit(&repo, "base", "Test User", "test@example.com").unwrap();
+
+    // Create untracked file
+    let untracked_path = dir.path().join("untracked.txt");
+    let mut f_untracked = File::create(&untracked_path).unwrap();
+    writeln!(f_untracked, "secret untracked content").unwrap();
+
+    // Stash with untracked = true
+    stash_save(&mut repo, Some("stash with untracked"), true).unwrap();
+    assert!(!untracked_path.exists());
+
+    // Apply stash
+    stash_apply(&mut repo, 0).unwrap();
+    assert!(untracked_path.exists());
+}
+
+#[test]
+fn test_rebase_branch() {
+    let (dir, repo) = setup_temp_repo();
+    let base_file = dir.path().join("base.txt");
+    let mut f = File::create(&base_file).unwrap();
+    writeln!(f, "base").unwrap();
+    stage_file(&repo, "base.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+    // Create feature branch
+    create_branch(&repo, "feat", "HEAD").unwrap();
+    checkout_branch(&repo, "feat").unwrap();
+
+    let feat_file = dir.path().join("feat.txt");
+    let mut f_feat = File::create(&feat_file).unwrap();
+    writeln!(f_feat, "feat").unwrap();
+    stage_file(&repo, "feat.txt").unwrap();
+    commit(&repo, "c2_feat", "Test User", "test@example.com").unwrap();
+
+    // Checkout default branch and add a commit
+    checkout_branch(&repo, &default_branch).unwrap();
+    let main_file = dir.path().join("main.txt");
+    let mut f_main = File::create(&main_file).unwrap();
+    writeln!(f_main, "main").unwrap();
+    stage_file(&repo, "main.txt").unwrap();
+    commit(&repo, "c3_main", "Test User", "test@example.com").unwrap();
+
+    // Rebase feat onto default branch
+    checkout_branch(&repo, "feat").unwrap();
+    rebase_branch(&repo, &default_branch).unwrap();
+
+    // After rebase, feat branch must contain both feat.txt and main.txt
+    assert!(dir.path().join("feat.txt").exists());
+    assert!(dir.path().join("main.txt").exists());
+}
+
+#[test]
+fn test_branches_ahead_behind() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("initial.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "init").unwrap();
+    stage_file(&repo, "initial.txt").unwrap();
+    commit(&repo, "initial commit", "Test User", "test@example.com").unwrap();
+
+    let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+    // Setup local bare remote
+    let remote_dir = TempDir::new().unwrap();
+    let bare_path = remote_dir.path().to_str().unwrap().replace('\\', "/");
+    let _remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
+
+    add_remote(&repo, "origin", &bare_path).unwrap();
+    push(&repo, "origin", &default_branch, true).unwrap();
+
+    // Initially ahead = 0, behind = 0
+    let branches = get_branches(&repo);
+    let current = branches.iter().find(|b| b.name == default_branch).unwrap();
+    assert_eq!(current.ahead, 0);
+    assert_eq!(current.behind, 0);
+
+    // Make local commit without pushing
+    let f2_path = dir.path().join("ahead.txt");
+    let mut f2 = File::create(&f2_path).unwrap();
+    writeln!(f2, "ahead").unwrap();
+    stage_file(&repo, "ahead.txt").unwrap();
+    commit(&repo, "ahead commit", "Test User", "test@example.com").unwrap();
+
+    // Now ahead should be 1, behind 0
+    let branches_updated = get_branches(&repo);
+    let current_updated = branches_updated
+        .iter()
+        .find(|b| b.name == default_branch)
+        .unwrap();
+    assert_eq!(current_updated.ahead, 1);
+    assert_eq!(current_updated.behind, 0);
 }

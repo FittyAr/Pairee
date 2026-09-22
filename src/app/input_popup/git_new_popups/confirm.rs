@@ -233,6 +233,45 @@ pub fn handle_confirm_action(
                             }
                         }
                     }
+                    GitConfirmedAction::RebaseBranch(onto_name) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::rebase::rebase_branch(&repo, &onto_name) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    state.dialogs.replace(PopupType::Info(
+                                        crate::config::localization::t("git_operation_success"),
+                                    ));
+                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Rebase failed: {}", e))),
+                            }
+                        }
+                    }
+                    GitConfirmedAction::StashClear => {
+                        if let Some(mut repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::stash::stash_clear(&mut repo) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    state.dialogs.replace(PopupType::Info(
+                                        crate::config::localization::t("git_operation_success"),
+                                    ));
+                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Stash clear failed: {}",
+                                    e
+                                ))),
+                            }
+                        }
+                    }
                 }
                 return Ok(None);
             }

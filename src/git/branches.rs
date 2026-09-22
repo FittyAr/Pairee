@@ -7,6 +7,10 @@ pub struct BranchInfo {
     pub is_current: bool,
     /// Whether this is a remote-tracking branch
     pub is_remote: bool,
+    /// Commits ahead of upstream tracking branch
+    pub ahead: usize,
+    /// Commits behind upstream tracking branch
+    pub behind: usize,
 }
 
 /// Returns all local and remote branches in the repository.
@@ -47,10 +51,26 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
                         .map(|cur| cur == name)
                         .unwrap_or(false);
 
+                let (ahead, behind) = if !*is_remote {
+                    if let Ok(upstream) = branch.upstream()
+                        && let (Some(local_oid), Some(upstream_oid)) =
+                            (branch.get().target(), upstream.get().target())
+                    {
+                        repo.graph_ahead_behind(local_oid, upstream_oid)
+                            .unwrap_or((0, 0))
+                    } else {
+                        (0, 0)
+                    }
+                } else {
+                    (0, 0)
+                };
+
                 result.push(BranchInfo {
                     name,
                     is_current,
                     is_remote: *is_remote,
+                    ahead,
+                    behind,
                 });
             }
         }
