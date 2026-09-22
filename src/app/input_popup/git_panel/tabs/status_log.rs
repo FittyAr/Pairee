@@ -246,6 +246,94 @@ pub fn handle_log_tab(
             }
             true
         }
+        KeyCode::Char('b') | KeyCode::Char('B') | KeyCode::Char('n') | KeyCode::Char('N') => {
+            if let Some(commit) = log_entries.get(cursor_idx) {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(
+                        crate::app::state::popup::GitBranchCreatePromptState {
+                            input: String::new(),
+                            cursor_idx: 0,
+                            start_point: commit.hash_full.clone(),
+                            repo_path: repo_path.to_path_buf(),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('t') | KeyCode::Char('T') => {
+            if let Some(commit) = log_entries.get(cursor_idx) {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::TagCreatePrompt(
+                        crate::app::state::popup::GitTagCreatePromptState {
+                            input: String::new(),
+                            cursor_idx: 0,
+                            target: commit.hash_full.clone(),
+                            repo_path: repo_path.to_path_buf(),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('c') | KeyCode::Char('C') => {
+            if let Some(commit) = log_entries.get(cursor_idx) {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                let msg = crate::config::localization::t("git_confirm_cherry_pick")
+                    .replace("{}", &commit.hash_short);
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                        crate::app::state::popup::GitConfirmActionState {
+                            message: msg,
+                            repo_path: repo_path.to_path_buf(),
+                            action: GitConfirmedAction::CherryPick(commit.hash_full.clone()),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('r') | KeyCode::Char('R') => {
+            if let Some(commit) = log_entries.get(cursor_idx) {
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                let msg = crate::config::localization::t("git_confirm_revert")
+                    .replace("{}", &commit.hash_short);
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                        crate::app::state::popup::GitConfirmActionState {
+                            message: msg,
+                            repo_path: repo_path.to_path_buf(),
+                            action: GitConfirmedAction::Revert(commit.hash_full.clone()),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('y') | KeyCode::Char('Y') => {
+            if let Some(commit) = log_entries.get(cursor_idx) {
+                let text = commit.hash_full.clone();
+                match crate::app::sys_helpers::clipboard::set_text(&text) {
+                    Ok(()) => {
+                        let msg = crate::config::localization::t("git_hash_copied")
+                            .replace("{}", &commit.hash_short);
+                        state.dialogs.push(PopupType::Info(msg));
+                    }
+                    Err(e) => {
+                        let msg = crate::config::localization::t("clipboard_failed")
+                            .replace("{}", &e.to_string());
+                        state.dialogs.push(PopupType::Error(msg));
+                    }
+                }
+            }
+            true
+        }
         KeyCode::Enter => {
             if let Some(commit) = log_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned();

@@ -32,6 +32,9 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         PopupType::GitPrompt(GitPromptPopup::RemoteAdd(add_state)) => {
             remote_manage::render_remote_add(f, add_state, theme, size)
         }
+        PopupType::GitPrompt(GitPromptPopup::TagCreatePrompt(prompt_state)) => {
+            prompts::render_tag_create(f, prompt_state, theme, size)
+        }
         _ => false,
     }
 }

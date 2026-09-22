@@ -23,6 +23,7 @@ pub fn handle_branch_tab(
                     crate::app::state::popup::GitBranchCreatePromptState {
                         input: String::new(),
                         cursor_idx: 0,
+                        start_point: "HEAD".to_string(),
                         repo_path: repo_path.to_path_buf(),
                         previous_popup: Box::new(current_popup),
                     },

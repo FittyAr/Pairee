@@ -172,6 +172,67 @@ pub fn handle_confirm_action(
                             }
                         }
                     }
+                    GitConfirmedAction::CherryPick(hash) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::cherry_pick::cherry_pick(&repo, &hash) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    let has_conflicts = repo
+                                        .index()
+                                        .map(|idx| idx.has_conflicts())
+                                        .unwrap_or(false);
+                                    if has_conflicts {
+                                        state.dialogs.replace(PopupType::Error(
+                                            "Cherry-pick conflicts detected! Please resolve manually."
+                                                .to_string(),
+                                        ));
+                                    } else {
+                                        state.dialogs.replace(PopupType::Info(
+                                            crate::config::localization::t("git_operation_success"),
+                                        ));
+                                    }
+                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Cherry-pick failed: {}",
+                                    e
+                                ))),
+                            }
+                        }
+                    }
+                    GitConfirmedAction::Revert(hash) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::revert::revert(&repo, &hash) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    let has_conflicts = repo
+                                        .index()
+                                        .map(|idx| idx.has_conflicts())
+                                        .unwrap_or(false);
+                                    if has_conflicts {
+                                        state.dialogs.replace(PopupType::Error(
+                                            "Revert conflicts detected! Please resolve manually."
+                                                .to_string(),
+                                        ));
+                                    } else {
+                                        state.dialogs.replace(PopupType::Info(
+                                            crate::config::localization::t("git_operation_success"),
+                                        ));
+                                    }
+                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Revert failed: {}", e))),
+                            }
+                        }
+                    }
                 }
                 return Ok(None);
             }

@@ -132,7 +132,8 @@ pub fn handle_popup_input(
             PopupType::GitPrompt(
                 crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
                 | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
-                | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_),
+                | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_)
+                | crate::app::state::popup::GitPromptPopup::TagCreatePrompt(_),
             ) => git_new_popups::handle_prompt(state, key, context),
             PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
                 git_new_popups::handle_confirm_action(state, key, context)

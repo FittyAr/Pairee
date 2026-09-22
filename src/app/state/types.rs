@@ -103,6 +103,8 @@ pub enum GitConfirmedAction {
     ResetCommit(String, crate::git::reset::ResetMode),
     DiscardFile(String),
     AbortMerge,
+    CherryPick(String),
+    Revert(String),
 }
 
 #[derive(Debug, Clone)]

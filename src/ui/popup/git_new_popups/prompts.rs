@@ -68,6 +68,25 @@ pub fn render_stash_save(
     )
 }
 
+pub fn render_tag_create(
+    f: &mut Frame,
+    state: &crate::app::state::popup::GitTagCreatePromptState,
+    theme: &Theme,
+    size: Rect,
+) -> bool {
+    let title = crate::config::localization::t("git_tag_create_title");
+    let label = crate::config::localization::t("git_tag_create_prompt");
+    render_prompt_box(
+        f,
+        theme,
+        size,
+        &title,
+        &label,
+        &state.input,
+        state.cursor_idx,
+    )
+}
+
 pub fn render_prompt_box(
     f: &mut Frame,
     theme: &Theme,

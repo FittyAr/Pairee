@@ -15,6 +15,11 @@ pub struct CommitInfo {
 
 /// Reads up to `limit` commits from the HEAD of the active branch.
 pub fn get_log(repo: &git2::Repository, limit: usize) -> Vec<CommitInfo> {
+    get_log_paged(repo, 0, limit)
+}
+
+/// Reads up to `limit` commits skipping `skip` commits from the HEAD of the active branch.
+pub fn get_log_paged(repo: &git2::Repository, skip: usize, limit: usize) -> Vec<CommitInfo> {
     let mut revwalk = match repo.revwalk() {
         Ok(r) => r,
         Err(_) => return Vec::new(),
@@ -55,6 +60,7 @@ pub fn get_log(repo: &git2::Repository, limit: usize) -> Vec<CommitInfo> {
                 message,
             })
         })
+        .skip(skip)
         .take(limit)
         .collect()
 }

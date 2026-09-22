@@ -31,6 +31,7 @@ pub struct GitDiffViewState {
 pub struct GitBranchCreatePromptState {
     pub input: String,
     pub cursor_idx: usize,
+    pub start_point: String,
     pub repo_path: PathBuf,
     pub previous_popup: Box<super::PopupType>,
 }
@@ -80,6 +81,15 @@ pub struct GitRemoteAddState {
 }
 
 #[derive(Debug, Clone)]
+pub struct GitTagCreatePromptState {
+    pub input: String,
+    pub cursor_idx: usize,
+    pub target: String,
+    pub repo_path: PathBuf,
+    pub previous_popup: Box<super::PopupType>,
+}
+
+#[derive(Debug, Clone)]
 pub enum GitPromptPopup {
     CommitPrompt(GitCommitPromptState),
     ConfirmCheckout(GitConfirmCheckoutState),
@@ -90,4 +100,5 @@ pub enum GitPromptPopup {
     ConfirmAction(GitConfirmActionState),
     RemoteManage(GitRemoteManageState),
     RemoteAdd(GitRemoteAddState),
+    TagCreatePrompt(GitTagCreatePromptState),
 }

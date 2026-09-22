@@ -22,7 +22,7 @@ pub fn handle(
         mut cursor_idx,
         mut scroll,
         status_entries,
-        log_entries,
+        mut log_entries,
         branch_entries,
         stash_entries,
         repo_path,
@@ -61,12 +61,30 @@ pub fn handle(
                 if current_list_len > 0 && cursor_idx < current_list_len - 1 {
                     cursor_idx += 1;
                 }
+                if active_tab == 1
+                    && cursor_idx + 10 >= log_entries.len()
+                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                {
+                    let more = crate::git::log::get_log_paged(&repo, log_entries.len(), 50);
+                    if !more.is_empty() {
+                        log_entries.extend(more);
+                    }
+                }
             }
             KeyCode::PageUp => {
                 cursor_idx = cursor_idx.saturating_sub(10);
             }
             KeyCode::PageDown => {
                 cursor_idx = (cursor_idx + 10).min(current_list_len.saturating_sub(1));
+                if active_tab == 1
+                    && cursor_idx + 10 >= log_entries.len()
+                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                {
+                    let more = crate::git::log::get_log_paged(&repo, log_entries.len(), 50);
+                    if !more.is_empty() {
+                        log_entries.extend(more);
+                    }
+                }
             }
             KeyCode::Home => {
                 cursor_idx = 0;

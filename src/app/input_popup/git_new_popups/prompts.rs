@@ -1,7 +1,8 @@
 use super::common::restore_previous_and_refresh;
 use crate::app::context::AppContext;
 use crate::app::state::popup::{
-    GitBranchCreatePromptState, GitBranchRenamePromptState, GitPromptPopup, GitStashSavePromptState,
+    GitBranchCreatePromptState, GitBranchRenamePromptState, GitPromptPopup,
+    GitStashSavePromptState, GitTagCreatePromptState,
 };
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -19,6 +20,7 @@ pub fn handle_prompt(
                 GitBranchCreatePromptState {
                     mut input,
                     mut cursor_idx,
+                    start_point,
                     repo_path,
                     previous_popup,
                 },
@@ -43,7 +45,11 @@ pub fn handle_prompt(
                         }
                         if !input.trim().is_empty() {
                             if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                                match crate::git::branches::create_branch(&repo, &input, "HEAD") {
+                                match crate::git::branches::create_branch(
+                                    &repo,
+                                    &input,
+                                    &start_point,
+                                ) {
                                     Ok(_) => restore_previous_and_refresh(
                                         state,
                                         *previous_popup,
@@ -72,6 +78,7 @@ pub fn handle_prompt(
                         GitBranchCreatePromptState {
                             input,
                             cursor_idx,
+                            start_point,
                             repo_path,
                             previous_popup,
                         },
@@ -197,6 +204,73 @@ pub fn handle_prompt(
                         GitStashSavePromptState {
                             input,
                             cursor_idx,
+                            repo_path,
+                            previous_popup,
+                        },
+                    )));
+            }
+            PopupType::GitPrompt(GitPromptPopup::TagCreatePrompt(GitTagCreatePromptState {
+                mut input,
+                mut cursor_idx,
+                target,
+                repo_path,
+                previous_popup,
+            })) => {
+                match key.code {
+                    KeyCode::Up | KeyCode::BackTab => {
+                        cursor_idx = if cursor_idx > 0 { cursor_idx - 1 } else { 2 };
+                    }
+                    KeyCode::Down | KeyCode::Tab => {
+                        cursor_idx = (cursor_idx + 1) % 3;
+                    }
+                    KeyCode::Char(c) if cursor_idx == 0 => {
+                        input.push(c);
+                    }
+                    KeyCode::Backspace if cursor_idx == 0 => {
+                        input.pop();
+                    }
+                    KeyCode::Enter => {
+                        if cursor_idx == 2 {
+                            state.dialogs.replace(*previous_popup);
+                            return Ok(None);
+                        }
+                        if !input.trim().is_empty() {
+                            if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                                match crate::git::tags::create_tag(
+                                    &repo,
+                                    input.trim(),
+                                    &target,
+                                    None,
+                                ) {
+                                    Ok(_) => restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    ),
+                                    Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                        "Failed to create tag: {}",
+                                        e
+                                    ))),
+                                }
+                            }
+                        } else {
+                            state.dialogs.replace(*previous_popup);
+                        }
+                        return Ok(None);
+                    }
+                    KeyCode::Esc => {
+                        state.dialogs.replace(*previous_popup);
+                        return Ok(None);
+                    }
+                    _ => {}
+                }
+                state
+                    .dialogs
+                    .replace(PopupType::GitPrompt(GitPromptPopup::TagCreatePrompt(
+                        GitTagCreatePromptState {
+                            input,
+                            cursor_idx,
+                            target,
                             repo_path,
                             previous_popup,
                         },

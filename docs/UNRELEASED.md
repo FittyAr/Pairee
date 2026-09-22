@@ -10,6 +10,11 @@
 - Multi-remote management dialog in Git panel (`R` in Branches tab) to list, add, and remove remotes.
 - Remote branch deletion directly from the Branches tab with confirmation dialog.
 - Automatic upstream tracking configuration (`--set-upstream`) when pushing branches without an upstream.
+- Branch creation from any selected commit in the Git Log tab (`b`/`n`).
+- Tag creation from any selected commit in the Git Log tab (`t`).
+- Cherry-pick and Revert operations with confirmation dialogs from the Git Log tab (`c` and `r`).
+- Clipboard copy of commit SHA in Git Log tab (`y`).
+- Incremental pagination and continuous loading when scrolling through commit history.
 
 ### Improved
 

@@ -1,14 +1,18 @@
 use crate::git::branches::*;
 use crate::git::checkout::*;
+use crate::git::cherry_pick::*;
 use crate::git::commit::*;
 use crate::git::diff::*;
+use crate::git::log::*;
 use crate::git::merge::*;
 use crate::git::remote::*;
 use crate::git::repo::*;
 use crate::git::reset::*;
+use crate::git::revert::*;
 use crate::git::stage::*;
 use crate::git::stash::*;
 use crate::git::status::*;
+use crate::git::tags::*;
 use std::fs::File;
 use std::io::Write;
 use tempfile::TempDir;
@@ -540,4 +544,117 @@ fn test_remote_push_upstream_and_delete_branch() {
             .find_branch("feat-to-delete", git2::BranchType::Local)
             .is_err()
     );
+}
+
+#[test]
+fn test_log_paged() {
+    let (dir, repo) = setup_temp_repo();
+    for i in 1..=5 {
+        let file_path = dir.path().join(format!("file_{}.txt", i));
+        let mut f = File::create(&file_path).unwrap();
+        writeln!(f, "content {}", i).unwrap();
+        stage_file(&repo, &format!("file_{}.txt", i)).unwrap();
+        commit(
+            &repo,
+            &format!("commit {}", i),
+            "Test User",
+            "test@example.com",
+        )
+        .unwrap();
+    }
+
+    let paged1 = get_log_paged(&repo, 0, 2);
+    assert_eq!(paged1.len(), 2);
+    assert_eq!(paged1[0].message, "commit 5");
+    assert_eq!(paged1[1].message, "commit 4");
+
+    let paged2 = get_log_paged(&repo, 2, 2);
+    assert_eq!(paged2.len(), 2);
+    assert_eq!(paged2[0].message, "commit 3");
+    assert_eq!(paged2[1].message, "commit 2");
+
+    let paged3 = get_log_paged(&repo, 4, 2);
+    assert_eq!(paged3.len(), 1);
+    assert_eq!(paged3[0].message, "commit 1");
+
+    let paged_empty = get_log_paged(&repo, 10, 2);
+    assert_eq!(paged_empty.len(), 0);
+}
+
+#[test]
+fn test_create_tag() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("tag_test.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "tag content").unwrap();
+    stage_file(&repo, "tag_test.txt").unwrap();
+    let oid = commit(&repo, "tag commit", "Test User", "test@example.com").unwrap();
+
+    // Lightweight tag
+    let tag_oid = create_tag(&repo, "v1.0.0", &oid.to_string(), None).unwrap();
+    assert_eq!(tag_oid, oid);
+    assert!(repo.find_reference("refs/tags/v1.0.0").is_ok());
+
+    // Annotated tag
+    let tag_annotated_oid = create_tag(&repo, "v2.0.0", "HEAD", Some("annotated release")).unwrap();
+    assert!(!tag_annotated_oid.is_zero());
+    assert!(repo.find_reference("refs/tags/v2.0.0").is_ok());
+}
+
+#[test]
+fn test_cherry_pick() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("base.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "base").unwrap();
+    stage_file(&repo, "base.txt").unwrap();
+    commit(&repo, "base commit", "Test User", "test@example.com").unwrap();
+
+    let main_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+    // Create feature branch and commit
+    create_branch(&repo, "feat-cherry", "HEAD").unwrap();
+    checkout_branch(&repo, "feat-cherry").unwrap();
+
+    let feat_path = dir.path().join("cherry.txt");
+    let mut f2 = File::create(&feat_path).unwrap();
+    writeln!(f2, "cherry content").unwrap();
+    stage_file(&repo, "cherry.txt").unwrap();
+    let feat_oid = commit(&repo, "cherry commit", "Test User", "test@example.com").unwrap();
+
+    // Switch back to main branch
+    checkout_branch(&repo, &main_branch).unwrap();
+    assert!(!dir.path().join("cherry.txt").exists());
+
+    // Cherry-pick commit from feature branch
+    cherry_pick(&repo, &feat_oid.to_string()).unwrap();
+
+    // The cherry-picked changes should be staged in the index
+    let staged = get_status(&repo);
+    let found = staged.iter().any(|s| s.path == "cherry.txt" && s.is_staged);
+    assert!(found);
+}
+
+#[test]
+fn test_revert() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("revert.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "v1").unwrap();
+    stage_file(&repo, "revert.txt").unwrap();
+    commit(&repo, "init revert file", "Test User", "test@example.com").unwrap();
+
+    // Commit change
+    let mut f2 = File::create(&file_path).unwrap();
+    writeln!(f2, "v2").unwrap();
+    stage_file(&repo, "revert.txt").unwrap();
+    let v2_oid = commit(&repo, "update to v2", "Test User", "test@example.com").unwrap();
+
+    // Revert v2
+    revert(&repo, &v2_oid.to_string()).unwrap();
+
+    // Index should now have revert changes
+    let status = get_status(&repo);
+    let found = status.iter().any(|s| s.path == "revert.txt" && s.is_staged);
+    assert!(found);
 }
