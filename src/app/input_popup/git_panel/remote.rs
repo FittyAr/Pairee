@@ -6,7 +6,16 @@ use std::path::Path;
 
 pub fn handle_fetch(state: &mut AppState, repo_path: &Path) {
     if let Some(repo) = crate::git::repo::find_repo(repo_path) {
-        match crate::git::remote::fetch(&repo, "origin") {
+        let remote_name = match crate::git::remote::resolve_remote_name(&repo, None) {
+            Ok(name) => name,
+            Err(e) => {
+                state
+                    .dialogs
+                    .replace(PopupType::Error(format!("Fetch failed: {}", e)));
+                return;
+            }
+        };
+        match crate::git::remote::fetch(&repo, &remote_name) {
             Ok(_) => {
                 state
                     .dialogs
@@ -30,7 +39,17 @@ pub fn handle_pull(state: &mut AppState, repo_path: &Path, active_tab: usize, cu
             .ok()
             .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
             .unwrap_or_else(|| "main".to_string());
-        match crate::git::remote::pull(&repo, "origin", &current_branch_name) {
+        let remote_name =
+            match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
+                Ok(name) => name,
+                Err(e) => {
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(format!("Pull failed: {}", e)));
+                    return;
+                }
+            };
+        match crate::git::remote::pull(&repo, &remote_name, &current_branch_name) {
             Ok(_) => {
                 refresh_git_panel(state, repo_path, active_tab, cursor_idx);
                 state
@@ -55,7 +74,21 @@ pub fn handle_push(state: &mut AppState, repo_path: &Path) {
             .ok()
             .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
             .unwrap_or_else(|| "main".to_string());
-        match crate::git::remote::push(&repo, "origin", &current_branch_name) {
+        let remote_name =
+            match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
+                Ok(name) => name,
+                Err(e) => {
+                    state
+                        .dialogs
+                        .replace(PopupType::Error(format!("Push failed: {}", e)));
+                    return;
+                }
+            };
+        let set_upstream = repo
+            .find_branch(&current_branch_name, git2::BranchType::Local)
+            .and_then(|b| b.upstream())
+            .is_err();
+        match crate::git::remote::push(&repo, &remote_name, &current_branch_name, set_upstream) {
             Ok(_) => {
                 state
                     .dialogs

@@ -42,7 +42,6 @@ pub fn refresh_git_panel(
                 branch_entries,
                 stash_entries,
                 current_branch: new_branch,
-                pending_action: None,
             }));
     }
 }

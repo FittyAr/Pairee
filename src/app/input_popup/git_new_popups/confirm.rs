@@ -110,6 +110,55 @@ pub fn handle_confirm_action(
                             }
                         }
                     }
+                    GitConfirmedAction::DeleteRemoteBranch { remote, branch } => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::remote::delete_remote_branch(&repo, &remote, &branch)
+                            {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Delete remote branch failed: {}",
+                                    e
+                                ))),
+                            }
+                        }
+                    }
+                    GitConfirmedAction::DeleteRemote(name) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::remote::delete_remote(&repo, &name) {
+                                Ok(_) => {
+                                    if let PopupType::GitPrompt(GitPromptPopup::RemoteManage(
+                                        mut manage_state,
+                                    )) = *previous_popup
+                                    {
+                                        manage_state.remotes =
+                                            crate::git::remote::list_remotes(&repo)
+                                                .unwrap_or_default();
+                                        if manage_state.selected_idx >= manage_state.remotes.len()
+                                            && !manage_state.remotes.is_empty()
+                                        {
+                                            manage_state.selected_idx =
+                                                manage_state.remotes.len() - 1;
+                                        }
+                                        state.dialogs.replace(PopupType::GitPrompt(
+                                            GitPromptPopup::RemoteManage(manage_state),
+                                        ));
+                                    } else {
+                                        restore_previous_and_refresh(
+                                            state,
+                                            *previous_popup,
+                                            &repo_path,
+                                        );
+                                    }
+                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Delete remote failed: {}",
+                                    e
+                                ))),
+                            }
+                        }
+                    }
                     GitConfirmedAction::AbortMerge => {
                         if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                             match crate::git::merge::abort_merge(&repo) {

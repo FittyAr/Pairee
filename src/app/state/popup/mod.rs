@@ -18,7 +18,7 @@ pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitBranchCreatePromptState, GitBranchRenamePromptState, GitCommitPromptState,
     GitConfirmActionState, GitConfirmCheckoutState, GitDiffViewState, GitPromptPopup,
-    GitStashSavePromptState,
+    GitRemoteAddState, GitRemoteManageState, GitStashSavePromptState,
 };
 pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;

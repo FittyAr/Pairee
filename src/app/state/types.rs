@@ -91,18 +91,12 @@ pub enum LinkKind {
     Hard,
 }
 
-/// Pending action queued from within the GitPanel popup.
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub enum GitPendingAction {
-    CommitAll,
-    Checkout(String),
-}
-
 /// Action approved in GitConfirmAction popup.
 #[derive(Debug, Clone)]
 pub enum GitConfirmedAction {
     DeleteBranch(String),
+    DeleteRemoteBranch { remote: String, branch: String },
+    DeleteRemote(String),
     MergeBranch(String),
     StashDrop(usize),
     StashPop(usize),

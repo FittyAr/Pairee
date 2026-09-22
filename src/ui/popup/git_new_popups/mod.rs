@@ -1,6 +1,7 @@
 pub mod confirm;
 pub mod diff;
 pub mod prompts;
+pub mod remote_manage;
 
 use crate::app::state::PopupType;
 use crate::app::state::popup::GitPromptPopup;
@@ -24,6 +25,12 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         }
         PopupType::GitPrompt(GitPromptPopup::ConfirmAction(action_state)) => {
             confirm::render_confirm_action(f, action_state, theme, size)
+        }
+        PopupType::GitPrompt(GitPromptPopup::RemoteManage(manage_state)) => {
+            remote_manage::render_remote_manage(f, manage_state, theme, size)
+        }
+        PopupType::GitPrompt(GitPromptPopup::RemoteAdd(add_state)) => {
+            remote_manage::render_remote_add(f, add_state, theme, size)
         }
         _ => false,
     }

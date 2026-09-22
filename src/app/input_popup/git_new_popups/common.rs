@@ -41,7 +41,6 @@ pub fn restore_previous_and_refresh(
                     branch_entries,
                     stash_entries,
                     current_branch: new_branch,
-                    pending_action: None,
                 }));
         } else {
             state.dialogs.clear();

@@ -168,7 +168,6 @@ pub fn handle(
                 branch_entries,
                 stash_entries,
                 current_branch,
-                pending_action: None,
             }));
         Ok(None)
     } else {

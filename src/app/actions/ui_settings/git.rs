@@ -34,7 +34,6 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
                         branch_entries,
                         stash_entries,
                         current_branch,
-                        pending_action: None,
                     },
                 ));
         }

@@ -33,25 +33,46 @@ pub fn handle_branch_tab(
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_current
-                && !branch.is_remote
             {
                 let current_popup = state.dialogs.top().cloned().unwrap();
-                let msg = crate::config::localization::t("git_confirm_delete_branch")
-                    .replace("{}", &branch.name);
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
-                            previous_popup: Box::new(current_popup),
-                        },
-                    ),
-                ));
+                if branch.is_remote {
+                    if let Some((remote, b_name)) = branch.name.split_once('/') {
+                        let msg =
+                            crate::config::localization::t("git_confirm_delete_remote_branch")
+                                .replace("{remote}", remote)
+                                .replace("{branch}", b_name);
+                        state.dialogs.replace(PopupType::GitPrompt(
+                            crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                                crate::app::state::popup::GitConfirmActionState {
+                                    message: msg,
+                                    repo_path: repo_path.to_path_buf(),
+                                    action: GitConfirmedAction::DeleteRemoteBranch {
+                                        remote: remote.to_string(),
+                                        branch: b_name.to_string(),
+                                    },
+                                    previous_popup: Box::new(current_popup),
+                                },
+                            ),
+                        ));
+                    }
+                } else {
+                    let msg = crate::config::localization::t("git_confirm_delete_branch")
+                        .replace("{}", &branch.name);
+                    state.dialogs.replace(PopupType::GitPrompt(
+                        crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                            crate::app::state::popup::GitConfirmActionState {
+                                message: msg,
+                                repo_path: repo_path.to_path_buf(),
+                                action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
+                                previous_popup: Box::new(current_popup),
+                            },
+                        ),
+                    ));
+                }
             }
             true
         }
-        KeyCode::Char('r') | KeyCode::Char('R') => {
+        KeyCode::Char('r') => {
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_remote
             {
@@ -63,6 +84,23 @@ pub fn handle_branch_tab(
                             cursor_idx: branch.name.len(),
                             old_name: branch.name.clone(),
                             repo_path: repo_path.to_path_buf(),
+                            previous_popup: Box::new(current_popup),
+                        },
+                    ),
+                ));
+            }
+            true
+        }
+        KeyCode::Char('R') => {
+            if let Some(repo) = crate::git::repo::find_repo(repo_path) {
+                let remotes = crate::git::remote::list_remotes(&repo).unwrap_or_default();
+                let current_popup = state.dialogs.top().cloned().unwrap();
+                state.dialogs.replace(PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::RemoteManage(
+                        crate::app::state::popup::GitRemoteManageState {
+                            repo_path: repo_path.to_path_buf(),
+                            remotes,
+                            selected_idx: 0,
                             previous_popup: Box::new(current_popup),
                         },
                     ),

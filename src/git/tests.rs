@@ -3,6 +3,7 @@ use crate::git::checkout::*;
 use crate::git::commit::*;
 use crate::git::diff::*;
 use crate::git::merge::*;
+use crate::git::remote::*;
 use crate::git::repo::*;
 use crate::git::reset::*;
 use crate::git::stage::*;
@@ -439,4 +440,104 @@ fn test_abort_merge() {
     assert_eq!(repo.state(), git2::RepositoryState::Clean);
     let content = std::fs::read_to_string(&conflict_file).unwrap();
     assert_eq!(content.trim(), "modified on default");
+}
+
+#[test]
+fn test_remote_list_add_delete() {
+    let (_dir, repo) = setup_temp_repo();
+
+    let remotes = list_remotes(&repo).unwrap();
+    assert!(remotes.is_empty());
+
+    add_remote(&repo, "upstream", "https://example.com/upstream.git").unwrap();
+    add_remote(&repo, "origin", "https://example.com/origin.git").unwrap();
+
+    let remotes = list_remotes(&repo).unwrap();
+    assert_eq!(remotes.len(), 2);
+    // Should be sorted alphabetically
+    assert_eq!(remotes[0].name, "origin");
+    assert_eq!(
+        remotes[0].url.as_deref(),
+        Some("https://example.com/origin.git")
+    );
+    assert_eq!(remotes[1].name, "upstream");
+    assert_eq!(
+        remotes[1].url.as_deref(),
+        Some("https://example.com/upstream.git")
+    );
+
+    delete_remote(&repo, "upstream").unwrap();
+    let remotes = list_remotes(&repo).unwrap();
+    assert_eq!(remotes.len(), 1);
+    assert_eq!(remotes[0].name, "origin");
+}
+
+#[test]
+fn test_resolve_remote_name() {
+    let (_dir, repo) = setup_temp_repo();
+
+    // No remotes configured
+    assert!(resolve_remote_name(&repo, None).is_err());
+
+    // Add a custom remote
+    add_remote(&repo, "custom", "https://example.com/custom.git").unwrap();
+    assert_eq!(resolve_remote_name(&repo, None).unwrap(), "custom");
+
+    // Add origin: now origin takes precedence when no upstream branch
+    add_remote(&repo, "origin", "https://example.com/origin.git").unwrap();
+    assert_eq!(resolve_remote_name(&repo, None).unwrap(), "origin");
+}
+
+#[test]
+fn test_remote_push_upstream_and_delete_branch() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("test.txt");
+    File::create(&file_path)
+        .unwrap()
+        .write_all(b"initial")
+        .unwrap();
+    stage_file(&repo, "test.txt").unwrap();
+    commit(&repo, "initial commit", "Test User", "test@example.com").unwrap();
+
+    let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+    // Initialize a local bare repository to act as our remote
+    let remote_dir = TempDir::new().unwrap();
+    let bare_path = remote_dir.path().to_str().unwrap().replace('\\', "/");
+    let remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
+
+    add_remote(&repo, "test-remote", &bare_path).unwrap();
+
+    // Push default branch with upstream
+    push(&repo, "test-remote", &default_branch, true).unwrap();
+
+    let local_head_branch = repo
+        .find_branch(&default_branch, git2::BranchType::Local)
+        .unwrap();
+    let upstream = local_head_branch.upstream().unwrap();
+    assert_eq!(
+        upstream.name().unwrap(),
+        Some(format!("test-remote/{}", default_branch).as_str())
+    );
+
+    // Create a new branch, push it, and then delete it remotely
+    create_branch(&repo, "feat-to-delete", "HEAD").unwrap();
+    push(&repo, "test-remote", "feat-to-delete", true).unwrap();
+
+    // Remote bare repo must have the branch
+    assert!(
+        remote_repo
+            .find_branch("feat-to-delete", git2::BranchType::Local)
+            .is_ok()
+    );
+
+    // Delete remote branch
+    delete_remote_branch(&repo, "test-remote", "feat-to-delete").unwrap();
+
+    // Verify remote bare repo no longer has the branch
+    assert!(
+        remote_repo
+            .find_branch("feat-to-delete", git2::BranchType::Local)
+            .is_err()
+    );
 }
