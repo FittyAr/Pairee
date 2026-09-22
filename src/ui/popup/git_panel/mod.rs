@@ -157,7 +157,13 @@ pub fn render(
         };
 
         if lines.is_empty() {
-            let empty_msg = crate::config::localization::t("git_no_changes");
+            let empty_msg = match active_tab {
+                0 => crate::config::localization::t("git_no_changes"),
+                1 => crate::config::localization::t("git_log_empty"),
+                2 => crate::config::localization::t("git_branches_empty"),
+                3 => crate::config::localization::t("git_stash_empty"),
+                _ => crate::config::localization::t("git_tags_empty"),
+            };
             f.render_widget(
                 Paragraph::new(Span::styled(
                     format!("  {}", empty_msg),

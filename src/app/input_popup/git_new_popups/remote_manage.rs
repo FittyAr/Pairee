@@ -4,6 +4,7 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::{GitPromptPopup, GitRemoteAddState};
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -130,9 +131,11 @@ pub fn handle_remote_add(
                             }
                         }
                         Err(e) => {
-                            state
-                                .dialogs
-                                .replace(PopupType::Error(format!("Add remote failed: {}", e)));
+                            state.dialogs.replace(PopupType::Error(format!(
+                                "{}: {}",
+                                t("git_error_add_remote_failed"),
+                                e
+                            )));
                         }
                     }
                 }

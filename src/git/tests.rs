@@ -882,3 +882,80 @@ fn test_clone_repo() {
     let cloned_head = cloned_repo.head().unwrap().peel_to_commit().unwrap();
     assert_eq!(cloned_head.id(), src_oid);
 }
+
+#[test]
+fn test_get_file_diff_staged() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("file.txt");
+    std::fs::write(&file_path, "initial version\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    // Modify and stage
+    std::fs::write(&file_path, "modified version\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+
+    let diff = get_file_diff(&repo, "file.txt", true).unwrap();
+    assert!(diff.contains("-initial version"));
+    assert!(diff.contains("+modified version"));
+}
+
+#[test]
+fn test_get_file_diff_unstaged() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("file.txt");
+    std::fs::write(&file_path, "initial version\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    // Modify without staging
+    std::fs::write(&file_path, "modified unstaged\n").unwrap();
+
+    let diff = get_file_diff(&repo, "file.txt", false).unwrap();
+    assert!(diff.contains("-initial version"));
+    assert!(diff.contains("+modified unstaged"));
+}
+
+#[test]
+fn test_get_file_diff_untracked() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("untracked_new.txt");
+    std::fs::write(&file_path, "brand new untracked content\n").unwrap();
+
+    let diff = get_file_diff(&repo, "untracked_new.txt", false).unwrap();
+    assert!(diff.contains("+brand new untracked content"));
+}
+
+#[test]
+fn test_get_commit_diff() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("file.txt");
+    std::fs::write(&file_path, "line 1\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    std::fs::write(&file_path, "line 1\nline 2\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    let c2_oid = commit(&repo, "c2", "Test User", "test@example.com").unwrap();
+
+    let diff = get_commit_diff(&repo, &c2_oid.to_string()).unwrap();
+    assert!(diff.contains("+line 2"));
+}
+
+#[test]
+fn test_get_stash_diff() {
+    let (dir, mut repo) = setup_temp_repo();
+    let file_path = dir.path().join("file.txt");
+    std::fs::write(&file_path, "initial\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    std::fs::write(&file_path, "stashed changes\n").unwrap();
+
+    stash_save(&mut repo, Some("my test stash"), false).unwrap();
+    let stashes = list_stashes(&mut repo).unwrap();
+    assert_eq!(stashes.len(), 1);
+
+    let diff = get_stash_diff(&repo, &stashes[0].oid).unwrap();
+    assert!(diff.contains("+stashed changes"));
+}

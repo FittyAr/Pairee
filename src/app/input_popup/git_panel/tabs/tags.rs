@@ -75,9 +75,11 @@ pub fn handle_tag_tab(
                             )));
                     }
                     Err(e) => {
-                        state
-                            .dialogs
-                            .replace(PopupType::Error(format!("Push tags failed: {}", e)));
+                        state.dialogs.replace(PopupType::Error(format!(
+                            "{}: {}",
+                            crate::config::localization::t("git_error_push_tags_failed"),
+                            e
+                        )));
                     }
                 }
             }

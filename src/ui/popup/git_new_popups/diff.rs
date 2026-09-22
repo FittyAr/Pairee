@@ -30,7 +30,7 @@ pub fn render_diff_view(
         } else if let Some(hash) = commit_hash {
             crate::config::localization::t("git_diff_commit_title").replace("{}", hash)
         } else {
-            " Git Diff ".to_string()
+            crate::config::localization::t("git_diff_default_title")
         };
 
         let block = Block::default()
@@ -60,23 +60,32 @@ pub fn render_diff_view(
 
         // Process lines and colors
         let height = content_area.height as usize;
-        let lines: Vec<Line> = diff_content
-            .lines()
-            .skip(*scroll_y)
-            .take(height)
-            .map(|line| {
-                let style = if line.starts_with('+') && !line.starts_with("+++") {
-                    Style::default().fg(Color::Green)
-                } else if line.starts_with('-') && !line.starts_with("---") {
-                    Style::default().fg(Color::Red)
-                } else if line.starts_with("@@") {
-                    Style::default().fg(Color::Cyan)
-                } else {
-                    Style::default().fg(parse_color(&theme.popup_fg))
-                };
-                Line::from(Span::styled(line.to_string(), style))
-            })
-            .collect();
+        let lines: Vec<Line> = if diff_content.trim().is_empty() {
+            vec![Line::from(Span::styled(
+                format!("  {}", crate::config::localization::t("git_diff_empty")),
+                Style::default()
+                    .fg(Color::DarkGray)
+                    .add_modifier(Modifier::ITALIC),
+            ))]
+        } else {
+            diff_content
+                .lines()
+                .skip(*scroll_y)
+                .take(height)
+                .map(|line| {
+                    let style = if line.starts_with('+') && !line.starts_with("+++") {
+                        Style::default().fg(Color::Green)
+                    } else if line.starts_with('-') && !line.starts_with("---") {
+                        Style::default().fg(Color::Red)
+                    } else if line.starts_with("@@") {
+                        Style::default().fg(Color::Cyan)
+                    } else {
+                        Style::default().fg(parse_color(&theme.popup_fg))
+                    };
+                    Line::from(Span::styled(line.to_string(), style))
+                })
+                .collect()
+        };
 
         f.render_widget(Paragraph::new(lines), content_area);
 

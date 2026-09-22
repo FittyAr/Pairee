@@ -22,11 +22,12 @@ pub fn render_confirm_action(
     f.render_widget(Clear, area);
 
     let border_style = Style::default().fg(Color::Cyan);
+    let title = crate::config::localization::t("git_confirm_action_title");
     let block = Block::default()
         .borders(Borders::ALL)
         .border_style(border_style)
         .title(Span::styled(
-            " Confirm Git Action ",
+            title,
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -58,10 +59,18 @@ pub fn render_confirm_action(
         .add_modifier(Modifier::BOLD);
     let no_style = Style::default().fg(parse_color(&theme.popup_fg));
 
+    let yes_text = format!(
+        " [ {} (Enter) ] ",
+        crate::config::localization::t("git_btn_yes")
+    );
+    let no_text = format!(
+        " [ {} (Esc) ] ",
+        crate::config::localization::t("git_btn_no")
+    );
     let buttons_line = Line::from(vec![
-        Span::styled(" [ Yes (Enter) ] ", yes_style),
+        Span::styled(yes_text, yes_style),
         Span::raw("    "),
-        Span::styled(" [ No (Esc) ] ", no_style),
+        Span::styled(no_text, no_style),
     ]);
     let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
     f.render_widget(buttons_para, chunks[2]);

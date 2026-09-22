@@ -5,6 +5,7 @@ use crate::app::state::popup::{
     GitStashSavePromptState, GitTagCreatePromptState,
 };
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -56,7 +57,8 @@ pub fn handle_prompt(
                                         &repo_path,
                                     ),
                                     Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                        "Failed to create branch: {}",
+                                        "{}: {}",
+                                        t("git_error_create_branch_failed"),
                                         e
                                     ))),
                                 }
@@ -122,7 +124,8 @@ pub fn handle_prompt(
                                         &repo_path,
                                     ),
                                     Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                        "Failed to rename branch: {}",
+                                        "{}: {}",
+                                        t("git_error_rename_branch_failed"),
                                         e
                                     ))),
                                 }
@@ -189,9 +192,11 @@ pub fn handle_prompt(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Stash save failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_stash_save_failed"),
+                                    e
+                                ))),
                             }
                         }
                         return Ok(None);
@@ -253,7 +258,8 @@ pub fn handle_prompt(
                                         &repo_path,
                                     ),
                                     Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                        "Failed to create tag: {}",
+                                        "{}: {}",
+                                        t("git_error_create_tag_failed"),
                                         e
                                     ))),
                                 }

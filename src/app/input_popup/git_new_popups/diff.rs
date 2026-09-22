@@ -27,7 +27,7 @@ pub fn handle_diff(
                 scroll_y = scroll_y.saturating_sub(1);
             }
             KeyCode::Down => {
-                if scroll_y + 5 < lines_count {
+                if scroll_y + 1 < lines_count {
                     scroll_y += 1;
                 }
             }
@@ -35,7 +35,13 @@ pub fn handle_diff(
                 scroll_y = scroll_y.saturating_sub(15);
             }
             KeyCode::PageDown => {
-                scroll_y = (scroll_y + 15).min(lines_count.saturating_sub(5));
+                scroll_y = (scroll_y + 15).min(lines_count.saturating_sub(1));
+            }
+            KeyCode::Home => {
+                scroll_y = 0;
+            }
+            KeyCode::End => {
+                scroll_y = lines_count.saturating_sub(1);
             }
             KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
                 state.dialogs.replace(*previous_popup);

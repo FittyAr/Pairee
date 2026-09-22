@@ -173,10 +173,15 @@ pub fn render_prompt_box(
         Style::default().fg(parse_color(&theme.popup_fg))
     };
 
+    let ok_text = format!(" [ {} ] ", crate::config::localization::t("btn_ok").trim());
+    let cancel_text = format!(
+        " [ {} ] ",
+        crate::config::localization::t("btn_cancel").trim()
+    );
     let buttons_line = Line::from(vec![
-        Span::styled(" [ OK ] ", ok_style),
+        Span::styled(ok_text, ok_style),
         Span::raw("    "),
-        Span::styled(" [ Cancel ] ", cancel_style),
+        Span::styled(cancel_text, cancel_style),
     ]);
 
     let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);

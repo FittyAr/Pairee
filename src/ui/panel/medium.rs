@@ -45,7 +45,11 @@ pub(crate) fn render_medium(
             } else {
                 false
             };
-            let git_status = panel.git_statuses.get(&entry.name).map(|s| s.as_str());
+            let git_status = if context.config.settings.git_enabled {
+                panel.git_statuses.get(&entry.name).map(|s| s.as_str())
+            } else {
+                None
+            };
             let style = build_row_style(
                 entry,
                 i == panel.cursor_index,

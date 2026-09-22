@@ -5,6 +5,7 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::GitPromptPopup;
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -29,7 +30,8 @@ pub fn handle_confirm_action(
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Delete branch failed: {}",
+                                    "{}: {}",
+                                    t("git_error_delete_branch_failed"),
                                     e
                                 ))),
                             }
@@ -49,16 +51,20 @@ pub fn handle_confirm_action(
                                         .map(|idx| idx.has_conflicts())
                                         .unwrap_or(false);
                                     if has_conflicts {
-                                        state.dialogs.replace(PopupType::Error("Merge conflicts detected! Please resolve them manually.".to_string()));
+                                        state.dialogs.replace(PopupType::Error(t(
+                                            "git_error_merge_conflicts",
+                                        )));
                                     } else {
-                                        state.dialogs.replace(PopupType::Info(
-                                            "Merge completed successfully.".to_string(),
-                                        ));
+                                        state
+                                            .dialogs
+                                            .replace(PopupType::Info(t("git_merge_success")));
                                     }
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Merge failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_merge_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -68,9 +74,11 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Stash drop failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_stash_drop_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -80,9 +88,11 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Stash pop failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_stash_pop_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -92,9 +102,11 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Reset failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_reset_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -104,9 +116,11 @@ pub fn handle_confirm_action(
                                 Ok(_) => {
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Discard failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_discard_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -118,7 +132,8 @@ pub fn handle_confirm_action(
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Delete remote branch failed: {}",
+                                    "{}: {}",
+                                    t("git_error_delete_remote_branch_failed"),
                                     e
                                 ))),
                             }
@@ -153,7 +168,8 @@ pub fn handle_confirm_action(
                                     }
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Delete remote failed: {}",
+                                    "{}: {}",
+                                    t("git_error_delete_remote_failed"),
                                     e
                                 ))),
                             }
@@ -166,7 +182,8 @@ pub fn handle_confirm_action(
                                     restore_previous_and_refresh(state, *previous_popup, &repo_path)
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Abort merge failed: {}",
+                                    "{}: {}",
+                                    t("git_error_abort_merge_failed"),
                                     e
                                 ))),
                             }
@@ -186,10 +203,9 @@ pub fn handle_confirm_action(
                                         .map(|idx| idx.has_conflicts())
                                         .unwrap_or(false);
                                     if has_conflicts {
-                                        state.dialogs.replace(PopupType::Error(
-                                            "Cherry-pick conflicts detected! Please resolve manually."
-                                                .to_string(),
-                                        ));
+                                        state.dialogs.replace(PopupType::Error(t(
+                                            "git_error_cherry_pick_conflicts",
+                                        )));
                                     } else {
                                         state.dialogs.replace(PopupType::Info(
                                             crate::config::localization::t("git_operation_success"),
@@ -197,7 +213,8 @@ pub fn handle_confirm_action(
                                     }
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Cherry-pick failed: {}",
+                                    "{}: {}",
+                                    t("git_error_cherry_pick_failed"),
                                     e
                                 ))),
                             }
@@ -217,19 +234,20 @@ pub fn handle_confirm_action(
                                         .map(|idx| idx.has_conflicts())
                                         .unwrap_or(false);
                                     if has_conflicts {
-                                        state.dialogs.replace(PopupType::Error(
-                                            "Revert conflicts detected! Please resolve manually."
-                                                .to_string(),
-                                        ));
+                                        state.dialogs.replace(PopupType::Error(t(
+                                            "git_error_revert_conflicts",
+                                        )));
                                     } else {
                                         state.dialogs.replace(PopupType::Info(
                                             crate::config::localization::t("git_operation_success"),
                                         ));
                                     }
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Revert failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_revert_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -246,9 +264,11 @@ pub fn handle_confirm_action(
                                         crate::config::localization::t("git_operation_success"),
                                     ));
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Rebase failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_rebase_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }
@@ -266,7 +286,8 @@ pub fn handle_confirm_action(
                                     ));
                                 }
                                 Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "Stash clear failed: {}",
+                                    "{}: {}",
+                                    t("git_error_stash_clear_failed"),
                                     e
                                 ))),
                             }
@@ -285,9 +306,11 @@ pub fn handle_confirm_action(
                                         crate::config::localization::t("git_operation_success"),
                                     ));
                                 }
-                                Err(e) => state
-                                    .dialogs
-                                    .replace(PopupType::Error(format!("Delete tag failed: {}", e))),
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "{}: {}",
+                                    t("git_error_delete_tag_failed"),
+                                    e
+                                ))),
                             }
                         }
                     }

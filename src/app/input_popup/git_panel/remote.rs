@@ -2,6 +2,7 @@
 
 use super::refresh::refresh_git_panel;
 use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
 use std::path::Path;
 
 pub fn handle_fetch(state: &mut AppState, repo_path: &Path) {
@@ -9,9 +10,11 @@ pub fn handle_fetch(state: &mut AppState, repo_path: &Path) {
         let remote_name = match crate::git::remote::resolve_remote_name(&repo, None) {
             Ok(name) => name,
             Err(e) => {
-                state
-                    .dialogs
-                    .replace(PopupType::Error(format!("Fetch failed: {}", e)));
+                state.dialogs.replace(PopupType::Error(format!(
+                    "{}: {}",
+                    t("git_error_fetch_failed"),
+                    e
+                )));
                 return;
             }
         };
@@ -19,14 +22,14 @@ pub fn handle_fetch(state: &mut AppState, repo_path: &Path) {
             Ok(_) => {
                 state
                     .dialogs
-                    .replace(PopupType::Info(crate::config::localization::t(
-                        "git_operation_success",
-                    )));
+                    .replace(PopupType::Info(t("git_operation_success")));
             }
             Err(e) => {
-                state
-                    .dialogs
-                    .replace(PopupType::Error(format!("Fetch failed: {}", e)));
+                state.dialogs.replace(PopupType::Error(format!(
+                    "{}: {}",
+                    t("git_error_fetch_failed"),
+                    e
+                )));
             }
         }
     }
@@ -43,9 +46,11 @@ pub fn handle_pull(state: &mut AppState, repo_path: &Path, active_tab: usize, cu
             match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
                 Ok(name) => name,
                 Err(e) => {
-                    state
-                        .dialogs
-                        .replace(PopupType::Error(format!("Pull failed: {}", e)));
+                    state.dialogs.replace(PopupType::Error(format!(
+                        "{}: {}",
+                        t("git_error_pull_failed"),
+                        e
+                    )));
                     return;
                 }
             };
@@ -54,14 +59,14 @@ pub fn handle_pull(state: &mut AppState, repo_path: &Path, active_tab: usize, cu
                 refresh_git_panel(state, repo_path, active_tab, cursor_idx);
                 state
                     .dialogs
-                    .replace(PopupType::Info(crate::config::localization::t(
-                        "git_operation_success",
-                    )));
+                    .replace(PopupType::Info(t("git_operation_success")));
             }
             Err(e) => {
-                state
-                    .dialogs
-                    .replace(PopupType::Error(format!("Pull failed: {}", e)));
+                state.dialogs.replace(PopupType::Error(format!(
+                    "{}: {}",
+                    t("git_error_pull_failed"),
+                    e
+                )));
             }
         }
     }
@@ -78,9 +83,11 @@ pub fn handle_push(state: &mut AppState, repo_path: &Path) {
             match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
                 Ok(name) => name,
                 Err(e) => {
-                    state
-                        .dialogs
-                        .replace(PopupType::Error(format!("Push failed: {}", e)));
+                    state.dialogs.replace(PopupType::Error(format!(
+                        "{}: {}",
+                        t("git_error_push_failed"),
+                        e
+                    )));
                     return;
                 }
             };
@@ -92,14 +99,14 @@ pub fn handle_push(state: &mut AppState, repo_path: &Path) {
             Ok(_) => {
                 state
                     .dialogs
-                    .replace(PopupType::Info(crate::config::localization::t(
-                        "git_operation_success",
-                    )));
+                    .replace(PopupType::Info(t("git_operation_success")));
             }
             Err(e) => {
-                state
-                    .dialogs
-                    .replace(PopupType::Error(format!("Push failed: {}", e)));
+                state.dialogs.replace(PopupType::Error(format!(
+                    "{}: {}",
+                    t("git_error_push_failed"),
+                    e
+                )));
             }
         }
     }

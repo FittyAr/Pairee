@@ -21,6 +21,9 @@ pub fn get_file_diff(
         let index = repo.index()?;
         repo.diff_tree_to_index(head_tree.as_ref(), Some(&index), Some(&mut opts))?
     } else {
+        opts.include_untracked(true);
+        opts.recurse_untracked_dirs(true);
+        opts.show_untracked_content(true);
         let index = repo.index()?;
         repo.diff_index_to_workdir(Some(&index), Some(&mut opts))?
     };

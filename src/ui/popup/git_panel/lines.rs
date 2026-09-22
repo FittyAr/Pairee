@@ -11,9 +11,9 @@ pub fn status_color(kind: &crate::git::status::StatusKind) -> Color {
         StatusKind::Modified => Color::Yellow,
         StatusKind::Added => Color::Green,
         StatusKind::Deleted => Color::Red,
-        StatusKind::Untracked => Color::DarkGray,
+        StatusKind::Untracked => Color::Magenta,
         StatusKind::Renamed => Color::Cyan,
-        StatusKind::Conflicted => Color::Magenta,
+        StatusKind::Conflicted => Color::LightRed,
     }
 }
 
