@@ -1,6 +1,6 @@
 [package]
 name = "pairee"
-version = "0.8.0"
+version = "0.8.1"
 edition = "2024"
 rust-version = "1.93"
 description = "A sleek, modern dual-panel terminal file manager written in Rust"
@@ -109,6 +109,7 @@ assets = [
 embed-resource = "2.5"
 
 [workspace]
+
 
 
 
