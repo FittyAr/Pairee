@@ -20,6 +20,8 @@
 - Include untracked files toggle (`Ctrl+U`) in Stash Save prompt.
 - Interactive branch rebase (`b` in Branches tab) with confirmation dialog.
 - Ahead and behind commit counter indicators (`[↑X ↓Y]`) displayed for local branches.
+- Dedicated Tags tab in Git panel (`git_tab_tags`) displaying tags with target commit hash and annotated messages.
+- Full tag management in Git panel: create (`n`), delete (`d`/`Delete`), checkout (`Enter`), and push tags to remote (`u`).
 
 ### Improved
 

@@ -272,6 +272,25 @@ pub fn handle_confirm_action(
                             }
                         }
                     }
+                    GitConfirmedAction::DeleteTag(name) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::tags::delete_tag(&repo, &name) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(
+                                        state,
+                                        *previous_popup,
+                                        &repo_path,
+                                    );
+                                    state.dialogs.replace(PopupType::Info(
+                                        crate::config::localization::t("git_operation_success"),
+                                    ));
+                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Delete tag failed: {}", e))),
+                            }
+                        }
+                    }
                 }
                 return Ok(None);
             }

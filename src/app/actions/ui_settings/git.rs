@@ -21,6 +21,7 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
             let log_entries = crate::git::log::get_log(&repo, limit);
             let branch_entries = crate::git::branches::get_branches(&repo);
             let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
+            let tag_entries = crate::git::tags::list_tags(&repo).unwrap_or_default();
             state
                 .dialogs
                 .replace(crate::app::state::PopupType::GitPanel(
@@ -33,6 +34,7 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
                         log_entries,
                         branch_entries,
                         stash_entries,
+                        tag_entries,
                         current_branch,
                     },
                 ));

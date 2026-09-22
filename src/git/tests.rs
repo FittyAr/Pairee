@@ -788,3 +788,59 @@ fn test_branches_ahead_behind() {
     assert_eq!(current_updated.ahead, 1);
     assert_eq!(current_updated.behind, 0);
 }
+
+#[test]
+fn test_list_and_delete_tags() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("t.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "t").unwrap();
+    stage_file(&repo, "t.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    create_tag(&repo, "v0.1.0", "HEAD", None).unwrap();
+    create_tag(&repo, "v0.2.0", "HEAD", Some("beta release")).unwrap();
+
+    let tags = list_tags(&repo).unwrap();
+    assert_eq!(tags.len(), 2);
+    assert_eq!(tags[0].name, "v0.1.0");
+    assert_eq!(tags[0].message, None);
+    assert_eq!(tags[1].name, "v0.2.0");
+    assert!(
+        tags[1]
+            .message
+            .as_deref()
+            .unwrap_or("")
+            .contains("beta release")
+    );
+
+    delete_tag(&repo, "v0.1.0").unwrap();
+    let tags_after = list_tags(&repo).unwrap();
+    assert_eq!(tags_after.len(), 1);
+    assert_eq!(tags_after[0].name, "v0.2.0");
+}
+
+#[test]
+fn test_push_tags() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("t.txt");
+    let mut f = File::create(&file_path).unwrap();
+    writeln!(f, "t").unwrap();
+    stage_file(&repo, "t.txt").unwrap();
+    commit(&repo, "c1", "Test User", "test@example.com").unwrap();
+
+    let default_branch = repo.head().unwrap().shorthand().unwrap().to_string();
+
+    let remote_dir = TempDir::new().unwrap();
+    let bare_path = remote_dir.path().to_str().unwrap().replace('\\', "/");
+    let remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
+
+    add_remote(&repo, "origin", &bare_path).unwrap();
+    push(&repo, "origin", &default_branch, true).unwrap();
+
+    create_tag(&repo, "v1.5.0", "HEAD", None).unwrap();
+    push_tags(&repo, "origin").unwrap();
+
+    // Verify remote bare repository received the tag
+    assert!(remote_repo.find_reference("refs/tags/v1.5.0").is_ok());
+}

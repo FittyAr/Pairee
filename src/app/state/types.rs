@@ -107,6 +107,7 @@ pub enum GitConfirmedAction {
     AbortMerge,
     CherryPick(String),
     Revert(String),
+    DeleteTag(String),
 }
 
 #[derive(Debug, Clone)]

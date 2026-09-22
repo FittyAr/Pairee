@@ -224,3 +224,51 @@ pub fn render_stash_lines(
         })
         .collect()
 }
+
+pub fn render_tag_lines(
+    entries: &[crate::git::tags::TagInfo],
+    cursor_idx: usize,
+    scroll: usize,
+    height: usize,
+    theme: &Theme,
+) -> Vec<Line<'static>> {
+    entries
+        .iter()
+        .enumerate()
+        .skip(scroll)
+        .take(height)
+        .map(|(i, tag)| {
+            let is_cursor = i == cursor_idx;
+            let bg = if is_cursor {
+                parse_color(&theme.selection_bg)
+            } else {
+                parse_color(&theme.popup_bg)
+            };
+            let fg = if is_cursor {
+                parse_color(&theme.selection_fg)
+            } else {
+                parse_color(&theme.popup_fg)
+            };
+            let short_oid = if tag.target_oid.len() > 7 {
+                &tag.target_oid[..7]
+            } else {
+                &tag.target_oid
+            };
+            let msg = tag.message.as_deref().unwrap_or("");
+            Line::from(vec![
+                Span::styled(
+                    format!("  {} ", tag.name),
+                    Style::default()
+                        .fg(Color::Yellow)
+                        .bg(bg)
+                        .add_modifier(Modifier::BOLD),
+                ),
+                Span::styled(
+                    format!("[{}] ", short_oid),
+                    Style::default().fg(Color::DarkGray).bg(bg),
+                ),
+                Span::styled(msg.to_string(), Style::default().fg(fg).bg(bg)),
+            ])
+        })
+        .collect()
+}

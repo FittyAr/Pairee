@@ -25,6 +25,7 @@ pub fn handle(
         mut log_entries,
         branch_entries,
         stash_entries,
+        tag_entries,
         repo_path,
         current_branch,
         ..
@@ -37,18 +38,19 @@ pub fn handle(
             1 => log_entries.len(),
             2 => branch_entries.len(),
             3 => stash_entries.len(),
+            4 => tag_entries.len(),
             _ => 0,
         };
 
         match key.code {
-            // ── Tab navigation (4 tabs) ──────────────────────────────────────
+            // ── Tab navigation (5 tabs) ──────────────────────────────────────
             KeyCode::Tab if !is_shift => {
-                active_tab = (active_tab + 1) % 4;
+                active_tab = (active_tab + 1) % 5;
                 cursor_idx = 0;
                 scroll = 0;
             }
             KeyCode::BackTab | KeyCode::Tab if is_shift => {
-                active_tab = if active_tab == 0 { 3 } else { active_tab - 1 };
+                active_tab = if active_tab == 0 { 4 } else { active_tab - 1 };
                 cursor_idx = 0;
                 scroll = 0;
             }
@@ -154,6 +156,13 @@ pub fn handle(
                 return Ok(None);
             }
 
+            // ── Tab 4 (Tags) Actions ─────────────────────────────────────────
+            _ if active_tab == 4
+                && tabs::handle_tag_tab(state, key.code, &repo_path, &tag_entries, cursor_idx) =>
+            {
+                return Ok(None);
+            }
+
             // ── Refresh ──────────────────────────────────────────────────────
             KeyCode::Char('r') | KeyCode::Char('R') | KeyCode::F(5) => {
                 refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
@@ -185,6 +194,7 @@ pub fn handle(
                 log_entries,
                 branch_entries,
                 stash_entries,
+                tag_entries,
                 current_branch,
             }));
         Ok(None)

@@ -30,6 +30,7 @@ pub fn render(
         log_entries,
         branch_entries,
         stash_entries,
+        tag_entries,
         current_branch,
         repo_path,
         ..
@@ -81,6 +82,7 @@ pub fn render(
             crate::config::localization::t("git_tab_log"),
             crate::config::localization::t("git_tab_branches"),
             crate::config::localization::t("git_tab_stash"),
+            crate::config::localization::t("git_tab_tags"),
         ];
         let mut tab_spans: Vec<Span> = Vec::new();
         for (i, name) in tab_names.iter().enumerate() {
@@ -144,6 +146,13 @@ pub fn render(
                 list_height,
                 theme,
             ),
+            4 => lines::render_tag_lines(
+                tag_entries,
+                *cursor_idx,
+                effective_scroll,
+                list_height,
+                theme,
+            ),
             _ => Vec::new(),
         };
 
@@ -164,6 +173,7 @@ pub fn render(
                 1 => log_entries.len(),
                 2 => branch_entries.len(),
                 3 => stash_entries.len(),
+                4 => tag_entries.len(),
                 _ => 0,
             };
             scrollbar::render_vertical_right(
@@ -184,7 +194,8 @@ pub fn render(
             0 => crate::config::localization::t("git_hint_status"),
             1 => crate::config::localization::t("git_hint_log"),
             2 => crate::config::localization::t("git_hint_branches"),
-            _ => crate::config::localization::t("git_hint_stash"),
+            3 => crate::config::localization::t("git_hint_stash"),
+            _ => crate::config::localization::t("git_hint_tags"),
         };
         f.render_widget(
             Paragraph::new(Span::styled(hint, Style::default().fg(Color::Yellow))),
