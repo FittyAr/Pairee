@@ -121,8 +121,8 @@ pub fn handle_branch_tab(
             {
                 let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_merge_branch")
-                    .replace("{}", &branch.name)
-                    .replace("{}", current_branch);
+                    .replace("{source}", &branch.name)
+                    .replace("{target}", current_branch);
                 state.dialogs.replace(PopupType::GitPrompt(
                     crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {

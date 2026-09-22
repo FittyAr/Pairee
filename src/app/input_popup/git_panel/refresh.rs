@@ -10,11 +10,20 @@ pub fn refresh_git_panel(
     cursor_idx: usize,
 ) {
     if let Some(mut repo) = crate::git::repo::find_repo(repo_path) {
-        let new_branch = repo
-            .head()
-            .ok()
-            .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-            .unwrap_or_else(|| "(detached HEAD)".to_string());
+        let new_branch = if repo.head_detached().unwrap_or(false) {
+            crate::config::localization::t("git_detached_head")
+        } else if let Ok(head) = repo.head()
+            && let Some(name) = head.shorthand().ok()
+        {
+            name.to_string()
+        } else if let Ok(head_ref) = repo.find_reference("HEAD")
+            && let Some(target) = head_ref.symbolic_target().ok().flatten()
+            && let Some(b) = target.strip_prefix("refs/heads/")
+        {
+            b.to_string()
+        } else {
+            crate::config::localization::t("git_detached_head")
+        };
 
         let status_entries = crate::git::status::get_status(&repo);
         let log_entries = crate::git::log::get_log(&repo, 100);

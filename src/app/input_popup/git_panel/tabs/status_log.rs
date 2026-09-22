@@ -184,9 +184,10 @@ pub fn handle_log_tab(
         KeyCode::Char('s') => {
             if let Some(commit) = log_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned().unwrap();
+                let mode_str = crate::config::localization::t("git_reset_mode_soft");
                 let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{}", &commit.hash_short)
-                    .replace("{}", "Soft");
+                    .replace("{commit}", &commit.hash_short)
+                    .replace("{mode}", &mode_str);
                 state.dialogs.replace(PopupType::GitPrompt(
                     crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
@@ -206,9 +207,10 @@ pub fn handle_log_tab(
         KeyCode::Char('x') => {
             if let Some(commit) = log_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned().unwrap();
+                let mode_str = crate::config::localization::t("git_reset_mode_mixed");
                 let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{}", &commit.hash_short)
-                    .replace("{}", "Mixed");
+                    .replace("{commit}", &commit.hash_short)
+                    .replace("{mode}", &mode_str);
                 state.dialogs.replace(PopupType::GitPrompt(
                     crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
@@ -228,9 +230,10 @@ pub fn handle_log_tab(
         KeyCode::Char('h') => {
             if let Some(commit) = log_entries.get(cursor_idx) {
                 let current_popup = state.dialogs.top().cloned().unwrap();
+                let mode_str = crate::config::localization::t("git_reset_mode_hard");
                 let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{}", &commit.hash_short)
-                    .replace("{}", "Hard");
+                    .replace("{commit}", &commit.hash_short)
+                    .replace("{mode}", &mode_str);
                 state.dialogs.replace(PopupType::GitPrompt(
                     crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {

@@ -64,8 +64,16 @@ pub fn handle_tag_tab(
         }
         KeyCode::Char('u') | KeyCode::Char('U') => {
             if let Some(repo) = crate::git::repo::find_repo(repo_path) {
-                let remote = crate::git::remote::resolve_remote_name(&repo, None)
-                    .unwrap_or_else(|_| "origin".to_string());
+                let remote =
+                    match crate::git::remote::resolve_remote_name(&repo, None) {
+                        Ok(r) => r,
+                        Err(_) => {
+                            state.dialogs.replace(PopupType::Error(
+                                crate::config::localization::t("git_remote_no_remotes"),
+                            ));
+                            return true;
+                        }
+                    };
                 match crate::git::tags::push_tags(&repo, &remote) {
                     Ok(_) => {
                         state

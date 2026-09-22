@@ -1001,3 +1001,31 @@ fn test_cannot_delete_current_branch() {
     let res = delete_branch(&repo, &current_branch.name);
     assert!(res.is_err());
 }
+
+#[test]
+fn test_unborn_branch_resolution() {
+    let (_dir, repo) = setup_temp_repo();
+    assert!(!repo.head_detached().unwrap_or(true));
+
+    let head_ref = repo.find_reference("HEAD").unwrap();
+    let target = head_ref.symbolic_target().ok().flatten().unwrap();
+    let branch_name = target.strip_prefix("refs/heads/").unwrap();
+    assert!(!branch_name.is_empty());
+    assert_ne!(branch_name, "detached HEAD");
+}
+
+#[test]
+fn test_merge_and_reset_confirmation_formatting() {
+    let msg_merge = crate::config::localization::t("git_confirm_merge_branch")
+        .replace("{source}", "feature/new")
+        .replace("{target}", "main");
+    assert!(msg_merge.contains("feature/new"));
+    assert!(msg_merge.contains("main"));
+
+    let mode_soft = crate::config::localization::t("git_reset_mode_soft");
+    let msg_reset = crate::config::localization::t("git_confirm_reset")
+        .replace("{commit}", "1234abc")
+        .replace("{mode}", &mode_soft);
+    assert!(msg_reset.contains("1234abc"));
+    assert!(msg_reset.contains(&mode_soft));
+}

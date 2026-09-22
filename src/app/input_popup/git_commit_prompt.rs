@@ -69,6 +69,14 @@ pub fn handle(
                 }
                 if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
                     let statuses = crate::git::status::get_status(&repo);
+                    if statuses.is_empty() && !is_amend {
+                        state
+                            .dialogs
+                            .replace(PopupType::Info(crate::config::localization::t(
+                                "git_no_changes",
+                            )));
+                        return Ok(None);
+                    }
                     let has_staged = statuses.iter().any(|s| s.is_staged);
                     if !has_staged && !is_amend {
                         // Only auto-stage all if no files were manually staged and it's not an amend

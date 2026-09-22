@@ -231,11 +231,20 @@ fn update_panel_git_state(panel: &mut super::PanelState, path: &std::path::Path)
     }
 
     if let Some(repo) = crate::git::repo::find_repo(path) {
-        let branch = repo
-            .head()
-            .ok()
-            .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-            .unwrap_or_else(|| crate::config::localization::t("git_detached_head"));
+        let branch = if repo.head_detached().unwrap_or(false) {
+            crate::config::localization::t("git_detached_head")
+        } else if let Ok(head) = repo.head()
+            && let Some(name) = head.shorthand().ok()
+        {
+            name.to_string()
+        } else if let Ok(head_ref) = repo.find_reference("HEAD")
+            && let Some(target) = head_ref.symbolic_target().ok().flatten()
+            && let Some(b) = target.strip_prefix("refs/heads/")
+        {
+            b.to_string()
+        } else {
+            crate::config::localization::t("git_detached_head")
+        };
         panel.git_branch = Some(branch);
 
         let mut map = std::collections::HashMap::new();

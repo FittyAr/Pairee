@@ -37,11 +37,25 @@ pub fn handle_fetch(state: &mut AppState, repo_path: &Path) {
 
 pub fn handle_pull(state: &mut AppState, repo_path: &Path, active_tab: usize, cursor_idx: usize) {
     if let Some(repo) = crate::git::repo::find_repo(repo_path) {
-        let current_branch_name = repo
+        if repo.head_detached().unwrap_or(false) {
+            state
+                .dialogs
+                .replace(PopupType::Error(t("git_error_detached_head_operation")));
+            return;
+        }
+        let current_branch_name = match repo
             .head()
             .ok()
             .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-            .unwrap_or_else(|| "main".to_string());
+        {
+            Some(name) => name,
+            None => {
+                state
+                    .dialogs
+                    .replace(PopupType::Error(t("git_error_detached_head_operation")));
+                return;
+            }
+        };
         let remote_name =
             match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
                 Ok(name) => name,
@@ -74,11 +88,25 @@ pub fn handle_pull(state: &mut AppState, repo_path: &Path, active_tab: usize, cu
 
 pub fn handle_push(state: &mut AppState, repo_path: &Path) {
     if let Some(repo) = crate::git::repo::find_repo(repo_path) {
-        let current_branch_name = repo
+        if repo.head_detached().unwrap_or(false) {
+            state
+                .dialogs
+                .replace(PopupType::Error(t("git_error_detached_head_operation")));
+            return;
+        }
+        let current_branch_name = match repo
             .head()
             .ok()
             .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-            .unwrap_or_else(|| "main".to_string());
+        {
+            Some(name) => name,
+            None => {
+                state
+                    .dialogs
+                    .replace(PopupType::Error(t("git_error_detached_head_operation")));
+                return;
+            }
+        };
         let remote_name =
             match crate::git::remote::resolve_remote_name(&repo, Some(&current_branch_name)) {
                 Ok(name) => name,
