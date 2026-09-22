@@ -41,3 +41,18 @@ pub fn clone_repo(url: &str, path: &Path) -> anyhow::Result<git2::Repository> {
     let repo = builder.clone(url, path)?;
     Ok(repo)
 }
+
+/// Appends a pattern or file path to the repository's `.gitignore` file.
+pub fn add_to_gitignore(repo: &git2::Repository, pattern: &str) -> anyhow::Result<()> {
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| anyhow::anyhow!("No working directory"))?;
+    let gitignore_path = workdir.join(".gitignore");
+    use std::io::Write;
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&gitignore_path)?;
+    writeln!(file, "{}", pattern)?;
+    Ok(())
+}

@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::input_popup::git_new_popups::restore_previous_and_refresh;
 use crate::app::state::popup::GitPromptPopup;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -8,7 +9,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
-    _context: &mut AppContext,
+    context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     if let Some(PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(checkout_state))) =
         state.dialogs.top().cloned()
@@ -16,6 +17,7 @@ pub fn handle(
         let target = checkout_state.target;
         let is_branch = checkout_state.is_branch;
         let repo_path = checkout_state.repo_path;
+        let previous_popup = checkout_state.previous_popup;
         match key.code {
             KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
                 if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
@@ -23,14 +25,25 @@ pub fn handle(
                         crate::git::checkout::checkout_branch(&repo, &target)
                     } else {
                         crate::git::checkout::checkout_commit(&repo, &target)
+                            .map(|()| target.clone())
                     };
                     match result {
-                        Ok(()) => {
-                            state.dialogs.replace(PopupType::Info(format!(
-                                "{}: {}",
-                                crate::config::localization::t("git_checkout_success"),
-                                target
-                            )));
+                        Ok(checked_out_target) => {
+                            state.refresh_both_panels(context.config.settings.show_hidden);
+                            if let Some(prev) = previous_popup {
+                                restore_previous_and_refresh(state, *prev, &repo_path);
+                                state.dialogs.push(PopupType::Info(format!(
+                                    "{}: {}",
+                                    crate::config::localization::t("git_checkout_success"),
+                                    checked_out_target
+                                )));
+                            } else {
+                                state.dialogs.replace(PopupType::Info(format!(
+                                    "{}: {}",
+                                    crate::config::localization::t("git_checkout_success"),
+                                    checked_out_target
+                                )));
+                            }
                         }
                         Err(e) => {
                             state.dialogs.replace(PopupType::Error(format!(
@@ -49,7 +62,11 @@ pub fn handle(
                 }
             }
             KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => {
-                state.dialogs.clear();
+                if let Some(prev) = previous_popup {
+                    restore_previous_and_refresh(state, *prev, &repo_path);
+                } else {
+                    state.dialogs.clear();
+                }
             }
             _ => return Ok(None),
         }

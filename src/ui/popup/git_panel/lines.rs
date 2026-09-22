@@ -42,6 +42,20 @@ pub fn render_status_lines(
             } else {
                 parse_color(&theme.popup_fg)
             };
+            let stage_label = if entry.is_staged && entry.is_unstaged {
+                "[staged+] "
+            } else if entry.is_staged {
+                "[staged]  "
+            } else {
+                "          "
+            };
+            let stage_color = if entry.is_staged && entry.is_unstaged {
+                Color::Cyan
+            } else if entry.is_staged {
+                Color::Green
+            } else {
+                Color::DarkGray
+            };
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", entry.kind.label()),
@@ -50,6 +64,7 @@ pub fn render_status_lines(
                         .bg(bg)
                         .add_modifier(Modifier::BOLD),
                 ),
+                Span::styled(stage_label, Style::default().fg(stage_color).bg(bg)),
                 Span::styled(
                     format!(" {}", entry.path.clone()),
                     Style::default().fg(fg).bg(bg),

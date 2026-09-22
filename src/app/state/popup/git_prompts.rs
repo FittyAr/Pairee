@@ -5,6 +5,8 @@ pub struct GitCommitPromptState {
     pub input: String,
     pub cursor_idx: usize,
     pub repo_path: PathBuf,
+    pub is_amend: bool,
+    pub previous_popup: Option<Box<super::PopupType>>,
 }
 
 #[derive(Debug, Clone)]
@@ -12,6 +14,7 @@ pub struct GitConfirmCheckoutState {
     pub target: String,
     pub is_branch: bool,
     pub repo_path: PathBuf,
+    pub previous_popup: Option<Box<super::PopupType>>,
 }
 
 #[derive(Debug, Clone)]

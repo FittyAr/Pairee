@@ -33,6 +33,7 @@ pub fn handle_branch_tab(
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_current
+                && !branch.is_remote
             {
                 let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_delete_branch")
@@ -72,7 +73,6 @@ pub fn handle_branch_tab(
         KeyCode::Char('m') | KeyCode::Char('M') => {
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_current
-                && !branch.is_remote
             {
                 let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_merge_branch")
@@ -92,15 +92,15 @@ pub fn handle_branch_tab(
             true
         }
         KeyCode::Enter => {
-            if let Some(branch) = branch_entries.get(cursor_idx)
-                && !branch.is_remote
-            {
+            if let Some(branch) = branch_entries.get(cursor_idx) {
+                let current_popup = state.dialogs.top().cloned();
                 state.dialogs.replace(PopupType::GitPrompt(
                     crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
                         crate::app::state::popup::GitConfirmCheckoutState {
                             target: branch.name.clone(),
                             is_branch: true,
                             repo_path: repo_path.to_path_buf(),
+                            previous_popup: current_popup.map(Box::new),
                         },
                     ),
                 ));

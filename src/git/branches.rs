@@ -36,6 +36,11 @@ pub fn get_branches(repo: &git2::Repository) -> Vec<BranchInfo> {
                     _ => continue,
                 };
 
+                // Ignore remote symbolic HEAD pointers (e.g. origin/HEAD)
+                if *is_remote && name.ends_with("/HEAD") {
+                    continue;
+                }
+
                 let is_current = !is_remote
                     && current_branch_name
                         .as_deref()

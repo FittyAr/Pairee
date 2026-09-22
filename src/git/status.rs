@@ -5,6 +5,10 @@ pub struct GitFileStatus {
     pub path: String,
     /// The kind of change
     pub kind: StatusKind,
+    /// Whether this file has staged changes in the index
+    pub is_staged: bool,
+    /// Whether this file has unstaged modifications or is untracked in the working tree
+    pub is_unstaged: bool,
 }
 
 /// The type of change a file has in the working tree / index.
@@ -61,6 +65,22 @@ pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
 
             let flags = entry.status();
 
+            let is_staged = flags.intersects(
+                git2::Status::INDEX_NEW
+                    | git2::Status::INDEX_MODIFIED
+                    | git2::Status::INDEX_DELETED
+                    | git2::Status::INDEX_RENAMED
+                    | git2::Status::INDEX_TYPECHANGE,
+            );
+
+            let is_unstaged = flags.intersects(
+                git2::Status::WT_NEW
+                    | git2::Status::WT_MODIFIED
+                    | git2::Status::WT_DELETED
+                    | git2::Status::WT_RENAMED
+                    | git2::Status::WT_TYPECHANGE,
+            );
+
             let kind = if flags.contains(git2::Status::CONFLICTED) {
                 StatusKind::Conflicted
             } else if flags.contains(git2::Status::INDEX_NEW)
@@ -85,7 +105,12 @@ pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
                 StatusKind::Modified
             };
 
-            Some(GitFileStatus { path, kind })
+            Some(GitFileStatus {
+                path,
+                kind,
+                is_staged,
+                is_unstaged,
+            })
         })
         .collect()
 }

@@ -2,9 +2,10 @@
 ///
 /// For fast-forward merges, updates HEAD directly.
 /// For normal merges, runs the merge process, updating the index and working directory,
-/// and leaving the repository in a merging state for the user to commit or resolve conflicts.
 pub fn merge(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<git2::MergeAnalysis> {
-    let branch = repo.find_branch(branch_name, git2::BranchType::Local)?;
+    let branch = repo
+        .find_branch(branch_name, git2::BranchType::Local)
+        .or_else(|_| repo.find_branch(branch_name, git2::BranchType::Remote))?;
     let branch_ref = branch.get();
     let annotated_commit = repo.reference_to_annotated_commit(branch_ref)?;
 

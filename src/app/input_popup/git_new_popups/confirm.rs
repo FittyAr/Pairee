@@ -98,6 +98,31 @@ pub fn handle_confirm_action(
                             }
                         }
                     }
+                    GitConfirmedAction::DiscardFile(path) => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::stage::discard_file_changes(&repo, &path) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => state
+                                    .dialogs
+                                    .replace(PopupType::Error(format!("Discard failed: {}", e))),
+                            }
+                        }
+                    }
+                    GitConfirmedAction::AbortMerge => {
+                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
+                            match crate::git::merge::abort_merge(&repo) {
+                                Ok(_) => {
+                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
+                                }
+                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
+                                    "Abort merge failed: {}",
+                                    e
+                                ))),
+                            }
+                        }
+                    }
                 }
                 return Ok(None);
             }

@@ -107,6 +107,8 @@ pub enum GitConfirmedAction {
     StashDrop(usize),
     StashPop(usize),
     ResetCommit(String, crate::git::reset::ResetMode),
+    DiscardFile(String),
+    AbortMerge,
 }
 
 #[derive(Debug, Clone)]

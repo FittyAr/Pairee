@@ -20,10 +20,17 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         let area = centered_rect_fixed(60, 7, size);
         f.render_widget(Clear, area);
 
-        let title = format!(
-            " {} ",
-            crate::config::localization::t("git_commit_prompt_title")
-        );
+        let title = if state.is_amend {
+            format!(
+                " {} [AMEND] ",
+                crate::config::localization::t("git_commit_prompt_title")
+            )
+        } else {
+            format!(
+                " {} ",
+                crate::config::localization::t("git_commit_prompt_title")
+            )
+        };
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green))
