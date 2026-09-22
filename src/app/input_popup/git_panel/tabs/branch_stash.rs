@@ -32,9 +32,15 @@ pub fn handle_branch_tab(
             true
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
-            if let Some(branch) = branch_entries.get(cursor_idx)
-                && !branch.is_current
-            {
+            if let Some(branch) = branch_entries.get(cursor_idx) {
+                if branch.is_current {
+                    state
+                        .dialogs
+                        .push(PopupType::Error(crate::config::localization::t(
+                            "git_error_cannot_delete_current_branch",
+                        )));
+                    return true;
+                }
                 let current_popup = state.dialogs.top().cloned().unwrap();
                 if branch.is_remote {
                     if let Some((remote, b_name)) = branch.name.split_once('/') {

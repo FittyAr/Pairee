@@ -13,6 +13,16 @@ pub fn set_text(text: &str) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+/// Read text from the OS clipboard.
+///
+/// Returns `Err` when the session has no clipboard (headless CI, missing
+/// Wayland/X11) or if the clipboard does not contain valid text.
+pub fn get_text() -> Result<String, String> {
+    arboard::Clipboard::new()
+        .and_then(|mut cb| cb.get_text())
+        .map_err(|e| e.to_string())
+}
+
 /// Paths that Copy Path should put on the clipboard.
 ///
 /// Tagged files keep `selection_order`. Otherwise the hovered entry is used
@@ -119,5 +129,13 @@ mod tests {
             paths_to_copy(&panel),
             vec![PathBuf::from("/tmp/c.rs"), PathBuf::from("/tmp/a.rs")]
         );
+    }
+
+    #[test]
+    fn test_clipboard_set_and_get() {
+        if let Ok(()) = set_text("test_clipboard_content_123") {
+            let got = get_text().unwrap();
+            assert_eq!(got, "test_clipboard_content_123");
+        }
     }
 }

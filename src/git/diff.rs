@@ -68,5 +68,12 @@ fn diff_to_string(diff: &git2::Diff) -> anyhow::Result<String> {
         }
         true
     })?;
+    if out.trim().is_empty() {
+        for delta in diff.deltas() {
+            if delta.flags().contains(git2::DiffFlags::BINARY) {
+                return Ok(crate::config::localization::t("git_diff_binary_file"));
+            }
+        }
+    }
     Ok(out)
 }

@@ -959,3 +959,45 @@ fn test_get_stash_diff() {
     let diff = get_stash_diff(&repo, &stashes[0].oid).unwrap();
     assert!(diff.contains("+stashed changes"));
 }
+
+#[test]
+fn test_get_file_diff_binary() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("image.png");
+    std::fs::write(&file_path, [0x89, b'P', b'N', b'G', 0x00, 0x01, 0x02]).unwrap();
+    stage_file(&repo, "image.png").unwrap();
+    commit(&repo, "add binary", "Test User", "test@example.com").unwrap();
+
+    std::fs::write(&file_path, [0x89, b'P', b'N', b'G', 0x00, 0x05, 0x06]).unwrap();
+    let diff = get_file_diff(&repo, "image.png", false).unwrap();
+    assert!(diff.contains("Binary files"));
+}
+
+#[test]
+fn test_get_file_diff_binary_untracked() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("untracked_image.png");
+    std::fs::write(&file_path, [0x89, b'P', b'N', b'G', 0x00, 0x01, 0x02]).unwrap();
+    let diff = get_file_diff(&repo, "untracked_image.png", false).unwrap();
+    assert!(
+        diff.contains("Binary files")
+            || diff == crate::config::localization::t("git_diff_binary_file")
+    );
+}
+
+#[test]
+fn test_cannot_delete_current_branch() {
+    let (dir, repo) = setup_temp_repo();
+    let file_path = dir.path().join("file.txt");
+    std::fs::write(&file_path, "hello\n").unwrap();
+    stage_file(&repo, "file.txt").unwrap();
+    commit(&repo, "initial", "Test User", "test@example.com").unwrap();
+
+    let branches = get_branches(&repo);
+    let current_branch = branches.iter().find(|b| b.is_current).unwrap();
+    assert!(current_branch.is_current);
+
+    // libgit2 itself prevents deleting the checked-out branch
+    let res = delete_branch(&repo, &current_branch.name);
+    assert!(res.is_err());
+}

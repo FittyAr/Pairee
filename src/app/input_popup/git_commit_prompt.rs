@@ -31,16 +31,30 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char('a') | KeyCode::Char('A') if is_ctrl => {
-                is_amend = !is_amend;
-                if is_amend
-                    && input.is_empty()
-                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
-                    && let Ok(head) = repo.head()
-                    && let Ok(parent) = head.peel_to_commit()
-                    && let Ok(msg) = parent.message()
-                {
-                    input = msg.trim().to_string();
-                    cursor_idx = input.len();
+                if !is_amend {
+                    let has_commits = crate::git::repo::find_repo(&repo_path)
+                        .map(|r| r.head().and_then(|h| h.peel_to_commit()).is_ok())
+                        .unwrap_or(false);
+                    if !has_commits {
+                        state
+                            .dialogs
+                            .push(PopupType::Error(crate::config::localization::t(
+                                "git_error_no_commits_to_amend",
+                            )));
+                        return Ok(None);
+                    }
+                    is_amend = true;
+                    if input.is_empty()
+                        && let Some(repo) = crate::git::repo::find_repo(&repo_path)
+                        && let Ok(head) = repo.head()
+                        && let Ok(parent) = head.peel_to_commit()
+                        && let Ok(msg) = parent.message()
+                    {
+                        input = msg.trim().to_string();
+                        cursor_idx = input.len();
+                    }
+                } else {
+                    is_amend = false;
                 }
             }
             KeyCode::Enter => {

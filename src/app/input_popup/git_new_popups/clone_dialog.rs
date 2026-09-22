@@ -2,7 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::GitPromptPopup;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::keybindings::actions::Action;
 
@@ -85,6 +85,26 @@ pub fn handle_clone(
                 } else if !clone_state.dir_input.is_empty() {
                     clone_state.dir_input.pop();
                     clone_state.dir_cursor = clone_state.dir_input.len();
+                }
+                state
+                    .dialogs
+                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
+                        clone_state,
+                    )));
+                Ok(None)
+            }
+            KeyCode::Char('v') | KeyCode::Char('V')
+                if key.modifiers.contains(KeyModifiers::CONTROL) =>
+            {
+                if let Ok(text) = crate::app::sys_helpers::clipboard::get_text() {
+                    let cleaned = text.trim();
+                    if !clone_state.focus_dir {
+                        clone_state.url_input.push_str(cleaned);
+                        clone_state.url_cursor = clone_state.url_input.len();
+                    } else {
+                        clone_state.dir_input.push_str(cleaned);
+                        clone_state.dir_cursor = clone_state.dir_input.len();
+                    }
                 }
                 state
                     .dialogs
