@@ -1,7 +1,7 @@
 //! Folder shortcuts dialog: assigns the active folder to Ctrl+Alt+1…9 slots.
 
-use super::hotlist::step_cursor;
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::config::bookmarks::{self, SHORTCUT_SLOTS};
 use crate::config::localization::t;
@@ -22,25 +22,28 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FolderShortcuts { cursor_idx }) = state.dialogs.top().cloned() else {
+    let Some(PopupType::FolderShortcuts { cursor_idx }) = state.dialogs.top_mut() else {
         return Err(());
     };
+    let action = list_key(ListKeys::ARROWS, key.code, cursor_idx, SLOT_COUNT);
+    let cursor_idx = *cursor_idx;
     let slot = slot_for_row(cursor_idx);
-
-    match key.code {
-        KeyCode::Esc => state.dialogs.clear(),
-        KeyCode::Up | KeyCode::Down => {
-            let new_idx = step_cursor(cursor_idx, SLOT_COUNT, key.code == KeyCode::Up);
-            state.dialogs.replace(PopupType::FolderShortcuts {
-                cursor_idx: new_idx,
-            });
+    match action {
+        ListKey::Moved => return Ok(None),
+        ListKey::Close => {
+            state.dialogs.clear();
+            return Ok(None);
         }
-        KeyCode::Enter => {
+        ListKey::Activate(_) => {
             if let Some(target) = state.folder_shortcuts.get(&slot).cloned() {
                 state.dialogs.clear();
                 state.jump_active_panel_to(target, context.config.settings.show_hidden);
             }
+            return Ok(None);
         }
+        ListKey::Other => {}
+    }
+    match key.code {
         KeyCode::Insert | KeyCode::Char(' ') => assign(state, slot, cursor_idx),
         KeyCode::Char(c @ '1'..='9') => {
             let row = c as usize - '1' as usize;
