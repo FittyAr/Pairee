@@ -36,6 +36,20 @@ pub fn acquire_admin_privileges() -> Result<()> {
 
 #[cfg(not(target_os = "windows"))]
 pub fn acquire_admin_privileges() -> Result<()> {
+    let status = run_sudo(
+        "Requesting administrator privileges...",
+        &[std::ffi::OsStr::new("-v")],
+    );
+    match status {
+        Ok(s) if s.success() => Ok(()),
+        _ => anyhow::bail!("Failed to acquire admin privileges via sudo"),
+    }
+}
+
+/// Leaves the TUI, runs `sudo args` on the user's terminal (so it can ask
+/// for the password) and restores the TUI afterwards.
+#[cfg(not(target_os = "windows"))]
+fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::process::ExitStatus> {
     use crossterm::cursor::Show;
     use crossterm::execute;
     use crossterm::terminal::{
@@ -46,10 +60,10 @@ pub fn acquire_admin_privileges() -> Result<()> {
     let _ = disable_raw_mode();
     let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
 
-    println!("\nRequesting administrator privileges...");
+    println!("\n{message}");
 
     let status = Command::new("sudo")
-        .arg("-v")
+        .args(args)
         .stdin(Stdio::inherit())
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
@@ -57,11 +71,7 @@ pub fn acquire_admin_privileges() -> Result<()> {
 
     let _ = enable_raw_mode();
     let _ = execute!(std::io::stdout(), EnterAlternateScreen);
-
-    match status {
-        Ok(s) if s.success() => Ok(()),
-        _ => anyhow::bail!("Failed to acquire admin privileges via sudo"),
-    }
+    status
 }
 
 pub fn run_in_elevated_helper(ops: Vec<FsOperation>) -> Result<()> {
@@ -105,66 +115,43 @@ fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
         .status()
         .context("Failed to run elevated helper via PowerShell")?;
 
-    if status.success() {
-        let res_file = temp_file.with_extension("res");
-        if res_file.exists() {
-            let res_content = std::fs::read_to_string(&res_file)?;
-            let _ = std::fs::remove_file(&res_file);
-            if res_content == "OK" {
-                Ok(())
-            } else {
-                anyhow::bail!("Elevated helper error: {}", res_content)
-            }
-        } else {
-            anyhow::bail!("Elevated helper terminated without writing result status")
-        }
-    } else {
+    if !status.success() {
         anyhow::bail!("Failed to acquire Administrator privileges (UAC prompt declined or failed)")
     }
+    read_helper_result(temp_file)
 }
 
 #[cfg(not(target_os = "windows"))]
 fn run_helper_process(exe: &Path, temp_file: &Path) -> Result<()> {
-    use crossterm::cursor::Show;
-    use crossterm::execute;
-    use crossterm::terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    };
-    use std::process::Stdio;
+    let status = run_sudo(
+        "Requesting administrator privileges to complete operation...",
+        &[
+            exe.as_os_str(),
+            std::ffi::OsStr::new("--elevated-helper"),
+            temp_file.as_os_str(),
+        ],
+    )
+    .context("Failed to run elevated helper via sudo")?;
 
-    let _ = disable_raw_mode();
-    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
-
-    println!("\nRequesting administrator privileges to complete operation...");
-
-    let status = Command::new("sudo")
-        .arg(exe)
-        .arg("--elevated-helper")
-        .arg(temp_file)
-        .stdin(Stdio::inherit())
-        .stdout(Stdio::inherit())
-        .stderr(Stdio::inherit())
-        .status()
-        .context("Failed to run elevated helper via sudo")?;
-
-    let _ = enable_raw_mode();
-    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
-
-    if status.success() {
-        let res_file = temp_file.with_extension("res");
-        if res_file.exists() {
-            let res_content = std::fs::read_to_string(&res_file)?;
-            let _ = std::fs::remove_file(&res_file);
-            if res_content == "OK" {
-                Ok(())
-            } else {
-                anyhow::bail!("Elevated helper error: {}", res_content)
-            }
-        } else {
-            anyhow::bail!("Elevated helper terminated without writing result status")
-        }
-    } else {
+    if !status.success() {
         anyhow::bail!("Failed to run elevated operation via sudo")
+    }
+    read_helper_result(temp_file)
+}
+
+/// Reads (and removes) the `.res` file the elevated helper writes next to
+/// its operations file: `OK` on success, otherwise the error message.
+fn read_helper_result(temp_file: &Path) -> Result<()> {
+    let res_file = temp_file.with_extension("res");
+    if !res_file.exists() {
+        anyhow::bail!("Elevated helper terminated without writing result status")
+    }
+    let res_content = std::fs::read_to_string(&res_file)?;
+    let _ = std::fs::remove_file(&res_file);
+    if res_content == "OK" {
+        Ok(())
+    } else {
+        anyhow::bail!("Elevated helper error: {}", res_content)
     }
 }
 
