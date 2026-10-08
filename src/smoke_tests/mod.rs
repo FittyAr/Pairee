@@ -9,6 +9,7 @@ mod editor;
 mod file_ops;
 mod git_panel;
 mod navigation;
+mod polish;
 mod refresh_resize;
 mod sizes_sync;
 mod tabs_session;

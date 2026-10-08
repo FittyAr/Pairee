@@ -175,6 +175,7 @@ impl Harness {
         listing
             || transfer
             || state.git_op.is_running()
+            || state.git_panel.local.is_running()
             || state.multi_rename.is_running()
             || state.vfs_op.is_running()
             || state.folder_scan.is_running()
