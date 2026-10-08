@@ -30,6 +30,14 @@ fn removed_external_editor_keys_are_ignored() {
         toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
     table.insert("default_editor".into(), "vim".into());
     table.insert("editor_use_external".into(), true.into());
+    // A sample of other options removed because they had no effect.
+    table.insert("viewer_command".into(), "less %f".into());
+    table.insert("editor_default_codepage".into(), "1252".into());
+    table.insert("interface_screen_saver_minutes".into(), 5.into());
+    table.insert("transfer_engine_enabled".into(), true.into());
+    if let Some(toml::Value::Table(conf)) = table.get_mut("confirmations") {
+        conf.insert("confirm_overwrite".into(), true.into());
+    }
     let loaded: Result<Settings, _> = toml::from_str(&toml::to_string(&table).unwrap());
     assert!(loaded.is_ok(), "old config.toml must still load");
 }

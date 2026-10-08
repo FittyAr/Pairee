@@ -13,7 +13,7 @@ Pairee cuenta con un panel de control de Git completamente integrado que le perm
 ### 1.2 Gestión de Repositorios desde los Paneles de Navegación
 * **Inicializar Repositorio (`GitInit`):** Al ubicarse en una carpeta sin repositorio, el menú ofrece **`Inicializar repositorio Git`** para crear un nuevo repositorio en dicha ubicación.
 * **Clonar Repositorio (`GitClone`):** Disponible en el menú superior (**`Clonar repositorio...`**). Solicita la URL remota (HTTPS o SSH) y el nombre de la carpeta de destino.
-* **Detección Automática:** Cuando `git_auto_detect` está activado en la configuración, Pairee escaneará automáticamente buscando carpetas `.git` al navegar.
+* **Detección Automática:** Pairee detecta el repositorio de cada carpeta local al navegar (rama en el título del panel, distintivos de estado).
 
 ### 1.3 Indicadores Visuales en los Paneles de Archivos
 * **Rama en el Título:** El encabezado del panel muestra la rama activa actual (ej. `[git: main]`, `[git: feature/xyz]` o `[git: (detached HEAD)]`).

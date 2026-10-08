@@ -42,7 +42,7 @@
 ### Removed
 
 - External editor support: Pairee edits files only with its built-in editor. F4 and every other "edit" entry point always open the internal editor. The `editor_use_external` and `default_editor` settings are gone (old `config.toml` files that still contain them load fine), and the default file associations no longer launch `notepad`/`nano` for text files; untouched old default rules of that kind are removed from `associations.toml` on load.
-- Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
+- Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
 
 - Removed several crash paths: Git panel sub-dialogs, copy/move filter and tree prompts no longer `unwrap` the open dialog, file panels never slice out of range while drawing, and popups are no longer cloned on every key press (the Git panel and image quick view were deep-copied per key).

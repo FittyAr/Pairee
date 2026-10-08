@@ -2,7 +2,7 @@
 
 This manual provides an exhaustive, field-by-field description of all interactive options available in Pairee's Setup Dialog (`F2 -> Options -> Configuration` or `Commands -> Configuration`).
 
-> **Note:** options that are not implemented yet (file descriptions, info panel details, dialog/command-line editing behaviour, most editor and viewer options, plugin manager compatibility flags and a few confirmations) are hidden from the dialog. Their values are kept in `config.toml`, but they have no effect until implemented. If an option described here is missing from the dialog, it belongs to that group.
+> **Note:** only options that have an effect are offered. Options from older releases that never did anything (for example file descriptions, info panel name formats, plugin manager compatibility flags, editor code pages or the external editor command) were removed; if your `config.toml` still contains them they are ignored.
 
 ---
 
@@ -13,12 +13,6 @@ This tab controls file processing, history recording, escalation permissions, an
 ### File Operations
 * **Delete to Recycle Bin:**
   - *Description:* When enabled, deleted files are moved to the OS recycle bin (trash). If disabled, files are deleted permanently (unrecoverable without forensics).
-* **Use system copy routine:**
-  - *Description:* Delegates copy/move operations to the native system APIs. Disabling this uses Pairee's optimized internal Tokio worker thread streams, which support custom overwrite/skip modes.
-* **Copy files opened for writing:**
-  - *Description:* Toggles whether Pairee attempts to copy files that are currently locked or modified by other applications.
-* **Scan symbolic links:**
-  - *Description:* Traverses and follows symbolic links (symlinks) during directory operations.
 
 ### Optional features
 * **SSH / SFTP connections:**
@@ -47,12 +41,10 @@ This tab controls file processing, history recording, escalation permissions, an
   - *Description:* Automatically prompts for root/administrator privilege elevation (sudo/UAC) when writing or renaming system files.
 * **Request admin reading:**
   - *Description:* Prompts for privilege elevation when attempting to open or read files without access permissions.
-* **Request admin use additional privileges:**
-  - *Description:* Allows using system privilege escalation helpers for advanced actions.
 
 ### Sorting Collation & Saving
 * **Sorting collation:**
-  - *Options:* `< linguistic >` (Natural human sorting, e.g. `a` then `B` then `c`) or `< binary >` (ASCII byte comparison sorting, e.g. `B` before `a`).
+  - *Options:* `< linguistic >` (alphabetical order) or `< natural >` (like linguistic, but numbers inside names are compared numerically, the same as *Treat digits as numbers*).
 * **Treat digits as numbers:**
   - *Description:* Sorts numerically (natural sort). E.g., `file2` comes before `file10`.
 * **Case sensitive sort:**
@@ -64,7 +56,7 @@ This tab controls file processing, history recording, escalation permissions, an
 
 ## 📂 Tab 1: Panel Settings
 
-Controls layout columns, directory display filters, updates, and file descriptions.
+Controls layout columns, directory display filters and updates.
 
 ### Panel Display & Selection
 * **Show hidden and system files:**
@@ -73,8 +65,6 @@ Controls layout columns, directory display filters, updates, and file descriptio
   - *Description:* Renders files in different colors based on their file extensions.
 * **Select folders:**
   - *Description:* When tagging groups (`+` or `-`), folder paths will match and be selected alongside files.
-* **Right click selects files:**
-  - *Description:* Enables right-clicking to mark/tag files instead of triggering context menus.
 
 ### Sorting
 * **Sort folder names by extension:**
@@ -87,10 +77,6 @@ Controls layout columns, directory display filters, updates, and file descriptio
 ### Updates & Information
 * **Disable panel update object count:**
   - *Description:* Throttles updates of item counts on extremely large folders to keep performance smooth.
-* **Network drives autorefresh:**
-  - *Description:* Dynamically watches and updates file lists on mounted network paths.
-* **Detect volume mount points:**
-  - *Description:* Scans volume tables to resolve mounting changes.
 * **Show files total information:**
   - *Description:* Renders aggregated counts and total bytes at the bottom status line.
 * **Show free size:**
@@ -103,16 +89,8 @@ Controls layout columns, directory display filters, updates, and file descriptio
   - *Description:* Shows the active selection count details.
 * **Show scrollbar:**
   - *Description:* Displays vertical scrollbars in panels.
-* **Show background screens number:**
-  - *Description:* Renders a count of open screens in the background.
 * **Show ".." in root folders:**
   - *Description:* Renders parent folder links (`..`) even when in root directories (e.g. `/` or `C:\`).
-
-### Info Panel & Descriptions
-* **Computer/User name formats:**
-  - *Description:* Configure how hostname and username are rendered in the overlay Info panel.
-* **File Descriptions:**
-  - *Description:* Set lists names (e.g. `Descript.ion`), hidden flags, ANSI color support, UTF-8 formats, and updates mode for file descriptions.
 
 ---
 
@@ -125,17 +103,6 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 * **Mouse support:** Toggles mouse navigation, clicking, and scrolling.
 * **Show bottom F-keys bar:** Toggles the F1-F10 shortcuts line at the bottom.
 * **Always show the menu bar:** Toggles persistent visibility of the top menu bar.
-* **Screen saver minutes:** Triggers a terminal screensaver after idle time.
-
-### Progress Indicators
-* **Show total copy progress / copying time:** Shows aggregated progress bar and elapsed/estimated time during bulk copying.
-* **Show total delete progress:** Shows progress indicators during bulk deletion.
-
-### Terminal & Rendering
-* **Use Ctrl+PgUp to change drive:** Allows changing active drive path using `Ctrl+PgUp`/`Ctrl+PgDn`.
-* **Use virtual terminal:** (Windows) Configures console virtual terminal support.
-* **ClearType friendly redraw:** Tweaks redraw patterns to prevent visual font glitches.
-* **Window Title Format:** Define title bar format tokens (e.g. `%Platform`).
 
 ### Keybindings
 * **Keybindings preset:** Cycle Norton / Neovim / VS Code. A status line shows whether the selected preset (plus your `custom_bindings`) loaded cleanly.
@@ -152,17 +119,12 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 Specifies which operations require an explicit warning dialog before proceeding.
 
 ### File Operations
-* **Confirm copy / move / overwrite:** Prompts before performing copies, moves, or overwriting destination files.
-* **Confirm drag and drop:** Warns before executing mouse drag and drop actions.
+* **Confirm copy / move:** Prompts before performing copies or moves. What happens when a destination file already exists is decided by the transfer itself (see `transfer_conflict_resolution` in `config.toml`).
 * **Confirm delete / delete non-empty folders:** Prompts before deleting items or directories containing files.
-
-### Drives & System
 * **Confirm interrupt operation:** Ask before terminating background processes.
-* **Confirm disconnect network drive / delete subst disk:** Prompts before disconnecting mount points.
-* **Confirm detach virtual disk / hotplug removal:** Prompts before detaching virtual files.
 
 ### General
-* **Confirm reload edited file:** Asks to reload if the file being edited is modified externally on disk.
+* **Confirm reload edited file:** Asks before `Ctrl+R` in the editor reloads the file from disk and discards unsaved changes.
 * **Confirm clear history list:** Prompts before wiping database lists.
 * **Confirm exit:** Prompts before quitting Pairee.
 
@@ -173,28 +135,17 @@ Specifies which operations require an explicit warning dialog before proceeding.
 ### Language
 * **Main language:** Selects the active translations database (detects TOML files in the `/lang` directory).
 
-### Plugins Configuration
-* **Soporte de plugins OEM (OEM plugin support):**
-  - *Description:* Allows loading and processing legacy console plugins encoded in OEM format (e.g. CP437, CP850), converting their text output to UTF-8 dynamically to prevent character rendering errors.
-* **Escanear enlaces simbólicos (Scan symlinks):**
-  - *Description:* Determines whether the plugin engine should follow and scan symbolic links when searching for new extensions in the plugins directory.
-* **Procesamiento de archivos (File processing):**
-  - *Description:* Delegates file opening or processing to registered plugins (e.g. allowing browsing of compressed archives as folders via plugins).
-* **Mostrar asociación estándar (Show standard association):**
-  - *Description:* Shows the operating system's default applications alongside plugin options when prompting to open a file with multiple handlers.
-* **Incluso si solo se encuentra un plugin (Even if only one plugin is found):**
-  - *Description:* Prompts the confirmation and selection dialog even if there is only a single plugin registered to handle the target file type (otherwise, it runs it directly).
-* **Resultados de búsqueda (SetFindList) (Search results):**
-  - *Description:* Allows a plugin to intercept and process search results (e.g. redirecting advanced search outputs directly to the panel listing).
-* **Procesamiento de prefijos (Prefix processing):**
-  - *Description:* Enables command prefix recognition (e.g. `ftp:host` or `arc:path`) to invoke a specific plugin directly from the terminal command-line.
+### Plugins
+* **Plugins developer mode:** Enables the plugin developer tools (development folder and test plugin).
 
 ---
 
 ## 📂 Tab 5: Editor/Viewer Settings
 
-### External Commands
-* **Use external viewer / Viewer command:** Redirects F3 View actions to an external program (e.g. `less %f`).
+### Viewer
+* **Use external viewer for F3:** F3 runs the view command of the file's association (see *File Associations Editor* below) and `Alt+F3` opens the internal viewer; when off it is the other way round.
+* **Use external command when opening files with Enter:** Enter runs the association's open command instead of opening the internal viewer.
+* **Tab size / Show scrollbar:** Tab width and scrollbar of the internal viewer.
 
 ### Built-in Editor
 Pairee edits files only with its built-in editor (`F4`); there is no external editor option.
@@ -220,7 +171,6 @@ Pairee edits files only with its built-in editor (`F4`); there is no external ed
 
 ### General
 * **Enable Git integration:** Globally enable/disable Git dashboard hooks.
-* **Auto-detect git repos:** Scans folder trees for active git repositories.
 
 ### Author Identity
 * **Author name / Author email:** Override author details for commits. If left blank, Pairee reads from system git config files.
