@@ -9,6 +9,7 @@ use crate::config::localization::t;
 use crate::fs::archive::{ArchiveVfs, ZipEdit, ZipSource, extract_selected, split_archive_path};
 use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
 use crate::fs::transfer::control::JobControl;
+use crate::fs::transfer::worker::is_destination_parent_dir;
 use crate::fs::vfs::{LocalVfs, Vfs};
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
@@ -48,10 +49,11 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
     if job.ssh.is_some() || !job.operation.uses_local_worker() {
         return None;
     }
+    let destination = target_folder(job);
     let sources: Vec<_> = job.sources.iter().map(|s| inside(s)).collect();
     let from_archive = sources.iter().any(Option::is_some);
     let into_archive = (job.operation != TransferOperation::Delete)
-        .then(|| split_archive_path(&job.destination))
+        .then(|| split_archive_path(&destination))
         .flatten();
     if !from_archive && into_archive.is_none() {
         return None;
@@ -70,7 +72,7 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
                     archive,
                     base,
                     selected: inner,
-                    dest: job.destination.clone(),
+                    dest: destination,
                 }
             }))
         }
@@ -80,6 +82,24 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
             sources: job.sources.clone(),
         })),
         _ => refused(),
+    }
+}
+
+/// The folder the job's items go into. For a single item the transfer
+/// dialog pre-fills `<folder>/<name>`, the target path itself (as local
+/// copies read it); archive plans place items into a folder, so that
+/// target stands for its parent.
+fn target_folder(job: &TransferJob) -> PathBuf {
+    let dest = &job.destination;
+    let same_name = matches!(job.sources.as_slice(), [single]
+        if dest.file_name().is_some() && dest.file_name() == single.file_name());
+    match dest.parent() {
+        Some(parent)
+            if same_name && !is_destination_parent_dir(&job.sources, dest, |p| p.is_dir()) =>
+        {
+            parent.to_path_buf()
+        }
+        _ => dest.clone(),
     }
 }
 
