@@ -97,6 +97,23 @@ by_platform! {
             }
         }
 
+        /// Test probe: `true` when a file trashed from `dir` can be listed
+        /// and restored here. Some CI runners (Windows without a usable
+        /// Recycle Bin, tmpfs without `.Trash`) cannot, and tests that need
+        /// the trash skip there. The probe file ends up deleted either way.
+        #[cfg(test)]
+        pub fn trash_round_trips_in(dir: &Path) -> bool {
+            let probe = dir.join(format!("pairee-trash-probe-{}.txt", uuid::Uuid::new_v4()));
+            if std::fs::write(&probe, b"probe").is_err() || trash::delete(&probe).is_err() {
+                let _ = std::fs::remove_file(&probe);
+                return false;
+            }
+            let restored = TrashIndex::load().and_then(|mut index| index.restore(&probe));
+            let usable = restored.is_ok() && entry_exists(&probe);
+            let _ = std::fs::remove_file(&probe);
+            usable
+        }
+
         #[cfg(test)]
         mod tests {
             use super::was_at;

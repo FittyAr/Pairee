@@ -210,6 +210,10 @@ fn mkdir_and_link_round_trip() {
 #[tokio::test]
 async fn trashed_file_is_restored() {
     let root = tempfile::tempdir().unwrap();
+    if !crate::fs::journal::trash::trash_round_trips_in(root.path()) {
+        eprintln!("skipped: no usable trash for {}", root.path().display());
+        return;
+    }
     let file = p(
         root.path(),
         &format!("pairee-undo-{}.txt", uuid::Uuid::new_v4()),

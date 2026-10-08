@@ -12,7 +12,7 @@ pub mod check;
 pub mod command;
 mod history;
 mod record;
-mod trash;
+pub(crate) mod trash;
 
 #[cfg(test)]
 mod tests;

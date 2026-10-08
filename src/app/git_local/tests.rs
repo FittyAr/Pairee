@@ -53,6 +53,10 @@ fn stage_runs_as_job_and_reloads_the_panel() {
     let dir = repo();
     std::fs::write(dir.path().join("b.txt"), "b").unwrap();
     let mut state = state_with_panel(dir.path());
+    // The panel keys work on the path the snapshot reported (the canonical
+    // work tree, e.g. `/private/var/...` on macOS or a long path instead of an
+    // 8.3 temp path on Windows), exactly as `tab_action` passes it.
+    let path = panel(&state).repo_path.clone();
     let entries = panel(&state).status_entries.clone();
     let idx = entries.iter().position(|e| e.path == "b.txt").unwrap();
     assert!(!entries[idx].is_staged);
@@ -60,23 +64,33 @@ fn stage_runs_as_job_and_reloads_the_panel() {
     assert!(handle_status_tab(
         &mut state,
         KeyCode::Char(' '),
-        dir.path(),
+        &path,
         &entries,
         idx
     ));
     assert!(!state.git_panel.local.is_running(), "inline job finished");
-    let path = panel(&state).repo_path.clone();
     assert!(
         state.git_panel.is_loading(&path),
         "panel re-read after the job"
     );
-    state.poll_git_panel();
+    settle_panel(&mut state, &path);
     let staged = panel(&state)
         .status_entries
         .iter()
         .find(|e| e.path == "b.txt")
         .unwrap();
     assert!(staged.is_staged);
+}
+
+/// Applies Git panel results until the re-read of `path` finished (bounded).
+fn settle_panel(state: &mut AppState, path: &Path) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    while state.git_panel.is_loading(path) {
+        assert!(Instant::now() < deadline, "panel re-read never finished");
+        if !state.poll_git_panel() {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+    }
 }
 
 #[test]

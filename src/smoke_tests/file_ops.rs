@@ -94,6 +94,10 @@ fn delete_to_trash_then_undo_and_redo() {
     let mut h = Harness::builder()
         .settings(|s| s.delete_to_recycle_bin = true)
         .build();
+    if !crate::fs::journal::trash::trash_round_trips_in(&h.left()) {
+        eprintln!("skipped: no usable trash for {}", h.left().display());
+        return;
+    }
     let name = format!("pairee-smoke-{}.txt", uuid::Uuid::new_v4());
     let rel = format!("work/left/{name}");
     h.write(&rel, "keep me");
