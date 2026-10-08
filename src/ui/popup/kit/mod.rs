@@ -20,7 +20,7 @@ use ratatui::{
 };
 
 /// Bordered block titled `title` over the popup background.
-pub fn popup_block<'a>(title: String, border: Style, theme: &Theme) -> Block<'a> {
+pub fn popup_block<'a>(title: impl Into<Line<'a>>, border: Style, theme: &Theme) -> Block<'a> {
     Block::default()
         .borders(Borders::ALL)
         .border_style(border)
@@ -28,22 +28,53 @@ pub fn popup_block<'a>(title: String, border: Style, theme: &Theme) -> Block<'a>
         .style(Style::default().bg(parse_color(&theme.popup_bg)))
 }
 
-/// Clears a centered `width` × `height` area, draws a bordered block titled
-/// `title` and returns the inner area.
-pub fn dialog_frame(
+/// Bold title in `color` (Git dialogs).
+pub fn accent_title(text: impl Into<String>, color: Color) -> Span<'static> {
+    Span::styled(
+        text.into(),
+        Style::default().fg(color).add_modifier(Modifier::BOLD),
+    )
+}
+
+/// Centered dim hint line (key help at the bottom of a dialog).
+pub fn hint<'a>(text: impl Into<Text<'a>>) -> Paragraph<'a> {
+    Paragraph::new(text)
+        .alignment(Alignment::Center)
+        .style(fg(Color::DarkGray))
+}
+
+/// Clears `area`, draws a bordered block titled `title` and returns the
+/// inner area.
+pub fn frame_in(
     f: &mut Frame,
-    size: Rect,
-    (width, height): (u16, u16),
-    title: String,
+    area: Rect,
+    title: impl Into<Line<'static>>,
     border: Style,
     theme: &Theme,
 ) -> Rect {
-    let area = centered_rect_fixed(width, height, size);
     f.render_widget(Clear, area);
     let block = popup_block(title, border, theme);
     let inner = block.inner(area);
     f.render_widget(block, area);
     inner
+}
+
+/// [`frame_in`] over a centered `width` × `height` area.
+pub fn dialog_frame(
+    f: &mut Frame,
+    size: Rect,
+    (width, height): (u16, u16),
+    title: impl Into<Line<'static>>,
+    border: Style,
+    theme: &Theme,
+) -> Rect {
+    frame_in(
+        f,
+        centered_rect_fixed(width, height, size),
+        title,
+        border,
+        theme,
+    )
 }
 
 /// A centered popup made of one paragraph: what it says and how it looks.
@@ -105,6 +136,34 @@ pub fn items_label(paths: &[std::path::PathBuf], single_key: &str, plural_key: &
             crate::config::localization::t(plural_key).replacen("{}", &many.len().to_string(), 1)
         }
     }
+}
+
+/// Theme selection colors (highlighted list rows, focused buttons).
+pub fn selection(theme: &Theme) -> Style {
+    Style::default()
+        .bg(parse_color(&theme.selection_bg))
+        .fg(parse_color(&theme.selection_fg))
+}
+
+/// A [`TextField`] in its own bordered box (Git dialogs): yellow border and
+/// bold text with a cursor when focused, dim border otherwise.
+pub fn input_box(field: &TextField, focused: bool, theme: &Theme) -> Paragraph<'static> {
+    let (border, style) = if focused {
+        (
+            Color::Yellow,
+            Style::default()
+                .fg(Color::Yellow)
+                .add_modifier(Modifier::BOLD),
+        )
+    } else {
+        (Color::DarkGray, popup_fg(theme))
+    };
+    let spans = field_spans(field, style, selection(theme), focused);
+    Paragraph::new(Line::from(spans)).block(
+        Block::default()
+            .borders(Borders::ALL)
+            .border_style(fg(border)),
+    )
 }
 
 /// Style with the given foreground (borders, hints).

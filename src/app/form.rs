@@ -127,12 +127,61 @@ pub fn field_key(field: &mut TextField, key: &KeyEvent) -> FieldKey {
     }
 }
 
+/// Two stacked text fields; Tab / Shift+Tab / Up / Down switch between them.
+#[derive(Debug, Clone, Default)]
+pub struct FieldPair {
+    pub fields: [TextField; 2],
+    /// Index of the focused field (0 or 1).
+    pub focus: usize,
+}
+
+impl FieldPair {
+    pub fn new(first: impl Into<TextField>, second: impl Into<TextField>) -> Self {
+        Self {
+            fields: [first.into(), second.into()],
+            focus: 0,
+        }
+    }
+
+    pub fn first(&self) -> &str {
+        self.fields[0].text()
+    }
+
+    pub fn second(&self) -> &str {
+        self.fields[1].text()
+    }
+
+    /// Switches focus on Tab / Shift+Tab / Up / Down, otherwise edits the
+    /// focused field like [`field_key`].
+    pub fn handle_key(&mut self, key: &KeyEvent) -> FieldKey {
+        match key.code {
+            KeyCode::Tab | KeyCode::BackTab | KeyCode::Up | KeyCode::Down => {
+                self.focus = 1 - self.focus.min(1);
+                FieldKey::Handled
+            }
+            _ => field_key(&mut self.fields[self.focus.min(1)], key),
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use crossterm::event::KeyModifiers;
 
     const LAYOUT: FormLayout = FormLayout::with_input(4, 2);
+
+    #[test]
+    fn field_pair_switches_focus_and_edits_the_focused_field() {
+        let mut pair = FieldPair::new("a", "");
+        pair.handle_key(&key(KeyCode::Char('b')));
+        assert_eq!(pair.handle_key(&key(KeyCode::Tab)), FieldKey::Handled);
+        pair.handle_key(&key(KeyCode::Char('c')));
+        assert_eq!((pair.first(), pair.second()), ("ab", "c"));
+        pair.handle_key(&key(KeyCode::Up));
+        assert_eq!(pair.focus, 0);
+        assert_eq!(pair.handle_key(&key(KeyCode::Enter)), FieldKey::Submit);
+    }
 
     fn key(code: KeyCode) -> KeyEvent {
         KeyEvent::new(code, KeyModifiers::NONE)

@@ -1,6 +1,7 @@
 //! Key action handlers for each tab in GitPanel (Status, Log, Branches, Stash).
 
 use super::super::refresh::refresh_git_panel;
+use crate::app::state::popup::GitNameAction;
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
 use crate::git::log::CommitInfo;
 use crate::git::status::GitFileStatus;
@@ -94,8 +95,7 @@ pub fn handle_status_tab(
             state.dialogs.open_over(|current_popup| {
                 PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(
                     crate::app::state::popup::GitCommitPromptState {
-                        input: String::new(),
-                        cursor_idx: 0,
+                        input: Default::default(),
                         repo_path: repo_path.to_path_buf(),
                         is_amend: false,
                         previous_popup: Some(current_popup),
@@ -129,17 +129,13 @@ pub fn handle_status_tab(
             true
         }
         KeyCode::Char('s') | KeyCode::Char('S') => {
-            state.dialogs.open_over(|current_popup| {
-                PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::StashSavePrompt(
-                    crate::app::state::popup::GitStashSavePromptState {
-                        input: String::new(),
-                        cursor_idx: 0,
-                        include_untracked: false,
-                        repo_path: repo_path.to_path_buf(),
-                        previous_popup: current_popup,
-                    },
-                ))
-            });
+            crate::app::input_popup::git_new_popups::open_name_prompt(
+                state,
+                repo_path,
+                GitNameAction::SaveStash {
+                    include_untracked: false,
+                },
+            );
             true
         }
         _ => false,
@@ -243,35 +239,25 @@ pub fn handle_log_tab(
         }
         KeyCode::Char('b') | KeyCode::Char('B') | KeyCode::Char('n') | KeyCode::Char('N') => {
             if let Some(commit) = log_entries.get(cursor_idx) {
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(
-                        crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(
-                            crate::app::state::popup::GitBranchCreatePromptState {
-                                input: String::new(),
-                                cursor_idx: 0,
-                                start_point: commit.hash_full.clone(),
-                                repo_path: repo_path.to_path_buf(),
-                                previous_popup: current_popup,
-                            },
-                        ),
-                    )
-                });
+                crate::app::input_popup::git_new_popups::open_name_prompt(
+                    state,
+                    repo_path,
+                    GitNameAction::CreateBranch {
+                        start_point: commit.hash_full.clone(),
+                    },
+                );
             }
             true
         }
         KeyCode::Char('t') | KeyCode::Char('T') => {
             if let Some(commit) = log_entries.get(cursor_idx) {
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::TagCreatePrompt(
-                        crate::app::state::popup::GitTagCreatePromptState {
-                            input: String::new(),
-                            cursor_idx: 0,
-                            target: commit.hash_full.clone(),
-                            repo_path: repo_path.to_path_buf(),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
+                crate::app::input_popup::git_new_popups::open_name_prompt(
+                    state,
+                    repo_path,
+                    GitNameAction::CreateTag {
+                        target: commit.hash_full.clone(),
+                    },
+                );
             }
             true
         }

@@ -1,137 +1,69 @@
 use crate::app::context::AppContext;
+use crate::app::form::FieldKey;
 use crate::app::state::popup::GitPromptPopup;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-
 use crate::keybindings::actions::Action;
+use crossterm::event::KeyEvent;
 
 pub fn handle_clone(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(mut clone_state))) =
-        state.dialogs.take()
-    {
-        match key.code {
-            KeyCode::Tab | KeyCode::BackTab | KeyCode::Down | KeyCode::Up => {
-                clone_state.focus_dir = !clone_state.focus_dir;
+    let Some(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(clone))) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    match clone.fields.handle_key(&key) {
+        FieldKey::Cancel => state.dialogs.clear(),
+        FieldKey::Submit => {
+            let url = clone.fields.first().trim().to_string();
+            if url.is_empty() {
+                return Ok(None);
+            }
+            let dir_name = match clone.fields.second().trim() {
+                "" => repo_dir_name(&url),
+                typed => typed.to_string(),
+            };
+            let target = clone.target_parent_path.join(dir_name);
+            state.dialogs.clear();
+            if target.exists() {
                 state
                     .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                        clone_state,
-                    )));
-                Ok(None)
+                    .replace(PopupType::Error(t("git_clone_dir_exists")));
+                return Ok(None);
             }
-            KeyCode::Esc => {
-                // Dismiss clone dialog
-                Ok(None)
-            }
-            KeyCode::Enter => {
-                let url = clone_state.url_input.trim();
-                if url.is_empty() {
-                    state
-                        .dialogs
-                        .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                            clone_state,
-                        )));
-                    return Ok(None);
-                }
-
-                let dir_name = if !clone_state.dir_input.trim().is_empty() {
-                    clone_state.dir_input.trim().to_string()
-                } else {
-                    let clean = url.trim_end_matches('/').trim_end_matches(".git");
-                    let last = clean.split(['/', ':', '\\']).next_back().unwrap_or("repo");
-                    if last.is_empty() {
-                        "repo".to_string()
-                    } else {
-                        last.to_string()
-                    }
-                };
-
-                let target_path = clone_state.target_parent_path.join(&dir_name);
-                if target_path.exists() {
-                    state
-                        .dialogs
-                        .replace(PopupType::Error(t("git_clone_dir_exists")));
-                    return Ok(None);
-                }
-
-                state.start_git_op(
-                    crate::app::git_ops::GitNetOp::Clone {
-                        url: url.to_string(),
-                        target: target_path,
-                    },
-                    crate::app::git_ops::FollowUp::Cloned {
-                        show_hidden: context.config.settings.show_hidden,
-                    },
-                );
-                Ok(None)
-            }
-            KeyCode::Backspace => {
-                if !clone_state.focus_dir {
-                    if !clone_state.url_input.is_empty() {
-                        clone_state.url_input.pop();
-                        clone_state.url_cursor = clone_state.url_input.len();
-                    }
-                } else if !clone_state.dir_input.is_empty() {
-                    clone_state.dir_input.pop();
-                    clone_state.dir_cursor = clone_state.dir_input.len();
-                }
-                state
-                    .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                        clone_state,
-                    )));
-                Ok(None)
-            }
-            KeyCode::Char('v') | KeyCode::Char('V')
-                if key.modifiers.contains(KeyModifiers::CONTROL) =>
-            {
-                if let Ok(text) = crate::app::sys_helpers::clipboard::get_text() {
-                    let cleaned = text.trim();
-                    if !clone_state.focus_dir {
-                        clone_state.url_input.push_str(cleaned);
-                        clone_state.url_cursor = clone_state.url_input.len();
-                    } else {
-                        clone_state.dir_input.push_str(cleaned);
-                        clone_state.dir_cursor = clone_state.dir_input.len();
-                    }
-                }
-                state
-                    .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                        clone_state,
-                    )));
-                Ok(None)
-            }
-            KeyCode::Char(c) => {
-                if !clone_state.focus_dir {
-                    clone_state.url_input.push(c);
-                    clone_state.url_cursor = clone_state.url_input.len();
-                } else {
-                    clone_state.dir_input.push(c);
-                    clone_state.dir_cursor = clone_state.dir_input.len();
-                }
-                state
-                    .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                        clone_state,
-                    )));
-                Ok(None)
-            }
-            _ => {
-                state
-                    .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(
-                        clone_state,
-                    )));
-                Ok(None)
-            }
+            state.start_git_op(
+                crate::app::git_ops::GitNetOp::Clone { url, target },
+                crate::app::git_ops::FollowUp::Cloned {
+                    show_hidden: context.config.settings.show_hidden,
+                },
+            );
         }
-    } else {
-        Err(())
+        FieldKey::Handled | FieldKey::Other => {}
+    }
+    Ok(None)
+}
+
+/// Folder name derived from a clone URL (`.../name.git` → `name`).
+fn repo_dir_name(url: &str) -> String {
+    let clean = url.trim_end_matches('/').trim_end_matches(".git");
+    match clean.split(['/', ':', '\\']).next_back() {
+        Some(last) if !last.is_empty() => last.to_string(),
+        _ => "repo".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::repo_dir_name;
+
+    #[test]
+    fn dir_name_from_url() {
+        assert_eq!(repo_dir_name("https://h/o/pairee.git"), "pairee");
+        assert_eq!(repo_dir_name("git@h:o/x/"), "x");
+        assert_eq!(repo_dir_name("https://h/"), "h");
+        assert_eq!(repo_dir_name(""), "repo");
     }
 }

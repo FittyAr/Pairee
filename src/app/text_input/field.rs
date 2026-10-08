@@ -133,6 +133,8 @@ impl TextField {
                     FieldEdit::Moved
                 }
             }
+            // Other Ctrl+letter chords are shortcuts, not text.
+            KeyCode::Char(_) if is_plain_ctrl(key.modifiers) => FieldEdit::Ignored,
             KeyCode::Char(c) => {
                 self.insert_char(c);
                 FieldEdit::Edited
@@ -255,6 +257,9 @@ mod tests {
         let mut field = TextField::default();
         let altgr = KeyModifiers::CONTROL | KeyModifiers::ALT;
         field.handle_key(&KeyEvent::new(KeyCode::Char('@'), altgr));
+        assert_eq!(field.text(), "@");
+        let ctrl_s = KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL);
+        assert_eq!(field.handle_key(&ctrl_s), FieldEdit::Ignored);
         assert_eq!(field.text(), "@");
     }
 

@@ -139,12 +139,9 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
             git_new_popups::handle_diff
         }
-        PopupType::GitPrompt(
-            crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::TagCreatePrompt(_),
-        ) => git_new_popups::handle_prompt,
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::NamePrompt(_)) => {
+            git_new_popups::handle_prompt
+        }
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
             git_new_popups::handle_confirm_action
         }

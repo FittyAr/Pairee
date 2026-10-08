@@ -17,10 +17,9 @@ pub use config_dialog::ConfigurationDialogState;
 pub use file_ops::{CopyMovePromptState, TransferPromptOp};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
-    GitBranchCreatePromptState, GitBranchRenamePromptState, GitClonePromptState,
-    GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState, GitDiffViewState,
-    GitPromptPopup, GitRemoteAddState, GitRemoteManageState, GitStashSavePromptState,
-    GitTagCreatePromptState,
+    GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,
+    GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
+    GitRemoteManageState,
 };
 pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;

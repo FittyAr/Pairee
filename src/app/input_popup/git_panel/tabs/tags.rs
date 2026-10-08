@@ -14,17 +14,13 @@ pub fn handle_tag_tab(
 ) -> bool {
     match code {
         KeyCode::Char('n') | KeyCode::Char('N') => {
-            state.dialogs.open_over(|current_popup| {
-                PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::TagCreatePrompt(
-                    crate::app::state::popup::GitTagCreatePromptState {
-                        input: String::new(),
-                        cursor_idx: 0,
-                        target: "HEAD".to_string(),
-                        repo_path: repo_path.to_path_buf(),
-                        previous_popup: current_popup,
-                    },
-                ))
-            });
+            crate::app::input_popup::git_new_popups::open_name_prompt(
+                state,
+                repo_path,
+                crate::app::state::popup::GitNameAction::CreateTag {
+                    target: "HEAD".to_string(),
+                },
+            );
             true
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
