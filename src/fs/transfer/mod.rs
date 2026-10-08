@@ -1,6 +1,7 @@
 pub mod backend;
 pub mod conflict;
 pub mod conflict_slot;
+pub mod control;
 pub mod direct_io;
 pub mod engine;
 pub mod events;

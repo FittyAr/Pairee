@@ -1,13 +1,12 @@
 //! Single file transfer executor with retry backoff and symlink support.
 
+use super::super::super::control::JobControl;
 use super::super::super::options::TransferOptions;
 use super::super::super::pipeline::copy_file_pipelined;
-use anyhow::anyhow;
 use std::path::Path;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::AtomicU64;
 use std::time::Duration;
-use uuid::Uuid;
 
 pub struct TransferOutcome {
     pub success: bool,
@@ -21,11 +20,8 @@ pub async fn transfer_one_file(
     src: &Path,
     dst: &Path,
     options: &TransferOptions,
-    job_id: Uuid,
-    is_paused: Arc<AtomicBool>,
-    is_cancelled: Arc<AtomicBool>,
+    ctl: &JobControl,
     bytes_transferred_acc: Arc<AtomicU64>,
-    event_tx: &crate::fs::transfer::events::EventSender,
 ) -> Result<TransferOutcome, anyhow::Error> {
     let mut retries = 0u32;
     let mut copy_success = false;
@@ -43,21 +39,10 @@ pub async fn transfer_one_file(
         }
     } else {
         while retries <= options.max_retries {
-            if is_cancelled.load(Ordering::Relaxed) {
-                return Err(anyhow!("Job cancelled"));
-            }
+            ctl.ensure_running()?;
 
-            match copy_file_pipelined(
-                src,
-                dst,
-                options,
-                event_tx,
-                job_id,
-                Arc::clone(&is_paused),
-                Arc::clone(&is_cancelled),
-                Arc::clone(&bytes_transferred_acc),
-            )
-            .await
+            match copy_file_pipelined(src, dst, options, ctl, Arc::clone(&bytes_transferred_acc))
+                .await
             {
                 Ok((s_hash, d_hash)) => {
                     src_hash = s_hash;

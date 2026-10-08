@@ -1,9 +1,8 @@
 use anyhow::anyhow;
 use std::collections::VecDeque;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, Ordering};
-use uuid::Uuid;
 
+use super::super::control::JobControl;
 use super::super::events::TransferEvent;
 use super::super::filter::TransferFilter;
 use super::super::job::TransferOperation;
@@ -26,11 +25,10 @@ pub(super) fn scan(
     destination: &std::path::Path,
     operation: TransferOperation,
     options: &TransferOptions,
-    job_id: Uuid,
-    is_cancelled: &AtomicBool,
-    event_tx: &crate::fs::transfer::events::EventSender,
+    ctl: &JobControl,
 ) -> Result<ScanOutcome, anyhow::Error> {
-    let _ = event_tx.send(TransferEvent::ScanProgress {
+    let job_id = ctl.job_id;
+    ctl.emit(TransferEvent::ScanProgress {
         job_id,
         files_found: 0,
     });
@@ -45,7 +43,7 @@ pub(super) fn scan(
     let is_parent_dir = is_destination_parent_dir(sources, destination, |p| p.is_dir());
 
     for src in sources {
-        if is_cancelled.load(Ordering::Relaxed) {
+        if ctl.is_cancelled() {
             return Err(anyhow!("Job cancelled during scan"));
         }
 
@@ -64,7 +62,7 @@ pub(super) fn scan(
             }
 
             while let Some(dir) = dirs_to_visit.pop_front() {
-                if is_cancelled.load(Ordering::Relaxed) {
+                if ctl.is_cancelled() {
                     return Err(anyhow!("Job cancelled during scan"));
                 }
 
@@ -128,7 +126,7 @@ pub(super) fn scan(
                     }
                 }
 
-                let _ = event_tx.send(TransferEvent::ScanProgress {
+                ctl.emit(TransferEvent::ScanProgress {
                     job_id,
                     files_found: files_scanned,
                 });
@@ -165,14 +163,14 @@ pub(super) fn scan(
                 files_scanned += 1;
             }
 
-            let _ = event_tx.send(TransferEvent::ScanProgress {
+            ctl.emit(TransferEvent::ScanProgress {
                 job_id,
                 files_found: files_scanned,
             });
         }
     }
 
-    let _ = event_tx.send(TransferEvent::ScanComplete {
+    ctl.emit(TransferEvent::ScanComplete {
         job_id,
         total_files: files_scanned,
         total_bytes,

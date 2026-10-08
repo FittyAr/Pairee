@@ -1,14 +1,14 @@
 //! Destination collision resolution and conflict handling for copy_phase.
 
 use super::super::super::conflict::resolve_filename_conflict;
+use super::super::super::control::JobControl;
 use super::super::super::events::TransferEvent;
 use super::super::super::job::{SkippedFile, TransferResults};
 use super::super::super::options::TransferOptions;
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use uuid::Uuid;
+use std::sync::atomic::Ordering;
 
 pub enum ConflictAction {
     Skip,
@@ -19,20 +19,20 @@ pub async fn resolve_existing_destination(
     src: &Path,
     dst: &mut PathBuf,
     options: &TransferOptions,
-    job_id: Uuid,
-    is_cancelled: &AtomicBool,
-    event_tx: &crate::fs::transfer::events::EventSender,
+    ctl: &JobControl,
     active_conflict: &Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
     auto_resolution: &mut Option<crate::fs::transfer::conflict::ConflictResolution>,
     results: &mut TransferResults,
 ) -> Result<ConflictAction, anyhow::Error> {
+    let job_id = ctl.job_id;
+    let is_cancelled = ctl.is_cancelled.as_ref();
     let mut resolution = options.conflict_resolution.clone();
     if resolution == "ask" {
         let chosen = if let Some(auto_res) = *auto_resolution {
             auto_res
         } else {
             active_conflict.reset();
-            let _ = event_tx.send(TransferEvent::ConflictDetected {
+            ctl.emit(TransferEvent::ConflictDetected {
                 job_id,
                 file: dst.clone(),
                 conflict: crate::fs::transfer::conflict::ConflictInfo {
@@ -88,7 +88,7 @@ pub async fn resolve_existing_destination(
                 src: src.to_path_buf(),
                 reason: "File already exists (skipped)".to_string(),
             });
-            let _ = event_tx.send(TransferEvent::FileSkipped {
+            ctl.emit(TransferEvent::FileSkipped {
                 job_id,
                 file: src.to_path_buf(),
                 reason: "File already exists".to_string(),
@@ -109,7 +109,7 @@ pub async fn resolve_existing_destination(
                     src: src.to_path_buf(),
                     reason: "Destination is newer or equal (skipped)".to_string(),
                 });
-                let _ = event_tx.send(TransferEvent::FileSkipped {
+                ctl.emit(TransferEvent::FileSkipped {
                     job_id,
                     file: src.to_path_buf(),
                     reason: "Destination is newer or equal".to_string(),
