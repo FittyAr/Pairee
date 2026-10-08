@@ -51,6 +51,19 @@ pub fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
     fs::write(path, gz.finish().unwrap()).unwrap();
 }
 
+pub fn write_tar_bz2(path: &Path, entries: &[(&str, &[u8])]) {
+    let mut bz = bzip2::write::BzEncoder::new(Vec::new(), bzip2::Compression::fast());
+    bz.write_all(&tar_bytes(entries)).unwrap();
+    fs::write(path, bz.finish().unwrap()).unwrap();
+}
+
+pub fn write_tar_xz(path: &Path, entries: &[(&str, &[u8])]) {
+    let options = lzma_rust2::XzOptions::with_preset(1);
+    let mut xz = lzma_rust2::XzWriter::new(Vec::new(), options).unwrap();
+    xz.write_all(&tar_bytes(entries)).unwrap();
+    fs::write(path, xz.finish().unwrap()).unwrap();
+}
+
 pub fn write_7z(path: &Path, entries: &[(&str, &[u8])]) {
     let src = tempfile::tempdir().unwrap();
     write_tree(src.path(), entries);

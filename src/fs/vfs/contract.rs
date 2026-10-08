@@ -265,7 +265,9 @@ vfs_contract!(local, super::local_fixture);
 
 mod archives {
     use super::archive_fixture;
-    use crate::fs::archive::test_fixtures::{write_7z, write_tar, write_tar_gz, write_zip};
+    use crate::fs::archive::test_fixtures::{
+        write_7z, write_tar, write_tar_bz2, write_tar_gz, write_tar_xz, write_zip,
+    };
     fn zip() -> super::Fixture {
         archive_fixture("t.zip", write_zip)
     }
@@ -275,11 +277,19 @@ mod archives {
     fn tar_gz() -> super::Fixture {
         archive_fixture("t.tar.gz", write_tar_gz)
     }
+    fn tar_bz2() -> super::Fixture {
+        archive_fixture("t.tar.bz2", write_tar_bz2)
+    }
+    fn tar_xz() -> super::Fixture {
+        archive_fixture("t.txz", write_tar_xz)
+    }
     fn seven_z() -> super::Fixture {
         archive_fixture("t.7z", write_7z)
     }
     vfs_contract!(zip_archive, super::zip);
     vfs_contract!(tar_archive, super::tar);
     vfs_contract!(tar_gz_archive, super::tar_gz);
+    vfs_contract!(tar_bz2_archive, super::tar_bz2);
+    vfs_contract!(tar_xz_archive, super::tar_xz);
     vfs_contract!(seven_z_archive, super::seven_z);
 }

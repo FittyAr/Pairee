@@ -159,7 +159,7 @@ Panels never special-case where their entries come from. `fs::vfs::Vfs` is the p
 | :--- | :--- | :--- |
 | `LocalVfs` | `fs/vfs/local.rs` | everything; listings keep the elevated retry, folder sizes keep hard-link identities, the viewer pages files from disk |
 | `SharedSshClient` | `fs/ssh/vfs.rs` | everything but local tools (one SFTP call per lock) |
-| `ArchiveVfs` | `fs/archive/vfs.rs` | read-only for tar/tar.gz/7z; zip adds write, mkdir and remove (rewrite to a temp file, atomic rename) |
+| `ArchiveVfs` | `fs/archive/vfs.rs` | read-only for tar (plain, gzip, bzip2, xz) and 7z; zip adds write, mkdir and remove (rewrite to a temp file, atomic rename) |
 
 One-off changes of a non-local source run in the background through `AppState::start_vfs_task`, which returns a follow-up command for the UI thread. F4 on an SFTP or zip entry uses it: `app::editor::remote` downloads the file into a private temp folder, the editor keeps a `RemoteOrigin` (source, path, size and time) and saving uploads the copy after comparing the original with that stamp.
 

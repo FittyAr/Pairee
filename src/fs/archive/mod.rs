@@ -1,6 +1,6 @@
 //! Archive detection, extraction, browsing and compression.
 //!
-//! Native formats (zip, tar, tar.gz, 7z) implement [`ArchiveReader`]
+//! Native formats (zip, tar, tar.gz, tar.bz2, tar.xz, 7z) implement [`ArchiveReader`]
 //! (Strategy); extraction ([`extract`]), the folder tree used to browse an
 //! archive in a panel ([`ArchiveVfs`]) and listings all run on it. Rar and
 //! ISO images are extracted by an external 7-Zip.
@@ -35,14 +35,26 @@ use crate::fs::progress::ProgressUpdate;
 use extract::{everything, extract_entries};
 
 static ZIP: zip_ops::ZipReader = zip_ops::ZipReader;
-static TAR: tar_ops::TarReader = tar_ops::TarReader { gz: false };
-static TAR_GZ: tar_ops::TarReader = tar_ops::TarReader { gz: true };
+static TAR: tar_ops::TarReader = tar_ops::TarReader {
+    compression: tar_ops::TarCompression::None,
+};
+static TAR_GZ: tar_ops::TarReader = tar_ops::TarReader {
+    compression: tar_ops::TarCompression::Gzip,
+};
+static TAR_BZ2: tar_ops::TarReader = tar_ops::TarReader {
+    compression: tar_ops::TarCompression::Bzip2,
+};
+static TAR_XZ: tar_ops::TarReader = tar_ops::TarReader {
+    compression: tar_ops::TarCompression::Xz,
+};
 static SEVEN_Z: sevenz_ops::SevenZReader = sevenz_ops::SevenZReader;
 
 pub enum ArchiveFormat {
     Zip,
     Tar,
     TarGz,
+    TarBz2,
+    TarXz,
     SevenZ,
     Rar,
     Iso,
@@ -56,6 +68,8 @@ impl ArchiveFormat {
             Self::Zip => Some(&ZIP),
             Self::Tar => Some(&TAR),
             Self::TarGz => Some(&TAR_GZ),
+            Self::TarBz2 => Some(&TAR_BZ2),
+            Self::TarXz => Some(&TAR_XZ),
             Self::SevenZ => Some(&SEVEN_Z),
             Self::Rar | Self::Iso | Self::Unsupported => None,
         }
@@ -67,6 +81,8 @@ impl ArchiveFormat {
             Self::Zip => Some("ZIP"),
             Self::Tar => Some("TAR"),
             Self::TarGz => Some("TarGz"),
+            Self::TarBz2 => Some("TarBz2"),
+            Self::TarXz => Some("TarXz"),
             Self::SevenZ => Some("7Z"),
             Self::Rar | Self::Iso | Self::Unsupported => None,
         }
@@ -81,6 +97,8 @@ pub fn detect_format(path: &Path) -> ArchiveFormat {
         "zip" => ArchiveFormat::Zip,
         "tar" => ArchiveFormat::Tar,
         "gz" | "tgz" => ArchiveFormat::TarGz,
+        "bz2" | "tbz2" | "tbz" => ArchiveFormat::TarBz2,
+        "xz" | "txz" => ArchiveFormat::TarXz,
         "7z" => ArchiveFormat::SevenZ,
         "rar" => ArchiveFormat::Rar,
         "iso" => ArchiveFormat::Iso,
@@ -88,14 +106,20 @@ pub fn detect_format(path: &Path) -> ArchiveFormat {
     }
 }
 
-/// The reader of an archive that can be browsed as a folder. A bare
-/// `.gz` is a single compressed file, not a folder: only `.tar.gz` / `.tgz`.
+/// The reader of an archive that can be browsed as a folder. A bare `.gz`,
+/// `.bz2` or `.xz` is a single compressed file, not a folder: only the
+/// `.tar.*` names and their short forms (`.tgz`, `.tbz2`, `.tbz`, `.txz`).
 pub fn browsable_reader(path: &Path) -> Option<&'static dyn ArchiveReader> {
     let format = detect_format(path);
     let name = crate::fs::file_name_lossy(path).to_lowercase();
-    if matches!(format, ArchiveFormat::TarGz)
-        && !(name.ends_with(".tar.gz") || name.ends_with(".tgz"))
-    {
+    let compressed_tar = |exts: &[&str]| exts.iter().any(|ext| name.ends_with(ext));
+    let is_tar = match format {
+        ArchiveFormat::TarGz => compressed_tar(&[".tar.gz", ".tgz"]),
+        ArchiveFormat::TarBz2 => compressed_tar(&[".tar.bz2", ".tbz2", ".tbz"]),
+        ArchiveFormat::TarXz => compressed_tar(&[".tar.xz", ".txz"]),
+        _ => true,
+    };
+    if !is_tar {
         return None;
     }
     format.reader()
