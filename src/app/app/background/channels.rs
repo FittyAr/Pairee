@@ -26,6 +26,11 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
     let Some((tab, res)) = state.ssh_connect.poll() else {
         return;
     };
+    let show_hidden = context.config.settings.show_hidden;
+    if crate::app::session::remote::finish(state, tab, &res, show_hidden) {
+        state.mark_ui_dirty();
+        return;
+    }
     match res {
         // The tab was closed while connecting: drop the connection.
         Ok(_) if state.panels.find_tab(tab).is_none() => state.dialogs.clear(),
@@ -39,7 +44,7 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
             p.cursor_index = 0;
             p.clear_selection();
             state.dialogs.clear();
-            state.refresh_tab(tab, context.config.settings.show_hidden, true);
+            state.refresh_tab(tab, show_hidden, true);
         }
         Err(e) => {
             state.dialogs.replace(PopupType::Error(format!(

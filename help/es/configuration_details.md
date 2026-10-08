@@ -47,7 +47,7 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
 * **Case sensitive sort (Sensible a mayúsculas/minúsculas):**
   - *Descripción:* Agrupa y ordena los archivos con nombres en mayúsculas por separado de los de minúsculas.
 * **Auto save setup (Autoguardar configuración):**
-  - *Descripción:* Guarda automáticamente todos los cambios de configuración al salir de Pairee.
+  - *Descripción:* Guarda automáticamente todos los cambios de configuración al salir de Pairee, incluidos los valores por defecto de los paneles (vista, orden, visibilidad) que se usan cuando no hay sesión que restaurar.
 
 ---
 
@@ -104,6 +104,7 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 * **Mouse support (Soporte de ratón):** Activa interacción por ratón (selección, clics, scrolling).
 * **Show bottom F-keys bar (Mostrar barra de teclas F):** Toggles la barra inferior de accesos F1-F10.
 * **Always show the menu bar (Mostrar barra de menú siempre):** Mantiene visible el menú superior.
+* **Restore last session (Restaurar la última sesión):** Guarda al salir las pestañas, carpetas, el lado activo, la visibilidad de los paneles y la Vista rápida en `session.toml` y los reabre al iniciar (las carpetas indicadas en la línea de comandos tienen prioridad). Las pestañas SFTP se reconectan desde su perfil al mostrarse. Activado por defecto.
 
 ### Atajos de teclado
 * **Preajuste de atajos:** Alterna Norton / Neovim / VS Code. Una línea de estado indica si el preset (más `custom_bindings`) cargó bien.

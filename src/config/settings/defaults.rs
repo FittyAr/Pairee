@@ -57,6 +57,7 @@ impl Default for Settings {
             interface_always_show_menu_bar: false,
             auto_drop_menu: false,
             enable_yazi_workflow: false,
+            restore_session: true,
 
             // Tab 4
             language: "English".to_string(),

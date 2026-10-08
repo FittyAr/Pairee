@@ -15,6 +15,7 @@ pub mod jobs;
 pub mod list_nav;
 pub mod menu_handler;
 pub mod screen_input;
+pub mod session;
 pub mod state;
 pub mod sync;
 pub mod sys_helpers;

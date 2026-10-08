@@ -26,6 +26,7 @@ pub fn process_background_updates(
     crate::app::sync::poll_folder_scan(state);
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);
+    crate::app::session::remote::resume_pending(state, context);
     channels::process_search_updates(state);
     channels::process_dev_progress_updates(state);
     transfer::process_transfer_events(state, context);

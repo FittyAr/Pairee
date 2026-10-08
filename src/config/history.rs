@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
@@ -16,26 +16,14 @@ pub struct HistoryStore {
 }
 
 impl HistoryStore {
-    /// Loads history from `<cache_dir>/pairee/history.toml`, returning a default on missing file.
+    /// Loads history from `<cache_dir>/history.toml`, returning a default on a missing or invalid file.
     pub fn load() -> Self {
-        Self::try_load().unwrap_or_default()
+        super::toml_store::load_or_default(&history_path())
     }
 
-    fn try_load() -> Result<Self> {
-        let path = history_path();
-        let content = std::fs::read_to_string(&path)
-            .with_context(|| format!("Reading history file {:?}", path))?;
-        toml::from_str(&content).context("Deserializing history.toml")
-    }
-
-    /// Persists the history to `<cache_dir>/pairee/history.toml`.
+    /// Persists the history to `<cache_dir>/history.toml`.
     pub fn save(&self) -> Result<()> {
-        let path = history_path();
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).context("Creating cache directory")?;
-        }
-        let toml_str = toml::to_string_pretty(self).context("Serializing history")?;
-        std::fs::write(&path, toml_str).with_context(|| format!("Writing history file {:?}", path))
+        super::toml_store::save(&history_path(), self)
     }
 
     /// Clears the lists whose "save … history" setting is off, so only the

@@ -20,6 +20,7 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         toggle!("int_mouse", mouse_support),
         toggle!("int_key_bar", interface_show_key_bar),
         toggle!("int_menu_bar", interface_always_show_menu_bar),
+        toggle!("int_restore_session", restore_session),
         title("Keybindings"),
         cycle(
             "int_keybindings",

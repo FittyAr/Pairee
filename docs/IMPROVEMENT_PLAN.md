@@ -499,7 +499,7 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 
 ### G.4 Oleada 4 — sesión y observación
 
-- [ ] Restaurar sesión (rutas, pestañas, vista, orden) y `--cwd-file` para `cd` al salir
+- [x] Restaurar sesión (rutas, pestañas, vista, orden) y `--cwd-file` para `cd` al salir
 - [x] Refresco automático con `notify` + debounce, sondeo en unidades de red (`fs::watch`: estrategias Watch/Poll, `Coalescer`; `app::auto_refresh`)
 
 ### G.5 Oleada 5 — cierre
