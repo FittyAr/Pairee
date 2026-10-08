@@ -1,104 +1,56 @@
 use crate::app::state::PopupType;
+use crate::app::state::popup::GitPromptPopup;
+use crate::config::localization::t;
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect_fixed;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::popup::kit;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    style::Color,
+    text::Line,
+    widgets::Paragraph,
 };
-
-use crate::app::state::popup::GitPromptPopup;
 
 /// Renders the git commit message input prompt.
 pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
-    if let PopupType::GitPrompt(GitPromptPopup::CommitPrompt(state)) = popup {
-        let input = &state.input;
-        let cursor_idx = &state.cursor_idx;
-        let area = centered_rect_fixed(60, 7, size);
-        f.render_widget(Clear, area);
-
-        let title = if state.is_amend {
-            format!(
-                " {} [AMEND] ",
-                crate::config::localization::t("git_commit_prompt_title")
-            )
-        } else {
-            format!(
-                " {} ",
-                crate::config::localization::t("git_commit_prompt_title")
-            )
-        };
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Green))
-            .title(Span::styled(
-                title,
-                Style::default()
-                    .fg(Color::Green)
-                    .add_modifier(Modifier::BOLD),
-            ))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
-
-        let chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1), // label
-                Constraint::Length(1), // separator
-                Constraint::Length(1), // input line
-                Constraint::Length(1), // empty
-                Constraint::Length(1), // hint
-            ])
-            .split(inner);
-
-        f.render_widget(
-            Paragraph::new(crate::config::localization::t("git_commit_msg_label"))
-                .style(Style::default().fg(parse_color(&theme.popup_fg))),
-            chunks[0],
-        );
-
-        f.render_widget(
-            Paragraph::new("─".repeat(inner.width as usize))
-                .style(Style::default().fg(Color::DarkGray)),
-            chunks[1],
-        );
-
-        // Render input with a cursor indicator
-        let (before_cursor, at_cursor, after_cursor) =
-            crate::app::text_input::split_at_cursor(input, *cursor_idx);
-        let at_cursor = if at_cursor.is_empty() { " " } else { at_cursor };
-
-        let input_line = Line::from(vec![
-            Span::styled(
-                before_cursor.to_string(),
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-            Span::styled(
-                at_cursor.to_string(),
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg)),
-            ),
-            Span::styled(
-                after_cursor.to_string(),
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ]);
-        f.render_widget(Paragraph::new(input_line), chunks[2]);
-
-        f.render_widget(
-            Paragraph::new(crate::config::localization::t("git_commit_hint"))
-                .style(Style::default().fg(Color::Yellow)),
-            chunks[4],
-        );
-
-        true
+    let PopupType::GitPrompt(GitPromptPopup::CommitPrompt(state)) = popup else {
+        return false;
+    };
+    let title = if state.is_amend {
+        format!(" {} [AMEND] ", t("git_commit_prompt_title"))
     } else {
-        false
-    }
+        format!(" {} ", t("git_commit_prompt_title"))
+    };
+    let inner = kit::dialog_frame(
+        f,
+        size,
+        (60, 7),
+        kit::accent_title(title, Color::Green),
+        kit::fg(Color::Green),
+        theme,
+    );
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([Constraint::Length(1); 5]) // label, separator, input, empty, hint
+        .split(inner);
+
+    let fg = kit::popup_fg(theme);
+    f.render_widget(
+        Paragraph::new(t("git_commit_msg_label")).style(fg),
+        chunks[0],
+    );
+    f.render_widget(
+        kit::separator(inner.width, kit::fg(Color::DarkGray)),
+        chunks[1],
+    );
+    let cursor = kit::selection(theme);
+    f.render_widget(
+        Paragraph::new(Line::from(kit::field_spans(&state.input, fg, cursor, true))),
+        chunks[2],
+    );
+    f.render_widget(
+        Paragraph::new(t("git_commit_hint")).style(kit::fg(Color::Yellow)),
+        chunks[4],
+    );
+    true
 }

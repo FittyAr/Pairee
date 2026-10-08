@@ -95,7 +95,7 @@ pub fn handle_editor_screen(
                 .unwrap_or_default();
             state
                 .dialogs
-                .replace(PopupType::EditorSaveAsPrompt { input: name });
+                .replace(PopupType::EditorSaveAsPrompt { input: name.into() });
         }
         KeyCode::F(2) => {
             save_active_editor(state, None, false);
@@ -117,11 +117,9 @@ pub fn handle_editor_screen(
             ed.repeat_search(height);
         }
         KeyCode::F(7) | KeyCode::Char('f') if is_ctrl || key.code == KeyCode::F(7) => {
-            state.dialogs.replace(PopupType::EditorSearchPrompt {
-                query: String::new(),
-                case_sensitive: false,
-                cursor_idx: 0,
-            });
+            state
+                .dialogs
+                .replace(PopupType::EditorSearchPrompt(Default::default()));
         }
         KeyCode::F(4) => {
             let path = ed.path.clone();

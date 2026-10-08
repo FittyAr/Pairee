@@ -1,99 +1,54 @@
+//! Panel filter (persistent mask) and quick filter (live, restored on Esc).
+
 use crate::app::context::AppContext;
+use crate::app::form::{FieldKey, field_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(popup) = state.dialogs.top().cloned() {
-        match popup {
-            PopupType::FilePanelFilterPrompt { input } => {
-                match key.code {
-                    KeyCode::Char(c) => {
-                        let mut new_input = input;
-                        new_input.push(c);
-                        state
-                            .dialogs
-                            .replace(PopupType::FilePanelFilterPrompt { input: new_input });
-                        return Ok(None);
-                    }
-                    KeyCode::Backspace => {
-                        let mut new_input = input;
-                        new_input.pop();
-                        state
-                            .dialogs
-                            .replace(PopupType::FilePanelFilterPrompt { input: new_input });
-                        return Ok(None);
-                    }
-                    KeyCode::Enter => {
-                        let mask = input.trim().to_string();
-                        state.dialogs.clear();
-                        let panel = state.get_active_panel_mut();
-                        panel.filter_mask = if mask.is_empty() { None } else { Some(mask) };
-                        state.refresh_both_panels(context.config.settings.show_hidden);
-                        return Ok(None);
-                    }
-                    KeyCode::Esc => {
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
-                    _ => {}
+    match state.dialogs.top_mut() {
+        Some(PopupType::FilePanelFilterPrompt { input }) => {
+            match field_key(input, &key) {
+                FieldKey::Cancel => state.dialogs.clear(),
+                FieldKey::Submit => {
+                    let mask = input.text().trim().to_string();
+                    state.dialogs.clear();
+                    state.get_active_panel_mut().filter_mask = (!mask.is_empty()).then_some(mask);
+                    state.refresh_both_panels(context.config.settings.show_hidden);
                 }
-                Err(())
+                FieldKey::Handled | FieldKey::Other => {}
             }
-            PopupType::QuickFilterPrompt {
-                input,
-                original_mask,
-                original_cursor,
-            } => {
-                let active_panel = state.panels.active;
-                match key.code {
-                    KeyCode::Char(c) => {
-                        let mut new_input = input;
-                        new_input.push(c);
-                        state.dialogs.replace(PopupType::QuickFilterPrompt {
-                            input: new_input.clone(),
-                            original_mask,
-                            original_cursor,
-                        });
-                        state.update_panel_filter(active_panel, Some(new_input));
-                        return Ok(None);
-                    }
-                    KeyCode::Backspace => {
-                        let mut new_input = input;
-                        new_input.pop();
-                        state.dialogs.replace(PopupType::QuickFilterPrompt {
-                            input: new_input.clone(),
-                            original_mask,
-                            original_cursor,
-                        });
-                        state.update_panel_filter(active_panel, Some(new_input));
-                        return Ok(None);
-                    }
-                    KeyCode::Enter => {
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
-                    KeyCode::Esc => {
-                        state.dialogs.clear();
-                        state.update_panel_filter(active_panel, original_mask);
-                        let panel = match active_panel {
-                            crate::app::state::ActivePanel::Left => &mut state.panels.left,
-                            crate::app::state::ActivePanel::Right => &mut state.panels.right,
-                        };
-                        panel.cursor_index = original_cursor;
-                        return Ok(None);
-                    }
-                    _ => {}
-                }
-                Err(())
-            }
-            _ => Err(()),
+            Ok(None)
         }
-    } else {
-        Err(())
+        Some(PopupType::QuickFilterPrompt { input, .. }) => {
+            let active = state.panels.active;
+            match field_key(input, &key) {
+                FieldKey::Submit => state.dialogs.clear(),
+                FieldKey::Cancel => {
+                    if let Some(PopupType::QuickFilterPrompt {
+                        original_mask,
+                        original_cursor,
+                        ..
+                    }) = state.dialogs.pop()
+                    {
+                        state.dialogs.clear();
+                        state.update_panel_filter(active, original_mask);
+                        state.panels.side_mut(active).cursor_index = original_cursor;
+                    }
+                }
+                FieldKey::Handled => {
+                    let mask = input.text().to_string();
+                    state.update_panel_filter(active, Some(mask));
+                }
+                FieldKey::Other => {}
+            }
+            Ok(None)
+        }
+        _ => Err(()),
     }
 }

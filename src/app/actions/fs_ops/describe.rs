@@ -10,7 +10,7 @@ pub fn handle(state: &mut AppState) -> bool {
         state.dialogs.replace(PopupType::DescribeFilePrompt {
             path: entry.path.clone(),
             current_desc: current_desc.clone(),
-            input: current_desc,
+            input: current_desc.into(),
         });
     }
     true

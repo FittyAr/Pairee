@@ -11,7 +11,9 @@ pub mod types;
 
 pub use interaction::handle_mouse_on_targets;
 pub use layout::{centered_scroll, clamp_cursor_to_offset};
-pub use render::{render_vertical, render_vertical_inside_block, render_vertical_right};
+pub use render::{
+    ScrollTarget, ScrollView, render_vertical, render_vertical_inside_block, render_vertical_right,
+};
 pub use types::{ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 
 #[cfg(test)]

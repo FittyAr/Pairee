@@ -1,6 +1,7 @@
 //! Keyboard handler for the first-run keymap picker.
 
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::ui::popup::onboarding::PRESET_IDS;
@@ -11,44 +12,27 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::OnboardingKeymap { cursor_idx }) = state.dialogs.top().cloned() else {
+    let Some(PopupType::OnboardingKeymap { cursor_idx }) = state.dialogs.top_mut() else {
         return Err(());
     };
-
-    match key.code {
-        KeyCode::Up | KeyCode::BackTab => {
-            let next = if cursor_idx == 0 {
-                PRESET_IDS.len() - 1
-            } else {
-                cursor_idx - 1
-            };
-            state
-                .dialogs
-                .replace(PopupType::OnboardingKeymap { cursor_idx: next });
+    // Tab / Shift+Tab move like Down / Up.
+    let code = match key.code {
+        KeyCode::Tab => KeyCode::Down,
+        KeyCode::BackTab => KeyCode::Up,
+        other => other,
+    };
+    let choice = match list_key(ListKeys::ARROWS, code, cursor_idx, PRESET_IDS.len()) {
+        ListKey::Moved => {
             state.mark_ui_dirty();
-            Ok(None)
+            return Ok(None);
         }
-        KeyCode::Down | KeyCode::Tab => {
-            let next = (cursor_idx + 1) % PRESET_IDS.len();
-            state
-                .dialogs
-                .replace(PopupType::OnboardingKeymap { cursor_idx: next });
-            state.mark_ui_dirty();
-            Ok(None)
-        }
-        KeyCode::Enter => {
-            let preset = PRESET_IDS[cursor_idx.min(PRESET_IDS.len() - 1)];
-            apply_choice(context, state, Some(preset));
-            context.config.save_logging();
-            Ok(None)
-        }
-        KeyCode::Esc => {
-            apply_choice(context, state, None);
-            context.config.save_logging();
-            Ok(None)
-        }
-        _ => Ok(None),
-    }
+        ListKey::Activate(idx) => Some(PRESET_IDS[idx.min(PRESET_IDS.len() - 1)]),
+        ListKey::Close => None,
+        ListKey::Other => return Ok(None),
+    };
+    apply_choice(context, state, choice);
+    context.config.save_logging();
+    Ok(None)
 }
 
 /// Apply the chosen preset (or keep the current one) and mark onboarding done.

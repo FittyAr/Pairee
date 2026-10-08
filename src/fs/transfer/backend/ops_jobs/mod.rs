@@ -5,11 +5,10 @@
 
 mod archive;
 mod cmd;
-mod common;
 mod wipe;
 
 use super::super::job::{TransferOperation, TransferResults};
-use super::BackendControl;
+use crate::fs::transfer::control::JobControl;
 use anyhow::anyhow;
 use std::path::PathBuf;
 
@@ -18,25 +17,34 @@ pub async fn run_ops_job(
     sources: Vec<PathBuf>,
     destination: PathBuf,
     shell_template: Option<String>,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     match operation {
-        TransferOperation::Wipe => wipe::run_wipe(sources, control).await,
+        TransferOperation::Wipe => blocking(move || wipe::run_wipe(sources, control)).await,
         TransferOperation::Compress => archive::run_compress(sources, destination, control).await,
         TransferOperation::Extract => archive::run_extract(sources, destination, control).await,
         TransferOperation::ApplyCommand => {
             let template = shell_template
                 .filter(|s| !s.trim().is_empty())
                 .ok_or_else(|| anyhow!("ApplyCommand requires a shell template"))?;
-            cmd::run_apply_command(sources, template, control).await
+            blocking(move || cmd::run_apply_command(sources, template, control)).await
         }
         other => Err(anyhow!("ops backend does not handle {}", other.label())),
     }
 }
 
+/// Runs a blocking per-file job on Tokio's blocking pool.
+async fn blocking(
+    job: impl FnOnce() -> anyhow::Result<TransferResults> + Send + 'static,
+) -> anyhow::Result<TransferResults> {
+    tokio::task::spawn_blocking(job)
+        .await
+        .map_err(|e| anyhow!("ops task join error: {e}"))?
+}
+
 #[cfg(test)]
 mod tests {
-    use super::cmd::{run_shell_command, split_command_output};
+    use super::cmd::{run_shell_command_blocking, split_command_output};
 
     #[test]
     fn split_command_output_strips_cr_and_keeps_sgr() {
@@ -53,11 +61,9 @@ mod tests {
         assert!(split_command_output("\n").is_empty());
     }
 
-    #[tokio::test]
-    async fn test_run_shell_command_captures_echo() {
-        let text = run_shell_command("echo hello")
-            .await
-            .expect("echo should succeed");
+    #[test]
+    fn test_run_shell_command_captures_echo() {
+        let text = run_shell_command_blocking("echo hello").expect("echo should succeed");
         assert!(
             text.to_lowercase().contains("hello"),
             "expected echo output, got {text:?}"

@@ -1,206 +1,76 @@
+//! Help browser: document list (mode 0) and document reader (mode 1).
+
+use super::about::TEXT_SCROLL;
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ListKey, ListKeys, list_key, scroll_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::path::PathBuf;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.dialogs.top().cloned();
-    if let Some(PopupType::Help {
+    let Some(PopupType::Help {
         mode,
         docs,
         plugin_docs,
-        mut active_tab,
-        mut cursor_idx,
-        mut scroll_y,
-        mut active_content,
-    }) = popup
-    {
-        let current_docs = if active_tab == 0 { &docs } else { &plugin_docs };
-
-        match key.code {
-            KeyCode::Esc => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            KeyCode::Tab => {
-                let new_mode = if mode == 0 { 1 } else { 0 };
-                state.dialogs.replace(PopupType::Help {
-                    mode: new_mode,
-                    docs,
-                    plugin_docs,
-                    active_tab,
-                    cursor_idx,
-                    scroll_y,
-                    active_content,
-                });
-                return Ok(None);
-            }
-            _ => {}
+        active_tab,
+        cursor_idx,
+        scroll_y,
+        active_content,
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    match key.code {
+        KeyCode::Esc => {
+            state.dialogs.clear();
+            return Ok(None);
         }
-
-        if mode == 0 {
-            // Mode 0: Navigating Document Selection List
-            match key.code {
-                KeyCode::Left | KeyCode::Right => {
-                    active_tab = if active_tab == 0 { 1 } else { 0 };
-                    cursor_idx = 0;
-                    scroll_y = 0;
-                    let next_docs = if active_tab == 0 { &docs } else { &plugin_docs };
-                    active_content = if !next_docs.is_empty() {
-                        std::fs::read_to_string(&next_docs[0].1).ok()
-                    } else {
-                        None
-                    };
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                    if !current_docs.is_empty() {
-                        if cursor_idx == 0 {
-                            cursor_idx = current_docs.len() - 1;
-                        } else {
-                            cursor_idx -= 1;
-                        }
-                        let path = &current_docs[cursor_idx].1;
-                        active_content = std::fs::read_to_string(path).ok();
-                        scroll_y = 0;
-                    }
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
-                    if !current_docs.is_empty() {
-                        if cursor_idx + 1 >= current_docs.len() {
-                            cursor_idx = 0;
-                        } else {
-                            cursor_idx += 1;
-                        }
-                        let path = &current_docs[cursor_idx].1;
-                        active_content = std::fs::read_to_string(path).ok();
-                        scroll_y = 0;
-                    }
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::Enter => {
-                    // Switch focus to right pane
-                    state.dialogs.replace(PopupType::Help {
-                        mode: 1,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                _ => Err(()),
-            }
-        } else {
-            // Mode 1: Scrolling Document Content
-            match key.code {
-                KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                    scroll_y = scroll_y.saturating_sub(1);
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
-                    scroll_y += 1;
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::PageUp => {
-                    if scroll_y >= 15 {
-                        scroll_y -= 15;
-                    } else {
-                        scroll_y = 0;
-                    }
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::PageDown => {
-                    scroll_y += 15;
-                    state.dialogs.replace(PopupType::Help {
-                        mode,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                KeyCode::Backspace => {
-                    // Backspace returns to list pane
-                    state.dialogs.replace(PopupType::Help {
-                        mode: 0,
-                        docs,
-                        plugin_docs,
-                        active_tab,
-                        cursor_idx,
-                        scroll_y,
-                        active_content,
-                    });
-                    Ok(None)
-                }
-                _ => Err(()),
-            }
+        KeyCode::Tab => {
+            *mode = 1 - (*mode).min(1);
+            return Ok(None);
         }
-    } else {
-        Err(())
+        _ => {}
     }
+    if *mode != 0 {
+        // Reader: scroll, Backspace returns to the list.
+        if scroll_key(TEXT_SCROLL, key.code, scroll_y, usize::MAX) {
+            return Ok(None);
+        }
+        return match key.code {
+            KeyCode::Backspace => {
+                *mode = 0;
+                Ok(None)
+            }
+            _ => Err(()),
+        };
+    }
+    let current: &[(String, PathBuf)] = if *active_tab == 0 { docs } else { plugin_docs };
+    match list_key(ListKeys::ARROWS_VIM, key.code, cursor_idx, current.len()) {
+        ListKey::Moved => {
+            if let Some((_, path)) = current.get(*cursor_idx) {
+                *active_content = std::fs::read_to_string(path).ok();
+                *scroll_y = 0;
+            }
+        }
+        ListKey::Activate(_) => *mode = 1,
+        ListKey::Close => {}
+        ListKey::Other => match key.code {
+            KeyCode::Left | KeyCode::Right => {
+                *active_tab = 1 - (*active_tab).min(1);
+                *cursor_idx = 0;
+                *scroll_y = 0;
+                let next: &[(String, PathBuf)] = if *active_tab == 0 { docs } else { plugin_docs };
+                *active_content = next
+                    .first()
+                    .and_then(|(_, path)| std::fs::read_to_string(path).ok());
+            }
+            _ => return Err(()),
+        },
+    }
+    Ok(None)
 }

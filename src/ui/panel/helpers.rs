@@ -1,11 +1,8 @@
 use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
 use crate::config::settings::Settings;
-use crate::config::theme::Theme;
 use crate::fs::FileEntry;
 use crate::ui::text_width::truncate_to_width;
-use crate::ui::theme_apply::parse_color;
-use ratatui::style::{Modifier, Style};
 use std::time::SystemTime;
 
 pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> String {
@@ -90,53 +87,6 @@ pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize)
 /// (never panics while drawing, even if entries changed underneath).
 pub(crate) fn visible_slice(panel: &PanelState, start: usize, end: usize) -> &[FileEntry] {
     panel.entries.get(start..end).unwrap_or_default()
-}
-
-pub(crate) fn build_row_style(
-    entry: &FileEntry,
-    is_cursor: bool,
-    is_selected: bool,
-    is_active: bool,
-    theme: &Theme,
-    highlight_files: bool,
-    is_dimmed: bool,
-    git_status: Option<&str>,
-) -> Style {
-    let base_style = Style::default().fg(parse_color(&theme.panel_fg));
-    let mut style = if highlight_files {
-        let rules = crate::ui::highlight::default_highlight_rules();
-        crate::ui::highlight::style_for_entry(entry, &rules, base_style)
-    } else {
-        base_style
-    };
-    if let Some(st) = git_status
-        && !is_selected
-        && (!is_cursor || !is_active)
-    {
-        match st {
-            "M" => style = style.fg(ratatui::style::Color::Yellow),
-            "A" => style = style.fg(ratatui::style::Color::Green),
-            "?" => style = style.fg(ratatui::style::Color::Magenta),
-            "D" => style = style.fg(ratatui::style::Color::Red),
-            "!" => style = style.fg(ratatui::style::Color::LightRed),
-            _ => {}
-        }
-    }
-    if is_dimmed {
-        style = style.fg(ratatui::style::Color::DarkGray);
-    }
-    if is_selected {
-        style = style.fg(parse_color(&theme.marked_fg));
-    }
-    if is_cursor && is_active {
-        style = style
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD);
-    } else if is_cursor && !is_active {
-        style = style.bg(parse_color("DarkGray"));
-    }
-    style
 }
 
 pub(crate) fn entry_display_name(name: &str, is_dir: bool, git_status: Option<&str>) -> String {

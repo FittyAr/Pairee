@@ -135,21 +135,15 @@ pub(super) fn render_associations(
                     _ => String::new(),
                 };
 
-                // Cursor simulado
-                let cursor_char = if (std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_millis()
-                    / 500)
-                    .is_multiple_of(2)
-                {
-                    "_"
-                } else {
-                    " "
-                };
-
-                let edit_text = format!(" {} {}{}", field_label, edit_buffer, cursor_char);
-                let edit_paragraph = Paragraph::new(edit_text).block(
+                let style = crate::ui::popup::kit::popup_fg(theme);
+                let mut spans = vec![Span::styled(format!(" {} ", field_label), style)];
+                spans.extend(crate::ui::popup::kit::field_spans(
+                    edit_buffer,
+                    style,
+                    crate::ui::popup::kit::selection(theme),
+                    true,
+                ));
+                let edit_paragraph = Paragraph::new(Line::from(spans)).block(
                     Block::default()
                         .borders(Borders::ALL)
                         .border_style(Style::default().fg(Color::Yellow)),

@@ -1,8 +1,6 @@
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use uuid::Uuid;
 
-use super::super::job::TransferOperation;
+use super::super::job::{TransferJob, TransferOperation};
 use super::super::options::TransferOptions;
 use super::TransferWorker;
 
@@ -24,23 +22,13 @@ async fn test_worker_move_directory_tree() {
     std::fs::create_dir_all(&dst_root).unwrap();
 
     let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
-    let is_paused = Arc::new(AtomicBool::new(false));
-    let is_cancelled = Arc::new(AtomicBool::new(false));
-    let skip_flag = Arc::new(AtomicBool::new(false));
-    let active_conflict = Arc::new(crate::fs::transfer::conflict_slot::ConflictSlot::default());
-
-    let worker = TransferWorker::new(
-        Uuid::new_v4(),
+    let job = TransferJob::new(
         TransferOperation::Move,
         vec![src_root.clone()],
         dst_root.clone(),
         TransferOptions::default(),
-        is_paused,
-        is_cancelled,
-        skip_flag,
-        tx,
-        active_conflict,
     );
+    let worker = TransferWorker::for_job(job, tx);
 
     tokio::spawn(async move { while rx.recv().await.is_some() {} });
 
@@ -78,30 +66,20 @@ async fn test_worker_cancel_during_copy() {
     }
 
     let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
-    let is_paused = Arc::new(AtomicBool::new(false));
-    let is_cancelled = Arc::new(AtomicBool::new(false));
-    let skip_flag = Arc::new(AtomicBool::new(false));
-    let active_conflict = Arc::new(crate::fs::transfer::conflict_slot::ConflictSlot::default());
-
-    let cancel_flag = Arc::clone(&is_cancelled);
+    let job = TransferJob::new(
+        TransferOperation::Copy,
+        vec![src],
+        dst,
+        TransferOptions::default(),
+    );
+    let cancel_flag = Arc::clone(&job.is_cancelled);
     tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(5)).await;
         cancel_flag.store(true, std::sync::atomic::Ordering::SeqCst);
         while rx.recv().await.is_some() {}
     });
 
-    let worker = TransferWorker::new(
-        Uuid::new_v4(),
-        TransferOperation::Copy,
-        vec![src],
-        dst,
-        TransferOptions::default(),
-        is_paused,
-        is_cancelled,
-        skip_flag,
-        tx,
-        active_conflict,
-    );
+    let worker = TransferWorker::for_job(job, tx);
 
     let res = worker.run().await;
     assert!(res.is_err(), "expected cancellation error");

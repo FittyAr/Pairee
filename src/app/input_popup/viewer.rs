@@ -1,106 +1,59 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::SearchKey;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::ViewerSearchPrompt {
-        mut query,
-        mut case_sensitive,
-        mut cursor_idx,
-    }) = state.dialogs.top().cloned()
-    {
-        match key.code {
-            KeyCode::Tab | KeyCode::Down => {
-                cursor_idx = (cursor_idx + 1) % 4;
-            }
-            KeyCode::Up => {
-                cursor_idx = if cursor_idx == 0 { 3 } else { cursor_idx - 1 };
-            }
-            KeyCode::Left | KeyCode::Right => {
-                if cursor_idx == 2 || cursor_idx == 3 {
-                    cursor_idx = if cursor_idx == 2 { 3 } else { 2 };
-                }
-            }
-            KeyCode::Char(c) => {
-                if cursor_idx == 0 {
-                    query.push(c);
-                } else if cursor_idx == 1 && c == ' ' {
-                    case_sensitive = !case_sensitive;
-                }
-            }
-            KeyCode::Backspace => {
-                if cursor_idx == 0 {
-                    query.pop();
-                }
-            }
-            KeyCode::Esc => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            KeyCode::Enter => {
-                if cursor_idx == 3 {
-                    state.dialogs.clear();
-                    return Ok(None);
-                }
-
-                if !query.is_empty()
-                    && let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx)
-                {
-                    let is_repeat = vw.last_search.as_ref() == Some(&query);
-                    let start_from = if is_repeat { vw.scroll + 1 } else { vw.scroll };
-
-                    vw.last_search = Some(query.clone());
-                    vw.last_case_sensitive = case_sensitive;
-                    if vw.mode == crate::ui::viewer::ViewerMode::Text {
-                        let match_fn = |l: &str| {
-                            if case_sensitive {
-                                l.contains(&query)
-                            } else {
-                                l.to_lowercase().contains(&query.to_lowercase())
-                            }
-                        };
-                        // simple downward search from current line
-                        if let Some(found_idx) = vw
-                            .lines
-                            .iter()
-                            .enumerate()
-                            .skip(start_from)
-                            .find(|(_, l)| match_fn(l))
-                            .map(|(i, _)| i)
-                        {
-                            vw.scroll = found_idx;
-                        } else if let Some(found_idx) = vw
-                            .lines
-                            .iter()
-                            .enumerate()
-                            .take(start_from)
-                            .find(|(_, l)| match_fn(l))
-                            .map(|(i, _)| i)
-                        {
-                            vw.scroll = found_idx;
-                        }
-                    }
-                }
-                state.dialogs.replace(PopupType::ViewerSearchPrompt {
-                    query,
-                    case_sensitive,
-                    cursor_idx,
-                });
-                return Ok(None);
-            }
-            _ => {}
+    let Some(PopupType::ViewerSearchPrompt(search)) = state.dialogs.top_mut() else {
+        return Err(());
+    };
+    match search.handle_key(&key) {
+        SearchKey::Stay => {}
+        SearchKey::Close => state.dialogs.clear(),
+        SearchKey::Find => {
+            let query = search.query.text().to_string();
+            let case_sensitive = search.case_sensitive;
+            search_viewer(state, query, case_sensitive);
         }
-        state.dialogs.replace(PopupType::ViewerSearchPrompt {
-            query,
-            case_sensitive,
-            cursor_idx,
-        });
-        return Ok(None);
     }
-    Err(())
+    Ok(None)
+}
+
+/// Scrolls the active viewer to the next line containing `query`, wrapping
+/// to the top (repeating the same search continues after the current line).
+fn search_viewer(state: &mut AppState, query: String, case_sensitive: bool) {
+    if query.is_empty() {
+        return;
+    }
+    let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx) else {
+        return;
+    };
+    let is_repeat = vw.last_search.as_ref() == Some(&query);
+    let start_from = if is_repeat { vw.scroll + 1 } else { vw.scroll };
+    vw.last_search = Some(query.clone());
+    vw.last_case_sensitive = case_sensitive;
+    if vw.mode != crate::ui::viewer::ViewerMode::Text {
+        return;
+    }
+    let needle = query.to_lowercase();
+    let matches = |l: &str| {
+        if case_sensitive {
+            l.contains(&query)
+        } else {
+            l.to_lowercase().contains(&needle)
+        }
+    };
+    let len = vw.lines.len();
+    let start = start_from.min(len);
+    if let Some(found) = (start..len)
+        .chain(0..start)
+        .find(|&i| matches(&vw.lines[i]))
+    {
+        vw.scroll = found;
+    }
 }

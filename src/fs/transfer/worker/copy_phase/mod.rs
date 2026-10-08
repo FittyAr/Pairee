@@ -5,18 +5,16 @@ pub mod single_file;
 pub mod verify_cleanup;
 
 use anyhow::anyhow;
-use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::time::{Duration, Instant};
-use uuid::Uuid;
+use std::sync::atomic::AtomicU64;
+use std::time::Instant;
 
+use super::super::control::JobControl;
 use super::super::events::TransferEvent;
-use super::super::job::{
-    FailedFile, FileTransferResult, SkippedFile, TransferOperation, TransferResults,
-};
+use super::super::job::{FailedFile, FileTransferResult, TransferOperation, TransferResults};
 use super::super::metadata::preserve_metadata;
 use super::super::options::TransferOptions;
+use super::scan::ScanOutcome;
 use super::speed::spawn_speed_reporter;
 
 pub use conflict::{ConflictAction, resolve_existing_destination};
@@ -26,170 +24,110 @@ pub use verify_cleanup::{cleanup_source_dirs, verify_hashes};
 /// Run the copy/move transfer loop (conflicts, retries, symlink recreate, verify, cleanup).
 pub(super) async fn run_copy_phase(
     operation: TransferOperation,
-    scan_mappings: Vec<(PathBuf, PathBuf, u64)>,
-    mut dirs_to_delete: Vec<PathBuf>,
-    total_bytes: u64,
+    scan: ScanOutcome,
     options: &TransferOptions,
-    job_id: Uuid,
-    is_paused: Arc<AtomicBool>,
-    is_cancelled: Arc<AtomicBool>,
-    skip_file_flag: Arc<AtomicBool>,
-    event_tx: crate::fs::transfer::events::EventSender,
+    ctl: &JobControl,
     active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 ) -> Result<TransferResults, anyhow::Error> {
     let mut auto_resolution = None;
     let mut results = TransferResults::default();
-    let bytes_transferred_acc = Arc::new(AtomicU64::new(0));
+    let copied_bytes = Arc::new(AtomicU64::new(0));
+    let _speed_reporter = spawn_speed_reporter(ctl, Arc::clone(&copied_bytes), scan.total_bytes);
 
-    let _speed_reporter = spawn_speed_reporter(
-        event_tx.clone(),
-        job_id,
-        Arc::clone(&bytes_transferred_acc),
-        Arc::clone(&is_cancelled),
-        total_bytes,
-    );
-
-    for (idx, (src, mut dst, size)) in scan_mappings.into_iter().enumerate() {
-        if is_cancelled.load(Ordering::Relaxed) {
-            return Err(anyhow!("Job cancelled"));
-        }
-
-        while is_paused.load(Ordering::Relaxed) {
-            if is_cancelled.load(Ordering::Relaxed) {
-                return Err(anyhow!("Job cancelled"));
-            }
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-
-        if skip_file_flag.swap(false, Ordering::Relaxed) {
-            results.skipped_files.push(SkippedFile {
-                src: src.clone(),
-                reason: "Skipped by user".to_string(),
-            });
-            let _ = event_tx.send(TransferEvent::FileSkipped {
-                job_id,
-                file: src.clone(),
-                reason: "Skipped by user".to_string(),
-            });
+    for (idx, (src, mut dst, size)) in scan.mappings.into_iter().enumerate() {
+        ctl.wait_if_paused().await?;
+        if ctl.take_user_skip(&src, &mut results) {
             continue;
         }
-
         if dst.exists() {
-            match resolve_existing_destination(
+            let action = resolve_existing_destination(
                 &src,
                 &mut dst,
                 options,
-                job_id,
-                &is_cancelled,
-                &event_tx,
+                ctl,
                 &active_conflict,
                 &mut auto_resolution,
                 &mut results,
             )
-            .await?
-            {
-                ConflictAction::Skip => continue,
-                ConflictAction::Proceed => {}
+            .await?;
+            if let ConflictAction::Skip = action {
+                continue;
             }
         }
 
-        let _ = event_tx.send(TransferEvent::FileStarted {
-            job_id,
-            file: src.clone(),
-            index: idx,
-        });
-
+        ctl.file_started(&src, idx);
         let file_start = Instant::now();
-        let transfer = transfer_one_file(
-            &src,
-            &dst,
-            options,
-            job_id,
-            Arc::clone(&is_paused),
-            Arc::clone(&is_cancelled),
-            Arc::clone(&bytes_transferred_acc),
-            &event_tx,
-        )
-        .await?;
-
+        let transfer =
+            transfer_one_file(&src, &dst, options, ctl, Arc::clone(&copied_bytes)).await?;
         if !transfer.success {
-            results.failed_files.push(FailedFile {
-                src: src.clone(),
-                dst: dst.clone(),
-                error: transfer.last_error.clone(),
-                retries: transfer.retries,
-            });
-            let _ = event_tx.send(TransferEvent::FileFailed {
-                job_id,
-                error: FailedFile {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    error: transfer.last_error.clone(),
-                    retries: transfer.retries,
-                },
-            });
-            if options.halt_on_error {
-                let _ = event_tx.send(TransferEvent::JobFailed {
-                    job_id,
-                    error: format!(
-                        "Halt on error triggered by file failure: {}",
-                        transfer.last_error
-                    ),
-                });
-                return Err(anyhow!("Halt on error: {}", transfer.last_error));
-            }
+            record_failure(ctl, &mut results, (&src, &dst), &transfer, options)?;
             continue;
         }
 
         let _ = preserve_metadata(&src, &dst, options);
-
-        let verified = true;
         if options.verify_after_copy
             && !verify_hashes(
-                &src,
-                &dst,
+                (&src, &dst),
                 size,
-                &transfer.src_hash,
-                &transfer.dst_hash,
+                (&transfer.src_hash, &transfer.dst_hash),
                 options,
-                job_id,
-                &event_tx,
+                ctl,
                 &mut results,
             )?
         {
             continue;
         }
-
-        if operation == TransferOperation::Move && verified {
+        if operation == TransferOperation::Move {
             let _ = std::fs::remove_file(&src);
         }
-
-        let file_result = FileTransferResult {
-            src: src.clone(),
-            dst: dst.clone(),
-            size,
-            src_hash: transfer.src_hash.clone(),
-            dst_hash: transfer.dst_hash.clone(),
-            verified,
-            duration: file_start.elapsed(),
-        };
-
-        results.completed_files.push(file_result.clone());
-
-        let _ = event_tx.send(TransferEvent::FileCompleted {
-            job_id,
-            result: file_result,
-        });
+        ctl.file_completed(
+            &mut results,
+            FileTransferResult {
+                src,
+                dst,
+                size,
+                src_hash: transfer.src_hash,
+                dst_hash: transfer.dst_hash,
+                verified: true,
+                duration: file_start.elapsed(),
+            },
+        );
     }
 
     if operation == TransferOperation::Move {
-        cleanup_source_dirs(&mut dirs_to_delete, &is_cancelled);
+        let mut dirs = scan.dirs_to_delete;
+        cleanup_source_dirs(&mut dirs, ctl);
     }
+    ctl.job_completed(results)
+}
 
-    let _ = event_tx.send(TransferEvent::JobCompleted {
-        job_id,
-        results: results.clone(),
+/// Records a file that could not be copied; with "halt on error" the job
+/// fails.
+fn record_failure(
+    ctl: &JobControl,
+    results: &mut TransferResults,
+    (src, dst): (&std::path::Path, &std::path::Path),
+    transfer: &single_file::TransferOutcome,
+    options: &TransferOptions,
+) -> anyhow::Result<()> {
+    ctl.file_failed(
+        results,
+        FailedFile {
+            src: src.to_path_buf(),
+            dst: dst.to_path_buf(),
+            error: transfer.last_error.clone(),
+            retries: transfer.retries,
+        },
+    );
+    if !options.halt_on_error {
+        return Ok(());
+    }
+    ctl.emit(TransferEvent::JobFailed {
+        job_id: ctl.job_id,
+        error: format!(
+            "Halt on error triggered by file failure: {}",
+            transfer.last_error
+        ),
     });
-
-    Ok(results)
+    Err(anyhow!("Halt on error: {}", transfer.last_error))
 }

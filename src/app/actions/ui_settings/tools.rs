@@ -45,7 +45,7 @@ pub fn handle_tools_action(
                 cursor_idx: 0,
                 editing_idx: None,
                 editing_field: 0,
-                edit_buffer: String::new(),
+                edit_buffer: Default::default(),
                 original_rule: None,
             });
             true
@@ -67,9 +67,9 @@ pub fn handle_tools_action(
         Action::FilePanelFilter => {
             let active = state.get_active_panel();
             let current = active.filter_mask.clone().unwrap_or_default();
-            state
-                .dialogs
-                .replace(PopupType::FilePanelFilterPrompt { input: current });
+            state.dialogs.replace(PopupType::FilePanelFilterPrompt {
+                input: current.into(),
+            });
             true
         }
         Action::QuickFilter => {
@@ -78,7 +78,7 @@ pub fn handle_tools_action(
             let original_mask = active.quick_filter_mask.clone();
             let original_cursor = active.cursor_index;
             state.dialogs.replace(PopupType::QuickFilterPrompt {
-                input: current,
+                input: current.into(),
                 original_mask,
                 original_cursor,
             });
@@ -89,7 +89,7 @@ pub fn handle_tools_action(
             state.dialogs.replace(PopupType::TaskListDialog {
                 tasks,
                 cursor_idx: 0,
-                filter_query: String::new(),
+                filter_query: Default::default(),
                 is_filtering: false,
             });
             true
@@ -100,22 +100,20 @@ pub fn handle_tools_action(
         }
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
-                crate::app::state::ConfigurationDialogState {
-                    active_tab: 0,
-                    cursor_idx: 0,
-                    editing_value: false,
-                    edit_buffer: String::new(),
-                    settings: Box::new(context.config.settings.clone()),
-                    focus_on_tabs: true,
-                },
+                crate::app::state::ConfigurationDialogState::new(
+                    &context.config.settings,
+                    0,
+                    0,
+                    true,
+                ),
             ));
             true
         }
         Action::FindFile => {
             let root = state.get_active_panel().current_path.clone();
             state.dialogs.replace(PopupType::SearchPrompt {
-                query: String::new(),
-                content_query: String::new(),
+                query: Default::default(),
+                content_query: Default::default(),
                 search_root: root,
                 case_sensitive: false,
                 search_target: crate::fs::search::SearchTarget::Any,

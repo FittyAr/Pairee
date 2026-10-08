@@ -1,17 +1,13 @@
 mod brief;
-mod descriptions;
-mod detailed;
-mod file_links;
-mod file_owners;
-mod full;
 pub(crate) mod helpers;
-mod medium;
-mod wide;
+mod list_ctx;
+mod table_view;
 
 use crate::app::context::AppContext;
-use crate::app::state::{PanelState, PanelViewMode};
+use crate::app::state::PanelState;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -22,14 +18,9 @@ use ratatui::{
 };
 
 use brief::render_brief;
-use descriptions::render_descriptions;
-use detailed::render_detailed;
-use file_links::render_file_links;
-use file_owners::render_file_owners;
-use full::render_full;
 use helpers::{build_panel_title, format_file_size, free_space_text};
-use medium::render_medium;
-use wide::render_wide;
+use list_ctx::ListCtx;
+use table_view::render_table;
 
 /// Entry point: dispatches to the correct view mode renderer.
 /// Also renders optional footer lines (status, total info, free space) and scrollbar.
@@ -89,79 +80,15 @@ pub fn render_panel(
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
     // ── Dispatch to view-specific renderer (list area only) ───────────────────
-    match panel.view_mode {
-        PanelViewMode::Brief => render_brief(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::Medium => render_medium(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::Wide => render_wide(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::Detailed => render_detailed(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::Descriptions => render_descriptions(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::FileOwners => render_file_owners(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::FileLinks => render_file_links(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
-        PanelViewMode::Full | PanelViewMode::AltFull => render_full(
-            f,
-            list_area,
-            panel,
-            is_active,
-            context,
-            block,
-            highlight_files,
-        ),
+    let ctx = ListCtx {
+        panel,
+        is_active,
+        context,
+        highlight_files,
+    };
+    match table_view::for_mode(panel.view_mode) {
+        Some(view) => render_table(f, list_area, block, &ctx, view),
+        None => render_brief(f, list_area, block, &ctx),
     }
 
     // ── Optional scrollbar (fractional thumb via tui-scrollbar) ───────────────
@@ -172,13 +99,17 @@ pub fn render_panel(
         scrollbar::render_vertical_inside_block(
             f,
             list_area,
-            total,
-            inner_height,
-            offset,
+            ScrollView {
+                content_len: total,
+                viewport_len: inner_height,
+                offset,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            scroll_id,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: scroll_id,
+            },
         );
     }
 

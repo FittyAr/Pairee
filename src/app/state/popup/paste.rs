@@ -1,49 +1,66 @@
 use super::PopupType;
+use crate::app::text_input::TextField;
 
 impl PopupType {
-    /// Append a single-line paste into the focused text field, if any.
-    /// Returns true when the overlay consumed the paste.
-    pub fn apply_paste(&mut self, paste: &str) -> bool {
-        if paste.is_empty() {
-            return false;
-        }
+    /// The text field that currently receives typing and pastes, if any.
+    pub fn focused_field_mut(&mut self) -> Option<&mut TextField> {
         match self {
             PopupType::MkDirPrompt {
-                input, cursor_idx, ..
+                input,
+                cursor_idx: 0,
+                ..
             }
             | PopupType::RenamePrompt {
-                input, cursor_idx, ..
-            } if *cursor_idx == 0 => {
-                input.push_str(paste);
-                true
+                input,
+                cursor_idx: 0,
+                ..
             }
-            PopupType::CopyPrompt(prompt) | PopupType::MovePrompt(prompt)
-                if prompt.cursor_idx == 0 =>
-            {
-                prompt.input.push_str(paste);
-                true
-            }
-            PopupType::ApplyCommandPrompt { input, .. }
+            | PopupType::ApplyCommandPrompt { input, .. }
             | PopupType::CompressPrompt { input, .. }
             | PopupType::FilePanelFilterPrompt { input, .. }
             | PopupType::QuickFilterPrompt { input, .. }
             | PopupType::DescribeFilePrompt { input, .. }
-            | PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
-                input.push_str(paste);
-                true
+            | PopupType::CopyMoveFilterPrompt { input, .. }
+            | PopupType::SelectGroupPrompt { query: input, .. }
+            | PopupType::CreateLinkPrompt {
+                dest_input: input, ..
+            } => Some(input),
+            PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
+            PopupType::CommandPalette { query, .. } | PopupType::WhichKey { query, .. } => {
+                Some(query)
             }
-            PopupType::SelectGroupPrompt { query, .. }
-            | PopupType::CommandPalette { query, .. }
-            | PopupType::WhichKey { query, .. } => {
-                query.push_str(paste);
-                true
+            PopupType::EditorSearchPrompt(search) | PopupType::ViewerSearchPrompt(search)
+                if search.cursor_idx == 0 =>
+            {
+                Some(&mut search.query)
             }
-            PopupType::CreateLinkPrompt { dest_input, .. } => {
-                dest_input.push_str(paste);
-                true
+            PopupType::EditorSaveAsPrompt { input }
+            | PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
+            PopupType::SearchPrompt {
+                query,
+                content_query,
+                cursor_idx,
+                ..
+            } => match *cursor_idx {
+                0 => Some(query),
+                1 => Some(content_query),
+                _ => None,
+            },
+            PopupType::SshConnectPrompt(prompt) => {
+                let row = prompt.cursor_idx;
+                prompt.field_at(row).map(|(_, field)| field)
             }
-            _ => false,
+            _ => None,
         }
+    }
+
+    /// Inserts a single-line paste into the focused text field, if any.
+    /// Returns true when the overlay consumed the paste.
+    pub fn apply_paste(&mut self, paste: &str) -> bool {
+        !paste.is_empty()
+            && self
+                .focused_field_mut()
+                .is_some_and(|field| field.paste(paste))
     }
 }
 

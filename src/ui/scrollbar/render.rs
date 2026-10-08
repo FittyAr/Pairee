@@ -41,31 +41,49 @@ pub fn vertical_bar(
     )
 }
 
+/// Scroll position of a scrolled view.
+#[derive(Debug, Clone, Copy)]
+pub struct ScrollView {
+    pub content_len: usize,
+    pub viewport_len: usize,
+    pub offset: usize,
+}
+
+/// Where a scrollbar is drawn and how mouse hits find it.
+#[derive(Clone, Copy)]
+pub struct ScrollTarget<'a> {
+    pub surface: ScrollbarSurface,
+    pub hits: Option<&'a ScrollbarUiState>,
+    pub id: ScrollTargetId,
+}
+
 /// Render a vertical scrollbar into `track` when content overflows the viewport.
 pub fn render_vertical(
     f: &mut Frame,
     track: Rect,
-    content_len: usize,
-    viewport_len: usize,
-    offset: usize,
+    view: ScrollView,
     theme: &Theme,
-    surface: ScrollbarSurface,
-    hits: Option<&ScrollbarUiState>,
-    id: ScrollTargetId,
+    target: ScrollTarget,
 ) {
     if track.width == 0 || track.height == 0 {
         return;
     }
-    let Some(bar) = vertical_bar(content_len, viewport_len, offset, theme, surface) else {
+    let Some(bar) = vertical_bar(
+        view.content_len,
+        view.viewport_len,
+        view.offset,
+        theme,
+        target.surface,
+    ) else {
         return;
     };
-    if let Some(hits) = hits {
+    if let Some(hits) = target.hits {
         hits.register(ScrollbarHitTarget {
             area: track,
-            content_len,
-            viewport_len,
-            offset,
-            id,
+            content_len: view.content_len,
+            viewport_len: view.viewport_len,
+            offset: view.offset,
+            id: target.id,
         });
     }
     f.render_widget(&bar, track);
@@ -75,48 +93,20 @@ pub fn render_vertical(
 pub fn render_vertical_right(
     f: &mut Frame,
     content_area: Rect,
-    content_len: usize,
-    viewport_len: usize,
-    offset: usize,
+    view: ScrollView,
     theme: &Theme,
-    surface: ScrollbarSurface,
-    hits: Option<&ScrollbarUiState>,
-    id: ScrollTargetId,
+    target: ScrollTarget,
 ) {
-    render_vertical(
-        f,
-        track_area_right(content_area),
-        content_len,
-        viewport_len,
-        offset,
-        theme,
-        surface,
-        hits,
-        id,
-    );
+    render_vertical(f, track_area_right(content_area), view, theme, target);
 }
 
 /// Render into the right column inside a bordered block covering `block_area`.
 pub fn render_vertical_inside_block(
     f: &mut Frame,
     block_area: Rect,
-    content_len: usize,
-    viewport_len: usize,
-    offset: usize,
+    view: ScrollView,
     theme: &Theme,
-    surface: ScrollbarSurface,
-    hits: Option<&ScrollbarUiState>,
-    id: ScrollTargetId,
+    target: ScrollTarget,
 ) {
-    render_vertical(
-        f,
-        track_area_inside_block(block_area),
-        content_len,
-        viewport_len,
-        offset,
-        theme,
-        surface,
-        hits,
-        id,
-    );
+    render_vertical(f, track_area_inside_block(block_area), view, theme, target);
 }

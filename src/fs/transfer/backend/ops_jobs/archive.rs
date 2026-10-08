@@ -1,11 +1,11 @@
 //! Archival operation runner (compress, extract) with cooperative cancellation.
 
 use super::super::super::events::TransferEvent;
-use super::super::super::job::{FailedFile, SkippedFile, TransferResults};
-use super::super::BackendControl;
-use super::common::{complete_ok, emit_file_completed, emit_file_started, emit_scan_complete};
+use super::super::super::job::{SkippedFile, TransferResults};
 use crate::config::localization::t;
 use crate::fs::progress::ProgressUpdate;
+use crate::fs::transfer::control::JobControl;
+use crate::fs::transfer::control::failed;
 use anyhow::anyhow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -15,7 +15,7 @@ use tokio::sync::mpsc;
 pub async fn run_compress(
     sources: Vec<PathBuf>,
     dest_archive: PathBuf,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     run_archive_blocking(
         control,
@@ -29,7 +29,7 @@ pub async fn run_compress(
 pub async fn run_extract(
     sources: Vec<PathBuf>,
     destination_dir: PathBuf,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     let archive = sources
         .first()
@@ -63,7 +63,7 @@ pub async fn run_extract(
 }
 
 async fn run_archive_blocking<F>(
-    control: BackendControl,
+    control: JobControl,
     default_total: usize,
     work: F,
     err_key: &str,
@@ -80,14 +80,14 @@ where
 
     match work_handle.await {
         Ok(Ok(())) => {
-            if control.cancelled() {
+            if control.is_cancelled() {
                 return Err(anyhow!("Job cancelled"));
             }
-            complete_ok(&control, results)
+            control.job_completed(results)
         }
         Ok(Err(e)) => {
             let msg = e.to_string();
-            if msg.to_lowercase().contains("cancel") || control.cancelled() {
+            if msg.to_lowercase().contains("cancel") || control.is_cancelled() {
                 return Err(anyhow!("Job cancelled"));
             }
             let err_msg = t(err_key).replacen("{}", &msg, 1);
@@ -103,14 +103,14 @@ where
 
 async fn bridge_progress_to_events(
     mut rx: mpsc::Receiver<ProgressUpdate>,
-    control: &BackendControl,
+    control: &JobControl,
     default_total: usize,
 ) -> Result<TransferResults, anyhow::Error> {
     let mut results = TransferResults::default();
     let mut announced_scan = false;
 
     while let Some(update) = rx.recv().await {
-        if control.cancelled() {
+        if control.is_cancelled() {
             while rx.try_recv().is_ok() {}
             break;
         }
@@ -123,7 +123,7 @@ async fn bridge_progress_to_events(
 
         if !announced_scan {
             announced_scan = true;
-            emit_scan_complete(control, total, update.total_bytes);
+            control.scan_complete(total, update.total_bytes);
         }
 
         if update.skipped {
@@ -143,17 +143,7 @@ async fn bridge_progress_to_events(
 
         if let Some(err) = update.error {
             let path = PathBuf::from(&update.current_file);
-            let failed = FailedFile {
-                src: path,
-                dst: PathBuf::new(),
-                error: err.clone(),
-                retries: 0,
-            };
-            results.failed_files.push(failed.clone());
-            let _ = control.event_tx.send(TransferEvent::FileFailed {
-                job_id: control.job_id,
-                error: failed,
-            });
+            control.file_failed(&mut results, failed(&path, PathBuf::new(), err.clone()));
             return Err(anyhow!(err));
         }
 
@@ -162,7 +152,7 @@ async fn bridge_progress_to_events(
         }
 
         let path = PathBuf::from(&update.current_file);
-        emit_file_started(control, &path, update.files_copied);
+        control.file_started(&path, update.files_copied);
         if update.total_bytes > 0 {
             let _ = control.event_tx.send(TransferEvent::FileProgress {
                 job_id: control.job_id,
@@ -180,8 +170,7 @@ async fn bridge_progress_to_events(
             verified: true,
             duration: std::time::Duration::ZERO,
         };
-        results.completed_files.push(result.clone());
-        emit_file_completed(control, result);
+        control.file_completed(&mut results, result);
     }
 
     Ok(results)

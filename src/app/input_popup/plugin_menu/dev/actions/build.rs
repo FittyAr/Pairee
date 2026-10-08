@@ -1,26 +1,23 @@
 use super::super::progress::{begin_dev_op, progress_status};
 use crate::app::context::AppContext;
-use crate::app::state::AppState;
+use crate::app::state::{AppState, PluginMenuState};
 use crate::config::localization::t;
 use crate::plugin::developer_tool;
 
-pub fn handle_option_init_plugin(
-    _context: &mut AppContext,
-    active_plugin: Option<String>,
-    editing_query: &mut bool,
-    search_query: &mut String,
-    dev_results: &mut String,
-    dev_wizard_step: &mut usize,
-    dev_wizard_data: &mut Vec<String>,
-) {
+/// Starts the question / answer wizard at `step` with `data` collected so far.
+fn start_wizard(menu: &mut PluginMenuState, step: usize, data: Vec<String>) {
+    menu.editing_query = true;
+    menu.search_query.clear();
+    menu.dev_results.clear();
+    menu.dev_wizard_step = step;
+    menu.dev_wizard_data = data;
+}
+
+pub fn handle_option_init_plugin(active_plugin: Option<String>, menu: &mut PluginMenuState) {
     if active_plugin.is_some() {
-        *dev_results = t("plugin_dev_desc_init_disabled");
+        menu.dev_results = t("plugin_dev_desc_init_disabled");
     } else {
-        *editing_query = true;
-        *search_query = String::new();
-        *dev_results = String::new();
-        *dev_wizard_step = 1;
-        *dev_wizard_data = Vec::new();
+        start_wizard(menu, 1, Vec::new());
     }
 }
 
@@ -222,34 +219,21 @@ pub fn handle_option_install_local(
 }
 
 pub fn handle_option_submit(
-    _context: &mut AppContext,
-    dev_results: &mut String,
+    menu: &mut PluginMenuState,
     active_plugin: Option<String>,
     plugins_dev_dir: std::path::PathBuf,
-    editing_query: &mut bool,
-    search_query: &mut String,
-    dev_wizard_step: &mut usize,
-    dev_wizard_data: &mut Vec<String>,
 ) {
     if let Some(plugin_folder) = active_plugin.clone() {
         let path = super::resolve_active_plugin_path(&plugin_folder, &plugins_dev_dir);
         if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
-            *dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
+            menu.dev_results = t("plugin_dev_dir_missing").replace("{}", &plugin_folder);
         } else {
             match developer_tool::validate_for_publish(&path) {
-                Ok(_) => {
-                    *editing_query = true;
-                    *search_query = String::new();
-                    *dev_results = String::new();
-                    *dev_wizard_step = 5;
-                    *dev_wizard_data = vec![path.to_string_lossy().to_string()];
-                }
-                Err(err_msg) => {
-                    *dev_results = err_msg;
-                }
+                Ok(_) => start_wizard(menu, 5, vec![path.to_string_lossy().to_string()]),
+                Err(err_msg) => menu.dev_results = err_msg,
             }
         }
     } else {
-        *dev_results = t("plugin_dev_no_active_err");
+        menu.dev_results = t("plugin_dev_no_active_err");
     }
 }

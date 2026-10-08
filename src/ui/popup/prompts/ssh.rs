@@ -1,7 +1,9 @@
 use super::super::centered_rect_fixed;
 use crate::app::context::AppContext;
-use crate::app::state::PopupType;
+use crate::app::state::popup::SshField;
+use crate::app::state::{PopupType, SshConnectPromptState};
 use crate::config::localization::t;
+use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -17,18 +19,9 @@ pub fn render(
     size: Rect,
     context: &AppContext,
 ) -> bool {
-    if let PopupType::SshConnectPrompt(crate::app::state::SshConnectPromptState {
-        panel: _,
-        input_name,
-        input_host,
-        input_port,
-        input_user,
-        input_pass,
-        input_key_path,
-        cursor_idx,
-        selected_preset_idx,
-    }) = popup
-    {
+    if let PopupType::SshConnectPrompt(prompt) = popup {
+        let cursor_idx = &prompt.cursor_idx;
+        let selected_preset_idx = &prompt.selected_preset_idx;
         let area = centered_rect_fixed(75, 12, size);
         f.render_widget(Clear, area);
 
@@ -118,57 +111,18 @@ pub fn render(
             ])
             .split(form_chunks[2]);
 
-        let pad_label = |lbl: &str, width: usize| {
-            let mut s = lbl.to_string();
-            if !s.ends_with(':') {
-                s.push(':');
-            }
-            format!(" {:<width$} ", s, width = width)
-        };
-
-        let l_name = pad_label(t("prompt_ssh_name").trim(), 14);
-        let l_host = pad_label(t("prompt_ssh_host").trim(), 14);
-        let l_port = pad_label(t("prompt_ssh_port").trim(), 14);
-        let l_user = pad_label(t("prompt_ssh_user").trim(), 14);
-        let l_pass = pad_label(t("prompt_ssh_pass").trim(), 14);
-        let l_key = pad_label(t("prompt_ssh_key_path").trim(), 14);
-
-        let render_input_line =
-            |f: &mut Frame, chunk: Rect, label: &str, val: &str, idx: usize, is_pass: bool| {
-                let is_active = *cursor_idx == idx;
-                let style = if is_active {
-                    active_style
-                } else {
-                    normal_style
-                };
-
-                let val_disp = if is_pass {
-                    "*".repeat(val.len())
-                } else {
-                    val.to_string()
-                };
-
-                let text = if is_active {
-                    format!("{}{}_", label, val_disp)
-                } else {
-                    format!("{}{}", label, val_disp)
-                };
-
-                f.render_widget(Paragraph::new(text).style(style), chunk);
-            };
-
         f.render_widget(
             Paragraph::new(format!(" {}", t("ssh_details_title")))
                 .style(Style::default().fg(Color::Yellow)),
             input_chunks[0],
         );
-
-        render_input_line(f, input_chunks[1], &l_name, input_name, 1, false);
-        render_input_line(f, input_chunks[2], &l_host, input_host, 2, false);
-        render_input_line(f, input_chunks[3], &l_port, input_port, 3, false);
-        render_input_line(f, input_chunks[4], &l_user, input_user, 4, false);
-        render_input_line(f, input_chunks[5], &l_pass, input_pass, 5, true);
-        render_input_line(f, input_chunks[6], &l_key, input_key_path, 6, false);
+        let styles = kit::FocusStyles {
+            active: active_style,
+            normal: normal_style,
+        };
+        for (field, chunk) in SshField::ALL.iter().zip(&input_chunks[1..]) {
+            f.render_widget(field_line(prompt, *field, styles), *chunk);
+        }
 
         // Bottom horizontal separator
         let sep_str_horizontal = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
@@ -178,38 +132,19 @@ pub fn render(
         );
 
         // Buttons at the bottom
-        let b_connect = if *cursor_idx == 7 {
-            active_style
-        } else {
-            normal_style
-        };
-        let b_save = if *cursor_idx == 8 {
-            active_style
-        } else {
-            normal_style
-        };
-        let b_delete = if *cursor_idx == 9 {
-            active_style
-        } else {
-            normal_style
-        };
-        let b_cancel = if *cursor_idx == 10 {
-            active_style
-        } else {
-            normal_style
-        };
-
-        let btns = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(format!(" {} ", t("btn_connect_braced")), b_connect),
-            ratatui::text::Span::raw("    "),
-            ratatui::text::Span::styled(format!(" {} ", t("btn_save_preset")), b_save),
-            ratatui::text::Span::raw("    "),
-            ratatui::text::Span::styled(format!(" {} ", t("btn_delete_preset")), b_delete),
-            ratatui::text::Span::raw("    "),
-            ratatui::text::Span::styled(format!(" {} ", t("btn_cancel_bracket")), b_cancel),
-        ]);
+        let buttons = [
+            "btn_connect_braced",
+            "btn_save_preset",
+            "btn_delete_preset",
+            "btn_cancel_bracket",
+        ]
+        .map(|key| format!(" {} ", t(key)));
         f.render_widget(
-            Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+            kit::button_bar(
+                &buttons,
+                cursor_idx.checked_sub(SshConnectPromptState::BUTTON_CONNECT),
+                styles,
+            ),
             main_chunks[2],
         );
 
@@ -217,4 +152,35 @@ pub fn render(
     } else {
         false
     }
+}
+
+/// `" Label:        value"` for one field (password masked), with a cursor
+/// when focused.
+fn field_line(
+    prompt: &SshConnectPromptState,
+    field: SshField,
+    styles: kit::FocusStyles,
+) -> Paragraph<'static> {
+    let focused = prompt.cursor_idx == field.row();
+    let style = styles.pick(focused);
+    let mut label = t(field.label_key()).trim().to_string();
+    if !label.ends_with(':') {
+        label.push(':');
+    }
+    let mut spans = vec![ratatui::text::Span::styled(
+        format!(" {:<14} ", label),
+        style,
+    )];
+    let value = &prompt.fields[field as usize];
+    if field == SshField::Password {
+        let masked = "*".repeat(value.text().chars().count());
+        let cursor = if focused { "_" } else { "" };
+        spans.push(ratatui::text::Span::styled(
+            format!("{masked}{cursor}"),
+            style,
+        ));
+    } else {
+        spans.extend(kit::field_spans(value, style, styles.cursor(), focused));
+    }
+    Paragraph::new(ratatui::text::Line::from(spans))
 }

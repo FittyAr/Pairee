@@ -1,9 +1,8 @@
-use super::wrap_text;
+use super::{Pane, wrap_text};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::Rect,
     style::{Color, Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, Paragraph, Wrap},
@@ -14,18 +13,18 @@ fn display_name(name: &str) -> &str {
     name.strip_suffix(".pairee").unwrap_or(name)
 }
 
-pub fn render_search(
-    f: &mut Frame,
-    list_area: Rect,
-    detail_area: Rect,
-    cursor_idx: usize,
-    registry: &[(String, String, String, String)],
-    is_searching: bool,
-    editing_query: bool,
-    theme: &crate::config::theme::Theme,
-    border_style: Style,
-    bg_style: Style,
-) {
+pub fn render_search(f: &mut Frame, pane: &Pane, menu: &crate::app::state::PluginMenuState) {
+    let Pane {
+        list_area,
+        detail_area,
+        theme,
+        border_style,
+        bg_style,
+    } = *pane;
+    let cursor_idx = menu.cursor_idx;
+    let registry = menu.registry.as_slice();
+    let is_searching = menu.is_searching;
+    let editing_query = menu.editing_query;
     let text_style = Style::default().fg(parse_color(&theme.popup_fg));
     let dim_style = Style::default().fg(Color::DarkGray);
     let bold_style = text_style.add_modifier(StyleModifier::BOLD);

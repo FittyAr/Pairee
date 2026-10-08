@@ -1,78 +1,34 @@
 use crate::app::context::AppContext;
-use crate::app::state::{ActivePanel, AppState, PopupType};
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::DriveSelect {
+    let Some(PopupType::DriveSelect {
         panel,
         drives,
         cursor_idx,
-    }) = state.dialogs.top().cloned()
-    {
-        match key.code {
-            KeyCode::Esc => {
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    match list_key(ListKeys::ARROWS, key.code, cursor_idx, drives.len()) {
+        ListKey::Moved => {}
+        ListKey::Close => state.dialogs.clear(),
+        ListKey::Activate(idx) => {
+            let panel = *panel;
+            if let Some(drive) = drives.get(idx).map(std::path::PathBuf::from) {
+                state.panels.side_mut(panel).open_path(drive);
                 state.dialogs.clear();
-                return Ok(None);
+                state.refresh_both_panels(context.config.settings.show_hidden);
             }
-            KeyCode::Up => {
-                if !drives.is_empty() {
-                    let new_idx = if cursor_idx > 0 {
-                        cursor_idx - 1
-                    } else {
-                        drives.len() - 1
-                    };
-                    state.dialogs.replace(PopupType::DriveSelect {
-                        panel,
-                        drives,
-                        cursor_idx: new_idx,
-                    });
-                }
-                return Ok(None);
-            }
-            KeyCode::Down => {
-                if !drives.is_empty() {
-                    let new_idx = if cursor_idx < drives.len() - 1 {
-                        cursor_idx + 1
-                    } else {
-                        0
-                    };
-                    state.dialogs.replace(PopupType::DriveSelect {
-                        panel,
-                        drives,
-                        cursor_idx: new_idx,
-                    });
-                }
-                return Ok(None);
-            }
-            KeyCode::Enter => {
-                if let Some(drive_path) = drives.get(cursor_idx) {
-                    let target_path = std::path::PathBuf::from(drive_path);
-                    match panel {
-                        ActivePanel::Left => {
-                            state.panels.left.current_path = target_path;
-                            state.panels.left.cursor_index = 0;
-                            state.panels.left.clear_selection();
-                        }
-                        ActivePanel::Right => {
-                            state.panels.right.current_path = target_path;
-                            state.panels.right.cursor_index = 0;
-                            state.panels.right.clear_selection();
-                        }
-                    }
-                    state.dialogs.clear();
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                }
-                return Ok(None);
-            }
-            _ => {}
         }
-        Err(())
-    } else {
-        Err(())
+        ListKey::Other => return Err(()),
     }
+    Ok(None)
 }

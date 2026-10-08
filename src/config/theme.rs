@@ -70,3 +70,98 @@ impl Theme {
         }
     }
 }
+
+/// One editable theme color: its field name and accessors.
+pub struct ColorProp {
+    pub name: &'static str,
+    pub get: fn(&Theme) -> &String,
+    pub get_mut: fn(&mut Theme) -> &mut String,
+}
+
+/// Builds [`COLOR_PROPS`] from the field list, so the order and the
+/// accessors cannot drift apart.
+macro_rules! color_props {
+    ($($field:ident),* $(,)?) => {
+        /// Theme colors in the order the "Color groups" dialog lists them.
+        pub const COLOR_PROPS: &[ColorProp] = &[$(ColorProp {
+            name: stringify!($field),
+            get: |t| &t.$field,
+            get_mut: |t| &mut t.$field,
+        }),*];
+    };
+}
+
+color_props!(
+    panel_bg,
+    panel_fg,
+    panel_border,
+    selection_bg,
+    selection_fg,
+    marked_fg,
+    header_bg,
+    header_fg,
+    cli_bg,
+    cli_fg,
+    fkey_num_fg,
+    fkey_text_fg,
+    fkey_bg,
+    popup_bg,
+    popup_fg,
+    popup_border,
+);
+
+/// Named colors cycled with Left / Right in the color dialogs.
+pub const NAMED_COLORS: [&str; 17] = [
+    "Reset",
+    "Black",
+    "Red",
+    "Green",
+    "Yellow",
+    "Blue",
+    "Magenta",
+    "Cyan",
+    "Gray",
+    "DarkGray",
+    "LightRed",
+    "LightGreen",
+    "LightYellow",
+    "LightBlue",
+    "LightMagenta",
+    "LightCyan",
+    "White",
+];
+
+/// The named color `step` places after `current` (wrapping; unknown names
+/// count as "Reset").
+pub fn cycle_named_color(current: &str, forward: bool) -> String {
+    let len = NAMED_COLORS.len();
+    let idx = NAMED_COLORS.iter().position(|&c| c == current).unwrap_or(0);
+    let next = if forward {
+        (idx + 1) % len
+    } else {
+        (idx + len - 1) % len
+    };
+    NAMED_COLORS[next].to_string()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn color_props_cover_fields_in_order() {
+        let mut theme = Theme::default();
+        assert_eq!(COLOR_PROPS.len(), 16);
+        assert_eq!(COLOR_PROPS[3].name, "selection_bg");
+        *(COLOR_PROPS[15].get_mut)(&mut theme) = "Red".into();
+        assert_eq!(theme.popup_border, "Red");
+        assert_eq!((COLOR_PROPS[0].get)(&theme), &theme.panel_bg);
+    }
+
+    #[test]
+    fn named_colors_wrap() {
+        assert_eq!(cycle_named_color("Reset", false), "White");
+        assert_eq!(cycle_named_color("White", true), "Reset");
+        assert_eq!(cycle_named_color("#123456", true), "Black");
+    }
+}

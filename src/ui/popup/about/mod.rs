@@ -4,9 +4,9 @@ pub use libs::get_dependency_libraries;
 
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::update::wrap_lines;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
+use crate::ui::wrap::wrap_lines;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
@@ -155,13 +155,17 @@ pub fn render_about_popup(
                 width: 1,
                 height: area.height.saturating_sub(3),
             },
-            total_lines,
-            inner_height,
-            clamped_scroll,
+            scrollbar::ScrollView {
+                content_len: total_lines,
+                viewport_len: inner_height,
+                offset: clamped_scroll,
+            },
             theme,
-            ScrollbarSurface::Popup,
-            scrollbar,
-            ScrollTargetId::About,
+            scrollbar::ScrollTarget {
+                surface: ScrollbarSurface::Popup,
+                hits: scrollbar,
+                id: ScrollTargetId::About,
+            },
         );
 
         // Render bottom hint

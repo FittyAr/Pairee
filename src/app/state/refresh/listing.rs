@@ -5,7 +5,6 @@
 //! [`PanelListing`] that the UI applies in one go.
 
 use super::filter::{apply_masks, git_pathspec_for};
-use crate::app::state::SortField;
 use crate::fs::FileEntry;
 use crate::fs::attrs::FileAttrs;
 use crate::fs::ssh::SharedSshClient;
@@ -13,17 +12,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
 /// Sorting / visibility options copied from `AppState` and the panel.
-#[derive(Debug, Clone)]
-pub struct ListingOptions {
-    pub show_hidden: bool,
-    pub case_sensitive: bool,
-    pub natural: bool,
-    pub req_admin: bool,
-    pub sort_field: SortField,
-    pub sort_reverse: bool,
-    pub folder_by_ext: bool,
-    pub show_dotdot: bool,
-}
+pub use crate::fs::list::ListOptions as ListingOptions;
 
 /// Everything the background listing job needs; owned so it can cross threads.
 #[derive(Debug, Clone)]
@@ -93,26 +82,8 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
 fn read_entries(req: &ListingRequest) -> Result<Vec<FileEntry>, String> {
     let o = &req.options;
     let res = match &req.ssh {
-        Some(client) => client.read_directory(
-            &req.path,
-            o.show_hidden,
-            o.case_sensitive,
-            o.natural,
-            o.sort_field,
-            o.sort_reverse,
-            o.show_dotdot,
-        ),
-        None => crate::fs::read_directory_ext(
-            &req.path,
-            o.show_hidden,
-            o.case_sensitive,
-            o.natural,
-            o.req_admin,
-            o.sort_field,
-            o.sort_reverse,
-            o.folder_by_ext,
-            o.show_dotdot,
-        ),
+        Some(client) => client.read_directory(&req.path, o),
+        None => crate::fs::read_directory_ext(&req.path, o),
     };
     res.map_err(|e| e.to_string())
 }

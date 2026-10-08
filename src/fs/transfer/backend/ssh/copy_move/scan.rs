@@ -1,7 +1,7 @@
 use super::super::super::super::events::TransferEvent;
 use super::super::super::super::worker::is_destination_parent_dir;
-use super::super::super::BackendControl;
 use crate::fs::ssh::SharedSshClient;
+use crate::fs::transfer::control::JobControl;
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 
@@ -16,7 +16,7 @@ pub fn scan_sources(
     destination_dir: &Path,
     src_conn: &Option<SharedSshClient>,
     dst_conn: &Option<SharedSshClient>,
-    control: &BackendControl,
+    control: &JobControl,
 ) -> Result<ScanOutput, anyhow::Error> {
     let mut total_files = 0usize;
     let mut total_bytes = 0u64;
@@ -28,7 +28,7 @@ pub fn scan_sources(
     });
 
     for src in sources {
-        if control.cancelled() {
+        if control.is_cancelled() {
             return Err(anyhow!("Job cancelled"));
         }
         let is_dir = crate::fs::ssh::is_dir_on(src, src_conn);

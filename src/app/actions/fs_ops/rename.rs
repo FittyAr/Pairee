@@ -7,7 +7,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
     if let Some(entry) = active.entries.get(active.cursor_index) {
         let original = entry.name.clone();
         state.dialogs.replace(PopupType::RenamePrompt {
-            input: original.clone(),
+            input: original.as_str().into(),
             original,
             src_path: entry.path.clone(),
             parent_dir: active.current_path.clone(),

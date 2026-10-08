@@ -2,9 +2,10 @@
 
 use crate::app::actions::command_palette::filter_items;
 use crate::app::context::AppContext;
+use crate::app::list_nav::{FilterKey, filter_list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
@@ -15,66 +16,24 @@ pub fn handle(
         query,
         cursor_idx,
         items,
-    }) = state.dialogs.top().cloned()
+    }) = state.dialogs.top_mut()
     else {
         return Err(());
     };
-
-    match key.code {
-        KeyCode::Esc => {
+    match filter_list_key(query, cursor_idx, items.len(), &key) {
+        FilterKey::Moved => Ok(None),
+        FilterKey::QueryChanged => {
+            *items = filter_items(query.text());
+            Ok(None)
+        }
+        FilterKey::Activate(idx) => {
+            let action = items.get(idx).map(|(_, action)| *action);
+            state.dialogs.clear();
+            Ok(action)
+        }
+        FilterKey::Close => {
             state.dialogs.clear();
             Ok(None)
         }
-        KeyCode::Up => {
-            let new_idx = cursor_idx.saturating_sub(1);
-            state.dialogs.replace(PopupType::CommandPalette {
-                query,
-                cursor_idx: new_idx,
-                items,
-            });
-            Ok(None)
-        }
-        KeyCode::Down => {
-            let max = items.len().saturating_sub(1);
-            let new_idx = (cursor_idx + 1).min(max);
-            state.dialogs.replace(PopupType::CommandPalette {
-                query,
-                cursor_idx: new_idx,
-                items,
-            });
-            Ok(None)
-        }
-        KeyCode::Enter => {
-            if let Some((_, action)) = items.get(cursor_idx) {
-                let action = *action;
-                state.dialogs.clear();
-                return Ok(Some(action));
-            }
-            state.dialogs.clear();
-            Ok(None)
-        }
-        KeyCode::Backspace => {
-            let mut q = query;
-            q.pop();
-            let items = filter_items(&q);
-            state.dialogs.replace(PopupType::CommandPalette {
-                query: q,
-                cursor_idx: 0,
-                items,
-            });
-            Ok(None)
-        }
-        KeyCode::Char(c) => {
-            let mut q = query;
-            q.push(c);
-            let items = filter_items(&q);
-            state.dialogs.replace(PopupType::CommandPalette {
-                query: q,
-                cursor_idx: 0,
-                items,
-            });
-            Ok(None)
-        }
-        _ => Ok(None),
     }
 }

@@ -1,8 +1,8 @@
-use super::highlight::highlight_line;
 use crate::app::editor::EditorState;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
+use crate::ui::search_highlight::highlight_line;
 use crate::ui::text_width::{display_width, expand_tabs, skip_columns};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -56,11 +56,7 @@ pub fn render_editor_widget(
 
     // Check if there is an active search query from the search popup
     let search_info = match active_popup {
-        Some(PopupType::EditorSearchPrompt {
-            query,
-            case_sensitive,
-            ..
-        }) if !query.is_empty() => Some((query.as_str(), *case_sensitive)),
+        Some(PopupType::EditorSearchPrompt(search)) => search.active_query(),
         _ => None,
     };
     let normal_style = Style::default().fg(parse_color(&theme.panel_fg));

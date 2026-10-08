@@ -10,7 +10,6 @@ mod sftp_ops;
 #[cfg(test)]
 mod tests;
 
-use crate::app::state::SortField;
 use crate::config::localization::t;
 use crate::fs::entry::FileEntry;
 use crate::lock::LockExt;
@@ -95,23 +94,9 @@ impl SharedSshClient {
     pub fn read_directory(
         &self,
         path: &Path,
-        show_hidden: bool,
-        case_sensitive_sort: bool,
-        treat_digits_as_numbers: bool,
-        sort_field: SortField,
-        sort_reverse: bool,
-        show_dotdot_in_root_folders: bool,
+        opts: &crate::fs::list::ListOptions,
     ) -> Result<Vec<FileEntry>> {
-        sftp_ops::read_directory(
-            &self.lock().sftp,
-            path,
-            show_hidden,
-            case_sensitive_sort,
-            treat_digits_as_numbers,
-            sort_field,
-            sort_reverse,
-            show_dotdot_in_root_folders,
-        )
+        sftp_ops::read_directory(&self.lock().sftp, path, opts)
     }
 
     pub fn create_dir(&self, path: &Path) -> Result<()> {

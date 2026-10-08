@@ -13,6 +13,24 @@ pub(super) fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Resu
     })
 }
 
+/// Removes the description of `path` from its folder's description file.
+pub(super) fn forget_description(path: &std::path::Path) {
+    if let (Some(parent), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) {
+        let _ = crate::fs::descriptions::remove_description(parent, name);
+    }
+}
+
+/// Runs `remove` on `path`, retrying once after clearing read-only bits.
+pub(super) fn remove_forcing(
+    path: &std::path::Path,
+    remove: impl Fn(&std::path::Path) -> std::io::Result<()>,
+) -> std::io::Result<()> {
+    remove(path).or_else(|_| {
+        let _ = make_writable_helper(path);
+        remove(path)
+    })
+}
+
 pub(super) fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
     let metadata = path.symlink_metadata()?;
     if metadata.file_type().is_symlink() {

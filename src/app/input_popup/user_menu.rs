@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -89,57 +90,30 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::UserMenu { mut cursor_idx }) = state.dialogs.top().cloned() {
-        let items = get_user_menu_items();
-
-        match key.code {
-            KeyCode::Esc => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
-                if !items.is_empty() {
-                    cursor_idx = if cursor_idx > 0 {
-                        cursor_idx - 1
-                    } else {
-                        items.len() - 1
-                    };
-                    state.dialogs.replace(PopupType::UserMenu { cursor_idx });
-                }
-                return Ok(None);
-            }
-            KeyCode::Down | KeyCode::Char('j') | KeyCode::Char('J') => {
-                if !items.is_empty() {
-                    cursor_idx = if cursor_idx < items.len() - 1 {
-                        cursor_idx + 1
-                    } else {
-                        0
-                    };
-                    state.dialogs.replace(PopupType::UserMenu { cursor_idx });
-                }
-                return Ok(None);
-            }
-            KeyCode::Enter => {
-                if let Some(item) = items.get(cursor_idx) {
-                    state.dialogs.clear();
-                    return execute_item(state, context, item);
-                }
-                state.dialogs.clear();
-                return Ok(None);
-            }
+    let Some(PopupType::UserMenu { cursor_idx }) = state.dialogs.top_mut() else {
+        return Err(());
+    };
+    let items = get_user_menu_items();
+    let chosen = match list_key(ListKeys::ARROWS_VIM, key.code, cursor_idx, items.len()) {
+        ListKey::Moved => return Ok(None),
+        ListKey::Close => None,
+        ListKey::Activate(idx) => items.get(idx),
+        // Any other character runs the item with that shortcut key.
+        ListKey::Other => match key.code {
             KeyCode::Char(c) => {
                 let shortcut = c.to_string().to_uppercase();
-                if let Some(item) = items.iter().find(|it| it.key.to_uppercase() == shortcut) {
-                    state.dialogs.clear();
-                    return execute_item(state, context, item);
+                match items.iter().find(|it| it.key.to_uppercase() == shortcut) {
+                    Some(item) => Some(item),
+                    None => return Ok(None),
                 }
-                return Ok(None);
             }
-            _ => {}
-        }
-        Err(())
-    } else {
-        Err(())
+            _ => return Err(()),
+        },
+    };
+    state.dialogs.clear();
+    match chosen {
+        Some(item) => execute_item(state, context, item),
+        None => Ok(None),
     }
 }
 

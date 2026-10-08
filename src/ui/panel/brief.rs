@@ -1,22 +1,12 @@
-use crate::app::context::AppContext;
-use crate::app::state::PanelState;
-use crate::ui::panel::helpers::{build_row_style, entry_display_name_truncated};
+use super::list_ctx::ListCtx;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     widgets::{Block, Borders, Cell, Row, Table},
 };
 
-pub(crate) fn render_brief(
-    f: &mut Frame,
-    area: Rect,
-    panel: &PanelState,
-    is_active: bool,
-    context: &AppContext,
-    block: Block,
-    highlight_files: bool,
-) {
-    let theme = &context.config.theme;
+pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCtx) {
+    let panel = ctx.panel;
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -48,38 +38,9 @@ pub(crate) fn render_brief(
             .skip(col_start)
             .take(col_height)
             .map(|(i, entry)| {
-                let is_dimmed = if let Some(ref mask) = panel.quick_filter_mask {
-                    if entry.name == ".." {
-                        false
-                    } else {
-                        !entry.name.to_lowercase().contains(&mask.to_lowercase())
-                    }
-                } else {
-                    false
-                };
-                let git_status = if context.config.settings.git_enabled {
-                    panel.git_statuses.get(&entry.name).map(|s| s.as_str())
-                } else {
-                    None
-                };
-                let style = build_row_style(
-                    entry,
-                    i == panel.cursor_index,
-                    panel.selected_paths.contains(&entry.path),
-                    is_active,
-                    theme,
-                    highlight_files,
-                    is_dimmed,
-                    git_status,
-                );
+                let style = ctx.row_style(i, entry);
                 let name_width = cols[col_idx].width.saturating_sub(2) as usize;
-                Row::new(vec![Cell::from(entry_display_name_truncated(
-                    &entry.name,
-                    entry.is_dir,
-                    name_width.max(4),
-                    git_status,
-                ))])
-                .style(style)
+                Row::new(vec![Cell::from(ctx.name(entry, Some(name_width.max(4))))]).style(style)
             })
             .collect();
 

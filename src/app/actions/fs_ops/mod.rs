@@ -2,7 +2,6 @@ pub mod apply;
 pub mod archive_cmd;
 pub mod attributes;
 pub mod compress;
-pub mod copy;
 pub mod copy_path;
 pub mod delete;
 pub mod describe;
@@ -11,13 +10,14 @@ pub mod extract;
 pub mod helper;
 pub mod link;
 pub mod mkdir;
-pub mod r#move;
 pub mod rename;
+pub mod transfer;
 pub mod view;
 pub mod wipe;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
+use crate::app::state::popup::TransferPromptOp;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
 
@@ -30,9 +30,9 @@ pub fn handle_fs_action(
     match action {
         Action::View | Action::ViewAlt => view::handle(state, action, context, terminal_backend),
         Action::Edit => edit::handle(state, context),
-        Action::Copy => copy::handle(state, context),
+        Action::Copy => transfer::handle(state, context, TransferPromptOp::Copy),
         Action::CopyPath => copy_path::handle(state),
-        Action::Move => r#move::handle(state, context),
+        Action::Move => transfer::handle(state, context, TransferPromptOp::Move),
         Action::Rename => rename::handle(state, context),
         Action::CompressFiles => compress::handle(state, context),
         Action::ExtractArchive => extract::handle(state),

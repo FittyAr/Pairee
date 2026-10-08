@@ -1,78 +1,34 @@
-use super::super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use crate::ui::popup::kit::{self, TextBox};
+use ratatui::{Frame, layout::Rect, style::Color};
 
+/// Panel filter, quick filter and copy/move filter prompts: one mask field.
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    match popup {
-        PopupType::FilePanelFilterPrompt { input } => {
-            let area = centered_rect_fixed(50, 9, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("prompt_filter_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_filter_text").replacen("{}", input, 1);
-
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
+    let (input, title, text) = match popup {
+        PopupType::FilePanelFilterPrompt { input }
+        | PopupType::CopyMoveFilterPrompt { input, .. } => {
+            (input, "prompt_filter_title", "prompt_filter_text")
         }
-        PopupType::QuickFilterPrompt { input, .. } => {
-            let area = centered_rect_fixed(50, 9, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("prompt_quick_filter_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_quick_filter_text").replacen("{}", input, 1);
-
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::CopyMoveFilterPrompt { input, previous: _ } => {
-            let area = centered_rect_fixed(50, 9, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("prompt_filter_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_filter_text").replacen("{}", input, 1);
-
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        _ => false,
+        PopupType::QuickFilterPrompt { input, .. } => (
+            input,
+            "prompt_quick_filter_title",
+            "prompt_quick_filter_text",
+        ),
+        _ => return false,
+    };
+    TextBox {
+        size: (50, 9),
+        title: t(title),
+        border: kit::fg(Color::Cyan),
+        body: kit::prompt_text(&t(text), input, theme),
+        body_style: kit::popup_fg(theme),
     }
+    .render(f, size, theme);
+    true
 }

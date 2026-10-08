@@ -1,34 +1,16 @@
-use super::types::MenuItemData;
-use crate::config::localization::t;
+use super::types::{MenuBuilder, MenuItemData};
 use crate::keybindings::{Action, KeybindingResolver};
 
 pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
-    let shortcut_for = |action: Action, fallback: &str| -> String {
-        resolver
-            .key_for_action(action)
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| fallback.to_string())
-    };
-
-    vec![
-        MenuItemData::new(t("menu_help"), &shortcut_for(Action::Help, "F1"), false)
-            .with_action(Action::Help),
-        MenuItemData::new(t("menu_about"), &shortcut_for(Action::About, ""), false)
-            .with_action(Action::About),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_configuration"),
-            &shortcut_for(Action::SystemSettings, ""),
-            false,
-        )
-        .with_action(Action::SystemSettings),
-        MenuItemData::new(t("menu_check_updates"), "", false).with_action(Action::CheckForUpdates),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_save_setup"),
-            &shortcut_for(Action::SaveSetup, "Shf+F9"),
-            false,
-        )
-        .with_action(Action::SaveSetup),
-    ]
+    MenuBuilder::new(resolver)
+        .actions(&[
+            ("menu_help", Action::Help, "F1"),
+            ("menu_about", Action::About, ""),
+        ])
+        .separator()
+        .action(("menu_configuration", Action::SystemSettings, ""))
+        .plain("menu_check_updates", "", Some(Action::CheckForUpdates))
+        .separator()
+        .action(("menu_save_setup", Action::SaveSetup, "Shf+F9"))
+        .build()
 }

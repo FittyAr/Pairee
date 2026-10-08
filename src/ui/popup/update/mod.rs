@@ -1,13 +1,13 @@
 mod controls;
-mod wrap;
 
+pub use crate::ui::wrap::wrap_lines;
 pub use controls::render_controls;
-pub use wrap::wrap_lines;
 
 use super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -170,13 +170,17 @@ pub fn render(
     scrollbar::render_vertical_right(
         f,
         layout[2],
-        total_lines,
-        inner_height,
-        clamped_scroll,
+        ScrollView {
+            content_len: total_lines,
+            viewport_len: inner_height,
+            offset: clamped_scroll,
+        },
         theme,
-        ScrollbarSurface::Popup,
-        scrollbar,
-        ScrollTargetId::UpdateNotes,
+        ScrollTarget {
+            surface: ScrollbarSurface::Popup,
+            hits: scrollbar,
+            id: ScrollTargetId::UpdateNotes,
+        },
     );
 
     // Separator

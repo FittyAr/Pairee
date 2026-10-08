@@ -1,5 +1,6 @@
 use crate::app::state::types::PluginWidget;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -31,13 +32,17 @@ pub fn render_plugin_widget(
             scrollbar::render_vertical_inside_block(
                 f,
                 area,
-                content_len,
-                viewport,
-                scroll,
+                ScrollView {
+                    content_len,
+                    viewport_len: viewport,
+                    offset: scroll,
+                },
                 theme,
-                ScrollbarSurface::Panel,
-                scrollbar,
-                ScrollTargetId::QuickView,
+                ScrollTarget {
+                    surface: ScrollbarSurface::Panel,
+                    hits: scrollbar,
+                    id: ScrollTargetId::QuickView,
+                },
             );
         }
         PluginWidget::Gauge { ratio, label } => {
@@ -62,13 +67,17 @@ pub fn render_plugin_widget(
             scrollbar::render_vertical_inside_block(
                 f,
                 area,
-                items.len(),
-                viewport,
-                scroll,
+                ScrollView {
+                    content_len: items.len(),
+                    viewport_len: viewport,
+                    offset: scroll,
+                },
                 theme,
-                ScrollbarSurface::Panel,
-                scrollbar,
-                ScrollTargetId::QuickView,
+                ScrollTarget {
+                    surface: ScrollbarSurface::Panel,
+                    hits: scrollbar,
+                    id: ScrollTargetId::QuickView,
+                },
             );
         }
         PluginWidget::Table { headers, rows } => {

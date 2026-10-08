@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 use crate::app::state::{TransferTab, TransferUIState};
 use crate::fs::transfer::job::TransferResults;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 
 pub(crate) fn render_tabs(
     f: &mut Frame,
@@ -288,12 +289,16 @@ pub(crate) fn render_log_tab(
     scrollbar::render_vertical_inside_block(
         f,
         area,
-        total,
-        viewport.max(1),
-        start,
+        ScrollView {
+            content_len: total,
+            viewport_len: viewport.max(1),
+            offset: start,
+        },
         theme,
-        ScrollbarSurface::Popup,
-        scrollbar,
-        ScrollTargetId::TransferLog,
+        ScrollTarget {
+            surface: ScrollbarSurface::Popup,
+            hits: scrollbar,
+            id: ScrollTargetId::TransferLog,
+        },
     );
 }

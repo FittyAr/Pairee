@@ -99,11 +99,13 @@ pub enum SelectMode {
 #[derive(Debug, Clone)]
 pub enum TreeViewCaller {
     Panel(ActivePanel),
-    CopyPrompt { previous: Box<PopupType> },
-    MovePrompt { previous: Box<PopupType> },
+    /// Opened from the Copy / Move dialog, which is restored afterwards.
+    TransferPrompt {
+        previous: Box<PopupType>,
+    },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LinkKind {
     Symbolic,
     Hard,

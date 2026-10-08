@@ -1,129 +1,51 @@
+//! Git name prompt (branch create / rename, stash save, tag create) and the
+//! two-field dialogs (clone, add remote).
+
+use crate::app::form::FieldPair;
+use crate::app::state::popup::{GitNameAction, GitNamePromptState as Prompt};
+use crate::config::localization::t;
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::popup::kit::{self, FocusStyles};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    style::{Color, Modifier},
+    widgets::Paragraph,
 };
 
-/// Renders inputs prompts (Branch create/rename, Stash save).
-pub fn render_branch_create(
-    f: &mut Frame,
-    state: &crate::app::state::popup::GitBranchCreatePromptState,
-    theme: &Theme,
-    size: Rect,
-) -> bool {
-    let title = crate::config::localization::t("git_branch_create_title");
-    let label = crate::config::localization::t("git_branch_create_prompt");
-    render_prompt_box(
-        f,
-        theme,
-        size,
-        &title,
-        &label,
-        &state.input,
-        state.cursor_idx,
-    )
+/// Title and label of a name prompt.
+fn texts(action: &GitNameAction) -> (String, String) {
+    match action {
+        GitNameAction::CreateBranch { .. } => {
+            (t("git_branch_create_title"), t("git_branch_create_prompt"))
+        }
+        GitNameAction::RenameBranch { old_name } => (
+            t("git_branch_rename_title"),
+            t("git_branch_rename_prompt").replace("{}", old_name),
+        ),
+        GitNameAction::SaveStash { include_untracked } => (
+            t("git_stash_save_title"),
+            format!(
+                "{}  {} {}",
+                t("git_stash_save_prompt"),
+                if *include_untracked { "[X]" } else { "[ ]" },
+                t("git_stash_untracked_hint")
+            ),
+        ),
+        GitNameAction::CreateTag { .. } => (t("git_tag_create_title"), t("git_tag_create_prompt")),
+    }
 }
 
-pub fn render_branch_rename(
-    f: &mut Frame,
-    state: &crate::app::state::popup::GitBranchRenamePromptState,
-    theme: &Theme,
-    size: Rect,
-) -> bool {
-    let title = crate::config::localization::t("git_branch_rename_title");
-    let label =
-        crate::config::localization::t("git_branch_rename_prompt").replace("{}", &state.old_name);
-    render_prompt_box(
+pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: Rect) -> bool {
+    let (title, label) = texts(&prompt.action);
+    let inner = kit::frame_in(
         f,
+        centered_rect(60, 25, size),
+        kit::accent_title(format!(" {} ", title), Color::Cyan),
+        kit::fg(Color::Cyan),
         theme,
-        size,
-        &title,
-        &label,
-        &state.input,
-        state.cursor_idx,
-    )
-}
-
-pub fn render_stash_save(
-    f: &mut Frame,
-    state: &crate::app::state::popup::GitStashSavePromptState,
-    theme: &Theme,
-    size: Rect,
-) -> bool {
-    let title = crate::config::localization::t("git_stash_save_title");
-    let untracked_str = if state.include_untracked {
-        "[X]"
-    } else {
-        "[ ]"
-    };
-    let label = format!(
-        "{}  {} {}",
-        crate::config::localization::t("git_stash_save_prompt"),
-        untracked_str,
-        crate::config::localization::t("git_stash_untracked_hint")
     );
-    render_prompt_box(
-        f,
-        theme,
-        size,
-        &title,
-        &label,
-        &state.input,
-        state.cursor_idx,
-    )
-}
-
-pub fn render_tag_create(
-    f: &mut Frame,
-    state: &crate::app::state::popup::GitTagCreatePromptState,
-    theme: &Theme,
-    size: Rect,
-) -> bool {
-    let title = crate::config::localization::t("git_tag_create_title");
-    let label = crate::config::localization::t("git_tag_create_prompt");
-    render_prompt_box(
-        f,
-        theme,
-        size,
-        &title,
-        &label,
-        &state.input,
-        state.cursor_idx,
-    )
-}
-
-pub fn render_prompt_box(
-    f: &mut Frame,
-    theme: &Theme,
-    size: Rect,
-    title: &str,
-    label: &str,
-    input: &str,
-    cursor_idx: usize,
-) -> bool {
-    let area = centered_rect(60, 25, size);
-    f.render_widget(Clear, area);
-
-    let border_style = Style::default().fg(Color::Cyan);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(Span::styled(
-            format!(" {} ", title),
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        ))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-    let inner = block.inner(area);
-    f.render_widget(block, area);
-
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -134,58 +56,73 @@ pub fn render_prompt_box(
         ])
         .split(inner);
 
-    let prompt_p = Paragraph::new(label);
-    f.render_widget(prompt_p, chunks[0]);
-
-    let input_style = if cursor_idx == 0 {
-        Style::default()
-            .fg(Color::Yellow)
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(parse_color(&theme.popup_fg))
-    };
-
-    let input_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(if cursor_idx == 0 {
-            Style::default().fg(Color::Yellow)
-        } else {
-            Style::default().fg(Color::Gray)
-        });
-    let input_p = Paragraph::new(input).style(input_style).block(input_block);
-    f.render_widget(input_p, chunks[1]);
-
-    let ok_style = if cursor_idx == 1 {
-        Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(parse_color(&theme.popup_fg))
-    };
-
-    let cancel_style = if cursor_idx == 2 {
-        Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD)
-    } else {
-        Style::default().fg(parse_color(&theme.popup_fg))
-    };
-
-    let ok_text = format!(" [ {} ] ", crate::config::localization::t("btn_ok").trim());
-    let cancel_text = format!(
-        " [ {} ] ",
-        crate::config::localization::t("btn_cancel").trim()
+    f.render_widget(Paragraph::new(label), chunks[0]);
+    f.render_widget(
+        kit::input_box(&prompt.input, prompt.cursor_idx == 0, theme),
+        chunks[1],
     );
-    let buttons_line = Line::from(vec![
-        Span::styled(ok_text, ok_style),
-        Span::raw("    "),
-        Span::styled(cancel_text, cancel_style),
-    ]);
+    let styles = FocusStyles {
+        active: kit::selection(theme).add_modifier(Modifier::BOLD),
+        normal: kit::popup_fg(theme),
+    };
+    let buttons = [
+        format!(" [ {} ] ", t("btn_ok").trim()),
+        format!(" [ {} ] ", t("btn_cancel").trim()),
+    ];
+    f.render_widget(
+        kit::button_bar(
+            &buttons,
+            Prompt::FORM.focused_button(prompt.cursor_idx),
+            styles,
+        ),
+        chunks[3],
+    );
+    true
+}
 
-    let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
-    f.render_widget(buttons_para, chunks[3]);
+/// Labels and hint of a two-field dialog.
+pub struct PairTexts {
+    pub title: String,
+    pub labels: [String; 2],
+    pub hint: String,
+}
 
+/// Clone / add-remote: two labelled input boxes and a hint line.
+pub fn render_field_pair(
+    f: &mut Frame,
+    pair: &FieldPair,
+    texts: PairTexts,
+    theme: &Theme,
+    size: Rect,
+) -> bool {
+    let inner = kit::frame_in(
+        f,
+        centered_rect(65, 38, size),
+        kit::accent_title(texts.title, Color::Cyan),
+        kit::fg(Color::Cyan),
+        theme,
+    );
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // first label
+            Constraint::Length(3), // first input box
+            Constraint::Length(1), // second label
+            Constraint::Length(3), // second input box
+            Constraint::Length(1), // Spacer
+            Constraint::Length(1), // Hint bar
+        ])
+        .split(inner);
+    for (i, label) in texts.labels.into_iter().enumerate() {
+        f.render_widget(
+            Paragraph::new(label).style(kit::popup_fg(theme)),
+            chunks[i * 2],
+        );
+        f.render_widget(
+            kit::input_box(&pair.fields[i], pair.focus == i, theme),
+            chunks[i * 2 + 1],
+        );
+    }
+    f.render_widget(kit::hint(texts.hint), chunks[5]);
     true
 }

@@ -1,6 +1,7 @@
 pub mod backend;
 pub mod conflict;
 pub mod conflict_slot;
+pub mod control;
 pub mod direct_io;
 pub mod engine;
 pub mod events;
@@ -8,6 +9,7 @@ pub mod filter;
 pub mod hash;
 pub mod history;
 pub mod job;
+pub mod job_log;
 pub mod metadata;
 pub mod network;
 pub mod options;

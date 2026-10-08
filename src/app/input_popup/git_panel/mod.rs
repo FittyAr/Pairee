@@ -7,9 +7,16 @@ mod tabs;
 pub use refresh::refresh_git_panel;
 
 use crate::app::context::AppContext;
+use crate::app::list_nav::{NavStep, wrap_next, wrap_prev};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+/// Number of Git panel tabs (Status, Log, Branches, Stash, Tags).
+const TABS: usize = 5;
+const LOG_TAB: usize = 1;
+/// Log entries fetched per page when scrolling near the end.
+const LOG_PAGE: usize = 50;
 
 /// Handles keyboard input for the main Git panel popup.
 pub fn handle(
@@ -17,188 +24,90 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::GitPanel(crate::app::state::GitPanelState {
-        mut active_tab,
-        mut cursor_idx,
-        mut scroll,
-        status_entries,
-        mut log_entries,
-        branch_entries,
-        stash_entries,
-        tag_entries,
-        repo_path,
-        current_branch,
-        ..
-    })) = state.dialogs.top().cloned()
-    {
-        let is_shift = key.modifiers.contains(KeyModifiers::SHIFT);
+    let Some(PopupType::GitPanel(panel)) = state.dialogs.top_mut() else {
+        return Err(());
+    };
+    // Tabs and cursor movement edit the panel in place.
+    if navigate(panel, &key) {
+        return Ok(None);
+    }
+    // Actions may open dialogs over the panel, so they work on a snapshot.
+    let panel = panel.clone();
+    let (repo, tab, cursor) = (&panel.repo_path, panel.active_tab, panel.cursor_idx);
+    match key.code {
+        KeyCode::Char('f' | 'F') => remote::handle_fetch(state, repo),
+        KeyCode::Char('l' | 'L') => remote::handle_pull(state, repo, tab, cursor),
+        KeyCode::Char('u' | 'U') => remote::handle_push(state, repo),
+        _ if tab_action(state, &panel, key.code) => {}
+        KeyCode::Char('r' | 'R') | KeyCode::F(5) => {
+            refresh_git_panel(state, repo, tab, cursor);
+        }
+        KeyCode::Esc | KeyCode::Char('q' | 'Q') => state.dialogs.clear(),
+        _ => {}
+    }
+    Ok(None)
+}
 
-        let current_list_len = match active_tab {
-            0 => status_entries.len(),
-            1 => log_entries.len(),
-            2 => branch_entries.len(),
-            3 => stash_entries.len(),
-            4 => tag_entries.len(),
-            _ => 0,
+/// Tab switching and list movement. Returns `false` for other keys.
+fn navigate(panel: &mut crate::app::state::GitPanelState, key: &KeyEvent) -> bool {
+    let back = key.code == KeyCode::BackTab
+        || (key.code == KeyCode::Tab && key.modifiers.contains(KeyModifiers::SHIFT));
+    if back || key.code == KeyCode::Tab {
+        panel.active_tab = if back {
+            wrap_prev(panel.active_tab, TABS)
+        } else {
+            wrap_next(panel.active_tab, TABS)
         };
+        panel.cursor_idx = 0;
+        panel.scroll = 0;
+        return true;
+    }
+    let Some(step) = NavStep::from_key(key.code) else {
+        return false;
+    };
+    let len = match panel.active_tab {
+        0 => panel.status_entries.len(),
+        1 => panel.log_entries.len(),
+        2 => panel.branch_entries.len(),
+        3 => panel.stash_entries.len(),
+        4 => panel.tag_entries.len(),
+        _ => 0,
+    };
+    panel.cursor_idx = step.apply_clamped(panel.cursor_idx, len);
+    // Load more history when getting close to the end of the log.
+    if panel.active_tab == LOG_TAB
+        && matches!(step, NavStep::Next | NavStep::PageDown)
+        && panel.cursor_idx + 10 >= panel.log_entries.len()
+        && let Some(repo) = crate::git::repo::find_repo(&panel.repo_path)
+    {
+        let more = crate::git::log::get_log_paged(&repo, panel.log_entries.len(), LOG_PAGE);
+        panel.log_entries.extend(more);
+    }
+    // Keep the cursor in view.
+    panel.scroll = panel.scroll.min(panel.cursor_idx);
+    true
+}
 
-        match key.code {
-            // ── Tab navigation (5 tabs) ──────────────────────────────────────
-            KeyCode::Tab if !is_shift => {
-                active_tab = (active_tab + 1) % 5;
-                cursor_idx = 0;
-                scroll = 0;
-            }
-            KeyCode::BackTab | KeyCode::Tab if is_shift => {
-                active_tab = if active_tab == 0 { 4 } else { active_tab - 1 };
-                cursor_idx = 0;
-                scroll = 0;
-            }
-
-            // ── Cursor movement ──────────────────────────────────────────────
-            KeyCode::Up => {
-                cursor_idx = cursor_idx.saturating_sub(1);
-            }
-            KeyCode::Down => {
-                if current_list_len > 0 && cursor_idx < current_list_len - 1 {
-                    cursor_idx += 1;
-                }
-                if active_tab == 1
-                    && cursor_idx + 10 >= log_entries.len()
-                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
-                {
-                    let more = crate::git::log::get_log_paged(&repo, log_entries.len(), 50);
-                    if !more.is_empty() {
-                        log_entries.extend(more);
-                    }
-                }
-            }
-            KeyCode::PageUp => {
-                cursor_idx = cursor_idx.saturating_sub(10);
-            }
-            KeyCode::PageDown => {
-                cursor_idx = (cursor_idx + 10).min(current_list_len.saturating_sub(1));
-                if active_tab == 1
-                    && cursor_idx + 10 >= log_entries.len()
-                    && let Some(repo) = crate::git::repo::find_repo(&repo_path)
-                {
-                    let more = crate::git::log::get_log_paged(&repo, log_entries.len(), 50);
-                    if !more.is_empty() {
-                        log_entries.extend(more);
-                    }
-                }
-            }
-            KeyCode::Home => {
-                cursor_idx = 0;
-            }
-            KeyCode::End => {
-                cursor_idx = current_list_len.saturating_sub(1);
-            }
-
-            // ── Global Remote Actions (Fetch / Pull / Push) ──────────────────
-            KeyCode::Char('f') | KeyCode::Char('F') => {
-                remote::handle_fetch(state, &repo_path);
-                return Ok(None);
-            }
-            KeyCode::Char('l') | KeyCode::Char('L') => {
-                remote::handle_pull(state, &repo_path, active_tab, cursor_idx);
-                return Ok(None);
-            }
-            KeyCode::Char('u') | KeyCode::Char('U') => {
-                remote::handle_push(state, &repo_path);
-                return Ok(None);
-            }
-
-            // ── Tab 0 (Status) Actions ───────────────────────────────────────
-            _ if active_tab == 0
-                && tabs::handle_status_tab(
-                    state,
-                    key.code,
-                    &repo_path,
-                    &status_entries,
-                    cursor_idx,
-                ) =>
-            {
-                return Ok(None);
-            }
-
-            // ── Tab 1 (Log) Actions ──────────────────────────────────────────
-            _ if active_tab == 1
-                && tabs::handle_log_tab(state, key.code, &repo_path, &log_entries, cursor_idx) =>
-            {
-                return Ok(None);
-            }
-
-            // ── Tab 2 (Branches) Actions ─────────────────────────────────────
-            _ if active_tab == 2
-                && tabs::handle_branch_tab(
-                    state,
-                    key.code,
-                    &repo_path,
-                    &branch_entries,
-                    cursor_idx,
-                    &current_branch,
-                ) =>
-            {
-                return Ok(None);
-            }
-
-            // ── Tab 3 (Stash) Actions ────────────────────────────────────────
-            _ if active_tab == 3
-                && tabs::handle_stash_tab(
-                    state,
-                    key.code,
-                    &repo_path,
-                    &stash_entries,
-                    cursor_idx,
-                ) =>
-            {
-                return Ok(None);
-            }
-
-            // ── Tab 4 (Tags) Actions ─────────────────────────────────────────
-            _ if active_tab == 4
-                && tabs::handle_tag_tab(state, key.code, &repo_path, &tag_entries, cursor_idx) =>
-            {
-                return Ok(None);
-            }
-
-            // ── Refresh ──────────────────────────────────────────────────────
-            KeyCode::Char('r') | KeyCode::Char('R') | KeyCode::F(5) => {
-                refresh_git_panel(state, &repo_path, active_tab, cursor_idx);
-                return Ok(None);
-            }
-
-            // ── Close ────────────────────────────────────────────────────────
-            KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('Q') => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-
-            _ => return Ok(None),
-        }
-
-        // Update scroll so cursor stays in view
-        if cursor_idx < scroll {
-            scroll = cursor_idx;
-        }
-
-        state
-            .dialogs
-            .replace(PopupType::GitPanel(crate::app::state::GitPanelState {
-                repo_path,
-                active_tab,
-                cursor_idx,
-                scroll,
-                status_entries,
-                log_entries,
-                branch_entries,
-                stash_entries,
-                tag_entries,
-                current_branch,
-            }));
-        Ok(None)
-    } else {
-        Err(())
+/// Runs the key as an action of the active tab. Returns `true` if handled.
+fn tab_action(
+    state: &mut AppState,
+    panel: &crate::app::state::GitPanelState,
+    code: KeyCode,
+) -> bool {
+    let (repo, cursor) = (&panel.repo_path, panel.cursor_idx);
+    match panel.active_tab {
+        0 => tabs::handle_status_tab(state, code, repo, &panel.status_entries, cursor),
+        1 => tabs::handle_log_tab(state, code, repo, &panel.log_entries, cursor),
+        2 => tabs::handle_branch_tab(
+            state,
+            code,
+            repo,
+            &panel.branch_entries,
+            cursor,
+            &panel.current_branch,
+        ),
+        3 => tabs::handle_stash_tab(state, code, repo, &panel.stash_entries, cursor),
+        4 => tabs::handle_tag_tab(state, code, repo, &panel.tag_entries, cursor),
+        _ => false,
     }
 }

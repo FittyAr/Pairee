@@ -1,13 +1,6 @@
 use crate::app::state::AppState;
 
-/// First non-empty line of a bracketed-paste payload (`\r` stripped).
-pub fn first_paste_line(raw: &str) -> String {
-    raw.replace('\r', "")
-        .lines()
-        .find(|line| !line.is_empty())
-        .unwrap_or("")
-        .to_string()
-}
+use crate::app::text_input::first_paste_line;
 
 /// Insert a paste into the focused text field, or the CLI when no overlay is open.
 pub fn handle_paste(state: &mut AppState, raw: &str) {
@@ -29,13 +22,6 @@ mod paste_tests {
     use super::*;
     use crate::app::state::PopupType;
     use std::path::PathBuf;
-
-    #[test]
-    fn first_paste_line_strips_cr_and_extra_lines() {
-        assert_eq!(first_paste_line("hello\r\nworld"), "hello");
-        assert_eq!(first_paste_line("\n\nfoo"), "foo");
-        assert_eq!(first_paste_line(""), "");
-    }
 
     #[test]
     fn paste_goes_to_cli_when_no_dialog() {

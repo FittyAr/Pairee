@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod fkeys;
+pub mod half_block_image;
 pub mod highlight;
 pub mod hotkey;
 pub mod layout;
@@ -9,11 +10,13 @@ pub mod popup;
 pub mod quickview;
 pub mod screens;
 pub mod scrollbar;
+pub mod search_highlight;
 pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;
 pub mod viewer;
 pub mod which_key_prefix;
+pub mod wrap;
 
 #[cfg(test)]
 mod tests;

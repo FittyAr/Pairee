@@ -45,7 +45,7 @@ pub fn filter_items(query: &str, items: &[WhichKeyItem]) -> Vec<WhichKeyItem> {
 pub fn open_which_key(state: &mut AppState, resolver: &KeybindingResolver) {
     let items = all_items(resolver);
     state.dialogs.replace(PopupType::WhichKey {
-        query: String::new(),
+        query: Default::default(),
         cursor_idx: 0,
         items,
     });

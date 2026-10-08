@@ -84,11 +84,7 @@ pub fn clone_repo_prompt_action(state: &mut AppState, context: &AppContext) -> b
             crate::app::state::popup::GitPromptPopup::ClonePrompt(
                 crate::app::state::popup::GitClonePromptState {
                     target_parent_path,
-                    url_input: String::new(),
-                    dir_input: String::new(),
-                    focus_dir: false,
-                    url_cursor: 0,
-                    dir_cursor: 0,
+                    fields: Default::default(),
                 },
             ),
         ));

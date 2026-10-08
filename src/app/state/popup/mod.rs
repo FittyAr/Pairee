@@ -3,6 +3,7 @@
 
 mod config_dialog;
 mod file_ops;
+pub mod forms;
 mod git_panel;
 mod git_prompts;
 mod paste;
@@ -11,26 +12,28 @@ mod plugin_menu;
 mod plugin_widget;
 mod quickview;
 mod ssh;
+mod text_search;
 
 pub use config_dialog::ConfigurationDialogState;
-pub use file_ops::CopyMovePromptState;
+pub use file_ops::{CopyMovePromptState, TransferPromptOp};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
-    GitBranchCreatePromptState, GitBranchRenamePromptState, GitClonePromptState,
-    GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState, GitDiffViewState,
-    GitPromptPopup, GitRemoteAddState, GitRemoteManageState, GitStashSavePromptState,
-    GitTagCreatePromptState,
+    GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,
+    GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
+    GitRemoteManageState,
 };
 pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
 pub use quickview::QuickViewDialog;
-pub use ssh::SshConnectPromptState;
+pub use ssh::{SshConnectPromptState, SshField};
+pub use text_search::{SearchKey, TextSearchState};
 
 use super::types::{
     ActivePanel, AdminOpKind, FileAttrsSnapshot, LinkKind, ProcessEntry, SelectMode, SortField,
     TreeNode, TreeViewCaller,
 };
+use crate::app::text_input::TextField;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -51,14 +54,14 @@ pub enum PopupType {
     Info(String),
 
     MkDirPrompt {
-        input: String,
+        input: TextField,
         cursor_idx: usize,
         process_multiple: bool,
     },
-    CopyPrompt(CopyMovePromptState),
-    MovePrompt(CopyMovePromptState),
+    /// Copy (F5) / Move (F6) dialog.
+    TransferPrompt(CopyMovePromptState),
     RenamePrompt {
-        input: String,
+        input: TextField,
         original: String,
         src_path: PathBuf,
         parent_dir: PathBuf,
@@ -71,38 +74,38 @@ pub enum PopupType {
         history_type: String,
     },
     CompressPrompt {
-        input: String,
+        input: TextField,
         targets: Vec<PathBuf>,
         dest_dir: PathBuf,
     },
     ApplyCommandPrompt {
-        input: String,
+        input: TextField,
         targets: Vec<PathBuf>,
     },
     DescribeFilePrompt {
         path: PathBuf,
         current_desc: String,
-        input: String,
+        input: TextField,
     },
     SelectGroupPrompt {
         mode: SelectMode,
-        query: String,
+        query: TextField,
     },
     CreateLinkPrompt {
         src: PathBuf,
-        dest_input: String,
+        dest_input: TextField,
         kind: LinkKind,
     },
     FilePanelFilterPrompt {
-        input: String,
+        input: TextField,
     },
     QuickFilterPrompt {
-        input: String,
+        input: TextField,
         original_mask: Option<String>,
         original_cursor: usize,
     },
     CopyMoveFilterPrompt {
-        input: String,
+        input: TextField,
         previous: Box<PopupType>,
     },
     SelectDevPlugin {
@@ -167,26 +170,18 @@ pub enum PopupType {
         suspended_popup: Option<Box<PopupType>>,
     },
 
-    EditorSearchPrompt {
-        query: String,
-        case_sensitive: bool,
-        cursor_idx: usize,
-    },
+    EditorSearchPrompt(TextSearchState),
     ConfirmDiscardEditorChanges,
     /// "Save as" path entry for the built-in editor (Shift+F2).
     EditorSaveAsPrompt {
-        input: String,
+        input: TextField,
     },
     /// Saving would overwrite a file changed on disk or an existing target.
     EditorConfirmOverwrite {
         target: PathBuf,
         reason: crate::app::editor::open::OverwriteReason,
     },
-    ViewerSearchPrompt {
-        query: String,
-        case_sensitive: bool,
-        cursor_idx: usize,
-    },
+    ViewerSearchPrompt(TextSearchState),
     QuickViewPanel(Box<QuickViewDialog>),
 
     InfoPanel {
@@ -198,8 +193,8 @@ pub enum PopupType {
     },
 
     SearchPrompt {
-        query: String,
-        content_query: String,
+        query: TextField,
+        content_query: TextField,
         search_root: PathBuf,
         case_sensitive: bool,
         search_target: crate::fs::search::SearchTarget,
@@ -233,7 +228,7 @@ pub enum PopupType {
     TaskListDialog {
         tasks: Vec<ProcessEntry>,
         cursor_idx: usize,
-        filter_query: String,
+        filter_query: TextField,
         is_filtering: bool,
     },
 
@@ -242,7 +237,7 @@ pub enum PopupType {
         cursor_idx: usize,
         editing_idx: Option<usize>,
         editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
-        edit_buffer: String,
+        edit_buffer: TextField,
         original_rule: Option<crate::config::associations::AssocRule>,
     },
 
@@ -262,14 +257,14 @@ pub enum PopupType {
 
     ColorGroupsDialog {
         cursor_idx: usize,
-        editing: bool,
-        edit_buffer: String,
+        /// The color being typed (Enter), if any.
+        edit: Option<TextField>,
         theme: crate::config::theme::Theme,
     },
     FilesHighlightingDialog {
         cursor_idx: usize,
-        editing: bool,
-        edit_buffer: String,
+        /// The color being typed (Enter), if any.
+        edit: Option<TextField>,
         rules: Vec<crate::ui::highlight::HighlightRule>,
     },
 
@@ -295,13 +290,13 @@ pub enum PopupType {
     },
 
     CommandPalette {
-        query: String,
+        query: TextField,
         cursor_idx: usize,
         items: Vec<(String, crate::keybindings::Action)>,
     },
 
     WhichKey {
-        query: String,
+        query: TextField,
         cursor_idx: usize,
         items: Vec<(String, String, crate::keybindings::Action)>,
     },

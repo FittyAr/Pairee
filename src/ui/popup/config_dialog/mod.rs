@@ -1,21 +1,8 @@
-pub mod colors;
-pub mod confirmations;
-pub mod editor_viewer;
-pub mod git;
-pub mod interface;
-pub mod panel;
-pub mod plugins;
-pub mod system;
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum RowType {
-    Setting(usize),
-    Title,
-    Subtitle,
-    Hint,
-}
+//! Configuration dialog: tab list on the left, the rows of the active tab
+//! (from [`crate::app::config_rows`]) on the right.
 
 use super::centered_rect;
+use crate::app::config_rows::{Row, RowCtx, TAB_KEYS, tab_rows};
 use crate::app::state::PopupType;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -37,8 +24,7 @@ pub fn render_config_dialog_popup(
         PopupType::ConfigurationDialog(crate::app::state::ConfigurationDialogState {
             active_tab,
             cursor_idx,
-            editing_value,
-            edit_buffer,
+            edit,
             settings,
             focus_on_tabs,
         }) => {
@@ -94,16 +80,7 @@ pub fn render_config_dialog_popup(
                 bottom_sep_area,
             );
 
-            let tab_titles = [
-                crate::config::localization::t("tab_system"),
-                crate::config::localization::t("tab_panel"),
-                crate::config::localization::t("tab_interface"),
-                crate::config::localization::t("tab_confirmations"),
-                crate::config::localization::t("tab_plugins"),
-                crate::config::localization::t("tab_editor"),
-                crate::config::localization::t("tab_colors"),
-                crate::config::localization::t("tab_git"),
-            ];
+            let tab_titles = TAB_KEYS.map(crate::config::localization::t);
 
             let mut tab_lines = Vec::new();
             for (i, title) in tab_titles.iter().enumerate() {
@@ -148,74 +125,65 @@ pub fn render_config_dialog_popup(
             }
             f.render_widget(Paragraph::new(tab_lines), tabs_area);
 
-            let mut rows: Vec<(String, RowType)> = Vec::new();
-
-            match active_tab {
-                0 => system::populate_rows(settings, &mut rows),
-                1 => panel::populate_rows(settings, &mut rows),
-                2 => interface::populate_rows(settings, &mut rows, custom_bindings),
-                3 => confirmations::populate_rows(settings, &mut rows),
-                4 => plugins::populate_rows(settings, &mut rows),
-                5 => editor_viewer::populate_rows(settings, &mut rows),
-                6 => colors::populate_rows(settings, &mut rows),
-                7 => git::populate_rows(
+            let rows = tab_rows(
+                *active_tab,
+                &RowCtx {
                     settings,
-                    *editing_value,
-                    *cursor_idx,
-                    edit_buffer,
-                    &mut rows,
-                ),
-                _ => {}
-            }
-
-            rows.push((
+                    custom_bindings,
+                },
+            );
+            let ok_cancel = [
                 crate::config::localization::t("btn_ok"),
-                RowType::Setting(9998),
-            ));
-            rows.push((
                 crate::config::localization::t("btn_cancel"),
-                RowType::Setting(9999),
-            ));
+            ];
+            let row_count = rows.len() + ok_cancel.len();
 
             let list_height = content_area.height as usize;
             let scroll_start = cursor_idx.saturating_sub(list_height / 2);
             let mut list_spans = Vec::new();
 
-            for (i, (label, row_type)) in
-                rows.iter().enumerate().skip(scroll_start).take(list_height)
-            {
+            for i in (scroll_start..row_count).take(list_height) {
                 let is_cursor = i == *cursor_idx;
-
-                let style = match row_type {
-                    RowType::Title => Style::default()
-                        .fg(Color::Cyan)
-                        .add_modifier(Modifier::BOLD),
-                    RowType::Subtitle => Style::default().fg(Color::Yellow),
-                    RowType::Hint => Style::default().fg(Color::DarkGray),
-                    RowType::Setting(_) => {
-                        if is_cursor && !*focus_on_tabs {
-                            Style::default()
-                                .bg(parse_color(&theme.selection_bg))
-                                .fg(parse_color(&theme.selection_fg))
-                                .add_modifier(Modifier::BOLD)
-                        } else if is_cursor && *focus_on_tabs {
-                            Style::default()
-                                .fg(parse_color(&theme.selection_bg))
-                                .add_modifier(Modifier::BOLD)
-                        } else {
-                            Style::default().fg(parse_color(&theme.popup_fg))
-                        }
+                let selected = if *focus_on_tabs {
+                    Style::default()
+                        .fg(parse_color(&theme.selection_bg))
+                        .add_modifier(Modifier::BOLD)
+                } else {
+                    Style::default()
+                        .bg(parse_color(&theme.selection_bg))
+                        .fg(parse_color(&theme.selection_fg))
+                        .add_modifier(Modifier::BOLD)
+                };
+                let setting_style = if is_cursor {
+                    selected
+                } else {
+                    Style::default().fg(parse_color(&theme.popup_fg))
+                };
+                let (text, style) = match rows.get(i) {
+                    Some(Row::Title(label)) => (
+                        format!("━━━ {} ━━━", label.text()),
+                        Style::default()
+                            .fg(Color::Cyan)
+                            .add_modifier(Modifier::BOLD),
+                    ),
+                    Some(Row::Subtitle(label)) => (
+                        format!("  {}", label.text()),
+                        Style::default().fg(Color::Yellow),
+                    ),
+                    Some(Row::Hint(label)) => (
+                        format!("  {}  ", label.text()),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                    Some(Row::Setting(setting)) => {
+                        let editing = edit.as_ref().filter(|_| is_cursor);
+                        (
+                            format!("  {}  ", setting.text(settings, editing)),
+                            setting_style,
+                        )
                     }
+                    None => (format!("  {}  ", ok_cancel[i - rows.len()]), setting_style),
                 };
-
-                let display_label = match row_type {
-                    RowType::Title => format!("━━━ {} ━━━", label),
-                    RowType::Subtitle => format!("  {}", label),
-                    RowType::Setting(_) => format!("  {}  ", label),
-                    RowType::Hint => format!("  {}  ", label),
-                };
-
-                list_spans.push(Line::from(Span::styled(display_label, style)));
+                list_spans.push(Line::from(Span::styled(text, style)));
             }
 
             f.render_widget(Paragraph::new(list_spans), content_area);

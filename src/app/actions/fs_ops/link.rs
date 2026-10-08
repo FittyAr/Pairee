@@ -7,7 +7,7 @@ pub fn handle(state: &mut AppState) -> bool {
     {
         state.dialogs.replace(PopupType::CreateLinkPrompt {
             src: entry.path.clone(),
-            dest_input: entry.name.clone(),
+            dest_input: entry.name.as_str().into(),
             kind: LinkKind::Symbolic,
         });
     }

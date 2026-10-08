@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 use crate::app::state::TransferUIState;
 use crate::fs::transfer::job::TransferResults;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 
 pub(crate) fn render_file_list_tab(
     f: &mut Frame,
@@ -136,12 +137,16 @@ pub(crate) fn render_file_list_tab(
     scrollbar::render_vertical_inside_block(
         f,
         area,
-        total_files,
-        height.max(1),
-        start,
+        ScrollView {
+            content_len: total_files,
+            viewport_len: height.max(1),
+            offset: start,
+        },
         theme,
-        ScrollbarSurface::Popup,
-        scrollbar,
-        ScrollTargetId::TransferFiles,
+        ScrollTarget {
+            surface: ScrollbarSurface::Popup,
+            hits: scrollbar,
+            id: ScrollTargetId::TransferFiles,
+        },
     );
 }

@@ -1,40 +1,31 @@
-use super::wrap_text;
+use super::{Pane, spinner_frame, wrap_text};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::Rect,
     style::{Color, Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
 };
 
-/// Returns a rotating spinner character (Unicode block) for the current
-/// time. Used for indeterminate progress when no `(current, total)` is
-/// available.
-fn spinner_frame() -> &'static str {
-    const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() / 200)
-        .unwrap_or(0);
-    FRAMES[(now as usize) % FRAMES.len()]
-}
-
 pub fn render_dev(
     f: &mut Frame,
-    list_area: Rect,
-    detail_area: Rect,
-    cursor_idx: usize,
-    dev_results: &str,
-    dev_loading: bool,
-    dev_loading_status: &str,
-    dev_loading_progress: Option<(usize, usize)>,
-    theme: &crate::config::theme::Theme,
-    border_style: Style,
-    bg_style: Style,
+    pane: &Pane,
+    menu: &crate::app::state::PluginMenuState,
     active_dev_plugin: &Option<String>,
 ) {
+    let Pane {
+        list_area,
+        detail_area,
+        theme,
+        border_style,
+        bg_style,
+    } = *pane;
+    let cursor_idx = menu.cursor_idx;
+    let dev_results = menu.dev_results.as_str();
+    let dev_loading = menu.dev_loading;
+    let dev_loading_status = menu.dev_loading_status.as_str();
+    let dev_loading_progress = menu.dev_loading_progress;
     let text_style = Style::default().fg(parse_color(&theme.popup_fg));
     let dim_style = Style::default()
         .fg(parse_color(&theme.popup_fg))

@@ -9,7 +9,7 @@ pub enum PluginDialog {
     },
     Input {
         title: String,
-        input: String,
+        input: crate::app::text_input::TextField,
         obscure: bool,
         position: Option<crate::plugin::manager::DialogPosition>,
     },

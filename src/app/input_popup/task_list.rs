@@ -10,134 +10,97 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::TaskListDialog {
-        mut tasks,
-        mut cursor_idx,
-        mut filter_query,
-        mut is_filtering,
-    }) = state.dialogs.top().cloned()
-    {
-        if is_filtering {
-            match key.code {
-                KeyCode::Esc => {
-                    filter_query.clear();
-                    is_filtering = false;
-                    cursor_idx = 0;
-                    apply_filter(&mut tasks, &filter_query);
-                }
-                KeyCode::Enter => {
-                    is_filtering = false;
-                    let matches = get_matching_count(&tasks, &filter_query);
-                    if matches == 0 {
-                        cursor_idx = 0;
-                    } else if cursor_idx >= matches {
-                        cursor_idx = matches.saturating_sub(1);
-                    }
-                }
-                KeyCode::Backspace => {
-                    filter_query.pop();
-                    apply_filter(&mut tasks, &filter_query);
-                    let matches = get_matching_count(&tasks, &filter_query);
-                    if matches == 0 {
-                        cursor_idx = 0;
-                    } else if cursor_idx >= matches {
-                        cursor_idx = matches.saturating_sub(1);
-                    }
-                }
-                KeyCode::Char(c) => {
-                    filter_query.push(c);
-                    apply_filter(&mut tasks, &filter_query);
-                    let matches = get_matching_count(&tasks, &filter_query);
-                    if matches == 0 {
-                        cursor_idx = 0;
-                    } else if cursor_idx >= matches {
-                        cursor_idx = matches.saturating_sub(1);
-                    }
-                }
-                _ => {}
+    let Some(PopupType::TaskListDialog {
+        tasks,
+        cursor_idx,
+        filter_query,
+        is_filtering,
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    if *is_filtering {
+        match key.code {
+            KeyCode::Esc => {
+                filter_query.clear();
+                *is_filtering = false;
+                *cursor_idx = 0;
+                apply_filter(tasks, filter_query.text());
             }
-        } else {
-            match key.code {
-                KeyCode::Esc => {
-                    if !filter_query.is_empty() {
-                        filter_query.clear();
-                        cursor_idx = 0;
-                        apply_filter(&mut tasks, &filter_query);
-                    } else {
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
+            KeyCode::Enter => {
+                *is_filtering = false;
+                clamp_cursor(tasks, filter_query.text(), cursor_idx);
+            }
+            _ => {
+                if filter_query.handle_edit_key(&key).consumed() {
+                    apply_filter(tasks, filter_query.text());
+                    clamp_cursor(tasks, filter_query.text(), cursor_idx);
                 }
-                KeyCode::Char('/') => {
-                    is_filtering = true;
-                }
-                KeyCode::Up => {
-                    cursor_idx = cursor_idx.saturating_sub(1);
-                }
-                KeyCode::Down => {
-                    let limit = get_matching_count(&tasks, &filter_query);
-                    if limit > 0 && cursor_idx < limit.saturating_sub(1) {
-                        cursor_idx += 1;
-                    }
-                }
-                KeyCode::Delete | KeyCode::Char('k') | KeyCode::Char('K') => {
-                    if let Some(task) = tasks.get(cursor_idx) {
-                        let pid = task.pid;
-                        match kill_process(pid) {
-                            Ok(_) => {
-                                tasks = get_process_list();
-                                apply_filter(&mut tasks, &filter_query);
-                                let limit = get_matching_count(&tasks, &filter_query);
-                                if limit == 0 {
-                                    cursor_idx = 0;
-                                } else if cursor_idx >= limit {
-                                    cursor_idx = limit.saturating_sub(1);
-                                }
-                            }
-                            Err(e) => {
-                                state.dialogs.replace(PopupType::Error(
-                                    t("error_kill_process_failed").replace("{}", &e.to_string()),
-                                ));
-                                return Ok(None);
-                            }
-                        }
-                    }
-                }
-                KeyCode::Char('r') | KeyCode::Char('R') => {
-                    if let Some(task) = tasks.get(cursor_idx) {
-                        let pid = task.pid;
-                        match crate::app::sys_helpers::restart_process(pid) {
-                            Ok(_) => {
-                                tasks = get_process_list();
-                                apply_filter(&mut tasks, &filter_query);
-                                let limit = get_matching_count(&tasks, &filter_query);
-                                if limit == 0 {
-                                    cursor_idx = 0;
-                                } else if cursor_idx >= limit {
-                                    cursor_idx = limit.saturating_sub(1);
-                                }
-                            }
-                            Err(e) => {
-                                state.dialogs.replace(PopupType::Error(
-                                    t("error_restart_process_failed").replace("{}", &e.to_string()),
-                                ));
-                                return Ok(None);
-                            }
-                        }
-                    }
-                }
-                _ => {}
             }
         }
-        state.dialogs.replace(PopupType::TaskListDialog {
-            tasks,
-            cursor_idx,
-            filter_query,
-            is_filtering,
-        });
         return Ok(None);
     }
-    Err(())
+    match key.code {
+        KeyCode::Esc if !filter_query.is_empty() => {
+            filter_query.clear();
+            *cursor_idx = 0;
+            apply_filter(tasks, filter_query.text());
+        }
+        KeyCode::Esc => state.dialogs.clear(),
+        KeyCode::Char('/') => *is_filtering = true,
+        KeyCode::Up => *cursor_idx = cursor_idx.saturating_sub(1),
+        KeyCode::Down => {
+            if *cursor_idx + 1 < get_matching_count(tasks, filter_query.text()) {
+                *cursor_idx += 1;
+            }
+        }
+        KeyCode::Delete | KeyCode::Char('k' | 'K') => {
+            on_selected(state, kill_process, "error_kill_process_failed")
+        }
+        KeyCode::Char('r' | 'R') => on_selected(
+            state,
+            crate::app::sys_helpers::restart_process,
+            "error_restart_process_failed",
+        ),
+        _ => {}
+    }
+    Ok(None)
+}
+
+/// Runs `action` on the selected process, then reloads the list; shows
+/// `error_key` on failure.
+fn on_selected<E: std::fmt::Display>(
+    state: &mut AppState,
+    action: fn(u32) -> Result<(), E>,
+    error_key: &str,
+) {
+    let Some(PopupType::TaskListDialog {
+        tasks,
+        cursor_idx,
+        filter_query,
+        ..
+    }) = state.dialogs.top_mut()
+    else {
+        return;
+    };
+    let Some(pid) = tasks.get(*cursor_idx).map(|task| task.pid) else {
+        return;
+    };
+    match action(pid) {
+        Ok(()) => {
+            *tasks = get_process_list();
+            apply_filter(tasks, filter_query.text());
+            clamp_cursor(tasks, filter_query.text(), cursor_idx);
+        }
+        Err(e) => state
+            .dialogs
+            .replace(PopupType::Error(t(error_key).replace("{}", &e.to_string()))),
+    }
+}
+
+/// Keeps the cursor on a row matching the filter.
+fn clamp_cursor(tasks: &[ProcessEntry], query: &str, cursor: &mut usize) {
+    *cursor = (*cursor).min(get_matching_count(tasks, query).saturating_sub(1));
 }
 
 fn apply_filter(tasks: &mut Vec<ProcessEntry>, query: &str) {

@@ -27,6 +27,8 @@
 
 ### Improved
 
+- The Screens menu and the development-plugin picker now use the theme's selection colors, like the other list popups.
+- Text fields in dialogs (make folder, rename, copy/move destination, compress, apply command, describe, link, filters, select group) now share one input box: the cursor can be moved with Left/Right/Home/End, Delete removes the character under it, `Ctrl+V` pastes from the clipboard, and non-ASCII text is edited by whole characters.
 - Panels are now read in the background: the directory listing, SFTP listing, Git status and free space no longer block the interface, the panel title shows "⟳ Loading…" while a read is in progress, and the cursor and selection are kept when the new listing arrives. Entering a directory rereads only that panel, and Git status is computed only for the listed directory instead of the whole repository.
 - Git fetch, pull, push, push tags, remote branch deletion and clone now run in the background with a progress popup (objects and bytes transferred); `Esc` cancels the operation. The Left/Right menus no longer open the repository while drawing.
 - Quick view loads previews in the background after the cursor settles (no more stalls when scrolling through large files), caches recent previews per file version, and reads at most 16 MiB per file. The F3 viewer also loads in the background, reads at most 64 MiB (larger files are shown truncated with a notice) and shows the error instead of an empty viewer when the file cannot be read.
@@ -45,6 +47,11 @@
 - Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- Configuration dialog: editing the plugin developer folder now shows the text being typed (it kept showing the old path), and text fields there support cursor movement and paste like other dialogs.
+- Search highlighting in the viewer and editor no longer misaligns (or can panic) on lines containing characters whose lowercase form is longer, such as 'İ'.
+- Git panel: the "rename branch" prompt opened with no field focused (typing did nothing until the arrows were pressed); it now starts on the name field.
+- Create link: typing `s` or `h` in the link name switched between symbolic and hard link instead of inserting the letter; the link type is now toggled with `Tab` (shown in the dialog hint).
+- Move (F6) with "Confirm move" turned off ignored the transfer settings (it always disabled attribute preservation, write-cache bypass and symlink handling and asked on conflicts); it now uses them exactly like Copy does.
 - Removed several crash paths: Git panel sub-dialogs, copy/move filter and tree prompts no longer `unwrap` the open dialog, file panels never slice out of range while drawing, and popups are no longer cloned on every key press (the Git panel and image quick view were deep-copied per key).
 - Transfers: a panic in one transfer no longer cascades into crashes of the whole application through poisoned locks; the "file exists" prompt no longer polls every 100 ms (the worker is woken by the answer or by cancelling the job), and copy progress updates are coalesced so a fast copy cannot flood the interface.
 - File owner names on Linux/macOS: `/etc/passwd` is parsed once per session instead of being re-read for every file whose owner is unknown.

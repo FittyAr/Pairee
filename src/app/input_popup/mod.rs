@@ -2,12 +2,12 @@ pub mod about;
 pub mod apply_command;
 pub mod archive_commands;
 pub mod color_groups;
+pub mod color_list;
 pub mod command_palette;
 pub mod compress;
 pub mod config_dialog;
 pub mod confirm_dialogs;
 pub mod context_menu;
-pub mod copy;
 pub mod copy_filter;
 pub mod create_link;
 pub mod delete;
@@ -29,7 +29,6 @@ pub mod onboarding;
 pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
-pub mod rename_move;
 pub mod save_setup;
 pub mod screens_menu;
 pub mod search;
@@ -37,6 +36,7 @@ pub mod select_group;
 pub mod sort_modes;
 pub mod task_list;
 pub mod transfer_panel;
+pub mod transfer_prompt;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
@@ -86,7 +86,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::Help { .. } => help::handle,
         PopupType::About { .. } => about::handle,
         PopupType::MkDirPrompt { .. } => mkdir::handle,
-        PopupType::CopyPrompt(..) => copy::handle,
+        PopupType::TransferPrompt(..) => transfer_prompt::handle,
         PopupType::ConfirmQuit
         | PopupType::ConfirmInterrupt
         | PopupType::ConfirmReload
@@ -95,17 +95,16 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle,
         PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => delete::handle,
         PopupType::UserMenu { .. } => user_menu::handle,
-        PopupType::EditorSearchPrompt { .. }
+        PopupType::EditorSearchPrompt(_)
         | PopupType::EditorSaveAsPrompt { .. }
         | PopupType::EditorConfirmOverwrite { .. } => editor::handle,
-        PopupType::ViewerSearchPrompt { .. } => viewer::handle,
+        PopupType::ViewerSearchPrompt(_) => viewer::handle,
         PopupType::Menu { .. } => menu::handle,
         PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
         PopupType::ScreensMenu { .. } => screens_menu::handle,
         PopupType::DriveSelect { .. } => drive_select::handle,
         PopupType::Hotlist { .. } => hotlist::handle,
         PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
-        PopupType::MovePrompt(..) => rename_move::handle,
         PopupType::RenamePrompt { .. } => rename::handle,
         PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
         PopupType::TreeView { .. } => tree_view::handle,
@@ -143,12 +142,9 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
             git_new_popups::handle_diff
         }
-        PopupType::GitPrompt(
-            crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_)
-            | crate::app::state::popup::GitPromptPopup::TagCreatePrompt(_),
-        ) => git_new_popups::handle_prompt,
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::NamePrompt(_)) => {
+            git_new_popups::handle_prompt
+        }
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
             git_new_popups::handle_confirm_action
         }

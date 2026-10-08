@@ -16,122 +16,82 @@ mod tests;
 
 use std::path::PathBuf;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use uuid::Uuid;
 
+use super::control::JobControl;
 use super::events::TransferEvent;
-use super::job::{TransferOperation, TransferResults};
+use super::job::{TransferJob, TransferOperation, TransferResults};
 use super::options::TransferOptions;
 
 pub use destination::is_destination_parent_dir;
 
 pub struct TransferWorker {
-    pub job_id: Uuid,
     pub operation: TransferOperation,
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
     pub options: TransferOptions,
-    pub is_paused: Arc<AtomicBool>,
-    pub is_cancelled: Arc<AtomicBool>,
-    pub skip_file_flag: Arc<AtomicBool>,
-    pub event_tx: crate::fs::transfer::events::EventSender,
+    pub control: JobControl,
     pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 }
 
 impl TransferWorker {
-    pub fn new(
-        job_id: Uuid,
-        operation: TransferOperation,
-        sources: Vec<PathBuf>,
-        destination: PathBuf,
-        options: TransferOptions,
-        is_paused: Arc<AtomicBool>,
-        is_cancelled: Arc<AtomicBool>,
-        skip_file_flag: Arc<AtomicBool>,
-        event_tx: crate::fs::transfer::events::EventSender,
-        active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
-    ) -> Self {
+    /// Worker for `job`, reporting to `event_tx`.
+    pub fn for_job(job: TransferJob, event_tx: crate::fs::transfer::events::EventSender) -> Self {
+        let control = JobControl::for_job(&job, event_tx);
         Self {
-            job_id,
-            operation,
-            sources,
-            destination,
-            options,
-            is_paused,
-            is_cancelled,
-            skip_file_flag,
-            event_tx,
-            active_conflict,
+            operation: job.operation,
+            sources: job.sources,
+            destination: job.destination,
+            options: job.options,
+            control,
+            active_conflict: job.active_conflict,
         }
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
-        let _ = self.event_tx.send(TransferEvent::JobStarted {
-            job_id: self.job_id,
-        });
+        let ctl = &self.control;
+        ctl.emit(TransferEvent::JobStarted { job_id: ctl.job_id });
 
-        // Detección LAN y optimización de buffers
-        let is_lan = super::network::is_lan_path(&self.destination);
+        // LAN destinations get bigger buffers.
         let mut options = self.options.clone();
-        if is_lan {
+        if super::network::is_lan_path(&self.destination) {
             options.buffer_size = crate::fs::transfer::options::BufferSize::_4MB;
         }
 
-        // --- FASE 1: ESCANEO ---
-        let scan_outcome = scan::scan(
+        // Phase 1: scan.
+        let scan = scan::scan(
             &self.sources,
             &self.destination,
             self.operation,
             &options,
-            self.job_id,
-            &self.is_cancelled,
-            &self.event_tx,
+            ctl,
         )?;
 
         if self.operation == TransferOperation::Delete {
-            return delete_phase::run_delete_phase(
-                &self.sources,
-                scan_outcome.mappings,
-                scan_outcome.dirs_to_delete,
-                scan_outcome.total_bytes,
-                &options,
-                self.job_id,
-                Arc::clone(&self.is_paused),
-                Arc::clone(&self.is_cancelled),
-                Arc::clone(&self.skip_file_flag),
-                self.event_tx,
-            )
-            .await;
+            return delete_phase::run_delete_phase(&self.sources, scan, &options, ctl).await;
         }
 
-        // Verificar espacio libre en destino
+        // Warn (without stopping) when the destination looks too small.
         if let Ok(free_space) = super::network::get_free_space(&self.destination)
-            && free_space < scan_outcome.total_bytes
+            && free_space < scan.total_bytes
         {
-            let _ = self.event_tx.send(TransferEvent::FileSkipped {
-                job_id: self.job_id,
+            ctl.emit(TransferEvent::FileSkipped {
+                job_id: ctl.job_id,
                 file: self.destination.clone(),
                 reason: format!(
                     "Warning: Low disk space. Required: {}, Available: {}",
-                    bytesize::ByteSize(scan_outcome.total_bytes),
+                    bytesize::ByteSize(scan.total_bytes),
                     bytesize::ByteSize(free_space)
                 ),
             });
         }
 
-        // --- FASE 2: TRANSFERENCIA ---
+        // Phase 2: copy / move.
         copy_phase::run_copy_phase(
             self.operation,
-            scan_outcome.mappings,
-            scan_outcome.dirs_to_delete,
-            scan_outcome.total_bytes,
+            scan,
             &options,
-            self.job_id,
-            Arc::clone(&self.is_paused),
-            Arc::clone(&self.is_cancelled),
-            Arc::clone(&self.skip_file_flag),
-            self.event_tx,
-            self.active_conflict,
+            ctl,
+            Arc::clone(&self.active_conflict),
         )
         .await
     }

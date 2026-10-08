@@ -87,43 +87,11 @@ pub fn handle_navigation_action(
                     .replace(PopupType::Info(t("feature_ssh_disabled")));
                 return true;
             }
-            let (name, host, port, user, pass, key_path, preset_idx, cursor_idx) =
-                if !context.config.settings.ssh_presets.is_empty() {
-                    let p = &context.config.settings.ssh_presets[0];
-                    (
-                        p.name.clone(),
-                        p.host.clone(),
-                        p.port.clone(),
-                        p.username.clone(),
-                        p.password.clone().unwrap_or_default(),
-                        p.key_path.clone().unwrap_or_default(),
-                        Some(0),
-                        0,
-                    )
-                } else {
-                    (
-                        String::new(),
-                        String::new(),
-                        "22".to_string(),
-                        String::new(),
-                        String::new(),
-                        String::new(),
-                        None,
-                        1,
-                    )
-                };
             state.dialogs.replace(PopupType::SshConnectPrompt(
-                crate::app::state::SshConnectPromptState {
-                    panel: state.panels.active,
-                    input_name: name,
-                    input_host: host,
-                    input_port: port,
-                    input_user: user,
-                    input_pass: pass,
-                    input_key_path: key_path,
-                    cursor_idx,
-                    selected_preset_idx: preset_idx,
-                },
+                crate::app::state::SshConnectPromptState::new(
+                    state.panels.active,
+                    &context.config.settings.ssh_presets,
+                ),
             ));
             true
         }
@@ -154,14 +122,14 @@ pub fn handle_navigation_action(
         Action::SelectGroup => {
             state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Add,
-                query: String::new(),
+                query: Default::default(),
             });
             true
         }
         Action::UnselectGroup => {
             state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Remove,
-                query: String::new(),
+                query: Default::default(),
             });
             true
         }
