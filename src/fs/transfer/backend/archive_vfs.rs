@@ -46,6 +46,15 @@ fn inside(path: &Path) -> Option<(PathBuf, PathBuf)> {
     split_archive_path(path).filter(|(_, inner)| !inner.as_os_str().is_empty())
 }
 
+/// `inner` is (`itself`) or lies below an entry named like an archive: an
+/// archive inside the archive, which jobs cannot reach.
+fn in_nested(inner: &Path, itself: bool) -> bool {
+    inner
+        .ancestors()
+        .skip(usize::from(!itself))
+        .any(|a| !a.as_os_str().is_empty() && crate::fs::archive::is_browsable(a))
+}
+
 /// The archive plan for `job`, `None` when no path of it is inside an
 /// archive (or it runs over SSH), or the reason it cannot run.
 pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
@@ -61,6 +70,14 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
         return None;
     }
     let refused = || Some(Err(t("vfs_action_unsupported")));
+    let nested_source = sources.iter().flatten().any(|(_, i)| in_nested(i, false));
+    if nested_source
+        || into_archive
+            .as_ref()
+            .is_some_and(|(_, i)| in_nested(i, true))
+    {
+        return refused();
+    }
     match (job.operation, from_archive, into_archive) {
         (TransferOperation::Copy, true, None) | (TransferOperation::Delete, true, _) => {
             let Some((archive, inner)) = same_archive(&sources) else {

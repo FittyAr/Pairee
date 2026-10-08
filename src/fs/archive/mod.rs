@@ -9,6 +9,7 @@ pub mod external_7z;
 pub mod extract;
 pub mod format;
 pub mod index;
+pub mod nested;
 pub mod safe_extract;
 pub mod sevenz_ops;
 pub mod tar_ops;

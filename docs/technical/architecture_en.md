@@ -165,6 +165,8 @@ One-off changes of a non-local source run in the background through `AppState::s
 
 `PanelState::source` (`PanelSource`: `Local`, `Remote`, `Archive`) plus `current_path` is the panel location. Archive paths are `archive.ext/inner/path`, so `..`, history and the title work unchanged; `PanelSource::locate` switches the source when a refresh enters or leaves an archive file. Listing, folder sizes, the disk usage view, multi-rename (and its undo), compare/synchronize, the viewer and Quick View all go through the port, and `app::actions::fs_ops::capability` refuses actions a source cannot run with one message.
 
+An archive stored in an archive is browsed read-only: `PanelSource::locate` asks `ArchiveVfs::nested_at` for the archive entry on the way to the path, and the nested `ArchiveVfs` reads its data through `archive::nested::ArchiveData`, which extracts the entry to a temp file on first use (in the listing job) with a 512 MiB cap and keeps the parent archive for leaving it. Transfer plans refuse paths below such an entry.
+
 Archive formats are a second Strategy (`fs::archive::format::ArchiveReader`, one reader per format) shared by extraction, listing and browsing. The Transfer Engine picks `backend::archive_vfs` when a job's source or destination lies inside an archive: copies out use the safe extractor (`ExtractGuard`), copies into a zip and deletions inside it rewrite the archive. Existing destinations go through `transfer::conflict_resolver::ConflictResolver`, the same resolver the local worker uses, which reads the destination through its `Vfs`. Every adapter runs the same contract suite (`fs/vfs/contract.rs`, one generic check per capability instantiated per adapter with `vfs_contract!`).
 
 ---

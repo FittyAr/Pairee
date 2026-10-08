@@ -40,7 +40,14 @@ pub fn refuse_unsupported(state: &mut AppState, action: &Action) -> bool {
     let moves_archive = matches!(action, Action::Move)
         && (state.get_active_panel().source.archive().is_some()
             || state.get_passive_panel().source.archive().is_some());
-    if active_ok && passive_ok && !moves_archive {
+    // An archive inside an archive is only browsed and viewed.
+    let copies_nested = matches!(action, Action::Copy)
+        && state
+            .get_active_panel()
+            .source
+            .archive()
+            .is_some_and(|a| a.parent().is_some());
+    if active_ok && passive_ok && !moves_archive && !copies_nested {
         return false;
     }
     state
