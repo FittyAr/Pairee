@@ -100,6 +100,9 @@ pub struct AppState {
     /// Background Git network operation (fetch/pull/push/clone).
     pub git_op: crate::app::git_ops::GitOpState,
 
+    /// Background run of the multi-rename tool.
+    pub multi_rename: crate::app::jobs::JobSlot<crate::fs::multi_rename::RenameReport>,
+
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
 }
@@ -146,6 +149,7 @@ impl AppState {
             viewer_load: Default::default(),
             quick_view: Default::default(),
             git_op: Default::default(),
+            multi_rename: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
         }
     }

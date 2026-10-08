@@ -25,6 +25,7 @@ pub mod history_list;
 pub mod hotlist;
 pub mod menu;
 pub mod mkdir;
+pub mod multi_rename;
 pub mod onboarding;
 pub mod plugin_dialogs;
 pub mod plugin_menu;
@@ -106,6 +107,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::Hotlist { .. } => hotlist::handle,
         PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
         PopupType::RenamePrompt { .. } => rename::handle,
+        PopupType::MultiRename(..) => multi_rename::handle,
         PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
         PopupType::TreeView { .. } => tree_view::handle,
         PopupType::ContextMenu { .. } => context_menu::handle,

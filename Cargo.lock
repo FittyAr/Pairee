@@ -2410,6 +2410,7 @@ dependencies = [
  "portable-pty",
  "pulldown-cmark",
  "ratatui",
+ "regex",
  "reqwest",
  "rustls",
  "serde",

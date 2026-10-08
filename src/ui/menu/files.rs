@@ -13,6 +13,7 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
             ("menu_print", Action::PrintFile, "Alt+F5"),
             ("menu_rename_move", Action::Move, "F6"),
             ("menu_rename", Action::Rename, "F7"),
+            ("menu_multi_rename", Action::MultiRename, "Shf+F6"),
             ("menu_link", Action::CreateLink, "Alt+F6"),
             ("menu_make_folder", Action::MkDir, ""),
             ("menu_delete", Action::Delete, "F8"),

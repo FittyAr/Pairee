@@ -46,6 +46,7 @@ impl PopupType {
                 1 => Some(content_query),
                 _ => None,
             },
+            PopupType::MultiRename(dialog) => dialog.focused_field_mut(),
             PopupType::SshConnectPrompt(prompt) => {
                 let row = prompt.cursor_idx;
                 prompt.field_at(row).map(|(_, field)| field)

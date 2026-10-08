@@ -66,6 +66,12 @@ pub const CATALOG: &[ActionDef] = &[
     d("copy_path", Action::CopyPath, true, ActionCategory::Files),
     d("move", Action::Move, true, ActionCategory::Files),
     d("rename", Action::Rename, true, ActionCategory::Files),
+    d(
+        "multi_rename_tool",
+        Action::MultiRename,
+        true,
+        ActionCategory::Files,
+    ),
     d("delete", Action::Delete, true, ActionCategory::Files),
     d("mkdir", Action::MkDir, true, ActionCategory::Files),
     d("view", Action::View, true, ActionCategory::Files),

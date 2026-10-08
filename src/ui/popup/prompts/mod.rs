@@ -25,6 +25,7 @@ pub fn render_prompt_popup(
         PopupType::MkDirPrompt { .. }
         | PopupType::TransferPrompt(..)
         | PopupType::RenamePrompt { .. }
+        | PopupType::MultiRename(..)
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }
         | PopupType::CreateLinkPrompt { .. }

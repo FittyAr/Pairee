@@ -100,6 +100,8 @@ pub enum Action {
     Move,
     /// Rename a single item in place (F7)
     Rename,
+    /// Multi-rename tool for the selected items (Shift+F6)
+    MultiRename,
     /// Make directory (User Menu — F2 → "6" by default; also via Top Menu Bar → Files → Make folder)
     MkDir,
     /// Delete selected items (F8)
