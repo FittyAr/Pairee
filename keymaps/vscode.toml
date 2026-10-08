@@ -99,6 +99,7 @@ panel_view_alt_full     = "Ctrl+9"
 compress_files      = "Shift+F1"
 extract_archive     = "Shift+F2"
 archive_commands    = "Shift+F3"
+multi_rename_tool   = "Shift+F6"
 
 # ── Misc F-key fallbacks ──────────────────────────────────────────────────────
 view_fkey           = "F3"

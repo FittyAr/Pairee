@@ -104,6 +104,9 @@ pub struct AppState {
     /// Background loading of the Git panel (status, log, refs).
     pub git_panel: crate::app::git_panel_load::GitPanelLoader,
 
+    /// Background run of the multi-rename tool.
+    pub multi_rename: crate::app::jobs::JobSlot<crate::fs::multi_rename::RenameReport>,
+
     /// Disk usage view: background scan and cached size tree.
     pub disk_usage: crate::app::disk_usage::DiskUsageState,
 
@@ -157,6 +160,7 @@ impl AppState {
             quick_view: Default::default(),
             git_op: Default::default(),
             git_panel: Default::default(),
+            multi_rename: Default::default(),
             disk_usage: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             editor_clipboard: Default::default(),

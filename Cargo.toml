@@ -33,6 +33,7 @@ git2 = { version = "0.21", default-features = false, features = ["vendored-libgi
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
 percent-encoding = "2.3"
+regex = "1.13"
 blake3 = "1.5.4"
 md-5 = "0.10.6"
 sha1 = "0.10.6"

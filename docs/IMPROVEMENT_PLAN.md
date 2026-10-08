@@ -480,7 +480,7 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 
 ### G.1 Oleada 1 — funciones aisladas (en paralelo)
 
-- [ ] Renombrado múltiple con patrones (`[N]`, `[E]`, `[C]`, fechas, regex) y vista previa
+- [x] Renombrado múltiple con patrones (`[N]`, `[E]`, `[C]`, fechas, regex) y vista previa
 - [x] Tamaño de carpetas (Space/F3 sobre carpeta) y vista de uso de disco tipo ncdu, cancelable
 - [ ] Sincronizar carpetas: comparación recursiva (tamaño/fecha/hash), plan de acciones y aplicación vía Transfer Engine
 - [ ] Visor y Quick View: detección de codificación (`chardetng` + `encoding_rs`) y lectura progresiva por bloques

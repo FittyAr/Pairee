@@ -211,9 +211,14 @@ impl FocusStyles {
     }
 }
 
+/// `"► "` in front of a focused row, two spaces otherwise.
+fn focus_marker(focused: bool) -> &'static str {
+    if focused { "► " } else { "  " }
+}
+
 /// `"► text"` when focused, `"  text"` otherwise, in the focus style.
 pub fn marked_row<'a>(text: &str, focused: bool, styles: FocusStyles) -> Paragraph<'a> {
-    let marker = if focused { "► " } else { "  " };
+    let marker = focus_marker(focused);
     Paragraph::new(format!("{marker}{text}")).style(styles.pick(focused))
 }
 
@@ -226,7 +231,7 @@ pub fn labelled_field<'a>(
     styles: FocusStyles,
 ) -> Paragraph<'a> {
     let style = styles.pick(focused);
-    let marker = if focused { "► " } else { "  " };
+    let marker = focus_marker(focused);
     let mut value = vec![Span::styled("   > ", style)];
     value.extend(field_spans(field, style, styles.cursor(), focused));
     Paragraph::new(vec![
@@ -234,6 +239,20 @@ pub fn labelled_field<'a>(
         Line::from(value),
     ])
     .style(style)
+}
+
+/// One line: `"► label value"`, the field with a cursor when focused.
+pub fn inline_field<'a>(
+    label: &str,
+    field: &TextField,
+    focused: bool,
+    styles: FocusStyles,
+) -> Paragraph<'a> {
+    let style = styles.pick(focused);
+    let marker = focus_marker(focused);
+    let mut spans = vec![Span::styled(format!("{marker}{label} "), style)];
+    spans.extend(field_spans(field, style, styles.cursor(), focused));
+    Paragraph::new(Line::from(spans)).style(style)
 }
 
 /// `[x]` / `[ ]`.

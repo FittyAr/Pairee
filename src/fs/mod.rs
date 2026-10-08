@@ -10,6 +10,7 @@ pub mod external_tools;
 pub mod link;
 pub mod list;
 pub mod mkdir;
+pub mod multi_rename;
 pub mod path_util;
 pub mod privileges;
 pub mod progress;

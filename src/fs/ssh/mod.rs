@@ -118,6 +118,11 @@ impl SharedSshClient {
         Ok(())
     }
 
+    /// `true` when an entry (of any kind, links not followed) exists at `path`.
+    pub fn exists(&self, path: &Path) -> bool {
+        self.lock().sftp.lstat(path).is_ok()
+    }
+
     /// `true` when `path` exists on the server and is a directory.
     pub fn is_dir(&self, path: &Path) -> bool {
         self.lock()

@@ -47,6 +47,15 @@ File operations in Pairee are asynchronous, running on a background worker queue
   - *Copy link:* Copies the symlink pointer itself.
   - *Copy target:* Resolves the symlink and copies the target data.
 
+### 2.2.1 Multi-Rename Tool
+Press `Shift+F6` (or **Files → Multi-Rename**) to rename every selected item (or the one under the cursor) in one go. The dialog shows a live preview table (old name, new name, status) that updates while you type; nothing is renamed until you press **Rename**.
+* **Name and extension masks:** `[N]` name without extension, `[N2-5]` characters 2 to 5, `[N3]` the 3rd character, `[N2-]` from the 2nd to the end, `[N2,3]` 3 characters from the 2nd, `[E]` extension (same ranges), `[P]` parent folder name, `[C]` counter, `[Y]` `[M]` `[D]` `[h]` `[m]` `[s]` modification date and time. Any other text is copied as is; an empty extension mask drops the dot.
+* **Counter:** start value, step (may be negative) and minimum number of digits (zero-padded).
+* **Search & replace:** applied to the whole new name; plain text by default, or a regular expression (`$1`, `${name}` in the replacement) when *Regular expression* is ticked. *Ignore case* works for both.
+* **Case:** unchanged, lower case, UPPER CASE or Title Case, applied last.
+* **Conflict detection:** rows with an empty name, characters the filesystem refuses (`<>:"/\|?*`, reserved names such as `CON` on Windows), duplicate names or names of other files in the folder are shown in red, and **Rename** stays disabled until they are fixed.
+* **Safe execution:** renames are ordered so no file is overwritten; swaps and cycles (`a → b`, `b → a`) go through a temporary name. If a rename fails, the ones already done are undone. Works on local and SSH/SFTP panels.
+
 ### 2.3 Secure Wipe & Deletion
 * **Normal Delete:** Moves files/folders to the system recycle bin or deletes them permanently depending on your settings.
 * **Secure Wipe:** Overwrites file sectors with random byte buffers before removal, rendering the data completely unrecoverable by forensic tools.
