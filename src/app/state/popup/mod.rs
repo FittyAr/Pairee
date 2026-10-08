@@ -3,6 +3,7 @@
 
 mod config_dialog;
 mod file_ops;
+pub mod forms;
 mod git_panel;
 mod git_prompts;
 mod paste;
@@ -31,6 +32,7 @@ use super::types::{
     ActivePanel, AdminOpKind, FileAttrsSnapshot, LinkKind, ProcessEntry, SelectMode, SortField,
     TreeNode, TreeViewCaller,
 };
+use crate::app::text_input::TextField;
 use std::path::PathBuf;
 
 #[derive(Debug, Clone)]
@@ -51,14 +53,14 @@ pub enum PopupType {
     Info(String),
 
     MkDirPrompt {
-        input: String,
+        input: TextField,
         cursor_idx: usize,
         process_multiple: bool,
     },
     /// Copy (F5) / Move (F6) dialog.
     TransferPrompt(CopyMovePromptState),
     RenamePrompt {
-        input: String,
+        input: TextField,
         original: String,
         src_path: PathBuf,
         parent_dir: PathBuf,
@@ -71,38 +73,38 @@ pub enum PopupType {
         history_type: String,
     },
     CompressPrompt {
-        input: String,
+        input: TextField,
         targets: Vec<PathBuf>,
         dest_dir: PathBuf,
     },
     ApplyCommandPrompt {
-        input: String,
+        input: TextField,
         targets: Vec<PathBuf>,
     },
     DescribeFilePrompt {
         path: PathBuf,
         current_desc: String,
-        input: String,
+        input: TextField,
     },
     SelectGroupPrompt {
         mode: SelectMode,
-        query: String,
+        query: TextField,
     },
     CreateLinkPrompt {
         src: PathBuf,
-        dest_input: String,
+        dest_input: TextField,
         kind: LinkKind,
     },
     FilePanelFilterPrompt {
-        input: String,
+        input: TextField,
     },
     QuickFilterPrompt {
-        input: String,
+        input: TextField,
         original_mask: Option<String>,
         original_cursor: usize,
     },
     CopyMoveFilterPrompt {
-        input: String,
+        input: TextField,
         previous: Box<PopupType>,
     },
     SelectDevPlugin {

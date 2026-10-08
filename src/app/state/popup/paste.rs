@@ -1,42 +1,51 @@
 use super::PopupType;
+use crate::app::text_input::TextField;
 
 impl PopupType {
-    /// Append a single-line paste into the focused text field, if any.
+    /// The text field that currently receives typing and pastes, if any.
+    pub fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        match self {
+            PopupType::MkDirPrompt {
+                input,
+                cursor_idx: 0,
+                ..
+            }
+            | PopupType::RenamePrompt {
+                input,
+                cursor_idx: 0,
+                ..
+            }
+            | PopupType::ApplyCommandPrompt { input, .. }
+            | PopupType::CompressPrompt { input, .. }
+            | PopupType::FilePanelFilterPrompt { input, .. }
+            | PopupType::QuickFilterPrompt { input, .. }
+            | PopupType::DescribeFilePrompt { input, .. }
+            | PopupType::CopyMoveFilterPrompt { input, .. }
+            | PopupType::SelectGroupPrompt { query: input, .. }
+            | PopupType::CreateLinkPrompt {
+                dest_input: input, ..
+            } => Some(input),
+            PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
+            _ => None,
+        }
+    }
+
+    /// Inserts a single-line paste into the focused text field, if any.
     /// Returns true when the overlay consumed the paste.
     pub fn apply_paste(&mut self, paste: &str) -> bool {
         if paste.is_empty() {
             return false;
         }
+        if let Some(field) = self.focused_field_mut() {
+            return field.paste(paste);
+        }
         match self {
-            PopupType::MkDirPrompt {
-                input, cursor_idx, ..
-            }
-            | PopupType::RenamePrompt {
-                input, cursor_idx, ..
-            } if *cursor_idx == 0 => {
+            PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
                 input.push_str(paste);
                 true
             }
-            PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => {
-                prompt.input.paste(paste)
-            }
-            PopupType::ApplyCommandPrompt { input, .. }
-            | PopupType::CompressPrompt { input, .. }
-            | PopupType::FilePanelFilterPrompt { input, .. }
-            | PopupType::QuickFilterPrompt { input, .. }
-            | PopupType::DescribeFilePrompt { input, .. }
-            | PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
-                input.push_str(paste);
-                true
-            }
-            PopupType::SelectGroupPrompt { query, .. }
-            | PopupType::CommandPalette { query, .. }
-            | PopupType::WhichKey { query, .. } => {
+            PopupType::CommandPalette { query, .. } | PopupType::WhichKey { query, .. } => {
                 query.push_str(paste);
-                true
-            }
-            PopupType::CreateLinkPrompt { dest_input, .. } => {
-                dest_input.push_str(paste);
                 true
             }
             _ => false,

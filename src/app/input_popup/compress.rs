@@ -1,69 +1,55 @@
 use crate::app::context::AppContext;
+use crate::app::form::{FieldKey, field_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::CompressPrompt {
-        input,
-        targets,
-        dest_dir,
-    }) = state.dialogs.top().cloned()
-    {
-        match key.code {
-            KeyCode::Char(c) => {
-                let mut new_input = input;
-                new_input.push(c);
-                state.dialogs.replace(PopupType::CompressPrompt {
-                    input: new_input,
-                    targets,
-                    dest_dir,
-                });
-                return Ok(None);
+    let Some(PopupType::CompressPrompt { input, .. }) = state.dialogs.top_mut() else {
+        return Err(());
+    };
+    match field_key(input, &key) {
+        FieldKey::Cancel => state.dialogs.clear(),
+        FieldKey::Submit => {
+            if let Some(PopupType::CompressPrompt {
+                input,
+                targets,
+                dest_dir,
+            }) = state.dialogs.pop()
+            {
+                submit(state, input.into_text(), targets, dest_dir);
             }
-            KeyCode::Backspace => {
-                let mut new_input = input;
-                new_input.pop();
-                state.dialogs.replace(PopupType::CompressPrompt {
-                    input: new_input,
-                    targets,
-                    dest_dir,
-                });
-                return Ok(None);
-            }
-            KeyCode::Enter => {
-                if !input.is_empty() {
-                    let mut out_name = input;
-                    if !out_name.ends_with(".zip") {
-                        out_name.push_str(".zip");
-                    }
-                    let final_dest = dest_dir.join(out_name);
-                    crate::fs::transfer::submit_simple(
-                        state,
-                        crate::fs::transfer::job::TransferOperation::Compress,
-                        targets,
-                        final_dest,
-                        crate::fs::transfer::options::TransferOptions::default(),
-                        None,
-                        None,
-                    );
-                } else {
-                    state.dialogs.clear();
-                }
-                return Ok(None);
-            }
-            KeyCode::Esc => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            _ => {}
         }
-        Err(())
-    } else {
-        Err(())
+        FieldKey::Handled | FieldKey::Other => {}
     }
+    Ok(None)
+}
+
+/// Queues `<dest_dir>/<name>.zip` (nothing for an empty name).
+fn submit(
+    state: &mut AppState,
+    mut name: String,
+    targets: Vec<std::path::PathBuf>,
+    dest_dir: std::path::PathBuf,
+) {
+    state.dialogs.clear();
+    if name.is_empty() {
+        return;
+    }
+    if !name.ends_with(".zip") {
+        name.push_str(".zip");
+    }
+    crate::fs::transfer::submit_simple(
+        state,
+        crate::fs::transfer::job::TransferOperation::Compress,
+        targets,
+        dest_dir.join(name),
+        crate::fs::transfer::options::TransferOptions::default(),
+        None,
+        None,
+    );
 }

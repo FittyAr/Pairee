@@ -1,13 +1,7 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect_fixed;
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use crate::ui::popup::kit::{self, TextBox};
+use ratatui::{Frame, layout::Rect, style::Color};
 
 pub fn render(
     f: &mut Frame,
@@ -15,49 +9,28 @@ pub fn render(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    if let PopupType::CompressPrompt {
+    let PopupType::CompressPrompt {
         input,
         targets,
         dest_dir,
     } = popup
-    {
-        let area = centered_rect_fixed(60, 9, size);
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow))
-            .title(t("prompt_compress_title"))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let count = targets.len();
-        let first_name = targets
-            .first()
-            .and_then(|p| p.file_name())
-            .map(|n| n.to_string_lossy().to_string())
-            .unwrap_or_default();
-
-        let src_label = if count == 1 {
-            t("prompt_compress_sing").replacen("{}", &first_name, 1)
-        } else {
-            t("prompt_compress_plur").replacen("{}", &count.to_string(), 1)
-        };
-
-        let text = format!(
-            "\n {}\n {}\n\n > {}.zip\n\n {}",
-            src_label,
-            t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
-            input,
-            t("prompt_confirm_cancel_hint")
-        );
-
-        let paragraph = Paragraph::new(text)
-            .block(block)
-            .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-        f.render_widget(paragraph, area);
-        true
-    } else {
-        false
+    else {
+        return false;
+    };
+    let src_label = kit::items_label(targets, "prompt_compress_sing", "prompt_compress_plur");
+    let template = format!(
+        "\n {}\n {}\n\n > {{}}.zip\n\n {}",
+        src_label,
+        t("prompt_copy_dest").replacen("{}", &dest_dir.to_string_lossy(), 1),
+        t("prompt_confirm_cancel_hint")
+    );
+    TextBox {
+        size: (60, 9),
+        title: t("prompt_compress_title"),
+        border: kit::fg(Color::Yellow),
+        body: kit::prompt_text(&template, input, theme),
+        body_style: kit::popup_fg(theme),
     }
+    .render(f, size, theme);
+    true
 }

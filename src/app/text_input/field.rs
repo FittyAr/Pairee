@@ -175,6 +175,18 @@ impl From<&str> for TextField {
     }
 }
 
+impl PartialEq<str> for TextField {
+    fn eq(&self, other: &str) -> bool {
+        self.text == other
+    }
+}
+
+impl PartialEq<&str> for TextField {
+    fn eq(&self, other: &&str) -> bool {
+        self.text == *other
+    }
+}
+
 impl std::fmt::Display for TextField {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.write_str(&self.text)

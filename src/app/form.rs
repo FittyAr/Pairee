@@ -105,6 +105,28 @@ fn is_editing_key(code: KeyCode) -> bool {
     )
 }
 
+/// What a key means for a dialog that is just one text field (Enter submits,
+/// Esc cancels).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FieldKey {
+    Submit,
+    Cancel,
+    /// Edited, moved or swallowed.
+    Handled,
+    /// Not a text key (arrows the field does not use, function keys...).
+    Other,
+}
+
+/// Feeds `key` to a single-field prompt.
+pub fn field_key(field: &mut TextField, key: &KeyEvent) -> FieldKey {
+    match key.code {
+        KeyCode::Enter => FieldKey::Submit,
+        KeyCode::Esc => FieldKey::Cancel,
+        _ if field.handle_key(key).consumed() => FieldKey::Handled,
+        _ => FieldKey::Other,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,5 +178,20 @@ mod tests {
             LAYOUT.handle(&mut focus, Some(&mut field), &key(KeyCode::Esc)),
             FormKey::Cancel
         );
+    }
+
+    #[test]
+    fn single_field_prompt() {
+        let mut field = TextField::default();
+        assert_eq!(
+            field_key(&mut field, &key(KeyCode::Char('x'))),
+            FieldKey::Handled
+        );
+        assert_eq!(
+            field_key(&mut field, &key(KeyCode::Enter)),
+            FieldKey::Submit
+        );
+        assert_eq!(field_key(&mut field, &key(KeyCode::Up)), FieldKey::Other);
+        assert_eq!(field.text(), "x");
     }
 }

@@ -1,10 +1,12 @@
 use crate::app::actions::fs_ops::rename as rename_action;
 use crate::app::context::AppContext;
+use crate::app::form::FormKey;
+use crate::app::state::popup::forms::RENAME_FORM;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
-const MAX_CURSOR_IDX: usize = 2; // 0 = input, 1 = OK, 2 = Cancel
+const BUTTON_CANCEL: usize = 2;
 
 pub fn handle(
     state: &mut AppState,
@@ -12,81 +14,33 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let Some(PopupType::RenamePrompt {
-        input,
-        original,
-        src_path,
-        parent_dir,
-        cursor_idx,
-    }) = state.dialogs.top().cloned()
+        input, cursor_idx, ..
+    }) = state.dialogs.top_mut()
     else {
         return Err(());
     };
-
-    let mut new_input = input.clone();
-    let mut new_idx = cursor_idx;
-
-    let update = |s: &mut AppState, i: String, idx: usize| {
-        s.dialogs.replace(PopupType::RenamePrompt {
-            input: i,
-            original: original.clone(),
-            src_path: src_path.clone(),
-            parent_dir: parent_dir.clone(),
-            cursor_idx: idx,
-        });
-    };
-
-    match key.code {
-        KeyCode::Esc => {
-            state.dialogs.clear();
-            Ok(None)
-        }
-        KeyCode::Up | KeyCode::BackTab => {
-            new_idx = if new_idx > 0 {
-                new_idx - 1
-            } else {
-                MAX_CURSOR_IDX
-            };
-            update(state, new_input, new_idx);
-            Ok(None)
-        }
-        KeyCode::Down | KeyCode::Tab => {
-            new_idx = if new_idx < MAX_CURSOR_IDX {
-                new_idx + 1
-            } else {
-                0
-            };
-            update(state, new_input, new_idx);
-            Ok(None)
-        }
-        KeyCode::Left | KeyCode::Right => {
-            if new_idx >= 1 {
-                new_idx = if new_idx == 1 { 2 } else { 1 };
-                update(state, new_input, new_idx);
+    match RENAME_FORM.handle(cursor_idx, Some(input), &key) {
+        FormKey::Activate(BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
+        FormKey::Activate(_) => {
+            if let Some(PopupType::RenamePrompt {
+                input,
+                original,
+                src_path,
+                parent_dir,
+                ..
+            }) = state.dialogs.pop()
+            {
+                rename_action::commit(
+                    state,
+                    context,
+                    input.into_text(),
+                    original,
+                    src_path,
+                    parent_dir,
+                );
             }
-            Ok(None)
         }
-        KeyCode::Backspace => {
-            if new_idx == 0 {
-                new_input.pop();
-                update(state, new_input, new_idx);
-            }
-            Ok(None)
-        }
-        KeyCode::Char(c) => {
-            if new_idx == 0 {
-                new_input.push(c);
-                update(state, new_input, new_idx);
-            }
-            Ok(None)
-        }
-        KeyCode::Enter => {
-            if new_idx == 2 {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            rename_action::commit(state, context, new_input, original, src_path, parent_dir);
-            Ok(None)
-        }
-        _ => Ok(None),
+        FormKey::Toggle(_) | FormKey::Handled | FormKey::Other => {}
     }
+    Ok(None)
 }

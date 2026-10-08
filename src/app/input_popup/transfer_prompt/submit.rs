@@ -43,7 +43,7 @@ pub fn open_filter_prompt(state: &mut AppState) {
     let Some(PopupType::TransferPrompt(prompt)) = state.dialogs.top() else {
         return;
     };
-    let input = prompt.filter_mask.clone();
+    let input = prompt.filter_mask.as_str().into();
     state
         .dialogs
         .open_over(|previous| PopupType::CopyMoveFilterPrompt { input, previous });

@@ -1,13 +1,7 @@
-use super::super::centered_rect_fixed;
 use crate::app::state::{AdminOpKind, PopupType, SelectMode};
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use crate::ui::popup::kit::{self, TextBox};
+use ratatui::{Frame, layout::Rect, style::Color};
 
 pub fn render(
     f: &mut Frame,
@@ -16,140 +10,88 @@ pub fn render(
     size: Rect,
     _state: &crate::app::state::AppState,
 ) -> bool {
-    match popup {
+    let fg = kit::popup_fg(theme);
+    let text_box = match popup {
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
-            let area = centered_rect_fixed(65, 8, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
-                .title(t("prompt_sudo_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
             let text_key = match op_kind {
                 AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
                 AdminOpKind::Rename { .. } => "prompt_sudo_rename_text",
             };
-
-            let text = t(text_key);
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .wrap(ratatui::widgets::Wrap { trim: true })
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
+            TextBox {
+                size: (65, 8),
+                title: t("prompt_sudo_title"),
+                border: kit::fg(Color::Yellow),
+                body: t(text_key).into(),
+                body_style: fg,
+            }
+            .render_wrapped(f, size, theme);
+            return true;
         }
-        PopupType::Error(message) => {
-            let area = centered_rect_fixed(50, 8, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Red))
-                .title(t("prompt_error_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = format!("\n {}\n\n{}", message, t("prompt_dismiss_hint"));
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(Color::LightRed));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::Info(message) => {
-            let area = centered_rect_fixed(55, 9, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("prompt_info_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = format!("\n {}\n\n{}", message, t("prompt_dismiss_hint"));
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
+        PopupType::Error(message) => TextBox {
+            size: (50, 8),
+            title: t("prompt_error_title"),
+            border: kit::fg(Color::Red),
+            body: message_body(message),
+            body_style: kit::fg(Color::LightRed),
+        },
+        PopupType::Info(message) => TextBox {
+            size: (55, 9),
+            title: t("prompt_info_title"),
+            border: kit::fg(Color::Cyan),
+            body: message_body(message),
+            body_style: fg,
+        },
         PopupType::ApplyCommandPrompt { input, targets } => {
-            let area = centered_rect_fixed(65, 10, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
-                .title(t("prompt_apply_cmd_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let first_targets = targets
-                .iter()
-                .take(3)
-                .map(|p| {
-                    p.file_name()
-                        .map(|n| n.to_string_lossy().to_string())
-                        .unwrap_or_default()
-                })
-                .collect::<Vec<String>>()
-                .join(", ");
-            let files_label = if targets.len() > 3 {
-                t("prompt_apply_cmd_plur")
-                    .replacen("{}", &targets.len().to_string(), 1)
-                    .replacen("{}", &first_targets, 1)
-            } else {
-                t("prompt_apply_cmd_sing").replacen("{}", &first_targets, 1)
-            };
-
-            let text = t("prompt_apply_cmd_text")
-                .replacen("{}", &files_label, 1)
-                .replacen("{}", input, 1);
-
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
+            let template = t("prompt_apply_cmd_text").replacen("{}", &files_label(targets), 1);
+            TextBox {
+                size: (65, 10),
+                title: t("prompt_apply_cmd_title"),
+                border: kit::fg(Color::Yellow),
+                body: kit::prompt_text(&template, input, theme),
+                body_style: fg,
+            }
         }
         PopupType::SelectGroupPrompt { mode, query } => {
-            let area = centered_rect_fixed(50, 9, size);
-            f.render_widget(Clear, area);
-
-            let title = match mode {
-                SelectMode::Add => t("prompt_select_group_title"),
-                SelectMode::Remove => t("prompt_unselect_group_title"),
+            let (title, label) = match mode {
+                SelectMode::Add => ("prompt_select_group_title", "prompt_select_group_pat"),
+                SelectMode::Remove => ("prompt_unselect_group_title", "prompt_unselect_group_pat"),
             };
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(title)
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let prompt_label = match mode {
-                SelectMode::Add => t("prompt_select_group_pat"),
-                SelectMode::Remove => t("prompt_unselect_group_pat"),
-            };
-
-            let text = format!(
-                "\n {}\n\n > {}\n\n {}",
-                prompt_label,
-                query,
+            let template = format!(
+                "\n {}\n\n > {{}}\n\n {}",
+                t(label),
                 t("prompt_confirm_cancel_hint")
             );
-
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
+            TextBox {
+                size: (50, 9),
+                title: t(title),
+                border: kit::fg(Color::Cyan),
+                body: kit::prompt_text(&template, query, theme),
+                body_style: fg,
+            }
         }
-        _ => false,
+        _ => return false,
+    };
+    text_box.render(f, size, theme);
+    true
+}
+
+fn message_body(message: &str) -> ratatui::text::Text<'static> {
+    format!("\n {}\n\n{}", message, t("prompt_dismiss_hint")).into()
+}
+
+/// "a, b, c" or "N files: a, b, c..." for the apply-command prompt.
+fn files_label(targets: &[std::path::PathBuf]) -> String {
+    let first = targets
+        .iter()
+        .take(3)
+        .map(|p| crate::fs::file_name_lossy(p))
+        .collect::<Vec<String>>()
+        .join(", ");
+    if targets.len() > 3 {
+        t("prompt_apply_cmd_plur")
+            .replacen("{}", &targets.len().to_string(), 1)
+            .replacen("{}", &first, 1)
+    } else {
+        t("prompt_apply_cmd_sing").replacen("{}", &first, 1)
     }
 }

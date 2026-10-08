@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::form::{FieldKey, field_key};
 use crate::app::state::{AppState, LinkKind, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -8,70 +9,55 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::CreateLinkPrompt {
-        src,
-        dest_input,
-        kind,
-    }) = state.dialogs.top().cloned()
-    {
-        match key.code {
-            KeyCode::Tab | KeyCode::BackTab => {
-                let new_kind = match kind {
-                    LinkKind::Symbolic => LinkKind::Hard,
-                    LinkKind::Hard => LinkKind::Symbolic,
-                };
-                state.dialogs.replace(PopupType::CreateLinkPrompt {
-                    src,
-                    dest_input,
-                    kind: new_kind,
-                });
-                return Ok(None);
+    let Some(PopupType::CreateLinkPrompt {
+        dest_input, kind, ..
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
+        *kind = match kind {
+            LinkKind::Symbolic => LinkKind::Hard,
+            LinkKind::Hard => LinkKind::Symbolic,
+        };
+        return Ok(None);
+    }
+    match field_key(dest_input, &key) {
+        FieldKey::Cancel => state.dialogs.clear(),
+        FieldKey::Submit => {
+            if let Some(PopupType::CreateLinkPrompt {
+                src,
+                dest_input,
+                kind,
+            }) = state.dialogs.pop()
+            {
+                create(state, context, &src, dest_input.text(), kind);
             }
-            KeyCode::Char(c) => {
-                let mut new_input = dest_input;
-                new_input.push(c);
-                state.dialogs.replace(PopupType::CreateLinkPrompt {
-                    src,
-                    dest_input: new_input,
-                    kind,
-                });
-                return Ok(None);
-            }
-            KeyCode::Backspace => {
-                let mut new_input = dest_input;
-                new_input.pop();
-                state.dialogs.replace(PopupType::CreateLinkPrompt {
-                    src,
-                    dest_input: new_input,
-                    kind,
-                });
-                return Ok(None);
-            }
-            KeyCode::Enter => {
-                let dest = state.get_passive_panel().current_path.join(&dest_input);
-                state.dialogs.clear();
-                let result = match kind {
-                    LinkKind::Symbolic => crate::fs::create_symlink(&src, &dest),
-                    LinkKind::Hard => crate::fs::create_hardlink(&src, &dest),
-                };
-                if let Err(e) = result {
-                    state
-                        .dialogs
-                        .replace(PopupType::Error(format!("Link failed: {}", e)));
-                } else {
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                }
-                return Ok(None);
-            }
-            KeyCode::Esc => {
-                state.dialogs.clear();
-                return Ok(None);
-            }
-            _ => {}
         }
-        Err(())
-    } else {
-        Err(())
+        FieldKey::Handled | FieldKey::Other => {}
+    }
+    Ok(None)
+}
+
+/// Creates the link in the passive panel's folder.
+fn create(
+    state: &mut AppState,
+    context: &AppContext,
+    src: &std::path::Path,
+    name: &str,
+    kind: LinkKind,
+) {
+    let dest = state.get_passive_panel().current_path.join(name);
+    state.dialogs.clear();
+    let result = match kind {
+        LinkKind::Symbolic => crate::fs::create_symlink(src, &dest),
+        LinkKind::Hard => crate::fs::create_hardlink(src, &dest),
+    };
+    match result {
+        Err(e) => state
+            .dialogs
+            .replace(PopupType::Error(format!("Link failed: {}", e))),
+        Ok(_) => state.refresh_both_panels(context.config.settings.show_hidden),
     }
 }
 
@@ -96,7 +82,7 @@ mod tests {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         state.dialogs.replace(PopupType::CreateLinkPrompt {
             src: PathBuf::from("a"),
-            dest_input: String::new(),
+            dest_input: Default::default(),
             kind: LinkKind::Symbolic,
         });
         for c in "hosts".chars() {

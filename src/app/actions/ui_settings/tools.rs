@@ -87,9 +87,9 @@ pub fn handle_tools_action(
         Action::FilePanelFilter => {
             let active = state.get_active_panel();
             let current = active.filter_mask.clone().unwrap_or_default();
-            state
-                .dialogs
-                .replace(PopupType::FilePanelFilterPrompt { input: current });
+            state.dialogs.replace(PopupType::FilePanelFilterPrompt {
+                input: current.into(),
+            });
             true
         }
         Action::QuickFilter => {
@@ -98,7 +98,7 @@ pub fn handle_tools_action(
             let original_mask = active.quick_filter_mask.clone();
             let original_cursor = active.cursor_index;
             state.dialogs.replace(PopupType::QuickFilterPrompt {
-                input: current,
+                input: current.into(),
                 original_mask,
                 original_cursor,
             });

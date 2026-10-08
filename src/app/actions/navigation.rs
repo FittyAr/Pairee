@@ -154,14 +154,14 @@ pub fn handle_navigation_action(
         Action::SelectGroup => {
             state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Add,
-                query: String::new(),
+                query: Default::default(),
             });
             true
         }
         Action::UnselectGroup => {
             state.dialogs.replace(PopupType::SelectGroupPrompt {
                 mode: SelectMode::Remove,
-                query: String::new(),
+                query: Default::default(),
             });
             true
         }
