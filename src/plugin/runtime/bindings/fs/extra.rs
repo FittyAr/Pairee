@@ -1,17 +1,19 @@
 //! Extra `pairee.fs` operations: mkdir, remove, rename, copy, read_dir, file.
 
 use super::path::{
-    fs_copy, fs_create_dir, fs_create_dir_all, fs_remove_dir, fs_remove_dir_all, fs_remove_file,
-    fs_rename, lua_to_path,
+    Access, FsPolicy, fs_copy, fs_create_dir, fs_create_dir_all, fs_remove_dir, fs_remove_dir_all,
+    fs_remove_file, fs_rename, lua_to_path,
 };
 use crate::plugin::runtime::types::LuaFile;
 use mlua::{Lua, Table, Value};
+use std::sync::Arc;
 
-pub fn bind_extra(lua: &Lua, fs: &Table<'_>) -> mlua::Result<()> {
+pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Result<()> {
+    let p = Arc::clone(policy);
     fs.set(
         "mkdir",
-        lua.create_function(|lua_ctx, (kind, url): (String, Value)| {
-            let path = lua_to_path(lua_ctx, url)?;
+        lua.create_function(move |_, (kind, url): (String, Value)| {
+            let path = lua_to_path(&p, url, Access::Write)?;
             let result = match kind.as_str() {
                 "dir_all" => fs_create_dir_all(&path),
                 _ => fs_create_dir(&path),
@@ -20,10 +22,11 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>) -> mlua::Result<()> {
         })?,
     )?;
 
+    let p = Arc::clone(policy);
     fs.set(
         "remove",
-        lua.create_function(|lua_ctx, (kind, url): (String, Value)| {
-            let path = lua_to_path(lua_ctx, url)?;
+        lua.create_function(move |_, (kind, url): (String, Value)| {
+            let path = lua_to_path(&p, url, Access::Write)?;
             let result = match kind.as_str() {
                 "dir" => fs_remove_dir(&path),
                 "dir_all" => fs_remove_dir_all(&path),
@@ -34,29 +37,32 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>) -> mlua::Result<()> {
         })?,
     )?;
 
+    let p = Arc::clone(policy);
     fs.set(
         "rename",
-        lua.create_function(|lua_ctx, (from, to): (Value, Value)| {
-            let from = lua_to_path(lua_ctx, from)?;
-            let to = lua_to_path(lua_ctx, to)?;
+        lua.create_function(move |_, (from, to): (Value, Value)| {
+            let from = lua_to_path(&p, from, Access::Write)?;
+            let to = lua_to_path(&p, to, Access::Write)?;
             fs_rename(&from, &to)
                 .map_err(|e| mlua::Error::RuntimeError(format!("rename failed: {e}")))
         })?,
     )?;
 
+    let p = Arc::clone(policy);
     fs.set(
         "copy",
-        lua.create_function(|lua_ctx, (from, to): (Value, Value)| {
-            let from = lua_to_path(lua_ctx, from)?;
-            let to = lua_to_path(lua_ctx, to)?;
+        lua.create_function(move |_, (from, to): (Value, Value)| {
+            let from = lua_to_path(&p, from, Access::Read)?;
+            let to = lua_to_path(&p, to, Access::Write)?;
             fs_copy(&from, &to).map_err(|e| mlua::Error::RuntimeError(format!("copy failed: {e}")))
         })?,
     )?;
 
+    let p = Arc::clone(policy);
     fs.set(
         "read_dir",
-        lua.create_function(|lua_ctx, url: Value| {
-            let path = lua_to_path(lua_ctx, url)?;
+        lua.create_function(move |_, url: Value| {
+            let path = lua_to_path(&p, url, Access::Read)?;
             let mut files = Vec::new();
             if let Ok(rd) = std::fs::read_dir(&path) {
                 for entry in rd.flatten() {
@@ -67,10 +73,11 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>) -> mlua::Result<()> {
         })?,
     )?;
 
+    let p = Arc::clone(policy);
     fs.set(
         "file",
-        lua.create_function(|lua_ctx, url: Value| {
-            let path = lua_to_path(lua_ctx, url)?;
+        lua.create_function(move |_, url: Value| {
+            let path = lua_to_path(&p, url, Access::Read)?;
             Ok(LuaFile::from_path(&path))
         })?,
     )?;
@@ -100,7 +107,12 @@ mod tests {
 
     fn bind_fs(lua: &Lua) -> Table<'_> {
         let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
-        bind(lua, true, tx).unwrap()
+        bind(
+            lua,
+            FsPolicy::new(std::path::Path::new("demo"), true, false),
+            tx,
+        )
+        .unwrap()
     }
 
     #[test]

@@ -1,18 +1,28 @@
 //! `pairee.fs` — filesystem + process helpers for plugins.
 
 mod extra;
+mod jail;
 mod ops;
 mod path;
 mod spawn;
 
 use crate::plugin::manager::PluginRequest;
+pub use jail::FsPolicy;
 use mlua::{Lua, Table};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &Lua, trusted: bool, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<Table<'_>> {
+/// Bind `pairee.fs`. `policy` is captured by every closure so the sandbox
+/// cannot be altered from Lua.
+pub fn bind(
+    lua: &Lua,
+    policy: FsPolicy,
+    tx: mpsc::Sender<PluginRequest>,
+) -> mlua::Result<Table<'_>> {
+    let policy = Arc::new(policy);
     let fs = lua.create_table()?;
-    ops::bind_core(lua, &fs)?;
-    extra::bind_extra(lua, &fs)?;
-    spawn::bind_spawn(lua, &fs, trusted, tx)?;
+    ops::bind_core(lua, &fs, &policy)?;
+    extra::bind_extra(lua, &fs, &policy)?;
+    spawn::bind_spawn(lua, &fs, &policy, tx)?;
     Ok(fs)
 }

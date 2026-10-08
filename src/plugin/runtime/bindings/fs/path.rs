@@ -1,45 +1,23 @@
 //! Path sandbox + runtime-aware FS helpers.
 
+pub use super::jail::{Access, FsPolicy};
 use crate::plugin::runtime::types::LuaFile;
-use mlua::{Lua, Value};
+use mlua::Value;
 use std::path::{Path, PathBuf};
 
-pub fn is_secure_mode(lua: &Lua) -> bool {
-    if let Ok(pairee) = lua.globals().get::<_, mlua::Table>("pairee") {
-        pairee.get::<_, bool>("_secure_mode").unwrap_or(false)
-    } else {
-        false
-    }
-}
-
-pub fn validate_path(lua: &Lua, path_str: &str) -> mlua::Result<PathBuf> {
-    let path = PathBuf::from(path_str);
-    if is_secure_mode(lua) {
-        let abs_path = std::fs::canonicalize(&path).unwrap_or_else(|_| path.clone());
-        let workspace = std::env::current_dir().unwrap_or_default();
-        let config = crate::config::paths::get_config_dir();
-        let cache = crate::config::paths::get_cache_dir();
-
-        let in_workspace = abs_path.starts_with(&workspace);
-        let in_config = abs_path.starts_with(&config);
-        let in_cache = abs_path.starts_with(&cache);
-
-        if !in_workspace && !in_config && !in_cache {
-            return Err(mlua::Error::RuntimeError(format!(
-                "Security violation: path {:?} is outside permitted sandboxed directories in Secure Mode",
-                path
-            )));
-        }
-    }
-    Ok(path)
+/// Validate `path_str` against the captured sandbox policy.
+pub fn validate_path(policy: &FsPolicy, path_str: &str, access: Access) -> mlua::Result<PathBuf> {
+    policy
+        .check(path_str, access)
+        .map_err(mlua::Error::RuntimeError)
 }
 
 /// Accept a Lua string or `File` userdata.
-pub fn lua_to_path(lua: &Lua, value: Value) -> mlua::Result<PathBuf> {
+pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Result<PathBuf> {
     match value {
-        Value::String(s) => validate_path(lua, s.to_str()?),
+        Value::String(s) => validate_path(policy, s.to_str()?, access),
         Value::UserData(ud) => match ud.borrow::<LuaFile>() {
-            Ok(file) => validate_path(lua, &file.path),
+            Ok(file) => validate_path(policy, &file.path, access),
             Err(_) => Err(mlua::Error::RuntimeError(
                 "expected a path string or File userdata".into(),
             )),
@@ -133,18 +111,29 @@ mod tests {
     use super::*;
     use mlua::Lua;
 
+    fn open_policy() -> FsPolicy {
+        FsPolicy::new(Path::new("demo"), true, false)
+    }
+
     #[test]
-    fn validate_path_allows_any_when_not_secure() {
-        let lua = Lua::new();
-        let path = validate_path(&lua, "/tmp/foo").unwrap();
+    fn validate_path_allows_any_for_trusted_without_secure_mode() {
+        let path = validate_path(&open_policy(), "/tmp/foo", Access::Write).unwrap();
         assert_eq!(path, PathBuf::from("/tmp/foo"));
+    }
+
+    #[test]
+    fn validate_path_rejects_untrusted_outside_jail() {
+        let policy = FsPolicy::new(Path::new("demo"), false, false);
+        let outside = tempfile::tempdir().unwrap();
+        let p = outside.path().join("x").to_string_lossy().to_string();
+        assert!(validate_path(&policy, &p, Access::Read).is_err());
     }
 
     #[test]
     fn lua_to_path_from_string() {
         let lua = Lua::new();
         let s = lua.create_string("/a/b").unwrap();
-        let path = lua_to_path(&lua, Value::String(s)).unwrap();
+        let path = lua_to_path(&open_policy(), Value::String(s), Access::Read).unwrap();
         assert_eq!(path, PathBuf::from("/a/b"));
     }
 
@@ -153,7 +142,7 @@ mod tests {
         let lua = Lua::new();
         let file = LuaFile::from_path(Path::new("/tmp/x.txt"));
         let ud = lua.create_userdata(file).unwrap();
-        let path = lua_to_path(&lua, Value::UserData(ud)).unwrap();
+        let path = lua_to_path(&open_policy(), Value::UserData(ud), Access::Read).unwrap();
         assert_eq!(path, PathBuf::from("/tmp/x.txt"));
     }
 }

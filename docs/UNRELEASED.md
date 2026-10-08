@@ -2,6 +2,7 @@
 
 ### Added
 
+- `pairee.fs.data_dir()` returns the plugin's private data directory, the only location an untrusted plugin may write to.
 - Support for untracked files in the Git diff viewer, allowing inspection of newly added files with full contents.
 - Home and End key navigation in the unified Git diff viewer.
 - Context-sensitive empty list notifications across all Git panel tabs (Log, Branches, Stash, and Tags).
@@ -26,6 +27,11 @@
 
 ### Fixed
 
+- **Security:** Untrusted plugins now always have `pairee.fs` jailed to their own directory (read) and private data directory (read/write), regardless of Secure Mode; previously they had unrestricted filesystem access unless Secure Mode was enabled.
+- **Security:** Secure Mode can no longer be disabled from Lua: the flag is captured in Rust instead of being read from the writable `pairee._secure_mode` global (now informational only).
+- **Security:** Plugin path checks now normalize `..` and resolve symlinks through the nearest existing parent, closing a Secure Mode bypass via `..` on non-existent paths.
+- **Security:** User menu commands expand `{f}` / `{p}` in a single pass, so a file name such as `;id;{p}` can no longer break shell quoting.
+- **Security:** Registry plugin installs reject `[files]` entries that escape the plugin directory, validate plugin name/author, and verify each file's SHA-256 before writing it to disk.
 - Fixed file panel views to properly honor the `git_enabled` setting when rendering Git status badges.
 - Fixed silent no-op when attempting to delete the active checked-out branch in the Git branches tab.
 - Fixed obscure failure when attempting to toggle commit amend on an empty repository without previous commits.

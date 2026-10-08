@@ -176,14 +176,17 @@ fn execute_item(
         // through the platform shell, so unquoted substitutions would be
         // a command-injection vector.
         let final_cmd = if let Some(e) = highlighted {
-            let quoted_path = crate::app::actions::fs_ops::helper::shell_quote(&e.path);
-            // `e.name` is a String, not a Path; build a borrowed path so
-            // we can reuse the same shell-quote helper for consistency.
-            let name_path = std::path::Path::new(&e.name);
-            let quoted_name = crate::app::actions::fs_ops::helper::shell_quote(name_path);
-            cmd_template
-                .replace("{f}", &quoted_name)
-                .replace("{p}", &quoted_path)
+            use crate::app::actions::fs_ops::helper::{
+                expand_command_placeholders, shell_quote_cmd, shell_quote_posix,
+            };
+            let quote = if cfg!(target_os = "windows") {
+                shell_quote_cmd
+            } else {
+                shell_quote_posix
+            };
+            // Single pass: substituted values are never rescanned, so a
+            // name like `;id;{p}` cannot inject a second placeholder.
+            expand_command_placeholders(cmd_template, &e.name, &e.path.to_string_lossy(), quote)
         } else {
             cmd_template.clone()
         };

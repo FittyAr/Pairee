@@ -1,6 +1,7 @@
 //! Plugin updater operations (installation, updates, queries, verification).
 
 pub mod install;
+mod install_guard;
 pub mod manage;
 pub mod query;
 

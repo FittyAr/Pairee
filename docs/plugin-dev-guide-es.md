@@ -155,6 +155,7 @@ pairee.fs.write(path, data)            -- escribe datos en archivo
 pairee.fs.exists(path)                 -- boolean
 pairee.fs.stat(path)                   -- userdata File (o nil)
 pairee.fs.list(path)                   -- File[]: listado del directorio
+pairee.fs.data_dir()                   -- string: directorio privado escribible del complemento
 pairee.fs.read_dir(path)               -- File[] (igual que list)
 pairee.fs.file(path)                   -- userdata File
 pairee.fs.mkdir("dir"|"dir_all", path)
@@ -403,6 +404,7 @@ Por defecto, todos los complementos se ejecutan en **Modo No Confiable** (`trust
 * **Funciones Dinámicas Prohibidas:** Las funciones globales que permiten la evaluación dinámica de código (`load`, `loadstring`, `dofile`, `loadfile`) están deshabilitadas.
 * **Aislamiento de Require:** La función global `require` es una implementación personalizada en Rust que restringe la carga de módulos exclusivamente a archivos dentro del directorio del propio complemento.
 * **Sin Comandos Externos:** Cualquier llamada a `pairee.fs.spawn()` generará inmediatamente un error de ejecución.
+* **Jaula del Sistema de Archivos:** `pairee.fs` solo puede leer dentro del directorio del propio complemento y de su directorio de datos privado (`pairee.fs.data_dir()`), y solo puede escribir dentro del directorio de datos. Esto se aplica tanto si el Modo Seguro está activo como si no; los segmentos `..` y los enlaces simbólicos no permiten escapar de ella.
 
 ```toml
 # En pairee.toml
@@ -428,7 +430,7 @@ Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seg
   * **Utilidades de Red:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
   * **Shells e Intérpretes:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
   * **Runtimes de Scripts:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
-* **Sandboxing del Sistema de Archivos:** Las API de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo y a la carpeta de configuración del usuario.
+* **Sandboxing del Sistema de Archivos:** Para complementos confiables, las API de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. Los complementos no confiables mantienen su jaula más estricta (13.1).
 
 ---
 

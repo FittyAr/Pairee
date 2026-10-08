@@ -42,6 +42,22 @@ pub fn get_cache_dir() -> PathBuf {
     }
 }
 
+/// Returns the private data directory for a single plugin. This is the only
+/// location an untrusted plugin may write to through `pairee.fs`.
+/// Linux: ~/.local/share/pairee/plugin-data/<name>
+/// Windows: %APPDATA%\pairee\plugin-data\<name>
+pub fn get_plugin_data_dir(plugin_name: &str) -> PathBuf {
+    #[cfg(target_os = "windows")]
+    let base = std::env::var("APPDATA")
+        .map(|appdata| PathBuf::from(appdata).join("pairee"))
+        .unwrap_or_else(|_| PathBuf::from("."));
+    #[cfg(not(target_os = "windows"))]
+    let base = ProjectDirs::from("com", "pairee", "Pairee")
+        .map(|proj_dirs| proj_dirs.data_dir().to_path_buf())
+        .unwrap_or_else(|| PathBuf::from("."));
+    base.join("plugin-data").join(plugin_name)
+}
+
 /// Returns the path to the main config.toml file.
 pub fn get_config_file_path() -> PathBuf {
     get_config_dir().join("config.toml")

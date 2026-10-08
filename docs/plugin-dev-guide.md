@@ -155,6 +155,7 @@ pairee.fs.write(path, data)            -- write data to file
 pairee.fs.exists(path)                 -- boolean
 pairee.fs.stat(path)                   -- File userdata (or nil)
 pairee.fs.list(path)                   -- File[]: directory listing
+pairee.fs.data_dir()                   -- string: private writable dir for this plugin
 pairee.fs.read_dir(path)               -- File[] (same as list)
 pairee.fs.file(path)                   -- File userdata
 pairee.fs.mkdir("dir"|"dir_all", path)
@@ -403,6 +404,7 @@ By default, all plugins run in **Untrusted Mode** (`trusted = false`), which iso
 * **Banned Runtimes:** Global functions capable of dynamic script evaluation (`load`, `loadstring`, `dofile`, `loadfile`) are disabled.
 * **Require Isolation:** The global `require` function is custom-implemented by Rust to restrict module loading exclusively to files within the plugin's own directory.
 * **No Commands:** Any call to `pairee.fs.spawn()` will immediately throw a runtime error.
+* **Filesystem Jail:** `pairee.fs` can only read inside the plugin's own directory and its private data directory (`pairee.fs.data_dir()`), and can only write inside the data directory. This applies whether or not Secure Mode is enabled; `..` segments and symlinks cannot escape it.
 
 ```toml
 # In pairee.toml
@@ -428,7 +430,7 @@ To prevent data exfiltration, users can enable a global **Secure Mode** in their
   * **Network Utilities:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
   * **Shells & Interpreters:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
   * **Script Runtimes:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
-* **FS Sandboxing:** File APIs (`pairee.fs`) are locked to the active workspace folder and the user's config directory.
+* **FS Sandboxing:** For trusted plugins, file APIs (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. Untrusted plugins keep their stricter jail (13.1).
 
 ---
 

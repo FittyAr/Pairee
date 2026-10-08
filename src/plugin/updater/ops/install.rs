@@ -1,11 +1,13 @@
 //! Plugin installation and download pipeline.
 
+use super::install_guard::{safe_join, validate_identifier, verify_bytes_sha256};
 use crate::plugin::updater::lockfile::{read_lockfile, write_lockfile};
 use crate::plugin::updater::registry::{fetch_blocklist, fetch_index};
 use crate::plugin::updater::types::{PinnedPlugin, RegistryPluginManifestWrapper};
 use std::collections::HashMap;
 
 pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
+    validate_identifier("name", name)?;
     let blocklist = fetch_blocklist().await.unwrap_or_default();
     if let Some(reason) = blocklist.blocked.get(name) {
         anyhow::bail!(
@@ -32,17 +34,16 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         );
     }
 
+    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
+    let author = if author.is_empty() { "unknown" } else { author };
+    validate_identifier("author", author)?;
+
     let plugins_dir = crate::config::paths::get_config_dir()
         .join("plugins")
         .join(format!("{}.pairee", name));
-    if !plugins_dir.exists() {
-        std::fs::create_dir_all(&plugins_dir)?;
-    }
 
     println!("Downloading {} v{}...", plugin.name, plugin.version);
 
-    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
-    let author = if author.is_empty() { "unknown" } else { author };
     let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
     let first_char_str = if first_char.is_ascii_alphabetic() {
         first_char.to_string()
@@ -65,42 +66,43 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         .files
         .ok_or_else(|| anyhow::anyhow!("Plugin manifest is missing [files] section"))?;
 
-    let mut downloaded_files = HashMap::new();
-
+    // Reject hostile `[files]` keys before any network fetch or disk write.
+    let mut targets = Vec::with_capacity(files.len());
     for (rel_path, expected_hash) in &files {
+        targets.push((rel_path, expected_hash, safe_join(&plugins_dir, rel_path)?));
+    }
+
+    // Download and verify everything in memory first, so a tampered file
+    // never reaches the plugin directory and no partial install is left.
+    let mut verified = Vec::with_capacity(targets.len());
+    for (rel_path, expected_hash, dest_path) in targets {
         let file_url = format!(
             "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/{}",
             first_char_str, author, name, rel_path
         );
-        let dest_path = plugins_dir.join(rel_path);
-
-        // Ensure subdirectories exist
-        if let Some(parent) = dest_path.parent() {
-            std::fs::create_dir_all(parent)?;
-        }
-
         let resp = client.get(&file_url).send().await?;
         if !resp.status().is_success() {
-            // Clean up downloaded files
-            let _ = std::fs::remove_dir_all(&plugins_dir);
             anyhow::bail!(
                 "Failed to download file '{}': HTTP {}",
                 rel_path,
                 resp.status()
             );
         }
-
         let bytes = resp.bytes().await?;
-        std::fs::write(&dest_path, &bytes)?;
-
-        // Verify SHA-256
-        if let Err(e) = crate::update::downloader::verify_sha256(&dest_path, expected_hash) {
-            let _ = std::fs::remove_dir_all(&plugins_dir);
+        if let Err(e) = verify_bytes_sha256(&bytes, expected_hash) {
             anyhow::bail!("Verification failed for file '{}': {:?}", rel_path, e);
         }
-
-        downloaded_files.insert(rel_path.clone(), expected_hash.clone());
         println!("  ✓ {} verified.", rel_path);
+        verified.push((rel_path, expected_hash, dest_path, bytes));
+    }
+
+    let mut downloaded_files = HashMap::new();
+    for (rel_path, expected_hash, dest_path, bytes) in verified {
+        if let Some(parent) = dest_path.parent() {
+            std::fs::create_dir_all(parent)?;
+        }
+        std::fs::write(&dest_path, &bytes)?;
+        downloaded_files.insert(rel_path.clone(), expected_hash.clone());
     }
 
     // Update lockfile
