@@ -95,11 +95,6 @@ pub fn button_bar<'a>(
     Paragraph::new(Line::from(spans)).alignment(Alignment::Center)
 }
 
-/// Focused button index for a dialog whose buttons start at row `first`.
-pub fn focused_button(focus: usize, first: usize) -> Option<usize> {
-    focus.checked_sub(first)
-}
-
 /// A full-width horizontal rule.
 pub fn separator<'a>(width: u16, style: Style) -> Paragraph<'a> {
     Paragraph::new(ratatui::symbols::line::HORIZONTAL.repeat(width as usize)).style(style)
@@ -145,11 +140,5 @@ mod tests {
         assert_eq!(text(&spans), "abc ");
         let spans = field_spans(&field, Style::default(), Style::default(), false);
         assert_eq!(text(&spans), "abc");
-    }
-
-    #[test]
-    fn focused_button_offsets() {
-        assert_eq!(focused_button(1, 2), None);
-        assert_eq!(focused_button(3, 2), Some(1));
     }
 }

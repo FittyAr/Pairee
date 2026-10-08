@@ -49,7 +49,7 @@ pub fn render(
     f.render_widget(
         kit::button_bar(
             &buttons,
-            kit::focused_button(prompt.cursor_idx, Prompt::BUTTON_SUBMIT),
+            Prompt::FORM.focused_button(prompt.cursor_idx),
             styles,
         ),
         chunks[13],

@@ -1,3 +1,4 @@
+use crate::app::form::FormLayout;
 use crate::app::text_input::TextField;
 use crate::fs::transfer::job::TransferOperation;
 use crate::fs::transfer::options::TransferOptions;
@@ -120,6 +121,8 @@ impl CopyMovePromptState {
     pub const BUTTON_FILTER: usize = 12;
     pub const BUTTON_CANCEL: usize = 13;
     pub const ROW_COUNT: usize = 14;
+    /// Focus model shared by the key handler and the renderer.
+    pub const FORM: FormLayout = FormLayout::with_input(Self::ROW_COUNT, Self::BUTTON_SUBMIT);
     /// Choices of the "already existing files" row.
     pub const EXISTING_CHOICES: usize = 4;
     /// Choices of the symbolic-links row.
@@ -135,11 +138,6 @@ impl CopyMovePromptState {
             (self.produce_sparse_files, "prompt_produce_sparse_files"),
             (self.use_copy_on_write, "prompt_use_cow"),
         ]
-    }
-
-    /// `true` for the button bar rows.
-    pub fn is_button(row: usize) -> bool {
-        (Self::BUTTON_SUBMIT..=Self::BUTTON_CANCEL).contains(&row)
     }
 
     /// Space on an option row: flips a checkbox or cycles a choice.

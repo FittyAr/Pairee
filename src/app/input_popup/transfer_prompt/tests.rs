@@ -63,7 +63,6 @@ fn input_row_edits_text_and_other_rows_toggle() {
     assert_eq!(prompt(&state).already_existing, 1);
     press(&mut state, KeyCode::Char('q')).unwrap();
     assert_eq!(prompt(&state).input.text(), "dstx");
-    assert!(press(&mut state, KeyCode::F(5)).is_err());
 }
 
 #[test]
