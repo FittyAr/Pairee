@@ -93,7 +93,6 @@ impl AppState {
             show_hidden,
             case_sensitive: self.case_sensitive_sort,
             natural: self.natural_sort(),
-            collation: self.sorting_collation.clone(),
             req_admin: self.req_admin_reading,
             sort_field: panel.sort_field,
             sort_reverse: panel.sort_reverse,
