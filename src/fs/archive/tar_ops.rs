@@ -1,26 +1,37 @@
-//! Tar and tar.gz format: reading entries (Strategy for [`ArchiveReader`]).
+//! Tar, tar.gz, tar.bz2 and tar.xz formats: reading entries (Strategy for
+//! [`ArchiveReader`]). The decoders are pure Rust.
 
 use anyhow::Result;
 use flate2::read::GzDecoder;
 use std::fs;
-use std::io::Read;
+use std::io::{self, Read};
 use std::path::Path;
 use tar::{Archive, EntryType};
 
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
 
-/// A tar archive, gzip-compressed when `gz` is set.
+/// How the tar stream is compressed.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TarCompression {
+    None,
+    Gzip,
+    Bzip2,
+    Xz,
+}
+
+/// A tar archive, compressed as `compression` says.
 pub struct TarReader {
-    pub gz: bool,
+    pub compression: TarCompression,
 }
 
 impl TarReader {
     fn open(&self, archive: &Path) -> Result<Archive<Box<dyn Read>>> {
-        let file = fs::File::open(archive)?;
-        let stream: Box<dyn Read> = if self.gz {
-            Box::new(GzDecoder::new(file))
-        } else {
-            Box::new(file)
+        let file = io::BufReader::new(fs::File::open(archive)?);
+        let stream: Box<dyn Read> = match self.compression {
+            TarCompression::None => Box::new(file),
+            TarCompression::Gzip => Box::new(GzDecoder::new(file)),
+            TarCompression::Bzip2 => Box::new(bzip2::bufread::MultiBzDecoder::new(file)),
+            TarCompression::Xz => Box::new(lzma_rust2::XzReader::new(file, true)),
         };
         Ok(Archive::new(stream))
     }

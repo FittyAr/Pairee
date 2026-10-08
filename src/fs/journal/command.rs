@@ -75,6 +75,8 @@ pub enum Irreversible {
     Trash,
     /// Copy, move or delete on an SFTP panel.
     Remote,
+    /// Copy into or out of an archive, or delete inside one.
+    Archive,
 }
 
 /// An applied operation.
@@ -230,6 +232,7 @@ impl FsCommand {
                 Irreversible::Wipe => "journal_verb_wipe",
                 Irreversible::Trash => "journal_verb_trash",
                 Irreversible::Remote => "journal_verb_remote",
+                Irreversible::Archive => "journal_verb_archive",
             },
         })
     }

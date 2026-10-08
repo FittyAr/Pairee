@@ -12,7 +12,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `Up` / `Down` | Move cursor selection highlight up or down. |
 | `PageUp` / `PageDown` | Scroll panel list up or down by one screen. |
 | `Home` / `End` | Jump directly to the first or last item in the list. |
-| `Enter` / `Ctrl+PgDn` | Enter the highlighted folder, or open the highlighted zip / tar / tar.gz / 7z archive as a folder (`Ctrl+PgDn` never opens files). |
+| `Enter` / `Ctrl+PgDn` | Enter the highlighted folder, or open the highlighted zip / tar / tar.gz / tar.bz2 / tar.xz / 7z archive as a folder (`Ctrl+PgDn` never opens files). |
 | `Backspace` / `Ctrl+PgUp` | Go to the parent folder; at the root of an archive, back to the folder that holds it (cursor on the archive). |
 | `Ctrl+U` | Swap directory paths between the Left and Right panels. |
 | `Ctrl+H` | Toggle visibility of hidden files and system dotfiles. |
@@ -94,6 +94,8 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | Key | Action |
 | :--- | :--- |
 | `Insert` / `Space` | Tag/untag active file selection. Cursor automatically moves down. On a folder it also computes the folder size (`Esc` stops it). |
+| `Alt+S` | Compute the size of the selected folders (or of every folder when none is selected). |
+| `Alt+D` | Disk usage view of the current folder. |
 | `+` (Keypad) | Tag a group of files matching a glob mask (e.g. `*.rs`). |
 | `-` (Keypad) | Untag a group of files matching a glob mask. |
 | `*` (Keypad) | Invert selection state of the entire panel. |

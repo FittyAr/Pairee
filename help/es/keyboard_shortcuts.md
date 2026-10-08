@@ -12,7 +12,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Arriba` / `Abajo` | Desplaza el cursor de selección una posición. |
 | `Re Pág` / `Av Pág` | Desplaza la lista de archivos una pantalla completa. |
 | `Inicio` / `Fin` | Salta directamente al primer o último archivo de la lista. |
-| `Enter` / `Ctrl+Av Pág` | Entra en la carpeta resaltada, o abre como carpeta el archivo comprimido zip / tar / tar.gz / 7z resaltado (`Ctrl+Av Pág` nunca abre archivos). |
+| `Enter` / `Ctrl+Av Pág` | Entra en la carpeta resaltada, o abre como carpeta el archivo comprimido zip / tar / tar.gz / tar.bz2 / tar.xz / 7z resaltado (`Ctrl+Av Pág` nunca abre archivos). |
 | `Retroceso` / `Ctrl+Re Pág` | Sube a la carpeta padre; en la raíz de un archivo comprimido, vuelve a la carpeta que lo contiene (con el cursor sobre él). |
 | `Ctrl+U` | Intercambia las rutas de directorio entre el panel izquierdo y derecho. |
 | `Ctrl+H` | Alterna la visualización de archivos ocultos y de sistema. |
@@ -94,6 +94,8 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | Tecla | Acción |
 | :--- | :--- |
 | `Insert` / `Espacio` | Marca/desmarca archivos. El cursor avanza hacia abajo. Sobre una carpeta también calcula su tamaño (`Esc` lo detiene). |
+| `Alt+S` | Calcula el tamaño de las carpetas marcadas (o de todas si no hay ninguna marcada). |
+| `Alt+D` | Vista de uso de disco de la carpeta actual. |
 | `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
 | `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
 | `*` (Teclado numérico) | Invierte la selección en todo el panel. |

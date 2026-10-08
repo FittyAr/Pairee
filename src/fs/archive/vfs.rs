@@ -3,15 +3,18 @@
 //!
 //! The folder tree is read once and cached until the archive file changes
 //! (size or modification time). Entries are read into memory with a size
-//! cap; zip archives can also be edited (see [`super::zip_write`]).
+//! cap; zip archives can also be edited (see [`super::zip_write`]). An
+//! archive inside an archive is browsed read-only from a temporary copy
+//! (see [`super::nested`]).
 
 use super::format::{ArchiveReader, Visit};
 use super::index::{ArchiveIndex, Node};
+use super::nested::ArchiveData;
 use super::safe_extract::ExtractGuard;
 use super::zip_write::{ZipEdit, ZipSource, rewrite_zip};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, unsupported};
 use crate::lock::LockExt;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
@@ -24,7 +27,9 @@ pub const MAX_ENTRY_READ_BYTES: u64 = 64 * 1024 * 1024;
 type Stamp = (u64, Option<SystemTime>);
 
 pub struct ArchiveVfs {
+    /// Path of the archive in the panel's namespace (its entries are below).
     root: PathBuf,
+    data: ArchiveData,
     reader: &'static dyn ArchiveReader,
     cache: Mutex<Option<(Stamp, Arc<ArchiveIndex>)>>,
 }
@@ -49,10 +54,42 @@ impl ArchiveVfs {
     pub fn open(root: PathBuf) -> Option<Self> {
         let reader = super::browsable_reader(&root)?;
         Some(Self {
+            data: ArchiveData::Local(root.clone()),
             root,
             reader,
             cache: Mutex::new(None),
         })
+    }
+
+    /// The archive stored as the entry `entry` of `parent` (read-only; it
+    /// is extracted the first time it is read).
+    pub fn open_nested(parent: Arc<ArchiveVfs>, entry: PathBuf) -> Option<Self> {
+        let reader = super::browsable_reader(&entry)?;
+        Some(Self {
+            data: ArchiveData::nested(parent, entry.clone()),
+            root: entry,
+            reader,
+            cache: Mutex::new(None),
+        })
+    }
+
+    /// The archive that holds this one, when it is nested.
+    pub fn parent(&self) -> Option<&Arc<ArchiveVfs>> {
+        self.data.parent()
+    }
+
+    /// The nested archive `path` lies in (the shallowest archive file
+    /// entry on the way from this archive's root to `path`), if any.
+    pub fn nested_at(self: &Arc<Self>, path: &Path) -> Option<Self> {
+        let mut inside: Vec<&Path> = path
+            .ancestors()
+            .take_while(|a| *a != self.root && a.starts_with(&self.root))
+            .collect();
+        inside.reverse();
+        let entry = inside
+            .into_iter()
+            .find(|a| super::is_browsable(a) && self.stat(a).is_ok_and(|e| !e.is_dir))?;
+        Self::open_nested(Arc::clone(self), entry.to_path_buf())
     }
 
     /// Path of the archive file (the root of its namespace).
@@ -73,7 +110,8 @@ impl ArchiveVfs {
     }
 
     fn index(&self) -> io::Result<Arc<ArchiveIndex>> {
-        let meta = std::fs::metadata(&self.root)?;
+        let file = self.data.file()?;
+        let meta = std::fs::metadata(&file)?;
         let stamp = (meta.len(), meta.modified().ok());
         let mut cache = self.cache.lock_safe();
         if let Some((seen, index)) = cache.as_ref()
@@ -81,7 +119,7 @@ impl ArchiveVfs {
         {
             return Ok(Arc::clone(index));
         }
-        let entries = self.reader.entries(&self.root).map_err(to_io)?;
+        let entries = self.reader.entries(&file).map_err(to_io)?;
         let index = Arc::new(ArchiveIndex::build(&entries));
         *cache = Some((stamp, Arc::clone(&index)));
         Ok(index)
@@ -108,21 +146,37 @@ impl ArchiveVfs {
         }
     }
 
-    /// The first `max` bytes of the entry at `inner`.
-    fn read_entry(&self, inner: &Path, max: u64) -> io::Result<Vec<u8>> {
-        let mut found: Option<Vec<u8>> = None;
+    /// Writes the first `max` bytes of the entry at `inner` to `out`;
+    /// returns how many were written.
+    fn copy_inner(&self, inner: &Path, out: &mut dyn Write, max: u64) -> io::Result<u64> {
+        let mut written = None;
         self.reader
-            .visit(&self.root, &mut |meta, data| {
+            .visit(&self.data.file()?, &mut |meta, data| {
                 if ExtractGuard::sanitize(&meta.name).ok().as_deref() != Some(inner) {
                     return Ok(Visit::Continue);
                 }
-                let mut buf = Vec::new();
-                data.take(max).read_to_end(&mut buf)?;
-                found = Some(buf);
+                written = Some(io::copy(&mut data.take(max), out)?);
                 Ok(Visit::Stop)
             })
             .map_err(to_io)?;
-        found.ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
+        written.ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
+    }
+
+    /// Streams the first `max` bytes of the entry at `path` to `out`.
+    pub fn copy_entry(&self, path: &Path, out: &mut dyn Write, max: u64) -> io::Result<u64> {
+        self.copy_inner(&self.inner(path)?, out, max)
+    }
+
+    /// The first `max` bytes of the entry at `inner`.
+    fn read_entry(&self, inner: &Path, max: u64) -> io::Result<Vec<u8>> {
+        let mut buf = Vec::new();
+        self.copy_inner(inner, &mut buf, max)?;
+        Ok(buf)
+    }
+
+    /// Entries can be added and removed (a local zip file).
+    fn writable(&self) -> bool {
+        self.reader.writable() && self.parent().is_none()
     }
 
     /// Rewrites a writable archive with `edit`.
@@ -131,7 +185,7 @@ impl ArchiveVfs {
         edit: &ZipEdit,
         on_added: &mut dyn FnMut(&Path) -> io::Result<()>,
     ) -> io::Result<()> {
-        if !self.reader.writable() {
+        if !self.writable() {
             return Err(unsupported());
         }
         let result = rewrite_zip(&self.root, edit, on_added).map_err(to_io);
@@ -147,7 +201,7 @@ impl ArchiveVfs {
 
 impl Vfs for ArchiveVfs {
     fn capabilities(&self) -> Capabilities {
-        let writable = self.reader.writable();
+        let writable = self.writable();
         Capabilities {
             write: writable,
             mkdir: writable,

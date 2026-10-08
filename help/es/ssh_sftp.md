@@ -41,11 +41,14 @@ Una vez establecida la conexión, el panel activo pasa a modo SFTP:
   - **`Enter`**: Abre el directorio seleccionado o ejecuta las asociaciones de archivos.
   - **`Backspace`** o **`..`**: Vuelve al directorio de nivel superior.
 * **Operaciones sobre Archivos:**
-  - **`F7`** (Renombrar): Renombra un archivo directamente en el servidor remoto.
-  - **`F6`** (Mover): Traslada archivos remotos entre directorios.
-  - **`F8`** (Delete): Elimina de forma recursiva carpetas y archivos en el servidor remoto.
-  - **`F3`** (Viewer): Visualiza contenidos de archivos remotos en texto plano o modo hexadecimal.
-  - **`F4`** (Editor): Edita archivos de texto directamente en el servidor remoto. Pairee gestiona los búferes temporales automáticamente.
+  - **`F7`** (Renombrar): Renombra un archivo directamente en el servidor remoto (renombrado SFTP; nunca sobrescribe un nombre existente). Deshacer (`Alt+Backspace`) le devuelve el nombre anterior.
+  - **`F6`** (Mover): Traslada archivos remotos entre directorios. Si ambos paneles muestran la misma conexión, el movimiento es un renombrado en el servidor y se puede deshacer.
+  - **Crear carpeta**: Crea la carpeta en el servidor.
+  - **`F8`** (Delete): Elimina de forma recursiva carpetas y archivos en el servidor remoto (no se puede deshacer).
+  - **`F3`** (Viewer): Visualiza contenidos de archivos remotos en texto plano o modo hexadecimal (se leen en memoria, hasta 64 MiB).
+  - **`F4`** (Editor): El archivo se descarga a una carpeta temporal privada y se abre en el editor interno; el título muestra la ruta remota. Al guardar se sube en segundo plano. Si el archivo del servidor cambió desde que se abrió (tamaño o fecha de modificación distintos), Pairee pregunta antes de sobrescribirlo. "Guardar como" escribe un archivo local y deja de subirlo. La copia temporal se borra al cerrar el editor.
+  - **`Ctrl+A`** (Atributos): Muestra tamaño, fecha de modificación, permisos y el propietario numérico (`uid:gid`; SFTP no informa nombres de usuario). Cambiar el modo octal o la marca de solo lectura ejecuta `chmod` en el servidor (SFTP `setstat`); solo lectura quita todos los permisos de escritura y prevalece sobre el modo escrito.
+  - Las copias desde o hacia el servidor y los borrados quedan registrados como no reversibles.
 
 ---
 

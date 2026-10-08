@@ -31,7 +31,7 @@ pub fn render_editor_widget(
     active_popup: Option<&PopupType>,
 ) {
     let title = t("editor_title")
-        .replacen("{}", &ed.path.to_string_lossy(), 1)
+        .replacen("{}", &ed.display_path().to_string_lossy(), 1)
         .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
 
     let block = Block::default()

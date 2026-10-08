@@ -35,6 +35,9 @@ pub struct EditorState {
     pub tab_size: usize,
     /// Text area painted last frame, for mouse hit-testing.
     pub viewport: std::cell::Cell<Viewport>,
+    /// Set when `path` is a local copy of a file on an SFTP server or in
+    /// an archive: saving uploads it (see `editor::remote`).
+    pub remote: Option<super::remote::RemoteOrigin>,
 }
 
 impl EditorState {
@@ -55,6 +58,7 @@ impl EditorState {
             selection: None,
             tab_size: tab_size.max(1),
             viewport: Default::default(),
+            remote: None,
         }
     }
 

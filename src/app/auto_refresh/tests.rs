@@ -81,7 +81,7 @@ fn disabled_monitors_nothing() {
 }
 
 #[test]
-fn large_folders_are_polled() {
+fn folders_above_the_update_limit_are_not_refreshed() {
     let d = dirs(2);
     for i in 0..3 {
         std::fs::write(d[0].path().join(format!("f{i}")), b"x").unwrap();
@@ -89,8 +89,10 @@ fn large_folders_are_polled() {
     let mut state = state_on(d[0].path(), d[1].path());
     state.disable_panel_update_object_count = 2;
     let targets = state.auto_refresh_targets();
-    assert!(targets[0].prefer_poll);
-    assert!(!targets[1].prefer_poll);
+    assert_eq!(targets.len(), 1);
+    assert_eq!(targets[0].dir, d[1].path());
+    state.poll_auto_refresh(false);
+    assert_eq!(monitored(&state), sorted(&[d[1].path()]));
 }
 
 #[test]
@@ -112,6 +114,7 @@ fn a_reported_change_rereads_the_tab_and_its_folder_sizes() {
         .send(DirChange {
             dir: d[0].path().to_path_buf(),
             entries: vec![sub.clone()],
+            origin: Default::default(),
         })
         .unwrap();
     let start = Instant::now();

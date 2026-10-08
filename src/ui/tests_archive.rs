@@ -111,13 +111,13 @@ fn local_only_actions_are_refused_inside_archives() {
     let (_dir, mut context, mut state) = app();
     cursor_to(&mut state, "bundle.zip");
     act(&mut state, &mut context, Action::Execute);
-    for action in [Action::Edit, Action::Rename, Action::MultiRename] {
+    for action in [Action::Rename, Action::MultiRename, Action::FileAttributes] {
         state.dialogs.clear();
         assert!(refuse_unsupported(&mut state, &action), "{action:?}");
         assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
     }
-    // Zip archives take new folders, copies out and deletions.
-    for action in [Action::MkDir, Action::Copy, Action::Delete] {
+    // Zip archives take new folders, copies out, deletions and edits.
+    for action in [Action::MkDir, Action::Copy, Action::Delete, Action::Edit] {
         assert!(!refuse_unsupported(&mut state, &action), "{action:?}");
     }
     assert!(refuse_unsupported(&mut state, &Action::Move));
@@ -143,4 +143,95 @@ fn viewer_and_quick_view_read_archive_entries() {
     state.open_viewer(entry, &context.config.settings, false);
     let viewer = state.active_viewer_mut().expect("viewer screen");
     assert_eq!(viewer.doc.lines(0, 5), ["alpha"]);
+}
+
+#[test]
+fn f4_edits_an_archive_entry_through_a_local_copy() {
+    let (dir, mut context, mut state) = app();
+    cursor_to(&mut state, "bundle.zip");
+    act(&mut state, &mut context, Action::Execute);
+    cursor_to(&mut state, "a.txt");
+    crate::app::actions::fs_ops::edit::handle(&mut state, &mut context);
+    assert!(state.poll_vfs_op(&context.config.settings));
+    let entry = dir.path().join("bundle.zip").join("a.txt");
+    let ed = state.active_editor_mut().expect("editor screen");
+    assert_eq!(ed.display_path(), entry.as_path());
+    assert_ne!(ed.path, entry, "edits a local copy");
+    ed.lines = vec!["changed".to_string()];
+    assert!(crate::app::editor::open::save_active_editor(
+        &mut state, None, false
+    ));
+    assert!(state.poll_vfs_op(&context.config.settings));
+    assert!(state.dialogs.top().is_none(), "{:?}", state.dialogs.top());
+    let vfs = state.vfs_of_listed(&entry);
+    let text = vfs.read_prefix(&entry, 64).unwrap();
+    assert!(text.starts_with(b"changed"), "{text:?}");
+}
+
+/// root/outer.zip { inner.tar.gz (SAMPLE_TREE), note.txt }
+fn nested_app() -> (tempfile::TempDir, AppContext, AppState) {
+    let dir = tempfile::tempdir().unwrap();
+    let inner = dir.path().join("inner.tar.gz");
+    crate::fs::archive::test_fixtures::write_tar_gz(&inner, SAMPLE_TREE);
+    let bytes = std::fs::read(&inner).unwrap();
+    std::fs::remove_file(&inner).unwrap();
+    let outer: &[(&str, &[u8])] = &[("inner.tar.gz", &bytes), ("note.txt", b"n")];
+    write_zip(&dir.path().join("outer.zip"), outer);
+    let context = AppContext::new(AppConfig::default());
+    let mut state = AppState::new(dir.path().to_path_buf(), dir.path().to_path_buf());
+    state.refresh_both_panels(false);
+    (dir, context, state)
+}
+
+#[test]
+fn an_archive_inside_an_archive_is_browsed_read_only() {
+    let (dir, mut context, mut state) = nested_app();
+    let inner = dir.path().join("outer.zip").join("inner.tar.gz");
+    cursor_to(&mut state, "outer.zip");
+    act(&mut state, &mut context, Action::Execute);
+    cursor_to(&mut state, "inner.tar.gz");
+    act(&mut state, &mut context, Action::Execute);
+    let panel = state.get_active_panel();
+    assert_eq!(panel.current_path, inner);
+    let nested = panel.source.archive().expect("archive source");
+    assert!(nested.parent().is_some(), "nested source");
+    assert!(panel.entries.iter().any(|e| e.name == "a.txt"));
+
+    // Viewable, but nothing can be written or copied out.
+    let entry = inner.join("a.txt");
+    let vfs = state.vfs_of_listed(&entry);
+    assert_eq!(vfs.read_prefix(&entry, 64).unwrap(), b"alpha");
+    cursor_to(&mut state, "a.txt");
+    for action in [Action::Copy, Action::Delete, Action::MkDir, Action::Edit] {
+        state.dialogs.clear();
+        assert!(refuse_unsupported(&mut state, &action), "{action:?}");
+    }
+
+    // `..` at its root goes back into the containing archive.
+    cursor_to(&mut state, "..");
+    act(&mut state, &mut context, Action::Execute);
+    let panel = state.get_active_panel();
+    assert_eq!(panel.current_path, dir.path().join("outer.zip"));
+    assert!(panel.source.archive().is_some_and(|a| a.parent().is_none()));
+    assert_eq!(cursor_name(&state), "inner.tar.gz");
+}
+
+#[test]
+fn jobs_never_reach_into_a_nested_archive() {
+    use crate::fs::transfer::backend::archive_vfs::plan;
+    use crate::fs::transfer::job::{TransferJob, TransferOperation};
+    let (dir, _context, _state) = nested_app();
+    let inner = dir.path().join("outer.zip").join("inner.tar.gz");
+    let job = |sources, dest| {
+        TransferJob::new(TransferOperation::Copy, sources, dest, Default::default())
+    };
+    let out = job(vec![inner.join("a.txt")], dir.path().to_path_buf());
+    assert!(plan(&out).unwrap().is_err());
+    let into = job(vec![dir.path().join("x")], inner.clone());
+    assert!(plan(&into).unwrap().is_err());
+    let whole = job(vec![inner], dir.path().to_path_buf());
+    assert!(
+        plan(&whole).unwrap().is_ok(),
+        "the inner archive file itself"
+    );
 }

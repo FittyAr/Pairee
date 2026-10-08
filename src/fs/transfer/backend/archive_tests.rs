@@ -5,7 +5,8 @@ use super::archive_vfs::{ArchivePlan, plan};
 use super::run_job;
 use crate::fs::archive::test_fixtures::{SAMPLE_TREE, snapshot, write_tar_gz, write_zip};
 use crate::fs::archive::{ArchiveVfs, list_archive_files};
-use crate::fs::transfer::events::EventSender;
+use crate::fs::transfer::conflict::ConflictResolution;
+use crate::fs::transfer::events::{EventSender, TransferEvent};
 use crate::fs::transfer::job::{TransferJob, TransferOperation};
 use crate::fs::transfer::options::TransferOptions;
 use crate::fs::vfs::Vfs;
@@ -139,6 +140,53 @@ async fn writing_into_a_read_only_archive_fails_cleanly() {
             .is_err()
     );
     assert_eq!(fs::read(&archive).unwrap(), before, "archive untouched");
+}
+
+/// Copies a local `a.txt` ("new") into a zip already holding `a.txt`
+/// ("old") with `mode`; "ask" is answered with `answer`.
+async fn copy_over_existing(mode: &str, answer: ConflictResolution) -> (Vec<String>, Vec<u8>) {
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("a.zip");
+    write_zip(&archive, &[("a.txt", b"old")]);
+    let src = dir.path().join("a.txt");
+    fs::write(&src, b"new").unwrap();
+    let options = TransferOptions {
+        conflict_resolution: mode.to_string(),
+        ..TransferOptions::default()
+    };
+    let job = TransferJob::new(TransferOperation::Copy, vec![src], archive.clone(), options);
+    let slot = std::sync::Arc::clone(&job.active_conflict);
+    let (tx, mut rx) = EventSender::channel();
+    tokio::spawn(async move {
+        while let Some(event) = rx.recv().await {
+            if matches!(event, TransferEvent::ConflictDetected { .. }) {
+                slot.answer(answer);
+            }
+        }
+    });
+    run_job(job, tx).await.unwrap();
+    let vfs = ArchiveVfs::open(archive.clone()).unwrap();
+    let a = vfs.read_prefix(&archive.join("a.txt"), 64).unwrap();
+    (sorted_names(&archive), a)
+}
+
+#[tokio::test]
+async fn copies_into_a_zip_follow_the_conflict_setting() {
+    let skip = copy_over_existing("skip", ConflictResolution::Skip).await;
+    assert_eq!(skip, (vec!["a.txt".to_string()], b"old".to_vec()));
+    let overwrite = copy_over_existing("overwrite", ConflictResolution::Skip).await;
+    assert_eq!(overwrite, (vec!["a.txt".to_string()], b"new".to_vec()));
+    let (names, a) = copy_over_existing("rename", ConflictResolution::Skip).await;
+    assert_eq!(names, ["a (1).txt", "a.txt"]);
+    assert_eq!(a, b"old");
+}
+
+#[tokio::test]
+async fn asking_about_a_zip_conflict_waits_for_the_answer() {
+    let asked_skip = copy_over_existing("ask", ConflictResolution::Skip).await;
+    assert_eq!(asked_skip.1, b"old");
+    let asked_overwrite = copy_over_existing("ask", ConflictResolution::Overwrite).await;
+    assert_eq!(asked_overwrite.1, b"new");
 }
 
 /// The transfer dialog pre-fills `<folder>/<name>` for one item: that is

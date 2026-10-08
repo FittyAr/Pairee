@@ -88,6 +88,15 @@ impl TransferQueue {
         jobs.iter().cloned().collect()
     }
 
+    /// A copy of the job `job_id`, if it is still listed.
+    pub fn get(&self, job_id: Uuid) -> Option<TransferJob> {
+        self.jobs
+            .lock_safe()
+            .iter()
+            .find(|j| j.id == job_id)
+            .cloned()
+    }
+
     pub fn pending_count(&self) -> usize {
         let jobs = self.jobs.lock_safe();
         jobs.iter()

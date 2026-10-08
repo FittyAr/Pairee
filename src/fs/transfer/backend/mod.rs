@@ -46,11 +46,12 @@ pub async fn run_job(
     }
 
     if let Some(plan) = archive_vfs::plan(&job) {
+        let conflicts = archive_vfs::ConflictSetup::of(&job);
         let control = JobControl::for_job(&job, event_tx.clone());
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
         return match plan {
-            Ok(plan) => archive_vfs::run(plan, control).await,
+            Ok(plan) => archive_vfs::run(plan, control, conflicts).await,
             Err(reason) => {
                 let _ = event_tx.send(TransferEvent::JobFailed {
                     job_id: job.id,

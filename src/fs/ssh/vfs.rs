@@ -2,8 +2,9 @@
 //! call, so other remote operations can interleave with long walks.
 
 use super::SharedSshClient;
-use super::sftp_ops::sftp_entry;
+use super::sftp_ops::{sftp_attrs, sftp_entry};
 use crate::fs::FileEntry;
+use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::list::ListOptions;
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, panel_listing};
 use std::io::{self, Read};
@@ -64,6 +65,26 @@ impl Vfs for SharedSshClient {
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
         self.lock().sftp.rename(from, to, None).map_err(io_err)
+    }
+
+    fn attributes(&self, path: &Path) -> io::Result<FileAttrs> {
+        let stat = self.lock().sftp.stat(path).map_err(io_err)?;
+        Ok(sftp_attrs(path, &stat))
+    }
+
+    /// `chmod` through SFTP `setstat` (only the permission bits are sent).
+    fn set_attributes(&self, path: &Path, change: AttrChange) -> io::Result<()> {
+        let client = self.lock();
+        let current = client.sftp.stat(path).map_err(io_err)?.perm.unwrap_or(0);
+        let stat = ssh2::FileStat {
+            size: None,
+            uid: None,
+            gid: None,
+            perm: Some(change.resulting_mode(current)),
+            atime: None,
+            mtime: None,
+        };
+        client.sftp.setstat(path, stat).map_err(io_err)
     }
 
     /// Lists with the error text panels show for remote folders; folders

@@ -24,6 +24,7 @@ pub use local::LocalVfs;
 pub use source::PanelSource;
 
 use crate::fs::FileEntry;
+use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::du::{DuEntry, DuKind};
 use crate::fs::list::ListOptions;
 use crate::fs::text::ByteStore;
@@ -42,6 +43,8 @@ pub struct Capabilities {
     pub remove: bool,
     /// Rename entries in place ([`Vfs::rename`]).
     pub rename: bool,
+    /// Read and change permissions ([`Vfs::attributes`]).
+    pub attributes: bool,
     /// Paths are real local paths, so tools that run on local files
     /// (editor, attributes, links, wipe, archivers, shell commands) work.
     pub local_tools: bool,
@@ -54,6 +57,7 @@ impl Capabilities {
         mkdir: false,
         remove: false,
         rename: false,
+        attributes: false,
         local_tools: false,
     };
 
@@ -63,6 +67,7 @@ impl Capabilities {
         mkdir: true,
         remove: true,
         rename: true,
+        attributes: true,
         local_tools: true,
     };
 
@@ -72,6 +77,7 @@ impl Capabilities {
             Capability::MkDir => self.mkdir,
             Capability::Remove => self.remove,
             Capability::Rename => self.rename,
+            Capability::Attributes => self.attributes,
             Capability::LocalTools => self.local_tools,
         }
     }
@@ -84,6 +90,7 @@ pub enum Capability {
     MkDir,
     Remove,
     Rename,
+    Attributes,
     LocalTools,
 }
 
@@ -132,6 +139,16 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     }
 
     fn rename(&self, _from: &Path, _to: &Path) -> io::Result<()> {
+        Err(unsupported())
+    }
+
+    /// Permissions, owner and times of `path` (links followed).
+    fn attributes(&self, _path: &Path) -> io::Result<FileAttrs> {
+        Err(unsupported())
+    }
+
+    /// Applies the Attributes dialog's `change` to `path`.
+    fn set_attributes(&self, _path: &Path, _change: AttrChange) -> io::Result<()> {
         Err(unsupported())
     }
 

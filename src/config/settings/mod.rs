@@ -10,10 +10,11 @@ pub mod types;
 pub use confirmations::ConfirmationSettings;
 pub use types::{
     PluginConfig, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
-    default_compare_mtime_tolerance_secs, default_git_log_limit, default_plugins_dev_dir,
-    default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
-    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
-    default_true, default_viewer_codepage,
+    default_auto_refresh_ssh_poll_secs, default_compare_mtime_tolerance_secs,
+    default_git_log_limit, default_plugins_dev_dir, default_ssh_timeout_secs,
+    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
+    default_transfer_max_retries, default_transfer_report_format, default_true,
+    default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -81,6 +82,13 @@ pub struct Settings {
     /// folders above `disable_panel_update_object_count`).
     #[serde(default = "default_auto_refresh_poll_secs")]
     pub auto_refresh_poll_secs: u32,
+    /// Also poll the folders of SFTP panels (one `stat` + `readdir` per
+    /// interval on the shared connection).
+    #[serde(default)]
+    pub auto_refresh_ssh: bool,
+    /// Seconds between checks of an SFTP folder.
+    #[serde(default = "default_auto_refresh_ssh_poll_secs")]
+    pub auto_refresh_ssh_poll_secs: u32,
     pub show_column_titles: bool,
     pub show_status_line: bool,
     pub show_files_total_information: bool,

@@ -1,13 +1,15 @@
 //! State of the disk usage view (ncdu-like): one background scan builds the
 //! whole size tree of a folder, then navigation in and out of subfolders is
 //! instant. The tree is kept (cached) until a rescan or a scan of another
-//! folder; deleted items are removed from it once they are gone.
+//! folder; items a finished delete job removed from the scanned source
+//! (local disk, SFTP server, zip archive) leave the tree without a rescan.
 
 #[cfg(test)]
 mod tests;
 
 use crate::app::jobs::JobSlot;
 use crate::fs::du::{DuNode, ScanControl, ScanProgress, scan};
+use crate::fs::transfer::job::{TransferJob, TransferOperation, TransferResults};
 use crate::fs::vfs::PanelSource;
 use std::path::{Path, PathBuf};
 
@@ -22,8 +24,6 @@ pub struct DiskUsageState {
     trail: Vec<String>,
     /// Highlighted row in the folder on screen.
     pub cursor: usize,
-    /// Items sent to the delete flow, removed from the tree once gone.
-    pending_delete: Vec<PathBuf>,
 }
 
 impl DiskUsageState {
@@ -43,7 +43,6 @@ impl DiskUsageState {
     /// Scans the root again (the folder on screen is kept when it still exists).
     pub fn rescan(&mut self) {
         self.tree = None;
-        self.pending_delete.clear();
         let root = self.root.clone();
         let vfs = self.source.vfs();
         self.job.start(move |ctx| {
@@ -58,8 +57,8 @@ impl DiskUsageState {
         self.poll();
     }
 
-    /// Installs a finished scan and drops deleted items. Returns `true` when
-    /// the view changed (or a scan is still running and its progress moved).
+    /// Installs a finished scan. Returns `true` when the view changed (or a
+    /// scan is still running and its progress moved).
     pub fn poll(&mut self) -> bool {
         if let Some(tree) = self.job.poll() {
             self.tree = Some(tree);
@@ -74,7 +73,7 @@ impl DiskUsageState {
             self.clamp_cursor();
             return true;
         }
-        self.job.is_running() || self.drop_deleted()
+        self.job.is_running()
     }
 
     /// Stops a running scan.
@@ -139,22 +138,29 @@ impl DiskUsageState {
         true
     }
 
-    /// Remembers that `path` is being deleted so it leaves the tree when gone.
-    pub fn watch_delete(&mut self, path: PathBuf) {
-        if self.source.is_local() {
-            self.pending_delete.push(path);
+    /// Drops what a finished delete `job` removed from the scanned source
+    /// (no rescan, no polling of the server). Returns `true` if any.
+    pub fn job_finished(&mut self, job: &TransferJob, results: &TransferResults) -> bool {
+        let remote = job
+            .ssh
+            .as_ref()
+            .and_then(|e| e.src.as_ref().or(e.dst.as_ref()));
+        let same_source = match (self.source.ssh(), remote) {
+            (Some(shown), Some(job)) => shown.is_same_server(job),
+            (None, None) => true,
+            _ => false,
+        };
+        if job.operation != TransferOperation::Delete || !same_source {
+            return false;
         }
+        self.remove_deleted(results.completed_files.iter().map(|f| f.src.as_path()))
     }
 
-    /// Removes watched items that no longer exist. Returns `true` if any.
-    fn drop_deleted(&mut self) -> bool {
-        let (gone, still): (Vec<_>, Vec<_>) = std::mem::take(&mut self.pending_delete)
-            .into_iter()
-            .partition(|p| std::fs::symlink_metadata(p).is_err());
-        self.pending_delete = still;
+    /// Removes `paths` (deleted items) from the tree. Returns `true` if any.
+    pub fn remove_deleted<'a>(&mut self, paths: impl IntoIterator<Item = &'a Path>) -> bool {
         let mut changed = false;
-        for path in gone {
-            changed |= self.remove_from_tree(&path);
+        for path in paths {
+            changed |= self.remove_from_tree(path);
         }
         if changed {
             self.clamp_cursor();

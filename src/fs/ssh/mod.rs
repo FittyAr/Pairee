@@ -57,6 +57,11 @@ impl SharedSshClient {
         Arc::ptr_eq(&self.inner, &other.inner)
     }
 
+    /// Identity of the connection (equal for clones of one client).
+    pub fn id(&self) -> usize {
+        Arc::as_ptr(&self.inner).addr()
+    }
+
     pub fn info(&self) -> &SshInfo {
         &self.info
     }

@@ -61,9 +61,9 @@ fn enter(state: &mut AppState, context: &crate::app::context::AppContext, folder
 /// Why an archive on this source cannot be opened as a folder.
 fn browse_refusal(source: &PanelSource) -> Option<&'static str> {
     match source {
-        PanelSource::Local => None,
+        // An archive inside an archive opens read-only (see `ArchiveVfs::nested_at`).
+        PanelSource::Local | PanelSource::Archive(_) => None,
         PanelSource::Remote(_) => Some("archive_remote_unsupported"),
-        PanelSource::Archive(_) => Some("archive_nested_unsupported"),
     }
 }
 

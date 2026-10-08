@@ -96,3 +96,17 @@ fn rename_undo_is_refused_when_the_file_is_gone() {
     assert!(checked.runnable.is_none());
     assert_eq!(checked.skipped[0].path, p(dir.path(), "b"));
 }
+
+#[test]
+fn a_same_server_move_is_journaled_as_renames() {
+    let mut results = crate::fs::transfer::job::TransferResults::default();
+    let start = std::time::Instant::now();
+    for (from, to) in [("/srv/a", "/srv/x/a"), ("/srv/b", "/srv/x/b")] {
+        let done = crate::fs::transfer::control::done(Path::new(from), PathBuf::from(to), 0, start);
+        results.completed_files.push(done);
+    }
+    let steps = super::super::record::rename_steps(&results);
+    assert_eq!(steps.len(), 2);
+    assert_eq!(steps[1].from, PathBuf::from("/srv/b"));
+    assert_eq!(steps[1].to, PathBuf::from("/srv/x/b"));
+}

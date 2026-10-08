@@ -44,6 +44,17 @@ pub fn commit(
         state.dialogs.clear();
         return;
     }
+    if let Some(ssh) = state.get_active_panel().source.ssh().cloned() {
+        // SFTP: renamed in the background by the rename executor, which
+        // refuses an existing target and journals the step for undo.
+        state.dialogs.clear();
+        let step = Step {
+            from: src_path,
+            to: target,
+        };
+        super::multi_rename::run_steps(state, vec![step], Some(ssh));
+        return;
+    }
     match std::fs::rename(&src_path, &target) {
         Ok(_) => {
             state.journal.record(FsCommand::Rename {
