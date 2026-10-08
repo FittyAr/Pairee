@@ -75,9 +75,9 @@
 
 - Disk usage view: deleting an item on an SFTP panel left it in the list until a rescan; deleted items now leave the tree when the delete job finishes, for every source, instead of the view polling the local disk on every frame.
 - Folder sizes were kept after a reread of the same folder even when a folder's contents had changed; folders whose modification time changed in the new listing are now measured again (watcher-reported changes still invalidate at once).
-
 - Copying into a zip archive no longer silently replaces entries that already exist: the copy dialog's conflict choice (overwrite, overwrite older, skip, rename, ask with the usual conflict dialog) applies, through the same resolver as local copies. Copies into or out of archives and deletions inside them now appear in the undo journal as not undoable instead of not at all.
-
+- Auto-refresh: a file created or deleted right after entering a folder (while its watch was still being set up) never showed up until the next change; a folder modified just before its monitor is armed is now reread once.
+- Archives: copying a single item out of an archive (or a single file into a zip) with the destination `F5` suggests (`<folder>/<name>`) created a folder with the item's name and put the item inside it (`b.txt/b.txt`); the suggested path is now the target itself, as for local copies.
 - Copy/move filter masks: an exclusion such as `!target` now also skips folders with that name (it only applied to files, so excluded folders were still copied in full).
 - Folder compare: files copied to or from FAT/exFAT drives were reported as "Different" because the modification-time tolerance was 1 second; it is now 2 seconds and configurable with `compare_mtime_tolerance_secs` in `config.toml`. On Windows and macOS names are matched ignoring case (`README.txt` and `readme.txt` are the same file there), and comparing a remote (SSH) panel now shows a clear message instead of reading a local path with the same name.
 - Configuration dialog: editing the plugin developer folder now shows the text being typed (it kept showing the old path), and text fields there support cursor movement and paste like other dialogs.

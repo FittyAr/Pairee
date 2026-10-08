@@ -19,7 +19,11 @@ mod ui;
 mod update;
 
 #[cfg(test)]
+mod smoke_tests;
+#[cfg(test)]
 mod test_fuzz;
+#[cfg(test)]
+mod test_harness;
 
 pub use app::AppState;
 pub use app::state::ActivePanel;

@@ -188,3 +188,28 @@ async fn asking_about_a_zip_conflict_waits_for_the_answer() {
     let asked_overwrite = copy_over_existing("ask", ConflictResolution::Overwrite).await;
     assert_eq!(asked_overwrite.1, b"new");
 }
+
+/// The transfer dialog pre-fills `<folder>/<name>` for one item: that is
+/// the target path, not a folder to create (regression: `b.txt/b.txt`).
+#[tokio::test]
+async fn single_item_target_path_is_not_made_a_folder() {
+    let dir = tempfile::tempdir().unwrap();
+    let archive = dir.path().join("a.zip");
+    write_zip(&archive, SAMPLE_TREE);
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+
+    let entry = archive.join("sub").join("b.txt");
+    run(job(TransferOperation::Copy, vec![entry], out.join("b.txt")))
+        .await
+        .unwrap();
+    assert_eq!(fs::read(out.join("b.txt")).unwrap(), b"bravo");
+
+    let local = dir.path().join("new.txt");
+    fs::write(&local, b"n").unwrap();
+    let target = archive.join("sub").join("new.txt");
+    run(job(TransferOperation::Copy, vec![local], target))
+        .await
+        .unwrap();
+    assert!(sorted_names(&archive).contains(&"sub/new.txt".to_string()));
+}

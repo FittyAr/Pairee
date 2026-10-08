@@ -32,6 +32,7 @@ graph TD
 The core business logic does not import `ratatui` or handle console outputs directly.
 * All directory listings, glob filtering, active operations state, selected files lists, and background tasks channels are housed inside `AppState` (`src/app/state/mod.rs`) and `AppContext` (`src/app/context.rs`).
 * This enables writing standard Rust unit tests for directory changes, sorting options, and path manipulations without mocking terminal devices.
+* End-to-end smoke scenarios (`src/smoke_tests/`) use the test harness in `src/test_harness/` (test builds only): a `Harness` runs the real state over a temporary sandbox (both panels and every per-user directory, so the real configuration is never touched), sends key scripts such as `h.keys("@copy Enter")` through the event-loop dispatcher (`@action` replays the active keymap's chord), drains background jobs and paints frames on a `TestBackend` for screen assertions.
 
 ### 1.2 The Event Loop (`app::run`)
 The main execution sequence:

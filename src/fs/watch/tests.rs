@@ -191,3 +191,36 @@ fn reads_are_not_changes() {
     assert!(!watcher::is_change(&EventKind::Access(AccessKind::Any)));
     assert!(watcher::is_change(&EventKind::Create(CreateKind::File)));
 }
+
+/// A file created just before the monitor is armed (after the panel read
+/// the folder) is not lost: the folder is reported once when armed.
+#[test]
+fn change_right_before_arming_is_reported() {
+    for prefer_poll in [false, true] {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("early"), b"x").unwrap();
+        let (sink, rx) = sink();
+        let plan = MonitorPlan {
+            prefer_poll,
+            poll_interval: Duration::from_secs(3600),
+        };
+        let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
+        let change = rx.recv_timeout(Duration::from_secs(10)).expect("reported");
+        assert_eq!(change.dir, dir.path());
+    }
+}
+
+/// An untouched folder is not reread when its monitor starts.
+#[test]
+fn quiet_folder_is_not_reported_when_armed() {
+    let dir = tempfile::tempdir().unwrap();
+    let old = filetime::FileTime::from_unix_time(1_600_000_000, 0);
+    filetime::set_file_mtime(dir.path(), old).unwrap();
+    let (sink, rx) = sink();
+    let plan = MonitorPlan {
+        prefer_poll: true,
+        poll_interval: Duration::from_secs(3600),
+    };
+    let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
+    assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+}
