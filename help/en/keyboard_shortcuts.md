@@ -16,7 +16,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `Backspace` / `Ctrl+PgUp` | Go to the parent folder; at the root of an archive, back to the folder that holds it (cursor on the archive). |
 | `Ctrl+U` | Swap directory paths between the Left and Right panels. |
 | `Ctrl+H` | Toggle visibility of hidden files and system dotfiles. |
-| `Ctrl+R` | Reread and refresh the active panel's directory content. |
+| `Ctrl+R` | Reread and refresh the active panel's directory content (local folders also refresh by themselves when they change, see **Panel** settings). |
 | `Ctrl+\` | Open the Directory Hotlist (`Enter` go, `Ins`/`+` add the current folder, `Del`/`-` remove). Saved in `bookmarks.toml`. |
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Jump to folder shortcut 1–9. Assign them from **Commands → Folder shortcuts** (`Ins`/`Space` or the slot digit assigns the current folder, `Del` clears). |
 

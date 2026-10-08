@@ -75,8 +75,12 @@ Controls layout columns, directory display filters and updates.
   - *Description:* Displays a single letter indicator (e.g. `n` for Name, `s` for Size) in the status bar.
 
 ### Updates & Information
+* **Refresh panels automatically when folders change** (`auto_refresh`, on by default):
+  - *Description:* The folder shown by each side's active tab is watched; files created, deleted, renamed or changed by other programs appear by themselves within a fraction of a second, keeping the cursor and selection, together with updated Git badges and folder sizes. A burst of changes (a large copy) refreshes the panel about every two seconds instead of on every file. Archive and SFTP panels are not watched (use `Ctrl+R`).
+* **Poll interval for network folders (seconds)** (`auto_refresh_poll_secs`, default 3):
+  - *Description:* Network shares (SMB/NFS mapped drives, UNC and WSL paths), other file systems without reliable change notifications and folders above the object-count limit below are checked on this interval instead (modification time and number of entries). Polling is also the fallback when a folder cannot be watched.
 * **Disable panel update object count:**
-  - *Description:* Throttles updates of item counts on extremely large folders to keep performance smooth.
+  - *Description:* Folders holding more objects than this are not reread automatically after operations, and auto-refresh polls them instead of watching them (a detected change still rereads them). `Ctrl+R` always rereads.
 * **Show files total information:**
   - *Description:* Renders aggregated counts and total bytes at the bottom status line.
 * **Show free size:**

@@ -101,7 +101,7 @@ where
                 log::error!("background job (generation {generation}) panicked");
             }
             let _ = tx.send((generation, outcome));
-            super::notify_finished();
+            super::wake_event_loop();
         });
         generation
     }

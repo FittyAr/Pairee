@@ -16,7 +16,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Retroceso` / `Ctrl+Re Pág` | Sube a la carpeta padre; en la raíz de un archivo comprimido, vuelve a la carpeta que lo contiene (con el cursor sobre él). |
 | `Ctrl+U` | Intercambia las rutas de directorio entre el panel izquierdo y derecho. |
 | `Ctrl+H` | Alterna la visualización de archivos ocultos y de sistema. |
-| `Ctrl+R` | Recarga y refresca el contenido del directorio del panel activo. |
+| `Ctrl+R` | Recarga y refresca el contenido del directorio del panel activo (las carpetas locales también se refrescan solas al cambiar, ver ajustes de **Panel**). |
 | `Ctrl+\` | Abre la lista de favoritos de carpetas (`Enter` ir, `Ins`/`+` añadir la carpeta actual, `Supr`/`-` quitar). Se guarda en `bookmarks.toml`. |
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Salta al atajo de carpeta 1–9. Se asignan desde **Comandos → Accesos dir. carp.** (`Ins`/`Espacio` o el dígito del atajo asigna la carpeta actual, `Supr` lo borra). |
 

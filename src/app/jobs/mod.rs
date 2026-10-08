@@ -41,13 +41,15 @@ where
 
 static JOB_FINISHED: tokio::sync::Notify = tokio::sync::Notify::const_new();
 
-/// Signals the event loop that some job delivered a result.
-fn notify_finished() {
+/// Wakes the event loop so it drains background results now (job results,
+/// folder change notifications, …).
+pub fn wake_event_loop() {
     JOB_FINISHED.notify_one();
 }
 
-/// Resolves when a job finished since the last call, so the event loop can
-/// apply results immediately instead of waiting for the next input tick.
+/// Resolves when a job finished (or [`wake_event_loop`] was called) since
+/// the last call, so the event loop can apply results immediately instead
+/// of waiting for the next input tick.
 pub async fn finished() {
     JOB_FINISHED.notified().await;
 }
