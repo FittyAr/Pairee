@@ -1,7 +1,7 @@
 //! Persistent folder shortcuts (Ctrl+Alt+1…9) and the directory hotlist,
 //! stored in `<config_dir>/bookmarks.toml`.
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
@@ -36,13 +36,7 @@ impl BookmarksFile {
     }
 
     pub fn load_from(path: &Path) -> Self {
-        match std::fs::read_to_string(path) {
-            Ok(content) => toml::from_str(&content).unwrap_or_else(|e| {
-                log::warn!("Ignoring invalid {}: {e}", path.display());
-                Self::default()
-            }),
-            Err(_) => Self::default(),
-        }
+        super::toml_store::load_or_default(path)
     }
 
     pub fn save(&self) -> Result<()> {
@@ -50,11 +44,7 @@ impl BookmarksFile {
     }
 
     pub fn save_to(&self, path: &Path) -> Result<()> {
-        if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).context("Creating config directory")?;
-        }
-        let body = toml::to_string_pretty(self).context("Serializing bookmarks")?;
-        std::fs::write(path, body).with_context(|| format!("Writing {}", path.display()))
+        super::toml_store::save(path, self)
     }
 
     /// Folder shortcuts as slot → path, ignoring malformed or out-of-range keys.

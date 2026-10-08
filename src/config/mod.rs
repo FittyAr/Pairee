@@ -7,6 +7,7 @@ pub mod localization;
 pub mod paths;
 pub mod settings;
 pub mod theme;
+pub mod toml_store;
 
 use anyhow::{Context, Result};
 use keybindings::KeybindingsConfig;
