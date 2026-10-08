@@ -72,5 +72,6 @@
 - On Windows, commands run from the command line, the user menu and apply-command now reach `cmd.exe` unmodified: quotes are no longer mangled, and file names containing `%VAR%`, `&`, `^`, `!`, `(`, `)` or quotes are passed literally instead of being expanded or split.
 - **Security:** On Windows, opening a file with no association uses the system handler directly (`ShellExecuteW`) instead of `cmd /c start`, so the file name is never parsed by the shell.
 - **Security:** Jailed plugin file operations (`pairee.fs` read, write, mkdir, remove, rename, copy, list) now run through a directory handle of the allowed root, so a folder swapped for a symlink or junction after the path check can no longer redirect them outside the jail.
+- **Security:** Updates are now signed: the self-updater requires a minisign signature (`.minisig`) for the downloaded release asset in addition to the SHA-256 checksum and refuses to install if it is missing or invalid. The install scripts verify the signature when `minisign` is installed.
 
 

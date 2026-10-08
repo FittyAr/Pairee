@@ -5,6 +5,9 @@ set -e
 # Installs Pairee statically built binary and copies assets to the user's config directories.
 
 REPO="FittyAr/Pairee"
+# Pairee release signing key (minisign). Must match RELEASE_PUBLIC_KEY in
+# src/update/signature.rs and install.ps1.
+MINISIGN_PUBKEY="RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 INSTALL_DIR="$HOME/.local/bin"
 CONFIG_DIR="$HOME/.config/pairee"
 
@@ -264,6 +267,21 @@ else
         echo "${RED}Error: SHA-256 checksum mismatch for ${TARBALL}. Aborting.${NC}"
         rm -rf "$TEMP_DIR"
         exit 1
+    fi
+
+    # minisign signature (release key embedded in Pairee, see
+    # docs/technical/installer_guide.md). Mandatory when minisign is installed.
+    if command -v minisign >/dev/null 2>&1; then
+        echo "Verifying minisign signature..."
+        if ! curl -fsSL "${DOWNLOAD_URL}.minisig" -o "${TEMP_DIR}/${TARBALL}.minisig" \
+            || ! SIG_OUT=$(minisign -V -P "$MINISIGN_PUBKEY" -m "${TEMP_DIR}/${TARBALL}" -x "${TEMP_DIR}/${TARBALL}.minisig") \
+            || ! printf ' %s \n' "$SIG_OUT" | tr '\t' ' ' | grep -qF " file:${TARBALL} "; then
+            echo "${RED}Error: minisign signature verification failed for ${TARBALL}. Aborting.${NC}"
+            rm -rf "$TEMP_DIR"
+            exit 1
+        fi
+    else
+        echo "${YELLOW}Note: 'minisign' not found; only the SHA-256 checksum was verified.${NC}"
     fi
 
     echo "Extracting archive..."
