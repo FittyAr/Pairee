@@ -513,6 +513,6 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
   - [x] operaciones locales del panel Git (stage, unstage, descartar, diff, commit, stash, ramas, etiquetas) en segundo plano (`app::git_local`)
   - [x] presets de teclas sin errores ni combinaciones duplicadas (`Ctrl+Shift+<letra>` como `Ctrl+<MAYÚSCULA>`, F2/Ctrl+F duplicados en VSCode) con prueba de carga de los tres presets
   - [x] etiqueta Shift+F6 en la barra de teclas F (filas Shift/Ctrl/Alt derivadas del mapa de teclas con una tabla acción → etiqueta)
-  - scroll con ratón en la vista previa del renombrado múltiple
+  - [x] scroll con ratón en la vista previa del renombrado múltiple (`ScrollTargetId::MultiRenamePreview`; la rueda desplaza la vista bajo el puntero)
   - selección por bloques con teclado en Windows Terminal (Alt+Shift+flechas lo intercepta la terminal): atajo alternativo
 - [ ] Mover `docs/UNRELEASED.md` a la siguiente versión en `docs/CHANGELOG.md` cuando se publique

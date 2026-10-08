@@ -21,11 +21,13 @@ pub fn render_prompt_popup(
 ) -> bool {
     match popup {
         PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
+        PopupType::MultiRename(dialog) => {
+            file_ops::multi_rename::render(f, dialog, theme, size, &state.scrollbar)
+        }
 
         PopupType::MkDirPrompt { .. }
         | PopupType::TransferPrompt(..)
         | PopupType::RenamePrompt { .. }
-        | PopupType::MultiRename(..)
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }
         | PopupType::CreateLinkPrompt { .. }

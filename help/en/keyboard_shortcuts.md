@@ -76,7 +76,7 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | `Alt+Backspace` | Undo the last file operation (rename, move, copy, make folder, link, send to trash) after a confirmation (see Features, section 2.4.1). |
 | `Ctrl+Y` | Redo the last undone file operation. |
 | `F7` | Rename the highlighted item in place (filename only). |
-| `Shift+F6` | Multi-rename the selected items with masks, counter, search & replace and a live preview (see Features, section 2.2.1). In the dialog: `Tab`/arrows move between fields, `Space` toggles options, `Left`/`Right` change the case mode, `PgUp`/`PgDn` scroll the preview, `Enter` renames, `Esc` cancels. |
+| `Shift+F6` | Multi-rename the selected items with masks, counter, search & replace and a live preview (see Features, section 2.2.1). In the dialog: `Tab`/arrows move between fields, `Space` toggles options, `Left`/`Right` change the case mode, `PgUp`/`PgDn`, the mouse wheel or the scrollbar scroll the preview, `Enter` renames, `Esc` cancels. |
 | `F8` / `Delete` | Delete highlighted or tagged files. |
 | `Alt+Delete` | Secure Wipe: Overwrites file sectors before permanent deletion. |
 | `F9` | Pull down and activate the Top Menu Bar. |

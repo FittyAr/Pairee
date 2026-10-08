@@ -14,18 +14,18 @@ pub fn track_area_right(area: Rect) -> Rect {
     }
 }
 
-/// Track area inside a full-bordered block (1 cell inset on each side, then right column).
-pub fn track_area_inside_block(block_area: Rect) -> Rect {
+/// Inside of a full-bordered block (1 cell inset on each side); empty when
+/// the block has no room inside.
+pub fn block_inner(block_area: Rect) -> Rect {
     if block_area.width < 3 || block_area.height < 3 {
         return Rect::default();
     }
-    let inner = Rect {
+    Rect {
         x: block_area.x.saturating_add(1),
         y: block_area.y.saturating_add(1),
         width: block_area.width.saturating_sub(2),
         height: block_area.height.saturating_sub(2),
-    };
-    track_area_right(inner)
+    }
 }
 
 /// Whether a scrollbar should be shown for the given scroll metrics.

@@ -272,3 +272,35 @@ fn shift_f6_opens_multi_rename_in_every_keymap() {
         );
     }
 }
+
+#[test]
+fn long_preview_registers_a_wheel_scrollable_scrollbar() {
+    use crate::ui::scrollbar::ScrollTargetId;
+    let dir = PathBuf::from("work");
+    let names: Vec<String> = (0..80).map(|i| format!("f{i:02}.txt")).collect();
+    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let (context, mut state) = app(&dir, &names);
+    select(&mut state, &names);
+    multi_rename::handle(&mut state);
+    state.scrollbar.clear_targets();
+    render(&context, &state);
+    let target = state
+        .scrollbar
+        .targets_snapshot()
+        .into_iter()
+        .find(|t| t.id == ScrollTargetId::MultiRenamePreview)
+        .expect("preview scrollbar registered");
+    assert_eq!(target.content_len, 80);
+    assert!(target.wheel_area.width > target.area.width);
+
+    let wheel = crossterm::event::MouseEvent {
+        kind: crossterm::event::MouseEventKind::ScrollDown,
+        column: target.wheel_area.x + 2,
+        row: target.wheel_area.y + 1,
+        modifiers: KeyModifiers::NONE,
+    };
+    assert!(crate::app::app::scrollbar_mouse::handle_scrollbar_mouse(
+        &mut state, wheel
+    ));
+    assert!(dialog(&state).scroll > 0);
+}

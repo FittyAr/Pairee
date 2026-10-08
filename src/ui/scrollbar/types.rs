@@ -29,12 +29,16 @@ pub enum ScrollTargetId {
     TransferFiles,
     TransferLog,
     PluginSelect,
+    MultiRenamePreview,
 }
 
 /// Geometry + identity for one scrollbar painted last frame.
 #[derive(Debug, Clone)]
 pub struct ScrollbarHitTarget {
+    /// The track (thumb drag and click).
     pub area: Rect,
+    /// The scrolled content: the mouse wheel over it scrolls.
+    pub wheel_area: Rect,
     pub content_len: usize,
     pub viewport_len: usize,
     pub offset: usize,

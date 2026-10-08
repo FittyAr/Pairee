@@ -76,7 +76,7 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | `Alt+Retroceso` | Deshace la última operación de archivos (renombrar, mover, copiar, crear carpeta, enlace, enviar a la papelera) tras una confirmación (ver Funciones, sección 2.4.1). |
 | `Ctrl+Y` | Rehace la última operación de archivos deshecha. |
 | `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
-| `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág` desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
+| `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág`, la rueda del ratón o la barra de desplazamiento desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
 | `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |
 | `Alt+Delete` | Borrado Seguro (Wipe): Sobrescribe sectores de datos antes de borrar. |
 | `F9` | Activa la barra superior de menú desplegable. |

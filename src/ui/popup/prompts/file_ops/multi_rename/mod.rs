@@ -6,6 +6,7 @@ use crate::app::state::popup::{MultiRenameState as Dialog, RenameField};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
 use crate::ui::popup::{centered_rect, kit};
+use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -16,7 +17,13 @@ use ratatui::{
 /// Width / height of the dialog in percent of the screen.
 const SIZE_PERCENT: (u16, u16) = (90, 85);
 
-pub fn render(f: &mut Frame, dialog: &Dialog, theme: &Theme, size: Rect) -> bool {
+pub fn render(
+    f: &mut Frame,
+    dialog: &Dialog,
+    theme: &Theme,
+    size: Rect,
+    scrollbar: &ScrollbarUiState,
+) -> bool {
     let area = centered_rect(SIZE_PERCENT.0, SIZE_PERCENT.1, size);
     let mut title = t("multi_rename_title");
     if dialog.running {
@@ -67,7 +74,7 @@ pub fn render(f: &mut Frame, dialog: &Dialog, theme: &Theme, size: Rect) -> bool
         ],
     );
     f.render_widget(kit::separator(inner.width, kit::fg(Color::Cyan)), rows[5]);
-    preview::render(f, dialog, theme, rows[6]);
+    preview::render(f, dialog, theme, rows[6], scrollbar);
     f.render_widget(kit::hint(t("multi_rename_placeholders")), rows[7]);
     let rename_style = if dialog.can_run() {
         styles
