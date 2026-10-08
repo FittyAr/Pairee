@@ -49,8 +49,9 @@ pub fn handle_navigation_action(
             true
         }
         Action::Execute => {
+            // Only the focused panel can change directory on Enter.
             handle_enter_key(state, context);
-            state.refresh_both_panels(context.config.settings.show_hidden);
+            state.refresh_active_panel(context.config.settings.show_hidden);
             true
         }
         Action::GoParent => {

@@ -57,13 +57,10 @@ pub(crate) fn render_file_links(
                 is_dimmed,
                 git_status,
             );
-            let nlinks = if panel.ssh_conn.is_some() {
-                "?".to_string()
-            } else {
-                crate::fs::attrs::read_attrs(&entry.path)
-                    .map(|a| a.nlinks.to_string())
-                    .unwrap_or_else(|_| "?".to_string())
-            };
+            let nlinks = panel
+                .entry_attrs(entry)
+                .map(|a| a.nlinks.to_string())
+                .unwrap_or_else(|| "?".to_string());
             Row::new(vec![
                 Cell::from(entry_display_name(&entry.name, entry.is_dir, git_status)),
                 Cell::from(nlinks),

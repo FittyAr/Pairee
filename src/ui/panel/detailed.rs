@@ -60,12 +60,9 @@ pub(crate) fn render_detailed(
                 is_dimmed,
                 git_status,
             );
-            let (perm_str, owner) = if panel.ssh_conn.is_some() {
-                ("?????????".to_string(), "?".to_string())
-            } else if let Ok(attrs) = crate::fs::attrs::read_attrs(&entry.path) {
-                (format_unix_mode(attrs.mode), attrs.owner)
-            } else {
-                ("?????????".to_string(), "?".to_string())
+            let (perm_str, owner) = match panel.entry_attrs(entry) {
+                Some(attrs) => (format_unix_mode(attrs.mode), attrs.owner.clone()),
+                None => ("?????????".to_string(), "?".to_string()),
             };
             let name_width = ((area.width.saturating_sub(2) as usize) * 40 / 100).max(8);
             Row::new(vec![

@@ -86,8 +86,6 @@ pub struct AppState {
     pub sort_folder_names_by_extension: bool,
     pub show_dotdot_in_root_folders: bool,
     pub disable_panel_update_object_count: u32,
-    pub free_space_left: Option<u64>,
-    pub free_space_right: Option<u64>,
 
     pub current_modifiers: crossterm::event::KeyModifiers,
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
@@ -131,8 +129,6 @@ impl AppState {
             sort_folder_names_by_extension: false,
             show_dotdot_in_root_folders: false,
             disable_panel_update_object_count: 0,
-            free_space_left: None,
-            free_space_right: None,
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
             terminal_needs_clear: false,
@@ -195,7 +191,7 @@ impl AppState {
         panel.cursor_index = 0;
         panel.clear_selection();
         self.push_folders_history(target);
-        self.refresh_both_panels(show_hidden);
+        self.refresh_active_panel(show_hidden);
     }
 
     /// Restores the last saved selection snapshot.

@@ -12,6 +12,7 @@ pub fn process_background_updates(
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) {
+    state.poll_panel_listings();
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);
     channels::process_search_updates(state);

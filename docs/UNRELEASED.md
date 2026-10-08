@@ -24,6 +24,8 @@
 
 ### Improved
 
+- Panels are now read in the background: the directory listing, SFTP listing, Git status and free space no longer block the interface, the panel title shows "⟳ Loading…" while a read is in progress, and the cursor and selection are kept when the new listing arrives. Entering a directory rereads only that panel, and Git status is computed only for the listed directory instead of the whole repository.
+- Detailed, Owners and Links views no longer read file attributes on every repaint, and the free-space footer no longer queries the disk on every repaint; both are refreshed with the listing.
 - Release builds now use thin LTO, a single codegen unit and stripped symbols for a smaller, faster binary.
 - Untracked file badges and labels in Git panel now render in Magenta for consistent contrast and readability across dark backgrounds.
 - Enhanced scroll behavior in the Git diff viewer for short files.

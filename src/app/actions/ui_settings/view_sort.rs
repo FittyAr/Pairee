@@ -5,46 +5,51 @@ use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 
+/// Maps a `PanelView*` action to its view mode.
+fn view_mode_for(action: &Action) -> Option<PanelViewMode> {
+    Some(match action {
+        Action::PanelViewBrief => PanelViewMode::Brief,
+        Action::PanelViewMedium => PanelViewMode::Medium,
+        Action::PanelViewFull => PanelViewMode::Full,
+        Action::PanelViewWide => PanelViewMode::Wide,
+        Action::PanelViewDetailed => PanelViewMode::Detailed,
+        Action::PanelViewDescriptions => PanelViewMode::Descriptions,
+        Action::PanelViewFileOwners => PanelViewMode::FileOwners,
+        Action::PanelViewFileLinks => PanelViewMode::FileLinks,
+        Action::PanelViewAltFull => PanelViewMode::AltFull,
+        _ => return None,
+    })
+}
+
+/// Switches the active panel's view mode; modes showing owners/permissions/
+/// links trigger a background reread so their attributes are loaded.
+fn set_active_view_mode(state: &mut AppState, mode: PanelViewMode, show_hidden: bool) {
+    let panel = state.get_active_panel_mut();
+    panel.view_mode = mode;
+    if mode.needs_attrs() && panel.attrs.is_empty() && panel.ssh_conn.is_none() {
+        let side = state.panels.active;
+        state.refresh_panel(side, show_hidden, true);
+    }
+}
+
 pub fn handle_view_sort_action(
     state: &mut AppState,
     action: &Action,
     context: &mut AppContext,
 ) -> bool {
     match action {
-        Action::PanelViewBrief => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Brief;
-            true
-        }
-        Action::PanelViewMedium => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Medium;
-            true
-        }
-        Action::PanelViewFull => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Full;
-            true
-        }
-        Action::PanelViewWide => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Wide;
-            true
-        }
-        Action::PanelViewDetailed => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Detailed;
-            true
-        }
-        Action::PanelViewDescriptions => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::Descriptions;
-            true
-        }
-        Action::PanelViewFileOwners => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::FileOwners;
-            true
-        }
-        Action::PanelViewFileLinks => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::FileLinks;
-            true
-        }
-        Action::PanelViewAltFull => {
-            state.get_active_panel_mut().view_mode = PanelViewMode::AltFull;
+        Action::PanelViewBrief
+        | Action::PanelViewMedium
+        | Action::PanelViewFull
+        | Action::PanelViewWide
+        | Action::PanelViewDetailed
+        | Action::PanelViewDescriptions
+        | Action::PanelViewFileOwners
+        | Action::PanelViewFileLinks
+        | Action::PanelViewAltFull => {
+            if let Some(mode) = view_mode_for(action) {
+                set_active_view_mode(state, mode, context.config.settings.show_hidden);
+            }
             true
         }
         Action::TogglePanelLeft => {

@@ -29,24 +29,29 @@ impl PanelPair {
     }
 
     pub fn active(&self) -> &PanelState {
-        match self.active {
+        self.side(self.active)
+    }
+
+    pub fn active_mut(&mut self) -> &mut PanelState {
+        self.side_mut(self.active)
+    }
+
+    pub fn side(&self, side: ActivePanel) -> &PanelState {
+        match side {
             ActivePanel::Left => &self.left,
             ActivePanel::Right => &self.right,
         }
     }
 
-    pub fn active_mut(&mut self) -> &mut PanelState {
-        match self.active {
+    pub fn side_mut(&mut self, side: ActivePanel) -> &mut PanelState {
+        match side {
             ActivePanel::Left => &mut self.left,
             ActivePanel::Right => &mut self.right,
         }
     }
 
     pub fn passive(&self) -> &PanelState {
-        match self.active {
-            ActivePanel::Left => &self.right,
-            ActivePanel::Right => &self.left,
-        }
+        self.side(self.active.other())
     }
 
     pub fn swap(&mut self) {
@@ -54,9 +59,6 @@ impl PanelPair {
     }
 
     pub fn toggle_focus(&mut self) {
-        self.active = match self.active {
-            ActivePanel::Left => ActivePanel::Right,
-            ActivePanel::Right => ActivePanel::Left,
-        };
+        self.active = self.active.other();
     }
 }
