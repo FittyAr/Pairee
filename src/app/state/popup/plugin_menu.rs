@@ -2,7 +2,7 @@
 pub struct PluginMenuState {
     pub active_tab: usize,
     pub cursor_idx: usize,
-    pub installed: Vec<(String, String, bool, bool, Option<String>)>,
+    pub installed: Vec<crate::plugin::installed::InstalledPlugin>,
     pub all_registry: Vec<(String, String, String, String)>,
     pub registry: Vec<(String, String, String, String)>,
     pub search_query: String,

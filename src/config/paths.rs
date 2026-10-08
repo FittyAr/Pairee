@@ -58,6 +58,13 @@ pub fn get_plugin_data_dir(plugin_name: &str) -> PathBuf {
     base.join("plugin-data").join(plugin_name)
 }
 
+/// Directory of an installed plugin: `<config>/plugins/<name>.pairee`.
+pub fn get_installed_plugin_dir(plugin_name: &str) -> PathBuf {
+    get_config_dir()
+        .join("plugins")
+        .join(format!("{plugin_name}.pairee"))
+}
+
 /// Returns the path to the main config.toml file.
 pub fn get_config_file_path() -> PathBuf {
     get_config_dir().join("config.toml")

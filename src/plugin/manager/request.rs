@@ -98,7 +98,7 @@ pub enum PluginRequest {
     /// full list of available plugins from the remote index to pre-populate the
     /// Search tab immediately (name, version, description, author).
     PluginMenuLoaded {
-        installed: Vec<(String, String, bool, bool, Option<String>)>,
+        installed: Vec<crate::plugin::installed::InstalledPlugin>,
         registry: Vec<(String, String, String, String)>,
     },
     /// Result of an asynchronous scan of the dev plugins folder (and the two

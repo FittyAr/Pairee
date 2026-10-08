@@ -49,25 +49,12 @@ pub fn execute_shell_command(
         command_str.to_string()
     };
 
-    let mut shell = if cfg!(target_os = "windows") {
-        std::process::Command::new("cmd")
-            .arg("/c")
-            .arg(&final_command)
-            .current_dir(current_dir)
-            .stdin(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .spawn()?
-    } else {
-        std::process::Command::new("sh")
-            .arg("-c")
-            .arg(&final_command)
-            .current_dir(current_dir)
-            .stdin(std::process::Stdio::inherit())
-            .stdout(std::process::Stdio::inherit())
-            .stderr(std::process::Stdio::inherit())
-            .spawn()?
-    };
+    let mut shell = crate::shell::shell_command(&final_command)
+        .current_dir(current_dir)
+        .stdin(std::process::Stdio::inherit())
+        .stdout(std::process::Stdio::inherit())
+        .stderr(std::process::Stdio::inherit())
+        .spawn()?;
 
     let _ = shell.wait();
 

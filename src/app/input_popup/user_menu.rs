@@ -176,17 +176,15 @@ fn execute_item(
         // through the platform shell, so unquoted substitutions would be
         // a command-injection vector.
         let final_cmd = if let Some(e) = highlighted {
-            use crate::app::actions::fs_ops::helper::{
-                expand_command_placeholders, shell_quote_cmd, shell_quote_posix,
-            };
-            let quote = if cfg!(target_os = "windows") {
-                shell_quote_cmd
-            } else {
-                shell_quote_posix
-            };
             // Single pass: substituted values are never rescanned, so a
-            // name like `;id;{p}` cannot inject a second placeholder.
-            expand_command_placeholders(cmd_template, &e.name, &e.path.to_string_lossy(), quote)
+            // name like `;id;{p}` cannot inject a second placeholder. On
+            // Windows `%`, `!`, `^`, `&`... in names are caret-escaped.
+            crate::shell::expand_placeholders(
+                cmd_template,
+                &e.name,
+                &e.path.to_string_lossy(),
+                crate::shell::quote_native,
+            )
         } else {
             cmd_template.clone()
         };

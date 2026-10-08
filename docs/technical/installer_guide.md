@@ -150,3 +150,57 @@ Add the generation step to the Linux release job:
           cargo generate-rpm --target x86_64-unknown-linux-musl
           echo "ASSET_PATH=target/x86_64-unknown-linux-musl/generate-rpm/pairee-${{ env.VERSION }}-1.x86_64.rpm" >> $GITHUB_ENV
 ```
+
+---
+
+## 4. Release Signing (minisign)
+
+Every release asset is signed with the **Pairee release key** (minisign /
+Ed25519). The self-updater (`src/update/signature.rs`) refuses to install an
+update unless the release contains both `<asset>.sha256` **and**
+`<asset>.minisig`, the signature verifies against the embedded public key and
+its trusted comment names the asset (`file:<asset>`). The install scripts
+always check the SHA-256 and also verify the signature when `minisign` is on
+`PATH` (then it is mandatory).
+
+**Public key** (key id `B478F4237C0DE585`), embedded in
+`src/update/signature.rs` (`RELEASE_PUBLIC_KEY`), `install.sh` and
+`install.ps1`:
+
+```
+untrusted comment: minisign public key: B478F4237C0DE585
+RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6
+```
+
+Manual verification of a downloaded asset:
+
+```bash
+minisign -V -P RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6 -m pairee-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz
+```
+
+### Required GitHub secrets
+
+| Secret | Content |
+|--------|---------|
+| `MINISIGN_SECRET_KEY` | Full contents of the minisign secret key file (both lines). |
+| `MINISIGN_PASSWORD` | Optional. Only if the secret key is password-protected. |
+
+The `Publish Release` job in `.github/workflows/release.yml` installs
+`minisign`, signs every file in `dist/` (except `.sha256` / `.minisig`) with
+the trusted comment `file:<asset> version:<tag>`, checks every signature
+against the public key embedded in `src/update/signature.rs`, and uploads the
+`.minisig` files with the release. If `MINISIGN_SECRET_KEY` is missing, the
+job fails instead of publishing unsigned assets.
+
+### Key custody
+
+- The secret key is **never** stored in the repository (`*.key` is ignored).
+  The maintainer keeps it offline (e.g. `~/.pairee-release-keys/`) and in the
+  GitHub secret only.
+- The current key was generated without a password so CI can use it
+  non-interactively; GitHub encrypts secrets at rest. To add a password,
+  re-encrypt it (`minisign -C`) and set `MINISIGN_PASSWORD`.
+- **Rotation:** generate a new pair (`minisign -G` or `rsign generate`),
+  update `RELEASE_PUBLIC_KEY`, `install.sh`, `install.ps1` and this guide,
+  replace the secret, and sign the release that introduces the new key with
+  the *old* key, so existing installations can still verify it.

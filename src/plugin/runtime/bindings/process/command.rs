@@ -3,8 +3,10 @@
 use super::child::LuaChild;
 use super::output::{LuaOutput, LuaStatus};
 use super::stdio::StdioKind;
+use crate::plugin::command_policy::CommandPolicy;
 use mlua::{AnyUserData, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 #[derive(Clone, Debug)]
 pub struct LuaCommand {
@@ -15,12 +17,11 @@ pub struct LuaCommand {
     pub stdin: StdioKind,
     pub stdout: StdioKind,
     pub stderr: StdioKind,
-    pub trusted: bool,
-    pub secure: bool,
+    pub policy: Arc<CommandPolicy>,
 }
 
 impl LuaCommand {
-    pub fn new(program: String, trusted: bool, secure: bool) -> Self {
+    pub fn new(program: String, policy: Arc<CommandPolicy>) -> Self {
         Self {
             program,
             args: Vec::new(),
@@ -29,29 +30,19 @@ impl LuaCommand {
             stdin: StdioKind::Inherit,
             stdout: StdioKind::Inherit,
             stderr: StdioKind::Inherit,
-            trusted,
-            secure,
+            policy,
         }
     }
 
-    pub fn check_allowed(&self) -> mlua::Result<()> {
-        if !self.trusted {
-            return Err(mlua::Error::RuntimeError(
-                "Security violation: spawning external processes is blocked in sandboxed mode."
-                    .into(),
-            ));
-        }
-        if self.secure && !crate::plugin::sandbox::is_command_safe(&self.program) {
-            return Err(mlua::Error::RuntimeError(format!(
-                "Security violation: Command '{}' is blacklisted in Secure Mode",
-                self.program
-            )));
-        }
-        Ok(())
+    /// The program to execute (absolute in Secure Mode) or a violation.
+    pub fn check_allowed(&self) -> mlua::Result<PathBuf> {
+        self.policy
+            .authorize(&self.program)
+            .map_err(mlua::Error::RuntimeError)
     }
 
-    fn tokio_cmd(&self) -> tokio::process::Command {
-        let mut cmd = tokio::process::Command::new(&self.program);
+    fn tokio_cmd(&self, program: &Path) -> tokio::process::Command {
+        let mut cmd = tokio::process::Command::new(program);
         cmd.args(&self.args);
         if let Some(cwd) = &self.cwd {
             cmd.current_dir(cwd);
@@ -66,8 +57,8 @@ impl LuaCommand {
     }
 
     pub async fn spawn_inner(&self) -> mlua::Result<LuaChild> {
-        self.check_allowed()?;
-        let mut child = self.tokio_cmd().spawn().map_err(|e| {
+        let program = self.check_allowed()?;
+        let mut child = self.tokio_cmd(&program).spawn().map_err(|e| {
             mlua::Error::RuntimeError(format!("Failed to spawn '{}': {e}", self.program))
         })?;
         Ok(LuaChild {
@@ -80,11 +71,11 @@ impl LuaCommand {
     }
 
     pub async fn output_inner(&self) -> mlua::Result<LuaOutput> {
-        self.check_allowed()?;
+        let program = self.check_allowed()?;
         let mut cmd = self.clone();
         cmd.stdout = StdioKind::Piped;
         cmd.stderr = StdioKind::Piped;
-        let out = cmd.tokio_cmd().output().await.map_err(|e| {
+        let out = cmd.tokio_cmd(&program).output().await.map_err(|e| {
             mlua::Error::RuntimeError(format!("Failed to run '{}': {e}", self.program))
         })?;
         Ok(LuaOutput {
@@ -95,8 +86,8 @@ impl LuaCommand {
     }
 
     pub async fn status_inner(&self) -> mlua::Result<LuaStatus> {
-        self.check_allowed()?;
-        let status = self.tokio_cmd().status().await.map_err(|e| {
+        let program = self.check_allowed()?;
+        let status = self.tokio_cmd(&program).status().await.map_err(|e| {
             mlua::Error::RuntimeError(format!("Failed to run '{}': {e}", self.program))
         })?;
         Ok(LuaStatus::from_exit(status))
@@ -171,7 +162,7 @@ impl UserData for LuaCommand {
     }
 }
 
-pub fn bind(lua: &Lua, trusted: bool, secure: bool) -> mlua::Result<Table<'_>> {
+pub fn bind(lua: &Lua, policy: Arc<CommandPolicy>) -> mlua::Result<Table<'_>> {
     let table = lua.create_table()?;
     table.set("NULL", StdioKind::NULL as i64)?;
     table.set("PIPED", StdioKind::PIPED as i64)?;
@@ -181,7 +172,7 @@ pub fn bind(lua: &Lua, trusted: bool, secure: bool) -> mlua::Result<Table<'_>> {
     mt.set(
         "__call",
         lua.create_function(move |_, (_, program): (Table, String)| {
-            Ok(LuaCommand::new(program, trusted, secure))
+            Ok(LuaCommand::new(program, Arc::clone(&policy)))
         })?,
     )?;
     table.set_metatable(Some(mt));
@@ -191,6 +182,11 @@ pub fn bind(lua: &Lua, trusted: bool, secure: bool) -> mlua::Result<Table<'_>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn policy(trusted: bool, secure: bool, declared: &[&str]) -> Arc<CommandPolicy> {
+        let declared: Vec<String> = declared.iter().map(|s| s.to_string()).collect();
+        Arc::new(CommandPolicy::new(trusted, secure, &declared))
+    }
 
     fn echo() -> (String, Vec<String>) {
         if cfg!(windows) {
@@ -202,7 +198,7 @@ mod tests {
 
     #[test]
     fn builder_accumulates_args_cwd_env() {
-        let mut cmd = LuaCommand::new("ls".into(), true, false);
+        let mut cmd = LuaCommand::new("ls".into(), policy(true, false, &[]));
         cmd.args.push("-l".into());
         cmd.cwd = Some(PathBuf::from("/tmp"));
         cmd.env.push(("FOO".into(), "bar".into()));
@@ -215,23 +211,24 @@ mod tests {
 
     #[test]
     fn untrusted_command_is_rejected() {
-        let cmd = LuaCommand::new("echo".into(), false, false);
+        let cmd = LuaCommand::new("echo".into(), policy(false, false, &[]));
         let err = cmd.check_allowed().unwrap_err();
         assert!(err.to_string().contains("sandboxed"));
     }
 
     #[test]
-    fn secure_mode_blocks_blacklisted_binaries() {
-        let cmd = LuaCommand::new("curl".into(), true, true);
+    fn secure_mode_requires_manifest_declaration() {
+        let cmd = LuaCommand::new("curl".into(), policy(true, true, &["curl"]));
         assert!(cmd.check_allowed().is_err());
-        let ok = LuaCommand::new("rg".into(), true, true);
-        assert!(ok.check_allowed().is_ok());
+        let undeclared = LuaCommand::new("rg".into(), policy(true, true, &[]));
+        let err = undeclared.check_allowed().unwrap_err();
+        assert!(err.to_string().contains("not declared"), "{err}");
     }
 
     #[tokio::test]
     async fn output_captures_echo() {
         let (prog, args) = echo();
-        let mut cmd = LuaCommand::new(prog, true, false);
+        let mut cmd = LuaCommand::new(prog, policy(true, false, &[]));
         cmd.args = args;
         let out = cmd.output_inner().await.unwrap();
         assert!(out.status.success);
@@ -242,7 +239,7 @@ mod tests {
     fn lua_call_constructs_and_chains() {
         let lua = Lua::new();
         lua.globals()
-            .set("Command", bind(&lua, true, false).unwrap())
+            .set("Command", bind(&lua, policy(true, false, &[])).unwrap())
             .unwrap();
         let prog: String = lua
             .load(r#"return tostring(Command("rg"):arg("-n"):arg({"a"}))"#)

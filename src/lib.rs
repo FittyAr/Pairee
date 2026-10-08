@@ -12,6 +12,7 @@ mod lock;
 mod logging;
 mod plugin;
 mod run;
+mod shell;
 mod terminal;
 mod ui;
 mod update;

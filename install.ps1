@@ -14,6 +14,9 @@ if ($args -contains "uninstall") {
 $ErrorActionPreference = "Stop"
 
 $repo = "FittyAr/Pairee"
+# Pairee release signing key (minisign). Must match RELEASE_PUBLIC_KEY in
+# src/update/signature.rs and install.sh.
+$minisignPubKey = "RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 $installDir = Join-Path $HOME "AppData\Local\Programs\pairee"
 $configDir = Join-Path $env:APPDATA "pairee\config"
 $exePath = Join-Path $installDir "pairee.exe"
@@ -242,6 +245,29 @@ if ($DebugMode) {
         Write-Error "SHA-256 checksum mismatch for $zipName. Aborting."
         Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
         exit 1
+    }
+
+    # minisign signature: mandatory when minisign is installed.
+    $minisign = Get-Command minisign -ErrorAction SilentlyContinue
+    if ($minisign) {
+        Write-Host "Verifying minisign signature..."
+        $sigPath = "$zipPath.minisig"
+        $sigOk = $false
+        try {
+            Invoke-WebRequest -Uri "$downloadUrl.minisig" -OutFile $sigPath -UseBasicParsing
+            $sigOut = & $minisign.Source -V -P $minisignPubKey -m $zipPath -x $sigPath 2>&1 | Out-String
+            $padded = " " + ($sigOut -replace "\s", " ") + " "
+            $sigOk = ($LASTEXITCODE -eq 0) -and $padded.Contains(" file:$zipName ")
+        } catch {
+            $sigOk = $false
+        }
+        if (-not $sigOk) {
+            Write-Error "minisign signature verification failed for $zipName. Aborting."
+            Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
+            exit 1
+        }
+    } else {
+        Write-Host "Note: 'minisign' not found; only the SHA-256 checksum was verified." -ForegroundColor Yellow
     }
 
     Write-Host "Extracting archive..."

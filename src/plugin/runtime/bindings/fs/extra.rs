@@ -1,9 +1,7 @@
 //! Extra `pairee.fs` operations: mkdir, remove, rename, copy, read_dir, file.
 
-use super::path::{
-    Access, FsPolicy, fs_copy, fs_create_dir, fs_create_dir_all, fs_remove_dir, fs_remove_dir_all,
-    fs_remove_file, fs_rename, lua_to_path,
-};
+use super::path::{Access, FsPolicy, lua_to_path};
+use super::target::RemoveKind;
 use crate::plugin::runtime::types::LuaFile;
 use mlua::{Lua, Table, Value};
 use std::sync::Arc;
@@ -14,11 +12,8 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         "mkdir",
         lua.create_function(move |_, (kind, url): (String, Value)| {
             let path = lua_to_path(&p, url, Access::Write)?;
-            let result = match kind.as_str() {
-                "dir_all" => fs_create_dir_all(&path),
-                _ => fs_create_dir(&path),
-            };
-            result.map_err(|e| mlua::Error::RuntimeError(format!("mkdir failed: {e}")))
+            path.create_dir(kind == "dir_all")
+                .map_err(|e| mlua::Error::RuntimeError(format!("mkdir failed: {e}")))
         })?,
     )?;
 
@@ -27,13 +22,8 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         "remove",
         lua.create_function(move |_, (kind, url): (String, Value)| {
             let path = lua_to_path(&p, url, Access::Write)?;
-            let result = match kind.as_str() {
-                "dir" => fs_remove_dir(&path),
-                "dir_all" => fs_remove_dir_all(&path),
-                "dir_clean" => clean_dir(&path),
-                _ => fs_remove_file(&path),
-            };
-            result.map_err(|e| mlua::Error::RuntimeError(format!("remove failed: {e}")))
+            path.remove(RemoveKind::from_lua_name(&kind))
+                .map_err(|e| mlua::Error::RuntimeError(format!("remove failed: {e}")))
         })?,
     )?;
 
@@ -43,7 +33,7 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         lua.create_function(move |_, (from, to): (Value, Value)| {
             let from = lua_to_path(&p, from, Access::Write)?;
             let to = lua_to_path(&p, to, Access::Write)?;
-            fs_rename(&from, &to)
+            from.rename_to(&to)
                 .map_err(|e| mlua::Error::RuntimeError(format!("rename failed: {e}")))
         })?,
     )?;
@@ -54,7 +44,8 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         lua.create_function(move |_, (from, to): (Value, Value)| {
             let from = lua_to_path(&p, from, Access::Read)?;
             let to = lua_to_path(&p, to, Access::Write)?;
-            fs_copy(&from, &to).map_err(|e| mlua::Error::RuntimeError(format!("copy failed: {e}")))
+            from.copy_to(&to)
+                .map_err(|e| mlua::Error::RuntimeError(format!("copy failed: {e}")))
         })?,
     )?;
 
@@ -63,13 +54,11 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         "read_dir",
         lua.create_function(move |_, url: Value| {
             let path = lua_to_path(&p, url, Access::Read)?;
-            let mut files = Vec::new();
-            if let Ok(rd) = std::fs::read_dir(&path) {
-                for entry in rd.flatten() {
-                    files.push(LuaFile::from_path(&entry.path()));
-                }
-            }
-            Ok(files)
+            Ok(path
+                .list()
+                .iter()
+                .map(|p| LuaFile::from_path(p))
+                .collect::<Vec<_>>())
         })?,
     )?;
 
@@ -78,23 +67,10 @@ pub fn bind_extra(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Re
         "file",
         lua.create_function(move |_, url: Value| {
             let path = lua_to_path(&p, url, Access::Read)?;
-            Ok(LuaFile::from_path(&path))
+            Ok(LuaFile::from_path(path.path()))
         })?,
     )?;
 
-    Ok(())
-}
-
-fn clean_dir(path: &std::path::Path) -> std::io::Result<()> {
-    for entry in std::fs::read_dir(path)? {
-        let entry = entry?;
-        let p = entry.path();
-        if p.is_dir() {
-            fs_remove_dir_all(&p)?;
-        } else {
-            fs_remove_file(&p)?;
-        }
-    }
     Ok(())
 }
 
@@ -110,6 +86,7 @@ mod tests {
         bind(
             lua,
             FsPolicy::new(std::path::Path::new("demo"), true, false),
+            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
             tx,
         )
         .unwrap()

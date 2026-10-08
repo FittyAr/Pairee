@@ -7,7 +7,7 @@ pub fn handle_installed(
     key: KeyEvent,
     context: &mut AppContext,
     cursor_idx: &mut usize,
-    installed: &mut Vec<(String, String, bool, bool, Option<String>)>,
+    installed: &mut Vec<crate::plugin::installed::InstalledPlugin>,
 ) {
     match key.code {
         KeyCode::Up | KeyCode::Char('k') | KeyCode::Char('K') => {
@@ -29,7 +29,7 @@ pub fn handle_installed(
             }
         }
         KeyCode::Char('t') | KeyCode::Char('T') => {
-            if let Some((name, _, _, _, _)) = installed.get(*cursor_idx) {
+            if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
                 if let Ok(mut config) = crate::config::AppConfig::load_or_create() {
                     let plugin_conf =
                         config
@@ -52,7 +52,7 @@ pub fn handle_installed(
             }
         }
         KeyCode::Char('p') | KeyCode::Char('P') => {
-            if let Some((name, _, _, _, _)) = installed.get(*cursor_idx) {
+            if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
                 let mut lock = crate::plugin::updater::read_lockfile();
                 if let Some(p) = lock.plugins.get_mut(name) {
                     p.pinned = !p.pinned;
@@ -63,14 +63,14 @@ pub fn handle_installed(
             }
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
-            if let Some((name, _, _, _, _)) = installed.get(*cursor_idx) {
+            if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
                 let _ = crate::plugin::updater::remove(name);
                 *installed = reload_installed_plugins(context, &None);
                 *cursor_idx = (*cursor_idx).min(installed.len().saturating_sub(1));
             }
         }
         KeyCode::Char('u') => {
-            if let Some((name, _, _, _, _)) = installed.get(*cursor_idx) {
+            if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
                 let name_clone = name.clone();
                 let tx = crate::plugin::PluginManager::get_sender();
                 tokio::spawn(async move {

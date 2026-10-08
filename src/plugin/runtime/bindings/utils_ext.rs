@@ -32,14 +32,11 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     table.set(
         "quote",
         lua.create_function(|_lua, (s, unix): (mlua::String, Option<bool>)| {
-            let bytes = s.as_bytes().to_vec();
+            let text = String::from_utf8_lossy(s.as_bytes());
             let escaped = match unix {
-                Some(true) => shell_escape_unix(&bytes),
-                Some(false) => shell_escape_windows(&bytes),
-                None => match std::env::consts::FAMILY {
-                    "unix" => shell_escape_unix(&bytes),
-                    _ => shell_escape_windows(&bytes),
-                },
+                Some(true) => crate::shell::quote_posix(&text),
+                Some(false) => crate::shell::quote_cmd(&text),
+                None => crate::shell::quote_native(&text),
             };
             Ok(mlua::Value::String(_lua.create_string(&escaped)?))
         })?,
@@ -153,70 +150,20 @@ const FRAGMENT: &AsciiSet = &CONTROLS
     .add(b'|')
     .add(b'}');
 
-/// Minimal POSIX shell escape: wrap the input in single quotes and
-/// escape any embedded single quotes. Sufficient for use in `bash -c`
-/// and similar invocations.
-fn shell_escape_unix(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + 2);
-    out.push(b'\'');
-    for &b in bytes {
-        if b == b'\'' {
-            out.extend_from_slice(b"'\\''");
-        } else {
-            out.push(b);
-        }
-    }
-    out.push(b'\'');
-    out
-}
-
-/// Minimal Windows `cmd.exe` escape: wrap the input in double quotes
-/// and escape any embedded double quotes. Sufficient for `cmd /C` use
-/// cases. Backslash doubling inside the quoted segment follows the
-/// standard `cmd.exe` rule.
-fn shell_escape_windows(bytes: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(bytes.len() + 2);
-    out.push(b'"');
-    for &b in bytes {
-        if b == b'"' || b == b'\\' {
-            out.push(b'\\');
-        }
-        out.push(b);
-    }
-    out.push(b'"');
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use mlua::Lua;
 
     #[test]
-    fn test_shell_escape_unix_simple() {
-        let r = shell_escape_unix(b"hello");
-        assert_eq!(r, b"'hello'");
-    }
-
-    #[test]
-    fn test_shell_escape_unix_with_quote() {
-        // `it's` must escape the embedded single quote by closing,
-        // escaping, and reopening the quote.
-        let r = shell_escape_unix(b"it's");
-        assert_eq!(r, b"'it'\\''s'");
-    }
-
-    #[test]
-    fn test_shell_escape_windows_with_quote() {
-        let r = shell_escape_windows(b"a\"b");
-        assert_eq!(r, b"\"a\\\"b\"");
-    }
-
-    #[test]
-    fn test_shell_escape_windows_with_backslash() {
-        // Backslashes are doubled inside a quoted cmd.exe segment.
-        let r = shell_escape_windows(b"a\\b");
-        assert_eq!(r, b"\"a\\\\b\"");
+    fn quote_uses_shared_shell_quoting() {
+        let lua = Lua::new();
+        let utils = bind(&lua).unwrap();
+        let quote: mlua::Function = utils.get("quote").unwrap();
+        let unix: String = quote.call(("it's", true)).unwrap();
+        assert_eq!(unix, "'it'\\''s'");
+        let win: String = quote.call(("a&b %x%", false)).unwrap();
+        assert_eq!(win, "^\"a^&b ^%x^%^\"");
     }
 
     #[test]

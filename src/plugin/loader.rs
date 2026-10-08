@@ -19,6 +19,16 @@ pub struct PluginManifest {
     pub screenshots: Option<Vec<String>>,
     pub keybindings: Option<HashMap<String, String>>,
     pub settings_schema: Option<HashMap<String, toml::Value>>,
+    #[serde(default)]
+    pub permissions: PluginPermissions,
+}
+
+/// `[permissions]` table of `manifest.toml`.
+#[derive(Debug, Deserialize, Clone, Default, PartialEq, Eq)]
+pub struct PluginPermissions {
+    /// Programs the plugin may spawn by name when Secure Mode is on.
+    #[serde(default)]
+    pub commands: Vec<String>,
 }
 
 impl PluginManifest {
@@ -31,6 +41,12 @@ impl PluginManifest {
         }
         let manifest: Self = toml::Value::Table(table).try_into()?;
         Ok(manifest)
+    }
+
+    /// Read and parse `<plugin_dir>/manifest.toml`, if present and valid.
+    pub fn read_from_dir(plugin_dir: &Path) -> Option<Self> {
+        let content = std::fs::read_to_string(plugin_dir.join("manifest.toml")).ok()?;
+        Self::parse(&content).ok()
     }
 }
 
@@ -188,5 +204,20 @@ mod tests {
             kbs.get("ctrl-p").map(|s| s.as_str()),
             Some("my_custom_action")
         );
+        assert!(manifest.permissions.commands.is_empty());
+    }
+
+    #[test]
+    fn test_parse_manifest_permissions() {
+        let content = r#"
+            [plugin]
+            name = "p"
+            version = "0.1.0"
+
+            [permissions]
+            commands = ["git", "rg"]
+        "#;
+        let manifest = PluginManifest::parse(content).unwrap();
+        assert_eq!(manifest.permissions.commands, vec!["git", "rg"]);
     }
 }

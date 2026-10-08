@@ -25,7 +25,7 @@ pub fn render_installed(
     list_area: Rect,
     detail_area: Rect,
     cursor_idx: usize,
-    installed: &[(String, String, bool, bool, Option<String>)],
+    installed: &[crate::plugin::installed::InstalledPlugin],
     installed_loading: bool,
     installed_loading_status: &str,
     theme: &crate::config::theme::Theme,
@@ -42,11 +42,10 @@ pub fn render_installed(
             Style::default().fg(Color::Yellow),
         )])));
     } else {
-        for (i, (name, version, pinned, trusted, update_available)) in installed.iter().enumerate()
-        {
-            let pin_badge = if *pinned { " [P]" } else { "" };
-            let trust_badge = if *trusted { " [T]" } else { " [U]" };
-            let update_badge = if update_available.is_some() {
+        for (i, plugin) in installed.iter().enumerate() {
+            let pin_badge = if plugin.pinned { " [P]" } else { "" };
+            let trust_badge = if plugin.trusted { " [T]" } else { " [U]" };
+            let update_badge = if plugin.update_available.is_some() {
                 " [▲]"
             } else {
                 ""
@@ -64,7 +63,7 @@ pub fn render_installed(
             list_items.push(ListItem::new(Line::from(vec![Span::styled(
                 format!(
                     "  {} v{}{}{}{}",
-                    name, version, pin_badge, trust_badge, update_badge
+                    plugin.name, plugin.version, pin_badge, trust_badge, update_badge
                 ),
                 style,
             )])));
@@ -116,20 +115,19 @@ pub fn render_installed(
     }
 
     if !installed.is_empty() {
-        if let Some((name, version, pinned, trusted, update_available)) = installed.get(cursor_idx)
-        {
+        if let Some(plugin) = installed.get(cursor_idx) {
             detail_lines.push(Line::from(vec![
                 Span::styled(t("plugin_detail_name"), bold_style),
-                Span::styled(name.clone(), text_style),
+                Span::styled(plugin.name.clone(), text_style),
             ]));
             detail_lines.push(Line::from(vec![
                 Span::styled(t("plugin_detail_version"), bold_style),
-                Span::styled(version.clone(), text_style),
+                Span::styled(plugin.version.clone(), text_style),
             ]));
             detail_lines.push(Line::from(vec![
                 Span::styled(t("plugin_detail_trust"), bold_style),
                 Span::styled(
-                    if *trusted {
+                    if plugin.trusted {
                         t("plugin_detail_trusted_desc")
                     } else {
                         t("plugin_detail_untrusted_desc")
@@ -140,7 +138,7 @@ pub fn render_installed(
             detail_lines.push(Line::from(vec![
                 Span::styled(t("plugin_detail_pinned"), bold_style),
                 Span::styled(
-                    if *pinned {
+                    if plugin.pinned {
                         t("plugin_detail_pinned_yes")
                     } else {
                         t("plugin_detail_pinned_no")
@@ -148,7 +146,18 @@ pub fn render_installed(
                     text_style,
                 ),
             ]));
-            if let Some(new_ver) = update_available {
+            detail_lines.push(Line::from(vec![
+                Span::styled(t("plugin_detail_commands"), bold_style),
+                Span::styled(
+                    if plugin.commands.is_empty() {
+                        t("plugin_detail_commands_none")
+                    } else {
+                        plugin.commands.join(", ")
+                    },
+                    text_style,
+                ),
+            ]));
+            if let Some(new_ver) = &plugin.update_available {
                 detail_lines.push(Line::from(vec![
                     Span::styled(
                         t("plugin_detail_update_avail"),

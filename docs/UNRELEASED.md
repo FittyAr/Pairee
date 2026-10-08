@@ -21,6 +21,7 @@
 - Protection and modal alert preventing push and pull operations while HEAD is in detached state.
 - Mode localization (`Soft`, `Mixed`, `Hard`) in Git commit reset confirmation prompts.
 - Informative notice when attempting to commit with clean working copy and no amend mode.
+- Plugins can declare the programs they need in `manifest.toml` (`[permissions] commands = [...]`); the Plugin Manager shows them in the plugin details.
 
 ### Improved
 
@@ -76,5 +77,10 @@
 - Fixed duplicate placeholder replacement in commit reset confirmation dialog which hid the reset mode (Soft/Mixed/Hard).
 - Fixed newly initialized repositories with zero commits showing `(detached HEAD)` instead of their initial branch name (e.g. `master` or `main`).
 - Fixed push tags without configured remotes failing with obscure libgit2 error.
+- **Security:** Secure Mode now uses a command allowlist for plugins instead of a name blacklist: a plugin may only run programs declared in its manifest, by name, resolved through `PATH` (no explicit or relative paths, no `.bat`/`.cmd`), and shells or interpreters are refused even if declared or reached through a symlink. A renamed binary can no longer slip through.
+- On Windows, commands run from the command line, the user menu and apply-command now reach `cmd.exe` unmodified: quotes are no longer mangled, and file names containing `%VAR%`, `&`, `^`, `!`, `(`, `)` or quotes are passed literally instead of being expanded or split.
+- **Security:** On Windows, opening a file with no association uses the system handler directly (`ShellExecuteW`) instead of `cmd /c start`, so the file name is never parsed by the shell.
+- **Security:** Jailed plugin file operations (`pairee.fs` read, write, mkdir, remove, rename, copy, list) now run through a directory handle of the allowed root, so a folder swapped for a symlink or junction after the path check can no longer redirect them outside the jail.
+- **Security:** Updates are now signed: the self-updater requires a minisign signature (`.minisig`) for the downloaded release asset in addition to the SHA-256 checksum and refuses to install if it is missing or invalid. The install scripts verify the signature when `minisign` is installed.
 
 
