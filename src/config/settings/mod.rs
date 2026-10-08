@@ -12,7 +12,7 @@ pub use types::{
     PluginConfig, SshPreset, TabExpansion, default_git_log_limit, default_plugins_dev_dir,
     default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
     default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
-    default_true,
+    default_true, default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -111,6 +111,13 @@ pub struct Settings {
     pub viewer_use_external: bool,
     pub viewer_tab_size: u32,
     pub viewer_show_scrollbar: bool,
+    /// Detect the encoding of viewed files (byte-order mark, UTF-16, legacy
+    /// code pages); when off, `viewer_default_codepage` is used.
+    #[serde(default = "default_true")]
+    pub viewer_autodetect_codepage: bool,
+    /// Encoding name or label used when detection is off (e.g. `windows-1252`).
+    #[serde(default = "default_viewer_codepage")]
+    pub viewer_default_codepage: String,
 
     // ── Colors settings (dialog tab 6) ───────────────────────────────────────
     pub highlight_rules: Vec<crate::ui::highlight::HighlightRule>,

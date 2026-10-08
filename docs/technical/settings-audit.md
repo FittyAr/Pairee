@@ -86,7 +86,8 @@ block selection; files are edited as UTF-8 only.)
 `viewer_save_file_position`, `viewer_save_view_mode`,
 `viewer_save_file_codepage`, `viewer_save_wrap_mode`, `viewer_save_bookmarks`,
 `viewer_detect_dump_view_mode`, `viewer_max_line_width`,
-`viewer_autodetect_codepage`, `viewer_default_codepage`.
+`viewer_autodetect_codepage`, `viewer_default_codepage` (both reintroduced in
+phase G.1, now wired to the viewer's encoding detection).
 (`viewer_use_external` stays: the external program comes from the file
 association rule.)
 

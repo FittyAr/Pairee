@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 /// Maximum bytes read from a file for a preview (text, PDF or image).
 pub const QUICK_VIEW_MAX_BYTES: u64 = 16 * 1024 * 1024;
+/// Text previews read only the start of the file (the F3 viewer pages the rest).
+pub const QUICK_VIEW_TEXT_BYTES: u64 = 256 * 1024;
 /// Maximum folder entries listed in a folder preview.
 pub const QUICK_VIEW_MAX_DIR_ENTRIES: usize = 10_000;
 
@@ -133,11 +135,16 @@ fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
             Err(e) => vec![t("quickview_error").replacen("{}", &e.to_string(), 1)],
         };
     }
+    let max_bytes = max_bytes.min(QUICK_VIEW_TEXT_BYTES);
     match read_text_prefix(path, max_bytes) {
         Some(text) => {
             let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
             if size > max_bytes {
-                lines.push(too_large(size, max_bytes));
+                lines.push(
+                    t("preview_truncated")
+                        .replacen("{}", &bytesize::ByteSize::b(max_bytes).to_string(), 1)
+                        .replacen("{}", &bytesize::ByteSize::b(size).to_string(), 1),
+                );
             }
             lines
         }
@@ -145,22 +152,14 @@ fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
     }
 }
 
-/// Reads up to `max_bytes` as UTF-8. A multi-byte character cut by the cap
-/// is dropped; any other invalid UTF-8 means "binary" (`None`).
+/// Reads up to `max_bytes` and decodes them in the detected encoding
+/// (UTF-8/16, legacy code pages). A character cut by the cap is dropped;
+/// `None` means binary or unreadable.
 pub fn read_text_prefix(path: &Path, max_bytes: u64) -> Option<String> {
     let mut buf = Vec::new();
-    std::fs::File::open(path)
-        .ok()?
-        .take(max_bytes)
-        .read_to_end(&mut buf)
-        .ok()?;
-    match String::from_utf8(buf) {
-        Ok(s) => Some(s),
-        // `error_len() == None`: the input ended mid-character (cut by the cap).
-        Err(e) if e.utf8_error().error_len().is_none() => {
-            let valid = e.utf8_error().valid_up_to();
-            Some(String::from_utf8_lossy(&e.into_bytes()[..valid]).into_owned())
-        }
-        Err(_) => None,
-    }
+    let mut file = std::fs::File::open(path).ok()?;
+    let size = file.metadata().ok()?.len();
+    (&mut file).take(max_bytes).read_to_end(&mut buf).ok()?;
+    let at_eof = buf.len() as u64 >= size;
+    crate::fs::text::decode_prefix(&buf, at_eof, crate::fs::text::EncodingPolicy::Detect)
 }

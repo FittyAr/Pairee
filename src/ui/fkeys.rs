@@ -83,7 +83,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
             ("5".to_string(), String::new()),
             ("6".to_string(), t("fkey_edit")),
             ("7".to_string(), t("fkey_vw_search")),
-            ("8".to_string(), String::new()),
+            ("8".to_string(), t("fkey_vw_encoding")),
             ("9".to_string(), String::new()),
             ("10".to_string(), t("fkey_vw_quit")),
             ("11".to_string(), String::new()),

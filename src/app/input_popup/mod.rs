@@ -98,7 +98,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::EditorSearchPrompt(_)
         | PopupType::EditorSaveAsPrompt { .. }
         | PopupType::EditorConfirmOverwrite { .. } => editor::handle,
-        PopupType::ViewerSearchPrompt(_) => viewer::handle,
+        PopupType::ViewerSearchPrompt(_) | PopupType::ViewerEncoding { .. } => viewer::handle,
         PopupType::Menu { .. } => menu::handle,
         PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
         PopupType::ScreensMenu { .. } => screens_menu::handle,

@@ -258,3 +258,32 @@ fn draw_ui_terminal_screen_renders_ansi_without_escape_codes() {
         "decoded 'red' should be painted with Color::Red"
     );
 }
+
+#[test]
+fn draw_ui_viewer_decodes_legacy_text_and_lists_encodings() {
+    let (context, mut state) = test_app();
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("latin1.txt");
+    let (bytes, _, _) = encoding_rs::WINDOWS_1252
+        .encode("Canción de la niña con su pingüino en la montaña.\nsegunda línea\n");
+    std::fs::write(&path, &bytes).unwrap();
+    state.open_viewer(path, &context.config.settings, false);
+    let mut terminal = Terminal::new(TestBackend::new(100, 24)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw viewer");
+    let painted = buffer_joined(&terminal);
+    assert!(painted.contains("pingüino"), "decoded as Windows-1252");
+    assert!(
+        painted.contains("windows-1252"),
+        "encoding in the status line"
+    );
+
+    crate::app::input_popup::viewer::open_encoding_selector(&mut state);
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw encoding list");
+    let painted = buffer_joined(&terminal);
+    assert!(painted.contains("UTF-16LE"), "selector lists encodings");
+    assert!(painted.contains("ISO-8859-2"));
+}

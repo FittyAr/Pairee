@@ -65,6 +65,11 @@ pub fn default_true() -> bool {
     true
 }
 
+/// Encoding used by the viewer when automatic detection is off.
+pub fn default_viewer_codepage() -> String {
+    encoding_rs::UTF_8.name().to_string()
+}
+
 pub fn default_ssh_timeout_secs() -> u64 {
     crate::fs::ssh::DEFAULT_SSH_TIMEOUT_SECS
 }

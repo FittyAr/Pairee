@@ -123,7 +123,7 @@ pub fn handle_editor_screen(
         }
         KeyCode::F(4) => {
             let path = ed.path.clone();
-            state.open_viewer(path, settings.image_preview_enabled, true);
+            state.open_viewer(path, settings, true);
         }
         KeyCode::F(8) => {
             state

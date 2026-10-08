@@ -69,8 +69,10 @@ File operations in Pairee are asynchronous, running on a background worker queue
 ### 3.2 Internal Viewer & Quick View
 * **Viewer Modes:** Toggle between plain Text mode and Hex Dump mode.
 * **Hex Dump View:** Displays offsets, hex values, and ASCII representation side-by-side. Excellent for inspecting binary files.
-* **Viewer Search:** Press `F7` inside the viewer to search for text strings.
-* **Quick View:** Instantly displays a preview of the highlighted file in the opposite panel. Supports text file previews and archive metadata listing.
+* **Viewer Search:** Press `F7` inside the viewer to search for text strings. The search runs in the background over the whole file (progress in the status line, `Esc` cancels).
+* **Large Files:** Files are read page by page with a line index built in the background, so multi-gigabyte files open instantly with bounded memory.
+* **Encodings:** The encoding is detected (byte-order mark, UTF-16, UTF-8, legacy code pages such as Windows-1252 or Shift-JIS) and shown in the status line; `F8` switches it manually.
+* **Quick View:** Instantly displays a preview of the highlighted file in the opposite panel. Supports text file previews (first 256 KiB, in the detected encoding) and archive metadata listing.
 
 ### 3.3 Built-in Editor
 * All editing happens in the built-in editor (`F4`); Pairee never launches an external editor.

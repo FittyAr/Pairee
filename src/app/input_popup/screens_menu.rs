@@ -69,11 +69,10 @@ fn view_terminal_output(state: &mut AppState, idx: usize) {
     let Some(Screen::Terminal(ts)) = state.screens.get(idx) else {
         return;
     };
-    let mut viewer = crate::ui::viewer::ViewerState::from_text(
+    let viewer = crate::ui::viewer::ViewerState::from_text(
         std::path::PathBuf::from(format!("Terminal: {}", ts.command)),
         ts.output_lines.clone(),
     );
-    viewer.raw = ts.output_lines.join("\n").into_bytes();
     state.push_screen(Screen::Viewer(viewer));
     state.dialogs.clear();
 }

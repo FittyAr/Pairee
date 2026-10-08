@@ -58,6 +58,7 @@ pub fn render_screen(
                     show_scrollbar: context.config.settings.viewer_show_scrollbar,
                     tab_size: context.config.settings.viewer_tab_size as usize,
                     scrollbar: Some(&state.scrollbar),
+                    search_progress: state.viewer.search_progress(),
                 },
             );
         }

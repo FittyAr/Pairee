@@ -47,7 +47,7 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
 
     if let Some(path) = open_file_path {
         state.push_file_view_history(path.clone());
-        state.open_viewer(path, context.config.settings.image_preview_enabled, false);
+        state.open_viewer(path, &context.config.settings, false);
         return;
     }
     if let Some(dir) = target_dir {

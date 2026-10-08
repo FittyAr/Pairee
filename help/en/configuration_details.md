@@ -146,6 +146,8 @@ Specifies which operations require an explicit warning dialog before proceeding.
 * **Use external viewer for F3:** F3 runs the view command of the file's association (see *File Associations Editor* below) and `Alt+F3` opens the internal viewer; when off it is the other way round.
 * **Use external command when opening files with Enter:** Enter runs the association's open command instead of opening the internal viewer.
 * **Tab size / Show scrollbar:** Tab width and scrollbar of the internal viewer.
+* **Detect encoding automatically:** Detects the encoding of viewed files (byte-order mark, UTF-16, UTF-8, legacy code pages). When off, **Default encoding** is used for every file (a matching byte-order mark is still skipped). `F8` in the viewer always lets you switch.
+* **Default encoding:** Encoding used when detection is off (`viewer_default_codepage`, an encoding name such as `windows-1252`; Enter cycles through the list).
 
 ### Built-in Editor
 Pairee edits files only with its built-in editor (`F4`); there is no external editor option.
