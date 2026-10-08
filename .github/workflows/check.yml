@@ -202,7 +202,7 @@ jobs:
     env:
       # Minimum line coverage (%). Raise it as coverage grows; never lower it
       # without recording the reason in the commit message.
-      COVERAGE_MIN_LINES: "25"
+      COVERAGE_MIN_LINES: "39"
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
