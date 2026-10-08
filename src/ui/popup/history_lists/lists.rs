@@ -1,16 +1,28 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect;
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use crate::ui::popup::kit::{self, ListPopup, Scroll};
+use crate::ui::scrollbar::{ScrollTargetId, ScrollbarUiState};
+use ratatui::{Frame, layout::Rect, style::Color};
 
+/// Title, empty-list text and hint of each history list.
+const COMMAND_KEYS: [&str; 3] = [
+    "history_command_title",
+    "history_command_empty",
+    "history_command_hint",
+];
+const VIEW_KEYS: [&str; 3] = [
+    "history_view_title",
+    "history_view_empty",
+    "history_view_hint",
+];
+const FOLDER_KEYS: [&str; 3] = [
+    "history_folder_title",
+    "history_folder_empty",
+    "history_folder_hint",
+];
+
+/// Command, viewed-file and folder history lists.
 pub(super) fn render_history_lists(
     f: &mut Frame,
     popup: &PopupType,
@@ -18,216 +30,63 @@ pub(super) fn render_history_lists(
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
-    match popup {
+    let (width, keys, id, cursor, entries) = match popup {
         PopupType::CommandHistoryList {
             entries,
             cursor_idx,
-        } => {
-            let area = centered_rect(60, 50, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("history_command_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            if entries.is_empty() {
-                let paragraph = Paragraph::new(t("history_command_empty"))
-                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-            } else {
-                let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start =
-                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
-                let mut lines = Vec::new();
-
-                for (i, entry) in entries
-                    .iter()
-                    .enumerate()
-                    .skip(scroll_start)
-                    .take(list_height)
-                {
-                    let is_cursor = i == *cursor_idx;
-                    let style = if is_cursor {
-                        Style::default()
-                            .bg(parse_color(&theme.selection_bg))
-                            .fg(parse_color(&theme.selection_fg))
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(parse_color(&theme.popup_fg))
-                    };
-                    lines.push(Line::from(Span::styled(format!(" {} ", entry), style)));
-                }
-
-                let hint = Line::from(Span::styled(
-                    t("history_command_hint"),
-                    Style::default().fg(Color::DarkGray),
-                ));
-                lines.push(Line::from(""));
-                lines.push(hint);
-
-                let paragraph =
-                    Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-
-                scrollbar::render_vertical_right(
-                    f,
-                    inner,
-                    entries.len(),
-                    list_height,
-                    scroll_start,
-                    theme,
-                    ScrollbarSurface::Popup,
-                    scrollbar,
-                    ScrollTargetId::HistoryCommand,
-                );
-            }
-            true
-        }
+        } => (
+            60,
+            COMMAND_KEYS,
+            ScrollTargetId::HistoryCommand,
+            *cursor_idx,
+            entries.clone(),
+        ),
         PopupType::FileViewHistoryList {
             entries,
             cursor_idx,
-        } => {
-            let area = centered_rect(65, 50, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("history_view_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            if entries.is_empty() {
-                let paragraph = Paragraph::new(t("history_view_empty"))
-                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-            } else {
-                let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start =
-                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
-                let mut lines = Vec::new();
-
-                for (i, entry) in entries
-                    .iter()
-                    .enumerate()
-                    .skip(scroll_start)
-                    .take(list_height)
-                {
-                    let is_cursor = i == *cursor_idx;
-                    let display = entry.to_string_lossy();
-                    let style = if is_cursor {
-                        Style::default()
-                            .bg(parse_color(&theme.selection_bg))
-                            .fg(parse_color(&theme.selection_fg))
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(parse_color(&theme.popup_fg))
-                    };
-                    lines.push(Line::from(Span::styled(format!(" {} ", display), style)));
-                }
-
-                let hint = Line::from(Span::styled(
-                    t("history_view_hint"),
-                    Style::default().fg(Color::DarkGray),
-                ));
-                lines.push(Line::from(""));
-                lines.push(hint);
-
-                let paragraph =
-                    Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-
-                scrollbar::render_vertical_right(
-                    f,
-                    inner,
-                    entries.len(),
-                    list_height,
-                    scroll_start,
-                    theme,
-                    ScrollbarSurface::Popup,
-                    scrollbar,
-                    ScrollTargetId::HistoryView,
-                );
-            }
-            true
-        }
+        } => (
+            65,
+            VIEW_KEYS,
+            ScrollTargetId::HistoryView,
+            *cursor_idx,
+            lossy(entries),
+        ),
         PopupType::FoldersHistoryList {
             entries,
             cursor_idx,
-        } => {
-            let area = centered_rect(65, 50, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("history_folder_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let inner = block.inner(area);
-            f.render_widget(block, area);
-
-            if entries.is_empty() {
-                let paragraph = Paragraph::new(t("history_folder_empty"))
-                    .style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-            } else {
-                let list_height = inner.height.saturating_sub(2) as usize;
-                let scroll_start =
-                    scrollbar::centered_scroll(*cursor_idx, entries.len(), list_height);
-                let mut lines = Vec::new();
-
-                for (i, entry) in entries
-                    .iter()
-                    .enumerate()
-                    .skip(scroll_start)
-                    .take(list_height)
-                {
-                    let is_cursor = i == *cursor_idx;
-                    let display = entry.to_string_lossy();
-                    let style = if is_cursor {
-                        Style::default()
-                            .bg(parse_color(&theme.selection_bg))
-                            .fg(parse_color(&theme.selection_fg))
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(parse_color(&theme.popup_fg))
-                    };
-                    lines.push(Line::from(Span::styled(format!(" {} ", display), style)));
-                }
-
-                let hint = Line::from(Span::styled(
-                    t("history_folder_hint"),
-                    Style::default().fg(Color::DarkGray),
-                ));
-                lines.push(Line::from(""));
-                lines.push(hint);
-
-                let paragraph =
-                    Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
-                f.render_widget(paragraph, inner);
-
-                scrollbar::render_vertical_right(
-                    f,
-                    inner,
-                    entries.len(),
-                    list_height,
-                    scroll_start,
-                    theme,
-                    ScrollbarSurface::Popup,
-                    scrollbar,
-                    ScrollTargetId::HistoryFolder,
-                );
-            }
-            true
-        }
-        _ => false,
+        } => (
+            65,
+            FOLDER_KEYS,
+            ScrollTargetId::HistoryFolder,
+            *cursor_idx,
+            lossy(entries),
+        ),
+        _ => return false,
+    };
+    let [title, empty, hint] = keys;
+    let style = kit::popup_fg(theme);
+    ListPopup {
+        area: centered_rect(width, 50, size),
+        title: t(title),
+        border: Color::Cyan,
+        empty: Some(t(empty)),
+        header: Vec::new(),
+        rows: entries
+            .into_iter()
+            .map(|e| (format!(" {} ", e), style))
+            .collect(),
+        cursor,
+        scroll: Scroll::Centered,
+        hint: t(hint),
+        scrollbar: Some((scrollbar, id)),
     }
+    .render(f, theme);
+    true
+}
+
+fn lossy(paths: &[std::path::PathBuf]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|p| p.to_string_lossy().into_owned())
+        .collect()
 }
