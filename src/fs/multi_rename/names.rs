@@ -31,6 +31,15 @@ impl TargetFs {
         }
     }
 
+    /// Rules of a panel: [`Self::remote`] for SFTP, else [`Self::local`].
+    pub const fn for_panel(remote: bool) -> Self {
+        if remote {
+            Self::remote()
+        } else {
+            Self::local()
+        }
+    }
+
     /// Comparison key: two names with the same key are the same entry.
     pub fn key(self, name: &str) -> String {
         if self.case_insensitive {

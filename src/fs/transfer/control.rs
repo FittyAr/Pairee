@@ -193,6 +193,8 @@ pub fn done(src: &Path, dst: PathBuf, size: u64, start: Instant) -> FileTransfer
         dst_hash: None,
         verified: true,
         duration: start.elapsed(),
+        replaced: false,
+        dst_stamp: None,
     }
 }
 

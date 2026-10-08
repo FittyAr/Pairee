@@ -54,6 +54,8 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `Alt+F5` | Print file utility (applies custom filter command). |
 | `F6` | Move selected items to passive panel destination. Press `Tab` from the path field to expand advanced options (symlinks, attributes, filter, etc.). |
 | `Alt+F6` | Open Symlink / Hardlink creation dialog. |
+| `Alt+Backspace` | Undo the last file operation (rename, move, copy, make folder, link, send to trash) after a confirmation (see Features, section 2.4.1). |
+| `Ctrl+Y` | Redo the last undone file operation. |
 | `F7` | Rename the highlighted item in place (filename only). |
 | `Shift+F6` | Multi-rename the selected items with masks, counter, search & replace and a live preview (see Features, section 2.2.1). In the dialog: `Tab`/arrows move between fields, `Space` toggles options, `Left`/`Right` change the case mode, `PgUp`/`PgDn` scroll the preview, `Enter` renames, `Esc` cancels. |
 | `F8` / `Delete` | Delete highlighted or tagged files. |

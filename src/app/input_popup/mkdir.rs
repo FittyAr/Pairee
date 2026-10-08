@@ -56,6 +56,9 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) {
                 .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)))
         }
         Ok(()) => {
+            state
+                .journal
+                .record(crate::fs::journal::FsCommand::MakeDir { path });
             if settings.req_admin_modification {
                 state.terminal_needs_clear = true;
             }

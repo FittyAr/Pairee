@@ -91,6 +91,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::MkDirPrompt { .. } => mkdir::handle,
         PopupType::TransferPrompt(..) => transfer_prompt::handle,
         PopupType::ConfirmQuit
+        | PopupType::ConfirmUndo { .. }
         | PopupType::ConfirmInterrupt
         | PopupType::ConfirmReload
         | PopupType::ConfirmDiscardEditorChanges

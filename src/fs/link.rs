@@ -1,6 +1,33 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
+/// Kind of link the "create link" dialog makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LinkKind {
+    Symbolic,
+    Hard,
+}
+
+/// Creates a link of `kind` at `dest` pointing to `src`.
+pub fn create_link(src: &Path, dest: &Path, kind: LinkKind) -> Result<()> {
+    match kind {
+        LinkKind::Symbolic => create_symlink(src, dest),
+        LinkKind::Hard => create_hardlink(src, dest),
+    }
+}
+
+/// Removes the link at `path` (never what it points to). Directory
+/// symbolic links on Windows need `remove_dir`.
+pub fn remove_link(path: &Path) -> std::io::Result<()> {
+    std::fs::remove_file(path).or_else(|e| {
+        if path.symlink_metadata()?.file_type().is_symlink() {
+            std::fs::remove_dir(path)
+        } else {
+            Err(e)
+        }
+    })
+}
+
 /// Creates a symbolic link at `dest` pointing to `src`.
 ///
 /// On UNIX/Linux: uses `std::os::unix::fs::symlink`.

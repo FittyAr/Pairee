@@ -14,12 +14,14 @@ pub mod mkdir;
 pub mod multi_rename;
 pub mod rename;
 pub mod transfer;
+pub mod undo;
 pub mod view;
 pub mod wipe;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::app::state::popup::TransferPromptOp;
+use crate::fs::journal::Direction;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
 
@@ -49,6 +51,8 @@ pub fn handle_fs_action(
         Action::ArchiveCommands => archive_cmd::handle(state),
         Action::CalculateFolderSizes => folder_size::calculate(state),
         Action::DiskUsage => folder_size::open_disk_usage(state),
+        Action::UndoFileOp => undo::request(state, Direction::Undo),
+        Action::RedoFileOp => undo::request(state, Direction::Redo),
         _ => false,
     }
 }

@@ -63,6 +63,12 @@ Press `Shift+F6` (or **Files → Multi-Rename**) to rename every selected item (
 ### 2.4 Creating Links
 * Easily create symbolic links or hard links mapping a source file or directory to a specific destination path.
 
+### 2.4.1 Undo and Redo of File Operations
+`Alt+Backspace` (or **Files → Undo**) reverses the last file operation and `Ctrl+Y` (**Files → Redo**) repeats it. The menu shows what will be reversed, e.g. *Undo: Move (3 items)*. Pairee keeps the last 50 operations of the session in memory.
+* **What can be undone:** rename and multi-rename (also on SSH/SFTP panels), move (`F6`, same or another drive), copy (the new copies are deleted; a copy that overwrote an existing file is never deleted), make folder, create link, and send to trash (the items are restored from the Recycle Bin / trash on Windows and Linux).
+* **What cannot:** permanent delete, secure wipe, copy/move/delete on SSH panels, and sending to the trash on macOS. The journal still lists them; undoing one tells you so and removes it from the history.
+* **Safety checks:** before anything runs, a confirmation lists the entries that will be reversed. Each one is checked first: the file must still exist with the same size and date, and its original location must be free. Entries that changed are listed as skipped and left alone; nothing is ever overwritten. Undo and redo run through the same paths as the original operation (Transfer Engine jobs, the rename executor), so progress, cancel and the job log work as usual.
+
 ### 2.5 Elevated Privilege Support (Sudo / Admin)
 * When a filesystem operation (delete, copy, move, mkdir) encounters a "Permission Denied" error, Pairee prompts you to retry with administrative privileges. It executes the action using an elevated helper process (`sudo` on Unix/Linux, UAC prompt on Windows) without needing to restart the application.
 

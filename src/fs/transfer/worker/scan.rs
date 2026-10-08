@@ -7,12 +7,14 @@ use super::super::events::TransferEvent;
 use super::super::filter::TransferFilter;
 use super::super::job::TransferOperation;
 use super::super::options::TransferOptions;
-use super::destination::is_destination_parent_dir;
+use super::destination::{ensure_dir, is_destination_parent_dir};
 
 /// Result of the scan phase: file mappings and aggregate totals.
 pub(super) struct ScanOutcome {
     pub mappings: Vec<(PathBuf, PathBuf, u64)>,
     pub dirs_to_delete: Vec<PathBuf>,
+    /// Destination folders created while scanning.
+    pub created_dirs: Vec<PathBuf>,
     pub total_bytes: u64,
     // Part of phase outcome API; ScanComplete is already emitted during scan.
     #[allow(dead_code)]
@@ -35,6 +37,7 @@ pub(super) fn scan(
 
     let mut scan_mappings = Vec::new();
     let mut dirs_to_delete = Vec::new();
+    let mut created_dirs = Vec::new();
     let mut total_bytes = 0u64;
     let mut files_scanned = 0usize;
 
@@ -69,8 +72,7 @@ pub(super) fn scan(
                 if (operation == TransferOperation::Copy || operation == TransferOperation::Move)
                     && let Ok(rel) = dir.strip_prefix(src)
                 {
-                    let dst_dir = base_dst.join(rel);
-                    let _ = std::fs::create_dir_all(&dst_dir);
+                    ensure_dir(&base_dst.join(rel), &mut created_dirs);
                 }
 
                 let entries = match std::fs::read_dir(&dir) {
@@ -182,7 +184,38 @@ pub(super) fn scan(
     Ok(ScanOutcome {
         mappings: scan_mappings,
         dirs_to_delete,
+        created_dirs,
         total_bytes,
         files_scanned,
     })
+}
+
+/// Scan of explicit `(source, destination)` file pairs: missing sources are
+/// left out and the destination folders are created.
+pub(super) fn scan_pairs(pairs: &[(PathBuf, PathBuf)], ctl: &JobControl) -> ScanOutcome {
+    let mut created_dirs = Vec::new();
+    let mappings: Vec<(PathBuf, PathBuf, u64)> = pairs
+        .iter()
+        .filter_map(|(from, to)| {
+            let meta = from.symlink_metadata().ok()?;
+            if let Some(parent) = to.parent() {
+                ensure_dir(parent, &mut created_dirs);
+            }
+            let size = if meta.file_type().is_symlink() {
+                0
+            } else {
+                meta.len()
+            };
+            Some((from.clone(), to.clone(), size))
+        })
+        .collect();
+    let total_bytes = mappings.iter().map(|(_, _, size)| size).sum();
+    ctl.scan_complete(mappings.len(), total_bytes);
+    ScanOutcome {
+        files_scanned: mappings.len(),
+        mappings,
+        dirs_to_delete: Vec::new(),
+        created_dirs,
+        total_bytes,
+    }
 }

@@ -29,7 +29,7 @@ pub fn get_menu_items(
     use crate::app::state::ActivePanel::{Left, Right};
     match menu_idx {
         0 => panel::get_items(state, resolver, settings, Left),
-        1 => files::get_items(resolver, settings),
+        1 => files::get_items(&state.journal, resolver, settings),
         2 => commands::get_items(resolver, settings),
         3 => options::get_items(resolver),
         4 => panel::get_items(state, resolver, settings, Right),

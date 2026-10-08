@@ -63,6 +63,12 @@ Pulsa `Shift+F6` (o **Archivos → Renombrado múltiple**) para renombrar de una
 ### 2.4 Creación de Enlaces
 * Crea fácilmente enlaces simbólicos o duros asociando un archivo o carpeta de origen con una ruta de destino específica.
 
+### 2.4.1 Deshacer y rehacer operaciones de archivos
+`Alt+Retroceso` (o **Archivos → Deshacer**) revierte la última operación de archivos y `Ctrl+Y` (**Archivos → Rehacer**) la repite. El menú muestra qué se va a revertir, por ejemplo *Deshacer: Mover (3 elementos)*. Pairee guarda en memoria las últimas 50 operaciones de la sesión.
+* **Qué se puede deshacer:** renombrar y renombrado múltiple (también en paneles SSH/SFTP), mover (`F6`, en la misma unidad o en otra), copiar (se borran las copias nuevas; una copia que sobrescribió un archivo existente nunca se borra), crear carpeta, crear enlace y enviar a la papelera (los elementos se restauran desde la Papelera de reciclaje / papelera en Windows y Linux).
+* **Qué no:** el borrado definitivo, la destrucción segura (wipe), copiar/mover/borrar en paneles SSH y enviar a la papelera en macOS. El diario las registra igualmente; al intentar deshacerlas se avisa y se quitan del historial.
+* **Comprobaciones de seguridad:** antes de ejecutar nada, una confirmación enumera lo que se va a revertir. Cada elemento se comprueba antes: el archivo debe seguir existiendo con el mismo tamaño y fecha, y su ubicación original debe estar libre. Lo que cambió se muestra como omitido y no se toca; nunca se sobrescribe nada. Deshacer y rehacer usan los mismos caminos que la operación original (trabajos del Transfer Engine, el ejecutor de renombrados), así que el progreso, la cancelación y el registro del trabajo funcionan como siempre.
+
 ### 2.5 Operaciones con Privilegios Elevados (Administrador / Sudo)
 * Cuando una operación (borrado, copia, movimiento o creación de directorio) encuentra un error de "Permiso denegado", Pairee te ofrece la opción de reintentar la acción con privilegios de administrador. La ejecuta usando un ejecutable asistente de elevación (`sudo` en Unix/Linux, solicitud UAC en Windows) sin necesidad de reiniciar la aplicación.
 

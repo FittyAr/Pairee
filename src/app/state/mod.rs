@@ -106,7 +106,11 @@ pub struct AppState {
     pub git_panel: crate::app::git_panel_load::GitPanelLoader,
 
     /// Background run of the multi-rename tool.
-    pub multi_rename: crate::app::jobs::JobSlot<crate::fs::multi_rename::RenameReport>,
+    pub multi_rename:
+        crate::app::jobs::JobSlot<crate::app::actions::fs_ops::multi_rename::RenameRun>,
+
+    /// Operation journal (undo/redo of file operations).
+    pub journal: crate::fs::journal::Journal,
 
     /// Background folder comparison (Compare folders / Synchronize).
     pub folder_scan: crate::app::sync::FolderScanState,
@@ -164,6 +168,7 @@ impl AppState {
             git_op: Default::default(),
             git_panel: Default::default(),
             multi_rename: Default::default(),
+            journal: Default::default(),
             folder_scan: Default::default(),
             disk_usage: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
