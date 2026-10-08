@@ -3,6 +3,7 @@
 
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
+use crate::app::state::history::HistoryKind;
 use crate::app::state::{AdminOpKind, AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
@@ -74,38 +75,18 @@ fn cancel_transfers(state: &AppState) {
 }
 
 fn clear_history(state: &mut AppState, history_type: &str) {
-    match history_type {
-        "command" => state.history.commands.clear(),
-        "view" => state.history.viewed_files.clear(),
-        "folder" => state.history.folders.clear(),
-        _ => {}
+    if let Some(kind) = HistoryKind::from_key(history_type) {
+        state.history.clear(kind);
     }
-    let store = crate::config::history::HistoryStore {
-        commands: state.history.commands.clone(),
-        viewed_files: state.history.viewed_files.clone(),
-        visited_folders: state.history.folders.clone(),
-    };
-    let _ = store.save();
+    state.history.save();
 }
 
 /// Esc on "clear history": back to the corresponding history list.
 fn reopen_history(state: &mut AppState, history_type: &str) {
-    let list = match history_type {
-        "command" => PopupType::CommandHistoryList {
-            entries: state.history.commands.clone(),
-            cursor_idx: 0,
-        },
-        "view" => PopupType::FileViewHistoryList {
-            entries: state.history.viewed_files.clone(),
-            cursor_idx: 0,
-        },
-        "folder" => PopupType::FoldersHistoryList {
-            entries: state.history.folders.clone(),
-            cursor_idx: 0,
-        },
-        _ => return,
-    };
-    state.dialogs.replace(list);
+    if let Some(kind) = HistoryKind::from_key(history_type) {
+        let list = kind.list_popup(&state.history, 0);
+        state.dialogs.replace(list);
+    }
 }
 
 /// Elevates and repeats the failed mkdir / rename. Returns the error message.

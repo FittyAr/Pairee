@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::list_nav::handle_arrow_nav;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
@@ -16,16 +16,14 @@ pub fn handle(
     else {
         return Err(());
     };
-    if handle_arrow_nav(key.code, cursor_idx, nodes.len()) {
-        return Ok(None);
-    }
-    match key.code {
-        KeyCode::Esc | KeyCode::F(10) => {
+    match list_key(ListKeys::ARROWS, key.code, cursor_idx, nodes.len()) {
+        ListKey::Moved => {}
+        ListKey::Close | ListKey::Other if matches!(key.code, KeyCode::Esc | KeyCode::F(10)) => {
             if let Some(caller) = take_caller(state) {
                 close(state, caller);
             }
         }
-        KeyCode::Enter => {
+        ListKey::Activate(_) => {
             let Some(PopupType::TreeView {
                 nodes, cursor_idx, ..
             }) = state.dialogs.top()
@@ -48,9 +46,7 @@ pub fn handle(
                 choose(state, context, caller, target);
             }
         }
-        // Up / Down on an empty tree are swallowed.
-        KeyCode::Up | KeyCode::Down => {}
-        _ => return Err(()),
+        ListKey::Close | ListKey::Other => return Err(()),
     }
     Ok(None)
 }

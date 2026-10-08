@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
-use crate::app::list_nav::handle_arrow_nav;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
@@ -17,21 +17,18 @@ pub fn handle(
     else {
         return Err(());
     };
-    if handle_arrow_nav(key.code, cursor_idx, drives.len()) {
-        return Ok(None);
-    }
-    match key.code {
-        KeyCode::Esc => state.dialogs.clear(),
-        KeyCode::Enter => {
+    match list_key(ListKeys::ARROWS, key.code, cursor_idx, drives.len()) {
+        ListKey::Moved => {}
+        ListKey::Close => state.dialogs.clear(),
+        ListKey::Activate(idx) => {
             let panel = *panel;
-            if let Some(drive) = drives.get(*cursor_idx).map(std::path::PathBuf::from) {
+            if let Some(drive) = drives.get(idx).map(std::path::PathBuf::from) {
                 state.panels.side_mut(panel).open_path(drive);
                 state.dialogs.clear();
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }
         }
-        KeyCode::Up | KeyCode::Down => {}
-        _ => return Err(()),
+        ListKey::Other => return Err(()),
     }
     Ok(None)
 }

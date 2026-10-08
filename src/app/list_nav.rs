@@ -82,25 +82,66 @@ pub fn wrap_next(idx: usize, len: usize) -> usize {
     if idx + 1 >= len { 0 } else { idx + 1 }
 }
 
-/// Applies Up / Down / PgUp / PgDn / Home / End to `cursor` in a list of `len`
-/// rows. Returns `true` when the key was a navigation key and the list is not
-/// empty.
-pub fn handle_list_nav(code: KeyCode, cursor: &mut usize, len: usize) -> bool {
-    apply_step(NavStep::from_key(code), cursor, len)
+/// Which navigation keys a list popup accepts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ListKeys {
+    /// `k` / `j` act like Up / Down.
+    pub vim: bool,
+    /// PgUp / PgDn / Home / End are accepted.
+    pub paging: bool,
 }
 
-/// Like [`handle_list_nav`] but only for the wrapping Up / Down arrows.
-pub fn handle_arrow_nav(code: KeyCode, cursor: &mut usize, len: usize) -> bool {
-    apply_step(NavStep::from_arrow(code), cursor, len)
+impl ListKeys {
+    pub const ARROWS: Self = Self {
+        vim: false,
+        paging: false,
+    };
+    pub const ARROWS_VIM: Self = Self {
+        vim: true,
+        paging: false,
+    };
+    pub const FULL: Self = Self {
+        vim: false,
+        paging: true,
+    };
 }
 
-fn apply_step(step: Option<NavStep>, cursor: &mut usize, len: usize) -> bool {
-    match step {
-        Some(step) if len > 0 => {
-            *cursor = step.apply(*cursor, len);
-            true
+/// Meaning of a key in a selectable list popup.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ListKey {
+    /// A navigation key (the cursor moved unless the list is empty).
+    Moved,
+    /// Enter on row `n` (may be out of range for an empty list).
+    Activate(usize),
+    /// Esc.
+    Close,
+    /// Anything else, left to the popup.
+    Other,
+}
+
+/// Applies the navigation keys allowed by `keys` to `cursor` and classifies
+/// Enter / Esc, so list popups only handle their own actions.
+pub fn list_key(keys: ListKeys, code: KeyCode, cursor: &mut usize, len: usize) -> ListKey {
+    let code = match code {
+        KeyCode::Char('k' | 'K') if keys.vim => KeyCode::Up,
+        KeyCode::Char('j' | 'J') if keys.vim => KeyCode::Down,
+        other => other,
+    };
+    let step = if keys.paging {
+        NavStep::from_key(code)
+    } else {
+        NavStep::from_arrow(code)
+    };
+    match code {
+        _ if step.is_some() => {
+            if let Some(step) = step {
+                *cursor = step.apply(*cursor, len);
+            }
+            ListKey::Moved
         }
-        _ => false,
+        KeyCode::Enter => ListKey::Activate(*cursor),
+        KeyCode::Esc => ListKey::Close,
+        _ => ListKey::Other,
     }
 }
 
@@ -128,16 +169,46 @@ mod tests {
     #[test]
     fn empty_list_is_not_navigated() {
         let mut cursor = 0;
-        assert!(!handle_list_nav(KeyCode::Down, &mut cursor, 0));
+        assert_eq!(
+            list_key(ListKeys::FULL, KeyCode::Down, &mut cursor, 0),
+            ListKey::Moved
+        );
         assert_eq!(cursor, 0);
     }
 
     #[test]
-    fn arrow_nav_ignores_paging_keys() {
-        let mut cursor = 1;
-        assert!(!handle_arrow_nav(KeyCode::Home, &mut cursor, 5));
-        assert!(handle_arrow_nav(KeyCode::Up, &mut cursor, 5));
+    fn list_key_maps_vim_paging_enter_and_esc() {
+        let mut cursor = 0;
+        assert_eq!(
+            list_key(ListKeys::ARROWS_VIM, KeyCode::Char('k'), &mut cursor, 3),
+            ListKey::Moved
+        );
+        assert_eq!(cursor, 2);
+        assert_eq!(
+            list_key(ListKeys::ARROWS, KeyCode::Char('k'), &mut cursor, 3),
+            ListKey::Other
+        );
+        assert_eq!(
+            list_key(ListKeys::ARROWS, KeyCode::Home, &mut cursor, 3),
+            ListKey::Other
+        );
+        assert_eq!(
+            list_key(ListKeys::FULL, KeyCode::Home, &mut cursor, 3),
+            ListKey::Moved
+        );
         assert_eq!(cursor, 0);
+        assert_eq!(
+            list_key(ListKeys::FULL, KeyCode::Enter, &mut cursor, 3),
+            ListKey::Activate(0)
+        );
+        assert_eq!(
+            list_key(ListKeys::FULL, KeyCode::Esc, &mut cursor, 3),
+            ListKey::Close
+        );
+        assert_eq!(
+            list_key(ListKeys::FULL, KeyCode::Down, &mut cursor, 0),
+            ListKey::Moved
+        );
     }
 
     #[test]
