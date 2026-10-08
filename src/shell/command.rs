@@ -47,7 +47,7 @@ pub struct ShellInvocation {
 }
 
 /// See [`ShellInvocation`]. On Windows the script travels in
-/// [`SCRIPT_ENV_VAR`] and cmd expands it once (the argument
+/// `SCRIPT_ENV_VAR` and cmd expands it once (the argument
 /// `%PAIREE_SHELL_SCRIPT%` contains no space or quote, so no argument
 /// quoting touches it); the user's own `%VAR%` references are pre-expanded
 /// with cmd's rules because cmd does not re-expand a variable's value.
