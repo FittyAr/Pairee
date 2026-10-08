@@ -37,6 +37,8 @@ blake3 = "1.5.4"
 md-5 = "0.10.6"
 sha1 = "0.10.6"
 sha2 = "0.10.8"
+# Private, randomly named temp dirs for update downloads (0700 on Unix).
+tempfile = "3.27"
 crc32fast = "1.4.2"
 uuid = { version = "1.10.0", features = ["v4"] }
 filetime = "0.2.25"
@@ -62,7 +64,6 @@ codegen-units = 1
 strip = true
 
 [dev-dependencies]
-tempfile = "3.27"
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
@@ -74,6 +75,8 @@ reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 signal-hook = { version = "0.3", features = ["iterator"] }
+# O_NOFOLLOW for symlink-safe secure wipe.
+libc = "0.2"
 
 [package.metadata.deb]
 name = "pairee"

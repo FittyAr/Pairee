@@ -1,7 +1,7 @@
 //! Archival operation runner (compress, extract) with cooperative cancellation.
 
 use super::super::super::events::TransferEvent;
-use super::super::super::job::{FailedFile, TransferResults};
+use super::super::super::job::{FailedFile, SkippedFile, TransferResults};
 use super::super::BackendControl;
 use super::common::{complete_ok, emit_file_completed, emit_file_started, emit_scan_complete};
 use crate::config::localization::t;
@@ -124,6 +124,21 @@ async fn bridge_progress_to_events(
         if !announced_scan {
             announced_scan = true;
             emit_scan_complete(control, total, update.total_bytes);
+        }
+
+        if update.skipped {
+            let file = PathBuf::from(&update.current_file);
+            let reason = t("archive_entry_skipped_exists");
+            results.skipped_files.push(SkippedFile {
+                src: file.clone(),
+                reason: reason.clone(),
+            });
+            let _ = control.event_tx.send(TransferEvent::FileSkipped {
+                job_id: control.job_id,
+                file,
+                reason,
+            });
+            continue;
         }
 
         if let Some(err) = update.error {

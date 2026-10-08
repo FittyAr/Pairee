@@ -77,7 +77,8 @@ impl AppConfig {
             let default_settings = Settings::default();
             let toml_str = toml::to_string_pretty(&default_settings)
                 .context("Failed to serialize default settings")?;
-            fs::write(&settings_path, toml_str).context("Failed to write default config.toml")?;
+            write_atomic(&settings_path, toml_str.as_bytes())
+                .context("Failed to write default config.toml")?;
             default_settings
         };
 
@@ -228,6 +229,9 @@ impl AppConfig {
 /// loss cannot leave a half-written file behind. Returns the wrapped
 /// `io::Error` (or its `Context`) on failure so callers can surface a
 /// user-facing message.
+///
+/// On Unix the file is created with mode `0600`, since config files may
+/// hold paths, SSH host names and other private settings.
 pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     use std::io::Write;
 
@@ -250,14 +254,18 @@ pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
         // is only reachable for pathological inputs (a relative
         // `config.toml` with no parent), which the rest of the app does
         // not produce.
-        return fs::write(path, data).context("Atomic write fallback (no parent dir)");
+        let mut f = create_private_file(path).context("Atomic write fallback (no parent dir)")?;
+        return f
+            .write_all(data)
+            .context("Atomic write fallback (no parent dir)");
     };
 
     // Write the data to the temp file, fsync to flush to disk, then
     // rename onto the target. If any step fails we try to remove the
     // temp file so we do not leak a `.tmp` next to the config.
     let write_result = (|| -> Result<()> {
-        let mut f = fs::File::create(&tmp_path).context("Creating temp file for atomic write")?;
+        let mut f =
+            create_private_file(&tmp_path).context("Creating temp file for atomic write")?;
         f.write_all(data).context("Writing to temp file")?;
         f.sync_all().context("Syncing temp file to disk")?;
         // On Windows `fs::rename` is not atomic when the destination
@@ -275,9 +283,32 @@ pub fn write_atomic(path: &std::path::Path, data: &[u8]) -> Result<()> {
     write_result
 }
 
+/// Creates (or truncates) a file readable/writable only by the owner on Unix.
+fn create_private_file(path: &std::path::Path) -> std::io::Result<fs::File> {
+    let mut opts = fs::OpenOptions::new();
+    opts.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        opts.mode(0o600);
+    }
+    opts.open(path)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(unix)]
+    #[test]
+    fn test_write_atomic_creates_private_file() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("config.toml");
+        write_atomic(&path, b"secret").expect("atomic write");
+        let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o600);
+    }
 
     #[test]
     fn test_write_atomic_replaces_file() {

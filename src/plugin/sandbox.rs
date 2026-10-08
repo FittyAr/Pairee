@@ -2,45 +2,152 @@ use crate::plugin::manager::PluginRequest;
 use std::path::Path;
 use tokio::sync::mpsc;
 
+/// Executables that untrusted (Secure Mode) plugins may never spawn:
+/// shells, script interpreters, LOLBins and wrappers that run another
+/// command (which would trivially bypass this list).
+const BLOCKED_COMMANDS: &[&str] = &[
+    // Network clients
+    "curl",
+    "wget",
+    "nc",
+    "ncat",
+    "netcat",
+    "socat",
+    "ssh",
+    "scp",
+    "sftp",
+    "telnet",
+    "ftp",
+    "tftp",
+    "rsync",
+    "nmap",
+    "bitsadmin",
+    "certutil",
+    // Unix shells and multi-call binaries
+    "sh",
+    "bash",
+    "zsh",
+    "csh",
+    "tcsh",
+    "ksh",
+    "mksh",
+    "dash",
+    "ash",
+    "fish",
+    "busybox",
+    "toybox",
+    // Windows shells and script hosts
+    "cmd",
+    "powershell",
+    "powershell_ise",
+    "pwsh",
+    "wscript",
+    "cscript",
+    "mshta",
+    "rundll32",
+    "regsvr32",
+    "msiexec",
+    "wmic",
+    "schtasks",
+    "forfiles",
+    "msbuild",
+    "installutil",
+    "conhost",
+    "explorer",
+    // Script interpreters / runtimes
+    "python",
+    "pythonw",
+    "py",
+    "pyw",
+    "perl",
+    "ruby",
+    "irb",
+    "node",
+    "nodejs",
+    "deno",
+    "bun",
+    "php",
+    "lua",
+    "luajit",
+    "tclsh",
+    "wish",
+    "expect",
+    "java",
+    "jshell",
+    "osascript",
+    "awk",
+    "gawk",
+    "mawk",
+    "nawk",
+    // Wrappers that execute their arguments as a command
+    "env",
+    "xargs",
+    "find",
+    "nohup",
+    "nice",
+    "timeout",
+    "setsid",
+    "stdbuf",
+    "script",
+    "sudo",
+    "su",
+    "doas",
+    "pkexec",
+    "runas",
+    "start",
+    "open",
+];
+
+/// Command-name prefixes that are always blocked (versioned interpreters
+/// such as `python3.12`, `powershell_ise`, `perl5.36`).
+const BLOCKED_PREFIXES: &[&str] = &[
+    "python",
+    "powershell",
+    "pwsh",
+    "perl",
+    "ruby",
+    "php",
+    "node",
+    "lua",
+];
+
+/// Extensions Windows resolves implicitly; stripped before matching so
+/// `CMD.EXE`, `bash.cmd` or `node.bat` are treated like their base names.
+const EXECUTABLE_EXTENSIONS: &[&str] = &[
+    ".exe", ".com", ".cmd", ".bat", ".ps1", ".vbs", ".js", ".msc",
+];
+
+/// Reduces a program path to a lowercase base name without directory,
+/// trailing dots/spaces (ignored by Windows) or executable extension.
+fn normalize_command_name(cmd: &str) -> String {
+    let file = cmd.rsplit(['/', '\\']).next().unwrap_or(cmd);
+    let mut name = file
+        .trim()
+        .trim_end_matches(['.', ' '])
+        .to_ascii_lowercase();
+    while let Some(ext) = EXECUTABLE_EXTENSIONS
+        .iter()
+        .find(|ext| name.len() > ext.len() && name.ends_with(*ext))
+    {
+        name.truncate(name.len() - ext.len());
+        name = name.trim_end_matches(['.', ' ']).to_string();
+    }
+    name
+}
+
+/// Secure Mode command policy for plugins. This is a deny list: it blocks
+/// the obvious ways to run arbitrary code, but it is not a complete sandbox.
 pub fn is_command_safe(cmd: &str) -> bool {
-    let path = Path::new(cmd);
-    let bin_name = path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_lowercase())
-        .unwrap_or_else(|| cmd.to_lowercase());
-
-    let blacklist = [
-        "curl",
-        "wget",
-        "nc",
-        "netcat",
-        "ssh",
-        "scp",
-        "sftp",
-        "telnet",
-        "ftp",
-        "rsync",
-        "nmap",
-        "sh",
-        "bash",
-        "zsh",
-        "csh",
-        "tcsh",
-        "powershell",
-        "pwsh",
-        "cmd",
-        "cmd.exe",
-        "python",
-        "python3",
-        "perl",
-        "ruby",
-        "node",
-        "php",
-        "lua",
-        "luajit",
-    ];
-
-    !blacklist.contains(&bin_name.as_str())
+    let name = normalize_command_name(cmd);
+    if name.is_empty() {
+        return false;
+    }
+    let unversioned =
+        name.trim_end_matches(|c: char| c.is_ascii_digit() || matches!(c, '.' | '-' | '_'));
+    let blocked = BLOCKED_COMMANDS.contains(&name.as_str())
+        || BLOCKED_COMMANDS.contains(&unversioned)
+        || BLOCKED_PREFIXES.iter().any(|p| name.starts_with(p));
+    !blocked
 }
 
 pub fn create_sandboxed_lua(
@@ -58,6 +165,7 @@ pub fn create_sandboxed_lua(
     };
 
     let lua = mlua::Lua::new_with(std_libs, mlua::LuaOptions::default())?;
+    crate::plugin::limits::apply(&lua, trusted);
 
     // 2. Untrusted sandboxing restrictions
     if !trusted {
@@ -152,6 +260,39 @@ mod tests {
         assert!(!is_command_safe("bash"));
         assert!(!is_command_safe("cmd.exe"));
         assert!(!is_command_safe("python3"));
+    }
+
+    #[test]
+    fn command_names_are_normalized() {
+        for blocked in [
+            "CMD.EXE",
+            "C:\\Windows\\System32\\cmd.exe",
+            "/usr/bin/bash",
+            "bash.cmd",
+            "PowerShell.exe",
+            "pwsh",
+            "python3.12",
+            "pythonw.exe",
+            "py.exe",
+            "node.bat",
+            "wscript.exe",
+            "cscript",
+            "mshta.exe",
+            "rundll32.exe",
+            "/usr/bin/env",
+            "osascript",
+            "busybox",
+            "dash",
+            "cmd.",
+            "cmd.exe. ",
+            "perl5.36",
+            "",
+        ] {
+            assert!(!is_command_safe(blocked), "{blocked:?} should be blocked");
+        }
+        for allowed in ["git", "cargo", "ls", "C:\\tools\\rg.exe", "/usr/bin/fd"] {
+            assert!(is_command_safe(allowed), "{allowed:?} should be allowed");
+        }
     }
 
     #[tokio::test]

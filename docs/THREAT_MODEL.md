@@ -9,7 +9,7 @@ elevation from becoming an easy remote-code or credential leak path.
 | Asset | Why it matters |
 |-------|----------------|
 | Local files the user can see in the panels | Accidental wipe/overwrite; plugin write |
-| `config.toml` / `keybindings.toml` | Settings, SSH preset secrets, plugin trust |
+| `config.toml` / `keybindings.toml` | Settings, SSH preset secrets, plugin trust (written `0600` on Unix) |
 | Plugin Lua + lockfile | Code that runs in-process |
 | GitHub Releases / installer | Binary integrity |
 | Elevated helper (admin copy/mkdir) | Privilege boundary |
@@ -34,8 +34,18 @@ elevation from becoming an easy remote-code or credential leak path.
 Path checks normalize `.`/`..` lexically and canonicalize the nearest existing
 ancestor, so `..` segments in not-yet-existing paths and symlinks inside the
 jail cannot escape it; dangling symlinks are rejected.
+
+Every plugin Lua state (trusted or not) has a memory cap (128 MiB untrusted,
+512 MiB trusted) and an instruction-count watchdog that aborts Lua code that
+runs without returning to Rust for more than 10 s; once tripped it checks
+every instruction, so `pcall` loops cannot swallow the abort.
+
 5. **Remote SSH/SFTP** — another host; credentials live in user config.
-6. **Update channel** — GitHub Releases, SHA-256 checked before install.
+6. **Update channel** — GitHub Releases. Asset URLs must start with
+   `https://github.com/FittyAr/Pairee/releases/download/`; the `.sha256`
+   asset is mandatory; the artifact is downloaded into memory, verified and
+   installed/extracted from the same verified buffer (no verify→extract
+   TOCTOU). Windows helper files live in a random `tempfile` directory.
 
 ## What we assume
 
@@ -48,12 +58,16 @@ jail cannot escape it; dangling symlinks are rejected.
 
 | Area | Control | Residual risk |
 |------|---------|----------------|
-| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path + spawn blacklist; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
+| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path + spawn blacklist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
 | Registry install | Plugin name and author must match `[A-Za-z0-9_-]`; `[files]` keys with `..`, absolute, drive-prefixed, `\` or `:` paths are rejected; every file is SHA-256 verified in memory before anything is written | Hashes come from the same registry as the files; a compromised registry can ship matching hashes. |
 | User menu (F2) | `{f}` / `{p}` expanded in a single pass with platform shell quoting, so a file name cannot inject a placeholder or close the quotes | On Windows `cmd /c` still expands `%VAR%` inside double quotes (no injection, but the name may be altered). |
-| `pairee.Command` | Blocked if untrusted; Secure Mode `is_command_safe` | Blacklist is name-based (`cmd.exe`, `curl`); a renamed binary is not stopped. |
+| `pairee.Command` | Blocked if untrusted; Secure Mode `is_command_safe`: names are normalized (directory, case, trailing dots, `.exe/.com/.cmd/.bat/.ps1/...` stripped, version suffixes such as `python3.12`) and checked against shells, interpreters, script hosts / LOLBins (`wscript`, `mshta`, `rundll32`, ...) and command wrappers (`env`, `xargs`, `busybox`, `sudo`, ...) | Still a deny list: a renamed or copied binary, or an allowed tool with its own exec feature (e.g. `git -c core.sshCommand`), is not stopped. |
 | SSH presets | Stored in local TOML; password field is optional | Passwords in `config.toml` are **not encrypted**. Prefer key files + agent. |
-| Auto-update | Background check; SHA-256 of the artifact; user confirms | Compromised GitHub account or MITM after hash fetch is a project-ops issue. |
+| Auto-update | Background check; URL allowlist; mandatory SHA-256 checked on the in-memory artifact; user confirms | Hash and artifact come from the same release, so a compromised GitHub account can ship matching hashes (no signature yet). |
+| Install scripts | `curl -fsSL` / `Invoke-WebRequest`; release tag format checked; `.sha256` downloaded and verified before extraction | Same-origin hash, as above. |
+| 7-Zip helper (Windows) | `7z2601-extra.7z` SHA-256 pinned in the binary and verified in memory before extraction | Updating 7-Zip requires a Pairee release. |
+| Archive extraction | Zip/tar/7z/external 7z go through one guard: no `..`/absolute names, never write beneath a pre-existing symlink/junction, never overwrite (existing entries are skipped and reported), 500k-entry / 32 GiB limits; tar hard links and devices are not materialised; external 7z fails closed if listing fails | Check-then-create: a local process racing the extraction could still swap a directory for a link. |
+| Secure wipe | `symlink_metadata` first; links are removed, never followed; file opened with `O_NOFOLLOW` / `FILE_FLAG_OPEN_REPARSE_POINT` and re-checked on the handle | SSD wear-levelling / snapshots may keep old data. |
 | Elevated helper | Explicit confirm (`ConfirmRetryAsAdmin`); Windows / Unix privilege APIs | User can approve a destructive op as admin. No extra UAC reason string beyond the dialog. |
 | Transfers | Conflict prompt, optional hash verify, cooperative cancel | Verify-after-copy is off by default. |
 
