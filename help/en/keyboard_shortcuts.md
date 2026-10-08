@@ -47,7 +47,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | :--- | :--- |
 | `F1` | Open in-app Help and manuals reader dialog. |
 | `F2` | Open custom User Command Menu overlay. |
-| `F3` | Open internal file viewer (supports Hex and Text modes). |
+| `F3` | Open internal file viewer (supports Hex and Text modes). On a folder: compute its size. |
 | `Alt+F3` | Open internal file viewer in alternate mode. |
 | `F4` | Open the built-in editor (see [section 7](#-7-built-in-editor-f4)). |
 | `F5` | Copy highlighted or selected files to passive panel destination. |
@@ -71,7 +71,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 
 | Key | Action |
 | :--- | :--- |
-| `Insert` / `Space` | Tag/untag active file selection. Cursor automatically moves down. |
+| `Insert` / `Space` | Tag/untag active file selection. Cursor automatically moves down. On a folder it also computes the folder size (`Esc` stops it). |
 | `+` (Keypad) | Tag a group of files matching a glob mask (e.g. `*.rs`). |
 | `-` (Keypad) | Untag a group of files matching a glob mask. |
 | `*` (Keypad) | Invert selection state of the entire panel. |

@@ -160,6 +160,10 @@ pub enum Action {
     // ── Commands ─────────────────────────────────────────────────────────────
     /// Compare contents of left and right panels (Commands menu)
     CompareFolder,
+    /// Compute the size of the selected folders, or of every folder (Commands menu)
+    CalculateFolderSizes,
+    /// Disk usage view of the current folder, largest items first (Commands menu)
+    DiskUsage,
     /// Open user menu editor (Commands menu)
     EditUserMenu,
     /// Open file associations editor (Commands menu)

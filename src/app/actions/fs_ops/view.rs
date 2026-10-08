@@ -12,6 +12,16 @@ pub fn handle(
     terminal_backend: &mut TerminalBackend,
 ) -> bool {
     let active = state.get_active_panel();
+    // F3 on a folder measures it (Far Manager behaviour).
+    if let Some(dir) = active
+        .entries
+        .get(active.cursor_index)
+        .filter(|e| e.is_dir)
+        .map(|e| e.path.clone())
+    {
+        state.get_active_panel_mut().calculate_dir_sizes(&[dir]);
+        return true;
+    }
     if let Some(entry) = active
         .entries
         .get(active.cursor_index)

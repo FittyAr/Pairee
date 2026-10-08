@@ -47,7 +47,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | :--- | :--- |
 | `F1` | Abre el visualizador de ayuda y manuales del sistema. |
 | `F2` | Abre el menú de comandos definidos por el usuario. |
-| `F3` | Abre el visor de archivos interno (modos Texto o Hexadecimal). |
+| `F3` | Abre el visor de archivos interno (modos Texto o Hexadecimal). Sobre una carpeta: calcula su tamaño. |
 | `Alt+F3` | Abre el visor de archivos interno en modo alternativo. |
 | `F4` | Abre el editor integrado (ver [sección 7](#-7-editor-integrado-f4)). |
 | `F5` | Copia los archivos seleccionados hacia el panel opuesto. |
@@ -71,7 +71,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 
 | Tecla | Acción |
 | :--- | :--- |
-| `Insert` / `Espacio` | Marca/desmarca archivos. El cursor avanza hacia abajo. |
+| `Insert` / `Espacio` | Marca/desmarca archivos. El cursor avanza hacia abajo. Sobre una carpeta también calcula su tamaño (`Esc` lo detiene). |
 | `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
 | `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
 | `*` (Teclado numérico) | Invierte la selección en todo el panel. |

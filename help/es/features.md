@@ -33,7 +33,7 @@ Puedes configurar cada panel de forma independiente para mostrar archivos usando
 Las operaciones de archivo en Pairee son asíncronas, procesándose en una cola en segundo plano (`tokio`) para asegurar que la interfaz del usuario permanezca completamente fluida.
 
 ### 2.1 Selección Múltiple y Marcado
-* Marca archivos pulsando `Insert` o la barra `Espaciadora` sobre un archivo. El cursor se desplaza automáticamente hacia abajo.
+* Marca archivos pulsando `Insert` o la barra `Espaciadora` sobre un archivo. El cursor se desplaza automáticamente hacia abajo. Sobre una carpeta, además mide su tamaño (ver **Tamaño de carpetas** más abajo).
 * Utiliza la tecla `+` (Teclado numérico) para marcar un grupo de archivos según un patrón de máscara (ej. `*.rs` o `temp_*`).
 * Utiliza la tecla `-` (Teclado numérico) para desmarcar archivos que coincidan con el patrón.
 * Utiliza la tecla `*` (Teclado numérico) para invertir la selección del panel activo.
@@ -96,6 +96,8 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 
 * **Menú de Acciones Contextuales:** Abre un diálogo contextual con opciones rápidas (Ver, Editar, Copiar, Mover, Eliminar, Comprimir, Extraer) relativas al archivo seleccionado. Detecta archivos comprimidos y añade opciones dinámicas de archivo.
 * **Comparar Carpetas:** Analiza y compara las rutas de ambos paneles para resaltar y marcar automáticamente los archivos diferentes, facilitando su sincronización.
+* **Tamaño de carpetas:** `Espacio` o `F3` sobre una carpeta, o **Comandos → Medir carpetas** (las carpetas marcadas, o todas si no hay ninguna marcada), calcula el tamaño total en segundo plano. La columna de tamaño lo muestra hasta que cambies de carpeta; `Esc` detiene el cálculo. No se siguen los enlaces simbólicos, los enlaces duros se cuentan una sola vez (Linux/macOS) y las carpetas que no se pudieron leer por completo se marcan con `+`. Funciona en paneles locales y SFTP.
+* **Vista de uso de disco:** **Comandos → Uso de disco** analiza la carpeta actual (cancelable con `Esc`, con progreso en vivo) y lista su contenido de mayor a menor con porcentaje y barra. `Enter`/`→` abre una subcarpeta, `←`/`Retroceso` vuelve, `Supr`/`F8` elimina el elemento resaltado con la confirmación de borrado habitual y `r`/`F5` vuelve a analizar. El resultado queda en caché: reabrir la vista sobre la misma carpeta es instantáneo.
 * **Administrador de Procesos:** Muestra la lista de procesos activos con sus PIDs, nombres y uso de memoria, permitiendo finalizarlos con `Suprimir` o `Alt+Suprimir`.
 * **Vista de Árbol de Directorios:** Recorre la estructura del disco y muestra el árbol de directorios de forma gráfica.
 * **Descripciones de Archivos:** Visualiza y edita descripciones presionando `Ctrl+D` sobre cualquier archivo, guardándolas en archivos ocultos `Descript.ion`.

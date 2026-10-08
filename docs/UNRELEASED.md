@@ -25,6 +25,8 @@
 - Informative notice when attempting to commit with clean working copy and no amend mode.
 - Internal viewer (F3) and Quick View detect the text encoding: byte-order mark (UTF-8, UTF-16 LE/BE), UTF-16 without a mark, UTF-8, and otherwise the most likely legacy code page via `chardetng` (Windows-1252/Latin-1, other Windows/ISO code pages, Shift-JIS, EUC, GBK, Big5...), decoded with `encoding_rs`. Text in another encoding is no longer treated as binary. The viewer shows the encoding in its new status line and `F8` opens a list to switch it manually. New settings `viewer_autodetect_codepage` and `viewer_default_codepage` (**Options → Configuration → Editor/Viewer**).
 - Plugins can declare the programs they need in `manifest.toml` (`[permissions] commands = [...]`); the Plugin Manager shows them in the plugin details.
+- Folder sizes: `Space` or `F3` on a folder, or **Commands → Folder sizes** (selected folders, or all of them), computes the size in the background and shows it in the size column and status line until the directory changes; `Esc` cancels. Symbolic links are not followed, hard links count once on Unix, and folders that could not be read completely are marked with `+`. Works on SFTP panels too.
+- Disk usage view (**Commands → Disk usage**): ncdu-like list of the current folder sorted by size with percentages and bars, cancellable scan with live progress, navigation into subfolders and back, deletion through the regular delete confirmation and rescan (`r`/`F5`). Scan results are cached per folder.
 
 ### Improved
 
