@@ -31,8 +31,7 @@ pub fn handle_conflict(
     if let Some(res) = resolution {
         let jobs = transfer.engine.queue.get_all();
         if let Some(job) = jobs.iter().find(|j| j.id == job_id) {
-            let mut guard = job.active_conflict.lock().unwrap();
-            *guard = Some(res);
+            job.active_conflict.answer(res);
         }
         transfer.active_conflict_info = None;
         return Ok(None);

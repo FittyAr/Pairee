@@ -40,6 +40,7 @@
 - Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- Transfers: a panic in one transfer no longer cascades into crashes of the whole application through poisoned locks; the "file exists" prompt no longer polls every 100 ms (the worker is woken by the answer or by cancelling the job), and copy progress updates are coalesced so a fast copy cannot flood the interface.
 - File owner names on Linux/macOS: `/etc/passwd` is parsed once per session instead of being re-read for every file whose owner is unknown.
 - SSH: blocking SSH/SFTP calls now time out after `ssh_timeout_secs` seconds (new setting in `config.toml`, default 30; 0 disables it) instead of hanging forever on a dead server. Connecting and SSH copy/move/delete jobs run on the blocking thread pool, and the panel title no longer locks the SSH session while drawing.
 - SSH: deleting a remote folder with nested subfolders failed because a directory was removed before its subdirectories were emptied; remote recursive delete now removes children first, and symbolic links to directories are removed as links instead of being followed.

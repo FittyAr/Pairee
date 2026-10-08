@@ -34,8 +34,7 @@ pub fn handle(
                         if let Some(ref ts) = state.transfer {
                             let jobs = ts.engine.queue.get_all();
                             if let Some(job) = jobs.get(ts.queue_cursor) {
-                                job.is_cancelled
-                                    .store(true, std::sync::atomic::Ordering::SeqCst);
+                                job.cancel();
                                 ts.engine.queue.update_job(job.id, |j| {
                                     j.status =
                                         crate::fs::transfer::job::TransferJobStatus::Cancelled;
@@ -43,8 +42,7 @@ pub fn handle(
                             } else {
                                 for job in jobs {
                                     if job.is_active() {
-                                        job.is_cancelled
-                                            .store(true, std::sync::atomic::Ordering::SeqCst);
+                                        job.cancel();
                                     }
                                 }
                             }

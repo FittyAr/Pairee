@@ -1,14 +1,13 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::super::events::TransferEvent;
 
 /// Spawns a background task that periodically reports transfer speed and ETA.
 pub(super) fn spawn_speed_reporter(
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    event_tx: crate::fs::transfer::events::EventSender,
     job_id: Uuid,
     bytes_acc: Arc<AtomicU64>,
     is_cancelled: Arc<AtomicBool>,

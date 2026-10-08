@@ -1,3 +1,4 @@
+use crate::lock::LockExt;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
 use uuid::Uuid;
@@ -19,13 +20,13 @@ impl TransferQueue {
     }
 
     pub fn enqueue(&self, job: TransferJob) {
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = self.jobs.lock_safe();
         jobs.push_back(job);
     }
 
     pub fn dequeue(&self) -> Option<TransferJob> {
-        let mut active_id = self.active_job_id.lock().unwrap();
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut active_id = self.active_job_id.lock_safe();
+        let mut jobs = self.jobs.lock_safe();
         if let Some(idx) = jobs
             .iter()
             .position(|j| j.status == TransferJobStatus::Queued)
@@ -41,7 +42,7 @@ impl TransferQueue {
     }
 
     pub fn remove(&self, job_id: Uuid) -> bool {
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = self.jobs.lock_safe();
         if let Some(idx) = jobs.iter().position(|j| j.id == job_id) {
             let job = &jobs[idx];
             // No podemos remover el trabajo activo si está corriendo
@@ -57,7 +58,7 @@ impl TransferQueue {
 
     /// Mueve el trabajo en la cola. Dirección: -1 para subir, 1 para bajar.
     pub fn reorder(&self, job_id: Uuid, direction: i32) -> bool {
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = self.jobs.lock_safe();
         if let Some(idx) = jobs.iter().position(|j| j.id == job_id) {
             // El trabajo activo o completados no se pueden mover
             if jobs[idx].is_active() || jobs[idx].is_terminal() {
@@ -83,19 +84,19 @@ impl TransferQueue {
     }
 
     pub fn get_all(&self) -> Vec<TransferJob> {
-        let jobs = self.jobs.lock().unwrap();
+        let jobs = self.jobs.lock_safe();
         jobs.iter().cloned().collect()
     }
 
     pub fn pending_count(&self) -> usize {
-        let jobs = self.jobs.lock().unwrap();
+        let jobs = self.jobs.lock_safe();
         jobs.iter()
             .filter(|j| j.status == TransferJobStatus::Queued)
             .count()
     }
 
     pub fn clear_completed(&self) {
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = self.jobs.lock_safe();
         jobs.retain(|j| !j.is_terminal());
     }
 
@@ -103,7 +104,7 @@ impl TransferQueue {
     where
         F: FnOnce(&mut TransferJob),
     {
-        let mut jobs = self.jobs.lock().unwrap();
+        let mut jobs = self.jobs.lock_safe();
         if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
             update_fn(job);
         }

@@ -93,8 +93,7 @@ pub fn handle_queue_action(
             } else {
                 let jobs = transfer.engine.queue.get_all();
                 if let Some(job) = jobs.get(transfer.queue_cursor) {
-                    job.is_cancelled
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                    job.cancel();
                     transfer.engine.queue.update_job(job.id, |j| {
                         j.status = crate::fs::transfer::job::TransferJobStatus::Cancelled;
                     });

@@ -8,8 +8,6 @@ use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 pub enum ConflictAction {
@@ -23,10 +21,8 @@ pub async fn resolve_existing_destination(
     options: &TransferOptions,
     job_id: Uuid,
     is_cancelled: &AtomicBool,
-    event_tx: &mpsc::UnboundedSender<TransferEvent>,
-    active_conflict: &Arc<
-        std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>,
-    >,
+    event_tx: &crate::fs::transfer::events::EventSender,
+    active_conflict: &Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
     auto_resolution: &mut Option<crate::fs::transfer::conflict::ConflictResolution>,
     results: &mut TransferResults,
 ) -> Result<ConflictAction, anyhow::Error> {
@@ -35,6 +31,7 @@ pub async fn resolve_existing_destination(
         let chosen = if let Some(auto_res) = *auto_resolution {
             auto_res
         } else {
+            active_conflict.reset();
             let _ = event_tx.send(TransferEvent::ConflictDetected {
                 job_id,
                 file: dst.clone(),
@@ -48,20 +45,11 @@ pub async fn resolve_existing_destination(
                 },
             });
 
-            {
-                let mut guard = active_conflict.lock().unwrap();
-                *guard = None;
-            }
-
-            while active_conflict.lock().unwrap().is_none() {
-                if is_cancelled.load(Ordering::Relaxed) {
-                    return Err(anyhow!("Job cancelled"));
-                }
-                tokio::time::sleep(Duration::from_millis(100)).await;
-            }
-
-            let ch = (*active_conflict.lock().unwrap())
-                .unwrap_or(crate::fs::transfer::conflict::ConflictResolution::Skip);
+            // Wait (without polling) for the UI's answer or cancellation.
+            let Some(ch) = active_conflict.wait(is_cancelled).await else {
+                return Err(anyhow!("Job cancelled"));
+            };
+            active_conflict.reset();
             match ch {
                 crate::fs::transfer::conflict::ConflictResolution::OverwriteAll
                 | crate::fs::transfer::conflict::ConflictResolution::OverwriteOlderAll

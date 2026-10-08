@@ -23,11 +23,11 @@ async fn test_worker_move_directory_tree() {
 
     std::fs::create_dir_all(&dst_root).unwrap();
 
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
     let is_paused = Arc::new(AtomicBool::new(false));
     let is_cancelled = Arc::new(AtomicBool::new(false));
     let skip_flag = Arc::new(AtomicBool::new(false));
-    let active_conflict = Arc::new(std::sync::Mutex::new(None));
+    let active_conflict = Arc::new(crate::fs::transfer::conflict_slot::ConflictSlot::default());
 
     let worker = TransferWorker::new(
         Uuid::new_v4(),
@@ -77,11 +77,11 @@ async fn test_worker_cancel_during_copy() {
         std::fs::write(src.join(format!("f{i}.bin")), vec![0u8; 64 * 1024]).unwrap();
     }
 
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel();
+    let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
     let is_paused = Arc::new(AtomicBool::new(false));
     let is_cancelled = Arc::new(AtomicBool::new(false));
     let skip_flag = Arc::new(AtomicBool::new(false));
-    let active_conflict = Arc::new(std::sync::Mutex::new(None));
+    let active_conflict = Arc::new(crate::fs::transfer::conflict_slot::ConflictSlot::default());
 
     let cancel_flag = Arc::clone(&is_cancelled);
     tokio::spawn(async move {

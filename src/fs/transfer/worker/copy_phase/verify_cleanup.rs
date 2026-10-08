@@ -7,7 +7,6 @@ use super::super::fs_helpers::make_writable_helper;
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 pub fn verify_hashes(
@@ -18,7 +17,7 @@ pub fn verify_hashes(
     dst_hash: &Option<String>,
     options: &TransferOptions,
     job_id: Uuid,
-    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    event_tx: &crate::fs::transfer::events::EventSender,
     results: &mut TransferResults,
 ) -> Result<bool, anyhow::Error> {
     let _ = event_tx.send(TransferEvent::VerifyStarted {

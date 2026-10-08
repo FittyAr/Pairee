@@ -17,7 +17,6 @@ mod tests;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::events::TransferEvent;
@@ -35,9 +34,8 @@ pub struct TransferWorker {
     pub is_paused: Arc<AtomicBool>,
     pub is_cancelled: Arc<AtomicBool>,
     pub skip_file_flag: Arc<AtomicBool>,
-    pub event_tx: mpsc::UnboundedSender<TransferEvent>,
-    pub active_conflict:
-        Arc<std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>>,
+    pub event_tx: crate::fs::transfer::events::EventSender,
+    pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 }
 
 impl TransferWorker {
@@ -50,10 +48,8 @@ impl TransferWorker {
         is_paused: Arc<AtomicBool>,
         is_cancelled: Arc<AtomicBool>,
         skip_file_flag: Arc<AtomicBool>,
-        event_tx: mpsc::UnboundedSender<TransferEvent>,
-        active_conflict: Arc<
-            std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>,
-        >,
+        event_tx: crate::fs::transfer::events::EventSender,
+        active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
     ) -> Self {
         Self {
             job_id,
