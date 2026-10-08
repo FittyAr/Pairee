@@ -65,10 +65,19 @@ impl<'a> MenuBuilder<'a> {
     }
 
     /// A row running `action`, marked when `active`.
-    pub fn toggle(mut self, (label, action, fallback): ActionRow, active: bool) -> Self {
+    pub fn toggle(self, (label, action, fallback): ActionRow, active: bool) -> Self {
+        self.push_action(t(label), action, fallback, active)
+    }
+
+    /// A row running `action` with an already translated `label`.
+    pub fn labeled(self, label: String, action: Action, fallback: &str) -> Self {
+        self.push_action(label, action, fallback, false)
+    }
+
+    fn push_action(mut self, label: String, action: Action, fallback: &str, active: bool) -> Self {
         let shortcut = self.shortcut(action, fallback);
         self.items
-            .push(MenuItemData::new(t(label), &shortcut, active).with_action(action));
+            .push(MenuItemData::new(label, &shortcut, active).with_action(action));
         self
     }
 

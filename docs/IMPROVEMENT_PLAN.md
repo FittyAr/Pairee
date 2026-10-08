@@ -491,7 +491,7 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 ### G.2 Oleada 2 — capa de origen de paneles
 
 - [ ] Trait de origen/VFS para paneles (local, SSH, archivo); navegar dentro de zip/tar/7z como carpetas, copiar desde y hacia ellos
-- [ ] Deshacer (renombrar, mover, enviar a papelera) con diario de operaciones
+- [x] Deshacer (renombrar, mover, enviar a papelera) con diario de operaciones
 
 ### G.3 Oleada 3 — pestañas
 

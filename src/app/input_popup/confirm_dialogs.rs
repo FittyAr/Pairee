@@ -1,5 +1,5 @@
 //! Yes/No confirmations (quit, interrupt transfers, reload / discard editor
-//! changes, clear history, retry as administrator).
+//! changes, clear history, retry as administrator, undo/redo).
 
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
@@ -38,6 +38,9 @@ fn on_confirm(state: &mut AppState, context: &AppContext, popup: PopupType) {
     let show_hidden = context.config.settings.show_hidden;
     match popup {
         PopupType::ConfirmQuit => state.should_quit = true,
+        PopupType::ConfirmUndo { direction, .. } => {
+            crate::app::actions::fs_ops::undo::confirm(state, context, direction)
+        }
         PopupType::ConfirmInterrupt => {
             cancel_transfers(state);
             state.refresh_both_panels(show_hidden);

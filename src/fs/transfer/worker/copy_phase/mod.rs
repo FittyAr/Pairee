@@ -21,7 +21,8 @@ pub use conflict::{ConflictAction, resolve_existing_destination};
 pub use single_file::transfer_one_file;
 pub use verify_cleanup::{cleanup_source_dirs, verify_hashes};
 
-/// Run the copy/move transfer loop (conflicts, retries, symlink recreate, verify, cleanup).
+/// Run the copy/move transfer loop (conflicts, retries, symlink recreate,
+/// verify, cleanup). The caller reports the end of the job.
 pub(super) async fn run_copy_phase(
     operation: TransferOperation,
     scan: ScanOutcome,
@@ -30,7 +31,10 @@ pub(super) async fn run_copy_phase(
     active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 ) -> Result<TransferResults, anyhow::Error> {
     let mut auto_resolution = None;
-    let mut results = TransferResults::default();
+    let mut results = TransferResults {
+        created_dirs: scan.created_dirs,
+        ..TransferResults::default()
+    };
     let copied_bytes = Arc::new(AtomicU64::new(0));
     let _speed_reporter = spawn_speed_reporter(ctl, Arc::clone(&copied_bytes), scan.total_bytes);
 
@@ -54,6 +58,7 @@ pub(super) async fn run_copy_phase(
                 continue;
             }
         }
+        let replaced = dst.symlink_metadata().is_ok();
 
         ctl.file_started(&src, idx);
         let file_start = Instant::now();
@@ -84,12 +89,14 @@ pub(super) async fn run_copy_phase(
             &mut results,
             FileTransferResult {
                 src,
-                dst,
                 size,
                 src_hash: transfer.src_hash,
                 dst_hash: transfer.dst_hash,
                 verified: true,
                 duration: file_start.elapsed(),
+                replaced,
+                dst_stamp: crate::fs::stamp::Stamp::of(&dst),
+                dst,
             },
         );
     }
@@ -98,7 +105,7 @@ pub(super) async fn run_copy_phase(
         let mut dirs = scan.dirs_to_delete;
         cleanup_source_dirs(&mut dirs, ctl);
     }
-    ctl.job_completed(results)
+    Ok(results)
 }
 
 /// Records a file that could not be copied; with "halt on error" the job

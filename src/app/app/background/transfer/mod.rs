@@ -32,6 +32,9 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
         }
     }
 
+    for (job_id, results) in effects.finished {
+        crate::app::actions::fs_ops::undo::transfer_finished(state, job_id, results);
+    }
     if !effects.term_forwards.is_empty() {
         for (job_id, line) in effects.term_forwards {
             for screen in &mut state.screens {

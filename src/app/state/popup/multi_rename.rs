@@ -96,11 +96,7 @@ impl MultiRenameState {
         let mut state = Self {
             sources,
             siblings,
-            target_fs: if source.is_local() {
-                TargetFs::local()
-            } else {
-                TargetFs::remote()
-            },
+            target_fs: TargetFs::for_panel(!source.is_local()),
             source,
             fields: [
                 defaults.name_mask.as_str().into(),

@@ -28,6 +28,11 @@ pub struct TransferJob {
     pub ssh: Option<SshEndpoints>,
     /// Shell command template for [`TransferOperation::ApplyCommand`] (`%f` = path).
     pub shell_template: Option<String>,
+    /// Copy/Move of explicit `(source file, destination file)` pairs instead
+    /// of `sources` into `destination` (used to undo/redo operations).
+    pub pairs: Option<Vec<(PathBuf, PathBuf)>>,
+    /// Folders removed (when empty, deepest first) after the job.
+    pub prune_dirs: Vec<PathBuf>,
 }
 
 impl TransferJob {
@@ -53,7 +58,28 @@ impl TransferJob {
             active_conflict: Arc::default(),
             ssh: None,
             shell_template: None,
+            pairs: None,
+            prune_dirs: Vec::new(),
         }
+    }
+
+    /// Copy/Move job of explicit file pairs (local only); every destination
+    /// folder that is missing is created.
+    pub fn for_pairs(
+        operation: TransferOperation,
+        pairs: Vec<(PathBuf, PathBuf)>,
+        options: super::options::TransferOptions,
+    ) -> Self {
+        let sources = pairs.iter().map(|(from, _)| from.clone()).collect();
+        let mut job = Self::new(operation, sources, PathBuf::new(), options);
+        job.pairs = Some(pairs);
+        job
+    }
+
+    /// Folders to remove after the job when they are empty.
+    pub fn with_prune_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
+        self.prune_dirs = dirs;
+        self
     }
 
     /// Attach SSH endpoints (copy/move/delete over SFTP).
@@ -111,6 +137,8 @@ pub enum TransferOperation {
     Extract,
     /// Run a shell template once per source path (`shell_template`, `%f`).
     ApplyCommand,
+    /// Put trashed `sources` back where they were (local only).
+    Restore,
 }
 
 impl TransferOperation {
@@ -123,6 +151,7 @@ impl TransferOperation {
             Self::Compress => "Compress",
             Self::Extract => "Extract",
             Self::ApplyCommand => "Apply",
+            Self::Restore => "Restore",
         }
     }
 
@@ -135,7 +164,7 @@ impl TransferOperation {
     pub fn uses_ops_backend(self) -> bool {
         matches!(
             self,
-            Self::Wipe | Self::Compress | Self::Extract | Self::ApplyCommand
+            Self::Wipe | Self::Compress | Self::Extract | Self::ApplyCommand | Self::Restore
         )
     }
 }
@@ -197,6 +226,8 @@ pub struct TransferResults {
     pub completed_files: Vec<FileTransferResult>,
     pub failed_files: Vec<FailedFile>,
     pub skipped_files: Vec<SkippedFile>,
+    /// Destination folders the job created (they did not exist before).
+    pub created_dirs: Vec<PathBuf>,
 }
 
 #[derive(Debug, Clone)]
@@ -208,6 +239,10 @@ pub struct FileTransferResult {
     pub dst_hash: Option<String>,
     pub verified: bool,
     pub duration: std::time::Duration,
+    /// The destination existed and was overwritten.
+    pub replaced: bool,
+    /// The destination as the job left it (copy/move only).
+    pub dst_stamp: Option<crate::fs::stamp::Stamp>,
 }
 
 #[derive(Debug, Clone)]

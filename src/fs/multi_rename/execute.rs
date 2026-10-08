@@ -16,8 +16,8 @@ pub struct RenameFailure {
 /// Outcome of [`execute`].
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct RenameReport {
-    /// Steps that ran and were kept.
-    pub completed: usize,
+    /// Steps that ran and were kept, in the order they ran.
+    pub applied: Vec<Step>,
     pub failure: Option<RenameFailure>,
     /// Steps that could not be undone after the failure (`(from, to)` as
     /// they were applied); empty when the rollback was complete.
@@ -48,7 +48,7 @@ pub fn execute(steps: &[Step], backend: &dyn Vfs, fs: TargetFs) -> RenameReport 
         if let Err(error) = result {
             let not_rolled_back = rollback(&applied, backend);
             return RenameReport {
-                completed: 0,
+                applied: not_rolled_back.iter().rev().cloned().collect(),
                 failure: Some(RenameFailure {
                     path: step.from.clone(),
                     error,
@@ -59,7 +59,7 @@ pub fn execute(steps: &[Step], backend: &dyn Vfs, fs: TargetFs) -> RenameReport 
         applied.push(step);
     }
     RenameReport {
-        completed: applied.len(),
+        applied: applied.into_iter().cloned().collect(),
         failure: None,
         not_rolled_back: Vec::new(),
     }

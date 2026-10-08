@@ -1,10 +1,12 @@
-//! Wipe / Compress / Extract / ApplyCommand backends for the Transfer Engine.
+//! Wipe / Compress / Extract / ApplyCommand / Restore backends for the
+//! Transfer Engine.
 //!
 //! Pattern: **Strategy** (per-op runner) with cooperative cancel via
 //! [crate::fs::progress::ensure_not_cancelled] inside archive loops.
 
 pub(super) mod archive;
 mod cmd;
+mod restore;
 mod wipe;
 
 use super::super::job::{TransferOperation, TransferResults};
@@ -28,6 +30,9 @@ pub async fn run_ops_job(
                 .filter(|s| !s.trim().is_empty())
                 .ok_or_else(|| anyhow!("ApplyCommand requires a shell template"))?;
             blocking(move || cmd::run_apply_command(sources, template, control)).await
+        }
+        TransferOperation::Restore => {
+            blocking(move || restore::run_restore(sources, control)).await
         }
         other => Err(anyhow!("ops backend does not handle {}", other.label())),
     }

@@ -56,6 +56,8 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Alt+F5` | Imprime archivos aplicando un comando filtro. |
 | `F6` | Mueve los elementos seleccionados al panel opuesto. Pulsa `Tab` desde el campo de ruta para ver las opciones avanzadas (enlaces simbólicos, atributos, filtro, etc.). |
 | `Alt+F6` | Abre el diálogo de creación de enlaces simbólicos o duros. |
+| `Alt+Retroceso` | Deshace la última operación de archivos (renombrar, mover, copiar, crear carpeta, enlace, enviar a la papelera) tras una confirmación (ver Funciones, sección 2.4.1). |
+| `Ctrl+Y` | Rehace la última operación de archivos deshecha. |
 | `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
 | `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág` desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
 | `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |

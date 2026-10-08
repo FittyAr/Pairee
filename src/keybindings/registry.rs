@@ -79,6 +79,18 @@ pub const CATALOG: &[ActionDef] = &[
         ActionCategory::Files,
     ),
     d("delete", Action::Delete, true, ActionCategory::Files),
+    d(
+        "undo_file_operation",
+        Action::UndoFileOp,
+        true,
+        ActionCategory::Files,
+    ),
+    d(
+        "redo_file_operation",
+        Action::RedoFileOp,
+        true,
+        ActionCategory::Files,
+    ),
     d("mkdir", Action::MkDir, true, ActionCategory::Files),
     d("view", Action::View, true, ActionCategory::Files),
     d("edit", Action::Edit, true, ActionCategory::Files),

@@ -57,6 +57,8 @@ pub async fn run_extract(
                 dst_hash: None,
                 verified: true,
                 duration: std::time::Duration::ZERO,
+                replaced: false,
+                dst_stamp: None,
             });
     }
     Ok(results)
@@ -171,6 +173,8 @@ async fn bridge_progress_to_events(
             dst_hash: None,
             verified: true,
             duration: std::time::Duration::ZERO,
+            replaced: false,
+            dst_stamp: None,
         };
         control.file_completed(&mut results, result);
     }
