@@ -104,22 +104,7 @@ pub fn list_tar_gz_files(path: &Path) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write as _;
-
-    fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
-        let mut builder = tar::Builder::new(Vec::new());
-        for (name, body) in entries {
-            let mut header = tar::Header::new_gnu();
-            header.set_size(body.len() as u64);
-            header.set_mode(0o644);
-            header.set_cksum();
-            builder.append_data(&mut header, name, *body).unwrap();
-        }
-        let tar_bytes = builder.into_inner().unwrap();
-        let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
-        gz.write_all(&tar_bytes).unwrap();
-        fs::write(path, gz.finish().unwrap()).unwrap();
-    }
+    use crate::fs::archive::test_fixtures::write_tar_gz;
 
     #[test]
     fn extract_does_not_overwrite_existing_files() {
