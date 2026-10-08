@@ -78,36 +78,75 @@ fn split_windows_quoted(s: &str) -> Vec<String> {
 pub fn shell_quote(path: &std::path::Path) -> String {
     let s = path.to_string_lossy();
     if cfg!(target_os = "windows") {
-        // cmd.exe: wrap in double quotes, double every internal `"`.
-        // This survives `cmd /c` and PowerShell -Command parsing.
-        let mut out = String::with_capacity(s.len() + 2);
-        out.push('"');
-        for c in s.chars() {
-            if c == '"' {
-                out.push('"');
-                out.push('"');
-            } else {
-                out.push(c);
-            }
-        }
-        out.push('"');
-        out
+        shell_quote_cmd(&s)
     } else {
-        // POSIX sh: single-quote the whole token, escape any `'` as `'\''`
-        // (close, literal quote, reopen). The other shell metacharacters
-        // (`;`, `|`, `&`, `$`, `` ` ``, `\`, etc.) are inert inside `'...'`.
-        let mut out = String::with_capacity(s.len() + 2);
-        out.push('\'');
-        for c in s.chars() {
-            if c == '\'' {
-                out.push_str("'\\''");
-            } else {
-                out.push(c);
-            }
-        }
-        out.push('\'');
-        out
+        shell_quote_posix(&s)
     }
+}
+
+/// cmd.exe: wrap in double quotes, double every internal `"`.
+/// This survives `cmd /c` and PowerShell -Command parsing.
+pub fn shell_quote_cmd(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('"');
+    for c in s.chars() {
+        if c == '"' {
+            out.push_str("\"\"");
+        } else {
+            out.push(c);
+        }
+    }
+    out.push('"');
+    out
+}
+
+/// POSIX sh: single-quote the whole token, escape any `'` as `'\''`
+/// (close, literal quote, reopen). The other shell metacharacters
+/// (`;`, `|`, `&`, `$`, `` ` ``, `\`, etc.) are inert inside `'...'`.
+pub fn shell_quote_posix(s: &str) -> String {
+    let mut out = String::with_capacity(s.len() + 2);
+    out.push('\'');
+    for c in s.chars() {
+        if c == '\'' {
+            out.push_str("'\\''");
+        } else {
+            out.push(c);
+        }
+    }
+    out.push('\'');
+    out
+}
+
+/// Expand the user-menu placeholders `{f}` (file name) and `{p}` (full path)
+/// in a single left-to-right pass, quoting each value with `quote`.
+///
+/// Values are never rescanned, so a file named `;id;{p}` cannot smuggle a
+/// second placeholder whose expansion would land inside (and close) the
+/// quotes of the first one.
+pub fn expand_command_placeholders(
+    template: &str,
+    name: &str,
+    path: &str,
+    quote: fn(&str) -> String,
+) -> String {
+    let mut out = String::with_capacity(template.len() + name.len() + path.len());
+    let mut rest = template;
+    while let Some(idx) = rest.find('{') {
+        out.push_str(&rest[..idx]);
+        let tail = &rest[idx..];
+        if let Some(after) = tail.strip_prefix("{f}") {
+            out.push_str(&quote(name));
+            rest = after;
+        } else if let Some(after) = tail.strip_prefix("{p}") {
+            out.push_str(&quote(path));
+            rest = after;
+        } else {
+            out.push('{');
+            rest = &tail[1..];
+        }
+    }
+    out.push_str(rest);
+    out
 }
 
 #[cfg(test)]
@@ -172,5 +211,82 @@ mod tests {
             // POSIX: no special handling of `"`; only `'` matters.
             assert!(q.starts_with('\''));
         }
+    }
+
+    #[test]
+    fn placeholders_expand_in_single_pass_posix() {
+        let out = expand_command_placeholders(
+            "echo {f} {p}",
+            ";id;{p}",
+            "/tmp/;id;{p}",
+            shell_quote_posix,
+        );
+        assert_eq!(out, "echo ';id;{p}' '/tmp/;id;{p}'");
+    }
+
+    #[test]
+    fn placeholders_neutralise_posix_quote_breakout() {
+        let out =
+            expand_command_placeholders("cat {f}", "x'; rm -rf ~; '{f}", "", shell_quote_posix);
+        assert_eq!(out, r"cat 'x'\''; rm -rf ~; '\''{f}'");
+        assert_eq!(split_posix_words(&out), vec!["cat", "x'; rm -rf ~; '{f}"]);
+    }
+
+    #[test]
+    fn placeholders_expand_in_single_pass_cmd() {
+        let out = expand_command_placeholders(
+            "type {p} & echo {f}",
+            "a&calc&{p}",
+            r"C:\tmp\a&calc&{p}",
+            shell_quote_cmd,
+        );
+        assert_eq!(out, r#"type "C:\tmp\a&calc&{p}" & echo "a&calc&{p}""#);
+    }
+
+    #[test]
+    fn placeholders_keep_unknown_braces() {
+        let out = expand_command_placeholders("{x} {f}{", "n", "p", shell_quote_posix);
+        assert_eq!(out, "{x} 'n'{");
+    }
+
+    /// Minimal POSIX word splitter (single quotes + backslash outside quotes)
+    /// used to prove the quoted output re-parses into the literal value.
+    fn split_posix_words(s: &str) -> Vec<String> {
+        let mut words = Vec::new();
+        let mut cur = String::new();
+        let mut in_word = false;
+        let mut chars = s.chars();
+        while let Some(c) = chars.next() {
+            match c {
+                '\'' => {
+                    in_word = true;
+                    for q in chars.by_ref() {
+                        if q == '\'' {
+                            break;
+                        }
+                        cur.push(q);
+                    }
+                }
+                '\\' => {
+                    in_word = true;
+                    if let Some(n) = chars.next() {
+                        cur.push(n);
+                    }
+                }
+                ' ' if in_word => {
+                    words.push(std::mem::take(&mut cur));
+                    in_word = false;
+                }
+                ' ' => {}
+                _ => {
+                    in_word = true;
+                    cur.push(c);
+                }
+            }
+        }
+        if in_word {
+            words.push(cur);
+        }
+        words
     }
 }

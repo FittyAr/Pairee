@@ -180,4 +180,39 @@ mod tests {
         assert!(!globals.get::<_, mlua::Value>("pairee").unwrap().is_nil());
         assert!(!globals.get::<_, mlua::Value>("io").unwrap().is_nil());
     }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn untrusted_fs_is_jailed_without_secure_mode() {
+        let dir = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("pwn.txt");
+        let (tx, _rx) = tokio::sync::mpsc::channel(4);
+        let lua = create_sandboxed_lua(dir.path(), false, tx).unwrap();
+        lua.globals()
+            .set("target", target.to_string_lossy().to_string())
+            .unwrap();
+        let err = lua
+            .load(r#"pairee.fs.write(target, "x")"#)
+            .exec()
+            .unwrap_err();
+        assert!(err.to_string().contains("Security violation"), "{err}");
+        assert!(!target.exists());
+    }
+
+    #[test]
+    fn secure_mode_flag_is_not_lua_writable() {
+        let dir = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let target = outside.path().join("pwn.txt");
+        let (tx, _rx) = tokio::sync::mpsc::channel(4);
+        let lua = create_sandboxed_lua(dir.path(), false, tx).unwrap();
+        lua.globals()
+            .set("target", target.to_string_lossy().to_string())
+            .unwrap();
+        let result = lua
+            .load(r#"pairee._secure_mode = false; pairee.fs.write(target, "x")"#)
+            .exec();
+        assert!(result.is_err());
+        assert!(!target.exists());
+    }
 }

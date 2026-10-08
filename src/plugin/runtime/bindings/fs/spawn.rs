@@ -1,16 +1,19 @@
 //! Legacy `pairee.fs.spawn` and `spawn_copy_task`.
 
-use super::path::{is_secure_mode, validate_path};
+use super::path::{Access, FsPolicy, validate_path};
 use crate::plugin::manager::PluginRequest;
 use mlua::{Lua, Table};
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
 pub fn bind_spawn(
     lua: &Lua,
     fs: &Table<'_>,
-    trusted: bool,
+    policy: &Arc<FsPolicy>,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
+    let trusted = policy.trusted;
+    let secure_mode = policy.secure_mode;
     fs.set(
         "spawn",
         lua.create_async_function(move |lua_ctx, (cmd, args): (String, Vec<String>)| {
@@ -21,7 +24,7 @@ pub fn bind_spawn(
                             .to_string(),
                     ));
                 }
-                if is_secure_mode(lua_ctx) && !crate::plugin::sandbox::is_command_safe(&cmd) {
+                if secure_mode && !crate::plugin::sandbox::is_command_safe(&cmd) {
                     return Err(mlua::Error::RuntimeError(format!(
                         "Security violation: Command '{cmd}' is blacklisted in Secure Mode"
                     )));
@@ -45,13 +48,15 @@ pub fn bind_spawn(
     )?;
 
     let tx_copy = tx;
+    let p = Arc::clone(policy);
     fs.set(
         "spawn_copy_task",
-        lua.create_async_function(move |lua_ctx, (from_str, to_str): (String, String)| {
+        lua.create_async_function(move |_, (from_str, to_str): (String, String)| {
             let tx = tx_copy.clone();
+            let p = Arc::clone(&p);
             async move {
-                let from = validate_path(lua_ctx, &from_str)?;
-                let to = validate_path(lua_ctx, &to_str)?;
+                let from = validate_path(&p, &from_str, Access::Read)?;
+                let to = validate_path(&p, &to_str, Access::Write)?;
                 let _ = tx.send(PluginRequest::SpawnCopyTask { from, to }).await;
                 Ok(())
             }

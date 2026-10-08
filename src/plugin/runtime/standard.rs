@@ -13,12 +13,12 @@ pub fn bind_runtime(
     // Create central pairee table
     let pairee = lua.create_table()?;
 
-    // 1. Bind global secure_mode parameter
-    let mut secure_mode_active = false;
-    // Let's get the active config to see if secure_mode is true
-    if let Ok(config) = crate::config::AppConfig::load_or_create() {
-        secure_mode_active = config.settings.secure_mode;
-    }
+    // 1. Resolve Secure Mode once, in Rust. It is captured by the fs/process
+    // closures, so overwriting the Lua copy below has no effect.
+    let secure_mode_active = crate::config::AppConfig::load_or_create()
+        .map(|config| config.settings.secure_mode)
+        .unwrap_or(false);
+    // Informational only: nothing in Rust reads this back.
     pairee.set("_secure_mode", secure_mode_active)?;
     pairee.set("_lua_api_version", super::api_version::LUA_API_VERSION)?;
 
@@ -33,7 +33,8 @@ pub fn bind_runtime(
     // table so that the top-level `pairee.confirm` and `pairee.input`
     // are discoverable alongside the existing `pairee.app.*` stubs.
     super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
-    pairee.set("fs", super::bindings::fs::bind(lua, trusted, tx.clone())?)?;
+    let fs_policy = super::bindings::fs::FsPolicy::new(plugin_dir, trusted, secure_mode_active);
+    pairee.set("fs", super::bindings::fs::bind(lua, fs_policy, tx.clone())?)?;
     pairee.set(
         "Command",
         super::bindings::process::bind(lua, trusted, secure_mode_active)?,
