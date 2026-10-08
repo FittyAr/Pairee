@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::input_popup::git_new_popups::restore_previous_and_refresh;
+use crate::app::input_popup::git_new_popups::{close_to, finish_with};
 use crate::app::state::popup::{GitCommitPromptState, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
@@ -22,10 +22,7 @@ pub fn handle(
             if let Some(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(prompt))) =
                 state.dialogs.pop()
             {
-                match prompt.previous_popup {
-                    Some(prev) => restore_previous_and_refresh(state, *prev, &prompt.repo_path),
-                    None => state.dialogs.clear(),
-                }
+                close_to(state, prompt.previous_popup, &prompt.repo_path);
             }
         }
         KeyCode::Char('a' | 'A') if is_ctrl => {
@@ -119,13 +116,7 @@ fn commit(state: &mut AppState, context: &AppContext, prompt: GitCommitPromptSta
                 &oid[..7.min(oid.len())]
             ));
             state.refresh_both_panels(settings.show_hidden);
-            match prompt.previous_popup {
-                Some(prev) => {
-                    restore_previous_and_refresh(state, *prev, &prompt.repo_path);
-                    state.dialogs.push(done);
-                }
-                None => state.dialogs.replace(done),
-            }
+            finish_with(state, prompt.previous_popup, &prompt.repo_path, done);
         }
         Err(e) => state.dialogs.replace(PopupType::Error(format!(
             "{}: {}",

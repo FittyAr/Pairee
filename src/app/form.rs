@@ -127,6 +127,18 @@ pub fn field_key(field: &mut TextField, key: &KeyEvent) -> FieldKey {
     }
 }
 
+/// Answer of a yes/no confirmation: Enter (and `y` when `letters`) confirms,
+/// Esc (and `n` when `letters`) declines; other keys give `None`.
+pub fn confirm_answer(key: &KeyEvent, letters: bool) -> Option<bool> {
+    match key.code {
+        KeyCode::Enter => Some(true),
+        KeyCode::Esc => Some(false),
+        KeyCode::Char('y' | 'Y') if letters => Some(true),
+        KeyCode::Char('n' | 'N') if letters => Some(false),
+        _ => None,
+    }
+}
+
 /// Two stacked text fields; Tab / Shift+Tab / Up / Down switch between them.
 #[derive(Debug, Clone, Default)]
 pub struct FieldPair {
