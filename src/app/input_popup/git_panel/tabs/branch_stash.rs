@@ -92,7 +92,7 @@ pub fn handle_branch_tab(
                         crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(
                             crate::app::state::popup::GitBranchRenamePromptState {
                                 input: branch.name.clone(),
-                                cursor_idx: branch.name.len(),
+                                cursor_idx: 0,
                                 old_name: branch.name.clone(),
                                 repo_path: repo_path.to_path_buf(),
                                 previous_popup: current_popup,
@@ -271,5 +271,39 @@ pub fn handle_stash_tab(
             true
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::popup::GitPromptPopup;
+
+    #[test]
+    fn rename_prompt_starts_with_the_name_field_focused() {
+        let mut state = AppState::new(".".into(), ".".into());
+        state.dialogs.replace(PopupType::Info("panel".into()));
+        let branches = [BranchInfo {
+            name: "feature".into(),
+            is_current: false,
+            is_remote: false,
+            ahead: 0,
+            behind: 0,
+        }];
+        assert!(handle_branch_tab(
+            &mut state,
+            KeyCode::Char('r'),
+            Path::new("."),
+            &branches,
+            0,
+            "main",
+        ));
+        match state.dialogs.top() {
+            Some(PopupType::GitPrompt(GitPromptPopup::BranchRenamePrompt(p))) => {
+                assert_eq!(p.cursor_idx, 0);
+                assert_eq!(p.input, "feature");
+            }
+            other => panic!("expected rename prompt, got {other:?}"),
+        }
     }
 }
