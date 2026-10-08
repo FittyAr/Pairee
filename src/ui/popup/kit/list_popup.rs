@@ -23,6 +23,16 @@ pub enum Scroll {
     HalfPage,
 }
 
+/// A centered box for a list of `rows` entries up to `width` columns wide
+/// (plus borders), at least 5 and at most `max_height` rows tall.
+pub fn list_area(screen: Rect, width: usize, rows: usize, max_height: u16) -> Rect {
+    let width = (width as u16 + 4).min(screen.width.saturating_sub(4));
+    let height = (rows as u16 + 2)
+        .clamp(5, max_height)
+        .min(screen.height.saturating_sub(4));
+    crate::ui::popup::centered_rect_fixed(width, height, screen)
+}
+
 /// `" >  item "` for the cursor row, `"    item "` otherwise.
 pub fn marked(item: &str, is_cursor: bool) -> String {
     format!(" {}  {} ", if is_cursor { ">" } else { " " }, item)

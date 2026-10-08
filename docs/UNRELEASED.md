@@ -27,6 +27,7 @@
 
 ### Improved
 
+- The Screens menu and the development-plugin picker now use the theme's selection colors, like the other list popups.
 - Text fields in dialogs (make folder, rename, copy/move destination, compress, apply command, describe, link, filters, select group) now share one input box: the cursor can be moved with Left/Right/Home/End, Delete removes the character under it, `Ctrl+V` pastes from the clipboard, and non-ASCII text is edited by whole characters.
 - Panels are now read in the background: the directory listing, SFTP listing, Git status and free space no longer block the interface, the panel title shows "⟳ Loading…" while a read is in progress, and the cursor and selection are kept when the new listing arrives. Entering a directory rereads only that panel, and Git status is computed only for the listed directory instead of the whole repository.
 - Git fetch, pull, push, push tags, remote branch deletion and clone now run in the background with a progress popup (objects and bytes transferred); `Esc` cancels the operation. The Left/Right menus no longer open the repository while drawing.

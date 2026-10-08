@@ -1,14 +1,7 @@
 use crate::app::state::PopupType;
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, List, ListItem, ListState},
-};
+use crate::ui::popup::kit::{ListPopup, Scroll, list_area, popup_fg};
+use crate::ui::scrollbar::{ScrollTargetId, ScrollbarUiState};
+use ratatui::{Frame, layout::Rect, style::Color};
 
 pub fn render_dev_select(
     f: &mut Frame,
@@ -17,79 +10,35 @@ pub fn render_dev_select(
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
-    if let PopupType::SelectDevPlugin {
+    let PopupType::SelectDevPlugin {
         options,
         cursor_idx,
         ..
     } = popup
-    {
-        let mut items = Vec::new();
-        let mut max_width = 30;
-
-        for (display_name, _) in options {
-            if display_name.len() > max_width {
-                max_width = display_name.len();
-            }
-            items.push(ListItem::new(Line::from(vec![Span::raw(
-                display_name.clone(),
-            )])));
-        }
-
-        let menu_width = (max_width as u16 + 6).min(size.width.saturating_sub(4));
-        let menu_height = (items.len() as u16 + 2)
-            .clamp(5, 15)
-            .min(size.height.saturating_sub(4));
-
-        let area = Rect {
-            x: size.width.saturating_sub(menu_width) / 2,
-            y: size.height.saturating_sub(menu_height) / 2,
-            width: menu_width,
-            height: menu_height,
-        };
-
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow))
-            .title(" Select Active Development Plugin ")
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let mut list_state = ListState::default();
-        list_state.select(Some(*cursor_idx));
-
-        let list = List::new(items)
-            .block(block)
-            .highlight_style(
-                Style::default()
-                    .bg(Color::Cyan)
-                    .fg(Color::Black)
-                    .add_modifier(Modifier::BOLD),
-            )
-            .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-        f.render_stateful_widget(list, area, &mut list_state);
-
-        let viewport = area.height.saturating_sub(2) as usize;
-        let offset = scrollbar::centered_scroll(*cursor_idx, options.len(), viewport.max(1));
-        scrollbar::render_vertical_inside_block(
-            f,
-            area,
-            ScrollView {
-                content_len: options.len(),
-                viewport_len: viewport.max(1),
-                offset,
-            },
-            theme,
-            ScrollTarget {
-                surface: ScrollbarSurface::Popup,
-                hits: scrollbar,
-                id: ScrollTargetId::PluginSelect,
-            },
-        );
-
-        true
-    } else {
-        false
+    else {
+        return false;
+    };
+    let width = options
+        .iter()
+        .map(|(name, _)| name.len())
+        .max()
+        .unwrap_or(0);
+    ListPopup {
+        // Two extra columns for the scrollbar.
+        area: list_area(size, width.max(30) + 2, options.len(), 15),
+        title: " Select Active Development Plugin ".to_string(),
+        border: Color::Yellow,
+        empty: None,
+        header: Vec::new(),
+        rows: options
+            .iter()
+            .map(|(name, _)| (name.clone(), popup_fg(theme)))
+            .collect(),
+        cursor: *cursor_idx,
+        scroll: Scroll::Centered,
+        hint: None,
+        scrollbar: Some((scrollbar, ScrollTargetId::PluginSelect)),
     }
+    .render(f, theme);
+    true
 }
