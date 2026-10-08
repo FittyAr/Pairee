@@ -75,6 +75,7 @@ Las operaciones de archivo en Pairee son asíncronas, procesándose en una cola 
 ### 3.3 Editor integrado
 * Toda la edición se hace en el editor integrado (`F4`); Pairee nunca lanza un editor externo.
 * Deshacer/rehacer (`Ctrl+Z` / `Ctrl+Y`), búsqueda, guardar y guardar como (`Shift+F2`).
+* Selección con `Shift` + teclas de movimiento o con el ratón, selección vertical por bloques con `Alt+Shift` + flechas, y copiar / cortar / pegar (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) con el portapapeles del sistema, o uno interno cuando no hay ninguno disponible.
 * Conserva los finales de línea (LF/CRLF), el salto de línea final y el BOM UTF-8; respeta el tamaño de tabulación, la expansión de tabulaciones, el auto-sangrado y los números de línea.
 * Avisa o bloquea los archivos de solo lectura y pregunta antes de sobrescribir un archivo modificado por otro programa.
 

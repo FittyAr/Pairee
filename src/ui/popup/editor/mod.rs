@@ -1,3 +1,4 @@
+mod line_spans;
 pub mod widget;
 
 pub use widget::{EditorView, render_editor_widget};

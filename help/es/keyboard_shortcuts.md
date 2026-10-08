@@ -132,9 +132,18 @@ Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor
 | `F7` / `Ctrl+F` | Buscar. `F3` / `Shift+F7` repiten la última búsqueda. |
 | `Ctrl+R` | Recargar el archivo desde disco (pregunta antes si hay cambios sin guardar y la confirmación está activa). |
 | `Inicio` / `Fin` | Inicio / fin de línea. `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
+| `Shift` + flechas / `Inicio` / `Fin` / `RePág` / `AvPág` / `Ctrl+Inicio` / `Ctrl+Fin` | Seleccionar texto. Arrastrar con el ratón también selecciona. |
+| `Alt+Shift` + flechas / `Inicio` / `Fin` | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
+| `Ctrl+A` | Seleccionar todo. `Esc` quita la selección. |
+| `Ctrl+C` / `Ctrl+Insert` | Copiar la selección. |
+| `Ctrl+X` / `Shift+Supr` | Cortar la selección. |
+| `Ctrl+V` / `Shift+Insert` | Pegar (un solo paso de deshacer). Pegar desde la terminal (pegado entre corchetes) inserta todas las líneas. |
+| Escribir, `Retroceso`, `Supr` | Reemplazan / borran la selección. |
 | `Tab` | Inserta una tabulación, o espacios hasta la siguiente parada si **Expandir tabulaciones** está activo. |
 | `F4` | Abre el archivo en el visor (modo hexadecimal). |
 | `F8` | Descartar cambios y cerrar. |
 | `Esc` / `F10` | Cerrar (pregunta si hay cambios sin guardar). |
 
 El editor conserva los finales de línea del archivo (LF o CRLF), el salto de línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que superan 64 MiB no se abren (usa el visor).
+
+Copiar y cortar usan el portapapeles del sistema. Si no está disponible (por ejemplo por SSH o en una sesión Linux sin entorno gráfico) Pairee guarda el texto en su propio portapapeles, así que copiar y pegar siguen funcionando entre pantallas de editor. Un bloque copiado se pega como líneas normales. Mantén `Shift` para ver `Shift+F2` (guardar como) y `Shift+F7` en la barra de teclas.

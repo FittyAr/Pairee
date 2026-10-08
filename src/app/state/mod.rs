@@ -102,6 +102,9 @@ pub struct AppState {
 
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
+
+    /// Clipboard shared by every editor screen (system + internal fallback).
+    pub editor_clipboard: crate::app::editor::EditorClipboard,
 }
 
 impl AppState {
@@ -147,6 +150,7 @@ impl AppState {
             quick_view: Default::default(),
             git_op: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
+            editor_clipboard: Default::default(),
         }
     }
 

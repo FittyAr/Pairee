@@ -132,9 +132,18 @@ Pairee always edits files with its built-in editor; no external editor is launch
 | `F7` / `Ctrl+F` | Search. `F3` / `Shift+F7` repeat the last search. |
 | `Ctrl+R` | Reload the file from disk (asks first when there are unsaved changes and the confirmation is enabled). |
 | `Home` / `End` | Start / end of line. `Ctrl+Home` / `Ctrl+End` go to the start / end of the file. |
+| `Shift` + arrows / `Home` / `End` / `PgUp` / `PgDn` / `Ctrl+Home` / `Ctrl+End` | Select text. Dragging with the mouse also selects. |
+| `Alt+Shift` + arrows / `Home` / `End` | Vertical block (column) selection, Far style. `Alt` + mouse drag also selects a block. |
+| `Ctrl+A` | Select all. `Esc` clears the selection. |
+| `Ctrl+C` / `Ctrl+Insert` | Copy the selection. |
+| `Ctrl+X` / `Shift+Delete` | Cut the selection. |
+| `Ctrl+V` / `Shift+Insert` | Paste (one undo step). Pasting from the terminal (bracketed paste) inserts every line. |
+| Typing, `Backspace`, `Delete` | Replace / delete the selection. |
 | `Tab` | Insert a tab, or spaces up to the next tab stop when **Expand tabs** is on. |
 | `F4` | Open the file in the viewer (hex mode). |
 | `F8` | Discard changes and close. |
 | `Esc` / `F10` | Close (asks when there are unsaved changes). |
 
 The editor keeps the file's line endings (LF or CRLF), final newline and UTF-8 BOM. Files that are not valid UTF-8 or larger than 64 MiB are not opened (use the viewer instead).
+
+Copy and cut use the system clipboard. When it is not available (for example over SSH or on a headless Linux session) Pairee keeps the text in its own clipboard, so copy and paste still work between editor screens. A copied block is pasted as ordinary lines. Hold `Shift` to see `Shift+F2` (save as) and `Shift+F7` in the key bar.

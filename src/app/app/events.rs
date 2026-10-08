@@ -109,7 +109,8 @@ pub async fn handle_input_event(
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);
             if context.config.settings.mouse_support
-                && super::scrollbar_mouse::handle_scrollbar_mouse(state, mouse)
+                && (super::scrollbar_mouse::handle_scrollbar_mouse(state, mouse)
+                    || crate::app::screen_input::editor::handle_editor_mouse(state, mouse))
             {
                 state.mark_ui_dirty();
             }

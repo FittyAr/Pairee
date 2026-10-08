@@ -6,6 +6,8 @@
 use super::document::{self, DiskStamp, LoadError, TextFormat};
 use super::history::{EditHistory, Pos, TextEdit};
 use super::options::EditorOptions;
+use super::selection::Selection;
+use super::viewport::Viewport;
 use crate::app::text_input;
 use crate::ui::text_width::{display_width, expand_tabs};
 use std::path::{Path, PathBuf};
@@ -27,25 +29,48 @@ pub struct EditorState {
     /// Edits are refused (read-only file with "Lock editing" on).
     pub locked: bool,
     pub history: EditHistory,
+    /// Active selection (anchor; the cursor is the other end).
+    pub selection: Option<Selection>,
+    /// Columns per tab stop (display, block selection and mouse mapping).
+    pub tab_size: usize,
+    /// Text area painted last frame, for mouse hit-testing.
+    pub viewport: std::cell::Cell<Viewport>,
 }
 
 impl EditorState {
-    /// Opens `path` for editing, applying the tab and read-only options.
-    pub fn open(path: PathBuf, options: &EditorOptions) -> Result<Self, LoadError> {
-        let loaded = document::load(&path)?;
-        let mut state = Self {
+    /// A buffer showing `lines`, cursor at the top.
+    fn new(path: PathBuf, lines: Vec<String>, format: TextFormat, tab_size: usize) -> Self {
+        Self {
             path,
-            lines: loaded.lines,
+            lines,
             cursor_x: 0,
             cursor_y: 0,
             scroll_y: 0,
             last_search: None,
             last_case_sensitive: false,
-            format: loaded.format,
-            stamp: loaded.stamp,
-            locked: options.lock_read_only && loaded.stamp.read_only,
+            format,
+            stamp: DiskStamp::default(),
+            locked: false,
             history: EditHistory::default(),
-        };
+            selection: None,
+            tab_size: tab_size.max(1),
+            viewport: Default::default(),
+        }
+    }
+
+    /// In-memory buffer for tests.
+    #[cfg(test)]
+    pub fn from_text(text: &str) -> Self {
+        let (lines, format) = document::parse(text);
+        Self::new(PathBuf::from("mem.txt"), lines, format, 4)
+    }
+
+    /// Opens `path` for editing, applying the tab and read-only options.
+    pub fn open(path: PathBuf, options: &EditorOptions) -> Result<Self, LoadError> {
+        let loaded = document::load(&path)?;
+        let mut state = Self::new(path, loaded.lines, loaded.format, options.tab_size);
+        state.stamp = loaded.stamp;
+        state.locked = options.lock_read_only && loaded.stamp.read_only;
         if options.tab_expansion == crate::config::settings::TabExpansion::ConvertAll
             && !state.locked
         {
@@ -75,21 +100,32 @@ impl EditorState {
     /// Applies `edit` through the undo history. Returns `false` when the
     /// buffer is locked.
     pub fn edit(&mut self, edit: TextEdit) -> bool {
+        self.edit_group(vec![edit], None)
+    }
+
+    /// Applies `edits` as one undo step and drops the selection. The cursor
+    /// ends after the last edit unless `cursor_after` says otherwise.
+    pub fn edit_group(&mut self, edits: Vec<TextEdit>, cursor_after: Option<Pos>) -> bool {
         if self.locked {
             return false;
         }
         let before = self.cursor();
-        let after = self.history.apply(&mut self.lines, edit, before);
-        self.set_cursor(after);
+        let after = self.history.apply_group(&mut self.lines, edits, before);
+        self.selection = None;
+        self.set_cursor(cursor_after.unwrap_or(after));
         true
     }
 
+    /// Inserts `text` at the cursor, replacing the selection if there is one.
     fn insert_at_cursor(&mut self, text: &str) -> bool {
-        self.edit(TextEdit {
-            start: self.cursor(),
-            removed: String::new(),
-            inserted: text.to_string(),
-        })
+        match self.region() {
+            Some(region) => self.replace_region(region, text),
+            None => self.edit(TextEdit {
+                start: self.cursor(),
+                removed: String::new(),
+                inserted: text.to_string(),
+            }),
+        }
     }
 
     pub fn insert_char(&mut self, c: char) -> bool {
@@ -102,7 +138,8 @@ impl EditorState {
             return self.insert_at_cursor("\t");
         }
         let tab = options.tab_size.max(1);
-        let before = &self.current_line()[..self.cursor_x];
+        let at = self.insertion_point();
+        let before = &self.lines[at.y][..at.x];
         let col = display_width(&expand_tabs(before, tab));
         self.insert_at_cursor(&" ".repeat(tab - col % tab))
     }
@@ -124,6 +161,9 @@ impl EditorState {
 
     /// Deletes the grapheme before the cursor, joining lines at column 0.
     pub fn backspace(&mut self) -> bool {
+        if self.region().is_some() {
+            return self.delete_selection();
+        }
         let pos = self.cursor();
         let start = if pos.x > 0 {
             Pos::new(pos.y, text_input::prev_boundary(self.current_line(), pos.x))
@@ -137,6 +177,9 @@ impl EditorState {
 
     /// Deletes the grapheme after the cursor, joining lines at the end.
     pub fn delete_forward(&mut self) -> bool {
+        if self.region().is_some() {
+            return self.delete_selection();
+        }
         let pos = self.cursor();
         let line = self.current_line();
         let end = if pos.x < line.len() {
@@ -170,29 +213,24 @@ impl EditorState {
     }
 
     pub fn undo(&mut self) -> bool {
-        if self.locked {
-            return false;
-        }
-        match self.history.undo(&mut self.lines) {
-            Some(pos) => {
-                self.set_cursor(pos);
-                true
-            }
-            None => false,
-        }
+        self.time_travel(EditHistory::undo)
     }
 
     pub fn redo(&mut self) -> bool {
+        self.time_travel(EditHistory::redo)
+    }
+
+    /// Runs an undo or redo step and moves the cursor where it says.
+    fn time_travel(&mut self, step: fn(&mut EditHistory, &mut Vec<String>) -> Option<Pos>) -> bool {
         if self.locked {
             return false;
         }
-        match self.history.redo(&mut self.lines) {
-            Some(pos) => {
-                self.set_cursor(pos);
-                true
-            }
-            None => false,
-        }
+        let Some(pos) = step(&mut self.history, &mut self.lines) else {
+            return false;
+        };
+        self.selection = None;
+        self.set_cursor(pos);
+        true
     }
 
     /// Replaces every tab in the buffer with spaces (one undo step per line).
@@ -233,6 +271,7 @@ impl EditorState {
         self.format = loaded.format;
         self.stamp = loaded.stamp;
         self.history.reset();
+        self.selection = None;
         self.set_cursor(self.cursor());
         Ok(())
     }
@@ -244,20 +283,7 @@ mod tests {
     use crate::config::settings::TabExpansion;
 
     fn editor(text: &str) -> EditorState {
-        let (lines, format) = document::parse(text);
-        EditorState {
-            path: PathBuf::from("mem.txt"),
-            lines,
-            cursor_x: 0,
-            cursor_y: 0,
-            scroll_y: 0,
-            last_search: None,
-            last_case_sensitive: false,
-            format,
-            stamp: DiskStamp::default(),
-            locked: false,
-            history: EditHistory::default(),
-        }
+        EditorState::from_text(text)
     }
 
     fn options(tab_expansion: TabExpansion) -> EditorOptions {

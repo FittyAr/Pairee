@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::AppState;
+use crate::app::state::{AppState, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::ui::theme_apply::parse_color;
@@ -40,129 +40,164 @@ fn slot_label(context: &AppContext, slot: usize, fallback_key: &str) -> String {
     {
         return t(label_key);
     }
-    t(fallback_key)
+    translated(slot, fallback_key)
+}
+
+/// Labels of the twelve F-keys, `""` for an unlabeled key.
+type Row = [&'static str; 12];
+
+const EDITOR_ROW: Row = [
+    "fkey_help",
+    "fkey_ed_save",
+    "fkey_ed_next",
+    "fkey_ed_hex",
+    "",
+    "",
+    "fkey_ed_search",
+    "fkey_ed_discard",
+    "",
+    "fkey_ed_quit",
+    "",
+    "",
+];
+
+const EDITOR_SHIFT_ROW: Row = [
+    "",
+    "fkey_ed_save_as",
+    "",
+    "",
+    "",
+    "",
+    "fkey_ed_next",
+    "",
+    "",
+    "",
+    "",
+    "",
+];
+
+const VIEWER_ROW: Row = [
+    "fkey_help",
+    "",
+    "",
+    "fkey_vw_hex",
+    "",
+    "fkey_edit",
+    "fkey_vw_search",
+    "",
+    "",
+    "fkey_vw_quit",
+    "",
+    "",
+];
+
+const CTRL_ROW: Row = [
+    "fkey_ctrl_left",
+    "fkey_ctrl_right",
+    "fkey_ctrl_name",
+    "fkey_ctrl_extens",
+    "fkey_ctrl_time",
+    "fkey_ctrl_size",
+    "fkey_ctrl_unsort",
+    "fkey_ctrl_creatn",
+    "fkey_ctrl_access",
+    "fkey_ctrl_descr",
+    "fkey_ctrl_owner",
+    "fkey_ctrl_sort",
+];
+
+const ALT_ROW: Row = [
+    "fkey_alt_left",
+    "fkey_alt_right",
+    "fkey_alt_view",
+    "fkey_alt_edit",
+    "fkey_alt_print",
+    "fkey_alt_mklink",
+    "fkey_alt_find",
+    "fkey_alt_history",
+    "fkey_alt_video",
+    "fkey_alt_tree",
+    "fkey_alt_viewhs",
+    "fkey_alt_foldhs",
+];
+
+/// Default panel row; each key is resolved from the user's keymap first.
+const PANEL_ROW: Row = [
+    "fkey_help",
+    "fkey_user",
+    "fkey_view",
+    "fkey_edit",
+    "fkey_copy",
+    "fkey_move",
+    "fkey_rename",
+    "fkey_delete",
+    "fkey_menu",
+    "fkey_quit",
+    "", // F11 (unbound by default — Plugin menu lives under F9 → Files)
+    "fkey_screen",
+];
+
+/// `(key number, label)` cells of a row, labels produced by `label`.
+fn cells(row: &Row, label: impl Fn(usize, &str) -> String) -> Vec<(String, String)> {
+    row.iter()
+        .enumerate()
+        .map(|(i, key)| ((i + 1).to_string(), label(i, key)))
+        .collect()
+}
+
+/// Translated label, empty for an unlabeled key.
+fn translated(_slot: usize, key: &str) -> String {
+    if key.is_empty() {
+        String::new()
+    } else {
+        t(key)
+    }
+}
+
+/// The cells shown for the active screen and held modifier keys.
+fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
+    use crossterm::event::KeyModifiers;
+    let modifiers = state
+        .fkeys_modifier_override
+        .unwrap_or(state.current_modifiers);
+    let shift = modifiers.contains(KeyModifiers::SHIFT);
+    match state.screens.get(state.active_screen_idx) {
+        Some(Screen::Editor(_)) if shift => cells(&EDITOR_SHIFT_ROW, translated),
+        Some(Screen::Editor(_)) => cells(&EDITOR_ROW, translated),
+        Some(Screen::Viewer(_)) => cells(&VIEWER_ROW, translated),
+        _ if modifiers.contains(KeyModifiers::CONTROL) => cells(&CTRL_ROW, translated),
+        _ if modifiers.contains(KeyModifiers::ALT) => cells(&ALT_ROW, translated),
+        _ if shift => {
+            let dev_install = is_dev_plugin_dir(context, state);
+            cells(&[""; 12], |slot, _| {
+                if dev_install && slot == 10 {
+                    t("plugin_install_dev")
+                } else {
+                    String::new()
+                }
+            })
+        }
+        _ => cells(&PANEL_ROW, |slot, key| slot_label(context, slot, key)),
+    }
+}
+
+/// `Shift+F11` installs the plugin under the cursor in developer mode.
+fn is_dev_plugin_dir(context: &AppContext, state: &AppState) -> bool {
+    context.config.settings.plugins_developer_mode && {
+        let active_panel = state.get_active_panel();
+        let current_dir = &active_panel.current_path;
+        current_dir.join("manifest.toml").exists()
+            || active_panel
+                .entries
+                .get(active_panel.cursor_index)
+                .map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists())
+                .unwrap_or(false)
+    }
 }
 
 pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
     let theme = &context.config.theme;
-
-    let is_editor = matches!(
-        state.screens.get(state.active_screen_idx),
-        Some(crate::app::state::Screen::Editor(_))
-    );
-    let is_viewer = matches!(
-        state.screens.get(state.active_screen_idx),
-        Some(crate::app::state::Screen::Viewer(_))
-    );
-
-    let modifiers = state
-        .fkeys_modifier_override
-        .unwrap_or(state.current_modifiers);
-
-    let fkeys: Vec<(String, String)> = if is_editor {
-        vec![
-            ("1".to_string(), t("fkey_help")),
-            ("2".to_string(), t("fkey_ed_save")),
-            ("3".to_string(), String::new()),
-            ("4".to_string(), t("fkey_ed_hex")),
-            ("5".to_string(), String::new()),
-            ("6".to_string(), String::new()),
-            ("7".to_string(), t("fkey_ed_search")),
-            ("8".to_string(), t("fkey_ed_discard")),
-            ("9".to_string(), String::new()),
-            ("10".to_string(), t("fkey_ed_quit")),
-            ("11".to_string(), String::new()),
-            ("12".to_string(), String::new()),
-        ]
-    } else if is_viewer {
-        vec![
-            ("1".to_string(), t("fkey_help")),
-            ("2".to_string(), String::new()),
-            ("3".to_string(), String::new()),
-            ("4".to_string(), t("fkey_vw_hex")),
-            ("5".to_string(), String::new()),
-            ("6".to_string(), t("fkey_edit")),
-            ("7".to_string(), t("fkey_vw_search")),
-            ("8".to_string(), String::new()),
-            ("9".to_string(), String::new()),
-            ("10".to_string(), t("fkey_vw_quit")),
-            ("11".to_string(), String::new()),
-            ("12".to_string(), String::new()),
-        ]
-    } else if modifiers.contains(crossterm::event::KeyModifiers::CONTROL) {
-        vec![
-            ("1".to_string(), t("fkey_ctrl_left")),
-            ("2".to_string(), t("fkey_ctrl_right")),
-            ("3".to_string(), t("fkey_ctrl_name")),
-            ("4".to_string(), t("fkey_ctrl_extens")),
-            ("5".to_string(), t("fkey_ctrl_time")),
-            ("6".to_string(), t("fkey_ctrl_size")),
-            ("7".to_string(), t("fkey_ctrl_unsort")),
-            ("8".to_string(), t("fkey_ctrl_creatn")),
-            ("9".to_string(), t("fkey_ctrl_access")),
-            ("10".to_string(), t("fkey_ctrl_descr")),
-            ("11".to_string(), t("fkey_ctrl_owner")),
-            ("12".to_string(), t("fkey_ctrl_sort")),
-        ]
-    } else if modifiers.contains(crossterm::event::KeyModifiers::ALT) {
-        vec![
-            ("1".to_string(), t("fkey_alt_left")),
-            ("2".to_string(), t("fkey_alt_right")),
-            ("3".to_string(), t("fkey_alt_view")),
-            ("4".to_string(), t("fkey_alt_edit")),
-            ("5".to_string(), t("fkey_alt_print")),
-            ("6".to_string(), t("fkey_alt_mklink")),
-            ("7".to_string(), t("fkey_alt_find")),
-            ("8".to_string(), t("fkey_alt_history")),
-            ("9".to_string(), t("fkey_alt_video")),
-            ("10".to_string(), t("fkey_alt_tree")),
-            ("11".to_string(), t("fkey_alt_viewhs")),
-            ("12".to_string(), t("fkey_alt_foldhs")),
-        ]
-    } else if modifiers.contains(crossterm::event::KeyModifiers::SHIFT) {
-        let is_dev_plugin_dir = context.config.settings.plugins_developer_mode && {
-            let active_panel = state.get_active_panel();
-            let current_dir = &active_panel.current_path;
-            current_dir.join("manifest.toml").exists()
-                || active_panel
-                    .entries
-                    .get(active_panel.cursor_index)
-                    .map(|e| e.path.is_dir() && e.path.join("manifest.toml").exists())
-                    .unwrap_or(false)
-        };
-        let mut fks: Vec<(String, String)> =
-            (1..=12).map(|n| (n.to_string(), String::new())).collect();
-        if is_dev_plugin_dir {
-            fks[10] = ("11".to_string(), t("plugin_install_dev"));
-        }
-        fks
-    } else {
-        // Default F-row — resolve each F-key from the user's current keymap so the
-        // bar always reflects what pressing the key will actually do.
-        let defaults = [
-            "fkey_help",   // F1
-            "fkey_user",   // F2
-            "fkey_view",   // F3
-            "fkey_edit",   // F4
-            "fkey_copy",   // F5
-            "fkey_move",   // F6
-            "fkey_rename", // F7
-            "fkey_delete", // F8
-            "fkey_menu",   // F9
-            "fkey_quit",   // F10
-            "",            // F11 (unbound by default — Plugin menu lives under F9 → Files)
-            "fkey_screen", // F12
-        ];
-        defaults
-            .iter()
-            .enumerate()
-            .map(|(i, fallback)| {
-                let n = (i + 1).to_string();
-                let label = slot_label(context, i, fallback);
-                (n, label)
-            })
-            .collect()
-    };
+    let fkeys = bar_cells(context, state);
 
     // Divide the row into 12 equal columns
     let constraints = vec![Constraint::Ratio(1, 12); 12];
@@ -207,5 +242,43 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let badge_paragraph = Paragraph::new(badge_line);
         // Overlay on the last (F12) key column
         f.render_widget(badge_paragraph, last_col);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::editor::EditorState;
+    use crate::config::AppConfig;
+    use crossterm::event::KeyModifiers;
+    use std::path::PathBuf;
+
+    fn label(cells: &[(String, String)], key: usize) -> &str {
+        &cells[key - 1].1
+    }
+
+    #[test]
+    fn editor_bar_shows_save_as_with_shift() {
+        let context = AppContext::new(AppConfig::default());
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.push_screen(Screen::Editor(EditorState::from_text("x")));
+        let plain = bar_cells(&context, &state);
+        assert_eq!(label(&plain, 2), t("fkey_ed_save"));
+        assert_eq!(label(&plain, 3), t("fkey_ed_next"));
+        assert_eq!(label(&plain, 4), t("fkey_ed_hex"));
+        state.fkeys_modifier_override = Some(KeyModifiers::SHIFT);
+        let shifted = bar_cells(&context, &state);
+        assert_eq!(label(&shifted, 2), t("fkey_ed_save_as"));
+        assert_eq!(label(&shifted, 7), t("fkey_ed_next"));
+        assert_eq!(label(&shifted, 1), "");
+    }
+
+    #[test]
+    fn every_row_has_twelve_numbered_cells() {
+        let context = AppContext::new(AppConfig::default());
+        let state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        let cells = bar_cells(&context, &state);
+        assert_eq!(cells.len(), 12);
+        assert_eq!(cells[11].0, "12");
     }
 }
