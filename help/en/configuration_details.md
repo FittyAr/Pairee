@@ -76,11 +76,15 @@ Controls layout columns, directory display filters and updates.
 
 ### Updates & Information
 * **Refresh panels automatically when folders change** (`auto_refresh`, on by default):
-  - *Description:* The folder shown by each side's active tab is watched; files created, deleted, renamed or changed by other programs appear by themselves within a fraction of a second, keeping the cursor and selection, together with updated Git badges and folder sizes. A burst of changes (a large copy) refreshes the panel about every two seconds instead of on every file. Archive and SFTP panels are not watched (use `Ctrl+R`).
+  - *Description:* The folder shown by each side's active tab is watched; files created, deleted, renamed or changed by other programs appear by themselves within a fraction of a second, keeping the cursor and selection, together with updated Git badges and folder sizes. A burst of changes (a large copy) refreshes the panel about every two seconds instead of on every file. Archive panels are not watched (use `Ctrl+R`); SFTP panels only with the option below.
 * **Poll interval for network folders (seconds)** (`auto_refresh_poll_secs`, default 3):
-  - *Description:* Network shares (SMB/NFS mapped drives, UNC and WSL paths), other file systems without reliable change notifications and folders above the object-count limit below are checked on this interval instead (modification time and number of entries). Polling is also the fallback when a folder cannot be watched.
+  - *Description:* Network shares (SMB/NFS mapped drives, UNC and WSL paths) and other file systems without reliable change notifications are checked on this interval instead (modification time and number of entries). Polling is also the fallback when a folder cannot be watched.
+* **Also poll SFTP panel folders** (`auto_refresh_ssh`, off by default):
+  - *Description:* The folder of an SFTP panel is checked over the connection (one `stat` and one directory listing) on the interval below and reread when it changed. Off by default because every check is a network round trip on the panel's connection.
+* **SFTP poll interval (seconds)** (`auto_refresh_ssh_poll_secs`, default 30):
+  - *Description:* Interval between the checks of an SFTP folder (cycles 10, 15, 30, 60, 300).
 * **Disable panel update object count:**
-  - *Description:* Folders holding more objects than this are not reread automatically after operations, and auto-refresh polls them instead of watching them (a detected change still rereads them). `Ctrl+R` always rereads.
+  - *Description:* Taken literally: folders holding more objects than this (0 = no limit) are not reread automatically, neither after operations nor by the automatic refresh (they are not watched or polled at all). `Ctrl+R` always rereads.
 * **Show files total information:**
   - *Description:* Renders aggregated counts and total bytes at the bottom status line.
 * **Show free size:**

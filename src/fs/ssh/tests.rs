@@ -2,7 +2,7 @@
 //! listing entry mapping, `..` handling, known_hosts path and verdicts.
 
 use super::connection::{host_key_verdict, known_hosts_path_in};
-use super::sftp_ops::{is_real_child, sftp_entry};
+use super::sftp_ops::{is_real_child, sftp_attrs, sftp_entry};
 use crate::fs::vfs::parent_entry;
 use ssh2::{CheckResult, FileStat};
 use std::ffi::OsString;
@@ -140,4 +140,22 @@ fn only_matching_host_keys_are_accepted() {
         .unwrap_err()
         .to_string();
     assert!(failure.contains("check failed"), "{failure}");
+}
+
+#[test]
+fn sftp_attrs_show_mode_owner_and_read_only() {
+    let mut st = stat(S_IFREG, Some(5), Some(60));
+    st.uid = Some(1000);
+    st.gid = Some(100);
+    let attrs = sftp_attrs(Path::new("/srv/a.txt"), &st);
+    assert_eq!(attrs.owner, "1000:100");
+    assert_eq!(attrs.mode & 0o777, 0o644);
+    assert!(!attrs.readonly);
+    assert_eq!(attrs.size, 5);
+    assert_eq!(
+        attrs.modified,
+        Some(SystemTime::UNIX_EPOCH + Duration::from_secs(60))
+    );
+    st.perm = Some(S_IFREG | 0o444);
+    assert!(sftp_attrs(Path::new("/srv/a.txt"), &st).readonly);
 }

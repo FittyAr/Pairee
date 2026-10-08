@@ -67,6 +67,22 @@ pub fn panel() -> Vec<Row> {
                 };
             },
         ),
+        toggle!("pan_auto_refresh_ssh", auto_refresh_ssh),
+        cycle(
+            "pan_auto_refresh_ssh_poll",
+            1,
+            CycleFormat::Bracket,
+            |s| s.auto_refresh_ssh_poll_secs.to_string(),
+            |s| {
+                s.auto_refresh_ssh_poll_secs = match s.auto_refresh_ssh_poll_secs {
+                    0..=14 => 15,
+                    15..=29 => 30,
+                    30..=59 => 60,
+                    60..=299 => 300,
+                    _ => 10,
+                };
+            },
+        ),
         cycle(
             "pan_disable_update",
             0,

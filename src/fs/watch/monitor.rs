@@ -1,10 +1,22 @@
 //! One monitored folder: a thread running the strategy chain until the
 //! [`DirMonitor`] handle is dropped.
 
-use super::strategy::strategy_chain;
+use super::poller::PollStrategy;
+use super::strategy::{ChangeStrategy, strategy_chain};
+use crate::fs::vfs::Vfs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, SystemTime};
+
+/// Which filesystem a monitored folder is on: the local disk, or the SFTP
+/// connection with the given identity (`SharedSshClient::id`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub enum WatchOrigin {
+    #[default]
+    Local,
+    Remote(usize),
+}
 
 /// Something changed in `dir`. `entries` lists the changed children when
 /// the strategy knows them (empty: unknown, e.g. after a poll).
@@ -12,6 +24,8 @@ use std::time::{Duration, SystemTime};
 pub struct DirChange {
     pub dir: PathBuf,
     pub entries: Vec<PathBuf>,
+    /// Set by the [`ChangeSink`] that reports it.
+    pub origin: WatchOrigin,
 }
 
 impl DirChange {
@@ -20,6 +34,7 @@ impl DirChange {
         Self {
             dir,
             entries: Vec::new(),
+            origin: WatchOrigin::Local,
         }
     }
 }
@@ -32,6 +47,7 @@ pub struct ChangeSink {
     wake: fn(),
     /// Folder changes from this moment on may predate the monitor.
     since: Option<SystemTime>,
+    origin: WatchOrigin,
 }
 
 impl ChangeSink {
@@ -40,10 +56,18 @@ impl ChangeSink {
             tx,
             wake,
             since: None,
+            origin: WatchOrigin::Local,
         }
     }
 
-    pub fn report(&self, change: DirChange) {
+    /// The sink of a monitor on `origin`; its changes carry it.
+    pub fn with_origin(mut self, origin: WatchOrigin) -> Self {
+        self.origin = origin;
+        self
+    }
+
+    pub fn report(&self, mut change: DirChange) {
+        change.origin = self.origin;
         if self.tx.send(change).is_ok() {
             (self.wake)();
         }
@@ -54,8 +78,12 @@ impl ChangeSink {
     /// produced no event, so a folder modified since shortly before the
     /// monitor started is reread once.
     pub fn armed(&self, dir: &Path) {
-        let modified = std::fs::metadata(dir).and_then(|m| m.modified());
-        if let (Some(since), Ok(modified)) = (self.since, modified)
+        self.armed_at(dir, std::fs::metadata(dir).and_then(|m| m.modified()).ok());
+    }
+
+    /// [`Self::armed`] with the folder time the strategy already read.
+    pub fn armed_at(&self, dir: &Path, modified: Option<SystemTime>) {
+        if let (Some(since), Some(modified)) = (self.since, modified)
             && modified >= since
         {
             self.report(DirChange::whole(dir.to_path_buf()));
@@ -84,12 +112,34 @@ pub struct DirMonitor {
 impl DirMonitor {
     /// Starts monitoring `dir`. File system checks that may block (network
     /// mounts) and the watch set-up run on the monitor thread.
-    pub fn start(dir: PathBuf, plan: MonitorPlan, mut sink: ChangeSink) -> Self {
+    pub fn start(dir: PathBuf, plan: MonitorPlan, sink: ChangeSink) -> Self {
+        Self::spawn(sink, move |stop, sink| run_chain(&dir, plan, stop, sink))
+    }
+
+    /// Polls `dir` of `vfs` (an SFTP server) every `interval`; the checks
+    /// run on the monitor thread, never on the interface thread.
+    pub fn start_polling(
+        dir: PathBuf,
+        vfs: Arc<dyn Vfs>,
+        interval: Duration,
+        sink: ChangeSink,
+    ) -> Self {
+        Self::spawn(sink, move |stop, sink| {
+            if let Err(err) = PollStrategy::over(vfs, interval).run(&dir, stop, sink) {
+                log::info!("Auto-refresh: cannot poll {dir:?}: {err}");
+            }
+        })
+    }
+
+    fn spawn(
+        mut sink: ChangeSink,
+        body: impl FnOnce(&Receiver<()>, &ChangeSink) + Send + 'static,
+    ) -> Self {
         sink.since = SystemTime::now().checked_sub(ARM_GRACE);
         let (stop_tx, stop_rx) = channel();
         let spawned = std::thread::Builder::new()
             .name("pairee-watch".into())
-            .spawn(move || run_chain(&dir, plan, &stop_rx, &sink));
+            .spawn(move || body(&stop_rx, &sink));
         if let Err(err) = spawned {
             log::warn!("Auto-refresh: cannot start a monitor thread: {err}");
         }

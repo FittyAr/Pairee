@@ -23,7 +23,7 @@ pub fn process_background_updates(
     crate::app::git_local::poll_git_local(state);
     state.poll_git_panel();
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
-    state.poll_vfs_op(context.config.settings.show_hidden);
+    state.poll_vfs_op(&context.config.settings);
     crate::app::sync::poll_folder_scan(state);
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);

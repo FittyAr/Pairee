@@ -1,7 +1,7 @@
 //! Debounce and burst coalescing of directory changes (pure; the caller
 //! passes the clock so tests can drive time).
 
-use super::monitor::DirChange;
+use super::monitor::{DirChange, WatchOrigin};
 use std::collections::{BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
@@ -39,7 +39,7 @@ struct Pending {
 #[derive(Debug, Default)]
 pub struct Coalescer {
     timing: CoalesceTiming,
-    pending: HashMap<PathBuf, Pending>,
+    pending: HashMap<(WatchOrigin, PathBuf), Pending>,
 }
 
 impl Coalescer {
@@ -52,7 +52,8 @@ impl Coalescer {
 
     /// Adds a change seen at `now`.
     pub fn record(&mut self, change: DirChange, now: Instant) {
-        let pending = self.pending.entry(change.dir).or_insert_with(|| Pending {
+        let key = (change.origin, change.dir);
+        let pending = self.pending.entry(key).or_insert_with(|| Pending {
             first: now,
             last: now,
             entries: BTreeSet::new(),
@@ -65,28 +66,30 @@ impl Coalescer {
     /// entries merged (sorted, without duplicates).
     pub fn take_due(&mut self, now: Instant) -> Vec<DirChange> {
         let timing = self.timing;
-        let due: Vec<PathBuf> = self
+        let due: Vec<(WatchOrigin, PathBuf)> = self
             .pending
             .iter()
             .filter(|(_, p)| {
                 now.saturating_duration_since(p.last) >= timing.quiet
                     || now.saturating_duration_since(p.first) >= timing.max_wait
             })
-            .map(|(dir, _)| dir.clone())
+            .map(|(key, _)| key.clone())
             .collect();
         due.into_iter()
-            .filter_map(|dir| {
-                let pending = self.pending.remove(&dir)?;
+            .filter_map(|key| {
+                let pending = self.pending.remove(&key)?;
+                let (origin, dir) = key;
                 Some(DirChange {
                     dir,
                     entries: pending.entries.into_iter().collect(),
+                    origin,
                 })
             })
             .collect()
     }
 
     /// Drops pending changes of folders for which `keep` is false.
-    pub fn retain(&mut self, keep: impl Fn(&Path) -> bool) {
-        self.pending.retain(|dir, _| keep(dir));
+    pub fn retain(&mut self, keep: impl Fn(WatchOrigin, &Path) -> bool) {
+        self.pending.retain(|(origin, dir), _| keep(*origin, dir));
     }
 }

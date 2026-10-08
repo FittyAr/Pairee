@@ -32,7 +32,10 @@ impl PanelSource {
     /// path outside the archive this source shows.
     pub fn vfs_for(&self, path: &Path) -> Arc<dyn Vfs> {
         match self {
-            Self::Archive(archive) if !archive.contains(path) => Arc::new(LocalVfs),
+            Self::Archive(archive) if !archive.contains(path) => match archive.parent() {
+                Some(parent) => Self::Archive(Arc::clone(parent)).vfs_for(path),
+                None => Arc::new(LocalVfs),
+            },
             _ => self.vfs(),
         }
     }
@@ -62,15 +65,24 @@ impl PanelSource {
     }
 
     /// The source for a panel moving to `path`: leaving an archive goes
-    /// back to the local disk, and a local path inside an archive file
-    /// opens that archive. Remote panels stay remote.
+    /// back to the archive that holds it or to the local disk, a local path
+    /// inside an archive file opens that archive, and a path inside an
+    /// archive stored in the archive opens that one (read-only). Remote
+    /// panels stay remote.
     pub fn locate(&self, path: &Path) -> Self {
         match self {
             Self::Remote(_) => self.clone(),
-            Self::Archive(archive) if archive.contains(path) => self.clone(),
-            _ => split_archive_path(path)
-                .and_then(|(archive, _)| ArchiveVfs::open(archive))
-                .map_or(Self::Local, |archive| Self::Archive(Arc::new(archive))),
+            Self::Archive(archive) if archive.contains(path) => archive
+                .nested_at(path)
+                .map_or_else(|| self.clone(), |nested| Self::Archive(Arc::new(nested))),
+            Self::Archive(archive) => match archive.parent() {
+                Some(parent) => Self::Archive(Arc::clone(parent)).locate(path),
+                None => Self::Local.locate(path),
+            },
+            Self::Local => match split_archive_path(path).and_then(|(a, _)| ArchiveVfs::open(a)) {
+                Some(archive) => Self::Archive(Arc::new(archive)).locate(path),
+                None => Self::Local,
+            },
         }
     }
 }

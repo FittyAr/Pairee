@@ -32,8 +32,11 @@ pub struct ConflictInfo {
 /// the function falls back to appending a millisecond timestamp so a
 /// pathological directory with millions of pre-existing duplicates
 /// cannot wedge the UI in an infinite loop.
-pub fn resolve_filename_conflict(dst_path: &Path) -> PathBuf {
-    if !dst_path.exists() {
+///
+/// `exists` says whether a name is taken (on the local disk, inside an
+/// archive...).
+pub fn resolve_filename_conflict(dst_path: &Path, exists: &dyn Fn(&Path) -> bool) -> PathBuf {
+    if !exists(dst_path) {
         return dst_path.to_path_buf();
     }
 
@@ -54,7 +57,7 @@ pub fn resolve_filename_conflict(dst_path: &Path) -> PathBuf {
     for counter in 1..=MAX_CONFLICT_ATTEMPTS {
         let new_name = format!("{} ({}){}", base_name, counter, extension);
         let candidate = parent.join(new_name);
-        if !candidate.exists() {
+        if !exists(&candidate) {
             return candidate;
         }
     }
@@ -90,14 +93,14 @@ mod tests {
         let file_path = dir.path().join("test.txt");
 
         // El primero no existe, retorna el mismo path
-        let resolved = resolve_filename_conflict(&file_path);
+        let resolved = resolve_filename_conflict(&file_path, &|p| p.exists());
         assert_eq!(resolved, file_path);
 
         // Creamos el archivo para provocar conflicto
         File::create(&file_path).unwrap();
 
         // Ahora deberia sugerir test (1).txt
-        let resolved_1 = resolve_filename_conflict(&file_path);
+        let resolved_1 = resolve_filename_conflict(&file_path, &|p| p.exists());
         assert_eq!(
             resolved_1.file_name().unwrap().to_str().unwrap(),
             "test (1).txt"
@@ -107,7 +110,7 @@ mod tests {
         File::create(&resolved_1).unwrap();
 
         // Ahora deberia sugerir test (2).txt
-        let resolved_2 = resolve_filename_conflict(&file_path);
+        let resolved_2 = resolve_filename_conflict(&file_path, &|p| p.exists());
         assert_eq!(
             resolved_2.file_name().unwrap().to_str().unwrap(),
             "test (2).txt"
@@ -127,7 +130,7 @@ mod tests {
             File::create(dir.path().join(format!("test ({}).txt", i))).unwrap();
         }
         let start = std::time::Instant::now();
-        let resolved = resolve_filename_conflict(&file_path);
+        let resolved = resolve_filename_conflict(&file_path, &|p| p.exists());
         let elapsed = start.elapsed();
         // The function should return the next free numeric slot.
         assert_eq!(

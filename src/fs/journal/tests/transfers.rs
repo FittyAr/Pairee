@@ -258,3 +258,27 @@ async fn restore(entry: &FsCommand) {
     );
     run_job(job).await;
 }
+
+#[tokio::test]
+async fn archive_jobs_are_recorded_as_not_undoable() {
+    use crate::fs::journal::command::Irreversible;
+    let root = tempfile::tempdir().unwrap();
+    let archive = p(root.path(), "a.zip");
+    crate::fs::archive::test_fixtures::write_zip(&archive, &[("x.txt", b"x")]);
+    write(&p(root.path(), "n.txt"), "n");
+    let job = TransferJob::new(
+        TransferOperation::Copy,
+        vec![p(root.path(), "n.txt")],
+        archive,
+        options(),
+    );
+    let entry = run_recorded(job, None).await.unwrap();
+    assert!(matches!(
+        entry,
+        FsCommand::NotUndoable {
+            kind: Irreversible::Archive,
+            count: 1
+        }
+    ));
+    assert!(entry.inverse().is_none());
+}

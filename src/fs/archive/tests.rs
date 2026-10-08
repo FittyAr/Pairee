@@ -26,6 +26,10 @@ fn detect_format_uses_case_insensitive_extension() {
         ("a.tar.gz", "targz"),
         ("a.tgz", "targz"),
         ("a.tar", "tar"),
+        ("a.tar.bz2", "tarbz2"),
+        ("a.TBZ2", "tarbz2"),
+        ("a.tar.xz", "tarxz"),
+        ("a.txz", "tarxz"),
         ("a.7z", "7z"),
         ("a.rar", "rar"),
         ("a.iso", "iso"),
@@ -37,6 +41,8 @@ fn detect_format_uses_case_insensitive_extension() {
             ArchiveFormat::Zip => "zip",
             ArchiveFormat::Tar => "tar",
             ArchiveFormat::TarGz => "targz",
+            ArchiveFormat::TarBz2 => "tarbz2",
+            ArchiveFormat::TarXz => "tarxz",
             ArchiveFormat::SevenZ => "7z",
             ArchiveFormat::Rar => "rar",
             ArchiveFormat::Iso => "iso",
@@ -118,4 +124,34 @@ fn extraction_stops_when_cancelled() {
     let cancel = AtomicBool::new(true);
     assert!(extract_archive(&archive, &dest, &tx, &cancel).is_err());
     assert!(!dest.join("a.txt").exists());
+}
+
+#[test]
+fn only_compressed_tars_are_browsable() {
+    use super::is_browsable;
+    for name in ["a.tar.bz2", "a.tbz", "a.tar.xz", "a.TXZ", "a.tgz"] {
+        assert!(is_browsable(Path::new(name)), "{name}");
+    }
+    for name in ["notes.txt.bz2", "dump.xz", "file.gz"] {
+        assert!(!is_browsable(Path::new(name)), "{name}");
+    }
+}
+
+#[test]
+fn bzip2_and_xz_tars_list_and_extract() {
+    use super::test_fixtures::{write_tar_bz2, write_tar_xz};
+    let writers: [(&str, crate::fs::vfs::contract::ArchiveWriter); 2] =
+        [("t.tar.bz2", write_tar_bz2), ("t.tar.xz", write_tar_xz)];
+    for (name, write) in writers {
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join(name);
+        write(&archive, SAMPLE_TREE);
+        let mut listed = list_archive_files(&archive).unwrap();
+        listed.sort();
+        assert_eq!(listed, ["a.txt", "sub/b.txt", "sub/deeper/c.bin"], "{name}");
+        let out = dir.path().join("out");
+        std::fs::create_dir(&out).unwrap();
+        run(|tx, cancel| extract_archive(&archive, &out, tx, cancel)).unwrap();
+        assert_eq!(snapshot(&out), expected(SAMPLE_TREE, None), "{name}");
+    }
 }

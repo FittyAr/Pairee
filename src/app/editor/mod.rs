@@ -11,6 +11,7 @@ pub mod history;
 mod navigation;
 pub mod open;
 pub mod options;
+pub mod remote;
 pub mod selection;
 mod selection_ops;
 mod state;

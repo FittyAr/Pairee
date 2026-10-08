@@ -33,7 +33,19 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
     }
 
     for (job_id, results) in effects.finished {
-        crate::app::actions::fs_ops::undo::transfer_finished(state, job_id, results);
+        let Some(job) = state
+            .transfer
+            .as_ref()
+            .and_then(|ts| ts.engine.queue.get(job_id))
+        else {
+            continue;
+        };
+        // A failed or cancelled job reports the files it finished before.
+        let results = results.unwrap_or_else(|| job.results.clone());
+        crate::app::actions::fs_ops::undo::transfer_finished(state, &job, &results);
+        if state.disk_usage.job_finished(&job, &results) {
+            state.mark_ui_dirty();
+        }
     }
     if !effects.term_forwards.is_empty() {
         for (job_id, line) in effects.term_forwards {

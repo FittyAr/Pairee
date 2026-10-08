@@ -250,7 +250,7 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) -> Op
                 panel.entries.iter().map(|e| e.path.clone()).collect();
             panel.selected_paths.retain(|p| present.contains(p));
             panel.selection_order.retain(|p| present.contains(p));
-            panel.dir_sizes.retain_listed(&present);
+            panel.dir_sizes.sync_listing(&panel.entries);
         }
         Err(err) => {
             log::warn!("Listing {:?} failed: {}", listing.path, err);

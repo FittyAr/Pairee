@@ -197,3 +197,31 @@ fn tab_action_names_parse() {
         Some(Action::ToggleTabLock)
     );
 }
+
+#[test]
+fn every_preset_binds_folder_sizes_and_disk_usage_on_free_keys() {
+    let alt = KeyModifiers::ALT;
+    let keys = [
+        (KeyCode::Char('s'), Action::CalculateFolderSizes),
+        (KeyCode::Char('d'), Action::DiskUsage),
+    ];
+    for preset in ["norton", "neovim", "vscode"] {
+        let mut config = AppConfig::default();
+        config.keybindings.preset = preset.into();
+        let mut resolver = KeybindingResolver::new(&config);
+        // A chord bound twice is rejected with a "Duplicate key chord" error.
+        let errors = &resolver.load_report().errors;
+        assert!(
+            !errors
+                .iter()
+                .any(|e| ["'Alt+s'", "'Alt+d'", "folder_sizes", "disk_usage"]
+                    .iter()
+                    .any(|needle| e.contains(needle))),
+            "{preset}: {errors:?}"
+        );
+        for (code, action) in keys {
+            let key = KeyEvent::new(code, alt);
+            assert_eq!(resolver.resolve(key), Some(action), "{preset}: {key:?}");
+        }
+    }
+}

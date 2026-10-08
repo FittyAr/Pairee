@@ -65,6 +65,8 @@ pub enum SortField {
 // File attribute snapshot (cross-platform subset)
 #[derive(Debug, Clone)]
 pub struct FileAttrsSnapshot {
+    /// Where the entry lives (changes are applied through it).
+    pub source: crate::fs::vfs::PanelSource,
     pub path: PathBuf,
     pub readonly: bool,
     pub size: u64,

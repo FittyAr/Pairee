@@ -2,7 +2,9 @@
 
 use super::monitor::{ChangeSink, DirChange};
 use super::strategy::ChangeStrategy;
+use crate::fs::vfs::Vfs;
 use std::path::Path;
+use std::sync::Arc;
 use std::sync::mpsc::{Receiver, RecvTimeoutError};
 use std::time::{Duration, SystemTime};
 
@@ -21,28 +23,55 @@ impl DirSignature {
         let entries = std::fs::read_dir(dir).ok()?.count();
         Some(Self { modified, entries })
     }
+
+    /// The signature of `dir` on another filesystem (an SFTP server).
+    pub fn read_vfs(vfs: &dyn Vfs, dir: &Path) -> Option<Self> {
+        let modified = vfs.stat(dir).ok()?.modified;
+        let entries = vfs.list(dir).ok()?.len();
+        Some(Self { modified, entries })
+    }
 }
 
 pub struct PollStrategy {
     interval: Duration,
+    /// Filesystem of the folder; `None` is the local disk.
+    vfs: Option<Arc<dyn Vfs>>,
 }
 
 impl PollStrategy {
     pub fn new(interval: Duration) -> Self {
-        Self { interval }
+        Self {
+            interval,
+            vfs: None,
+        }
+    }
+
+    /// Polls a folder of `vfs`.
+    pub fn over(vfs: Arc<dyn Vfs>, interval: Duration) -> Self {
+        Self {
+            interval,
+            vfs: Some(vfs),
+        }
+    }
+
+    fn signature(&self, dir: &Path) -> Option<DirSignature> {
+        match &self.vfs {
+            Some(vfs) => DirSignature::read_vfs(vfs.as_ref(), dir),
+            None => DirSignature::read(dir),
+        }
     }
 }
 
 impl ChangeStrategy for PollStrategy {
     fn run(&self, dir: &Path, stop: &Receiver<()>, sink: &ChangeSink) -> Result<(), String> {
-        let mut last = DirSignature::read(dir);
-        sink.armed(dir);
+        let mut last = self.signature(dir);
+        sink.armed_at(dir, last.and_then(|s| s.modified));
         loop {
             match stop.recv_timeout(self.interval) {
                 Err(RecvTimeoutError::Timeout) => {}
                 _ => return Ok(()),
             }
-            let now = DirSignature::read(dir);
+            let now = self.signature(dir);
             if now != last {
                 last = now;
                 sink.report(DirChange::whole(dir.to_path_buf()));

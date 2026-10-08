@@ -2,6 +2,7 @@
 
 use super::{Capabilities, Vfs, VfsEntry};
 use crate::fs::FileEntry;
+use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::du::DuEntry;
 use crate::fs::list::{ListOptions, is_hidden};
 use crate::fs::text::{ByteStore, FileStore};
@@ -88,6 +89,14 @@ impl Vfs for LocalVfs {
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
         fs::rename(from, to)
+    }
+
+    fn attributes(&self, path: &Path) -> io::Result<FileAttrs> {
+        crate::fs::attrs::read_attrs(path).map_err(|e| io::Error::other(e.to_string()))
+    }
+
+    fn set_attributes(&self, path: &Path, change: AttrChange) -> io::Result<()> {
+        change.apply_local(path)
     }
 
     /// Local files are paged from disk, whatever their size.

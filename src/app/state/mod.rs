@@ -16,6 +16,7 @@ pub mod screens;
 mod tab_ops;
 pub mod tabs;
 mod vfs_op;
+pub use vfs_op::VfsFollowUp;
 pub mod viewer;
 
 pub use crate::fs::compare::CompareStatus;
@@ -117,7 +118,7 @@ pub struct AppState {
     pub journal: crate::fs::journal::Journal,
 
     /// Background change to a non-local panel source (see `vfs_op`).
-    pub vfs_op: crate::app::jobs::JobSlot<Result<(), String>>,
+    pub vfs_op: crate::app::jobs::JobSlot<Result<vfs_op::VfsFollowUp, String>>,
 
     /// Background folder comparison (Compare folders / Synchronize).
     pub folder_scan: crate::app::sync::FolderScanState,

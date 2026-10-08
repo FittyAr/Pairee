@@ -38,6 +38,9 @@ pub struct EditorState {
     /// Block mode (`Ctrl+B`): `Shift`+motions and drags select a vertical
     /// block, for terminals that keep `Alt+Shift`+arrows for themselves.
     pub block_mode: bool,
+    /// Set when `path` is a local copy of a file on an SFTP server or in
+    /// an archive: saving uploads it (see `editor::remote`).
+    pub remote: Option<super::remote::RemoteOrigin>,
 }
 
 impl EditorState {
@@ -59,6 +62,7 @@ impl EditorState {
             tab_size: tab_size.max(1),
             viewport: Default::default(),
             block_mode: false,
+            remote: None,
         }
     }
 

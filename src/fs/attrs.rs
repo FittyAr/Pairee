@@ -54,6 +54,46 @@ pub fn read_attrs(path: &Path) -> Result<FileAttrs> {
     })
 }
 
+/// What the Attributes dialog applies: the typed octal mode (if any) and
+/// the read-only flag, which wins over the mode's write bits.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AttrChange {
+    pub mode: Option<u32>,
+    pub readonly: bool,
+}
+
+/// Permission bits of a mode (no file type bits).
+const PERMISSION_BITS: u32 = 0o7777;
+const WRITE_BITS: u32 = 0o222;
+const OWNER_WRITE: u32 = 0o200;
+
+impl AttrChange {
+    /// The permission bits to set on an entry whose mode is `current`, for
+    /// sources that only have POSIX modes (SFTP): read-only clears every
+    /// write bit, writable restores the owner's when none is left.
+    pub fn resulting_mode(self, current: u32) -> u32 {
+        let mode = self.mode.unwrap_or(current) & PERMISSION_BITS;
+        if self.readonly {
+            mode & !WRITE_BITS
+        } else if mode & WRITE_BITS == 0 {
+            mode | OWNER_WRITE
+        } else {
+            mode
+        }
+    }
+
+    /// Applies the change to a local entry (mode first, then the flag).
+    pub fn apply_local(self, path: &Path) -> std::io::Result<()> {
+        let failed = |key: &str, e: anyhow::Error| {
+            std::io::Error::other(crate::config::localization::t(key).replace("{}", &e.to_string()))
+        };
+        if let Some(mode) = self.mode {
+            set_unix_mode(path, mode).map_err(|e| failed("error_set_unix_mode_failed", e))?;
+        }
+        set_readonly(path, self.readonly).map_err(|e| failed("error_set_readonly_failed", e))
+    }
+}
+
 // Expose set_readonly utility function for metadata changes.
 /// Sets the read-only flag on the file.
 pub fn set_readonly(path: &Path, readonly: bool) -> Result<()> {
@@ -150,6 +190,15 @@ alias:x:0:0::/:/bin/sh
         assert_eq!(map.get(&0).map(String::as_str), Some("root"));
         assert_eq!(map.get(&1000).map(String::as_str), Some("bob"));
         assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn readonly_flag_wins_over_the_mode() {
+        let change = |mode, readonly| AttrChange { mode, readonly };
+        assert_eq!(change(Some(0o755), true).resulting_mode(0), 0o555);
+        assert_eq!(change(Some(0o444), false).resulting_mode(0), 0o644);
+        assert_eq!(change(Some(0o640), false).resulting_mode(0), 0o640);
+        assert_eq!(change(None, false).resulting_mode(0o100_644), 0o644);
     }
 
     #[test]
