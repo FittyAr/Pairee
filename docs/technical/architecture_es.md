@@ -32,6 +32,7 @@ graph TD
 El núcleo del gestor de archivos (lectura de directorios, ordenamientos, filtros de máscaras glob, procesos y colas de copiado) no importa librerías gráficas como `ratatui` ni interactúa con la salida de pantalla de forma directa.
 * Todos los datos mutables se almacenan en `AppState` (`src/app/state/mod.rs`) y la configuración estática en `AppContext` (`src/app/context.rs`).
 * Esto permite implementar pruebas unitarias rápidas de navegación, ordenación y selección sin requerir un emulador de terminal o mockeo de consola.
+* Los escenarios de humo de punta a punta (`src/smoke_tests/`) usan el arnés de `src/test_harness/` (solo en compilaciones de prueba): un `Harness` ejecuta el estado real sobre un sandbox temporal (ambos paneles y todos los directorios del usuario, así nunca toca la configuración real), envía guiones de teclas como `h.keys("@copy Enter")` por el mismo despachador del bucle de eventos (`@acción` reproduce el atajo del keymap activo), espera los trabajos en segundo plano y pinta cuadros en un `TestBackend` para comprobar la pantalla.
 
 ### 1.2 Bucle de Eventos Principal (`app::run`)
 El flujo general de ejecución se comporta de la siguiente manera:
