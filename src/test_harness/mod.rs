@@ -86,10 +86,12 @@ impl Harness {
     }
 
     pub fn builder() -> Builder {
-        let mut settings = Settings::default();
-        settings.onboarding_completed = true;
-        settings.auto_update_check = false;
-        settings.plugins_enabled = false;
+        let settings = Settings {
+            onboarding_completed: true,
+            auto_update_check: false,
+            plugins_enabled: false,
+            ..Settings::default()
+        };
         Builder {
             keymap: "norton".into(),
             size: (100, 30),

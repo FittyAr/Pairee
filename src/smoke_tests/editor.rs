@@ -85,3 +85,20 @@ fn quitting_with_changes_asks_to_discard() {
     assert!(in_panels(&h), "{}", h.screen_text());
     assert_eq!(h.read("work/left/notes.txt"), b"keep\n");
 }
+
+#[test]
+fn bracketed_paste_inserts_text_in_the_editor_and_in_dialogs() {
+    let mut h = Harness::new();
+    h.write("work/left/vacio.txt", "");
+    h.reread().focus("vacio.txt").keys("@edit");
+    h.paste("uno ñ\ndos 😀");
+    assert_eq!(editor_lines(&h)[..2], ["uno ñ", "dos 😀"]);
+    h.keys("F2 F10");
+    assert!(in_panels(&h), "{}", h.screen_text());
+    assert_eq!(h.read("work/left/vacio.txt"), "uno ñ\ndos 😀".as_bytes());
+
+    h.keys("@mkdir");
+    h.paste("pegada");
+    h.keys("Enter");
+    assert!(h.left().join("pegada").is_dir());
+}
