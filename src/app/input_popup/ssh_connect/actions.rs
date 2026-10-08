@@ -99,14 +99,23 @@ fn connect(state: &mut AppState, context: &AppContext) {
             .replace(PopupType::Error(t("error_ssh_user_empty")));
         return;
     }
-    let port = preset.port.parse::<u16>().unwrap_or(22);
-    let timeout = std::time::Duration::from_secs(context.config.settings.ssh_timeout_secs);
     state
         .dialogs
         .replace(PopupType::Info(t("progress_connecting_ssh")));
+    start_connection(state, context, panel, preset);
+}
 
-    // Blocking handshake/auth: run on the job pool, applied by
-    // `process_ssh_connect_updates` on the UI thread.
+/// Connects tab `panel` with `preset` in the background (blocking
+/// handshake/auth on the job pool), applied by `process_ssh_connect_updates`
+/// on the UI thread.
+pub fn start_connection(
+    state: &mut AppState,
+    context: &AppContext,
+    panel: crate::app::state::TabId,
+    preset: crate::config::settings::SshPreset,
+) {
+    let port = preset.port.parse::<u16>().unwrap_or(22);
+    let timeout = std::time::Duration::from_secs(context.config.settings.ssh_timeout_secs);
     state.ssh_connect.start(move |_| {
         let res = crate::fs::ssh::SharedSshClient::connect(
             &preset.host,

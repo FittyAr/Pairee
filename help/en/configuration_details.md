@@ -50,7 +50,7 @@ This tab controls file processing, history recording, escalation permissions, an
 * **Case sensitive sort:**
   - *Description:* Sorts uppercase names separately from lowercase names.
 * **Auto save setup:**
-  - *Description:* Saves all modified configuration parameters automatically to the config file when exiting Pairee.
+  - *Description:* Saves all modified configuration parameters automatically to the config file when exiting Pairee, including the panel defaults (view, sort, visibility) used when there is no session to restore.
 
 ---
 
@@ -103,6 +103,7 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 * **Mouse support:** Toggles mouse navigation, clicking, and scrolling.
 * **Show bottom F-keys bar:** Toggles the F1-F10 shortcuts line at the bottom.
 * **Always show the menu bar:** Toggles persistent visibility of the top menu bar.
+* **Restore last session:** Saves tabs, folders, the focused side, panel visibility and Quick View to `session.toml` on exit and reopens them at startup (folders given on the command line win). SFTP tabs reconnect from their preset when shown. On by default.
 
 ### Keybindings
 * **Keybindings preset:** Cycle Norton / Neovim / VS Code. A status line shows whether the selected preset (plus your `custom_bindings`) loaded cleanly.

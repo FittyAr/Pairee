@@ -163,6 +163,65 @@ For technical deep-dives:
 
 ---
 
+## 🧭 Sessions & Command Line
+
+### Session restore
+When **Restore last session** (`restore_session`, **Options → Configuration → Interface**, on by default) is enabled, Pairee saves the session to `session.toml` in the config folder on exit and reopens it at the next start: every tab of both panels (folder, archive, view, sort, filter, name, lock and the entry under the cursor), the tab shown on each side, the focused side, panel visibility and Quick View.
+
+* A folder that no longer exists opens its nearest existing parent folder.
+* SFTP tabs are saved by the name of their SSH preset (never a password) and only reconnect when the tab is shown. If the preset is gone or the connection fails, the tab stays on your home folder and a notice explains why. Connections that were not opened from a preset are restored as your home folder.
+* A damaged `session.toml` is ignored (a copy is kept as `session.toml.bak` and a warning is logged).
+* **Save setup** only stores the defaults (view, sort, panel visibility) used when there is no session to restore.
+
+### Command-line arguments
+```
+pairee [--cwd-file <file>] [--print-cwd] [<left folder> [<right folder>]]
+```
+* `<left folder>` / `<right folder>` open in the shown tab of each panel, overriding the restored folders (other tabs are kept). A file opens its folder with the cursor on it.
+* `--cwd-file <file>` writes the folder of the focused panel to `<file>` on exit (empty for SFTP panels), so a shell function can `cd` there.
+* `--print-cwd` prints that folder to standard output on exit.
+
+### Change the shell folder on exit
+Add one of these functions to your shell profile and start Pairee with `p`:
+
+```sh
+# bash / zsh (~/.bashrc, ~/.zshrc)
+p() {
+  local tmp dir
+  tmp="$(mktemp)"
+  command pairee --cwd-file "$tmp" "$@"
+  dir="$(cat -- "$tmp")"
+  [ -n "$dir" ] && [ "$dir" != "$PWD" ] && cd -- "$dir"
+  rm -f -- "$tmp"
+}
+```
+
+```fish
+# fish (~/.config/fish/functions/p.fish)
+function p
+    set tmp (mktemp)
+    command pairee --cwd-file $tmp $argv
+    set dir (cat -- $tmp)
+    if test -n "$dir"; and test "$dir" != "$PWD"
+        cd -- $dir
+    end
+    rm -f -- $tmp
+end
+```
+
+```powershell
+# PowerShell ($PROFILE)
+function p {
+    $tmp = New-TemporaryFile
+    pairee --cwd-file $tmp.FullName @args
+    $dir = Get-Content -Raw -LiteralPath $tmp.FullName
+    if ($dir -and $dir -ne $PWD.Path) { Set-Location -LiteralPath $dir }
+    Remove-Item -LiteralPath $tmp.FullName
+}
+```
+
+---
+
 ## 📖 5. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:

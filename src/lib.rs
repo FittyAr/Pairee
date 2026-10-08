@@ -8,6 +8,7 @@ mod config;
 mod fs;
 mod git;
 mod keybindings;
+mod launch_args;
 mod lock;
 mod logging;
 mod plugin;

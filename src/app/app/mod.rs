@@ -12,18 +12,21 @@ use anyhow::Result;
 use crossterm::terminal::{BeginSynchronizedUpdate, EndSynchronizedUpdate};
 use crossterm::{QueueableCommand, execute};
 use std::io::{self, Write};
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
-/// Runs the main loop for Pairee.
-pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
+/// Runs the main loop for Pairee. Returns the local folder of the focused
+/// panel at exit (for `--cwd-file` / `--print-cwd`).
+pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<PathBuf>> {
     let mut terminal_backend = TerminalBackend::init()?;
     let mut event_handler = EventHandler::new(Duration::from_millis(50));
 
     // Load history store from disk (only the categories the user chose to keep)
-    state.history = crate::app::state::HistoryState::from_store(persisted_history(
-        crate::config::history::HistoryStore::load(),
-        &context.config.settings,
-    ));
+    state.history =
+        crate::app::state::HistoryState::from_store(crate::app::session::persisted_history(
+            crate::config::history::HistoryStore::load(),
+            &context.config.settings,
+        ));
     state.folder_shortcuts = crate::config::bookmarks::BookmarksFile::load().shortcut_map();
 
     // Initial folder scans
@@ -103,13 +106,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
 
         // 3. Exit check
         if state.should_quit {
-            if context.config.settings.auto_save_setup {
-                crate::app::sys_helpers::capture_setup(&state, &mut context.config.settings);
-                context.config.save_logging();
-            }
-            // Save history store to disk, honoring the save_*_history settings
-            let _ = persisted_history(state.history.to_store(), &context.config.settings).save();
-            break;
+            return Ok(crate::app::session::persist_on_exit(&state, &mut context));
         }
 
         // 4. Handle input events (or wake early when a background job finished)
@@ -133,18 +130,4 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
                 .await?;
         }
     }
-
-    Ok(())
-}
-
-/// Drops the history categories whose `save_*_history` setting is disabled.
-fn persisted_history(
-    store: crate::config::history::HistoryStore,
-    settings: &crate::config::settings::Settings,
-) -> crate::config::history::HistoryStore {
-    store.retain_enabled(
-        settings.save_commands_history,
-        settings.save_folders_history,
-        settings.save_view_and_edit_history,
-    )
 }

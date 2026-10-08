@@ -114,6 +114,48 @@ cargo run
 cargo build --release
 ```
 
+### Command Line & Shell Integration
+```sh
+pairee [--cwd-file <file>] [--print-cwd] [<left folder> [<right folder>]]
+```
+The last session (tabs, folders, layout) is restored at startup (**Restore last session** setting); folders given on the command line win. `--cwd-file` writes the focused panel's folder on exit so a shell function can `cd` there:
+
+```sh
+# bash / zsh (~/.bashrc, ~/.zshrc)
+p() {
+  local tmp dir
+  tmp="$(mktemp)"
+  command pairee --cwd-file "$tmp" "$@"
+  dir="$(cat -- "$tmp")"
+  [ -n "$dir" ] && [ "$dir" != "$PWD" ] && cd -- "$dir"
+  rm -f -- "$tmp"
+}
+```
+
+```fish
+# fish (~/.config/fish/functions/p.fish)
+function p
+    set tmp (mktemp)
+    command pairee --cwd-file $tmp $argv
+    set dir (cat -- $tmp)
+    if test -n "$dir"; and test "$dir" != "$PWD"
+        cd -- $dir
+    end
+    rm -f -- $tmp
+end
+```
+
+```powershell
+# PowerShell ($PROFILE)
+function p {
+    $tmp = New-TemporaryFile
+    pairee --cwd-file $tmp.FullName @args
+    $dir = Get-Content -Raw -LiteralPath $tmp.FullName
+    if ($dir -and $dir -ne $PWD.Path) { Set-Location -LiteralPath $dir }
+    Remove-Item -LiteralPath $tmp.FullName
+}
+```
+
 ### Launch Standalone Mode
 You can use the launcher script wrappers `run.bat` (Windows) or `run.sh` (Linux/macOS) to boot the application in a dedicated console window.
 

@@ -5,6 +5,7 @@ pub mod keybindings;
 pub mod load_guard;
 pub mod localization;
 pub mod paths;
+pub mod session;
 pub mod settings;
 pub mod theme;
 pub mod toml_store;

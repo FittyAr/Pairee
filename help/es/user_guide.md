@@ -163,6 +163,65 @@ Para obtener guías técnicas en profundidad:
 
 ---
 
+## 🧭 Sesiones y Línea de Comandos
+
+### Restaurar la sesión
+Con **Restaurar la última sesión** (`restore_session`, **Opciones → Configuración → Interfaz**, activado por defecto) Pairee guarda la sesión en `session.toml` dentro de la carpeta de configuración al salir y la reabre en el siguiente inicio: todas las pestañas de ambos paneles (carpeta, archivo comprimido, vista, orden, filtro, nombre, bloqueo y el elemento bajo el cursor), la pestaña visible de cada lado, el lado activo, la visibilidad de los paneles y la Vista rápida.
+
+* Una carpeta que ya no existe abre su carpeta padre existente más cercana.
+* Las pestañas SFTP se guardan con el nombre de su perfil SSH (nunca la contraseña) y solo se reconectan cuando la pestaña se muestra. Si el perfil ya no existe o la conexión falla, la pestaña queda en tu carpeta personal y un aviso explica el motivo. Las conexiones que no se abrieron desde un perfil se restauran como tu carpeta personal.
+* Un `session.toml` dañado se ignora (se guarda una copia como `session.toml.bak` y se registra un aviso).
+* **Guardar configuración** solo guarda los valores por defecto (vista, orden, visibilidad de paneles) que se usan cuando no hay sesión que restaurar.
+
+### Argumentos de línea de comandos
+```
+pairee [--cwd-file <archivo>] [--print-cwd] [<carpeta izquierda> [<carpeta derecha>]]
+```
+* `<carpeta izquierda>` / `<carpeta derecha>` se abren en la pestaña visible de cada panel y tienen prioridad sobre las carpetas restauradas (las demás pestañas se conservan). Un archivo abre su carpeta con el cursor sobre él.
+* `--cwd-file <archivo>` escribe al salir la carpeta del panel activo en `<archivo>` (vacío en paneles SFTP), para que una función de la shell haga `cd` allí.
+* `--print-cwd` imprime esa carpeta por la salida estándar al salir.
+
+### Cambiar la carpeta de la shell al salir
+Añade una de estas funciones al perfil de tu shell e inicia Pairee con `p`:
+
+```sh
+# bash / zsh (~/.bashrc, ~/.zshrc)
+p() {
+  local tmp dir
+  tmp="$(mktemp)"
+  command pairee --cwd-file "$tmp" "$@"
+  dir="$(cat -- "$tmp")"
+  [ -n "$dir" ] && [ "$dir" != "$PWD" ] && cd -- "$dir"
+  rm -f -- "$tmp"
+}
+```
+
+```fish
+# fish (~/.config/fish/functions/p.fish)
+function p
+    set tmp (mktemp)
+    command pairee --cwd-file $tmp $argv
+    set dir (cat -- $tmp)
+    if test -n "$dir"; and test "$dir" != "$PWD"
+        cd -- $dir
+    end
+    rm -f -- $tmp
+end
+```
+
+```powershell
+# PowerShell ($PROFILE)
+function p {
+    $tmp = New-TemporaryFile
+    pairee --cwd-file $tmp.FullName @args
+    $dir = Get-Content -Raw -LiteralPath $tmp.FullName
+    if ($dir -and $dir -ne $PWD.Path) { Set-Location -LiteralPath $dir }
+    Remove-Item -LiteralPath $tmp.FullName
+}
+```
+
+---
+
 ## 📖 5. Manuales de Integración Avanzada
 
 Para módulos más complejos y detallados, por favor consulta sus manuales específicos:

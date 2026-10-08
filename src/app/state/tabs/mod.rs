@@ -7,7 +7,7 @@ mod tab;
 #[cfg(test)]
 mod tests;
 
-pub use tab::{Tab, TabId};
+pub use tab::{PendingRemote, Tab, TabId};
 
 use super::PanelState;
 
@@ -23,6 +23,16 @@ impl PanelTabs {
             tabs: vec![Tab::new(panel)],
             active: 0,
         }
+    }
+
+    /// A side made of `tabs` (at least one) showing the tab at `active`
+    /// (clamped to the last tab).
+    pub fn from_tabs(tabs: Vec<Tab>, active: usize) -> Option<Self> {
+        let last = tabs.len().checked_sub(1)?;
+        Some(Self {
+            tabs,
+            active: active.min(last),
+        })
     }
 
     pub fn tabs(&self) -> &[Tab] {

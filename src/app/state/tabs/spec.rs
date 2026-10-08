@@ -39,4 +39,11 @@ pub struct TabSpec {
     pub name: Option<String>,
     #[serde(default)]
     pub locked: bool,
+    /// Name of the entry under the cursor, focused again on restore.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cursor: Option<String>,
+    /// SSH preset of a remote tab (`path` is then the remote folder). Only
+    /// the preset name is stored, never a password.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ssh_preset: Option<String>,
 }

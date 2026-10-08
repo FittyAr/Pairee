@@ -26,6 +26,20 @@ pub struct TabLock {
     pub source: PanelSource,
 }
 
+/// A restored SSH tab waiting for its connection, opened the first time
+/// the tab is shown (see `app::session::remote`).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PendingRemote {
+    /// Name of the SSH preset to connect with.
+    pub preset: String,
+    /// Remote folder to show once connected.
+    pub path: PathBuf,
+    /// Entry to put the cursor on once the remote folder is listed.
+    pub cursor: Option<String>,
+    /// The connection was started (it is not started twice).
+    pub connecting: bool,
+}
+
 #[derive(Debug)]
 pub struct Tab {
     pub id: TabId,
@@ -33,6 +47,7 @@ pub struct Tab {
     /// Title chosen by the user (`None`: the folder name).
     pub name: Option<String>,
     pub lock: Option<TabLock>,
+    pub pending_remote: Option<PendingRemote>,
 }
 
 impl Tab {
@@ -42,6 +57,7 @@ impl Tab {
             panel,
             name: None,
             lock: None,
+            pending_remote: None,
         }
     }
 
@@ -55,6 +71,7 @@ impl Tab {
         panel.sort_reverse = spec.sort_reverse;
         panel.show_long_names = spec.show_long_names;
         panel.filter_mask = spec.filter_mask.clone();
+        panel.pending_focus = spec.cursor.clone();
         let mut tab = Self::new(panel);
         tab.name = spec.name.clone();
         if spec.locked {
@@ -63,12 +80,31 @@ impl Tab {
         tab
     }
 
-    /// The plain, serializable description of this tab.
+    /// The plain, serializable description of this tab. A restored SSH tab
+    /// that was never shown keeps its remote folder and preset.
     pub fn spec(&self) -> TabSpec {
         let panel = &self.panel;
+        let (path, source, ssh_preset, cursor) = match &self.pending_remote {
+            Some(remote) => (
+                remote.path.clone(),
+                SourceKind::Remote,
+                Some(remote.preset.clone()),
+                remote.cursor.clone(),
+            ),
+            None => (
+                panel.current_path.clone(),
+                SourceKind::of(&panel.source),
+                None,
+                panel
+                    .entries
+                    .get(panel.cursor_index)
+                    .map(|entry| entry.name.clone())
+                    .or_else(|| panel.pending_focus.clone()),
+            ),
+        };
         TabSpec {
-            path: panel.current_path.clone(),
-            source: SourceKind::of(&panel.source),
+            path,
+            source,
             view_mode: panel.view_mode,
             sort_field: panel.sort_field,
             sort_reverse: panel.sort_reverse,
@@ -76,6 +112,8 @@ impl Tab {
             filter_mask: panel.filter_mask.clone(),
             name: self.name.clone(),
             locked: self.lock.is_some(),
+            cursor,
+            ssh_preset,
         }
     }
 
@@ -85,7 +123,9 @@ impl Tab {
         let mut tab = Self::from_spec(&self.spec());
         tab.name = None;
         tab.lock = None;
+        tab.pending_remote = None;
         let (from, to) = (&self.panel, &mut tab.panel);
+        to.current_path = from.current_path.clone();
         to.source = from.source.clone();
         to.entries = from.entries.clone();
         to.cursor_index = from.cursor_index;

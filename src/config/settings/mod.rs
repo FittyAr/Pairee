@@ -91,6 +91,9 @@ pub struct Settings {
     pub interface_always_show_menu_bar: bool,
     pub auto_drop_menu: bool,
     pub enable_yazi_workflow: bool,
+    /// Reopen the last session's tabs, layout and focused side at startup.
+    #[serde(default = "default_true")]
+    pub restore_session: bool,
 
     // ── Language & plugins settings (dialog tab 4) ───────────────────────────
     pub language: String,
