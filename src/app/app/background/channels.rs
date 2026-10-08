@@ -23,43 +23,28 @@ pub fn process_terminal_updates(state: &mut AppState) {
 }
 
 pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
-    let ssh_done = state
-        .ssh_connect_rx
-        .as_mut()
-        .map(|rx| rx.try_recv())
-        .unwrap_or(Err(tokio::sync::oneshot::error::TryRecvError::Empty));
-    match ssh_done {
-        Ok((panel, res)) => {
-            state.ssh_connect_rx = None;
-            match res {
-                Ok(client) => {
-                    let p = match panel {
-                        crate::app::state::ActivePanel::Left => &mut state.panels.left,
-                        crate::app::state::ActivePanel::Right => &mut state.panels.right,
-                    };
-                    p.ssh_conn = Some(client);
-                    p.current_path = std::path::PathBuf::from("/");
-                    p.cursor_index = 0;
-                    p.clear_selection();
-                    state.dialogs.clear();
-                    state.refresh_both_panels(context.config.settings.show_hidden);
-                    state.mark_ui_dirty();
-                }
-                Err(e) => {
-                    state.dialogs.replace(PopupType::Error(format!(
-                        "{} {}",
-                        crate::config::localization::t("error_ssh_failed"),
-                        e
-                    )));
-                    state.mark_ui_dirty();
-                }
-            }
+    let Some((panel, res)) = state.ssh_connect.poll() else {
+        return;
+    };
+    match res {
+        Ok(client) => {
+            let p = state.panels.side_mut(panel);
+            p.ssh_conn = Some(client);
+            p.current_path = std::path::PathBuf::from("/");
+            p.cursor_index = 0;
+            p.clear_selection();
+            state.dialogs.clear();
+            state.refresh_panel(panel, context.config.settings.show_hidden, true);
         }
-        Err(tokio::sync::oneshot::error::TryRecvError::Empty) => {}
-        Err(tokio::sync::oneshot::error::TryRecvError::Closed) => {
-            state.ssh_connect_rx = None;
+        Err(e) => {
+            state.dialogs.replace(PopupType::Error(format!(
+                "{} {}",
+                crate::config::localization::t("error_ssh_failed"),
+                e
+            )));
         }
     }
+    state.mark_ui_dirty();
 }
 
 pub fn process_search_updates(state: &mut AppState) {

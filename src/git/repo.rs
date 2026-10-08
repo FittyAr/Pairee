@@ -18,9 +18,13 @@ pub fn init_repo(path: &Path) -> anyhow::Result<git2::Repository> {
 }
 
 /// Clones a remote repository to the specified path.
-pub fn clone_repo(url: &str, path: &Path) -> anyhow::Result<git2::Repository> {
+pub fn clone_repo(
+    url: &str,
+    path: &Path,
+    observer: crate::git::remote::ProgressObserver<'_>,
+) -> anyhow::Result<git2::Repository> {
     let mut fo = git2::FetchOptions::new();
-    fo.remote_callbacks(crate::git::remote::create_callbacks());
+    fo.remote_callbacks(crate::git::remote::create_callbacks(observer));
 
     let mut builder = git2::build::RepoBuilder::new();
     builder.fetch_options(fo);

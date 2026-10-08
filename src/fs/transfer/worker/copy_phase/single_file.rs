@@ -1,6 +1,5 @@
 //! Single file transfer executor with retry backoff and symlink support.
 
-use super::super::super::events::TransferEvent;
 use super::super::super::options::TransferOptions;
 use super::super::super::pipeline::copy_file_pipelined;
 use anyhow::anyhow;
@@ -8,7 +7,6 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 pub struct TransferOutcome {
@@ -27,7 +25,7 @@ pub async fn transfer_one_file(
     is_paused: Arc<AtomicBool>,
     is_cancelled: Arc<AtomicBool>,
     bytes_transferred_acc: Arc<AtomicU64>,
-    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    event_tx: &crate::fs::transfer::events::EventSender,
 ) -> Result<TransferOutcome, anyhow::Error> {
     let mut retries = 0u32;
     let mut copy_success = false;

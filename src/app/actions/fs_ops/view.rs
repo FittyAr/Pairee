@@ -1,6 +1,6 @@
 use super::helper::command_exists;
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType, Screen};
+use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
@@ -61,11 +61,7 @@ pub fn handle(
         }
 
         if !ran_external {
-            let viewer = crate::ui::viewer::ViewerState::load_with_images(
-                path,
-                context.config.settings.image_preview_enabled,
-            );
-            state.push_screen(Screen::Viewer(viewer));
+            state.open_viewer(path, context.config.settings.image_preview_enabled, false);
         }
     }
     true

@@ -199,20 +199,22 @@ pub fn handle_enter(
         Some(new_key_path.clone())
     };
 
-    let (tx, rx) = tokio::sync::oneshot::channel();
-    state.ssh_connect_rx = Some(rx);
+    let timeout = std::time::Duration::from_secs(context.config.settings.ssh_timeout_secs);
     state
         .dialogs
         .replace(PopupType::Info(t("progress_connecting_ssh")));
 
-    tokio::spawn(async move {
+    // Blocking handshake/auth: run on the job pool, applied by
+    // `process_ssh_connect_updates` on the UI thread.
+    state.ssh_connect.start(move |_| {
         let res = crate::fs::ssh::SharedSshClient::connect(
             &host,
             port_val,
             &user,
             pass.as_deref(),
             key_path.as_deref(),
+            timeout,
         );
-        let _ = tx.send((panel, res));
+        (panel, res)
     });
 }

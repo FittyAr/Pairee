@@ -1,9 +1,7 @@
 mod img_render;
-mod loader;
 mod plugin;
 
 pub use img_render::render_quick_view_image;
-pub use loader::load_quick_view_content;
 pub use plugin::render_plugin_widget;
 
 use crate::app::state::types::PluginWidget;
@@ -30,7 +28,7 @@ pub fn draw_quick_view(
     content: &[String],
     scroll: usize,
     theme: &crate::config::theme::Theme,
-    image_data: &Option<image::DynamicImage>,
+    image_data: Option<&image::DynamicImage>,
     plugin_widget: &Option<PluginWidget>,
     scrollbar: Option<&ScrollbarUiState>,
 ) {

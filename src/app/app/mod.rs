@@ -110,8 +110,12 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             break;
         }
 
-        // 4. Handle input events
-        if let Some(event) = event_handler.next().await {
+        // 4. Handle input events (or wake early when a background job finished)
+        let next_event = tokio::select! {
+            ev = event_handler.next() => ev,
+            _ = crate::app::jobs::finished() => None,
+        };
+        if let Some(event) = next_event {
             match &event {
                 crate::terminal::Event::Key(_)
                 | crate::terminal::Event::Mouse(_)

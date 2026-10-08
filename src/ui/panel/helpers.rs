@@ -6,7 +6,6 @@ use crate::fs::FileEntry;
 use crate::ui::text_width::truncate_to_width;
 use crate::ui::theme_apply::parse_color;
 use ratatui::style::{Modifier, Style};
-use std::path::Path;
 use std::time::SystemTime;
 
 pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> String {
@@ -37,11 +36,8 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     };
 
     let ssh_suffix = if let Some(client) = &panel.ssh_conn {
-        if let Ok(c) = client.0.lock() {
-            format!(" [SSH: {}@{}]", c.username, c.host)
-        } else {
-            " [SSH: Locked]".to_string()
-        }
+        let info = client.info();
+        format!(" [SSH: {}@{}]", info.username, info.host)
     } else {
         String::new()
     };
@@ -56,13 +52,20 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
         String::new()
     };
 
+    let loading = if panel.is_loading() {
+        format!(" {}", t("panel_loading"))
+    } else {
+        String::new()
+    };
+
     format!(
-        " {}{}{} [{}{}] ",
+        " {}{}{} [{}{}]{} ",
         panel.current_path.to_string_lossy(),
         ssh_suffix,
         git_suffix,
         mode_label,
         sort_letter,
+        loading,
     )
 }
 
@@ -81,6 +84,12 @@ pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize)
         start,
         start + height.min(panel.entries.len().saturating_sub(start)),
     )
+}
+
+/// Entries in `start..end`, or nothing when the range is out of bounds
+/// (never panics while drawing, even if entries changed underneath).
+pub(crate) fn visible_slice(panel: &PanelState, start: usize, end: usize) -> &[FileEntry] {
+    panel.entries.get(start..end).unwrap_or_default()
 }
 
 pub(crate) fn build_row_style(
@@ -174,8 +183,9 @@ pub(crate) fn format_date(time: Option<SystemTime>) -> String {
     }
 }
 
-pub(crate) fn get_free_space_text(path: &Path) -> String {
-    match crate::app::sys_helpers::get_free_space(path) {
+/// Free space computed by the last listing (never queried while drawing).
+pub(crate) fn free_space_text(free: Option<u64>) -> String {
+    match free {
         Some(bytes) => format_file_size(bytes),
         None => "?".to_string(),
     }

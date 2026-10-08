@@ -14,7 +14,6 @@ use super::events::TransferEvent;
 use super::job::{TransferJob, TransferResults};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 /// Shared control surface for any backend run.
@@ -23,7 +22,7 @@ pub struct BackendControl {
     pub job_id: Uuid,
     pub is_paused: Arc<AtomicBool>,
     pub is_cancelled: Arc<AtomicBool>,
-    pub event_tx: mpsc::UnboundedSender<TransferEvent>,
+    pub event_tx: crate::fs::transfer::events::EventSender,
 }
 
 impl BackendControl {
@@ -44,7 +43,7 @@ impl BackendControl {
 /// Run the appropriate backend for a job (Strategy dispatch).
 pub async fn run_job(
     job: TransferJob,
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    event_tx: crate::fs::transfer::events::EventSender,
 ) -> Result<TransferResults, anyhow::Error> {
     // Wipe / compress / extract / apply-command are local-only Strategy backends.
     if job.operation.uses_ops_backend() {

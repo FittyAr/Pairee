@@ -3,7 +3,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::super::events::TransferEvent;
@@ -23,7 +22,7 @@ pub(super) async fn run_delete_phase(
     is_paused: Arc<AtomicBool>,
     is_cancelled: Arc<AtomicBool>,
     skip_file_flag: Arc<AtomicBool>,
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    event_tx: crate::fs::transfer::events::EventSender,
 ) -> Result<TransferResults, anyhow::Error> {
     let mut results = TransferResults::default();
     let bytes_transferred_acc = Arc::new(AtomicU64::new(0));

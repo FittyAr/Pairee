@@ -8,8 +8,11 @@ pub fn refresh_git_panel(
     repo_path: &Path,
     active_tab: usize,
     cursor_idx: usize,
-) {
-    if let Some(mut repo) = crate::git::repo::find_repo(repo_path) {
+) -> bool {
+    let Some(mut repo) = crate::git::repo::find_repo(repo_path) else {
+        return false;
+    };
+    {
         let new_branch = if repo.head_detached().unwrap_or(false) {
             crate::config::localization::t("git_detached_head")
         } else if let Ok(head) = repo.head()
@@ -56,4 +59,5 @@ pub fn refresh_git_panel(
                 current_branch: new_branch,
             }));
     }
+    true
 }

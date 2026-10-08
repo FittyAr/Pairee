@@ -27,7 +27,7 @@ use detailed::render_detailed;
 use file_links::render_file_links;
 use file_owners::render_file_owners;
 use full::render_full;
-use helpers::{build_panel_title, format_file_size, get_free_space_text};
+use helpers::{build_panel_title, format_file_size, free_space_text};
 use medium::render_medium;
 use wide::render_wide;
 
@@ -247,11 +247,7 @@ pub fn render_panel(
         }
 
         if show_free {
-            let free_text = if panel.ssh_conn.is_some() {
-                "?".to_string()
-            } else {
-                get_free_space_text(&panel.current_path)
-            };
+            let free_text = free_space_text(panel.free_space);
             footer_lines.push(Line::from(Span::styled(
                 format!(" {} {}", t("label_free"), free_text),
                 Style::default()

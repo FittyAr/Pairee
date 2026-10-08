@@ -90,6 +90,17 @@ impl DialogStack {
     pub fn depth(&self) -> usize {
         self.frames.len()
     }
+
+    /// Opens a sub-dialog that remembers the current top dialog (moved, not
+    /// cloned) so it can be restored later: `build` receives the previous
+    /// popup and returns the new one, which becomes the sole overlay. Does
+    /// nothing when no dialog is open.
+    pub fn open_over(&mut self, build: impl FnOnce(Box<PopupType>) -> PopupType) {
+        if let Some(previous) = self.frames.pop() {
+            self.frames.clear();
+            self.frames.push(build(Box::new(previous)));
+        }
+    }
 }
 
 #[cfg(test)]
@@ -112,5 +123,23 @@ mod tests {
         assert_eq!(stack.depth(), 1);
         stack.clear();
         assert!(stack.is_empty());
+    }
+
+    #[test]
+    fn open_over_moves_previous_into_new_dialog() {
+        let mut stack = DialogStack::new();
+        stack.open_over(|_| PopupType::Info("never".into()));
+        assert!(stack.is_empty(), "no-op without an open dialog");
+
+        stack.replace(PopupType::Info("panel".into()));
+        stack.open_over(|prev| match *prev {
+            PopupType::Info(s) => PopupType::Error(format!("over {s}")),
+            _ => panic!("unexpected previous popup"),
+        });
+        assert_eq!(stack.depth(), 1);
+        match stack.top() {
+            Some(PopupType::Error(s)) => assert_eq!(s, "over panel"),
+            other => panic!("unexpected top: {other:?}"),
+        }
     }
 }

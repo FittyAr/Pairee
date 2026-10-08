@@ -102,51 +102,55 @@ pub fn format_unix_mode(mode: u32) -> String {
 
 #[cfg(unix)]
 fn get_unix_owner_name(uid: u32) -> String {
-    // Map uid -> name by reading /etc/passwd once per process. Without
-    // the cache, every `read_attrs` call (and therefore every visible
-    // file in the panels) re-reads the whole file — that is O(N*M) in
-    // files * passwd lines and adds noticeable latency on panel refresh
-    // for directories with thousands of entries.
+    // /etc/passwd is parsed once per process; unknown uids (and a missing
+    // file) fall back to the numeric id without re-reading anything.
     use std::collections::HashMap;
     use std::sync::OnceLock;
 
-    static PASSWD_CACHE: OnceLock<std::sync::RwLock<HashMap<u32, String>>> = OnceLock::new();
-    let cache = PASSWD_CACHE.get_or_init(|| std::sync::RwLock::new(HashMap::new()));
+    static PASSWD: OnceLock<HashMap<u32, String>> = OnceLock::new();
+    PASSWD
+        .get_or_init(|| {
+            std::fs::read_to_string("/etc/passwd")
+                .map(|content| parse_passwd(&content))
+                .unwrap_or_default()
+        })
+        .get(&uid)
+        .cloned()
+        .unwrap_or_else(|| uid.to_string())
+}
 
-    if let Ok(map) = cache.read()
-        && let Some(name) = map.get(&uid)
-    {
-        return name.clone();
-    }
-
-    if let Ok(content) = std::fs::read_to_string("/etc/passwd") {
-        let mut map = HashMap::new();
-        for line in content.lines() {
-            let mut parts = line.split(':');
-            if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next())
-                && let Ok(parsed_uid) = uid_str.trim().parse::<u32>()
-            {
-                map.entry(parsed_uid).or_insert_with(|| name.to_string());
-            }
+/// `uid -> user name` from passwd(5) content (first entry wins).
+#[cfg(any(unix, test))]
+fn parse_passwd(content: &str) -> std::collections::HashMap<u32, String> {
+    let mut map = std::collections::HashMap::new();
+    for line in content.lines() {
+        let mut parts = line.split(':');
+        if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next())
+            && let Ok(uid) = uid_str.trim().parse::<u32>()
+        {
+            map.entry(uid).or_insert_with(|| name.to_string());
         }
-        let name = map.get(&uid).cloned();
-        // Best-effort write of the freshly-parsed cache. If another
-        // thread raced us we just keep our own map; the read paths
-        // tolerate that.
-        if let Ok(mut writable) = cache.write() {
-            for (k, v) in map {
-                writable.entry(k).or_insert(v);
-            }
-        }
-        name.unwrap_or_else(|| uid.to_string())
-    } else {
-        uid.to_string()
     }
+    map
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn passwd_is_parsed_into_uid_map() {
+        let map = parse_passwd(
+            "root:x:0:0::/root:/bin/sh
+bob:x:1000:1000::/home/bob:/bin/sh
+alias:x:0:0::/:/bin/sh
+#bad
+",
+        );
+        assert_eq!(map.get(&0).map(String::as_str), Some("root"));
+        assert_eq!(map.get(&1000).map(String::as_str), Some("bob"));
+        assert_eq!(map.len(), 2);
+    }
 
     #[test]
     fn test_format_unix_mode() {

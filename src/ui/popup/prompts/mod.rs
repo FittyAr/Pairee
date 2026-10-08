@@ -3,6 +3,7 @@ pub mod file_ops;
 pub mod filter;
 pub mod help;
 pub mod plugin;
+pub mod progress;
 pub mod ssh;
 pub mod system;
 
@@ -50,6 +51,10 @@ pub fn render_prompt_popup(
         | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
 
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
+
+        PopupType::GitProgress { title } => {
+            progress::render_git(f, title, state.git_op.progress(), theme, size)
+        }
 
         _ => false,
     }

@@ -7,7 +7,7 @@ use anyhow::anyhow;
 use std::path::PathBuf;
 use std::time::Instant;
 
-pub async fn run_ssh_delete(
+pub fn run_ssh_delete(
     sources: Vec<PathBuf>,
     ssh: SshEndpoints,
     control: BackendControl,

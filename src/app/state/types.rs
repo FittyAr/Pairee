@@ -6,6 +6,16 @@ pub enum ActivePanel {
     Right,
 }
 
+impl ActivePanel {
+    /// The opposite side.
+    pub fn other(self) -> Self {
+        match self {
+            Self::Left => Self::Right,
+            Self::Right => Self::Left,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
 #[derive(Default)]
@@ -29,6 +39,14 @@ pub enum PanelViewMode {
     FileLinks,
     /// User-configurable columns (Ctrl+9)
     AltFull,
+}
+
+impl PanelViewMode {
+    /// Modes whose columns need per-entry attributes (owner, mode, links),
+    /// which the background listing then reads ahead of rendering.
+    pub fn needs_attrs(self) -> bool {
+        matches!(self, Self::Detailed | Self::FileOwners | Self::FileLinks)
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

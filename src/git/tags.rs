@@ -66,10 +66,14 @@ pub fn delete_tag(repo: &git2::Repository, tag_name: &str) -> anyhow::Result<()>
 }
 
 /// Pushes all tags to the specified remote repository.
-pub fn push_tags(repo: &git2::Repository, remote_name: &str) -> anyhow::Result<()> {
+pub fn push_tags(
+    repo: &git2::Repository,
+    remote_name: &str,
+    observer: crate::git::remote::ProgressObserver<'_>,
+) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(crate::git::remote::create_callbacks());
+    opts.remote_callbacks(crate::git::remote::create_callbacks(observer));
     let tag_names = repo.tag_names(None)?;
     let mut refspecs = Vec::new();
     for name_opt in &tag_names {

@@ -1,10 +1,13 @@
 use super::glob::glob_matches;
+use super::refresh::listing::PanelListing;
 use super::types::{PanelViewMode, SortField};
+use crate::app::jobs::JobSlot;
 use crate::fs::FileEntry;
-use std::collections::HashSet;
+use crate::fs::attrs::FileAttrs;
+use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PanelState {
     /// Absolute directory path currently listed in the panel
     pub current_path: PathBuf,
@@ -36,6 +39,16 @@ pub struct PanelState {
     pub git_branch: Option<String>,
     /// Map of entry filename -> Git status label (e.g. "M", "A", "?", "D")
     pub git_statuses: std::collections::HashMap<String, String>,
+    /// Background listing job (directory read + git status + free space).
+    pub listing: JobSlot<PanelListing>,
+    /// Directory whose contents `entries` currently show.
+    pub listed_path: Option<PathBuf>,
+    /// Entry name to put the cursor on once the pending listing arrives.
+    pub pending_focus: Option<String>,
+    /// Per-entry attributes for detailed views, read with the listing.
+    pub attrs: HashMap<PathBuf, FileAttrs>,
+    /// Free space of the listed volume (local panels only).
+    pub free_space: Option<u64>,
 }
 
 impl PanelState {
@@ -56,7 +69,23 @@ impl PanelState {
             ssh_conn: None,
             git_branch: None,
             git_statuses: std::collections::HashMap::new(),
+            listing: JobSlot::new(),
+            listed_path: None,
+            pending_focus: None,
+            attrs: HashMap::new(),
+            free_space: None,
         }
+    }
+
+    /// Attributes read with the last listing (`None` for remote panels or
+    /// when the view mode did not request them).
+    pub fn entry_attrs(&self, entry: &FileEntry) -> Option<&FileAttrs> {
+        self.attrs.get(&entry.path)
+    }
+
+    /// True while a background reread of this panel is running.
+    pub fn is_loading(&self) -> bool {
+        self.listing.is_running()
     }
 
     /// Moves the cursor index up by one, wrapping at boundaries.

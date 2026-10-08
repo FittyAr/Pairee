@@ -42,13 +42,9 @@ pub struct AppState {
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
-    /// Channel receiver for background SSH connection attempts
-    pub ssh_connect_rx: Option<
-        tokio::sync::oneshot::Receiver<(
-            ActivePanel,
-            anyhow::Result<crate::fs::ssh::SharedSshClient>,
-        )>,
-    >,
+    /// Background SSH connection attempt (target panel, result).
+    pub ssh_connect:
+        crate::app::jobs::JobSlot<(ActivePanel, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     pub plugins: PluginHostState,
@@ -86,8 +82,6 @@ pub struct AppState {
     pub sort_folder_names_by_extension: bool,
     pub show_dotdot_in_root_folders: bool,
     pub disable_panel_update_object_count: u32,
-    pub free_space_left: Option<u64>,
-    pub free_space_right: Option<u64>,
 
     pub current_modifiers: crossterm::event::KeyModifiers,
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
@@ -96,6 +90,15 @@ pub struct AppState {
 
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
+
+    /// Background read of the file opened in the internal viewer.
+    pub viewer_load: crate::app::jobs::JobSlot<crate::ui::viewer::ViewerState>,
+
+    /// Quick-view background loading, debounce and preview cache.
+    pub quick_view: quick_view::QuickViewState,
+
+    /// Background Git network operation (fetch/pull/push/clone).
+    pub git_op: crate::app::git_ops::GitOpState,
 
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
@@ -112,7 +115,7 @@ impl AppState {
             cli_input: String::new(),
             dialogs: DialogStack::new(),
             should_quit: false,
-            ssh_connect_rx: None,
+            ssh_connect: Default::default(),
             search_rx: None,
             plugins: PluginHostState::default(),
             term_tx,
@@ -131,8 +134,6 @@ impl AppState {
             sort_folder_names_by_extension: false,
             show_dotdot_in_root_folders: false,
             disable_panel_update_object_count: 0,
-            free_space_left: None,
-            free_space_right: None,
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
             terminal_needs_clear: false,
@@ -142,6 +143,9 @@ impl AppState {
             is_root,
             // Transfer Engine
             transfer: None,
+            viewer_load: Default::default(),
+            quick_view: Default::default(),
+            git_op: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
         }
     }
@@ -195,7 +199,7 @@ impl AppState {
         panel.cursor_index = 0;
         panel.clear_selection();
         self.push_folders_history(target);
-        self.refresh_both_panels(show_hidden);
+        self.refresh_active_panel(show_hidden);
     }
 
     /// Restores the last saved selection snapshot.

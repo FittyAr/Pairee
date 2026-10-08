@@ -1,4 +1,4 @@
-use crate::app::state::{ActivePanel, AppState, Screen};
+use crate::app::state::AppState;
 
 /// Enters highlighted directory or open files with standard OS handlers.
 pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::AppContext) {
@@ -47,20 +47,27 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
 
     if let Some(path) = open_file_path {
         state.push_file_view_history(path.clone());
-        let viewer = crate::ui::viewer::ViewerState::load_with_images(
-            path,
-            context.config.settings.image_preview_enabled,
-        );
-        state.push_screen(Screen::Viewer(viewer));
+        state.open_viewer(path, context.config.settings.image_preview_enabled, false);
         return;
     }
     if let Some(dir) = target_dir {
         state.push_folders_history(dir.clone());
         let active_mut = state.get_active_panel_mut();
+        // Going up via "..": land on the folder we just left.
+        active_mut.pending_focus = child_name_of(&dir, &active_mut.current_path);
         active_mut.current_path = dir;
         active_mut.cursor_index = 0;
         active_mut.clear_selection();
     }
+}
+
+/// Name of the direct child of `parent` that `child` is (e.g. the folder we
+/// leave when ascending), or `None` when `child` is not directly below it.
+fn child_name_of(parent: &std::path::Path, child: &std::path::Path) -> Option<String> {
+    (child.parent() == Some(parent))
+        .then(|| child.file_name())
+        .flatten()
+        .map(|n| n.to_string_lossy().into_owned())
 }
 
 /// Ascends to parent folder directory.
@@ -71,30 +78,16 @@ pub fn handle_backspace_key(state: &mut AppState, show_hidden: bool) {
         .parent()
         .map(|p| p.to_path_buf());
     if let Some(parent) = parent_path {
-        let current_dir_name = state
-            .get_active_panel()
-            .current_path
-            .file_name()
-            .map(|n| n.to_string_lossy().into_owned())
-            .unwrap_or_default();
-
         state.push_folders_history(parent.clone());
 
-        state.get_active_panel_mut().current_path = parent;
-        state.get_active_panel_mut().clear_selection();
+        let active = state.get_active_panel_mut();
+        // Reposition the cursor on the directory we just exited once the
+        // background listing of the parent arrives.
+        active.pending_focus = child_name_of(&parent, &active.current_path);
+        active.current_path = parent;
+        active.cursor_index = 0;
+        active.clear_selection();
 
-        // Reread folder entries in parent directory
-        state.refresh_both_panels(show_hidden);
-
-        // Reposition cursor on directory we just exited
-        let active_ref = match state.panels.active {
-            ActivePanel::Left => &mut state.panels.left,
-            ActivePanel::Right => &mut state.panels.right,
-        };
-        active_ref.cursor_index = active_ref
-            .entries
-            .iter()
-            .position(|e| e.name == current_dir_name)
-            .unwrap_or(0);
+        state.refresh_active_panel(show_hidden);
     }
 }

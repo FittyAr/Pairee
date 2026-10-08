@@ -47,9 +47,7 @@ pub fn read_directory_ext(
 
     // 1. Add ".." parent directory entry
     //    Always added if a parent exists; or if show_dotdot_in_root_folders is enabled.
-    let has_parent = path.parent().is_some();
-    if has_parent {
-        let parent = path.parent().unwrap();
+    if let Some(parent) = path.parent() {
         entries.push(FileEntry {
             name: "..".to_string(),
             path: parent.to_path_buf(),

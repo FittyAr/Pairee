@@ -44,7 +44,16 @@ impl StatusKind {
 
 /// Reads all changed, staged and untracked files from the repository.
 pub fn get_status(repo: &git2::Repository) -> Vec<GitFileStatus> {
+    get_status_scoped(repo, None)
+}
+
+/// Like [`get_status`], restricted to `pathspec` (repository-relative,
+/// forward slashes; a directory matches everything below it).
+pub fn get_status_scoped(repo: &git2::Repository, pathspec: Option<&str>) -> Vec<GitFileStatus> {
     let mut opts = git2::StatusOptions::new();
+    if let Some(spec) = pathspec {
+        opts.pathspec(spec);
+    }
     opts.include_untracked(true)
         .recurse_untracked_dirs(true)
         .include_ignored(false)

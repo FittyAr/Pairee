@@ -125,19 +125,18 @@ pub fn handle_confirm_action(
                         }
                     }
                     GitConfirmedAction::DeleteRemoteBranch { remote, branch } => {
-                        if let Some(repo) = crate::git::repo::find_repo(&repo_path) {
-                            match crate::git::remote::delete_remote_branch(&repo, &remote, &branch)
-                            {
-                                Ok(_) => {
-                                    restore_previous_and_refresh(state, *previous_popup, &repo_path)
-                                }
-                                Err(e) => state.dialogs.replace(PopupType::Error(format!(
-                                    "{}: {}",
-                                    t("git_error_delete_remote_branch_failed"),
-                                    e
-                                ))),
-                            }
-                        }
+                        // Network push: run in the background with progress.
+                        state.start_git_op(
+                            crate::app::git_ops::GitNetOp::DeleteRemoteBranch {
+                                repo_path: repo_path.clone(),
+                                remote,
+                                branch,
+                            },
+                            crate::app::git_ops::FollowUp::RestorePopup {
+                                previous: previous_popup,
+                                repo_path,
+                            },
+                        );
                     }
                     GitConfirmedAction::DeleteRemote(name) => {
                         if let Some(repo) = crate::git::repo::find_repo(&repo_path) {

@@ -23,7 +23,7 @@ pub struct TransferJob {
     pub is_paused: Arc<std::sync::atomic::AtomicBool>,
     pub is_cancelled: Arc<std::sync::atomic::AtomicBool>,
     pub skip_file_flag: Arc<std::sync::atomic::AtomicBool>,
-    pub active_conflict: Arc<std::sync::Mutex<Option<super::conflict::ConflictResolution>>>,
+    pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
     /// When `Some`, the engine runs the SSH backend instead of the local worker.
     pub ssh: Option<SshEndpoints>,
     /// Shell command template for [`TransferOperation::ApplyCommand`] (`%f` = path).
@@ -50,7 +50,7 @@ impl TransferJob {
             is_paused: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             is_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
-            active_conflict: Arc::new(std::sync::Mutex::new(None)),
+            active_conflict: Arc::default(),
             ssh: None,
             shell_template: None,
         }
@@ -66,6 +66,13 @@ impl TransferJob {
     pub fn with_shell_template(mut self, template: impl Into<String>) -> Self {
         self.shell_template = Some(template.into());
         self
+    }
+
+    /// Requests cancellation and wakes a worker blocked on a conflict prompt.
+    pub fn cancel(&self) {
+        self.is_cancelled
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.active_conflict.wake();
     }
 
     pub fn is_active(&self) -> bool {

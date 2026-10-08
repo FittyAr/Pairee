@@ -1,14 +1,12 @@
 //! Local filesystem transfer backend (delegates to [`TransferWorker`]).
 
-use super::super::events::TransferEvent;
 use super::super::job::{TransferJob, TransferResults};
 use super::super::worker::TransferWorker;
 use std::sync::Arc;
-use tokio::sync::mpsc;
 
 pub async fn run_local_job(
     job: TransferJob,
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    event_tx: crate::fs::transfer::events::EventSender,
 ) -> Result<TransferResults, anyhow::Error> {
     debug_assert!(
         job.operation.uses_local_worker(),

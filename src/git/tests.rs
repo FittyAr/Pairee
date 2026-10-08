@@ -514,7 +514,7 @@ fn test_remote_push_upstream_and_delete_branch() {
     add_remote(&repo, "test-remote", &bare_path).unwrap();
 
     // Push default branch with upstream
-    push(&repo, "test-remote", &default_branch, true).unwrap();
+    push(&repo, "test-remote", &default_branch, true, None).unwrap();
 
     let local_head_branch = repo
         .find_branch(&default_branch, git2::BranchType::Local)
@@ -527,7 +527,7 @@ fn test_remote_push_upstream_and_delete_branch() {
 
     // Create a new branch, push it, and then delete it remotely
     create_branch(&repo, "feat-to-delete", "HEAD").unwrap();
-    push(&repo, "test-remote", "feat-to-delete", true).unwrap();
+    push(&repo, "test-remote", "feat-to-delete", true, None).unwrap();
 
     // Remote bare repo must have the branch
     assert!(
@@ -537,7 +537,7 @@ fn test_remote_push_upstream_and_delete_branch() {
     );
 
     // Delete remote branch
-    delete_remote_branch(&repo, "test-remote", "feat-to-delete").unwrap();
+    delete_remote_branch(&repo, "test-remote", "feat-to-delete", None).unwrap();
 
     // Verify remote bare repo no longer has the branch
     assert!(
@@ -764,7 +764,7 @@ fn test_branches_ahead_behind() {
     let _remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
 
     add_remote(&repo, "origin", &bare_path).unwrap();
-    push(&repo, "origin", &default_branch, true).unwrap();
+    push(&repo, "origin", &default_branch, true, None).unwrap();
 
     // Initially ahead = 0, behind = 0
     let branches = get_branches(&repo);
@@ -836,10 +836,10 @@ fn test_push_tags() {
     let remote_repo = git2::Repository::init_bare(remote_dir.path()).unwrap();
 
     add_remote(&repo, "origin", &bare_path).unwrap();
-    push(&repo, "origin", &default_branch, true).unwrap();
+    push(&repo, "origin", &default_branch, true, None).unwrap();
 
     create_tag(&repo, "v1.5.0", "HEAD", None).unwrap();
-    push_tags(&repo, "origin").unwrap();
+    push_tags(&repo, "origin", None).unwrap();
 
     // Verify remote bare repository received the tag
     assert!(remote_repo.find_reference("refs/tags/v1.5.0").is_ok());
@@ -873,7 +873,7 @@ fn test_clone_repo() {
     let clone_target_path = target_dir.path().join("cloned_sub");
     let src_url = dir.path().to_str().unwrap().replace('\\', "/");
 
-    let cloned_repo = clone_repo(&src_url, &clone_target_path).unwrap();
+    let cloned_repo = clone_repo(&src_url, &clone_target_path, None).unwrap();
     assert!(clone_target_path.join("cloned_file.txt").exists());
 
     let content = std::fs::read_to_string(clone_target_path.join("cloned_file.txt")).unwrap();

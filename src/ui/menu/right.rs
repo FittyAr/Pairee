@@ -89,7 +89,8 @@ pub fn get_items(
 
     if settings.git_enabled {
         items.push(MenuItemData::separator());
-        if crate::git::repo::find_repo(&state.panels.right.current_path).is_some() {
+        // Repo detection is cached by the background listing (no I/O while drawing).
+        if state.panels.right.git_branch.is_some() {
             items.push(
                 MenuItemData::new(
                     t("menu_git"),

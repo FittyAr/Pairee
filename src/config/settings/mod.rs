@@ -10,8 +10,9 @@ pub mod types;
 pub use confirmations::ConfirmationSettings;
 pub use types::{
     PluginConfig, SshPreset, default_git_log_limit, default_plugins_dev_dir,
-    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
-    default_transfer_max_retries, default_transfer_report_format, default_true,
+    default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
+    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
+    default_true,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -200,6 +201,9 @@ pub struct Settings {
     /// SSH/SFTP connect UI and actions
     #[serde(default = "default_true")]
     pub ssh_enabled: bool,
+    /// Timeout in seconds for blocking SSH/SFTP calls (0 = no limit)
+    #[serde(default = "default_ssh_timeout_secs")]
+    pub ssh_timeout_secs: u64,
     /// Load and run Lua plugins
     #[serde(default = "default_true")]
     pub plugins_enabled: bool,

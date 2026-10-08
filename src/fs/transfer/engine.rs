@@ -9,13 +9,13 @@ use super::queue::TransferQueue;
 
 pub struct TransferEngine {
     pub queue: TransferQueue,
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
+    event_tx: crate::fs::transfer::events::EventSender,
     active_coordinator_handle: Option<JoinHandle<()>>,
 }
 
 impl TransferEngine {
     pub fn new() -> (Self, mpsc::UnboundedReceiver<TransferEvent>) {
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
+        let (event_tx, event_rx) = crate::fs::transfer::events::EventSender::channel();
         let engine = Self {
             queue: TransferQueue::new(),
             event_tx,

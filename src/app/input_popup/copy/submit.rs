@@ -111,10 +111,9 @@ pub fn move_horizontal(idx: usize, left: bool) -> usize {
 
 pub fn open_tree_view(state: &mut AppState, dest_dir: &std::path::Path) {
     let nodes = crate::app::sys_helpers::build_tree_nodes(dest_dir, 0, 3);
-    let previous = Box::new(state.dialogs.take().unwrap());
     state
         .dialogs
-        .replace(crate::app::state::PopupType::TreeView {
+        .open_over(|previous| crate::app::state::PopupType::TreeView {
             nodes,
             cursor_idx: 0,
             caller: crate::app::state::types::TreeViewCaller::CopyPrompt { previous },

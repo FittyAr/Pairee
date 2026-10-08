@@ -13,7 +13,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::time::Instant;
 
-pub async fn run_ssh_copy_move(
+pub fn run_ssh_copy_move(
     sources: Vec<PathBuf>,
     destination_dir: PathBuf,
     ssh: SshEndpoints,
@@ -32,7 +32,7 @@ pub async fn run_ssh_copy_move(
         && let (Some(src_client), Some(dst_client)) = (&src_conn, &dst_conn)
         && src_client.is_same_server(dst_client)
     {
-        return fast_remote_rename(sources, destination_dir, src_client, &dst_conn, control).await;
+        return fast_remote_rename(sources, destination_dir, src_client, &dst_conn, control);
     }
 
     let scan::ScanOutput {
@@ -82,22 +82,14 @@ pub async fn run_ssh_copy_move(
 
         let copy_res = (|| -> anyhow::Result<()> {
             let mut reader: Box<dyn Read + Send> = if let Some(src_conn) = &src_conn {
-                let client = src_conn
-                    .0
-                    .lock()
-                    .map_err(|_| anyhow!(t("error_mutex_poisoned")))?;
-                let file = client.sftp.open(src)?;
+                let file = src_conn.lock().sftp.open(src)?;
                 Box::new(file)
             } else {
                 Box::new(std::fs::File::open(src)?)
             };
 
             let mut writer: Box<dyn Write + Send> = if let Some(dst_conn) = &dst_conn {
-                let client = dst_conn
-                    .0
-                    .lock()
-                    .map_err(|_| anyhow!(t("error_mutex_poisoned")))?;
-                let file = client.sftp.create(dst)?;
+                let file = dst_conn.lock().sftp.create(dst)?;
                 Box::new(file)
             } else {
                 if let Some(parent) = dst.parent() {

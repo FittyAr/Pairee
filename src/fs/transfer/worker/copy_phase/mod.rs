@@ -9,7 +9,6 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::super::events::TransferEvent;
@@ -35,10 +34,8 @@ pub(super) async fn run_copy_phase(
     is_paused: Arc<AtomicBool>,
     is_cancelled: Arc<AtomicBool>,
     skip_file_flag: Arc<AtomicBool>,
-    event_tx: mpsc::UnboundedSender<TransferEvent>,
-    active_conflict: Arc<
-        std::sync::Mutex<Option<crate::fs::transfer::conflict::ConflictResolution>>,
-    >,
+    event_tx: crate::fs::transfer::events::EventSender,
+    active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 ) -> Result<TransferResults, anyhow::Error> {
     let mut auto_resolution = None;
     let mut results = TransferResults::default();

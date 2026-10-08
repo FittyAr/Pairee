@@ -17,7 +17,7 @@ pub async fn copy_file_pipelined(
     src: &Path,
     dst: &Path,
     options: &TransferOptions,
-    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    event_tx: &crate::fs::transfer::events::EventSender,
     job_id: Uuid,
     is_paused: Arc<AtomicBool>,
     is_cancelled: Arc<AtomicBool>,

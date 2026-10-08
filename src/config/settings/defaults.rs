@@ -1,4 +1,4 @@
-use super::{ConfirmationSettings, Settings, default_plugins_dev_dir};
+use super::{ConfirmationSettings, Settings, default_plugins_dev_dir, default_ssh_timeout_secs};
 use crate::app::state::{PanelViewMode, SortField};
 
 impl Default for Settings {
@@ -163,6 +163,7 @@ impl Default for Settings {
             // Git integration
             git_enabled: true,
             ssh_enabled: true,
+            ssh_timeout_secs: default_ssh_timeout_secs(),
             plugins_enabled: true,
             image_preview_enabled: true,
             git_auto_detect: true,

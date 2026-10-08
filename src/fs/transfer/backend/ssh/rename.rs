@@ -7,29 +7,16 @@ use super::super::BackendControl;
 use crate::config::localization::t;
 use crate::fs::ssh::SharedSshClient;
 use anyhow::anyhow;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
-pub async fn fast_remote_rename(
+pub fn fast_remote_rename(
     sources: Vec<PathBuf>,
     destination_dir: PathBuf,
     src_client: &SharedSshClient,
     dst_conn: &Option<SharedSshClient>,
     control: BackendControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    let is_dir_for_conn = |path: &Path, conn: &Option<SharedSshClient>| -> bool {
-        if let Some(client) = conn {
-            if let Ok(c) = client.0.lock()
-                && let Ok(stat) = c.sftp.stat(path)
-            {
-                return stat.is_dir();
-            }
-            false
-        } else {
-            path.is_dir()
-        }
-    };
-
     let total_files = sources.len();
     let _ = control.event_tx.send(TransferEvent::ScanComplete {
         job_id: control.job_id,
@@ -47,7 +34,7 @@ pub async fn fast_remote_rename(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
         let dst = if is_destination_parent_dir(&sources, &destination_dir, |p| {
-            is_dir_for_conn(p, dst_conn)
+            crate::fs::ssh::is_dir_on(p, dst_conn)
         }) {
             destination_dir.join(&name)
         } else {

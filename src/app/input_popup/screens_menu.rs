@@ -56,18 +56,11 @@ pub fn handle(
                         {
                             let lines = ts.output_lines.clone();
                             let raw = ts.output_lines.join("\n").into_bytes();
-                            let vw = crate::ui::viewer::ViewerState {
-                                path: std::path::PathBuf::from(format!("Terminal: {}", ts.command)),
+                            let mut vw = crate::ui::viewer::ViewerState::from_text(
+                                std::path::PathBuf::from(format!("Terminal: {}", ts.command)),
                                 lines,
-                                raw,
-                                image_data: None,
-                                is_image: false,
-                                is_text: true,
-                                mode: crate::ui::viewer::ViewerMode::Text,
-                                scroll: 0,
-                                last_search: None,
-                                last_case_sensitive: false,
-                            };
+                            );
+                            vw.raw = raw;
                             state.push_screen(Screen::Viewer(vw));
                             state.dialogs.clear();
                             return Ok(None);

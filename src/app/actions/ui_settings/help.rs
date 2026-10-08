@@ -43,7 +43,7 @@ pub async fn open_help(state: &mut AppState) {
 
     let lang_code = crate::config::localization::get_active_language_code();
     let mut help_dir = resolve_help_dir().map(|r| r.join(&lang_code));
-    if help_dir.is_none() || !help_dir.as_ref().unwrap().exists() {
+    if !help_dir.as_ref().is_some_and(|d| d.exists()) {
         help_dir = resolve_help_dir().map(|r| r.join("en"));
     }
 

@@ -2,7 +2,6 @@ use anyhow::anyhow;
 use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
-use tokio::sync::mpsc;
 use uuid::Uuid;
 
 use super::super::events::TransferEvent;
@@ -29,7 +28,7 @@ pub(super) fn scan(
     options: &TransferOptions,
     job_id: Uuid,
     is_cancelled: &AtomicBool,
-    event_tx: &mpsc::UnboundedSender<TransferEvent>,
+    event_tx: &crate::fs::transfer::events::EventSender,
 ) -> Result<ScanOutcome, anyhow::Error> {
     let _ = event_tx.send(TransferEvent::ScanProgress {
         job_id,

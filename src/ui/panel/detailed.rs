@@ -1,3 +1,4 @@
+use super::helpers::visible_slice;
 use crate::app::context::AppContext;
 use crate::app::state::PanelState;
 use crate::config::localization::t;
@@ -31,7 +32,7 @@ pub(crate) fn render_detailed(
     let height = area.height.saturating_sub(header_offset) as usize;
     let (start, end) = visible_range(panel, height);
 
-    let rows: Vec<Row> = panel.entries[start..end]
+    let rows: Vec<Row> = visible_slice(panel, start, end)
         .iter()
         .enumerate()
         .map(|(rel, entry)| {
@@ -60,12 +61,9 @@ pub(crate) fn render_detailed(
                 is_dimmed,
                 git_status,
             );
-            let (perm_str, owner) = if panel.ssh_conn.is_some() {
-                ("?????????".to_string(), "?".to_string())
-            } else if let Ok(attrs) = crate::fs::attrs::read_attrs(&entry.path) {
-                (format_unix_mode(attrs.mode), attrs.owner)
-            } else {
-                ("?????????".to_string(), "?".to_string())
+            let (perm_str, owner) = match panel.entry_attrs(entry) {
+                Some(attrs) => (format_unix_mode(attrs.mode), attrs.owner.clone()),
+                None => ("?????????".to_string(), "?".to_string()),
             };
             let name_width = ((area.width.saturating_sub(2) as usize) * 40 / 100).max(8);
             Row::new(vec![
