@@ -6,6 +6,10 @@ use std::path::PathBuf;
 /// Linux: ~/.config/pairee
 /// Windows: %APPDATA%\pairee\config
 pub fn get_config_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(root) = test_root::current() {
+        return root.join("config");
+    }
     #[cfg(target_os = "windows")]
     {
         if let Ok(appdata) = std::env::var("APPDATA") {
@@ -26,6 +30,10 @@ pub fn get_config_dir() -> PathBuf {
 /// Linux: ~/.cache/pairee
 /// Windows: %APPDATA%\pairee\cache
 pub fn get_cache_dir() -> PathBuf {
+    #[cfg(test)]
+    if let Some(root) = test_root::current() {
+        return root.join("cache");
+    }
     #[cfg(target_os = "windows")]
     {
         if let Ok(appdata) = std::env::var("APPDATA") {
@@ -47,6 +55,10 @@ pub fn get_cache_dir() -> PathBuf {
 /// Linux: ~/.local/share/pairee/plugin-data/<name>
 /// Windows: %APPDATA%\pairee\plugin-data\<name>
 pub fn get_plugin_data_dir(plugin_name: &str) -> PathBuf {
+    #[cfg(test)]
+    if let Some(root) = test_root::current() {
+        return root.join("plugin-data").join(plugin_name);
+    }
     #[cfg(target_os = "windows")]
     let base = std::env::var("APPDATA")
         .map(|appdata| PathBuf::from(appdata).join("pairee"))
@@ -101,4 +113,40 @@ pub fn get_system_share_dir() -> Option<PathBuf> {
         }
     }
     None
+}
+
+/// Unit tests never read or write the user's real configuration: every
+/// per-user directory lives under a temporary root. A test (the TUI test
+/// harness) may point its own thread at a private sandbox with
+/// [`test_root::redirect`]; every other thread shares one scratch root.
+#[cfg(test)]
+pub mod test_root {
+    use std::cell::RefCell;
+    use std::path::{Path, PathBuf};
+
+    thread_local! {
+        static ROOT: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+    }
+
+    /// The root this thread's per-user directories live under (always set
+    /// in tests; an `Option` so the callers fall through in other builds).
+    pub fn current() -> Option<PathBuf> {
+        let redirected = ROOT.with(|root| root.borrow().clone());
+        Some(redirected.unwrap_or_else(|| std::env::temp_dir().join("pairee-unit-tests")))
+    }
+
+    /// Restores the previous root of this thread when dropped.
+    pub struct Redirect(Option<PathBuf>);
+
+    /// Points this thread's per-user directories at `root`.
+    pub fn redirect(root: &Path) -> Redirect {
+        Redirect(ROOT.with(|cell| cell.replace(Some(root.to_path_buf()))))
+    }
+
+    impl Drop for Redirect {
+        fn drop(&mut self) {
+            let previous = self.0.take();
+            ROOT.with(|cell| *cell.borrow_mut() = previous);
+        }
+    }
 }

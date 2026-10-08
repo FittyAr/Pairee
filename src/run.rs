@@ -235,7 +235,10 @@ pub async fn run() -> Result<()> {
 
 /// Hands the focused panel's folder to a shell wrapper (`--cwd-file`,
 /// `--print-cwd`) once the terminal is restored.
-fn report_exit_dir(launch: &crate::launch_args::LaunchArgs, dir: Option<&std::path::Path>) {
+pub(crate) fn report_exit_dir(
+    launch: &crate::launch_args::LaunchArgs,
+    dir: Option<&std::path::Path>,
+) {
     if let Some(file) = &launch.cwd_file
         && let Err(e) = app::session::cwd::write_cwd_file(file, dir)
     {
@@ -251,7 +254,10 @@ fn report_exit_dir(launch: &crate::launch_args::LaunchArgs, dir: Option<&std::pa
 /// The state at startup: sorting and panel options from the settings, then
 /// the panels of `app::session::start` (setup defaults, last session,
 /// command-line folders) with any notices queued for display.
-fn initial_state(settings: &config::settings::Settings, cli_paths: &[PathBuf]) -> app::AppState {
+pub(crate) fn initial_state(
+    settings: &config::settings::Settings,
+    cli_paths: &[PathBuf],
+) -> app::AppState {
     let current_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let right_dir = current_dir
         .parent()
