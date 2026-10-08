@@ -74,6 +74,7 @@ prev_screen     = "Ctrl+Shift+Tab"
 compress_files      = "Shift+F1"
 extract_archive     = "Shift+F2"
 archive_commands    = "Shift+F3"
+multi_rename_tool   = "Shift+F6"
 save_setup          = "Shift+F9"
 
 # ── Alt+F actions ─────────────────────────────────────────────────────────────

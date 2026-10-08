@@ -11,6 +11,7 @@ pub mod folder_size;
 pub mod helper;
 pub mod link;
 pub mod mkdir;
+pub mod multi_rename;
 pub mod rename;
 pub mod transfer;
 pub mod view;
@@ -35,6 +36,7 @@ pub fn handle_fs_action(
         Action::CopyPath => copy_path::handle(state),
         Action::Move => transfer::handle(state, context, TransferPromptOp::Move),
         Action::Rename => rename::handle(state, context),
+        Action::MultiRename => multi_rename::handle(state),
         Action::CompressFiles => compress::handle(state, context),
         Action::ExtractArchive => extract::handle(state),
         Action::MkDir => mkdir::handle(state),

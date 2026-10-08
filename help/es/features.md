@@ -47,6 +47,15 @@ Las operaciones de archivo en Pairee son asíncronas, procesándose en una cola 
   - *Copy link:* Copia la referencia del enlace simbólico.
   - *Copy target:* Resuelve el symlink y copia el contenido físico original.
 
+### 2.2.1 Renombrado múltiple
+Pulsa `Shift+F6` (o **Archivos → Renombrado múltiple**) para renombrar de una vez todos los elementos seleccionados (o el que está bajo el cursor). El diálogo muestra una tabla de vista previa (nombre actual, nombre nuevo, estado) que se actualiza mientras escribes; no se renombra nada hasta pulsar **Renombrar**.
+* **Máscaras de nombre y extensión:** `[N]` nombre sin extensión, `[N2-5]` caracteres 2 a 5, `[N3]` el 3.er carácter, `[N2-]` del 2.º al final, `[N2,3]` 3 caracteres desde el 2.º, `[E]` extensión (mismos rangos), `[P]` nombre de la carpeta, `[C]` contador, `[Y]` `[M]` `[D]` `[h]` `[m]` `[s]` fecha y hora de modificación. El resto del texto se copia tal cual; una máscara de extensión vacía elimina el punto.
+* **Contador:** valor inicial, paso (puede ser negativo) y número mínimo de dígitos (relleno con ceros).
+* **Buscar y reemplazar:** se aplica al nombre nuevo completo; texto literal por defecto o expresión regular (`$1`, `${nombre}` en el reemplazo) si se marca *Expresión regular*. *Ignorar mayúsculas* sirve para ambos.
+* **Mayúsculas:** sin cambios, minúsculas, MAYÚSCULAS o Tipo Título, aplicado al final.
+* **Detección de conflictos:** las filas con nombre vacío, caracteres que el sistema de archivos no admite (`<>:"/\|?*`, nombres reservados como `CON` en Windows), nombres duplicados o nombres de otros archivos de la carpeta se muestran en rojo y **Renombrar** queda desactivado hasta corregirlos.
+* **Ejecución segura:** los renombrados se ordenan para no sobrescribir ningún archivo; los intercambios y ciclos (`a → b`, `b → a`) pasan por un nombre temporal. Si un renombrado falla, se deshacen los ya hechos. Funciona en paneles locales y SSH/SFTP.
+
 ### 2.3 Borrado Seguro (Wipe) y Eliminación
 * **Eliminación Normal:** Mueve archivos/carpetas a la papelera del sistema o los borra permanentemente según tu configuración.
 * **Borrado Seguro (Wipe):** Sobrescribe los bloques de datos con bytes aleatorios antes de eliminar el archivo físicamente, impidiendo su recuperación mediante herramientas de análisis forense.

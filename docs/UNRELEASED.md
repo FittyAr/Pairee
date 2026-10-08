@@ -2,6 +2,7 @@
 
 ### Added
 
+- Multi-rename tool (`Shift+F6`, **Files → Multi-Rename**) for the selected items: name and extension masks with `[N]`, `[N2-5]`, `[E]`, `[P]`, `[C]` (start, step, digits) and `[Y][M][D][h][m][s]` placeholders, search & replace (plain or regular expression, optional case-insensitive), case transform, and a live old → new preview that flags empty, invalid, duplicate and already-existing names. Renames are ordered so nothing is overwritten (swaps go through a temporary name) and are undone if one fails. Works on local and SSH panels.
 - Folder shortcuts can now be assigned: **Commands → Folder shortcuts** lists slots `Ctrl+Alt+1` … `Ctrl+Alt+9`; `Ins`/`Space` (or the slot digit) assigns the current folder and `Del` clears it. Shortcuts are saved in `bookmarks.toml` in the config folder.
 - The directory hotlist (`Ctrl+\`, also **Commands → Directory hotlist**) is now persistent: `Ins`/`+` adds the current folder, `Del`/`-` removes an entry. Default entries are localized.
 - `Alt+G` now opens the Git panel in every built-in keymap, as the menu already advertised.

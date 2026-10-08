@@ -6,6 +6,7 @@ mod file_ops;
 pub mod forms;
 mod git_panel;
 mod git_prompts;
+mod multi_rename;
 mod paste;
 mod plugin;
 mod plugin_menu;
@@ -22,6 +23,7 @@ pub use git_prompts::{
     GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
     GitRemoteManageState,
 };
+pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
@@ -67,6 +69,8 @@ pub enum PopupType {
         parent_dir: PathBuf,
         cursor_idx: usize,
     },
+    /// Multi-rename tool (Shift+F6).
+    MultiRename(Box<MultiRenameState>),
     ConfirmQuit,
     ConfirmInterrupt,
     ConfirmReload,
