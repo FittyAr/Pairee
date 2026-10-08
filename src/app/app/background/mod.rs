@@ -16,6 +16,7 @@ pub fn process_background_updates(
     state.poll_quick_view();
     state.poll_viewer_load();
     crate::app::git_ops::poll_git_op(state);
+    crate::app::sync::poll_folder_scan(state);
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);
     channels::process_search_updates(state);

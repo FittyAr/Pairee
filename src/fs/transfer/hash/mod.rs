@@ -24,3 +24,29 @@ pub fn create_hasher(algorithm: HashAlgorithm) -> Box<dyn HashStrategy> {
         HashAlgorithm::Blake3 => Box::new(blake3::Blake3Hasher::new()),
     }
 }
+
+/// Block size for [`hash_file`].
+const HASH_BLOCK: usize = 256 * 1024;
+
+/// Hashes the file at `path`. `cancelled` is polled between blocks; a
+/// cancelled run fails with [`std::io::ErrorKind::Interrupted`].
+pub fn hash_file(
+    path: &std::path::Path,
+    algorithm: HashAlgorithm,
+    cancelled: &dyn Fn() -> bool,
+) -> std::io::Result<String> {
+    use std::io::Read;
+    let mut file = std::fs::File::open(path)?;
+    let mut hasher = create_hasher(algorithm);
+    let mut buf = vec![0u8; HASH_BLOCK];
+    loop {
+        if cancelled() {
+            return Err(std::io::ErrorKind::Interrupted.into());
+        }
+        let n = file.read(&mut buf)?;
+        if n == 0 {
+            return Ok(hasher.finalize());
+        }
+        hasher.update(&buf[..n]);
+    }
+}

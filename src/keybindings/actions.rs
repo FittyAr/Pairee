@@ -160,6 +160,8 @@ pub enum Action {
     // ── Commands ─────────────────────────────────────────────────────────────
     /// Compare contents of left and right panels (Commands menu)
     CompareFolder,
+    /// Synchronize the left and right panel folders (Commands menu)
+    SyncDirs,
     /// Open user menu editor (Commands menu)
     EditUserMenu,
     /// Open file associations editor (Commands menu)

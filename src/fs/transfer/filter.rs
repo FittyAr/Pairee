@@ -57,6 +57,15 @@ impl TransferFilter {
         Self { rules }
     }
 
+    /// True when an exclusion (`!pattern`) matches `name`. Folders are only
+    /// filtered by exclusions (include patterns and size/date rules apply to
+    /// files).
+    pub fn excludes(&self, name: &str) -> bool {
+        self.rules
+            .iter()
+            .any(|rule| matches!(rule, FilterRule::ExcludeGlob(pat) if glob_matches(pat, name)))
+    }
+
     /// Comprueba si un archivo cumple las reglas del filtro.
     pub fn matches(&self, path: &Path, file_size: u64) -> bool {
         if self.rules.is_empty() {
@@ -64,6 +73,9 @@ impl TransferFilter {
         }
 
         let file_name = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
+        if self.excludes(file_name) {
+            return false;
+        }
 
         let mut has_include_glob = false;
         let mut glob_matched = false;
@@ -77,11 +89,7 @@ impl TransferFilter {
                         glob_matched = true;
                     }
                 }
-                FilterRule::ExcludeGlob(pat) => {
-                    if glob_matches(pat, file_name) {
-                        return false; // Exclusión directa
-                    }
-                }
+                FilterRule::ExcludeGlob(_) => {} // checked by `excludes` above
                 FilterRule::SizeMin(min_size) => {
                     if file_size < *min_size {
                         return false;

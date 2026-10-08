@@ -128,7 +128,7 @@ pub fn read_directory_ext(path: &Path, opts: &ListOptions) -> Result<Vec<FileEnt
 }
 
 /// Dot-files are hidden everywhere; on Windows the hidden attribute counts too.
-fn is_hidden(name: &str, metadata: Option<&fs::Metadata>) -> bool {
+pub(crate) fn is_hidden(name: &str, metadata: Option<&fs::Metadata>) -> bool {
     if name.starts_with('.') {
         return true;
     }

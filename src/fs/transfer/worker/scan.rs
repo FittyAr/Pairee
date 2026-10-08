@@ -100,6 +100,9 @@ pub(super) fn scan(
                     }
 
                     if path.is_dir() {
+                        if filter.excludes(&entry.file_name().to_string_lossy()) {
+                            continue;
+                        }
                         dirs_to_visit.push_back(path.clone());
                         if operation == TransferOperation::Delete
                             || operation == TransferOperation::Move

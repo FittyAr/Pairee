@@ -3,7 +3,7 @@
 use super::key::name_key;
 use std::collections::BTreeMap;
 use std::fs::Metadata;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
 /// Size, modification time and kind of one entry.
@@ -28,6 +28,9 @@ impl FileSummary {
 #[derive(Debug, Clone)]
 pub struct ScannedEntry {
     pub name: String,
+    pub path: PathBuf,
+    /// The entry is a symbolic link (folders behind links are not entered).
+    pub is_symlink: bool,
     pub summary: FileSummary,
 }
 
@@ -48,6 +51,8 @@ pub fn scan_directory(
         };
         let scanned = ScannedEntry {
             name: entry.file_name().to_string_lossy().into_owned(),
+            path: entry.path(),
+            is_symlink: entry.file_type().is_ok_and(|t| t.is_symlink()),
             summary: FileSummary::from_metadata(&meta),
         };
         if keep(&scanned, &meta) {

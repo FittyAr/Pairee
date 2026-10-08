@@ -142,6 +142,7 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Files,
     ),
+    d("sync_dirs", Action::SyncDirs, true, ActionCategory::Files),
     d("task_list", Action::TaskList, true, ActionCategory::System),
     d("tree_view", Action::TreeView, true, ActionCategory::View),
     d(

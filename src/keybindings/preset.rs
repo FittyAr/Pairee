@@ -109,6 +109,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "file_view_history" => Some(Action::FileViewHistory),
         "folders_history" => Some(Action::FoldersHistory),
         "compare_folder" => Some(Action::CompareFolder),
+        "sync_dirs" => Some(Action::SyncDirs),
         "edit_user_menu" => Some(Action::EditUserMenu),
         "file_associations" => Some(Action::FileAssociations),
         "folder_shortcuts_config" => Some(Action::FolderShortcutsConfig),

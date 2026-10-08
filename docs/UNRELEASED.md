@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Commands → Synchronize folders** (Total Commander "Synchronize dirs"): compares both panel folders recursively in the background (size and modification time with the configurable tolerance, optionally file contents with the transfer hash algorithm; filter mask with include/exclude globs; hidden files can be ignored), lists every difference with an action per item (copy →, copy ←, delete, skip) and totals of files and bytes, and applies the plan as Transfer Engine copy/delete jobs. Directions: left → right, right → left, both ways (newer wins) and mirror (deletes extras on the right, after an explicit confirmation).
 - Folder shortcuts can now be assigned: **Commands → Folder shortcuts** lists slots `Ctrl+Alt+1` … `Ctrl+Alt+9`; `Ins`/`Space` (or the slot digit) assigns the current folder and `Del` clears it. Shortcuts are saved in `bookmarks.toml` in the config folder.
 - The directory hotlist (`Ctrl+\`, also **Commands → Directory hotlist**) is now persistent: `Ins`/`+` adds the current folder, `Del`/`-` removes an entry. Default entries are localized.
 - `Alt+G` now opens the Git panel in every built-in keymap, as the menu already advertised.
@@ -27,6 +28,7 @@
 
 ### Improved
 
+- **Commands → Compare folders** is now recursive (a folder on both sides is reported as different when anything inside differs) and runs in the background with a progress popup; `Esc` cancels it.
 - The Screens menu and the development-plugin picker now use the theme's selection colors, like the other list popups.
 - Text fields in dialogs (make folder, rename, copy/move destination, compress, apply command, describe, link, filters, select group) now share one input box: the cursor can be moved with Left/Right/Home/End, Delete removes the character under it, `Ctrl+V` pastes from the clipboard, and non-ASCII text is edited by whole characters.
 - Panels are now read in the background: the directory listing, SFTP listing, Git status and free space no longer block the interface, the panel title shows "⟳ Loading…" while a read is in progress, and the cursor and selection are kept when the new listing arrives. Entering a directory rereads only that panel, and Git status is computed only for the listed directory instead of the whole repository.
@@ -47,6 +49,7 @@
 - Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- Copy/move filter masks: an exclusion such as `!target` now also skips folders with that name (it only applied to files, so excluded folders were still copied in full).
 - Folder compare: files copied to or from FAT/exFAT drives were reported as "Different" because the modification-time tolerance was 1 second; it is now 2 seconds and configurable with `compare_mtime_tolerance_secs` in `config.toml`. On Windows and macOS names are matched ignoring case (`README.txt` and `readme.txt` are the same file there), and comparing a remote (SSH) panel now shows a clear message instead of reading a local path with the same name.
 - Configuration dialog: editing the plugin developer folder now shows the text being typed (it kept showing the old path), and text fields there support cursor movement and paste like other dialogs.
 - Search highlighting in the viewer and editor no longer misaligns (or can panic) on lines containing characters whose lowercase form is longer, such as 'İ'.

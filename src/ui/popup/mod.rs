@@ -15,6 +15,7 @@ pub mod onboarding;
 pub mod plugin_menu;
 pub mod prompts;
 pub mod screens_menu;
+pub mod sync_dirs;
 pub mod update;
 pub mod viewer;
 pub mod which_key;
@@ -80,6 +81,9 @@ fn render_specific_popup(
         return;
     }
     if viewer::render_viewer_popup(f, popup, theme, size) {
+        return;
+    }
+    if sync_dirs::render(f, popup, state, theme, size) {
         return;
     }
     if history_lists::render_history_lists_popup(f, popup, theme, size, Some(&state.scrollbar)) {

@@ -1,85 +1,75 @@
 use super::key::name_key;
-use super::summary::mtime_within;
 use super::*;
-use std::path::PathBuf;
+use std::path::Path;
 use std::time::{Duration, SystemTime};
 
-fn write_file(dir: &Path, name: &str, content: &[u8]) -> PathBuf {
+fn write_file(dir: &Path, name: &str, content: &[u8], time: SystemTime) {
     let path = dir.join(name);
     std::fs::write(&path, content).unwrap();
-    path
+    filetime::set_file_mtime(&path, filetime::FileTime::from_system_time(time)).unwrap();
 }
 
-fn set_mtime(path: &Path, time: SystemTime) {
-    filetime::set_file_mtime(path, filetime::FileTime::from_system_time(time)).unwrap();
+fn pairs(left: &Path, right: &Path, case_insensitive: bool) -> Vec<EntryPair> {
+    let scan = |dir| scan_directory(dir, case_insensitive, |_, _| true).unwrap();
+    pair_entries(scan(left), scan(right))
 }
 
-fn status_of<'a>(results: &'a [CompareEntry], name: &str) -> Option<&'a CompareStatus> {
-    results.iter().find(|e| e.name == name).map(|e| &e.status)
-}
-
-fn options(tolerance_secs: u64, case_insensitive: bool) -> CompareOptions {
-    CompareOptions {
-        mtime_tolerance: Duration::from_secs(tolerance_secs),
-        case_insensitive,
+fn summary(size: u64, secs: u64, is_dir: bool) -> FileSummary {
+    FileSummary {
+        size,
+        modified: Some(SystemTime::UNIX_EPOCH + Duration::from_secs(secs)),
+        is_dir,
     }
 }
 
 #[test]
-fn compare_basic_statuses() {
+fn pairs_are_sorted_and_classified() {
     let left = tempfile::tempdir().unwrap();
     let right = tempfile::tempdir().unwrap();
     let t = SystemTime::now() - Duration::from_secs(3600);
-    set_mtime(&write_file(left.path(), "common.txt", b"same"), t);
-    set_mtime(&write_file(right.path(), "common.txt", b"same"), t);
-    write_file(left.path(), "left_only.rs", b"l");
-    write_file(right.path(), "right_only.rs", b"r");
-    write_file(left.path(), "differ.txt", b"version A");
-    write_file(right.path(), "differ.txt", b"version B longer");
+    write_file(left.path(), "b_common.txt", b"same", t);
+    write_file(right.path(), "b_common.txt", b"same", t);
+    write_file(left.path(), "a_left.rs", b"l", t);
+    write_file(right.path(), "c_right.rs", b"r", t);
 
-    let results =
-        compare_directories(left.path(), right.path(), &CompareOptions::default()).unwrap();
-
-    assert_eq!(
-        status_of(&results, "left_only.rs"),
-        Some(&CompareStatus::OnlyLeft)
-    );
-    assert_eq!(
-        status_of(&results, "right_only.rs"),
-        Some(&CompareStatus::OnlyRight)
-    );
-    assert_eq!(
-        status_of(&results, "differ.txt"),
-        Some(&CompareStatus::Different)
-    );
-    assert_eq!(
-        status_of(&results, "common.txt"),
-        Some(&CompareStatus::Equal)
-    );
-    let names: Vec<_> = results.iter().map(|e| e.name.as_str()).collect();
-    let mut sorted = names.clone();
-    sorted.sort();
-    assert_eq!(names, sorted, "results are sorted by name");
+    let pairs = pairs(left.path(), right.path(), false);
+    let names: Vec<_> = pairs.iter().map(EntryPair::name).collect();
+    assert_eq!(names, ["a_left.rs", "b_common.txt", "c_right.rs"]);
+    assert!(matches!(pairs[0], EntryPair::Left(_)));
+    assert!(matches!(&pairs[1], EntryPair::Both(l, r)
+        if metadata_equal(&l.summary, &r.summary, Duration::from_secs(2))));
+    assert!(matches!(pairs[2], EntryPair::Right(_)));
 }
 
 #[test]
 fn fat_two_second_granularity_is_equal_by_default() {
-    let left = tempfile::tempdir().unwrap();
-    let right = tempfile::tempdir().unwrap();
-    let t = SystemTime::now() - Duration::from_secs(3600);
-    set_mtime(&write_file(left.path(), "a.txt", b"x"), t);
-    set_mtime(
-        &write_file(right.path(), "a.txt", b"x"),
-        t + Duration::from_millis(1990),
-    );
-
-    let default = compare_directories(left.path(), right.path(), &CompareOptions::default());
-    assert_eq!(
-        status_of(&default.unwrap(), "a.txt"),
-        Some(&CompareStatus::Equal)
-    );
-    let strict = compare_directories(left.path(), right.path(), &options(1, false)).unwrap();
-    assert_eq!(status_of(&strict, "a.txt"), Some(&CompareStatus::Different));
+    let default = CompareOptions::default().mtime_tolerance;
+    assert_eq!(default, Duration::from_secs(2));
+    let a = FileSummary {
+        modified: Some(SystemTime::UNIX_EPOCH + Duration::from_millis(1990)),
+        ..summary(1, 0, false)
+    };
+    assert!(metadata_equal(&a, &summary(1, 0, false), default));
+    assert!(!metadata_equal(
+        &a,
+        &summary(1, 0, false),
+        Duration::from_secs(1)
+    ));
+    assert!(!metadata_equal(
+        &summary(2, 0, false),
+        &summary(1, 0, false),
+        default
+    ));
+    assert!(!metadata_equal(
+        &summary(0, 0, true),
+        &summary(0, 0, false),
+        default
+    ));
+    assert!(metadata_equal(
+        &summary(0, 0, true),
+        &summary(0, 9, true),
+        default
+    ));
 }
 
 #[test]
@@ -118,20 +108,19 @@ fn case_insensitive_matching_pairs_names() {
     let left = tempfile::tempdir().unwrap();
     let right = tempfile::tempdir().unwrap();
     let t = SystemTime::now() - Duration::from_secs(3600);
-    set_mtime(&write_file(left.path(), "Readme.TXT", b"x"), t);
-    set_mtime(&write_file(right.path(), "readme.txt", b"x"), t);
+    write_file(left.path(), "Readme.TXT", b"x", t);
+    write_file(right.path(), "readme.txt", b"x", t);
 
-    let ci = compare_directories(left.path(), right.path(), &options(2, true)).unwrap();
+    let ci = pairs(left.path(), right.path(), true);
     assert_eq!(ci.len(), 1);
-    assert_eq!(ci[0].name, "Readme.TXT", "left spelling is shown");
-    assert_eq!(ci[0].status, CompareStatus::Equal);
-
-    let cs = compare_directories(left.path(), right.path(), &options(2, false)).unwrap();
-    assert_eq!(status_of(&cs, "Readme.TXT"), Some(&CompareStatus::OnlyLeft));
-    assert_eq!(
-        status_of(&cs, "readme.txt"),
-        Some(&CompareStatus::OnlyRight)
+    assert_eq!(ci[0].name(), "Readme.TXT", "left spelling is shown");
+    assert!(
+        matches!(&ci[0], EntryPair::Both(_, r) if r.name == "readme.txt"),
+        "right entry keeps its own spelling"
     );
+
+    let cs = pairs(left.path(), right.path(), false);
+    assert_eq!(cs.len(), 2);
 }
 
 #[test]
@@ -140,17 +129,10 @@ fn platform_default_case_handling() {
         platform_case_insensitive(),
         cfg!(any(windows, target_os = "macos"))
     );
+    assert_eq!(
+        CompareOptions::default().case_insensitive,
+        platform_case_insensitive()
+    );
     assert_eq!(name_key("AbC", true), "abc");
     assert_eq!(name_key("AbC", false), "AbC");
-}
-
-#[test]
-fn file_and_folder_with_same_name_differ() {
-    let left = tempfile::tempdir().unwrap();
-    let right = tempfile::tempdir().unwrap();
-    write_file(left.path(), "item", b"x");
-    std::fs::create_dir(right.path().join("item")).unwrap();
-    let results =
-        compare_directories(left.path(), right.path(), &CompareOptions::default()).unwrap();
-    assert_eq!(status_of(&results, "item"), Some(&CompareStatus::Different));
 }

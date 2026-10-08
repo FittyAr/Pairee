@@ -12,6 +12,7 @@ mod plugin_menu;
 mod plugin_widget;
 mod quickview;
 mod ssh;
+pub mod sync;
 mod text_search;
 
 pub use config_dialog::ConfigurationDialogState;
@@ -27,6 +28,7 @@ pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
 pub use quickview::QuickViewDialog;
 pub use ssh::{SshConnectPromptState, SshField};
+pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
 
 use super::types::{
@@ -224,6 +226,10 @@ pub enum PopupType {
         diff: Vec<crate::fs::compare::CompareEntry>,
         cursor_idx: usize,
     },
+    /// Recursive folder comparison running (Esc cancels).
+    FolderScanProgress,
+    /// Synchronize folders: options, then review of the differences.
+    SyncDirs(Box<SyncDialog>),
 
     TaskListDialog {
         tasks: Vec<ProcessEntry>,

@@ -17,6 +17,7 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
             ("menu_swap_panels", Action::SwapPanels, "Ctrl+U"),
             ("menu_panels_on_off", Action::ToggleBothPanels, "Ctrl+O"),
             ("menu_compare_folders", Action::CompareFolder, ""),
+            ("menu_sync_dirs", Action::SyncDirs, ""),
         ])
         .separator()
         .actions(&[
