@@ -91,6 +91,12 @@ pub struct AppState {
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
 
+    /// Background read of the file opened in the internal viewer.
+    pub viewer_load: crate::app::jobs::JobSlot<crate::ui::viewer::ViewerState>,
+
+    /// Quick-view background loading, debounce and preview cache.
+    pub quick_view: quick_view::QuickViewState,
+
     /// Background Git network operation (fetch/pull/push/clone).
     pub git_op: crate::app::git_ops::GitOpState,
 
@@ -137,6 +143,8 @@ impl AppState {
             is_root,
             // Transfer Engine
             transfer: None,
+            viewer_load: Default::default(),
+            quick_view: Default::default(),
             git_op: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
         }

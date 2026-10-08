@@ -26,6 +26,7 @@
 
 - Panels are now read in the background: the directory listing, SFTP listing, Git status and free space no longer block the interface, the panel title shows "⟳ Loading…" while a read is in progress, and the cursor and selection are kept when the new listing arrives. Entering a directory rereads only that panel, and Git status is computed only for the listed directory instead of the whole repository.
 - Git fetch, pull, push, push tags, remote branch deletion and clone now run in the background with a progress popup (objects and bytes transferred); `Esc` cancels the operation. The Left/Right menus no longer open the repository while drawing.
+- Quick view loads previews in the background after the cursor settles (no more stalls when scrolling through large files), caches recent previews per file version, and reads at most 16 MiB per file. The F3 viewer also loads in the background, reads at most 64 MiB (larger files are shown truncated with a notice) and shows the error instead of an empty viewer when the file cannot be read.
 - Detailed, Owners and Links views no longer read file attributes on every repaint, and the free-space footer no longer queries the disk on every repaint; both are refreshed with the listing.
 - Release builds now use thin LTO, a single codegen unit and stripped symbols for a smaller, faster binary.
 - Untracked file badges and labels in Git panel now render in Magenta for consistent contrast and readability across dark backgrounds.
@@ -39,6 +40,7 @@
 - Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- File owner names on Linux/macOS: `/etc/passwd` is parsed once per session instead of being re-read for every file whose owner is unknown.
 - SSH: blocking SSH/SFTP calls now time out after `ssh_timeout_secs` seconds (new setting in `config.toml`, default 30; 0 disables it) instead of hanging forever on a dead server. Connecting and SSH copy/move/delete jobs run on the blocking thread pool, and the panel title no longer locks the SSH session while drawing.
 - SSH: deleting a remote folder with nested subfolders failed because a directory was removed before its subdirectories were emptied; remote recursive delete now removes children first, and symbolic links to directories are removed as links instead of being followed.
 - Compressing a folder to ZIP now keeps its subfolder structure; previously file names were glued together (e.g. `projectsubfile.txt` instead of `project/sub/file.txt`).

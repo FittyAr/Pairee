@@ -43,7 +43,7 @@ pub fn render_screen(
                                 &qv.content,
                                 qv.scroll,
                                 &context.config.theme,
-                                &qv.image_data,
+                                qv.image_data.as_deref(),
                                 &qv.plugin_widget,
                                 Some(&state.scrollbar),
                             );
@@ -82,7 +82,7 @@ pub fn render_screen(
                                 &qv.content,
                                 qv.scroll,
                                 &context.config.theme,
-                                &qv.image_data,
+                                qv.image_data.as_deref(),
                                 &qv.plugin_widget,
                                 Some(&state.scrollbar),
                             );

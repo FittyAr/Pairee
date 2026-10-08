@@ -7,6 +7,6 @@ pub struct QuickViewDialog {
     pub path: PathBuf,
     pub content: Vec<String>,
     pub scroll: usize,
-    pub image_data: Option<image::DynamicImage>,
+    pub image_data: Option<std::sync::Arc<image::DynamicImage>>,
     pub plugin_widget: Option<PluginWidget>,
 }

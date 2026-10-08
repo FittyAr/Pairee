@@ -82,18 +82,8 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             // List contents
             match crate::fs::archive::list_archive_files(archive_path) {
                 Ok(list) => {
-                    let viewer = crate::ui::viewer::ViewerState {
-                        path: archive_path.to_path_buf(),
-                        lines: list,
-                        raw: Vec::new(),
-                        image_data: None,
-                        is_image: false,
-                        is_text: true,
-                        mode: crate::ui::viewer::ViewerMode::Text,
-                        scroll: 0,
-                        last_search: None,
-                        last_case_sensitive: false,
-                    };
+                    let viewer =
+                        crate::ui::viewer::ViewerState::from_text(archive_path.to_path_buf(), list);
                     state.push_screen(Screen::Viewer(viewer));
                 }
                 Err(e) => {

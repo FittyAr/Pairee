@@ -1,4 +1,4 @@
-use crate::app::state::{AppState, Screen};
+use crate::app::state::AppState;
 
 /// Enters highlighted directory or open files with standard OS handlers.
 pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::AppContext) {
@@ -66,11 +66,7 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
 
     if let Some(path) = open_file_path {
         state.push_file_view_history(path.clone());
-        let viewer = crate::ui::viewer::ViewerState::load_with_images(
-            path,
-            context.config.settings.image_preview_enabled,
-        );
-        state.push_screen(Screen::Viewer(viewer));
+        state.open_viewer(path, context.config.settings.image_preview_enabled, false);
         return;
     }
     if let Some(dir) = target_dir {
