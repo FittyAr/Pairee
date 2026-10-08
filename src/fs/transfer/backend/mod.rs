@@ -12,33 +12,7 @@ pub mod ssh;
 
 use super::events::TransferEvent;
 use super::job::{TransferJob, TransferResults};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use uuid::Uuid;
-
-/// Shared control surface for any backend run.
-#[derive(Clone)]
-pub struct BackendControl {
-    pub job_id: Uuid,
-    pub is_paused: Arc<AtomicBool>,
-    pub is_cancelled: Arc<AtomicBool>,
-    pub event_tx: crate::fs::transfer::events::EventSender,
-}
-
-impl BackendControl {
-    pub fn cancelled(&self) -> bool {
-        self.is_cancelled.load(Ordering::Relaxed)
-    }
-
-    pub fn wait_if_paused(&self) {
-        while self.is_paused.load(Ordering::Relaxed) {
-            if self.cancelled() {
-                return;
-            }
-            std::thread::sleep(std::time::Duration::from_millis(50));
-        }
-    }
-}
+use crate::fs::transfer::control::JobControl;
 
 /// Run the appropriate backend for a job (Strategy dispatch).
 pub async fn run_job(
@@ -53,12 +27,7 @@ pub async fn run_job(
                 job.operation.label()
             ));
         }
-        let control = BackendControl {
-            job_id: job.id,
-            is_paused: Arc::clone(&job.is_paused),
-            is_cancelled: Arc::clone(&job.is_cancelled),
-            event_tx: event_tx.clone(),
-        };
+        let control = JobControl::for_job(&job, event_tx.clone());
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
         return ops_jobs::run_ops_job(
@@ -71,13 +40,9 @@ pub async fn run_job(
         .await;
     }
 
-    if let Some(ssh) = job.ssh {
-        let control = BackendControl {
-            job_id: job.id,
-            is_paused: Arc::clone(&job.is_paused),
-            is_cancelled: Arc::clone(&job.is_cancelled),
-            event_tx: event_tx.clone(),
-        };
+    let mut job = job;
+    if let Some(ssh) = job.ssh.take() {
+        let control = JobControl::for_job(&job, event_tx.clone());
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
         ssh::run_ssh_job(job.operation, job.sources, job.destination, ssh, control).await

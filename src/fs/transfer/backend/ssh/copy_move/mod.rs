@@ -3,11 +3,12 @@
 mod scan;
 
 use super::super::super::events::TransferEvent;
-use super::super::super::job::{FailedFile, FileTransferResult, SshEndpoints, TransferResults};
-use super::super::BackendControl;
+use super::super::super::job::{FailedFile, SshEndpoints, TransferResults};
 use super::fast_remote_rename;
 use crate::config::localization::t;
 use crate::fs::delete_util::delete_recursive;
+use crate::fs::transfer::control::JobControl;
+use crate::fs::transfer::control::{done, failed};
 use anyhow::anyhow;
 use std::io::{Read, Write};
 use std::path::PathBuf;
@@ -18,7 +19,7 @@ pub fn run_ssh_copy_move(
     destination_dir: PathBuf,
     ssh: SshEndpoints,
     is_move: bool,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     let src_conn = ssh.src;
     let dst_conn = ssh.dst;
@@ -57,28 +58,13 @@ pub fn run_ssh_copy_move(
     let mut bytes_copied_acc = 0u64;
 
     if file_mappings.is_empty() {
-        let _ = control.event_tx.send(TransferEvent::JobCompleted {
-            job_id: control.job_id,
-            results: results.clone(),
-        });
-        return Ok(results);
+        return control.job_completed(results);
     }
 
     for (idx, (src, dst, size)) in file_mappings.iter().enumerate() {
-        if control.cancelled() {
-            return Err(anyhow!("Job cancelled"));
-        }
-        control.wait_if_paused();
-        if control.cancelled() {
-            return Err(anyhow!("Job cancelled"));
-        }
-
+        control.wait_if_paused_blocking()?;
         let start = Instant::now();
-        let _ = control.event_tx.send(TransferEvent::FileStarted {
-            job_id: control.job_id,
-            file: src.clone(),
-            index: idx,
-        });
+        control.file_started(src, idx);
 
         let copy_res = (|| -> anyhow::Result<()> {
             let mut reader: Box<dyn Read + Send> = if let Some(src_conn) = &src_conn {
@@ -101,7 +87,7 @@ pub fn run_ssh_copy_move(
             let mut buffer = vec![0u8; 64 * 1024];
             let mut file_bytes = 0u64;
             loop {
-                if control.cancelled() {
+                if control.is_cancelled() {
                     return Err(anyhow!("Job cancelled"));
                 }
                 let n = reader.read(&mut buffer)?;
@@ -121,50 +107,20 @@ pub fn run_ssh_copy_move(
         })();
 
         match copy_res {
-            Ok(()) => {
-                let result = FileTransferResult {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    size: *size,
-                    src_hash: None,
-                    dst_hash: None,
-                    verified: true,
-                    duration: start.elapsed(),
-                };
-                results.completed_files.push(result.clone());
-                let _ = control.event_tx.send(TransferEvent::FileCompleted {
-                    job_id: control.job_id,
-                    result,
-                });
-            }
+            Ok(()) => control.file_completed(&mut results, done(src, dst.clone(), *size, start)),
             Err(e) => {
                 let msg = t("error_copying_to")
                     .replacen("{}", &src.to_string_lossy(), 1)
                     .replacen("{}", &dst.to_string_lossy(), 1)
                     .replacen("{}", &e.to_string(), 1);
-                let failed = FailedFile {
-                    src: src.clone(),
-                    dst: dst.clone(),
-                    error: msg.clone(),
-                    retries: 0,
-                };
-                results.failed_files.push(failed.clone());
-                let _ = control.event_tx.send(TransferEvent::FileFailed {
-                    job_id: control.job_id,
-                    error: failed,
-                });
-                let _ = control.event_tx.send(TransferEvent::JobFailed {
-                    job_id: control.job_id,
-                    error: msg.clone(),
-                });
-                return Err(anyhow!(msg));
+                return control.fail_job(&mut results, failed(src, dst.clone(), msg));
             }
         }
     }
 
     if is_move {
         for src in &sources {
-            if control.cancelled() {
+            if control.is_cancelled() {
                 break;
             }
             if let Some(src_client) = &src_conn {
@@ -195,9 +151,5 @@ pub fn run_ssh_copy_move(
         }
     }
 
-    let _ = control.event_tx.send(TransferEvent::JobCompleted {
-        job_id: control.job_id,
-        results: results.clone(),
-    });
-    Ok(results)
+    control.job_completed(results)
 }

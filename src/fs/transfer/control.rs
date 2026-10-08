@@ -5,10 +5,10 @@
 use super::events::{EventSender, TransferEvent};
 use super::job::{FailedFile, FileTransferResult, SkippedFile, TransferJob, TransferResults};
 use anyhow::anyhow;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 /// How often a paused job checks whether it may continue.
@@ -69,7 +69,7 @@ impl JobControl {
 
     /// Blocking-thread version of [`Self::wait_if_paused`] (copy pipeline).
     pub fn wait_if_paused_blocking(&self) -> anyhow::Result<()> {
-        let cancelled = || anyhow!("Transfer cancelled");
+        let cancelled = || anyhow!("Job cancelled");
         if self.is_cancelled() {
             return Err(cancelled());
         }
@@ -126,6 +126,53 @@ impl JobControl {
         });
     }
 
+    pub fn scan_complete(&self, total_files: usize, total_bytes: u64) {
+        self.emit(TransferEvent::ScanComplete {
+            job_id: self.job_id,
+            total_files,
+            total_bytes,
+        });
+    }
+
+    /// Records `failed`, reports the job as failed and returns its error.
+    pub fn fail_job(
+        &self,
+        results: &mut TransferResults,
+        failed: FailedFile,
+    ) -> anyhow::Result<TransferResults> {
+        let error = failed.error.clone();
+        self.file_failed(results, failed);
+        self.emit(TransferEvent::JobFailed {
+            job_id: self.job_id,
+            error: error.clone(),
+        });
+        Err(anyhow!(error))
+    }
+
+    /// Runs `op` on each source in order (honouring pause and cancel) on the
+    /// current (blocking) thread. `op` returns the destination of the file,
+    /// or the error message that fails the whole job.
+    pub fn run_each(
+        &self,
+        sources: &[PathBuf],
+        mut op: impl FnMut(&Path) -> Result<PathBuf, String>,
+    ) -> anyhow::Result<TransferResults> {
+        self.scan_complete(sources.len(), 0);
+        let mut results = TransferResults::default();
+        for (index, src) in sources.iter().enumerate() {
+            self.wait_if_paused_blocking()?;
+            let start = Instant::now();
+            self.file_started(src, index);
+            match op(src) {
+                Ok(dst) => self.file_completed(&mut results, done(src, dst, 0, start)),
+                Err(error) => {
+                    return self.fail_job(&mut results, failed(src, PathBuf::new(), error));
+                }
+            }
+        }
+        self.job_completed(results)
+    }
+
     /// Reports the end of the job and returns its results.
     pub fn job_completed(&self, results: TransferResults) -> anyhow::Result<TransferResults> {
         self.emit(TransferEvent::JobCompleted {
@@ -133,5 +180,28 @@ impl JobControl {
             results: results.clone(),
         });
         Ok(results)
+    }
+}
+
+/// Result record of a file finished at `start.elapsed()`.
+pub fn done(src: &Path, dst: PathBuf, size: u64, start: Instant) -> FileTransferResult {
+    FileTransferResult {
+        src: src.to_path_buf(),
+        dst,
+        size,
+        src_hash: None,
+        dst_hash: None,
+        verified: true,
+        duration: start.elapsed(),
+    }
+}
+
+/// Failure record of `src` (no retries).
+pub fn failed(src: &Path, dst: PathBuf, error: String) -> FailedFile {
+    FailedFile {
+        src: src.to_path_buf(),
+        dst,
+        error,
+        retries: 0,
     }
 }

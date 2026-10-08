@@ -1,65 +1,31 @@
 //! Shell command application runner.
 
 use super::super::super::events::TransferEvent;
-use super::super::super::job::{FileTransferResult, TransferResults};
-use super::super::BackendControl;
-use super::common::{
-    complete_ok, emit_file_completed, emit_file_started, emit_scan_complete, fail_file,
-};
-use anyhow::anyhow;
+use super::super::super::job::TransferResults;
+use crate::fs::transfer::control::JobControl;
 use std::path::PathBuf;
-use std::time::Instant;
 
-pub async fn run_apply_command(
+/// Runs the command template on each source in turn (blocking), forwarding
+/// its output; the first failure fails the job.
+pub fn run_apply_command(
     sources: Vec<PathBuf>,
     cmd_template: String,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    let total = sources.len();
-    emit_scan_complete(&control, total, 0);
-
-    let mut results = TransferResults::default();
-
-    for (idx, path) in sources.iter().enumerate() {
-        if control.cancelled() {
-            return Err(anyhow!("Job cancelled"));
-        }
-        control.wait_if_paused();
-        if control.cancelled() {
-            return Err(anyhow!("Job cancelled"));
-        }
-
-        let start = Instant::now();
-        emit_file_started(&control, path, idx);
-
-        let quoted = crate::shell::quote_path(path);
-        let cmd = cmd_template.replace("%f", &quoted);
+    control.run_each(&sources, |path| {
+        let cmd = cmd_template.replace("%f", &crate::shell::quote_path(path));
         emit_command_output(&control, &format!("$ {cmd}"));
-
-        match run_shell_command(&cmd).await {
+        match run_shell_command_blocking(&cmd) {
             Ok(text) => {
                 emit_command_output(&control, &text);
-                let result = FileTransferResult {
-                    src: path.clone(),
-                    dst: PathBuf::new(),
-                    size: 0,
-                    src_hash: None,
-                    dst_hash: None,
-                    verified: true,
-                    duration: start.elapsed(),
-                };
-                results.completed_files.push(result.clone());
-                emit_file_completed(&control, result);
+                Ok(PathBuf::new())
             }
             Err(e) => {
                 emit_command_output(&control, &e.to_string());
-                let err_msg = format!("Command failed for {:?}: {}", path, e);
-                return fail_file(&control, &mut results, path.clone(), err_msg);
+                Err(format!("Command failed for {:?}: {}", path, e))
             }
         }
-    }
-
-    complete_ok(&control, results)
+    })
 }
 
 pub(crate) fn split_command_output(text: &str) -> Vec<String> {
@@ -75,7 +41,7 @@ pub(crate) fn split_command_output(text: &str) -> Vec<String> {
         .collect()
 }
 
-fn emit_command_output(control: &BackendControl, text: &str) {
+fn emit_command_output(control: &JobControl, text: &str) {
     for line in split_command_output(text) {
         let _ = control.event_tx.send(TransferEvent::CommandOutput {
             job_id: control.job_id,
@@ -84,12 +50,10 @@ fn emit_command_output(control: &BackendControl, text: &str) {
     }
 }
 
-pub(crate) async fn run_shell_command(cmd: &str) -> anyhow::Result<String> {
-    let cmd = cmd.to_string();
-    let result =
-        tokio::task::spawn_blocking(move || crate::terminal::pty_cmd::run_shell_on_pty(&cmd, None))
-            .await
-            .map_err(|e| anyhow!("pty task join error: {e}"))??;
+/// Runs `cmd` in a shell on a pseudo-terminal; `Err` with its output when
+/// it fails.
+pub(crate) fn run_shell_command_blocking(cmd: &str) -> anyhow::Result<String> {
+    let result = crate::terminal::pty_cmd::run_shell_on_pty(cmd, None)?;
     if !result.success {
         anyhow::bail!("{}", result.output.trim());
     }

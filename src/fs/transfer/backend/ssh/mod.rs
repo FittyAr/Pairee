@@ -12,7 +12,7 @@ pub use delete::run_ssh_delete;
 pub use rename::fast_remote_rename;
 
 use super::super::job::{SshEndpoints, TransferOperation, TransferResults};
-use super::BackendControl;
+use crate::fs::transfer::control::JobControl;
 use anyhow::anyhow;
 use std::path::PathBuf;
 
@@ -23,7 +23,7 @@ pub async fn run_ssh_job(
     sources: Vec<PathBuf>,
     destination: PathBuf,
     ssh: SshEndpoints,
-    control: BackendControl,
+    control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
     tokio::task::spawn_blocking(move || match operation {
         TransferOperation::Delete => run_ssh_delete(sources, ssh, control),
