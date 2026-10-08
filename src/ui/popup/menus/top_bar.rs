@@ -3,186 +3,126 @@
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::config::theme::Theme;
+use crate::ui::menu::MenuItemData;
+use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
+
+/// Which menu, item, submenu and submenu item are open / focused.
+#[derive(Debug, Clone, Copy)]
+pub struct MenuFocus {
+    pub menu: usize,
+    pub item: Option<usize>,
+    pub submenu: Option<usize>,
+    pub sub_item: Option<usize>,
+}
+
+/// Width of a drop-down (and of a submenu).
+const DROPDOWN_WIDTH: u16 = 37;
+/// Column of each top menu's drop-down.
+const DROPDOWN_X: [u16; 5] = [2, 10, 19, 31, 42];
 
 pub fn render_top_dropdown(
     f: &mut Frame,
     theme: &Theme,
     size: Rect,
-    state: &AppState,
-    context: &AppContext,
-    active_menu_idx: usize,
-    active_item_idx: Option<usize>,
-    active_submenu_idx: Option<usize>,
-    active_submenu_item_idx: Option<usize>,
+    (state, context): (&AppState, &AppContext),
+    focus: MenuFocus,
 ) {
-    let active_item_idx = match active_item_idx {
-        Some(idx) => idx,
-        None => return, // Only top menu bar is active, no dropdown to render
+    // Without an item only the top menu bar is active: no drop-down.
+    let Some(item) = focus.item else {
+        return;
     };
-
-    let items = crate::ui::menu::get_menu_items(
-        active_menu_idx,
-        state,
-        &context.resolver,
-        &context.config.settings,
-    );
-    let dropdown_x = match active_menu_idx {
-        0 => 2,
-        1 => 10,
-        2 => 19,
-        3 => 31,
-        4 => 42,
-        _ => 2,
+    let items_of = |menu| {
+        crate::ui::menu::get_menu_items(menu, state, &context.resolver, &context.config.settings)
     };
-    let dropdown_width = 37;
-    let dropdown_height = (items.len() + 2) as u16;
-    let dropdown_rect =
-        Rect::new(dropdown_x, 1, dropdown_width, dropdown_height).intersection(size);
+    let x = DROPDOWN_X.get(focus.menu).copied().unwrap_or(DROPDOWN_X[0]);
+    let items = items_of(focus.menu);
+    let rect = Rect::new(x, 1, DROPDOWN_WIDTH, (items.len() + 2) as u16).intersection(size);
+    // While a submenu is open its parent row is highlighted differently.
+    let parent = Style::default()
+        .bg(parse_color("Blue"))
+        .fg(parse_color("White"))
+        .add_modifier(Modifier::BOLD);
+    let highlight = match focus.submenu {
+        Some(_) => (item, parent),
+        None => (item, selected(theme)),
+    };
+    render_box(f, rect, &items, highlight, theme);
 
-    f.render_widget(Clear, dropdown_rect);
-
-    let mut lines = Vec::new();
-    for (i, item) in items.iter().enumerate() {
-        let is_cursor = i == active_item_idx && active_submenu_idx.is_none();
-        let is_submenu_parent = i == active_item_idx && active_submenu_idx.is_some();
-
-        let base_style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
-        } else if is_submenu_parent {
-            Style::default()
-                .bg(parse_color("Blue"))
-                .fg(parse_color("White"))
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
-        };
-
-        if item.is_separator {
-            lines.push(Line::from(Span::styled(
-                " ───────────────────────────────── ",
-                base_style,
-            )));
-            continue;
+    if let (Some(sub), Some(sub_item)) = (focus.submenu, focus.sub_item) {
+        let sub_items = items_of(sub);
+        let mut sub_x = x + DROPDOWN_WIDTH;
+        if sub_x + DROPDOWN_WIDTH > size.width {
+            sub_x = x.saturating_sub(DROPDOWN_WIDTH);
         }
-
-        let hotkey_style = if is_cursor {
-            base_style.fg(ratatui::style::Color::Yellow)
-        } else {
-            base_style
-                .fg(ratatui::style::Color::Yellow)
-                .add_modifier(Modifier::BOLD)
-        };
-
-        let mut line_spans = Vec::new();
-        let active_char = if item.active { "•" } else { " " };
-        line_spans.push(Span::styled(format!(" {} ", active_char), base_style));
-
-        let parsed = crate::ui::hotkey::parse_hotkey(&item.label);
-        let label_spans =
-            crate::ui::hotkey::render_hotkey_spans(&item.label, base_style, hotkey_style);
-        line_spans.extend(label_spans);
-
-        let label_len = parsed.clean_text.chars().count();
-        let padding = 25usize.saturating_sub(label_len);
-        line_spans.push(Span::styled(" ".repeat(padding), base_style));
-
-        line_spans.push(Span::styled(format!("{:<7}", item.shortcut), base_style));
-
-        lines.push(Line::from(line_spans));
+        let sub_y = item as u16 + 2;
+        let sub_rect = Rect::new(sub_x, sub_y, DROPDOWN_WIDTH, (sub_items.len() + 2) as u16)
+            .intersection(size);
+        render_box(f, sub_rect, &sub_items, (sub_item, selected(theme)), theme);
     }
+}
 
-    let paragraph = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-            .style(Style::default().bg(parse_color(&theme.popup_bg))),
-    );
+fn selected(theme: &Theme) -> Style {
+    kit::selection(theme).add_modifier(Modifier::BOLD)
+}
 
-    f.render_widget(paragraph, dropdown_rect);
+/// Draws `items` in a bordered box, row `highlight.0` in style `highlight.1`.
+fn render_box(
+    f: &mut Frame,
+    rect: Rect,
+    items: &[MenuItemData],
+    (highlight_row, highlight): (usize, Style),
+    theme: &Theme,
+) {
+    f.render_widget(Clear, rect);
+    let normal = kit::popup_fg(theme);
+    let lines: Vec<Line> = items
+        .iter()
+        .enumerate()
+        .map(|(i, item)| {
+            let is_cursor = i == highlight_row;
+            item_line(item, if is_cursor { highlight } else { normal }, is_cursor)
+        })
+        .collect();
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+    f.render_widget(Paragraph::new(lines).block(block), rect);
+}
 
-    if let (Some(sub_idx), Some(sub_item_idx)) = (active_submenu_idx, active_submenu_item_idx) {
-        let sub_items = crate::ui::menu::get_menu_items(
-            sub_idx,
-            state,
-            &context.resolver,
-            &context.config.settings,
-        );
-
-        let submenu_width = 37;
-        let submenu_height = (sub_items.len() + 2) as u16;
-        let mut submenu_x = dropdown_x + dropdown_width;
-        if submenu_x + submenu_width > size.width {
-            submenu_x = dropdown_x.saturating_sub(submenu_width);
-        }
-        let submenu_y = 1 + (active_item_idx as u16) + 1;
-
-        let submenu_rect =
-            Rect::new(submenu_x, submenu_y, submenu_width, submenu_height).intersection(size);
-        f.render_widget(Clear, submenu_rect);
-
-        let mut sub_lines = Vec::new();
-        for (i, item) in sub_items.iter().enumerate() {
-            let is_cursor = i == sub_item_idx;
-            let base_style = if is_cursor {
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg))
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
-            };
-
-            if item.is_separator {
-                sub_lines.push(Line::from(Span::styled(
-                    " ───────────────────────────────── ",
-                    base_style,
-                )));
-                continue;
-            }
-
-            let hotkey_style = if is_cursor {
-                base_style.fg(ratatui::style::Color::Yellow)
-            } else {
-                base_style
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD)
-            };
-
-            let mut line_spans = Vec::new();
-            let active_char = if item.active { "•" } else { " " };
-            line_spans.push(Span::styled(format!(" {} ", active_char), base_style));
-
-            let parsed = crate::ui::hotkey::parse_hotkey(&item.label);
-            let label_spans =
-                crate::ui::hotkey::render_hotkey_spans(&item.label, base_style, hotkey_style);
-            line_spans.extend(label_spans);
-
-            let label_len = parsed.clean_text.chars().count();
-            let padding = 25usize.saturating_sub(label_len);
-            line_spans.push(Span::styled(" ".repeat(padding), base_style));
-
-            line_spans.push(Span::styled(format!("{:<7}", item.shortcut), base_style));
-
-            sub_lines.push(Line::from(line_spans));
-        }
-
-        let sub_paragraph = Paragraph::new(sub_lines).block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-                .style(Style::default().bg(parse_color(&theme.popup_bg))),
-        );
-        f.render_widget(sub_paragraph, submenu_rect);
+/// One drop-down row: active marker, label with its hotkey, shortcut.
+fn item_line(item: &MenuItemData, base: Style, is_cursor: bool) -> Line<'static> {
+    if item.is_separator {
+        return Line::from(Span::styled(" ───────────────────────────────── ", base));
     }
+    let hotkey = if is_cursor {
+        base.fg(Color::Yellow)
+    } else {
+        base.fg(Color::Yellow).add_modifier(Modifier::BOLD)
+    };
+    let marker = if item.active { "•" } else { " " };
+    let mut spans = vec![Span::styled(format!(" {} ", marker), base)];
+    spans.extend(crate::ui::hotkey::render_hotkey_spans(
+        &item.label,
+        base,
+        hotkey,
+    ));
+    let label_len = crate::ui::hotkey::parse_hotkey(&item.label)
+        .clean_text
+        .chars()
+        .count();
+    spans.push(Span::styled(
+        " ".repeat(25usize.saturating_sub(label_len)),
+        base,
+    ));
+    spans.push(Span::styled(format!("{:<7}", item.shortcut), base));
+    Line::from(spans)
 }
