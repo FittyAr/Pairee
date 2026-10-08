@@ -29,35 +29,16 @@ pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::App
                             }
                             let _ = std::process::Command::new(&program).args(&args).spawn();
                         }
-                    } else if cfg!(target_os = "windows") {
-                        if context.config.settings.use_windows_registered_types {
-                            // No matching association: hand the path to the
-                            // shell-registered handler via `start`. We route
-                            // through `cmd /c` because `start` is a cmd.exe
-                            // builtin, but the file path is shell-quoted to
-                            // neutralise any metacharacters in the filename.
-                            let path_quoted =
-                                crate::app::actions::fs_ops::helper::shell_quote(&entry.path);
-                            if context.config.settings.automatic_update_env_variables {
-                                crate::app::sys_helpers::refresh_env_vars();
-                            }
-                            let _ = std::process::Command::new("cmd")
-                                .arg("/c")
-                                .arg(format!("start \"\" {}", path_quoted))
-                                .spawn();
-                        }
-                    } else {
-                        // No association on Unix: fall back to xdg-open. The
-                        // path is passed as a separate argv entry rather than
-                        // concatenated into a shell string.
+                    } else if !cfg!(target_os = "windows")
+                        || context.config.settings.use_windows_registered_types
+                    {
+                        // No matching association: hand the path to the
+                        // OS-registered handler (ShellExecuteW / xdg-open /
+                        // open) without a shell, so the name is never parsed.
                         if context.config.settings.automatic_update_env_variables {
                             crate::app::sys_helpers::refresh_env_vars();
                         }
-                        let _ = std::process::Command::new("xdg-open")
-                            .arg(&entry.path)
-                            .stdout(std::process::Stdio::null())
-                            .stderr(std::process::Stdio::null())
-                            .spawn();
+                        crate::shell::open_with_system_handler(&entry.path);
                     }
                 }
             }

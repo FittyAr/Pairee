@@ -27,6 +27,12 @@ Policy:
   stay denied even if declared. Plugins that spawn in Secure Mode must add the
   `[permissions]` table.
 
+### Fixed
+
+- `pairee.utils.quote(s, false)` (Windows) now produces a `cmd.exe`-safe token
+  (MSVCRT quoting + `^` escaping of `% ! ^ " & | < > ( )`) instead of
+  backslash-escaping, which cmd does not understand.
+
 ## [1.1.0] — 2026-08-25
 
 ### Added

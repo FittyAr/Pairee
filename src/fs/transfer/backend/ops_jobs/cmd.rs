@@ -32,7 +32,7 @@ pub async fn run_apply_command(
         let start = Instant::now();
         emit_file_started(&control, path, idx);
 
-        let quoted = crate::app::actions::fs_ops::helper::shell_quote(path);
+        let quoted = crate::shell::quote_path(path);
         let cmd = cmd_template.replace("%f", &quoted);
         emit_command_output(&control, &format!("$ {cmd}"));
 
