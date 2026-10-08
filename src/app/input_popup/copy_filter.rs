@@ -20,12 +20,8 @@ pub fn handle(
             }
             KeyCode::Enter => {
                 let mut prev = *previous;
-                match prev {
-                    PopupType::CopyPrompt(ref mut prompt)
-                    | PopupType::MovePrompt(ref mut prompt) => {
-                        prompt.filter_mask = input;
-                    }
-                    _ => {}
+                if let PopupType::TransferPrompt(ref mut prompt) = prev {
+                    prompt.filter_mask = input;
                 }
                 state.dialogs.replace(prev);
                 return Ok(None);

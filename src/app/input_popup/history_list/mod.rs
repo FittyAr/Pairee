@@ -1,7 +1,6 @@
 //! History lists (commands, file views, and visited folders) input dispatcher.
 
 mod handlers;
-mod nav;
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};

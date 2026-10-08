@@ -195,9 +195,7 @@ impl AppState {
     pub fn jump_active_panel_to(&mut self, target: PathBuf, show_hidden: bool) {
         let panel = self.get_active_panel_mut();
         panel.ssh_conn = None;
-        panel.current_path = target.clone();
-        panel.cursor_index = 0;
-        panel.clear_selection();
+        panel.open_path(target.clone());
         self.push_folders_history(target);
         self.refresh_active_panel(show_hidden);
     }

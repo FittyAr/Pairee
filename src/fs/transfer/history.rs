@@ -27,6 +27,19 @@ pub fn load_history() -> TransferHistory {
     }
 }
 
+/// First remembered destination that starts with `input` (case-insensitive);
+/// `None` for an empty input.
+pub fn suggest_destination(input: &str) -> Option<String> {
+    if input.is_empty() {
+        return None;
+    }
+    let needle = input.to_lowercase();
+    load_history()
+        .destinations
+        .into_iter()
+        .find(|d| d.to_lowercase().starts_with(&needle))
+}
+
 /// Guarda el historial actual a un archivo TOML.
 pub fn save_history(history: &TransferHistory) -> std::io::Result<()> {
     let path = get_history_file_path();

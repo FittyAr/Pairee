@@ -200,6 +200,14 @@ impl PanelState {
         self.selection_order.clear();
     }
 
+    /// Points the panel at `path` with the cursor on the first row and no
+    /// selection (the caller refreshes the listing).
+    pub fn open_path(&mut self, path: PathBuf) {
+        self.current_path = path;
+        self.cursor_index = 0;
+        self.clear_selection();
+    }
+
     /// Returns a list of paths representing the targeted items:
     /// - If any items are explicitly tagged/selected, returns those paths.
     /// - Otherwise, returns the currently highlighted item path (excluding "..").

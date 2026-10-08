@@ -23,8 +23,7 @@ pub fn render_prompt_popup(
         PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
 
         PopupType::MkDirPrompt { .. }
-        | PopupType::CopyPrompt(..)
-        | PopupType::MovePrompt(..)
+        | PopupType::TransferPrompt(..)
         | PopupType::RenamePrompt { .. }
         | PopupType::ConfirmDelete { .. }
         | PopupType::WipeConfirm { .. }

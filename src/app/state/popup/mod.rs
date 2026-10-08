@@ -13,7 +13,7 @@ mod quickview;
 mod ssh;
 
 pub use config_dialog::ConfigurationDialogState;
-pub use file_ops::CopyMovePromptState;
+pub use file_ops::{CopyMovePromptState, TransferPromptOp};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitBranchCreatePromptState, GitBranchRenamePromptState, GitClonePromptState,
@@ -55,8 +55,8 @@ pub enum PopupType {
         cursor_idx: usize,
         process_multiple: bool,
     },
-    CopyPrompt(CopyMovePromptState),
-    MovePrompt(CopyMovePromptState),
+    /// Copy (F5) / Move (F6) dialog.
+    TransferPrompt(CopyMovePromptState),
     RenamePrompt {
         input: String,
         original: String,

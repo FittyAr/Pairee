@@ -6,6 +6,7 @@ pub mod git_ops;
 pub mod input;
 pub mod input_popup;
 pub mod jobs;
+pub mod list_nav;
 pub mod menu_handler;
 pub mod screen_input;
 pub mod state;

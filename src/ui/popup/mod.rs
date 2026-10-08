@@ -10,6 +10,7 @@ pub mod git_new_popups;
 pub mod git_panel;
 pub mod history_lists;
 pub mod info;
+pub mod kit;
 pub mod menus;
 pub mod onboarding;
 pub mod plugin_menu;

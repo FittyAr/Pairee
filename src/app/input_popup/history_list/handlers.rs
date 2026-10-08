@@ -1,7 +1,7 @@
 //! Handlers for Command, FileView, and Folder history lists.
 
-use super::nav::handle_list_nav;
 use crate::app::context::AppContext;
+use crate::app::list_nav::handle_list_nav;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

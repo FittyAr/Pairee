@@ -17,11 +17,8 @@ impl PopupType {
                 input.push_str(paste);
                 true
             }
-            PopupType::CopyPrompt(prompt) | PopupType::MovePrompt(prompt)
-                if prompt.cursor_idx == 0 =>
-            {
-                prompt.input.push_str(paste);
-                true
+            PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => {
+                prompt.input.paste(paste)
             }
             PopupType::ApplyCommandPrompt { input, .. }
             | PopupType::CompressPrompt { input, .. }

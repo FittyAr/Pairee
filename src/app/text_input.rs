@@ -8,6 +8,9 @@
 //! base letter + combining mark — which would otherwise panic on
 //! `String::insert` / `String::remove` or on slicing.
 
+mod field;
+
+pub use field::{TextField, first_paste_line};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Returns the largest grapheme boundary `<= idx` (clamped to `s.len()`).
