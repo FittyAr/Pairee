@@ -12,6 +12,8 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Arriba` / `Abajo` | Desplaza el cursor de selección una posición. |
 | `Re Pág` / `Av Pág` | Desplaza la lista de archivos una pantalla completa. |
 | `Inicio` / `Fin` | Salta directamente al primer o último archivo de la lista. |
+| `Enter` / `Ctrl+Av Pág` | Entra en la carpeta resaltada, o abre como carpeta el archivo comprimido zip / tar / tar.gz / 7z resaltado (`Ctrl+Av Pág` nunca abre archivos). |
+| `Retroceso` / `Ctrl+Re Pág` | Sube a la carpeta padre; en la raíz de un archivo comprimido, vuelve a la carpeta que lo contiene (con el cursor sobre él). |
 | `Ctrl+U` | Intercambia las rutas de directorio entre el panel izquierdo y derecho. |
 | `Ctrl+H` | Alterna la visualización de archivos ocultos y de sistema. |
 | `Ctrl+R` | Recarga y refresca el contenido del directorio del panel activo. |

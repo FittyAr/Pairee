@@ -25,7 +25,7 @@ fn view_mode_for(action: &Action) -> Option<PanelViewMode> {
 fn set_active_view_mode(state: &mut AppState, mode: PanelViewMode, show_hidden: bool) {
     let panel = state.get_active_panel_mut();
     panel.view_mode = mode;
-    if mode.needs_attrs() && panel.attrs.is_empty() && panel.ssh_conn.is_none() {
+    if mode.needs_attrs() && panel.attrs.is_empty() && panel.source.is_local() {
         let side = state.panels.active;
         state.refresh_panel(side, show_hidden, true);
     }

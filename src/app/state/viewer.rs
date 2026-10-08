@@ -55,14 +55,26 @@ impl AppState {
         self.push_screen(Screen::Viewer(ViewerState::loading(path.clone())));
         let allow_image = settings.image_preview_enabled;
         let policy = encoding_policy(settings);
+        let vfs = self.vfs_of_listed(&path);
         self.viewer.load.start(move |_| {
-            let mut viewer = ViewerState::load_with_images(path, allow_image, policy);
+            let mut viewer = ViewerState::load_with_images(vfs.as_ref(), path, allow_image, policy);
             if hex {
                 viewer.mode = ViewerMode::Hex;
             }
             viewer
         });
         self.poll_viewer();
+    }
+
+    /// The filesystem holding `path`: the active panel's source when the
+    /// path is one of its entries (archive, SFTP), the local disk otherwise.
+    pub fn vfs_of_listed(&self, path: &Path) -> std::sync::Arc<dyn crate::fs::vfs::Vfs> {
+        let panel = self.get_active_panel();
+        if panel.entries.iter().any(|e| e.path == path) {
+            panel.source.vfs_for(path)
+        } else {
+            std::sync::Arc::new(crate::fs::vfs::LocalVfs)
+        }
     }
 
     /// The viewer on the active screen.

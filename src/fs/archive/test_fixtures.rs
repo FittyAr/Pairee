@@ -29,7 +29,7 @@ pub fn write_zip(path: &Path, entries: &[(&str, &[u8])]) {
     zip.finish().unwrap();
 }
 
-pub fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
+fn tar_bytes(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut builder = tar::Builder::new(Vec::new());
     for (name, body) in entries {
         let mut header = tar::Header::new_gnu();
@@ -38,10 +38,23 @@ pub fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
         header.set_cksum();
         builder.append_data(&mut header, name, *body).unwrap();
     }
-    let tar_bytes = builder.into_inner().unwrap();
+    builder.into_inner().unwrap()
+}
+
+pub fn write_tar(path: &Path, entries: &[(&str, &[u8])]) {
+    fs::write(path, tar_bytes(entries)).unwrap();
+}
+
+pub fn write_tar_gz(path: &Path, entries: &[(&str, &[u8])]) {
     let mut gz = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::fast());
-    gz.write_all(&tar_bytes).unwrap();
+    gz.write_all(&tar_bytes(entries)).unwrap();
     fs::write(path, gz.finish().unwrap()).unwrap();
+}
+
+pub fn write_7z(path: &Path, entries: &[(&str, &[u8])]) {
+    let src = tempfile::tempdir().unwrap();
+    write_tree(src.path(), entries);
+    sevenz_rust2::compress_to_path(src.path(), path).unwrap();
 }
 
 /// Materialises `entries` below `root`, creating parent folders.

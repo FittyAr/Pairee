@@ -1,8 +1,8 @@
 //! One directory level read into comparable summaries, keyed by name.
 
 use super::key::name_key;
+use crate::fs::vfs::{Vfs, VfsEntry};
 use std::collections::BTreeMap;
-use std::fs::Metadata;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -15,11 +15,11 @@ pub struct FileSummary {
 }
 
 impl FileSummary {
-    pub fn from_metadata(meta: &Metadata) -> Self {
+    pub fn from_entry(entry: &VfsEntry) -> Self {
         Self {
-            size: if meta.is_dir() { 0 } else { meta.len() },
-            modified: meta.modified().ok(),
-            is_dir: meta.is_dir(),
+            size: if entry.is_dir { 0 } else { entry.size },
+            modified: entry.modified,
+            is_dir: entry.is_dir,
         }
     }
 }
@@ -37,25 +37,23 @@ pub struct ScannedEntry {
 /// Entries of one directory keyed by [`name_key`] (sorted by key).
 pub type ScannedDir = BTreeMap<String, ScannedEntry>;
 
-/// Reads `dir` (one level). `keep` decides, from the entry and its metadata,
-/// whether the entry takes part in the comparison (filters, hidden files).
+/// Reads `dir` (one level) on `vfs`. `keep` decides, from the entry and
+/// whether it is hidden, if the entry takes part in the comparison.
 pub fn scan_directory(
+    vfs: &dyn Vfs,
     dir: &Path,
     case_insensitive: bool,
-    keep: impl Fn(&ScannedEntry, &Metadata) -> bool,
+    keep: impl Fn(&ScannedEntry, bool) -> bool,
 ) -> std::io::Result<ScannedDir> {
     let mut map = ScannedDir::new();
-    for entry in std::fs::read_dir(dir)?.flatten() {
-        let Ok(meta) = entry.metadata() else {
-            continue;
-        };
+    for entry in vfs.list(dir)? {
         let scanned = ScannedEntry {
-            name: entry.file_name().to_string_lossy().into_owned(),
-            path: entry.path(),
-            is_symlink: entry.file_type().is_ok_and(|t| t.is_symlink()),
-            summary: FileSummary::from_metadata(&meta),
+            summary: FileSummary::from_entry(&entry),
+            name: entry.name,
+            path: entry.path,
+            is_symlink: entry.is_symlink,
         };
-        if keep(&scanned, &meta) {
+        if keep(&scanned, entry.hidden) {
             map.insert(name_key(&scanned.name, case_insensitive), scanned);
         }
     }

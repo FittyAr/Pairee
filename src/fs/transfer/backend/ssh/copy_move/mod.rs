@@ -7,10 +7,12 @@ use super::super::super::job::{FailedFile, SshEndpoints, TransferResults};
 use super::fast_remote_rename;
 use crate::config::localization::t;
 use crate::fs::delete_util::delete_recursive;
+use crate::fs::ssh::endpoint_vfs;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::control::{done, failed};
+use crate::fs::vfs::Vfs;
 use anyhow::anyhow;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -42,16 +44,10 @@ pub fn run_ssh_copy_move(
         dirs_to_create,
     } = scan::scan_sources(&sources, &destination_dir, &src_conn, &dst_conn, &control)?;
 
+    let src_fs = endpoint_vfs(&src_conn);
+    let dst_fs = endpoint_vfs(&dst_conn);
     for dir in &dirs_to_create {
-        if let Some(dst_client) = &dst_conn {
-            let mut current = PathBuf::new();
-            for component in dir.components() {
-                current.push(component);
-                let _ = dst_client.create_dir(&current);
-            }
-        } else {
-            let _ = std::fs::create_dir_all(dir);
-        }
+        dst_fs.mkdir_all(dir);
     }
 
     let mut results = TransferResults::default();
@@ -66,43 +62,18 @@ pub fn run_ssh_copy_move(
         let start = Instant::now();
         control.file_started(src, idx);
 
-        let copy_res = (|| -> anyhow::Result<()> {
-            let mut reader: Box<dyn Read + Send> = if let Some(src_conn) = &src_conn {
-                let file = src_conn.lock().sftp.open(src)?;
-                Box::new(file)
-            } else {
-                Box::new(std::fs::File::open(src)?)
-            };
-
-            let mut writer: Box<dyn Write + Send> = if let Some(dst_conn) = &dst_conn {
-                let file = dst_conn.lock().sftp.create(dst)?;
-                Box::new(file)
-            } else {
-                if let Some(parent) = dst.parent() {
-                    let _ = std::fs::create_dir_all(parent);
-                }
-                Box::new(std::fs::File::create(dst)?)
-            };
-
-            let mut buffer = vec![0u8; 64 * 1024];
-            let mut file_bytes = 0u64;
-            loop {
-                if control.is_cancelled() {
-                    return Err(anyhow!("Job cancelled"));
-                }
-                let n = reader.read(&mut buffer)?;
-                if n == 0 {
-                    break;
-                }
-                writer.write_all(&buffer[..n])?;
-                file_bytes += n as u64;
-                let _ = control.event_tx.send(TransferEvent::FileProgress {
-                    job_id: control.job_id,
-                    bytes_copied: bytes_copied_acc + file_bytes,
-                    bytes_total: total_bytes,
-                });
+        let copy_res = (|| -> std::io::Result<()> {
+            if let Some(parent) = dst.parent() {
+                dst_fs.mkdir_all(parent);
             }
-            bytes_copied_acc += file_bytes;
+            let mut reader = ProgressRead {
+                inner: src_fs.open_read(src)?,
+                control: &control,
+                done: bytes_copied_acc,
+                total: total_bytes,
+            };
+            dst_fs.write_file(dst, &mut reader)?;
+            bytes_copied_acc = reader.done;
             Ok(())
         })();
 
@@ -123,23 +94,21 @@ pub fn run_ssh_copy_move(
             if control.is_cancelled() {
                 break;
             }
-            if let Some(src_client) = &src_conn {
-                if let Err(e) = src_client.delete_recursive(src) {
-                    let msg = t("error_remote_source_delete_failed")
-                        .replacen("{}", &src.to_string_lossy(), 1)
-                        .replacen("{}", &e.to_string(), 1);
-                    results.failed_files.push(FailedFile {
-                        src: src.clone(),
-                        dst: PathBuf::new(),
-                        error: msg.clone(),
-                        retries: 0,
-                    });
-                    return Err(anyhow!(msg));
-                }
-            } else if let Err(e) = delete_recursive(src) {
-                let msg = t("error_delete_source_failed")
-                    .replacen("{}", &src.to_string_lossy(), 1)
-                    .replacen("{}", &e.to_string(), 1);
+            let removed = match &src_conn {
+                Some(client) => client.remove_all(src).map_err(anyhow::Error::from),
+                None => delete_recursive(src),
+            };
+            if let Err(e) = removed {
+                let key = if src_conn.is_some() {
+                    "error_remote_source_delete_failed"
+                } else {
+                    "error_delete_source_failed"
+                };
+                let msg = t(key).replacen("{}", &src.to_string_lossy(), 1).replacen(
+                    "{}",
+                    &e.to_string(),
+                    1,
+                );
                 results.failed_files.push(FailedFile {
                     src: src.clone(),
                     dst: PathBuf::new(),
@@ -152,4 +121,30 @@ pub fn run_ssh_copy_move(
     }
 
     control.job_completed(results)
+}
+
+/// Reads a source file for the copy loop, reporting byte progress and
+/// stopping (with an error) once the job is cancelled.
+struct ProgressRead<'a> {
+    inner: Box<dyn Read + Send>,
+    control: &'a JobControl,
+    /// Bytes of the whole job copied so far.
+    done: u64,
+    total: u64,
+}
+
+impl Read for ProgressRead<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        if self.control.is_cancelled() {
+            return Err(std::io::Error::other("Job cancelled"));
+        }
+        let n = self.inner.read(buf)?;
+        self.done += n as u64;
+        let _ = self.control.event_tx.send(TransferEvent::FileProgress {
+            job_id: self.control.job_id,
+            bytes_copied: self.done,
+            bytes_total: self.total,
+        });
+        Ok(n)
+    }
 }

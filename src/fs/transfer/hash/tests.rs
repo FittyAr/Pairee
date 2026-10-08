@@ -69,14 +69,24 @@ fn crc32_check_value() {
 }
 
 #[test]
-fn hash_file_matches_streamed_digest_and_honours_cancel() {
+fn hash_reader_matches_streamed_digest_and_honours_cancel() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("abc.txt");
     std::fs::write(&path, b"abc").unwrap();
     for (algorithm, _, abc) in VECTORS {
-        let hash = super::hash_file(&path, *algorithm, &|| false).unwrap();
+        let hash = super::hash_reader(
+            &mut std::fs::File::open(&path).unwrap(),
+            *algorithm,
+            &|| false,
+        )
+        .unwrap();
         assert_eq!(hash, *abc, "{algorithm:?}");
     }
-    let err = super::hash_file(&path, HashAlgorithm::Blake3, &|| true).unwrap_err();
+    let err = super::hash_reader(
+        &mut std::fs::File::open(&path).unwrap(),
+        HashAlgorithm::Blake3,
+        &|| true,
+    )
+    .unwrap_err();
     assert_eq!(err.kind(), std::io::ErrorKind::Interrupted);
 }

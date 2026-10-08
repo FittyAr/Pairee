@@ -5,18 +5,17 @@
 //! user) lives outside the mutex so the UI can show it without locking.
 
 mod connection;
-mod du_source;
-mod remote_fs;
 mod sftp_ops;
 #[cfg(test)]
 mod tests;
+mod vfs;
 
 use crate::config::localization::t;
-use crate::fs::entry::FileEntry;
+use crate::fs::vfs::{LocalVfs, Vfs};
 use crate::lock::LockExt;
 use anyhow::Result;
 use ssh2::{Session, Sftp};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -92,37 +91,6 @@ impl SharedSshClient {
         })
     }
 
-    pub fn read_directory(
-        &self,
-        path: &Path,
-        opts: &crate::fs::list::ListOptions,
-    ) -> Result<Vec<FileEntry>> {
-        sftp_ops::read_directory(&self.lock().sftp, path, opts)
-    }
-
-    pub fn create_dir(&self, path: &Path) -> Result<()> {
-        self.lock().sftp.mkdir(path, 0o755)?;
-        Ok(())
-    }
-
-    pub fn delete_recursive(&self, path: &Path) -> Result<()> {
-        remote_fs::delete_recursive(&self.lock().sftp, path)
-    }
-
-    pub fn walk_dir(&self, root: &Path) -> Result<Vec<(PathBuf, bool, u64)>> {
-        sftp_ops::walk_dir(&self.lock().sftp, root)
-    }
-
-    pub fn rename_move(&self, src: &Path, dst: &Path) -> Result<()> {
-        self.lock().sftp.rename(src, dst, None)?;
-        Ok(())
-    }
-
-    /// `true` when an entry (of any kind, links not followed) exists at `path`.
-    pub fn exists(&self, path: &Path) -> bool {
-        self.lock().sftp.lstat(path).is_ok()
-    }
-
     /// `true` when `path` exists on the server and is a directory.
     pub fn is_dir(&self, path: &Path) -> bool {
         self.lock()
@@ -148,5 +116,14 @@ pub fn is_dir_on(path: &Path, conn: &Option<SharedSshClient>) -> bool {
     match conn {
         Some(client) => client.is_dir(path),
         None => path.is_dir(),
+    }
+}
+
+/// The filesystem on one side of a transfer: the server when `conn` is
+/// set, the local disk otherwise.
+pub fn endpoint_vfs(conn: &Option<SharedSshClient>) -> Arc<dyn Vfs> {
+    match conn {
+        Some(client) => Arc::new(client.clone()),
+        None => Arc::new(LocalVfs),
     }
 }

@@ -42,7 +42,15 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) {
         return;
     }
     let settings = &context.config.settings;
-    let path = state.get_active_panel().current_path.join(name);
+    let panel = state.get_active_panel();
+    let path = panel.current_path.join(name);
+    if !panel.source.is_local() {
+        // SFTP server or zip archive: created in the background.
+        let vfs = panel.source.vfs();
+        state.dialogs.clear();
+        state.start_vfs_op(move || vfs.mkdir(&path));
+        return;
+    }
     match crate::fs::create_directory(&path, settings.req_admin_modification) {
         Err(_) if !settings.req_admin_modification => {
             state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {

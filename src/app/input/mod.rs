@@ -3,5 +3,5 @@ pub mod panel_nav;
 pub mod paste;
 
 pub use cli::handle_cli_input;
-pub use panel_nav::{handle_backspace_key, handle_enter_key};
+pub use panel_nav::{handle_backspace_key, handle_enter_key, handle_open_archive_key};
 pub use paste::handle_paste;

@@ -13,6 +13,7 @@ pub mod update_state;
 pub mod quick_view;
 pub mod refresh;
 pub mod screens;
+mod vfs_op;
 pub mod viewer;
 
 pub use crate::fs::compare::CompareStatus;
@@ -112,6 +113,9 @@ pub struct AppState {
     /// Operation journal (undo/redo of file operations).
     pub journal: crate::fs::journal::Journal,
 
+    /// Background change to a non-local panel source (see `vfs_op`).
+    pub vfs_op: crate::app::jobs::JobSlot<Result<(), String>>,
+
     /// Background folder comparison (Compare folders / Synchronize).
     pub folder_scan: crate::app::sync::FolderScanState,
     /// Disk usage view: background scan and cached size tree.
@@ -168,6 +172,7 @@ impl AppState {
             git_op: Default::default(),
             git_panel: Default::default(),
             multi_rename: Default::default(),
+            vfs_op: Default::default(),
             journal: Default::default(),
             folder_scan: Default::default(),
             disk_usage: Default::default(),
@@ -220,7 +225,7 @@ impl AppState {
     /// Points the active panel at a local folder (hotlist / folder shortcut jump).
     pub fn jump_active_panel_to(&mut self, target: PathBuf, show_hidden: bool) {
         let panel = self.get_active_panel_mut();
-        panel.ssh_conn = None;
+        panel.source = crate::fs::vfs::PanelSource::Local;
         panel.open_path(target.clone());
         self.push_folders_history(target);
         self.refresh_active_panel(show_hidden);

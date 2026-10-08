@@ -2,9 +2,11 @@
 
 use super::tests::{CS, WIN, counter_rules, names};
 use super::*;
-use std::cell::RefCell;
+use crate::fs::vfs::{Capabilities, LocalVfs, Vfs, VfsEntry};
 use std::collections::HashSet;
+use std::io;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 fn p(name: &str) -> PathBuf {
     PathBuf::from(name)
@@ -78,51 +80,70 @@ fn case_only_renames_and_duplicate_targets() {
 
 /// In-memory backend (current name, original name). Renaming onto an
 /// existing name overwrites it, like POSIX `rename`, so ordering bugs show.
+#[derive(Debug)]
 struct MemFs {
-    entries: RefCell<Vec<(String, String)>>,
+    entries: Mutex<Vec<(String, String)>>,
     /// Targets whose rename fails, each entry consumed once.
-    failures: RefCell<Vec<&'static str>>,
-    log: RefCell<Vec<String>>,
+    failures: Mutex<Vec<&'static str>>,
+    log: Mutex<Vec<String>>,
 }
 
 impl MemFs {
     fn new(names: &[&str]) -> Self {
         Self {
-            entries: RefCell::new(
+            entries: Mutex::new(
                 names
                     .iter()
                     .map(|n| (n.to_string(), n.to_string()))
                     .collect(),
             ),
-            failures: RefCell::default(),
-            log: RefCell::default(),
+            failures: Mutex::default(),
+            log: Mutex::default(),
         }
     }
 
     fn names(&self) -> HashSet<String> {
         self.entries
-            .borrow()
+            .lock()
+            .unwrap()
             .iter()
             .map(|(n, _)| n.clone())
             .collect()
     }
 }
 
-impl RenameBackend for MemFs {
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), String> {
+/// Only `rename` and `exists` are used by [`execute`].
+fn not_listed() -> io::Error {
+    io::Error::from(io::ErrorKind::Unsupported)
+}
+
+impl Vfs for MemFs {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::READ_ONLY
+    }
+
+    fn list(&self, _dir: &Path) -> io::Result<Vec<VfsEntry>> {
+        Err(not_listed())
+    }
+
+    fn stat(&self, _path: &Path) -> io::Result<VfsEntry> {
+        Err(not_listed())
+    }
+
+    fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
         let from = crate::fs::file_name_lossy(from);
         let to = crate::fs::file_name_lossy(to);
-        self.log.borrow_mut().push(format!("{from}->{to}"));
-        let mut failures = self.failures.borrow_mut();
+        self.log.lock().unwrap().push(format!("{from}->{to}"));
+        let mut failures = self.failures.lock().unwrap();
         if let Some(idx) = failures.iter().position(|f| *f == to) {
             failures.remove(idx);
-            return Err("boom".into());
+            return Err(io::Error::other("boom"));
         }
-        let mut entries = self.entries.borrow_mut();
+        let mut entries = self.entries.lock().unwrap();
         let idx = entries
             .iter()
             .position(|(n, _)| *n == from)
-            .ok_or("missing")?;
+            .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))?;
         let original = entries.remove(idx).1;
         entries.retain(|(n, _)| *n != to);
         entries.push((to, original));
@@ -141,7 +162,8 @@ fn simulate(initial: &[&str], steps: &[Step]) -> Vec<String> {
     assert!(report.is_success(), "{report:?}");
     let mut out: Vec<String> = backend
         .entries
-        .borrow()
+        .lock()
+        .unwrap()
         .iter()
         .map(|(now, was)| format!("{now}<-{was}"))
         .collect();
@@ -159,7 +181,7 @@ fn swap_executes_without_losing_files() {
 fn failure_rolls_back_every_applied_step() {
     let steps = plan(&moves(&[("1", "2"), ("2", "3")]), CS, &nothing_taken).unwrap();
     let backend = MemFs::new(&["1", "2"]);
-    backend.failures.borrow_mut().push("2"); // the second step (1 -> 2) fails
+    backend.failures.lock().unwrap().push("2"); // the second step (1 -> 2) fails
     let report = execute(&steps, &backend, CS);
     assert!(!report.is_success());
     assert_eq!(
@@ -169,7 +191,7 @@ fn failure_rolls_back_every_applied_step() {
     assert!(report.not_rolled_back.is_empty());
     assert!(report.applied.is_empty());
     assert_eq!(backend.names(), HashSet::from(["1".into(), "2".into()]));
-    assert_eq!(*backend.log.borrow(), ["2->3", "1->2", "3->2"]);
+    assert_eq!(*backend.log.lock().unwrap(), ["2->3", "1->2", "3->2"]);
 }
 
 #[test]
@@ -177,7 +199,7 @@ fn rollback_failures_are_reported() {
     let steps = plan(&moves(&[("1", "2"), ("2", "3")]), CS, &nothing_taken).unwrap();
     let backend = MemFs::new(&["1", "2"]);
     // 1 -> 2 fails, and so does undoing 2 -> 3 (3 -> 2).
-    backend.failures.borrow_mut().extend(["2", "2"]);
+    backend.failures.lock().unwrap().extend(["2", "2"]);
     let report = execute(&steps, &backend, CS);
     assert_eq!(pairs(&report.not_rolled_back), moves(&[("2", "3")]));
     assert_eq!(pairs(&report.applied), moves(&[("2", "3")]));
@@ -192,15 +214,28 @@ fn existing_target_stops_before_overwriting() {
     let backend = MemFs::new(&["a", "b"]);
     let report = execute(&steps, &backend, CS);
     assert!(!report.is_success());
-    assert!(backend.log.borrow().is_empty(), "nothing was renamed");
+    assert!(
+        backend.log.lock().unwrap().is_empty(),
+        "nothing was renamed"
+    );
 }
 
 #[test]
 fn case_only_rename_ignores_its_own_entry() {
     /// Case-insensitive store: `exists` matches any case.
+    #[derive(Debug)]
     struct Ci(MemFs);
-    impl RenameBackend for Ci {
-        fn rename(&self, from: &Path, to: &Path) -> Result<(), String> {
+    impl Vfs for Ci {
+        fn capabilities(&self) -> Capabilities {
+            Capabilities::READ_ONLY
+        }
+        fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
+            self.0.list(dir)
+        }
+        fn stat(&self, path: &Path) -> io::Result<VfsEntry> {
+            self.0.stat(path)
+        }
+        fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {
             self.0.rename(from, to)
         }
         fn exists(&self, path: &Path) -> bool {
@@ -236,10 +271,10 @@ fn local_backend_swaps_real_files() {
     let rules = counter_rules(2, -1).compile().unwrap();
     let preview = Preview::build(&sources, &rules, &names(&["1.txt", "2.txt"]), fs);
     let steps = plan(&preview.moves(&sources), fs, &|path: &Path| {
-        LocalFs.exists(path)
+        LocalVfs.exists(path)
     })
     .unwrap();
-    let report = execute(&steps, &LocalFs, fs);
+    let report = execute(&steps, &LocalVfs, fs);
     assert!(report.is_success(), "{report:?}");
     let read = |name: &str| std::fs::read_to_string(dir.path().join(name)).unwrap();
     assert_eq!(read("1.txt"), "2.txt");

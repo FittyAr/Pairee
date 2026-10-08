@@ -75,7 +75,7 @@ pub fn get_items(
             &[("menu_connect_ssh", Action::SshConnect, "Ctrl+Shift+S")],
         )
         .actions_if(
-            p.ssh_conn.is_some(),
+            p.source.ssh().is_some(),
             &[("menu_disconnect_ssh", Action::SshDisconnect, "")],
         );
     if !settings.git_enabled {

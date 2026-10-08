@@ -31,6 +31,7 @@
 - Plugins can declare the programs they need in `manifest.toml` (`[permissions] commands = [...]`); the Plugin Manager shows them in the plugin details.
 - Folder sizes: `Space` or `F3` on a folder, or **Commands → Folder sizes** (selected folders, or all of them), computes the size in the background and shows it in the size column and status line until the directory changes; `Esc` cancels. Symbolic links are not followed, hard links count once on Unix, and folders that could not be read completely are marked with `+`. Works on SFTP panels too.
 - Disk usage view (**Commands → Disk usage**): ncdu-like list of the current folder sorted by size with percentages and bars, cancellable scan with live progress, navigation into subfolders and back, deletion through the regular delete confirmation and rescan (`r`/`F5`). Scan results are cached per folder.
+- Archives as folders: `Enter` or `Ctrl+PgDn` (new `open_archive` action) on a zip, tar, tar.gz/tgz or 7z file opens it in the panel; subfolders open with `Enter`, the title shows the path inside the archive and `..` (or `Backspace` / `Ctrl+PgUp`) at its root returns to the containing folder with the cursor on the archive. `F5` copies the selection out through the Transfer Engine with the safe extractor (no traversal, no writing through links, no overwrite, size limits). Zip archives also accept copies into them, new folders (`F7`) and deletions (`F8`), applied by rewriting the archive to a temporary file and atomically replacing it; tar and 7z archives are read-only. Unsupported actions inside an archive (and archives on SSH panels or inside other archives) show a clear message. Plain `.tar` files are now recognized, and `F7` on an SFTP panel now creates the folder on the server.
 
 ### Improved
 
@@ -48,6 +49,9 @@
 - Enhanced scroll behavior in the Git diff viewer for short files.
 - Centralized all Git operation error alerts, conflict notifications, confirmation prompts, and buttons into localization catalogs with zero hardcoding.
 - Internal: the "do not overwrite an invalid `config.toml` until confirmed" lock and the startup load error now live in `AppConfig` (`ConfigLoadState`) instead of process-wide globals.
+- Internal: panels, folder sizes, the disk usage view, multi-rename and SSH copy/move/delete now go through one panel source port (`fs::vfs::Vfs`, Ports & Adapters) with local and SFTP adapters and capability flags, replacing the separate `DuSource`, `RenameBackend` and `RemoteFs` traits and the per-feature "local or SSH" branches. Panels keep a `PanelSource` instead of an optional SSH connection. Folder links inside a tree uploaded or downloaded over SSH are created as folders but not followed.
+- The viewer (`F3`) and Quick View read through the panel's source: entries of an archive panel and files on SFTP panels open in the viewer and preview (read into memory, up to 64 MiB; local files are still paged from disk). Images are decoded from the bytes read, so they preview inside archives too.
+- **Commands → Compare folders** reads both panels through their source, so a folder inside an archive or on an SFTP server can be compared with any other panel (content hashes are computed from the source too). **Synchronize folders** also works with folders inside archives (zip archives accept the copies and deletions); only SFTP panels are refused, with a clearer message.
 
 ### Deprecated
 

@@ -8,6 +8,7 @@ use crate::fs::compare::{
     EntryPair, FileSummary, ScannedDir, ScannedEntry, metadata_equal, mtime_within, pair_entries,
     scan_directory,
 };
+use crate::fs::vfs::Vfs;
 use std::path::{Path, PathBuf};
 
 /// Scan statistics published while comparing.
@@ -37,11 +38,29 @@ pub enum SyncError {
     },
 }
 
+/// One compared tree: a folder on a panel source.
+#[derive(Clone, Copy)]
+pub struct Side<'a> {
+    pub vfs: &'a dyn Vfs,
+    pub root: &'a Path,
+}
+
+#[cfg(test)]
+impl<'a> Side<'a> {
+    /// A local folder.
+    pub fn local(root: &'a Path) -> Self {
+        Self {
+            vfs: &crate::fs::vfs::LocalVfs,
+            root,
+        }
+    }
+}
+
 /// Compares `left` and `right` recursively and returns every compared path
 /// (folder pairs included, as context) with the direction's default action.
 pub fn diff_trees(
-    left: &Path,
-    right: &Path,
+    left: Side,
+    right: Side,
     options: &SyncOptions,
     observer: &dyn ScanObserver,
 ) -> Result<Vec<SyncItem>, SyncError> {
@@ -51,8 +70,9 @@ pub fn diff_trees(
         observer,
         progress: ScanProgress::default(),
         items: Vec::new(),
+        vfs: [left.vfs, right.vfs],
     };
-    walker.walk(Path::new(""), left, right)?;
+    walker.walk(Path::new(""), left.root, right.root)?;
     let mut items = walker.items;
     apply_direction(&mut items, options.direction);
     Ok(items)
@@ -64,13 +84,18 @@ struct Walker<'a> {
     observer: &'a dyn ScanObserver,
     progress: ScanProgress,
     items: Vec<SyncItem>,
+    /// Filesystem of the left and right tree.
+    vfs: [&'a dyn Vfs; 2],
 }
+
+const LEFT: usize = 0;
+const RIGHT: usize = 1;
 
 impl Walker<'_> {
     /// Compares one folder pair; returns whether anything below differs.
     fn walk(&mut self, rel: &Path, left: &Path, right: &Path) -> Result<bool, SyncError> {
         self.enter(rel)?;
-        let pairs = pair_entries(self.scan(left)?, self.scan(right)?);
+        let pairs = pair_entries(self.scan(LEFT, left)?, self.scan(RIGHT, right)?);
         let mut differs = false;
         for pair in pairs {
             let item_rel = rel.join(pair.name());
@@ -96,11 +121,13 @@ impl Walker<'_> {
         Ok(())
     }
 
-    fn scan(&mut self, dir: &Path) -> Result<ScannedDir, SyncError> {
+    fn scan(&mut self, side: usize, dir: &Path) -> Result<ScannedDir, SyncError> {
         let filter = &self.filter;
         let ci = self.options.compare.case_insensitive;
-        let map = scan_directory(dir, ci, |e, meta| filter.accepts(e, meta))
-            .map_err(|source| io_or_cancel(dir, source))?;
+        let map = scan_directory(self.vfs[side], dir, ci, |e, hidden| {
+            filter.accepts(e, hidden)
+        })
+        .map_err(|source| io_or_cancel(dir, source))?;
         self.progress.files += map.values().filter(|e| !e.summary.is_dir).count();
         Ok(map)
     }
@@ -164,11 +191,19 @@ impl Walker<'_> {
         match self.options.content_hash {
             Some(algorithm) if l.summary.size == r.summary.size => {
                 let cancelled = || self.observer.is_cancelled();
-                let hash = |e: &ScannedEntry| {
-                    crate::fs::transfer::hash::hash_file(&e.path, algorithm, &cancelled)
+                let hash = |side: usize, e: &ScannedEntry| {
+                    self.vfs[side]
+                        .open_read(&e.path)
+                        .and_then(|mut reader| {
+                            crate::fs::transfer::hash::hash_reader(
+                                &mut reader,
+                                algorithm,
+                                &cancelled,
+                            )
+                        })
                         .map_err(|source| io_or_cancel(&e.path, source))
                 };
-                Ok(hash(l)? == hash(r)?)
+                Ok(hash(LEFT, l)? == hash(RIGHT, r)?)
             }
             _ => Ok(metadata_equal(&l.summary, &r.summary, tolerance)),
         }
@@ -187,19 +222,21 @@ impl Walker<'_> {
         if matches!(pair, EntryPair::Both(..)) || entry.is_symlink {
             return Ok(0);
         }
-        self.tree_bytes(&entry.path)
+        self.tree_bytes(if left { LEFT } else { RIGHT }, &entry.path)
     }
 
-    fn tree_bytes(&self, dir: &Path) -> Result<u64, SyncError> {
+    fn tree_bytes(&self, side: usize, dir: &Path) -> Result<u64, SyncError> {
         if self.observer.is_cancelled() {
             return Err(SyncError::Cancelled);
         }
         let ci = self.options.compare.case_insensitive;
-        let entries = scan_directory(dir, ci, |e, meta| self.filter.accepts(e, meta))
-            .map_err(|source| io_or_cancel(dir, source))?;
+        let entries = scan_directory(self.vfs[side], dir, ci, |e, hidden| {
+            self.filter.accepts(e, hidden)
+        })
+        .map_err(|source| io_or_cancel(dir, source))?;
         entries.values().try_fold(0u64, |acc, e| {
             let bytes = match (e.summary.is_dir, e.is_symlink) {
-                (true, false) => self.tree_bytes(&e.path)?,
+                (true, false) => self.tree_bytes(side, &e.path)?,
                 (true, true) => 0,
                 (false, _) => e.summary.size,
             };

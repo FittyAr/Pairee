@@ -83,6 +83,13 @@ the left and right menus are one menu built per side.
 Dialog handlers now edit the dialog in place through `dialogs.top_mut()`
 instead of cloning it on every key and replacing it afterwards.
 
+Later (G.2): the ad-hoc filesystem traits `fs::du::DuSource`,
+`multi_rename::RenameBackend` and `ssh::RemoteFs`, the SFTP `walk_dir` /
+`read_directory` copies and the "SSH or local" branches of the SSH copy
+backend were replaced by one port, `fs::vfs::Vfs`; the zip, tar and 7z
+extractors (and the `tar_ops.rs` ↔ `zip_ops.rs` pair below) became one
+generic extractor over `fs::archive::format::ArchiveReader`.
+
 ## Clippy limits
 
 - `too-many-arguments-threshold` is now 7 (was 12). Functions above it take

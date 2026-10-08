@@ -56,6 +56,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "select_item" => Some(Action::SelectItem),
         "execute" => Some(Action::Execute),
         "go_parent" => Some(Action::GoParent),
+        "open_archive" => Some(Action::OpenArchive),
         "panel_view_brief" => Some(Action::PanelViewBrief),
         "panel_view_medium" => Some(Action::PanelViewMedium),
         "panel_view_full" => Some(Action::PanelViewFull),

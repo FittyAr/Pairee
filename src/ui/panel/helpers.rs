@@ -32,7 +32,7 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
         String::new()
     };
 
-    let ssh_suffix = if let Some(client) = &panel.ssh_conn {
+    let ssh_suffix = if let Some(client) = panel.source.ssh() {
         let info = client.info();
         format!(" [SSH: {}@{}]", info.username, info.host)
     } else {

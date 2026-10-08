@@ -7,15 +7,15 @@
 mod tests;
 
 use crate::app::jobs::JobSlot;
-use crate::fs::du::{DuNode, LocalSource, ScanControl, ScanProgress, scan};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::du::{DuNode, ScanControl, ScanProgress, scan};
+use crate::fs::vfs::PanelSource;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Default)]
 pub struct DiskUsageState {
     /// Folder the tree was (or is being) scanned from.
     root: PathBuf,
-    ssh: Option<SharedSshClient>,
+    source: PanelSource,
     tree: Option<DuNode>,
     job: JobSlot<DuNode, ScanProgress>,
     /// Names from `root` down to the folder on screen.
@@ -28,13 +28,13 @@ pub struct DiskUsageState {
 
 impl DiskUsageState {
     /// Shows `root`, reusing the cached tree when it is the same local folder.
-    pub fn open(&mut self, root: PathBuf, ssh: Option<SharedSshClient>) {
-        let cached = self.tree.is_some() && self.ssh.is_none() && ssh.is_none();
+    pub fn open(&mut self, root: PathBuf, source: PanelSource) {
+        let cached = self.tree.is_some() && self.source.is_local() && source.is_local();
         if cached && self.root == root {
             return;
         }
         self.root = root;
-        self.ssh = ssh;
+        self.source = source;
         self.trail.clear();
         self.cursor = 0;
         self.rescan();
@@ -45,7 +45,7 @@ impl DiskUsageState {
         self.tree = None;
         self.pending_delete.clear();
         let root = self.root.clone();
-        let ssh = self.ssh.clone();
+        let vfs = self.source.vfs();
         self.job.start(move |ctx| {
             let cancelled = || ctx.is_cancelled();
             let report = |p: &ScanProgress| ctx.report(p.clone());
@@ -53,10 +53,7 @@ impl DiskUsageState {
                 cancelled: &cancelled,
                 progress: &report,
             };
-            match &ssh {
-                Some(client) => scan(client, &root, true, &ctl),
-                None => scan(&LocalSource, &root, true, &ctl),
-            }
+            scan(vfs.as_ref(), &root, true, &ctl)
         });
         self.poll();
     }
@@ -144,7 +141,7 @@ impl DiskUsageState {
 
     /// Remembers that `path` is being deleted so it leaves the tree when gone.
     pub fn watch_delete(&mut self, path: PathBuf) {
-        if self.ssh.is_none() {
+        if self.source.is_local() {
             self.pending_delete.push(path);
         }
     }

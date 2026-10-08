@@ -1,63 +1,87 @@
-use crate::app::state::AppState;
+use crate::app::state::{AppState, PopupType};
+use crate::config::localization::t;
+use crate::fs::FileEntry;
+use crate::fs::vfs::PanelSource;
 
-/// Enters highlighted directory or open files with standard OS handlers.
+/// Enters the highlighted folder or archive, or opens the highlighted file
+/// (internal viewer, or the associated / system program).
 pub fn handle_enter_key(state: &mut AppState, context: &crate::app::context::AppContext) {
-    let mut target_dir = None;
-    let mut open_file_path: Option<std::path::PathBuf> = None;
-    {
-        let active = state.get_active_panel();
-        if let Some(entry) = active.entries.get(active.cursor_index) {
-            if entry.is_dir {
-                target_dir = Some(entry.path.clone());
-            } else {
-                if !context.config.settings.enter_use_external {
-                    open_file_path = Some(entry.path.clone());
-                } else {
-                    let rule = crate::config::associations::AssociationsConfig::load()
-                        .find_rule(&entry.name)
-                        .cloned();
+    enter(state, context, false);
+}
 
-                    if let Some(r) = rule {
-                        // Association: parse command into (program, args) and
-                        // exec directly without a shell. File path is passed as
-                        // a single argv entry, so a malicious filename cannot
-                        // inject shell commands.
-                        let (program, args) = r.resolve_open_cmd(&entry.path);
-                        if !program.is_empty() {
-                            if context.config.settings.automatic_update_env_variables {
-                                crate::app::sys_helpers::refresh_env_vars();
-                            }
-                            let _ = std::process::Command::new(&program).args(&args).spawn();
-                        }
-                    } else if !cfg!(target_os = "windows")
-                        || context.config.settings.use_windows_registered_types
-                    {
-                        // No matching association: hand the path to the
-                        // OS-registered handler (ShellExecuteW / xdg-open /
-                        // open) without a shell, so the name is never parsed.
-                        if context.config.settings.automatic_update_env_variables {
-                            crate::app::sys_helpers::refresh_env_vars();
-                        }
-                        crate::shell::open_with_system_handler(&entry.path);
-                    }
-                }
-            }
+/// Ctrl+PgDn: enters the highlighted folder or archive; files are left alone.
+pub fn handle_open_archive_key(state: &mut AppState, context: &crate::app::context::AppContext) {
+    enter(state, context, true);
+}
+
+fn enter(state: &mut AppState, context: &crate::app::context::AppContext, folders_only: bool) {
+    let active = state.get_active_panel();
+    let Some(entry) = active.entries.get(active.cursor_index).cloned() else {
+        return;
+    };
+    if entry.is_dir {
+        change_dir(state, entry.path);
+    } else if crate::fs::archive::is_browsable(&entry.path) {
+        match browse_refusal(&active.source) {
+            None => change_dir(state, entry.path),
+            Some(key) => state.dialogs.replace(PopupType::Info(t(key))),
         }
+    } else if !folders_only {
+        open_file(state, context, &entry);
     }
+}
 
-    if let Some(path) = open_file_path {
-        state.push_file_view_history(path.clone());
-        state.open_viewer(path, &context.config.settings, false);
+/// Why an archive on this source cannot be opened as a folder.
+fn browse_refusal(source: &PanelSource) -> Option<&'static str> {
+    match source {
+        PanelSource::Local => None,
+        PanelSource::Remote(_) => Some("archive_remote_unsupported"),
+        PanelSource::Archive(_) => Some("archive_nested_unsupported"),
+    }
+}
+
+/// Points the active panel at `dir` (the caller rereads it).
+fn change_dir(state: &mut AppState, dir: std::path::PathBuf) {
+    state.push_folders_history(dir.clone());
+    let active_mut = state.get_active_panel_mut();
+    // Going up via "..": land on the folder (or archive) we just left.
+    active_mut.pending_focus = child_name_of(&dir, &active_mut.current_path);
+    active_mut.current_path = dir;
+    active_mut.cursor_index = 0;
+    active_mut.clear_selection();
+}
+
+fn open_file(state: &mut AppState, context: &crate::app::context::AppContext, entry: &FileEntry) {
+    let settings = &context.config.settings;
+    // Programs can only open real local files.
+    let local = state.get_active_panel().source.capabilities().local_tools;
+    if !settings.enter_use_external || !local {
+        state.push_file_view_history(entry.path.clone());
+        state.open_viewer(entry.path.clone(), settings, false);
         return;
     }
-    if let Some(dir) = target_dir {
-        state.push_folders_history(dir.clone());
-        let active_mut = state.get_active_panel_mut();
-        // Going up via "..": land on the folder we just left.
-        active_mut.pending_focus = child_name_of(&dir, &active_mut.current_path);
-        active_mut.current_path = dir;
-        active_mut.cursor_index = 0;
-        active_mut.clear_selection();
+    let rule = crate::config::associations::AssociationsConfig::load()
+        .find_rule(&entry.name)
+        .cloned();
+    if let Some(r) = rule {
+        // Association: parse command into (program, args) and exec directly
+        // without a shell. The file path is passed as a single argv entry,
+        // so a malicious filename cannot inject shell commands.
+        let (program, args) = r.resolve_open_cmd(&entry.path);
+        if !program.is_empty() {
+            if settings.automatic_update_env_variables {
+                crate::app::sys_helpers::refresh_env_vars();
+            }
+            let _ = std::process::Command::new(&program).args(&args).spawn();
+        }
+    } else if !cfg!(target_os = "windows") || settings.use_windows_registered_types {
+        // No matching association: hand the path to the OS-registered
+        // handler (ShellExecuteW / xdg-open / open) without a shell, so the
+        // name is never parsed.
+        if settings.automatic_update_env_variables {
+            crate::app::sys_helpers::refresh_env_vars();
+        }
+        crate::shell::open_with_system_handler(&entry.path);
     }
 }
 
@@ -78,16 +102,7 @@ pub fn handle_backspace_key(state: &mut AppState, show_hidden: bool) {
         .parent()
         .map(|p| p.to_path_buf());
     if let Some(parent) = parent_path {
-        state.push_folders_history(parent.clone());
-
-        let active = state.get_active_panel_mut();
-        // Reposition the cursor on the directory we just exited once the
-        // background listing of the parent arrives.
-        active.pending_focus = child_name_of(&parent, &active.current_path);
-        active.current_path = parent;
-        active.cursor_index = 0;
-        active.clear_selection();
-
+        change_dir(state, parent);
         state.refresh_active_panel(show_hidden);
     }
 }

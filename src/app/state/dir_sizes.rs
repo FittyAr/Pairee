@@ -6,8 +6,8 @@
 //! the panel lists another directory.
 
 use crate::app::jobs::JobSlot;
-use crate::fs::du::{DirSize, LocalSource, ScanControl, scan};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::du::{DirSize, ScanControl, scan};
+use crate::fs::vfs::PanelSource;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -27,7 +27,7 @@ pub struct DirSizes {
     queue: Vec<PathBuf>,
     /// Folders of the running batch.
     running: Vec<PathBuf>,
-    ssh: Option<SharedSshClient>,
+    source: PanelSource,
     job: JobSlot<Batch, DirSizeProgress>,
 }
 
@@ -45,10 +45,10 @@ impl DirSizes {
         self.job.progress()
     }
 
-    /// Queues `paths` (folders of a panel connected through `ssh`, if any).
-    /// Folders already known or already requested are skipped.
-    pub fn request(&mut self, paths: Vec<PathBuf>, ssh: Option<SharedSshClient>) {
-        self.ssh = ssh;
+    /// Queues `paths` (folders of a panel showing `source`). Folders
+    /// already known or already requested are skipped.
+    pub fn request(&mut self, paths: Vec<PathBuf>, source: PanelSource) {
+        self.source = source;
         for path in paths {
             let pending = self.running.contains(&path) || self.queue.contains(&path);
             if !pending && !self.known.contains_key(&path) {
@@ -66,7 +66,7 @@ impl DirSizes {
         }
         self.running = std::mem::take(&mut self.queue);
         let paths = self.running.clone();
-        let ssh = self.ssh.clone();
+        let vfs = self.source.vfs();
         self.job.start(move |ctx| {
             let mut sizes = Vec::with_capacity(paths.len());
             for path in paths {
@@ -84,10 +84,7 @@ impl DirSizes {
                     cancelled: &cancelled,
                     progress: &report,
                 };
-                let node = match &ssh {
-                    Some(client) => scan(client, &path, false, &ctl),
-                    None => scan(&LocalSource, &path, false, &ctl),
-                };
+                let node = scan(vfs.as_ref(), &path, false, &ctl);
                 sizes.push((path, node.size));
             }
             sizes
@@ -144,7 +141,7 @@ mod tests {
         let dir = tree();
         let folder = dir.path().join("a");
         let mut sizes = DirSizes::default();
-        sizes.request(vec![folder.clone()], None);
+        sizes.request(vec![folder.clone()], Default::default());
         assert!(sizes.poll());
         assert_eq!(sizes.get(&folder).unwrap().bytes, 42);
         assert!(!sizes.is_running());
@@ -155,9 +152,9 @@ mod tests {
         let dir = tree();
         let folder = dir.path().join("a");
         let mut sizes = DirSizes::default();
-        sizes.request(vec![folder.clone()], None);
+        sizes.request(vec![folder.clone()], Default::default());
         sizes.poll();
-        sizes.request(vec![folder.clone()], None);
+        sizes.request(vec![folder.clone()], Default::default());
         assert!(!sizes.is_running());
         assert!(!sizes.poll());
     }
@@ -167,13 +164,13 @@ mod tests {
         let dir = tree();
         let folder = dir.path().join("a");
         let mut sizes = DirSizes::default();
-        sizes.request(vec![folder.clone()], None);
+        sizes.request(vec![folder.clone()], Default::default());
         sizes.poll();
         sizes.retain_listed(&[folder.clone()].into_iter().collect());
         assert!(sizes.get(&folder).is_some());
         sizes.retain_listed(&Default::default());
         assert!(sizes.get(&folder).is_none());
-        sizes.request(vec![folder.clone()], None);
+        sizes.request(vec![folder.clone()], Default::default());
         sizes.poll();
         sizes.clear();
         assert!(sizes.get(&folder).is_none());

@@ -25,18 +25,16 @@ pub fn create_hasher(algorithm: HashAlgorithm) -> Box<dyn HashStrategy> {
     }
 }
 
-/// Block size for [`hash_file`].
+/// Block size for [`hash_reader`].
 const HASH_BLOCK: usize = 256 * 1024;
 
-/// Hashes the file at `path`. `cancelled` is polled between blocks; a
-/// cancelled run fails with [`std::io::ErrorKind::Interrupted`].
-pub fn hash_file(
-    path: &std::path::Path,
+/// Hashes everything `file` yields. `cancelled` is polled between blocks;
+/// a cancelled run fails with [`std::io::ErrorKind::Interrupted`].
+pub fn hash_reader(
+    file: &mut dyn std::io::Read,
     algorithm: HashAlgorithm,
     cancelled: &dyn Fn() -> bool,
 ) -> std::io::Result<String> {
-    use std::io::Read;
-    let mut file = std::fs::File::open(path)?;
     let mut hasher = create_hasher(algorithm);
     let mut buf = vec![0u8; HASH_BLOCK];
     loop {

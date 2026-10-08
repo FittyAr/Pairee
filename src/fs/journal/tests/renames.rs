@@ -1,13 +1,14 @@
 use super::super::check;
 use super::{FsCommand, p, read, runnable_inverse, write};
-use crate::fs::multi_rename::{LocalFs, Step, TargetFs, execute, plan};
+use crate::fs::multi_rename::{Step, TargetFs, execute, plan};
+use crate::fs::vfs::LocalVfs;
 use std::path::{Path, PathBuf};
 
 /// Runs `moves` like the multi-rename tool and returns the journal entry.
 fn rename_batch(moves: &[(PathBuf, PathBuf)]) -> FsCommand {
     let fs = TargetFs::local();
     let steps = plan(moves, fs, &|path: &Path| path.exists()).unwrap();
-    let report = execute(&steps, &LocalFs, fs);
+    let report = execute(&steps, &LocalVfs, fs);
     assert!(report.is_success(), "{report:?}");
     FsCommand::Rename {
         steps: report.applied,
@@ -20,7 +21,7 @@ fn run(command: &FsCommand) -> FsCommand {
     let FsCommand::Rename { steps, .. } = command else {
         panic!("not a rename: {command:?}");
     };
-    let report = execute(steps, &LocalFs, TargetFs::local());
+    let report = execute(steps, &LocalVfs, TargetFs::local());
     assert!(report.is_success(), "{report:?}");
     FsCommand::Rename {
         steps: report.applied,

@@ -24,6 +24,8 @@ pub enum Action {
     Execute,
     /// Go to the parent directory (Backspace)
     GoParent,
+    /// Enter the highlighted folder or archive, never open a file (Ctrl+PgDn)
+    OpenArchive,
 
     // ── Panel view modes (Ctrl+1 … Ctrl+0) ──────────────────────────────────
     /// Brief: filename-only, multi-column (Ctrl+1)

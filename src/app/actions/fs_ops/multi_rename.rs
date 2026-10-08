@@ -6,10 +6,9 @@ use crate::app::state::popup::MultiRenameState;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::journal::FsCommand;
-use crate::fs::multi_rename::{
-    LocalFs, RenameBackend, RenameReport, RenameSource, Step, TargetFs, execute, plan,
-};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::multi_rename::{RenameReport, RenameSource, Step, TargetFs, execute, plan};
+use crate::fs::ssh::{SharedSshClient, endpoint_vfs};
+use crate::fs::vfs::Vfs;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -46,7 +45,7 @@ pub fn handle(state: &mut AppState) -> bool {
         .filter(|entry| entry.name != "..")
         .map(|entry| entry.name.clone())
         .collect();
-    let dialog = MultiRenameState::new(sources, siblings, panel.ssh_conn.clone());
+    let dialog = MultiRenameState::new(sources, siblings, panel.source.clone());
     state
         .dialogs
         .replace(PopupType::MultiRename(Box::new(dialog)));
@@ -63,7 +62,7 @@ pub fn start(state: &mut AppState) {
     }
     dialog.running = true;
     let moves = dialog.preview.moves(&dialog.sources);
-    let ssh = dialog.ssh.clone();
+    let ssh = dialog.source.ssh().cloned();
     spawn(state, ssh, move |backend, fs| {
         let taken = |path: &Path| backend.exists(path);
         match plan(&moves, fs, &taken) {
@@ -88,14 +87,11 @@ pub fn run_steps(state: &mut AppState, steps: Vec<Step>, ssh: Option<SharedSshCl
 fn spawn(
     state: &mut AppState,
     ssh: Option<SharedSshClient>,
-    job: impl FnOnce(&dyn RenameBackend, TargetFs) -> RenameReport + Send + 'static,
+    job: impl FnOnce(&dyn Vfs, TargetFs) -> RenameReport + Send + 'static,
 ) {
     state.multi_rename.start(move |_| {
         let fs = TargetFs::for_panel(ssh.is_some());
-        let report = match &ssh {
-            Some(client) => job(client, fs),
-            None => job(&LocalFs, fs),
-        };
+        let report = job(endpoint_vfs(&ssh).as_ref(), fs);
         RenameRun { report, ssh }
     });
 }

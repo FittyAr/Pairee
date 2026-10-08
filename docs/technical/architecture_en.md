@@ -149,3 +149,18 @@ The module is decomposed into focused subcomponents:
 3. **Interactive Menu/Popup:** Selecting the update indicator or choosing "Check for updates" in the Options menu opens a dedicated Ratatui popup. It presents the release notes (changelog), version differences, and three choices: "Install Now", "Ignore Version" (updates settings to skip this version tag), or "Close".
 4. **Live Progress:** Choosing install starts a background download task. The popup displays a live progress gauge showing byte transfer rates. Once completed, it prompts the user to restart the application.
 
+---
+
+## 🗄️ 8. Panel Sources (VFS port)
+
+Panels never special-case where their entries come from. `fs::vfs::Vfs` is the port (Ports & Adapters): `list`, `stat`, `open_read`, `write_file`, `mkdir`, `remove_*`, `rename`, plus provided operations built on them (`remove_all`, `walk`, `mkdir_all`, `read_prefix`, `open_store` for the viewer, `read_panel` for listings, `du_list` for folder sizes) and `Capabilities` flags (write, mkdir, remove, rename, local tools).
+
+| Adapter | Where | Capabilities |
+| :--- | :--- | :--- |
+| `LocalVfs` | `fs/vfs/local.rs` | everything; listings keep the elevated retry, folder sizes keep hard-link identities, the viewer pages files from disk |
+| `SharedSshClient` | `fs/ssh/vfs.rs` | everything but local tools (one SFTP call per lock) |
+| `ArchiveVfs` | `fs/archive/vfs.rs` | read-only for tar/tar.gz/7z; zip adds write, mkdir and remove (rewrite to a temp file, atomic rename) |
+
+`PanelState::source` (`PanelSource`: `Local`, `Remote`, `Archive`) plus `current_path` is the panel location. Archive paths are `archive.ext/inner/path`, so `..`, history and the title work unchanged; `PanelSource::locate` switches the source when a refresh enters or leaves an archive file. Listing, folder sizes, the disk usage view, multi-rename (and its undo), compare/synchronize, the viewer and Quick View all go through the port, and `app::actions::fs_ops::capability` refuses actions a source cannot run with one message.
+
+Archive formats are a second Strategy (`fs::archive::format::ArchiveReader`, one reader per format) shared by extraction, listing and browsing. The Transfer Engine picks `backend::archive_vfs` when a job's source or destination lies inside an archive: copies out use the safe extractor (`ExtractGuard`), copies into a zip and deletions inside it rewrite the archive. Every adapter runs the same contract suite (`fs/vfs/contract.rs`, one generic check per capability instantiated per adapter with `vfs_contract!`).

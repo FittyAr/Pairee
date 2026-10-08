@@ -1,42 +1,10 @@
-//! Runs a rename plan through a [`RenameBackend`] and undoes it on failure.
+//! Runs a rename plan through the panel's [`Vfs`] (local or SFTP) and
+//! undoes it on failure.
 
 use super::names::TargetFs;
 use super::plan::Step;
-use crate::fs::ssh::SharedSshClient;
-use std::path::{Path, PathBuf};
-
-/// Where the renames happen (Strategy): the local filesystem or an SFTP
-/// server. Both use the primitives the rest of Pairee already renames with.
-pub trait RenameBackend {
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), String>;
-    /// `true` when an entry (of any kind) exists at `path`.
-    fn exists(&self, path: &Path) -> bool;
-}
-
-/// The local filesystem (`std::fs::rename`, as the single-file rename).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LocalFs;
-
-impl RenameBackend for LocalFs {
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), String> {
-        std::fs::rename(from, to).map_err(|e| e.to_string())
-    }
-
-    fn exists(&self, path: &Path) -> bool {
-        std::fs::symlink_metadata(path).is_ok()
-    }
-}
-
-/// A remote panel (SFTP rename, as the same-server fast move).
-impl RenameBackend for SharedSshClient {
-    fn rename(&self, from: &Path, to: &Path) -> Result<(), String> {
-        self.rename_move(from, to).map_err(|e| e.to_string())
-    }
-
-    fn exists(&self, path: &Path) -> bool {
-        SharedSshClient::exists(self, path)
-    }
-}
+use crate::fs::vfs::Vfs;
+use std::path::PathBuf;
 
 /// The step that failed and why.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -65,7 +33,7 @@ impl RenameReport {
 /// Applies `steps` in order. A step never overwrites: when its target
 /// exists (and is not the source itself, as in a case-only rename) it fails.
 /// On the first failure every applied step is undone in reverse order.
-pub fn execute(steps: &[Step], backend: &dyn RenameBackend, fs: TargetFs) -> RenameReport {
+pub fn execute(steps: &[Step], backend: &dyn Vfs, fs: TargetFs) -> RenameReport {
     let mut applied: Vec<&Step> = Vec::with_capacity(steps.len());
     for step in steps {
         let same_entry = fs.path_key(&step.from) == fs.path_key(&step.to);
@@ -73,7 +41,9 @@ pub fn execute(steps: &[Step], backend: &dyn RenameBackend, fs: TargetFs) -> Ren
         let result = if !same_entry && backend.exists(&step.to) {
             Err(crate::config::localization::t("multi_rename_target_exists"))
         } else {
-            backend.rename(&step.from, &step.to)
+            backend
+                .rename(&step.from, &step.to)
+                .map_err(|e| e.to_string())
         };
         if let Err(error) = result {
             let not_rolled_back = rollback(&applied, backend);
@@ -96,7 +66,7 @@ pub fn execute(steps: &[Step], backend: &dyn RenameBackend, fs: TargetFs) -> Ren
 }
 
 /// Undoes `applied` (newest first); returns the steps that stayed applied.
-fn rollback(applied: &[&Step], backend: &dyn RenameBackend) -> Vec<Step> {
+fn rollback(applied: &[&Step], backend: &dyn Vfs) -> Vec<Step> {
     applied
         .iter()
         .rev()

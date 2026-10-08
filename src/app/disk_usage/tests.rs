@@ -14,7 +14,7 @@ fn tree() -> tempfile::TempDir {
 
 fn opened(root: &Path) -> DiskUsageState {
     let mut du = DiskUsageState::default();
-    du.open(root.to_path_buf(), None);
+    du.open(root.to_path_buf(), Default::default());
     assert!(!du.is_scanning(), "no runtime: the scan runs inline");
     du
 }
@@ -73,7 +73,7 @@ fn reopen_same_folder_keeps_cache_and_rescan_refreshes() {
     let mut du = opened(dir.path());
     du.enter();
     fs::write(dir.path().join("big/new"), [0u8; 1000]).unwrap();
-    du.open(dir.path().to_path_buf(), None);
+    du.open(dir.path().to_path_buf(), Default::default());
     assert_eq!(du.tree().unwrap().size.bytes, 108, "cached");
     assert_eq!(du.current_path(), dir.path().join("big"));
     du.rescan();

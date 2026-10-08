@@ -4,7 +4,7 @@ mod state;
 mod status;
 mod text;
 
-pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState};
+pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState, decode_image};
 
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTarget, ScrollTargetId, ScrollView};

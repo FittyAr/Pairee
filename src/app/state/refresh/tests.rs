@@ -25,6 +25,7 @@ fn listing(path: &Path, names: &[&str]) -> PanelListing {
         git: None,
         free_space: Some(1),
         attrs: HashMap::new(),
+        show_hidden: false,
     }
 }
 

@@ -2,7 +2,8 @@
 //! listing entry mapping, `..` handling, known_hosts path and verdicts.
 
 use super::connection::{host_key_verdict, known_hosts_path_in};
-use super::sftp_ops::{is_real_child, map_entry, parent_entry};
+use super::sftp_ops::{is_real_child, sftp_entry};
+use crate::fs::vfs::parent_entry;
 use ssh2::{CheckResult, FileStat};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
@@ -61,9 +62,9 @@ fn real_children_exclude_dot_entries() {
 }
 
 #[test]
-fn map_entry_maps_regular_file_metadata() {
+fn sftp_entry_maps_regular_file_metadata() {
     let path = PathBuf::from("/data/report.csv");
-    let entry = map_entry(path.clone(), &stat(S_IFREG, Some(42), Some(1_000)), false).unwrap();
+    let entry = sftp_entry(path.clone(), &stat(S_IFREG, Some(42), Some(1_000))).unwrap();
     assert_eq!(entry.name, "report.csv");
     assert_eq!(entry.path, path);
     assert_eq!(entry.size, 42);
@@ -76,42 +77,33 @@ fn map_entry_maps_regular_file_metadata() {
 }
 
 #[test]
-fn map_entry_maps_directories_and_symlinks() {
-    let dir = map_entry(
-        PathBuf::from("/data/sub"),
-        &stat(S_IFDIR, None, None),
-        false,
-    )
-    .unwrap();
+fn sftp_entry_maps_directories_and_symlinks() {
+    let dir = sftp_entry(PathBuf::from("/data/sub"), &stat(S_IFDIR, None, None)).unwrap();
     assert!(dir.is_dir);
     assert!(!dir.is_symlink);
     assert_eq!(dir.size, 0, "missing size defaults to zero");
     assert!(dir.modified.is_none());
 
-    let link = map_entry(
-        PathBuf::from("/data/ln"),
-        &stat(S_IFLNK, Some(7), None),
-        false,
-    )
-    .unwrap();
+    let link = sftp_entry(PathBuf::from("/data/ln"), &stat(S_IFLNK, Some(7), None)).unwrap();
     assert!(link.is_symlink);
     assert!(!link.is_dir);
 }
 
 #[test]
-fn map_entry_filters_hidden_unless_requested() {
-    let hidden = PathBuf::from("/data/.env");
+fn sftp_entry_flags_dot_files_as_hidden() {
     let st = stat(S_IFREG, Some(1), None);
-    assert!(map_entry(hidden.clone(), &st, false).is_none());
-    assert_eq!(map_entry(hidden, &st, true).unwrap().name, ".env");
+    let hidden = sftp_entry(PathBuf::from("/data/.env"), &st).unwrap();
+    assert!(hidden.hidden);
+    assert_eq!(hidden.name, ".env");
+    assert!(!sftp_entry(PathBuf::from("/data/a"), &st).unwrap().hidden);
 }
 
 #[test]
-fn map_entry_skips_dot_entries_even_when_showing_hidden() {
+fn sftp_entry_skips_dot_entries() {
     let st = stat(S_IFDIR, None, None);
     // `Path` yields no file name for `..` or the root; both must be dropped.
-    assert!(map_entry(PathBuf::from("/data/.."), &st, true).is_none());
-    assert!(map_entry(PathBuf::from("/"), &st, true).is_none());
+    assert!(sftp_entry(PathBuf::from("/data/.."), &st).is_none());
+    assert!(sftp_entry(PathBuf::from("/"), &st).is_none());
 }
 
 #[test]

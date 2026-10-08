@@ -1,65 +1,75 @@
-//! Zip extraction and compression operations.
+//! Zip format: reading entries (Strategy for [`ArchiveReader`]) and
+//! compressing files and folders into a new archive.
 
 use anyhow::Result;
 use std::fs;
-use std::io;
+use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 use zip::ZipArchive;
 
-use super::safe_extract::ExtractGuard;
+use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
 use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
 
-pub fn extract_zip(
-    archive_path: &Path,
-    dest_dir: &Path,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
-) -> Result<()> {
-    let file = fs::File::open(archive_path)?;
-    let mut archive = ZipArchive::new(file)?;
-    let total_files = archive.len();
+pub struct ZipReader;
 
-    let mut guard = ExtractGuard::new(dest_dir)?;
+fn open(archive: &Path) -> Result<ZipArchive<fs::File>> {
+    Ok(ZipArchive::new(fs::File::open(archive)?)?)
+}
 
-    for i in 0..total_files {
-        ensure_not_cancelled(cancel)?;
-        guard.count_entry()?;
-        let mut file = archive.by_index(i)?;
-        let rel = ExtractGuard::sanitize(file.name())?;
-        if rel.as_os_str().is_empty() {
-            continue;
-        }
+/// Zip times carry no zone; they are read as UTC.
+fn zip_time(dt: zip::DateTime) -> Option<std::time::SystemTime> {
+    let date =
+        chrono::NaiveDate::from_ymd_opt(dt.year().into(), dt.month().into(), dt.day().into())?;
+    let time = date.and_hms_opt(dt.hour().into(), dt.minute().into(), dt.second().into())?;
+    u64::try_from(time.and_utc().timestamp())
+        .ok()
+        .map(unix_time)
+}
 
-        let file_name = rel
-            .file_name()
-            .unwrap_or_default()
-            .to_string_lossy()
-            .into_owned();
-
-        let _ = tx.blocking_send(ProgressUpdate {
-            skipped: false,
-            current_file: file_name,
-            files_copied: i,
-            total_files,
-            bytes_copied: 0,
-            total_bytes: 0,
-            error: None,
-        });
-
-        if file.is_dir() {
-            guard.create_dir(&rel)?;
+fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> EntryMeta {
+    EntryMeta {
+        name: file.name().to_string(),
+        // Links are stored as small files holding the target; they are
+        // extracted as such, never as links.
+        kind: if file.is_dir() {
+            EntryKind::Dir
         } else {
-            guard.check_declared_size(file.size())?;
-            if let Some(mut outfile) = guard.create_file(&rel)? {
-                guard.copy_limited(&mut file, &mut outfile)?;
-            }
-        }
+            EntryKind::File
+        },
+        size: file.size(),
+        modified: file.last_modified().and_then(zip_time),
+        mode: None,
+    }
+}
+
+impl ArchiveReader for ZipReader {
+    fn entries(&self, archive: &Path) -> Result<Vec<EntryMeta>> {
+        let mut zip = open(archive)?;
+        (0..zip.len())
+            .map(|i| Ok(meta(&zip.by_index_raw(i)?)))
+            .collect()
     }
 
-    guard.report_skipped(tx);
-    Ok(())
+    fn visit(&self, archive: &Path, visit: &mut Visitor) -> Result<()> {
+        let mut zip = open(archive)?;
+        for i in 0..zip.len() {
+            let mut file = zip.by_index(i)?;
+            if visit(&meta(&file), &mut file)? == Visit::Stop {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn count_hint(&self, archive: &Path) -> usize {
+        open(archive).map_or(0, |zip| zip.len())
+    }
+
+    fn writable(&self) -> bool {
+        true
+    }
 }
 
 pub fn compress_zip(
@@ -155,21 +165,10 @@ fn zip_entry_name(top: &std::ffi::OsStr, rel: &Path) -> String {
         .join("/")
 }
 
-pub fn list_zip_files(path: &Path) -> Result<Vec<String>> {
-    let file = fs::File::open(path)?;
-    let mut archive = ZipArchive::new(file)?;
-    let mut list = Vec::new();
-    for i in 0..archive.len() {
-        if let Ok(file) = archive.by_index(i) {
-            list.push(file.name().to_string());
-        }
-    }
-    Ok(list)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::fs::archive::extract_archive;
     use crate::fs::archive::test_fixtures::write_zip;
 
     #[test]
@@ -182,7 +181,7 @@ mod tests {
         fs::write(dest.join("keep.txt"), b"original").unwrap();
 
         let (tx, _rx) = mpsc::channel(64);
-        extract_zip(&archive, &dest, &tx, &AtomicBool::new(false)).unwrap();
+        extract_archive(&archive, &dest, &tx, &AtomicBool::new(false)).unwrap();
         assert_eq!(fs::read(dest.join("keep.txt")).unwrap(), b"original");
         assert_eq!(
             fs::read(dest.join("sub").join("new.txt")).unwrap(),
@@ -198,7 +197,7 @@ mod tests {
         let dest = dir.path().join("out");
 
         let (tx, _rx) = mpsc::channel(64);
-        assert!(extract_zip(&archive, &dest, &tx, &AtomicBool::new(false)).is_err());
+        assert!(extract_archive(&archive, &dest, &tx, &AtomicBool::new(false)).is_err());
         assert!(!dir.path().join("evil.txt").exists());
     }
 }

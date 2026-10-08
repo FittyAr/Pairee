@@ -8,12 +8,16 @@ use std::path::PathBuf;
 
 /// What a finished job did, from its `results`. `executed` is the command
 /// the job ran for an undo/redo (`None` for a user operation). Jobs that are
-/// not journaled (compress, extract, apply command) give `None`.
+/// not journaled (compress, extract, apply command, copies in and out of
+/// archives) give `None`.
 pub fn from_transfer(
     job: &TransferJob,
     results: &TransferResults,
     executed: Option<&FsCommand>,
 ) -> Option<FsCommand> {
+    if crate::fs::transfer::backend::archive_vfs::plan(job).is_some() {
+        return None;
+    }
     let done: Vec<PathBuf> = results
         .completed_files
         .iter()
