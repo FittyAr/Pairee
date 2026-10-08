@@ -26,7 +26,7 @@ pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
 pub use quickview::QuickViewDialog;
-pub use ssh::SshConnectPromptState;
+pub use ssh::{SshConnectPromptState, SshField};
 pub use text_search::{SearchKey, TextSearchState};
 
 use super::types::{
