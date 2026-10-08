@@ -92,24 +92,37 @@ fn verify_host_key(sess: &mut Session, host: &str, port: u16) -> Result<()> {
         .host_key()
         .ok_or_else(|| anyhow::anyhow!("SSH handshake returned no host key"))?;
     let (key_bytes, _key_type) = hostkey;
-    match known_hosts.check_port(host, port, key_bytes) {
+    host_key_verdict(
+        known_hosts.check_port(host, port, key_bytes),
+        host,
+        port,
+        known_hosts_path.as_deref(),
+    )
+}
+
+/// Turns a `known_hosts` lookup result into the connect decision: only an
+/// exact match is accepted; unknown, mismatching or failed checks refuse.
+pub(super) fn host_key_verdict(
+    result: ssh2::CheckResult,
+    host: &str,
+    port: u16,
+    known_hosts_path: Option<&Path>,
+) -> Result<()> {
+    match result {
         ssh2::CheckResult::Match => Ok(()),
         ssh2::CheckResult::Mismatch => {
             anyhow::bail!(
-                "SSH host key for {}:{} does NOT match the key in known_hosts. \
-                 This may indicate a man-in-the-middle attack.",
+                "SSH host key for {}:{} does NOT match the key in known_hosts.                  This may indicate a man-in-the-middle attack.",
                 host,
                 port
             );
         }
         ssh2::CheckResult::NotFound => {
             anyhow::bail!(
-                "SSH host key for {}:{} is not in known_hosts. Refusing to \
-                 connect. Add the server's host key to {:?} and try again.",
+                "SSH host key for {}:{} is not in known_hosts. Refusing to                  connect. Add the server's host key to {:?} and try again.",
                 host,
                 port,
                 known_hosts_path
-                    .as_ref()
                     .map(|p| p.display().to_string())
                     .unwrap_or_default()
             );
@@ -178,19 +191,18 @@ fn authenticate(
     Ok(())
 }
 
+/// Environment variable holding the user's home directory.
+#[cfg(target_os = "windows")]
+const HOME_VAR: &str = "USERPROFILE";
+#[cfg(not(target_os = "windows"))]
+const HOME_VAR: &str = "HOME";
+
 fn known_hosts_path() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(profile) = std::env::var("USERPROFILE") {
-            return Some(PathBuf::from(profile).join(".ssh").join("known_hosts"));
-        }
-        None
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        if let Ok(home) = std::env::var("HOME") {
-            return Some(PathBuf::from(home).join(".ssh").join("known_hosts"));
-        }
-        None
-    }
+    known_hosts_path_in(std::env::var_os(HOME_VAR))
+}
+
+/// `<home>/.ssh/known_hosts`, or `None` when the home directory is unknown.
+pub(super) fn known_hosts_path_in(home: Option<std::ffi::OsString>) -> Option<PathBuf> {
+    home.filter(|h| !h.is_empty())
+        .map(|h| PathBuf::from(h).join(".ssh").join("known_hosts"))
 }

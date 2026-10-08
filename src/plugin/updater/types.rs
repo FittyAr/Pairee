@@ -18,6 +18,19 @@ pub struct RegistryIndex {
     pub plugins: HashMap<String, RegistryPlugin>,
 }
 
+impl RegistryIndex {
+    /// The registry version of `name` when it differs from `installed`.
+    ///
+    /// The registry only lists the latest release, so any difference
+    /// (including a lower version) is offered as an update.
+    pub fn update_for(&self, name: &str, installed: &str) -> Option<&str> {
+        self.plugins
+            .get(name)
+            .map(|p| p.version.as_str())
+            .filter(|latest| *latest != installed)
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct RegistryPlugin {
     pub name: String,
