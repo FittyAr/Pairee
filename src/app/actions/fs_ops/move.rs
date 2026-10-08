@@ -86,23 +86,23 @@ pub fn submit_move_job_from_popup(
     );
 }
 
+/// Move without the confirmation dialog: the transfer settings apply as-is
+/// (same as Copy without confirmation).
 fn submit_move_job(
     state: &mut AppState,
     context: &mut AppContext,
     targets: Vec<std::path::PathBuf>,
     dest_dir: std::path::PathBuf,
 ) {
-    submit_move_job_inner(
+    let options = transfer_options_from_settings(&context.config.settings);
+    submit_simple(
         state,
-        context,
+        TransferOperation::Move,
         targets,
         dest_dir,
-        0,
-        false,
-        false,
-        0,
-        false,
-        String::new(),
+        options,
+        state.get_active_panel().ssh_conn.clone(),
+        state.get_passive_panel().ssh_conn.clone(),
     );
 }
 
@@ -157,4 +157,39 @@ fn submit_move_job_inner(
         state.get_active_panel().ssh_conn.clone(),
         state.get_passive_panel().ssh_conn.clone(),
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+
+    #[tokio::test]
+    async fn move_without_confirmation_uses_transfer_settings() {
+        let src = tempfile::tempdir().unwrap();
+        let dst = tempfile::tempdir().unwrap();
+        std::fs::write(src.path().join("a.txt"), b"x").unwrap();
+        let mut state = AppState::new(src.path().to_path_buf(), dst.path().to_path_buf());
+        state
+            .get_active_panel_mut()
+            .selected_paths
+            .insert(src.path().join("a.txt"));
+        let mut context = AppContext::new(AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        });
+        context.config.settings.confirmations.confirm_move = false;
+        context.config.settings.transfer_preserve_attributes = true;
+        context.config.settings.transfer_conflict_resolution = "skip".into();
+        context.config.settings.transfer_follow_symlinks = true;
+
+        assert!(handle(&mut state, &mut context));
+        let jobs = state.transfer.as_ref().unwrap().engine.queue.get_all();
+        let job = jobs.first().expect("move job queued");
+        assert_eq!(job.operation, TransferOperation::Move);
+        assert!(job.options.preserve_attributes);
+        assert!(job.options.follow_symlinks);
+        assert_eq!(job.options.conflict_resolution, "skip");
+    }
 }
