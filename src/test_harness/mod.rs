@@ -32,9 +32,17 @@ pub struct Builder {
     size: (u16, u16),
     settings: Settings,
     sandbox: Option<TempDir>,
+    cli_folders: bool,
 }
 
 impl Builder {
+    /// Starts like a plain `pairee` (no command-line folders), so the
+    /// restored session alone decides what the panels show.
+    pub fn without_cli_folders(mut self) -> Self {
+        self.cli_folders = false;
+        self
+    }
+
     /// Keymap preset (`norton`, `vscode`, `neovim`).
     pub fn keymap(mut self, preset: &str) -> Self {
         self.keymap = preset.to_string();
@@ -87,6 +95,7 @@ impl Harness {
             size: (100, 30),
             settings,
             sandbox: None,
+            cli_folders: true,
         }
     }
 
@@ -108,7 +117,12 @@ impl Harness {
         };
         config.keybindings.preset = options.keymap.clone();
         let mut ctx = AppContext::new(config);
-        let mut state = crate::run::initial_state(&ctx.config.settings, &[left, right]);
+        let cli_folders = if options.cli_folders {
+            vec![left, right]
+        } else {
+            Vec::new()
+        };
+        let mut state = crate::run::initial_state(&ctx.config.settings, &cli_folders);
         crate::app::app::prepare_first_frame(&mut state, &mut ctx);
         // Editor copy / paste must not replace the user's clipboard.
         state.editor_clipboard = crate::app::editor::EditorClipboard::internal_only();
