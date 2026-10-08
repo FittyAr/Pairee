@@ -506,4 +506,11 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 
 - [ ] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines`
 - [ ] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas
+- [ ] Pulido de lo pendiente de G.1–G.2:
+  - atajos por defecto para "calcular tamaños" y "uso de disco"; la vista de uso de disco en SFTP refleja borrados; invalidar tamaños de carpetas al releer
+  - copiar dentro de un zip respeta la resolución de conflictos; soporte bz2/xz; archivos anidados
+  - recuperar en paneles SSH lo que la capa VFS dejó como "no disponible" (F4, F6 renombrar/mover, atributos) cuando el adaptador lo permita
+  - operaciones locales del panel Git (stage, unstage, descartar, diff) en segundo plano
+  - etiqueta Shift+F6 en la barra de teclas F; scroll con ratón en la vista previa del renombrado múltiple
+  - selección por bloques con teclado en Windows Terminal (Alt+Shift+flechas lo intercepta la terminal): atajo alternativo
 - [ ] Mover `docs/UNRELEASED.md` a la siguiente versión en `docs/CHANGELOG.md` cuando se publique
