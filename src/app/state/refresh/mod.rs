@@ -80,6 +80,8 @@ impl AppState {
                 apply_listing(panel, listing);
                 changed = true;
             }
+            // Finished folder sizes, or progress ticks of a running batch.
+            changed |= panel.dir_sizes.poll() || panel.dir_sizes.is_running();
         }
         if changed {
             self.mark_ui_dirty();
@@ -156,6 +158,9 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) {
         return;
     }
     let same_dir = panel.listed_path.as_ref() == Some(&listing.path);
+    if !same_dir {
+        panel.dir_sizes.clear();
+    }
     match listing.entries {
         Ok(entries) => {
             let focus_path = panel
@@ -180,6 +185,7 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) {
                 panel.entries.iter().map(|e| e.path.clone()).collect();
             panel.selected_paths.retain(|p| present.contains(p));
             panel.selection_order.retain(|p| present.contains(p));
+            panel.dir_sizes.retain_listed(&present);
         }
         Err(err) => {
             log::warn!("Listing {:?} failed: {}", listing.path, err);

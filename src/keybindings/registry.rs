@@ -142,6 +142,13 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Files,
     ),
+    d(
+        "calculate_folder_sizes",
+        Action::CalculateFolderSizes,
+        true,
+        ActionCategory::Files,
+    ),
+    d("disk_usage", Action::DiskUsage, true, ActionCategory::Files),
     d("task_list", Action::TaskList, true, ActionCategory::System),
     d("tree_view", Action::TreeView, true, ActionCategory::View),
     d(

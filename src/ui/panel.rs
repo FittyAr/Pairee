@@ -18,7 +18,7 @@ use ratatui::{
 };
 
 use brief::render_brief;
-use helpers::{build_panel_title, format_file_size, free_space_text};
+use helpers::{build_panel_title, entry_size_text, format_file_size, free_space_text};
 use list_ctx::ListCtx;
 use table_view::render_table;
 
@@ -138,17 +138,14 @@ pub fn render_panel(
         if show_status {
             // Status: highlighted entry name + size
             let status_text = if let Some(entry) = panel.entries.get(panel.cursor_index) {
-                if entry.is_dir {
-                    format!(" {} [DIR]  {} {}", entry.name, tagged, t("label_tagged"))
-                } else {
-                    format!(
-                        " {}  {}  {} {}",
-                        entry.name,
-                        format_file_size(entry.size),
-                        tagged,
-                        t("label_tagged")
-                    )
-                }
+                let size = entry_size_text(panel, entry).unwrap_or_else(|| "[DIR]".to_string());
+                format!(
+                    " {}  {}  {} {}",
+                    entry.name,
+                    size,
+                    tagged,
+                    t("label_tagged")
+                )
             } else {
                 String::new()
             };
