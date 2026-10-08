@@ -17,6 +17,50 @@ pub struct PluginConfig {
     pub trusted: bool,
 }
 
+/// How the built-in editor treats tab characters (`editor_expand_tabs`).
+///
+/// Stored with the labels older releases wrote to `config.toml`; any other
+/// value falls back to [`TabExpansion::Keep`] instead of failing the load.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub enum TabExpansion {
+    /// Tab inserts spaces up to the next tab stop; existing tabs are kept.
+    #[serde(rename = "Expand newly entered tabs to spaces")]
+    NewTabs,
+    /// Like `NewTabs`, and tabs in the file are converted when it is opened.
+    #[serde(rename = "Convert all tabs to spaces")]
+    ConvertAll,
+    /// Tab inserts a tab character; existing tabs are kept. Must stay the
+    /// last variant: `other` makes it the fallback for unknown values.
+    #[default]
+    #[serde(rename = "Do not expand tabs", other)]
+    Keep,
+}
+
+impl TabExpansion {
+    /// Next option in the configuration dialog cycle.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Keep => Self::NewTabs,
+            Self::NewTabs => Self::ConvertAll,
+            Self::ConvertAll => Self::Keep,
+        }
+    }
+
+    /// Translation key of the option label.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            Self::Keep => "ed_expand_tabs_keep",
+            Self::NewTabs => "ed_expand_tabs_new",
+            Self::ConvertAll => "ed_expand_tabs_all",
+        }
+    }
+
+    /// `true` when the Tab key inserts spaces.
+    pub fn inserts_spaces(self) -> bool {
+        self != Self::Keep
+    }
+}
+
 pub fn default_true() -> bool {
     true
 }

@@ -64,35 +64,8 @@ pub fn handle(
             PopupType::ConfirmReload => {
                 match key.code {
                     KeyCode::Enter => {
-                        if let Some(crate::app::state::Screen::Editor(ed)) =
-                            state.screens.get_mut(state.active_screen_idx)
-                        {
-                            match std::fs::read_to_string(&ed.path) {
-                                Ok(content) => {
-                                    let reloaded_lines: Vec<String> =
-                                        content.lines().map(|s| s.to_string()).collect();
-                                    ed.lines = if reloaded_lines.is_empty() {
-                                        vec![String::new()]
-                                    } else {
-                                        reloaded_lines
-                                    };
-                                    ed.cursor_x = crate::app::text_input::floor_boundary(
-                                        ed.lines.get(ed.cursor_y).map_or("", |l| l.as_str()),
-                                        ed.cursor_x,
-                                    );
-                                    ed.is_dirty = false;
-                                }
-                                Err(e) => {
-                                    state.dialogs.replace(PopupType::Error(format!(
-                                        "{} {}",
-                                        t("error_reload_failed"),
-                                        e
-                                    )));
-                                    return Ok(None);
-                                }
-                            }
-                        }
                         state.dialogs.clear();
+                        crate::app::editor::open::reload_active_editor(state);
                         return Ok(None);
                     }
                     KeyCode::Esc => {

@@ -193,12 +193,15 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 ### Comandos Externos
 * **Usar visor externo / Comando de visualización:** Redirige la acción de `F3` a un comando de lectura personalizado (ej. `less %f`).
 
-### Editor Interno
-* **Tab size (Tamaño de tabulación):** Espaciado del tabulador.
-* **Expand tabs (Expandir tabulación):** Convierte tabuladores en espacios simples.
-* **Persistent blocks / Del removes blocks:** Criterios de retención de texto seleccionado.
-* **Cursor beyond EOL:** Permite situar el cursor libremente después del fin de línea.
-* **Show line numbers / scrollbar / whitespace:** Activa visualizadores de formato.
+### Editor integrado
+Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opción de editor externo.
+* **Tamaño de tabulación:** Ancho de una parada de tabulación (2, 4 u 8 columnas).
+* **Expandir tabulaciones:** *No expandir tabulaciones* inserta un carácter de tabulación; *Expandir tabulaciones nuevas a espacios* hace que `Tab` inserte espacios hasta la siguiente parada; *Convertir todas las tabulaciones a espacios* además convierte las tabulaciones existentes al abrir el archivo.
+* **Auto-sangrado:** `Enter` comienza la nueva línea con la sangría de la actual.
+* **Mostrar números de línea:** Muestra la columna de números de línea.
+* **Cursor al final:** Abre los archivos con el cursor en la última línea.
+* **Bloquear edición de archivos de solo lectura:** Los archivos de solo lectura se abren bloqueados; usa `Shift+F2` para guardar una copia.
+* **Avisar al abrir archivos de solo lectura:** Muestra un aviso al abrir un archivo de solo lectura.
 
 ---
 

@@ -81,7 +81,7 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
             ("3".to_string(), String::new()),
             ("4".to_string(), t("fkey_vw_hex")),
             ("5".to_string(), String::new()),
-            ("6".to_string(), String::new()),
+            ("6".to_string(), t("fkey_edit")),
             ("7".to_string(), t("fkey_vw_search")),
             ("8".to_string(), String::new()),
             ("9".to_string(), String::new()),

@@ -35,6 +35,28 @@ fn removed_external_editor_keys_are_ignored() {
 }
 
 #[test]
+fn expand_tabs_reads_old_labels_and_tolerates_unknown() {
+    use super::TabExpansion;
+    let parse = |v: &str| -> TabExpansion {
+        let mut table: toml::Table =
+            toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
+        table.insert("editor_expand_tabs".into(), v.into());
+        let s: Settings = toml::from_str(&toml::to_string(&table).unwrap()).unwrap();
+        s.editor_expand_tabs
+    };
+    assert_eq!(parse("Do not expand tabs"), TabExpansion::Keep);
+    assert_eq!(
+        parse("Expand newly entered tabs to spaces"),
+        TabExpansion::NewTabs
+    );
+    assert_eq!(
+        parse("Convert all tabs to spaces"),
+        TabExpansion::ConvertAll
+    );
+    assert_eq!(parse("something else"), TabExpansion::Keep);
+}
+
+#[test]
 fn new_install_default_needs_onboarding() {
     assert!(!Settings::default().onboarding_completed);
 }

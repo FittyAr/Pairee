@@ -9,7 +9,7 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    PluginConfig, SshPreset, default_git_log_limit, default_plugins_dev_dir,
+    PluginConfig, SshPreset, TabExpansion, default_git_log_limit, default_plugins_dev_dir,
     default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
     default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
     default_true,
@@ -150,7 +150,7 @@ pub struct Settings {
     /// in Pairee's native viewer for text, image, and binary files alike.
     #[serde(default)]
     pub enter_use_external: bool,
-    pub editor_expand_tabs: String,
+    pub editor_expand_tabs: TabExpansion,
     pub editor_persistent_blocks: bool,
     pub editor_cursor_beyond_eol: bool,
     pub editor_del_removes_blocks: bool,

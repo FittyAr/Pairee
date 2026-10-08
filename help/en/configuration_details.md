@@ -196,12 +196,15 @@ Specifies which operations require an explicit warning dialog before proceeding.
 ### External Commands
 * **Use external viewer / Viewer command:** Redirects F3 View actions to an external program (e.g. `less %f`).
 
-### Internal Editor
-* **Tab size:** Set spaces count mapping to tab hits.
-* **Expand tabs:** Toggles expanding tabs into spaces.
-* **Persistent blocks / Del removes blocks:** Controls selection block behaviour.
-* **Cursor beyond EOL:** Allows positioning the cursor beyond the end of a line.
-* **Show line numbers / whitespace / scrollbar:** Toggles formatting elements.
+### Built-in Editor
+Pairee edits files only with its built-in editor (`F4`); there is no external editor option.
+* **Tab size:** Width of a tab stop (2, 4 or 8 columns).
+* **Expand tabs:** *Do not expand tabs* inserts a tab character; *Expand new tabs to spaces* makes `Tab` insert spaces up to the next stop; *Convert all tabs to spaces* also converts the tabs already in a file when it is opened.
+* **Auto indent:** `Enter` starts the new line with the indentation of the current one.
+* **Show line numbers:** Shows the line-number gutter.
+* **Cursor at the end:** Opens files with the cursor on the last line.
+* **Lock editing of read-only files:** Read-only files open locked; use `Shift+F2` to save a copy.
+* **Warn when opening read-only files:** Shows a notice when a read-only file is opened.
 
 ---
 

@@ -1,4 +1,6 @@
-use super::{ConfirmationSettings, Settings, default_plugins_dev_dir, default_ssh_timeout_secs};
+use super::{
+    ConfirmationSettings, Settings, TabExpansion, default_plugins_dev_dir, default_ssh_timeout_secs,
+};
 use crate::app::state::{PanelViewMode, SortField};
 
 impl Default for Settings {
@@ -115,7 +117,7 @@ impl Default for Settings {
 
             // Tab 5
             enter_use_external: false,
-            editor_expand_tabs: "Do not expand tabs".to_string(),
+            editor_expand_tabs: TabExpansion::Keep,
             editor_persistent_blocks: false,
             editor_cursor_beyond_eol: true,
             editor_del_removes_blocks: true,
@@ -125,7 +127,7 @@ impl Default for Settings {
             editor_tab_size: 8,
             editor_show_scrollbar: false,
             editor_show_white_space: false,
-            editor_show_line_numbers: false,
+            editor_show_line_numbers: true,
             editor_save_file_position: true,
             editor_save_bookmarks: true,
             editor_allow_editing_opened_writing: true,

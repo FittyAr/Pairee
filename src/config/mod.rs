@@ -17,7 +17,7 @@ use theme::Theme;
 /// Names of the preset TOML files shipped with Pairee.
 const BUILTIN_PRESETS: &[&str] = &["norton", "neovim", "vscode"];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppConfig {
     pub settings: Settings,
     pub theme: Theme,
