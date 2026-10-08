@@ -42,10 +42,14 @@ pub fn handle_navigation_action(
         }
         Action::SelectItem => {
             let select_folders = state.select_folders;
-            state
-                .get_active_panel_mut()
-                .toggle_selection_with_opts(select_folders);
-            state.get_active_panel_mut().move_cursor_down();
+            let panel = state.get_active_panel_mut();
+            // Like Far/MC: selecting a folder also measures it.
+            if let Some(entry) = panel.entries.get(panel.cursor_index) {
+                let path = entry.path.clone();
+                panel.calculate_dir_sizes(&[path]);
+            }
+            panel.toggle_selection_with_opts(select_folders);
+            panel.move_cursor_down();
             true
         }
         Action::Execute => {
