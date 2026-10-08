@@ -469,3 +469,41 @@ Siguiente: **checklist TTY manual** (pase humano WT/conhost/Linux). Segmentació
 ---
 
 *Última actualización del progreso: 2026-09-08 (PTY real command & / apply-command).*
+
+---
+
+## 14. Fase G — Backlog funcional y cierre de pendientes (iniciada 2026-10-08)
+
+Base: `master` `fb0db86` (seguridad, async, deduplicación y editor interno ya integrados; CI verde en Linux/macOS/Windows).
+
+Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.md` + ayuda EN/ES actualizados en el mismo commit, cero duplicación, archivos < 500 LOC, `fmt` + `clippy -D warnings` + `test` + paridad i18n en verde antes de integrar. Integración en `master` al final de cada oleada, con CI verde.
+
+### G.1 Oleada 1 — funciones aisladas (en paralelo)
+
+- [ ] Renombrado múltiple con patrones (`[N]`, `[E]`, `[C]`, fechas, regex) y vista previa
+- [ ] Tamaño de carpetas (Space/F3 sobre carpeta) y vista de uso de disco tipo ncdu, cancelable
+- [ ] Sincronizar carpetas: comparación recursiva (tamaño/fecha/hash), plan de acciones y aplicación vía Transfer Engine
+- [ ] Visor y Quick View: detección de codificación (`chardetng` + `encoding_rs`) y lectura progresiva por bloques
+- [ ] Editor: selección por bloques, copiar/cortar/pegar (portapapeles del sistema), Shift+F2 en la barra de teclas F
+- [ ] Panel Git: apertura y refresco (status + log) en segundo plano
+- [ ] Registro de plugins: declarar `[permissions] commands` en los plugins oficiales que ejecutan comandos; plantilla actualizada
+
+### G.2 Oleada 2 — capa de origen de paneles
+
+- [ ] Trait de origen/VFS para paneles (local, SSH, archivo); navegar dentro de zip/tar/7z como carpetas, copiar desde y hacia ellos
+- [ ] Deshacer (renombrar, mover, enviar a papelera) con diario de operaciones
+
+### G.3 Oleada 3 — pestañas
+
+- [ ] Pestañas por panel (crear, cerrar, cambiar, duplicar)
+
+### G.4 Oleada 4 — sesión y observación
+
+- [ ] Restaurar sesión (rutas, pestañas, vista, orden) y `--cwd-file` para `cd` al salir
+- [ ] Refresco automático con `notify` + debounce, sondeo en unidades de red
+
+### G.5 Oleada 5 — cierre
+
+- [ ] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines`
+- [ ] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas
+- [ ] Mover `docs/UNRELEASED.md` a la siguiente versión en `docs/CHANGELOG.md` cuando se publique
