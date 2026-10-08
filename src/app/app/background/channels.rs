@@ -23,18 +23,23 @@ pub fn process_terminal_updates(state: &mut AppState) {
 }
 
 pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
-    let Some((panel, res)) = state.ssh_connect.poll() else {
+    let Some((tab, res)) = state.ssh_connect.poll() else {
         return;
     };
     match res {
+        // The tab was closed while connecting: drop the connection.
+        Ok(_) if state.panels.find_tab(tab).is_none() => state.dialogs.clear(),
         Ok(client) => {
-            let p = state.panels.side_mut(panel);
+            let Some((_, t)) = state.panels.find_tab_mut(tab) else {
+                return;
+            };
+            let p = &mut t.panel;
             p.source = crate::fs::vfs::PanelSource::Remote(client);
             p.current_path = std::path::PathBuf::from("/");
             p.cursor_index = 0;
             p.clear_selection();
             state.dialogs.clear();
-            state.refresh_panel(panel, context.config.settings.show_hidden, true);
+            state.refresh_tab(tab, context.config.settings.show_hidden, true);
         }
         Err(e) => {
             state.dialogs.replace(PopupType::Error(format!(

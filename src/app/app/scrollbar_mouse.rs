@@ -1,6 +1,6 @@
 //! Apply scrollbar mouse drag/jump commands to application scroll state.
 
-use crate::app::state::{AppState, PopupType, Screen};
+use crate::app::state::{ActivePanel, AppState, PopupType, Screen};
 use crate::ui::scrollbar::{self, ScrollTargetId};
 use crossterm::event::MouseEvent;
 
@@ -63,21 +63,15 @@ fn apply_scroll_offset(
                 qv.scroll = offset;
             }
         }
-        ScrollTargetId::PanelLeft => {
-            scrollbar::clamp_cursor_to_offset(
-                &mut state.panels.left.cursor_index,
-                offset,
-                viewport,
-                content_len.min(state.panels.left.entries.len()),
-            );
-        }
-        ScrollTargetId::PanelRight => {
-            scrollbar::clamp_cursor_to_offset(
-                &mut state.panels.right.cursor_index,
-                offset,
-                viewport,
-                content_len.min(state.panels.right.entries.len()),
-            );
+        ScrollTargetId::PanelLeft | ScrollTargetId::PanelRight => {
+            let side = if id == ScrollTargetId::PanelLeft {
+                ActivePanel::Left
+            } else {
+                ActivePanel::Right
+            };
+            let panel = state.panels.side_mut(side);
+            let len = content_len.min(panel.entries.len());
+            scrollbar::clamp_cursor_to_offset(&mut panel.cursor_index, offset, viewport, len);
         }
         ScrollTargetId::GitList => {
             if let Some(PopupType::GitPanel(panel)) = state.dialogs.top_mut() {

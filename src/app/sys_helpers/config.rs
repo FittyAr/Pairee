@@ -39,7 +39,8 @@ pub fn capture_setup(state: &AppState, settings: &mut crate::config::settings::S
 pub fn apply_setup(state: &mut AppState, settings: &crate::config::settings::Settings) {
     state.panels.left_visible = settings.left_panel_visible;
     state.panels.right_visible = settings.right_panel_visible;
-    for panel in [&mut state.panels.left, &mut state.panels.right] {
+    for (_, tab) in state.panels.all_tabs_mut() {
+        let panel = &mut tab.panel;
         panel.view_mode = settings.panel_view_mode;
         panel.sort_field = settings.sort_field;
         panel.sort_reverse = settings.sort_reverse;
@@ -65,6 +66,15 @@ mod tests {
         let mut fresh = AppState::new(".".into(), ".".into());
         apply_setup(&mut fresh, &settings);
         assert!(!fresh.panels.right_visible);
-        assert!(fresh.panels.left.sort_reverse && fresh.panels.right.sort_reverse);
+        assert!(
+            fresh
+                .panels
+                .side(crate::app::state::ActivePanel::Left)
+                .sort_reverse
+                && fresh
+                    .panels
+                    .side(crate::app::state::ActivePanel::Right)
+                    .sort_reverse
+        );
     }
 }

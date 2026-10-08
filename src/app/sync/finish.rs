@@ -1,7 +1,7 @@
 //! Delivers a finished folder comparison on the UI thread.
 
 use super::ScanPurpose;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::CompareStatus;
 use crate::fs::sync::{SyncError, SyncItem, compare_entries};
@@ -38,7 +38,7 @@ pub fn poll_folder_scan(state: &mut AppState) -> bool {
 /// Tags the differing top-level entries in the left panel and lists them.
 fn show_compare(state: &mut AppState, items: &[SyncItem]) {
     let diff = compare_entries(items);
-    let left = &mut state.panels.left;
+    let left = state.panels.side_mut(ActivePanel::Left);
     for entry in diff.iter().filter(|e| e.status != CompareStatus::Equal) {
         if let Some(e) = left.entries.iter().find(|e| e.name == entry.name)
             && left.selected_paths.insert(e.path.clone())

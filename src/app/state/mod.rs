@@ -13,6 +13,8 @@ pub mod update_state;
 pub mod quick_view;
 pub mod refresh;
 pub mod screens;
+mod tab_ops;
+pub mod tabs;
 mod vfs_op;
 pub mod viewer;
 
@@ -27,6 +29,7 @@ pub use popup::{
     ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState, PopupType,
     SshConnectPromptState,
 };
+pub use tabs::TabId;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
@@ -45,9 +48,9 @@ pub struct AppState {
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
-    /// Background SSH connection attempt (target panel, result).
+    /// Background SSH connection attempt (target tab, result).
     pub ssh_connect:
-        crate::app::jobs::JobSlot<(ActivePanel, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
+        crate::app::jobs::JobSlot<(TabId, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     pub plugins: PluginHostState,

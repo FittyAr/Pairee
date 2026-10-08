@@ -14,14 +14,18 @@ fn test_app() -> (AppContext, AppState) {
     let config = AppConfig::default();
     let context = AppContext::new(config);
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-    state.panels.left.entries.push(FileEntry {
-        name: "日本語ファイル.txt".into(),
-        path: PathBuf::from("./日本語ファイル.txt"),
-        size: 12,
-        is_dir: false,
-        is_symlink: false,
-        modified: None,
-    });
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .entries
+        .push(FileEntry {
+            name: "日本語ファイル.txt".into(),
+            path: PathBuf::from("./日本語ファイル.txt"),
+            size: 12,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        });
     (context, state)
 }
 

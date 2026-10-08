@@ -13,7 +13,7 @@ pub use finish::poll_folder_scan;
 use crate::app::context::AppContext;
 use crate::app::jobs::{JobContext, JobSlot};
 use crate::app::state::popup::SyncDialog;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::sync::{
     ScanObserver, ScanProgress, Side, SyncError, SyncItem, SyncOptions, diff_trees,
@@ -75,18 +75,18 @@ impl ScanObserver for JobContext<ScanProgress> {
 /// transfer jobs, so it refuses remote panels (`None`, with an error popup);
 /// comparing reads any panel source.
 fn roots(state: &mut AppState, purpose: ScanPurpose) -> Option<(PathBuf, PathBuf)> {
-    let panels = &state.panels;
-    let remote = panels.left.source.ssh().is_some() || panels.right.source.ssh().is_some();
+    let (left, right) = (
+        state.panels.side(ActivePanel::Left),
+        state.panels.side(ActivePanel::Right),
+    );
+    let remote = left.source.ssh().is_some() || right.source.ssh().is_some();
     if purpose == ScanPurpose::Sync && remote {
         state
             .dialogs
             .replace(PopupType::Error(t("compare_local_only")));
         return None;
     }
-    Some((
-        panels.left.current_path.clone(),
-        panels.right.current_path.clone(),
-    ))
+    Some((left.current_path.clone(), right.current_path.clone()))
 }
 
 /// Options for a run from the user settings (tolerance, hash algorithm).
@@ -130,8 +130,8 @@ pub fn start_scan(
     right: PathBuf,
     options: SyncOptions,
 ) {
-    let left_vfs = state.panels.left.source.vfs_for(&left);
-    let right_vfs = state.panels.right.source.vfs_for(&right);
+    let left_vfs = state.panels.side(ActivePanel::Left).source.vfs_for(&left);
+    let right_vfs = state.panels.side(ActivePanel::Right).source.vfs_for(&right);
     state.folder_scan.purpose = Some(purpose);
     state.dialogs.push(PopupType::FolderScanProgress);
     state.folder_scan.job.start(move |ctx| {

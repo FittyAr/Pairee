@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -82,8 +82,8 @@ fn handle_dev_tab(state: &mut AppState, key: KeyEvent, context: &mut AppContext)
     let Some(PopupType::PluginMenu(mut menu)) = state.dialogs.top().cloned() else {
         return;
     };
-    let left_path = state.panels.left.current_path.clone();
-    let right_path = state.panels.right.current_path.clone();
+    let left_path = state.panels.side(ActivePanel::Left).current_path.clone();
+    let right_path = state.panels.side(ActivePanel::Right).current_path.clone();
     dev::handle_dev(key, state, context, (&left_path, &right_path), &mut menu);
     // Pull back the live loading fields from the popup state because
     // `handle_dev` may have flipped them (e.g. when starting a new op

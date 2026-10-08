@@ -1,5 +1,5 @@
 //! Panel (re)loading. Listings, git status and free space are computed by a
-//! background job per panel (`PanelState::listing`); results are applied on
+//! background job per tab (`PanelState::listing`); results are applied on
 //! the UI thread by [`AppState::poll_panel_listings`].
 
 pub mod filter;
@@ -8,6 +8,7 @@ pub mod listing;
 #[cfg(test)]
 mod tests;
 
+use super::tabs::TabId;
 use super::{ActivePanel, AppState, PanelState};
 use filter::{partition_entries_by_mask, skip_auto_update};
 use listing::{ListingOptions, ListingRequest, PanelListing};
@@ -40,12 +41,28 @@ impl AppState {
         self.refresh_panel(self.panels.active, show_hidden, false);
     }
 
-    /// Starts a background reread of one panel. A request superseded by a
-    /// newer one for the same panel is cancelled and its result dropped.
+    /// Starts a background reread of the panel shown on `side`.
     pub fn refresh_panel(&mut self, side: ActivePanel, show_hidden: bool, force: bool) {
-        let options = self.listing_options(side, show_hidden);
+        let id = self.panels.active_tab_id(side);
+        self.refresh_tab(id, show_hidden, force);
+    }
+
+    /// Starts a background reread of tab `id`, shown or not. A request
+    /// superseded by a newer one for the same tab is cancelled and its
+    /// result dropped; results always land in the tab that asked.
+    pub fn refresh_tab(&mut self, id: TabId, show_hidden: bool, force: bool) {
+        if self.divert_locked_tab(id, show_hidden) {
+            return;
+        }
+        let Some((_, tab)) = self.panels.find_tab(id) else {
+            return;
+        };
+        let options = self.listing_options(&tab.panel, show_hidden);
         let limit = self.disable_panel_update_object_count;
-        let panel = self.panels.side_mut(side);
+        let Some((side, tab)) = self.panels.find_tab_mut(id) else {
+            return;
+        };
+        let panel = &mut tab.panel;
         let path = panel.current_path.clone();
         // Entering or leaving an archive switches the panel's source.
         panel.source = panel.source.locate(&path);
@@ -73,21 +90,25 @@ impl AppState {
         self.poll_panel_listings();
     }
 
-    /// Applies finished listings. Returns `true` when a panel changed.
+    /// Applies finished listings of every tab, shown or not. Returns
+    /// `true` when a panel changed.
     pub fn poll_panel_listings(&mut self) -> bool {
         let mut changed = false;
-        for side in [ActivePanel::Left, ActivePanel::Right] {
-            let panel = self.panels.side_mut(side);
+        let mut failed = Vec::new();
+        for (_, tab) in self.panels.all_tabs_mut() {
+            let panel = &mut tab.panel;
             if let Some(listing) = panel.listing.poll() {
                 let show_hidden = listing.show_hidden;
                 if let Some(error) = apply_listing(panel, listing) {
-                    self.leave_unreadable_archive(side, &error, show_hidden);
+                    failed.push((tab.id, error, show_hidden));
                 }
                 changed = true;
             }
-            let panel = self.panels.side_mut(side);
             // Finished folder sizes, or progress ticks of a running batch.
             changed |= panel.dir_sizes.poll() || panel.dir_sizes.is_running();
+        }
+        for (id, error, show_hidden) in failed {
+            self.leave_unreadable_archive(id, &error, show_hidden);
         }
         if changed {
             self.mark_ui_dirty();
@@ -97,8 +118,11 @@ impl AppState {
 
     /// An archive that cannot be read is not entered: the panel goes back
     /// to the folder holding it and the reason is shown.
-    fn leave_unreadable_archive(&mut self, side: ActivePanel, error: &str, show_hidden: bool) {
-        let panel = self.panels.side_mut(side);
+    fn leave_unreadable_archive(&mut self, id: TabId, error: &str, show_hidden: bool) {
+        let Some((_, tab)) = self.panels.find_tab_mut(id) else {
+            return;
+        };
+        let panel = &mut tab.panel;
         let Some(root) = panel.source.archive().map(|a| a.root().to_path_buf()) else {
             return;
         };
@@ -115,11 +139,10 @@ impl AppState {
                 .replacen("{}", &root.to_string_lossy(), 1)
                 .replacen("{}", error, 1),
         ));
-        self.refresh_panel(side, show_hidden, true);
+        self.refresh_tab(id, show_hidden, true);
     }
 
-    fn listing_options(&self, side: ActivePanel, show_hidden: bool) -> ListingOptions {
-        let panel = self.panels.side(side);
+    fn listing_options(&self, panel: &PanelState, show_hidden: bool) -> ListingOptions {
         ListingOptions {
             show_hidden,
             case_sensitive: self.case_sensitive_sort,
