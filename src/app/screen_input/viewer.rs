@@ -40,11 +40,9 @@ pub fn handle_viewer_screen(
                 return Ok(());
             }
             KeyCode::F(7) => {
-                state.dialogs.replace(PopupType::ViewerSearchPrompt {
-                    query: String::new(),
-                    case_sensitive: false,
-                    cursor_idx: 0,
-                });
+                state
+                    .dialogs
+                    .replace(PopupType::ViewerSearchPrompt(Default::default()));
                 return Ok(());
             }
             KeyCode::F(3) => {

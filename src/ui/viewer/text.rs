@@ -98,11 +98,7 @@ pub(crate) fn render_text(
     let height = area.height.saturating_sub(2) as usize;
 
     let search_info = match active_popup {
-        Some(crate::app::state::PopupType::ViewerSearchPrompt {
-            query,
-            case_sensitive,
-            ..
-        }) if !query.is_empty() => Some((query.as_str(), *case_sensitive)),
+        Some(crate::app::state::PopupType::ViewerSearchPrompt(search)) => search.active_query(),
         _ => None,
     };
 

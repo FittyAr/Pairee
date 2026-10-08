@@ -2,38 +2,52 @@
 
 use crate::app::context::AppContext;
 use crate::app::editor::open::{resolve_save_as_path, save_active_editor};
+use crate::app::form::{FieldKey, confirm_answer, field_key};
 use crate::app::screen_input::editor::editor_page_height;
+use crate::app::state::popup::SearchKey;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crossterm::event::KeyEvent;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    match state.dialogs.top().cloned() {
-        Some(PopupType::EditorSearchPrompt {
-            query,
-            case_sensitive,
-            cursor_idx,
-        }) => {
-            handle_search(state, key, query, case_sensitive, cursor_idx);
+    match state.dialogs.top_mut() {
+        Some(PopupType::EditorSearchPrompt(search)) => {
+            let request = search.handle_key(&key);
+            let query = search.query.text().to_string();
+            let case_sensitive = search.case_sensitive;
+            match request {
+                SearchKey::Stay => {}
+                SearchKey::Close => state.dialogs.clear(),
+                SearchKey::Find if query.is_empty() => state.dialogs.clear(),
+                SearchKey::Find => find_next(state, &query, case_sensitive),
+            }
             Ok(None)
         }
         Some(PopupType::EditorSaveAsPrompt { input }) => {
-            handle_save_as(state, key, input);
+            match field_key(input, &key) {
+                FieldKey::Cancel => state.dialogs.clear(),
+                FieldKey::Submit => {
+                    let input = input.text().to_string();
+                    save_as(state, &input);
+                }
+                FieldKey::Handled | FieldKey::Other => {}
+            }
             Ok(None)
         }
         Some(PopupType::EditorConfirmOverwrite { target, .. }) => {
-            match key.code {
-                KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+            let target = target.clone();
+            match confirm_answer(&key, true) {
+                Some(true) => {
                     state.dialogs.clear();
                     save_active_editor(state, Some(target), true);
                 }
-                KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => state.dialogs.clear(),
-                _ => {}
+                Some(false) => state.dialogs.clear(),
+                None => {}
             }
             Ok(None)
         }
@@ -41,66 +55,26 @@ pub fn handle(
     }
 }
 
-fn handle_search(
-    state: &mut AppState,
-    key: KeyEvent,
-    mut query: String,
-    mut case_sensitive: bool,
-    mut cursor_idx: usize,
-) {
-    let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    match key.code {
-        KeyCode::Tab | KeyCode::Down => cursor_idx = (cursor_idx + 1) % 4,
-        KeyCode::Up => cursor_idx = (cursor_idx + 3) % 4,
-        KeyCode::Left | KeyCode::Right if cursor_idx >= 2 => cursor_idx = 5 - cursor_idx,
-        KeyCode::Char(c) if cursor_idx == 0 && !is_ctrl => query.push(c),
-        KeyCode::Char(' ') if cursor_idx == 1 => case_sensitive = !case_sensitive,
-        KeyCode::Backspace if cursor_idx == 0 => {
-            query.pop();
-        }
-        KeyCode::Esc => return state.dialogs.clear(),
-        KeyCode::Enter if cursor_idx == 3 || query.is_empty() => return state.dialogs.clear(),
-        KeyCode::Enter => {
-            let height = editor_page_height();
-            let Some(ed) = state.active_editor_mut() else {
-                return state.dialogs.clear();
-            };
-            if !ed.find_next(&query, case_sensitive, height) {
-                state
-                    .dialogs
-                    .replace(PopupType::Error(t("editor_text_not_found")));
-                return;
-            }
-        }
-        _ => {}
+/// Enter in the find dialog: jump to the next match (or report none).
+fn find_next(state: &mut AppState, query: &str, case_sensitive: bool) {
+    let height = editor_page_height();
+    let Some(ed) = state.active_editor_mut() else {
+        return state.dialogs.clear();
+    };
+    if !ed.find_next(query, case_sensitive, height) {
+        state
+            .dialogs
+            .replace(PopupType::Error(t("editor_text_not_found")));
     }
-    state.dialogs.replace(PopupType::EditorSearchPrompt {
-        query,
-        case_sensitive,
-        cursor_idx,
-    });
 }
 
-fn handle_save_as(state: &mut AppState, key: KeyEvent, mut input: String) {
-    match key.code {
-        KeyCode::Char(c) => input.push(c),
-        KeyCode::Backspace => {
-            input.pop();
-        }
-        KeyCode::Esc => return state.dialogs.clear(),
-        KeyCode::Enter => {
-            let target = state
-                .active_editor_mut()
-                .and_then(|ed| resolve_save_as_path(&ed.path, &input));
-            state.dialogs.clear();
-            if let Some(target) = target {
-                save_active_editor(state, Some(target), false);
-            }
-            return;
-        }
-        _ => {}
+/// Enter in "save as": save to the typed path (relative to the file's folder).
+fn save_as(state: &mut AppState, input: &str) {
+    let target = state
+        .active_editor_mut()
+        .and_then(|ed| resolve_save_as_path(&ed.path, input));
+    state.dialogs.clear();
+    if let Some(target) = target {
+        save_active_editor(state, Some(target), false);
     }
-    state
-        .dialogs
-        .replace(PopupType::EditorSaveAsPrompt { input });
 }

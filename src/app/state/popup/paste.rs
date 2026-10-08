@@ -26,6 +26,12 @@ impl PopupType {
                 dest_input: input, ..
             } => Some(input),
             PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
+            PopupType::EditorSearchPrompt(search) | PopupType::ViewerSearchPrompt(search)
+                if search.cursor_idx == 0 =>
+            {
+                Some(&mut search.query)
+            }
+            PopupType::EditorSaveAsPrompt { input } => Some(input),
             _ => None,
         }
     }

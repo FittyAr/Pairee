@@ -12,6 +12,7 @@ mod plugin_menu;
 mod plugin_widget;
 mod quickview;
 mod ssh;
+mod text_search;
 
 pub use config_dialog::ConfigurationDialogState;
 pub use file_ops::{CopyMovePromptState, TransferPromptOp};
@@ -26,6 +27,7 @@ pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
 pub use quickview::QuickViewDialog;
 pub use ssh::SshConnectPromptState;
+pub use text_search::{SearchKey, TextSearchState};
 
 use super::types::{
     ActivePanel, AdminOpKind, FileAttrsSnapshot, LinkKind, ProcessEntry, SelectMode, SortField,
@@ -168,26 +170,18 @@ pub enum PopupType {
         suspended_popup: Option<Box<PopupType>>,
     },
 
-    EditorSearchPrompt {
-        query: String,
-        case_sensitive: bool,
-        cursor_idx: usize,
-    },
+    EditorSearchPrompt(TextSearchState),
     ConfirmDiscardEditorChanges,
     /// "Save as" path entry for the built-in editor (Shift+F2).
     EditorSaveAsPrompt {
-        input: String,
+        input: TextField,
     },
     /// Saving would overwrite a file changed on disk or an existing target.
     EditorConfirmOverwrite {
         target: PathBuf,
         reason: crate::app::editor::open::OverwriteReason,
     },
-    ViewerSearchPrompt {
-        query: String,
-        case_sensitive: bool,
-        cursor_idx: usize,
-    },
+    ViewerSearchPrompt(TextSearchState),
     QuickViewPanel(Box<QuickViewDialog>),
 
     InfoPanel {

@@ -94,10 +94,10 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle,
         PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => delete::handle,
         PopupType::UserMenu { .. } => user_menu::handle,
-        PopupType::EditorSearchPrompt { .. }
+        PopupType::EditorSearchPrompt(_)
         | PopupType::EditorSaveAsPrompt { .. }
         | PopupType::EditorConfirmOverwrite { .. } => editor::handle,
-        PopupType::ViewerSearchPrompt { .. } => viewer::handle,
+        PopupType::ViewerSearchPrompt(_) => viewer::handle,
         PopupType::Menu { .. } => menu::handle,
         PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
         PopupType::ScreensMenu { .. } => screens_menu::handle,
