@@ -84,17 +84,8 @@ pub fn compress_zip(
             let mut stack: Vec<PathBuf> = vec![src.clone()];
             while let Some(dir) = stack.pop() {
                 ensure_not_cancelled(cancel)?;
-                let dir_name_in_zip = match dir.strip_prefix(&src) {
-                    Ok(rel) if !rel.as_os_str().is_empty() => {
-                        let mut p = top.clone();
-                        for component in rel.components() {
-                            p.push(component.as_os_str());
-                        }
-                        p
-                    }
-                    _ => top.clone(),
-                };
-                zip.add_directory(dir_name_in_zip.to_string_lossy(), options)?;
+                let rel_dir = dir.strip_prefix(&src).unwrap_or(Path::new(""));
+                zip.add_directory(zip_entry_name(&top, rel_dir), options)?;
 
                 let entries = match fs::read_dir(&dir) {
                     Ok(e) => e,
@@ -107,11 +98,7 @@ pub fn compress_zip(
                         stack.push(entry_path);
                     } else {
                         let rel = entry_path.strip_prefix(&src).unwrap_or(&entry_path);
-                        let mut zip_path = top.clone();
-                        for component in rel.components() {
-                            zip_path.push(component.as_os_str());
-                        }
-                        let zip_path_str = zip_path.to_string_lossy().into_owned();
+                        let zip_path_str = zip_entry_name(&top, rel);
                         let _ = tx.blocking_send(ProgressUpdate {
                             skipped: false,
                             current_file: zip_path_str.clone(),
@@ -158,6 +145,16 @@ pub fn compress_zip(
     Ok(())
 }
 
+/// Zip entry name for `rel` (relative to a compressed folder) below that
+/// folder's name `top`. Zip paths always use `/`, whatever the host OS.
+fn zip_entry_name(top: &std::ffi::OsStr, rel: &Path) -> String {
+    std::iter::once(top)
+        .chain(rel.components().map(|c| c.as_os_str()))
+        .map(|part| part.to_string_lossy())
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 pub fn list_zip_files(path: &Path) -> Result<Vec<String>> {
     let file = fs::File::open(path)?;
     let mut archive = ZipArchive::new(file)?;
@@ -173,17 +170,7 @@ pub fn list_zip_files(path: &Path) -> Result<Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::io::Write as _;
-
-    fn write_zip(path: &Path, entries: &[(&str, &[u8])]) {
-        let mut zip = zip::ZipWriter::new(fs::File::create(path).unwrap());
-        let opts = zip::write::SimpleFileOptions::default();
-        for (name, body) in entries {
-            zip.start_file(*name, opts).unwrap();
-            zip.write_all(body).unwrap();
-        }
-        zip.finish().unwrap();
-    }
+    use crate::fs::archive::test_fixtures::write_zip;
 
     #[test]
     fn extract_does_not_overwrite_existing_files() {

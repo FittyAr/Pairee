@@ -1,0 +1,39 @@
+# Configuration for https://github.com/crate-ci/typos (run by the `typos`
+# job in .github/workflows/check.yml).
+#
+# Pairee ships Spanish translations and documentation. Spanish words are
+# not misspelled English, so those files are excluded from the check.
+
+[files]
+extend-exclude = [
+  # Generated / vendored data
+  "Cargo.lock",
+  "skills-lock.json",
+  "*.svg",
+  "img/",
+  # Spanish translations and help
+  "lang/es.toml",
+  "help/es/",
+  # Spanish documentation
+  "*.es.md",
+  "*-es.md",
+  "*_es.md",
+  "docs/IMPROVEMENT_PLAN.md",
+  "docs/PRIVACY.md",
+  "docs/technical/transfer-engine-design.md",
+  ".agents/",
+  # Windows Explorer file descriptions (may contain localized text)
+  "descript.ion",
+]
+
+[default]
+# Hex digests and test vectors are not words.
+extend-ignore-re = [
+  "\\b[0-9A-Fa-f]{8,}\\b",
+]
+
+[default.extend-words]
+# Spanish words that appear in source comments and in-code test data.
+datos = "datos"
+ser = "ser"
+tipo = "tipo"

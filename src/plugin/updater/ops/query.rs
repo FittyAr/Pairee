@@ -1,7 +1,9 @@
 //! Query operations for the plugin registry (listing, searching, showing info).
 
 use crate::plugin::updater::lockfile::read_lockfile;
-use crate::plugin::updater::registry::{fetch_blocklist, fetch_index};
+use crate::plugin::updater::registry::{
+    fetch_blocklist, fetch_index, plugin_file_url, registry_author,
+};
 use crate::plugin::updater::types::RegistryPluginManifestWrapper;
 
 pub async fn list_installed() -> anyhow::Result<()> {
@@ -41,19 +43,11 @@ pub async fn list_installed() -> anyhow::Result<()> {
         };
 
         let update_str = if blocked_str.is_empty() {
-            if let Some(ref idx) = index {
-                if let Some(reg_plugin) = idx.plugins.get(name) {
-                    if reg_plugin.version != info.version {
-                        format!(" (Update available: v{})", reg_plugin.version)
-                    } else {
-                        "".to_string()
-                    }
-                } else {
-                    "".to_string()
-                }
-            } else {
-                "".to_string()
-            }
+            index
+                .as_ref()
+                .and_then(|idx| idx.update_for(name, &info.version))
+                .map(|v| format!(" (Update available: v{})", v))
+                .unwrap_or_default()
         } else {
             "".to_string()
         };
@@ -82,18 +76,13 @@ pub async fn check_updates() -> anyhow::Result<()> {
             updates_available += 1;
             continue;
         }
-        if let Some(reg_plugin) = index.plugins.get(name)
-            && reg_plugin.version != info.version
-        {
+        if let Some(latest) = index.update_for(name, &info.version) {
             let pin_str = if info.pinned {
                 " [PINNED] (update skipped)"
             } else {
                 ""
             };
-            println!(
-                "  - {}: {} -> {}{}",
-                name, info.version, reg_plugin.version, pin_str
-            );
+            println!("  - {}: {} -> {}{}", name, info.version, latest, pin_str);
             updates_available += 1;
         }
     }
@@ -203,20 +192,9 @@ pub async fn show_info(name: &str) -> anyhow::Result<()> {
         println!("Subscribes to hooks: {}", hooks.join(", "));
     }
 
-    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
-    let author = if author.is_empty() { "unknown" } else { author };
-    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
-    let first_char_str = if first_char.is_ascii_alphabetic() {
-        first_char.to_string()
-    } else {
-        "_".to_string()
-    };
-
+    let author = registry_author(plugin.author.as_deref());
     let client = reqwest::Client::builder().build()?;
-    let manifest_url = format!(
-        "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/manifest.toml",
-        first_char_str, author, name
-    );
+    let manifest_url = plugin_file_url(author, name, "manifest.toml");
     if let Ok(resp) = client.get(&manifest_url).send().await
         && resp.status().is_success()
         && let Ok(text) = resp.text().await

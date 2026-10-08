@@ -2,6 +2,8 @@
 
 mod connection;
 mod sftp_ops;
+#[cfg(test)]
+mod tests;
 
 use crate::app::state::SortField;
 use crate::config::localization::t;
