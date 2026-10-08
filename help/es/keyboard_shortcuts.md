@@ -127,6 +127,13 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | `Ctrl+Tab` | Salta a la siguiente pestaña abierta de fondo. |
 | `Ctrl+Shift+Tab` | Regresa a la pestaña anterior de fondo. |
 
+### Archivos de mapas de teclas y atajos `Ctrl+Shift`
+
+* En `keymaps/*.toml` y `[custom_bindings]` una letra con Mayús se escribe en mayúscula: `Ctrl+K` significa `Ctrl+Shift+K`. La forma antigua `Ctrl+Shift+k` se sigue aceptando y se reescribe. `Comma` nombra la tecla `,` (`Ctrl+Comma`), ya que las comas separan atajos alternativos.
+* Los atajos `Ctrl+Shift+<letra>` (copiar ruta `Ctrl+Shift+C`, paleta de comandos `Ctrl+Shift+P`, lista de teclas `Ctrl+Shift+K`, SSH `Ctrl+Shift+S`) necesitan una terminal que informe `Shift` junto con `Ctrl` (Windows Terminal, kitty, WezTerm, foot…).
+* Mapa VSCode: `F2` es solo Renombrar; el menú de usuario pasa a `Alt+U`, intercambiar paneles a `Ctrl+U`, buscar archivos a `Ctrl+Shift+F` (`Ctrl+F` es el filtro rápido), mostrar ocultos a `Ctrl+.`, y la configuración con `Ctrl+,` ahora funciona.
+* Todos los mapas de teclas incluidos cargan sin errores ni combinaciones duplicadas (lo comprueba una prueba).
+
 ---
 
 ## 🔗 6. Editor de Asociaciones de Archivos

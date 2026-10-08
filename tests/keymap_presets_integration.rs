@@ -44,11 +44,11 @@ fn norton_keymap_uses_arrow_and_f_keys() {
     );
     assert_eq!(
         preset.bindings.get("copy_path").map(String::as_str),
-        Some("Ctrl+Shift+c")
+        Some("Ctrl+C")
     );
     assert_eq!(
         preset.bindings.get("which_key").map(String::as_str),
-        Some("Ctrl+Shift+k")
+        Some("Ctrl+K")
     );
 }
 
@@ -73,11 +73,11 @@ fn neovim_keymap_uses_hjkl_for_navigation() {
     );
     assert_eq!(
         preset.bindings.get("copy_path").map(String::as_str),
-        Some("Ctrl+Shift+c")
+        Some("Ctrl+C")
     );
     assert_eq!(
         preset.bindings.get("which_key").map(String::as_str),
-        Some("Ctrl+Shift+k")
+        Some("Ctrl+K")
     );
 }
 
@@ -95,10 +95,10 @@ fn vscode_keymap_uses_ctrl_c_for_copy() {
     assert!(preset.bindings.contains_key("select_item"));
     assert_eq!(
         preset.bindings.get("copy_path").map(String::as_str),
-        Some("Ctrl+Shift+c")
+        Some("Ctrl+C")
     );
     assert_eq!(
         preset.bindings.get("which_key").map(String::as_str),
-        Some("Ctrl+Shift+k")
+        Some("Ctrl+K")
     );
 }

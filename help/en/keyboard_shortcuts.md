@@ -127,6 +127,13 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | `Ctrl+Tab` | Switch focus to next open screen background tab. |
 | `Ctrl+Shift+Tab` | Switch focus to previous open screen background tab. |
 
+### Keymap files and `Ctrl+Shift` shortcuts
+
+* In `keymaps/*.toml` and `[custom_bindings]` a shifted letter is written as the uppercase letter: `Ctrl+K` means `Ctrl+Shift+K`. The old spelling `Ctrl+Shift+k` is still accepted and rewritten. `Comma` names the `,` key (`Ctrl+Comma`), since commas separate alternative chords.
+* `Ctrl+Shift+<letter>` shortcuts (copy path `Ctrl+Shift+C`, command palette `Ctrl+Shift+P`, key overlay `Ctrl+Shift+K`, SSH `Ctrl+Shift+S`) need a terminal that reports `Shift` together with `Ctrl` (Windows Terminal, kitty, WezTerm, foot…).
+* VSCode keymap: `F2` is only Rename; the user menu moved to `Alt+U`, swap panels to `Ctrl+U`, find file to `Ctrl+Shift+F` (`Ctrl+F` is the quick filter), show hidden files to `Ctrl+.`, and settings `Ctrl+,` now works.
+* Every shipped keymap loads without errors or duplicate chords (checked by a test).
+
 ---
 
 ## 🔗 6. File Associations Editor
