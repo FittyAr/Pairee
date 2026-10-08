@@ -1,3 +1,4 @@
+use super::dir_sizes::DirSizes;
 use super::glob::glob_matches;
 use super::refresh::listing::PanelListing;
 use super::types::{PanelViewMode, SortField};
@@ -49,6 +50,8 @@ pub struct PanelState {
     pub attrs: HashMap<PathBuf, FileAttrs>,
     /// Free space of the listed volume (local panels only).
     pub free_space: Option<u64>,
+    /// Folder sizes computed on request, kept until another directory is listed.
+    pub dir_sizes: DirSizes,
 }
 
 impl PanelState {
@@ -74,6 +77,7 @@ impl PanelState {
             pending_focus: None,
             attrs: HashMap::new(),
             free_space: None,
+            dir_sizes: DirSizes::default(),
         }
     }
 
@@ -206,6 +210,35 @@ impl PanelState {
         self.current_path = path;
         self.cursor_index = 0;
         self.clear_selection();
+    }
+
+    /// Starts computing the size of the listed folders among `paths`
+    /// (symbolic links to folders and `..` are skipped).
+    pub fn calculate_dir_sizes(&mut self, paths: &[PathBuf]) {
+        let wanted: HashSet<&PathBuf> = paths.iter().collect();
+        let folders = self
+            .entries
+            .iter()
+            .filter(|e| e.is_dir && !e.is_symlink && e.name != ".." && wanted.contains(&e.path))
+            .map(|e| e.path.clone())
+            .collect();
+        self.dir_sizes.request(folders, self.ssh_conn.clone());
+    }
+
+    /// Folders for "calculate folder sizes": the targeted ones (selection or
+    /// cursor), or every listed folder when none of them is a folder.
+    pub fn calculate_targeted_dir_sizes(&mut self) {
+        let targets = self.get_targeted_paths();
+        let any_folder = self
+            .entries
+            .iter()
+            .any(|e| e.is_dir && targets.contains(&e.path));
+        let paths = if any_folder {
+            targets
+        } else {
+            self.entries.iter().map(|e| e.path.clone()).collect()
+        };
+        self.calculate_dir_sizes(&paths);
     }
 
     /// Returns a list of paths representing the targeted items:

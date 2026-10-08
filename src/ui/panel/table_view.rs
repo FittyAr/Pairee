@@ -2,7 +2,7 @@
 //! File owners, File links) described as tables of [`Column`]s and drawn by
 //! one renderer.
 
-use super::helpers::{format_date, format_file_size, visible_range, visible_slice};
+use super::helpers::{entry_size_text, format_date, visible_range, visible_slice};
 use super::list_ctx::ListCtx;
 use crate::app::state::{PanelState, PanelViewMode};
 use crate::config::localization::t;
@@ -56,18 +56,15 @@ pub(crate) struct TableView {
     headers: bool,
 }
 
-fn size_or(entry: &FileEntry, dir: &str) -> String {
-    if entry.is_dir {
-        dir.to_string()
-    } else {
-        format_file_size(entry.size)
-    }
+/// Size column: file or computed folder size, `dir` for unmeasured folders.
+fn size_or(panel: &PanelState, entry: &FileEntry, dir: &str) -> String {
+    entry_size_text(panel, entry).unwrap_or_else(|| dir.to_string())
 }
 
 const SIZE: Column = Column {
     header: "col_size",
     percent: 25,
-    cell: |_, e| size_or(e, ""),
+    cell: |p, e| size_or(p, e, ""),
 };
 
 pub(crate) const MEDIUM: TableView = TableView {
@@ -100,7 +97,7 @@ pub(crate) const FULL: TableView = TableView {
         Column {
             header: "col_size",
             percent: 15,
-            cell: |_, e| size_or(e, "  <DIR>  "),
+            cell: |p, e| size_or(p, e, "  <DIR>  "),
         },
         Column {
             header: "col_date_modified",
@@ -139,7 +136,7 @@ pub(crate) const DETAILED: TableView = TableView {
         Column {
             header: "col_size",
             percent: 25,
-            cell: |_, e| size_or(e, "<DIR>"),
+            cell: |p, e| size_or(p, e, "<DIR>"),
         },
     ],
     headers: true,

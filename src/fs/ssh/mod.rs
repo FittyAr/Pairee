@@ -5,6 +5,7 @@
 //! user) lives outside the mutex so the UI can show it without locking.
 
 mod connection;
+mod du_source;
 mod remote_fs;
 mod sftp_ops;
 #[cfg(test)]

@@ -41,7 +41,6 @@ pub fn handle(
                     ssh,
                 );
             } else {
-                state.dialogs.clear();
                 after_submit(state, context);
             }
         }
@@ -56,7 +55,8 @@ pub fn handle(
                 None,
             );
         }
-        _ => state.dialogs.clear(),
+        // Cancelled: the dialog underneath, if any (disk usage view), returns.
+        _ => {}
     }
     Ok(None)
 }
@@ -69,14 +69,8 @@ fn submit(
     options: TransferOptions,
     ssh: Option<crate::fs::ssh::SharedSshClient>,
 ) {
-    crate::fs::transfer::submit_simple(
-        state,
-        operation,
-        paths,
-        std::path::PathBuf::new(),
-        options,
-        ssh,
-        None,
+    crate::app::actions::fs_ops::delete::submit_keeping_dialogs(
+        state, operation, paths, options, ssh,
     );
     after_submit(state, context);
 }

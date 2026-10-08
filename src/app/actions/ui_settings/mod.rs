@@ -108,6 +108,9 @@ pub async fn handle_ui_settings_action(
             state.dialogs.clear();
             state.cli_input.clear();
             state.fkeys_modifier_override = None;
+            // Esc also stops folder size calculations.
+            state.panels.left.dir_sizes.cancel();
+            state.panels.right.dir_sizes.cancel();
             return true;
         }
         Action::Refresh | Action::RereadPanel => {
