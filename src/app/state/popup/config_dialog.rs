@@ -1,9 +1,11 @@
+use crate::app::text_input::TextField;
+
 #[derive(Debug, Clone)]
 pub struct ConfigurationDialogState {
     pub active_tab: usize,
     pub cursor_idx: usize,
-    pub editing_value: bool,
-    pub edit_buffer: String,
+    /// Text of the setting row being edited, if any.
+    pub edit: Option<TextField>,
     pub settings: Box<crate::config::settings::Settings>,
     pub focus_on_tabs: bool,
 }
@@ -19,8 +21,7 @@ impl ConfigurationDialogState {
         Self {
             active_tab,
             cursor_idx,
-            editing_value: false,
-            edit_buffer: String::new(),
+            edit: None,
             settings: Box::new(settings.clone()),
             focus_on_tabs,
         }

@@ -1,6 +1,7 @@
 pub mod actions;
 #[allow(clippy::module_inception)]
 pub mod app;
+pub mod config_rows;
 pub mod context;
 pub mod editor;
 pub mod form;
