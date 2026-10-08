@@ -105,7 +105,7 @@ pub enum TreeViewCaller {
     },
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LinkKind {
     Symbolic,
     Hard,
