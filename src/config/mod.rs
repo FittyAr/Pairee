@@ -1,6 +1,7 @@
 pub mod associations;
 pub mod history;
 pub mod keybindings;
+pub mod load_guard;
 pub mod localization;
 pub mod paths;
 pub mod settings;
@@ -51,10 +52,27 @@ impl AppConfig {
 
         // 1. Settings Loading
         let settings_path = paths::get_config_file_path();
+        let mut settings_parse_error = None;
         let mut settings: Settings = if settings_path.exists() {
             let content =
                 fs::read_to_string(&settings_path).context("Failed to read config.toml")?;
-            toml::from_str(&content).unwrap_or_default()
+            match toml::from_str(&content) {
+                Ok(s) => s,
+                Err(e) => {
+                    // Keep the user's language if the file is still valid TOML
+                    // so the error below is shown in the language they chose.
+                    let mut fallback = Settings::default();
+                    if let Some(lang) = content
+                        .parse::<toml::Table>()
+                        .ok()
+                        .and_then(|t| t.get("language")?.as_str().map(str::to_owned))
+                    {
+                        fallback.language = lang;
+                    }
+                    settings_parse_error = Some(e.to_string());
+                    fallback
+                }
+            }
         } else {
             let default_settings = Settings::default();
             let toml_str = toml::to_string_pretty(&default_settings)
@@ -72,14 +90,24 @@ impl AppConfig {
             };
             if !path.exists() || !path.is_dir() || !path.join("manifest.toml").exists() {
                 settings.active_dev_plugin = None;
-                if let Ok(toml_str) = toml::to_string_pretty(&settings) {
-                    let _ = fs::write(&settings_path, toml_str);
+                if settings_parse_error.is_none()
+                    && let Ok(toml_str) = toml::to_string_pretty(&settings)
+                    && let Err(e) = write_atomic(&settings_path, toml_str.as_bytes())
+                {
+                    log::warn!(
+                        "Failed to persist cleared active_dev_plugin to {:?}: {}",
+                        settings_path,
+                        e
+                    );
                 }
             }
         }
 
         // Load active language
         localization::load_language(&settings.language);
+        if let Some(err) = settings_parse_error {
+            load_guard::record_parse_failure(&settings_path, &err);
+        }
 
         // 2. Keybindings Loading
         let keybindings_path = paths::get_keybindings_file_path();
@@ -150,8 +178,15 @@ impl AppConfig {
     /// Persists the active configuration back to the disk.
     pub fn save(&self) -> Result<()> {
         let settings_path = paths::get_config_file_path();
-        let settings_toml = toml::to_string_pretty(&self.settings)?;
-        write_atomic(&settings_path, settings_toml.as_bytes())?;
+        if load_guard::settings_write_locked() {
+            log::warn!(
+                "Not overwriting invalid {:?} until the user confirms via Save setup",
+                settings_path
+            );
+        } else {
+            let settings_toml = toml::to_string_pretty(&self.settings)?;
+            write_atomic(&settings_path, settings_toml.as_bytes())?;
+        }
 
         let keybindings_path = paths::get_keybindings_file_path();
         let keybindings_toml = toml::to_string_pretty(&self.keybindings)?;

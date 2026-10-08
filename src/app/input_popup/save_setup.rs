@@ -12,6 +12,9 @@ pub fn handle(
     if let Some(PopupType::SaveSetupConfirm) = state.dialogs.top() {
         match key.code {
             KeyCode::Enter => {
+                // An explicit "Save setup" is the user's confirmation that an
+                // invalid config.toml (already backed up) may be replaced.
+                crate::config::load_guard::confirm_settings_overwrite();
                 match context.config.save() {
                     Ok(_) => {
                         state

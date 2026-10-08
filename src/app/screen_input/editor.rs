@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::app::sys_helpers::find_next_in_editor;
+use crate::app::text_input;
 use crate::config::localization::t;
 use crate::config::write_atomic;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -27,18 +28,12 @@ pub fn handle_editor_screen(
                 if ed.lines.is_empty() {
                     ed.lines.push(String::new());
                 }
-                let line = &mut ed.lines[ed.cursor_y];
-                if ed.cursor_x <= line.len() {
-                    line.insert(ed.cursor_x, c);
-                    ed.cursor_x += 1;
-                    ed.is_dirty = true;
-                }
+                text_input::insert_char(&mut ed.lines[ed.cursor_y], &mut ed.cursor_x, c);
+                ed.is_dirty = true;
             }
             KeyCode::Backspace => {
                 if ed.cursor_x > 0 {
-                    let line = &mut ed.lines[ed.cursor_y];
-                    line.remove(ed.cursor_x - 1);
-                    ed.cursor_x -= 1;
+                    text_input::backspace(&mut ed.lines[ed.cursor_y], &mut ed.cursor_x);
                     ed.is_dirty = true;
                 } else if ed.cursor_y > 0 {
                     let current_line = ed.lines.remove(ed.cursor_y);
@@ -51,9 +46,8 @@ pub fn handle_editor_screen(
             }
             KeyCode::Delete => {
                 if ed.cursor_y < ed.lines.len() {
-                    let line = &mut ed.lines[ed.cursor_y];
-                    if ed.cursor_x < line.len() {
-                        line.remove(ed.cursor_x);
+                    if ed.cursor_x < ed.lines[ed.cursor_y].len() {
+                        text_input::delete(&mut ed.lines[ed.cursor_y], &mut ed.cursor_x);
                         ed.is_dirty = true;
                     } else if ed.cursor_y < ed.lines.len() - 1 {
                         let next_line = ed.lines.remove(ed.cursor_y + 1);
@@ -67,6 +61,7 @@ pub fn handle_editor_screen(
                     ed.lines.push(String::new());
                 }
                 let current_line = &mut ed.lines[ed.cursor_y];
+                ed.cursor_x = text_input::floor_boundary(current_line, ed.cursor_x);
                 let next_line = current_line.split_off(ed.cursor_x);
                 ed.lines.insert(ed.cursor_y + 1, next_line);
                 ed.cursor_y += 1;
@@ -76,7 +71,7 @@ pub fn handle_editor_screen(
             KeyCode::Up => {
                 if ed.cursor_y > 0 {
                     ed.cursor_y -= 1;
-                    ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
+                    ed.cursor_x = text_input::floor_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                     if ed.cursor_y < ed.scroll_y {
                         ed.scroll_y = ed.cursor_y;
                     }
@@ -85,7 +80,7 @@ pub fn handle_editor_screen(
             KeyCode::Down => {
                 if ed.cursor_y < ed.lines.len().saturating_sub(1) {
                     ed.cursor_y += 1;
-                    ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
+                    ed.cursor_x = text_input::floor_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                     if ed.cursor_y >= ed.scroll_y + edit_height {
                         ed.scroll_y = ed.cursor_y.saturating_sub(edit_height - 1);
                     }
@@ -93,21 +88,21 @@ pub fn handle_editor_screen(
             }
             KeyCode::PageUp => {
                 ed.cursor_y = ed.cursor_y.saturating_sub(edit_height);
-                ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
+                ed.cursor_x = text_input::floor_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                 if ed.cursor_y < ed.scroll_y {
                     ed.scroll_y = ed.cursor_y;
                 }
             }
             KeyCode::PageDown => {
                 ed.cursor_y = (ed.cursor_y + edit_height).min(ed.lines.len().saturating_sub(1));
-                ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
+                ed.cursor_x = text_input::floor_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                 if ed.cursor_y >= ed.scroll_y + edit_height {
                     ed.scroll_y = ed.cursor_y.saturating_sub(edit_height - 1);
                 }
             }
             KeyCode::Left => {
                 if ed.cursor_x > 0 {
-                    ed.cursor_x -= 1;
+                    ed.cursor_x = text_input::prev_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                 } else if ed.cursor_y > 0 {
                     ed.cursor_y -= 1;
                     ed.cursor_x = ed.lines[ed.cursor_y].len();
@@ -117,7 +112,8 @@ pub fn handle_editor_screen(
                 if ed.cursor_y < ed.lines.len() {
                     let line_len = ed.lines[ed.cursor_y].len();
                     if ed.cursor_x < line_len {
-                        ed.cursor_x += 1;
+                        ed.cursor_x =
+                            text_input::next_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                     } else if ed.cursor_y < ed.lines.len() - 1 {
                         ed.cursor_y += 1;
                         ed.cursor_x = 0;
@@ -172,7 +168,8 @@ pub fn handle_editor_screen(
                             if ed.cursor_y >= ed.lines.len() {
                                 ed.cursor_y = ed.lines.len() - 1;
                             }
-                            ed.cursor_x = ed.cursor_x.min(ed.lines[ed.cursor_y].len());
+                            ed.cursor_x =
+                                text_input::floor_boundary(&ed.lines[ed.cursor_y], ed.cursor_x);
                             ed.is_dirty = false;
                         }
                         Err(e) => {
@@ -257,4 +254,73 @@ pub fn handle_editor_screen(
         return Ok(());
     }
     Err(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::app::state::types::EditorState;
+    use crate::config::AppConfig;
+    use std::path::PathBuf;
+
+    fn setup() -> (AppState, AppContext) {
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.push_screen(Screen::Editor(EditorState {
+            path: PathBuf::from("unused.txt"),
+            lines: vec![String::new()],
+            cursor_x: 0,
+            cursor_y: 0,
+            scroll_y: 0,
+            is_dirty: false,
+            last_search: None,
+            last_case_sensitive: false,
+        }));
+        let context = AppContext::new(AppConfig {
+            settings: crate::config::settings::Settings::default(),
+            theme: crate::config::theme::Theme::default(),
+            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
+        });
+        (state, context)
+    }
+
+    fn press(state: &mut AppState, context: &mut AppContext, code: KeyCode) {
+        let key = KeyEvent::new(code, KeyModifiers::NONE);
+        handle_editor_screen(state, key, context).expect("editor handles key");
+    }
+
+    fn editor(state: &AppState) -> &EditorState {
+        match state.screens.get(state.active_screen_idx) {
+            Some(Screen::Editor(ed)) => ed,
+            _ => panic!("expected editor screen"),
+        }
+    }
+
+    #[test]
+    fn typing_and_editing_non_ascii_text() {
+        let (mut state, mut context) = setup();
+        for c in "ñandú 👍🏽e\u{301}".chars() {
+            press(&mut state, &mut context, KeyCode::Char(c));
+        }
+        assert_eq!(editor(&state).lines[0], "ñandú 👍🏽e\u{301}");
+
+        press(&mut state, &mut context, KeyCode::Backspace); // é (combined)
+        press(&mut state, &mut context, KeyCode::Left); // before 👍🏽
+        press(&mut state, &mut context, KeyCode::Delete); // 👍🏽
+        assert_eq!(editor(&state).lines[0], "ñandú ");
+
+        press(&mut state, &mut context, KeyCode::Left); // before ' '
+        press(&mut state, &mut context, KeyCode::Left); // before 'ú'
+        press(&mut state, &mut context, KeyCode::Char('X'));
+        press(&mut state, &mut context, KeyCode::Enter);
+        let ed = editor(&state);
+        assert_eq!(ed.lines, vec!["ñandX".to_string(), "ú ".to_string()]);
+
+        press(&mut state, &mut context, KeyCode::Right); // after 'ú'
+        press(&mut state, &mut context, KeyCode::Up); // byte col 2 snaps inside "ñandX"
+        let ed = editor(&state);
+        assert_eq!(ed.cursor_y, 0);
+        assert!(ed.lines[0].is_char_boundary(ed.cursor_x));
+        press(&mut state, &mut context, KeyCode::Backspace);
+        assert_eq!(editor(&state).lines[0], "andX");
+    }
 }

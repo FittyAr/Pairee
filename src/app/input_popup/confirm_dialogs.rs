@@ -78,8 +78,9 @@ pub fn handle(
                                     } else {
                                         reloaded_lines
                                     };
-                                    ed.cursor_x = ed.cursor_x.min(
-                                        ed.lines.get(ed.cursor_y).map(|l| l.len()).unwrap_or(0),
+                                    ed.cursor_x = crate::app::text_input::floor_boundary(
+                                        ed.lines.get(ed.cursor_y).map_or("", |l| l.as_str()),
+                                        ed.cursor_x,
                                     );
                                     ed.is_dirty = false;
                                 }

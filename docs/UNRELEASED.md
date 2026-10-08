@@ -16,6 +16,7 @@
 
 ### Improved
 
+- Release builds now use thin LTO, a single codegen unit and stripped symbols for a smaller, faster binary.
 - Untracked file badges and labels in Git panel now render in Magenta for consistent contrast and readability across dark backgrounds.
 - Enhanced scroll behavior in the Git diff viewer for short files.
 - Centralized all Git operation error alerts, conflict notifications, confirmation prompts, and buttons into localization catalogs with zero hardcoding.
@@ -26,6 +27,10 @@
 
 ### Fixed
 
+- Fixed crashes in the built-in editor, the Git commit prompt and editor search when typing or moving the cursor over non-ASCII text (e.g. `ñ`, `á`, emoji, combining accents); cursor movement, Backspace and Delete now operate on whole grapheme clusters via a shared text-input helper.
+- Fixed the terminal being left in raw mode / alternate screen with mouse capture after a crash: a panic hook now restores the terminal and logs the panic before printing it.
+- Fixed an invalid `config.toml` silently falling back to defaults and later being overwritten: the file is now backed up to `config.toml.bak`, a localized error is shown at startup, and it is not overwritten until the user confirms via Options > Save setup.
+- Failed writes of `config.toml` during startup are now logged instead of ignored.
 - Fixed file panel views to properly honor the `git_enabled` setting when rendering Git status badges.
 - Fixed silent no-op when attempting to delete the active checked-out branch in the Git branches tab.
 - Fixed obscure failure when attempting to toggle commit amend on an empty repository without previous commits.

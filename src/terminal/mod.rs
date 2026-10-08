@@ -1,5 +1,6 @@
 pub mod backend;
 pub mod events;
+pub mod panic_hook;
 pub mod pty_cmd;
 #[cfg(unix)]
 pub mod signals;

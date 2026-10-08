@@ -2,6 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::input_popup::git_new_popups::restore_previous_and_refresh;
 use crate::app::state::popup::{GitCommitPromptState, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -143,27 +144,19 @@ pub fn handle(
                 return Ok(None);
             }
             KeyCode::Char(c) if !is_ctrl => {
-                input.insert(cursor_idx, c);
-                cursor_idx += 1;
+                text_input::insert_char(&mut input, &mut cursor_idx, c);
             }
             KeyCode::Backspace => {
-                if cursor_idx > 0 {
-                    cursor_idx -= 1;
-                    input.remove(cursor_idx);
-                }
+                text_input::backspace(&mut input, &mut cursor_idx);
             }
             KeyCode::Delete => {
-                if cursor_idx < input.len() {
-                    input.remove(cursor_idx);
-                }
+                text_input::delete(&mut input, &mut cursor_idx);
             }
             KeyCode::Left => {
-                cursor_idx = cursor_idx.saturating_sub(1);
+                cursor_idx = text_input::prev_boundary(&input, cursor_idx);
             }
             KeyCode::Right => {
-                if cursor_idx < input.len() {
-                    cursor_idx += 1;
-                }
+                cursor_idx = text_input::next_boundary(&input, cursor_idx);
             }
             KeyCode::Home => {
                 cursor_idx = 0;

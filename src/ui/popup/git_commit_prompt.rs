@@ -69,17 +69,9 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         );
 
         // Render input with a cursor indicator
-        let before_cursor = &input[..*cursor_idx];
-        let at_cursor = if *cursor_idx < input.len() {
-            input[*cursor_idx..*cursor_idx + 1].to_string()
-        } else {
-            " ".to_string()
-        };
-        let after_cursor = if *cursor_idx < input.len() {
-            input[*cursor_idx + 1..].to_string()
-        } else {
-            String::new()
-        };
+        let (before_cursor, at_cursor, after_cursor) =
+            crate::app::text_input::split_at_cursor(input, *cursor_idx);
+        let at_cursor = if at_cursor.is_empty() { " " } else { at_cursor };
 
         let input_line = Line::from(vec![
             Span::styled(
@@ -87,13 +79,13 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
                 Style::default().fg(parse_color(&theme.popup_fg)),
             ),
             Span::styled(
-                at_cursor,
+                at_cursor.to_string(),
                 Style::default()
                     .bg(parse_color(&theme.selection_bg))
                     .fg(parse_color(&theme.selection_fg)),
             ),
             Span::styled(
-                after_cursor,
+                after_cursor.to_string(),
                 Style::default().fg(parse_color(&theme.popup_fg)),
             ),
         ]);

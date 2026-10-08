@@ -8,6 +8,7 @@ pub mod menu_handler;
 pub mod screen_input;
 pub mod state;
 pub mod sys_helpers;
+pub mod text_input;
 
 pub use app::run;
 pub use context::AppContext;

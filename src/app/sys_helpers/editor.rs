@@ -1,3 +1,5 @@
+use crate::app::text_input;
+
 /// Searches for the next occurrence of `query` in the editor.
 pub fn find_next_in_editor(
     lines: &[String],
@@ -10,18 +12,24 @@ pub fn find_next_in_editor(
         return None;
     }
 
+    let pat_lower: Vec<char> = query.chars().flat_map(char::to_lowercase).collect();
+    // Returns a byte offset into `text` itself. Lowercasing the whole line
+    // first would yield offsets into a different string (some characters
+    // change byte length when lowercased), so compare char by char instead.
     let match_fn = |text: &str, pat: &str| -> Option<usize> {
         if case_sensitive {
-            text.find(pat)
-        } else {
-            text.to_lowercase().find(&pat.to_lowercase())
+            return text.find(pat);
         }
+        text.char_indices().map(|(i, _)| i).find(|&i| {
+            let mut hay = text[i..].chars().flat_map(char::to_lowercase);
+            pat_lower.iter().all(|pc| hay.next() == Some(*pc))
+        })
     };
 
     // 1. Search current line forward (starting at current_x + 1)
     if current_y < lines.len() {
         let line = &lines[current_y];
-        let start_idx = current_x + 1;
+        let start_idx = text_input::next_boundary(line, current_x);
         if start_idx < line.len()
             && let Some(pos) = match_fn(&line[start_idx..], query)
         {
@@ -39,7 +47,7 @@ pub fn find_next_in_editor(
     // 3. Wrap around: Search from start of file up to current_y
     for (y, line) in lines.iter().enumerate().take(current_y + 1) {
         let limit = if y == current_y {
-            current_x
+            text_input::floor_boundary(line, current_x)
         } else {
             line.len()
         };
@@ -54,6 +62,26 @@ pub fn find_next_in_editor(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_find_next_in_editor_non_ascii() {
+        let lines = vec!["ñandú Ñandú".to_string(), "ÁRBOL árbol".to_string()];
+        // Cursor on the multi-byte 'ñ' must not panic when searching forward.
+        assert_eq!(
+            find_next_in_editor(&lines, 0, 0, "ñandú", false),
+            Some((8, 0))
+        );
+        assert_eq!(
+            find_next_in_editor(&lines, 8, 0, "árbol", false),
+            Some((0, 1))
+        );
+        assert_eq!(
+            find_next_in_editor(&lines, 0, 1, "árbol", true),
+            Some((7, 1))
+        );
+        // Stale mid-character cursor is tolerated.
+        assert!(find_next_in_editor(&lines, 1, 0, "x", false).is_none());
+    }
 
     #[test]
     fn test_find_next_in_editor() {

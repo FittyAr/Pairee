@@ -29,6 +29,9 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             .dialogs
             .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
     }
+    if let Some(msg) = crate::config::load_guard::take_load_error() {
+        state.dialogs.push(crate::app::state::PopupType::Error(msg));
+    }
     state.mark_ui_dirty();
 
     // Launch background external tools download/check

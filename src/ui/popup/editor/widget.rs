@@ -1,5 +1,6 @@
 use super::highlight::highlight_line;
 use crate::app::state::PopupType;
+use crate::app::text_input;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -9,6 +10,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 use std::path::Path;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub fn render_editor_widget(
     f: &mut Frame,
@@ -82,12 +84,14 @@ pub fn render_editor_widget(
     f.render_widget(block, area);
     f.render_widget(paragraph, edit_area);
 
-    let current_line_len = lines.get(cursor_y).map(|l| l.len()).unwrap_or(0);
+    let current_line = lines.get(cursor_y).map_or("", |l| l.as_str());
+    let current_line_len = current_line.graphemes(true).count();
+    let cursor_col = text_input::grapheme_col(current_line, cursor_x);
     let status_text = t("editor_status_text")
         .replacen("{}", &current_line_len.to_string(), 1)
         .replacen("{}", &lines.len().to_string(), 1)
         .replacen("{}", &(cursor_y + 1).to_string(), 1)
-        .replacen("{}", &(cursor_x + 1).to_string(), 1);
+        .replacen("{}", &(cursor_col + 1).to_string(), 1);
     let status_para = Paragraph::new(status_text).style(
         Style::default()
             .bg(parse_color(&theme.header_fg))
@@ -97,7 +101,8 @@ pub fn render_editor_widget(
 
     // Draw the terminal blinking cursor at the editing position
     let prefix_len = 7u16;
-    let editor_cursor_x = edit_area.x + prefix_len + cursor_x as u16;
+    let editor_cursor_x =
+        edit_area.x + prefix_len + text_input::display_col(current_line, cursor_x) as u16;
     let editor_cursor_y = edit_area.y + (cursor_y - scroll_y) as u16;
 
     if editor_cursor_x < edit_area.x + edit_area.width

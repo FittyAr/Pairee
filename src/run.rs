@@ -194,6 +194,10 @@ pub async fn run() -> Result<()> {
     let log_path = config::paths::get_log_file_path();
     let _ = crate::logging::init_logging(&log_path);
 
+    // Restore the terminal (raw mode, alternate screen, mouse capture) on panic
+    // so the message is readable and the user's shell stays usable.
+    terminal::panic_hook::install();
+
     log::info!("Starting Pairee application...");
     git::unused_keepalive();
 
