@@ -8,6 +8,7 @@ use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 use zip::ZipArchive;
 
+use super::safe_extract::ExtractGuard;
 use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
 
 pub fn extract_zip(
@@ -20,23 +21,25 @@ pub fn extract_zip(
     let mut archive = ZipArchive::new(file)?;
     let total_files = archive.len();
 
-    fs::create_dir_all(dest_dir)?;
+    let mut guard = ExtractGuard::new(dest_dir)?;
 
     for i in 0..total_files {
         ensure_not_cancelled(cancel)?;
+        guard.count_entry()?;
         let mut file = archive.by_index(i)?;
-        let outpath = match file.enclosed_name() {
-            Some(path) => dest_dir.join(path),
-            None => continue,
-        };
+        let rel = ExtractGuard::sanitize(file.name())?;
+        if rel.as_os_str().is_empty() {
+            continue;
+        }
 
-        let file_name = outpath
+        let file_name = rel
             .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned();
 
         let _ = tx.blocking_send(ProgressUpdate {
+            skipped: false,
             current_file: file_name,
             files_copied: i,
             total_files,
@@ -45,17 +48,17 @@ pub fn extract_zip(
             error: None,
         });
 
-        if file.name().ends_with('/') {
-            fs::create_dir_all(&outpath)?;
+        if file.is_dir() {
+            guard.create_dir(&rel)?;
         } else {
-            if let Some(p) = outpath.parent() {
-                fs::create_dir_all(p)?;
+            guard.check_declared_size(file.size())?;
+            if let Some(mut outfile) = guard.create_file(&rel)? {
+                guard.copy_limited(&mut file, &mut outfile)?;
             }
-            let mut outfile = fs::File::create(&outpath)?;
-            io::copy(&mut file, &mut outfile)?;
         }
     }
 
+    guard.report_skipped(tx);
     Ok(())
 }
 
@@ -110,6 +113,7 @@ pub fn compress_zip(
                         }
                         let zip_path_str = zip_path.to_string_lossy().into_owned();
                         let _ = tx.blocking_send(ProgressUpdate {
+                            skipped: false,
                             current_file: zip_path_str.clone(),
                             files_copied: i,
                             total_files,
@@ -134,6 +138,7 @@ pub fn compress_zip(
         } else {
             let name = src.file_name().unwrap_or_default().to_string_lossy();
             let _ = tx.blocking_send(ProgressUpdate {
+                skipped: false,
                 current_file: name.to_string(),
                 files_copied: i,
                 total_files,
@@ -163,4 +168,50 @@ pub fn list_zip_files(path: &Path) -> Result<Vec<String>> {
         }
     }
     Ok(list)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write as _;
+
+    fn write_zip(path: &Path, entries: &[(&str, &[u8])]) {
+        let mut zip = zip::ZipWriter::new(fs::File::create(path).unwrap());
+        let opts = zip::write::SimpleFileOptions::default();
+        for (name, body) in entries {
+            zip.start_file(*name, opts).unwrap();
+            zip.write_all(body).unwrap();
+        }
+        zip.finish().unwrap();
+    }
+
+    #[test]
+    fn extract_does_not_overwrite_existing_files() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("a.zip");
+        write_zip(&archive, &[("keep.txt", b"new"), ("sub/new.txt", b"hello")]);
+        let dest = dir.path().join("out");
+        fs::create_dir(&dest).unwrap();
+        fs::write(dest.join("keep.txt"), b"original").unwrap();
+
+        let (tx, _rx) = mpsc::channel(64);
+        extract_zip(&archive, &dest, &tx, &AtomicBool::new(false)).unwrap();
+        assert_eq!(fs::read(dest.join("keep.txt")).unwrap(), b"original");
+        assert_eq!(
+            fs::read(dest.join("sub").join("new.txt")).unwrap(),
+            b"hello"
+        );
+    }
+
+    #[test]
+    fn extract_rejects_traversal_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("evil.zip");
+        write_zip(&archive, &[("../evil.txt", b"x")]);
+        let dest = dir.path().join("out");
+
+        let (tx, _rx) = mpsc::channel(64);
+        assert!(extract_zip(&archive, &dest, &tx, &AtomicBool::new(false)).is_err());
+        assert!(!dir.path().join("evil.txt").exists());
+    }
 }

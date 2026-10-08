@@ -1,17 +1,39 @@
 use anyhow::{Context as _, Result};
-use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-/// Download a release asset from `url` into `dest_dir`.
+/// Only release assets published under this prefix are ever downloaded.
+pub const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/FittyAr/Pairee/releases/download/";
+
+/// Upper bound for a single downloaded release asset, so a hostile or
+/// broken server cannot exhaust memory.
+pub const MAX_ASSET_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Rejects any asset URL that is not a plain HTTPS download from the
+/// official Pairee releases. Asset URLs come from the GitHub API or from the
+/// on-disk release cache, so they are validated before every download.
+pub fn validate_release_url(url: &str) -> Result<()> {
+    let rest = url
+        .strip_prefix(RELEASE_DOWNLOAD_PREFIX)
+        .ok_or_else(|| anyhow::anyhow!("refusing to download from untrusted URL: {url}"))?;
+    let suspicious = rest.is_empty()
+        || rest.contains("..")
+        || rest
+            .chars()
+            .any(|c| matches!(c, '?' | '#' | '@' | '\\' | '%') || c.is_whitespace());
+    if suspicious {
+        anyhow::bail!("refusing to download from malformed release URL: {url}");
+    }
+    Ok(())
+}
+
+/// Download a release asset from `url` into memory.
 /// Sends progress updates (0.0 – 1.0) via `progress_tx` (may be None).
-/// Returns the path to the downloaded file.
-pub async fn download_asset(
-    url: &str,
-    dest_dir: &std::path::Path,
-    filename: &str,
-    progress_tx: Option<mpsc::Sender<f32>>,
-) -> Result<PathBuf> {
-    use tokio::io::AsyncWriteExt as _;
+///
+/// The bytes are returned instead of written to disk so the caller can verify
+/// the checksum and extract/install from the very same buffer (no window in
+/// which a file on disk could be swapped between verification and use).
+pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -> Result<Vec<u8>> {
+    validate_release_url(url)?;
 
     let client = build_client()?;
     let mut response = client
@@ -29,60 +51,58 @@ pub async fn download_asset(
     }
 
     let total = response.content_length().unwrap_or(0);
-    let dest_path = dest_dir.join(filename);
-    let mut file = tokio::fs::File::create(&dest_path)
-        .await
-        .context("failed to create download destination file")?;
-
-    let mut downloaded: u64 = 0;
+    if total > MAX_ASSET_BYTES {
+        anyhow::bail!("release asset is too large ({total} bytes)");
+    }
+    let mut data = Vec::with_capacity(total as usize);
 
     while let Some(chunk) = response.chunk().await.context("stream error")? {
-        file.write_all(&chunk)
-            .await
-            .context("failed to write chunk")?;
-        downloaded += chunk.len() as u64;
-        if total > 0 {
-            let progress = downloaded as f32 / total as f32;
-            if let Some(tx) = &progress_tx {
-                let _ = tx.try_send(progress);
-            }
+        data.extend_from_slice(&chunk);
+        if data.len() as u64 > MAX_ASSET_BYTES {
+            anyhow::bail!("release asset exceeds {MAX_ASSET_BYTES} bytes");
         }
-    }
-
-    {
-        file.flush()
-            .await
-            .context("failed to flush download file")?;
+        if total > 0
+            && let Some(tx) = &progress_tx
+        {
+            let _ = tx.try_send(data.len() as f32 / total as f32);
+        }
     }
 
     if let Some(tx) = &progress_tx {
         let _ = tx.try_send(1.0);
     }
 
-    Ok(dest_path)
+    Ok(data)
+}
+
+/// SHA-256 of an in-memory buffer as lowercase hex.
+pub fn sha256_hex(data: &[u8]) -> String {
+    use sha2::Digest as _;
+    hex_encode(&sha2::Sha256::digest(data))
 }
 
 /// Compute the SHA-256 checksum string (hex, 64 chars) of a file.
 pub fn compute_sha256(file_path: &std::path::Path) -> Result<String> {
-    use std::io::Read as _;
+    use sha2::Digest as _;
     let mut file = std::fs::File::open(file_path).context("failed to open file for hashing")?;
-    let mut hasher = Sha256::new();
-    let mut buf = [0u8; 65536];
-    loop {
-        let n = file.read(&mut buf).context("read error during hashing")?;
-        if n == 0 {
-            break;
-        }
-        hasher.update(&buf[..n]);
-    }
-    let actual = hasher.finalize();
-    Ok(hex_encode(&actual))
+    let mut hasher = sha2::Sha256::new();
+    std::io::copy(&mut file, &mut hasher).context("read error during hashing")?;
+    Ok(hex_encode(&hasher.finalize()))
 }
 
-/// Verify a file against a SHA-256 checksum string (hex, 64 chars).
-/// Returns Ok(()) on match, Err otherwise.
-pub fn verify_sha256(file_path: &std::path::Path, expected_hex: &str) -> Result<()> {
-    let actual_hex = compute_sha256(file_path)?;
+/// Extracts the hex digest from the contents of a `.sha256` file
+/// (`<hex>` or `<hex>  <filename>`). Fails unless it is exactly 64 hex chars.
+pub fn parse_sha256_file(contents: &str) -> Result<String> {
+    let digest = contents.split_whitespace().next().unwrap_or("");
+    if digest.len() != 64 || !digest.chars().all(|c| c.is_ascii_hexdigit()) {
+        anyhow::bail!("malformed SHA-256 checksum file");
+    }
+    Ok(digest.to_ascii_lowercase())
+}
+
+/// Verify an in-memory buffer against a SHA-256 checksum string (hex, 64 chars).
+pub fn verify_sha256_bytes(data: &[u8], expected_hex: &str) -> Result<()> {
+    let actual_hex = sha256_hex(data);
     if actual_hex.eq_ignore_ascii_case(expected_hex) {
         Ok(())
     } else {
@@ -92,112 +112,6 @@ pub fn verify_sha256(file_path: &std::path::Path, expected_hex: &str) -> Result<
             actual_hex
         )
     }
-}
-
-// ─── Minimal SHA-256 implementation (no extra dependency) ────────────────────
-
-struct Sha256 {
-    state: [u32; 8],
-    buffer: Vec<u8>,
-    total: u64,
-}
-
-impl Sha256 {
-    fn new() -> Self {
-        Self {
-            state: [
-                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
-                0x5be0cd19,
-            ],
-            buffer: Vec::new(),
-            total: 0,
-        }
-    }
-
-    fn update(&mut self, data: &[u8]) {
-        self.total += data.len() as u64;
-        self.buffer.extend_from_slice(data);
-        while self.buffer.len() >= 64 {
-            let block: [u8; 64] = self.buffer[..64].try_into().unwrap();
-            self.buffer.drain(..64);
-            process_block(&mut self.state, &block);
-        }
-    }
-
-    fn finalize(mut self) -> [u8; 32] {
-        let bit_len = self.total * 8;
-        self.buffer.push(0x80);
-        while self.buffer.len() % 64 != 56 {
-            self.buffer.push(0);
-        }
-        self.buffer.extend_from_slice(&bit_len.to_be_bytes());
-        while self.buffer.len() >= 64 {
-            let block: [u8; 64] = self.buffer[..64].try_into().unwrap();
-            self.buffer.drain(..64);
-            process_block(&mut self.state, &block);
-        }
-        let mut out = [0u8; 32];
-        for (i, &word) in self.state.iter().enumerate() {
-            out[i * 4..i * 4 + 4].copy_from_slice(&word.to_be_bytes());
-        }
-        out
-    }
-}
-
-fn process_block(state: &mut [u32; 8], block: &[u8; 64]) {
-    const K: [u32; 64] = [
-        0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4,
-        0xab1c5ed5, 0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe,
-        0x9bdc06a7, 0xc19bf174, 0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f,
-        0x4a7484aa, 0x5cb0a9dc, 0x76f988da, 0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7,
-        0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967, 0x27b70a85, 0x2e1b2138, 0x4d2c6dfc,
-        0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85, 0xa2bfe8a1, 0xa81a664b,
-        0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070, 0x19a4c116,
-        0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-        0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7,
-        0xc67178f2,
-    ];
-    let mut w = [0u32; 64];
-    for i in 0..16 {
-        w[i] = u32::from_be_bytes(block[i * 4..i * 4 + 4].try_into().unwrap());
-    }
-    for i in 16..64 {
-        let s0 = w[i - 15].rotate_right(7) ^ w[i - 15].rotate_right(18) ^ (w[i - 15] >> 3);
-        let s1 = w[i - 2].rotate_right(17) ^ w[i - 2].rotate_right(19) ^ (w[i - 2] >> 10);
-        w[i] = w[i - 16]
-            .wrapping_add(s0)
-            .wrapping_add(w[i - 7])
-            .wrapping_add(s1);
-    }
-    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
-    for i in 0..64 {
-        let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
-        let ch = (e & f) ^ ((!e) & g);
-        let temp1 = h
-            .wrapping_add(s1)
-            .wrapping_add(ch)
-            .wrapping_add(K[i])
-            .wrapping_add(w[i]);
-        let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
-        let maj = (a & b) ^ (a & c) ^ (b & c);
-        let temp2 = s0.wrapping_add(maj);
-        h = g;
-        g = f;
-        f = e;
-        e = d.wrapping_add(temp1);
-        d = c;
-        c = b;
-        b = a;
-        a = temp1.wrapping_add(temp2);
-    }
-    state[0] = state[0].wrapping_add(a);
-    state[1] = state[1].wrapping_add(b);
-    state[2] = state[2].wrapping_add(c);
-    state[3] = state[3].wrapping_add(d);
-    state[4] = state[4].wrapping_add(e);
-    state[5] = state[5].wrapping_add(f);
-    state[6] = state[6].wrapping_add(g);
-    state[7] = state[7].wrapping_add(h);
 }
 
 fn hex_encode(bytes: &[u8]) -> String {
@@ -240,4 +154,81 @@ fn build_client() -> Result<reqwest::Client> {
         .timeout(Duration::from_secs(120))
         .build()
         .context("failed to build HTTP client")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sha256_known_vectors() {
+        assert_eq!(
+            sha256_hex(b""),
+            "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        );
+        assert_eq!(
+            sha256_hex(b"abc"),
+            "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+        );
+        assert_eq!(
+            sha256_hex(b"abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq"),
+            "248d6a61d20638b8e5c026930c3e6039a33ce45964ff2167f6ecedd419db06c1"
+        );
+        let million_a = vec![b'a'; 1_000_000];
+        assert_eq!(
+            sha256_hex(&million_a),
+            "cdc76e5c9914fb9281a1c7e284d73e67f1809a48a497200e046d39ccc7112cd0"
+        );
+    }
+
+    #[test]
+    fn compute_sha256_matches_in_memory_digest() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("f");
+        std::fs::write(&path, b"abc").unwrap();
+        assert_eq!(compute_sha256(&path).unwrap(), sha256_hex(b"abc"));
+    }
+
+    #[test]
+    fn verify_sha256_bytes_detects_mismatch() {
+        let good = sha256_hex(b"payload");
+        assert!(verify_sha256_bytes(b"payload", &good).is_ok());
+        assert!(verify_sha256_bytes(b"payload", &good.to_uppercase()).is_ok());
+        assert!(verify_sha256_bytes(b"tampered", &good).is_err());
+    }
+
+    #[test]
+    fn parse_sha256_file_accepts_common_formats() {
+        let hex = "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad";
+        assert_eq!(parse_sha256_file(hex).unwrap(), hex);
+        assert_eq!(
+            parse_sha256_file(&format!("{}  pairee.tar.gz\n", hex.to_uppercase())).unwrap(),
+            hex
+        );
+        assert!(parse_sha256_file("").is_err());
+        assert!(parse_sha256_file("not-a-digest pairee.tar.gz").is_err());
+        assert!(parse_sha256_file(&hex[..63]).is_err());
+    }
+
+    #[test]
+    fn release_url_must_be_official_https() {
+        assert!(
+            validate_release_url(
+                "https://github.com/FittyAr/Pairee/releases/download/v0.9.0/pairee-v0.9.0-x86_64-unknown-linux-musl.tar.gz"
+            )
+            .is_ok()
+        );
+        for bad in [
+            "http://github.com/FittyAr/Pairee/releases/download/v1/a.zip",
+            "https://github.com/Evil/Pairee/releases/download/v1/a.zip",
+            "https://github.com.evil.com/FittyAr/Pairee/releases/download/v1/a.zip",
+            "https://github.com/FittyAr/Pairee/releases/download/../../Evil/x",
+            "https://github.com/FittyAr/Pairee/releases/download/v1/a.zip?x=1",
+            "https://github.com/FittyAr/Pairee/releases/download/v1/%2e%2e/a.zip",
+            "https://github.com/FittyAr/Pairee/releases/download/",
+            "file:///etc/passwd",
+        ] {
+            assert!(validate_release_url(bad).is_err(), "{bad}");
+        }
+    }
 }

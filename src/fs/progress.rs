@@ -14,6 +14,8 @@ pub struct ProgressUpdate {
     pub bytes_copied: u64,
     pub total_bytes: u64,
     pub error: Option<String>,
+    /// The entry was not written because something already existed there.
+    pub skipped: bool,
 }
 
 /// Returns `Err` when the job was cancelled (cooperative cancel point).

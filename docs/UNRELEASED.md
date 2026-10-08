@@ -37,6 +37,14 @@
 - **Security:** Plugin path checks now normalize `..` and resolve symlinks through the nearest existing parent, closing a Secure Mode bypass via `..` on non-existent paths.
 - **Security:** User menu commands expand `{f}` / `{p}` in a single pass, so a file name such as `;id;{p}` can no longer break shell quoting.
 - **Security:** Registry plugin installs reject `[files]` entries that escape the plugin directory, validate plugin name/author, and verify each file's SHA-256 before writing it to disk.
+- **Security:** The self-updater now requires the release `.sha256` asset, only downloads from `https://github.com/FittyAr/Pairee/releases/download/`, verifies the artifact in memory and installs from that same buffer (no shared, predictable `pairee_update` temp dir, no verify→extract race). SHA-256 now uses the `sha2` crate instead of a hand-rolled implementation.
+- **Security:** Secure wipe no longer follows symbolic links or junctions: wiping a link removes only the link and never overwrites its target.
+- **Security:** The 7-Zip helper downloaded on Windows is verified against a pinned SHA-256 before use; RAR/ISO extraction via external 7z now refuses to run when the archive cannot be listed and validated first.
+- **Security:** Archive extraction (zip, tar.gz, 7z, RAR/ISO) never overwrites existing files (they are skipped and listed in the job results), never writes through symlinks already present in the destination, and aborts archives with more than 500,000 entries or 32 GiB of uncompressed data.
+- **Security:** `config.toml` and other config files are written with `0600` permissions on Unix.
+- **Security:** Secure Mode's plugin command blacklist normalizes names (case, path, `.exe`/`.cmd`/`.bat`… extensions, version suffixes) and now also blocks `wscript`, `cscript`, `mshta`, `rundll32`, `env`, `osascript`, `busybox`, more shells and interpreters, and command wrappers.
+- **Security:** Plugin Lua states have a memory limit and a watchdog that aborts runaway scripts (e.g. infinite loops) instead of freezing Pairee.
+- **Security:** `install.sh` / `install.ps1` fail on HTTP errors (`curl -fsSL`), validate the release tag and verify the downloaded archive against its `.sha256` before extracting.
 - Fixed file panel views to properly honor the `git_enabled` setting when rendering Git status badges.
 - Fixed silent no-op when attempting to delete the active checked-out branch in the Git branches tab.
 - Fixed obscure failure when attempting to toggle commit amend on an empty repository without previous commits.

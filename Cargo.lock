@@ -2324,6 +2324,7 @@ dependencies = [
  "git2",
  "image",
  "keybinds",
+ "libc",
  "log",
  "md-5",
  "mlua",

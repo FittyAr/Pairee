@@ -1,6 +1,7 @@
 //! Archive detection, extraction, and compression orchestrator.
 
 pub mod external_7z;
+pub mod safe_extract;
 pub mod sevenz_ops;
 pub mod tar_ops;
 pub mod zip_ops;

@@ -154,6 +154,10 @@ for cmd in $DEPENDENCIES; do
         exit 1
     fi
 done
+if [ "$DEBUG_MODE" != "true" ] && ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
+    echo "${RED}Error: 'sha256sum' or 'shasum' is required to verify the download.${NC}"
+    exit 1
+fi
 
 # 3. Check for Existing Installation
 if [ -f "$INSTALL_DIR/pairee" ] || [ -d "$CONFIG_DIR" ]; then
@@ -196,12 +200,25 @@ if [ "$DEBUG_MODE" = "true" ]; then
     echo "Running in debug mode. Will compile from master branch source..."
 else
     echo "Fetching latest version info..."
-    VERSION=$(curl -s "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
+    VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
 
     if [ -z "$VERSION" ]; then
         echo "${RED}Error: Could not retrieve latest release version from GitHub API.${NC}"
         exit 1
     fi
+    case "$VERSION" in
+        v[0-9]*.[0-9]*.[0-9]*) ;;
+        *)
+            echo "${RED}Error: Unexpected release tag '${VERSION}'.${NC}"
+            exit 1
+            ;;
+    esac
+    case "$VERSION" in
+        *[!A-Za-z0-9.-]*)
+            echo "${RED}Error: Unexpected release tag '${VERSION}'.${NC}"
+            exit 1
+            ;;
+    esac
     echo "Latest version found: ${GREEN}${VERSION}${NC}"
 fi
 
@@ -233,7 +250,21 @@ else
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
 
     echo "Downloading ${TARBALL}..."
-    curl -L "$DOWNLOAD_URL" -o "${TEMP_DIR}/${TARBALL}"
+    curl -fsSL "$DOWNLOAD_URL" -o "${TEMP_DIR}/${TARBALL}"
+    curl -fsSL "${DOWNLOAD_URL}.sha256" -o "${TEMP_DIR}/${TARBALL}.sha256"
+
+    echo "Verifying SHA-256 checksum..."
+    EXPECTED_SHA=$(awk '{print $1}' "${TEMP_DIR}/${TARBALL}.sha256" | tr 'A-F' 'a-f')
+    if command -v sha256sum >/dev/null 2>&1; then
+        ACTUAL_SHA=$(sha256sum "${TEMP_DIR}/${TARBALL}" | awk '{print $1}')
+    else
+        ACTUAL_SHA=$(shasum -a 256 "${TEMP_DIR}/${TARBALL}" | awk '{print $1}')
+    fi
+    if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+        echo "${RED}Error: SHA-256 checksum mismatch for ${TARBALL}. Aborting.${NC}"
+        rm -rf "$TEMP_DIR"
+        exit 1
+    fi
 
     echo "Extracting archive..."
     tar -xzf "${TEMP_DIR}/${TARBALL}" -C "$TEMP_DIR"

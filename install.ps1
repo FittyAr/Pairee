@@ -159,6 +159,10 @@ if ($DebugMode) {
         Write-Error "Failed to retrieve latest release version from GitHub API: $_"
         exit 1
     }
+    if ($version -notmatch '^v\d+\.\d+\.\d+[A-Za-z0-9.-]*$') {
+        Write-Error "Unexpected release tag '$version'. Aborting."
+        exit 1
+    }
     Write-Host "Latest version found: $version" -ForegroundColor Green
 }
 
@@ -177,7 +181,7 @@ if (-not (Test-Path (Join-Path $configDir "keymaps"))) {
 }
 
 # 4. Download and Extract ZIP (or Git Clone & Cargo Build in debug mode)
-$tempDir = Join-Path $env:TEMP "pairee_install_$(Get-Date -Format 'yyyyMMddHHmmss')"
+$tempDir = Join-Path $env:TEMP "pairee_install_$([guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Force -Path $tempDir | Out-Null
 
 if ($DebugMode) {
@@ -215,6 +219,27 @@ if ($DebugMode) {
         Invoke-WebRequest -Uri $downloadUrl -OutFile $zipPath -UseBasicParsing
     } catch {
         Write-Error "Failed to download release file: $_"
+        Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
+        exit 1
+    }
+
+    Write-Host "Verifying SHA-256 checksum..."
+    try {
+        $shaResponse = Invoke-WebRequest -Uri "$downloadUrl.sha256" -UseBasicParsing
+        $shaText = if ($shaResponse.Content -is [byte[]]) {
+            [System.Text.Encoding]::UTF8.GetString($shaResponse.Content)
+        } else {
+            [string]$shaResponse.Content
+        }
+        $expectedSha = ($shaText.Trim() -split '\s+')[0].ToLowerInvariant()
+        $actualSha = (Get-FileHash -Algorithm SHA256 -Path $zipPath).Hash.ToLowerInvariant()
+    } catch {
+        Write-Error "Failed to verify release checksum: $_"
+        Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
+        exit 1
+    }
+    if ($expectedSha -notmatch '^[0-9a-f]{64}$' -or $expectedSha -ne $actualSha) {
+        Write-Error "SHA-256 checksum mismatch for $zipName. Aborting."
         Remove-Item -Recurse -Force $tempDir -ErrorAction SilentlyContinue
         exit 1
     }

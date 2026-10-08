@@ -1,11 +1,11 @@
 //! Native 7z extraction and listing using `sevenz-rust2`.
 
 use anyhow::{Result, anyhow};
-use std::fs;
-use std::path::{Component, Path};
+use std::path::Path;
 use std::sync::atomic::AtomicBool;
 use tokio::sync::mpsc;
 
+use super::safe_extract::ExtractGuard;
 use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
 
 pub fn extract_7z(
@@ -14,86 +14,80 @@ pub fn extract_7z(
     tx: &mpsc::Sender<ProgressUpdate>,
     cancel: &AtomicBool,
 ) -> Result<()> {
-    fs::create_dir_all(dest_dir)?;
-    // Canonicalise the destination so we can verify that no extracted
-    // entry escapes it via `..` components or absolute paths.
-    let canonical_dest = std::fs::canonicalize(dest_dir).unwrap_or_else(|_| dest_dir.to_path_buf());
+    let mut guard = ExtractGuard::new(dest_dir)?;
+    // The extract callback must return a `sevenz_rust2::Error`; keep the
+    // real cause here so the user sees why extraction stopped.
+    let mut failure: Option<anyhow::Error> = None;
 
-    sevenz_rust2::decompress_file_with_extract_fn(archive_path, dest_dir, |entry, reader, dest| {
-        if ensure_not_cancelled(cancel).is_err() {
-            return Ok(false);
-        }
-        // `sevenz-rust2` still joins `dest` with `entry.name()` before calling
-        // the extract function. A malicious 7z archive can write outside the
-        // destination via `..` or absolute paths. Refuse those entries.
-        let entry_name = entry.name();
-        let candidate = std::path::Path::new(entry_name);
-        let mut has_traversal = false;
-        for component in candidate.components() {
-            match component {
-                Component::ParentDir => {
-                    has_traversal = true;
-                    break;
-                }
-                Component::Prefix(_) | Component::RootDir => {
-                    has_traversal = true;
-                    break;
-                }
-                _ => {}
+    let result = sevenz_rust2::decompress_file_with_extract_fn(
+        archive_path,
+        dest_dir,
+        |entry, reader, _dest| {
+            if ensure_not_cancelled(cancel).is_err() {
+                return Ok(false);
             }
-        }
-        if has_traversal {
-            let file_name = entry.name().to_string();
-            let _ = tx.blocking_send(ProgressUpdate {
-                current_file: file_name,
-                files_copied: 0,
-                total_files: 0,
-                bytes_copied: 0,
-                total_bytes: 0,
-                error: Some(format!(
-                    "Refusing to extract entry with unsafe path: {}",
-                    entry.name()
-                )),
-            });
-            return Ok(false);
-        }
+            match extract_entry(&mut guard, entry, reader, tx) {
+                Ok(()) => Ok(true),
+                Err(e) => {
+                    let msg = e.to_string();
+                    failure = Some(e);
+                    Err(sevenz_rust2::Error::Other(msg.into()))
+                }
+            }
+        },
+    );
 
-        let dest_path = dest.to_path_buf();
-        let check_target = dest_path
-            .parent()
-            .map(|p| p.to_path_buf())
-            .unwrap_or_else(|| dest_path.clone());
-        if let Ok(canon) = std::fs::canonicalize(&check_target)
-            && !canon.starts_with(&canonical_dest)
-        {
-            let _ = tx.blocking_send(ProgressUpdate {
-                current_file: entry.name().to_string(),
-                files_copied: 0,
-                total_files: 0,
-                bytes_copied: 0,
-                total_bytes: 0,
-                error: Some(format!(
-                    "Refusing to extract entry outside destination: {}",
-                    entry.name()
-                )),
-            });
-            return Ok(false);
-        }
-
-        let file_name = entry.name().to_string();
+    if let Some(e) = failure {
         let _ = tx.blocking_send(ProgressUpdate {
-            current_file: file_name,
+            skipped: false,
+            current_file: String::new(),
             files_copied: 0,
             total_files: 0,
             bytes_copied: 0,
             total_bytes: 0,
-            error: None,
+            error: Some(e.to_string()),
         });
+        return Err(e);
+    }
+    result.map_err(|e| anyhow!("7z extraction failed: {:?}", e))?;
+    ensure_not_cancelled(cancel)?;
 
-        sevenz_rust2::default_entry_extract_fn(entry, reader, &dest_path)
-    })
-    .map_err(|e| anyhow!("7z extraction failed: {:?}", e))?;
+    guard.report_skipped(tx);
+    Ok(())
+}
 
+/// Writes one 7z entry through the [`ExtractGuard`] (no overwrite, no
+/// writing through links, size/entry limits).
+fn extract_entry(
+    guard: &mut ExtractGuard,
+    entry: &sevenz_rust2::ArchiveEntry,
+    reader: &mut dyn std::io::Read,
+    tx: &mpsc::Sender<ProgressUpdate>,
+) -> Result<()> {
+    guard.count_entry()?;
+    let rel = ExtractGuard::sanitize(entry.name())?;
+    if rel.as_os_str().is_empty() {
+        return Ok(());
+    }
+
+    let _ = tx.blocking_send(ProgressUpdate {
+        skipped: false,
+        current_file: entry.name().to_string(),
+        files_copied: 0,
+        total_files: 0,
+        bytes_copied: 0,
+        total_bytes: 0,
+        error: None,
+    });
+
+    if entry.is_directory() {
+        guard.create_dir(&rel)?;
+    } else {
+        guard.check_declared_size(entry.size())?;
+        if let Some(mut out) = guard.create_file(&rel)? {
+            guard.copy_limited(reader, &mut out)?;
+        }
+    }
     Ok(())
 }
 
