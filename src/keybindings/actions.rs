@@ -246,4 +246,26 @@ pub enum Action {
     GitInit,
     /// Clone a remote Git repository into the active panel
     GitClone,
+
+    // ── Folder tabs ─────────────────────────────────────────────────────────
+    /// Open a new tab on the current folder (Ctrl+T / Alt+T)
+    NewTab,
+    /// Close the current tab; the last tab of a side stays (Alt+W)
+    CloseTab,
+    /// Show the next tab of the focused side (Alt+PgDn / Alt+Right)
+    NextTab,
+    /// Show the previous tab of the focused side (Alt+PgUp / Alt+Left)
+    PrevTab,
+    /// Move the current tab one place left (Alt+Shift+PgUp)
+    MoveTabLeft,
+    /// Move the current tab one place right (Alt+Shift+PgDn)
+    MoveTabRight,
+    /// Show tab number 1–9 of the focused side (Alt+1 … Alt+9)
+    GoToTab(u8),
+    /// Lock / unlock the current tab: a locked tab opens other folders in new tabs
+    ToggleTabLock,
+    /// Give the current tab a title
+    RenameTab,
+    /// Open the folder or archive under the cursor in a new tab (Ctrl+Enter / Alt+O)
+    OpenInNewTab,
 }

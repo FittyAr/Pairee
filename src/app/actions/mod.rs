@@ -2,6 +2,7 @@ pub mod command_palette;
 pub mod exec;
 pub mod fs_ops;
 pub mod navigation;
+pub mod tabs;
 pub mod ui_settings;
 pub mod which_key;
 
@@ -21,6 +22,7 @@ pub async fn handle_action(
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
     let handled = navigation::handle_navigation_action(state, &action, context)
+        || tabs::handle_tab_action(state, &action, context)
         || fs_ops::handle_fs_action(state, &action, context, terminal_backend)
         || ui_settings::handle_ui_settings_action(state, &action, context).await;
 

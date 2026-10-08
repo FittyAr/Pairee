@@ -10,6 +10,7 @@ use crate::keybindings::{Action, KeybindingResolver};
 struct Side {
     view_submenu: usize,
     sort_submenu: usize,
+    tabs_submenu: usize,
     toggle: ActionRow,
     drive: ActionRow,
 }
@@ -19,12 +20,14 @@ fn side(panel: ActivePanel) -> Side {
         ActivePanel::Left => Side {
             view_submenu: 5,
             sort_submenu: 6,
+            tabs_submenu: 9,
             toggle: ("menu_panel_on_off", Action::TogglePanelLeft, "Ctrl+F1"),
             drive: ("menu_change_drive", Action::DriveSelectLeft, "Alt+F1"),
         },
         ActivePanel::Right => Side {
             view_submenu: 7,
             sort_submenu: 8,
+            tabs_submenu: 10,
             toggle: ("menu_panel_on_off", Action::TogglePanelRight, "Ctrl+F2"),
             drive: ("menu_change_drive", Action::DriveSelectRight, "Alt+F2"),
         },
@@ -51,6 +54,7 @@ pub fn get_items(
     };
     let menu = MenuBuilder::new(resolver)
         .submenu("menu_view_mode", side.view_submenu)
+        .submenu("menu_tabs", side.tabs_submenu)
         .separator()
         .toggle(
             ("menu_info_panel", Action::InfoPanel, "Ctrl+L"),

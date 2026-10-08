@@ -128,7 +128,7 @@ fn draw_ui_which_key_overlay_lists_live_chords() {
         "overlay title missing, got {painted:?}"
     );
     assert!(
-        painted.contains("F5") || painted.contains("copy"),
+        painted.contains("F5") || painted.contains("copy") || painted.contains("go to tab"),
         "live keymap rows missing, got {painted:?}"
     );
 }

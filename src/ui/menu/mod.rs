@@ -3,6 +3,7 @@ pub mod files;
 pub mod options;
 pub mod panel;
 pub mod panel_submenus;
+pub mod panel_tabs;
 pub mod types;
 
 pub use types::MenuItemData;
@@ -37,7 +38,19 @@ pub fn get_menu_items(
         6 => panel_submenus::sort_items(state, resolver, Left),
         7 => panel_submenus::view_items(state, resolver, Right),
         8 => panel_submenus::sort_items(state, resolver, Right),
+        9 => panel_tabs::tab_items(state, resolver, Left),
+        10 => panel_tabs::tab_items(state, resolver, Right),
         _ => vec![],
+    }
+}
+
+/// The panel a Left / Right menu (or one of their submenus) acts on.
+pub fn menu_side(menu_idx: usize) -> Option<crate::app::state::ActivePanel> {
+    use crate::app::state::ActivePanel::{Left, Right};
+    match menu_idx {
+        0 | 5 | 6 | 9 => Some(Left),
+        4 | 7 | 8 | 10 => Some(Right),
+        _ => None,
     }
 }
 

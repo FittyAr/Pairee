@@ -20,6 +20,23 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `Ctrl+\` | Open the Directory Hotlist (`Enter` go, `Ins`/`+` add the current folder, `Del`/`-` remove). Saved in `bookmarks.toml`. |
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Jump to folder shortcut 1–9. Assign them from **Commands → Folder shortcuts** (`Ins`/`Space` or the slot digit assigns the current folder, `Del` clears). |
 
+### Folder tabs
+
+Each panel can hold several folder tabs. The tab bar above a panel appears when it has more than one tab (or always, with **Options → Configuration → Panel → Always show tab bar**); click a tab to show it, middle-click to close it. Locked tabs are marked with `*`. Everything is also in **Left/Right → Tabs**.
+
+| Key / Shortcut | Action |
+| :--- | :--- |
+| `Alt+T` (`Ctrl+T` in the NeoVim and VSCode keymaps) | New tab on the current folder (in Norton `Ctrl+T` stays the transfer panel). |
+| `Alt+O` / `Ctrl+Enter` | Open the folder or archive under the cursor in a new tab (`Ctrl+Enter` needs a terminal that reports it, e.g. kitty, WezTerm, foot). |
+| `Alt+W` | Close the current tab (the last tab of a panel stays; `Ctrl+W` is the task list). |
+| `Alt+PgDn` / `Alt+Right` | Next tab. |
+| `Alt+PgUp` / `Alt+Left` | Previous tab. |
+| `Alt+Shift+PgUp` / `Alt+Shift+PgDn` | Move the current tab left / right. |
+| `Alt+1` … `Alt+9` | Show tab 1–9 of the focused panel. |
+| *(menu / command palette)* | **Rename tab** (empty name: the folder name) and **Lock tab**: a locked tab keeps its folder, and entering another folder from it opens that folder in a new tab. |
+
+`Ctrl+Tab` keeps switching screens. Some terminals use `Alt+arrows` or `Alt+digits` for themselves (Windows Terminal panes, GNOME Terminal tabs); `Alt+PgUp`/`Alt+PgDn` work there, and every chord can be changed in the keymap.
+
 ---
 
 ## 🗂️ 2. Panel View Modes & Toggles

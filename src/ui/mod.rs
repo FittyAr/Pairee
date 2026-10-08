@@ -11,6 +11,7 @@ pub mod quickview;
 pub mod screens;
 pub mod scrollbar;
 pub mod search_highlight;
+pub mod tab_bar;
 pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;
@@ -24,6 +25,8 @@ mod tests;
 mod tests_archive;
 #[cfg(test)]
 mod tests_disk_usage;
+#[cfg(test)]
+mod tests_tab_bar;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;

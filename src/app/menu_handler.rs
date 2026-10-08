@@ -24,18 +24,8 @@ pub fn trigger_menu_item(
         return None;
     }
 
-    if menu_idx == 0
-        || menu_idx == 4
-        || menu_idx == 5
-        || menu_idx == 6
-        || menu_idx == 7
-        || menu_idx == 8
-    {
-        state.panels.active = if menu_idx == 4 || menu_idx == 7 || menu_idx == 8 {
-            crate::app::state::ActivePanel::Right
-        } else {
-            crate::app::state::ActivePanel::Left
-        };
+    if let Some(side) = crate::ui::menu::menu_side(menu_idx) {
+        state.panels.active = side;
     }
 
     if item.label == crate::config::localization::t("menu_hotplug_devices") {

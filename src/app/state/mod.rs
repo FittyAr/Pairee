@@ -126,6 +126,8 @@ pub struct AppState {
 
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
+    /// Tab bar cells painted last frame (mouse clicks on tabs).
+    pub tab_bar: crate::ui::tab_bar::TabBarHits,
 
     /// Clipboard shared by every editor screen (system + internal fallback).
     pub editor_clipboard: crate::app::editor::EditorClipboard,
@@ -180,6 +182,7 @@ impl AppState {
             folder_scan: Default::default(),
             disk_usage: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
+            tab_bar: Default::default(),
             editor_clipboard: Default::default(),
         }
     }

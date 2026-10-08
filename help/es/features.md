@@ -26,6 +26,13 @@ Puedes configurar cada panel de forma independiente para mostrar archivos usando
 * **Historial de Navegación:** Muestra una lista de directorios visitados recientemente. Selecciona una fila y presiona `Enter` para saltar directamente a ella.
 * **Lista de Favoritos (Hotlist):** Marcadores personalizados para añadir, eliminar y seleccionar tus carpetas más visitadas.
 
+### 1.3 Pestañas de Carpetas
+* **Pestañas por panel:** cada panel tiene su propia lista de pestañas; cada pestaña recuerda su carpeta (local, SFTP o dentro de un archivo comprimido), cursor, selección, modo de vista, orden, filtro y tamaños de carpetas. Las pestañas nuevas se abren junto a la actual en la misma carpeta (`Alt+T`) o en la carpeta bajo el cursor (`Alt+O`).
+* **Barra de pestañas:** aparece sobre un panel con más de una pestaña (o siempre, ver **Opciones → Configuración → Panel**). Los títulos son el nombre de la carpeta (`servidor:carpeta` en paneles SFTP), acortados con `…` si falta espacio y numerados para `Alt+1` … `Alt+9`. Clic para cambiar, clic central para cerrar.
+* **Carga en segundo plano:** una pestaña sigue cargando mientras miras otra; su listado llega a esa pestaña, nunca a la que está en pantalla.
+* **Pestañas bloqueadas:** **Izquierdo/Derecho → Pestañas → Bloquear pestaña** fija una pestaña a su carpeta; al entrar en otra carpeta desde ella se abre una pestaña nueva. **Cambiar nombre** le da un título fijo.
+* **Intercambiar paneles** (`Ctrl+U`) intercambia los paneles junto con sus pestañas.
+
 ---
 
 ## 📂 2. Operaciones del Sistema de Archivos

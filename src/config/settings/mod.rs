@@ -81,6 +81,9 @@ pub struct Settings {
     pub show_scrollbar: bool,
     pub show_sort_mode_letter: bool,
     pub show_dotdot_in_root_folders: bool,
+    /// Show the tab bar above a panel even when it has a single tab.
+    #[serde(default)]
+    pub always_show_tab_bar: bool,
 
     // ── Interface settings (dialog tab 2) ────────────────────────────────────
     pub interface_clock: bool,

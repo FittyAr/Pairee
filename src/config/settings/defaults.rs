@@ -46,6 +46,7 @@ impl Default for Settings {
             show_scrollbar: false,
             show_sort_mode_letter: true,
             show_dotdot_in_root_folders: false,
+            always_show_tab_bar: false,
 
             // Tab 2
             interface_clock: true,

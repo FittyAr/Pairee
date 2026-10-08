@@ -31,6 +31,7 @@ pub mod onboarding;
 pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
+pub mod rename_tab;
 pub mod save_setup;
 pub mod screens_menu;
 pub mod search;
@@ -122,6 +123,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::SelectGroupPrompt { .. } => select_group::handle,
         PopupType::ApplyCommandPrompt { .. } => apply_command::handle,
         PopupType::DescribeFilePrompt { .. } => describe_file::handle,
+        PopupType::RenameTabPrompt { .. } => rename_tab::handle,
         PopupType::CreateLinkPrompt { .. } => create_link::handle,
         PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
             file_filter::handle

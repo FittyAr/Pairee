@@ -150,3 +150,14 @@ El sistema está desacoplado en varios componentes de responsabilidad única:
 3. **Diálogo interactivo:** Si el usuario selecciona el botón de actualizar en el menú Options o hace clic en el indicador, se abre un popup que muestra el registro de cambios (Changelog) y las opciones para "Instalar ahora", "Ignorar versión" (guarda la versión ignorada en el archivo de configuración para no volver a notificarla) o "Cerrar".
 4. **Descarga e instalación en vivo:** Si se inicia la actualización, se abre un popup de progreso de descarga que actualiza en tiempo real los bytes transmitidos y, al finalizar la descarga e instalación con éxito, solicita al usuario reiniciar la aplicación.
 
+---
+
+## 🗂️ 9. Pestañas de Carpetas
+
+`PanelPair` guarda un `PanelTabs` por lado (`app/state/tabs/`): un `Vec<Tab>` ordenado y el índice activo. Cada `Tab` posee un `PanelState` completo (ruta y `PanelSource`, listado, cursor, selección, vista, orden, filtros, tamaños de carpetas y sus `JobSlot`), un título opcional y un `TabLock` opcional. `PanelPair::side()` / `AppState::get_active_panel()` devuelven el panel de la pestaña activa, así que el código que trabaja con "el panel" no cambió.
+
+* **Enrutado:** cada pestaña tiene un `TabId` único y estable. Los trabajos en segundo plano viven en los `JobSlot` de la propia pestaña, `poll_panel_listings` recorre todas las pestañas y los trabajos iniciados fuera del panel (conexión SSH) llevan el `TabId`; si la pestaña se cerró, el resultado se descarta.
+* **Comandos:** `app/state/tab_ops.rs` y `app/actions/tabs.rs`. Una pestaña bloqueada se aplica en `refresh_tab`: si su ruta salió del bloqueo, vuelve a su carpeta y la nueva ubicación se abre en una pestaña contigua.
+* **Dibujo:** `ui/tab_bar.rs` distribuye los títulos y registra las celdas en `AppState::tab_bar` para los clics (`app/app/tab_mouse.rs`).
+* **Persistencia:** `Tab::spec()` / `Tab::from_spec()` convierten a `TabSpec`, una estructura serde sin tipos de UI, para restaurar la sesión.
+
