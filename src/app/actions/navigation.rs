@@ -11,181 +11,164 @@ pub fn handle_navigation_action(
     action: &Action,
     context: &mut AppContext,
 ) -> bool {
+    cursor_action(state, action)
+        || panel_action(state, action, context)
+        || selection_action(state, action)
+        || list_dialog_action(state, action)
+}
+
+/// Cursor movement inside the active panel and focus switching.
+fn cursor_action(state: &mut AppState, action: &Action) -> bool {
     match action {
-        Action::MoveUp => {
-            state.get_active_panel_mut().move_cursor_up();
-            true
-        }
-        Action::MoveDown => {
-            state.get_active_panel_mut().move_cursor_down();
-            true
-        }
-        Action::PageUp => {
-            state.get_active_panel_mut().page_up(10);
-            true
-        }
-        Action::PageDown => {
-            state.get_active_panel_mut().page_down(10);
-            true
-        }
-        Action::GoToTop => {
-            state.get_active_panel_mut().go_to_top();
-            true
-        }
-        Action::GoToBottom => {
-            state.get_active_panel_mut().go_to_bottom();
-            true
-        }
-        Action::ChangePanel => {
-            state.toggle_focus();
-            true
-        }
-        Action::SelectItem => {
-            let select_folders = state.select_folders;
+        Action::ChangePanel => state.toggle_focus(),
+        Action::SwapPanels => state.swap_panels(),
+        _ => {
             let panel = state.get_active_panel_mut();
-            // Like Far/MC: selecting a folder also measures it.
-            if let Some(entry) = panel.entries.get(panel.cursor_index) {
-                let path = entry.path.clone();
-                panel.calculate_dir_sizes(&[path]);
+            match action {
+                Action::MoveUp => panel.move_cursor_up(),
+                Action::MoveDown => panel.move_cursor_down(),
+                Action::PageUp => panel.page_up(10),
+                Action::PageDown => panel.page_down(10),
+                Action::GoToTop => panel.go_to_top(),
+                Action::GoToBottom => panel.go_to_bottom(),
+                _ => return false,
             }
-            panel.toggle_selection_with_opts(select_folders);
-            panel.move_cursor_down();
-            true
         }
+    }
+    true
+}
+
+/// Changing folder, drive or connection of the active panel.
+fn panel_action(state: &mut AppState, action: &Action, context: &mut AppContext) -> bool {
+    let show_hidden = context.config.settings.show_hidden;
+    match action {
         Action::Execute => {
             // Only the focused panel can change directory on Enter.
             handle_enter_key(state, context);
-            state.refresh_active_panel(context.config.settings.show_hidden);
-            true
+            state.refresh_active_panel(show_hidden);
         }
         Action::OpenArchive => {
             handle_open_archive_key(state, context);
-            state.refresh_active_panel(context.config.settings.show_hidden);
-            true
+            state.refresh_active_panel(show_hidden);
         }
-        Action::GoParent => {
-            handle_backspace_key(state, context.config.settings.show_hidden);
-            true
-        }
-        Action::SwapPanels => {
-            state.swap_panels();
-            true
-        }
-        Action::DriveSelectLeft => {
-            let drives = get_system_drives();
-            state.dialogs.replace(PopupType::DriveSelect {
-                panel: ActivePanel::Left,
-                drives,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::DriveSelectRight => {
-            let drives = get_system_drives();
-            state.dialogs.replace(PopupType::DriveSelect {
-                panel: ActivePanel::Right,
-                drives,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::SshConnect => {
-            if !context.config.settings.ssh_enabled {
-                state
-                    .dialogs
-                    .replace(PopupType::Info(t("feature_ssh_disabled")));
-                return true;
-            }
-            state.dialogs.replace(PopupType::SshConnectPrompt(
-                crate::app::state::SshConnectPromptState::new(
-                    state.panels.active,
-                    &context.config.settings.ssh_presets,
-                ),
-            ));
-            true
-        }
-        Action::SshDisconnect => {
-            let panel = state.get_active_panel_mut();
-            if panel.source.ssh().is_some() {
-                panel.source = crate::fs::vfs::PanelSource::Local;
-                let local_dir =
-                    std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-                panel.current_path = local_dir;
-                panel.cursor_index = 0;
-                panel.clear_selection();
-                state.refresh_both_panels(context.config.settings.show_hidden);
-            }
-            true
-        }
-        Action::GoFolderShortcut(n) => {
-            if let Some(target) = state.folder_shortcuts.get(n).cloned() {
-                state.jump_active_panel_to(target, context.config.settings.show_hidden);
-            } else {
-                state.dialogs.replace(PopupType::Info(
-                    crate::config::localization::t("error_no_folder_shortcut")
-                        .replace("{}", &n.to_string()),
-                ));
-            }
-            true
-        }
-        Action::SelectGroup => {
-            state.dialogs.replace(PopupType::SelectGroupPrompt {
-                mode: SelectMode::Add,
-                query: Default::default(),
-            });
-            true
-        }
-        Action::UnselectGroup => {
-            state.dialogs.replace(PopupType::SelectGroupPrompt {
-                mode: SelectMode::Remove,
-                query: Default::default(),
-            });
-            true
-        }
+        Action::GoParent => handle_backspace_key(state, show_hidden),
+        Action::DriveSelectLeft => open_drive_select(state, ActivePanel::Left),
+        Action::DriveSelectRight => open_drive_select(state, ActivePanel::Right),
+        Action::SshConnect => open_ssh_connect(state, context),
+        Action::SshDisconnect => ssh_disconnect(state, show_hidden),
+        Action::GoFolderShortcut(n) => go_folder_shortcut(state, *n, show_hidden),
+        _ => return false,
+    }
+    true
+}
+
+/// Selection of panel entries.
+fn selection_action(state: &mut AppState, action: &Action) -> bool {
+    match action {
+        Action::SelectItem => select_item(state),
+        Action::SelectGroup => open_select_group(state, SelectMode::Add),
+        Action::UnselectGroup => open_select_group(state, SelectMode::Remove),
         Action::InvertSelection => {
             state.snapshot_selection();
             state.get_active_panel_mut().invert_selection();
-            true
         }
-        Action::RestoreSelection => {
-            state.restore_selection();
-            true
-        }
+        Action::RestoreSelection => state.restore_selection(),
+        _ => return false,
+    }
+    true
+}
+
+/// Tree view and history lists.
+fn list_dialog_action(state: &mut AppState, action: &Action) -> bool {
+    let popup = match action {
         Action::TreeView => {
             let root = state.get_active_panel().current_path.clone();
-            let nodes = build_tree_nodes(&root, 0, 3);
-            state.dialogs.replace(PopupType::TreeView {
-                nodes,
+            PopupType::TreeView {
+                nodes: build_tree_nodes(&root, 0, 3),
                 cursor_idx: 0,
                 caller: crate::app::state::types::TreeViewCaller::Panel(state.panels.active),
-            });
-            true
+            }
         }
-        Action::CommandHistory => {
-            let entries = state.history.commands.clone();
-            state.dialogs.replace(PopupType::CommandHistoryList {
-                entries,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::FileViewHistory => {
-            let entries = state.history.viewed_files.clone();
-            state.dialogs.replace(PopupType::FileViewHistoryList {
-                entries,
-                cursor_idx: 0,
-            });
-            true
-        }
-        Action::FoldersHistory => {
-            let entries = state.history.folders.clone();
-            state.dialogs.replace(PopupType::FoldersHistoryList {
-                entries,
-                cursor_idx: 0,
-            });
-            true
-        }
-        _ => false,
+        Action::CommandHistory => PopupType::CommandHistoryList {
+            entries: state.history.commands.clone(),
+            cursor_idx: 0,
+        },
+        Action::FileViewHistory => PopupType::FileViewHistoryList {
+            entries: state.history.viewed_files.clone(),
+            cursor_idx: 0,
+        },
+        Action::FoldersHistory => PopupType::FoldersHistoryList {
+            entries: state.history.folders.clone(),
+            cursor_idx: 0,
+        },
+        _ => return false,
+    };
+    state.dialogs.replace(popup);
+    true
+}
+
+fn select_item(state: &mut AppState) {
+    let select_folders = state.select_folders;
+    let panel = state.get_active_panel_mut();
+    // Like Far/MC: selecting a folder also measures it.
+    if let Some(entry) = panel.entries.get(panel.cursor_index) {
+        let path = entry.path.clone();
+        panel.calculate_dir_sizes(&[path]);
+    }
+    panel.toggle_selection_with_opts(select_folders);
+    panel.move_cursor_down();
+}
+
+fn open_select_group(state: &mut AppState, mode: SelectMode) {
+    state.dialogs.replace(PopupType::SelectGroupPrompt {
+        mode,
+        query: Default::default(),
+    });
+}
+
+fn open_drive_select(state: &mut AppState, panel: ActivePanel) {
+    state.dialogs.replace(PopupType::DriveSelect {
+        panel,
+        drives: get_system_drives(),
+        cursor_idx: 0,
+    });
+}
+
+fn open_ssh_connect(state: &mut AppState, context: &AppContext) {
+    if !context.config.settings.ssh_enabled {
+        state
+            .dialogs
+            .replace(PopupType::Info(t("feature_ssh_disabled")));
+        return;
+    }
+    state.dialogs.replace(PopupType::SshConnectPrompt(
+        crate::app::state::SshConnectPromptState::new(
+            state.panels.active,
+            &context.config.settings.ssh_presets,
+        ),
+    ));
+}
+
+/// Returns an SSH panel to the local working directory.
+fn ssh_disconnect(state: &mut AppState, show_hidden: bool) {
+    let panel = state.get_active_panel_mut();
+    if panel.source.ssh().is_none() {
+        return;
+    }
+    panel.source = crate::fs::vfs::PanelSource::Local;
+    panel.current_path = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    panel.cursor_index = 0;
+    panel.clear_selection();
+    state.refresh_both_panels(show_hidden);
+}
+
+fn go_folder_shortcut(state: &mut AppState, n: u8, show_hidden: bool) {
+    if let Some(target) = state.folder_shortcuts.get(&n).cloned() {
+        state.jump_active_panel_to(target, show_hidden);
+    } else {
+        state.dialogs.replace(PopupType::Info(
+            t("error_no_folder_shortcut").replace("{}", &n.to_string()),
+        ));
     }
 }
 
