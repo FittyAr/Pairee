@@ -16,8 +16,8 @@ pub mod privileges;
 pub mod progress;
 pub mod search;
 pub mod ssh;
-pub mod text;
 pub mod sync;
+pub mod text;
 pub mod transfer;
 pub mod wipe;
 
