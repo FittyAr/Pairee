@@ -1,271 +1,134 @@
+//! Top menu bar: drop-down navigation, submenus and hotkeys.
+
 use crate::app::context::AppContext;
+use crate::app::list_nav::{wrap_next, wrap_prev};
 use crate::app::menu_handler::trigger_menu_item;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
+use crate::ui::menu::MenuItemData;
 use crossterm::event::{KeyCode, KeyEvent};
+
+/// Number of top-level menus (Left, Files, Commands, Options, Right).
+const TOP_MENUS: usize = 5;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if let Some(PopupType::Menu {
-        active_menu_idx,
-        active_item_idx,
-        active_submenu_idx,
-        active_submenu_item_idx,
-    }) = state.dialogs.top().cloned()
-    {
-        // 1. Get the items currently being interacted with (submenu or main menu)
-        let current_menu_idx = active_submenu_idx.unwrap_or(active_menu_idx);
-        let current_item_idx = active_submenu_item_idx.or(active_item_idx);
+    let Some(&PopupType::Menu {
+        active_menu_idx: menu,
+        active_item_idx: item,
+        active_submenu_idx: submenu,
+        active_submenu_item_idx: sub_item,
+    }) = state.dialogs.top()
+    else {
+        return Err(());
+    };
+    let current_menu = submenu.unwrap_or(menu);
+    let items = crate::ui::menu::get_menu_items(
+        current_menu,
+        state,
+        &context.resolver,
+        &context.config.settings,
+    );
 
-        let items = crate::ui::menu::get_menu_items(
-            current_menu_idx,
-            state,
-            &context.resolver,
-            &context.config.settings,
-        );
-
-        match key.code {
-            KeyCode::Esc => {
-                if active_submenu_idx.is_some() {
-                    // Close submenu, return to main menu
-                    state.dialogs.replace(PopupType::Menu {
-                        active_menu_idx,
-                        active_item_idx,
-                        active_submenu_idx: None,
-                        active_submenu_item_idx: None,
-                    });
-                } else {
-                    state.dialogs.clear();
-                }
-                Ok(None)
-            }
-            KeyCode::Left => {
-                if active_submenu_idx.is_some() {
-                    // Close submenu, return to main menu
-                    state.dialogs.replace(PopupType::Menu {
-                        active_menu_idx,
-                        active_item_idx,
-                        active_submenu_idx: None,
-                        active_submenu_item_idx: None,
-                    });
-                } else {
-                    // Normal main menu transition left
-                    let new_idx = if active_menu_idx > 0 {
-                        active_menu_idx - 1
-                    } else {
-                        4
-                    };
-                    let new_item_idx = if active_item_idx.is_some() {
-                        Some(0)
-                    } else {
-                        None
-                    };
-                    state.dialogs.replace(PopupType::Menu {
-                        active_menu_idx: new_idx,
-                        active_item_idx: new_item_idx,
-                        active_submenu_idx: None,
-                        active_submenu_item_idx: None,
-                    });
-                }
-                Ok(None)
-            }
-            KeyCode::Right => {
-                if active_submenu_idx.is_none() {
-                    // If the current highlighted item has a submenu, open it!
-                    if let Some(idx) = active_item_idx
-                        && let Some(item) = items.get(idx)
-                        && let Some(sub_idx) = item.submenu_idx
-                    {
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx,
-                            active_submenu_idx: Some(sub_idx),
-                            active_submenu_item_idx: Some(0),
-                        });
-                        return Ok(None);
-                    }
-
-                    // Otherwise, move to next top-level menu
-                    let new_idx = if active_menu_idx < 4 {
-                        active_menu_idx + 1
-                    } else {
-                        0
-                    };
-                    let new_item_idx = if active_item_idx.is_some() {
-                        Some(0)
-                    } else {
-                        None
-                    };
-                    state.dialogs.replace(PopupType::Menu {
-                        active_menu_idx: new_idx,
-                        active_item_idx: new_item_idx,
-                        active_submenu_idx: None,
-                        active_submenu_item_idx: None,
-                    });
-                }
-                Ok(None)
-            }
-            KeyCode::Up => {
-                if !items.is_empty() {
-                    let mut new_item_idx = if let Some(idx) = current_item_idx {
-                        if idx > 0 { idx - 1 } else { items.len() - 1 }
-                    } else {
-                        items.len() - 1
-                    };
-                    while items
-                        .get(new_item_idx)
-                        .is_some_and(|item| item.is_separator)
-                    {
-                        new_item_idx = if new_item_idx > 0 {
-                            new_item_idx - 1
-                        } else {
-                            items.len() - 1
-                        };
-                    }
-                    if active_submenu_idx.is_some() {
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx,
-                            active_submenu_idx,
-                            active_submenu_item_idx: Some(new_item_idx),
-                        });
-                    } else {
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx: Some(new_item_idx),
-                            active_submenu_idx: None,
-                            active_submenu_item_idx: None,
-                        });
-                    }
-                }
-                Ok(None)
-            }
-            KeyCode::Down => {
-                if !items.is_empty() {
-                    let mut new_item_idx = if let Some(idx) = current_item_idx {
-                        if idx < items.len() - 1 { idx + 1 } else { 0 }
-                    } else {
-                        0
-                    };
-                    while items
-                        .get(new_item_idx)
-                        .is_some_and(|item| item.is_separator)
-                    {
-                        new_item_idx = if new_item_idx < items.len() - 1 {
-                            new_item_idx + 1
-                        } else {
-                            0
-                        };
-                    }
-                    if active_submenu_idx.is_some() {
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx,
-                            active_submenu_idx,
-                            active_submenu_item_idx: Some(new_item_idx),
-                        });
-                    } else {
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx: Some(new_item_idx),
-                            active_submenu_idx: None,
-                            active_submenu_item_idx: None,
-                        });
-                    }
-                }
-                Ok(None)
-            }
-            KeyCode::Enter => {
-                if let Some(sub_idx) = active_submenu_idx {
-                    if let Some(sub_item_idx) = active_submenu_item_idx {
-                        state.dialogs.clear();
-                        let action = trigger_menu_item(state, context, sub_idx, sub_item_idx);
-                        return Ok(action);
-                    }
-                } else if let Some(idx) = active_item_idx {
-                    if let Some(item) = items.get(idx)
-                        && let Some(sub_idx) = item.submenu_idx
-                    {
-                        // Open submenu
-                        state.dialogs.replace(PopupType::Menu {
-                            active_menu_idx,
-                            active_item_idx,
-                            active_submenu_idx: Some(sub_idx),
-                            active_submenu_item_idx: Some(0),
-                        });
-                        return Ok(None);
-                    }
-                    state.dialogs.clear();
-                    let action = trigger_menu_item(state, context, active_menu_idx, idx);
-                    return Ok(action);
-                } else {
-                    state.dialogs.replace(PopupType::Menu {
-                        active_menu_idx,
-                        active_item_idx: Some(0),
-                        active_submenu_idx: None,
-                        active_submenu_item_idx: None,
-                    });
-                    return Ok(None);
-                }
-                Ok(None)
-            }
-            KeyCode::Char(c) => {
-                let lower_c = c.to_ascii_lowercase();
-
-                // 1. Check dropdown items only if dropdown/submenu is open
-                if current_item_idx.is_some() {
-                    for (i, item) in items.iter().enumerate() {
-                        if item.is_separator {
-                            continue;
-                        }
-                        let parsed = crate::ui::hotkey::parse_hotkey(&item.label);
-                        if let Some(hotkey) = parsed.hotkey
-                            && hotkey == lower_c
-                        {
-                            if item.submenu_idx.is_some() {
-                                // Open submenu instead of triggering action
-                                state.dialogs.replace(PopupType::Menu {
-                                    active_menu_idx,
-                                    active_item_idx,
-                                    active_submenu_idx: item.submenu_idx,
-                                    active_submenu_item_idx: Some(0),
-                                });
-                                return Ok(None);
-                            } else {
-                                state.dialogs.clear();
-                                let action = trigger_menu_item(state, context, current_menu_idx, i);
-                                return Ok(action);
-                            }
-                        }
-                    }
-                }
-
-                // 2. Check top menu titles if no submenu is open
-                if active_submenu_idx.is_none() {
-                    let titles = crate::ui::menu::get_menu_titles();
-                    for (i, title) in titles.iter().enumerate() {
-                        let parsed = crate::ui::hotkey::parse_hotkey(title);
-                        if let Some(hotkey) = parsed.hotkey
-                            && hotkey == lower_c
-                        {
-                            state.dialogs.replace(PopupType::Menu {
-                                active_menu_idx: i,
-                                active_item_idx: Some(0),
-                                active_submenu_idx: None,
-                                active_submenu_item_idx: None,
-                            });
-                            return Ok(None);
-                        }
-                    }
-                }
-                Ok(None)
-            }
-            _ => Ok(None),
+    // The new menu state, or an item to run.
+    let next = match key.code {
+        KeyCode::Esc if submenu.is_none() => {
+            state.dialogs.clear();
+            return Ok(None);
         }
-    } else {
-        Err(())
+        KeyCode::Esc | KeyCode::Left if submenu.is_some() => (menu, item, None, None),
+        KeyCode::Left => (wrap_prev(menu, TOP_MENUS), item.map(|_| 0), None, None),
+        KeyCode::Right if submenu.is_some() => return Ok(None),
+        KeyCode::Right => match item
+            .and_then(|i| items.get(i))
+            .and_then(|it| it.submenu_idx)
+        {
+            Some(sub) => (menu, item, Some(sub), Some(0)),
+            None => (wrap_next(menu, TOP_MENUS), item.map(|_| 0), None, None),
+        },
+        KeyCode::Up | KeyCode::Down if items.is_empty() => return Ok(None),
+        KeyCode::Up | KeyCode::Down => {
+            let row = step_item(&items, sub_item.or(item), key.code == KeyCode::Up);
+            match submenu {
+                Some(_) => (menu, item, submenu, Some(row)),
+                None => (menu, Some(row), None, None),
+            }
+        }
+        KeyCode::Enter => match (submenu, sub_item, item) {
+            (Some(sub), Some(row), _) => return run_item(state, context, sub, row),
+            (Some(_), None, _) => return Ok(None),
+            (None, _, Some(row)) => match items.get(row).and_then(|it| it.submenu_idx) {
+                Some(sub) => (menu, item, Some(sub), Some(0)),
+                None => return run_item(state, context, menu, row),
+            },
+            (None, _, None) => (menu, Some(0), None, None),
+        },
+        KeyCode::Char(c) => {
+            let c = c.to_ascii_lowercase();
+            // Items of the open drop-down / submenu first.
+            let hit = (sub_item.or(item).is_some())
+                .then(|| {
+                    items
+                        .iter()
+                        .enumerate()
+                        .find(|(_, it)| !it.is_separator && hotkey(&it.label) == Some(c))
+                })
+                .flatten();
+            match hit {
+                Some((_, it)) if it.submenu_idx.is_some() => (menu, item, it.submenu_idx, Some(0)),
+                Some((row, _)) => return run_item(state, context, current_menu, row),
+                // Then the top menu titles (when no submenu is open).
+                None => match crate::ui::menu::get_menu_titles()
+                    .iter()
+                    .position(|title| submenu.is_none() && hotkey(title) == Some(c))
+                {
+                    Some(top) => (top, Some(0), None, None),
+                    None => return Ok(None),
+                },
+            }
+        }
+        _ => return Ok(None),
+    };
+    let (menu, item, submenu, sub_item) = next;
+    state.dialogs.replace(PopupType::Menu {
+        active_menu_idx: menu,
+        active_item_idx: item,
+        active_submenu_idx: submenu,
+        active_submenu_item_idx: sub_item,
+    });
+    Ok(None)
+}
+
+/// Closes the menu and runs item `row` of menu `menu_idx`.
+fn run_item(
+    state: &mut AppState,
+    context: &mut AppContext,
+    menu_idx: usize,
+    row: usize,
+) -> Result<Option<Action>, ()> {
+    state.dialogs.clear();
+    Ok(trigger_menu_item(state, context, menu_idx, row))
+}
+
+/// Previous / next item from `current`, wrapping and skipping separators.
+/// Without a current item, Up starts at the last item and Down at the first.
+fn step_item(items: &[MenuItemData], current: Option<usize>, up: bool) -> usize {
+    let len = items.len();
+    let step = if up { wrap_prev } else { wrap_next };
+    let mut row = match current {
+        Some(idx) => step(idx, len),
+        None if up => len - 1,
+        None => 0,
+    };
+    while items[row].is_separator {
+        row = step(row, len);
     }
+    row
+}
+
+fn hotkey(label: &str) -> Option<char> {
+    crate::ui::hotkey::parse_hotkey(label).hotkey
 }

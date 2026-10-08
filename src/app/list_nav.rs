@@ -145,6 +145,35 @@ pub fn list_key(keys: ListKeys, code: KeyCode, cursor: &mut usize, len: usize) -
     }
 }
 
+/// Keys accepted by a scrolled read-only text (About, Help, diffs...).
+#[derive(Debug, Clone, Copy)]
+pub struct ScrollKeys {
+    /// `k` / `j` scroll like Up / Down.
+    pub vim: bool,
+    /// Home / End jump to the top / bottom.
+    pub home_end: bool,
+    /// Lines moved by PgUp / PgDn.
+    pub page: usize,
+}
+
+/// Applies a scroll key to `scroll`, never past `last`. Returns `false` for
+/// other keys.
+pub fn scroll_key(keys: ScrollKeys, code: KeyCode, scroll: &mut usize, last: usize) -> bool {
+    let next = match code {
+        KeyCode::Up => scroll.saturating_sub(1),
+        KeyCode::Char('k' | 'K') if keys.vim => scroll.saturating_sub(1),
+        KeyCode::Down => scroll.saturating_add(1),
+        KeyCode::Char('j' | 'J') if keys.vim => scroll.saturating_add(1),
+        KeyCode::PageUp => scroll.saturating_sub(keys.page),
+        KeyCode::PageDown => scroll.saturating_add(keys.page),
+        KeyCode::Home if keys.home_end => 0,
+        KeyCode::End if keys.home_end => last,
+        _ => return false,
+    };
+    *scroll = next.min(last);
+    true
+}
+
 /// Meaning of a key in a type-to-filter list (command palette, which-key).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FilterKey {

@@ -1,10 +1,15 @@
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ScrollKeys, scroll_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
-/// Lines scrolled by PgUp / PgDn in the About box.
-const PAGE: usize = 15;
+/// About box scrolling: arrows, k/j and 15-line pages.
+pub const TEXT_SCROLL: ScrollKeys = ScrollKeys {
+    vim: true,
+    home_end: false,
+    page: 15,
+};
 
 pub fn handle(
     state: &mut AppState,
@@ -14,12 +19,11 @@ pub fn handle(
     let Some(PopupType::About { scroll_y }) = state.dialogs.top_mut() else {
         return Err(());
     };
+    if scroll_key(TEXT_SCROLL, key.code, scroll_y, usize::MAX) {
+        return Ok(None);
+    }
     match key.code {
         KeyCode::Esc | KeyCode::Enter => state.dialogs.clear(),
-        KeyCode::Up | KeyCode::Char('k' | 'K') => *scroll_y = scroll_y.saturating_sub(1),
-        KeyCode::Down | KeyCode::Char('j' | 'J') => *scroll_y = scroll_y.saturating_add(1),
-        KeyCode::PageUp => *scroll_y = scroll_y.saturating_sub(PAGE),
-        KeyCode::PageDown => *scroll_y = scroll_y.saturating_add(PAGE),
         _ => return Err(()),
     }
     Ok(None)
