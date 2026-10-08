@@ -62,9 +62,7 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
                 println!("Skipping pinned plugin '{}'.", n);
                 continue;
             }
-            if let Some(reg_plugin) = index.plugins.get(n)
-                && reg_plugin.version != info.version
-            {
+            if index.update_for(n, &info.version).is_some() {
                 plugins_to_update.push(n.clone());
             }
         }
