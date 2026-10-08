@@ -105,11 +105,7 @@ pub enum TreeViewCaller {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LinkKind {
-    Symbolic,
-    Hard,
-}
+pub use crate::fs::link::LinkKind;
 
 /// Action approved in GitConfirmAction popup.
 #[derive(Debug, Clone)]

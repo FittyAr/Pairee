@@ -29,6 +29,10 @@ pub struct TransferWorker {
     pub sources: Vec<PathBuf>,
     pub destination: PathBuf,
     pub options: TransferOptions,
+    /// Explicit `(source, destination)` file pairs (see [`TransferJob::pairs`]).
+    pub pairs: Option<Vec<(PathBuf, PathBuf)>>,
+    /// Folders removed when empty after the job.
+    pub prune_dirs: Vec<PathBuf>,
     pub control: JobControl,
     pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 }
@@ -42,12 +46,21 @@ impl TransferWorker {
             sources: job.sources,
             destination: job.destination,
             options: job.options,
+            pairs: job.pairs,
+            prune_dirs: job.prune_dirs,
             control,
             active_conflict: job.active_conflict,
         }
     }
 
     pub async fn run(self) -> Result<TransferResults, anyhow::Error> {
+        let results = self.run_phases().await?;
+        let mut prune = self.prune_dirs.clone();
+        copy_phase::cleanup_source_dirs(&mut prune, &self.control);
+        self.control.job_completed(results)
+    }
+
+    async fn run_phases(&self) -> Result<TransferResults, anyhow::Error> {
         let ctl = &self.control;
         ctl.emit(TransferEvent::JobStarted { job_id: ctl.job_id });
 
@@ -58,13 +71,16 @@ impl TransferWorker {
         }
 
         // Phase 1: scan.
-        let scan = scan::scan(
-            &self.sources,
-            &self.destination,
-            self.operation,
-            &options,
-            ctl,
-        )?;
+        let scan = match &self.pairs {
+            Some(pairs) => scan::scan_pairs(pairs, ctl),
+            None => scan::scan(
+                &self.sources,
+                &self.destination,
+                self.operation,
+                &options,
+                ctl,
+            )?,
+        };
 
         if self.operation == TransferOperation::Delete {
             return delete_phase::run_delete_phase(&self.sources, scan, &options, ctl).await;

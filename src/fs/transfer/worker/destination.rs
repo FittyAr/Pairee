@@ -26,9 +26,36 @@ pub fn is_destination_parent_dir(
     false
 }
 
+/// Creates `dir` with its missing parents, appending every folder it had to
+/// create (outermost first) to `created`.
+pub(super) fn ensure_dir(dir: &std::path::Path, created: &mut Vec<PathBuf>) {
+    let missing: Vec<PathBuf> = dir
+        .ancestors()
+        .take_while(|p| !p.as_os_str().is_empty() && !p.exists())
+        .map(std::path::Path::to_path_buf)
+        .collect();
+    if missing.is_empty() || std::fs::create_dir_all(dir).is_err() {
+        return;
+    }
+    created.extend(missing.into_iter().rev().filter(|p| p.is_dir()));
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ensure_dir_reports_only_new_folders() {
+        let root = tempfile::tempdir().unwrap();
+        let mut created = Vec::new();
+        ensure_dir(root.path(), &mut created);
+        assert!(created.is_empty());
+        let deep = root.path().join("a").join("b");
+        ensure_dir(&deep, &mut created);
+        assert_eq!(created, vec![root.path().join("a"), deep.clone()]);
+        ensure_dir(&deep, &mut created);
+        assert_eq!(created.len(), 2);
+    }
 
     #[test]
     fn test_is_destination_parent_dir_single_file_target_path() {

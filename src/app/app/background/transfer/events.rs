@@ -10,6 +10,8 @@ pub struct EventEffects {
     /// Output lines (`Some`) or end of output (`None`) for terminal screens.
     pub term_forwards: Vec<(Uuid, Option<String>)>,
     pub refresh_needed: bool,
+    /// Jobs that ended, with the final results of the completed ones.
+    pub finished: Vec<(Uuid, Option<TransferResults>)>,
 }
 
 pub fn handle_transfer_event(
@@ -41,6 +43,7 @@ pub fn handle_transfer_event(
             if context.config.settings.transfer_auto_report {
                 save_report(transfer, context, job_id, &results);
             }
+            effects.finished.push((job_id, Some(results)));
             if transfer.engine.queue.pending_count() == 0
                 && transfer.post_action != crate::fs::transfer::post_action::PostAction::None
             {
@@ -50,6 +53,7 @@ pub fn handle_transfer_event(
             }
         }
         TransferEvent::JobFailed { .. } => {
+            effects.finished.push((job_id, None));
             effects.term_forwards.push((job_id, None));
             effects.refresh_needed = true;
         }

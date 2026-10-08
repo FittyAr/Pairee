@@ -1,8 +1,14 @@
 use super::types::{MenuBuilder, MenuItemData};
+use crate::config::localization::t;
 use crate::config::settings::Settings;
+use crate::fs::journal::{Direction, Journal};
 use crate::keybindings::{Action, KeybindingResolver};
 
-pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<MenuItemData> {
+pub fn get_items(
+    journal: &Journal,
+    resolver: &KeybindingResolver,
+    settings: &Settings,
+) -> Vec<MenuItemData> {
     MenuBuilder::new(resolver)
         .actions(&[
             ("menu_view", Action::View, "F3"),
@@ -19,6 +25,17 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
             ("menu_delete", Action::Delete, "F8"),
             ("menu_wipe", Action::WipeFile, "Alt+Del"),
         ])
+        .separator()
+        .labeled(
+            journal_label(journal, Direction::Undo),
+            Action::UndoFileOp,
+            "Alt+BS",
+        )
+        .labeled(
+            journal_label(journal, Direction::Redo),
+            Action::RedoFileOp,
+            "Ctrl+Y",
+        )
         .separator()
         .actions(&[
             ("menu_add_to_archive", Action::CompressFiles, "Shf+F1"),
@@ -45,4 +62,16 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
         )
         .action(("menu_exit", Action::Quit, "F10"))
         .build()
+}
+
+/// "Undo: Move «a.txt»", or just "Undo" when the journal is empty.
+pub fn journal_label(journal: &Journal, direction: Direction) -> String {
+    let (plain, with_op) = match direction {
+        Direction::Undo => ("menu_undo", "menu_undo_op"),
+        Direction::Redo => ("menu_redo", "menu_redo_op"),
+    };
+    match journal.peek(direction) {
+        Some(entry) => t(with_op).replacen("{}", &entry.label(), 1),
+        None => t(plain),
+    }
 }

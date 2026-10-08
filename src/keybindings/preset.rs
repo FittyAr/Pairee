@@ -83,6 +83,8 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "move" => Some(Action::Move),
         "rename" => Some(Action::Rename),
         "multi_rename_tool" => Some(Action::MultiRename),
+        "undo_file_operation" => Some(Action::UndoFileOp),
+        "redo_file_operation" => Some(Action::RedoFileOp),
         "mkdir" => Some(Action::MkDir),
         "delete" => Some(Action::Delete),
         "menu" => Some(Action::Menu),

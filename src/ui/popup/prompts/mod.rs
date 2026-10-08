@@ -33,6 +33,7 @@ pub fn render_prompt_popup(
         | PopupType::CompressPrompt { .. } => file_ops::render(f, popup, theme, size),
 
         PopupType::ConfirmQuit
+        | PopupType::ConfirmUndo { .. }
         | PopupType::ConfirmInterrupt
         | PopupType::ConfirmReload
         | PopupType::ConfirmClearHistory { .. }

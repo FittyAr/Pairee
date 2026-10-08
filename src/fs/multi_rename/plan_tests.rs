@@ -167,7 +167,7 @@ fn failure_rolls_back_every_applied_step() {
         Some(p("1"))
     );
     assert!(report.not_rolled_back.is_empty());
-    assert_eq!(report.completed, 0);
+    assert!(report.applied.is_empty());
     assert_eq!(backend.names(), HashSet::from(["1".into(), "2".into()]));
     assert_eq!(*backend.log.borrow(), ["2->3", "1->2", "3->2"]);
 }
@@ -180,6 +180,7 @@ fn rollback_failures_are_reported() {
     backend.failures.borrow_mut().extend(["2", "2"]);
     let report = execute(&steps, &backend, CS);
     assert_eq!(pairs(&report.not_rolled_back), moves(&[("2", "3")]));
+    assert_eq!(pairs(&report.applied), moves(&[("2", "3")]));
 }
 
 #[test]

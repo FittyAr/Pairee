@@ -32,7 +32,8 @@ pub async fn run_ssh_job(
         TransferOperation::Wipe
         | TransferOperation::Compress
         | TransferOperation::Extract
-        | TransferOperation::ApplyCommand => {
+        | TransferOperation::ApplyCommand
+        | TransferOperation::Restore => {
             Err(anyhow!("{} is not available over SSH", operation.label()))
         }
     })

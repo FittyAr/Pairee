@@ -95,6 +95,10 @@ pub fn render(
             f.render_widget(paragraph, area);
             true
         }
+        PopupType::ConfirmUndo { direction, lines } => {
+            render_undo(f, *direction, lines, theme, size);
+            true
+        }
         PopupType::SaveSetupConfirm => {
             let area = centered_rect_fixed(45, 7, size);
             f.render_widget(Clear, area);
@@ -115,4 +119,38 @@ pub fn render(
         }
         _ => false,
     }
+}
+
+/// Undo/redo confirmation: question, entries and the Enter/Esc hint.
+fn render_undo(
+    f: &mut Frame,
+    direction: crate::fs::journal::Direction,
+    lines: &[String],
+    theme: &crate::config::theme::Theme,
+    size: Rect,
+) {
+    use crate::fs::journal::Direction;
+    use crate::ui::popup::kit::{self, TextBox};
+    let title = match direction {
+        Direction::Undo => t("journal_undo_title"),
+        Direction::Redo => t("journal_redo_title"),
+    };
+    let mut body: Vec<ratatui::text::Line> = lines
+        .iter()
+        .map(|line| ratatui::text::Line::from(format!(" {line}")))
+        .collect();
+    body.push(ratatui::text::Line::default());
+    body.push(ratatui::text::Line::from(format!(
+        " {}",
+        t("journal_confirm_hint")
+    )));
+    let height = u16::try_from(body.len() + 2).unwrap_or(u16::MAX);
+    TextBox {
+        size: (70, height),
+        title,
+        border: kit::fg(Color::Yellow),
+        body: body.into(),
+        body_style: kit::popup_fg(theme),
+    }
+    .render(f, size, theme);
 }

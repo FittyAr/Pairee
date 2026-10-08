@@ -5,11 +5,19 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::MultiRenameState;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
+use crate::fs::journal::FsCommand;
 use crate::fs::multi_rename::{
-    LocalFs, RenameBackend, RenameReport, RenameSource, Step, execute, plan,
+    LocalFs, RenameBackend, RenameReport, RenameSource, Step, TargetFs, execute, plan,
 };
+use crate::fs::ssh::SharedSshClient;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+/// A finished batch of renames and the panel connection it ran on.
+pub struct RenameRun {
+    pub report: RenameReport,
+    pub ssh: Option<SharedSshClient>,
+}
 
 /// Opens the dialog for the selected entries (or the one under the cursor),
 /// in listing order.
@@ -55,16 +63,11 @@ pub fn start(state: &mut AppState) {
     }
     dialog.running = true;
     let moves = dialog.preview.moves(&dialog.sources);
-    let fs = dialog.target_fs;
     let ssh = dialog.ssh.clone();
-    state.multi_rename.start(move |_| {
-        let backend: Box<dyn RenameBackend> = match ssh {
-            Some(client) => Box::new(client),
-            None => Box::new(LocalFs),
-        };
+    spawn(state, ssh, move |backend, fs| {
         let taken = |path: &Path| backend.exists(path);
         match plan(&moves, fs, &taken) {
-            Ok(steps) => execute(&steps, backend.as_ref(), fs),
+            Ok(steps) => execute(&steps, backend, fs),
             Err(duplicate) => RenameReport {
                 failure: Some(crate::fs::multi_rename::RenameFailure {
                     error: t("multi_rename_issue_duplicate"),
@@ -76,12 +79,39 @@ pub fn start(state: &mut AppState) {
     });
 }
 
+/// Runs already ordered `steps` (an undo/redo of renames) in the background.
+pub fn run_steps(state: &mut AppState, steps: Vec<Step>, ssh: Option<SharedSshClient>) {
+    spawn(state, ssh, move |backend, fs| execute(&steps, backend, fs));
+}
+
+/// Runs `job` on the panel's filesystem in the multi-rename job slot.
+fn spawn(
+    state: &mut AppState,
+    ssh: Option<SharedSshClient>,
+    job: impl FnOnce(&dyn RenameBackend, TargetFs) -> RenameReport + Send + 'static,
+) {
+    state.multi_rename.start(move |_| {
+        let fs = TargetFs::for_panel(ssh.is_some());
+        let report = match &ssh {
+            Some(client) => job(client, fs),
+            None => job(&LocalFs, fs),
+        };
+        RenameRun { report, ssh }
+    });
+}
+
 /// Applies a finished rename job: closes the dialog or shows the error, and
 /// rereads the panels either way.
 pub fn poll(state: &mut AppState, context: &AppContext) {
-    let Some(report) = state.multi_rename.poll() else {
+    let Some(RenameRun { report, ssh }) = state.multi_rename.poll() else {
         return;
     };
+    let direction = state.journal.finish_rename();
+    let applied = FsCommand::Rename {
+        steps: report.applied.clone(),
+        ssh,
+    };
+    state.journal.settle(direction, applied);
     if matches!(state.dialogs.top(), Some(PopupType::MultiRename(_))) {
         state.dialogs.pop();
     }

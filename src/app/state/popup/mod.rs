@@ -74,6 +74,11 @@ pub enum PopupType {
     /// Multi-rename tool (Shift+F6).
     MultiRename(Box<MultiRenameState>),
     ConfirmQuit,
+    /// Undo/redo of the newest journal entry: question and summary lines.
+    ConfirmUndo {
+        direction: crate::fs::journal::Direction,
+        lines: Vec<String>,
+    },
     ConfirmInterrupt,
     ConfirmReload,
     ConfirmClearHistory {

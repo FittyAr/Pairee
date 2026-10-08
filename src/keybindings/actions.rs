@@ -138,6 +138,10 @@ pub enum Action {
     ExtractArchive,
     /// Archive commands: verify/add/delete inside archive (Shift+F3)
     ArchiveCommands,
+    /// Undo the last file operation (Alt+Backspace)
+    UndoFileOp,
+    /// Redo the last undone file operation (Ctrl+Y)
+    RedoFileOp,
 
     // ── Bulk selection ────────────────────────────────────────────────────────
     /// Select files matching a glob mask (Gray +)

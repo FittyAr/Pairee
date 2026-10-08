@@ -1,6 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
+use crate::fs::journal::FsCommand;
+use crate::fs::multi_rename::Step;
 
 pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
     let active = state.get_active_panel();
@@ -44,6 +46,13 @@ pub fn commit(
     }
     match std::fs::rename(&src_path, &target) {
         Ok(_) => {
+            state.journal.record(FsCommand::Rename {
+                steps: vec![Step {
+                    from: src_path,
+                    to: target,
+                }],
+                ssh: None,
+            });
             if context.config.settings.req_admin_modification {
                 state.terminal_needs_clear = true;
             }

@@ -45,6 +45,7 @@ fn operation_log(op: TransferOperation) -> OperationLog {
             "Applying",
             Some("Applied"),
         ),
+        TransferOperation::Restore => ("Looking up the trash...", "Restoring", Some("Restored")),
     };
     OperationLog {
         scanning,

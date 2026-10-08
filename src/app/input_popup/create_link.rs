@@ -49,15 +49,18 @@ fn create(
 ) {
     let dest = state.get_passive_panel().current_path.join(name);
     state.dialogs.clear();
-    let result = match kind {
-        LinkKind::Symbolic => crate::fs::create_symlink(src, &dest),
-        LinkKind::Hard => crate::fs::create_hardlink(src, &dest),
-    };
-    match result {
+    match crate::fs::create_link(src, &dest, kind) {
         Err(e) => state
             .dialogs
             .replace(PopupType::Error(format!("Link failed: {}", e))),
-        Ok(_) => state.refresh_both_panels(context.config.settings.show_hidden),
+        Ok(()) => {
+            state.journal.record(crate::fs::journal::FsCommand::Link {
+                link: dest,
+                target: src.to_path_buf(),
+                kind,
+            });
+            state.refresh_both_panels(context.config.settings.show_hidden);
+        }
     }
 }
 

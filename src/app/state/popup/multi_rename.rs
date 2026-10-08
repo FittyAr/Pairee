@@ -100,11 +100,7 @@ impl MultiRenameState {
         let mut state = Self {
             sources,
             siblings,
-            target_fs: if ssh.is_some() {
-                TargetFs::remote()
-            } else {
-                TargetFs::local()
-            },
+            target_fs: TargetFs::for_panel(ssh.is_some()),
             ssh,
             fields: [
                 defaults.name_mask.as_str().into(),

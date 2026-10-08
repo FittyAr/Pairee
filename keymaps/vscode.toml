@@ -100,6 +100,8 @@ compress_files      = "Shift+F1"
 extract_archive     = "Shift+F2"
 archive_commands    = "Shift+F3"
 multi_rename_tool   = "Shift+F6"
+undo_file_operation = "Alt+Backspace"
+redo_file_operation = "Ctrl+y"
 
 # ── Misc F-key fallbacks ──────────────────────────────────────────────────────
 view_fkey           = "F3"

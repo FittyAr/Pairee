@@ -11,7 +11,8 @@ use super::fs_helpers::{forget_description, remove_forcing, send_to_recycle_bin_
 use super::scan::ScanOutcome;
 use super::speed::spawn_speed_reporter;
 
-/// Run the delete phase (recycle bin or permanent delete) and return results.
+/// Run the delete phase (recycle bin or permanent delete) and return results
+/// (the caller reports the end of the job).
 pub(super) async fn run_delete_phase(
     sources: &[PathBuf],
     scan: ScanOutcome,
@@ -38,7 +39,7 @@ pub(super) async fn run_delete_phase(
                 Err(()) => 0,
             };
         }
-        return ctl.job_completed(results);
+        return Ok(results);
     }
 
     for (idx, (src, _, size)) in scan.mappings.into_iter().enumerate() {
@@ -66,7 +67,7 @@ pub(super) async fn run_delete_phase(
             ctl.file_failed(&mut results, failed(&dir, e.to_string()));
         }
     }
-    ctl.job_completed(results)
+    Ok(results)
 }
 
 /// Deletes one entry (file `index`) with `remove`, recording the outcome.
@@ -97,6 +98,8 @@ fn delete_one(
                     dst_hash: None,
                     verified: true,
                     duration: start.elapsed(),
+                    replaced: false,
+                    dst_stamp: None,
                 },
             );
             Ok(size)
