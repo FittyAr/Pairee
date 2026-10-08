@@ -5,9 +5,7 @@ use crate::app::context::AppContext;
 use crate::app::state::popup::MultiRenameState;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::fs::multi_rename::{
-    LocalFs, RenameBackend, RenameReport, RenameSource, Step, execute, plan,
-};
+use crate::fs::multi_rename::{RenameReport, RenameSource, Step, execute, plan};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -38,7 +36,7 @@ pub fn handle(state: &mut AppState) -> bool {
         .filter(|entry| entry.name != "..")
         .map(|entry| entry.name.clone())
         .collect();
-    let dialog = MultiRenameState::new(sources, siblings, panel.ssh_conn.clone());
+    let dialog = MultiRenameState::new(sources, siblings, panel.source.clone());
     state
         .dialogs
         .replace(PopupType::MultiRename(Box::new(dialog)));
@@ -56,12 +54,8 @@ pub fn start(state: &mut AppState) {
     dialog.running = true;
     let moves = dialog.preview.moves(&dialog.sources);
     let fs = dialog.target_fs;
-    let ssh = dialog.ssh.clone();
+    let backend = dialog.source.vfs();
     state.multi_rename.start(move |_| {
-        let backend: Box<dyn RenameBackend> = match ssh {
-            Some(client) => Box::new(client),
-            None => Box::new(LocalFs),
-        };
         let taken = |path: &Path| backend.exists(path);
         match plan(&moves, fs, &taken) {
             Ok(steps) => execute(&steps, backend.as_ref(), fs),

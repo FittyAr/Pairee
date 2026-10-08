@@ -22,6 +22,7 @@ pub fn scan_sources(
     let mut total_bytes = 0u64;
     let mut file_mappings = Vec::new();
     let mut dirs_to_create = Vec::new();
+    let src_fs = crate::fs::ssh::endpoint_vfs(src_conn);
 
     let destination_dir_is_dir = is_destination_parent_dir(sources, destination_dir, |p| {
         crate::fs::ssh::is_dir_on(p, dst_conn)
@@ -37,67 +38,33 @@ pub fn scan_sources(
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_default();
 
+        let base_dst = if destination_dir_is_dir {
+            destination_dir.join(&name)
+        } else {
+            destination_dir.to_path_buf()
+        };
         if is_dir {
-            let base_dst = if destination_dir_is_dir {
-                destination_dir.join(&name)
-            } else {
-                destination_dir.to_path_buf()
-            };
             dirs_to_create.push(base_dst.clone());
-
-            if let Some(src_client) = src_conn {
-                if let Ok(walked) = src_client.walk_dir(src) {
-                    for (sub_src, sub_is_dir, sub_size) in walked {
-                        if let Ok(rel) = sub_src.strip_prefix(src) {
-                            let sub_dst = base_dst.join(rel);
-                            if sub_is_dir {
-                                dirs_to_create.push(sub_dst);
-                            } else {
-                                total_files += 1;
-                                total_bytes += sub_size;
-                                file_mappings.push((sub_src, sub_dst, sub_size));
-                            }
-                        }
-                    }
-                }
-            } else {
-                let mut dirs_to_visit = vec![src.clone()];
-                while let Some(dir) = dirs_to_visit.pop() {
-                    if let Ok(entries) = std::fs::read_dir(&dir) {
-                        for entry in entries.flatten() {
-                            let path = entry.path();
-                            if path.is_dir() {
-                                dirs_to_visit.push(path.clone());
-                                if let Ok(rel) = path.strip_prefix(src) {
-                                    dirs_to_create.push(base_dst.join(rel));
-                                }
-                            } else {
-                                total_files += 1;
-                                let size = entry.metadata().ok().map(|m| m.len()).unwrap_or(0);
-                                total_bytes += size;
-                                if let Ok(rel) = path.strip_prefix(src) {
-                                    let dest_path = base_dst.join(rel);
-                                    file_mappings.push((path, dest_path, size));
-                                }
-                            }
-                        }
-                    }
+            // Links inside the tree are copied as what they point to only
+            // when they are files; linked folders are created, not entered.
+            for entry in src_fs.walk(src) {
+                let Ok(rel) = entry.path.strip_prefix(src) else {
+                    continue;
+                };
+                let sub_dst = base_dst.join(rel);
+                if entry.is_dir {
+                    dirs_to_create.push(sub_dst);
+                } else {
+                    total_files += 1;
+                    total_bytes += entry.size;
+                    file_mappings.push((entry.path, sub_dst, entry.size));
                 }
             }
         } else {
             total_files += 1;
-            let size = if let Some(src_client) = src_conn {
-                src_client.file_size(src)
-            } else {
-                src.metadata().ok().map(|m| m.len()).unwrap_or(0)
-            };
+            let size = src_fs.stat(src).map_or(0, |e| e.size);
             total_bytes += size;
-            let dst_path = if destination_dir_is_dir {
-                destination_dir.join(&name)
-            } else {
-                destination_dir.to_path_buf()
-            };
-            file_mappings.push((src.clone(), dst_path, size));
+            file_mappings.push((src.clone(), base_dst, size));
         }
 
         let _ = control.event_tx.send(TransferEvent::ScanProgress {

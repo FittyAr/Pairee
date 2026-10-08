@@ -12,8 +12,8 @@ pub fn calculate(state: &mut AppState) -> bool {
 pub fn open_disk_usage(state: &mut AppState) -> bool {
     let panel = state.get_active_panel();
     let root = panel.current_path.clone();
-    let ssh = panel.ssh_conn.clone();
-    state.disk_usage.open(root, ssh);
+    let source = panel.source.clone();
+    state.disk_usage.open(root, source);
     state.dialogs.replace(PopupType::DiskUsage);
     true
 }

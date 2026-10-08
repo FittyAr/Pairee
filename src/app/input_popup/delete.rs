@@ -31,7 +31,7 @@ pub fn handle(
                     delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
                     ..Default::default()
                 };
-                let ssh = state.get_active_panel().ssh_conn.clone();
+                let ssh = state.get_active_panel().source.ssh().cloned();
                 submit(
                     state,
                     context,

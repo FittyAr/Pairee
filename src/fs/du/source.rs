@@ -1,4 +1,5 @@
-//! Directory listing backends for the size walker.
+//! Entries the size walker sees, and the local listing that keeps
+//! hard-link identities (used by [`crate::fs::vfs::LocalVfs::du_list`]).
 
 use std::io;
 use std::path::{Path, PathBuf};
@@ -27,24 +28,14 @@ pub struct DuEntry {
     pub id: Option<(u64, u64)>,
 }
 
-/// Lists one directory without following symbolic links.
-pub trait DuSource: Sync {
-    fn read_dir(&self, dir: &Path) -> io::Result<Vec<DuEntry>>;
-}
-
-/// The local filesystem.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct LocalSource;
-
-impl DuSource for LocalSource {
-    fn read_dir(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
-        Ok(std::fs::read_dir(dir)?
-            .map(|item| match item {
-                Ok(entry) => local_entry(&entry),
-                Err(_) => unreadable(dir.to_path_buf(), String::new()),
-            })
-            .collect())
-    }
+/// Lists one local directory without following symbolic links.
+pub fn local_entries(dir: &Path) -> io::Result<Vec<DuEntry>> {
+    Ok(std::fs::read_dir(dir)?
+        .map(|item| match item {
+            Ok(entry) => local_entry(&entry),
+            Err(_) => unreadable(dir.to_path_buf(), String::new()),
+        })
+        .collect())
 }
 
 fn unreadable(path: PathBuf, name: String) -> DuEntry {

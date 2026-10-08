@@ -58,7 +58,7 @@ impl AppState {
         }
         let request = ListingRequest {
             path,
-            ssh: panel.ssh_conn.clone(),
+            source: panel.source.clone(),
             options,
             filter_mask: panel.filter_mask.clone(),
             quick_filter_mask: panel.quick_filter_mask.clone(),

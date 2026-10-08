@@ -3,7 +3,7 @@
 //! ordering (swaps through temporary names) and execution with rollback.
 //!
 //! Flow: [`RenameRules::compile`] → [`Preview::build`] → [`Preview::moves`]
-//! → [`plan`] → [`execute`] on a [`RenameBackend`] (local or SFTP).
+//! → [`plan`] → [`execute`] on the panel's [`crate::fs::vfs::Vfs`].
 
 mod execute;
 mod mask;
@@ -17,7 +17,7 @@ mod plan_tests;
 #[cfg(test)]
 mod tests;
 
-pub use execute::{LocalFs, RenameBackend, RenameFailure, RenameReport, execute};
+pub use execute::{RenameFailure, RenameReport, execute};
 pub use names::TargetFs;
 pub use plan::{Step, plan};
 pub use preview::{Preview, PreviewRow};

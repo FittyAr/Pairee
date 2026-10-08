@@ -5,7 +5,7 @@ pub mod safe_extract;
 pub mod sevenz_ops;
 pub mod tar_ops;
 #[cfg(test)]
-mod test_fixtures;
+pub(crate) mod test_fixtures;
 #[cfg(test)]
 mod tests;
 pub mod zip_ops;

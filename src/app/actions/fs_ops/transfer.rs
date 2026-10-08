@@ -31,8 +31,8 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, op: TransferPrompt
             targets,
             dest_dir,
             options,
-            state.get_active_panel().ssh_conn.clone(),
-            state.get_passive_panel().ssh_conn.clone(),
+            state.get_active_panel().source.ssh().cloned(),
+            state.get_passive_panel().source.ssh().cloned(),
         );
     }
     true

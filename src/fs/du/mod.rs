@@ -8,8 +8,9 @@
 //! * Unreadable directories and entries do not abort the scan: the result is
 //!   flagged [`DirSize::partial`] and the UI shows it with a marker.
 //!
-//! Directory listing goes through [`DuSource`], so the same walker serves
-//! local panels ([`LocalSource`]) and SFTP panels.
+//! Directory listing goes through the panel source port
+//! ([`crate::fs::vfs::Vfs::du_list`]), so the same walker serves local,
+//! SFTP and archive panels.
 
 mod node;
 mod scan;
@@ -20,7 +21,7 @@ mod tests;
 
 pub use node::DuNode;
 pub use scan::{ScanControl, scan};
-pub use source::{DuEntry, DuKind, DuSource, LocalSource};
+pub use source::{DuEntry, DuKind, local_entries};
 
 use std::path::PathBuf;
 

@@ -5,6 +5,7 @@ use super::super::super::worker::is_destination_parent_dir;
 use crate::config::localization::t;
 use crate::fs::ssh::SharedSshClient;
 use crate::fs::transfer::control::JobControl;
+use crate::fs::vfs::Vfs;
 use std::path::PathBuf;
 
 pub fn fast_remote_rename(
@@ -24,7 +25,7 @@ pub fn fast_remote_rename(
             destination_dir.clone()
         };
         src_client
-            .rename_move(src, &dst)
+            .rename(src, &dst)
             .map(|()| dst)
             .map_err(|e| t("error_remote_move_failed").replacen("{}", &e.to_string(), 1))
     })

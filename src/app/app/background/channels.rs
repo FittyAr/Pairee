@@ -29,7 +29,7 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
     match res {
         Ok(client) => {
             let p = state.panels.side_mut(panel);
-            p.ssh_conn = Some(client);
+            p.source = crate::fs::vfs::PanelSource::Remote(client);
             p.current_path = std::path::PathBuf::from("/");
             p.cursor_index = 0;
             p.clear_selection();

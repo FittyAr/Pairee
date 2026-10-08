@@ -20,8 +20,8 @@ pub fn submit(state: &mut AppState, context: &AppContext) {
         prompt.src_paths,
         destination,
         options,
-        state.get_active_panel().ssh_conn.clone(),
-        state.get_passive_panel().ssh_conn.clone(),
+        state.get_active_panel().source.ssh().cloned(),
+        state.get_passive_panel().source.ssh().cloned(),
     );
 }
 

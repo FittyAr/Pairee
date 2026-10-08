@@ -7,7 +7,7 @@
 use super::filter::{apply_masks, git_pathspec_for};
 use crate::fs::FileEntry;
 use crate::fs::attrs::FileAttrs;
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::vfs::PanelSource;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
@@ -18,7 +18,7 @@ pub use crate::fs::list::ListOptions as ListingOptions;
 #[derive(Debug, Clone)]
 pub struct ListingRequest {
     pub path: PathBuf,
-    pub ssh: Option<SharedSshClient>,
+    pub source: PanelSource,
     pub options: ListingOptions,
     pub filter_mask: Option<String>,
     pub quick_filter_mask: Option<String>,
@@ -53,7 +53,7 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
             req.quick_filter_mask.as_deref(),
         )
     });
-    let local = req.ssh.is_none();
+    let local = req.source.is_local();
     let listed = entries.as_deref().unwrap_or(&[]);
     let git = if local && !cancelled() {
         git_info(&req.path, listed)
@@ -81,11 +81,10 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
 
 fn read_entries(req: &ListingRequest) -> Result<Vec<FileEntry>, String> {
     let o = &req.options;
-    let res = match &req.ssh {
-        Some(client) => client.read_directory(&req.path, o),
-        None => crate::fs::read_directory_ext(&req.path, o),
-    };
-    res.map_err(|e| e.to_string())
+    req.source
+        .vfs()
+        .read_panel(&req.path, o)
+        .map_err(|e| e.to_string())
 }
 
 fn read_attrs_map(entries: &[FileEntry]) -> HashMap<PathBuf, FileAttrs> {

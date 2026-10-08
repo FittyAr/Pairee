@@ -34,8 +34,8 @@ pub struct PanelState {
     pub quick_filter_mask: Option<String>,
     /// Last path refreshed in the panel
     pub last_path: PathBuf,
-    /// Active SSH connection detail, if any
-    pub ssh_conn: Option<crate::fs::ssh::SharedSshClient>,
+    /// Where the entries come from (local disk, SFTP server, archive).
+    pub source: crate::fs::vfs::PanelSource,
     /// Active Git branch name if current_path is inside a Git repository
     pub git_branch: Option<String>,
     /// Map of entry filename -> Git status label (e.g. "M", "A", "?", "D")
@@ -69,7 +69,7 @@ impl PanelState {
             filter_mask: None,
             quick_filter_mask: None,
             last_path: path,
-            ssh_conn: None,
+            source: Default::default(),
             git_branch: None,
             git_statuses: std::collections::HashMap::new(),
             listing: JobSlot::new(),
@@ -222,7 +222,7 @@ impl PanelState {
             .filter(|e| e.is_dir && !e.is_symlink && e.name != ".." && wanted.contains(&e.path))
             .map(|e| e.path.clone())
             .collect();
-        self.dir_sizes.request(folders, self.ssh_conn.clone());
+        self.dir_sizes.request(folders, self.source.clone());
     }
 
     /// Folders for "calculate folder sizes": the targeted ones (selection or

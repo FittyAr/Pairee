@@ -101,8 +101,8 @@ pub fn handle_navigation_action(
         }
         Action::SshDisconnect => {
             let panel = state.get_active_panel_mut();
-            if panel.ssh_conn.is_some() {
-                panel.ssh_conn = None;
+            if panel.source.ssh().is_some() {
+                panel.source = crate::fs::vfs::PanelSource::Local;
                 let local_dir =
                     std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
                 panel.current_path = local_dir;

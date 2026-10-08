@@ -19,6 +19,7 @@ pub mod ssh;
 pub mod sync;
 pub mod text;
 pub mod transfer;
+pub mod vfs;
 pub mod wipe;
 
 pub use attrs::read_attrs;
@@ -26,7 +27,6 @@ pub use compare::CompareStatus;
 pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;
 pub use link::{create_hardlink, create_symlink};
-pub use list::read_directory_ext;
 pub use mkdir::create_directory;
 pub use path_util::file_name_lossy;
 pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};

@@ -1,6 +1,7 @@
 //! The recursive walker shared by folder sizes and the disk usage view.
 
-use super::{DirSize, DuEntry, DuKind, DuNode, DuSource, ScanProgress};
+use super::{DirSize, DuEntry, DuKind, DuNode, ScanProgress};
+use crate::fs::vfs::Vfs;
 use std::collections::HashSet;
 use std::path::Path;
 use std::time::{Duration, Instant};
@@ -23,7 +24,7 @@ pub struct ScanControl<'a> {
 
 /// Scans the directory `root`. With `keep_tree` the returned node holds the
 /// whole tree (disk usage view); otherwise only its totals (folder size).
-pub fn scan(source: &dyn DuSource, root: &Path, keep_tree: bool, ctl: &ScanControl) -> DuNode {
+pub fn scan(source: &dyn Vfs, root: &Path, keep_tree: bool, ctl: &ScanControl) -> DuNode {
     let name = root
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -42,7 +43,7 @@ pub fn scan(source: &dyn DuSource, root: &Path, keep_tree: bool, ctl: &ScanContr
 }
 
 struct Walker<'a> {
-    source: &'a dyn DuSource,
+    source: &'a dyn Vfs,
     ctl: &'a ScanControl<'a>,
     keep_tree: bool,
     /// Hard-linked files already counted.
@@ -59,7 +60,7 @@ impl Walker<'_> {
             return node;
         }
         self.progress.current = path.to_path_buf();
-        let Ok(entries) = self.source.read_dir(path) else {
+        let Ok(entries) = self.source.du_list(path) else {
             node.size.partial = true;
             return node;
         };

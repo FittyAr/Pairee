@@ -37,7 +37,7 @@ pub fn request(
         return;
     }
     let active_panel = state.get_active_panel();
-    let is_remote = active_panel.ssh_conn.is_some();
+    let is_remote = !active_panel.source.is_local();
     let show_prompt = context.config.settings.confirmations.confirm_delete
         || (context
             .config
@@ -66,7 +66,7 @@ pub fn request(
             state.dialogs.replace(confirm);
         }
     } else {
-        let ssh = state.get_active_panel().ssh_conn.clone();
+        let ssh = state.get_active_panel().source.ssh().cloned();
         let options = TransferOptions {
             delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
             ..Default::default()

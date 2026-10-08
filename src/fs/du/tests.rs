@@ -1,4 +1,5 @@
 use super::*;
+use crate::fs::vfs::{Capabilities, LocalVfs, Vfs, VfsEntry};
 use std::cell::Cell;
 use std::fs;
 use std::io;
@@ -27,7 +28,7 @@ fn sample_tree() -> tempfile::TempDir {
 }
 
 fn totals(root: &Path) -> DirSize {
-    scan(&LocalSource, root, false, &NONE).size
+    scan(&LocalVfs, root, false, &NONE).size
 }
 
 #[test]
@@ -48,14 +49,14 @@ fn sums_files_and_counts_dirs() {
 #[test]
 fn totals_only_scan_keeps_no_children() {
     let dir = sample_tree();
-    let node = scan(&LocalSource, dir.path(), false, &NONE);
+    let node = scan(&LocalVfs, dir.path(), false, &NONE);
     assert!(node.children.is_empty());
 }
 
 #[test]
 fn tree_children_sorted_largest_first() {
     let dir = sample_tree();
-    let node = scan(&LocalSource, dir.path(), true, &NONE);
+    let node = scan(&LocalVfs, dir.path(), true, &NONE);
     let names: Vec<_> = node.children.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(names, ["sub", "a.txt", "empty"]);
     let sub = node.descend(&["sub"]).unwrap();
@@ -71,7 +72,7 @@ fn tree_children_sorted_largest_first() {
 #[test]
 fn remove_subtracts_from_every_ancestor() {
     let dir = sample_tree();
-    let mut node = scan(&LocalSource, dir.path(), true, &NONE);
+    let mut node = scan(&LocalVfs, dir.path(), true, &NONE);
     let removed = node.remove(&["sub", "deep"]).unwrap();
     assert_eq!(removed.bytes, 30);
     assert_eq!(removed.dirs, 1);
@@ -108,7 +109,7 @@ fn cancellation_stops_and_marks_partial() {
         cancelled: &cancelled,
         progress: &|_| {},
     };
-    let node = scan(&LocalSource, dir.path(), true, &ctl);
+    let node = scan(&LocalVfs, dir.path(), true, &ctl);
     assert!(node.size.partial);
     assert!(node.size.bytes < 60);
 }
@@ -120,7 +121,7 @@ fn cancelled_before_start_reads_nothing() {
         cancelled: &|| true,
         progress: &|_| {},
     };
-    let node = scan(&LocalSource, dir.path(), true, &ctl);
+    let node = scan(&LocalVfs, dir.path(), true, &ctl);
     assert!(node.size.partial);
     assert_eq!(node.size.bytes, 0);
 }
@@ -134,7 +135,7 @@ fn final_progress_matches_totals() {
         cancelled: &|| false,
         progress: &report,
     };
-    scan(&LocalSource, dir.path(), false, &ctl);
+    scan(&LocalVfs, dir.path(), false, &ctl);
     let last = last.lock().unwrap();
     assert_eq!((last.bytes, last.files, last.dirs), (60, 3, 3));
 }
@@ -148,10 +149,23 @@ fn missing_root_is_partial() {
 }
 
 /// A source with an unreadable subdirectory and an unreadable entry.
+#[derive(Debug)]
 struct FlakySource;
 
-impl DuSource for FlakySource {
-    fn read_dir(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
+impl Vfs for FlakySource {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::READ_ONLY
+    }
+
+    fn list(&self, _dir: &Path) -> io::Result<Vec<VfsEntry>> {
+        Err(io::Error::from(io::ErrorKind::Unsupported))
+    }
+
+    fn stat(&self, _path: &Path) -> io::Result<VfsEntry> {
+        Err(io::Error::from(io::ErrorKind::Unsupported))
+    }
+
+    fn du_list(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
         let entry = |name: &str, kind, size| DuEntry {
             name: name.into(),
             path: dir.join(name),

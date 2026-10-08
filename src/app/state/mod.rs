@@ -215,7 +215,7 @@ impl AppState {
     /// Points the active panel at a local folder (hotlist / folder shortcut jump).
     pub fn jump_active_panel_to(&mut self, target: PathBuf, show_hidden: bool) {
         let panel = self.get_active_panel_mut();
-        panel.ssh_conn = None;
+        panel.source = crate::fs::vfs::PanelSource::Local;
         panel.open_path(target.clone());
         self.push_folders_history(target);
         self.refresh_active_panel(show_hidden);

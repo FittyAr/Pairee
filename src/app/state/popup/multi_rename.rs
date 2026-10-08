@@ -4,7 +4,7 @@
 use crate::app::form::FormLayout;
 use crate::app::text_input::TextField;
 use crate::fs::multi_rename::{CaseMode, Counter, Preview, RenameRules, RenameSource, TargetFs};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::vfs::PanelSource;
 
 /// Text fields of the dialog, in focus order.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -68,7 +68,7 @@ pub struct MultiRenameState {
     pub siblings: Vec<String>,
     pub target_fs: TargetFs,
     /// Set when the files are on an SFTP panel.
-    pub ssh: Option<SharedSshClient>,
+    pub source: PanelSource,
     pub fields: [TextField; 7],
     pub regex: bool,
     pub ignore_case: bool,
@@ -91,21 +91,17 @@ impl MultiRenameState {
     pub const BUTTON_CANCEL: usize = 11;
     pub const FORM: FormLayout = FormLayout::new(12, Self::BUTTON_RENAME);
 
-    pub fn new(
-        sources: Vec<RenameSource>,
-        siblings: Vec<String>,
-        ssh: Option<SharedSshClient>,
-    ) -> Self {
+    pub fn new(sources: Vec<RenameSource>, siblings: Vec<String>, source: PanelSource) -> Self {
         let defaults = RenameRules::default();
         let mut state = Self {
             sources,
             siblings,
-            target_fs: if ssh.is_some() {
-                TargetFs::remote()
-            } else {
+            target_fs: if source.is_local() {
                 TargetFs::local()
+            } else {
+                TargetFs::remote()
             },
-            ssh,
+            source,
             fields: [
                 defaults.name_mask.as_str().into(),
                 defaults.ext_mask.as_str().into(),

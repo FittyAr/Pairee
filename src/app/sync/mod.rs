@@ -73,7 +73,7 @@ impl ScanObserver for JobContext<ScanProgress> {
 /// remote: comparing reads the local filesystem only.
 fn local_roots(state: &mut AppState) -> Option<(PathBuf, PathBuf)> {
     let panels = &state.panels;
-    if panels.left.ssh_conn.is_some() || panels.right.ssh_conn.is_some() {
+    if !panels.left.source.is_local() || !panels.right.source.is_local() {
         state
             .dialogs
             .replace(PopupType::Error(t("compare_local_only")));
