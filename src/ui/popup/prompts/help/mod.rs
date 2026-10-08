@@ -6,6 +6,7 @@ pub use markdown::parse_markdown_to_lines;
 use super::super::centered_rect;
 use crate::app::state::PopupType;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -157,13 +158,17 @@ pub fn render(
             scrollbar::render_vertical_inside_block(
                 f,
                 right_area,
-                total_lines,
-                inner_height,
-                *scroll_y,
+                ScrollView {
+                    content_len: total_lines,
+                    viewport_len: inner_height,
+                    offset: *scroll_y,
+                },
                 theme,
-                ScrollbarSurface::Popup,
-                scrollbar,
-                ScrollTargetId::HelpContent,
+                ScrollTarget {
+                    surface: ScrollbarSurface::Popup,
+                    hits: scrollbar,
+                    id: ScrollTargetId::HelpContent,
+                },
             );
         } else {
             let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);

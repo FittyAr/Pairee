@@ -29,86 +29,8 @@ pub fn render_screen(
     match screen {
         Screen::Panels => {
             if !state.panels.both_hidden {
-                let left_active = state.panels.active == ActivePanel::Left;
-                let right_active = state.panels.active == ActivePanel::Right;
-
-                // Left panel — replaced by quick view if active and the left panel is passive
-                if state.panels.left_visible && layout.left_rect.width > 1 {
-                    if state.panels.quick_view_active && !left_active {
-                        if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top() {
-                            quickview::draw_quick_view(
-                                f,
-                                layout.left_rect,
-                                &qv.path,
-                                &qv.content,
-                                qv.scroll,
-                                &context.config.theme,
-                                qv.image_data.as_deref(),
-                                &qv.plugin_widget,
-                                Some(&state.scrollbar),
-                            );
-                        } else {
-                            panel::render_panel(
-                                f,
-                                layout.left_rect,
-                                &state.panels.left,
-                                left_active,
-                                context,
-                                Some(&state.scrollbar),
-                                crate::ui::scrollbar::ScrollTargetId::PanelLeft,
-                            );
-                        }
-                    } else {
-                        panel::render_panel(
-                            f,
-                            layout.left_rect,
-                            &state.panels.left,
-                            left_active,
-                            context,
-                            Some(&state.scrollbar),
-                            crate::ui::scrollbar::ScrollTargetId::PanelLeft,
-                        );
-                    }
-                }
-
-                // Right panel — replaced by quick view if active and the right panel is passive
-                if state.panels.right_visible && layout.right_rect.width > 1 {
-                    if state.panels.quick_view_active && !right_active {
-                        if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top() {
-                            quickview::draw_quick_view(
-                                f,
-                                layout.right_rect,
-                                &qv.path,
-                                &qv.content,
-                                qv.scroll,
-                                &context.config.theme,
-                                qv.image_data.as_deref(),
-                                &qv.plugin_widget,
-                                Some(&state.scrollbar),
-                            );
-                        } else {
-                            panel::render_panel(
-                                f,
-                                layout.right_rect,
-                                &state.panels.right,
-                                right_active,
-                                context,
-                                Some(&state.scrollbar),
-                                crate::ui::scrollbar::ScrollTargetId::PanelRight,
-                            );
-                        }
-                    } else {
-                        panel::render_panel(
-                            f,
-                            layout.right_rect,
-                            &state.panels.right,
-                            right_active,
-                            context,
-                            Some(&state.scrollbar),
-                            crate::ui::scrollbar::ScrollTargetId::PanelRight,
-                        );
-                    }
-                }
+                render_side(f, state, context, ActivePanel::Left, layout.left_rect);
+                render_side(f, state, context, ActivePanel::Right, layout.right_rect);
             }
         }
         Screen::Editor(ed) => {
@@ -130,11 +52,13 @@ pub fn render_screen(
                 f,
                 layout.main_rect,
                 vw,
-                &context.config.theme,
-                state.dialogs.top(),
-                context.config.settings.viewer_show_scrollbar,
-                context.config.settings.viewer_tab_size as usize,
-                Some(&state.scrollbar),
+                &crate::ui::viewer::ViewerOpts {
+                    theme: &context.config.theme,
+                    active_popup: state.dialogs.top(),
+                    show_scrollbar: context.config.settings.viewer_show_scrollbar,
+                    tab_size: context.config.settings.viewer_tab_size as usize,
+                    scrollbar: Some(&state.scrollbar),
+                },
             );
         }
         Screen::Terminal(ts) => {
@@ -148,4 +72,45 @@ pub fn render_screen(
             f.render_widget(p, layout.main_rect);
         }
     }
+}
+
+/// One panel, replaced by the quick view when that is open and the panel is
+/// the passive one.
+fn render_side(
+    f: &mut Frame,
+    state: &AppState,
+    context: &AppContext,
+    side: ActivePanel,
+    rect: ratatui::layout::Rect,
+) {
+    let (visible, scroll_id) = match side {
+        ActivePanel::Left => (
+            state.panels.left_visible,
+            crate::ui::scrollbar::ScrollTargetId::PanelLeft,
+        ),
+        ActivePanel::Right => (
+            state.panels.right_visible,
+            crate::ui::scrollbar::ScrollTargetId::PanelRight,
+        ),
+    };
+    if !visible || rect.width <= 1 {
+        return;
+    }
+    let is_active = state.panels.active == side;
+    if state.panels.quick_view_active
+        && !is_active
+        && let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top()
+    {
+        quickview::draw_quick_view(f, rect, qv, &context.config.theme, Some(&state.scrollbar));
+        return;
+    }
+    panel::render_panel(
+        f,
+        rect,
+        state.panels.side(side),
+        is_active,
+        context,
+        Some(&state.scrollbar),
+        scroll_id,
+    );
 }

@@ -1,5 +1,6 @@
 use crate::app::state::PopupType;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -74,13 +75,17 @@ pub fn render_dev_select(
         scrollbar::render_vertical_inside_block(
             f,
             area,
-            options.len(),
-            viewport.max(1),
-            offset,
+            ScrollView {
+                content_len: options.len(),
+                viewport_len: viewport.max(1),
+                offset,
+            },
             theme,
-            ScrollbarSurface::Popup,
-            scrollbar,
-            ScrollTargetId::PluginSelect,
+            ScrollTarget {
+                surface: ScrollbarSurface::Popup,
+                hits: scrollbar,
+                id: ScrollTargetId::PluginSelect,
+            },
         );
 
         true

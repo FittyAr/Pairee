@@ -1,26 +1,18 @@
 //! Remote SFTP filesystem operations (read, delete, walk, rename, create dir).
 
-use crate::app::state::SortField;
 use crate::config::localization::t;
 use crate::fs::entry::FileEntry;
+use crate::fs::list::ListOptions;
 use anyhow::Result;
 use ssh2::{FileStat, Sftp};
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-pub fn read_directory(
-    sftp: &Sftp,
-    path: &Path,
-    show_hidden: bool,
-    case_sensitive_sort: bool,
-    treat_digits_as_numbers: bool,
-    sort_field: SortField,
-    sort_reverse: bool,
-    show_dotdot_in_root_folders: bool,
-) -> Result<Vec<FileEntry>> {
-    let mut entries: Vec<FileEntry> = parent_entry(path, show_dotdot_in_root_folders)
-        .into_iter()
-        .collect();
+/// Lists remote `path` sorted as `opts` say (folders are never sorted by
+/// extension remotely).
+pub fn read_directory(sftp: &Sftp, path: &Path, opts: &ListOptions) -> Result<Vec<FileEntry>> {
+    let show_hidden = opts.show_hidden;
+    let mut entries: Vec<FileEntry> = parent_entry(path, opts.show_dotdot).into_iter().collect();
 
     // Read SFTP directory contents
     let mut read_entries = match sftp.readdir(path) {
@@ -33,15 +25,12 @@ pub fn read_directory(
 
     entries.append(&mut read_entries);
 
-    // Sort entries (pinning ".." first) using the centralized sort_entries helper
-    crate::fs::list::sort_entries(
-        &mut entries,
-        sort_field,
-        sort_reverse,
-        case_sensitive_sort,
-        treat_digits_as_numbers,
-        false,
-    );
+    // Sort entries (pinning ".." first)
+    ListOptions {
+        folder_by_ext: false,
+        ..opts.clone()
+    }
+    .sort(&mut entries);
 
     Ok(entries)
 }

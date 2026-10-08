@@ -1,5 +1,6 @@
 use super::state::ViewerState;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -63,13 +64,17 @@ pub(crate) fn render_hex(
         scrollbar::render_vertical_inside_block(
             f,
             area,
-            total_rows,
-            height,
-            state.scroll,
+            ScrollView {
+                content_len: total_rows,
+                viewport_len: height,
+                offset: state.scroll,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            ScrollTargetId::Viewer,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: ScrollTargetId::Viewer,
+            },
         );
     }
 }

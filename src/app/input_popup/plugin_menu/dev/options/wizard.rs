@@ -1,44 +1,38 @@
 use super::super::progress::begin_dev_op;
 use crate::app::context::AppContext;
-use crate::app::state::AppState;
+use crate::app::state::{AppState, PluginMenuState};
 use crate::config::localization::t;
 use crate::plugin::developer_tool;
 use std::path::PathBuf;
 
-#[allow(clippy::too_many_arguments)]
 pub fn handle_wizard_enter(
     state: &mut AppState,
     context: &mut AppContext,
-    installed: &mut Vec<crate::plugin::installed::InstalledPlugin>,
-    search_query: &mut String,
-    editing_query: &mut bool,
-    dev_results: &mut String,
-    dev_wizard_step: &mut usize,
-    dev_wizard_data: &mut Vec<String>,
+    menu: &mut PluginMenuState,
 ) {
-    if *dev_wizard_step == 1 {
-        let name = search_query.clone().trim().to_string();
+    if menu.dev_wizard_step == 1 {
+        let name = menu.search_query.clone().trim().to_string();
         if !name.is_empty() {
-            dev_wizard_data.push(name);
-            search_query.clear();
-            *dev_wizard_step = 2;
+            menu.dev_wizard_data.push(name);
+            menu.search_query.clear();
+            menu.dev_wizard_step = 2;
         }
-    } else if *dev_wizard_step == 2 {
-        let desc = search_query.clone().trim().to_string();
-        dev_wizard_data.push(desc);
-        search_query.clear();
-        *dev_wizard_step = 3;
-    } else if *dev_wizard_step == 3 {
-        let author = search_query.clone().trim().to_string();
-        dev_wizard_data.push(author);
-        search_query.clear();
-        *editing_query = false;
-        *dev_wizard_step = 0;
+    } else if menu.dev_wizard_step == 2 {
+        let desc = menu.search_query.clone().trim().to_string();
+        menu.dev_wizard_data.push(desc);
+        menu.search_query.clear();
+        menu.dev_wizard_step = 3;
+    } else if menu.dev_wizard_step == 3 {
+        let author = menu.search_query.clone().trim().to_string();
+        menu.dev_wizard_data.push(author);
+        menu.search_query.clear();
+        menu.editing_query = false;
+        menu.dev_wizard_step = 0;
 
-        let name = dev_wizard_data[0].clone();
-        let desc = dev_wizard_data[1].clone();
-        let author = dev_wizard_data[2].clone();
-        dev_wizard_data.clear();
+        let name = menu.dev_wizard_data[0].clone();
+        let desc = menu.dev_wizard_data[1].clone();
+        let author = menu.dev_wizard_data[2].clone();
+        menu.dev_wizard_data.clear();
         let plugins_dev_dir =
             std::path::PathBuf::from(context.config.settings.plugins_dev_dir.clone());
         let folder_name = if name.ends_with(".pairee") {
@@ -49,7 +43,7 @@ pub fn handle_wizard_enter(
         let target_path = PathBuf::from(&plugins_dev_dir).join(&folder_name);
 
         let _ = std::fs::create_dir_all(&target_path);
-        *dev_results = format!(
+        menu.dev_results = format!(
             "{} '{}'…",
             t("plugin_dev_progress_initializing"),
             folder_name
@@ -85,24 +79,24 @@ pub fn handle_wizard_enter(
                 }
             }
         });
-        *installed = super::super::reload_installed_plugins(context, &None);
-    } else if *dev_wizard_step == 5 {
-        let commit_msg = search_query.clone().trim().to_string();
+        menu.installed = super::super::reload_installed_plugins(context, &None);
+    } else if menu.dev_wizard_step == 5 {
+        let commit_msg = menu.search_query.clone().trim().to_string();
         if !commit_msg.is_empty() {
-            dev_wizard_data.push(commit_msg);
-            search_query.clear();
-            *dev_wizard_step = 6;
+            menu.dev_wizard_data.push(commit_msg);
+            menu.search_query.clear();
+            menu.dev_wizard_step = 6;
         }
-    } else if *dev_wizard_step == 6 {
-        let token = search_query.clone().trim().to_string();
-        let plugin_path_str = dev_wizard_data[0].clone();
-        let commit_msg = dev_wizard_data[1].clone();
-        dev_wizard_data.clear();
-        *editing_query = false;
-        *dev_wizard_step = 0;
-        search_query.clear();
+    } else if menu.dev_wizard_step == 6 {
+        let token = menu.search_query.clone().trim().to_string();
+        let plugin_path_str = menu.dev_wizard_data[0].clone();
+        let commit_msg = menu.dev_wizard_data[1].clone();
+        menu.dev_wizard_data.clear();
+        menu.editing_query = false;
+        menu.dev_wizard_step = 0;
+        menu.search_query.clear();
 
-        *dev_results = format!(
+        menu.dev_results = format!(
             "{} '{}'…",
             t("plugin_dev_progress_submitting"),
             plugin_path_str
@@ -190,6 +184,6 @@ pub fn handle_wizard_enter(
                 }
             });
         });
-        *installed = super::super::reload_installed_plugins(context, &None);
+        menu.installed = super::super::reload_installed_plugins(context, &None);
     }
 }

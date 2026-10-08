@@ -4,9 +4,9 @@ mod plugin;
 pub use img_render::render_quick_view_image;
 pub use plugin::render_plugin_widget;
 
-use crate::app::state::types::PluginWidget;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -24,14 +24,12 @@ use ratatui::{
 pub fn draw_quick_view(
     f: &mut Frame,
     area: Rect,
-    path: &std::path::Path,
-    content: &[String],
-    scroll: usize,
+    qv: &crate::app::state::popup::QuickViewDialog,
     theme: &crate::config::theme::Theme,
-    image_data: Option<&image::DynamicImage>,
-    plugin_widget: &Option<PluginWidget>,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
+    let (path, content, scroll) = (&qv.path, qv.content.as_slice(), qv.scroll);
+    let (image_data, plugin_widget) = (qv.image_data.as_deref(), &qv.plugin_widget);
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -73,13 +71,17 @@ pub fn draw_quick_view(
         scrollbar::render_vertical_inside_block(
             f,
             area,
-            content.len(),
-            visible_height,
-            scroll,
+            ScrollView {
+                content_len: content.len(),
+                viewport_len: visible_height,
+                offset: scroll,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            ScrollTargetId::QuickView,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: ScrollTargetId::QuickView,
+            },
         );
     }
 }

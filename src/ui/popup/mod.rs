@@ -39,8 +39,7 @@ pub fn render_popup(
         None => return,
     };
 
-    let theme = &context.config.theme;
-    let size = f.area();
+    let panels = (left_rect, right_rect);
 
     // If the active popup is a ScreensMenu that suspended another popup, render the suspended one first!
     if let PopupType::ScreensMenu {
@@ -48,31 +47,30 @@ pub fn render_popup(
         ..
     } = popup
     {
-        render_specific_popup(
-            f, suspended, state, context, left_rect, right_rect, theme, size,
-        );
+        render_specific_popup(f, suspended, state, context, panels);
     }
 
-    render_specific_popup(f, popup, state, context, left_rect, right_rect, theme, size);
+    render_specific_popup(f, popup, state, context, panels);
 }
 
+/// Draws `popup`; `panels` are the left and right panel areas (for popups
+/// anchored to a panel).
 fn render_specific_popup(
     f: &mut ratatui::Frame,
     popup: &PopupType,
     state: &AppState,
     context: &AppContext,
-    left_rect: Rect,
-    right_rect: Rect,
-    theme: &crate::config::theme::Theme,
-    size: Rect,
+    panels: (Rect, Rect),
 ) {
+    let theme = &context.config.theme;
+    let size = f.area();
     if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
         return;
     }
     if yazi::render_yazi_popup(f, popup, theme, size) {
         return;
     }
-    if menus::render_menu_popup(f, popup, theme, size, left_rect, right_rect, state, context) {
+    if menus::render_menu_popup(f, popup, size, panels, state, context) {
         return;
     }
     if screens_menu::render_screens_menu(f, popup, state, theme, size) {

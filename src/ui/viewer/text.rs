@@ -1,5 +1,6 @@
 use super::state::ViewerState;
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::search_highlight::highlight_line;
 use crate::ui::text_width::expand_tabs;
 use crate::ui::theme_apply::parse_color;
@@ -16,12 +17,15 @@ pub(crate) fn render_text(
     area: Rect,
     state: &ViewerState,
     block: Block,
-    theme: &crate::config::theme::Theme,
-    active_popup: Option<&crate::app::state::PopupType>,
-    show_scrollbar: bool,
-    tab_size: usize,
-    scrollbar: Option<&ScrollbarUiState>,
+    opts: &super::ViewerOpts,
 ) {
+    let super::ViewerOpts {
+        theme,
+        active_popup,
+        show_scrollbar,
+        tab_size,
+        scrollbar,
+    } = *opts;
     let height = area.height.saturating_sub(2) as usize;
 
     let search_info = match active_popup {
@@ -60,13 +64,17 @@ pub(crate) fn render_text(
         scrollbar::render_vertical_inside_block(
             f,
             area,
-            state.lines.len(),
-            height,
-            state.scroll,
+            ScrollView {
+                content_len: state.lines.len(),
+                viewport_len: height,
+                offset: state.scroll,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            ScrollTargetId::Viewer,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: ScrollTargetId::Viewer,
+            },
         );
     }
 }

@@ -1,6 +1,7 @@
 use super::state::ViewerState;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -49,13 +50,17 @@ pub(crate) fn render_image(
         scrollbar::render_vertical_right(
             f,
             inner_area,
-            rows,
-            inner_h as usize,
-            state.scroll,
+            ScrollView {
+                content_len: rows,
+                viewport_len: inner_h as usize,
+                offset: state.scroll,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            ScrollTargetId::Viewer,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: ScrollTargetId::Viewer,
+            },
         );
     }
 }

@@ -8,19 +8,42 @@ mod sort;
 
 pub use sort::sort_entries;
 
-/// Lists `path` sorted as requested. The "natural" sorting collation is
-/// resolved by the caller into `treat_digits_as_numbers`.
-pub fn read_directory_ext(
-    path: &Path,
-    show_hidden: bool,
-    case_sensitive_sort: bool,
-    treat_digits_as_numbers: bool,
-    req_admin_reading: bool,
-    sort_field: crate::app::state::SortField,
-    sort_reverse: bool,
-    sort_folder_names_by_extension: bool,
-    show_dotdot_in_root_folders: bool,
-) -> Result<Vec<FileEntry>> {
+/// Sorting / visibility options of a directory listing (local or remote).
+#[derive(Debug, Clone)]
+pub struct ListOptions {
+    pub show_hidden: bool,
+    pub case_sensitive: bool,
+    /// "Natural" collation: digit runs compare as numbers.
+    pub natural: bool,
+    /// Retry with elevated rights when reading fails.
+    pub req_admin: bool,
+    pub sort_field: crate::app::state::SortField,
+    pub sort_reverse: bool,
+    /// Sort folders by extension too.
+    pub folder_by_ext: bool,
+    /// Show `..` in root folders (pointing at the root itself).
+    pub show_dotdot: bool,
+}
+
+impl ListOptions {
+    /// Sorts `entries` (pinning `..` first) as these options say.
+    pub fn sort(&self, entries: &mut Vec<FileEntry>) {
+        sort::sort_entries(
+            entries,
+            self.sort_field,
+            self.sort_reverse,
+            self.case_sensitive,
+            self.natural,
+            self.folder_by_ext,
+        );
+    }
+}
+
+/// Lists `path` sorted as `opts` say.
+pub fn read_directory_ext(path: &Path, opts: &ListOptions) -> Result<Vec<FileEntry>> {
+    let show_hidden = opts.show_hidden;
+    let show_dotdot_in_root_folders = opts.show_dotdot;
+    let req_admin_reading = opts.req_admin;
     let mut entries = Vec::new();
 
     // 1. Add ".." parent directory entry
@@ -98,15 +121,8 @@ pub fn read_directory_ext(
     let mut read_entries = read_entries.context(format!("Failed to read directory: {:?}", path))?;
     entries.append(&mut read_entries);
 
-    // 3. Sort entries using the extracted public function
-    sort::sort_entries(
-        &mut entries,
-        sort_field,
-        sort_reverse,
-        case_sensitive_sort,
-        treat_digits_as_numbers,
-        sort_folder_names_by_extension,
-    );
+    // 3. Sort entries
+    opts.sort(&mut entries);
 
     Ok(entries)
 }
@@ -136,14 +152,16 @@ mod tests {
     fn names(dir: &Path, show_hidden: bool) -> Vec<FileEntry> {
         read_directory_ext(
             dir,
-            show_hidden,
-            false,
-            false,
-            false,
-            crate::app::state::SortField::Name,
-            false,
-            false,
-            true,
+            &ListOptions {
+                show_hidden,
+                case_sensitive: false,
+                natural: false,
+                req_admin: false,
+                sort_field: crate::app::state::SortField::Name,
+                sort_reverse: false,
+                folder_by_ext: false,
+                show_dotdot: true,
+            },
         )
         .unwrap()
         .into_iter()

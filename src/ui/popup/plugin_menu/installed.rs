@@ -1,37 +1,25 @@
+use super::{Pane, spinner_frame};
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::Rect,
     style::{Color, Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
 };
 
-/// Returns a rotating spinner character (Unicode block) for the given frame
-/// time. The animation runs at ~5 fps which is enough to feel "alive"
-/// without being distracting.
-fn spinner_frame() -> &'static str {
-    const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_millis() / 200)
-        .unwrap_or(0);
-    FRAMES[(now as usize) % FRAMES.len()]
-}
-
-pub fn render_installed(
-    f: &mut Frame,
-    list_area: Rect,
-    detail_area: Rect,
-    cursor_idx: usize,
-    installed: &[crate::plugin::installed::InstalledPlugin],
-    installed_loading: bool,
-    installed_loading_status: &str,
-    theme: &crate::config::theme::Theme,
-    border_style: Style,
-    bg_style: Style,
-) {
+pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &crate::app::state::PluginMenuState) {
+    let Pane {
+        list_area,
+        detail_area,
+        theme,
+        border_style,
+        bg_style,
+    } = *pane;
+    let cursor_idx = menu.cursor_idx;
+    let installed = menu.installed.as_slice();
+    let installed_loading = menu.installed_loading;
+    let installed_loading_status = menu.installed_loading_status.as_str();
     let text_style = Style::default().fg(parse_color(&theme.popup_fg));
     let bold_style = text_style.add_modifier(StyleModifier::BOLD);
 

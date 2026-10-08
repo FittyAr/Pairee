@@ -6,6 +6,7 @@ use crate::app::state::PopupType;
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -185,13 +186,17 @@ pub fn render(
             scrollbar::render_vertical_right(
                 f,
                 content_area,
-                total,
-                list_height,
-                effective_scroll,
+                ScrollView {
+                    content_len: total,
+                    viewport_len: list_height,
+                    offset: effective_scroll,
+                },
                 theme,
-                ScrollbarSurface::Popup,
-                scrollbar,
-                ScrollTargetId::GitList,
+                ScrollTarget {
+                    surface: ScrollbarSurface::Popup,
+                    hits: scrollbar,
+                    id: ScrollTargetId::GitList,
+                },
             );
         }
 

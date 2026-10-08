@@ -93,8 +93,7 @@ pub fn render_sort_modes_dialog(
 pub fn render_user_menu_dialog(
     f: &mut Frame,
     theme: &Theme,
-    left_rect: Rect,
-    right_rect: Rect,
+    (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
     cursor_idx: usize,
 ) {

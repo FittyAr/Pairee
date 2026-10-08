@@ -155,13 +155,17 @@ pub fn render_about_popup(
                 width: 1,
                 height: area.height.saturating_sub(3),
             },
-            total_lines,
-            inner_height,
-            clamped_scroll,
+            scrollbar::ScrollView {
+                content_len: total_lines,
+                viewport_len: inner_height,
+                offset: clamped_scroll,
+            },
             theme,
-            ScrollbarSurface::Popup,
-            scrollbar,
-            ScrollTargetId::About,
+            scrollbar::ScrollTarget {
+                surface: ScrollbarSurface::Popup,
+                hits: scrollbar,
+                id: ScrollTargetId::About,
+            },
         );
 
         // Render bottom hint

@@ -5,6 +5,7 @@
 use super::{fg, frame_in, popup_fg, selection};
 use crate::config::theme::Theme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -85,13 +86,17 @@ impl ListPopup<'_> {
             scrollbar::render_vertical_right(
                 f,
                 inner,
-                total,
-                height,
-                start,
+                ScrollView {
+                    content_len: total,
+                    viewport_len: height,
+                    offset: start,
+                },
                 theme,
-                ScrollbarSurface::Popup,
-                hits,
-                id,
+                ScrollTarget {
+                    surface: ScrollbarSurface::Popup,
+                    hits,
+                    id,
+                },
             );
         }
     }

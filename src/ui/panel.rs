@@ -7,6 +7,7 @@ use crate::app::context::AppContext;
 use crate::app::state::PanelState;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -98,13 +99,17 @@ pub fn render_panel(
         scrollbar::render_vertical_inside_block(
             f,
             list_area,
-            total,
-            inner_height,
-            offset,
+            ScrollView {
+                content_len: total,
+                viewport_len: inner_height,
+                offset,
+            },
             theme,
-            ScrollbarSurface::Panel,
-            scrollbar,
-            scroll_id,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: scroll_id,
+            },
         );
     }
 

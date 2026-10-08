@@ -84,20 +84,7 @@ fn handle_dev_tab(state: &mut AppState, key: KeyEvent, context: &mut AppContext)
     };
     let left_path = state.panels.left.current_path.clone();
     let right_path = state.panels.right.current_path.clone();
-    dev::handle_dev(
-        key,
-        state,
-        context,
-        &left_path,
-        &right_path,
-        &mut menu.cursor_idx,
-        &mut menu.installed,
-        &mut menu.search_query,
-        &mut menu.editing_query,
-        &mut menu.dev_results,
-        &mut menu.dev_wizard_step,
-        &mut menu.dev_wizard_data,
-    );
+    dev::handle_dev(key, state, context, (&left_path, &right_path), &mut menu);
     // Pull back the live loading fields from the popup state because
     // `handle_dev` may have flipped them (e.g. when starting a new op
     // or when a background update landed).

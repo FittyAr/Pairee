@@ -6,6 +6,7 @@ use ratatui::widgets::{Block, BorderType, Borders, List, ListItem};
 use crate::app::state::TransferUIState;
 use crate::fs::transfer::job::TransferJobStatus;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
+use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 
 pub(crate) fn render_jobs_sidebar(
     f: &mut Frame,
@@ -106,12 +107,16 @@ pub(crate) fn render_jobs_sidebar(
     scrollbar::render_vertical_inside_block(
         f,
         area,
-        jobs.len(),
-        viewport.max(1),
-        offset,
+        ScrollView {
+            content_len: jobs.len(),
+            viewport_len: viewport.max(1),
+            offset,
+        },
         theme,
-        ScrollbarSurface::Popup,
-        scrollbar,
-        ScrollTargetId::TransferJobs,
+        ScrollTarget {
+            surface: ScrollbarSurface::Popup,
+            hits: scrollbar,
+            id: ScrollTargetId::TransferJobs,
+        },
     );
 }

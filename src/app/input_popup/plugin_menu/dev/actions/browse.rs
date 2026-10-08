@@ -1,18 +1,16 @@
 use super::super::move_active_panel_to;
 use super::super::paths::{dev_plugin_dir, packaged_plugin_dir};
 use crate::app::context::AppContext;
-use crate::app::state::AppState;
+use crate::app::state::{AppState, PluginMenuState};
 use crate::config::localization::t;
 
 pub fn handle_option_select_active_plugin(
     context: &mut AppContext,
-    dev_results: &mut String,
-    installed: &mut Vec<crate::plugin::installed::InstalledPlugin>,
-    left_panel_path: &std::path::Path,
-    right_panel_path: &std::path::Path,
+    menu: &mut PluginMenuState,
+    (left_panel_path, right_panel_path): (&std::path::Path, &std::path::Path),
     plugins_dev_dir: std::path::PathBuf,
 ) {
-    *dev_results = t("plugin_dev_progress_scanning_plugins");
+    menu.dev_results = t("plugin_dev_progress_scanning_plugins");
     let left = left_panel_path.to_path_buf();
     let right = right_panel_path.to_path_buf();
     let tx = crate::plugin::PluginManager::get_sender();
@@ -61,7 +59,7 @@ pub fn handle_option_select_active_plugin(
 
         let _ = tx.blocking_send(crate::plugin::manager::PluginRequest::DevPluginScan { options });
     });
-    *installed = super::super::reload_installed_plugins(context, &None);
+    menu.installed = super::super::reload_installed_plugins(context, &None);
 }
 
 pub fn handle_option_open_dev_folder(

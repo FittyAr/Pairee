@@ -16,13 +16,12 @@ use ratatui::{Frame, layout::Rect};
 pub fn render_menu_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
     size: Rect,
-    left_rect: Rect,
-    right_rect: Rect,
+    panels: (Rect, Rect),
     state: &crate::app::state::AppState,
     context: &crate::app::context::AppContext,
 ) -> bool {
+    let theme = &context.config.theme;
     match popup {
         PopupType::SortModesDialog {
             current,
@@ -33,14 +32,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::UserMenu { cursor_idx } => {
-            render_user_menu_dialog(
-                f,
-                theme,
-                left_rect,
-                right_rect,
-                state.panels.active,
-                *cursor_idx,
-            );
+            render_user_menu_dialog(f, theme, panels, state.panels.active, *cursor_idx);
             true
         }
         PopupType::Menu {
@@ -68,14 +60,7 @@ pub fn render_menu_popup(
             drives,
             cursor_idx,
         } => {
-            render_drive_select(
-                f,
-                theme,
-                (left_rect, right_rect),
-                panel,
-                drives,
-                *cursor_idx,
-            );
+            render_drive_select(f, theme, panels, panel, drives, *cursor_idx);
             true
         }
         PopupType::Hotlist {
@@ -97,14 +82,7 @@ pub fn render_menu_popup(
             true
         }
         PopupType::ContextMenu { items, cursor_idx } => {
-            render_context_menu(
-                f,
-                theme,
-                (left_rect, right_rect),
-                state.panels.active,
-                items,
-                *cursor_idx,
-            );
+            render_context_menu(f, theme, panels, state.panels.active, items, *cursor_idx);
             true
         }
         PopupType::ArchiveCommandsMenu {

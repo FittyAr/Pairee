@@ -17,6 +17,25 @@ pub mod select;
 pub mod wrap;
 pub use wrap::wrap_text;
 
+/// Where a plugin-manager tab draws: list and detail areas plus styles.
+pub struct Pane<'a> {
+    pub list_area: Rect,
+    pub detail_area: Rect,
+    pub theme: &'a crate::config::theme::Theme,
+    pub border_style: Style,
+    pub bg_style: Style,
+}
+
+/// Rotating spinner character for indeterminate progress (~5 fps).
+pub(crate) fn spinner_frame() -> &'static str {
+    const FRAMES: &[&str] = &["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() / 200)
+        .unwrap_or(0);
+    FRAMES[(now as usize) % FRAMES.len()]
+}
+
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
@@ -24,24 +43,15 @@ pub fn render(
     size: Rect,
     context: &crate::app::context::AppContext,
 ) -> bool {
-    if let PopupType::PluginMenu(crate::app::state::PluginMenuState {
-        active_tab,
-        cursor_idx,
-        installed,
-        all_registry: _,
-        registry,
-        search_query,
-        is_searching,
-        editing_query,
-        dev_results,
-        dev_wizard_step,
-        dev_wizard_data: _,
-        installed_loading,
-        installed_loading_status,
-        dev_loading,
-        dev_loading_status,
-        dev_loading_progress,
-    }) = popup
+    if let PopupType::PluginMenu(
+        menu @ crate::app::state::PluginMenuState {
+            active_tab,
+            search_query,
+            editing_query,
+            dev_wizard_step,
+            ..
+        },
+    ) = popup
     {
         let area = super::centered_rect(85, 80, size);
         f.render_widget(Clear, area);
@@ -180,50 +190,20 @@ pub fn render(
                 Constraint::Percentage(60), // Right detail
             ])
             .split(content_area);
-        let list_area = content_chunks[0];
-        let detail_area = content_chunks[1];
+        let pane = Pane {
+            list_area: content_chunks[0],
+            detail_area: content_chunks[1],
+            theme,
+            border_style,
+            bg_style,
+        };
 
         if *active_tab == 0 {
-            installed::render_installed(
-                f,
-                list_area,
-                detail_area,
-                *cursor_idx,
-                installed,
-                *installed_loading,
-                installed_loading_status,
-                theme,
-                border_style,
-                bg_style,
-            );
+            installed::render_installed(f, &pane, menu);
         } else if *active_tab == 1 {
-            search::render_search(
-                f,
-                list_area,
-                detail_area,
-                *cursor_idx,
-                registry,
-                *is_searching,
-                *editing_query,
-                theme,
-                border_style,
-                bg_style,
-            );
+            search::render_search(f, &pane, menu);
         } else {
-            dev::render_dev(
-                f,
-                list_area,
-                detail_area,
-                *cursor_idx,
-                dev_results,
-                *dev_loading,
-                dev_loading_status,
-                *dev_loading_progress,
-                theme,
-                border_style,
-                bg_style,
-                &context.config.settings.active_dev_plugin,
-            );
+            dev::render_dev(f, &pane, menu, &context.config.settings.active_dev_plugin);
         }
 
         let hint_key = if *active_tab == 0 {
