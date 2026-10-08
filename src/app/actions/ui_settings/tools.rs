@@ -45,7 +45,7 @@ pub fn handle_tools_action(
                 cursor_idx: 0,
                 editing_idx: None,
                 editing_field: 0,
-                edit_buffer: String::new(),
+                edit_buffer: Default::default(),
                 original_rule: None,
             });
             true

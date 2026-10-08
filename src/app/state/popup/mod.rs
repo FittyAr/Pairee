@@ -237,7 +237,7 @@ pub enum PopupType {
         cursor_idx: usize,
         editing_idx: Option<usize>,
         editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
-        edit_buffer: String,
+        edit_buffer: TextField,
         original_rule: Option<crate::config::associations::AssocRule>,
     },
 
