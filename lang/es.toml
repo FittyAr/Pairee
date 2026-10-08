@@ -120,6 +120,7 @@ editor_error_not_utf8 = "Este archivo no es texto UTF-8 válido. El editor solo 
 editor_error_too_large = "Este archivo es demasiado grande para el editor ({} MiB). Ábrelo con el visor (F3)."
 editor_overwrite_title = " Confirmar sobrescritura "
 editor_read_only_flag = "Solo lectura"
+editor_block_mode_flag = "Modo bloque (Ctrl+B)"
 editor_read_only_locked = "Este archivo es de solo lectura y la edición está bloqueada (Opciones > Configuración > Editor). Usa Shift+F2 para guardar una copia."
 editor_read_only_warning = "Este archivo es de solo lectura. Puedes editarlo, pero guardar fallará salvo que lo guardes con otro nombre (Shift+F2)."
 editor_save_as_text = "\n Nombre de archivo (relativo a la carpeta del archivo):\n > {}_\n\n [Enter] Guardar   [Esc] Cancelar"

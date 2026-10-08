@@ -159,18 +159,29 @@ fn copy_cut_paste_round_trip() {
     assert_eq!(editor(&state).lines, vec!["one twoone two".to_string()]);
 }
 
-#[test]
-fn alt_shift_arrows_cut_a_block() {
-    let (mut state, mut context, _dir) = setup();
+/// Types two lines, then cuts the block "ab"/"ef" selected with `mods`
+/// (after `prepare`).
+fn cut_block_with(
+    prepare: impl FnOnce(&mut AppState, &mut AppContext),
+    mods: KeyModifiers,
+) -> (AppState, AppContext, tempfile::TempDir) {
+    let (mut state, mut context, dir) = setup();
     type_text(&mut state, &mut context, "abcd");
     press(&mut state, &mut context, KeyCode::Enter);
     type_text(&mut state, &mut context, "efgh");
     press(&mut state, &mut context, KeyCode::Home);
-    let block = KeyModifiers::ALT | KeyModifiers::SHIFT;
-    press_mod(&mut state, &mut context, KeyCode::Right, block);
-    press_mod(&mut state, &mut context, KeyCode::Right, block);
-    press_mod(&mut state, &mut context, KeyCode::Up, block);
+    prepare(&mut state, &mut context);
+    press_mod(&mut state, &mut context, KeyCode::Right, mods);
+    press_mod(&mut state, &mut context, KeyCode::Right, mods);
+    press_mod(&mut state, &mut context, KeyCode::Up, mods);
     ctrl(&mut state, &mut context, 'x');
+    (state, context, dir)
+}
+
+#[test]
+fn alt_shift_arrows_cut_a_block() {
+    let block = KeyModifiers::ALT | KeyModifiers::SHIFT;
+    let (mut state, mut context, _dir) = cut_block_with(|_, _| {}, block);
     assert_eq!(
         editor(&state).lines,
         vec!["cd".to_string(), "gh".to_string()]
@@ -181,6 +192,28 @@ fn alt_shift_arrows_cut_a_block() {
         vec!["ab".to_string(), "efcd".to_string(), "gh".to_string()],
         "a block pastes as text"
     );
+}
+
+#[test]
+fn ctrl_alt_shift_arrows_select_a_block() {
+    let mods = KeyModifiers::CONTROL | KeyModifiers::ALT | KeyModifiers::SHIFT;
+    let (state, _, _dir) = cut_block_with(|_, _| {}, mods);
+    assert_eq!(editor(&state).lines, ["cd", "gh"]);
+}
+
+#[test]
+fn block_mode_turns_shift_arrows_into_block_selection() {
+    let toggle = |state: &mut AppState, context: &mut AppContext| ctrl(state, context, 'b');
+    let (state, _, _dir) = cut_block_with(toggle, KeyModifiers::SHIFT);
+    assert_eq!(editor(&state).lines, ["cd", "gh"]);
+    assert!(editor(&state).block_mode);
+    // Toggled twice: back to a stream selection ("cd" and the line break).
+    let twice = |state: &mut AppState, context: &mut AppContext| {
+        ctrl(state, context, 'b');
+        ctrl(state, context, 'b');
+    };
+    let (state, _, _dir) = cut_block_with(twice, KeyModifiers::SHIFT);
+    assert_eq!(editor(&state).lines, ["abefgh"]);
 }
 
 #[test]

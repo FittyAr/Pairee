@@ -1,5 +1,6 @@
 //! Mouse selection in the editor: click places the cursor, drag selects,
-//! `Alt`+drag selects a vertical block, the wheel scrolls.
+//! `Alt`+drag (any drag in block mode) selects a vertical block, the wheel
+//! scrolls.
 
 use crate::app::state::AppState;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -19,7 +20,7 @@ pub fn handle_editor_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
     let (col, row) = (mouse.column, mouse.row);
     match mouse.kind {
         MouseEventKind::Down(MouseButton::Left) if ed.viewport.get().contains(col, row) => {
-            let block = mouse.modifiers.contains(KeyModifiers::ALT);
+            let block = ed.block_mode || mouse.modifiers.contains(KeyModifiers::ALT);
             ed.mouse_press(col, row, block);
         }
         MouseEventKind::Drag(MouseButton::Left) if ed.selection.is_some() => {

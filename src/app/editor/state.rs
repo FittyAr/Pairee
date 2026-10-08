@@ -35,6 +35,9 @@ pub struct EditorState {
     pub tab_size: usize,
     /// Text area painted last frame, for mouse hit-testing.
     pub viewport: std::cell::Cell<Viewport>,
+    /// Block mode (`Ctrl+B`): `Shift`+motions and drags select a vertical
+    /// block, for terminals that keep `Alt+Shift`+arrows for themselves.
+    pub block_mode: bool,
 }
 
 impl EditorState {
@@ -55,6 +58,7 @@ impl EditorState {
             selection: None,
             tab_size: tab_size.max(1),
             viewport: Default::default(),
+            block_mode: false,
         }
     }
 

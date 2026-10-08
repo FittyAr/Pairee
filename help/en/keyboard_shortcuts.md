@@ -162,7 +162,8 @@ Pairee always edits files with its built-in editor; no external editor is launch
 | `Ctrl+R` | Reload the file from disk (asks first when there are unsaved changes and the confirmation is enabled). |
 | `Home` / `End` | Start / end of line. `Ctrl+Home` / `Ctrl+End` go to the start / end of the file. |
 | `Shift` + arrows / `Home` / `End` / `PgUp` / `PgDn` / `Ctrl+Home` / `Ctrl+End` | Select text. Dragging with the mouse also selects. |
-| `Alt+Shift` + arrows / `Home` / `End` | Vertical block (column) selection, Far style. `Alt` + mouse drag also selects a block. |
+| `Alt+Shift` + arrows / `Home` / `End` (also `Ctrl+Alt+Shift`) | Vertical block (column) selection, Far style. `Alt` + mouse drag also selects a block. |
+| `Ctrl+B` | Toggle block mode: `Shift` + arrows and mouse drags select a vertical block (the status line shows "Block mode"). Use it in terminals that keep `Alt+Shift` + arrows for themselves, such as Windows Terminal (pane resizing). |
 | `Ctrl+A` | Select all. `Esc` clears the selection. |
 | `Ctrl+C` / `Ctrl+Insert` | Copy the selection. |
 | `Ctrl+X` / `Shift+Delete` | Cut the selection. |

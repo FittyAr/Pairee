@@ -162,7 +162,8 @@ Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor
 | `Ctrl+R` | Recargar el archivo desde disco (pregunta antes si hay cambios sin guardar y la confirmación está activa). |
 | `Inicio` / `Fin` | Inicio / fin de línea. `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
 | `Shift` + flechas / `Inicio` / `Fin` / `RePág` / `AvPág` / `Ctrl+Inicio` / `Ctrl+Fin` | Seleccionar texto. Arrastrar con el ratón también selecciona. |
-| `Alt+Shift` + flechas / `Inicio` / `Fin` | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
+| `Alt+Shift` + flechas / `Inicio` / `Fin` (también `Ctrl+Alt+Shift`) | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
+| `Ctrl+B` | Activa o desactiva el modo bloque: `Shift` + flechas y arrastrar con el ratón seleccionan un bloque vertical (la línea de estado muestra "Modo bloque"). Úsalo en terminales que se quedan con `Alt+Shift` + flechas, como Windows Terminal (redimensionar paneles). |
 | `Ctrl+A` | Seleccionar todo. `Esc` quita la selección. |
 | `Ctrl+C` / `Ctrl+Insert` | Copiar la selección. |
 | `Ctrl+X` / `Shift+Supr` | Cortar la selección. |

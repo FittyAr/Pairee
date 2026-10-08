@@ -120,6 +120,7 @@ editor_error_not_utf8 = "This file is not valid UTF-8 text. The editor only edit
 editor_error_too_large = "This file is too large for the editor ({} MiB). Open it with the viewer (F3) instead."
 editor_overwrite_title = " Confirm Overwrite "
 editor_read_only_flag = "Read-only"
+editor_block_mode_flag = "Block mode (Ctrl+B)"
 editor_read_only_locked = "This file is read-only and editing is locked (Options > Configuration > Editor). Use Shift+F2 to save a copy."
 editor_read_only_warning = "This file is read-only. You can edit it, but saving will fail unless you save it under another name (Shift+F2)."
 editor_save_as_text = "\n File name (relative to the file's folder):\n > {}_\n\n [Enter] Save   [Esc] Cancel"

@@ -27,6 +27,7 @@ pub(super) fn handle(state: &mut AppState, key: &KeyEvent, context: &AppContext,
         KeyCode::F(2) => {
             save_active_editor(state, None, false);
         }
+        KeyCode::Char('b') if is_ctrl => ed.block_mode = !ed.block_mode,
         KeyCode::Char('s') if is_ctrl => {
             save_active_editor(state, None, false);
         }
