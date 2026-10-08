@@ -856,6 +856,8 @@ viewer_truncated = "[Showing the first {} of {}]"
 viewer_title_bar = " Viewer: [{}] {} "
 which_key_hint = "[Enter] Run  [Esc] Close"
 which_key_prefix = "Prefix"
+color_groups_title = " Color Groups "
+files_highlighting_title = " Files Highlighting "
 command_palette_title = " Command Palette (Ctrl+Shift+P) "
 which_key_title = "Which-key"
 

@@ -19,14 +19,12 @@ pub fn handle_row(
         }
         1 => Some(PopupType::ColorGroupsDialog {
             cursor_idx: 0,
-            editing: false,
-            edit_buffer: String::new(),
+            edit: None,
             theme: context.config.theme.clone(),
         }),
         2 => Some(PopupType::FilesHighlightingDialog {
             cursor_idx: 0,
-            editing: false,
-            edit_buffer: String::new(),
+            edit: None,
             rules: settings.highlight_rules.clone(),
         }),
         _ => None,

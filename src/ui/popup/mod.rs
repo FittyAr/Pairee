@@ -3,7 +3,6 @@ pub mod color_groups;
 pub mod command_palette;
 pub mod config_dialog;
 pub mod editor;
-pub mod files_highlighting;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_new_popups;
@@ -98,9 +97,6 @@ fn render_specific_popup(
         return;
     }
     if color_groups::render_color_groups_popup(f, popup, theme, size) {
-        return;
-    }
-    if files_highlighting::render_files_highlighting_popup(f, popup, theme, size) {
         return;
     }
     if info::render_info_popup(f, popup, theme, size) {

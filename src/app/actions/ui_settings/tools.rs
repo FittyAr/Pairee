@@ -100,14 +100,12 @@ pub fn handle_tools_action(
         }
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
-                crate::app::state::ConfigurationDialogState {
-                    active_tab: 0,
-                    cursor_idx: 0,
-                    editing_value: false,
-                    edit_buffer: String::new(),
-                    settings: Box::new(context.config.settings.clone()),
-                    focus_on_tabs: true,
-                },
+                crate::app::state::ConfigurationDialogState::new(
+                    &context.config.settings,
+                    0,
+                    0,
+                    true,
+                ),
             ));
             true
         }

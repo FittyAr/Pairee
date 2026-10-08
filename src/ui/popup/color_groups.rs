@@ -1,54 +1,27 @@
+//! "Color groups" and "Files highlighting" dialogs: a scrolled list of
+//! `name < color >` rows with the cursor row highlighted.
+
 use super::centered_rect;
 use crate::app::state::PopupType;
-use crate::config::theme::Theme;
+use crate::app::text_input::TextField;
+use crate::config::localization::t;
+use crate::config::theme::{COLOR_PROPS, Theme};
+use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
-pub const THEME_PROPS: [&str; 16] = [
-    "panel_bg",
-    "panel_fg",
-    "panel_border",
-    "selection_bg",
-    "selection_fg",
-    "marked_fg",
-    "header_bg",
-    "header_fg",
-    "cli_bg",
-    "cli_fg",
-    "fkey_num_fg",
-    "fkey_text_fg",
-    "fkey_bg",
-    "popup_bg",
-    "popup_fg",
-    "popup_border",
-];
-
-pub fn get_theme_prop(theme: &Theme, idx: usize) -> &String {
-    match idx {
-        0 => &theme.panel_bg,
-        1 => &theme.panel_fg,
-        2 => &theme.panel_border,
-        3 => &theme.selection_bg,
-        4 => &theme.selection_fg,
-        5 => &theme.marked_fg,
-        6 => &theme.header_bg,
-        7 => &theme.header_fg,
-        8 => &theme.cli_bg,
-        9 => &theme.cli_fg,
-        10 => &theme.fkey_num_fg,
-        11 => &theme.fkey_text_fg,
-        12 => &theme.fkey_bg,
-        13 => &theme.popup_bg,
-        14 => &theme.popup_fg,
-        15 => &theme.popup_border,
-        _ => &theme.panel_bg,
-    }
+/// One row: label, stored color, and its unfocused / focused styles.
+struct ColorRow {
+    label: String,
+    color: String,
+    style: Style,
+    selected: Style,
 }
 
 pub fn render_color_groups_popup(
@@ -57,57 +30,79 @@ pub fn render_color_groups_popup(
     theme: &Theme,
     size: Rect,
 ) -> bool {
-    if let PopupType::ColorGroupsDialog {
-        cursor_idx,
-        editing,
-        edit_buffer,
-        theme: edit_theme,
-    } = popup
-    {
-        let area = centered_rect(60, 60, size);
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-            .title(" Color Groups ")
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
-
-        let mut lines = Vec::new();
-        let scroll_start = cursor_idx.saturating_sub(inner.height as usize / 2);
-
-        for (i, prop_name) in THEME_PROPS
-            .iter()
-            .enumerate()
-            .skip(scroll_start)
-            .take(inner.height as usize)
-        {
-            let is_cursor = i == *cursor_idx;
-
-            let prop_value = if is_cursor && *editing {
-                format!("{}_", edit_buffer)
-            } else {
-                get_theme_prop(edit_theme, i).clone()
-            };
-
-            let style = if is_cursor {
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg))
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
-            };
-
-            let line_text = format!(" {:<20} < {:^15} >", prop_name, prop_value);
-            lines.push(Line::from(Span::styled(line_text, style)));
+    let selection = kit::selection(theme).add_modifier(Modifier::BOLD);
+    let (title, cursor, edit, rows) = match popup {
+        PopupType::ColorGroupsDialog {
+            cursor_idx,
+            edit,
+            theme: edited,
+        } => {
+            let rows = COLOR_PROPS
+                .iter()
+                .map(|prop| ColorRow {
+                    label: format!("{:<20}", prop.name),
+                    color: (prop.get)(edited).clone(),
+                    style: kit::popup_fg(theme),
+                    selected: selection,
+                })
+                .collect::<Vec<_>>();
+            (t("color_groups_title"), *cursor_idx, edit, rows)
         }
+        PopupType::FilesHighlightingDialog {
+            cursor_idx,
+            edit,
+            rules,
+        } => {
+            // Each rule is shown in its own color.
+            let rows = rules
+                .iter()
+                .map(|rule| {
+                    let fg = parse_color(&rule.color);
+                    ColorRow {
+                        label: format!("{:<30}", rule.mask),
+                        color: rule.color.clone(),
+                        style: Style::default().bg(parse_color(&theme.popup_bg)).fg(fg),
+                        selected: Style::default()
+                            .bg(parse_color(&theme.selection_bg))
+                            .fg(fg)
+                            .add_modifier(Modifier::BOLD),
+                    }
+                })
+                .collect::<Vec<_>>();
+            (t("files_highlighting_title"), *cursor_idx, edit, rows)
+        }
+        _ => return false,
+    };
+    let border = kit::fg(parse_color(&theme.popup_border));
+    let inner = kit::frame_in(f, centered_rect(60, 60, size), title, border, theme);
+    let lines = color_lines(&rows, cursor, edit.as_ref(), inner.height as usize);
+    f.render_widget(Paragraph::new(lines), inner);
+    true
+}
 
-        f.render_widget(Paragraph::new(lines), inner);
-        return true;
-    }
-    false
+/// The visible rows, scrolled so the cursor stays near the middle.
+fn color_lines(
+    rows: &[ColorRow],
+    cursor: usize,
+    edit: Option<&TextField>,
+    height: usize,
+) -> Vec<Line<'static>> {
+    let start = cursor.saturating_sub(height / 2);
+    rows.iter()
+        .enumerate()
+        .skip(start)
+        .take(height)
+        .map(|(i, row)| {
+            let focused = i == cursor;
+            let value = match edit {
+                Some(field) if focused => format!("{}_", field.text()),
+                _ => row.color.clone(),
+            };
+            let style = if focused { row.selected } else { row.style };
+            Line::from(Span::styled(
+                format!(" {} < {:^15} >", row.label, value),
+                style,
+            ))
+        })
+        .collect()
 }

@@ -2,6 +2,7 @@ pub mod about;
 pub mod apply_command;
 pub mod archive_commands;
 pub mod color_groups;
+pub mod color_list;
 pub mod command_palette;
 pub mod compress;
 pub mod config_dialog;

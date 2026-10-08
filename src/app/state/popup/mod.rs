@@ -257,14 +257,14 @@ pub enum PopupType {
 
     ColorGroupsDialog {
         cursor_idx: usize,
-        editing: bool,
-        edit_buffer: String,
+        /// The color being typed (Enter), if any.
+        edit: Option<TextField>,
         theme: crate::config::theme::Theme,
     },
     FilesHighlightingDialog {
         cursor_idx: usize,
-        editing: bool,
-        edit_buffer: String,
+        /// The color being typed (Enter), if any.
+        edit: Option<TextField>,
         rules: Vec<crate::ui::highlight::HighlightRule>,
     },
 

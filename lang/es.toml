@@ -856,6 +856,8 @@ viewer_truncated = "[Mostrando los primeros {} de {}]"
 viewer_title_bar = " [{}] {}  | F2=Hex/Text  Esc=Cerrar "
 which_key_hint = "[Enter] Ejecutar  [Esc] Cerrar"
 which_key_prefix = "Prefijo"
+color_groups_title = " Grupos de colores "
+files_highlighting_title = " Resaltado de archivos "
 command_palette_title = " Paleta de comandos (Ctrl+Shift+P) "
 which_key_title = "Which-key"
 
