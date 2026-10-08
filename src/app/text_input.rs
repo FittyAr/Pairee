@@ -10,7 +10,7 @@
 
 mod field;
 
-pub use field::{TextField, first_paste_line};
+pub use field::{FieldEdit, TextField, first_paste_line};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Returns the largest grapheme boundary `<= idx` (clamped to `s.len()`).

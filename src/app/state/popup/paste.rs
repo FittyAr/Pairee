@@ -26,6 +26,9 @@ impl PopupType {
                 dest_input: input, ..
             } => Some(input),
             PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
+            PopupType::CommandPalette { query, .. } | PopupType::WhichKey { query, .. } => {
+                Some(query)
+            }
             PopupType::EditorSearchPrompt(search) | PopupType::ViewerSearchPrompt(search)
                 if search.cursor_idx == 0 =>
             {
@@ -48,10 +51,6 @@ impl PopupType {
         match self {
             PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
                 input.push_str(paste);
-                true
-            }
-            PopupType::CommandPalette { query, .. } | PopupType::WhichKey { query, .. } => {
-                query.push_str(paste);
                 true
             }
             _ => false,

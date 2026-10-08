@@ -145,6 +145,42 @@ pub fn list_key(keys: ListKeys, code: KeyCode, cursor: &mut usize, len: usize) -
     }
 }
 
+/// Meaning of a key in a type-to-filter list (command palette, which-key).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterKey {
+    /// Cursor moved (or nothing happened).
+    Moved,
+    /// The query text changed: refilter and reset the cursor.
+    QueryChanged,
+    /// Enter on visible row `n`.
+    Activate(usize),
+    /// Esc.
+    Close,
+}
+
+/// Up / Down move (without wrapping) inside `visible` rows, Enter / Esc
+/// activate / close, anything else edits `query`.
+pub fn filter_list_key(
+    query: &mut crate::app::text_input::TextField,
+    cursor: &mut usize,
+    visible: usize,
+    key: &crossterm::event::KeyEvent,
+) -> FilterKey {
+    match key.code {
+        KeyCode::Up => *cursor = cursor.saturating_sub(1).min(visible.saturating_sub(1)),
+        KeyCode::Down => *cursor = (*cursor + 1).min(visible.saturating_sub(1)),
+        KeyCode::Enter => return FilterKey::Activate((*cursor).min(visible.saturating_sub(1))),
+        KeyCode::Esc => return FilterKey::Close,
+        _ => {
+            if query.handle_edit_key(key) == crate::app::text_input::FieldEdit::Edited {
+                *cursor = 0;
+                return FilterKey::QueryChanged;
+            }
+        }
+    }
+    FilterKey::Moved
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

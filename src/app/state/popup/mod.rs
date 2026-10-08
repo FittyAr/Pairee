@@ -290,13 +290,13 @@ pub enum PopupType {
     },
 
     CommandPalette {
-        query: String,
+        query: TextField,
         cursor_idx: usize,
         items: Vec<(String, crate::keybindings::Action)>,
     },
 
     WhichKey {
-        query: String,
+        query: TextField,
         cursor_idx: usize,
         items: Vec<(String, String, crate::keybindings::Action)>,
     },

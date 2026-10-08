@@ -4,8 +4,10 @@
 //! same way, so they live here once.
 
 mod field;
+mod filter_list;
 
 pub use field::{field_spans, template_with_field};
+pub use filter_list::FilterListView;
 
 use crate::app::text_input::TextField;
 use crate::config::theme::Theme;
