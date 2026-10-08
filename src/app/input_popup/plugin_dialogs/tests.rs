@@ -17,11 +17,7 @@ fn make_key(code: KeyCode) -> KeyEvent {
 }
 
 fn ctx() -> AppContext {
-    AppContext::new(AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    })
+    AppContext::new(AppConfig::default())
 }
 
 fn state() -> AppState {

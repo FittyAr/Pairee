@@ -72,9 +72,11 @@ Las operaciones de archivo en Pairee son asíncronas, procesándose en una cola 
 * **Búsqueda en el Visor:** Presiona `F7` dentro del visor para buscar cadenas de texto.
 * **Vista Rápida:** Muestra una vista previa del archivo seleccionado en el panel opuesto. Admite vistas de texto y listado de metadatos de archivos comprimidos.
 
-### 3.3 Editor Interno
-* Edita archivos de texto directamente en la aplicación.
-* Cuenta con indicadores de línea y carácter actual, junto con advertencias de cambios sin guardar al intentar salir.
+### 3.3 Editor integrado
+* Toda la edición se hace en el editor integrado (`F4`); Pairee nunca lanza un editor externo.
+* Deshacer/rehacer (`Ctrl+Z` / `Ctrl+Y`), búsqueda, guardar y guardar como (`Shift+F2`).
+* Conserva los finales de línea (LF/CRLF), el salto de línea final y el BOM UTF-8; respeta el tamaño de tabulación, la expansión de tabulaciones, el auto-sangrado y los números de línea.
+* Avisa o bloquea los archivos de solo lectura y pregunta antes de sobrescribir un archivo modificado por otro programa.
 
 ---
 

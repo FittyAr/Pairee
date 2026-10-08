@@ -112,16 +112,15 @@ pub fn render_screen(
             }
         }
         Screen::Editor(ed) => {
+            let settings = &context.config.settings;
             crate::ui::popup::editor::render_editor_widget(
                 f,
                 layout.main_rect,
-                &ed.path,
-                &ed.lines,
-                ed.cursor_x,
-                ed.cursor_y,
-                ed.scroll_y,
-                ed.is_dirty,
-                context.config.settings.editor_tab_size as usize,
+                ed,
+                crate::ui::popup::editor::EditorView {
+                    tab_size: (settings.editor_tab_size as usize).max(1),
+                    show_line_numbers: settings.editor_show_line_numbers,
+                },
                 &context.config.theme,
                 state.dialogs.top(),
             );

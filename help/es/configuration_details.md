@@ -2,7 +2,7 @@
 
 Este manual proporciona una descripción exhaustiva de todas las opciones de configuración disponibles en el Diálogo de Configuración de Pairee (`F2 -> Opciones -> Configuración` o `Comandos -> Configuración`).
 
-> **Nota:** las opciones que todavía no están implementadas (descripciones de archivos, detalles del panel de información, comportamiento de edición en diálogos y línea de comandos, la mayoría de las opciones del editor y del visor, indicadores de compatibilidad del gestor de plugins y algunas confirmaciones) están ocultas en el diálogo. Sus valores se conservan en `config.toml`, pero no tienen efecto hasta que se implementen. Si una opción descrita aquí no aparece en el diálogo, pertenece a ese grupo.
+> **Nota:** solo se ofrecen las opciones que tienen efecto. Las opciones de versiones anteriores que nunca hicieron nada (por ejemplo descripciones de archivos, formatos de nombre del panel de información, indicadores de compatibilidad del gestor de plugins, páginas de códigos del editor o el comando de editor externo) se eliminaron; si tu `config.toml` todavía las contiene, se ignoran.
 
 ---
 
@@ -13,12 +13,6 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
 ### Operaciones de Archivo
 * **Delete to Recycle Bin (Eliminar a la Papelera):**
   - *Descripción:* Cuando está habilitado, los archivos eliminados se mueven a la papelera del sistema. Si está desactivado, se eliminan permanentemente.
-* **Use system copy routine (Usar rutina de copia del sistema):**
-  - *Descripción:* Delega las operaciones de copiado y movimiento a las APIs nativas del SO. Si se desactiva, Pairee utiliza su motor asíncrono interno optimizado mediante hilos de trabajo (Tokio), permitiendo resoluciones de colisiones avanzadas (sobrescribir, omitir, añadir).
-* **Copy files opened for writing (Copiar archivos abiertos para escritura):**
-  - *Descripción:* Activa si Pairee debe intentar copiar archivos que están bloqueados o siendo modificados por otros procesos de software.
-* **Scan symbolic links (Escanear enlaces simbólicos):**
-  - *Descripción:* Sigue la ruta física original de los enlaces simbólicos durante las operaciones de archivos.
 
 ### Funciones opcionales
 * **SSH / SFTP:** muestra Conectar SSH en los menús de panel.
@@ -44,12 +38,10 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
   - *Descripción:* Solicita automáticamente privilegios de administrador (sudo/UAC) al intentar modificar o renombrar archivos protegidos por el sistema.
 * **Request admin reading (Solicitar admin para lectura):**
   - *Descripción:* Solicita elevación de privilegios si intentas leer o abrir archivos protegidos sin permisos de acceso.
-* **Request admin use additional privileges (Solicitar admin para privilegios adicionales):**
-  - *Descripción:* Permite el uso de asistentes de escalado del sistema para operaciones avanzadas.
 
 ### Criterio de Ordenamiento
 * **Sorting collation (Colación de orden):**
-  - *Opciones:* `< linguistic >` (Orden alfabético natural humano, ej. `a` luego `B` luego `c`) o `< binary >` (Comparación binaria por bytes ASCII, ej. `B` antes que `a`).
+  - *Opciones:* `< linguistic >` (orden alfabético) o `< natural >` (como linguistic, pero los números dentro de los nombres se comparan numéricamente, igual que *Tratar dígitos como números*).
 * **Treat digits as numbers (Tratar dígitos como números):**
   - *Descripción:* Aplica orden natural. Ej. `archivo2` aparecerá antes que `archivo10`.
 * **Case sensitive sort (Sensible a mayúsculas/minúsculas):**
@@ -61,7 +53,7 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
 
 ## 📂 Pestaña 1: Ajustes de Paneles
 
-Controla las columnas del listado, filtros, actualizaciones y descripciones de archivos.
+Controla las columnas del listado, filtros y actualizaciones.
 
 ### Visualización y Selección
 * **Show hidden and system files (Mostrar archivos ocultos y de sistema):**
@@ -70,8 +62,6 @@ Controla las columnas del listado, filtros, actualizaciones y descripciones de a
   - *Descripción:* Colorea los archivos según la extensión de su tipo de formato.
 * **Select folders (Seleccionar carpetas):**
   - *Descripción:* Al marcar grupos de archivos (`+` o `-`), los directorios también coincidirán con los filtros de máscara.
-* **Right click selects files (Clic derecho selecciona archivos):**
-  - *Descripción:* Permite usar el botón derecho del ratón para marcar/taggear elementos en lote en lugar de abrir menús.
 
 ### Ordenación
 * **Sort folder names by extension (Ordenar carpetas por extensión):**
@@ -84,10 +74,6 @@ Controla las columnas del listado, filtros, actualizaciones y descripciones de a
 ### Actualizaciones e Información
 * **Disable panel update object count (Desactivar recuento de objetos):**
   - *Descripción:* Limita la frecuencia de actualización visual del recuento de archivos para directorios gigantescos, optimizando el rendimiento.
-* **Network drives autorefresh (Autorefresh de unidades de red):**
-  - *Descripción:* Vigila y refresca automáticamente los cambios en rutas de red montadas.
-* **Detect volume mount points (Detectar puntos de montaje):**
-  - *Descripción:* Monitorea los discos montados en el sistema de archivos.
 * **Show files total information (Mostrar info total de archivos):**
   - *Descripción:* Muestra el número total de bytes y archivos seleccionados en la línea de estado.
 * **Show free size (Mostrar espacio libre):**
@@ -100,16 +86,8 @@ Controla las columnas del listado, filtros, actualizaciones y descripciones de a
   - *Descripción:* Muestra la barra inferior con los datos de selección.
 * **Show scrollbar (Mostrar barra de scroll):**
   - *Descripción:* Dibuja barras de desplazamiento vertical a la derecha del panel.
-* **Show background screens number (Mostrar número de pantallas de fondo):**
-  - *Descripción:* Muestra la cantidad de pantallas activas en segundo plano.
 * **Show ".." in root folders (Mostrar ".." en carpetas raíz):**
   - *Descripción:* Permite ver el enlace de retroceso (`..`) incluso en el directorio raíz (ej. `/` o `C:\`).
-
-### Panel de Información y Descripciones
-* **Formatos de Nombre de Máquina/Usuario:**
-  - *Descripción:* Configura cómo se renderizan el hostname y el nombre de usuario activo en el panel de información (`Ctrl+L`).
-* **Descripciones de Archivos:**
-  - *Descripción:* Define las listas (ej. `Descript.ion`), ocultar archivos de descripción, compatibilidad con colores ANSI y codificación UTF-8.
 
 ---
 
@@ -122,17 +100,6 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 * **Mouse support (Soporte de ratón):** Activa interacción por ratón (selección, clics, scrolling).
 * **Show bottom F-keys bar (Mostrar barra de teclas F):** Toggles la barra inferior de accesos F1-F10.
 * **Always show the menu bar (Mostrar barra de menú siempre):** Mantiene visible el menú superior.
-* **Screen saver minutes (Salvapantallas):** Activa un protector de pantalla tras cierto tiempo de inactividad.
-
-### Indicadores de Progreso
-* **Show total copy progress / copying time:** Barra agregada de progreso y tiempos de espera al copiar.
-* **Show total delete progress:** Barra de progreso para eliminaciones masivas.
-
-### Terminal y Redibujado
-* **Use Ctrl+PgUp to change drive:** Permite rotar de unidad usando `Ctrl+PgUp`/`Ctrl+PgDn`.
-* **Use virtual terminal:** (Windows) Activa el procesamiento virtual terminal de la consola.
-* **ClearType friendly redraw:** Optimiza el redibujado para evitar distorsiones de fuentes tipográficas en terminales específicas.
-* **Window Title Format (Formato del Título):** Define las variables del título del terminal (ej. `%Platform`).
 
 ### Atajos de teclado
 * **Preajuste de atajos:** Alterna Norton / Neovim / VS Code. Una línea de estado indica si el preset (más `custom_bindings`) cargó bien.
@@ -149,17 +116,12 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 Ajusta qué acciones requieren mostrar una ventana de advertencia antes de llevarse a cabo.
 
 ### Operaciones de Archivo
-* **Confirmar copiar / mover / sobrescribir:** Avisa antes de realizar copias, movimientos o reemplazar archivos duplicados en destino.
-* **Confirmar drag and drop:** Avisa antes de completar acciones de arrastre con ratón.
+* **Confirmar copiar / mover:** Avisa antes de realizar copias o movimientos. Qué ocurre cuando el archivo de destino ya existe lo decide la propia transferencia (ver `transfer_conflict_resolution` en `config.toml`).
 * **Confirmar eliminar / eliminar carpetas no vacías:** Avisa antes de borrar archivos o carpetas con contenido.
-
-### Discos y Sistema
 * **Confirmar interrupción de operaciones:** Avisar antes de cancelar procesos de hilos en segundo plano.
-* **Confirmar desconectar unidad de red / discos subst:** Avisa al desmontar rutas locales/remotas.
-* **Confirmar desmontar disco virtual / remoción hotplug:** Avisa al retirar unidades de disco lógicas.
 
 ### Confirmaciones Generales
-* **Confirmar recargar archivo editado:** Avisa al editor si el archivo abierto ha sido modificado fuera de la aplicación.
+* **Confirmar recargar archivo editado:** Pregunta antes de que `Ctrl+R` en el editor recargue el archivo desde disco y descarte los cambios sin guardar.
 * **Confirmar limpiar historial:** Avisa antes de purgar los registros de base de datos.
 * **Confirmar salir:** Avisa al usuario antes de cerrar Pairee.
 
@@ -171,35 +133,26 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 * **Main language (Idioma principal):** Permite cambiar el archivo de traducción activo leyendo las configuraciones `.toml` de la carpeta `/lang`.
 
 ### Plugins
-* **Soporte de plugins OEM (OEM plugin support):**
-  - *Descripción:* Permite cargar y procesar plugins heredados codificados en formato de consola OEM (ej. CP437, CP850). Convierte dinámicamente sus salidas a UTF-8 para evitar errores de renderizado de caracteres.
-* **Escanear enlaces simbólicos (Scan symlinks):**
-  - *Descripción:* Determina si el motor de plugins debe seguir y escanear enlaces simbólicos al buscar nuevos complementos en el directorio de plugins.
-* **Procesamiento de archivos (File processing):**
-  - *Descripción:* Delega la apertura o procesamiento de archivos y extensiones registradas a los plugins correspondientes (ej. para explorar archivos comprimidos como si fuesen carpetas).
-* **Mostrar asociación estándar (Show standard association):**
-  - *Descripción:* Muestra las aplicaciones predeterminadas del sistema operativo junto con las opciones de plugins al solicitar abrir un archivo con asociaciones múltiples.
-* **Incluso si solo se encuentra un plugin (Even if only one plugin is found):**
-  - *Descripción:* Muestra el diálogo de confirmación y selección para procesar el archivo incluso si solo existe un único plugin capaz de manejar ese formato (de lo contrario, se procesará directamente sin preguntar).
-* **Resultados de búsqueda (SetFindList) (Search results):**
-  - *Descripción:* Permite que un plugin intercepte y manipule el listado de resultados de búsqueda (ej. para volcar búsquedas avanzadas directamente a la lista activa del panel).
-* **Procesamiento de prefijos (Prefix processing):**
-  - *Descripción:* Habilita el reconocimiento y procesamiento de comandos con prefijo (ej. `ftp:servidor` o `arc:archivo.zip`) para invocar directamente a un plugin específico desde la línea de comandos.
+* **Modo desarrollador de plugins:** Activa las herramientas de desarrollo de plugins (carpeta de desarrollo y plugin de prueba).
 
 ---
 
 ## 📂 Pestaña 5: Ajustes del Editor y Visor
 
-### Comandos Externos
-* **Usar editor externo / Comando de edición:** Redirige la acción de `F4` a un comando personalizado (ej. `nano %f`).
-* **Usar visor externo / Comando de visualización:** Redirige la acción de `F3` a un comando de lectura personalizado (ej. `less %f`).
+### Visor
+* **Usar visor externo para F3:** `F3` ejecuta el comando de visualización de la asociación del archivo (ver *Editor de Asociaciones de Archivo* más abajo) y `Alt+F3` abre el visor interno; desactivado es al revés.
+* **Usar comando externo al abrir archivos con Enter:** Enter ejecuta el comando de apertura de la asociación en lugar de abrir el visor interno.
+* **Tamaño de tabulación / Mostrar barra de desplazamiento:** Ancho de tabulación y barra de desplazamiento del visor interno.
 
-### Editor Interno
-* **Tab size (Tamaño de tabulación):** Espaciado del tabulador.
-* **Expand tabs (Expandir tabulación):** Convierte tabuladores en espacios simples.
-* **Persistent blocks / Del removes blocks:** Criterios de retención de texto seleccionado.
-* **Cursor beyond EOL:** Permite situar el cursor libremente después del fin de línea.
-* **Show line numbers / scrollbar / whitespace:** Activa visualizadores de formato.
+### Editor integrado
+Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opción de editor externo.
+* **Tamaño de tabulación:** Ancho de una parada de tabulación (2, 4 u 8 columnas).
+* **Expandir tabulaciones:** *No expandir tabulaciones* inserta un carácter de tabulación; *Expandir tabulaciones nuevas a espacios* hace que `Tab` inserte espacios hasta la siguiente parada; *Convertir todas las tabulaciones a espacios* además convierte las tabulaciones existentes al abrir el archivo.
+* **Auto-sangrado:** `Enter` comienza la nueva línea con la sangría de la actual.
+* **Mostrar números de línea:** Muestra la columna de números de línea.
+* **Cursor al final:** Abre los archivos con el cursor en la última línea.
+* **Bloquear edición de archivos de solo lectura:** Los archivos de solo lectura se abren bloqueados; usa `Shift+F2` para guardar una copia.
+* **Avisar al abrir archivos de solo lectura:** Muestra un aviso al abrir un archivo de solo lectura.
 
 ---
 
@@ -215,7 +168,6 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 
 ### General
 * **Enable Git integration (Habilitar integración Git):** Activa el gancho (hook) con el panel de Git.
-* **Auto-detect git repos (Autodetectar repositorios):** Activa el escaneo en carpetas para identificar repositorios activos.
 
 ### Identidad del Autor
 * **Author name / Author email (Nombre / Correo del autor):** Sobrescribe los datos de usuario al confirmar cambios (commits). Si se deja en blanco, utiliza los datos configurados en el Git del sistema.
@@ -231,7 +183,7 @@ Las asociaciones de archivos te permiten mapear patrones de nombres de archivos 
 * `↑` / `↓`: Navegar a través de la lista de reglas.
 * `A` / `a` / `Insert`: Añadir una nueva regla de asociación. Se te solicitarán secuencialmente los siguientes datos:
   1. **Máscara (Mask):** Patrón glob (ej: `*.rs` o `*.{jpg,png}`).
-  2. **Comando Abrir (Open Command):** El comando de terminal que se ejecutará al abrir el archivo (ej: `notepad %f` o `code %f`). El marcador `%f` se sustituye con la ruta del archivo.
+  2. **Comando Abrir (Open Command):** El comando de terminal que se ejecutará al abrir el archivo (ej: `explorer %f` en Windows o `xdg-open %f` en Linux). El marcador `%f` se sustituye con la ruta del archivo.
   3. **Comando Ver (opcional - View Command):** Comando para el visor de `F3`. Si se deja en blanco, usará el comando de abrir.
 * `E` / `e` / `Enter`: Editar la regla seleccionada. Sigue el mismo asistente paso a paso de ingreso de campos.
 * `D` / `d` / `Delete`: Eliminar la regla seleccionada de la lista.
@@ -250,4 +202,3 @@ Algunos parámetros avanzados se pueden configurar directamente dentro del archi
   - *Descripción:* Cuando está activo, Pairee consulta GitHub Releases en segundo plano al arrancar para buscar nuevas versiones.
 * **`dismissed_update_version`** (`string`, por defecto: `null` o vacío):
   - *Descripción:* Almacena la etiqueta de versión (ej. `v1.2.3`) de una actualización que el usuario ha descartado o ignorado de forma explícita, evitando futuras ventanas emergentes sobre esa versión específica. Puedes limpiar este valor si deseas volver a recibir avisos sobre esa versión.
-

@@ -21,16 +21,10 @@ impl AssociationsConfig {
     pub fn load() -> Self {
         match Self::try_load() {
             Ok(mut config) => {
-                let is_old = config.rules.len() == 4
-                    && config.rules[0].mask == "*.rs"
-                    && config.rules[1].mask == "*.toml"
-                    && config.rules[2].mask == "*.md"
-                    && config.rules[3].mask == "*.{zip,tar,gz,bz2,xz,7z}";
-                if is_old {
-                    config = Self::default_rules();
-                    if let Err(e) = config.save() {
-                        log::warn!("Failed to refresh associations.toml: {}", e);
-                    }
+                if config.migrate()
+                    && let Err(e) = config.save()
+                {
+                    log::warn!("Failed to refresh associations.toml: {}", e);
                 }
                 config
             }
@@ -60,6 +54,27 @@ impl AssociationsConfig {
         let toml_str = toml::to_string_pretty(self).context("Serializing associations")?;
         write_atomic(&path, toml_str.as_bytes())
             .with_context(|| format!("Writing associations file {:?}", path))
+    }
+
+    /// Upgrades rules written by older releases. Returns `true` when the rules
+    /// changed and should be saved.
+    ///
+    /// - The original four-rule set is replaced by the current defaults.
+    /// - Untouched default rules that launched an external text editor are
+    ///   dropped: editing is done by the built-in editor only.
+    fn migrate(&mut self) -> bool {
+        let is_original_set = self.rules.len() == 4
+            && self.rules[0].mask == "*.rs"
+            && self.rules[1].mask == "*.toml"
+            && self.rules[2].mask == "*.md"
+            && self.rules[3].mask == "*.{zip,tar,gz,bz2,xz,7z}";
+        if is_original_set {
+            *self = Self::default_rules();
+            return true;
+        }
+        let before = self.rules.len();
+        self.rules.retain(|r| !defaults::is_legacy_editor_rule(r));
+        self.rules.len() != before
     }
 
     /// Finds the first rule whose mask matches the given filename.
@@ -155,9 +170,32 @@ mod tests {
     #[test]
     fn test_find_rule() {
         let config = AssociationsConfig::default_rules();
-        let rule = config.find_rule("Cargo.toml");
+        let rule = config.find_rule("photo.png");
         assert!(rule.is_some());
-        assert_eq!(rule.unwrap().mask, "*.toml");
+        assert_eq!(rule.unwrap().mask, "*.{jpg,jpeg,png,gif,bmp,svg,webp}");
+        assert!(config.find_rule("Cargo.toml").is_none());
+    }
+
+    #[test]
+    fn migrate_drops_legacy_editor_rules_only() {
+        let mut config = AssociationsConfig {
+            rules: vec![
+                AssocRule {
+                    mask: "*.rs".to_string(),
+                    open_cmd: "notepad %f".to_string(),
+                    view_cmd: None,
+                },
+                AssocRule {
+                    mask: "*.py".to_string(),
+                    open_cmd: "code %f".to_string(),
+                    view_cmd: None,
+                },
+            ],
+        };
+        assert!(config.migrate());
+        assert_eq!(config.rules.len(), 1);
+        assert_eq!(config.rules[0].mask, "*.py");
+        assert!(!config.migrate());
     }
 
     #[test]

@@ -7,6 +7,8 @@
 - `Alt+G` now opens the Git panel in every built-in keymap, as the menu already advertised.
 - Built-in keymaps now pick up newly shipped bindings even when an older copy of the keymap file exists in the config folder (user-defined chords always win).
 - Editor and viewer honor the "Tab size" settings when displaying tab characters.
+- Built-in editor: undo/redo (`Ctrl+Z` / `Ctrl+Y`, typing runs are one step), save as (`Shift+F2`), `Tab` key, `Home`/`End` and `Ctrl+Home`/`Ctrl+End`, horizontal scrolling for long lines, and `F6` in the viewer opens the file in the editor. Line endings (LF/CRLF), the final newline and the UTF-8 BOM are preserved on save. Saving asks before overwriting a file that another program changed or an existing "save as" target. Files that are not valid UTF-8 or larger than 64 MiB are refused with an explanation instead of being corrupted.
+- Editor settings that had no effect now work and are back in **Options → Configuration → Editor/Viewer**: expand tabs, auto indent, show line numbers, cursor at the end, lock editing of read-only files and warn when opening read-only files.
 - Panel visibility, view mode, sort order and long-names mode are restored at startup from the last **Save setup**.
 - The "natural" sorting collation now sorts numbers inside names numerically.
 - `pairee.fs.data_dir()` returns the plugin's private data directory, the only location an untrusted plugin may write to.
@@ -33,12 +35,14 @@
 - Untracked file badges and labels in Git panel now render in Magenta for consistent contrast and readability across dark backgrounds.
 - Enhanced scroll behavior in the Git diff viewer for short files.
 - Centralized all Git operation error alerts, conflict notifications, confirmation prompts, and buttons into localization catalogs with zero hardcoding.
+- Internal: the "do not overwrite an invalid `config.toml` until confirmed" lock and the startup load error now live in `AppConfig` (`ConfigLoadState`) instead of process-wide globals.
 
 ### Deprecated
 
 ### Removed
 
-- Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
+- External editor support: Pairee edits files only with its built-in editor. F4 and every other "edit" entry point always open the internal editor. The `editor_use_external` and `default_editor` settings are gone (old `config.toml` files that still contain them load fine), and the default file associations no longer launch `notepad`/`nano` for text files; untouched old default rules of that kind are removed from `associations.toml` on load.
+- Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
 
 - Removed several crash paths: Git panel sub-dialogs, copy/move filter and tree prompts no longer `unwrap` the open dialog, file panels never slice out of range while drawing, and popups are no longer cloned on every key press (the Git panel and image quick view were deep-copied per key).

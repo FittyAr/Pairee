@@ -8,35 +8,13 @@ mod sort;
 
 pub use sort::sort_entries;
 
-#[allow(dead_code)]
-pub fn read_directory(
-    path: &Path,
-    show_hidden: bool,
-    case_sensitive_sort: bool,
-    treat_digits_as_numbers: bool,
-    _sorting_collation: &str,
-    req_admin_reading: bool,
-) -> Result<Vec<FileEntry>> {
-    read_directory_ext(
-        path,
-        show_hidden,
-        case_sensitive_sort,
-        treat_digits_as_numbers,
-        _sorting_collation,
-        req_admin_reading,
-        crate::app::state::SortField::Name,
-        false,
-        false,
-        true,
-    )
-}
-
+/// Lists `path` sorted as requested. The "natural" sorting collation is
+/// resolved by the caller into `treat_digits_as_numbers`.
 pub fn read_directory_ext(
     path: &Path,
     show_hidden: bool,
     case_sensitive_sort: bool,
     treat_digits_as_numbers: bool,
-    _sorting_collation: &str,
     req_admin_reading: bool,
     sort_field: crate::app::state::SortField,
     sort_reverse: bool,
@@ -156,11 +134,21 @@ mod tests {
     use super::*;
 
     fn names(dir: &Path, show_hidden: bool) -> Vec<FileEntry> {
-        read_directory(dir, show_hidden, false, false, "", false)
-            .unwrap()
-            .into_iter()
-            .filter(|e| e.name != "..")
-            .collect()
+        read_directory_ext(
+            dir,
+            show_hidden,
+            false,
+            false,
+            false,
+            crate::app::state::SortField::Name,
+            false,
+            false,
+            true,
+        )
+        .unwrap()
+        .into_iter()
+        .filter(|e| e.name != "..")
+        .collect()
     }
 
     #[test]

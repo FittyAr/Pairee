@@ -1,6 +1,10 @@
+//! Popups of the built-in editor: search, "save as" and overwrite confirmation.
+
 use crate::app::context::AppContext;
+use crate::app::editor::open::{resolve_save_as_path, save_active_editor};
+use crate::app::screen_input::editor::editor_page_height;
 use crate::app::state::{AppState, PopupType};
-use crate::app::sys_helpers::find_next_in_editor;
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
@@ -9,103 +13,94 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.dialogs.top().cloned();
-    if let Some(p) = popup {
-        match p {
-            PopupType::EditorSearchPrompt {
-                mut query,
-                mut case_sensitive,
-                mut cursor_idx,
-            } => {
-                let term_height = crossterm::terminal::size().map(|(_, h)| h).unwrap_or(24);
-                let edit_height = ((term_height as u16 * 90 / 100).saturating_sub(3)) as usize;
-
-                let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-
-                match key.code {
-                    KeyCode::Tab | KeyCode::Down => {
-                        cursor_idx = (cursor_idx + 1) % 4;
-                    }
-                    KeyCode::Up => {
-                        cursor_idx = if cursor_idx == 0 { 3 } else { cursor_idx - 1 };
-                    }
-                    KeyCode::Left | KeyCode::Right => {
-                        if cursor_idx == 2 || cursor_idx == 3 {
-                            cursor_idx = if cursor_idx == 2 { 3 } else { 2 };
-                        }
-                    }
-                    KeyCode::Char(c) => {
-                        if cursor_idx == 0 && !is_ctrl {
-                            query.push(c);
-                        } else if cursor_idx == 1 && c == ' ' {
-                            case_sensitive = !case_sensitive;
-                        }
-                    }
-                    KeyCode::Backspace => {
-                        if cursor_idx == 0 {
-                            query.pop();
-                        }
-                    }
-                    KeyCode::Esc => {
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
-                    KeyCode::Enter => {
-                        if cursor_idx == 3 {
-                            state.dialogs.clear();
-                            return Ok(None);
-                        }
-                        let q = query.clone();
-                        if !q.is_empty() {
-                            if let Some(crate::app::state::Screen::Editor(ed)) =
-                                state.screens.get_mut(state.active_screen_idx)
-                            {
-                                if let Some((found_x, found_y)) = find_next_in_editor(
-                                    &ed.lines,
-                                    ed.cursor_x,
-                                    ed.cursor_y,
-                                    &q,
-                                    case_sensitive,
-                                ) {
-                                    ed.cursor_x = found_x;
-                                    ed.cursor_y = found_y;
-                                    if ed.cursor_y < ed.scroll_y
-                                        || ed.cursor_y >= ed.scroll_y + edit_height
-                                    {
-                                        ed.scroll_y = ed.cursor_y.saturating_sub(edit_height / 2);
-                                    }
-                                    ed.last_search = Some(q.clone());
-                                    ed.last_case_sensitive = case_sensitive;
-                                    state.dialogs.replace(PopupType::EditorSearchPrompt {
-                                        query,
-                                        case_sensitive,
-                                        cursor_idx,
-                                    });
-                                } else {
-                                    state
-                                        .dialogs
-                                        .replace(PopupType::Error("Text not found".to_string()));
-                                }
-                            } else {
-                                state.dialogs.clear();
-                            }
-                        } else {
-                            state.dialogs.clear();
-                        }
-                        return Ok(None);
-                    }
-                    _ => {}
-                }
-                state.dialogs.replace(PopupType::EditorSearchPrompt {
-                    query,
-                    case_sensitive,
-                    cursor_idx,
-                });
-                Ok(None)
-            }
-            _ => Err(()),
+    match state.dialogs.top().cloned() {
+        Some(PopupType::EditorSearchPrompt {
+            query,
+            case_sensitive,
+            cursor_idx,
+        }) => {
+            handle_search(state, key, query, case_sensitive, cursor_idx);
+            Ok(None)
         }
-    } else {
-        Err(())
+        Some(PopupType::EditorSaveAsPrompt { input }) => {
+            handle_save_as(state, key, input);
+            Ok(None)
+        }
+        Some(PopupType::EditorConfirmOverwrite { target, .. }) => {
+            match key.code {
+                KeyCode::Enter | KeyCode::Char('y') | KeyCode::Char('Y') => {
+                    state.dialogs.clear();
+                    save_active_editor(state, Some(target), true);
+                }
+                KeyCode::Esc | KeyCode::Char('n') | KeyCode::Char('N') => state.dialogs.clear(),
+                _ => {}
+            }
+            Ok(None)
+        }
+        _ => Err(()),
     }
+}
+
+fn handle_search(
+    state: &mut AppState,
+    key: KeyEvent,
+    mut query: String,
+    mut case_sensitive: bool,
+    mut cursor_idx: usize,
+) {
+    let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
+    match key.code {
+        KeyCode::Tab | KeyCode::Down => cursor_idx = (cursor_idx + 1) % 4,
+        KeyCode::Up => cursor_idx = (cursor_idx + 3) % 4,
+        KeyCode::Left | KeyCode::Right if cursor_idx >= 2 => cursor_idx = 5 - cursor_idx,
+        KeyCode::Char(c) if cursor_idx == 0 && !is_ctrl => query.push(c),
+        KeyCode::Char(' ') if cursor_idx == 1 => case_sensitive = !case_sensitive,
+        KeyCode::Backspace if cursor_idx == 0 => {
+            query.pop();
+        }
+        KeyCode::Esc => return state.dialogs.clear(),
+        KeyCode::Enter if cursor_idx == 3 || query.is_empty() => return state.dialogs.clear(),
+        KeyCode::Enter => {
+            let height = editor_page_height();
+            let Some(ed) = state.active_editor_mut() else {
+                return state.dialogs.clear();
+            };
+            if !ed.find_next(&query, case_sensitive, height) {
+                state
+                    .dialogs
+                    .replace(PopupType::Error(t("editor_text_not_found")));
+                return;
+            }
+        }
+        _ => {}
+    }
+    state.dialogs.replace(PopupType::EditorSearchPrompt {
+        query,
+        case_sensitive,
+        cursor_idx,
+    });
+}
+
+fn handle_save_as(state: &mut AppState, key: KeyEvent, mut input: String) {
+    match key.code {
+        KeyCode::Char(c) => input.push(c),
+        KeyCode::Backspace => {
+            input.pop();
+        }
+        KeyCode::Esc => return state.dialogs.clear(),
+        KeyCode::Enter => {
+            let target = state
+                .active_editor_mut()
+                .and_then(|ed| resolve_save_as_path(&ed.path, &input));
+            state.dialogs.clear();
+            if let Some(target) = target {
+                save_active_editor(state, Some(target), false);
+            }
+            return;
+        }
+        _ => {}
+    }
+    state
+        .dialogs
+        .replace(PopupType::EditorSaveAsPrompt { input });
 }

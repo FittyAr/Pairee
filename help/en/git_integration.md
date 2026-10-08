@@ -13,7 +13,7 @@ Pairee features a fully integrated Git dashboard that allows you to monitor and 
 ### 1.2 Repository Management from Explorer
 * **Init Git repository (`GitInit`):** When in a non-repository directory, the panel menu offers **`Init Git repository`** to initialize a new Git repository at the current directory path.
 * **Clone repository (`GitClone`):** Available from the panel menu (**`Clone repository...`**). Prompts for a remote repository URL (HTTPS or SSH) and an optional target directory name.
-* **Auto-detection:** When `git_auto_detect` is enabled in configuration, Pairee automatically scans directories for `.git` folders as you browse.
+* **Auto-detection:** Pairee detects the repository of each local directory as you browse (branch in the panel title, status badges).
 
 ### 1.3 Explorer Panel Visual Cues
 * **Panel Title Indicator:** The active Git branch (e.g. `[git: main]`, `[git: feature/xyz]`, or `[git: (detached HEAD)]`) is displayed in the panel header.

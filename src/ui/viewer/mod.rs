@@ -3,7 +3,7 @@ mod image;
 mod state;
 mod text;
 
-pub use state::{ViewerMode, ViewerState};
+pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState};
 
 use crate::config::localization::t;
 use crate::ui::scrollbar::ScrollbarUiState;

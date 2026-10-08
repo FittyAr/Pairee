@@ -1,8 +1,9 @@
 use super::highlight::highlight_line;
+use crate::app::editor::EditorState;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
-use crate::ui::text_width::{display_width, expand_tabs};
+use crate::ui::text_width::{display_width, expand_tabs, skip_columns};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -10,25 +11,29 @@ use ratatui::{
     style::Style,
     widgets::{Block, Borders, Paragraph},
 };
-use std::path::Path;
 use unicode_segmentation::UnicodeSegmentation;
+
+/// Width of the line-number gutter (`"1234 │ "`).
+const GUTTER_WIDTH: u16 = 7;
+
+/// Display settings of the editor screen.
+#[derive(Debug, Clone, Copy)]
+pub struct EditorView {
+    pub tab_size: usize,
+    pub show_line_numbers: bool,
+}
 
 pub fn render_editor_widget(
     f: &mut Frame,
     area: Rect,
-    path: &Path,
-    lines: &[String],
-    cursor_x: usize,
-    cursor_y: usize,
-    scroll_y: usize,
-    is_dirty: bool,
-    tab_size: usize,
+    ed: &EditorState,
+    view: EditorView,
     theme: &crate::config::theme::Theme,
     active_popup: Option<&PopupType>,
 ) {
     let title = t("editor_title")
-        .replacen("{}", &path.to_string_lossy(), 1)
-        .replacen("{}", if is_dirty { "*" } else { "" }, 1);
+        .replacen("{}", &ed.path.to_string_lossy(), 1)
+        .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
 
     let block = Block::default()
         .borders(Borders::ALL)
@@ -49,14 +54,6 @@ pub fn render_editor_widget(
     let edit_area = chunks[0];
     let status_area = chunks[1];
 
-    let height = edit_area.height as usize;
-    let visible_lines: Vec<String> = lines
-        .iter()
-        .skip(scroll_y)
-        .take(height)
-        .map(|l| expand_tabs(l, tab_size))
-        .collect();
-
     // Check if there is an active search query from the search popup
     let search_info = match active_popup {
         Some(PopupType::EditorSearchPrompt {
@@ -66,39 +63,65 @@ pub fn render_editor_widget(
         }) if !query.is_empty() => Some((query.as_str(), *case_sensitive)),
         _ => None,
     };
+    let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
+    let highlight_style = Style::default()
+        .bg(parse_color(&theme.selection_bg))
+        .fg(parse_color(&theme.marked_fg))
+        .add_modifier(ratatui::style::Modifier::BOLD);
 
-    let mut text = Vec::new();
-    for (idx, line) in visible_lines.into_iter().enumerate() {
-        let line_num = scroll_y + idx + 1;
-        let prefix = format!("{:>4} │ ", line_num);
-        let mut spans = vec![ratatui::text::Span::raw(prefix)];
+    // Horizontal scroll: keep the cursor column inside the text area.
+    let gutter = if view.show_line_numbers {
+        GUTTER_WIDTH
+    } else {
+        0
+    };
+    let text_width = edit_area.width.saturating_sub(gutter).max(1) as usize;
+    let current_line = ed.current_line();
+    let (before_cursor, _, _) = text_input::split_at_cursor(current_line, ed.cursor_x);
+    let cursor_col = display_width(&expand_tabs(before_cursor, view.tab_size));
+    let scroll_x = (cursor_col + 1).saturating_sub(text_width);
 
-        if let Some((q, cs)) = search_info {
-            let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
-            let highlight_style = Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.marked_fg))
-                .add_modifier(ratatui::style::Modifier::BOLD);
-            spans.extend(highlight_line(&line, q, cs, normal_style, highlight_style));
-        } else {
-            spans.push(ratatui::text::Span::raw(line));
-        }
-        text.push(ratatui::text::Line::from(spans));
-    }
-
-    let paragraph = Paragraph::new(text).style(Style::default().fg(parse_color(&theme.panel_fg)));
+    let text: Vec<ratatui::text::Line> = ed
+        .lines
+        .iter()
+        .enumerate()
+        .skip(ed.scroll_y)
+        .take(edit_area.height as usize)
+        .map(|(idx, line)| {
+            let expanded = expand_tabs(line, view.tab_size);
+            let line = skip_columns(&expanded, scroll_x).to_string();
+            let mut spans = Vec::new();
+            if view.show_line_numbers {
+                spans.push(ratatui::text::Span::raw(format!("{:>4} │ ", idx + 1)));
+            }
+            match search_info {
+                Some((q, cs)) => {
+                    spans.extend(highlight_line(&line, q, cs, normal_style, highlight_style))
+                }
+                None => spans.push(ratatui::text::Span::raw(line)),
+            }
+            ratatui::text::Line::from(spans)
+        })
+        .collect();
 
     f.render_widget(block, area);
-    f.render_widget(paragraph, edit_area);
+    f.render_widget(Paragraph::new(text).style(normal_style), edit_area);
 
-    let current_line = lines.get(cursor_y).map_or("", |l| l.as_str());
-    let current_line_len = current_line.graphemes(true).count();
-    let cursor_col = text_input::grapheme_col(current_line, cursor_x);
+    let mut flags = ed.format.line_ending.label().to_string();
+    if ed.stamp.read_only {
+        flags.push_str(" | ");
+        flags.push_str(&t("editor_read_only_flag"));
+    }
     let status_text = t("editor_status_text")
-        .replacen("{}", &current_line_len.to_string(), 1)
-        .replacen("{}", &lines.len().to_string(), 1)
-        .replacen("{}", &(cursor_y + 1).to_string(), 1)
-        .replacen("{}", &(cursor_col + 1).to_string(), 1);
+        .replacen("{}", &current_line.graphemes(true).count().to_string(), 1)
+        .replacen("{}", &ed.lines.len().to_string(), 1)
+        .replacen("{}", &(ed.cursor_y + 1).to_string(), 1)
+        .replacen(
+            "{}",
+            &(text_input::grapheme_col(current_line, ed.cursor_x) + 1).to_string(),
+            1,
+        )
+        .replacen("{}", &flags, 1);
     let status_para = Paragraph::new(status_text).style(
         Style::default()
             .bg(parse_color(&theme.header_fg))
@@ -107,15 +130,10 @@ pub fn render_editor_widget(
     f.render_widget(status_para, status_area);
 
     // Draw the terminal blinking cursor at the editing position
-    let prefix_len = 7u16;
-    let (before_cursor, _, _) = text_input::split_at_cursor(current_line, cursor_x);
-    let editor_cursor_x =
-        edit_area.x + prefix_len + display_width(&expand_tabs(before_cursor, tab_size)) as u16;
-    let editor_cursor_y = edit_area.y + (cursor_y - scroll_y) as u16;
+    let cursor_x = edit_area.x + gutter + (cursor_col - scroll_x) as u16;
+    let cursor_y = edit_area.y + ed.cursor_y.saturating_sub(ed.scroll_y) as u16;
 
-    if editor_cursor_x < edit_area.x + edit_area.width
-        && editor_cursor_y < edit_area.y + edit_area.height
-    {
-        f.set_cursor_position((editor_cursor_x, editor_cursor_y));
+    if cursor_x < edit_area.x + edit_area.width && cursor_y < edit_area.y + edit_area.height {
+        f.set_cursor_position((cursor_x, cursor_y));
     }
 }

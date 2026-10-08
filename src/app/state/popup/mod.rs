@@ -173,6 +173,15 @@ pub enum PopupType {
         cursor_idx: usize,
     },
     ConfirmDiscardEditorChanges,
+    /// "Save as" path entry for the built-in editor (Shift+F2).
+    EditorSaveAsPrompt {
+        input: String,
+    },
+    /// Saving would overwrite a file changed on disk or an existing target.
+    EditorConfirmOverwrite {
+        target: PathBuf,
+        reason: crate::app::editor::open::OverwriteReason,
+    },
     ViewerSearchPrompt {
         query: String,
         case_sensitive: bool,

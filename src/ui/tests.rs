@@ -2,7 +2,7 @@ use super::screens::terminal_output_text;
 use crate::app::context::AppContext;
 use crate::app::state::types::TerminalState;
 use crate::app::state::{AppState, PopupType, Screen};
-use crate::config::{AppConfig, keybindings::KeybindingsConfig, settings::Settings, theme::Theme};
+use crate::config::AppConfig;
 use crate::fs::FileEntry;
 use crate::ui::draw_ui;
 use ratatui::style::Color;
@@ -11,11 +11,7 @@ use ratatui::{Terminal, backend::TestBackend, layout::Rect};
 use std::path::PathBuf;
 
 fn test_app() -> (AppContext, AppState) {
-    let config = AppConfig {
-        settings: Settings::default(),
-        theme: Theme::default(),
-        keybindings: KeybindingsConfig::default(),
-    };
+    let config = AppConfig::default();
     let context = AppContext::new(config);
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
     state.panels.left.entries.push(FileEntry {
@@ -135,11 +131,7 @@ fn draw_ui_which_key_overlay_lists_live_chords() {
 
 #[test]
 fn draw_ui_prefix_hud_while_sequence_ongoing() {
-    let mut config = AppConfig {
-        settings: Settings::default(),
-        theme: Theme::default(),
-        keybindings: KeybindingsConfig::default(),
-    };
+    let mut config = AppConfig::default();
     config
         .keybindings
         .custom_bindings

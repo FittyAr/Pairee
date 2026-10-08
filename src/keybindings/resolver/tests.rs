@@ -14,11 +14,7 @@ fn test_key_event_to_string_basic() {
 
 #[test]
 fn test_resolver_norton_standard() {
-    let config = AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    };
+    let config = AppConfig::default();
     let mut resolver = KeybindingResolver::new(&config);
 
     let key_up = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
@@ -33,11 +29,7 @@ fn test_resolver_norton_standard() {
 
 #[test]
 fn test_resolver_new_actions() {
-    let config = AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    };
+    let config = AppConfig::default();
     let mut resolver = KeybindingResolver::new(&config);
 
     let key_alt_f7 = KeyEvent::new(KeyCode::F(7), KeyModifiers::ALT);
@@ -79,11 +71,7 @@ fn test_action_parsing_with_suffixes() {
 
 #[test]
 fn test_resolve_for_key_string() {
-    let config = AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    };
+    let config = AppConfig::default();
     let resolver = KeybindingResolver::new(&config);
     assert_eq!(resolver.resolve_for_key_string("F5"), Some(Action::Copy));
     assert_eq!(resolver.resolve_for_key_string("F1"), Some(Action::Help));
@@ -91,11 +79,7 @@ fn test_resolve_for_key_string() {
 
 #[test]
 fn custom_which_key_chord_resolves() {
-    let mut config = AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    };
+    let mut config = AppConfig::default();
     config
         .keybindings
         .custom_bindings
@@ -109,11 +93,7 @@ fn custom_which_key_chord_resolves() {
 
 #[test]
 fn prefix_completions_list_remaining_suffixes() {
-    let mut config = AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    };
+    let mut config = AppConfig::default();
     config
         .keybindings
         .custom_bindings

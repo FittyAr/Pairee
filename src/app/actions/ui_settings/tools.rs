@@ -28,34 +28,14 @@ pub fn handle_tools_action(
 # "3" = "echo 'Hello World!'"
 # "4" = "systemctl status docker"
 "#;
-                let _ = std::fs::write(&path, default_template);
-            }
-            match std::fs::read_to_string(&path) {
-                Ok(content) => {
-                    let lines: Vec<String> = content.lines().map(|s| s.to_string()).collect();
-                    state.push_screen(crate::app::state::Screen::Editor(
-                        crate::app::state::types::EditorState {
-                            path,
-                            lines: if lines.is_empty() {
-                                vec![String::new()]
-                            } else {
-                                lines
-                            },
-                            cursor_x: 0,
-                            cursor_y: 0,
-                            scroll_y: 0,
-                            is_dirty: false,
-                            last_search: None,
-                            last_case_sensitive: false,
-                        },
-                    ));
-                }
-                Err(e) => {
+                if let Err(e) = std::fs::write(&path, default_template) {
                     state.dialogs.replace(PopupType::Error(
                         t("error_read_usermenu_failed").replace("{}", &e.to_string()),
                     ));
+                    return true;
                 }
             }
+            crate::app::editor::open::open_in_editor(state, path, &context.config.settings);
             true
         }
         Action::FileAssociations => {

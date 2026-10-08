@@ -54,16 +54,10 @@ pub fn open_which_key(state: &mut AppState, resolver: &KeybindingResolver) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{
-        AppConfig, keybindings::KeybindingsConfig, settings::Settings, theme::Theme,
-    };
+    use crate::config::AppConfig;
 
     fn resolver_with(extra: &[(&str, &str)]) -> KeybindingResolver {
-        let mut config = AppConfig {
-            settings: Settings::default(),
-            theme: Theme::default(),
-            keybindings: KeybindingsConfig::default(),
-        };
+        let mut config = AppConfig::default();
         for (action, chord) in extra {
             config
                 .keybindings

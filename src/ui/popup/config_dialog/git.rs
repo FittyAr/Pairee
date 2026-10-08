@@ -23,8 +23,6 @@ pub fn populate_rows(
         RowType::Setting(800),
     ));
 
-    // 801: git_auto_detect
-
     rows.push((t("git_section_author"), RowType::Title));
 
     // 802: git_author_name (text input)
