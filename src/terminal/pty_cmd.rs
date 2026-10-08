@@ -136,21 +136,17 @@ pub fn stream_shell_on_pty(
     })
 }
 
+/// portable-pty quotes every argument itself, so the shell invocation comes
+/// from `crate::shell::shell_invocation` (script passed via the environment
+/// on Windows instead of an argument cmd.exe would mis-parse).
 fn shell_command(script: &str) -> CommandBuilder {
-    #[cfg(windows)]
-    {
-        let mut cmd = CommandBuilder::new("cmd.exe");
-        cmd.arg("/C");
-        cmd.arg(script);
-        cmd
+    let inv = crate::shell::shell_invocation(script);
+    let mut cmd = CommandBuilder::new(inv.program);
+    cmd.args(inv.args);
+    for (key, value) in inv.env {
+        cmd.env(key, value);
     }
-    #[cfg(not(windows))]
-    {
-        let mut cmd = CommandBuilder::new("sh");
-        cmd.arg("-c");
-        cmd.arg(script);
-        cmd
-    }
+    cmd
 }
 
 fn decode_utf8_chunk(pending: &mut Vec<u8>, chunk: &[u8], acc: &mut String) {

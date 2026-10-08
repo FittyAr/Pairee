@@ -4,11 +4,13 @@
 /// - Detecting how Pairee was installed (tarball, deb, rpm, winget, etc.)
 /// - Checking GitHub Releases for newer versions (with 1h cache)
 /// - Downloading the correct asset for the current platform
+/// - Verifying its SHA-256 and minisign signature (both mandatory)
 /// - Applying the update (or notifying the user which package-manager command to run)
 pub mod checker;
 pub mod detect;
 pub mod downloader;
 pub mod installer;
+pub mod signature;
 
 pub use checker::UpdateInfo;
 

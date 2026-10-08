@@ -10,41 +10,12 @@ pub mod search;
 pub fn reload_installed_plugins(
     context: &AppContext,
     index: &Option<crate::plugin::updater::RegistryIndex>,
-) -> Vec<(String, String, bool, bool, Option<String>)> {
-    let lock = crate::plugin::updater::read_lockfile();
-    let mut installed = Vec::new();
-    for (name, info) in &lock.plugins {
-        let trusted = context
-            .config
-            .settings
-            .plugins
-            .get(name)
-            .map(|p| p.trusted)
-            .unwrap_or(false);
-
-        let update_available = if let Some(idx) = index {
-            if let Some(reg_plugin) = idx.plugins.get(name) {
-                if reg_plugin.version != info.version {
-                    Some(reg_plugin.version.clone())
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        installed.push((
-            name.clone(),
-            info.version.clone(),
-            info.pinned,
-            trusted,
-            update_available,
-        ));
-    }
-    installed
+) -> Vec<crate::plugin::installed::InstalledPlugin> {
+    crate::plugin::installed::installed_rows(
+        &crate::plugin::updater::read_lockfile(),
+        &context.config.settings.plugins,
+        index.as_ref(),
+    )
 }
 
 pub fn handle(

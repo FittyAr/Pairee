@@ -209,12 +209,58 @@ jobs:
     needs: [release-notes, build]
     if: startsWith(github.ref, 'refs/tags/')
     steps:
+      - name: Checkout repository (for the embedded public key)
+        uses: actions/checkout@v7
+        with:
+          sparse-checkout: src/update/signature.rs
+          sparse-checkout-cone-mode: false
+
       - name: Download all build artifacts
         uses: actions/download-artifact@v8
         with:
           pattern: dist-*
           merge-multiple: true
           path: dist/
+
+      # Sign every asset with the Pairee release key (minisign). The updater
+      # and installers require `<asset>.minisig`; publishing fails without
+      # the secret. The trusted comment names the file so a signature cannot
+      # be reused for another asset.
+      - name: Sign release assets (minisign)
+        shell: bash
+        env:
+          MINISIGN_SECRET_KEY: ${{ secrets.MINISIGN_SECRET_KEY }}
+          MINISIGN_PASSWORD: ${{ secrets.MINISIGN_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "${MINISIGN_SECRET_KEY:-}" ]; then
+            echo "::error::Repository secret MINISIGN_SECRET_KEY is not set; refusing to publish unsigned assets."
+            exit 1
+          fi
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq minisign
+          umask 077
+          KEY_FILE="$RUNNER_TEMP/pairee-release.key"
+          trap 'rm -f "$KEY_FILE"' EXIT
+          printf '%s\n' "$MINISIGN_SECRET_KEY" > "$KEY_FILE"
+          cd dist
+          for f in *; do
+            [ -f "$f" ] || continue
+            case "$f" in *.sha256|*.minisig) continue ;; esac
+            COMMENT="file:${f} version:${GITHUB_REF_NAME}"
+            if [ -n "${MINISIGN_PASSWORD:-}" ]; then
+              printf '%s\n' "$MINISIGN_PASSWORD" | minisign -S -s "$KEY_FILE" -m "$f" -t "$COMMENT"
+            else
+              minisign -S -s "$KEY_FILE" -m "$f" -t "$COMMENT" < /dev/null
+            fi
+            test -s "${f}.minisig"
+          done
+          # The secret must match the public key embedded in the binary.
+          PUBKEY=$(grep -oP 'RELEASE_PUBLIC_KEY: &str = "\K[^"]+' "$GITHUB_WORKSPACE/src/update/signature.rs")
+          for f in *.minisig; do
+            minisign -V -q -P "$PUBKEY" -m "${f%.minisig}"
+          done
+          ls -l
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

@@ -14,11 +14,24 @@ Policy:
 ### Added
 
 - `pairee.fs.data_dir()` — the plugin's private data directory.
+- `[permissions] commands` manifest field (Secure Mode command allowlist,
+  shown in the Plugin Manager details).
 
 ### Changed
 
 - `pairee.fs` is always path-jailed for untrusted plugins (read: plugin dir + data dir; write: data dir only).
 - `pairee._secure_mode` is informational; the host no longer reads it back.
+- Secure Mode: `pairee.Command` / `pairee.fs.spawn` use an allowlist. Only
+  commands declared in `manifest.toml` `[permissions] commands = [...]`, given
+  by bare name and resolved through `PATH`, may run; shells and interpreters
+  stay denied even if declared. Plugins that spawn in Secure Mode must add the
+  `[permissions]` table.
+
+### Fixed
+
+- `pairee.utils.quote(s, false)` (Windows) now produces a `cmd.exe`-safe token
+  (MSVCRT quoting + `^` escaping of `% ! ^ " & | < > ( )`) instead of
+  backslash-escaping, which cmd does not understand.
 
 ## [1.1.0] — 2026-08-25
 

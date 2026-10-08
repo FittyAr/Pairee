@@ -426,10 +426,14 @@ Cuando un complemento es marcado explícitamente como confiable por el usuario, 
 Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seguro** global en su configuración principal. Este modo actúa como un cortafuegos a nivel de motor:
 * **Activación:** Se configura en `pairee.toml` bajo `[settings]` -> `secure_mode = true`. Esta configuración es de solo lectura en tiempo de ejecución y completamente inmutable desde Lua.
 * **Prohibición de Red y Sockets:** La creación de sockets TCP/UDP y las solicitudes HTTP están completamente deshabilitadas a nivel de motor para todos los complementos, incluso aquellos con `trusted = true`.
-* **Lista Negra de Ejecución de Procesos:** El motor de ejecución de procesos bloquea los intentos de ejecutar cualquier comando que coincida con utilidades de red, shells o entornos de scripting:
-  * **Utilidades de Red:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
-  * **Shells e Intérpretes:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
-  * **Runtimes de Scripts:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
+* **Lista Permitida de Procesos:** En Modo Seguro, un complemento confiable solo puede ejecutar (`pairee.Command`, `pairee.fs.spawn`) los programas que declara en su manifiesto:
+  ```toml
+  [permissions]
+  commands = ["git", "rg"]
+  ```
+  * El programa debe indicarse por **nombre simple** (sin ruta absoluta ni relativa); se resuelve mediante las entradas absolutas de `PATH` y se ejecuta esa ruta absoluta. En Windows solo se resuelven `.exe` / `.com` (nunca `.bat` / `.cmd`).
+  * Los shells, intérpretes, utilidades de red y envoltorios de comandos (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) se rechazan **siempre**, aunque estén declarados, y también cuando un nombre declarado es un enlace simbólico a uno de ellos.
+  * Los comandos no declarados fallan con `Security violation: ... is not declared in the plugin manifest`. El Gestor de Complementos muestra los comandos declarados en los detalles del complemento para que el usuario los revise antes de confiar en él.
 * **Sandboxing del Sistema de Archivos:** Para complementos confiables, las API de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. Los complementos no confiables mantienen su jaula más estricta (13.1).
 
 ---
@@ -687,6 +691,10 @@ git_path    = { type = "string", default = "git", description = "Ruta personaliz
 
 [keybindings]
 "ctrl+h" = "entry"
+
+# Programas que el complemento puede ejecutar con el Modo Seguro activo (nombres simples, ver 13.3)
+[permissions]
+commands = ["git"]
 ```
 
 ---

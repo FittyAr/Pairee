@@ -58,6 +58,10 @@ nucleo-matcher = "0.3.1"
 # Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
 portable-pty = "0.8.1"
 trash = "5.2.9"
+# Capability-based directory handles: plugin fs ops cannot escape the jail
+# root even if a path component is swapped for a symlink after validation.
+cap-std = "3"
+minisign-verify = "0.3.0"
 
 [profile.release]
 lto = "thin"
@@ -68,7 +72,7 @@ strip = true
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
-windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation", "Win32_UI_Shell"] }
 ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]

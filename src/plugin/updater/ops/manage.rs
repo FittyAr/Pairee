@@ -89,9 +89,7 @@ pub async fn update(name: Option<&str>) -> anyhow::Result<()> {
 pub fn remove(name: &str) -> anyhow::Result<()> {
     let mut lock = read_lockfile();
     if lock.plugins.remove(name).is_some() {
-        let plugins_dir = crate::config::paths::get_config_dir()
-            .join("plugins")
-            .join(format!("{}.pairee", name));
+        let plugins_dir = crate::config::paths::get_installed_plugin_dir(name);
         if plugins_dir.exists() {
             std::fs::remove_dir_all(plugins_dir)?;
         }

@@ -12,8 +12,12 @@
 //!
 //! Paths are normalized lexically and the nearest existing ancestor is
 //! canonicalized, so `..` segments or symlinks inside non-existent tails
-//! cannot escape the jail.
+//! cannot escape the jail. A jailed check returns the canonical root it
+//! matched plus the path relative to it; the operation itself then runs on a
+//! capability handle of that root (see `capfs`), so swapping a component
+//! for a symlink after the check cannot redirect it outside.
 
+use super::target::Target;
 use std::path::{Component, Path, PathBuf};
 
 /// Kind of access a filesystem binding performs.
@@ -53,11 +57,11 @@ impl FsPolicy {
         }
     }
 
-    /// Returns the path to operate on, or a security violation message.
-    pub fn check(&self, path_str: &str, access: Access) -> Result<PathBuf, String> {
+    /// Returns the target to operate on, or a security violation message.
+    pub fn check(&self, path_str: &str, access: Access) -> Result<Target, String> {
         let path = PathBuf::from(path_str);
         if self.trusted && !self.secure_mode {
-            return Ok(path);
+            return Ok(Target::Free(path));
         }
 
         let absolute = if path.is_absolute() {
@@ -69,26 +73,41 @@ impl FsPolicy {
         let resolved = resolve_existing(&lexical)
             .ok_or_else(|| format!("Security violation: cannot resolve path {path:?}"))?;
 
-        let inside = |root: &Path| is_within(&resolved, root);
-        let allowed = if self.trusted {
-            [
+        let roots: Vec<&PathBuf> = if self.trusted {
+            vec![
+                &self.plugin_dir,
+                &self.data_dir,
                 &self.workspace,
                 &self.config_dir,
                 &self.cache_dir,
-                &self.plugin_dir,
-                &self.data_dir,
             ]
-            .into_iter()
-            .any(|root| inside(root))
         } else {
             match access {
-                Access::Read => inside(&self.plugin_dir) || inside(&self.data_dir),
-                Access::Write => inside(&self.data_dir) && !inside(&self.config_dir),
+                Access::Read => vec![&self.plugin_dir, &self.data_dir],
+                Access::Write
+                    if canonical_root(&self.config_dir)
+                        .is_some_and(|cfg| resolved.starts_with(cfg)) =>
+                {
+                    Vec::new()
+                }
+                Access::Write => vec![&self.data_dir],
             }
         };
+        let matched = roots
+            .into_iter()
+            .filter_map(|root| canonical_root(root))
+            .find(|root| resolved.starts_with(root));
 
-        if allowed {
-            Ok(lexical)
+        if let Some(root) = matched {
+            let rel = resolved
+                .strip_prefix(&root)
+                .map(Path::to_path_buf)
+                .unwrap_or_default();
+            Ok(Target::Jailed {
+                root,
+                rel,
+                path: lexical,
+            })
         } else {
             let mode = if self.trusted {
                 "Secure Mode"
@@ -147,13 +166,9 @@ pub fn resolve_existing(path: &Path) -> Option<PathBuf> {
     }
 }
 
-/// `path` (already resolved) lies inside `root` (resolved the same way).
-fn is_within(path: &Path, root: &Path) -> bool {
-    let root = normalize_lexical(root);
-    match resolve_existing(&root) {
-        Some(r) => path.starts_with(r),
-        None => false,
-    }
+/// `root` resolved the same way as checked paths.
+fn canonical_root(root: &Path) -> Option<PathBuf> {
+    resolve_existing(&normalize_lexical(root))
 }
 
 #[cfg(test)]
@@ -247,7 +262,7 @@ mod tests {
         let target = s(&f.outside.join("x.txt"));
         assert_eq!(
             f.policy.check(&target, Access::Write).unwrap(),
-            PathBuf::from(&target)
+            Target::Free(PathBuf::from(&target))
         );
     }
 

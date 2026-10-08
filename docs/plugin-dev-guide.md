@@ -426,10 +426,14 @@ When a plugin is explicitly trusted by the user, it runs in **Trusted Mode**:
 To prevent data exfiltration, users can enable a global **Secure Mode** in their settings. This mode acts as an overriding runtime firewall:
 * **Activation:** Configured in `pairee.toml` under `[settings]` -> `secure_mode = true`. This configuration is read-only at runtime and completely immutable from Lua.
 * **Network & Socket Ban:** TCP/UDP socket creation and HTTP requests are completely disabled at the engine level for all plugins, including those with `trusted = true`.
-* **Process Spawning Blacklist:** The process execution engine blocks attempts to run any command matching network-capable utilities, shells, or scripting environments:
-  * **Network Utilities:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
-  * **Shells & Interpreters:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
-  * **Script Runtimes:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
+* **Process Allowlist:** In Secure Mode a trusted plugin may only spawn (`pairee.Command`, `pairee.fs.spawn`) programs it declares in its manifest:
+  ```toml
+  [permissions]
+  commands = ["git", "rg"]
+  ```
+  * The program must be given by **bare name** (no absolute/relative path); it is resolved through the absolute entries of `PATH` and that absolute path is executed. On Windows only `.exe` / `.com` are resolved (never `.bat` / `.cmd`).
+  * Shells, interpreters, network utilities and command wrappers (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) are **always** refused, even if declared, and also when a declared name is a symlink to one of them.
+  * Undeclared commands fail with `Security violation: ... is not declared in the plugin manifest`. The Plugin Manager shows the declared commands in the plugin details so the user can review them before trusting the plugin.
 * **FS Sandboxing:** For trusted plugins, file APIs (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. Untrusted plugins keep their stricter jail (13.1).
 
 ---
@@ -689,6 +693,10 @@ git_path    = { type = "string", default = "git", description = "Custom Git exec
 
 [keybindings]
 "ctrl+h" = "entry"
+
+# Programs the plugin may spawn when Secure Mode is on (bare names, see 13.3)
+[permissions]
+commands = ["git"]
 ```
 
 ---

@@ -43,3 +43,7 @@ tarpaulin-report.html
 
 # Claude Code agent worktrees
 .claude/worktrees/
+
+# Release signing secrets (minisign). Never commit a secret key.
+*.key
+.pairee-release-keys/

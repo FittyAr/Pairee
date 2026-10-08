@@ -7,7 +7,7 @@ use crate::config::localization::t;
 pub fn handle_option_select_active_plugin(
     context: &mut AppContext,
     dev_results: &mut String,
-    installed: &mut Vec<(String, String, bool, bool, Option<String>)>,
+    installed: &mut Vec<crate::plugin::installed::InstalledPlugin>,
     left_panel_path: &std::path::Path,
     right_panel_path: &std::path::Path,
     plugins_dev_dir: std::path::PathBuf,

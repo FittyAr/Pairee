@@ -26,14 +26,20 @@ elevation from becoming an easy remote-code or credential leak path.
 3. **Trusted plugin** — `StdLib::ALL_SAFE` (io/os/package, no debug) plus
    `pairee.Command` / `fs.spawn`.
 4. **Secure Mode** — extra path jail for trusted plugins (workspace + config
-   + cache + plugin dir + plugin data dir) and a process blacklist (shells,
-   interpreters, network tools). The flag is read once in Rust and captured
+   + cache + plugin dir + plugin data dir) and a process **allowlist**: only
+   commands declared in the manifest (`[permissions] commands`), given by bare
+   name and resolved through absolute `PATH` entries, may run; shells,
+   interpreters, network tools and wrappers stay denied even if declared. The flag is read once in Rust and captured
    by the `pairee.fs` / `pairee.Command` closures; `pairee._secure_mode` is an
    informational copy only, so overwriting it cannot switch Secure Mode off.
 
 Path checks normalize `.`/`..` lexically and canonicalize the nearest existing
 ancestor, so `..` segments in not-yet-existing paths and symlinks inside the
-jail cannot escape it; dangling symlinks are rejected.
+jail cannot escape it; dangling symlinks are rejected. The check yields the
+jail root it matched; `read`/`write`/`mkdir`/`remove`/`rename`/`copy`/`list`
+/`exists` then run through a `cap-std` directory handle of that root, which
+resolves every component beneath the handle and refuses symlinks, junctions
+or `..` that leave it at use time (no check-then-use window for content).
 
 Every plugin Lua state (trusted or not) has a memory cap (128 MiB untrusted,
 512 MiB trusted) and an instruction-count watchdog that aborts Lua code that
@@ -43,7 +49,9 @@ every instruction, so `pcall` loops cannot swallow the abort.
 5. **Remote SSH/SFTP** — another host; credentials live in user config.
 6. **Update channel** — GitHub Releases. Asset URLs must start with
    `https://github.com/FittyAr/Pairee/releases/download/`; the `.sha256`
-   asset is mandatory; the artifact is downloaded into memory, verified and
+   and `.minisig` assets are mandatory (minisign signature checked against
+   the release public key embedded in the binary, trusted comment must name
+   the asset); the artifact is downloaded into memory, verified and
    installed/extracted from the same verified buffer (no verify→extract
    TOCTOU). Windows helper files live in a random `tempfile` directory.
 
@@ -58,13 +66,13 @@ every instruction, so `pcall` loops cannot swallow the abort.
 
 | Area | Control | Residual risk |
 |------|---------|----------------|
-| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path + spawn blacklist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
+| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail + spawn allowlist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Metadata of listed/`stat`ed entries (`File` fields) and `spawn_copy_task` (handed to the transfer engine as plain paths) are still check-then-use. |
 | Registry install | Plugin name and author must match `[A-Za-z0-9_-]`; `[files]` keys with `..`, absolute, drive-prefixed, `\` or `:` paths are rejected; every file is SHA-256 verified in memory before anything is written | Hashes come from the same registry as the files; a compromised registry can ship matching hashes. |
-| User menu (F2) | `{f}` / `{p}` expanded in a single pass with platform shell quoting, so a file name cannot inject a placeholder or close the quotes | On Windows `cmd /c` still expands `%VAR%` inside double quotes (no injection, but the name may be altered). |
-| `pairee.Command` | Blocked if untrusted; Secure Mode `is_command_safe`: names are normalized (directory, case, trailing dots, `.exe/.com/.cmd/.bat/.ps1/...` stripped, version suffixes such as `python3.12`) and checked against shells, interpreters, script hosts / LOLBins (`wscript`, `mshta`, `rundll32`, ...) and command wrappers (`env`, `xargs`, `busybox`, `sudo`, ...) | Still a deny list: a renamed or copied binary, or an allowed tool with its own exec feature (e.g. `git -c core.sshCommand`), is not stopped. |
+| User menu (F2) / shell commands | `{f}` / `{p}` (and `%f` in apply-command) expanded in a single pass with the shared `shell` quoting module: POSIX single quotes; on Windows MSVCRT quoting plus caret-escaping of every cmd metacharacter (`% ! ^ " & \| < > ( )`), so names are neither split nor `%VAR%`-expanded. cmd is started as `cmd.exe /V:OFF /S /C "<script>"` via `raw_arg` (no Rust `\"` escaping); the PTY path passes the script through an environment variable. Opening a file without association uses `ShellExecuteW` / `xdg-open` / `open` with the path as one argument (no `cmd /c start`) | The template itself is user-written shell code. On the PTY path cmd substring syntax (`%VAR:~0,3%`) is not expanded. |
+| `pairee.Command` / `fs.spawn` | Blocked if untrusted. Secure Mode `CommandPolicy` allowlist: bare name only (explicit/relative paths refused), must be declared in `[permissions] commands`, resolved via absolute `PATH` entries (Windows `.exe`/`.com` only, never `.bat`/`.cmd`) and executed by that absolute path; a hard deny list (shells, interpreters, LOLBins, network clients, wrappers; names normalized for case, extension and version suffix) applies to the requested name and to the symlink target. Declared commands are shown in the Plugin Manager details | A declared tool with its own exec feature (e.g. `git -c core.sshCommand`, `rg --pre`) can still run arbitrary code. A user-writable directory early in `PATH` can shadow a declared name. The manifest is read at load time; a plugin can edit its own manifest (takes effect on next load). |
 | SSH presets | Stored in local TOML; password field is optional | Passwords in `config.toml` are **not encrypted**. Prefer key files + agent. |
-| Auto-update | Background check; URL allowlist; mandatory SHA-256 checked on the in-memory artifact; user confirms | Hash and artifact come from the same release, so a compromised GitHub account can ship matching hashes (no signature yet). |
-| Install scripts | `curl -fsSL` / `Invoke-WebRequest`; release tag format checked; `.sha256` downloaded and verified before extraction | Same-origin hash, as above. |
+| Auto-update | Background check; URL allowlist; mandatory SHA-256 **and** minisign signature (embedded public key, `file:<asset>` in the signed trusted comment) checked on the in-memory artifact, fail closed; user confirms | Theft of the release secret key (kept offline + GitHub secret). A validly signed *older* asset of the same name pattern is not possible (name includes the version), but no explicit anti-rollback beyond the version check. |
+| Install scripts | `curl -fsSL` / `Invoke-WebRequest`; release tag format checked; `.sha256` verified before extraction; `.minisig` verified (mandatory) when `minisign` is installed | Without `minisign` on the machine only the same-origin SHA-256 is checked. |
 | 7-Zip helper (Windows) | `7z2601-extra.7z` SHA-256 pinned in the binary and verified in memory before extraction | Updating 7-Zip requires a Pairee release. |
 | Archive extraction | Zip/tar/7z/external 7z go through one guard: no `..`/absolute names, never write beneath a pre-existing symlink/junction, never overwrite (existing entries are skipped and reported), 500k-entry / 32 GiB limits; tar hard links and devices are not materialised; external 7z fails closed if listing fails | Check-then-create: a local process racing the extraction could still swap a directory for a link. |
 | Secure wipe | `symlink_metadata` first; links are removed, never followed; file opened with `O_NOFOLLOW` / `FILE_FLAG_OPEN_REPARSE_POINT` and re-checked on the handle | SSD wear-levelling / snapshots may keep old data. |

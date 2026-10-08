@@ -8,6 +8,7 @@ use tokio::sync::mpsc;
 use super::detect::InstallMethod;
 use super::downloader;
 use crate::update::UpdateInfo;
+use crate::update::checker::ReleaseAsset;
 
 /// Result of a completed update.
 #[derive(Debug)]
@@ -49,34 +50,10 @@ pub async fn perform_update(
     #[cfg(not(target_os = "windows"))]
     let (asset_name, _use_installer) = (downloader::expected_asset_name(&info.version), false);
 
-    let asset = info
-        .assets
-        .iter()
-        .find(|a| a.name == asset_name)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Release does not contain expected asset '{}'. Available: {}",
-                asset_name,
-                info.assets
-                    .iter()
-                    .map(|a| a.name.as_str())
-                    .collect::<Vec<_>>()
-                    .join(", ")
-            )
-        })?;
-
-    // --- Checksum is mandatory ---
-    let sha_asset_name = format!("{}.sha256", asset_name);
-    let sha_asset = info
-        .assets
-        .iter()
-        .find(|a| a.name == sha_asset_name)
-        .ok_or_else(|| {
-            anyhow::anyhow!(
-                "Release does not contain checksum '{}'; refusing to install an unverified update",
-                sha_asset_name
-            )
-        })?;
+    let asset = find_asset(info, &asset_name, "asset")?;
+    // Checksum and signature are mandatory: fail closed without them.
+    let sha_asset = find_asset(info, &format!("{asset_name}.sha256"), "checksum")?;
+    let sig_asset = find_asset(info, &format!("{asset_name}.minisig"), "signature")?;
 
     // --- Download into memory and verify ---
     // Install/extract strictly from the verified buffer, so nothing on disk
@@ -84,12 +61,12 @@ pub async fn perform_update(
     let data = downloader::download_bytes(&asset.browser_download_url, Some(progress_tx))
         .await
         .context("download failed")?;
-    let sha_bytes = downloader::download_bytes(&sha_asset.browser_download_url, None)
-        .await
-        .context("failed to download SHA256 file")?;
-    let sha_text = std::str::from_utf8(&sha_bytes).context("SHA256 file is not valid UTF-8")?;
-    let expected = downloader::parse_sha256_file(sha_text)?;
+    let sha_text = download_text(sha_asset).await?;
+    let expected = downloader::parse_sha256_file(&sha_text)?;
     downloader::verify_sha256_bytes(&data, &expected).context("SHA-256 verification failed")?;
+    let sig_text = download_text(sig_asset).await?;
+    super::signature::verify_release_asset(&data, &sig_text, &asset.name)
+        .context("signature verification failed")?;
 
     // --- Install ---
     #[cfg(target_os = "windows")]
@@ -105,6 +82,28 @@ pub async fn perform_update(
     {
         install_linux_tarball(&data)
     }
+}
+
+/// Find a release asset by exact name; refusing to continue without it.
+fn find_asset<'a>(info: &'a UpdateInfo, name: &str, what: &str) -> Result<&'a ReleaseAsset> {
+    info.assets.iter().find(|a| a.name == name).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Release does not contain {what} '{name}'; refusing to install an unverified update. Available: {}",
+            info.assets
+                .iter()
+                .map(|a| a.name.as_str())
+                .collect::<Vec<_>>()
+                .join(", ")
+        )
+    })
+}
+
+/// Download a small UTF-8 side file (checksum / signature).
+async fn download_text(asset: &ReleaseAsset) -> Result<String> {
+    let bytes = downloader::download_bytes(&asset.browser_download_url, None)
+        .await
+        .with_context(|| format!("failed to download {}", asset.name))?;
+    String::from_utf8(bytes).with_context(|| format!("{} is not valid UTF-8", asset.name))
 }
 
 // ─── Linux: replace binary from tar.gz ───────────────────────────────────────
