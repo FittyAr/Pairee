@@ -134,7 +134,26 @@ pub fn editor_viewer() -> Vec<Row> {
             |s| s.viewer_tab_size = next_tab_size(s.viewer_tab_size),
         ),
         toggle!(1, "vi_show_scrollbar", viewer_show_scrollbar),
+        toggle!(1, "vi_autodetect_codepage", viewer_autodetect_codepage),
+        cycle(
+            "vi_default_codepage",
+            1,
+            CycleFormat::Bracket,
+            |s| s.viewer_default_codepage.clone(),
+            |s| s.viewer_default_codepage = next_codepage(&s.viewer_default_codepage),
+        ),
     ]
+}
+
+/// The encoding after `name` in the viewer's list (wrapping; unknown → first).
+fn next_codepage(name: &str) -> String {
+    use crate::fs::text::{ENCODINGS, encoding_by_name};
+    let current = encoding_by_name(name);
+    let next = ENCODINGS
+        .iter()
+        .position(|e| Some(*e) == current)
+        .map_or(0, |i| (i + 1) % ENCODINGS.len());
+    ENCODINGS[next].name().to_string()
 }
 
 pub fn colors() -> Vec<Row> {

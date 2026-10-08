@@ -139,3 +139,21 @@ Pairee always edits files with its built-in editor; no external editor is launch
 | `Esc` / `F10` | Close (asks when there are unsaved changes). |
 
 The editor keeps the file's line endings (LF or CRLF), final newline and UTF-8 BOM. Files that are not valid UTF-8 or larger than 64 MiB are not opened (use the viewer instead).
+
+---
+
+## 👁️ 8. Internal Viewer (F3)
+
+The viewer reads files page by page, so even multi-gigabyte files open at once; the line count grows in the status line while the file is indexed in the background. The status line (bottom border) shows the encoding, the current line (or hex offset) and the progress of indexing or of a running search.
+
+| Key / Shortcut | Action |
+| :--- | :--- |
+| `Up` / `Down` / `PgUp` / `PgDn` | Scroll. |
+| `Home` / `End` | First / last line (or hex row). |
+| `F4` | Toggle Text / Hex (and Image for pictures). |
+| `F6` | Open the file in the built-in editor. |
+| `F7` | Search (from the current line, wrapping to the top). `F3` repeats the last search. |
+| `F8` | Choose the encoding (UTF-8, UTF-16 LE/BE, Windows/ISO code pages, Shift-JIS, EUC, GBK, Big5...). |
+| `Esc` | Stop a running search; otherwise close the viewer (also `F10`). |
+
+The encoding is detected automatically: a byte-order mark first (UTF-8, UTF-16 LE/BE), then UTF-16 without a mark, then UTF-8, and otherwise the most likely legacy code page (for example Windows-1252 for Latin-1 accents or Shift-JIS). Files in another encoding are shown as text instead of being treated as binary. Detection can be turned off in **Options → Configuration → Editor/Viewer**.

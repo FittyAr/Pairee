@@ -139,3 +139,21 @@ Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor
 | `Esc` / `F10` | Cerrar (pregunta si hay cambios sin guardar). |
 
 El editor conserva los finales de línea del archivo (LF o CRLF), el salto de línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que superan 64 MiB no se abren (usa el visor).
+
+---
+
+## 👁️ 8. Visor interno (F3)
+
+El visor lee los archivos por bloques, así que incluso los de varios gigabytes se abren al instante; el número de líneas crece en la línea de estado mientras el archivo se indexa en segundo plano. La línea de estado (borde inferior) muestra la codificación, la línea actual (o la posición en hexadecimal) y el progreso del indexado o de una búsqueda en curso.
+
+| Tecla / Atajo | Acción |
+| :--- | :--- |
+| `↑` / `↓` / `RePág` / `AvPág` | Desplazarse. |
+| `Inicio` / `Fin` | Primera / última línea (o fila hexadecimal). |
+| `F4` | Alternar Texto / Hex (e Imagen para imágenes). |
+| `F6` | Abrir el archivo en el editor integrado. |
+| `F7` | Buscar (desde la línea actual, volviendo al principio). `F3` repite la última búsqueda. |
+| `F8` | Elegir la codificación (UTF-8, UTF-16 LE/BE, páginas de códigos Windows/ISO, Shift-JIS, EUC, GBK, Big5...). |
+| `Esc` | Detener una búsqueda en curso; si no hay ninguna, cerrar el visor (también `F10`). |
+
+La codificación se detecta automáticamente: primero la marca de orden de bytes (UTF-8, UTF-16 LE/BE), después UTF-16 sin marca, después UTF-8 y, si no, la página de códigos heredada más probable (por ejemplo Windows-1252 para acentos Latin-1 o Shift-JIS). Los archivos en otra codificación se muestran como texto en vez de tratarse como binarios. La detección se puede desactivar en **Opciones → Configuración → Editor/Visor**.

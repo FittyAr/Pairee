@@ -13,6 +13,7 @@ pub mod update_state;
 pub mod quick_view;
 pub mod refresh;
 pub mod screens;
+pub mod viewer;
 
 pub use crate::fs::compare::CompareStatus;
 pub use dialog_stack::DialogStack;
@@ -92,8 +93,8 @@ pub struct AppState {
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
 
-    /// Background read of the file opened in the internal viewer.
-    pub viewer_load: crate::app::jobs::JobSlot<crate::ui::viewer::ViewerState>,
+    /// Background open and search of the internal viewer.
+    pub viewer: viewer::ViewerJobs,
 
     /// Quick-view background loading, debounce and preview cache.
     pub quick_view: quick_view::QuickViewState,
@@ -150,7 +151,7 @@ impl AppState {
             is_root,
             // Transfer Engine
             transfer: None,
-            viewer_load: Default::default(),
+            viewer: Default::default(),
             quick_view: Default::default(),
             git_op: Default::default(),
             multi_rename: Default::default(),

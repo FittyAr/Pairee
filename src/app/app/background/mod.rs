@@ -14,7 +14,7 @@ pub fn process_background_updates(
 ) {
     state.poll_panel_listings();
     state.poll_quick_view();
-    state.poll_viewer_load();
+    state.poll_viewer();
     if state.disk_usage.poll() {
         state.mark_ui_dirty();
     }

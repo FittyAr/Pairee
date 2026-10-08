@@ -71,7 +71,7 @@ pub fn handle(
         }
 
         if !ran_external {
-            state.open_viewer(path, context.config.settings.image_preview_enabled, false);
+            state.open_viewer(path, &context.config.settings, false);
         }
     }
     true

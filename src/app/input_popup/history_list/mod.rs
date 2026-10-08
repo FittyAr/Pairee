@@ -49,7 +49,7 @@ fn activate(state: &mut AppState, context: &AppContext, popup: PopupType, idx: u
         }
         PopupType::FileViewHistoryList { mut entries, .. } if idx < entries.len() => {
             let path = entries.swap_remove(idx);
-            state.open_viewer(path, context.config.settings.image_preview_enabled, false);
+            state.open_viewer(path, &context.config.settings, false);
         }
         PopupType::FoldersHistoryList { mut entries, .. } if idx < entries.len() => {
             state

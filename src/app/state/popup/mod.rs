@@ -186,6 +186,10 @@ pub enum PopupType {
         reason: crate::app::editor::open::OverwriteReason,
     },
     ViewerSearchPrompt(TextSearchState),
+    /// Encoding selector of the viewer (F8); the cursor indexes `fs::text::ENCODINGS`.
+    ViewerEncoding {
+        cursor_idx: usize,
+    },
     QuickViewPanel(Box<QuickViewDialog>),
 
     InfoPanel {

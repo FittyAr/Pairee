@@ -143,6 +143,8 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 * **Usar visor externo para F3:** `F3` ejecuta el comando de visualización de la asociación del archivo (ver *Editor de Asociaciones de Archivo* más abajo) y `Alt+F3` abre el visor interno; desactivado es al revés.
 * **Usar comando externo al abrir archivos con Enter:** Enter ejecuta el comando de apertura de la asociación en lugar de abrir el visor interno.
 * **Tamaño de tabulación / Mostrar barra de desplazamiento:** Ancho de tabulación y barra de desplazamiento del visor interno.
+* **Detectar la codificación automáticamente:** Detecta la codificación de los archivos (marca de orden de bytes, UTF-16, UTF-8, páginas de códigos heredadas). Desactivado, se usa la **Codificación predeterminada** para todos los archivos (una marca de orden de bytes coincidente se sigue omitiendo). `F8` en el visor siempre permite cambiarla.
+* **Codificación predeterminada:** Codificación usada cuando la detección está desactivada (`viewer_default_codepage`, un nombre como `windows-1252`; Enter recorre la lista).
 
 ### Editor integrado
 Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opción de editor externo.

@@ -71,6 +71,8 @@ impl Default for Settings {
             viewer_use_external: false,
             viewer_tab_size: 8,
             viewer_show_scrollbar: false,
+            viewer_autodetect_codepage: true,
+            viewer_default_codepage: super::default_viewer_codepage(),
 
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),

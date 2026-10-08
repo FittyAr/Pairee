@@ -67,8 +67,33 @@ fn utf8_cut_by_cap_is_not_binary() {
     let path = dir.path().join("u.txt");
     std::fs::write(&path, "añb").unwrap(); // 'ñ' is 2 bytes: a,0xC3,0xB1,b
     assert_eq!(read_text_prefix(&path, 2).as_deref(), Some("a"));
-    std::fs::write(&path, [0x61, 0xFF, 0x62]).unwrap();
-    assert_eq!(read_text_prefix(&path, 10), None, "invalid byte = binary");
+    std::fs::write(&path, [0x61, 0x00, 0x62, 0x01, 0x02]).unwrap();
+    assert_eq!(read_text_prefix(&path, 10), None, "NUL bytes = binary");
+}
+
+#[test]
+fn non_utf8_text_previews_in_its_encoding() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("w.txt");
+    let mut bytes = vec![0xFF, 0xFE];
+    bytes.extend(
+        "hola
+mundo
+"
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes),
+    );
+    std::fs::write(&path, bytes).unwrap();
+    assert_eq!(load_preview(&path, false, 1024).content, ["hola", "mundo"]);
+    let (latin, _, _) = encoding_rs::WINDOWS_1252.encode(
+        "Canción de la niña con su pingüino
+",
+    );
+    std::fs::write(&path, latin).unwrap();
+    assert_eq!(
+        load_preview(&path, false, 1024).content,
+        ["Canción de la niña con su pingüino"]
+    );
 }
 
 fn quick_view_lines(state: &AppState) -> Option<Vec<String>> {

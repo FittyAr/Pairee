@@ -1,59 +1,54 @@
 use crate::app::context::AppContext;
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::popup::SearchKey;
-use crate::app::state::{AppState, PopupType, Screen};
+use crate::app::state::{AppState, PopupType};
+use crate::fs::text::ENCODINGS;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
+/// Keys of the viewer's find dialog and encoding selector.
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ViewerSearchPrompt(search)) = state.dialogs.top_mut() else {
-        return Err(());
-    };
-    match search.handle_key(&key) {
-        SearchKey::Stay => {}
-        SearchKey::Close => state.dialogs.clear(),
-        SearchKey::Find => {
-            let query = search.query.text().to_string();
-            let case_sensitive = search.case_sensitive;
-            search_viewer(state, query, case_sensitive);
+    match state.dialogs.top_mut() {
+        Some(PopupType::ViewerSearchPrompt(search)) => match search.handle_key(&key) {
+            SearchKey::Stay => {}
+            SearchKey::Close => state.dialogs.clear(),
+            SearchKey::Find => {
+                let query = search.query.text().to_string();
+                let case_sensitive = search.case_sensitive;
+                state.search_viewer(query, case_sensitive);
+            }
+        },
+        Some(PopupType::ViewerEncoding { cursor_idx }) => {
+            match list_key(ListKeys::FULL, key.code, cursor_idx, ENCODINGS.len()) {
+                ListKey::Moved | ListKey::Other => {}
+                ListKey::Close => state.dialogs.clear(),
+                ListKey::Activate(idx) => {
+                    state.dialogs.clear();
+                    if let (Some(vw), Some(encoding)) =
+                        (state.active_viewer_mut(), ENCODINGS.get(idx))
+                    {
+                        vw.set_encoding(encoding);
+                    }
+                }
+            }
         }
+        _ => return Err(()),
     }
     Ok(None)
 }
 
-/// Scrolls the active viewer to the next line containing `query`, wrapping
-/// to the top (repeating the same search continues after the current line).
-fn search_viewer(state: &mut AppState, query: String, case_sensitive: bool) {
-    if query.is_empty() {
-        return;
-    }
-    let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx) else {
+/// Opens the encoding selector on the active viewer's current encoding.
+pub fn open_encoding_selector(state: &mut AppState) {
+    let Some(vw) = state.active_viewer_mut() else {
         return;
     };
-    let is_repeat = vw.last_search.as_ref() == Some(&query);
-    let start_from = if is_repeat { vw.scroll + 1 } else { vw.scroll };
-    vw.last_search = Some(query.clone());
-    vw.last_case_sensitive = case_sensitive;
-    if vw.mode != crate::ui::viewer::ViewerMode::Text {
-        return;
-    }
-    let needle = query.to_lowercase();
-    let matches = |l: &str| {
-        if case_sensitive {
-            l.contains(&query)
-        } else {
-            l.to_lowercase().contains(&needle)
-        }
-    };
-    let len = vw.lines.len();
-    let start = start_from.min(len);
-    if let Some(found) = (start..len)
-        .chain(0..start)
-        .find(|&i| matches(&vw.lines[i]))
-    {
-        vw.scroll = found;
-    }
+    let current = vw.doc.encoding();
+    let cursor_idx = ENCODINGS.iter().position(|e| *e == current).unwrap_or(0);
+    state
+        .dialogs
+        .replace(PopupType::ViewerEncoding { cursor_idx });
 }

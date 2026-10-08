@@ -1,9 +1,11 @@
-//! Find dialog shared by the viewer (F7) and the editor (Ctrl+F / F7).
+//! Find dialog shared by the viewer (F7) and the editor (Ctrl+F / F7), and
+//! the viewer's encoding selector (F8).
 
 use crate::app::state::PopupType;
 use crate::app::state::popup::TextSearchState as Search;
 use crate::config::localization::t;
-use crate::ui::popup::kit::{self, FocusStyles};
+use crate::fs::text::ENCODINGS;
+use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, list_area, marked};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -20,8 +22,36 @@ pub fn render_viewer_popup(
         PopupType::ViewerSearchPrompt(search) => {
             render_search(f, "viewer_search_title", search, theme, size)
         }
+        PopupType::ViewerEncoding { cursor_idx } => {
+            render_encodings(f, *cursor_idx, theme, size);
+            true
+        }
         _ => false,
     }
+}
+
+/// The list of encodings the viewer can switch to.
+fn render_encodings(f: &mut Frame, cursor: usize, theme: &crate::config::theme::Theme, size: Rect) {
+    let rows: Vec<(String, _)> = ENCODINGS
+        .iter()
+        .enumerate()
+        .map(|(i, e)| (marked(e.name(), i == cursor), kit::popup_fg(theme)))
+        .collect();
+    let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
+    let hint = t("viewer_encoding_hint");
+    ListPopup {
+        area: list_area(size, width.max(hint.chars().count()), rows.len() + 2, 20),
+        title: t("viewer_encoding_title"),
+        border: parse_color(&theme.popup_border),
+        empty: None,
+        header: Vec::new(),
+        rows,
+        cursor,
+        scroll: Scroll::Centered,
+        hint: Some(hint),
+        scrollbar: None,
+    }
+    .render(f, theme);
 }
 
 /// Query field, case checkbox and [Search] [Cancel] buttons.

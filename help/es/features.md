@@ -78,8 +78,10 @@ Pulsa `Shift+F6` (o **Archivos → Renombrado múltiple**) para renombrar de una
 ### 3.2 Visor Interno y Vista Rápida
 * **Modos del Visor:** Alterna entre modo Texto normal y modo Hexadecimal.
 * **Modo Hexadecimal:** Muestra offsets, valores hexadecimales y representación ASCII lado a lado. Excelente para inspeccionar archivos binarios.
-* **Búsqueda en el Visor:** Presiona `F7` dentro del visor para buscar cadenas de texto.
-* **Vista Rápida:** Muestra una vista previa del archivo seleccionado en el panel opuesto. Admite vistas de texto y listado de metadatos de archivos comprimidos.
+* **Búsqueda en el Visor:** Presiona `F7` dentro del visor para buscar cadenas de texto. La búsqueda recorre todo el archivo en segundo plano (progreso en la línea de estado, `Esc` la cancela).
+* **Archivos grandes:** Los archivos se leen por bloques con un índice de líneas construido en segundo plano, así que los de varios gigabytes se abren al instante con memoria acotada.
+* **Codificaciones:** La codificación se detecta (marca de orden de bytes, UTF-16, UTF-8, páginas de códigos como Windows-1252 o Shift-JIS) y se muestra en la línea de estado; `F8` permite cambiarla a mano.
+* **Vista Rápida:** Muestra una vista previa del archivo seleccionado en el panel opuesto. Admite vistas de texto (primeros 256 KiB, en la codificación detectada) y listado de metadatos de archivos comprimidos.
 
 ### 3.3 Editor integrado
 * Toda la edición se hace en el editor integrado (`F4`); Pairee nunca lanza un editor externo.

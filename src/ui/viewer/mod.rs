@@ -1,19 +1,21 @@
 mod hex;
 mod image;
 mod state;
+mod status;
 mod text;
 
 pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState};
 
 use crate::config::localization::t;
-use crate::ui::scrollbar::ScrollbarUiState;
+use crate::ui::scrollbar::{self, ScrollTarget, ScrollTargetId, ScrollView};
+use crate::ui::scrollbar::{ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
     style::{Modifier, Style},
     text::Span,
-    widgets::{Block, Borders},
+    widgets::{Block, Borders, Paragraph, Wrap},
 };
 
 /// How the viewer is drawn: theme, the dialog over it (for search
@@ -24,6 +26,8 @@ pub struct ViewerOpts<'a> {
     pub show_scrollbar: bool,
     pub tab_size: usize,
     pub scrollbar: Option<&'a ScrollbarUiState>,
+    /// Progress (0–100) of a running search, shown in the status line.
+    pub search_progress: Option<u8>,
 }
 
 /// Renders the internal viewer into `area` according to the current mode.
@@ -58,13 +62,42 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
                 .fg(parse_color(&theme.header_fg))
                 .add_modifier(Modifier::BOLD),
         ))
+        .title_bottom(Span::styled(
+            status::status_text(state, opts.search_progress),
+            Style::default().fg(parse_color(&theme.header_fg)),
+        ))
         .style(Style::default().bg(parse_color(&theme.panel_bg)));
 
-    match state.mode {
-        ViewerMode::Text => text::render_text(f, area, state, block, opts),
-        ViewerMode::Hex => hex::render_hex(f, area, state, block, theme, show_scrollbar, scrollbar),
-        ViewerMode::Image => {
-            image::render_image(f, area, state, block, theme, show_scrollbar, scrollbar)
+    let height = area.height.saturating_sub(2) as usize;
+    let para = match state.mode {
+        ViewerMode::Text => {
+            Paragraph::new(text::text_lines(state, height, opts)).wrap(Wrap { trim: false })
         }
+        ViewerMode::Hex => Paragraph::new(hex::hex_lines(state, height)),
+        ViewerMode::Image => {
+            image::render_image(f, area, state, block, theme, show_scrollbar, scrollbar);
+            return;
+        }
+    };
+    let para = para
+        .block(block)
+        .style(Style::default().fg(parse_color(&theme.panel_fg)));
+    f.render_widget(para, area);
+    if show_scrollbar {
+        scrollbar::render_vertical_inside_block(
+            f,
+            area,
+            ScrollView {
+                content_len: state.content_rows(),
+                viewport_len: height,
+                offset: state.scroll,
+            },
+            theme,
+            ScrollTarget {
+                surface: ScrollbarSurface::Panel,
+                hits: scrollbar,
+                id: ScrollTargetId::Viewer,
+            },
+        );
     }
 }
