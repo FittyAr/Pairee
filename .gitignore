@@ -40,3 +40,6 @@ tarpaulin-report.html
 
 # OS / package noise
 *.stackdump
+
+# Claude Code agent worktrees
+.claude/worktrees/
