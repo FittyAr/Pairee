@@ -66,6 +66,17 @@ impl NavStep {
             Self::Last => last,
         }
     }
+
+    /// Like [`Self::apply`] but Up / Down stop at the ends instead of
+    /// wrapping (long lists such as the Git panel tabs).
+    pub fn apply_clamped(self, idx: usize, len: usize) -> usize {
+        match self {
+            Self::Prev => idx.saturating_sub(1),
+            Self::Next if len > 0 => (idx + 1).min(len - 1),
+            Self::Next => idx,
+            _ => self.apply(idx, len),
+        }
+    }
 }
 
 /// Previous index in `0..len`, wrapping from the first to the last row.
