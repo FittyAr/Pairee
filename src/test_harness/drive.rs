@@ -177,6 +177,8 @@ impl Harness {
             || state.git_op.is_running()
             || state.multi_rename.is_running()
             || state.vfs_op.is_running()
+            || state.folder_scan.is_running()
+            || state.disk_usage.is_scanning()
             || state.viewer.search_progress().is_some()
             || state
                 .screens

@@ -8,6 +8,7 @@ mod bookmarks;
 mod editor;
 mod file_ops;
 mod navigation;
+mod sizes_sync;
 mod tabs_session;
 mod transfer;
 mod viewer;
