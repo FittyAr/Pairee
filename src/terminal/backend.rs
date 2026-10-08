@@ -88,6 +88,24 @@ impl TerminalBackend {
         })
     }
 
+    /// A backend that never touches the real terminal: no raw mode, a fixed
+    /// viewport (no size query). Tests wrap it in `ManuallyDrop` so `Drop`
+    /// does not emit restore sequences either.
+    #[cfg(test)]
+    pub(crate) fn headless() -> Result<Self> {
+        let viewport = ratatui::Viewport::Fixed(ratatui::layout::Rect::new(0, 0, 80, 24));
+        let terminal = Terminal::with_options(
+            CrosstermBackend::new(io::stdout()),
+            ratatui::TerminalOptions { viewport },
+        )?;
+        Ok(Self {
+            terminal,
+            keyboard_enhancement: false,
+            focus_change: false,
+            bracketed_paste: false,
+        })
+    }
+
     /// Restores the original terminal state by disabling raw mode and leaving alternate screen.
     pub fn restore(&mut self) -> Result<()> {
         disable_raw_mode()?;
