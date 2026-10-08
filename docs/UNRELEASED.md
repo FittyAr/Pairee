@@ -37,6 +37,7 @@
 - Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- Compressing a folder to ZIP now keeps its subfolder structure; previously file names were glued together (e.g. `projectsubfile.txt` instead of `project/sub/file.txt`).
 - The "Save commands / folders / view and edit history" settings are now honored: disabled categories are no longer written to or restored from `history.toml`.
 - Symbolic links to directories are listed and opened as directories instead of files.
 - On Windows, files with the Hidden attribute are hidden unless "Show hidden files" is on.

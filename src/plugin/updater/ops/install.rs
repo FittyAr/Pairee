@@ -2,7 +2,9 @@
 
 use super::install_guard::{safe_join, validate_identifier, verify_bytes_sha256};
 use crate::plugin::updater::lockfile::{read_lockfile, write_lockfile};
-use crate::plugin::updater::registry::{fetch_blocklist, fetch_index};
+use crate::plugin::updater::registry::{
+    fetch_blocklist, fetch_index, plugin_file_url, registry_author,
+};
 use crate::plugin::updater::types::{PinnedPlugin, RegistryPluginManifestWrapper};
 use std::collections::HashMap;
 
@@ -34,26 +36,15 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
         );
     }
 
-    let author = plugin.author.as_deref().unwrap_or("unknown").trim();
-    let author = if author.is_empty() { "unknown" } else { author };
+    let author = registry_author(plugin.author.as_deref());
     validate_identifier("author", author)?;
 
     let plugins_dir = crate::config::paths::get_installed_plugin_dir(name);
 
     println!("Downloading {} v{}...", plugin.name, plugin.version);
 
-    let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
-    let first_char_str = if first_char.is_ascii_alphabetic() {
-        first_char.to_string()
-    } else {
-        "_".to_string()
-    };
-
     let client = reqwest::Client::builder().build()?;
-    let manifest_url = format!(
-        "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/manifest.toml",
-        first_char_str, author, name
-    );
+    let manifest_url = plugin_file_url(author, name, "manifest.toml");
     let resp = client.get(&manifest_url).send().await?;
     if !resp.status().is_success() {
         anyhow::bail!("Failed to download plugin manifest: HTTP {}", resp.status());
@@ -74,10 +65,7 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     // never reaches the plugin directory and no partial install is left.
     let mut verified = Vec::with_capacity(targets.len());
     for (rel_path, expected_hash, dest_path) in targets {
-        let file_url = format!(
-            "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/plugins/{}/{}/{}/{}",
-            first_char_str, author, name, rel_path
-        );
+        let file_url = plugin_file_url(author, name, rel_path);
         let resp = client.get(&file_url).send().await?;
         if !resp.status().is_success() {
             anyhow::bail!(

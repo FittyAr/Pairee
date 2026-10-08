@@ -4,6 +4,10 @@ pub mod external_7z;
 pub mod safe_extract;
 pub mod sevenz_ops;
 pub mod tar_ops;
+#[cfg(test)]
+mod test_fixtures;
+#[cfg(test)]
+mod tests;
 pub mod zip_ops;
 
 pub use external_7z::extract_via_external_7z;

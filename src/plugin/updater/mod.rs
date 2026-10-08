@@ -1,6 +1,8 @@
 pub mod lockfile;
 pub mod ops;
 pub mod registry;
+#[cfg(test)]
+mod tests;
 pub mod types;
 
 pub use lockfile::{read_lockfile, write_lockfile};
