@@ -21,6 +21,10 @@ pub fn default_true() -> bool {
     true
 }
 
+pub fn default_ssh_timeout_secs() -> u64 {
+    crate::fs::ssh::DEFAULT_SSH_TIMEOUT_SECS
+}
+
 pub fn default_git_log_limit() -> u32 {
     100
 }

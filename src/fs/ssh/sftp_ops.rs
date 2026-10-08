@@ -71,7 +71,7 @@ pub(super) fn parent_entry(path: &Path, show_dotdot_in_root_folders: bool) -> Op
 }
 
 /// Final path component as a display name (empty when there is none).
-fn entry_name(path: &Path) -> String {
+pub(super) fn entry_name(path: &Path) -> String {
     path.file_name()
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default()
@@ -102,46 +102,6 @@ pub(super) fn map_entry(
             .mtime
             .map(|mtime| SystemTime::UNIX_EPOCH + Duration::from_secs(mtime)),
     })
-}
-
-pub fn delete_recursive(sftp: &Sftp, path: &Path) -> Result<()> {
-    let mut stack: Vec<PathBuf> = vec![path.to_path_buf()];
-    while let Some(current) = stack.pop() {
-        let (is_dir, children) = match sftp.stat(&current) {
-            Ok(stat) => {
-                if stat.is_dir() {
-                    let kids = sftp.readdir(&current)?;
-                    let mut names: Vec<PathBuf> = Vec::with_capacity(kids.len());
-                    for (entry_path, entry_stat) in kids {
-                        if !is_real_child(&entry_name(&entry_path)) {
-                            continue;
-                        }
-                        if entry_stat.is_dir() {
-                            stack.push(entry_path);
-                        } else {
-                            names.push(entry_path);
-                        }
-                    }
-                    (true, Some(names))
-                } else {
-                    (false, None)
-                }
-            }
-            Err(_) => (false, None),
-        };
-
-        if is_dir {
-            if let Some(kids) = children {
-                for k in kids {
-                    sftp.unlink(&k)?;
-                }
-            }
-            sftp.rmdir(&current)?;
-        } else {
-            let _ = sftp.unlink(&current);
-        }
-    }
-    Ok(())
 }
 
 pub fn walk_dir(sftp: &Sftp, root: &Path) -> Result<Vec<(PathBuf, bool, u64)>> {

@@ -36,11 +36,8 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     };
 
     let ssh_suffix = if let Some(client) = &panel.ssh_conn {
-        if let Ok(c) = client.0.lock() {
-            format!(" [SSH: {}@{}]", c.username, c.host)
-        } else {
-            " [SSH: Locked]".to_string()
-        }
+        let info = client.info();
+        format!(" [SSH: {}@{}]", info.username, info.host)
     } else {
         String::new()
     };

@@ -42,13 +42,9 @@ pub struct AppState {
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
-    /// Channel receiver for background SSH connection attempts
-    pub ssh_connect_rx: Option<
-        tokio::sync::oneshot::Receiver<(
-            ActivePanel,
-            anyhow::Result<crate::fs::ssh::SharedSshClient>,
-        )>,
-    >,
+    /// Background SSH connection attempt (target panel, result).
+    pub ssh_connect:
+        crate::app::jobs::JobSlot<(ActivePanel, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
     /// Channel receiver for running background file search operations
     pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
     pub plugins: PluginHostState,
@@ -113,7 +109,7 @@ impl AppState {
             cli_input: String::new(),
             dialogs: DialogStack::new(),
             should_quit: false,
-            ssh_connect_rx: None,
+            ssh_connect: Default::default(),
             search_rx: None,
             plugins: PluginHostState::default(),
             term_tx,

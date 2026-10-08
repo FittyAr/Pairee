@@ -18,32 +18,20 @@ pub fn scan_sources(
     dst_conn: &Option<SharedSshClient>,
     control: &BackendControl,
 ) -> Result<ScanOutput, anyhow::Error> {
-    let is_dir_for_conn = |path: &Path, conn: &Option<SharedSshClient>| -> bool {
-        if let Some(client) = conn {
-            if let Ok(c) = client.0.lock()
-                && let Ok(stat) = c.sftp.stat(path)
-            {
-                return stat.is_dir();
-            }
-            false
-        } else {
-            path.is_dir()
-        }
-    };
-
     let mut total_files = 0usize;
     let mut total_bytes = 0u64;
     let mut file_mappings = Vec::new();
     let mut dirs_to_create = Vec::new();
 
-    let destination_dir_is_dir =
-        is_destination_parent_dir(sources, destination_dir, |p| is_dir_for_conn(p, dst_conn));
+    let destination_dir_is_dir = is_destination_parent_dir(sources, destination_dir, |p| {
+        crate::fs::ssh::is_dir_on(p, dst_conn)
+    });
 
     for src in sources {
         if control.cancelled() {
             return Err(anyhow!("Job cancelled"));
         }
-        let is_dir = is_dir_for_conn(src, src_conn);
+        let is_dir = crate::fs::ssh::is_dir_on(src, src_conn);
         let name = src
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
@@ -99,11 +87,7 @@ pub fn scan_sources(
         } else {
             total_files += 1;
             let size = if let Some(src_client) = src_conn {
-                if let Ok(c) = src_client.0.lock() {
-                    c.sftp.stat(src).ok().and_then(|s| s.size).unwrap_or(0)
-                } else {
-                    0
-                }
+                src_client.file_size(src)
             } else {
                 src.metadata().ok().map(|m| m.len()).unwrap_or(0)
             };

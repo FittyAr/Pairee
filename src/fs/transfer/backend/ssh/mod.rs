@@ -16,6 +16,8 @@ use super::BackendControl;
 use anyhow::anyhow;
 use std::path::PathBuf;
 
+/// Runs an SSH job. libssh2 calls are blocking, so the whole job executes
+/// on Tokio's blocking pool instead of stalling an async worker thread.
 pub async fn run_ssh_job(
     operation: TransferOperation,
     sources: Vec<PathBuf>,
@@ -23,19 +25,17 @@ pub async fn run_ssh_job(
     ssh: SshEndpoints,
     control: BackendControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    match operation {
-        TransferOperation::Delete => run_ssh_delete(sources, ssh, control).await,
-        TransferOperation::Copy => {
-            run_ssh_copy_move(sources, destination, ssh, false, control).await
-        }
-        TransferOperation::Move => {
-            run_ssh_copy_move(sources, destination, ssh, true, control).await
-        }
+    tokio::task::spawn_blocking(move || match operation {
+        TransferOperation::Delete => run_ssh_delete(sources, ssh, control),
+        TransferOperation::Copy => run_ssh_copy_move(sources, destination, ssh, false, control),
+        TransferOperation::Move => run_ssh_copy_move(sources, destination, ssh, true, control),
         TransferOperation::Wipe
         | TransferOperation::Compress
         | TransferOperation::Extract
         | TransferOperation::ApplyCommand => {
             Err(anyhow!("{} is not available over SSH", operation.label()))
         }
-    }
+    })
+    .await
+    .map_err(|e| anyhow!("SSH transfer task failed: {e}"))?
 }

@@ -13,6 +13,7 @@ pub fn open_session(
     username: &str,
     password: Option<&str>,
     key_path: Option<&str>,
+    timeout: Duration,
 ) -> Result<Session> {
     let addr = format!("{}:{}", host, port);
     let socket_addrs = addr
@@ -30,12 +31,20 @@ pub fn open_session(
 
     let mut sess = Session::new().context(t("error_ssh_create_session"))?;
     sess.set_tcp_stream(stream);
+    // Bound every blocking libssh2 call (handshake, auth, SFTP) so a dead
+    // server cannot hang a worker forever. 0 = no limit.
+    sess.set_timeout(timeout_millis(timeout));
     sess.handshake().context(t("error_ssh_handshake_failed"))?;
 
     verify_host_key(&mut sess, host, port)?;
     authenticate(&mut sess, username, password, key_path)?;
 
     Ok(sess)
+}
+
+/// libssh2 takes the timeout in milliseconds as `u32`.
+pub(super) fn timeout_millis(timeout: Duration) -> u32 {
+    u32::try_from(timeout.as_millis()).unwrap_or(u32::MAX)
 }
 
 fn verify_host_key(sess: &mut Session, host: &str, port: u16) -> Result<()> {
@@ -205,4 +214,17 @@ fn known_hosts_path() -> Option<PathBuf> {
 pub(super) fn known_hosts_path_in(home: Option<std::ffi::OsString>) -> Option<PathBuf> {
     home.filter(|h| !h.is_empty())
         .map(|h| PathBuf::from(h).join(".ssh").join("known_hosts"))
+}
+
+#[cfg(test)]
+mod timeout_tests {
+    use super::timeout_millis;
+    use std::time::Duration;
+
+    #[test]
+    fn timeout_is_clamped_to_u32_millis() {
+        assert_eq!(timeout_millis(Duration::from_secs(30)), 30_000);
+        assert_eq!(timeout_millis(Duration::ZERO), 0);
+        assert_eq!(timeout_millis(Duration::from_secs(u64::MAX / 2)), u32::MAX);
+    }
 }
