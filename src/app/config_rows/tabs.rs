@@ -51,6 +51,22 @@ pub fn panel() -> Vec<Row> {
         toggle!("pan_reverse_sort", sort_reverse),
         toggle!("pan_sort_letter", show_sort_mode_letter),
         title("Updates & Information"),
+        toggle!("pan_auto_refresh", auto_refresh),
+        cycle(
+            "pan_auto_refresh_poll",
+            1,
+            CycleFormat::Bracket,
+            |s| s.auto_refresh_poll_secs.to_string(),
+            |s| {
+                s.auto_refresh_poll_secs = match s.auto_refresh_poll_secs {
+                    0..=2 => 3,
+                    3..=4 => 5,
+                    5..=9 => 10,
+                    10..=29 => 30,
+                    _ => 2,
+                };
+            },
+        ),
         cycle(
             "pan_disable_update",
             0,

@@ -266,6 +266,7 @@ fn initial_state(settings: &config::settings::Settings, cli_paths: &[PathBuf]) -
     state.sort_folder_names_by_extension = settings.sort_folder_names_by_extension;
     state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
     state.disable_panel_update_object_count = settings.disable_panel_update_object_count;
+    state.auto_refresh.configure(settings);
     for notice in app::session::start(&mut state, settings, cli_paths) {
         state.dialogs.push(app::state::PopupType::Info(notice));
     }

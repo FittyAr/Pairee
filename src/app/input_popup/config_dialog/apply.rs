@@ -19,6 +19,7 @@ pub fn apply_settings(state: &mut AppState, context: &mut AppContext, settings: 
     state.sort_folder_names_by_extension = settings.sort_folder_names_by_extension;
     state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
     state.disable_panel_update_object_count = settings.disable_panel_update_object_count;
+    state.auto_refresh.configure(&settings);
     let lang_to_load = settings.language.clone();
     context.config.settings = settings;
     context.config.save_logging();

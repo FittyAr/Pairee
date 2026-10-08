@@ -1,6 +1,7 @@
 pub mod actions;
 #[allow(clippy::module_inception)]
 pub mod app;
+pub mod auto_refresh;
 pub mod config_rows;
 pub mod context;
 pub mod disk_usage;

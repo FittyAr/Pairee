@@ -162,3 +162,13 @@ El sistema está desacoplado en varios componentes de responsabilidad única:
 * **Persistencia:** `Tab::spec()` / `Tab::from_spec()` convierten a `TabSpec`, una estructura serde sin tipos de UI (incluye el elemento bajo el cursor y el nombre del perfil SSH).
 * **Sesión:** `app/session/` gestiona el inicio y la salida. `start()` aplica los valores de "Guardar configuración", luego `config::session::SessionFile` (`session.toml`, leído y escrito con `config::toml_store` como marcadores e historial) y por último las carpetas de la línea de comandos (`launch_args.rs`) en las pestañas visibles. Las pestañas SFTP restauradas llevan un `PendingRemote` y se conectan desde su perfil la primera vez que se muestran (`session/remote.rs`, con el mismo `ssh_connect` que el diálogo SSH). `persist_on_exit()` guarda configuración, historial y sesión y devuelve la carpeta para `--cwd-file` / `--print-cwd`.
 
+---
+
+## 👁️ 10. Refresco automático de paneles
+
+`fs::watch` observa carpetas; `app::auto_refresh` decide cuáles y aplica los cambios.
+
+* **Observer:** un `DirMonitor` corre en su propio hilo por carpeta y notifica `DirChange { dir, entries }` a un `ChangeSink` (un canal más `app::jobs::wake_event_loop`, el mismo `Notify` de los trabajos en segundo plano). Al soltar el monitor se detiene.
+* **Strategy:** `ChangeStrategy` tiene dos implementaciones: `WatchStrategy` (`notify`, no recursivo, ignora accesos, los eventos perdidos se convierten en un cambio de toda la carpeta) y `PollStrategy` (compara `DirSignature`, fecha de modificación más número de entradas, cada `auto_refresh_poll_secs`). `strategy_chain` elige `[Watch, Poll]`, o `[Poll]` para carpetas que superan `disable_panel_update_object_count` y para las que marca `needs_polling` (unidades de red UNC/mapeadas y `\\wsl$` en Windows; montajes NFS/SMB, 9p, drvfs y FUSE de `/proc/mounts` en Linux). La cadena corre en el hilo del monitor, de modo que las comprobaciones lentas de red no bloquean la interfaz, y si no se puede observar se recurre al sondeo.
+* **Agrupación:** `Coalescer` (puro, recibe el reloj) junta los cambios por carpeta y libera uno tras 250 ms sin cambios, o 2 s después del primero en una ráfaga continua.
+* **Aplicación:** en cada vuelta del bucle `AppState::poll_auto_refresh` sincroniza los monitores con las carpetas de la pestaña activa de cada lado (solo origen local), así que se rearman al cambiar de carpeta, de pestaña o al cerrarla. Un cambio relee cada pestaña local en esa carpeta con `refresh_tab_quietly` (el listado normal, que también recalcula Git; `quiet_listing` oculta "Cargando…"), invalida los tamaños de las carpetas cambiadas (`DirSizes::invalidate`, que las vuelve a medir) y se pospone si la pestaña sigue cargando.

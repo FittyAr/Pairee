@@ -33,6 +33,12 @@ Puedes configurar cada panel de forma independiente para mostrar archivos usando
 * **Pestañas bloqueadas:** **Izquierdo/Derecho → Pestañas → Bloquear pestaña** fija una pestaña a su carpeta; al entrar en otra carpeta desde ella se abre una pestaña nueva. **Cambiar nombre** le da un título fijo.
 * **Intercambiar paneles** (`Ctrl+U`) intercambia los paneles junto con sus pestañas.
 
+### 1.4 Refresco automático
+* Los paneles siguen los cambios hechos por otros programas: la carpeta de la pestaña activa de cada lado se observa (notificaciones nativas, no recursivas) y se relee en segundo plano, sin el título "Cargando…", manteniendo cursor y selección. También se actualizan las marcas de Git y los tamaños calculados de las carpetas que cambiaron.
+* Las ráfagas se agrupan: un cuarto de segundo sin cambios, o como mucho unos dos segundos durante una copia larga, produce una sola relectura.
+* Las unidades de red, las rutas de WSL y las carpetas que no se pueden observar se sondean (**Intervalo de sondeo en carpetas de red**). Los paneles de archivos comprimidos y SFTP no se refrescan solos.
+* Se desactiva en **Opciones → Configuración → Panel → Actualizar paneles automáticamente al cambiar las carpetas**.
+
 ---
 
 ## 📂 2. Operaciones del Sistema de Archivos

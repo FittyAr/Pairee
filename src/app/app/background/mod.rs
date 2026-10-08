@@ -12,6 +12,7 @@ pub fn process_background_updates(
     context: &AppContext,
     terminal_backend: &mut TerminalBackend,
 ) {
+    state.poll_auto_refresh(context.config.settings.show_hidden);
     state.poll_panel_listings();
     state.poll_quick_view();
     state.poll_viewer();

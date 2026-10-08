@@ -9,11 +9,11 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    PluginConfig, SshPreset, TabExpansion, default_compare_mtime_tolerance_secs,
-    default_git_log_limit, default_plugins_dev_dir, default_ssh_timeout_secs,
-    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
-    default_transfer_max_retries, default_transfer_report_format, default_true,
-    default_viewer_codepage,
+    PluginConfig, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
+    default_compare_mtime_tolerance_secs, default_git_log_limit, default_plugins_dev_dir,
+    default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
+    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
+    default_true, default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -74,6 +74,13 @@ pub struct Settings {
     pub select_folders: bool,
     pub sort_folder_names_by_extension: bool,
     pub disable_panel_update_object_count: u32,
+    /// Reread panels when their folder changes on disk (watch or poll).
+    #[serde(default = "default_true")]
+    pub auto_refresh: bool,
+    /// Poll interval for folders that cannot be watched (network shares,
+    /// folders above `disable_panel_update_object_count`).
+    #[serde(default = "default_auto_refresh_poll_secs")]
+    pub auto_refresh_poll_secs: u32,
     pub show_column_titles: bool,
     pub show_status_line: bool,
     pub show_files_total_information: bool,

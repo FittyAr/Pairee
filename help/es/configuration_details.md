@@ -72,8 +72,12 @@ Controla las columnas del listado, filtros y actualizaciones.
   - *Descripción:* Renderiza una letra identificativa del criterio activo (ej. `n` para Nombre, `s` para Tamaño) en la barra de estado.
 
 ### Actualizaciones e Información
+* **Actualizar paneles automáticamente al cambiar las carpetas** (`auto_refresh`, activado por defecto):
+  - *Descripción:* Se observa la carpeta de la pestaña activa de cada lado; los archivos que otros programas crean, borran, renombran o modifican aparecen solos en una fracción de segundo, manteniendo cursor y selección, junto con las marcas de Git y los tamaños de carpetas actualizados. Una ráfaga de cambios (una copia grande) refresca el panel cada dos segundos aproximadamente en lugar de con cada archivo. Los paneles de archivos comprimidos y SFTP no se observan (usa `Ctrl+R`).
+* **Intervalo de sondeo en carpetas de red (segundos)** (`auto_refresh_poll_secs`, 3 por defecto):
+  - *Descripción:* Las unidades de red (SMB/NFS mapeadas, rutas UNC y WSL), otros sistemas de archivos sin notificaciones fiables y las carpetas que superan el límite de objetos de abajo se comprueban con este intervalo (fecha de modificación y número de entradas). El sondeo también es la alternativa cuando una carpeta no se puede observar.
 * **Disable panel update object count (Desactivar recuento de objetos):**
-  - *Descripción:* Limita la frecuencia de actualización visual del recuento de archivos para directorios gigantescos, optimizando el rendimiento.
+  - *Descripción:* Las carpetas con más objetos que este valor no se releen automáticamente tras las operaciones, y el refresco automático las sondea en lugar de observarlas (un cambio detectado sí las relee). `Ctrl+R` siempre relee.
 * **Show files total information (Mostrar info total de archivos):**
   - *Descripción:* Muestra el número total de bytes y archivos seleccionados en la línea de estado.
 * **Show free size (Mostrar espacio libre):**

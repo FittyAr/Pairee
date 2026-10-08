@@ -119,6 +119,20 @@ impl DirSizes {
         self.known.clear();
     }
 
+    /// Forgets the results of `paths` (their contents changed) and measures
+    /// those folders again in the background.
+    pub fn invalidate(&mut self, paths: &[PathBuf]) {
+        let stale: Vec<PathBuf> = paths
+            .iter()
+            .filter(|path| self.known.remove(*path).is_some())
+            .cloned()
+            .collect();
+        if !stale.is_empty() {
+            let source = self.source.clone();
+            self.request(stale, source);
+        }
+    }
+
     /// Keeps only the results whose folder is still listed.
     pub fn retain_listed(&mut self, listed: &std::collections::HashSet<PathBuf>) {
         self.known.retain(|path, _| listed.contains(path));
@@ -157,6 +171,19 @@ mod tests {
         sizes.request(vec![folder.clone()], Default::default());
         assert!(!sizes.is_running());
         assert!(!sizes.poll());
+    }
+
+    #[test]
+    fn invalidate_measures_changed_folders_again() {
+        let dir = tree();
+        let folder = dir.path().join("a");
+        let mut sizes = DirSizes::default();
+        sizes.request(vec![folder.clone()], Default::default());
+        sizes.poll();
+        std::fs::write(folder.join("g"), [0u8; 8]).unwrap();
+        sizes.invalidate(&[folder.clone(), dir.path().join("unknown")]);
+        assert!(sizes.poll());
+        assert_eq!(sizes.get(&folder).unwrap().bytes, 50);
     }
 
     #[test]

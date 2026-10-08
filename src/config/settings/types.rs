@@ -70,6 +70,11 @@ pub fn default_viewer_codepage() -> String {
     encoding_rs::UTF_8.name().to_string()
 }
 
+/// Seconds between folder checks when a panel folder is polled.
+pub fn default_auto_refresh_poll_secs() -> u32 {
+    3
+}
+
 pub fn default_ssh_timeout_secs() -> u64 {
     crate::fs::ssh::DEFAULT_SSH_TIMEOUT_SECS
 }
