@@ -6,8 +6,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, Screen};
 
 pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
-    let mut refresh_needed = false;
-    let mut term_forwards: Vec<(uuid::Uuid, Option<String>)> = Vec::new();
+    let mut effects = events::EventEffects::default();
 
     if let Some(ref mut transfer_state) = state.transfer {
         let mut events = Vec::new();
@@ -16,13 +15,7 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
         }
 
         for event in events {
-            events::handle_transfer_event(
-                event,
-                state,
-                context,
-                &mut term_forwards,
-                &mut refresh_needed,
-            );
+            events::handle_transfer_event(event, state, context, &mut effects);
         }
 
         if let Some(ref mut transfer_state) = state.transfer {
@@ -39,8 +32,8 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
         }
     }
 
-    if !term_forwards.is_empty() {
-        for (job_id, line) in term_forwards {
+    if !effects.term_forwards.is_empty() {
+        for (job_id, line) in effects.term_forwards {
             for screen in &mut state.screens {
                 if let Screen::Terminal(ts) = screen
                     && ts.job_id == Some(job_id)
@@ -54,7 +47,7 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
         }
         state.mark_ui_dirty();
     }
-    if refresh_needed {
+    if effects.refresh_needed {
         state.refresh_both_panels(context.config.settings.show_hidden);
     }
 }

@@ -81,6 +81,30 @@ pub enum TransferEvent {
     },
 }
 
+impl TransferEvent {
+    /// The job this event belongs to.
+    pub fn job_id(&self) -> Uuid {
+        match self {
+            Self::JobStarted { job_id }
+            | Self::ScanStarted { job_id }
+            | Self::ScanProgress { job_id, .. }
+            | Self::ScanComplete { job_id, .. }
+            | Self::FileStarted { job_id, .. }
+            | Self::FileProgress { job_id, .. }
+            | Self::FileCompleted { job_id, .. }
+            | Self::CommandOutput { job_id, .. }
+            | Self::FileFailed { job_id, .. }
+            | Self::FileSkipped { job_id, .. }
+            | Self::VerifyStarted { job_id, .. }
+            | Self::VerifyProgress { job_id, .. }
+            | Self::JobCompleted { job_id, .. }
+            | Self::JobFailed { job_id, .. }
+            | Self::SpeedUpdate { job_id, .. }
+            | Self::ConflictDetected { job_id, .. } => *job_id,
+        }
+    }
+}
+
 /// Minimum interval between forwarded progress events of one job.
 pub const PROGRESS_MIN_INTERVAL: Duration = Duration::from_millis(50);
 
