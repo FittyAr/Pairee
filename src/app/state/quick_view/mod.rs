@@ -89,8 +89,14 @@ impl AppState {
             .as_ref()
             .is_some_and(|(_, at)| at.elapsed() >= QUICK_VIEW_DEBOUNCE);
         if due && let Some((key, _)) = self.quick_view.pending.take() {
+            let vfs = self.vfs_of_listed(&key.path);
             self.quick_view.job.start(move |_| {
-                let preview = load::load_preview(&key.path, key.allow_image, QUICK_VIEW_MAX_BYTES);
+                let preview = load::load_preview(
+                    vfs.as_ref(),
+                    &key.path,
+                    key.allow_image,
+                    QUICK_VIEW_MAX_BYTES,
+                );
                 (key, Arc::new(preview))
             });
             // Inline execution (no runtime) may already be done.

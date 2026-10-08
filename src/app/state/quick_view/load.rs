@@ -3,7 +3,7 @@
 
 use super::pdf::extract_pdf_text;
 use crate::config::localization::t;
-use std::io::Read;
+use crate::fs::vfs::{Vfs, VfsEntry};
 use std::path::Path;
 use std::sync::Arc;
 
@@ -42,27 +42,38 @@ fn has_ext(path: &Path, exts: &[&str]) -> bool {
         .unwrap_or(false)
 }
 
-/// Loads the preview for `path`, reading at most `max_bytes` from files.
-pub fn load_preview(path: &Path, allow_image: bool, max_bytes: u64) -> QuickViewPreview {
-    if path.is_dir() {
-        return QuickViewPreview::text(folder_lines(path));
+/// Loads the preview for `path` on `vfs`, reading at most `max_bytes` from
+/// files.
+pub fn load_preview(
+    vfs: &dyn Vfs,
+    path: &Path,
+    allow_image: bool,
+    max_bytes: u64,
+) -> QuickViewPreview {
+    if let Ok(children) = vfs.list(path) {
+        return QuickViewPreview::text(folder_lines(path, children));
     }
-    let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+    let size = vfs.stat(path).map_or(0, |e| e.size);
     let is_image = allow_image && has_ext(path, IMAGE_EXTS);
     let is_pdf = has_ext(path, &["pdf"]);
     if (is_image || is_pdf) && size > max_bytes {
         return QuickViewPreview::text(vec![too_large(size, max_bytes)]);
     }
-    if is_image && let Ok(img) = image::open(path) {
+    if is_image
+        && let Some(img) = vfs
+            .read_prefix(path, max_bytes)
+            .ok()
+            .and_then(|bytes| crate::ui::viewer::decode_image(path, bytes))
+    {
         return QuickViewPreview {
             content: Vec::new(),
             image: Some(Arc::new(img)),
         };
     }
     if is_pdf {
-        return QuickViewPreview::text(pdf_lines(path));
+        return QuickViewPreview::text(pdf_lines(vfs, path, max_bytes));
     }
-    QuickViewPreview::text(file_lines(path, size, max_bytes))
+    QuickViewPreview::text(file_lines(vfs, path, size, max_bytes))
 }
 
 fn too_large(size: u64, max_bytes: u64) -> String {
@@ -71,8 +82,8 @@ fn too_large(size: u64, max_bytes: u64) -> String {
         .replacen("{}", &bytesize::ByteSize::b(max_bytes).to_string(), 1)
 }
 
-fn pdf_lines(path: &Path) -> Vec<String> {
-    match std::fs::read(path) {
+fn pdf_lines(vfs: &dyn Vfs, path: &Path, max_bytes: u64) -> Vec<String> {
+    match vfs.read_prefix(path, max_bytes) {
         Ok(bytes) => match extract_pdf_text(&bytes) {
             Some(text) => text.lines().map(str::to_string).collect(),
             None => vec![t("quickview_pdf_no_text")],
@@ -81,22 +92,16 @@ fn pdf_lines(path: &Path) -> Vec<String> {
     }
 }
 
-fn folder_lines(path: &Path) -> Vec<String> {
+fn folder_lines(path: &Path, children: Vec<VfsEntry>) -> Vec<String> {
     let dir_name = path.file_name().unwrap_or_default().to_string_lossy();
     let mut lines = vec![
         t("quickview_folder").replacen("{}", &dir_name, 1),
         SEPARATOR.to_string(),
     ];
-    let Ok(read) = std::fs::read_dir(path) else {
-        return lines;
-    };
-    let mut entries: Vec<(bool, String)> = read
-        .flatten()
+    let mut entries: Vec<(bool, String)> = children
+        .into_iter()
         .take(QUICK_VIEW_MAX_DIR_ENTRIES)
-        .map(|e| {
-            let is_dir = e.file_type().map(|t| t.is_dir()).unwrap_or(false);
-            (is_dir, e.file_name().to_string_lossy().into_owned())
-        })
+        .map(|e| (e.is_dir, e.name))
         .collect();
     entries.sort_by(|a, b| {
         b.0.cmp(&a.0)
@@ -110,9 +115,10 @@ fn folder_lines(path: &Path) -> Vec<String> {
     lines
 }
 
-fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
+fn file_lines(vfs: &dyn Vfs, path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
     use crate::fs::archive::{detect_format, list_archive_files};
-    if let Some(format_name) = detect_format(path).label() {
+    let local = vfs.capabilities().local_tools;
+    if let Some(format_name) = detect_format(path).label().filter(|_| local) {
         return match list_archive_files(path) {
             Ok(files) => {
                 let archive_name = path.file_name().unwrap_or_default().to_string_lossy();
@@ -129,7 +135,7 @@ fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
         };
     }
     let max_bytes = max_bytes.min(QUICK_VIEW_TEXT_BYTES);
-    match read_text_prefix(path, max_bytes) {
+    match read_text_prefix(vfs, path, max_bytes) {
         Some(text) => {
             let mut lines: Vec<String> = text.lines().map(str::to_string).collect();
             if size > max_bytes {
@@ -148,11 +154,9 @@ fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
 /// Reads up to `max_bytes` and decodes them in the detected encoding
 /// (UTF-8/16, legacy code pages). A character cut by the cap is dropped;
 /// `None` means binary or unreadable.
-pub fn read_text_prefix(path: &Path, max_bytes: u64) -> Option<String> {
-    let mut buf = Vec::new();
-    let mut file = std::fs::File::open(path).ok()?;
-    let size = file.metadata().ok()?.len();
-    (&mut file).take(max_bytes).read_to_end(&mut buf).ok()?;
+pub fn read_text_prefix(vfs: &dyn Vfs, path: &Path, max_bytes: u64) -> Option<String> {
+    let size = vfs.stat(path).ok()?.size;
+    let buf = vfs.read_prefix(path, max_bytes).ok()?;
     let at_eof = buf.len() as u64 >= size;
     crate::fs::text::decode_prefix(&buf, at_eof, crate::fs::text::EncodingPolicy::Detect)
 }

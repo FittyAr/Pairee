@@ -119,3 +119,25 @@ fn local_only_actions_are_refused_inside_archives() {
     }
     assert!(refuse_unsupported(&mut state, &Action::Move));
 }
+
+#[test]
+fn viewer_and_quick_view_read_archive_entries() {
+    use crate::app::state::quick_view::load::load_preview;
+    let (dir, mut context, mut state) = app();
+    cursor_to(&mut state, "bundle.zip");
+    act(&mut state, &mut context, Action::Execute);
+    let entry = dir.path().join("bundle.zip").join("a.txt");
+
+    let vfs = state.vfs_of_listed(&entry);
+    assert_eq!(
+        load_preview(vfs.as_ref(), &entry, false, 1024).content,
+        ["alpha"]
+    );
+    let folder = dir.path().join("bundle.zip").join("sub");
+    let listing = load_preview(vfs.as_ref(), &folder, false, 1024);
+    assert!(listing.content.iter().any(|l| l == "b.txt"), "{listing:?}");
+
+    state.open_viewer(entry, &context.config.settings, false);
+    let viewer = state.active_viewer_mut().expect("viewer screen");
+    assert_eq!(viewer.doc.lines(0, 5), ["alpha"]);
+}

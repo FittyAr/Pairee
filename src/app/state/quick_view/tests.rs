@@ -3,6 +3,7 @@ use super::cache::{PreviewCache, PreviewKey};
 use super::load::{QuickViewPreview, load_preview, read_text_prefix};
 use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::localization::t;
+use crate::fs::vfs::LocalVfs;
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
@@ -53,7 +54,7 @@ fn text_preview_is_capped() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("big.txt");
     std::fs::write(&path, "line\n".repeat(1000)).unwrap();
-    let p = load_preview(&path, false, 50);
+    let p = load_preview(&LocalVfs, &path, false, 50);
     assert_eq!(p.content.iter().filter(|l| *l == "line").count(), 10);
     assert!(
         p.content.last().unwrap().starts_with('['),
@@ -66,9 +67,13 @@ fn utf8_cut_by_cap_is_not_binary() {
     let dir = tempfile::tempdir().unwrap();
     let path = dir.path().join("u.txt");
     std::fs::write(&path, "añb").unwrap(); // 'ñ' is 2 bytes: a,0xC3,0xB1,b
-    assert_eq!(read_text_prefix(&path, 2).as_deref(), Some("a"));
+    assert_eq!(read_text_prefix(&LocalVfs, &path, 2).as_deref(), Some("a"));
     std::fs::write(&path, [0x61, 0x00, 0x62, 0x01, 0x02]).unwrap();
-    assert_eq!(read_text_prefix(&path, 10), None, "NUL bytes = binary");
+    assert_eq!(
+        read_text_prefix(&LocalVfs, &path, 10),
+        None,
+        "NUL bytes = binary"
+    );
 }
 
 #[test]
@@ -84,14 +89,17 @@ mundo
         .flat_map(u16::to_le_bytes),
     );
     std::fs::write(&path, bytes).unwrap();
-    assert_eq!(load_preview(&path, false, 1024).content, ["hola", "mundo"]);
+    assert_eq!(
+        load_preview(&LocalVfs, &path, false, 1024).content,
+        ["hola", "mundo"]
+    );
     let (latin, _, _) = encoding_rs::WINDOWS_1252.encode(
         "Canción de la niña con su pingüino
 ",
     );
     std::fs::write(&path, latin).unwrap();
     assert_eq!(
-        load_preview(&path, false, 1024).content,
+        load_preview(&LocalVfs, &path, false, 1024).content,
         ["Canción de la niña con su pingüino"]
     );
 }

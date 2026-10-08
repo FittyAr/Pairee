@@ -1,10 +1,8 @@
 use crate::app::jobs::spawn_blocking_or_inline;
 use crate::config::localization::t;
-use crate::fs::text::{
-    self, ByteStore, DETECT_SAMPLE_BYTES, EncodingPolicy, FileStore, IndexJob, TextDocument,
-};
+use crate::fs::text::{self, DETECT_SAMPLE_BYTES, EncodingPolicy, IndexJob, TextDocument};
+use crate::fs::vfs::Vfs;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 /// Largest file read whole: images decoded by the viewer (the editor uses the
 /// same cap). Text and hex are paged, whatever the size.
@@ -54,17 +52,38 @@ pub(crate) fn is_image_extension(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Decodes the image file `path` read into `bytes` (format from the
+/// extension, else sniffed from the content).
+pub fn decode_image(path: &Path, bytes: Vec<u8>) -> Option<image::DynamicImage> {
+    let reader = image::ImageReader::new(std::io::Cursor::new(bytes));
+    let reader = match image::ImageFormat::from_path(path) {
+        Ok(format) => {
+            let mut reader = reader;
+            reader.set_format(format);
+            reader
+        }
+        Err(_) => reader.with_guessed_format().ok()?,
+    };
+    reader.decode().ok()
+}
+
 /// Builds a line index on Tokio's blocking pool (inline without a runtime).
 fn spawn_index(job: IndexJob) {
     spawn_blocking_or_inline(move || job.run());
 }
 
 impl ViewerState {
-    /// Opens `path`: detects its encoding from the first bytes and starts
-    /// indexing lines in the background, so even huge files open at once.
-    /// Skips image decoding when `allow_image` is false.
-    pub fn load_with_images(path: PathBuf, allow_image: bool, policy: EncodingPolicy) -> Self {
-        let opened = FileStore::open(&path).and_then(|store| {
+    /// Opens `path` on `vfs`: detects its encoding from the first bytes and
+    /// starts indexing lines in the background, so even huge local files
+    /// open at once (other sources are read whole, up to
+    /// [`VIEWER_MAX_BYTES`]). Skips image decoding when `allow_image` is false.
+    pub fn load_with_images(
+        vfs: &dyn Vfs,
+        path: PathBuf,
+        allow_image: bool,
+        policy: EncodingPolicy,
+    ) -> Self {
+        let opened = vfs.open_store(&path, VIEWER_MAX_BYTES).and_then(|store| {
             let sample = store.read_range(0, DETECT_SAMPLE_BYTES as u64)?;
             Ok((store, sample))
         });
@@ -79,12 +98,11 @@ impl ViewerState {
         };
         let size = store.len();
         let detected = text::detect(&sample, sample.len() as u64 >= size, policy);
-        let (doc, job) = TextDocument::new(Arc::new(store), detected.encoding, detected.bom_len);
-        spawn_index(job);
-
         let image_data = (allow_image && size <= VIEWER_MAX_BYTES && is_image_extension(&path))
-            .then(|| image::open(&path).ok())
+            .then(|| decode_image(&path, store.read_range(0, size).ok()?))
             .flatten();
+        let (doc, job) = TextDocument::new(store, detected.encoding, detected.bom_len);
+        spawn_index(job);
         let is_text = !detected.binary;
         let mode = match (&image_data, is_text) {
             (Some(_), _) => ViewerMode::Image,
@@ -189,7 +207,12 @@ mod tests {
     use super::*;
 
     fn load(path: PathBuf, allow_image: bool) -> ViewerState {
-        ViewerState::load_with_images(path, allow_image, EncodingPolicy::Detect)
+        ViewerState::load_with_images(
+            &crate::fs::vfs::LocalVfs,
+            path,
+            allow_image,
+            EncodingPolicy::Detect,
+        )
     }
 
     #[test]

@@ -50,6 +50,7 @@
 - Centralized all Git operation error alerts, conflict notifications, confirmation prompts, and buttons into localization catalogs with zero hardcoding.
 - Internal: the "do not overwrite an invalid `config.toml` until confirmed" lock and the startup load error now live in `AppConfig` (`ConfigLoadState`) instead of process-wide globals.
 - Internal: panels, folder sizes, the disk usage view, multi-rename and SSH copy/move/delete now go through one panel source port (`fs::vfs::Vfs`, Ports & Adapters) with local and SFTP adapters and capability flags, replacing the separate `DuSource`, `RenameBackend` and `RemoteFs` traits and the per-feature "local or SSH" branches. Panels keep a `PanelSource` instead of an optional SSH connection. Folder links inside a tree uploaded or downloaded over SSH are created as folders but not followed.
+- The viewer (`F3`) and Quick View read through the panel's source: entries of an archive panel and files on SFTP panels open in the viewer and preview (read into memory, up to 64 MiB; local files are still paged from disk). Images are decoded from the bytes read, so they preview inside archives too.
 
 ### Deprecated
 
