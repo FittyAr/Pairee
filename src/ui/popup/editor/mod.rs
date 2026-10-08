@@ -1,4 +1,3 @@
-pub mod highlight;
 pub mod widget;
 
 pub use widget::{EditorView, render_editor_widget};

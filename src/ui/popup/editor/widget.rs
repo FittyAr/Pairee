@@ -1,8 +1,8 @@
-use super::highlight::highlight_line;
 use crate::app::editor::EditorState;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
+use crate::ui::search_highlight::highlight_line;
 use crate::ui::text_width::{display_width, expand_tabs, skip_columns};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{

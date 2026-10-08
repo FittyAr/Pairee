@@ -9,6 +9,7 @@ pub mod popup;
 pub mod quickview;
 pub mod screens;
 pub mod scrollbar;
+pub mod search_highlight;
 pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;
