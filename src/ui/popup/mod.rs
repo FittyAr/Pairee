@@ -109,7 +109,14 @@ fn render_specific_popup(
     if plugin_menu::select::render_dev_select(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
-    if git_panel::render(f, popup, theme, size, Some(&state.scrollbar)) {
+    if git_panel::render(
+        f,
+        popup,
+        theme,
+        size,
+        Some(&state.scrollbar),
+        &state.git_panel,
+    ) {
         return;
     }
     if git_commit_prompt::render(f, popup, theme, size) {

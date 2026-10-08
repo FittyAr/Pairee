@@ -9,6 +9,7 @@ Pairee cuenta con un panel de control de Git completamente integrado que le perm
 ### 1.1 Atajos del Panel
 * **Atajo de Teclado:** Presione **`Alt+G`** (o **`Alt+g`**) dentro de cualquier directorio perteneciente a un repositorio Git.
 * **Menú Superior:** Seleccione **`Panel Izquierdo`** (o **`Panel Derecho`**) -> **`Panel Git`**.
+* El panel se abre al instante y lee el repositorio en segundo plano: el título muestra "⟳ Cargando…" hasta que llegan el estado, el historial, las ramas, los stashes y las etiquetas. Tras una operación (preparar, commit, checkout, fetch…) y con `r` / `F5` el panel conserva su contenido mientras se actualiza. Los commits más antiguos se cargan en segundo plano al desplazarse hacia abajo en la pestaña Log.
 
 ### 1.2 Gestión de Repositorios desde los Paneles de Navegación
 * **Inicializar Repositorio (`GitInit`):** Al ubicarse en una carpeta sin repositorio, el menú ofrece **`Inicializar repositorio Git`** para crear un nuevo repositorio en dicha ubicación.

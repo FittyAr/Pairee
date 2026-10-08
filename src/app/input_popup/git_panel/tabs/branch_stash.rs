@@ -1,6 +1,5 @@
 //! Key action handlers for each tab in GitPanel (Status, Log, Branches, Stash).
 
-use super::super::refresh::refresh_git_panel;
 use crate::app::state::popup::GitNameAction;
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
 use crate::git::branches::BranchInfo;
@@ -180,10 +179,10 @@ pub fn handle_stash_tab(
                 && let Some(mut repo) = crate::git::repo::find_repo(repo_path)
                 && crate::git::stash::stash_apply(&mut repo, stash.index).is_ok()
             {
-                refresh_git_panel(state, repo_path, 3, cursor_idx);
+                state.refresh_git_panel(repo_path, 3, cursor_idx);
                 state
                     .dialogs
-                    .replace(PopupType::Info(crate::config::localization::t(
+                    .push(PopupType::Info(crate::config::localization::t(
                         "git_operation_success",
                     )));
             }

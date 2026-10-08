@@ -100,6 +100,9 @@ pub struct AppState {
     /// Background Git network operation (fetch/pull/push/clone).
     pub git_op: crate::app::git_ops::GitOpState,
 
+    /// Background loading of the Git panel (status, log, refs).
+    pub git_panel: crate::app::git_panel_load::GitPanelLoader,
+
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
 
@@ -149,6 +152,7 @@ impl AppState {
             viewer_load: Default::default(),
             quick_view: Default::default(),
             git_op: Default::default(),
+            git_panel: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             editor_clipboard: Default::default(),
         }

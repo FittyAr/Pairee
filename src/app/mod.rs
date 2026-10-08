@@ -6,6 +6,7 @@ pub mod context;
 pub mod editor;
 pub mod form;
 pub mod git_ops;
+pub mod git_panel_load;
 pub mod input;
 pub mod input_popup;
 pub mod jobs;

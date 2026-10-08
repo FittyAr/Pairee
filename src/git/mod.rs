@@ -10,6 +10,7 @@ pub mod remote;
 pub mod repo;
 pub mod reset;
 pub mod revert;
+pub mod snapshot;
 pub mod stage;
 pub mod stash;
 pub mod status;
