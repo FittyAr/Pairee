@@ -25,6 +25,16 @@ fn feature_flags_missing_fields_stay_on() {
 }
 
 #[test]
+fn removed_external_editor_keys_are_ignored() {
+    let mut table: toml::Table =
+        toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
+    table.insert("default_editor".into(), "vim".into());
+    table.insert("editor_use_external".into(), true.into());
+    let loaded: Result<Settings, _> = toml::from_str(&toml::to_string(&table).unwrap());
+    assert!(loaded.is_ok(), "old config.toml must still load");
+}
+
+#[test]
 fn new_install_default_needs_onboarding() {
     assert!(!Settings::default().onboarding_completed);
 }

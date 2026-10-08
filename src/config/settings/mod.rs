@@ -21,8 +21,6 @@ pub struct Settings {
     pub show_hidden: bool,
     /// Global Secure Mode boundary
     pub secure_mode: bool,
-    /// The external editor command to trigger for F4 Edit (e.g. "nano", "vim")
-    pub default_editor: String,
     /// Toggle terminal mouse interactions
     pub mouse_support: bool,
     /// Active keybinding preset profile: "norton", "vim", "modern", "custom"
@@ -152,7 +150,6 @@ pub struct Settings {
     /// in Pairee's native viewer for text, image, and binary files alike.
     #[serde(default)]
     pub enter_use_external: bool,
-    pub editor_use_external: bool,
     pub editor_expand_tabs: String,
     pub editor_persistent_blocks: bool,
     pub editor_cursor_beyond_eol: bool,

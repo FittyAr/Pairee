@@ -6,11 +6,6 @@ impl Default for Settings {
         Self {
             show_hidden: false,
             secure_mode: false,
-            default_editor: if cfg!(target_os = "windows") {
-                "notepad".to_string()
-            } else {
-                "nano".to_string()
-            },
             mouse_support: true,
             keybinding_preset: "norton".to_string(),
             onboarding_completed: false,
@@ -120,7 +115,6 @@ impl Default for Settings {
 
             // Tab 5
             enter_use_external: false,
-            editor_use_external: false,
             editor_expand_tabs: "Do not expand tabs".to_string(),
             editor_persistent_blocks: false,
             editor_cursor_beyond_eol: true,

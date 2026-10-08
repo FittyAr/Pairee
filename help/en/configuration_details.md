@@ -194,7 +194,6 @@ Specifies which operations require an explicit warning dialog before proceeding.
 ## 📂 Tab 5: Editor/Viewer Settings
 
 ### External Commands
-* **Use external editor / Editor command:** Redirects F4 Edit actions to an external program (e.g. `nano %f`).
 * **Use external viewer / Viewer command:** Redirects F3 View actions to an external program (e.g. `less %f`).
 
 ### Internal Editor
@@ -234,7 +233,7 @@ File Associations allow you to map file name patterns (glob masks) to custom lau
 * `Up` / `Down`: Navigate through the list of rules.
 * `A` / `a` / `Insert`: Add a new association rule. You will be prompted sequentially to enter:
   1. **Mask:** Glob pattern (e.g. `*.rs` or `*.{jpg,png}`).
-  2. **Open Command:** The terminal command to run when opening the file (e.g. `notepad %f` or `code %f`). The `%f` placeholder will be replaced with the selected file path.
+  2. **Open Command:** The terminal command to run when opening the file (e.g. `explorer %f` on Windows or `xdg-open %f` on Linux). The `%f` placeholder will be replaced with the selected file path.
   3. **View Command (optional):** Command for the F3 viewer. If left blank, it falls back to the open command.
 * `E` / `e` / `Enter`: Edit the highlighted rule. Follows the same step-by-step input fields as adding a rule.
 * `D` / `d` / `Delete`: Delete the highlighted rule from the list.

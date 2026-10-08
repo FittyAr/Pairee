@@ -191,7 +191,6 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 ## 📂 Pestaña 5: Ajustes del Editor y Visor
 
 ### Comandos Externos
-* **Usar editor externo / Comando de edición:** Redirige la acción de `F4` a un comando personalizado (ej. `nano %f`).
 * **Usar visor externo / Comando de visualización:** Redirige la acción de `F3` a un comando de lectura personalizado (ej. `less %f`).
 
 ### Editor Interno
@@ -231,7 +230,7 @@ Las asociaciones de archivos te permiten mapear patrones de nombres de archivos 
 * `↑` / `↓`: Navegar a través de la lista de reglas.
 * `A` / `a` / `Insert`: Añadir una nueva regla de asociación. Se te solicitarán secuencialmente los siguientes datos:
   1. **Máscara (Mask):** Patrón glob (ej: `*.rs` o `*.{jpg,png}`).
-  2. **Comando Abrir (Open Command):** El comando de terminal que se ejecutará al abrir el archivo (ej: `notepad %f` o `code %f`). El marcador `%f` se sustituye con la ruta del archivo.
+  2. **Comando Abrir (Open Command):** El comando de terminal que se ejecutará al abrir el archivo (ej: `explorer %f` en Windows o `xdg-open %f` en Linux). El marcador `%f` se sustituye con la ruta del archivo.
   3. **Comando Ver (opcional - View Command):** Comando para el visor de `F3`. Si se deja en blanco, usará el comando de abrir.
 * `E` / `e` / `Enter`: Editar la regla seleccionada. Sigue el mismo asistente paso a paso de ingreso de campos.
 * `D` / `d` / `Delete`: Eliminar la regla seleccionada de la lista.
