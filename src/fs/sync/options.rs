@@ -50,8 +50,8 @@ pub struct SyncFilter {
 
 impl SyncFilter {
     /// Folders are only dropped by exclusions; files by every rule.
-    pub fn accepts(&self, entry: &ScannedEntry, meta: &std::fs::Metadata) -> bool {
-        if self.ignore_hidden && crate::fs::list::is_hidden(&entry.name, Some(meta)) {
+    pub fn accepts(&self, entry: &ScannedEntry, hidden: bool) -> bool {
+        if self.ignore_hidden && hidden {
             return false;
         }
         if entry.summary.is_dir {

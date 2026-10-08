@@ -69,7 +69,13 @@ pub(super) fn opts(direction: SyncDirection) -> SyncOptions {
 }
 
 pub(super) fn diff(left: &Path, right: &Path, options: &SyncOptions) -> Vec<SyncItem> {
-    diff_trees(left, right, options, &Quiet::default()).unwrap()
+    diff_trees(
+        Side::local(left),
+        Side::local(right),
+        options,
+        &Quiet::default(),
+    )
+    .unwrap()
 }
 
 pub(super) fn find<'a>(items: &'a [SyncItem], rel: &str) -> &'a SyncItem {
@@ -94,7 +100,13 @@ fn recursion_reports_nested_items_and_rolls_up_folders() {
     put(l.path(), "only/nested/two.txt", "123", 0);
 
     let observer = Quiet::default();
-    let items = diff_trees(l.path(), r.path(), &opts(SyncDirection::Both), &observer).unwrap();
+    let items = diff_trees(
+        Side::local(l.path()),
+        Side::local(r.path()),
+        &opts(SyncDirection::Both),
+        &observer,
+    )
+    .unwrap();
 
     assert_eq!(find(&items, "sub/deep/x.txt").kind, DiffKind::LeftNewer);
     assert_eq!(find(&items, "sub/deep").kind, DiffKind::Differs);
@@ -212,7 +224,12 @@ fn file_against_folder_is_a_type_mismatch_and_skipped() {
 fn cancellation_stops_the_scan() {
     let (l, r) = trees();
     put(l.path(), "a.txt", "x", 0);
-    let result = diff_trees(l.path(), r.path(), &SyncOptions::default(), &Cancelled);
+    let result = diff_trees(
+        Side::local(l.path()),
+        Side::local(r.path()),
+        &SyncOptions::default(),
+        &Cancelled,
+    );
     assert!(matches!(result, Err(SyncError::Cancelled)));
 }
 
@@ -221,10 +238,35 @@ fn missing_root_is_an_io_error() {
     let (l, r) = trees();
     let missing = r.path().join("nope");
     let result = diff_trees(
-        l.path(),
-        &missing,
+        Side::local(l.path()),
+        Side::local(&missing),
         &SyncOptions::default(),
         &Quiet::default(),
     );
     assert!(matches!(result, Err(SyncError::Io { path, .. }) if path == missing));
+}
+
+#[test]
+fn an_archive_compares_against_a_local_folder() {
+    use crate::fs::archive::ArchiveVfs;
+    use crate::fs::archive::test_fixtures::write_zip;
+    let (l, r) = trees();
+    let zip = l.path().join("a.zip");
+    write_zip(&zip, &[("same.txt", b"same"), ("only_zip.txt", b"z")]);
+    put(r.path(), "same.txt", "same", 0);
+    put(r.path(), "only_dir.txt", "d", 0);
+
+    let archive = ArchiveVfs::open(zip.clone()).unwrap();
+    let left = Side {
+        vfs: &archive,
+        root: &zip,
+    };
+    let options = SyncOptions {
+        content_hash: Some(crate::fs::transfer::options::HashAlgorithm::Blake3),
+        ..SyncOptions::default()
+    };
+    let items = diff_trees(left, Side::local(r.path()), &options, &Quiet::default()).unwrap();
+    assert_eq!(find(&items, "same.txt").kind, DiffKind::Equal);
+    assert_eq!(find(&items, "only_zip.txt").kind, DiffKind::OnlyLeft);
+    assert_eq!(find(&items, "only_dir.txt").kind, DiffKind::OnlyRight);
 }

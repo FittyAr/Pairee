@@ -10,7 +10,12 @@ fn write_file(dir: &Path, name: &str, content: &[u8], time: SystemTime) {
 }
 
 fn pairs(left: &Path, right: &Path, case_insensitive: bool) -> Vec<EntryPair> {
-    let scan = |dir| scan_directory(dir, case_insensitive, |_, _| true).unwrap();
+    let scan = |dir| {
+        scan_directory(&crate::fs::vfs::LocalVfs, dir, case_insensitive, |_, _| {
+            true
+        })
+        .unwrap()
+    };
     pair_entries(scan(left), scan(right))
 }
 

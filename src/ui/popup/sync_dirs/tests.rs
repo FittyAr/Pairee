@@ -5,7 +5,7 @@ use crate::app::state::popup::SyncDialog;
 use crate::app::state::{AppState, PopupType};
 use crate::config::AppConfig;
 use crate::config::localization::t;
-use crate::fs::sync::{SyncDirection, SyncOptions, diff_trees};
+use crate::fs::sync::{Side, SyncDirection, SyncOptions, diff_trees};
 use crate::fs::transfer::options::HashAlgorithm;
 use crate::ui::draw_ui;
 use ratatui::{Terminal, backend::TestBackend};
@@ -63,7 +63,13 @@ fn review_lists_actions_summary_and_delete_confirmation() {
         direction: SyncDirection::Mirror,
         ..SyncOptions::default()
     };
-    let items = diff_trees(l.path(), r.path(), &options, &NoCancel).unwrap();
+    let items = diff_trees(
+        Side::local(l.path()),
+        Side::local(r.path()),
+        &options,
+        &NoCancel,
+    )
+    .unwrap();
     let mut dialog = SyncDialog::new(
         l.path().into(),
         r.path().into(),

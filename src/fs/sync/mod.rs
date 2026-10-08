@@ -19,4 +19,4 @@ mod tests;
 pub use model::{DiffKind, SyncAction, SyncDirection, SyncItem, compare_entries};
 pub use options::SyncOptions;
 pub use plan::{SyncSummary, plan_jobs};
-pub use walk::{ScanObserver, ScanProgress, SyncError, diff_trees};
+pub use walk::{ScanObserver, ScanProgress, Side, SyncError, diff_trees};

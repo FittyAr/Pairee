@@ -15,7 +15,9 @@ use crate::app::jobs::{JobContext, JobSlot};
 use crate::app::state::popup::SyncDialog;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::fs::sync::{ScanObserver, ScanProgress, SyncError, SyncItem, SyncOptions, diff_trees};
+use crate::fs::sync::{
+    ScanObserver, ScanProgress, Side, SyncError, SyncItem, SyncOptions, diff_trees,
+};
 use std::path::PathBuf;
 
 /// What the finished scan is for.
@@ -69,11 +71,13 @@ impl ScanObserver for JobContext<ScanProgress> {
     }
 }
 
-/// Both panel folders, or `None` (with an error popup) when one of them is
-/// remote: comparing reads the local filesystem only.
-fn local_roots(state: &mut AppState) -> Option<(PathBuf, PathBuf)> {
+/// Both panel folders. Synchronizing applies its plan as local or archive
+/// transfer jobs, so it refuses remote panels (`None`, with an error popup);
+/// comparing reads any panel source.
+fn roots(state: &mut AppState, purpose: ScanPurpose) -> Option<(PathBuf, PathBuf)> {
     let panels = &state.panels;
-    if !panels.left.source.is_local() || !panels.right.source.is_local() {
+    let remote = panels.left.source.ssh().is_some() || panels.right.source.ssh().is_some();
+    if purpose == ScanPurpose::Sync && remote {
         state
             .dialogs
             .replace(PopupType::Error(t("compare_local_only")));
@@ -96,7 +100,7 @@ pub fn options_from_settings(context: &AppContext) -> SyncOptions {
 /// Commands → Compare folders: compares both panels recursively in the
 /// background, then lists the differences.
 pub fn start_compare(state: &mut AppState, context: &AppContext) {
-    if let Some((left, right)) = local_roots(state) {
+    if let Some((left, right)) = roots(state, ScanPurpose::Compare) {
         start_scan(
             state,
             ScanPurpose::Compare,
@@ -109,7 +113,7 @@ pub fn start_compare(state: &mut AppState, context: &AppContext) {
 
 /// Commands → Synchronize folders: opens the options dialog.
 pub fn open_dialog(state: &mut AppState, context: &AppContext) {
-    if let Some((left, right)) = local_roots(state) {
+    if let Some((left, right)) = roots(state, ScanPurpose::Sync) {
         let algorithm =
             crate::fs::transfer::transfer_options_from_settings(&context.config.settings)
                 .hash_algorithm;
@@ -126,12 +130,21 @@ pub fn start_scan(
     right: PathBuf,
     options: SyncOptions,
 ) {
+    let left_vfs = state.panels.left.source.vfs_for(&left);
+    let right_vfs = state.panels.right.source.vfs_for(&right);
     state.folder_scan.purpose = Some(purpose);
     state.dialogs.push(PopupType::FolderScanProgress);
-    state
-        .folder_scan
-        .job
-        .start(move |ctx| diff_trees(&left, &right, &options, ctx));
+    state.folder_scan.job.start(move |ctx| {
+        let left = Side {
+            vfs: left_vfs.as_ref(),
+            root: &left,
+        };
+        let right = Side {
+            vfs: right_vfs.as_ref(),
+            root: &right,
+        };
+        diff_trees(left, right, &options, ctx)
+    });
     // Inline execution (no runtime) has finished already.
     poll_folder_scan(state);
 }
