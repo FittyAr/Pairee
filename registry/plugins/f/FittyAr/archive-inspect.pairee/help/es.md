@@ -45,6 +45,14 @@ El plugin invoca los siguientes binarios (deben estar en el `PATH`):
 Por este motivo, el plugin se ejecuta en modo **confiable** (trusted):
 se te pedirá que confíes en él la primera vez que lo instales.
 
+En **Modo Seguro** solo pueden ejecutarse los programas declarados en el
+manifiesto, por eso `manifest.toml` los declara:
+
+```toml
+[permissions]
+commands = ["unzip", "tar", "7z"]
+```
+
 ## Cómo funciona
 
 El plugin implementa el contrato de previsualizador:

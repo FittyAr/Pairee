@@ -20,15 +20,15 @@ elementos se escanearon.
 | `depth` | `2` | Profundidad de recursión al medir cada entrada de nivel superior (`1` = sin recursión). |
 | `top_n` | `20` | Cuántas de las entradas más grandes mostrar. |
 | `include_hidden` | `false` | Incluir archivos ocultos / directorios con punto. |
-| `extra_args` | `""` | Argumentos extra añadidos a la invocación de `du` (o PowerShell). |
+| `extra_args` | `""` | Argumentos extra añadidos a la invocación de `du` (solo Linux / macOS). |
 
 ## Cómo funciona
 
-El plugin lanza un proceso externo para hacer el trabajo pesado:
-
-- En **Linux / macOS** ejecuta `du -k --max-depth=<depth> <cwd>`.
-- En **Windows** ejecuta un pequeño pipeline de PowerShell que recorre el
-  directorio con `Get-ChildItem -Recurse` y reporta los totales en bytes.
+- En **Linux / macOS** lanza `du -k --max-depth=<depth> <cwd>`.
+- En **Windows** recorre el directorio de forma nativa con
+  `pairee.fs.read_dir` y suma los tamaños por entrada de nivel superior (no
+  sigue enlaces simbólicos). No lanza ninguna shell, así que también
+  funciona en Modo Seguro.
 
 La salida se parsea, se ordena por tamaño, se recorta a las N entradas más
 grandes y se formatea como un widget `pairee.ui.Table` que se empuja al
@@ -36,9 +36,17 @@ panel de previsualización.
 
 ## ¿Por qué es confiable?
 
-El plugin necesita lanzar `du` / `powershell`, por lo que se ejecuta en
+El plugin necesita lanzar `du` (Linux / macOS), por lo que se ejecuta en
 modo **confiable** (trusted). Se te pedirá que confíes en él la primera
 vez que lo instales.
+
+En **Modo Seguro** solo pueden ejecutarse programas declarados;
+`manifest.toml` declara:
+
+```toml
+[permissions]
+commands = ["du"]
+```
 
 ## Ejemplos
 
@@ -94,7 +102,7 @@ extra_args = "--exclude=build-artifacts"
 
 | Síntoma | Causa probable | Solución |
 |---------|----------------|----------|
-| La notificación dice "Required tool 'du' is not on PATH" | El binario falta o el `$PATH` no incluye `/usr/bin` | Instala `coreutils` (Linux) o `du` viene preinstalado en macOS. En Windows, asegúrate de tener `du` (Cygwin / MSYS) — si no, debería activarse la rama de PowerShell. |
+| La notificación dice "Required tool 'du' is not on PATH" | El binario falta o el `$PATH` no incluye `/usr/bin` | Instala `coreutils` (Linux) o `du` viene preinstalado en macOS. Windows no necesita `du` (escaneo nativo). |
 | El reporte está vacío (`No scannable entries were found in this directory`) | El cwd está vacío o pusiste `depth = 0` | Sube `depth` al menos a `1`, o cambia a una carpeta con archivos. |
 | Los errores de permiso se descartan en silencio | El plugin ignora los archivos que no puede leer (evita spam en el reporte) | Vuelve a correr como administrador si necesitas esas entradas, o excluye la subcarpeta problemática con `extra_args`. |
 | El plugin no carga | El hash de `main.lua` en el [files] del `manifest.toml` ya no coincide con el archivo en disco | Reinstala con `pairee plugin install disk-usage.pairee`. |

@@ -44,6 +44,14 @@ your `PATH`):
 Because of this, the plugin runs in **trusted** mode — you will be prompted
 to trust it on first install.
 
+In **Secure Mode** only the programs declared in the manifest may run, so
+`manifest.toml` declares them:
+
+```toml
+[permissions]
+commands = ["unzip", "tar", "7z"]
+```
+
 ## How it works
 
 The plugin implements the previewer contract:

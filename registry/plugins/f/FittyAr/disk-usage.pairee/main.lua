@@ -4,13 +4,16 @@
 --
 -- Demonstrates:
 --   * The `entry()` command contract.
---   * Cross-platform spawning: `du` on POSIX, PowerShell on Windows.
+--   * Cross-platform scanning: `du` on POSIX, a native `pairee.fs.read_dir`
+--     walk on Windows (no shell, so it also works in Secure Mode).
 --   * Async ergonomics (we don't block the UI while the scan runs).
 --   * Building rich widgets (`pairee.ui.Table`, `pairee.ui.Paragraph`).
 --   * Localised notifications via `pairee.t()`.
 --   * Reading user settings via `pairee.settings.*`.
 --
--- Requires `trusted = true` (the plugin spawns an external process).
+-- Requires `trusted = true` (the plugin spawns `du` on POSIX). In Secure
+-- Mode `du` must be declared in `manifest.toml` under
+-- `[permissions] commands`.
 
 local M = {}
 
@@ -19,6 +22,12 @@ local M = {}
 ---------------------------------------------------------------------------
 
 local function is_windows()
+    if pairee.utils and pairee.utils.target_os then
+        local ok, os_name = pcall(pairee.utils.target_os)
+        if ok and type(os_name) == "string" and os_name ~= "" then
+            return os_name:lower():match("windows") ~= nil
+        end
+    end
     -- `rt.os` (when available) or a fallback string match.
     if rt and rt.os and rt.os ~= "" then
         return rt.os:lower():match("windows") ~= nil
@@ -26,44 +35,61 @@ local function is_windows()
     return package.config:sub(1, 1) == "\\"
 end
 
--- Pick the right `du` invocation for the current platform.
+-- POSIX: `du` invocation with depth control.
 -- Returns (cmd, args). `cwd` is appended as the last argument.
 local function du_command(cwd, settings)
-    local extra = settings.extra_args or ""
-    local extra_tokens = {}
-    for token in extra:gmatch("%S+") do
-        extra_tokens[#extra_tokens + 1] = token
-    end
-
-    if is_windows() then
-        -- Use PowerShell's `Get-ChildItem` + measured sizes. We keep the
-        -- output format compatible with the POSIX branch by emitting
-        -- "<bytes>\t<path>" lines.
-        local depth = tonumber(settings.depth) or 2
-        local include_hidden = settings.include_hidden and "-Force" or ""
-        local script = string.format([[
-            Get-ChildItem -LiteralPath '%s' %s -Directory |
-                ForEach-Object {
-                    $bytes = (Get-ChildItem -LiteralPath $_.FullName -Recurse -File -ErrorAction SilentlyContinue |
-                        Measure-Object -Property Length -Sum).Sum
-                    if ($bytes) {
-                        [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-                        Write-Output ($bytes.ToString() + [char]9 + $_.FullName)
-                    }
-                }
-        ]], cwd:gsub("'", "''"), include_hidden)
-        return "powershell", { "-NoProfile", "-NonInteractive", "-Command", script }
-    end
-
-    -- POSIX: standard `du` with depth control.
     local depth = tonumber(settings.depth) or 2
     local args = { "-k", "--max-depth=" .. tostring(depth) }
     if settings.include_hidden then
         args[#args + 1] = "--apparent-size"
     end
-    for _, t in ipairs(extra_tokens) do args[#args + 1] = t end
+    local extra = settings.extra_args or ""
+    for token in extra:gmatch("%S+") do
+        args[#args + 1] = token
+    end
     args[#args + 1] = cwd
     return "du", args
+end
+
+-- Windows: measure every top-level entry of `cwd` with a native recursive
+-- walk over `pairee.fs.read_dir` (symlinks are not followed). Returns a list
+-- of { path, bytes }.
+local function list_dir(path)
+    local ok, items = pcall(pairee.fs.read_dir, path)
+    if ok and type(items) == "table" then
+        return items
+    end
+    return {}
+end
+
+local function tree_bytes(file, include_hidden)
+    if file.is_symlink then
+        return 0
+    end
+    if not file.is_dir then
+        return tonumber(file.size) or 0
+    end
+    local total = 0
+    for _, child in ipairs(list_dir(file.path)) do
+        if include_hidden or not child.is_hidden then
+            total = total + tree_bytes(child, include_hidden)
+        end
+    end
+    return total
+end
+
+local function native_scan(cwd, settings)
+    local include_hidden = settings.include_hidden and true or false
+    local out = {}
+    for _, item in ipairs(list_dir(cwd)) do
+        if include_hidden or not item.is_hidden then
+            local bytes = tree_bytes(item, include_hidden)
+            if bytes > 0 then
+                out[#out + 1] = { path = tostring(item.path), bytes = bytes }
+            end
+        end
+    end
+    return out
 end
 
 -- Parse the "<bytes>\t<path>" or "<kbytes>\t<path>" output we asked the
@@ -150,29 +176,38 @@ function M:entry()
     end
 
     local settings = pairee.settings or {}
-    local cmd, args = du_command(tostring(cwd), settings)
+    local entries
+    if is_windows() then
+        entries = native_scan(tostring(cwd), settings)
+    else
+        local cmd, args = du_command(tostring(cwd), settings)
 
-    -- Pre-flight: check the binary is on PATH (we use `which` from
-    -- the runtime to give a helpful error if it isn't).
-    if pairee.which and not pairee.which({ cands = { cmd }, silent = true }) then
-        pairee.app.notify(
-            "disk-usage",
-            string.format(pairee.t("messages.tool_missing"), cmd),
-            "error"
-        )
-        return
+        -- Pre-flight: check the binary is on PATH (we use `which` from
+        -- the runtime to give a helpful error if it isn't).
+        if pairee.which and not pairee.which({ cands = { cmd }, silent = true }) then
+            pairee.app.notify(
+                "disk-usage",
+                string.format(pairee.t("messages.tool_missing"), cmd),
+                "error"
+            )
+            return
+        end
+
+        -- Run the scan in the background. We do not block the UI thread.
+        local ok, scan = pcall(pairee.fs.spawn, cmd, args)
+        if not ok or not scan or scan.status ~= 0 then
+            local stderr = (not ok and tostring(scan))
+                or (scan and scan.stderr) or "(no output)"
+            pairee.log.error("disk-usage: scan failed: " .. tostring(stderr))
+            pairee.app.notify("disk-usage", pairee.t("messages.scan_failed"), "error")
+            return
+        end
+
+        -- `du -k` reports kilobytes.
+        entries = parse_du(scan.stdout or "")
+        for _, e in ipairs(entries) do e.bytes = e.bytes * 1024 end
     end
 
-    -- Run the scan in the background. We do not block the UI thread.
-    local scan = pairee.fs.spawn(cmd, args)
-    if not scan or scan.status ~= 0 then
-        local stderr = scan and scan.stderr or "(no output)"
-        pairee.log.error("disk-usage: scan failed: " .. tostring(stderr))
-        pairee.app.notify("disk-usage", pairee.t("messages.scan_failed"), "error")
-        return
-    end
-
-    local entries = parse_du(scan.stdout or "")
     if #entries == 0 then
         pairee.app.notify("disk-usage", pairee.t("messages.nothing_found"), "info")
         return

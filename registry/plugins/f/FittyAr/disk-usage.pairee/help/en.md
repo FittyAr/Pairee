@@ -19,15 +19,14 @@ first), and a toast notification reports how many entries were scanned.
 | `depth` | `2` | How deep to recurse when measuring each top-level entry (`1` = no recursion). |
 | `top_n` | `20` | How many of the largest entries to display. |
 | `include_hidden` | `false` | Include hidden files / dot-directories in the calculation. |
-| `extra_args` | `""` | Extra arguments appended to the `du` (or PowerShell) invocation. |
+| `extra_args` | `""` | Extra arguments appended to the `du` invocation (Linux / macOS only). |
 
 ## How it works
 
-The plugin spawns an external process to do the heavy lifting:
-
-- On **Linux / macOS** it runs `du -k --max-depth=<depth> <cwd>`.
-- On **Windows** it runs a small PowerShell pipeline that walks the
-  directory with `Get-ChildItem -Recurse` and reports byte totals.
+- On **Linux / macOS** it spawns `du -k --max-depth=<depth> <cwd>`.
+- On **Windows** it walks the directory natively with `pairee.fs.read_dir`
+  and sums file sizes per top-level entry (symlinks are not followed). No
+  shell is spawned, so it also works in Secure Mode.
 
 The output is parsed, sorted by size, trimmed to the top N entries, and
 formatted as a `pairee.ui.Table` widget that is pushed into the preview
@@ -35,8 +34,15 @@ pane.
 
 ## Why trusted?
 
-The plugin needs to spawn `du` / `powershell`, so it runs in **trusted**
+The plugin needs to spawn `du` (Linux / macOS), so it runs in **trusted**
 mode. You will be asked to trust the plugin on first install.
+
+In **Secure Mode** only declared programs may run; `manifest.toml` declares:
+
+```toml
+[permissions]
+commands = ["du"]
+```
 
 ## Examples
 
@@ -93,7 +99,7 @@ extra_args = "--exclude=build-artifacts"
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| Toast says "Required tool 'du' is not on PATH" | The binary is missing or the `$PATH` doesn't include `/usr/bin` | Install `coreutils` (Linux) or `du` is preinstalled on macOS. On Windows, ensure `du` is available (Cygwin / MSYS) — otherwise the PowerShell branch should kick in. |
+| Toast says "Required tool 'du' is not on PATH" | The binary is missing or the `$PATH` doesn't include `/usr/bin` | Install `coreutils` (Linux) or `du` is preinstalled on macOS. Windows does not need `du` (native scan). |
 | Report is empty (`No scannable entries were found in this directory`) | The cwd is empty or you set `depth = 0` | Bump `depth` to at least `1`, or change to a folder with files. |
 | Permission-denied errors are silently dropped | The plugin ignores files it can't read (avoids spamming the report with system noise) | Re-run as administrator if you need those entries, or exclude the offending subtree with `extra_args`. |
 | Plugin fails to load | The `manifest.toml` [files] hash for `main.lua` no longer matches the on-disk file | Reinstall via `pairee plugin install disk-usage.pairee`. |
