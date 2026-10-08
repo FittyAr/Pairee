@@ -24,7 +24,7 @@ elementos se escanearon.
 
 ## Cómo funciona
 
-- En **Linux / macOS** lanza `du -k --max-depth=<depth> <cwd>`.
+- En **Linux / macOS** lanza `du -k -d <depth> <cwd>` (`-d` funciona con `du` de GNU y de BSD).
 - En **Windows** recorre el directorio de forma nativa con
   `pairee.fs.read_dir` y suma los tamaños por entrada de nivel superior (no
   sigue enlaces simbólicos). No lanza ninguna shell, así que también

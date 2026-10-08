@@ -1,5 +1,5 @@
 name = "disk-usage.pairee"
-version = "1.1.0"
+version = "1.1.1"
 description = "Show a sorted breakdown of disk usage in the active panel. Finds what's eating your space."
 author = "FittyAr"
 license = "MIT"
@@ -46,10 +46,10 @@ commands = ["du"]
 # truth. The entries below mirror `sha256.sum` for quick in-process lookups.
 [files]
 "LICENSE"                = "a19d22e9b72a9ec16d50c7424d72b3d00d48549b50876bc6551fabab50cf5e11"
-"help/en.md"             = "264b047b0747f8dce688fc4a663f76850229cc9c89c085b564bca16766070bee"
-"help/es.md"             = "8b4d612fe0674303b8c9c6e961f6f3388867da591c6762d91b17b5e923f14f87"
+"help/en.md"             = "bb6ac014cda1d6e1aae201a310407f15ef9450297fdfbf77a30fe9e3ddc8aa1a"
+"help/es.md"             = "8920d894594dce89c17878c3e00a9b2fa2a381f5c41403e13ec2b53a8356ec47"
 "icon.png"               = "c636f1883b728253b382777b0bd3ae60f241d991c1c587b03250a8c219fe447b"
 "lang/en.toml"           = "406db1dc00fe27c62b4634f882d864c5f92eb0f13f6bbb1bcd77c9a03060f283"
 "lang/es.toml"           = "cf9729e943180c54d05b18e4d6b11cf766e452559603300d07da4f8064dca1bc"
-"main.lua"               = "e8cf7099a0dd982bd5eb8920726e838613ddc21e571d3363b6af255126f9421f"
+"main.lua"               = "708e23064c638836645ca4e93af66834d4a4a629d7617aa0274efde17c8de607"
 "screenshots/report.png" = "20b543a75fb26c249cfa6c00daed6dd6a8d0ed376931a8d24e494b4684057e27"

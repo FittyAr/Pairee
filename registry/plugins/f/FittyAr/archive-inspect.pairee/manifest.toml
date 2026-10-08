@@ -1,5 +1,5 @@
 name = "archive-inspect.pairee"
-version = "1.0.1"
+version = "1.0.2"
 description = "Preview the contents of ZIP, TAR.GZ and 7Z archives in the file panel without extracting them."
 author = "FittyAr"
 license = "MIT"
@@ -56,5 +56,5 @@ commands = ["unzip", "tar", "7z"]
 "icon.png"                     = "ad13d045c832dce207f16e3525a7b422112387bc3e8a28adb7992000ced3b13f"
 "lang/en.toml"                 = "f3f4b3aafdd222fc370e093f5c35cfdb4291ab839edc0cde880df8feaa2d5ff2"
 "lang/es.toml"                 = "685bcd0ff87383e91fff4b9d656468781e71946f5dafd2c6ecaf2a280793d817"
-"main.lua"                     = "660bc5105322ecc738491c023e21175610145325d927ee205b74280e0f502315"
+"main.lua"                     = "7ac26665682a64628d7d03ac71aafedc403b9da29ec4b1ca7b5edc061fa4c54e"
 "screenshots/preview-pane.png" = "e917600cd70b93f757069bffea843e59e746fa06d04f48d163fa2e8e3d38fd46"

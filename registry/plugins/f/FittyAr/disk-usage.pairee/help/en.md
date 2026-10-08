@@ -23,7 +23,7 @@ first), and a toast notification reports how many entries were scanned.
 
 ## How it works
 
-- On **Linux / macOS** it spawns `du -k --max-depth=<depth> <cwd>`.
+- On **Linux / macOS** it spawns `du -k -d <depth> <cwd>` (`-d` works with both GNU and BSD `du`).
 - On **Windows** it walks the directory natively with `pairee.fs.read_dir`
   and sums file sizes per top-level entry (symlinks are not followed). No
   shell is spawned, so it also works in Secure Mode.

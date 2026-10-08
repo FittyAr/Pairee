@@ -39,7 +39,8 @@ end
 -- Returns (cmd, args). `cwd` is appended as the last argument.
 local function du_command(cwd, settings)
     local depth = tonumber(settings.depth) or 2
-    local args = { "-k", "--max-depth=" .. tostring(depth) }
+    -- `-d` is accepted by both GNU and BSD/macOS du (`--max-depth` is GNU-only).
+    local args = { "-k", "-d", tostring(depth) }
     if settings.include_hidden then
         args[#args + 1] = "--apparent-size"
     end

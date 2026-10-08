@@ -38,11 +38,28 @@ local function tool_for(kind)
     if kind == "zip" then
         return "unzip", { "-l" }
     elseif kind == "tar" then
-        return "tar", { "-tzf" }
+        -- `-tf` lets tar auto-detect gzip, so plain `.tar` works too.
+        return "tar", { "-tf" }
     elseif kind == "7z" then
         return "7z", { "l", "-slt" }
     end
     return nil
+end
+
+-- Full listing invocation for an archive: base args, user extra args and
+-- the archive path. Returns (binary, args) or nil when unsupported.
+local function listing_command(kind, path)
+    local bin, base = tool_for(kind)
+    if not bin then
+        return nil
+    end
+    local args = { unpack(base) }
+    local extra = (pairee.settings and pairee.settings.extra_args) or ""
+    for token in extra:gmatch("%S+") do
+        args[#args + 1] = token
+    end
+    args[#args + 1] = path
+    return bin, args
 end
 
 -- Parse the raw output of the listing tool into a list of entries.
@@ -67,7 +84,7 @@ local function parse_listing(kind, stdout)
             end
         end
     elseif kind == "tar" then
-        -- `tar -tzf` output is one path per line. We don't have sizes from
+        -- `tar -tf` output is one path per line. We don't have sizes from
         -- this listing mode, so we leave them at 0 and rely on the date
         -- column being empty.
         for line in stdout:gmatch("[^\n]+") do
@@ -164,18 +181,10 @@ function M:peek(job)
         return nil -- not an archive we know
     end
 
-    local bin, base = tool_for(kind)
+    local bin, args = listing_command(kind, path)
     if not bin then
         return nil
     end
-
-    -- Build the argument list, appending user-defined extra args.
-    local args = { unpack(base) }
-    local extra = pairee.settings.extra_args or ""
-    for token in extra:gmatch("%S+") do
-        args[#args + 1] = token
-    end
-    args[#args + 1] = path
 
     local result = pairee.fs.spawn(bin, args)
     if not result or result.status ~= 0 then
@@ -245,8 +254,8 @@ function M:entry()
     end
 
     -- Reuse the listing machinery.
-    local bin, base = tool_for(kind)
-    local result = pairee.fs.spawn(bin, base)
+    local bin, args = listing_command(kind, path)
+    local result = pairee.fs.spawn(bin, args)
     if not result or result.status ~= 0 then
         pairee.app.notify("archive-inspect", "Listing failed.", "error")
         return
