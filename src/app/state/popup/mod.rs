@@ -228,7 +228,7 @@ pub enum PopupType {
     TaskListDialog {
         tasks: Vec<ProcessEntry>,
         cursor_idx: usize,
-        filter_query: String,
+        filter_query: TextField,
         is_filtering: bool,
     },
 

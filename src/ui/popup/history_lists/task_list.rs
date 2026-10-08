@@ -43,7 +43,7 @@ pub(super) fn render_task_list(
         )));
         header.push(Line::from(""));
     }
-    let needle = filter_query.to_lowercase();
+    let needle = filter_query.text().to_lowercase();
     let rows = tasks
         .iter()
         .map(|task| {

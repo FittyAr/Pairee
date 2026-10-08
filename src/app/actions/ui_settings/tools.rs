@@ -89,7 +89,7 @@ pub fn handle_tools_action(
             state.dialogs.replace(PopupType::TaskListDialog {
                 tasks,
                 cursor_idx: 0,
-                filter_query: String::new(),
+                filter_query: Default::default(),
                 is_filtering: false,
             });
             true
