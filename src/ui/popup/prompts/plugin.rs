@@ -149,7 +149,7 @@ fn render_input(
     theme: &crate::config::theme::Theme,
     size: Rect,
     title: &str,
-    input: &str,
+    input: &crate::app::text_input::TextField,
     obscure: bool,
     position: Option<&DialogPosition>,
 ) {
@@ -169,16 +169,20 @@ fn render_input(
         .constraints([Constraint::Length(2), Constraint::Length(1)])
         .split(inner);
 
-    let shown = if obscure {
-        "*".repeat(input.chars().count())
+    let style = Style::default().fg(parse_color(&theme.popup_fg));
+    let mut spans = vec![ratatui::text::Span::styled(" > ", style)];
+    if obscure {
+        let masked = "*".repeat(input.text().chars().count());
+        spans.push(ratatui::text::Span::styled(format!("{masked}_"), style));
     } else {
-        input.to_string()
-    };
-    f.render_widget(
-        Paragraph::new(format!(" > {shown}_"))
-            .style(Style::default().fg(parse_color(&theme.popup_fg))),
-        chunks[0],
-    );
+        spans.extend(crate::ui::popup::kit::field_spans(
+            input,
+            style,
+            crate::ui::popup::kit::selection(theme),
+            true,
+        ));
+    }
+    f.render_widget(Paragraph::new(ratatui::text::Line::from(spans)), chunks[0]);
     f.render_widget(
         Paragraph::new(t("plugin_dialog_input_hint")).style(Style::default().fg(Color::DarkGray)),
         chunks[1],

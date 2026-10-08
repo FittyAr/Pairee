@@ -34,7 +34,8 @@ impl PopupType {
             {
                 Some(&mut search.query)
             }
-            PopupType::EditorSaveAsPrompt { input } => Some(input),
+            PopupType::EditorSaveAsPrompt { input }
+            | PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
             PopupType::SearchPrompt {
                 query,
                 content_query,
@@ -56,19 +57,10 @@ impl PopupType {
     /// Inserts a single-line paste into the focused text field, if any.
     /// Returns true when the overlay consumed the paste.
     pub fn apply_paste(&mut self, paste: &str) -> bool {
-        if paste.is_empty() {
-            return false;
-        }
-        if let Some(field) = self.focused_field_mut() {
-            return field.paste(paste);
-        }
-        match self {
-            PopupType::Plugin(crate::app::state::popup::PluginDialog::Input { input, .. }) => {
-                input.push_str(paste);
-                true
-            }
-            _ => false,
-        }
+        !paste.is_empty()
+            && self
+                .focused_field_mut()
+                .is_some_and(|field| field.paste(paste))
     }
 }
 

@@ -53,7 +53,7 @@ pub fn open_input(
     state.dialogs.replace(PopupType::Plugin(
         crate::app::state::popup::PluginDialog::Input {
             title,
-            input: default,
+            input: default.into(),
             obscure,
             position,
         },

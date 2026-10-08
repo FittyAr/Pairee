@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::form::{FieldKey, field_key};
 use crate::app::state::popup::PluginDialog;
 use crate::app::state::{AppState, PendingPluginReply, PopupType};
 use crate::keybindings::Action;
@@ -20,8 +21,7 @@ pub fn handle(
 }
 
 fn handle_confirm(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, ()> {
-    let Some(PopupType::Plugin(PluginDialog::Confirm { cursor_idx, .. })) =
-        state.dialogs.top().cloned()
+    let Some(&PopupType::Plugin(PluginDialog::Confirm { cursor_idx, .. })) = state.dialogs.top()
     else {
         return Err(());
     };
@@ -71,39 +71,19 @@ fn finish_confirm(state: &mut AppState, accepted: bool) {
 }
 
 fn handle_input(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, ()> {
-    match key.code {
-        KeyCode::Char(c) => {
-            if let Some(PopupType::Plugin(PluginDialog::Input { input, .. })) =
-                state.dialogs.top_mut()
-            {
-                input.push(c);
-                state.mark_ui_dirty();
-            }
-            Ok(None)
-        }
-        KeyCode::Backspace => {
-            if let Some(PopupType::Plugin(PluginDialog::Input { input, .. })) =
-                state.dialogs.top_mut()
-            {
-                input.pop();
-                state.mark_ui_dirty();
-            }
-            Ok(None)
-        }
-        KeyCode::Enter => {
-            let value = match state.dialogs.top() {
-                Some(PopupType::Plugin(PluginDialog::Input { input, .. })) => input.clone(),
-                _ => String::new(),
-            };
+    let Some(PopupType::Plugin(PluginDialog::Input { input, .. })) = state.dialogs.top_mut() else {
+        return Err(());
+    };
+    match field_key(input, &key) {
+        FieldKey::Submit => {
+            let value = input.text().to_string();
             finish_input(state, value, 1);
-            Ok(None)
         }
-        KeyCode::Esc => {
-            finish_input(state, String::new(), 2);
-            Ok(None)
-        }
-        _ => Ok(None),
+        FieldKey::Cancel => finish_input(state, String::new(), 2),
+        FieldKey::Handled => state.mark_ui_dirty(),
+        FieldKey::Other => {}
     }
+    Ok(None)
 }
 
 fn finish_input(state: &mut AppState, value: String, event: i32) {
