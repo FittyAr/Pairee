@@ -505,7 +505,8 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 ### G.5 Oleada 5 — cierre
 
 - [ ] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines`
-- [ ] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas
+- [x] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas (`src/test_harness/` + `src/smoke_tests/`, keymaps norton y vscode; encontraron y corrigieron la copia de un solo elemento desde/hacia archivos comprimidos y cambios perdidos al armar el refresco automático)
+  - Pasada manual que sigue haciendo falta (no automatizable con TestBackend): aspecto real en terminales (colores, anchos de emoji/CJK por emulador, parpadeo, sincronización DEC 2026), teclas que intercepta el terminal (Alt+flechas, Ctrl+Tab, Ctrl+Enter, AltGr), portapapeles del sistema, ratón real (arrastrar, rueda), enlaces simbólicos en Windows, papelera de macOS, SSH/SFTP contra un servidor real, unidades de red (sondeo), editor/visor externos y terminal en segundo plano (PTY), elevación de privilegios, actualizaciones y plugins instalados
 - [ ] Pulido de lo pendiente de G.1–G.2:
   - atajos por defecto para "calcular tamaños" y "uso de disco"; la vista de uso de disco en SFTP refleja borrados; invalidar tamaños de carpetas al releer
   - copiar dentro de un zip respeta la resolución de conflictos; soporte bz2/xz; archivos anidados

@@ -36,6 +36,7 @@ impl PollStrategy {
 impl ChangeStrategy for PollStrategy {
     fn run(&self, dir: &Path, stop: &Receiver<()>, sink: &ChangeSink) -> Result<(), String> {
         let mut last = DirSignature::read(dir);
+        sink.armed(dir);
         loop {
             match stop.recv_timeout(self.interval) {
                 Err(RecvTimeoutError::Timeout) => {}

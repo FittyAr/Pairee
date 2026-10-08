@@ -20,26 +20,7 @@ use std::time::{Duration, Instant};
 pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<PathBuf>> {
     let mut terminal_backend = TerminalBackend::init()?;
     let mut event_handler = EventHandler::new(Duration::from_millis(50));
-
-    // Load history store from disk (only the categories the user chose to keep)
-    state.history =
-        crate::app::state::HistoryState::from_store(crate::app::session::persisted_history(
-            crate::config::history::HistoryStore::load(),
-            &context.config.settings,
-        ));
-    state.folder_shortcuts = crate::config::bookmarks::BookmarksFile::load().shortcut_map();
-
-    // Initial folder scans
-    state.refresh_both_panels(context.config.settings.show_hidden);
-    if !context.config.settings.onboarding_completed {
-        state
-            .dialogs
-            .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
-    }
-    if let Some(msg) = context.config.take_load_error() {
-        state.dialogs.push(crate::app::state::PopupType::Error(msg));
-    }
-    state.mark_ui_dirty();
+    prepare_first_frame(&mut state, &mut context);
 
     // Launch background external tools download/check
     tokio::spawn(async {
@@ -94,11 +75,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
                 state.terminal_needs_clear = false;
             }
 
-            state.scrollbar.clear_targets();
-            state.tab_bar.clear();
-            terminal_backend.terminal.draw(|f| {
-                ui::draw_ui(f, &context, &state);
-            })?;
+            paint(&mut terminal_backend.terminal, &context, &state)?;
 
             let _ = execute!(stdout, EndSynchronizedUpdate);
             state.ui_dirty = false;
@@ -130,4 +107,44 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
                 .await?;
         }
     }
+}
+
+/// Loads the history and folder shortcuts, scans both panels and queues the
+/// start-up dialogs (onboarding, configuration load error).
+pub(crate) fn prepare_first_frame(state: &mut AppState, context: &mut AppContext) {
+    // Load history store from disk (only the categories the user chose to keep)
+    state.history =
+        crate::app::state::HistoryState::from_store(crate::app::session::persisted_history(
+            crate::config::history::HistoryStore::load(),
+            &context.config.settings,
+        ));
+    state.folder_shortcuts = crate::config::bookmarks::BookmarksFile::load().shortcut_map();
+
+    // Initial folder scans
+    state.refresh_both_panels(context.config.settings.show_hidden);
+    if !context.config.settings.onboarding_completed {
+        state
+            .dialogs
+            .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
+    }
+    if let Some(msg) = context.config.take_load_error() {
+        state.dialogs.push(crate::app::state::PopupType::Error(msg));
+    }
+    state.mark_ui_dirty();
+}
+
+/// Draws one frame, resetting the click targets the frame records.
+pub(crate) fn paint<B>(
+    terminal: &mut ratatui::Terminal<B>,
+    context: &AppContext,
+    state: &AppState,
+) -> Result<()>
+where
+    B: ratatui::backend::Backend,
+    B::Error: Send + Sync + 'static,
+{
+    state.scrollbar.clear_targets();
+    state.tab_bar.clear();
+    terminal.draw(|f| ui::draw_ui(f, context, state))?;
+    Ok(())
 }

@@ -28,6 +28,7 @@ impl ChangeStrategy for WatchStrategy {
         watcher
             .watch(dir, RecursiveMode::NonRecursive)
             .map_err(|e| e.to_string())?;
+        sink.armed(dir);
         // Blocks until the monitor is dropped; the watcher stops with it.
         let _ = stop.recv();
         Ok(())
