@@ -38,9 +38,7 @@ pub async fn install(name: &str, version: Option<&str>) -> anyhow::Result<()> {
     let author = if author.is_empty() { "unknown" } else { author };
     validate_identifier("author", author)?;
 
-    let plugins_dir = crate::config::paths::get_config_dir()
-        .join("plugins")
-        .join(format!("{}.pairee", name));
+    let plugins_dir = crate::config::paths::get_installed_plugin_dir(name);
 
     println!("Downloading {} v{}...", plugin.name, plugin.version);
 

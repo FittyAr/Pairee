@@ -1,6 +1,8 @@
 pub mod acceptance;
+pub mod command_policy;
 pub mod developer_tool;
 pub mod hooks;
+pub mod installed;
 pub mod limits;
 pub mod loader;
 pub mod manager;

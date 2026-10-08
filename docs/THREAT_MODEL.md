@@ -26,8 +26,10 @@ elevation from becoming an easy remote-code or credential leak path.
 3. **Trusted plugin** — `StdLib::ALL_SAFE` (io/os/package, no debug) plus
    `pairee.Command` / `fs.spawn`.
 4. **Secure Mode** — extra path jail for trusted plugins (workspace + config
-   + cache + plugin dir + plugin data dir) and a process blacklist (shells,
-   interpreters, network tools). The flag is read once in Rust and captured
+   + cache + plugin dir + plugin data dir) and a process **allowlist**: only
+   commands declared in the manifest (`[permissions] commands`), given by bare
+   name and resolved through absolute `PATH` entries, may run; shells,
+   interpreters, network tools and wrappers stay denied even if declared. The flag is read once in Rust and captured
    by the `pairee.fs` / `pairee.Command` closures; `pairee._secure_mode` is an
    informational copy only, so overwriting it cannot switch Secure Mode off.
 
@@ -58,10 +60,10 @@ every instruction, so `pcall` loops cannot swallow the abort.
 
 | Area | Control | Residual risk |
 |------|---------|----------------|
-| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path + spawn blacklist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
+| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail + spawn allowlist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
 | Registry install | Plugin name and author must match `[A-Za-z0-9_-]`; `[files]` keys with `..`, absolute, drive-prefixed, `\` or `:` paths are rejected; every file is SHA-256 verified in memory before anything is written | Hashes come from the same registry as the files; a compromised registry can ship matching hashes. |
 | User menu (F2) | `{f}` / `{p}` expanded in a single pass with platform shell quoting, so a file name cannot inject a placeholder or close the quotes | On Windows `cmd /c` still expands `%VAR%` inside double quotes (no injection, but the name may be altered). |
-| `pairee.Command` | Blocked if untrusted; Secure Mode `is_command_safe`: names are normalized (directory, case, trailing dots, `.exe/.com/.cmd/.bat/.ps1/...` stripped, version suffixes such as `python3.12`) and checked against shells, interpreters, script hosts / LOLBins (`wscript`, `mshta`, `rundll32`, ...) and command wrappers (`env`, `xargs`, `busybox`, `sudo`, ...) | Still a deny list: a renamed or copied binary, or an allowed tool with its own exec feature (e.g. `git -c core.sshCommand`), is not stopped. |
+| `pairee.Command` / `fs.spawn` | Blocked if untrusted. Secure Mode `CommandPolicy` allowlist: bare name only (explicit/relative paths refused), must be declared in `[permissions] commands`, resolved via absolute `PATH` entries (Windows `.exe`/`.com` only, never `.bat`/`.cmd`) and executed by that absolute path; a hard deny list (shells, interpreters, LOLBins, network clients, wrappers; names normalized for case, extension and version suffix) applies to the requested name and to the symlink target. Declared commands are shown in the Plugin Manager details | A declared tool with its own exec feature (e.g. `git -c core.sshCommand`, `rg --pre`) can still run arbitrary code. A user-writable directory early in `PATH` can shadow a declared name. The manifest is read at load time; a plugin can edit its own manifest (takes effect on next load). |
 | SSH presets | Stored in local TOML; password field is optional | Passwords in `config.toml` are **not encrypted**. Prefer key files + agent. |
 | Auto-update | Background check; URL allowlist; mandatory SHA-256 checked on the in-memory artifact; user confirms | Hash and artifact come from the same release, so a compromised GitHub account can ship matching hashes (no signature yet). |
 | Install scripts | `curl -fsSL` / `Invoke-WebRequest`; release tag format checked; `.sha256` downloaded and verified before extraction | Same-origin hash, as above. |

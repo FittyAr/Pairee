@@ -1,6 +1,7 @@
 //! Legacy `pairee.fs.spawn` and `spawn_copy_task`.
 
 use super::path::{Access, FsPolicy, validate_path};
+use crate::plugin::command_policy::CommandPolicy;
 use crate::plugin::manager::PluginRequest;
 use mlua::{Lua, Table};
 use std::sync::Arc;
@@ -10,27 +11,21 @@ pub fn bind_spawn(
     lua: &Lua,
     fs: &Table<'_>,
     policy: &Arc<FsPolicy>,
+    commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
-    let trusted = policy.trusted;
-    let secure_mode = policy.secure_mode;
     fs.set(
         "spawn",
         lua.create_async_function(move |lua_ctx, (cmd, args): (String, Vec<String>)| {
+            let commands = Arc::clone(&commands);
             async move {
-                if !trusted {
-                    return Err(mlua::Error::RuntimeError(
-                        "Security violation: spawning external processes is blocked in sandboxed mode."
-                            .to_string(),
-                    ));
-                }
-                if secure_mode && !crate::plugin::sandbox::is_command_safe(&cmd) {
-                    return Err(mlua::Error::RuntimeError(format!(
-                        "Security violation: Command '{cmd}' is blacklisted in Secure Mode"
-                    )));
-                }
-
-                let output = tokio::process::Command::new(&cmd).args(&args).output().await;
+                let program = commands
+                    .authorize(&cmd)
+                    .map_err(mlua::Error::RuntimeError)?;
+                let output = tokio::process::Command::new(&program)
+                    .args(&args)
+                    .output()
+                    .await;
                 match output {
                     Ok(out) => {
                         let t = lua_ctx.create_table()?;

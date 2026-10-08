@@ -35,35 +35,8 @@ pub fn open_plugin_menu(state: &mut AppState, context: &AppContext) {
     tokio::spawn(async move {
         let lock = crate::plugin::updater::read_lockfile();
         let index = crate::plugin::updater::fetch_index().await.ok();
-        let mut installed = Vec::new();
-        for (name, info) in &lock.plugins {
-            let trusted = plugins_settings
-                .get(name)
-                .map(|p| p.trusted)
-                .unwrap_or(false);
-
-            let update_available = if let Some(ref idx) = index {
-                if let Some(reg_plugin) = idx.plugins.get(name) {
-                    if reg_plugin.version != info.version {
-                        Some(reg_plugin.version.clone())
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            } else {
-                None
-            };
-
-            installed.push((
-                name.clone(),
-                info.version.clone(),
-                info.pinned,
-                trusted,
-                update_available,
-            ));
-        }
+        let installed =
+            crate::plugin::installed::installed_rows(&lock, &plugins_settings, index.as_ref());
         // Build the full registry list (all available plugins) so the
         // Search tab shows results immediately without requiring a query.
         let registry: Vec<(String, String, String, String)> = index
@@ -116,9 +89,7 @@ pub fn install_dev_plugin(state: &mut AppState, context: &AppContext) -> bool {
     {
         let name = manifest.name.clone();
         let version = manifest.version.clone();
-        let dest_dir = crate::config::paths::get_config_dir()
-            .join("plugins")
-            .join(format!("{}.pairee", name));
+        let dest_dir = crate::config::paths::get_installed_plugin_dir(&name);
 
         let _ = std::fs::create_dir_all(&dest_dir);
         let mut success = true;

@@ -9,7 +9,7 @@ use std::path::PathBuf;
 pub fn handle_wizard_enter(
     state: &mut AppState,
     context: &mut AppContext,
-    installed: &mut Vec<(String, String, bool, bool, Option<String>)>,
+    installed: &mut Vec<crate::plugin::installed::InstalledPlugin>,
     search_query: &mut String,
     editing_query: &mut bool,
     dev_results: &mut String,

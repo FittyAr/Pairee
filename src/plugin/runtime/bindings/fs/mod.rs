@@ -6,6 +6,7 @@ mod ops;
 mod path;
 mod spawn;
 
+use crate::plugin::command_policy::CommandPolicy;
 use crate::plugin::manager::PluginRequest;
 pub use jail::FsPolicy;
 use mlua::{Lua, Table};
@@ -17,12 +18,13 @@ use tokio::sync::mpsc;
 pub fn bind(
     lua: &Lua,
     policy: FsPolicy,
+    commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<Table<'_>> {
     let policy = Arc::new(policy);
     let fs = lua.create_table()?;
     ops::bind_core(lua, &fs, &policy)?;
     extra::bind_extra(lua, &fs, &policy)?;
-    spawn::bind_spawn(lua, &fs, &policy, tx)?;
+    spawn::bind_spawn(lua, &fs, &policy, commands, tx)?;
     Ok(fs)
 }

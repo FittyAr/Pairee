@@ -316,10 +316,7 @@ To prevent even trusted plugins from stealthily exfiltrating data or stealing se
 * **Activation:** Enabled via the main configuration file (`pairee.toml` under `[settings]` -> `secure_mode = true`).
 * **Immutability:** The main configuration object is loaded as read-only by the Rust core; Lua scripts have no write access to this memory space and cannot disable Secure Mode.
 * **Network & Socket Interception:** Even if a plugin is set to `trusted = true`, the Rust runtime blocks any TCP/UDP socket creation or HTTP calls from within the VM environment.
-* **Process Spawning Blacklist:** The Rust process executor intercepts all calls to `pairee.fs.spawn()`. If the binary matches any prohibited system tool or shell, execution is blocked immediately:
-  * **Networking & Egress Tools:** `curl`, `wget`, `nc`, `netcat`, `ssh`, `scp`, `sftp`, `telnet`, `ftp`, `rsync`, `nmap`.
-  * **Shells & Command Interpreters:** `sh`, `bash`, `zsh`, `csh`, `tcsh`, `powershell`, `pwsh`, `cmd`, `cmd.exe`.
-  * **Script Runtimes & Interpreters:** `python`, `python3`, `perl`, `ruby`, `node`, `php`, `lua`, `luajit`.
+* **Process Spawning Allowlist:** `pairee.Command` and `pairee.fs.spawn()` go through `plugin::command_policy::CommandPolicy`. A program runs only if it is a bare name declared in the manifest (`[permissions] commands`), is not a shell / interpreter / network tool / command wrapper (hard deny list, also checked on the symlink target), and resolves through an absolute `PATH` entry (Windows: `.exe` / `.com` only). The resolved absolute path is executed.
 * **FS Boundary Sandboxing:** Under Secure Mode, file read/write operations through `pairee.fs` are restricted to the active workspace directory and the user's configuration folders, preventing access to root paths or system directories.
 
 ---

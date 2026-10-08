@@ -171,7 +171,10 @@ mod tests {
         } else {
             ("echo".into(), vec!["hello".into()])
         };
-        let mut cmd = LuaCommand::new(prog, true, false);
+        let mut cmd = LuaCommand::new(
+            prog,
+            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
+        );
         cmd.args = args;
         cmd.stdout = StdioKind::Piped;
         cmd.stderr = StdioKind::Piped;

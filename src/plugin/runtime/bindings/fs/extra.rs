@@ -110,6 +110,7 @@ mod tests {
         bind(
             lua,
             FsPolicy::new(std::path::Path::new("demo"), true, false),
+            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
             tx,
         )
         .unwrap()

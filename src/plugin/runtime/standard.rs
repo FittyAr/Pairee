@@ -1,3 +1,4 @@
+use crate::plugin::loader::PluginManifest;
 use crate::plugin::manager::PluginRequest;
 use std::path::Path;
 use tokio::sync::mpsc;
@@ -21,6 +22,16 @@ pub fn bind_runtime(
     // Informational only: nothing in Rust reads this back.
     pairee.set("_secure_mode", secure_mode_active)?;
     pairee.set("_lua_api_version", super::api_version::LUA_API_VERSION)?;
+    let manifest = PluginManifest::read_from_dir(plugin_dir);
+    let declared_commands = manifest
+        .as_ref()
+        .map(|m| m.permissions.commands.clone())
+        .unwrap_or_default();
+    let command_policy = std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::new(
+        trusted,
+        secure_mode_active,
+        &declared_commands,
+    ));
 
     // 2. Bind submodules
     pairee.set("app", super::bindings::app::bind(lua, tx.clone())?)?;
@@ -34,10 +45,13 @@ pub fn bind_runtime(
     // are discoverable alongside the existing `pairee.app.*` stubs.
     super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
     let fs_policy = super::bindings::fs::FsPolicy::new(plugin_dir, trusted, secure_mode_active);
-    pairee.set("fs", super::bindings::fs::bind(lua, fs_policy, tx.clone())?)?;
+    pairee.set(
+        "fs",
+        super::bindings::fs::bind(lua, fs_policy, command_policy.clone(), tx.clone())?,
+    )?;
     pairee.set(
         "Command",
-        super::bindings::process::bind(lua, trusted, secure_mode_active)?,
+        super::bindings::process::bind(lua, command_policy)?,
     )?;
     pairee.set("ui", super::bindings::ui::bind(lua)?)?;
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
@@ -52,29 +66,28 @@ pub fn bind_runtime(
     super::bindings::cx::bind_empty(lua, &pairee)?;
 
     // 3. Bind settings
-    bind_settings(lua, &pairee, plugin_dir)?;
+    bind_settings(lua, &pairee, manifest.as_ref())?;
 
     // 4. Bind i18n translation helper: pairee.t
-    bind_translations(lua, &pairee, plugin_dir)?;
+    bind_translations(lua, &pairee, plugin_dir, manifest.as_ref())?;
 
     globals.set("pairee", pairee)?;
     Ok(())
 }
 
-fn bind_settings(lua: &mlua::Lua, pairee: &mlua::Table<'_>, plugin_dir: &Path) -> mlua::Result<()> {
+fn bind_settings(
+    lua: &mlua::Lua,
+    pairee: &mlua::Table<'_>,
+    manifest: Option<&PluginManifest>,
+) -> mlua::Result<()> {
     let settings_table = lua.create_table()?;
 
-    // Read manifest schema
-    let manifest_path = plugin_dir.join("manifest.toml");
     let mut plugin_name = String::new();
     let mut default_settings = std::collections::HashMap::new();
 
-    if manifest_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&manifest_path)
-        && let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content)
-    {
+    if let Some(manifest) = manifest {
         plugin_name = manifest.name.clone();
-        if let Some(schema) = manifest.settings_schema {
+        if let Some(schema) = manifest.settings_schema.clone() {
             for (k, v) in schema {
                 // Extract default value
                 if let Some(tbl) = v.as_table()
@@ -131,17 +144,11 @@ fn bind_translations(
     lua: &mlua::Lua,
     pairee: &mlua::Table<'_>,
     plugin_dir: &Path,
+    manifest: Option<&PluginManifest>,
 ) -> mlua::Result<()> {
-    let mut default_lang = "en".to_string();
-    let manifest_path = plugin_dir.join("manifest.toml");
-
-    if manifest_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&manifest_path)
-        && let Ok(manifest) = crate::plugin::loader::PluginManifest::parse(&content)
-        && let Some(ref dl) = manifest.default_language
-    {
-        default_lang = dl.clone();
-    }
+    let default_lang = manifest
+        .and_then(|m| m.default_language.clone())
+        .unwrap_or_else(|| "en".to_string());
 
     let lang_dir = plugin_dir.join("lang");
     let current_lang = crate::config::localization::get_active_language_code();

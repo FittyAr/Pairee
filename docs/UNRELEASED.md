@@ -21,6 +21,7 @@
 - Protection and modal alert preventing push and pull operations while HEAD is in detached state.
 - Mode localization (`Soft`, `Mixed`, `Hard`) in Git commit reset confirmation prompts.
 - Informative notice when attempting to commit with clean working copy and no amend mode.
+- Plugins can declare the programs they need in `manifest.toml` (`[permissions] commands = [...]`); the Plugin Manager shows them in the plugin details.
 
 ### Improved
 
@@ -66,5 +67,6 @@
 - Fixed duplicate placeholder replacement in commit reset confirmation dialog which hid the reset mode (Soft/Mixed/Hard).
 - Fixed newly initialized repositories with zero commits showing `(detached HEAD)` instead of their initial branch name (e.g. `master` or `main`).
 - Fixed push tags without configured remotes failing with obscure libgit2 error.
+- **Security:** Secure Mode now uses a command allowlist for plugins instead of a name blacklist: a plugin may only run programs declared in its manifest, by name, resolved through `PATH` (no explicit or relative paths, no `.bat`/`.cmd`), and shells or interpreters are refused even if declared or reached through a symlink. A renamed binary can no longer slip through.
 
 
