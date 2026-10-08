@@ -61,113 +61,112 @@ pub fn handle_popup_input(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.dialogs.top().cloned();
-    if let Some(p) = popup {
-        match p {
-            PopupType::Help { .. } => help::handle(state, key, context),
-            PopupType::About { .. } => about::handle(state, key, context),
-            PopupType::MkDirPrompt { .. } => mkdir::handle(state, key, context),
-            PopupType::CopyPrompt(..) => copy::handle(state, key, context),
-            PopupType::ConfirmQuit
-            | PopupType::ConfirmInterrupt
-            | PopupType::ConfirmReload
-            | PopupType::ConfirmDiscardEditorChanges
-            | PopupType::ConfirmClearHistory { .. }
-            | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle(state, key, context),
-            PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => {
-                delete::handle(state, key, context)
-            }
-            PopupType::UserMenu { .. } => user_menu::handle(state, key, context),
-            PopupType::EditorSearchPrompt { .. } => editor::handle(state, key, context),
-            PopupType::ViewerSearchPrompt { .. } => viewer::handle(state, key, context),
-            PopupType::Menu { .. } => menu::handle(state, key, context),
-            PopupType::YaziSortPopup | PopupType::YaziViewPopup => {
-                yazi_popup::handle(state, key, context)
-            }
-            PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
-            PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
-            PopupType::Hotlist { .. } => hotlist::handle(state, key, context),
-            PopupType::FolderShortcuts { .. } => folder_shortcuts::handle(state, key, context),
-            PopupType::MovePrompt(..) => rename_move::handle(state, key, context),
-            PopupType::RenamePrompt { .. } => rename::handle(state, key, context),
-            PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => {
-                search::handle(state, key, context)
-            }
-            PopupType::TreeView { .. } => tree_view::handle(state, key, context),
-            PopupType::ContextMenu { .. } => context_menu::handle(state, key, context),
-            PopupType::CompressPrompt { .. } => compress::handle(state, key, context),
-            PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle(state, key, context),
-            PopupType::CopyMoveFilterPrompt { .. } => copy_filter::handle(state, key, context),
-            PopupType::SelectGroupPrompt { .. } => select_group::handle(state, key, context),
-            PopupType::ApplyCommandPrompt { .. } => apply_command::handle(state, key, context),
-            PopupType::DescribeFilePrompt { .. } => describe_file::handle(state, key, context),
-            PopupType::CreateLinkPrompt { .. } => create_link::handle(state, key, context),
-            PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
-                file_filter::handle(state, key, context)
-            }
-            PopupType::TaskListDialog { .. } => task_list::handle(state, key, context),
-            PopupType::PluginMenu(..) => plugin_menu::handle(state, key, context),
-            PopupType::SelectDevPlugin { .. } => {
-                plugin_menu::dev::handle_select_popup(state, key, context)
-            }
-            PopupType::SaveSetupConfirm => save_setup::handle(state, key, context),
-            PopupType::ConfigurationDialog(..) => config_dialog::handle(state, key, context),
-            PopupType::ColorGroupsDialog { .. } => color_groups::handle(state, key, context),
-            PopupType::FilesHighlightingDialog { .. } => {
-                files_highlighting::handle(state, key, context)
-            }
-            PopupType::FileAttributesDialog { .. } => file_attributes::handle(state, key, context),
-            PopupType::CommandHistoryList { .. }
-            | PopupType::FileViewHistoryList { .. }
-            | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
-            PopupType::SshConnectPrompt(..) => ssh_connect::handle(state, key, context),
-            PopupType::GitPanel(..) => git_panel::handle(state, key, context),
-            PopupType::GitProgress { .. } => {
-                if key.code == crossterm::event::KeyCode::Esc {
-                    state.cancel_git_op();
-                }
-                Ok(None)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
-                git_commit_prompt::handle(state, key, context)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(_)) => {
-                git_confirm_checkout::handle(state, key, context)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
-                git_new_popups::handle_diff(state, key, context)
-            }
-            PopupType::GitPrompt(
-                crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
-                | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
-                | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_)
-                | crate::app::state::popup::GitPromptPopup::TagCreatePrompt(_),
-            ) => git_new_popups::handle_prompt(state, key, context),
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
-                git_new_popups::handle_confirm_action(state, key, context)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteManage(_)) => {
-                git_new_popups::handle_remote_manage(state, key, context)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteAdd(_)) => {
-                git_new_popups::handle_remote_add(state, key, context)
-            }
-            PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
-                git_new_popups::handle_clone(state, key, context)
-            }
-            PopupType::SortModesDialog { .. } => sort_modes::handle(state, key, context),
-            PopupType::UpdateAvailable { .. } => update_popup::handle(state, key, context),
-            PopupType::TransferPanel => transfer_panel::handle(state, key, context),
-            PopupType::FileAssociationsDialog { .. } => {
-                file_associations::handle(state, key, context)
-            }
-            PopupType::OnboardingKeymap { .. } => onboarding::handle(state, key, context),
-            PopupType::CommandPalette { .. } => command_palette::handle(state, key, context),
-            PopupType::WhichKey { .. } => which_key::handle(state, key, context),
-            PopupType::Plugin(_) => plugin_dialogs::handle(state, key, context),
-            _ => dismiss_only::handle(state, key, context),
+    // Pick the handler by reference: the popup itself is never cloned here.
+    let handler = state.dialogs.top().map(handler_for).ok_or(())?;
+    handler(state, key, context)
+}
+
+type PopupHandler = fn(&mut AppState, KeyEvent, &mut AppContext) -> Result<Option<Action>, ()>;
+
+/// Esc in the Git progress popup cancels the running operation.
+fn git_progress(
+    state: &mut AppState,
+    key: KeyEvent,
+    _context: &mut AppContext,
+) -> Result<Option<Action>, ()> {
+    if key.code == crossterm::event::KeyCode::Esc {
+        state.cancel_git_op();
+    }
+    Ok(None)
+}
+
+/// Maps the active popup to its key handler.
+fn handler_for(popup: &PopupType) -> PopupHandler {
+    match popup {
+        PopupType::Help { .. } => help::handle,
+        PopupType::About { .. } => about::handle,
+        PopupType::MkDirPrompt { .. } => mkdir::handle,
+        PopupType::CopyPrompt(..) => copy::handle,
+        PopupType::ConfirmQuit
+        | PopupType::ConfirmInterrupt
+        | PopupType::ConfirmReload
+        | PopupType::ConfirmDiscardEditorChanges
+        | PopupType::ConfirmClearHistory { .. }
+        | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle,
+        PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => delete::handle,
+        PopupType::UserMenu { .. } => user_menu::handle,
+        PopupType::EditorSearchPrompt { .. } => editor::handle,
+        PopupType::ViewerSearchPrompt { .. } => viewer::handle,
+        PopupType::Menu { .. } => menu::handle,
+        PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
+        PopupType::ScreensMenu { .. } => screens_menu::handle,
+        PopupType::DriveSelect { .. } => drive_select::handle,
+        PopupType::Hotlist { .. } => hotlist::handle,
+        PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
+        PopupType::MovePrompt(..) => rename_move::handle,
+        PopupType::RenamePrompt { .. } => rename::handle,
+        PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
+        PopupType::TreeView { .. } => tree_view::handle,
+        PopupType::ContextMenu { .. } => context_menu::handle,
+        PopupType::CompressPrompt { .. } => compress::handle,
+        PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle,
+        PopupType::CopyMoveFilterPrompt { .. } => copy_filter::handle,
+        PopupType::SelectGroupPrompt { .. } => select_group::handle,
+        PopupType::ApplyCommandPrompt { .. } => apply_command::handle,
+        PopupType::DescribeFilePrompt { .. } => describe_file::handle,
+        PopupType::CreateLinkPrompt { .. } => create_link::handle,
+        PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
+            file_filter::handle
         }
-    } else {
-        Err(())
+        PopupType::TaskListDialog { .. } => task_list::handle,
+        PopupType::PluginMenu(..) => plugin_menu::handle,
+        PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
+        PopupType::SaveSetupConfirm => save_setup::handle,
+        PopupType::ConfigurationDialog(..) => config_dialog::handle,
+        PopupType::ColorGroupsDialog { .. } => color_groups::handle,
+        PopupType::FilesHighlightingDialog { .. } => files_highlighting::handle,
+        PopupType::FileAttributesDialog { .. } => file_attributes::handle,
+        PopupType::CommandHistoryList { .. }
+        | PopupType::FileViewHistoryList { .. }
+        | PopupType::FoldersHistoryList { .. } => history_list::handle,
+        PopupType::SshConnectPrompt(..) => ssh_connect::handle,
+        PopupType::GitPanel(..) => git_panel::handle,
+        PopupType::GitProgress { .. } => git_progress,
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
+            git_commit_prompt::handle
+        }
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(_)) => {
+            git_confirm_checkout::handle
+        }
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
+            git_new_popups::handle_diff
+        }
+        PopupType::GitPrompt(
+            crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(_)
+            | crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(_)
+            | crate::app::state::popup::GitPromptPopup::StashSavePrompt(_)
+            | crate::app::state::popup::GitPromptPopup::TagCreatePrompt(_),
+        ) => git_new_popups::handle_prompt,
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
+            git_new_popups::handle_confirm_action
+        }
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteManage(_)) => {
+            git_new_popups::handle_remote_manage
+        }
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteAdd(_)) => {
+            git_new_popups::handle_remote_add
+        }
+        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
+            git_new_popups::handle_clone
+        }
+        PopupType::SortModesDialog { .. } => sort_modes::handle,
+        PopupType::UpdateAvailable { .. } => update_popup::handle,
+        PopupType::TransferPanel => transfer_panel::handle,
+        PopupType::FileAssociationsDialog { .. } => file_associations::handle,
+        PopupType::OnboardingKeymap { .. } => onboarding::handle,
+        PopupType::CommandPalette { .. } => command_palette::handle,
+        PopupType::WhichKey { .. } => which_key::handle,
+        PopupType::Plugin(_) => plugin_dialogs::handle,
+        _ => dismiss_only::handle,
     }
 }

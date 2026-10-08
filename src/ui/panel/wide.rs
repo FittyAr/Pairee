@@ -1,3 +1,4 @@
+use super::helpers::visible_slice;
 use crate::app::context::AppContext;
 use crate::app::state::PanelState;
 use crate::ui::panel::helpers::{build_row_style, entry_display_name_truncated, visible_range};
@@ -20,7 +21,7 @@ pub(crate) fn render_wide(
     let height = area.height.saturating_sub(2) as usize;
     let (start, end) = visible_range(panel, height);
 
-    let rows: Vec<Row> = panel.entries[start..end]
+    let rows: Vec<Row> = visible_slice(panel, start, end)
         .iter()
         .enumerate()
         .map(|(rel, entry)| {

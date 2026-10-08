@@ -14,51 +14,48 @@ pub fn handle_tag_tab(
 ) -> bool {
     match code {
         KeyCode::Char('n') | KeyCode::Char('N') => {
-            let current_popup = state.dialogs.top().cloned().unwrap();
-            state.dialogs.replace(PopupType::GitPrompt(
-                crate::app::state::popup::GitPromptPopup::TagCreatePrompt(
+            state.dialogs.open_over(|current_popup| {
+                PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::TagCreatePrompt(
                     crate::app::state::popup::GitTagCreatePromptState {
                         input: String::new(),
                         cursor_idx: 0,
                         target: "HEAD".to_string(),
                         repo_path: repo_path.to_path_buf(),
-                        previous_popup: Box::new(current_popup),
+                        previous_popup: current_popup,
                     },
-                ),
-            ));
+                ))
+            });
             true
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
             if let Some(tag) = tag_entries.get(cursor_idx) {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_delete_tag")
                     .replace("{}", &tag.name);
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::DeleteTag(tag.name.clone()),
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
         KeyCode::Enter => {
             if let Some(tag) = tag_entries.get(cursor_idx) {
-                let current_popup = state.dialogs.top().cloned();
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
                         crate::app::state::popup::GitConfirmCheckoutState {
                             target: tag.name.clone(),
                             is_branch: false,
                             repo_path: repo_path.to_path_buf(),
-                            previous_popup: current_popup.map(Box::new),
+                            previous_popup: Some(current_popup),
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }

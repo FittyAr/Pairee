@@ -9,7 +9,7 @@ use crate::keybindings::actions::Action;
 pub fn handle_clone(
     state: &mut AppState,
     key: KeyEvent,
-    context: &AppContext,
+    context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     if let Some(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(mut clone_state))) =
         state.dialogs.take()

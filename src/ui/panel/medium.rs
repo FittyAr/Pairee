@@ -1,3 +1,4 @@
+use super::helpers::visible_slice;
 use crate::app::context::AppContext;
 use crate::app::state::PanelState;
 use crate::config::localization::t;
@@ -31,7 +32,7 @@ pub(crate) fn render_medium(
     let height = area.height.saturating_sub(header_offset) as usize;
     let (start, end) = visible_range(panel, height);
 
-    let rows: Vec<Row> = panel.entries[start..end]
+    let rows: Vec<Row> = visible_slice(panel, start, end)
         .iter()
         .enumerate()
         .map(|(rel, entry)| {

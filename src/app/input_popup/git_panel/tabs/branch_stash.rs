@@ -17,18 +17,19 @@ pub fn handle_branch_tab(
 ) -> bool {
     match code {
         KeyCode::Char('n') | KeyCode::Char('N') => {
-            let current_popup = state.dialogs.top().cloned().unwrap();
-            state.dialogs.replace(PopupType::GitPrompt(
-                crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(
-                    crate::app::state::popup::GitBranchCreatePromptState {
-                        input: String::new(),
-                        cursor_idx: 0,
-                        start_point: "HEAD".to_string(),
-                        repo_path: repo_path.to_path_buf(),
-                        previous_popup: Box::new(current_popup),
-                    },
-                ),
-            ));
+            state.dialogs.open_over(|current_popup| {
+                PopupType::GitPrompt(
+                    crate::app::state::popup::GitPromptPopup::BranchCreatePrompt(
+                        crate::app::state::popup::GitBranchCreatePromptState {
+                            input: String::new(),
+                            cursor_idx: 0,
+                            start_point: "HEAD".to_string(),
+                            repo_path: repo_path.to_path_buf(),
+                            previous_popup: current_popup,
+                        },
+                    ),
+                )
+            });
             true
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
@@ -41,40 +42,43 @@ pub fn handle_branch_tab(
                         )));
                     return true;
                 }
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 if branch.is_remote {
                     if let Some((remote, b_name)) = branch.name.split_once('/') {
                         let msg =
                             crate::config::localization::t("git_confirm_delete_remote_branch")
                                 .replace("{remote}", remote)
                                 .replace("{branch}", b_name);
-                        state.dialogs.replace(PopupType::GitPrompt(
-                            crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                                crate::app::state::popup::GitConfirmActionState {
-                                    message: msg,
-                                    repo_path: repo_path.to_path_buf(),
-                                    action: GitConfirmedAction::DeleteRemoteBranch {
-                                        remote: remote.to_string(),
-                                        branch: b_name.to_string(),
+                        state.dialogs.open_over(|current_popup| {
+                            PopupType::GitPrompt(
+                                crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                                    crate::app::state::popup::GitConfirmActionState {
+                                        message: msg,
+                                        repo_path: repo_path.to_path_buf(),
+                                        action: GitConfirmedAction::DeleteRemoteBranch {
+                                            remote: remote.to_string(),
+                                            branch: b_name.to_string(),
+                                        },
+                                        previous_popup: current_popup,
                                     },
-                                    previous_popup: Box::new(current_popup),
-                                },
-                            ),
-                        ));
+                                ),
+                            )
+                        });
                     }
                 } else {
                     let msg = crate::config::localization::t("git_confirm_delete_branch")
                         .replace("{}", &branch.name);
-                    state.dialogs.replace(PopupType::GitPrompt(
-                        crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                            crate::app::state::popup::GitConfirmActionState {
-                                message: msg,
-                                repo_path: repo_path.to_path_buf(),
-                                action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
-                                previous_popup: Box::new(current_popup),
-                            },
-                        ),
-                    ));
+                    state.dialogs.open_over(|current_popup| {
+                        PopupType::GitPrompt(
+                            crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                                crate::app::state::popup::GitConfirmActionState {
+                                    message: msg,
+                                    repo_path: repo_path.to_path_buf(),
+                                    action: GitConfirmedAction::DeleteBranch(branch.name.clone()),
+                                    previous_popup: current_popup,
+                                },
+                            ),
+                        )
+                    });
                 }
             }
             true
@@ -83,35 +87,35 @@ pub fn handle_branch_tab(
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_remote
             {
-                let current_popup = state.dialogs.top().cloned().unwrap();
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(
-                        crate::app::state::popup::GitBranchRenamePromptState {
-                            input: branch.name.clone(),
-                            cursor_idx: branch.name.len(),
-                            old_name: branch.name.clone(),
-                            repo_path: repo_path.to_path_buf(),
-                            previous_popup: Box::new(current_popup),
-                        },
-                    ),
-                ));
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(
+                        crate::app::state::popup::GitPromptPopup::BranchRenamePrompt(
+                            crate::app::state::popup::GitBranchRenamePromptState {
+                                input: branch.name.clone(),
+                                cursor_idx: branch.name.len(),
+                                old_name: branch.name.clone(),
+                                repo_path: repo_path.to_path_buf(),
+                                previous_popup: current_popup,
+                            },
+                        ),
+                    )
+                });
             }
             true
         }
         KeyCode::Char('R') => {
             if let Some(repo) = crate::git::repo::find_repo(repo_path) {
                 let remotes = crate::git::remote::list_remotes(&repo).unwrap_or_default();
-                let current_popup = state.dialogs.top().cloned().unwrap();
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::RemoteManage(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteManage(
                         crate::app::state::popup::GitRemoteManageState {
                             repo_path: repo_path.to_path_buf(),
                             remotes,
                             selected_idx: 0,
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
@@ -119,20 +123,19 @@ pub fn handle_branch_tab(
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_current
             {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_merge_branch")
                     .replace("{source}", &branch.name)
                     .replace("{target}", current_branch);
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::MergeBranch(branch.name.clone()),
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
@@ -140,36 +143,34 @@ pub fn handle_branch_tab(
             if let Some(branch) = branch_entries.get(cursor_idx)
                 && !branch.is_current
             {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_rebase")
                     .replace("{current}", current_branch)
                     .replace("{onto}", &branch.name);
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::RebaseBranch(branch.name.clone()),
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
         KeyCode::Enter => {
             if let Some(branch) = branch_entries.get(cursor_idx) {
-                let current_popup = state.dialogs.top().cloned();
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
                         crate::app::state::popup::GitConfirmCheckoutState {
                             target: branch.name.clone(),
                             is_branch: true,
                             repo_path: repo_path.to_path_buf(),
-                            previous_popup: current_popup.map(Box::new),
+                            previous_popup: Some(current_popup),
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
@@ -201,19 +202,18 @@ pub fn handle_stash_tab(
         }
         KeyCode::Char('p') | KeyCode::Char('P') | KeyCode::Enter => {
             if let Some(stash) = stash_entries.get(cursor_idx) {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_stash_pop")
                     .replace("{}", &stash.index.to_string());
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::StashPop(stash.index),
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
@@ -222,54 +222,51 @@ pub fn handle_stash_tab(
                 && let Some(repo) = crate::git::repo::find_repo(repo_path)
                 && let Ok(diff_content) = crate::git::diff::get_stash_diff(&repo, &stash.oid)
             {
-                let current_popup = state.dialogs.top().cloned().unwrap();
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::DiffView(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(
                         crate::app::state::popup::GitDiffViewState {
                             repo_path: repo_path.to_path_buf(),
                             file_path: None,
                             commit_hash: Some(format!("stash@{{{}}}", stash.index)),
                             diff_content,
                             scroll_y: 0,
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
         KeyCode::Delete | KeyCode::Char('x') | KeyCode::Char('X') => {
             if let Some(stash) = stash_entries.get(cursor_idx) {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_stash_drop")
                     .replace("{}", &stash.index.to_string());
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::StashDrop(stash.index),
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }
         KeyCode::Char('C') => {
             if !stash_entries.is_empty() {
-                let current_popup = state.dialogs.top().cloned().unwrap();
                 let msg = crate::config::localization::t("git_confirm_stash_clear");
-                state.dialogs.replace(PopupType::GitPrompt(
-                    crate::app::state::popup::GitPromptPopup::ConfirmAction(
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
                         crate::app::state::popup::GitConfirmActionState {
                             message: msg,
                             repo_path: repo_path.to_path_buf(),
                             action: GitConfirmedAction::StashClear,
-                            previous_popup: Box::new(current_popup),
+                            previous_popup: current_popup,
                         },
-                    ),
-                ));
+                    ))
+                });
             }
             true
         }

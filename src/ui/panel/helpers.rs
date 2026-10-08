@@ -86,6 +86,12 @@ pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize)
     )
 }
 
+/// Entries in `start..end`, or nothing when the range is out of bounds
+/// (never panics while drawing, even if entries changed underneath).
+pub(crate) fn visible_slice(panel: &PanelState, start: usize, end: usize) -> &[FileEntry] {
+    panel.entries.get(start..end).unwrap_or_default()
+}
+
 pub(crate) fn build_row_style(
     entry: &FileEntry,
     is_cursor: bool,

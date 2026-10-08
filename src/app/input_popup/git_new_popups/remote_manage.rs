@@ -42,37 +42,33 @@ pub fn handle_remote_manage(
                 return Ok(None);
             }
             KeyCode::Char('a') | KeyCode::Char('A') => {
-                let current_popup = state.dialogs.top().cloned().unwrap();
-                state
-                    .dialogs
-                    .replace(PopupType::GitPrompt(GitPromptPopup::RemoteAdd(
-                        GitRemoteAddState {
-                            repo_path: manage_state.repo_path,
-                            name_input: String::new(),
-                            url_input: String::new(),
-                            focus_url: false,
-                            name_cursor: 0,
-                            url_cursor: 0,
-                            previous_popup: Box::new(current_popup),
-                        },
-                    )));
+                state.dialogs.open_over(|current_popup| {
+                    PopupType::GitPrompt(GitPromptPopup::RemoteAdd(GitRemoteAddState {
+                        repo_path: manage_state.repo_path,
+                        name_input: String::new(),
+                        url_input: String::new(),
+                        focus_url: false,
+                        name_cursor: 0,
+                        url_cursor: 0,
+                        previous_popup: current_popup,
+                    }))
+                });
                 return Ok(None);
             }
             KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
                 if let Some(remote) = manage_state.remotes.get(manage_state.selected_idx) {
-                    let current_popup = state.dialogs.top().cloned().unwrap();
                     let msg = crate::config::localization::t("git_confirm_delete_remote")
                         .replace("{}", &remote.name);
-                    state
-                        .dialogs
-                        .replace(PopupType::GitPrompt(GitPromptPopup::ConfirmAction(
+                    state.dialogs.open_over(|current_popup| {
+                        PopupType::GitPrompt(GitPromptPopup::ConfirmAction(
                             crate::app::state::popup::GitConfirmActionState {
                                 message: msg,
                                 repo_path: manage_state.repo_path,
                                 action: GitConfirmedAction::DeleteRemote(remote.name.clone()),
-                                previous_popup: Box::new(current_popup),
+                                previous_popup: current_popup,
                             },
-                        )));
+                        ))
+                    });
                 }
                 return Ok(None);
             }

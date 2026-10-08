@@ -83,8 +83,8 @@ pub fn handle_cli_input(
                         active.cursor_index = 0;
                         active.clear_selection();
                     }
-                } else if cmd.ends_with("&") {
-                    let cmd_bg = cmd.strip_suffix("&").unwrap().trim().to_string();
+                } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
+                    let cmd_bg = cmd_bg.trim().to_string();
                     let current_dir = current_path.clone();
 
                     let ts = crate::app::state::types::TerminalState {

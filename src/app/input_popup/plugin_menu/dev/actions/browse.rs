@@ -85,8 +85,8 @@ pub fn handle_option_open_package_folder(
 ) {
     if let Some(plugin_folder) = active_plugin.as_ref() {
         let specific = packaged_plugin_dir(plugin_folder);
-        let target = if specific.as_ref().map(|p| p.exists()).unwrap_or(false) {
-            specific.unwrap()
+        let target = if let Some(specific) = specific.filter(|p| p.exists()) {
+            specific
         } else {
             let fallback = crate::config::paths::get_cache_dir().join("temp_registry");
             if fallback.exists() {

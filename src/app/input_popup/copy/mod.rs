@@ -255,11 +255,12 @@ pub fn handle(
                     return Ok(None);
                 }
                 if new_idx == 12 {
-                    let previous = Box::new(state.dialogs.take().unwrap());
-                    state.dialogs.replace(PopupType::CopyMoveFilterPrompt {
-                        input: new_filter_mask,
-                        previous,
-                    });
+                    state
+                        .dialogs
+                        .open_over(|previous| PopupType::CopyMoveFilterPrompt {
+                            input: new_filter_mask,
+                            previous,
+                        });
                     return Ok(None);
                 }
 

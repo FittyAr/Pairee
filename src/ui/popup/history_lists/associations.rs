@@ -138,7 +138,7 @@ pub(super) fn render_associations(
                 // Cursor simulado
                 let cursor_char = if (std::time::SystemTime::now()
                     .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
+                    .unwrap_or_default()
                     .as_millis()
                     / 500)
                     .is_multiple_of(2)
