@@ -93,7 +93,7 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 ## 🧰 5. Utilidades y Herramientas Avanzadas
 
 * **Menú de Acciones Contextuales:** Abre un diálogo contextual con opciones rápidas (Ver, Editar, Copiar, Mover, Eliminar, Comprimir, Extraer) relativas al archivo seleccionado. Detecta archivos comprimidos y añade opciones dinámicas de archivo.
-* **Comparar Carpetas:** Analiza y compara las rutas de ambos paneles para resaltar y marcar automáticamente los archivos diferentes, facilitando su sincronización.
+* **Comparar Carpetas:** Analiza y compara las rutas de ambos paneles para resaltar y marcar automáticamente los archivos diferentes, facilitando su sincronización. Las fechas de modificación que difieren como mucho `compare_mtime_tolerance_secs` (2 s por defecto, la granularidad de FAT) cuentan como iguales; en Windows y macOS los nombres se emparejan sin distinguir mayúsculas. Solo se pueden comparar carpetas locales.
 * **Administrador de Procesos:** Muestra la lista de procesos activos con sus PIDs, nombres y uso de memoria, permitiendo finalizarlos con `Suprimir` o `Alt+Suprimir`.
 * **Vista de Árbol de Directorios:** Recorre la estructura del disco y muestra el árbol de directorios de forma gráfica.
 * **Descripciones de Archivos:** Visualiza y edita descripciones presionando `Ctrl+D` sobre cualquier archivo, guardándolas en archivos ocultos `Descript.ion`.

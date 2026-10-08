@@ -127,9 +127,17 @@ pub fn handle_view_sort_action(
             true
         }
         Action::CompareFolder => {
+            if state.panels.left.ssh_conn.is_some() || state.panels.right.ssh_conn.is_some() {
+                state
+                    .dialogs
+                    .replace(PopupType::Error(t("compare_local_only")));
+                return true;
+            }
             let left = state.panels.left.current_path.clone();
             let right = state.panels.right.current_path.clone();
-            match crate::fs::compare_directories(&left, &right) {
+            let options =
+                crate::fs::compare::CompareOptions::from_settings(&context.config.settings);
+            match crate::fs::compare_directories(&left, &right, &options) {
                 Ok(diff) => {
                     for entry in &diff {
                         if entry.status != crate::fs::CompareStatus::Equal

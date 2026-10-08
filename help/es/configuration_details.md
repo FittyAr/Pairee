@@ -202,3 +202,7 @@ Algunos parámetros avanzados se pueden configurar directamente dentro del archi
   - *Descripción:* Cuando está activo, Pairee consulta GitHub Releases en segundo plano al arrancar para buscar nuevas versiones.
 * **`dismissed_update_version`** (`string`, por defecto: `null` o vacío):
   - *Descripción:* Almacena la etiqueta de versión (ej. `v1.2.3`) de una actualización que el usuario ha descartado o ignorado de forma explícita, evitando futuras ventanas emergentes sobre esa versión específica. Puedes limpiar este valor si deseas volver a recibir avisos sobre esa versión.
+
+### Comparar y Sincronizar Carpetas
+* **`compare_mtime_tolerance_secs`** (`entero`, por defecto: `2`):
+  - *Descripción:* Diferencia máxima, en segundos, entre las fechas de modificación de dos archivos que comparar y sincronizar carpetas siguen considerando iguales. El valor por defecto de 2 segundos absorbe la granularidad de 2 segundos de las unidades FAT/exFAT; use `0` para exigir coincidencia exacta.

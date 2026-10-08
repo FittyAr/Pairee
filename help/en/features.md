@@ -93,7 +93,7 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 ## 🧰 5. Utilities & Advanced Tools
 
 * **Context Actions Menu:** Opens a popup menu containing actions (View, Edit, Copy, Move, Delete, Compress, Extract) relative to the highlighted file type. Detects archives (ZIP, 7z, RAR, TAR, GZ, BZ2, XZ) and adds dynamic Archive Commands.
-* **Folder Compare:** Compares left and right panel directory listings to identify files that are present in only one panel or differ in size/modification date, highlighting and tagging them.
+* **Folder Compare:** Compares left and right panel directory listings to identify files that are present in only one panel or differ in size/modification date, highlighting and tagging them. Modification times up to `compare_mtime_tolerance_secs` apart (2 s by default, the FAT granularity) count as equal; on Windows and macOS names are matched ignoring case. Only local folders can be compared.
 * **OS Task Manager:** Displays a table of active system processes with PIDs, names, and memory consumption. Allows process termination using `Delete` or `Alt+Delete`.
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
 * **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.

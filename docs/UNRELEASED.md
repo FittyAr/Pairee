@@ -47,6 +47,7 @@
 - Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- Folder compare: files copied to or from FAT/exFAT drives were reported as "Different" because the modification-time tolerance was 1 second; it is now 2 seconds and configurable with `compare_mtime_tolerance_secs` in `config.toml`. On Windows and macOS names are matched ignoring case (`README.txt` and `readme.txt` are the same file there), and comparing a remote (SSH) panel now shows a clear message instead of reading a local path with the same name.
 - Configuration dialog: editing the plugin developer folder now shows the text being typed (it kept showing the old path), and text fields there support cursor movement and paste like other dialogs.
 - Search highlighting in the viewer and editor no longer misaligns (or can panic) on lines containing characters whose lowercase form is longer, such as 'İ'.
 - Git panel: the "rename branch" prompt opened with no field focused (typing did nothing until the arrows were pressed); it now starts on the name field.
