@@ -42,17 +42,11 @@ pub fn handle_row(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::{
-        AppConfig, keybindings::KeybindingsConfig, settings::Settings, theme::Theme,
-    };
+    use crate::config::{AppConfig, settings::Settings};
 
     #[test]
     fn view_keymap_issues_opens_info_panel() {
-        let context = AppContext::new(AppConfig {
-            settings: Settings::default(),
-            theme: Theme::default(),
-            keybindings: KeybindingsConfig::default(),
-        });
+        let context = AppContext::new(AppConfig::default());
         let mut settings = Settings::default();
         match handle_row(38, &mut settings, &context) {
             Some(PopupType::InfoPanel { lines }) => {

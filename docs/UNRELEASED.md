@@ -35,6 +35,7 @@
 - Untracked file badges and labels in Git panel now render in Magenta for consistent contrast and readability across dark backgrounds.
 - Enhanced scroll behavior in the Git diff viewer for short files.
 - Centralized all Git operation error alerts, conflict notifications, confirmation prompts, and buttons into localization catalogs with zero hardcoding.
+- Internal: the "do not overwrite an invalid `config.toml` until confirmed" lock and the startup load error now live in `AppConfig` (`ConfigLoadState`) instead of process-wide globals.
 
 ### Deprecated
 
