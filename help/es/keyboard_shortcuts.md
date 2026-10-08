@@ -121,7 +121,7 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | `Alt+G` | Abre el panel de integración con Git. |
 | `Ctrl+W` | Abre el administrador de procesos activos del sistema operativo. |
 | `Alt+F10` | Abre el navegador de directorios en árbol gráfico. |
-| `Ctrl+p` / `Ctrl+P` | Cambia manualmente la barra de teclas F (Normal -> Ctrl -> Alt). |
+| `Ctrl+p` / `Ctrl+P` | Cambia manualmente la barra de teclas F (Normal -> Ctrl -> Alt -> Shift). Cada fila muestra lo que el mapa de teclas asigna a `F1`…`F12` con ese modificador (p. ej. `Shift+F6` renombrado múltiple). |
 | `s` | (Con flujo Yazi activo) Abre el menú inferior modal de ordenación. |
 | `v` | (Con flujo Yazi activo) Abre el menú inferior modal de vista. |
 | `Ctrl+Tab` | Salta a la siguiente pestaña abierta de fondo. |

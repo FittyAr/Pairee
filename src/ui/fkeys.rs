@@ -3,6 +3,7 @@ use crate::app::state::{AppState, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::ui::theme_apply::parse_color;
+use crossterm::event::KeyModifiers;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,39 +12,91 @@ use ratatui::{
     widgets::Paragraph,
 };
 
-/// Returns the localization key used in the F-key bar for the given action, if any.
+/// F-key bar label (localization key) of each action that can sit on an
+/// F-key. The panel rows are built from the live keymap through this table,
+/// so the bar always shows what `F<n>`, `Shift+F<n>`, `Ctrl+F<n>` and
+/// `Alt+F<n>` really do.
+const ACTION_LABELS: &[(Action, &str)] = &[
+    (Action::Help, "fkey_help"),
+    (Action::UserMenu, "fkey_user"),
+    (Action::View, "fkey_view"),
+    (Action::ViewAlt, "fkey_alt_view"),
+    (Action::Edit, "fkey_edit"),
+    (Action::Copy, "fkey_copy"),
+    (Action::Move, "fkey_move"),
+    (Action::Rename, "fkey_rename"),
+    (Action::MkDir, "fkey_mkdir"),
+    (Action::Delete, "fkey_delete"),
+    (Action::Menu, "fkey_menu"),
+    (Action::Quit, "fkey_quit"),
+    (Action::PluginMenu, "fkey_plugin"),
+    (Action::ScreensList, "fkey_screen"),
+    (Action::CompressFiles, "fkey_sh_pack"),
+    (Action::ExtractArchive, "fkey_sh_unpack"),
+    (Action::ArchiveCommands, "fkey_sh_arccmd"),
+    (Action::MultiRename, "fkey_sh_mrename"),
+    (Action::SaveSetup, "fkey_sh_save"),
+    (Action::ContextMenu, "fkey_sh_context"),
+    (Action::TogglePanelLeft, "fkey_ctrl_left"),
+    (Action::TogglePanelRight, "fkey_ctrl_right"),
+    (Action::SortByName, "fkey_ctrl_name"),
+    (Action::SortByExtension, "fkey_ctrl_extens"),
+    (Action::SortByWriteTime, "fkey_ctrl_time"),
+    (Action::SortBySize, "fkey_ctrl_size"),
+    (Action::SortUnsorted, "fkey_ctrl_unsort"),
+    (Action::SortByCreationTime, "fkey_ctrl_creatn"),
+    (Action::SortByAccessTime, "fkey_ctrl_access"),
+    (Action::SortByDescription, "fkey_ctrl_descr"),
+    (Action::SortByOwner, "fkey_ctrl_owner"),
+    (Action::SortModes, "fkey_ctrl_sort"),
+    (Action::DriveSelectLeft, "fkey_alt_left"),
+    (Action::DriveSelectRight, "fkey_alt_right"),
+    (Action::PrintFile, "fkey_alt_print"),
+    (Action::CreateLink, "fkey_alt_mklink"),
+    (Action::FindFile, "fkey_alt_find"),
+    (Action::CommandHistory, "fkey_alt_history"),
+    (Action::VideoMode, "fkey_alt_video"),
+    (Action::TreeView, "fkey_alt_tree"),
+    (Action::FileViewHistory, "fkey_alt_viewhs"),
+    (Action::FoldersHistory, "fkey_alt_foldhs"),
+];
+
+/// Localization key of the F-key bar label of `action`, if it has one.
 fn action_label(action: Action) -> Option<&'static str> {
-    match action {
-        Action::Help => Some("fkey_help"),
-        Action::UserMenu => Some("fkey_user"),
-        Action::View => Some("fkey_view"),
-        Action::Edit => Some("fkey_edit"),
-        Action::Copy => Some("fkey_copy"),
-        Action::Move => Some("fkey_move"),
-        Action::Rename => Some("fkey_rename"),
-        Action::MkDir => Some("fkey_mkdir"),
-        Action::Delete => Some("fkey_delete"),
-        Action::Menu => Some("fkey_menu"),
-        Action::Quit => Some("fkey_quit"),
-        Action::PluginMenu => Some("fkey_plugin"),
-        Action::ScreensList => Some("fkey_screen"),
-        _ => None,
-    }
+    ACTION_LABELS
+        .iter()
+        .find(|(a, _)| *a == action)
+        .map(|(_, key)| *key)
 }
 
-/// Resolve what label should be displayed in slot `n` (0-indexed, where 0 = F1).
-/// Queries the resolver first so the bar always matches the actual binding.
-fn slot_label(context: &AppContext, slot: usize, fallback_key: &str) -> String {
-    let key = format!("F{}", slot + 1);
-    if let Some(action) = context.resolver.resolve_for_key_string(&key)
-        && let Some(label_key) = action_label(action)
-    {
-        return t(label_key);
-    }
-    translated(slot, fallback_key)
+/// Chord prefix of the held modifiers, in `keybinds` order (`Ctrl+Alt+Shift+`).
+fn modifier_prefix(modifiers: KeyModifiers) -> String {
+    [
+        (KeyModifiers::CONTROL, "Ctrl+"),
+        (KeyModifiers::ALT, "Alt+"),
+        (KeyModifiers::SHIFT, "Shift+"),
+    ]
+    .iter()
+    .filter(|(m, _)| modifiers.contains(*m))
+    .map(|(_, name)| *name)
+    .collect()
 }
 
-/// Labels of the twelve F-keys, `""` for an unlabeled key.
+/// Panel row for the held modifiers, read from the keymap: the label of the
+/// action bound to `<prefix>F<n>`, empty when the key is unbound.
+fn keymap_cells(context: &AppContext, prefix: &str) -> Vec<(String, String)> {
+    cells(&[""; 12], |slot, _| {
+        context
+            .resolver
+            .resolve_for_key_string(&format!("{prefix}F{}", slot + 1))
+            .and_then(action_label)
+            .map(t)
+            .unwrap_or_default()
+    })
+}
+
+/// Labels of the twelve F-keys, `""` for an unlabeled key (editor and viewer
+/// keys are handled by those screens, not by the keymap).
 type Row = [&'static str; 12];
 
 const EDITOR_ROW: Row = [
@@ -91,52 +144,6 @@ const VIEWER_ROW: Row = [
     "",
 ];
 
-const CTRL_ROW: Row = [
-    "fkey_ctrl_left",
-    "fkey_ctrl_right",
-    "fkey_ctrl_name",
-    "fkey_ctrl_extens",
-    "fkey_ctrl_time",
-    "fkey_ctrl_size",
-    "fkey_ctrl_unsort",
-    "fkey_ctrl_creatn",
-    "fkey_ctrl_access",
-    "fkey_ctrl_descr",
-    "fkey_ctrl_owner",
-    "fkey_ctrl_sort",
-];
-
-const ALT_ROW: Row = [
-    "fkey_alt_left",
-    "fkey_alt_right",
-    "fkey_alt_view",
-    "fkey_alt_edit",
-    "fkey_alt_print",
-    "fkey_alt_mklink",
-    "fkey_alt_find",
-    "fkey_alt_history",
-    "fkey_alt_video",
-    "fkey_alt_tree",
-    "fkey_alt_viewhs",
-    "fkey_alt_foldhs",
-];
-
-/// Default panel row; each key is resolved from the user's keymap first.
-const PANEL_ROW: Row = [
-    "fkey_help",
-    "fkey_user",
-    "fkey_view",
-    "fkey_edit",
-    "fkey_copy",
-    "fkey_move",
-    "fkey_rename",
-    "fkey_delete",
-    "fkey_menu",
-    "fkey_quit",
-    "", // F11 (unbound by default — Plugin menu lives under F9 → Files)
-    "fkey_screen",
-];
-
 /// `(key number, label)` cells of a row, labels produced by `label`.
 fn cells(row: &Row, label: impl Fn(usize, &str) -> String) -> Vec<(String, String)> {
     row.iter()
@@ -156,7 +163,6 @@ fn translated(_slot: usize, key: &str) -> String {
 
 /// The cells shown for the active screen and held modifier keys.
 fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
-    use crossterm::event::KeyModifiers;
     let modifiers = state
         .fkeys_modifier_override
         .unwrap_or(state.current_modifiers);
@@ -165,19 +171,13 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
         Some(Screen::Editor(_)) if shift => cells(&EDITOR_SHIFT_ROW, translated),
         Some(Screen::Editor(_)) => cells(&EDITOR_ROW, translated),
         Some(Screen::Viewer(_)) => cells(&VIEWER_ROW, translated),
-        _ if modifiers.contains(KeyModifiers::CONTROL) => cells(&CTRL_ROW, translated),
-        _ if modifiers.contains(KeyModifiers::ALT) => cells(&ALT_ROW, translated),
-        _ if shift => {
-            let dev_install = is_dev_plugin_dir(context, state);
-            cells(&[""; 12], |slot, _| {
-                if dev_install && slot == 10 {
-                    t("plugin_install_dev")
-                } else {
-                    String::new()
-                }
-            })
+        _ => {
+            let mut row = keymap_cells(context, &modifier_prefix(modifiers));
+            if modifiers == KeyModifiers::SHIFT && is_dev_plugin_dir(context, state) {
+                row[10].1 = t("plugin_install_dev");
+            }
+            row
         }
-        _ => cells(&PANEL_ROW, |slot, key| slot_label(context, slot, key)),
     }
 }
 
@@ -250,11 +250,17 @@ mod tests {
     use super::*;
     use crate::app::editor::EditorState;
     use crate::config::AppConfig;
-    use crossterm::event::KeyModifiers;
     use std::path::PathBuf;
 
     fn label(cells: &[(String, String)], key: usize) -> &str {
         &cells[key - 1].1
+    }
+
+    fn panel_cells(modifiers: KeyModifiers) -> Vec<(String, String)> {
+        let context = AppContext::new(AppConfig::default());
+        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+        state.fkeys_modifier_override = Some(modifiers);
+        bar_cells(&context, &state)
     }
 
     #[test]
@@ -275,10 +281,39 @@ mod tests {
 
     #[test]
     fn every_row_has_twelve_numbered_cells() {
-        let context = AppContext::new(AppConfig::default());
-        let state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        let cells = bar_cells(&context, &state);
+        let cells = panel_cells(KeyModifiers::NONE);
         assert_eq!(cells.len(), 12);
         assert_eq!(cells[11].0, "12");
+    }
+
+    #[test]
+    fn panel_rows_follow_the_keymap() {
+        let plain = panel_cells(KeyModifiers::NONE);
+        assert_eq!(label(&plain, 5), t("fkey_copy"));
+        assert_eq!(label(&plain, 11), "", "F11 is unbound");
+        let shift = panel_cells(KeyModifiers::SHIFT);
+        assert_eq!(label(&shift, 1), t("fkey_sh_pack"));
+        assert_eq!(label(&shift, 6), t("fkey_sh_mrename"));
+        let ctrl = panel_cells(KeyModifiers::CONTROL);
+        assert_eq!(label(&ctrl, 3), t("fkey_ctrl_name"));
+        let alt = panel_cells(KeyModifiers::ALT);
+        assert_eq!(label(&alt, 7), t("fkey_alt_find"));
+        assert_eq!(label(&alt, 12), t("fkey_alt_foldhs"));
+    }
+
+    #[test]
+    fn every_bound_function_key_has_a_label() {
+        let context = AppContext::new(AppConfig::default());
+        let unlabeled: Vec<String> = context
+            .resolver
+            .bindings()
+            .filter(|(chord, _)| {
+                let key = chord.rsplit('+').next().unwrap_or_default();
+                key.len() > 1 && key.starts_with('F') && key[1..].parse::<u8>().is_ok()
+            })
+            .filter(|(_, action)| action_label(*action).is_none())
+            .map(|(chord, action)| format!("{chord} {action:?}"))
+            .collect();
+        assert!(unlabeled.is_empty(), "F-keys without label: {unlabeled:?}");
     }
 }

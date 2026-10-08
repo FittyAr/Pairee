@@ -58,7 +58,10 @@ To resolve this limitation, we have implemented several options to ensure you ca
 Inside **Pairee**, you can press **`Ctrl+p`** (or `Ctrl+P`) to cycle the bottom F-key bar states manually:
 * **First Press**: Locks the bottom bar to show `CONTROL` functions (e.g. F3: Name, F4: Extension).
 * **Second Press**: Locks the bottom bar to show `ALT` functions (e.g. F3: View, F4: Edit).
-* **Third Press**: Restores the default F-key layout.
+* **Third Press**: Locks the bottom bar to show `SHIFT` functions (e.g. F1: Pack, F6: multi-rename).
+* **Fourth Press**: Restores the default F-key layout.
+
+The panel rows always show what the active keymap binds to `F1`…`F12` with each modifier.
 
 *Note: All shortcuts remain fully functional even if the bar is not visually showing them! For example, pressing `Ctrl+F3` sorts by name, and `Alt+F1` opens the left drive menu instantly.*
 

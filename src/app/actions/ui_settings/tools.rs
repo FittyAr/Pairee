@@ -142,13 +142,14 @@ pub fn handle_tools_action(
             true
         }
         Action::CycleFKeysModifiers => {
-            use crossterm::event::KeyModifiers;
-            state.fkeys_modifier_override = match state.fkeys_modifier_override {
-                None => Some(KeyModifiers::CONTROL),
-                Some(KeyModifiers::CONTROL) => Some(KeyModifiers::ALT),
-                Some(KeyModifiers::ALT) => None,
-                _ => None,
-            };
+            use crossterm::event::KeyModifiers as M;
+            // Normal → Ctrl → Alt → Shift → Normal.
+            const CYCLE: [Option<M>; 4] = [None, Some(M::CONTROL), Some(M::ALT), Some(M::SHIFT)];
+            let current = CYCLE
+                .iter()
+                .position(|m| *m == state.fkeys_modifier_override)
+                .unwrap_or(CYCLE.len() - 1);
+            state.fkeys_modifier_override = CYCLE[(current + 1) % CYCLE.len()];
             true
         }
         Action::CheckForUpdates => {
@@ -204,5 +205,24 @@ pub fn handle_tools_action(
             true
         }
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config::AppConfig;
+    use crossterm::event::KeyModifiers as M;
+
+    #[test]
+    fn fkey_modifier_cycle_includes_shift() {
+        let mut state = AppState::new(".".into(), ".".into());
+        let mut context = AppContext::new(AppConfig::default());
+        let mut seen = Vec::new();
+        for _ in 0..4 {
+            handle_tools_action(&mut state, &Action::CycleFKeysModifiers, &mut context);
+            seen.push(state.fkeys_modifier_override);
+        }
+        assert_eq!(seen, [Some(M::CONTROL), Some(M::ALT), Some(M::SHIFT), None]);
     }
 }

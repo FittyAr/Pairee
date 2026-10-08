@@ -121,7 +121,7 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | `Alt+G` | Launch Git Integration Panel. |
 | `Ctrl+W` | Open OS Task List (running system processes table). |
 | `Alt+F10` | Open graphical directory Tree View. |
-| `Ctrl+p` / `Ctrl+P` | Cycle bottom F-key modifier row manually (Normal -> Ctrl -> Alt). |
+| `Ctrl+p` / `Ctrl+P` | Cycle bottom F-key modifier row manually (Normal -> Ctrl -> Alt -> Shift). Each row shows what the keymap binds to `F1`…`F12` with that modifier (e.g. `Shift+F6` multi-rename). |
 | `s` | (With Yazi workflow enabled) Open Yazi Sort modal panel. |
 | `v` | (With Yazi workflow enabled) Open Yazi View modal panel. |
 | `Ctrl+Tab` | Switch focus to next open screen background tab. |
