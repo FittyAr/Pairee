@@ -1,13 +1,13 @@
 //! Shared Git name prompt: create / rename branch, save stash, create tag.
 
-use super::common::restore_previous_and_refresh;
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
+use crate::app::git_local::{GitContext, GitFailure, reload_panel};
 use crate::app::state::popup::{GitNameAction, GitNamePromptState as Prompt, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
-use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use git2::Repository;
 use std::path::Path;
 
 /// Opens the name prompt for `action` over the current dialog (the Git panel).
@@ -54,71 +54,62 @@ fn back(state: &mut AppState) {
     }
 }
 
-/// Result of running a prompt's action.
-enum Outcome {
-    /// Nothing to do (empty or unchanged name): just close.
-    Skip,
-    /// The repository could not be opened: keep the prompt.
-    NoRepo,
-    Done,
-    Failed(String),
-}
-
+/// OK: runs the action in the background over the restored Git panel.
 fn submit(state: &mut AppState) {
     let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.top() else {
         return;
     };
-    match run(&prompt.action, &prompt.repo_path, prompt.input.text()) {
-        Outcome::Skip => back(state),
-        Outcome::NoRepo => {}
-        Outcome::Failed(msg) => state.dialogs.replace(PopupType::Error(msg)),
-        Outcome::Done => {
-            if let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) =
-                state.dialogs.pop()
-            {
-                restore_previous_and_refresh(state, *prompt.previous_popup, &prompt.repo_path);
-            }
-        }
+    if is_noop(&prompt.action, prompt.input.text()) {
+        back(state);
+        return;
     }
+    let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.pop() else {
+        return;
+    };
+    let Prompt {
+        action,
+        input,
+        repo_path,
+        previous_popup,
+        ..
+    } = prompt;
+    state.dialogs.replace(*previous_popup);
+    let name = input.text().to_string();
+    state.run_git_local(
+        &repo_path,
+        move |repo| run(&action, repo, &name),
+        reload_panel(&repo_path),
+    );
 }
 
-/// Runs `action` with the typed `name` in the repository at `repo_path`.
-fn run(action: &GitNameAction, repo_path: &Path, name: &str) -> Outcome {
+/// `true` when the typed `name` leaves nothing to do (empty or unchanged).
+fn is_noop(action: &GitNameAction, name: &str) -> bool {
     let blank = name.trim().is_empty();
-    let skip = match action {
+    match action {
         GitNameAction::CreateBranch { .. } | GitNameAction::CreateTag { .. } => blank,
         GitNameAction::RenameBranch { old_name } => blank || name == old_name,
         GitNameAction::SaveStash { .. } => false,
-    };
-    if skip {
-        return Outcome::Skip;
     }
-    let Some(mut repo) = crate::git::repo::find_repo(repo_path) else {
-        return Outcome::NoRepo;
-    };
-    let (result, error_key) = match action {
-        GitNameAction::CreateBranch { start_point } => (
-            crate::git::branches::create_branch(&repo, name, start_point),
-            "git_error_create_branch_failed",
-        ),
-        GitNameAction::RenameBranch { old_name } => (
-            crate::git::branches::rename_branch(&repo, old_name, name),
-            "git_error_rename_branch_failed",
-        ),
-        GitNameAction::SaveStash { include_untracked } => {
-            let message = (!blank).then_some(name);
-            (
-                crate::git::stash::stash_save(&mut repo, message, *include_untracked).map(|_| ()),
-                "git_error_stash_save_failed",
-            )
+}
+
+/// Runs `action` with the typed `name` (on the job thread).
+fn run(action: &GitNameAction, repo: &mut Repository, name: &str) -> Result<(), GitFailure> {
+    use crate::git::{branches, stash, tags};
+    match action {
+        GitNameAction::CreateBranch { start_point } => {
+            branches::create_branch(repo, name, start_point).ctx("git_error_create_branch_failed")
         }
-        GitNameAction::CreateTag { target } => (
-            crate::git::tags::create_tag(&repo, name.trim(), target, None).map(|_| ()),
-            "git_error_create_tag_failed",
-        ),
-    };
-    match result {
-        Ok(()) => Outcome::Done,
-        Err(e) => Outcome::Failed(format!("{}: {}", t(error_key), e)),
+        GitNameAction::RenameBranch { old_name } => {
+            branches::rename_branch(repo, old_name, name).ctx("git_error_rename_branch_failed")
+        }
+        GitNameAction::SaveStash { include_untracked } => {
+            let message = (!name.trim().is_empty()).then_some(name);
+            stash::stash_save(repo, message, *include_untracked)
+                .map(|_| ())
+                .ctx("git_error_stash_save_failed")
+        }
+        GitNameAction::CreateTag { target } => tags::create_tag(repo, name.trim(), target, None)
+            .map(|_| ())
+            .ctx("git_error_create_tag_failed"),
     }
 }

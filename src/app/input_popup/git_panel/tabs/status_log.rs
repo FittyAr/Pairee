@@ -1,11 +1,31 @@
-//! Key action handlers for each tab in GitPanel (Status, Log, Branches, Stash).
+//! Key action handlers for the Status and Log tabs of the Git panel.
+//!
+//! Repository work runs in the background (`app::git_local`); the handlers
+//! only pick the entry under the cursor and open dialogs.
 
-use crate::app::state::popup::GitNameAction;
+use super::branch_stash::open_checkout;
+use crate::app::git_local::{GitContext, reload_panel};
+use crate::app::input_popup::git_new_popups::{open_confirm, open_diff, open_name_prompt};
+use crate::app::state::popup::{GitCommitPromptState, GitNameAction, GitPromptPopup};
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
+use crate::config::localization::t;
 use crate::git::log::CommitInfo;
+use crate::git::reset::ResetMode;
 use crate::git::status::GitFileStatus;
 use crossterm::event::KeyCode;
 use std::path::Path;
+
+/// Runs a staging-area change in the background, then re-reads the panel.
+fn run_and_reload<W>(state: &mut AppState, repo_path: &Path, error_key: &'static str, work: W)
+where
+    W: FnOnce(&git2::Repository) -> anyhow::Result<()> + Send + 'static,
+{
+    state.run_git_local(
+        repo_path,
+        move |repo| work(repo).ctx(error_key),
+        reload_panel(repo_path),
+    );
+}
 
 pub fn handle_status_tab(
     state: &mut AppState,
@@ -14,131 +34,111 @@ pub fn handle_status_tab(
     status_entries: &[GitFileStatus],
     cursor_idx: usize,
 ) -> bool {
+    let entry = status_entries.get(cursor_idx);
     match code {
         KeyCode::Char(' ') => {
-            if let Some(entry) = status_entries.get(cursor_idx)
-                && let Some(repo) = crate::git::repo::find_repo(repo_path)
-            {
-                let res = if entry.is_staged && !entry.is_unstaged {
-                    crate::git::stage::unstage_file(&repo, &entry.path)
+            if let Some(entry) = entry {
+                let path = entry.path.clone();
+                if entry.is_staged && !entry.is_unstaged {
+                    run_and_reload(state, repo_path, "git_error_unstage_failed", move |r| {
+                        crate::git::stage::unstage_file(r, &path)
+                    });
                 } else {
-                    crate::git::stage::stage_file(&repo, &entry.path)
-                };
-                if res.is_ok() {
-                    state.refresh_git_panel(repo_path, 0, cursor_idx);
+                    run_and_reload(state, repo_path, "git_error_stage_failed", move |r| {
+                        crate::git::stage::stage_file(r, &path)
+                    });
                 }
             }
-            true
         }
-        KeyCode::Char('a') => {
-            if let Some(repo) = crate::git::repo::find_repo(repo_path)
-                && crate::git::stage::stage_all(&repo).is_ok()
-            {
-                state.refresh_git_panel(repo_path, 0, cursor_idx);
-            }
-            true
-        }
-        KeyCode::Char('A') => {
-            if let Some(repo) = crate::git::repo::find_repo(repo_path)
-                && crate::git::stage::unstage_all(&repo).is_ok()
-            {
-                state.refresh_git_panel(repo_path, 0, cursor_idx);
-            }
-            true
-        }
+        KeyCode::Char('a') => run_and_reload(
+            state,
+            repo_path,
+            "git_error_stage_failed",
+            crate::git::stage::stage_all,
+        ),
+        KeyCode::Char('A') => run_and_reload(
+            state,
+            repo_path,
+            "git_error_unstage_failed",
+            crate::git::stage::unstage_all,
+        ),
         KeyCode::Char('x') | KeyCode::Delete => {
-            if let Some(entry) = status_entries.get(cursor_idx) {
-                let msg = crate::config::localization::t("git_confirm_discard_file")
-                    .replace("{}", &entry.path);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::DiscardFile(entry.path.clone()),
-                            previous_popup: current_popup,
-                        },
-                    ))
+            if let Some(entry) = entry {
+                let msg = t("git_confirm_discard_file").replace("{}", &entry.path);
+                let action = GitConfirmedAction::DiscardFile(entry.path.clone());
+                open_confirm(state, repo_path, msg, action);
+            }
+        }
+        KeyCode::Char('i' | 'I') => {
+            if let Some(entry) = entry {
+                let path = entry.path.clone();
+                run_and_reload(state, repo_path, "git_error_gitignore_failed", move |r| {
+                    crate::git::repo::add_to_gitignore(r, &path)
                 });
             }
-            true
-        }
-        KeyCode::Char('i') | KeyCode::Char('I') => {
-            if let Some(entry) = status_entries.get(cursor_idx)
-                && let Some(repo) = crate::git::repo::find_repo(repo_path)
-                && crate::git::repo::add_to_gitignore(&repo, &entry.path).is_ok()
-            {
-                state.refresh_git_panel(repo_path, 0, cursor_idx);
-            }
-            true
         }
         KeyCode::Char('X') => {
             if let Some(repo) = crate::git::repo::find_repo(repo_path)
                 && repo.state() == git2::RepositoryState::Merge
             {
-                let msg = crate::config::localization::t("git_confirm_abort_merge");
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::AbortMerge,
-                            previous_popup: current_popup,
-                        },
-                    ))
+                let msg = t("git_confirm_abort_merge");
+                open_confirm(state, repo_path, msg, GitConfirmedAction::AbortMerge);
+            }
+        }
+        KeyCode::Char('c' | 'C') => {
+            state.dialogs.open_over(|current_popup| {
+                PopupType::GitPrompt(GitPromptPopup::CommitPrompt(GitCommitPromptState {
+                    input: Default::default(),
+                    repo_path: repo_path.to_path_buf(),
+                    is_amend: false,
+                    previous_popup: Some(current_popup),
+                }))
+            });
+        }
+        KeyCode::Char('d' | 'D') => {
+            if let Some(entry) = entry {
+                let (path, staged) = (entry.path.clone(), entry.is_staged);
+                open_diff(state, repo_path, Some(path.clone()), None, move |r| {
+                    crate::git::diff::get_file_diff(r, &path, staged)
                 });
             }
-            true
         }
-        KeyCode::Char('c') | KeyCode::Char('C') => {
-            state.dialogs.open_over(|current_popup| {
-                PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(
-                    crate::app::state::popup::GitCommitPromptState {
-                        input: Default::default(),
-                        repo_path: repo_path.to_path_buf(),
-                        is_amend: false,
-                        previous_popup: Some(current_popup),
-                    },
-                ))
-            });
-            true
-        }
-        KeyCode::Char('d') | KeyCode::Char('D') => {
-            if let Some(entry) = status_entries.get(cursor_idx)
-                && let Some(repo) = crate::git::repo::find_repo(repo_path)
-            {
-                let is_staged = entry.is_staged;
-                if let Ok(diff_content) =
-                    crate::git::diff::get_file_diff(&repo, &entry.path, is_staged)
-                {
-                    state.dialogs.open_over(|current_popup| {
-                        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(
-                            crate::app::state::popup::GitDiffViewState {
-                                repo_path: repo_path.to_path_buf(),
-                                file_path: Some(entry.path.clone()),
-                                commit_hash: None,
-                                diff_content,
-                                scroll_y: 0,
-                                previous_popup: current_popup,
-                            },
-                        ))
-                    });
-                }
-            }
-            true
-        }
-        KeyCode::Char('s') | KeyCode::Char('S') => {
-            crate::app::input_popup::git_new_popups::open_name_prompt(
-                state,
-                repo_path,
-                GitNameAction::SaveStash {
-                    include_untracked: false,
-                },
-            );
-            true
-        }
-        _ => false,
+        KeyCode::Char('s' | 'S') => open_name_prompt(
+            state,
+            repo_path,
+            GitNameAction::SaveStash {
+                include_untracked: false,
+            },
+        ),
+        _ => return false,
     }
+    true
+}
+
+/// Asks to reset the branch to `commit` with `mode`.
+fn confirm_reset(state: &mut AppState, repo_path: &Path, commit: &CommitInfo, mode: ResetMode) {
+    let mode_key = match mode {
+        ResetMode::Soft => "git_reset_mode_soft",
+        ResetMode::Mixed => "git_reset_mode_mixed",
+        ResetMode::Hard => "git_reset_mode_hard",
+    };
+    let msg = t("git_confirm_reset")
+        .replace("{commit}", &commit.hash_short)
+        .replace("{mode}", &t(mode_key));
+    let action = GitConfirmedAction::ResetCommit(commit.hash_full.clone(), mode);
+    open_confirm(state, repo_path, msg, action);
+}
+
+/// Asks to run `action` on `commit` (message key with `{}` = short hash).
+fn confirm_on_commit(
+    state: &mut AppState,
+    repo_path: &Path,
+    commit: &CommitInfo,
+    key: &str,
+    action: GitConfirmedAction,
+) {
+    let msg = t(key).replace("{}", &commit.hash_short);
+    open_confirm(state, repo_path, msg, action);
 }
 
 pub fn handle_log_tab(
@@ -148,185 +148,65 @@ pub fn handle_log_tab(
     log_entries: &[CommitInfo],
     cursor_idx: usize,
 ) -> bool {
+    let Some(commit) = log_entries.get(cursor_idx) else {
+        // Every log action needs a commit; still consume the action keys.
+        return matches!(
+            code,
+            KeyCode::Char('d' | 'D' | 's' | 'x' | 'h' | 'b' | 'B' | 'n' | 'N' | 't' | 'T')
+                | KeyCode::Char('c' | 'C' | 'r' | 'R' | 'y' | 'Y')
+                | KeyCode::Enter
+        );
+    };
+    let hash = commit.hash_full.clone();
     match code {
-        KeyCode::Char('d') | KeyCode::Char('D') => {
-            if let Some(commit) = log_entries.get(cursor_idx)
-                && let Some(repo) = crate::git::repo::find_repo(repo_path)
-                && let Ok(diff_content) =
-                    crate::git::diff::get_commit_diff(&repo, &commit.hash_full)
-            {
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(
-                        crate::app::state::popup::GitDiffViewState {
-                            repo_path: repo_path.to_path_buf(),
-                            file_path: None,
-                            commit_hash: Some(commit.hash_short.clone()),
-                            diff_content,
-                            scroll_y: 0,
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
+        KeyCode::Char('d' | 'D') => {
+            let label = Some(commit.hash_short.clone());
+            open_diff(state, repo_path, None, label, move |r| {
+                crate::git::diff::get_commit_diff(r, &hash)
+            });
         }
-        KeyCode::Char('s') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let mode_str = crate::config::localization::t("git_reset_mode_soft");
-                let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{commit}", &commit.hash_short)
-                    .replace("{mode}", &mode_str);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::ResetCommit(
-                                commit.hash_full.clone(),
-                                crate::git::reset::ResetMode::Soft,
-                            ),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
+        KeyCode::Char('s') => confirm_reset(state, repo_path, commit, ResetMode::Soft),
+        KeyCode::Char('x') => confirm_reset(state, repo_path, commit, ResetMode::Mixed),
+        KeyCode::Char('h') => confirm_reset(state, repo_path, commit, ResetMode::Hard),
+        KeyCode::Char('b' | 'B' | 'n' | 'N') => open_name_prompt(
+            state,
+            repo_path,
+            GitNameAction::CreateBranch { start_point: hash },
+        ),
+        KeyCode::Char('t' | 'T') => {
+            open_name_prompt(state, repo_path, GitNameAction::CreateTag { target: hash })
         }
-        KeyCode::Char('x') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let mode_str = crate::config::localization::t("git_reset_mode_mixed");
-                let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{commit}", &commit.hash_short)
-                    .replace("{mode}", &mode_str);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::ResetCommit(
-                                commit.hash_full.clone(),
-                                crate::git::reset::ResetMode::Mixed,
-                            ),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
+        KeyCode::Char('c' | 'C') => confirm_on_commit(
+            state,
+            repo_path,
+            commit,
+            "git_confirm_cherry_pick",
+            GitConfirmedAction::CherryPick(hash),
+        ),
+        KeyCode::Char('r' | 'R') => confirm_on_commit(
+            state,
+            repo_path,
+            commit,
+            "git_confirm_revert",
+            GitConfirmedAction::Revert(hash),
+        ),
+        KeyCode::Char('y' | 'Y') => copy_hash(state, commit),
+        KeyCode::Enter => open_checkout(state, repo_path, hash, false),
+        _ => return false,
+    }
+    true
+}
+
+/// Copies the full hash of `commit` to the clipboard.
+fn copy_hash(state: &mut AppState, commit: &CommitInfo) {
+    match crate::app::sys_helpers::clipboard::set_text(&commit.hash_full) {
+        Ok(()) => {
+            let msg = t("git_hash_copied").replace("{}", &commit.hash_short);
+            state.dialogs.push(PopupType::Info(msg));
         }
-        KeyCode::Char('h') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let mode_str = crate::config::localization::t("git_reset_mode_hard");
-                let msg = crate::config::localization::t("git_confirm_reset")
-                    .replace("{commit}", &commit.hash_short)
-                    .replace("{mode}", &mode_str);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::ResetCommit(
-                                commit.hash_full.clone(),
-                                crate::git::reset::ResetMode::Hard,
-                            ),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
+        Err(e) => {
+            let msg = t("clipboard_failed").replace("{}", &e.to_string());
+            state.dialogs.push(PopupType::Error(msg));
         }
-        KeyCode::Char('b') | KeyCode::Char('B') | KeyCode::Char('n') | KeyCode::Char('N') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                crate::app::input_popup::git_new_popups::open_name_prompt(
-                    state,
-                    repo_path,
-                    GitNameAction::CreateBranch {
-                        start_point: commit.hash_full.clone(),
-                    },
-                );
-            }
-            true
-        }
-        KeyCode::Char('t') | KeyCode::Char('T') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                crate::app::input_popup::git_new_popups::open_name_prompt(
-                    state,
-                    repo_path,
-                    GitNameAction::CreateTag {
-                        target: commit.hash_full.clone(),
-                    },
-                );
-            }
-            true
-        }
-        KeyCode::Char('c') | KeyCode::Char('C') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let msg = crate::config::localization::t("git_confirm_cherry_pick")
-                    .replace("{}", &commit.hash_short);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::CherryPick(commit.hash_full.clone()),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
-        }
-        KeyCode::Char('r') | KeyCode::Char('R') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let msg = crate::config::localization::t("git_confirm_revert")
-                    .replace("{}", &commit.hash_short);
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(
-                        crate::app::state::popup::GitConfirmActionState {
-                            message: msg,
-                            repo_path: repo_path.to_path_buf(),
-                            action: GitConfirmedAction::Revert(commit.hash_full.clone()),
-                            previous_popup: current_popup,
-                        },
-                    ))
-                });
-            }
-            true
-        }
-        KeyCode::Char('y') | KeyCode::Char('Y') => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                let text = commit.hash_full.clone();
-                match crate::app::sys_helpers::clipboard::set_text(&text) {
-                    Ok(()) => {
-                        let msg = crate::config::localization::t("git_hash_copied")
-                            .replace("{}", &commit.hash_short);
-                        state.dialogs.push(PopupType::Info(msg));
-                    }
-                    Err(e) => {
-                        let msg = crate::config::localization::t("clipboard_failed")
-                            .replace("{}", &e.to_string());
-                        state.dialogs.push(PopupType::Error(msg));
-                    }
-                }
-            }
-            true
-        }
-        KeyCode::Enter => {
-            if let Some(commit) = log_entries.get(cursor_idx) {
-                state.dialogs.open_over(|current_popup| {
-                    PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(
-                        crate::app::state::popup::GitConfirmCheckoutState {
-                            target: commit.hash_full.clone(),
-                            is_branch: false,
-                            repo_path: repo_path.to_path_buf(),
-                            previous_popup: Some(current_popup),
-                        },
-                    ))
-                });
-            }
-            true
-        }
-        _ => false,
     }
 }

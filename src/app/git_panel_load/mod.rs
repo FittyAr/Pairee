@@ -46,12 +46,19 @@ pub struct GitPanelLoader {
     log_page: JobSlot<LogPage>,
     /// Path of the snapshot request in flight.
     loading: Option<PathBuf>,
+    /// Local operation (stage, commit, stash, …) in flight.
+    pub local: crate::app::git_local::GitLocalJob,
 }
 
 impl GitPanelLoader {
     /// `true` while the contents of the panel for `repo_path` are loading.
     pub fn is_loading(&self, repo_path: &Path) -> bool {
         self.snapshot.is_running() && self.loading.as_deref() == Some(repo_path)
+    }
+
+    /// `true` while a local operation on `repo_path` is running.
+    pub fn is_working(&self, repo_path: &Path) -> bool {
+        self.local.is_running_for(repo_path)
     }
 
     fn start_snapshot(&mut self, path: &Path, log_limit: usize) {
@@ -100,6 +107,17 @@ impl AppState {
                 0
             }
         };
+        self.git_panel
+            .start_snapshot(repo_path, loaded.max(LOG_REFRESH_LIMIT));
+    }
+
+    /// Re-reads the Git panel showing `repo_path` wherever it sits in the
+    /// dialog stack, keeping its view; does nothing when it was closed.
+    pub fn reload_git_panel(&mut self, repo_path: &Path) {
+        let Some(panel) = panel_for(self, repo_path) else {
+            return;
+        };
+        let loaded = panel.log_entries.len();
         self.git_panel
             .start_snapshot(repo_path, loaded.max(LOG_REFRESH_LIMIT));
     }

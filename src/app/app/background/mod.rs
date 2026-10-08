@@ -20,6 +20,7 @@ pub fn process_background_updates(
         state.mark_ui_dirty();
     }
     crate::app::git_ops::poll_git_op(state);
+    crate::app::git_local::poll_git_local(state);
     state.poll_git_panel();
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
     state.poll_vfs_op(context.config.settings.show_hidden);

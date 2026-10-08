@@ -52,7 +52,12 @@ pub fn render(
     let loading = loader.is_loading(&panel.repo_path);
     let area = centered_rect(85, 88, size);
     f.render_widget(Clear, area);
-    let block = frame_block(panel, loading, theme);
+    let marker = if loader.is_working(&panel.repo_path) {
+        Some("git_panel_working")
+    } else {
+        loading.then_some("panel_loading")
+    };
+    let block = frame_block(panel, marker, theme);
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -83,16 +88,16 @@ pub fn render(
     true
 }
 
-/// Border with "Git: <repo> [<branch>]" and a loading marker.
-fn frame_block(panel: &GitPanelState, loading: bool, theme: &Theme) -> Block<'static> {
+/// Border with "Git: <repo> [<branch>]" and a busy marker (localization key).
+fn frame_block(panel: &GitPanelState, marker: Option<&str>, theme: &Theme) -> Block<'static> {
     let repo_name = panel
         .repo_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("?");
     let mut title = format!(" Git: {} [{}] ", repo_name, panel.current_branch);
-    if loading {
-        title.push_str(&t("panel_loading"));
+    if let Some(marker) = marker {
+        title.push_str(&t(marker));
         title.push(' ');
     }
     Block::default()
