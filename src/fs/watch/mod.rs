@@ -22,5 +22,5 @@ mod watcher;
 mod tests;
 
 pub use coalesce::{CoalesceTiming, Coalescer};
-pub use monitor::{ChangeSink, DirChange, DirMonitor, MonitorPlan};
+pub use monitor::{ChangeSink, DirChange, DirMonitor, MonitorPlan, WatchOrigin};
 pub use support::needs_polling;

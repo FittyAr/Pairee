@@ -7,17 +7,20 @@ use crate::fs::watch::DirChange;
 use std::time::Instant;
 
 impl AppState {
-    /// Folders shown by the active tab of each side, when the tab is on the
-    /// local disk (archive and SFTP tabs are not monitored).
+    /// Folders shown by the active tab of each side on the local disk or an
+    /// SFTP server (archive tabs are not monitored). Folders holding more
+    /// objects than `disable_panel_update_object_count` (when set) are not
+    /// refreshed automatically, as the setting says.
     pub fn auto_refresh_targets(&self) -> Vec<WatchTarget> {
         let limit = self.disable_panel_update_object_count as usize;
         [ActivePanel::Left, ActivePanel::Right]
             .into_iter()
             .map(|side| self.panels.side(side))
-            .filter(|panel| panel.source.is_local())
+            .filter(|panel| limit == 0 || panel.entries.len() <= limit)
+            .filter(|panel| panel.source.archive().is_none())
             .map(|panel| WatchTarget {
                 dir: panel.current_path.clone(),
-                prefer_poll: limit > 0 && panel.entries.len() > limit,
+                remote: panel.source.ssh().cloned(),
             })
             .collect()
     }
@@ -33,7 +36,7 @@ impl AppState {
         }
     }
 
-    /// Rereads every local tab showing `change.dir` (shown or not) through
+    /// Rereads every tab showing `change.dir` on the same filesystem (shown or not) through
     /// the regular listing path, which also updates Git badges, and measures
     /// the changed folders' sizes again: the reported entries here (the
     /// watcher knows before the folder times are updated, which Windows does
@@ -45,7 +48,9 @@ impl AppState {
         let mut busy = false;
         for (_, tab) in self.panels.all_tabs_mut() {
             let panel = &mut tab.panel;
-            if !panel.source.is_local() || panel.current_path != change.dir {
+            let origin = super::origin_of(panel.source.ssh());
+            let monitored = panel.source.archive().is_none() && origin == change.origin;
+            if !monitored || panel.current_path != change.dir {
                 continue;
             }
             if panel.listing.is_running() {

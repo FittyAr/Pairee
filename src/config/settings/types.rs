@@ -75,6 +75,11 @@ pub fn default_auto_refresh_poll_secs() -> u32 {
     3
 }
 
+/// Seconds between checks of an SFTP panel folder (network round trips).
+pub fn default_auto_refresh_ssh_poll_secs() -> u32 {
+    30
+}
+
 pub fn default_ssh_timeout_secs() -> u64 {
     crate::fs::ssh::DEFAULT_SSH_TIMEOUT_SECS
 }

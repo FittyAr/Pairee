@@ -18,6 +18,7 @@ impl ChangeStrategy for WatchStrategy {
                 Ok(event) if is_change(&event.kind) => events.report(DirChange {
                     dir: owned.clone(),
                     entries: event.paths,
+                    origin: Default::default(),
                 }),
                 Ok(_) => {}
                 // Lost events (queue overflow, …): reread the whole folder.

@@ -1,6 +1,6 @@
 use super::{
     ConfirmationSettings, Settings, TabExpansion, default_auto_refresh_poll_secs,
-    default_plugins_dev_dir, default_ssh_timeout_secs,
+    default_auto_refresh_ssh_poll_secs, default_plugins_dev_dir, default_ssh_timeout_secs,
 };
 use crate::app::state::{PanelViewMode, SortField};
 
@@ -42,6 +42,8 @@ impl Default for Settings {
             disable_panel_update_object_count: 0,
             auto_refresh: true,
             auto_refresh_poll_secs: default_auto_refresh_poll_secs(),
+            auto_refresh_ssh: false,
+            auto_refresh_ssh_poll_secs: default_auto_refresh_ssh_poll_secs(),
             show_column_titles: true,
             show_status_line: true,
             show_files_total_information: true,

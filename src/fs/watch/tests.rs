@@ -16,6 +16,7 @@ fn change(dir: &str, entries: &[&str]) -> DirChange {
     DirChange {
         dir: PathBuf::from(dir),
         entries: entries.iter().map(PathBuf::from).collect(),
+        origin: WatchOrigin::Local,
     }
 }
 
@@ -67,7 +68,7 @@ fn coalescer_keeps_folders_apart_and_retains() {
     let mut c = Coalescer::new(timing());
     c.record(change("/a", &[]), t0);
     c.record(change("/b", &[]), t0);
-    c.retain(|dir| dir == std::path::Path::new("/b"));
+    c.retain(|_, dir| dir == std::path::Path::new("/b"));
     assert_eq!(c.take_due(t0 + ms(300)), vec![change("/b", &[])]);
 }
 
@@ -223,4 +224,31 @@ fn quiet_folder_is_not_reported_when_armed() {
     };
     let _monitor = DirMonitor::start(dir.path().to_path_buf(), plan, sink);
     assert!(rx.recv_timeout(Duration::from_millis(300)).is_err());
+}
+
+#[test]
+fn changes_of_two_filesystems_are_kept_apart() {
+    let t0 = Instant::now();
+    let mut c = Coalescer::new(timing());
+    let mut remote = change("/a", &["/a/r"]);
+    remote.origin = WatchOrigin::Remote(7);
+    c.record(change("/a", &["/a/l"]), t0);
+    c.record(remote.clone(), t0);
+    let mut due = c.take_due(t0 + ms(300));
+    due.sort_by_key(|d| d.origin);
+    assert_eq!(due, vec![change("/a", &["/a/l"]), remote]);
+}
+
+#[test]
+fn a_vfs_folder_is_polled_through_the_port() {
+    let dir = tempfile::tempdir().unwrap();
+    let (tx, rx) = channel();
+    let sink = ChangeSink::new(tx, || {}).with_origin(WatchOrigin::Remote(1));
+    let vfs = std::sync::Arc::new(crate::fs::vfs::LocalVfs);
+    let _monitor = DirMonitor::start_polling(dir.path().to_path_buf(), vfs, ms(50), sink);
+    std::thread::sleep(ms(150));
+    std::fs::write(dir.path().join("new"), b"x").unwrap();
+    let got = rx.recv_timeout(Duration::from_secs(5)).expect("a change");
+    assert_eq!(got.dir, dir.path());
+    assert_eq!(got.origin, WatchOrigin::Remote(1));
 }

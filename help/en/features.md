@@ -36,7 +36,7 @@ You can configure each panel independently to display files using different deta
 ### 1.4 Automatic Refresh
 * Panels follow changes made by other programs: the folder of each side's active tab is watched (native notifications, non-recursive) and reread in the background, without the "Loading…" title, keeping cursor and selection. Git badges and computed folder sizes of changed folders are updated too.
 * Bursts are coalesced: a quarter of a second of quiet, or at most about two seconds during a long copy, gives one reread.
-* Network shares, WSL paths and folders that cannot be watched are polled instead (**Poll interval for network folders**). Archive and SFTP panels are not refreshed automatically.
+* Network shares, WSL paths and folders that cannot be watched are polled instead (**Poll interval for network folders**). SFTP folders are polled over the connection only with **Also poll SFTP panel folders** (every 30 s by default); archive panels and folders above **Disable automatic panel update if object count exceeds** are not refreshed automatically.
 * Turn it off with **Options → Configuration → Panel → Refresh panels automatically when folders change**.
 
 ---
