@@ -1,5 +1,6 @@
 pub mod cli;
 pub mod fkeys;
+pub mod half_block_image;
 pub mod highlight;
 pub mod hotkey;
 pub mod layout;
