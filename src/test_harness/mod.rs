@@ -110,6 +110,8 @@ impl Harness {
         let mut ctx = AppContext::new(config);
         let mut state = crate::run::initial_state(&ctx.config.settings, &[left, right]);
         crate::app::app::prepare_first_frame(&mut state, &mut ctx);
+        // Editor copy / paste must not replace the user's clipboard.
+        state.editor_clipboard = crate::app::editor::EditorClipboard::internal_only();
         let rt = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()

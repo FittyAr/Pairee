@@ -177,5 +177,10 @@ impl Harness {
             || state.git_op.is_running()
             || state.multi_rename.is_running()
             || state.vfs_op.is_running()
+            || state.viewer.search_progress().is_some()
+            || state
+                .screens
+                .iter()
+                .any(|s| matches!(s, crate::app::state::Screen::Viewer(viewer) if viewer.loading))
     }
 }

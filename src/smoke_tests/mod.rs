@@ -3,6 +3,8 @@
 //! as a `TestBackend` allows; what still needs a human is listed in
 //! `docs/IMPROVEMENT_PLAN.md`.
 
+mod editor;
 mod file_ops;
 mod navigation;
 mod transfer;
+mod viewer;
