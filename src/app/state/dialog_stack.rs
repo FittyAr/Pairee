@@ -52,6 +52,17 @@ impl DialogStack {
         self.top_mut()
     }
 
+    /// Every open dialog, bottom to top.
+    #[cfg(test)]
+    pub fn iter(&self) -> impl Iterator<Item = &PopupType> {
+        self.frames.iter()
+    }
+
+    /// Every open dialog, bottom to top.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut PopupType> {
+        self.frames.iter_mut()
+    }
+
     /// Pop the top dialog (close it).
     pub fn pop(&mut self) -> Option<PopupType> {
         self.frames.pop()

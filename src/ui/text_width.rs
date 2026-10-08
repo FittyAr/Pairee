@@ -44,14 +44,20 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
 /// Suffix of `s` after the first `cols` display columns (horizontal
 /// scrolling). A wide grapheme cut by the boundary is dropped whole.
 pub fn skip_columns(s: &str, cols: usize) -> &str {
+    split_at_column(s, cols).1
+}
+
+/// Splits `s` before the first grapheme that starts at or after display
+/// column `col`; a wide grapheme straddling `col` stays in the first part.
+pub fn split_at_column(s: &str, col: usize) -> (&str, &str) {
     let mut used = 0usize;
     for (i, g) in s.grapheme_indices(true) {
-        if used >= cols {
-            return &s[i..];
+        if used >= col {
+            return s.split_at(i);
         }
         used += g.width();
     }
-    ""
+    (s, "")
 }
 
 /// Pad or truncate `s` to exactly `width` display columns.
@@ -122,6 +128,14 @@ mod tests {
         assert_eq!(skip_columns("日本語", 2), "本語");
         assert_eq!(skip_columns("日本語", 1), "本語");
         assert_eq!(skip_columns("ab", 5), "");
+    }
+
+    #[test]
+    fn split_at_column_keeps_wide_graphemes_whole() {
+        assert_eq!(split_at_column("hello", 2), ("he", "llo"));
+        assert_eq!(split_at_column("日本語", 3), ("日本", "語"));
+        assert_eq!(split_at_column("ab", 9), ("ab", ""));
+        assert_eq!(split_at_column("ab", 0), ("", "ab"));
     }
 
     #[test]

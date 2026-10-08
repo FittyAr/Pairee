@@ -90,13 +90,37 @@ impl TextEdit {
     }
 }
 
+/// One undo step: a group of edits applied in order and reverted in
+/// reverse order (a paste, a block deletion, a typing run, …).
 #[derive(Debug, Clone)]
 struct Step {
-    edit: TextEdit,
+    edits: Vec<TextEdit>,
     cursor_before: Pos,
     revision: u64,
     /// No further edit may be merged into this step.
     sealed: bool,
+}
+
+impl Step {
+    /// Merges a single `edit` into a single-edit step (typing runs).
+    fn try_merge(&mut self, edits: &[TextEdit]) -> bool {
+        match (self.edits.as_mut_slice(), edits) {
+            ([last], [next]) if !self.sealed => last.try_merge(next),
+            _ => false,
+        }
+    }
+
+    fn apply(&self, lines: &mut Vec<String>) -> Pos {
+        self.edits
+            .iter()
+            .fold(self.cursor_before, |_, e| e.apply(lines))
+    }
+
+    fn revert(&self, lines: &mut Vec<String>) {
+        for edit in self.edits.iter().rev() {
+            edit.revert(lines);
+        }
+    }
 }
 
 /// Undo/redo stacks plus the saved-revision marker.
@@ -112,19 +136,32 @@ pub struct EditHistory {
 impl EditHistory {
     /// Applies `edit` to `lines`, records it and returns the new cursor.
     pub fn apply(&mut self, lines: &mut Vec<String>, edit: TextEdit, cursor_before: Pos) -> Pos {
-        let cursor = edit.apply(lines);
+        self.apply_group(lines, vec![edit], cursor_before)
+    }
+
+    /// Applies `edits` in order as **one** undo step and returns the cursor
+    /// after the last one (`cursor_before` when `edits` is empty).
+    pub fn apply_group(
+        &mut self,
+        lines: &mut Vec<String>,
+        edits: Vec<TextEdit>,
+        cursor_before: Pos,
+    ) -> Pos {
+        let cursor = edits.iter().fold(cursor_before, |_, e| e.apply(lines));
+        if edits.is_empty() {
+            return cursor;
+        }
         self.redo.clear();
         self.next_revision += 1;
         self.current = self.next_revision;
         if let Some(last) = self.undo.last_mut()
-            && !last.sealed
-            && last.edit.try_merge(&edit)
+            && last.try_merge(&edits)
         {
             last.revision = self.current;
             return cursor;
         }
         self.undo.push(Step {
-            edit,
+            edits,
             cursor_before,
             revision: self.current,
             sealed: false,
@@ -138,7 +175,7 @@ impl EditHistory {
     /// Reverts the last step; returns where the cursor goes.
     pub fn undo(&mut self, lines: &mut Vec<String>) -> Option<Pos> {
         let mut step = self.undo.pop()?;
-        step.edit.revert(lines);
+        step.revert(lines);
         step.sealed = true;
         self.current = self.undo.last().map_or(0, |s| s.revision);
         let cursor = step.cursor_before;
@@ -149,7 +186,7 @@ impl EditHistory {
     /// Re-applies the last undone step; returns where the cursor goes.
     pub fn redo(&mut self, lines: &mut Vec<String>) -> Option<Pos> {
         let step = self.redo.pop()?;
-        let cursor = step.edit.apply(lines);
+        let cursor = step.apply(lines);
         self.current = step.revision;
         self.undo.push(step);
         Some(cursor)
@@ -158,9 +195,7 @@ impl EditHistory {
     /// Marks the current revision as the one on disk.
     pub fn mark_saved(&mut self) {
         self.saved = self.current;
-        if let Some(last) = self.undo.last_mut() {
-            last.sealed = true;
-        }
+        self.seal();
     }
 
     /// Forgets all steps (after reloading the file from disk).
@@ -261,5 +296,40 @@ mod tests {
         h.apply(&mut buf, insert(0, 0, "b"), Pos::default());
         assert!(h.redo(&mut buf).is_none());
         assert_eq!(buf, lines(&["b"]));
+    }
+
+    #[test]
+    fn group_is_one_undo_step() {
+        let mut buf = lines(&["abc", "def"]);
+        let mut h = EditHistory::default();
+        let edits = vec![
+            TextEdit {
+                start: Pos::new(0, 1),
+                removed: "b".into(),
+                inserted: String::new(),
+            },
+            TextEdit {
+                start: Pos::new(1, 1),
+                removed: "e".into(),
+                inserted: String::new(),
+            },
+            insert(0, 1, "XY"),
+        ];
+        assert_eq!(
+            h.apply_group(&mut buf, edits, Pos::new(1, 3)),
+            Pos::new(0, 3)
+        );
+        assert_eq!(buf, lines(&["aXYc", "df"]));
+        h.apply(&mut buf, insert(0, 3, "z"), Pos::new(0, 3));
+        assert_eq!(
+            buf,
+            lines(&["aXYzc", "df"]),
+            "typing never merges into a group"
+        );
+        h.undo(&mut buf);
+        assert_eq!(h.undo(&mut buf), Some(Pos::new(1, 3)));
+        assert_eq!(buf, lines(&["abc", "def"]));
+        assert_eq!(h.redo(&mut buf), Some(Pos::new(0, 3)));
+        assert_eq!(buf, lines(&["aXYc", "df"]));
     }
 }

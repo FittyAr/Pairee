@@ -46,9 +46,7 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
             active_tab,
             cursor_idx,
         } => {
-            crate::app::input_popup::git_panel::refresh_git_panel(
-                state, &repo_path, active_tab, cursor_idx,
-            );
+            state.refresh_git_panel(&repo_path, active_tab, cursor_idx);
             state
                 .dialogs
                 .push(PopupType::Info(t("git_operation_success")));

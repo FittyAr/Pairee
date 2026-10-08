@@ -40,7 +40,6 @@ pub fn render_screen(
                 layout.main_rect,
                 ed,
                 crate::ui::popup::editor::EditorView {
-                    tab_size: (settings.editor_tab_size as usize).max(1),
                     show_line_numbers: settings.editor_show_line_numbers,
                 },
                 &context.config.theme,

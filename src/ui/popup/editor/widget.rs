@@ -1,9 +1,9 @@
+use super::line_spans::{LineMarks, LineStyles, line_spans};
 use crate::app::editor::EditorState;
+use crate::app::editor::viewport::Viewport;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
-use crate::ui::search_highlight::highlight_line;
-use crate::ui::text_width::{display_width, expand_tabs, skip_columns};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -19,7 +19,6 @@ const GUTTER_WIDTH: u16 = 7;
 /// Display settings of the editor screen.
 #[derive(Debug, Clone, Copy)]
 pub struct EditorView {
-    pub tab_size: usize,
     pub show_line_numbers: bool,
 }
 
@@ -60,10 +59,16 @@ pub fn render_editor_widget(
         _ => None,
     };
     let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
-    let highlight_style = Style::default()
-        .bg(parse_color(&theme.selection_bg))
-        .fg(parse_color(&theme.marked_fg))
-        .add_modifier(ratatui::style::Modifier::BOLD);
+    let styles = LineStyles {
+        normal: normal_style,
+        search: Style::default()
+            .bg(parse_color(&theme.selection_bg))
+            .fg(parse_color(&theme.marked_fg))
+            .add_modifier(ratatui::style::Modifier::BOLD),
+        selected: Style::default()
+            .bg(parse_color(&theme.selection_bg))
+            .fg(parse_color(&theme.selection_fg)),
+    };
 
     // Horizontal scroll: keep the cursor column inside the text area.
     let gutter = if view.show_line_numbers {
@@ -73,9 +78,21 @@ pub fn render_editor_widget(
     };
     let text_width = edit_area.width.saturating_sub(gutter).max(1) as usize;
     let current_line = ed.current_line();
-    let (before_cursor, _, _) = text_input::split_at_cursor(current_line, ed.cursor_x);
-    let cursor_col = display_width(&expand_tabs(before_cursor, view.tab_size));
+    let cursor_col = ed.cursor_column();
     let scroll_x = (cursor_col + 1).saturating_sub(text_width);
+    ed.viewport.set(Viewport {
+        x: edit_area.x + gutter,
+        y: edit_area.y,
+        width: text_width as u16,
+        height: edit_area.height,
+        scroll_x,
+    });
+    let marks = LineMarks {
+        region: ed.region(),
+        search: search_info,
+        tab_size: ed.tab_size,
+        scroll_x,
+    };
 
     let text: Vec<ratatui::text::Line> = ed
         .lines
@@ -84,18 +101,11 @@ pub fn render_editor_widget(
         .skip(ed.scroll_y)
         .take(edit_area.height as usize)
         .map(|(idx, line)| {
-            let expanded = expand_tabs(line, view.tab_size);
-            let line = skip_columns(&expanded, scroll_x).to_string();
             let mut spans = Vec::new();
             if view.show_line_numbers {
                 spans.push(ratatui::text::Span::raw(format!("{:>4} │ ", idx + 1)));
             }
-            match search_info {
-                Some((q, cs)) => {
-                    spans.extend(highlight_line(&line, q, cs, normal_style, highlight_style))
-                }
-                None => spans.push(ratatui::text::Span::raw(line)),
-            }
+            spans.extend(line_spans(idx, line, &marks, &styles));
             ratatui::text::Line::from(spans)
         })
         .collect();

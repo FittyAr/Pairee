@@ -2,8 +2,12 @@ use crate::app::state::AppState;
 
 use crate::app::text_input::first_paste_line;
 
-/// Insert a paste into the focused text field, or the CLI when no overlay is open.
+/// Insert a paste into the focused text field, the editor screen (every
+/// line), or the CLI when no overlay is open.
 pub fn handle_paste(state: &mut AppState, raw: &str) {
+    if state.dialogs.is_none() && crate::app::screen_input::editor::paste_into_editor(state, raw) {
+        return;
+    }
     let line = first_paste_line(raw);
     if line.is_empty() {
         return;

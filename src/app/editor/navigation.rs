@@ -75,6 +75,7 @@ impl EditorState {
         ) else {
             return false;
         };
+        self.selection = None;
         self.set_cursor(Pos::new(y, x));
         if self.cursor_y < self.scroll_y || self.cursor_y >= self.scroll_y + height.max(1) {
             self.scroll_y = self.cursor_y.saturating_sub(height / 2);

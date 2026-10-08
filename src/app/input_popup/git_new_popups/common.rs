@@ -36,16 +36,14 @@ pub fn restore_previous_and_refresh(
     previous: PopupType,
     repo_path: &std::path::Path,
 ) {
-    if let PopupType::GitPanel(panel) = previous {
-        if !crate::app::input_popup::git_panel::refresh_git_panel(
-            state,
-            repo_path,
-            panel.active_tab,
-            panel.cursor_idx,
-        ) {
-            state.dialogs.clear();
-        }
-    } else {
-        state.dialogs.replace(previous);
+    // A Git panel comes back with its current contents and is refreshed in
+    // the background (an error replaces it if the repository is gone).
+    let panel_view = match &previous {
+        PopupType::GitPanel(panel) => Some((panel.active_tab, panel.cursor_idx)),
+        _ => None,
+    };
+    state.dialogs.replace(previous);
+    if let Some((tab, cursor)) = panel_view {
+        state.refresh_git_panel(repo_path, tab, cursor);
     }
 }

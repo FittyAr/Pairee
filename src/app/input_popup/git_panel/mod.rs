@@ -1,10 +1,7 @@
 //! Git repository control panel popup handler.
 
-mod refresh;
 mod remote;
 mod tabs;
-
-pub use refresh::refresh_git_panel;
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{NavStep, wrap_next, wrap_prev};
@@ -14,9 +11,6 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Number of Git panel tabs (Status, Log, Branches, Stash, Tags).
 const TABS: usize = 5;
-const LOG_TAB: usize = 1;
-/// Log entries fetched per page when scrolling near the end.
-const LOG_PAGE: usize = 50;
 
 /// Handles keyboard input for the main Git panel popup.
 pub fn handle(
@@ -29,6 +23,7 @@ pub fn handle(
     };
     // Tabs and cursor movement edit the panel in place.
     if navigate(panel, &key) {
+        state.prefetch_git_log();
         return Ok(None);
     }
     // Actions may open dialogs over the panel, so they work on a snapshot.
@@ -40,7 +35,7 @@ pub fn handle(
         KeyCode::Char('u' | 'U') => remote::handle_push(state, repo),
         _ if tab_action(state, &panel, key.code) => {}
         KeyCode::Char('r' | 'R') | KeyCode::F(5) => {
-            refresh_git_panel(state, repo, tab, cursor);
+            state.refresh_git_panel(repo, tab, cursor);
         }
         KeyCode::Esc | KeyCode::Char('q' | 'Q') => state.dialogs.clear(),
         _ => {}
@@ -65,24 +60,8 @@ fn navigate(panel: &mut crate::app::state::GitPanelState, key: &KeyEvent) -> boo
     let Some(step) = NavStep::from_key(key.code) else {
         return false;
     };
-    let len = match panel.active_tab {
-        0 => panel.status_entries.len(),
-        1 => panel.log_entries.len(),
-        2 => panel.branch_entries.len(),
-        3 => panel.stash_entries.len(),
-        4 => panel.tag_entries.len(),
-        _ => 0,
-    };
+    let len = panel.tab_len(panel.active_tab);
     panel.cursor_idx = step.apply_clamped(panel.cursor_idx, len);
-    // Load more history when getting close to the end of the log.
-    if panel.active_tab == LOG_TAB
-        && matches!(step, NavStep::Next | NavStep::PageDown)
-        && panel.cursor_idx + 10 >= panel.log_entries.len()
-        && let Some(repo) = crate::git::repo::find_repo(&panel.repo_path)
-    {
-        let more = crate::git::log::get_log_paged(&repo, panel.log_entries.len(), LOG_PAGE);
-        panel.log_entries.extend(more);
-    }
     // Keep the cursor in view.
     panel.scroll = panel.scroll.min(panel.cursor_idx);
     true

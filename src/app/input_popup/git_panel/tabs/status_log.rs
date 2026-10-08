@@ -1,6 +1,5 @@
 //! Key action handlers for each tab in GitPanel (Status, Log, Branches, Stash).
 
-use super::super::refresh::refresh_git_panel;
 use crate::app::state::popup::GitNameAction;
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
 use crate::git::log::CommitInfo;
@@ -26,7 +25,7 @@ pub fn handle_status_tab(
                     crate::git::stage::stage_file(&repo, &entry.path)
                 };
                 if res.is_ok() {
-                    refresh_git_panel(state, repo_path, 0, cursor_idx);
+                    state.refresh_git_panel(repo_path, 0, cursor_idx);
                 }
             }
             true
@@ -35,7 +34,7 @@ pub fn handle_status_tab(
             if let Some(repo) = crate::git::repo::find_repo(repo_path)
                 && crate::git::stage::stage_all(&repo).is_ok()
             {
-                refresh_git_panel(state, repo_path, 0, cursor_idx);
+                state.refresh_git_panel(repo_path, 0, cursor_idx);
             }
             true
         }
@@ -43,7 +42,7 @@ pub fn handle_status_tab(
             if let Some(repo) = crate::git::repo::find_repo(repo_path)
                 && crate::git::stage::unstage_all(&repo).is_ok()
             {
-                refresh_git_panel(state, repo_path, 0, cursor_idx);
+                state.refresh_git_panel(repo_path, 0, cursor_idx);
             }
             true
         }
@@ -69,7 +68,7 @@ pub fn handle_status_tab(
                 && let Some(repo) = crate::git::repo::find_repo(repo_path)
                 && crate::git::repo::add_to_gitignore(&repo, &entry.path).is_ok()
             {
-                refresh_git_panel(state, repo_path, 0, cursor_idx);
+                state.refresh_git_panel(repo_path, 0, cursor_idx);
             }
             true
         }

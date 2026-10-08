@@ -19,6 +19,7 @@ pub fn process_background_updates(
         state.mark_ui_dirty();
     }
     crate::app::git_ops::poll_git_op(state);
+    state.poll_git_panel();
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
     crate::app::sync::poll_folder_scan(state);
     channels::process_terminal_updates(state);

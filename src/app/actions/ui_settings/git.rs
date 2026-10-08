@@ -6,45 +6,11 @@ pub fn open_git_panel(state: &mut AppState, context: &AppContext) -> bool {
     if !context.config.settings.git_enabled {
         return false;
     }
+    // The repository is read in the background; a path outside any
+    // repository closes the panel with "not a repository" once known.
     let panel_path = state.get_active_panel().current_path.clone();
-    match crate::git::repo::find_repo(&panel_path) {
-        Some(mut repo) => {
-            let repo_path =
-                crate::git::repo::get_workdir(&repo).unwrap_or_else(|| panel_path.clone());
-            let current_branch = repo
-                .head()
-                .ok()
-                .and_then(|h| h.shorthand().ok().map(|s| s.to_string()))
-                .unwrap_or_else(|| t("git_detached_head"));
-            let limit = context.config.settings.git_log_limit as usize;
-            let status_entries = crate::git::status::get_status(&repo);
-            let log_entries = crate::git::log::get_log(&repo, limit);
-            let branch_entries = crate::git::branches::get_branches(&repo);
-            let stash_entries = crate::git::stash::list_stashes(&mut repo).unwrap_or_default();
-            let tag_entries = crate::git::tags::list_tags(&repo).unwrap_or_default();
-            state
-                .dialogs
-                .replace(crate::app::state::PopupType::GitPanel(
-                    crate::app::state::GitPanelState {
-                        repo_path,
-                        active_tab: 0,
-                        cursor_idx: 0,
-                        scroll: 0,
-                        status_entries,
-                        log_entries,
-                        branch_entries,
-                        stash_entries,
-                        tag_entries,
-                        current_branch,
-                    },
-                ));
-        }
-        None => {
-            state.dialogs.replace(crate::app::state::PopupType::Error(
-                crate::config::localization::t("git_not_a_repo"),
-            ));
-        }
-    }
+    let limit = context.config.settings.git_log_limit as usize;
+    state.open_git_panel_at(&panel_path, limit);
     true
 }
 

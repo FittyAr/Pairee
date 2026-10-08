@@ -484,8 +484,8 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 - [x] Tamaño de carpetas (Space/F3 sobre carpeta) y vista de uso de disco tipo ncdu, cancelable
 - [x] Sincronizar carpetas: comparación recursiva (tamaño/fecha/hash), plan de acciones y aplicación vía Transfer Engine
 - [x] Visor y Quick View: detección de codificación (`chardetng` + `encoding_rs`) y lectura progresiva por bloques
-- [ ] Editor: selección por bloques, copiar/cortar/pegar (portapapeles del sistema), Shift+F2 en la barra de teclas F
-- [ ] Panel Git: apertura y refresco (status + log) en segundo plano
+- [x] Editor: selección por bloques, copiar/cortar/pegar (portapapeles del sistema), Shift+F2 en la barra de teclas F
+- [x] Panel Git: apertura y refresco (status + log) en segundo plano
 - [ ] Registro de plugins: declarar `[permissions] commands` en los plugins oficiales que ejecutan comandos; plantilla actualizada
 
 ### G.2 Oleada 2 — capa de origen de paneles
