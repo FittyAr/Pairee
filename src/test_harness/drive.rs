@@ -163,10 +163,15 @@ impl Harness {
         .into_iter()
         .flat_map(|side| state.panels.tabs(side).tabs())
         .any(|tab| tab.panel.listing.is_running() || tab.panel.dir_sizes.is_running());
-        let transfer = state
-            .transfer
-            .as_ref()
-            .is_some_and(|t| t.engine.queue.get_all().iter().any(|job| job.is_active()));
+        // A job waiting for a conflict answer is idle until a key arrives.
+        let transfer = state.transfer.as_ref().is_some_and(|t| {
+            t.active_conflict_info.is_none()
+                && t.engine
+                    .queue
+                    .get_all()
+                    .iter()
+                    .any(|job| !job.is_terminal())
+        });
         listing
             || transfer
             || state.git_op.is_running()

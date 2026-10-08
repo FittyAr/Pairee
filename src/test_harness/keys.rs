@@ -13,16 +13,29 @@ pub enum Token {
     Action(String),
 }
 
-/// Splits `script` into tokens. Panics on an unknown key name so a typo in
-/// a test fails loudly instead of sending nothing.
+/// Splits `script` into tokens; `Key*N` repeats a token `N` times. Panics
+/// on an unknown key name so a typo in a test fails loudly instead of
+/// sending nothing.
 pub fn parse(script: &str) -> Vec<Token> {
     script
         .split_whitespace()
-        .map(|token| match token.strip_prefix('@') {
-            Some(action) if !action.is_empty() => Token::Action(action.to_string()),
-            _ => Token::Key(parse_chord(token).unwrap_or_else(|| panic!("unknown key {token:?}"))),
+        .flat_map(|word| {
+            let (token, times) = match word.rsplit_once('*') {
+                Some((token, n)) if !token.is_empty() && n.parse::<usize>().is_ok() => {
+                    (token, n.parse().unwrap_or(1))
+                }
+                _ => (word, 1),
+            };
+            std::iter::repeat_n(parse_token(token), times)
         })
         .collect()
+}
+
+fn parse_token(token: &str) -> Token {
+    match token.strip_prefix('@') {
+        Some(action) if !action.is_empty() => Token::Action(action.to_string()),
+        _ => Token::Key(parse_chord(token).unwrap_or_else(|| panic!("unknown key {token:?}"))),
+    }
 }
 
 /// Parses one chord such as `Ctrl+Shift+PageUp`, `F5` or `a`. A lone `+`
@@ -113,6 +126,19 @@ mod tests {
                 Token::Key(KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT)),
                 Token::Key(KeyEvent::new(KeyCode::Char('+'), KeyModifiers::NONE)),
             ]
+        );
+    }
+
+    #[test]
+    fn repetition_and_star_key() {
+        let down = Token::Key(KeyEvent::new(KeyCode::Down, KeyModifiers::NONE));
+        assert_eq!(parse("Down*3"), vec![down.clone(), down.clone(), down]);
+        assert_eq!(
+            parse("*"),
+            vec![Token::Key(KeyEvent::new(
+                KeyCode::Char('*'),
+                KeyModifiers::NONE
+            ))]
         );
     }
 
