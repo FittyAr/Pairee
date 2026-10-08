@@ -18,6 +18,7 @@ impl PopupType {
             | PopupType::ApplyCommandPrompt { input, .. }
             | PopupType::CompressPrompt { input, .. }
             | PopupType::FilePanelFilterPrompt { input, .. }
+            | PopupType::RenameTabPrompt { input, .. }
             | PopupType::QuickFilterPrompt { input, .. }
             | PopupType::DescribeFilePrompt { input, .. }
             | PopupType::CopyMoveFilterPrompt { input, .. }

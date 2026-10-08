@@ -21,7 +21,10 @@ fn app() -> (tempfile::TempDir, AppContext, AppState) {
     std::fs::write(dir.path().join("plain.txt"), b"plain").unwrap();
     let context = AppContext::new(AppConfig::default());
     let mut state = AppState::new(dir.path().to_path_buf(), dir.path().to_path_buf());
-    state.panels.left.view_mode = PanelViewMode::Full;
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .view_mode = PanelViewMode::Full;
     state.refresh_both_panels(false);
     (dir, context, state)
 }

@@ -3,10 +3,12 @@
 use super::layout::AppLayout;
 use super::panel;
 use super::quickview;
+use super::tab_bar;
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType, Screen};
 use ansi_to_tui::IntoText as _;
 use ratatui::Frame;
+use ratatui::layout::Rect;
 use ratatui::text::Text;
 
 /// Visible terminal scrollback as ratatui Text, with SGR colors applied.
@@ -81,7 +83,7 @@ fn render_side(
     state: &AppState,
     context: &AppContext,
     side: ActivePanel,
-    rect: ratatui::layout::Rect,
+    rect: Rect,
 ) {
     let (visible, scroll_id) = match side {
         ActivePanel::Left => (
@@ -104,10 +106,30 @@ fn render_side(
         quickview::draw_quick_view(f, rect, qv, &context.config.theme, Some(&state.scrollbar));
         return;
     }
+    let tabs = state.panels.tabs(side);
+    let settings = &context.config.settings;
+    let rect = if tab_bar::is_visible(tabs, settings.always_show_tab_bar) && rect.height > 1 {
+        let bar = Rect { height: 1, ..rect };
+        tab_bar::render(
+            f,
+            bar,
+            tabs,
+            is_active,
+            &context.config.theme,
+            &state.tab_bar,
+        );
+        Rect {
+            y: rect.y + 1,
+            height: rect.height - 1,
+            ..rect
+        }
+    } else {
+        rect
+    };
     panel::render_panel(
         f,
         rect,
-        state.panels.side(side),
+        tabs.panel(),
         is_active,
         context,
         Some(&state.scrollbar),

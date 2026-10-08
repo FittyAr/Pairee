@@ -80,13 +80,13 @@ fn refresh_panel_lists_directory_without_runtime() {
     let dir = temp_tree();
     let mut state = AppState::new(dir.path().into(), dir.path().into());
     state.refresh_panel(ActivePanel::Left, false, true);
-    let left = &state.panels.left;
+    let left = &state.panels.side(ActivePanel::Left);
     assert!(!left.is_loading());
     assert!(names(left).contains(&"b.txt"));
     assert!(names(left).contains(&"sub"));
     assert_eq!(left.listed_path.as_deref(), Some(dir.path()));
     assert!(
-        state.panels.right.entries.is_empty(),
+        state.panels.side(ActivePanel::Right).entries.is_empty(),
         "only one side reread"
     );
 }
@@ -97,11 +97,11 @@ async fn refresh_panel_runs_in_background_and_applies_result() {
     let mut state = AppState::new(dir.path().into(), dir.path().into());
     state.refresh_panel(ActivePanel::Right, false, true);
     let deadline = Instant::now() + Duration::from_secs(5);
-    while state.panels.right.is_loading() && Instant::now() < deadline {
+    while state.panels.side(ActivePanel::Right).is_loading() && Instant::now() < deadline {
         state.poll_panel_listings();
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
-    assert!(names(&state.panels.right).contains(&"c.txt"));
+    assert!(names(state.panels.side(ActivePanel::Right)).contains(&"c.txt"));
 }
 
 #[test]

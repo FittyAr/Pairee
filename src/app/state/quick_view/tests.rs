@@ -122,14 +122,14 @@ fn preview_is_debounced_then_cached() {
     let idx = |state: &AppState, name: &str| {
         state
             .panels
-            .left
+            .side(ActivePanel::Left)
             .entries
             .iter()
             .position(|e| e.name == name)
             .unwrap()
     };
 
-    state.panels.left.cursor_index = idx(&state, "a.txt");
+    state.panels.side_mut(ActivePanel::Left).cursor_index = idx(&state, "a.txt");
     state.update_quick_view_images(false);
     assert_eq!(quick_view_lines(&state), Some(vec![t("quickview_loading")]));
     state.poll_quick_view();
@@ -143,9 +143,9 @@ fn preview_is_debounced_then_cached() {
     assert_eq!(quick_view_lines(&state), Some(vec!["alpha".to_string()]));
 
     // Move away (loading) and back: the cached preview shows immediately.
-    state.panels.left.cursor_index = idx(&state, "b.txt");
+    state.panels.side_mut(ActivePanel::Left).cursor_index = idx(&state, "b.txt");
     state.update_quick_view_images(false);
-    state.panels.left.cursor_index = idx(&state, "a.txt");
+    state.panels.side_mut(ActivePanel::Left).cursor_index = idx(&state, "a.txt");
     state.update_quick_view_images(false);
     assert_eq!(quick_view_lines(&state), Some(vec!["alpha".to_string()]));
     assert!(state.quick_view.pending.is_none());

@@ -220,6 +220,55 @@ pub const CATALOG: &[ActionDef] = &[
         ActionCategory::Files,
     ),
     d("which_key", Action::WhichKey, true, ActionCategory::System),
+    d("new_tab", Action::NewTab, true, ActionCategory::Navigation),
+    d(
+        "close_tab",
+        Action::CloseTab,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "next_tab",
+        Action::NextTab,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "prev_tab",
+        Action::PrevTab,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "move_tab_left",
+        Action::MoveTabLeft,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "move_tab_right",
+        Action::MoveTabRight,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "toggle_tab_lock",
+        Action::ToggleTabLock,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "rename_tab",
+        Action::RenameTab,
+        true,
+        ActionCategory::Navigation,
+    ),
+    d(
+        "open_in_new_tab",
+        Action::OpenInNewTab,
+        true,
+        ActionCategory::Navigation,
+    ),
 ];
 
 /// Palette-visible catalogue rows.
@@ -234,6 +283,7 @@ pub fn label_for(action: Action) -> String {
     }
     match action {
         Action::GoFolderShortcut(n) => format!("go folder shortcut {n}"),
+        Action::GoToTab(n) => format!("go to tab {n}"),
         other => pascal_to_words(&format!("{other:?}")),
     }
 }

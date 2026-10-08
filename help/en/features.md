@@ -26,6 +26,13 @@ You can configure each panel independently to display files using different deta
 * **Navigation History:** Displays a popup listing recently visited directories. Select a row and press `Enter` to jump directly.
 * **Directory Hotlist:** A custom bookmarks list for adding, deleting, and selecting your most visited folders.
 
+### 1.3 Folder Tabs
+* **Tabs per panel:** each panel keeps its own list of tabs; every tab remembers its folder (local, SFTP or inside an archive), cursor, selection, view mode, sort order, filter and folder sizes. New tabs open next to the current one on the same folder (`Alt+T`), or on the folder under the cursor (`Alt+O`).
+* **Tab bar:** shown above a panel with more than one tab (or always, see **Options → Configuration → Panel**). Titles are the folder name (`host:folder` on SFTP panels), shortened with `…` when space is short, numbered for `Alt+1` … `Alt+9`. Click to switch, middle-click to close.
+* **Background loading:** a tab keeps loading while you look at another one; its listing lands in that tab, never in the one on screen.
+* **Locked tabs:** **Left/Right → Tabs → Lock tab** pins a tab to its folder; entering another folder from it opens a new tab instead. **Rename tab** gives a tab a fixed title.
+* **Swap Panels** (`Ctrl+U`) exchanges the panels together with their tabs.
+
 ---
 
 ## 📂 2. File System Operations

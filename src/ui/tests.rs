@@ -14,14 +14,18 @@ fn test_app() -> (AppContext, AppState) {
     let config = AppConfig::default();
     let context = AppContext::new(config);
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-    state.panels.left.entries.push(FileEntry {
-        name: "日本語ファイル.txt".into(),
-        path: PathBuf::from("./日本語ファイル.txt"),
-        size: 12,
-        is_dir: false,
-        is_symlink: false,
-        modified: None,
-    });
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .entries
+        .push(FileEntry {
+            name: "日本語ファイル.txt".into(),
+            path: PathBuf::from("./日本語ファイル.txt"),
+            size: 12,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        });
     (context, state)
 }
 
@@ -124,7 +128,7 @@ fn draw_ui_which_key_overlay_lists_live_chords() {
         "overlay title missing, got {painted:?}"
     );
     assert!(
-        painted.contains("F5") || painted.contains("copy"),
+        painted.contains("F5") || painted.contains("copy") || painted.contains("go to tab"),
         "live keymap rows missing, got {painted:?}"
     );
 }

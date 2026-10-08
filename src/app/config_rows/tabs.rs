@@ -72,6 +72,7 @@ pub fn panel() -> Vec<Row> {
         toggle!("pan_status_line", show_status_line),
         toggle!("pan_scrollbar", show_scrollbar),
         toggle!("pan_dotdot_root", show_dotdot_in_root_folders),
+        toggle!("pan_always_tab_bar", always_show_tab_bar),
     ]
 }
 

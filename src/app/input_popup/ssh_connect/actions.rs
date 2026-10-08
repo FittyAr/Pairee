@@ -86,7 +86,7 @@ fn connect(state: &mut AppState, context: &AppContext) {
         return;
     };
     let preset = prompt.to_preset();
-    let panel = prompt.panel;
+    let panel = state.panels.active_tab_id(prompt.panel);
     if preset.host.is_empty() {
         state
             .dialogs

@@ -21,5 +21,6 @@ mod update;
 mod test_fuzz;
 
 pub use app::AppState;
+pub use app::state::ActivePanel;
 pub use config::settings::Settings;
 pub use run::run;

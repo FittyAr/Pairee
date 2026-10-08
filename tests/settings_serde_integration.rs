@@ -2,7 +2,7 @@
 
 use std::fs;
 
-use pairee::{AppState, Settings};
+use pairee::{ActivePanel, AppState, Settings};
 
 #[test]
 fn settings_default_survives_temp_file_roundtrip() {
@@ -55,11 +55,17 @@ fn app_state_keeps_distinct_panel_roots() {
     fs::write(right.path().join("only-right.txt"), b"R").unwrap();
 
     let state = AppState::new(left.path().to_path_buf(), right.path().to_path_buf());
-    assert_eq!(state.panels.left.current_path, left.path());
-    assert_eq!(state.panels.right.current_path, right.path());
+    assert_eq!(
+        state.panels.side(ActivePanel::Left).current_path,
+        left.path()
+    );
+    assert_eq!(
+        state.panels.side(ActivePanel::Right).current_path,
+        right.path()
+    );
     assert_ne!(
-        state.panels.left.current_path,
-        state.panels.right.current_path
+        state.panels.side(ActivePanel::Left).current_path,
+        state.panels.side(ActivePanel::Right).current_path
     );
     assert!(state.panels.left_visible && state.panels.right_visible);
 }

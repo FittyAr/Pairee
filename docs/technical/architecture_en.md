@@ -164,3 +164,15 @@ Panels never special-case where their entries come from. `fs::vfs::Vfs` is the p
 `PanelState::source` (`PanelSource`: `Local`, `Remote`, `Archive`) plus `current_path` is the panel location. Archive paths are `archive.ext/inner/path`, so `..`, history and the title work unchanged; `PanelSource::locate` switches the source when a refresh enters or leaves an archive file. Listing, folder sizes, the disk usage view, multi-rename (and its undo), compare/synchronize, the viewer and Quick View all go through the port, and `app::actions::fs_ops::capability` refuses actions a source cannot run with one message.
 
 Archive formats are a second Strategy (`fs::archive::format::ArchiveReader`, one reader per format) shared by extraction, listing and browsing. The Transfer Engine picks `backend::archive_vfs` when a job's source or destination lies inside an archive: copies out use the safe extractor (`ExtractGuard`), copies into a zip and deletions inside it rewrite the archive. Every adapter runs the same contract suite (`fs/vfs/contract.rs`, one generic check per capability instantiated per adapter with `vfs_contract!`).
+
+---
+
+## 🗂️ 9. Folder Tabs
+
+`PanelPair` holds one `PanelTabs` per side (`app/state/tabs/`): an ordered `Vec<Tab>` plus the active index. A `Tab` owns a whole `PanelState` (path and `PanelSource`, listing, cursor, selection, view, sort, filters, folder sizes and their `JobSlot`s), an optional user title and an optional `TabLock`. `PanelPair::side()` / `AppState::get_active_panel()` return the active tab's panel, so code that works on "the panel" did not change.
+
+* **Routing:** every tab has a `TabId`, unique for the run and stable across moves. Background jobs live in the tab's own `JobSlot`s (generation-tagged), `poll_panel_listings` drains every tab of both sides, and jobs started outside the panel (SSH connect) carry the `TabId` and are dropped when the tab was closed. A listing therefore always lands in the tab that asked for it, shown or not.
+* **Commands:** `app/state/tab_ops.rs` (duplicate, close, activate, cycle, move, lock, rename) and `app/actions/tabs.rs` (keymap actions). Switching tabs rereads the newly shown tab. A locked tab is enforced in `refresh_tab`: when its path left the lock, it returns to the locked folder and the new location opens in a tab next to it.
+* **Rendering:** `ui/tab_bar.rs` lays out the titles (widest shrink first, then a window around the active tab) and records the painted cells in `AppState::tab_bar` for mouse clicks (`app/app/tab_mouse.rs`).
+* **Persistence:** `Tab::spec()` / `Tab::from_spec()` convert to `TabSpec`, a plain serde struct (path, source kind, view, sort, filter, title, locked) with no UI or runtime types, for session restore.
+

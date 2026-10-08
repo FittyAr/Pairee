@@ -146,3 +146,24 @@ go_folder_shortcut_9 = "Ctrl+Alt+9"
 # ── Bookmarks & Git ──────────────────────────────────────────────────────────
 hotlist              = "Ctrl+\\"
 open_git_panel       = "Alt+g"
+
+# ── Folder tabs ──────────────────────────────────────────────────────────────
+# Ctrl+Tab / Ctrl+W are taken (screens, task list) and many terminals keep
+# Ctrl+Tab and Alt+arrows for themselves, hence Alt+PgUp/PgDn first.
+# Ctrl+Enter needs a terminal with the kitty keyboard protocol; Alt+O always works.
+new_tab              = "Ctrl+t, Alt+t"
+close_tab            = "Alt+w"
+next_tab             = "Alt+PageDown, Alt+Right"
+prev_tab             = "Alt+PageUp, Alt+Left"
+move_tab_left        = "Alt+Shift+PageUp"
+move_tab_right       = "Alt+Shift+PageDown"
+open_in_new_tab      = "Ctrl+Enter, Alt+o"
+go_to_tab_1          = "Alt+1"
+go_to_tab_2          = "Alt+2"
+go_to_tab_3          = "Alt+3"
+go_to_tab_4          = "Alt+4"
+go_to_tab_5          = "Alt+5"
+go_to_tab_6          = "Alt+6"
+go_to_tab_7          = "Alt+7"
+go_to_tab_8          = "Alt+8"
+go_to_tab_9          = "Alt+9"

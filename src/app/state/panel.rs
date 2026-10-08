@@ -92,6 +92,12 @@ impl PanelState {
         self.listing.is_running()
     }
 
+    /// Stops the listing and folder-size jobs (the tab is going away).
+    pub fn cancel_jobs(&mut self) {
+        self.listing.cancel();
+        self.dir_sizes.cancel();
+    }
+
     /// Moves the cursor index up by one, wrapping at boundaries.
     pub fn move_cursor_up(&mut self) {
         if !self.entries.is_empty() {

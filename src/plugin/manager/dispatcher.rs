@@ -39,10 +39,15 @@ pub fn process_plugin_requests(state: &mut AppState, context: &AppContext) {
 
                     let snapshot = super::snapshot::AppStateSnapshot {
                         active_panel: format!("{:?}", state.panels.active).to_lowercase(),
-                        left_cwd: state.panels.left.current_path.to_string_lossy().to_string(),
+                        left_cwd: state
+                            .panels
+                            .side(crate::app::state::ActivePanel::Left)
+                            .current_path
+                            .to_string_lossy()
+                            .to_string(),
                         right_cwd: state
                             .panels
-                            .right
+                            .side(crate::app::state::ActivePanel::Right)
                             .current_path
                             .to_string_lossy()
                             .to_string(),

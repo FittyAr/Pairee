@@ -14,20 +14,47 @@ pub fn handle_open_archive_key(state: &mut AppState, context: &crate::app::conte
     enter(state, context, true);
 }
 
-fn enter(state: &mut AppState, context: &crate::app::context::AppContext, folders_only: bool) {
-    let active = state.get_active_panel();
-    let Some(entry) = active.entries.get(active.cursor_index).cloned() else {
+/// Opens the highlighted folder or archive in a new tab next to the
+/// current one; files are left alone.
+pub fn handle_open_in_new_tab_key(state: &mut AppState, context: &crate::app::context::AppContext) {
+    let Some(entry) = cursor_entry(state).filter(is_enterable) else {
         return;
     };
-    if entry.is_dir {
+    let show_hidden = context.config.settings.show_hidden;
+    // An archive that cannot be browsed here only shows why, in place.
+    if entry.is_dir || browse_refusal(&state.get_active_panel().source).is_none() {
+        state.duplicate_active_tab(show_hidden);
+    }
+    enter(state, context, true);
+    state.refresh_active_panel(show_hidden);
+}
+
+fn cursor_entry(state: &AppState) -> Option<FileEntry> {
+    let active = state.get_active_panel();
+    active.entries.get(active.cursor_index).cloned()
+}
+
+/// Folders and browsable archives open in the panel.
+fn is_enterable(entry: &FileEntry) -> bool {
+    entry.is_dir || crate::fs::archive::is_browsable(&entry.path)
+}
+
+fn enter(state: &mut AppState, context: &crate::app::context::AppContext, folders_only: bool) {
+    let Some(entry) = cursor_entry(state) else {
+        return;
+    };
+    let active = state.get_active_panel();
+    if !is_enterable(&entry) {
+        if !folders_only {
+            open_file(state, context, &entry);
+        }
+    } else if entry.is_dir {
         change_dir(state, entry.path);
-    } else if crate::fs::archive::is_browsable(&entry.path) {
+    } else {
         match browse_refusal(&active.source) {
             None => change_dir(state, entry.path),
             Some(key) => state.dialogs.replace(PopupType::Info(t(key))),
         }
-    } else if !folders_only {
-        open_file(state, context, &entry);
     }
 }
 

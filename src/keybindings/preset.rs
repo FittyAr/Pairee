@@ -156,6 +156,29 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "toggle_transfer_panel" => Some(Action::ToggleTransferPanel),
         "command_palette" => Some(Action::CommandPalette),
         "which_key" => Some(Action::WhichKey),
+        other => parse_tab_action(other),
+    }
+}
+
+/// Folder tab actions (`go_to_tab_1` … `go_to_tab_9` and the tab commands).
+fn parse_tab_action(name: &str) -> Option<Action> {
+    if let Some(rest) = name.strip_prefix("go_to_tab_") {
+        return rest
+            .parse::<u8>()
+            .ok()
+            .filter(|n| (1..=9).contains(n))
+            .map(Action::GoToTab);
+    }
+    match name {
+        "new_tab" => Some(Action::NewTab),
+        "close_tab" => Some(Action::CloseTab),
+        "next_tab" => Some(Action::NextTab),
+        "prev_tab" => Some(Action::PrevTab),
+        "move_tab_left" => Some(Action::MoveTabLeft),
+        "move_tab_right" => Some(Action::MoveTabRight),
+        "toggle_tab_lock" => Some(Action::ToggleTabLock),
+        "rename_tab" => Some(Action::RenameTab),
+        "open_in_new_tab" => Some(Action::OpenInNewTab),
         _ => None,
     }
 }

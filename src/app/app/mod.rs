@@ -1,6 +1,7 @@
 pub mod background;
 pub mod events;
 pub mod scrollbar_mouse;
+pub mod tab_mouse;
 pub mod updates;
 
 use super::context::AppContext;
@@ -91,6 +92,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<()> {
             }
 
             state.scrollbar.clear_targets();
+            state.tab_bar.clear();
             terminal_backend.terminal.draw(|f| {
                 ui::draw_ui(f, &context, &state);
             })?;

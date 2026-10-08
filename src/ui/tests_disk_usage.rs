@@ -23,8 +23,14 @@ fn tree() -> tempfile::TempDir {
 fn app(root: &std::path::Path) -> (AppContext, AppState) {
     let context = AppContext::new(AppConfig::default());
     let mut state = AppState::new(root.to_path_buf(), root.to_path_buf());
-    state.panels.left.view_mode = PanelViewMode::Full;
-    state.panels.left.entries = vec![FileEntry {
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .view_mode = PanelViewMode::Full;
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .entries = vec![FileEntry {
         name: "media".into(),
         path: root.join("media"),
         size: 0,

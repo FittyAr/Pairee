@@ -20,6 +20,23 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Ctrl+\` | Abre la lista de favoritos de carpetas (`Enter` ir, `Ins`/`+` añadir la carpeta actual, `Supr`/`-` quitar). Se guarda en `bookmarks.toml`. |
 | `Ctrl+Alt+1` … `Ctrl+Alt+9` | Salta al atajo de carpeta 1–9. Se asignan desde **Comandos → Accesos dir. carp.** (`Ins`/`Espacio` o el dígito del atajo asigna la carpeta actual, `Supr` lo borra). |
 
+### Pestañas de carpetas
+
+Cada panel puede tener varias pestañas de carpetas. La barra de pestañas aparece sobre el panel cuando tiene más de una (o siempre, con **Opciones → Configuración → Panel → Mostrar siempre la barra de pestañas**); un clic en una pestaña la muestra y el clic central la cierra. Las pestañas bloqueadas se marcan con `*`. Todo está también en **Izquierdo/Derecho → Pestañas**.
+
+| Tecla / Atajo | Acción |
+| :--- | :--- |
+| `Alt+T` (`Ctrl+T` en los mapas NeoVim y VSCode) | Nueva pestaña en la carpeta actual (en Norton `Ctrl+T` sigue siendo el panel de transferencias). |
+| `Alt+O` / `Ctrl+Enter` | Abre la carpeta o archivo comprimido bajo el cursor en una pestaña nueva (`Ctrl+Enter` requiere una terminal que lo informe, p. ej. kitty, WezTerm, foot). |
+| `Alt+W` | Cierra la pestaña actual (la última pestaña de un panel no se cierra; `Ctrl+W` es la lista de tareas). |
+| `Alt+Av Pág` / `Alt+Derecha` | Pestaña siguiente. |
+| `Alt+Re Pág` / `Alt+Izquierda` | Pestaña anterior. |
+| `Alt+Mayús+Re Pág` / `Alt+Mayús+Av Pág` | Mueve la pestaña actual a la izquierda / derecha. |
+| `Alt+1` … `Alt+9` | Muestra la pestaña 1–9 del panel con el foco. |
+| *(menú / paleta de comandos)* | **Cambiar nombre** (vacío: el nombre de la carpeta) y **Bloquear pestaña**: una pestaña bloqueada conserva su carpeta y, al entrar en otra carpeta desde ella, esa carpeta se abre en una pestaña nueva. |
+
+`Ctrl+Tab` sigue cambiando de pantalla. Algunas terminales usan `Alt+flechas` o `Alt+dígitos` para sí mismas (paneles de Windows Terminal, pestañas de GNOME Terminal); `Alt+Re Pág`/`Alt+Av Pág` funcionan ahí, y cada combinación puede cambiarse en el mapa de teclas.
+
 ---
 
 ## 🗂️ 2. Modos de Vista y Visibilidad

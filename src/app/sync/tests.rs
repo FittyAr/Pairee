@@ -33,14 +33,18 @@ fn compare_runs_inline_and_lists_rolled_up_top_level_entries() {
     let (l, r) = two_trees();
     std::fs::write(l.path().join("same").join("inner.txt"), "x").unwrap();
     let mut state = AppState::new(l.path().to_path_buf(), r.path().to_path_buf());
-    state.panels.left.entries.push(crate::fs::FileEntry {
-        name: "new.txt".into(),
-        path: l.path().join("new.txt"),
-        size: 3,
-        is_dir: false,
-        is_symlink: false,
-        modified: None,
-    });
+    state
+        .panels
+        .side_mut(crate::app::state::ActivePanel::Left)
+        .entries
+        .push(crate::fs::FileEntry {
+            name: "new.txt".into(),
+            path: l.path().join("new.txt"),
+            size: 3,
+            is_dir: false,
+            is_symlink: false,
+            modified: None,
+        });
 
     start_compare(&mut state, &context());
 
@@ -58,7 +62,7 @@ fn compare_runs_inline_and_lists_rolled_up_top_level_entries() {
     assert!(
         state
             .panels
-            .left
+            .side(crate::app::state::ActivePanel::Left)
             .selected_paths
             .contains(&l.path().join("new.txt")),
         "differences are tagged in the left panel"

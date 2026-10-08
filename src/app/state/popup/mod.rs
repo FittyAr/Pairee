@@ -110,6 +110,11 @@ pub enum PopupType {
     FilePanelFilterPrompt {
         input: TextField,
     },
+    /// Title of a folder tab (empty: the folder name).
+    RenameTabPrompt {
+        tab: crate::app::state::TabId,
+        input: TextField,
+    },
     QuickFilterPrompt {
         input: TextField,
         original_mask: Option<String>,

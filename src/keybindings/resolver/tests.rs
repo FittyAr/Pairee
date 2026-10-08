@@ -130,3 +130,70 @@ fn prefix_completions_list_remaining_suffixes() {
     assert!(!resolver.is_ongoing());
     assert!(resolver.prefix_completions().is_empty());
 }
+
+/// Tab chords every built-in preset binds, as key events.
+fn tab_keys() -> Vec<(KeyEvent, Action)> {
+    let alt = KeyModifiers::ALT;
+    let mut keys = vec![
+        (KeyEvent::new(KeyCode::Char('t'), alt), Action::NewTab),
+        (KeyEvent::new(KeyCode::Char('w'), alt), Action::CloseTab),
+        (KeyEvent::new(KeyCode::PageDown, alt), Action::NextTab),
+        (KeyEvent::new(KeyCode::Right, alt), Action::NextTab),
+        (KeyEvent::new(KeyCode::PageUp, alt), Action::PrevTab),
+        (KeyEvent::new(KeyCode::Left, alt), Action::PrevTab),
+        (
+            KeyEvent::new(KeyCode::PageUp, alt | KeyModifiers::SHIFT),
+            Action::MoveTabLeft,
+        ),
+        (
+            KeyEvent::new(KeyCode::PageDown, alt | KeyModifiers::SHIFT),
+            Action::MoveTabRight,
+        ),
+        (KeyEvent::new(KeyCode::Char('o'), alt), Action::OpenInNewTab),
+        (
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL),
+            Action::OpenInNewTab,
+        ),
+    ];
+    for n in 1..=9u8 {
+        let digit = char::from(b'0' + n);
+        keys.push((KeyEvent::new(KeyCode::Char(digit), alt), Action::GoToTab(n)));
+    }
+    keys
+}
+
+#[test]
+fn every_preset_binds_the_tab_actions_without_conflicts() {
+    for preset in ["norton", "neovim", "vscode"] {
+        let mut config = AppConfig::default();
+        config.keybindings.preset = preset.into();
+        let mut resolver = KeybindingResolver::new(&config);
+        // Every tab action id contains `_tab`; none may be rejected.
+        let errors = &resolver.load_report().errors;
+        assert!(
+            !errors.iter().any(|e| e.contains("_tab")),
+            "{preset}: {errors:?}"
+        );
+        for (key, action) in tab_keys() {
+            assert_eq!(resolver.resolve(key), Some(action), "{preset}: {key:?}");
+        }
+        let ctrl_t = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
+        let expected = if preset == "norton" {
+            Action::ToggleTransferPanel
+        } else {
+            Action::NewTab
+        };
+        assert_eq!(resolver.resolve(ctrl_t), Some(expected), "{preset}: Ctrl+T");
+    }
+}
+
+#[test]
+fn tab_action_names_parse() {
+    assert_eq!(parse_action_name("go_to_tab_3"), Some(Action::GoToTab(3)));
+    assert_eq!(parse_action_name("go_to_tab_0"), None);
+    assert_eq!(parse_action_name("new_tab_alt"), Some(Action::NewTab));
+    assert_eq!(
+        parse_action_name("toggle_tab_lock"),
+        Some(Action::ToggleTabLock)
+    );
+}

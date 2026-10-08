@@ -3,7 +3,8 @@ use crate::config::localization::t;
 use crate::ui::popup::kit::{self, TextBox};
 use ratatui::{Frame, layout::Rect, style::Color};
 
-/// Panel filter, quick filter and copy/move filter prompts: one mask field.
+/// One-field prompts: panel filter, quick filter, copy/move filter and the
+/// tab title.
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
@@ -20,6 +21,9 @@ pub fn render(
             "prompt_quick_filter_title",
             "prompt_quick_filter_text",
         ),
+        PopupType::RenameTabPrompt { input, .. } => {
+            (input, "prompt_rename_tab_title", "prompt_rename_tab_text")
+        }
         _ => return false,
     };
     TextBox {

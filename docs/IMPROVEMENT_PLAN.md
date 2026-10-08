@@ -495,7 +495,7 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 
 ### G.3 Oleada 3 — pestañas
 
-- [ ] Pestañas por panel (crear, cerrar, cambiar, duplicar)
+- [x] Pestañas por panel (crear, cerrar, cambiar, duplicar, mover, bloquear, renombrar; barra con clic; resultados en segundo plano enrutados por `TabId`)
 
 ### G.4 Oleada 4 — sesión y observación
 
