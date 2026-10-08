@@ -42,7 +42,8 @@ fn close(state: &mut AppState) {
 }
 
 /// Sends the highlighted item to the regular delete flow (confirmation,
-/// recycle bin setting, transfer queue); the view drops it once it is gone.
+/// recycle bin setting, transfer queue); the view drops it when the delete
+/// job finishes.
 fn delete_selected(state: &mut AppState, context: &AppContext) {
     if state.disk_usage.is_scanning() {
         return;
@@ -50,6 +51,5 @@ fn delete_selected(state: &mut AppState, context: &AppContext) {
     let Some(path) = state.disk_usage.selected_path() else {
         return;
     };
-    state.disk_usage.watch_delete(path.clone());
     crate::app::actions::fs_ops::delete::request(state, context, vec![path], true);
 }

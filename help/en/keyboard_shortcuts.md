@@ -94,6 +94,8 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | Key | Action |
 | :--- | :--- |
 | `Insert` / `Space` | Tag/untag active file selection. Cursor automatically moves down. On a folder it also computes the folder size (`Esc` stops it). |
+| `Alt+S` | Compute the size of the selected folders (or of every folder when none is selected). |
+| `Alt+D` | Disk usage view of the current folder. |
 | `+` (Keypad) | Tag a group of files matching a glob mask (e.g. `*.rs`). |
 | `-` (Keypad) | Untag a group of files matching a glob mask. |
 | `*` (Keypad) | Invert selection state of the entire panel. |

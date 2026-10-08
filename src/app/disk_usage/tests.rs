@@ -58,13 +58,33 @@ fn deleted_items_leave_the_tree() {
     let mut du = opened(dir.path());
     du.cursor = 1;
     let small = du.selected_path().unwrap();
-    du.watch_delete(small.clone());
-    assert!(!du.poll(), "still on disk");
-    fs::remove_file(&small).unwrap();
-    assert!(du.poll());
+    let elsewhere = dir.path().parent().unwrap().join("unrelated");
+    assert!(
+        !du.remove_deleted([elsewhere.as_path()]),
+        "outside the scan"
+    );
+    assert!(du.remove_deleted([small.as_path()]));
     assert_eq!(du.tree().unwrap().size.bytes, 105);
     assert_eq!(du.current().unwrap().children.len(), 1);
     assert_eq!(du.cursor, 0);
+}
+
+#[test]
+fn finished_delete_jobs_prune_the_tree_without_a_rescan() {
+    use crate::fs::transfer::job::{TransferJob, TransferOperation, TransferResults};
+    let dir = tree();
+    let mut du = opened(dir.path());
+    let big = dir.path().join("big");
+    let mut results = TransferResults::default();
+    let start = std::time::Instant::now();
+    let done = crate::fs::transfer::control::done(&big, PathBuf::new(), 0, start);
+    results.completed_files.push(done);
+    let job = |op| TransferJob::new(op, vec![big.clone()], PathBuf::new(), Default::default());
+    assert!(!du.job_finished(&job(TransferOperation::Copy), &results));
+    // The folder is still on disk: the tree trusts the job, not a poll.
+    assert!(du.job_finished(&job(TransferOperation::Delete), &results));
+    assert_eq!(du.tree().unwrap().size.bytes, 3);
+    assert_eq!(du.selected_path(), Some(dir.path().join("small.txt")));
 }
 
 #[test]

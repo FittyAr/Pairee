@@ -40,6 +40,7 @@
 - SFTP panels get back what the panel source refactor had marked as unavailable: `F7` renames in place on the server (refusing an existing name, undoable), `F4` edits a remote file through a private local copy that is uploaded on save after checking that the original did not change meanwhile (size and time; asks before overwriting), and `Ctrl+A` shows permissions, numeric owner and modification time and changes the mode with SFTP `setstat` (`chmod`). The same `F4` flow edits files inside zip archives. A move between two panels on the same SFTP connection (a server-side rename) is now journaled and can be undone; other SSH copies, moves and deletions stay "not undoable".
 - `.tar.bz2` / `.tbz2` / `.tbz` and `.tar.xz` / `.txz` archives open as folders, list in Quick View and extract natively (pure-Rust `bzip2` and `lzma-rust2` decoders, so static musl builds are unaffected). A bare `.bz2` / `.xz` file is not treated as a folder.
 - Archives inside archives open as folders (read-only): the inner archive is extracted to a private temporary file, in the background on its first listing and up to 512 MiB, then listed, viewed and previewed like any other archive; `..` at its root returns to the containing archive. Copies, edits and deletions inside a nested archive are refused with a message.
+- Default keys for **Folder sizes** (`Alt+S`) and **Disk usage** (`Alt+D`) in the Norton, NeoVim and VSCode keymaps (free in all three; a test checks it).
 
 ### Improved
 
@@ -71,6 +72,9 @@
 - External editor support: Pairee edits files only with its built-in editor. F4 and every other "edit" entry point always open the internal editor. The `editor_use_external` and `default_editor` settings are gone (old `config.toml` files that still contain them load fine), and the default file associations no longer launch `notepad`/`nano` for text files; untouched old default rules of that kind are removed from `associations.toml` on load.
 - Settings that had no effect (file descriptions, info panel details, dialog/command-line editing, editor code pages and blocks, most viewer options, plugin manager flags, `git_auto_detect`, `transfer_engine_enabled` and some confirmations) were removed from the configuration, the dialog and the manuals. Old `config.toml` files that still contain them load fine; the keys are dropped on the next save. See `docs/technical/settings-audit.md`.
 ### Fixed
+
+- Disk usage view: deleting an item on an SFTP panel left it in the list until a rescan; deleted items now leave the tree when the delete job finishes, for every source, instead of the view polling the local disk on every frame.
+- Folder sizes were kept after a reread of the same folder even when a folder's contents had changed; folders whose modification time changed in the new listing are now measured again (watcher-reported changes still invalidate at once).
 
 - Copying into a zip archive no longer silently replaces entries that already exist: the copy dialog's conflict choice (overwrite, overwrite older, skip, rename, ask with the usual conflict dialog) applies, through the same resolver as local copies. Copies into or out of archives and deletions inside them now appear in the undo journal as not undoable instead of not at all.
 

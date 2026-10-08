@@ -35,8 +35,11 @@ impl AppState {
 
     /// Rereads every local tab showing `change.dir` (shown or not) through
     /// the regular listing path, which also updates Git badges, and measures
-    /// the changed folders' sizes again. A tab still loading gets the change
-    /// again later instead of restarting its listing.
+    /// the changed folders' sizes again: the reported entries here (the
+    /// watcher knows before the folder times are updated, which Windows does
+    /// lazily in listings), any folder whose time changed in the listing
+    /// (`DirSizes::sync_listing`, as for every reread). A tab still loading
+    /// gets the change again later instead of restarting its listing.
     fn apply_dir_change(&mut self, change: DirChange, show_hidden: bool, now: Instant) {
         let mut ready: Vec<TabId> = Vec::new();
         let mut busy = false;

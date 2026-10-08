@@ -148,7 +148,6 @@ fn finished_transfer_jobs_are_journaled_once() {
         "dst".into(),
         Default::default(),
     );
-    let id = job.id;
     let mut results = crate::fs::transfer::job::TransferResults::default();
     results
         .completed_files
@@ -158,9 +157,8 @@ fn finished_transfer_jobs_are_journaled_once() {
             1,
             std::time::Instant::now(),
         ));
-    state.transfer.as_ref().unwrap().engine.queue.enqueue(job);
-    transfer_finished(&mut state, id, Some(results));
-    transfer_finished(&mut state, id, None);
+    transfer_finished(&mut state, &job, &results);
+    transfer_finished(&mut state, &job, &job.results);
     assert!(matches!(
         state.journal.peek(Direction::Undo),
         Some(FsCommand::Move(_))

@@ -94,6 +94,8 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | Tecla | Acción |
 | :--- | :--- |
 | `Insert` / `Espacio` | Marca/desmarca archivos. El cursor avanza hacia abajo. Sobre una carpeta también calcula su tamaño (`Esc` lo detiene). |
+| `Alt+S` | Calcula el tamaño de las carpetas marcadas (o de todas si no hay ninguna marcada). |
+| `Alt+D` | Vista de uso de disco de la carpeta actual. |
 | `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
 | `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
 | `*` (Teclado numérico) | Invierte la selección en todo el panel. |
