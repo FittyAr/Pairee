@@ -3,7 +3,7 @@
 //! Pattern: **Strategy** (per-op runner) with cooperative cancel via
 //! [crate::fs::progress::ensure_not_cancelled] inside archive loops.
 
-mod archive;
+pub(super) mod archive;
 mod cmd;
 mod wipe;
 

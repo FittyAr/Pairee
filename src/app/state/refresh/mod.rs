@@ -47,6 +47,8 @@ impl AppState {
         let limit = self.disable_panel_update_object_count;
         let panel = self.panels.side_mut(side);
         let path = panel.current_path.clone();
+        // Entering or leaving an archive switches the panel's source.
+        panel.source = panel.source.locate(&path);
         let changed = path != panel.last_path;
         if changed {
             panel.quick_filter_mask = None;
@@ -77,9 +79,13 @@ impl AppState {
         for side in [ActivePanel::Left, ActivePanel::Right] {
             let panel = self.panels.side_mut(side);
             if let Some(listing) = panel.listing.poll() {
-                apply_listing(panel, listing);
+                let show_hidden = listing.show_hidden;
+                if let Some(error) = apply_listing(panel, listing) {
+                    self.leave_unreadable_archive(side, &error, show_hidden);
+                }
                 changed = true;
             }
+            let panel = self.panels.side_mut(side);
             // Finished folder sizes, or progress ticks of a running batch.
             changed |= panel.dir_sizes.poll() || panel.dir_sizes.is_running();
         }
@@ -87,6 +93,29 @@ impl AppState {
             self.mark_ui_dirty();
         }
         changed
+    }
+
+    /// An archive that cannot be read is not entered: the panel goes back
+    /// to the folder holding it and the reason is shown.
+    fn leave_unreadable_archive(&mut self, side: ActivePanel, error: &str, show_hidden: bool) {
+        let panel = self.panels.side_mut(side);
+        let Some(root) = panel.source.archive().map(|a| a.root().to_path_buf()) else {
+            return;
+        };
+        if panel.current_path != root {
+            return;
+        }
+        let Some(parent) = root.parent() else {
+            return;
+        };
+        panel.pending_focus = Some(crate::fs::file_name_lossy(&root));
+        panel.current_path = parent.to_path_buf();
+        self.dialogs.replace(super::PopupType::Error(
+            crate::config::localization::t("archive_open_failed")
+                .replacen("{}", &root.to_string_lossy(), 1)
+                .replacen("{}", error, 1),
+        ));
+        self.refresh_panel(side, show_hidden, true);
     }
 
     fn listing_options(&self, side: ActivePanel, show_hidden: bool) -> ListingOptions {
@@ -152,11 +181,13 @@ fn emit_on_cd(path: &std::path::Path, side: ActivePanel) {
 }
 
 /// Installs a finished listing, keeping the cursor and selection stable.
-pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) {
+/// Returns the error of a failed listing.
+pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) -> Option<String> {
     if listing.path != panel.current_path {
         // The panel moved on; a newer request is (or will be) in flight.
-        return;
+        return None;
     }
+    let mut failure = None;
     let same_dir = panel.listed_path.as_ref() == Some(&listing.path);
     if !same_dir {
         panel.dir_sizes.clear();
@@ -190,6 +221,7 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) {
         Err(err) => {
             log::warn!("Listing {:?} failed: {}", listing.path, err);
             panel.pending_focus = None;
+            failure = Some(err);
         }
     }
     panel.listed_path = Some(listing.path);
@@ -205,4 +237,5 @@ pub(crate) fn apply_listing(panel: &mut PanelState, listing: PanelListing) {
     }
     panel.free_space = listing.free_space;
     panel.attrs = listing.attrs;
+    failure
 }

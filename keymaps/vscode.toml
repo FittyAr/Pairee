@@ -22,6 +22,8 @@ go_to_bottom        = "End"
 change_panel        = "Tab"
 execute             = "Enter"
 go_parent           = "Backspace"
+go_parent_pgkey     = "Ctrl+PageUp"
+open_archive        = "Ctrl+PageDown"
 select_item         = "Space, Insert"
 unfocus             = "Esc"
 

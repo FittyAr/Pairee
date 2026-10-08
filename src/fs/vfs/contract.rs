@@ -36,6 +36,21 @@ pub fn local_fixture() -> Fixture {
     }
 }
 
+/// An archive adapter on a file written by `write` (zip, tar, 7z...).
+/// Writes an archive holding the given `(path, contents)` files.
+pub type ArchiveWriter = fn(&Path, &[(&str, &[u8])]);
+
+pub fn archive_fixture(name: &str, write: ArchiveWriter) -> Fixture {
+    let dir = tempfile::tempdir().unwrap();
+    let root = dir.path().join(name);
+    write(&root, TREE);
+    Fixture {
+        vfs: Arc::new(crate::fs::archive::ArchiveVfs::open(root.clone()).unwrap()),
+        root,
+        _dir: dir,
+    }
+}
+
 fn names(entries: &[VfsEntry]) -> Vec<String> {
     let mut names: Vec<String> = entries.iter().map(|e| e.name.clone()).collect();
     names.sort();
@@ -224,3 +239,24 @@ macro_rules! vfs_contract {
 }
 
 vfs_contract!(local, super::local_fixture);
+
+mod archives {
+    use super::archive_fixture;
+    use crate::fs::archive::test_fixtures::{write_7z, write_tar, write_tar_gz, write_zip};
+    fn zip() -> super::Fixture {
+        archive_fixture("t.zip", write_zip)
+    }
+    fn tar() -> super::Fixture {
+        archive_fixture("t.tar", write_tar)
+    }
+    fn tar_gz() -> super::Fixture {
+        archive_fixture("t.tar.gz", write_tar_gz)
+    }
+    fn seven_z() -> super::Fixture {
+        archive_fixture("t.7z", write_7z)
+    }
+    vfs_contract!(zip_archive, super::zip);
+    vfs_contract!(tar_archive, super::tar);
+    vfs_contract!(tar_gz_archive, super::tar_gz);
+    vfs_contract!(seven_z_archive, super::seven_z);
+}

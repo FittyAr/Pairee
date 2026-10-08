@@ -1,5 +1,5 @@
 use crate::app::context::AppContext;
-use crate::app::input::{handle_backspace_key, handle_enter_key};
+use crate::app::input::{handle_backspace_key, handle_enter_key, handle_open_archive_key};
 use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
 use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
 use crate::config::localization::t;
@@ -55,6 +55,11 @@ pub fn handle_navigation_action(
         Action::Execute => {
             // Only the focused panel can change directory on Enter.
             handle_enter_key(state, context);
+            state.refresh_active_panel(context.config.settings.show_hidden);
+            true
+        }
+        Action::OpenArchive => {
+            handle_open_archive_key(state, context);
             state.refresh_active_panel(context.config.settings.show_hidden);
             true
         }

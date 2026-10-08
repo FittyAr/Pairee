@@ -60,6 +60,12 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Navigation,
     ),
+    d(
+        "open_archive",
+        Action::OpenArchive,
+        true,
+        ActionCategory::Navigation,
+    ),
     d("help", Action::Help, true, ActionCategory::System),
     d("about", Action::About, true, ActionCategory::System),
     d("copy", Action::Copy, true, ActionCategory::Files),

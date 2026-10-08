@@ -62,7 +62,9 @@ pub async fn run_extract(
     Ok(results)
 }
 
-async fn run_archive_blocking<F>(
+/// Runs a blocking archive operation, turning its progress updates into
+/// Transfer Engine events.
+pub(in crate::fs::transfer::backend) async fn run_archive_blocking<F>(
     control: JobControl,
     default_total: usize,
     work: F,

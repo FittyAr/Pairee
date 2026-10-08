@@ -42,6 +42,8 @@ pub struct PanelListing {
     pub git: Option<PanelGitInfo>,
     pub free_space: Option<u64>,
     pub attrs: HashMap<PathBuf, FileAttrs>,
+    /// Hidden files were listed (for a follow-up reread).
+    pub show_hidden: bool,
 }
 
 /// Executes the request. Blocking: call only from a background job.
@@ -76,6 +78,7 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
         git,
         free_space,
         attrs,
+        show_hidden: req.options.show_hidden,
     }
 }
 

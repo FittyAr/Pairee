@@ -111,15 +111,8 @@ fn folder_lines(path: &Path) -> Vec<String> {
 }
 
 fn file_lines(path: &Path, size: u64, max_bytes: u64) -> Vec<String> {
-    use crate::fs::archive::{ArchiveFormat, detect_format, list_archive_files};
-    let format = detect_format(path);
-    let format_name = match format {
-        ArchiveFormat::Zip => Some("ZIP"),
-        ArchiveFormat::TarGz => Some("TarGz"),
-        ArchiveFormat::SevenZ => Some("7Z"),
-        _ => None,
-    };
-    if let Some(format_name) = format_name {
+    use crate::fs::archive::{detect_format, list_archive_files};
+    if let Some(format_name) = detect_format(path).label() {
         return match list_archive_files(path) {
             Ok(files) => {
                 let archive_name = path.file_name().unwrap_or_default().to_string_lossy();

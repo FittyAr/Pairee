@@ -25,6 +25,7 @@ fn detect_format_uses_case_insensitive_extension() {
         ("a.ZIP", "zip"),
         ("a.tar.gz", "targz"),
         ("a.tgz", "targz"),
+        ("a.tar", "tar"),
         ("a.7z", "7z"),
         ("a.rar", "rar"),
         ("a.iso", "iso"),
@@ -34,6 +35,7 @@ fn detect_format_uses_case_insensitive_extension() {
     for (name, want) in cases {
         let got = match detect_format(Path::new(name)) {
             ArchiveFormat::Zip => "zip",
+            ArchiveFormat::Tar => "tar",
             ArchiveFormat::TarGz => "targz",
             ArchiveFormat::SevenZ => "7z",
             ArchiveFormat::Rar => "rar",

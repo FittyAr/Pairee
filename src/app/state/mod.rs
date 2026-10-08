@@ -13,6 +13,7 @@ pub mod update_state;
 pub mod quick_view;
 pub mod refresh;
 pub mod screens;
+mod vfs_op;
 pub mod viewer;
 
 pub use crate::fs::compare::CompareStatus;
@@ -108,6 +109,9 @@ pub struct AppState {
     /// Background run of the multi-rename tool.
     pub multi_rename: crate::app::jobs::JobSlot<crate::fs::multi_rename::RenameReport>,
 
+    /// Background change to a non-local panel source (see `vfs_op`).
+    pub vfs_op: crate::app::jobs::JobSlot<Result<(), String>>,
+
     /// Background folder comparison (Compare folders / Synchronize).
     pub folder_scan: crate::app::sync::FolderScanState,
     /// Disk usage view: background scan and cached size tree.
@@ -164,6 +168,7 @@ impl AppState {
             git_op: Default::default(),
             git_panel: Default::default(),
             multi_rename: Default::default(),
+            vfs_op: Default::default(),
             folder_scan: Default::default(),
             disk_usage: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),

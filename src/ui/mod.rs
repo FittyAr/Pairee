@@ -21,6 +21,8 @@ pub mod wrap;
 #[cfg(test)]
 mod tests;
 #[cfg(test)]
+mod tests_archive;
+#[cfg(test)]
 mod tests_disk_usage;
 
 use crate::app::context::AppContext;

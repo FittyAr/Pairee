@@ -22,6 +22,8 @@ change_panel        = "Tab"
 select_item         = "Insert, Space"
 execute             = "Enter"
 go_parent           = "Backspace"
+go_parent_pgkey     = "Ctrl+PageUp"
+open_archive        = "Ctrl+PageDown"
 
 # ── Panel view modes (Ctrl+1 … Ctrl+9) ───────────────────────────────────────
 panel_view_brief        = "Ctrl+1"

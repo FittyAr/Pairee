@@ -1,6 +1,7 @@
 pub mod apply;
 pub mod archive_cmd;
 pub mod attributes;
+pub mod capability;
 pub mod compress;
 pub mod copy_path;
 pub mod delete;
@@ -29,6 +30,9 @@ pub fn handle_fs_action(
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> bool {
+    if capability::refuse_unsupported(state, action) {
+        return true;
+    }
     match action {
         Action::View | Action::ViewAlt => view::handle(state, action, context, terminal_backend),
         Action::Edit => edit::handle(state, context),
