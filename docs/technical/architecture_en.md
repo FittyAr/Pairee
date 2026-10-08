@@ -176,3 +176,13 @@ Archive formats are a second Strategy (`fs::archive::format::ArchiveReader`, one
 * **Rendering:** `ui/tab_bar.rs` lays out the titles (widest shrink first, then a window around the active tab) and records the painted cells in `AppState::tab_bar` for mouse clicks (`app/app/tab_mouse.rs`).
 * **Persistence:** `Tab::spec()` / `Tab::from_spec()` convert to `TabSpec`, a plain serde struct (path, source kind, view, sort, filter, title, locked) with no UI or runtime types, for session restore.
 
+---
+
+## 👁️ 10. Panel Auto-Refresh
+
+`fs::watch` monitors folders; `app::auto_refresh` decides which ones and applies the changes.
+
+* **Observer:** a `DirMonitor` runs on its own thread per monitored folder and reports `DirChange { dir, entries }` to a `ChangeSink` (a channel plus `app::jobs::wake_event_loop`, the same `Notify` that finished jobs use). Dropping the monitor stops it.
+* **Strategy:** `ChangeStrategy` has two implementations: `WatchStrategy` (`notify`, `RecursiveMode::NonRecursive`, access events ignored, lost events turned into a whole-folder change) and `PollStrategy` (compares `DirSignature`, the folder's modification time plus entry count, every `auto_refresh_poll_secs`). `strategy_chain` picks `[Watch, Poll]`, or `[Poll]` for folders above `disable_panel_update_object_count` and for those `needs_polling` flags (UNC/mapped network drives and `\\wsl$` on Windows; NFS/SMB, 9p, drvfs and FUSE mounts from `/proc/mounts` on Linux). The chain runs on the monitor thread, so slow network checks never block the UI, and a watch that cannot be armed falls back to polling.
+* **Coalescing:** `Coalescer` (pure, the caller passes the clock) merges changes per folder and releases one when the folder has been quiet for 250 ms, or 2 s after the first change of a burst that never goes quiet.
+* **Application:** every event-loop pass `AppState::poll_auto_refresh` syncs the monitors with the folders of the active tab of each side (local sources only; archive and SFTP tabs are skipped), so monitors re-arm when a tab changes folder, switches or closes. A due change rereads every local tab on that folder with `refresh_tab_quietly` (the normal listing path, which also recomputes Git status; `quiet_listing` hides "Loading…"), invalidates the changed folders' sizes (`DirSizes::invalidate`, measured again) and is deferred when the tab is still loading, so a long copy does not restart listings.

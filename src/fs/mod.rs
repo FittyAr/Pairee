@@ -22,6 +22,7 @@ pub mod sync;
 pub mod text;
 pub mod transfer;
 pub mod vfs;
+pub mod watch;
 pub mod wipe;
 
 pub use attrs::read_attrs;

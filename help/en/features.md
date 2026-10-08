@@ -33,6 +33,12 @@ You can configure each panel independently to display files using different deta
 * **Locked tabs:** **Left/Right → Tabs → Lock tab** pins a tab to its folder; entering another folder from it opens a new tab instead. **Rename tab** gives a tab a fixed title.
 * **Swap Panels** (`Ctrl+U`) exchanges the panels together with their tabs.
 
+### 1.4 Automatic Refresh
+* Panels follow changes made by other programs: the folder of each side's active tab is watched (native notifications, non-recursive) and reread in the background, without the "Loading…" title, keeping cursor and selection. Git badges and computed folder sizes of changed folders are updated too.
+* Bursts are coalesced: a quarter of a second of quiet, or at most about two seconds during a long copy, gives one reread.
+* Network shares, WSL paths and folders that cannot be watched are polled instead (**Poll interval for network folders**). Archive and SFTP panels are not refreshed automatically.
+* Turn it off with **Options → Configuration → Panel → Refresh panels automatically when folders change**.
+
 ---
 
 ## 📂 2. File System Operations

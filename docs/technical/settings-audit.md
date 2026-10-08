@@ -24,7 +24,8 @@ Method: search for `settings.<field>` / `confirmations.<field>` reads in
 | `sorting_collation` | `natural` sorts digit runs numerically (same as "treat digits as numbers"); `linguistic` keeps the previous order. Resolved in `AppState::natural_sort`; the listing code receives only the resulting flag. |
 | `left_panel_visible`, `right_panel_visible` | Applied at startup; captured by **Save setup** (Shift+F9) and by `auto_save_setup` on exit. |
 | `panel_view_mode`, `sort_field`, `sort_reverse`, `show_long_names` | Same: applied to both panels at startup, captured from the active panel on Save setup. |
-| `disable_panel_update_object_count` | Only skips automatic rereads of the same directory; Ctrl+R always rereads. |
+| `disable_panel_update_object_count` | Only skips automatic rereads of the same directory; Ctrl+R always rereads. Auto-refresh polls such folders instead of watching them. |
+| `auto_refresh`, `auto_refresh_poll_secs` | `app::auto_refresh` / `fs::watch`: watch (or poll, at this interval) the folders of the visible local tabs and reread them on change. They replace the removed `network_drives_autorefresh`. |
 | `delete_to_recycle_bin` | The trash backend is the `trash` crate on every platform, with no silent permanent-delete fallback. |
 
 ## Removed

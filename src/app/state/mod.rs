@@ -123,6 +123,8 @@ pub struct AppState {
     pub folder_scan: crate::app::sync::FolderScanState,
     /// Disk usage view: background scan and cached size tree.
     pub disk_usage: crate::app::disk_usage::DiskUsageState,
+    /// Folder monitors that reread panels when their folder changes.
+    pub auto_refresh: crate::app::auto_refresh::AutoRefresh,
 
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
@@ -181,6 +183,7 @@ impl AppState {
             journal: Default::default(),
             folder_scan: Default::default(),
             disk_usage: Default::default(),
+            auto_refresh: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             tab_bar: Default::default(),
             editor_clipboard: Default::default(),

@@ -42,6 +42,8 @@ pub struct PanelState {
     pub git_statuses: std::collections::HashMap<String, String>,
     /// Background listing job (directory read + git status + free space).
     pub listing: JobSlot<PanelListing>,
+    /// The running listing is an automatic refresh: no "Loading…" title.
+    pub quiet_listing: bool,
     /// Directory whose contents `entries` currently show.
     pub listed_path: Option<PathBuf>,
     /// Entry name to put the cursor on once the pending listing arrives.
@@ -73,6 +75,7 @@ impl PanelState {
             git_branch: None,
             git_statuses: std::collections::HashMap::new(),
             listing: JobSlot::new(),
+            quiet_listing: false,
             listed_path: None,
             pending_focus: None,
             attrs: HashMap::new(),
@@ -87,9 +90,10 @@ impl PanelState {
         self.attrs.get(&entry.path)
     }
 
-    /// True while a background reread of this panel is running.
+    /// True while a reread the user should see is running (automatic
+    /// refreshes stay silent so the title does not flicker).
     pub fn is_loading(&self) -> bool {
-        self.listing.is_running()
+        self.listing.is_running() && !self.quiet_listing
     }
 
     /// Stops the listing and folder-size jobs (the tab is going away).

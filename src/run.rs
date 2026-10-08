@@ -222,6 +222,7 @@ pub async fn run() -> Result<()> {
     state.show_dotdot_in_root_folders = context.config.settings.show_dotdot_in_root_folders;
     state.disable_panel_update_object_count =
         context.config.settings.disable_panel_update_object_count;
+    state.auto_refresh.configure(&context.config.settings);
     app::sys_helpers::apply_setup(&mut state, &context.config.settings);
 
     // 5. Launch background update check (if enabled)

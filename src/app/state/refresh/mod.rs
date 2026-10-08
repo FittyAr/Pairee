@@ -51,6 +51,16 @@ impl AppState {
     /// superseded by a newer one for the same tab is cancelled and its
     /// result dropped; results always land in the tab that asked.
     pub fn refresh_tab(&mut self, id: TabId, show_hidden: bool, force: bool) {
+        self.start_refresh(id, show_hidden, force, false);
+    }
+
+    /// Automatic reread of tab `id` after its folder changed on disk:
+    /// always runs (the change is real) and shows no "Loading…" title.
+    pub fn refresh_tab_quietly(&mut self, id: TabId, show_hidden: bool) {
+        self.start_refresh(id, show_hidden, true, true);
+    }
+
+    fn start_refresh(&mut self, id: TabId, show_hidden: bool, force: bool, quiet: bool) {
         if self.divert_locked_tab(id, show_hidden) {
             return;
         }
@@ -83,6 +93,7 @@ impl AppState {
             quick_filter_mask: panel.quick_filter_mask.clone(),
             want_attrs: panel.view_mode.needs_attrs(),
         };
+        panel.quiet_listing = quiet;
         panel
             .listing
             .start(move |ctx| listing::run(&request, &|| ctx.is_cancelled()));

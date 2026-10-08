@@ -41,30 +41,26 @@ pub fn is_lan_path(path: &Path) -> bool {
 
     #[cfg(not(target_os = "windows"))]
     {
-        // En Linux, leer /proc/mounts
-        if let Ok(mounts) = std::fs::read_to_string("/proc/mounts") {
-            for line in mounts.lines() {
-                let parts: Vec<&str> = line.split_whitespace().collect();
-                if parts.len() >= 3 {
-                    let mount_point = parts[1];
-                    let fs_type = parts[2];
-
-                    // Comprobar si el path empieza con el mount point
-                    if path.starts_with(mount_point) {
-                        // Tipos comunes de FS de red
-                        if fs_type == "nfs"
-                            || fs_type == "cifs"
-                            || fs_type == "smbfs"
-                            || fs_type == "nfs4"
-                        {
-                            return true;
-                        }
-                    }
-                }
-            }
-        }
-        false
+        const NETWORK_FS: [&str; 5] = ["nfs", "nfs4", "cifs", "smbfs", "smb3"];
+        mount_fs_type(path).is_some_and(|fs| NETWORK_FS.contains(&fs.as_str()))
     }
+}
+
+/// File system type of the mount holding `path` (the longest matching mount
+/// point in `/proc/mounts`); `None` where that file does not exist.
+#[cfg(not(target_os = "windows"))]
+pub fn mount_fs_type(path: &Path) -> Option<String> {
+    let mounts = std::fs::read_to_string("/proc/mounts").ok()?;
+    mounts
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            let (_, mount_point, fs_type) = (parts.next()?, parts.next()?, parts.next()?);
+            path.starts_with(mount_point)
+                .then(|| (mount_point.len(), fs_type.to_string()))
+        })
+        .max_by_key(|(len, _)| *len)
+        .map(|(_, fs_type)| fs_type)
 }
 
 /// Obtiene el espacio libre disponible en bytes en la unidad que contiene el path destino.
