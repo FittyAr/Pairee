@@ -21,3 +21,12 @@ screenshots = [
 
 [settings_schema]
 # enabled = { type = "boolean", default = true, description = "Enable features" }
+
+# External programs this plugin may spawn (pairee.Command / pairee.fs.spawn).
+# Only needed if the plugin starts processes (that also requires
+# `requires_trust = true`). In Secure Mode only the commands listed here may
+# run: bare names resolved through PATH, no paths. Shells, interpreters,
+# network clients and wrappers (sh, bash, cmd, powershell, python, node, curl,
+# env, xargs, ...) are always refused, even if declared.
+# [permissions]
+# commands = ["git", "rg"]
