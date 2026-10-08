@@ -7,9 +7,47 @@ pub struct RemoteInfo {
     pub push_url: Option<String>,
 }
 
-/// Helper to configure SSH, credential helper, and basic authentication callbacks.
-pub fn create_callbacks() -> git2::RemoteCallbacks<'static> {
+/// Network transfer statistics reported during fetch, push and clone.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TransferStats {
+    /// Objects received (fetch/clone) or sent (push) so far.
+    pub done: usize,
+    /// Total objects to transfer (0 while unknown).
+    pub total: usize,
+    /// Bytes transferred so far.
+    pub bytes: usize,
+}
+
+/// Progress observer; returning `false` aborts the transfer (cancellation).
+pub type ProgressObserver<'a> = Option<&'a (dyn Fn(TransferStats) -> bool + 'a)>;
+
+/// Helper to configure SSH, credential helper, and basic authentication
+/// callbacks, plus optional progress reporting / cancellation.
+pub fn create_callbacks(observer: ProgressObserver<'_>) -> git2::RemoteCallbacks<'_> {
     let mut callbacks = git2::RemoteCallbacks::new();
+    if let Some(obs) = observer {
+        callbacks.transfer_progress(move |p| {
+            obs(TransferStats {
+                done: p.received_objects(),
+                total: p.total_objects(),
+                bytes: p.received_bytes(),
+            })
+        });
+        callbacks.push_transfer_progress(move |done, total, bytes| {
+            // Push progress cannot abort; cancellation is honoured at
+            // negotiation time below.
+            let _ = obs(TransferStats { done, total, bytes });
+        });
+        callbacks.push_negotiation(move |_| {
+            if obs(TransferStats::default()) {
+                Ok(())
+            } else {
+                Err(git2::Error::from_str(&crate::config::localization::t(
+                    "git_operation_cancelled",
+                )))
+            }
+        });
+    }
     callbacks.credentials(|url, username_from_url, allowed_types| {
         let username = username_from_url.unwrap_or("git");
 
@@ -124,6 +162,7 @@ pub fn delete_remote_branch(
     repo: &git2::Repository,
     remote_name: &str,
     branch_name: &str,
+    observer: ProgressObserver<'_>,
 ) -> anyhow::Result<()> {
     let clean_branch =
         if let Some(stripped) = branch_name.strip_prefix(&format!("{}/", remote_name)) {
@@ -134,7 +173,7 @@ pub fn delete_remote_branch(
 
     let mut remote = repo.find_remote(remote_name)?;
     let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(create_callbacks());
+    opts.remote_callbacks(create_callbacks(observer));
 
     let refspec = format!(":refs/heads/{}", clean_branch);
     remote.push(&[refspec.as_str()], Some(&mut opts))?;
@@ -149,18 +188,27 @@ pub fn delete_remote_branch(
 }
 
 /// Fetches objects and refs from the specified remote.
-pub fn fetch(repo: &git2::Repository, remote_name: &str) -> anyhow::Result<()> {
+pub fn fetch(
+    repo: &git2::Repository,
+    remote_name: &str,
+    observer: ProgressObserver<'_>,
+) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let mut opts = git2::FetchOptions::new();
-    opts.remote_callbacks(create_callbacks());
+    opts.remote_callbacks(create_callbacks(observer));
     remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
     Ok(())
 }
 
 /// Pulls changes from the specified remote and branch into the current branch.
-pub fn pull(repo: &git2::Repository, remote_name: &str, branch_name: &str) -> anyhow::Result<()> {
+pub fn pull(
+    repo: &git2::Repository,
+    remote_name: &str,
+    branch_name: &str,
+    observer: ProgressObserver<'_>,
+) -> anyhow::Result<()> {
     // 1. Fetch first
-    fetch(repo, remote_name)?;
+    fetch(repo, remote_name, observer)?;
 
     // 2. Resolve remote reference
     let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
@@ -224,10 +272,11 @@ pub fn push(
     remote_name: &str,
     branch_name: &str,
     set_upstream: bool,
+    observer: ProgressObserver<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(create_callbacks());
+    opts.remote_callbacks(create_callbacks(observer));
 
     let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
     remote.push(&[refspec.as_str()], Some(&mut opts))?;

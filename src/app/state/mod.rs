@@ -95,6 +95,9 @@ pub struct AppState {
     // ── Transfer Engine ───────────────────────────────────────────
     pub transfer: Option<TransferUIState>,
 
+    /// Background Git network operation (fetch/pull/push/clone).
+    pub git_op: crate::app::git_ops::GitOpState,
+
     // ── Scrollbar mouse hit-testing (filled each paint) ───────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
 }
@@ -138,6 +141,7 @@ impl AppState {
             is_root,
             // Transfer Engine
             transfer: None,
+            git_op: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
         }
     }

@@ -13,6 +13,7 @@ pub fn process_background_updates(
     terminal_backend: &mut TerminalBackend,
 ) {
     state.poll_panel_listings();
+    crate::app::git_ops::poll_git_op(state);
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);
     channels::process_search_updates(state);

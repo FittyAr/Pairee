@@ -59,21 +59,15 @@ pub fn handle_clone(
                     return Ok(None);
                 }
 
-                match crate::git::repo::clone_repo(url, &target_path) {
-                    Ok(_) => {
-                        state.refresh_both_panels(context.config.settings.show_hidden);
-                        state
-                            .dialogs
-                            .replace(PopupType::Info(t("git_clone_success")));
-                    }
-                    Err(e) => {
-                        state.dialogs.replace(PopupType::Error(format!(
-                            "{}: {}",
-                            t("git_clone_error"),
-                            e
-                        )));
-                    }
-                }
+                state.start_git_op(
+                    crate::app::git_ops::GitNetOp::Clone {
+                        url: url.to_string(),
+                        target: target_path,
+                    },
+                    crate::app::git_ops::FollowUp::Cloned {
+                        show_hidden: context.config.settings.show_hidden,
+                    },
+                );
                 Ok(None)
             }
             KeyCode::Backspace => {

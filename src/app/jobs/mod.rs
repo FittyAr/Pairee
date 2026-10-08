@@ -24,7 +24,7 @@ mod slot;
 #[cfg(test)]
 mod tests;
 
-pub use slot::JobSlot;
+pub use slot::{JobContext, JobSlot};
 
 /// Runs `f` on Tokio's blocking pool, or inline when no runtime is available.
 pub fn spawn_blocking_or_inline<F>(f: F)

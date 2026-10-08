@@ -266,6 +266,10 @@ pub enum PopupType {
 
     GitPanel(GitPanelState),
     GitPrompt(GitPromptPopup),
+    /// Progress of the background Git network operation (`AppState::git_op`).
+    GitProgress {
+        title: String,
+    },
 
     SshConnectPrompt(SshConnectPromptState),
 

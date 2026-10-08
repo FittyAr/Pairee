@@ -122,6 +122,12 @@ pub fn handle_popup_input(
             | PopupType::FoldersHistoryList { .. } => history_list::handle(state, key, context),
             PopupType::SshConnectPrompt(..) => ssh_connect::handle(state, key, context),
             PopupType::GitPanel(..) => git_panel::handle(state, key, context),
+            PopupType::GitProgress { .. } => {
+                if key.code == crossterm::event::KeyCode::Esc {
+                    state.cancel_git_op();
+                }
+                Ok(None)
+            }
             PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
                 git_commit_prompt::handle(state, key, context)
             }

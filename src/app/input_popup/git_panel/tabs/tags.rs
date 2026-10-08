@@ -74,22 +74,13 @@ pub fn handle_tag_tab(
                             return true;
                         }
                     };
-                match crate::git::tags::push_tags(&repo, &remote) {
-                    Ok(_) => {
-                        state
-                            .dialogs
-                            .replace(PopupType::Info(crate::config::localization::t(
-                                "git_operation_success",
-                            )));
-                    }
-                    Err(e) => {
-                        state.dialogs.replace(PopupType::Error(format!(
-                            "{}: {}",
-                            crate::config::localization::t("git_error_push_tags_failed"),
-                            e
-                        )));
-                    }
-                }
+                state.start_git_op(
+                    crate::app::git_ops::GitNetOp::PushTags {
+                        repo_path: repo_path.to_path_buf(),
+                        remote,
+                    },
+                    crate::app::git_ops::FollowUp::Info,
+                );
             }
             true
         }

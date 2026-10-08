@@ -22,5 +22,4 @@ mod tests;
 /// This prevents compiler dead_code warnings without bypassing the strict dead code policy.
 pub fn unused_keepalive() {
     let _ = repo::init_repo;
-    let _ = repo::clone_repo;
 }
