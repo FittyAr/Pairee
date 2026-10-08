@@ -88,7 +88,9 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 ### A.2 CI/CD
 
 - [x] `check.yml`: triggers en `master` (y `main` por compat)
-- [x] Matrix de tests: `ubuntu-latest` + `windows-latest`
+- [x] Matrix de tests y clippy: `ubuntu-latest` + `windows-latest` + `macos-latest`
+- [x] Job MSRV: `cargo check --all-targets --locked` con el `rust-version` leído de `Cargo.toml`
+- [x] `cargo doc --no-deps` con `RUSTDOCFLAGS=-D warnings`, chequeo `typos` (`_typos.toml`) y umbral mínimo de cobertura (`cargo llvm-cov --fail-under-lines`)
 - [x] Alinear actions a Node 24 (`checkout@v7`, `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
 - [x] Job policy: fallar si reaparece `#![allow(clippy::all)]` en `src/main.rs`
 - [x] (Opcional) `cargo deny` / audit de dependencias — `deny.toml` + job CI (`EmbarkStudios/cargo-deny-action@v2`)
@@ -97,9 +99,9 @@ Referencias internas: [`.agents/AGENTS.md`](../.agents/AGENTS.md), skill `rust-b
 
 - [x] Eliminar `#![allow(clippy::all)]` de `src/main.rs`
 - [x] Añadir `rustfmt.toml` y `clippy.toml` (sin monolitos de config)
-- [x] Declarar `rust-version` (MSRV `1.85`) en `Cargo.toml`
+- [x] Declarar `rust-version` (MSRV `1.93`, requerido por `sevenz-rust2`) en `Cargo.toml`
 - [x] Corregir lints hasta `cargo clippy --all-targets -- -D warnings`
-- [x] Actualizar README (MSRV, badge 1.85+)
+- [x] Actualizar README (MSRV, badge 1.93+)
 
 ### A.4 Documentación alineada a la realidad
 
