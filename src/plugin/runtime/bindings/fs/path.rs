@@ -1,19 +1,19 @@
 //! Path sandbox + runtime-aware FS helpers.
 
 pub use super::jail::{Access, FsPolicy};
+pub use super::target::Target;
 use crate::plugin::runtime::types::LuaFile;
 use mlua::Value;
-use std::path::{Path, PathBuf};
 
 /// Validate `path_str` against the captured sandbox policy.
-pub fn validate_path(policy: &FsPolicy, path_str: &str, access: Access) -> mlua::Result<PathBuf> {
+pub fn validate_path(policy: &FsPolicy, path_str: &str, access: Access) -> mlua::Result<Target> {
     policy
         .check(path_str, access)
         .map_err(mlua::Error::RuntimeError)
 }
 
 /// Accept a Lua string or `File` userdata.
-pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Result<PathBuf> {
+pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Result<Target> {
     match value {
         Value::String(s) => validate_path(policy, s.to_str()?, access),
         Value::UserData(ud) => match ud.borrow::<LuaFile>() {
@@ -28,88 +28,11 @@ pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Res
     }
 }
 
-/// Prefer `tokio::fs` on the multi-thread plugin worker; fall back to `std::fs`.
-pub fn fs_read_to_string(path: &Path) -> std::io::Result<String> {
-    with_fs(
-        || async { tokio::fs::read_to_string(path).await },
-        || std::fs::read_to_string(path),
-    )
-}
-
-pub fn fs_write(path: &Path, data: &str) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::write(path, data).await },
-        || std::fs::write(path, data),
-    )
-}
-
-pub fn fs_create_dir(path: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::create_dir(path).await },
-        || std::fs::create_dir(path),
-    )
-}
-
-pub fn fs_create_dir_all(path: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::create_dir_all(path).await },
-        || std::fs::create_dir_all(path),
-    )
-}
-
-pub fn fs_remove_file(path: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::remove_file(path).await },
-        || std::fs::remove_file(path),
-    )
-}
-
-pub fn fs_remove_dir(path: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::remove_dir(path).await },
-        || std::fs::remove_dir(path),
-    )
-}
-
-pub fn fs_remove_dir_all(path: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::remove_dir_all(path).await },
-        || std::fs::remove_dir_all(path),
-    )
-}
-
-pub fn fs_rename(from: &Path, to: &Path) -> std::io::Result<()> {
-    with_fs(
-        || async { tokio::fs::rename(from, to).await },
-        || std::fs::rename(from, to),
-    )
-}
-
-pub fn fs_copy(from: &Path, to: &Path) -> std::io::Result<u64> {
-    with_fs(
-        || async { tokio::fs::copy(from, to).await },
-        || std::fs::copy(from, to),
-    )
-}
-
-fn with_fs<Fut, T, Af, Sf>(async_fn: Af, sync_fn: Sf) -> std::io::Result<T>
-where
-    Fut: std::future::Future<Output = std::io::Result<T>>,
-    Af: FnOnce() -> Fut,
-    Sf: FnOnce() -> std::io::Result<T>,
-{
-    match tokio::runtime::Handle::try_current() {
-        Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
-            tokio::task::block_in_place(|| handle.block_on(async_fn()))
-        }
-        _ => sync_fn(),
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
     use mlua::Lua;
+    use std::path::{Path, PathBuf};
 
     fn open_policy() -> FsPolicy {
         FsPolicy::new(Path::new("demo"), true, false)
@@ -118,7 +41,7 @@ mod tests {
     #[test]
     fn validate_path_allows_any_for_trusted_without_secure_mode() {
         let path = validate_path(&open_policy(), "/tmp/foo", Access::Write).unwrap();
-        assert_eq!(path, PathBuf::from("/tmp/foo"));
+        assert_eq!(path.path(), Path::new("/tmp/foo"));
     }
 
     #[test]
@@ -134,7 +57,7 @@ mod tests {
         let lua = Lua::new();
         let s = lua.create_string("/a/b").unwrap();
         let path = lua_to_path(&open_policy(), Value::String(s), Access::Read).unwrap();
-        assert_eq!(path, PathBuf::from("/a/b"));
+        assert_eq!(path.path(), PathBuf::from("/a/b"));
     }
 
     #[test]
@@ -143,6 +66,6 @@ mod tests {
         let file = LuaFile::from_path(Path::new("/tmp/x.txt"));
         let ud = lua.create_userdata(file).unwrap();
         let path = lua_to_path(&open_policy(), Value::UserData(ud), Access::Read).unwrap();
-        assert_eq!(path, PathBuf::from("/tmp/x.txt"));
+        assert_eq!(path.path(), PathBuf::from("/tmp/x.txt"));
     }
 }

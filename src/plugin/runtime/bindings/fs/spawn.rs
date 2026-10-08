@@ -50,8 +50,14 @@ pub fn bind_spawn(
             let tx = tx_copy.clone();
             let p = Arc::clone(&p);
             async move {
-                let from = validate_path(&p, &from_str, Access::Read)?;
-                let to = validate_path(&p, &to_str, Access::Write)?;
+                // The transfer engine works on plain paths: the jail check
+                // is check-then-use here (see THREAT_MODEL residual risk).
+                let from = validate_path(&p, &from_str, Access::Read)?
+                    .path()
+                    .to_path_buf();
+                let to = validate_path(&p, &to_str, Access::Write)?
+                    .path()
+                    .to_path_buf();
                 let _ = tx.send(PluginRequest::SpawnCopyTask { from, to }).await;
                 Ok(())
             }

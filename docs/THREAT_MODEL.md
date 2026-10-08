@@ -35,7 +35,11 @@ elevation from becoming an easy remote-code or credential leak path.
 
 Path checks normalize `.`/`..` lexically and canonicalize the nearest existing
 ancestor, so `..` segments in not-yet-existing paths and symlinks inside the
-jail cannot escape it; dangling symlinks are rejected.
+jail cannot escape it; dangling symlinks are rejected. The check yields the
+jail root it matched; `read`/`write`/`mkdir`/`remove`/`rename`/`copy`/`list`
+/`exists` then run through a `cap-std` directory handle of that root, which
+resolves every component beneath the handle and refuses symlinks, junctions
+or `..` that leave it at use time (no check-then-use window for content).
 
 Every plugin Lua state (trusted or not) has a memory cap (128 MiB untrusted,
 512 MiB trusted) and an instruction-count watchdog that aborts Lua code that
@@ -60,7 +64,7 @@ every instruction, so `pcall` loops cannot swallow the abort.
 
 | Area | Control | Residual risk |
 |------|---------|----------------|
-| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail + spawn allowlist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Path checks are check-then-use (a racing local process could swap a path component). |
+| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail + spawn allowlist; memory cap + runaway-execution watchdog; trust toggle in Plugin Manager | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`). Typosquatting in the registry. Metadata of listed/`stat`ed entries (`File` fields) and `spawn_copy_task` (handed to the transfer engine as plain paths) are still check-then-use. |
 | Registry install | Plugin name and author must match `[A-Za-z0-9_-]`; `[files]` keys with `..`, absolute, drive-prefixed, `\` or `:` paths are rejected; every file is SHA-256 verified in memory before anything is written | Hashes come from the same registry as the files; a compromised registry can ship matching hashes. |
 | User menu (F2) / shell commands | `{f}` / `{p}` (and `%f` in apply-command) expanded in a single pass with the shared `shell` quoting module: POSIX single quotes; on Windows MSVCRT quoting plus caret-escaping of every cmd metacharacter (`% ! ^ " & \| < > ( )`), so names are neither split nor `%VAR%`-expanded. cmd is started as `cmd.exe /V:OFF /S /C "<script>"` via `raw_arg` (no Rust `\"` escaping); the PTY path passes the script through an environment variable. Opening a file without association uses `ShellExecuteW` / `xdg-open` / `open` with the path as one argument (no `cmd /c start`) | The template itself is user-written shell code. On the PTY path cmd substring syntax (`%VAR:~0,3%`) is not expanded. |
 | `pairee.Command` / `fs.spawn` | Blocked if untrusted. Secure Mode `CommandPolicy` allowlist: bare name only (explicit/relative paths refused), must be declared in `[permissions] commands`, resolved via absolute `PATH` entries (Windows `.exe`/`.com` only, never `.bat`/`.cmd`) and executed by that absolute path; a hard deny list (shells, interpreters, LOLBins, network clients, wrappers; names normalized for case, extension and version suffix) applies to the requested name and to the symlink target. Declared commands are shown in the Plugin Manager details | A declared tool with its own exec feature (e.g. `git -c core.sshCommand`, `rg --pre`) can still run arbitrary code. A user-writable directory early in `PATH` can shadow a declared name. The manifest is read at load time; a plugin can edit its own manifest (takes effect on next load). |

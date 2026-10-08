@@ -71,5 +71,6 @@
 - **Security:** Secure Mode now uses a command allowlist for plugins instead of a name blacklist: a plugin may only run programs declared in its manifest, by name, resolved through `PATH` (no explicit or relative paths, no `.bat`/`.cmd`), and shells or interpreters are refused even if declared or reached through a symlink. A renamed binary can no longer slip through.
 - On Windows, commands run from the command line, the user menu and apply-command now reach `cmd.exe` unmodified: quotes are no longer mangled, and file names containing `%VAR%`, `&`, `^`, `!`, `(`, `)` or quotes are passed literally instead of being expanded or split.
 - **Security:** On Windows, opening a file with no association uses the system handler directly (`ShellExecuteW`) instead of `cmd /c start`, so the file name is never parsed by the shell.
+- **Security:** Jailed plugin file operations (`pairee.fs` read, write, mkdir, remove, rename, copy, list) now run through a directory handle of the allowed root, so a folder swapped for a symlink or junction after the path check can no longer redirect them outside the jail.
 
 

@@ -58,6 +58,9 @@ nucleo-matcher = "0.3.1"
 # Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
 portable-pty = "0.8.1"
 trash = "5.2.9"
+# Capability-based directory handles: plugin fs ops cannot escape the jail
+# root even if a path component is swapped for a symlink after validation.
+cap-std = "3"
 
 [profile.release]
 lto = "thin"

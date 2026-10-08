@@ -5,6 +5,7 @@ mod jail;
 mod ops;
 mod path;
 mod spawn;
+mod target;
 
 use crate::plugin::command_policy::CommandPolicy;
 use crate::plugin::manager::PluginRequest;
