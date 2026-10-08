@@ -1,12 +1,8 @@
 pub mod commands;
 pub mod files;
-pub mod left;
-pub mod left_sort;
-pub mod left_view;
 pub mod options;
-pub mod right;
-pub mod right_sort;
-pub mod right_view;
+pub mod panel;
+pub mod panel_submenus;
 pub mod types;
 
 pub use types::MenuItemData;
@@ -30,16 +26,17 @@ pub fn get_menu_items(
     resolver: &crate::keybindings::KeybindingResolver,
     settings: &crate::config::settings::Settings,
 ) -> Vec<MenuItemData> {
+    use crate::app::state::ActivePanel::{Left, Right};
     match menu_idx {
-        0 => left::get_items(state, resolver, settings),
+        0 => panel::get_items(state, resolver, settings, Left),
         1 => files::get_items(resolver, settings),
         2 => commands::get_items(resolver, settings),
         3 => options::get_items(resolver),
-        4 => right::get_items(state, resolver, settings),
-        5 => left_view::get_items(state, resolver),
-        6 => left_sort::get_items(state, resolver),
-        7 => right_view::get_items(state, resolver),
-        8 => right_sort::get_items(state, resolver),
+        4 => panel::get_items(state, resolver, settings, Right),
+        5 => panel_submenus::view_items(state, resolver, Left),
+        6 => panel_submenus::sort_items(state, resolver, Left),
+        7 => panel_submenus::view_items(state, resolver, Right),
+        8 => panel_submenus::sort_items(state, resolver, Right),
         _ => vec![],
     }
 }

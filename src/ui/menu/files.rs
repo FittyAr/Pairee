@@ -1,148 +1,47 @@
-use super::types::MenuItemData;
-use crate::config::localization::t;
+use super::types::{MenuBuilder, MenuItemData};
 use crate::config::settings::Settings;
 use crate::keybindings::{Action, KeybindingResolver};
 
 pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<MenuItemData> {
-    let shortcut_for = |action: Action, fallback: &str| -> String {
-        resolver
-            .key_for_action(action)
-            .map(|s| s.to_string())
-            .unwrap_or_else(|| fallback.to_string())
-    };
-
-    let mut items = vec![
-        MenuItemData::new(t("menu_view"), &shortcut_for(Action::View, "F3"), false)
-            .with_action(Action::View),
-        MenuItemData::new(
-            t("menu_view_alt"),
-            &shortcut_for(Action::ViewAlt, "Alt+F3"),
-            false,
+    MenuBuilder::new(resolver)
+        .actions(&[
+            ("menu_view", Action::View, "F3"),
+            ("menu_view_alt", Action::ViewAlt, "Alt+F3"),
+            ("menu_edit", Action::Edit, "F4"),
+            ("menu_copy", Action::Copy, "F5"),
+            ("menu_copy_path", Action::CopyPath, "Ctrl+Shift+C"),
+            ("menu_print", Action::PrintFile, "Alt+F5"),
+            ("menu_rename_move", Action::Move, "F6"),
+            ("menu_rename", Action::Rename, "F7"),
+            ("menu_link", Action::CreateLink, "Alt+F6"),
+            ("menu_make_folder", Action::MkDir, ""),
+            ("menu_delete", Action::Delete, "F8"),
+            ("menu_wipe", Action::WipeFile, "Alt+Del"),
+        ])
+        .separator()
+        .actions(&[
+            ("menu_add_to_archive", Action::CompressFiles, "Shf+F1"),
+            ("menu_extract_files", Action::ExtractArchive, "Shf+F2"),
+            ("menu_archive_commands", Action::ArchiveCommands, "Shf+F3"),
+        ])
+        .separator()
+        .actions(&[
+            ("menu_file_attributes", Action::FileAttributes, "Ctrl+A"),
+            ("menu_apply_command", Action::ApplyCommand, "Ctrl+G"),
+            ("menu_describe_files", Action::DescribeFile, "Ctrl+Z"),
+        ])
+        .separator()
+        .actions(&[
+            ("menu_select_group", Action::SelectGroup, "Gray+"),
+            ("menu_unselect_group", Action::UnselectGroup, "Gray-"),
+            ("menu_invert_selection", Action::InvertSelection, "Gray*"),
+            ("menu_restore_selection", Action::RestoreSelection, "Ctrl+M"),
+        ])
+        .separator()
+        .actions_if(
+            settings.plugins_enabled,
+            &[("menu_plugin_commands", Action::PluginMenu, "")],
         )
-        .with_action(Action::ViewAlt),
-        MenuItemData::new(t("menu_edit"), &shortcut_for(Action::Edit, "F4"), false)
-            .with_action(Action::Edit),
-        MenuItemData::new(t("menu_copy"), &shortcut_for(Action::Copy, "F5"), false)
-            .with_action(Action::Copy),
-        MenuItemData::new(
-            t("menu_copy_path"),
-            &shortcut_for(Action::CopyPath, "Ctrl+Shift+C"),
-            false,
-        )
-        .with_action(Action::CopyPath),
-        MenuItemData::new(
-            t("menu_print"),
-            &shortcut_for(Action::PrintFile, "Alt+F5"),
-            false,
-        )
-        .with_action(Action::PrintFile),
-        MenuItemData::new(
-            t("menu_rename_move"),
-            &shortcut_for(Action::Move, "F6"),
-            false,
-        )
-        .with_action(Action::Move),
-        MenuItemData::new(t("menu_rename"), &shortcut_for(Action::Rename, "F7"), false)
-            .with_action(Action::Rename),
-        MenuItemData::new(
-            t("menu_link"),
-            &shortcut_for(Action::CreateLink, "Alt+F6"),
-            false,
-        )
-        .with_action(Action::CreateLink),
-        MenuItemData::new(
-            t("menu_make_folder"),
-            &shortcut_for(Action::MkDir, ""),
-            false,
-        )
-        .with_action(Action::MkDir),
-        MenuItemData::new(t("menu_delete"), &shortcut_for(Action::Delete, "F8"), false)
-            .with_action(Action::Delete),
-        MenuItemData::new(
-            t("menu_wipe"),
-            &shortcut_for(Action::WipeFile, "Alt+Del"),
-            false,
-        )
-        .with_action(Action::WipeFile),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_add_to_archive"),
-            &shortcut_for(Action::CompressFiles, "Shf+F1"),
-            false,
-        )
-        .with_action(Action::CompressFiles),
-        MenuItemData::new(
-            t("menu_extract_files"),
-            &shortcut_for(Action::ExtractArchive, "Shf+F2"),
-            false,
-        )
-        .with_action(Action::ExtractArchive),
-        MenuItemData::new(
-            t("menu_archive_commands"),
-            &shortcut_for(Action::ArchiveCommands, "Shf+F3"),
-            false,
-        )
-        .with_action(Action::ArchiveCommands),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_file_attributes"),
-            &shortcut_for(Action::FileAttributes, "Ctrl+A"),
-            false,
-        )
-        .with_action(Action::FileAttributes),
-        MenuItemData::new(
-            t("menu_apply_command"),
-            &shortcut_for(Action::ApplyCommand, "Ctrl+G"),
-            false,
-        )
-        .with_action(Action::ApplyCommand),
-        MenuItemData::new(
-            t("menu_describe_files"),
-            &shortcut_for(Action::DescribeFile, "Ctrl+Z"),
-            false,
-        )
-        .with_action(Action::DescribeFile),
-        MenuItemData::separator(),
-        MenuItemData::new(
-            t("menu_select_group"),
-            &shortcut_for(Action::SelectGroup, "Gray+"),
-            false,
-        )
-        .with_action(Action::SelectGroup),
-        MenuItemData::new(
-            t("menu_unselect_group"),
-            &shortcut_for(Action::UnselectGroup, "Gray-"),
-            false,
-        )
-        .with_action(Action::UnselectGroup),
-        MenuItemData::new(
-            t("menu_invert_selection"),
-            &shortcut_for(Action::InvertSelection, "Gray*"),
-            false,
-        )
-        .with_action(Action::InvertSelection),
-        MenuItemData::new(
-            t("menu_restore_selection"),
-            &shortcut_for(Action::RestoreSelection, "Ctrl+M"),
-            false,
-        )
-        .with_action(Action::RestoreSelection),
-        MenuItemData::separator(),
-    ];
-
-    if settings.plugins_enabled {
-        items.push(
-            MenuItemData::new(
-                t("menu_plugin_commands"),
-                &shortcut_for(Action::PluginMenu, ""),
-                false,
-            )
-            .with_action(Action::PluginMenu),
-        );
-    }
-    items.push(
-        MenuItemData::new(t("menu_exit"), &shortcut_for(Action::Quit, "F10"), false)
-            .with_action(Action::Quit),
-    );
-    items
+        .action(("menu_exit", Action::Quit, "F10"))
+        .build()
 }
