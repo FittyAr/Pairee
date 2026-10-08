@@ -41,6 +41,19 @@ pub fn truncate_to_width(s: &str, max_width: usize) -> String {
     out
 }
 
+/// Suffix of `s` after the first `cols` display columns (horizontal
+/// scrolling). A wide grapheme cut by the boundary is dropped whole.
+pub fn skip_columns(s: &str, cols: usize) -> &str {
+    let mut used = 0usize;
+    for (i, g) in s.grapheme_indices(true) {
+        if used >= cols {
+            return &s[i..];
+        }
+        used += g.width();
+    }
+    ""
+}
+
 /// Pad or truncate `s` to exactly `width` display columns.
 #[allow(dead_code)] // public helper for fixed-width columns
 pub fn pad_or_truncate(s: &str, width: usize) -> String {
@@ -100,6 +113,15 @@ mod tests {
         assert_eq!(expand_tabs("abcd\te", 4), "abcd    e");
         assert_eq!(expand_tabs("no tabs", 8), "no tabs");
         assert_eq!(expand_tabs("\t", 0), " ");
+    }
+
+    #[test]
+    fn skip_columns_scrolls_by_display_width() {
+        assert_eq!(skip_columns("hello", 0), "hello");
+        assert_eq!(skip_columns("hello", 2), "llo");
+        assert_eq!(skip_columns("日本語", 2), "本語");
+        assert_eq!(skip_columns("日本語", 1), "本語");
+        assert_eq!(skip_columns("ab", 5), "");
     }
 
     #[test]

@@ -130,17 +130,7 @@ pub enum GitConfirmedAction {
     DeleteTag(String),
 }
 
-#[derive(Debug, Clone)]
-pub struct EditorState {
-    pub path: PathBuf,
-    pub lines: Vec<String>,
-    pub cursor_x: usize,
-    pub cursor_y: usize,
-    pub scroll_y: usize,
-    pub is_dirty: bool,
-    pub last_search: Option<String>,
-    pub last_case_sensitive: bool,
-}
+pub use crate::app::editor::EditorState;
 
 #[derive(Debug, Clone)]
 pub struct TerminalState {

@@ -5,11 +5,7 @@ use crossterm::event::KeyModifiers;
 use std::path::PathBuf;
 
 fn context() -> AppContext {
-    AppContext::new(AppConfig {
-        settings: crate::config::settings::Settings::default(),
-        theme: crate::config::theme::Theme::default(),
-        keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-    })
+    AppContext::new(AppConfig::default())
 }
 
 fn open(op: TransferPromptOp) -> AppState {

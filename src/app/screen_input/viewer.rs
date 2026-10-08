@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 pub fn handle_viewer_screen(
     state: &mut AppState,
     key: KeyEvent,
-    _context: &mut AppContext,
+    context: &mut AppContext,
 ) -> Result<(), ()> {
     let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
 
@@ -33,6 +33,12 @@ pub fn handle_viewer_screen(
                 }
             }
             KeyCode::F(4) => vw.toggle_mode(),
+            KeyCode::F(6) => {
+                // Viewer → editor: always the built-in editor.
+                let path = vw.path.clone();
+                crate::app::editor::open::open_in_editor(state, path, &context.config.settings);
+                return Ok(());
+            }
             KeyCode::F(7) => {
                 state.dialogs.replace(PopupType::ViewerSearchPrompt {
                     query: String::new(),

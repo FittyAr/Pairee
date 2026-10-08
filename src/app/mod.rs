@@ -2,6 +2,7 @@ pub mod actions;
 #[allow(clippy::module_inception)]
 pub mod app;
 pub mod context;
+pub mod editor;
 pub mod form;
 pub mod git_ops;
 pub mod input;

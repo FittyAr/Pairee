@@ -49,7 +49,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `F2` | Open custom User Command Menu overlay. |
 | `F3` | Open internal file viewer (supports Hex and Text modes). |
 | `Alt+F3` | Open internal file viewer in alternate mode. |
-| `F4` | Open internal file editor (saves via `F2` or `Ctrl+S`). |
+| `F4` | Open the built-in editor (see [section 7](#-7-built-in-editor-f4)). |
 | `F5` | Copy highlighted or selected files to passive panel destination. |
 | `Alt+F5` | Print file utility (applies custom filter command). |
 | `F6` | Move selected items to passive panel destination. Press `Tab` from the path field to expand advanced options (symlinks, attributes, filter, etc.). |
@@ -116,3 +116,25 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `E` / `e` / `Enter` | Edit the highlighted association rule. |
 | `D` / `d` / `Delete` | Delete the highlighted association rule. |
 | `Esc` | Close the editor or cancel current editing step. |
+
+---
+
+## 📝 7. Built-in Editor (F4)
+
+Pairee always edits files with its built-in editor; no external editor is launched. It opens from `F4` in a panel, from `F6` in the viewer and from **Commands → Edit user menu**.
+
+| Key / Shortcut | Action |
+| :--- | :--- |
+| `F2` / `Ctrl+S` | Save. If another program changed the file since it was opened, you are asked before it is overwritten. |
+| `Shift+F2` | Save as (a relative name is resolved against the file's folder; an existing file is only overwritten after confirmation). |
+| `Ctrl+Z` | Undo (typing runs are undone as one step). |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | Redo. |
+| `F7` / `Ctrl+F` | Search. `F3` / `Shift+F7` repeat the last search. |
+| `Ctrl+R` | Reload the file from disk (asks first when there are unsaved changes and the confirmation is enabled). |
+| `Home` / `End` | Start / end of line. `Ctrl+Home` / `Ctrl+End` go to the start / end of the file. |
+| `Tab` | Insert a tab, or spaces up to the next tab stop when **Expand tabs** is on. |
+| `F4` | Open the file in the viewer (hex mode). |
+| `F8` | Discard changes and close. |
+| `Esc` / `F10` | Close (asks when there are unsaved changes). |
+
+The editor keeps the file's line endings (LF or CRLF), final newline and UTF-8 BOM. Files that are not valid UTF-8 or larger than 64 MiB are not opened (use the viewer instead).

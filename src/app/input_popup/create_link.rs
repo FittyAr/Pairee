@@ -69,11 +69,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn press(state: &mut AppState, code: KeyCode) {
-        let mut context = AppContext::new(AppConfig {
-            settings: crate::config::settings::Settings::default(),
-            theme: crate::config::theme::Theme::default(),
-            keybindings: crate::config::keybindings::KeybindingsConfig::default(),
-        });
+        let mut context = AppContext::new(AppConfig::default());
         let _ = handle(state, KeyEvent::new(code, KeyModifiers::NONE), &mut context);
     }
 

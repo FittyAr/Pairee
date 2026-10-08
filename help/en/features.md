@@ -72,9 +72,11 @@ File operations in Pairee are asynchronous, running on a background worker queue
 * **Viewer Search:** Press `F7` inside the viewer to search for text strings.
 * **Quick View:** Instantly displays a preview of the highlighted file in the opposite panel. Supports text file previews and archive metadata listing.
 
-### 3.3 Internal Editor
-* Edit text files directly in-app.
-* Features status counters (current line, character count) and dirty state alerts when attempting to exit without saving.
+### 3.3 Built-in Editor
+* All editing happens in the built-in editor (`F4`); Pairee never launches an external editor.
+* Undo/redo (`Ctrl+Z` / `Ctrl+Y`), search, save and save as (`Shift+F2`).
+* Keeps line endings (LF/CRLF), the final newline and the UTF-8 BOM; honors the tab size, tab expansion, auto indent and line number settings.
+* Warns about or locks read-only files, and asks before overwriting a file that another program changed.
 
 ---
 

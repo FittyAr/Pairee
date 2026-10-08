@@ -10,6 +10,7 @@ pub mod theme;
 
 use anyhow::{Context, Result};
 use keybindings::KeybindingsConfig;
+use load_guard::ConfigLoadState;
 use settings::Settings;
 use std::fs;
 use theme::Theme;
@@ -17,11 +18,15 @@ use theme::Theme;
 /// Names of the preset TOML files shipped with Pairee.
 const BUILTIN_PRESETS: &[&str] = &["norton", "neovim", "vscode"];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct AppConfig {
     pub settings: Settings,
     pub theme: Theme,
     pub keybindings: KeybindingsConfig,
+    /// Whether `config.toml` may be overwritten (locked after a parse error).
+    pub load_state: ConfigLoadState,
+    /// Localized load error to show once at startup.
+    pub load_error: Option<String>,
 }
 
 impl AppConfig {
@@ -107,9 +112,13 @@ impl AppConfig {
 
         // Load active language
         localization::load_language(&settings.language);
-        if let Some(err) = settings_parse_error {
-            load_guard::record_parse_failure(&settings_path, &err);
-        }
+        let (load_state, load_error) = match settings_parse_error {
+            Some(err) => (
+                ConfigLoadState::SaveLocked,
+                Some(load_guard::backup_invalid_config(&settings_path, &err)),
+            ),
+            None => (ConfigLoadState::Loaded, None),
+        };
 
         // 2. Keybindings Loading
         let keybindings_path = paths::get_keybindings_file_path();
@@ -174,13 +183,30 @@ impl AppConfig {
             settings,
             theme,
             keybindings,
+            load_state,
+            load_error,
         })
+    }
+
+    /// `true` while `config.toml` must not be overwritten implicitly.
+    pub fn settings_save_locked(&self) -> bool {
+        self.load_state == ConfigLoadState::SaveLocked
+    }
+
+    /// Lifts the lock after the user explicitly confirmed saving the settings.
+    pub fn confirm_settings_overwrite(&mut self) {
+        self.load_state = ConfigLoadState::Loaded;
+    }
+
+    /// Returns (once) the localized load error to show at startup, if any.
+    pub fn take_load_error(&mut self) -> Option<String> {
+        self.load_error.take()
     }
 
     /// Persists the active configuration back to the disk.
     pub fn save(&self) -> Result<()> {
         let settings_path = paths::get_config_file_path();
-        if load_guard::settings_write_locked() {
+        if self.settings_save_locked() {
             log::warn!(
                 "Not overwriting invalid {:?} until the user confirms via Save setup",
                 settings_path
@@ -309,6 +335,24 @@ mod tests {
         write_atomic(&path, b"secret").expect("atomic write");
         let mode = fs::metadata(&path).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
+    }
+
+    #[test]
+    fn save_lock_is_per_config_and_lifted_by_confirmation() {
+        let mut locked = AppConfig {
+            load_state: ConfigLoadState::SaveLocked,
+            load_error: Some("bad".to_string()),
+            ..AppConfig::default()
+        };
+        assert!(locked.settings_save_locked());
+        assert!(
+            !AppConfig::default().settings_save_locked(),
+            "another config instance is unaffected"
+        );
+        assert_eq!(locked.take_load_error().as_deref(), Some("bad"));
+        assert!(locked.take_load_error().is_none());
+        locked.confirm_settings_overwrite();
+        assert!(!locked.settings_save_locked());
     }
 
     #[test]

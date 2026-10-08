@@ -49,7 +49,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `F2` | Abre el menú de comandos definidos por el usuario. |
 | `F3` | Abre el visor de archivos interno (modos Texto o Hexadecimal). |
 | `Alt+F3` | Abre el visor de archivos interno en modo alternativo. |
-| `F4` | Abre el editor de texto interno (guarda con `F2` o `Ctrl+S`). |
+| `F4` | Abre el editor integrado (ver [sección 7](#-7-editor-integrado-f4)). |
 | `F5` | Copia los archivos seleccionados hacia el panel opuesto. |
 | `Alt+F5` | Imprime archivos aplicando un comando filtro. |
 | `F6` | Mueve los elementos seleccionados al panel opuesto. Pulsa `Tab` desde el campo de ruta para ver las opciones avanzadas (enlaces simbólicos, atributos, filtro, etc.). |
@@ -116,3 +116,25 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `E` / `e` / `Enter` | Editar la regla de asociación seleccionada. |
 | `D` / `d` / `Delete` | Eliminar la regla de asociación seleccionada. |
 | `Esc` | Cerrar el editor o cancelar el paso de edición actual. |
+
+---
+
+## 📝 7. Editor integrado (F4)
+
+Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor externo. Se abre con `F4` en un panel, con `F6` en el visor y desde **Comandos → Editar menú de usuario**.
+
+| Tecla / Atajo | Acción |
+| :--- | :--- |
+| `F2` / `Ctrl+S` | Guardar. Si otro programa modificó el archivo desde que se abrió, se pide confirmación antes de sobrescribirlo. |
+| `Shift+F2` | Guardar como (un nombre relativo se resuelve respecto de la carpeta del archivo; un archivo existente solo se sobrescribe tras confirmar). |
+| `Ctrl+Z` | Deshacer (una racha de escritura se deshace en un solo paso). |
+| `Ctrl+Y` / `Ctrl+Shift+Z` | Rehacer. |
+| `F7` / `Ctrl+F` | Buscar. `F3` / `Shift+F7` repiten la última búsqueda. |
+| `Ctrl+R` | Recargar el archivo desde disco (pregunta antes si hay cambios sin guardar y la confirmación está activa). |
+| `Inicio` / `Fin` | Inicio / fin de línea. `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
+| `Tab` | Inserta una tabulación, o espacios hasta la siguiente parada si **Expandir tabulaciones** está activo. |
+| `F4` | Abre el archivo en el visor (modo hexadecimal). |
+| `F8` | Descartar cambios y cerrar. |
+| `Esc` / `F10` | Cerrar (pregunta si hay cambios sin guardar). |
+
+El editor conserva los finales de línea del archivo (LF o CRLF), el salto de línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que superan 64 MiB no se abren (usa el visor).
