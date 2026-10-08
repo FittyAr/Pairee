@@ -76,7 +76,7 @@ pub(super) fn render_task_list(
         rows,
         cursor: *cursor_idx,
         scroll: Scroll::HalfPage,
-        hint: t(hint_key),
+        hint: Some(t(hint_key)),
         scrollbar: None,
     }
     .render(f, theme);

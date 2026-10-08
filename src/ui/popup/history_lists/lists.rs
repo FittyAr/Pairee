@@ -77,7 +77,7 @@ pub(super) fn render_history_lists(
             .collect(),
         cursor,
         scroll: Scroll::Centered,
-        hint: t(hint),
+        hint: Some(t(hint)),
         scrollbar: Some((scrollbar, id)),
     }
     .render(f, theme);

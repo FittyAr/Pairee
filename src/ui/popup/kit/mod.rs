@@ -9,7 +9,7 @@ mod list_popup;
 
 pub use field::{field_spans, template_with_field};
 pub use filter_list::FilterListView;
-pub use list_popup::{ListPopup, Scroll};
+pub use list_popup::{ListPopup, Scroll, marked};
 
 use crate::app::text_input::TextField;
 use crate::config::theme::Theme;

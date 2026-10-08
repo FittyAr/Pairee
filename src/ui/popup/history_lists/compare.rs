@@ -43,7 +43,7 @@ pub(super) fn render_compare(
         rows,
         cursor: *cursor_idx,
         scroll: Scroll::HalfPage,
-        hint: t("compare_results_hint"),
+        hint: Some(t("compare_results_hint")),
         scrollbar: None,
     }
     .render(f, theme);

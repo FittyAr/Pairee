@@ -22,6 +22,11 @@ pub enum Scroll {
     HalfPage,
 }
 
+/// `" >  item "` for the cursor row, `"    item "` otherwise.
+pub fn marked(item: &str, is_cursor: bool) -> String {
+    format!(" {}  {} ", if is_cursor { ">" } else { " " }, item)
+}
+
 pub struct ListPopup<'a> {
     pub area: Rect,
     pub title: String,
@@ -34,7 +39,8 @@ pub struct ListPopup<'a> {
     pub rows: Vec<(String, Style)>,
     pub cursor: usize,
     pub scroll: Scroll,
-    pub hint: String,
+    /// Dim help line under the list (after a blank line).
+    pub hint: Option<String>,
     /// Scrollbar hit-testing state and target, when the list has a scrollbar.
     pub scrollbar: Option<(Option<&'a ScrollbarUiState>, ScrollTargetId)>,
 }
@@ -48,7 +54,8 @@ impl ListPopup<'_> {
             f.render_widget(Paragraph::new(empty).style(popup_fg(theme)), inner);
             return;
         }
-        let reserved = 2 + self.header.len() as u16; // blank line + hint
+        let hint_rows = if self.hint.is_some() { 2 } else { 0 }; // blank line + hint
+        let reserved = hint_rows + self.header.len() as u16;
         let height = inner.height.saturating_sub(reserved) as usize;
         let start = match self.scroll {
             Scroll::Centered => scrollbar::centered_scroll(self.cursor, self.rows.len(), height),
@@ -68,8 +75,10 @@ impl ListPopup<'_> {
                     Line::from(Span::styled(text, style))
                 }),
         );
-        lines.push(Line::from(""));
-        lines.push(Line::from(Span::styled(self.hint, fg(Color::DarkGray))));
+        if let Some(hint) = self.hint {
+            lines.push(Line::from(""));
+            lines.push(Line::from(Span::styled(hint, fg(Color::DarkGray))));
+        }
         f.render_widget(Paragraph::new(lines).style(popup_fg(theme)), inner);
 
         if let Some((hits, id)) = self.scrollbar {

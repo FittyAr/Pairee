@@ -67,7 +67,14 @@ pub fn render_menu_popup(
             drives,
             cursor_idx,
         } => {
-            render_drive_select(f, theme, left_rect, right_rect, panel, drives, *cursor_idx);
+            render_drive_select(
+                f,
+                theme,
+                (left_rect, right_rect),
+                panel,
+                drives,
+                *cursor_idx,
+            );
             true
         }
         PopupType::Hotlist {
@@ -92,8 +99,7 @@ pub fn render_menu_popup(
             render_context_menu(
                 f,
                 theme,
-                left_rect,
-                right_rect,
+                (left_rect, right_rect),
                 state.panels.active,
                 items,
                 *cursor_idx,

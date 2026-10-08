@@ -46,7 +46,7 @@ pub(super) fn render_tree(
         rows,
         cursor: *cursor_idx,
         scroll: Scroll::HalfPage,
-        hint: t("tree_view_hint"),
+        hint: Some(t("tree_view_hint")),
         scrollbar: None,
     }
     .render(f, theme);

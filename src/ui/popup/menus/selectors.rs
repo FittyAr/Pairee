@@ -4,111 +4,97 @@ use super::super::{centered_rect, centered_rect_in};
 use crate::app::state::ActivePanel;
 use crate::config::localization::t;
 use crate::config::theme::Theme;
+use crate::ui::popup::kit::{self, ListPopup, Scroll, marked};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Modifier, Style},
-    text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    style::{Color, Style},
 };
 use std::path::Path;
+
+/// The rect of `panel`.
+fn panel_rect(panel: ActivePanel, left: Rect, right: Rect) -> Rect {
+    match panel {
+        ActivePanel::Left => left,
+        ActivePanel::Right => right,
+    }
+}
+
+/// `items` with a `>` marker on the cursor row.
+fn marked_rows(items: &[String], cursor: usize, style: Style) -> Vec<(String, Style)> {
+    items
+        .iter()
+        .enumerate()
+        .map(|(i, item)| (marked(item, i == cursor), style))
+        .collect()
+}
+
+/// A plain menu popup (no hint, no empty text).
+fn menu_popup(
+    area: Rect,
+    title: String,
+    border: Color,
+    rows: Vec<(String, Style)>,
+    cursor: usize,
+) -> ListPopup<'static> {
+    ListPopup {
+        area,
+        title,
+        border,
+        empty: None,
+        header: Vec::new(),
+        rows,
+        cursor,
+        scroll: Scroll::HalfPage,
+        hint: None,
+        scrollbar: None,
+    }
+}
 
 pub fn render_drive_select(
     f: &mut Frame,
     theme: &Theme,
-    left_rect: Rect,
-    right_rect: Rect,
+    (left_rect, right_rect): (Rect, Rect),
     panel: &ActivePanel,
     drives: &[String],
     cursor_idx: usize,
 ) {
-    let panel_rect = match panel {
-        ActivePanel::Left => left_rect,
-        ActivePanel::Right => right_rect,
-    };
-    let area = centered_rect_in(35, 60, panel_rect);
-    f.render_widget(Clear, area);
-
-    let mut lines = Vec::new();
-    for (i, drive) in drives.iter().enumerate() {
-        let is_cursor = i == cursor_idx;
-        let line_str = if is_cursor {
-            format!(" >  {} ", drive)
-        } else {
-            format!("    {} ", drive)
-        };
-        let style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
-        };
-        lines.push(Line::from(Span::styled(line_str, style)));
-    }
-
     let panel_label = match panel {
         ActivePanel::Left => t("menu_left"),
         ActivePanel::Right => t("menu_right"),
     };
-    let title = t("popup_select_drive").replacen("{}", &panel_label, 1);
-    let paragraph = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-            .title(title)
-            .style(Style::default().bg(parse_color(&theme.popup_bg))),
-    );
-
-    f.render_widget(paragraph, area);
+    menu_popup(
+        centered_rect_in(35, 60, panel_rect(*panel, left_rect, right_rect)),
+        t("popup_select_drive").replacen("{}", &panel_label, 1),
+        parse_color(&theme.popup_border),
+        marked_rows(drives, cursor_idx, kit::popup_fg(theme)),
+        cursor_idx,
+    )
+    .render(f, theme);
 }
 
 pub fn render_context_menu(
     f: &mut Frame,
     theme: &Theme,
-    left_rect: Rect,
-    right_rect: Rect,
+    (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
     items: &[String],
     cursor_idx: usize,
 ) {
-    let panel_rect = match active_panel {
-        ActivePanel::Left => left_rect,
-        ActivePanel::Right => right_rect,
-    };
     let height_percent = ((items.len() * 10) as u16).clamp(20, 100);
-    let area = centered_rect_in(50, height_percent, panel_rect);
-    f.render_widget(Clear, area);
-
-    let mut lines = Vec::new();
-    for (i, item) in items.iter().enumerate() {
-        let is_cursor = i == cursor_idx;
-        let line_str = if is_cursor {
-            format!(" >  {} ", item)
-        } else {
-            format!("    {} ", item)
-        };
-        let style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
-        };
-        lines.push(Line::from(Span::styled(line_str, style)));
-    }
-
-    let paragraph = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-            .title(t("popup_actions"))
-            .style(Style::default().bg(parse_color(&theme.popup_bg))),
-    );
-    f.render_widget(paragraph, area);
+    menu_popup(
+        centered_rect_in(
+            50,
+            height_percent,
+            panel_rect(active_panel, left_rect, right_rect),
+        ),
+        t("popup_actions"),
+        parse_color(&theme.popup_border),
+        marked_rows(items, cursor_idx, kit::popup_fg(theme)),
+        cursor_idx,
+    )
+    .render(f, theme);
 }
 
 pub fn render_archive_commands_menu(
@@ -119,64 +105,18 @@ pub fn render_archive_commands_menu(
     items: &[String],
     cursor_idx: usize,
 ) {
-    let area = centered_rect(60, 45, size);
-    f.render_widget(Clear, area);
-
-    let archive_name = archive_path
-        .file_name()
-        .map(|n| n.to_string_lossy().to_string())
-        .unwrap_or_default();
-    let title = t("popup_archive_commands").replacen("{}", &archive_name, 1);
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(ratatui::style::Color::Yellow))
-        .title(title)
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-    let inner = block.inner(area);
-    f.render_widget(block, area);
-
-    if items.is_empty() {
-        let paragraph = Paragraph::new(t("no_archive_commands"))
-            .style(Style::default().fg(parse_color(&theme.popup_fg)));
-        f.render_widget(paragraph, inner);
-    } else {
-        let list_height = inner.height.saturating_sub(2) as usize;
-        let scroll_start = cursor_idx.saturating_sub(list_height / 2);
-        let mut lines = Vec::new();
-
-        for (i, item) in items
-            .iter()
-            .enumerate()
-            .skip(scroll_start)
-            .take(list_height)
-        {
-            let is_cursor = i == cursor_idx;
-            let line_str = if is_cursor {
-                format!(" >  {} ", item)
-            } else {
-                format!("    {} ", item)
-            };
-            let style = if is_cursor {
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg))
-                    .add_modifier(Modifier::BOLD)
-            } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
-            };
-            lines.push(Line::from(Span::styled(line_str, style)));
-        }
-
-        let hint = Line::from(Span::styled(
-            t("archive_commands_hint"),
-            Style::default().fg(ratatui::style::Color::DarkGray),
-        ));
-        lines.push(Line::from(""));
-        lines.push(hint);
-
-        let paragraph =
-            Paragraph::new(lines).style(Style::default().fg(parse_color(&theme.popup_fg)));
-        f.render_widget(paragraph, inner);
+    let title =
+        t("popup_archive_commands").replacen("{}", &crate::fs::file_name_lossy(archive_path), 1);
+    ListPopup {
+        empty: Some(t("no_archive_commands")),
+        hint: Some(t("archive_commands_hint")),
+        ..menu_popup(
+            centered_rect(60, 45, size),
+            title,
+            Color::Yellow,
+            marked_rows(items, cursor_idx, kit::popup_fg(theme)),
+            cursor_idx,
+        )
     }
+    .render(f, theme);
 }
