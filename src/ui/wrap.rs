@@ -1,6 +1,9 @@
+//! Word wrapping of styled lines (help, release notes, About box).
+
 use ratatui::text::{Line, Span};
 
-// Simple word-wrapping helper
+/// Wraps `lines` at `width` characters, breaking at whitespace and splitting
+/// words longer than a line.
 pub fn wrap_lines(lines: Vec<Line<'static>>, width: usize) -> Vec<Line<'static>> {
     let mut wrapped = Vec::new();
     for line in lines {

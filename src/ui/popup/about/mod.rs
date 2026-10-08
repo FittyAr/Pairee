@@ -4,9 +4,9 @@ pub use libs::get_dependency_libraries;
 
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::update::wrap_lines;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::theme_apply::parse_color;
+use crate::ui::wrap::wrap_lines;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},

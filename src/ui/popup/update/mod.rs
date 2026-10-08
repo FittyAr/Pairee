@@ -1,8 +1,7 @@
 mod controls;
-mod wrap;
 
+pub use crate::ui::wrap::wrap_lines;
 pub use controls::render_controls;
-pub use wrap::wrap_lines;
 
 use super::centered_rect_fixed;
 use crate::app::state::PopupType;

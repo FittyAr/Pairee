@@ -1,6 +1,7 @@
 mod markdown;
 
-pub use markdown::{parse_markdown_to_lines, wrap_lines};
+pub use crate::ui::wrap::wrap_lines;
+pub use markdown::parse_markdown_to_lines;
 
 use super::super::centered_rect;
 use crate::app::state::PopupType;

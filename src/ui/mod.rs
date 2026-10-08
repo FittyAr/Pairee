@@ -14,6 +14,7 @@ pub mod theme_apply;
 pub mod transfer;
 pub mod viewer;
 pub mod which_key_prefix;
+pub mod wrap;
 
 #[cfg(test)]
 mod tests;
