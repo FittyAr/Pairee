@@ -10,15 +10,19 @@ use std::path::PathBuf;
 
 /// What a finished job did, from its `results`. `executed` is the command
 /// the job ran for an undo/redo (`None` for a user operation). Jobs that are
-/// not journaled (compress, extract, apply command, copies in and out of
-/// archives) give `None`.
+/// not journaled (compress, extract, apply command) give `None`; copies in
+/// and out of archives and deletions inside them are recorded as not
+/// undoable.
 pub fn from_transfer(
     job: &TransferJob,
     results: &TransferResults,
     executed: Option<&FsCommand>,
 ) -> Option<FsCommand> {
     if crate::fs::transfer::backend::archive_vfs::plan(job).is_some() {
-        return None;
+        return Some(FsCommand::NotUndoable {
+            kind: Irreversible::Archive,
+            count: job.sources.len(),
+        });
     }
     if let Some(client) = same_server_move(job) {
         // A move within one SFTP server is a series of renames.

@@ -1,6 +1,5 @@
 //! Copy phase orchestrator for local transfer operations.
 
-pub mod conflict;
 pub mod single_file;
 pub mod verify_cleanup;
 
@@ -17,7 +16,7 @@ use super::super::options::TransferOptions;
 use super::scan::ScanOutcome;
 use super::speed::spawn_speed_reporter;
 
-pub use conflict::{ConflictAction, resolve_existing_destination};
+use super::super::conflict_resolver::{ConflictAction, ConflictResolver};
 pub use single_file::transfer_one_file;
 pub use verify_cleanup::{cleanup_source_dirs, verify_hashes};
 
@@ -30,7 +29,13 @@ pub(super) async fn run_copy_phase(
     ctl: &JobControl,
     active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
 ) -> Result<TransferResults, anyhow::Error> {
-    let mut auto_resolution = None;
+    let mut conflicts = ConflictResolver {
+        options,
+        ctl,
+        slot: &active_conflict,
+        dst_fs: &crate::fs::vfs::LocalVfs,
+        auto: None,
+    };
     let mut results = TransferResults {
         created_dirs: scan.created_dirs,
         ..TransferResults::default()
@@ -44,16 +49,7 @@ pub(super) async fn run_copy_phase(
             continue;
         }
         if dst.exists() {
-            let action = resolve_existing_destination(
-                &src,
-                &mut dst,
-                options,
-                ctl,
-                &active_conflict,
-                &mut auto_resolution,
-                &mut results,
-            )
-            .await?;
+            let action = conflicts.resolve(&src, &mut dst, &mut results).await?;
             if let ConflictAction::Skip = action {
                 continue;
             }
