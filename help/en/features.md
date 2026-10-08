@@ -33,7 +33,7 @@ You can configure each panel independently to display files using different deta
 File operations in Pairee are asynchronous, running on a background worker queue (`tokio`) to ensure the user interface remains completely responsive.
 
 ### 2.1 Bulk Selection & Tagging
-* Tag files by pressing `Insert` or `Space` on an item. The cursor automatically moves down.
+* Tag files by pressing `Insert` or `Space` on an item. The cursor automatically moves down. On a folder this also measures its size (see **Folder sizes** below).
 * Use `+` (Keypad) to tag files using wildcard patterns (e.g. `*.rs` or `temp_*`).
 * Use `-` (Keypad) to untag files using wildcard patterns.
 * Use `*` (Keypad) to invert the selection state of the entire panel.
@@ -103,6 +103,8 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 
 * **Context Actions Menu:** Opens a popup menu containing actions (View, Edit, Copy, Move, Delete, Compress, Extract) relative to the highlighted file type. Detects archives (ZIP, 7z, RAR, TAR, GZ, BZ2, XZ) and adds dynamic Archive Commands.
 * **Folder Compare:** Compares left and right panel directory listings to identify files that are present in only one panel or differ in size/modification date, highlighting and tagging them.
+* **Folder sizes:** `Space` or `F3` on a folder, or **Commands → Folder sizes** (selected folders, or every folder when none is selected), computes the folder's total size in the background. The size column shows it until you change directory; `Esc` stops the calculation. Symbolic links are not followed, hard links are counted once (Linux/macOS) and folders that could not be read completely are marked with `+`. Works on local and SFTP panels.
+* **Disk usage view:** **Commands → Disk usage** scans the current folder (cancellable with `Esc`, with live progress) and lists its contents largest first with a percentage and a bar. `Enter`/`→` opens a subfolder, `←`/`Backspace` goes back, `Del`/`F8` deletes the highlighted item through the regular delete confirmation, `r`/`F5` rescans. The result is cached: reopening the view on the same folder is instant.
 * **OS Task Manager:** Displays a table of active system processes with PIDs, names, and memory consumption. Allows process termination using `Delete` or `Alt+Delete`.
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
 * **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.

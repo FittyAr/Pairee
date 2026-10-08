@@ -3,6 +3,7 @@ pub mod attrs;
 pub mod compare;
 pub mod delete_util;
 pub mod descriptions;
+pub mod du;
 pub mod elevated_helper;
 pub mod entry;
 pub mod external_tools;

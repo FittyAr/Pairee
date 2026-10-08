@@ -15,6 +15,9 @@ pub fn process_background_updates(
     state.poll_panel_listings();
     state.poll_quick_view();
     state.poll_viewer_load();
+    if state.disk_usage.poll() {
+        state.mark_ui_dirty();
+    }
     crate::app::git_ops::poll_git_op(state);
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
     channels::process_terminal_updates(state);

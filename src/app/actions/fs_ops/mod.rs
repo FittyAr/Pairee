@@ -7,6 +7,7 @@ pub mod delete;
 pub mod describe;
 pub mod edit;
 pub mod extract;
+pub mod folder_size;
 pub mod helper;
 pub mod link;
 pub mod mkdir;
@@ -46,6 +47,8 @@ pub fn handle_fs_action(
         Action::ApplyCommand => apply::handle(state),
         Action::DescribeFile => describe::handle(state),
         Action::ArchiveCommands => archive_cmd::handle(state),
+        Action::CalculateFolderSizes => folder_size::calculate(state),
+        Action::DiskUsage => folder_size::open_disk_usage(state),
         _ => false,
     }
 }
