@@ -12,6 +12,7 @@ pub mod copy_filter;
 pub mod create_link;
 pub mod delete;
 pub mod describe_file;
+pub mod disk_usage;
 pub mod dismiss_only;
 pub mod drive_select;
 pub mod editor;
@@ -123,6 +124,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
             file_filter::handle
         }
         PopupType::TaskListDialog { .. } => task_list::handle,
+        PopupType::DiskUsage => disk_usage::handle,
         PopupType::PluginMenu(..) => plugin_menu::handle,
         PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
         PopupType::SaveSetupConfirm => save_setup::handle,

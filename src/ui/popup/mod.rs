@@ -2,6 +2,7 @@ pub mod about;
 pub mod color_groups;
 pub mod command_palette;
 pub mod config_dialog;
+pub mod disk_usage;
 pub mod editor;
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
@@ -84,6 +85,9 @@ fn render_specific_popup(
         return;
     }
     if sync_dirs::render(f, popup, state, theme, size) {
+        return;
+    }
+    if disk_usage::render(f, popup, state, theme, size) {
         return;
     }
     if history_lists::render_history_lists_popup(f, popup, theme, size, Some(&state.scrollbar)) {

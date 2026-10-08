@@ -25,6 +25,8 @@
 - Mode localization (`Soft`, `Mixed`, `Hard`) in Git commit reset confirmation prompts.
 - Informative notice when attempting to commit with clean working copy and no amend mode.
 - Plugins can declare the programs they need in `manifest.toml` (`[permissions] commands = [...]`); the Plugin Manager shows them in the plugin details.
+- Folder sizes: `Space` or `F3` on a folder, or **Commands → Folder sizes** (selected folders, or all of them), computes the size in the background and shows it in the size column and status line until the directory changes; `Esc` cancels. Symbolic links are not followed, hard links count once on Unix, and folders that could not be read completely are marked with `+`. Works on SFTP panels too.
+- Disk usage view (**Commands → Disk usage**): ncdu-like list of the current folder sorted by size with percentages and bars, cancellable scan with live progress, navigation into subfolders and back, deletion through the regular delete confirmation and rescan (`r`/`F5`). Scan results are cached per folder.
 
 ### Improved
 

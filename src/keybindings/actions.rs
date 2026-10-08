@@ -162,6 +162,10 @@ pub enum Action {
     CompareFolder,
     /// Synchronize the left and right panel folders (Commands menu)
     SyncDirs,
+    /// Compute the size of the selected folders, or of every folder (Commands menu)
+    CalculateFolderSizes,
+    /// Disk usage view of the current folder, largest items first (Commands menu)
+    DiskUsage,
     /// Open user menu editor (Commands menu)
     EditUserMenu,
     /// Open file associations editor (Commands menu)

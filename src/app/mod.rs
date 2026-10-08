@@ -3,6 +3,7 @@ pub mod actions;
 pub mod app;
 pub mod config_rows;
 pub mod context;
+pub mod disk_usage;
 pub mod editor;
 pub mod form;
 pub mod git_ops;

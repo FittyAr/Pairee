@@ -33,7 +33,7 @@ You can configure each panel independently to display files using different deta
 File operations in Pairee are asynchronous, running on a background worker queue (`tokio`) to ensure the user interface remains completely responsive.
 
 ### 2.1 Bulk Selection & Tagging
-* Tag files by pressing `Insert` or `Space` on an item. The cursor automatically moves down.
+* Tag files by pressing `Insert` or `Space` on an item. The cursor automatically moves down. On a folder this also measures its size (see **Folder sizes** below).
 * Use `+` (Keypad) to tag files using wildcard patterns (e.g. `*.rs` or `temp_*`).
 * Use `-` (Keypad) to untag files using wildcard patterns.
 * Use `*` (Keypad) to invert the selection state of the entire panel.
@@ -98,6 +98,8 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
   1. *Options:* direction (`Space` cycles) — **Left → Right** (copy new and changed files to the right; a newer file on the right is not overwritten by default), **Right → Left**, **Both ways** (the newer file wins; same-time conflicts are skipped) or **Mirror Left → Right** (also deletes what exists only on the right); compare file contents with the transfer hash algorithm (same-size files are then equal only when their contents match); ignore hidden files; and a filter mask in the copy-filter syntax (`*.rs;*.toml` include, `!target` exclude, `;`-separated). Swap the panels (`Ctrl+U`) to mirror the other way.
   2. *Review:* after the comparison (background, `Esc` cancels) every difference is listed with its status, size and planned action, plus totals of files and bytes to copy or delete. Keys: `→`/`>` copy to the right, `←`/`<` copy to the left, `Del`/`D` delete (items on one side only), `S` skip, `Space` cycles the allowed actions, `Tab` changes the direction (resetting the default actions), `E` shows/hides equal files, `Enter` applies, `Esc` goes back to the options.
   3. *Apply:* plans that delete anything ask for an explicit confirmation (`Y`/`Enter`, `N`/`Esc`). The copies and deletes run as ordinary Transfer Engine jobs (progress, pause, cancel and log in the transfer panel); copies overwrite the target and keep the source modification time, and deletions follow the "delete to recycle bin" setting. Only local folders can be synchronized.
+* **Folder sizes:** `Space` or `F3` on a folder, or **Commands → Folder sizes** (selected folders, or every folder when none is selected), computes the folder's total size in the background. The size column shows it until you change directory; `Esc` stops the calculation. Symbolic links are not followed, hard links are counted once (Linux/macOS) and folders that could not be read completely are marked with `+`. Works on local and SFTP panels.
+* **Disk usage view:** **Commands → Disk usage** scans the current folder (cancellable with `Esc`, with live progress) and lists its contents largest first with a percentage and a bar. `Enter`/`→` opens a subfolder, `←`/`Backspace` goes back, `Del`/`F8` deletes the highlighted item through the regular delete confirmation, `r`/`F5` rescans. The result is cached: reopening the view on the same folder is instant.
 * **OS Task Manager:** Displays a table of active system processes with PIDs, names, and memory consumption. Allows process termination using `Delete` or `Alt+Delete`.
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
 * **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.

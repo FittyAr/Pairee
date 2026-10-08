@@ -51,6 +51,8 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
 
     let loading = if panel.is_loading() {
         format!(" {}", t("panel_loading"))
+    } else if panel.dir_sizes.is_running() {
+        format!(" {}", t("dir_size_title_running"))
     } else {
         String::new()
     };
@@ -123,6 +125,33 @@ pub(crate) fn format_file_size(size: u64) -> String {
     }
 }
 
+/// A computed folder size, with the "incomplete" marker when part of the
+/// tree could not be read.
+pub(crate) fn dir_size_text(size: &crate::fs::du::DirSize) -> String {
+    let text = format_file_size(size.bytes);
+    if size.partial {
+        t("dir_size_partial").replace("{}", &text)
+    } else {
+        text
+    }
+}
+
+/// Size text for `entry`: the file size, the computed folder size (marked
+/// when partial or still being measured), or `None` for an unmeasured folder.
+pub(crate) fn entry_size_text(panel: &PanelState, entry: &FileEntry) -> Option<String> {
+    if !entry.is_dir {
+        return Some(format_file_size(entry.size));
+    }
+    if let Some(size) = panel.dir_sizes.get(&entry.path) {
+        return Some(dir_size_text(size));
+    }
+    panel
+        .dir_sizes
+        .progress()
+        .filter(|p| p.target == entry.path)
+        .map(|p| t("dir_size_running").replace("{}", &format_file_size(p.bytes)))
+}
+
 pub(crate) fn format_date(time: Option<SystemTime>) -> String {
     match time {
         Some(t) => {
@@ -175,5 +204,26 @@ mod tests {
         );
         assert_eq!(entry_display_name("sub", true, Some("?")), "[?] /sub");
         assert_eq!(entry_display_name("..", true, None), "..");
+    }
+
+    #[test]
+    fn entry_size_text_uses_computed_folder_sizes() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("sub")).unwrap();
+        std::fs::write(dir.path().join("sub/f"), [0u8; 10]).unwrap();
+        let mut panel = PanelState::new(dir.path().to_path_buf());
+        let folder = FileEntry {
+            name: "sub".into(),
+            path: dir.path().join("sub"),
+            size: 0,
+            is_dir: true,
+            is_symlink: false,
+            modified: None,
+        };
+        panel.entries = vec![folder.clone()];
+        assert_eq!(entry_size_text(&panel, &folder), None);
+        panel.calculate_dir_sizes(std::slice::from_ref(&folder.path));
+        panel.dir_sizes.poll();
+        assert_eq!(entry_size_text(&panel, &folder).as_deref(), Some("10 B"));
     }
 }

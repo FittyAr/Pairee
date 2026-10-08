@@ -222,6 +222,9 @@ pub enum PopupType {
         cursor_idx: usize,
     },
 
+    /// Disk usage view; its data lives in `AppState::disk_usage`.
+    DiskUsage,
+
     CompareFoldersResult {
         diff: Vec<crate::fs::compare::CompareEntry>,
         cursor_idx: usize,
