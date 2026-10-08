@@ -1,8 +1,7 @@
+use super::toast::{Toast, spawn_with_toast};
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::config::localization::t;
 use crossterm::event::{KeyCode, KeyEvent};
-
-/// Visible page size — calculated externally and passed in.
-/// Defaults used in the handler (actual value is derived from the list area height at render time).
-const PAGE_SIZE: usize = 20;
 
 pub fn handle_search(
     key: KeyEvent,
@@ -12,71 +11,28 @@ pub fn handle_search(
     search_query: &mut String,
     editing_query: &mut bool,
 ) {
+    // Navigation always works, also while typing the query.
+    if list_key(ListKeys::FULL, key.code, cursor_idx, registry.len()) == ListKey::Moved {
+        return;
+    }
     match key.code {
-        // ── Navigation — ALWAYS works regardless of edit mode ───────────────
-        KeyCode::Up => {
-            if !registry.is_empty() {
-                if *cursor_idx == 0 {
-                    *cursor_idx = registry.len() - 1;
-                } else {
-                    *cursor_idx -= 1;
-                }
-            }
-        }
-        KeyCode::Down => {
-            if !registry.is_empty() {
-                if *cursor_idx + 1 >= registry.len() {
-                    *cursor_idx = 0;
-                } else {
-                    *cursor_idx += 1;
-                }
-            }
-        }
-        KeyCode::PageUp => {
-            if !registry.is_empty() {
-                *cursor_idx = cursor_idx.saturating_sub(PAGE_SIZE);
-            }
-        }
-        KeyCode::PageDown => {
-            if !registry.is_empty() {
-                *cursor_idx = (*cursor_idx + PAGE_SIZE).min(registry.len() - 1);
-            }
-        }
-
         // ── Install selected plugin (only outside edit mode) ─────────────────
         KeyCode::Char('i') | KeyCode::Char('I') if !*editing_query => {
             if let Some((name, _, _, _)) = registry.get(*cursor_idx) {
-                let name_clone = name.clone();
-                let tx = crate::plugin::PluginManager::get_sender();
-                tokio::spawn(async move {
-                    match crate::plugin::updater::install(&name_clone, None).await {
-                        Ok(_) => {
-                            let _ = tx
-                                .send(crate::plugin::manager::PluginRequest::Notify {
-                                    title: crate::config::localization::t(
-                                        "plugin_toast_install_title",
-                                    ),
-                                    msg: crate::config::localization::t("plugin_toast_install_ok")
-                                        .replace("{}", &name_clone),
-                                    level: "info".to_string(),
-                                })
-                                .await;
-                        }
-                        Err(e) => {
-                            let _ = tx
-                                .send(crate::plugin::manager::PluginRequest::Notify {
-                                    title: crate::config::localization::t(
-                                        "plugin_toast_install_err_title",
-                                    ),
-                                    msg: crate::config::localization::t("plugin_toast_install_err")
-                                        .replace("{}", &name_clone)
-                                        .replace("{:?}", &format!("{:?}", e)),
-                                    level: "error".to_string(),
-                                })
-                                .await;
-                        }
-                    }
-                });
+                let name = name.clone();
+                let ok = Toast {
+                    title: t("plugin_toast_install_title"),
+                    msg: t("plugin_toast_install_ok").replace("{}", &name),
+                };
+                let err = Toast {
+                    title: t("plugin_toast_install_err_title"),
+                    msg: t("plugin_toast_install_err").replace("{}", &name),
+                };
+                spawn_with_toast(
+                    async move { crate::plugin::updater::install(&name, None).await },
+                    ok,
+                    err,
+                );
             }
         }
 

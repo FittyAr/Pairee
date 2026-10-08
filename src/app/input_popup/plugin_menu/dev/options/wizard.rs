@@ -161,18 +161,13 @@ pub fn handle_wizard_enter(
             }
 
             tokio::spawn(async move {
-                let notify_tx = crate::plugin::PluginManager::get_sender();
+                use crate::app::input_popup::plugin_menu::toast::{Toast, notify};
                 match developer_tool::run_automatic_submit(&token, &commit_msg_async, &plugin_name)
                     .await
                 {
                     Ok(msg) => {
-                        let _ = notify_tx
-                            .send(crate::plugin::manager::PluginRequest::Notify {
-                                title: t("plugin_dev_toast_submitted_title"),
-                                msg,
-                                level: "info".to_string(),
-                            })
-                            .await;
+                        let title = t("plugin_dev_toast_submitted_title");
+                        notify(Toast { title, msg }, "info").await;
                         developer_tool::progress_finish(
                             Some(tx_for_async),
                             Some(t("plugin_dev_fork_push_bg").to_string()),
@@ -180,18 +175,17 @@ pub fn handle_wizard_enter(
                         );
                     }
                     Err(e) => {
-                        let _ = notify_tx
-                            .send(crate::plugin::manager::PluginRequest::Notify {
-                                title: t("plugin_dev_toast_submit_fail_title"),
-                                msg: format!("{:?}", e),
-                                level: "error".to_string(),
-                            })
-                            .await;
-                        developer_tool::progress_finish(
-                            Some(tx_for_async),
-                            None,
-                            Some(format!("{:?}", e)),
-                        );
+                        let title = t("plugin_dev_toast_submit_fail_title");
+                        let msg = format!("{:?}", e);
+                        notify(
+                            Toast {
+                                title,
+                                msg: msg.clone(),
+                            },
+                            "error",
+                        )
+                        .await;
+                        developer_tool::progress_finish(Some(tx_for_async), None, Some(msg));
                     }
                 }
             });

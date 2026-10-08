@@ -6,6 +6,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub mod dev;
 pub mod installed;
 pub mod search;
+pub mod toast;
 
 pub fn reload_installed_plugins(
     context: &AppContext,
