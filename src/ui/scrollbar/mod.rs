@@ -18,7 +18,7 @@ pub use types::{ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 
 #[cfg(test)]
 mod tests {
-    use super::layout::{should_show, track_area_inside_block, track_area_right};
+    use super::layout::{block_inner, should_show, track_area_right};
     use super::render::vertical_bar;
     use super::types::ScrollbarHitTarget;
     use super::*;
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn track_area_inside_block_insets_then_right() {
         let block = Rect::new(0, 0, 20, 10);
-        let track = track_area_inside_block(block);
+        let track = track_area_right(block_inner(block));
         assert_eq!(track.x, 18); // width 20 → inner ends at 18
         assert_eq!(track.y, 1);
         assert_eq!(track.width, 1);
@@ -91,6 +91,7 @@ mod tests {
         state.clear_targets();
         state.register(ScrollbarHitTarget {
             area: Rect::new(0, 0, 1, 10),
+            wheel_area: Rect::new(0, 0, 10, 10),
             content_len: 100,
             viewport_len: 10,
             offset: 0,

@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
-use crate::app::input_popup::git_new_popups::{close_to, finish_with};
+use crate::app::git_local::{GitContext, GitFailure};
+use crate::app::input_popup::git_new_popups::{close_to, run_and_report};
 use crate::app::state::popup::{GitCommitPromptState, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
@@ -66,7 +67,7 @@ fn toggle_amend(prompt: &mut GitCommitPromptState) -> Result<(), String> {
     Ok(())
 }
 
-/// Enter: stage everything when nothing is staged, then commit (or amend).
+/// Enter: commits (or amends) in the background over the restored panel.
 fn commit(state: &mut AppState, context: &AppContext, prompt: GitCommitPromptState) {
     let message = prompt.input.text().trim().to_string();
     if message.is_empty() {
@@ -75,53 +76,47 @@ fn commit(state: &mut AppState, context: &AppContext, prompt: GitCommitPromptSta
             .replace(PopupType::Error(t("git_commit_empty_msg")));
         return;
     }
-    let Some(repo) = crate::git::repo::find_repo(&prompt.repo_path) else {
-        state.dialogs.replace(PopupType::Error(t("git_not_a_repo")));
-        return;
-    };
-    let statuses = crate::git::status::get_status(&repo);
-    if statuses.is_empty() && !prompt.is_amend {
-        state.dialogs.replace(PopupType::Info(t("git_no_changes")));
-        return;
-    }
-    // Only auto-stage all if no files were manually staged and it's not an amend.
-    if !prompt.is_amend
-        && !statuses.iter().any(|s| s.is_staged)
-        && let Err(e) = crate::git::stage::stage_all(&repo)
-    {
-        state.dialogs.replace(PopupType::Error(format!(
-            "{}: {}",
-            t("git_error_stage_failed"),
-            e
-        )));
-        return;
-    }
     let settings = &context.config.settings;
-    let commit_fn = if prompt.is_amend {
+    let author = (
+        settings.git_author_name.clone(),
+        settings.git_author_email.clone(),
+    );
+    let is_amend = prompt.is_amend;
+    run_and_report(
+        state,
+        prompt.previous_popup,
+        &prompt.repo_path,
+        settings.show_hidden,
+        move |repo| commit_work(repo, &message, is_amend, &author),
+    );
+}
+
+/// Stages everything when nothing is staged (not when amending), then
+/// commits. Returns the message to show.
+fn commit_work(
+    repo: &mut git2::Repository,
+    message: &str,
+    is_amend: bool,
+    (name, email): &(String, String),
+) -> Result<PopupType, GitFailure> {
+    let statuses = crate::git::status::get_status(repo);
+    if statuses.is_empty() && !is_amend {
+        return Ok(PopupType::Info(t("git_no_changes")));
+    }
+    if !is_amend && !statuses.iter().any(|s| s.is_staged) {
+        crate::git::stage::stage_all(repo).ctx("git_error_stage_failed")?;
+    }
+    let commit_fn = if is_amend {
         crate::git::commit::commit_amend
     } else {
         crate::git::commit::commit
     };
-    match commit_fn(
-        &repo,
-        &message,
-        &settings.git_author_name,
-        &settings.git_author_email,
-    ) {
-        Ok(oid) => {
-            let oid = oid.to_string();
-            let done = PopupType::Info(format!(
-                "{} [{}]",
-                t("git_commit_success"),
-                &oid[..7.min(oid.len())]
-            ));
-            state.refresh_both_panels(settings.show_hidden);
-            finish_with(state, prompt.previous_popup, &prompt.repo_path, done);
-        }
-        Err(e) => state.dialogs.replace(PopupType::Error(format!(
-            "{}: {}",
-            t("git_error_commit_failed"),
-            e
-        ))),
-    }
+    let oid = commit_fn(repo, message, name, email)
+        .ctx("git_error_commit_failed")?
+        .to_string();
+    Ok(PopupType::Info(format!(
+        "{} [{}]",
+        t("git_commit_success"),
+        &oid[..7.min(oid.len())]
+    )))
 }

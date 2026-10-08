@@ -114,9 +114,14 @@ pub fn render_editor_widget(
     f.render_widget(Paragraph::new(text).style(normal_style), edit_area);
 
     let mut flags = ed.format.line_ending.label().to_string();
-    if ed.stamp.read_only {
-        flags.push_str(" | ");
-        flags.push_str(&t("editor_read_only_flag"));
+    for (on, key) in [
+        (ed.stamp.read_only, "editor_read_only_flag"),
+        (ed.block_mode, "editor_block_mode_flag"),
+    ] {
+        if on {
+            flags.push_str(" | ");
+            flags.push_str(&t(key));
+        }
     }
     let status_text = t("editor_status_text")
         .replacen("{}", &current_line.graphemes(true).count().to_string(), 1)

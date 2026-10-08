@@ -76,7 +76,7 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | `Alt+Backspace` | Undo the last file operation (rename, move, copy, make folder, link, send to trash) after a confirmation (see Features, section 2.4.1). |
 | `Ctrl+Y` | Redo the last undone file operation. |
 | `F7` | Rename the highlighted item in place (filename only). |
-| `Shift+F6` | Multi-rename the selected items with masks, counter, search & replace and a live preview (see Features, section 2.2.1). In the dialog: `Tab`/arrows move between fields, `Space` toggles options, `Left`/`Right` change the case mode, `PgUp`/`PgDn` scroll the preview, `Enter` renames, `Esc` cancels. |
+| `Shift+F6` | Multi-rename the selected items with masks, counter, search & replace and a live preview (see Features, section 2.2.1). In the dialog: `Tab`/arrows move between fields, `Space` toggles options, `Left`/`Right` change the case mode, `PgUp`/`PgDn`, the mouse wheel or the scrollbar scroll the preview, `Enter` renames, `Esc` cancels. |
 | `F8` / `Delete` | Delete highlighted or tagged files. |
 | `Alt+Delete` | Secure Wipe: Overwrites file sectors before permanent deletion. |
 | `F9` | Pull down and activate the Top Menu Bar. |
@@ -123,11 +123,18 @@ Each panel can hold several folder tabs. The tab bar above a panel appears when 
 | `Alt+G` | Launch Git Integration Panel. |
 | `Ctrl+W` | Open OS Task List (running system processes table). |
 | `Alt+F10` | Open graphical directory Tree View. |
-| `Ctrl+p` / `Ctrl+P` | Cycle bottom F-key modifier row manually (Normal -> Ctrl -> Alt). |
+| `Ctrl+p` / `Ctrl+P` | Cycle bottom F-key modifier row manually (Normal -> Ctrl -> Alt -> Shift). Each row shows what the keymap binds to `F1`…`F12` with that modifier (e.g. `Shift+F6` multi-rename). |
 | `s` | (With Yazi workflow enabled) Open Yazi Sort modal panel. |
 | `v` | (With Yazi workflow enabled) Open Yazi View modal panel. |
 | `Ctrl+Tab` | Switch focus to next open screen background tab. |
 | `Ctrl+Shift+Tab` | Switch focus to previous open screen background tab. |
+
+### Keymap files and `Ctrl+Shift` shortcuts
+
+* In `keymaps/*.toml` and `[custom_bindings]` a shifted letter is written as the uppercase letter: `Ctrl+K` means `Ctrl+Shift+K`. The old spelling `Ctrl+Shift+k` is still accepted and rewritten. `Comma` names the `,` key (`Ctrl+Comma`), since commas separate alternative chords.
+* `Ctrl+Shift+<letter>` shortcuts (copy path `Ctrl+Shift+C`, command palette `Ctrl+Shift+P`, key overlay `Ctrl+Shift+K`, SSH `Ctrl+Shift+S`) need a terminal that reports `Shift` together with `Ctrl` (Windows Terminal, kitty, WezTerm, foot…).
+* VSCode keymap: `F2` is only Rename; the user menu moved to `Alt+U`, swap panels to `Ctrl+U`, find file to `Ctrl+Shift+F` (`Ctrl+F` is the quick filter), show hidden files to `Ctrl+.`, and settings `Ctrl+,` now works.
+* Every shipped keymap loads without errors or duplicate chords (checked by a test).
 
 ---
 
@@ -157,7 +164,8 @@ Pairee always edits files with its built-in editor; no external editor is launch
 | `Ctrl+R` | Reload the file from disk (asks first when there are unsaved changes and the confirmation is enabled). |
 | `Home` / `End` | Start / end of line. `Ctrl+Home` / `Ctrl+End` go to the start / end of the file. |
 | `Shift` + arrows / `Home` / `End` / `PgUp` / `PgDn` / `Ctrl+Home` / `Ctrl+End` | Select text. Dragging with the mouse also selects. |
-| `Alt+Shift` + arrows / `Home` / `End` | Vertical block (column) selection, Far style. `Alt` + mouse drag also selects a block. |
+| `Alt+Shift` + arrows / `Home` / `End` (also `Ctrl+Alt+Shift`) | Vertical block (column) selection, Far style. `Alt` + mouse drag also selects a block. |
+| `Ctrl+B` | Toggle block mode: `Shift` + arrows and mouse drags select a vertical block (the status line shows "Block mode"). Use it in terminals that keep `Alt+Shift` + arrows for themselves, such as Windows Terminal (pane resizing). |
 | `Ctrl+A` | Select all. `Esc` clears the selection. |
 | `Ctrl+C` / `Ctrl+Insert` | Copy the selection. |
 | `Ctrl+X` / `Shift+Delete` | Cut the selection. |

@@ -59,7 +59,7 @@ pub fn handle_editor_screen(
     let Some(ed) = state.active_editor_mut() else {
         return Err(());
     };
-    if let Some((motion, extend)) = motion::from_key(&key, height) {
+    if let Some((motion, extend)) = motion::from_key(&key, height, ed.block_mode) {
         ed.move_cursor(motion, extend);
         ed.ensure_cursor_visible(height);
         return Ok(());

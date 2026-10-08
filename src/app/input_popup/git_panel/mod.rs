@@ -1,7 +1,7 @@
 //! Git repository control panel popup handler.
 
 mod remote;
-mod tabs;
+pub(crate) mod tabs;
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{NavStep, wrap_next, wrap_prev};

@@ -1,11 +1,13 @@
 //! Handles key input for the generic GitConfirmAction dialog.
 //!
-//! Every confirmed action maps to one row of [`plan`]: the Git call, the
-//! error message key and what to show afterwards.
+//! Every confirmed action maps to one row of [`plan`]: the Git call (run in
+//! the background through `app::git_local`), the error message key and what
+//! to show afterwards.
 
-use super::common::restore_previous_and_refresh;
+use super::remote_manage::{show_remotes, then_list_remotes};
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
+use crate::app::git_local::GitContext;
 use crate::app::state::popup::{GitConfirmActionState, GitPromptPopup};
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
@@ -13,6 +15,25 @@ use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 use git2::Repository;
+use std::path::Path;
+
+/// Opens the confirmation of `action` over the current dialog.
+pub fn open_confirm(
+    state: &mut AppState,
+    repo_path: &Path,
+    message: String,
+    action: GitConfirmedAction,
+) {
+    let repo_path = repo_path.to_path_buf();
+    state.dialogs.open_over(|previous_popup| {
+        PopupType::GitPrompt(GitPromptPopup::ConfirmAction(GitConfirmActionState {
+            message,
+            repo_path,
+            action,
+            previous_popup,
+        }))
+    });
+}
 
 pub fn handle_confirm_action(
     state: &mut AppState,
@@ -39,7 +60,8 @@ pub fn handle_confirm_action(
     Ok(None)
 }
 
-/// What to show once an action succeeded (after restoring the Git panel).
+/// What to show once an action succeeded (over the refreshed Git panel).
+#[derive(Clone, Copy)]
 enum After {
     /// Just the refreshed panel.
     Nothing,
@@ -50,142 +72,145 @@ enum After {
     ConflictsOr(&'static str, &'static str),
 }
 
-fn run(state: &mut AppState, confirm: GitConfirmActionState) {
-    if let GitConfirmedAction::DeleteRemoteBranch { remote, branch } = confirm.action {
-        // Network push: run in the background with progress.
-        state.start_git_op(
-            crate::app::git_ops::GitNetOp::DeleteRemoteBranch {
-                repo_path: confirm.repo_path.clone(),
-                remote,
-                branch,
-            },
-            crate::app::git_ops::FollowUp::RestorePopup {
-                previous: confirm.previous_popup,
-                repo_path: confirm.repo_path,
-            },
-        );
-        return;
+impl After {
+    /// The popup to show, given whether the index has conflicts.
+    fn popup(self, conflicts: bool) -> Option<PopupType> {
+        match self {
+            After::Nothing => None,
+            After::Info(key) => Some(PopupType::Info(t(key))),
+            After::ConflictsOr(key, _) if conflicts => Some(PopupType::Error(t(key))),
+            After::ConflictsOr(_, key) => Some(PopupType::Info(t(key))),
+        }
     }
-    let Some(mut repo) = crate::git::repo::find_repo(&confirm.repo_path) else {
-        // Keep the confirmation open when the repository is gone.
-        state
-            .dialogs
-            .push(PopupType::GitPrompt(GitPromptPopup::ConfirmAction(confirm)));
-        return;
-    };
+}
+
+fn run(state: &mut AppState, confirm: GitConfirmActionState) {
     let GitConfirmActionState {
         repo_path,
         action,
         previous_popup,
         ..
     } = confirm;
-    let (result, error_key, after) = plan(&mut repo, &action);
-    if let Err(e) = result {
-        state
-            .dialogs
-            .replace(PopupType::Error(format!("{}: {}", t(error_key), e)));
-        return;
-    }
-    if let GitConfirmedAction::DeleteRemote(_) = action
-        && let PopupType::GitPrompt(GitPromptPopup::RemoteManage(mut manage)) = *previous_popup
-    {
-        manage.remotes = crate::git::remote::list_remotes(&repo).unwrap_or_default();
-        if !manage.remotes.is_empty() {
-            manage.selected_idx = manage.selected_idx.min(manage.remotes.len() - 1);
+    match action {
+        GitConfirmedAction::DeleteRemoteBranch { remote, branch } => {
+            // Network push: run in the background with progress.
+            state.start_git_op(
+                crate::app::git_ops::GitNetOp::DeleteRemoteBranch {
+                    repo_path: repo_path.clone(),
+                    remote,
+                    branch,
+                },
+                crate::app::git_ops::FollowUp::RestorePopup {
+                    previous: previous_popup,
+                    repo_path,
+                },
+            );
         }
-        state
-            .dialogs
-            .replace(PopupType::GitPrompt(GitPromptPopup::RemoteManage(manage)));
-        return;
-    }
-    restore_previous_and_refresh(state, *previous_popup, &repo_path);
-    let has_conflicts = || repo.index().map(|i| i.has_conflicts()).unwrap_or(false);
-    match after {
-        After::Nothing => {}
-        After::Info(key) => state.dialogs.replace(PopupType::Info(t(key))),
-        After::ConflictsOr(conflict_key, _) if has_conflicts() => {
-            state.dialogs.replace(PopupType::Error(t(conflict_key)))
+        GitConfirmedAction::DeleteRemote(name) => {
+            // Back to the remote list, refreshed once the remote is gone.
+            state.dialogs.replace(*previous_popup);
+            state.run_git_local(
+                &repo_path,
+                move |repo| {
+                    let deleted = crate::git::remote::delete_remote(repo, &name);
+                    then_list_remotes(repo, deleted.ctx("git_error_delete_remote_failed"))
+                },
+                show_remotes,
+            );
         }
-        After::ConflictsOr(_, ok_key) => state.dialogs.replace(PopupType::Info(t(ok_key))),
+        action => {
+            state.dialogs.replace(*previous_popup);
+            let (exec, error_key, after) = plan(action);
+            let reload = repo_path.clone();
+            state.run_git_local(
+                &repo_path,
+                move |repo| {
+                    exec(repo).ctx(error_key)?;
+                    Ok(repo.index().map(|i| i.has_conflicts()).unwrap_or(false))
+                },
+                move |state, conflicts| {
+                    state.reload_git_panel(&reload);
+                    if let Some(popup) = after.popup(conflicts) {
+                        state.dialogs.push(popup);
+                    }
+                },
+            );
+        }
     }
 }
 
-/// Runs `action` and returns its result, error message key and follow-up.
-fn plan(
-    repo: &mut Repository,
-    action: &GitConfirmedAction,
-) -> (anyhow::Result<()>, &'static str, After) {
-    use crate::git::{
-        branches, cherry_pick, merge, rebase, remote, reset, revert, stage, stash, tags,
-    };
+/// The Git call of a confirmed action (runs on the job thread).
+type Exec = Box<dyn FnOnce(&mut Repository) -> anyhow::Result<()> + Send>;
+
+/// Git call, error message key and follow-up of `action`.
+fn plan(action: GitConfirmedAction) -> (Exec, &'static str, After) {
+    use crate::git::{branches, cherry_pick, merge, rebase, reset, revert, stage, stash, tags};
     use GitConfirmedAction as A;
     const OK: &str = "git_operation_success";
     match action {
         A::DeleteBranch(name) => (
-            branches::delete_branch(repo, name),
+            Box::new(move |r| branches::delete_branch(r, &name)),
             "git_error_delete_branch_failed",
             After::Nothing,
         ),
         A::MergeBranch(name) => (
-            merge::merge(repo, name).map(|_| ()),
+            Box::new(move |r| merge::merge(r, &name).map(|_| ())),
             "git_error_merge_failed",
             After::ConflictsOr("git_error_merge_conflicts", "git_merge_success"),
         ),
         A::RebaseBranch(onto) => (
-            rebase::rebase_branch(repo, onto).map(|_| ()),
+            Box::new(move |r| rebase::rebase_branch(r, &onto).map(|_| ())),
             "git_error_rebase_failed",
             After::Info(OK),
         ),
         A::StashDrop(index) => (
-            stash::stash_drop(repo, *index),
+            Box::new(move |r| stash::stash_drop(r, index)),
             "git_error_stash_drop_failed",
             After::Nothing,
         ),
         A::StashPop(index) => (
-            stash::stash_pop(repo, *index),
+            Box::new(move |r| stash::stash_pop(r, index)),
             "git_error_stash_pop_failed",
             After::Nothing,
         ),
         A::StashClear => (
-            stash::stash_clear(repo),
+            Box::new(stash::stash_clear),
             "git_error_stash_clear_failed",
             After::Info(OK),
         ),
         A::ResetCommit(hash, mode) => (
-            reset::reset(repo, hash, *mode),
+            Box::new(move |r| reset::reset(r, &hash, mode)),
             "git_error_reset_failed",
             After::Nothing,
         ),
         A::DiscardFile(path) => (
-            stage::discard_file_changes(repo, path),
+            Box::new(move |r| stage::discard_file_changes(r, &path)),
             "git_error_discard_failed",
             After::Nothing,
         ),
-        A::DeleteRemote(name) => (
-            remote::delete_remote(repo, name),
-            "git_error_delete_remote_failed",
-            After::Nothing,
-        ),
         A::AbortMerge => (
-            merge::abort_merge(repo),
+            Box::new(|r| merge::abort_merge(r)),
             "git_error_abort_merge_failed",
             After::Nothing,
         ),
         A::CherryPick(hash) => (
-            cherry_pick::cherry_pick(repo, hash).map(|_| ()),
+            Box::new(move |r| cherry_pick::cherry_pick(r, &hash).map(|_| ())),
             "git_error_cherry_pick_failed",
             After::ConflictsOr("git_error_cherry_pick_conflicts", OK),
         ),
         A::Revert(hash) => (
-            revert::revert(repo, hash).map(|_| ()),
+            Box::new(move |r| revert::revert(r, &hash).map(|_| ())),
             "git_error_revert_failed",
             After::ConflictsOr("git_error_revert_conflicts", OK),
         ),
         A::DeleteTag(name) => (
-            tags::delete_tag(repo, name),
+            Box::new(move |r| tags::delete_tag(r, &name)),
             "git_error_delete_tag_failed",
             After::Info(OK),
         ),
-        A::DeleteRemoteBranch { .. } => (Ok(()), "", After::Nothing),
+        // Handled by `run` (network job / remote list).
+        A::DeleteRemote(_) | A::DeleteRemoteBranch { .. } => {
+            (Box::new(|_| Ok(())), "", After::Nothing)
+        }
     }
 }

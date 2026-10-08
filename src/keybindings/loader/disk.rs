@@ -93,5 +93,42 @@ pub fn normalize_user_chord(raw: &str) -> String {
         "Menu" | "menu" => return "Menu".into(),
         _ => {}
     }
-    s.to_string()
+    let s = comma_alias(s).unwrap_or_else(|| s.to_string());
+    shift_letter_to_uppercase(&s).unwrap_or(s)
+}
+
+/// `Comma` names the `,` key, which cannot be written literally because
+/// commas separate alternative chords (`Ctrl+Comma` → `Ctrl+,`).
+fn comma_alias(chord: &str) -> Option<String> {
+    let (mods, key) = match chord.rsplit_once('+') {
+        Some((mods, key)) => (Some(mods), key),
+        None => (None, chord),
+    };
+    if !key.eq_ignore_ascii_case("comma") {
+        return None;
+    }
+    Some(mods.map_or_else(|| ",".to_string(), |m| format!("{m}+,")))
+}
+
+/// `keybinds` only accepts `Shift` with named keys: a shifted letter is
+/// written as the uppercase letter (`Ctrl+Shift+k` → `Ctrl+K`). Returns the
+/// rewritten chord, or `None` when `chord` is not a shifted letter.
+fn shift_letter_to_uppercase(chord: &str) -> Option<String> {
+    let (mods, key) = chord.rsplit_once('+')?;
+    let mut chars = key.chars();
+    let letter = chars.next().filter(|c| c.is_alphabetic())?;
+    if chars.next().is_some() {
+        return None;
+    }
+    let parts: Vec<&str> = mods.split('+').collect();
+    if !parts.iter().any(|m| m.eq_ignore_ascii_case("shift")) {
+        return None;
+    }
+    let mut out: Vec<String> = parts
+        .into_iter()
+        .filter(|m| !m.eq_ignore_ascii_case("shift"))
+        .map(str::to_string)
+        .collect();
+    out.push(letter.to_uppercase().collect());
+    Some(out.join("+"))
 }

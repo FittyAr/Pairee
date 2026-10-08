@@ -507,12 +507,14 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 - [ ] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines`
 - [x] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas (`src/test_harness/` + `src/smoke_tests/`, keymaps norton y vscode; encontraron y corrigieron la copia de un solo elemento desde/hacia archivos comprimidos y cambios perdidos al armar el refresco automático)
   - Pasada manual que sigue haciendo falta (no automatizable con TestBackend): aspecto real en terminales (colores, anchos de emoji/CJK por emulador, parpadeo, sincronización DEC 2026), teclas que intercepta el terminal (Alt+flechas, Ctrl+Tab, Ctrl+Enter, AltGr), portapapeles del sistema, ratón real (arrastrar, rueda), enlaces simbólicos en Windows, papelera de macOS, SSH/SFTP contra un servidor real, unidades de red (sondeo), editor/visor externos y terminal en segundo plano (PTY), elevación de privilegios, actualizaciones y plugins instalados
-- [ ] Pulido de lo pendiente de G.1–G.2:
+- [x] Pulido de lo pendiente de G.1–G.2:
   - [x] atajos por defecto para "calcular tamaños" (`Alt+S`) y "uso de disco" (`Alt+D`) en los tres keymaps; la vista de uso de disco quita lo borrado al terminar el trabajo (también SFTP); los tamaños de carpetas se vuelven a medir al releer si cambió la fecha de la carpeta
   - [x] copiar dentro de un zip respeta la resolución de conflictos (resolver compartido con la copia local); soporte tar.bz2/tar.xz (decodificadores Rust puros); archivos anidados de solo lectura (copia temporal, tope 512 MiB); operaciones en archivos comprimidos en el diario como no reversibles
   - [x] recuperar en paneles SSH lo que la capa VFS dejó como "no disponible": F7 renombrar (deshacible), F6 mover en el mismo servidor (deshacible), F4 editar (copia local subida al guardar con comprobación de cambios), atributos (`chmod` vía `setstat`, propietario numérico y fecha); F8/crear carpeta/F3 verificados
   - [x] refresco automático opcional de paneles SFTP por sondeo (`auto_refresh_ssh`, intervalo `auto_refresh_ssh_poll_secs`); `disable_panel_update_object_count` se aplica literalmente (las carpetas que lo superan no se refrescan solas)
-  - operaciones locales del panel Git (stage, unstage, descartar, diff) en segundo plano
-  - etiqueta Shift+F6 en la barra de teclas F; scroll con ratón en la vista previa del renombrado múltiple
-  - selección por bloques con teclado en Windows Terminal (Alt+Shift+flechas lo intercepta la terminal): atajo alternativo
+  - [x] operaciones locales del panel Git (stage, unstage, descartar, diff, commit, stash, ramas, etiquetas) en segundo plano (`app::git_local`)
+  - [x] presets de teclas sin errores ni combinaciones duplicadas (`Ctrl+Shift+<letra>` como `Ctrl+<MAYÚSCULA>`, F2/Ctrl+F duplicados en VSCode) con prueba de carga de los tres presets
+  - [x] etiqueta Shift+F6 en la barra de teclas F (filas Shift/Ctrl/Alt derivadas del mapa de teclas con una tabla acción → etiqueta)
+  - [x] scroll con ratón en la vista previa del renombrado múltiple (`ScrollTargetId::MultiRenamePreview`; la rueda desplaza la vista bajo el puntero)
+  - [x] selección por bloques con teclado en Windows Terminal (Alt+Shift+flechas lo intercepta la terminal): modo bloque `Ctrl+B` (Shift+flechas selecciona bloque) y `Ctrl+Alt+Shift`+flechas
 - [ ] Mover `docs/UNRELEASED.md` a la siguiente versión en `docs/CHANGELOG.md` cuando se publique

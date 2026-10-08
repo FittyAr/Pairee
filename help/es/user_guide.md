@@ -58,7 +58,10 @@ Para solventar esta limitación, se han implementado diferentes alternativas:
 Dentro de **Pairee**, puedes presionar la combinación **`Ctrl+p`** (o `Ctrl+P`) para rotar visualmente los estados de la barra de teclas F inferior:
 * **Primera pulsación**: Bloquea la barra en la vista de **CONTROL** (ej. F3: Nombre, F4: Extensión).
 * **Segunda pulsación**: Bloquea la barra en la vista de **ALT** (ej. F3: Ver, F4: Editar).
-* **Tercera pulsación**: Restaura la vista por defecto de la barra.
+* **Tercera pulsación**: Bloquea la barra en la vista de **SHIFT** (ej. F1: Comprimir, F6: renombrado múltiple).
+* **Cuarta pulsación**: Restaura la vista por defecto de la barra.
+
+Las filas del panel muestran siempre lo que el mapa de teclas activo asigna a `F1`…`F12` con cada modificador.
 
 *Nota: Todas las combinaciones siguen funcionando perfectamente aunque la barra no las muestre. Por ejemplo, al presionar `Ctrl+F3` se ordenará la lista por nombre y al presionar `Alt+F1` se abrirá el selector de discos izquierdo al instante.*
 

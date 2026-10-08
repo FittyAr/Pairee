@@ -76,7 +76,7 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | `Alt+Retroceso` | Deshace la última operación de archivos (renombrar, mover, copiar, crear carpeta, enlace, enviar a la papelera) tras una confirmación (ver Funciones, sección 2.4.1). |
 | `Ctrl+Y` | Rehace la última operación de archivos deshecha. |
 | `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
-| `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág` desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
+| `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág`, la rueda del ratón o la barra de desplazamiento desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
 | `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |
 | `Alt+Delete` | Borrado Seguro (Wipe): Sobrescribe sectores de datos antes de borrar. |
 | `F9` | Activa la barra superior de menú desplegable. |
@@ -123,11 +123,18 @@ Cada panel puede tener varias pestañas de carpetas. La barra de pestañas apare
 | `Alt+G` | Abre el panel de integración con Git. |
 | `Ctrl+W` | Abre el administrador de procesos activos del sistema operativo. |
 | `Alt+F10` | Abre el navegador de directorios en árbol gráfico. |
-| `Ctrl+p` / `Ctrl+P` | Cambia manualmente la barra de teclas F (Normal -> Ctrl -> Alt). |
+| `Ctrl+p` / `Ctrl+P` | Cambia manualmente la barra de teclas F (Normal -> Ctrl -> Alt -> Shift). Cada fila muestra lo que el mapa de teclas asigna a `F1`…`F12` con ese modificador (p. ej. `Shift+F6` renombrado múltiple). |
 | `s` | (Con flujo Yazi activo) Abre el menú inferior modal de ordenación. |
 | `v` | (Con flujo Yazi activo) Abre el menú inferior modal de vista. |
 | `Ctrl+Tab` | Salta a la siguiente pestaña abierta de fondo. |
 | `Ctrl+Shift+Tab` | Regresa a la pestaña anterior de fondo. |
+
+### Archivos de mapas de teclas y atajos `Ctrl+Shift`
+
+* En `keymaps/*.toml` y `[custom_bindings]` una letra con Mayús se escribe en mayúscula: `Ctrl+K` significa `Ctrl+Shift+K`. La forma antigua `Ctrl+Shift+k` se sigue aceptando y se reescribe. `Comma` nombra la tecla `,` (`Ctrl+Comma`), ya que las comas separan atajos alternativos.
+* Los atajos `Ctrl+Shift+<letra>` (copiar ruta `Ctrl+Shift+C`, paleta de comandos `Ctrl+Shift+P`, lista de teclas `Ctrl+Shift+K`, SSH `Ctrl+Shift+S`) necesitan una terminal que informe `Shift` junto con `Ctrl` (Windows Terminal, kitty, WezTerm, foot…).
+* Mapa VSCode: `F2` es solo Renombrar; el menú de usuario pasa a `Alt+U`, intercambiar paneles a `Ctrl+U`, buscar archivos a `Ctrl+Shift+F` (`Ctrl+F` es el filtro rápido), mostrar ocultos a `Ctrl+.`, y la configuración con `Ctrl+,` ahora funciona.
+* Todos los mapas de teclas incluidos cargan sin errores ni combinaciones duplicadas (lo comprueba una prueba).
 
 ---
 
@@ -157,7 +164,8 @@ Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor
 | `Ctrl+R` | Recargar el archivo desde disco (pregunta antes si hay cambios sin guardar y la confirmación está activa). |
 | `Inicio` / `Fin` | Inicio / fin de línea. `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
 | `Shift` + flechas / `Inicio` / `Fin` / `RePág` / `AvPág` / `Ctrl+Inicio` / `Ctrl+Fin` | Seleccionar texto. Arrastrar con el ratón también selecciona. |
-| `Alt+Shift` + flechas / `Inicio` / `Fin` | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
+| `Alt+Shift` + flechas / `Inicio` / `Fin` (también `Ctrl+Alt+Shift`) | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
+| `Ctrl+B` | Activa o desactiva el modo bloque: `Shift` + flechas y arrastrar con el ratón seleccionan un bloque vertical (la línea de estado muestra "Modo bloque"). Úsalo en terminales que se quedan con `Alt+Shift` + flechas, como Windows Terminal (redimensionar paneles). |
 | `Ctrl+A` | Seleccionar todo. `Esc` quita la selección. |
 | `Ctrl+C` / `Ctrl+Insert` | Copiar la selección. |
 | `Ctrl+X` / `Shift+Supr` | Cortar la selección. |

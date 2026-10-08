@@ -1,4 +1,4 @@
-use super::layout::{lengths, should_show, track_area_inside_block, track_area_right};
+use super::layout::{block_inner, lengths, should_show, track_area_right};
 use super::types::{ScrollTargetId, ScrollbarHitTarget, ScrollbarSurface, ScrollbarUiState};
 use crate::config::theme::Theme;
 use crate::ui::theme_apply::parse_color;
@@ -65,6 +65,18 @@ pub fn render_vertical(
     theme: &Theme,
     target: ScrollTarget,
 ) {
+    render_track(f, track, track, view, theme, target);
+}
+
+/// Render into `track`; the mouse wheel over `wheel_area` scrolls too.
+fn render_track(
+    f: &mut Frame,
+    track: Rect,
+    wheel_area: Rect,
+    view: ScrollView,
+    theme: &Theme,
+    target: ScrollTarget,
+) {
     if track.width == 0 || track.height == 0 {
         return;
     }
@@ -80,6 +92,7 @@ pub fn render_vertical(
     if let Some(hits) = target.hits {
         hits.register(ScrollbarHitTarget {
             area: track,
+            wheel_area,
             content_len: view.content_len,
             viewport_len: view.viewport_len,
             offset: view.offset,
@@ -97,7 +110,8 @@ pub fn render_vertical_right(
     theme: &Theme,
     target: ScrollTarget,
 ) {
-    render_vertical(f, track_area_right(content_area), view, theme, target);
+    let track = track_area_right(content_area);
+    render_track(f, track, content_area, view, theme, target);
 }
 
 /// Render into the right column inside a bordered block covering `block_area`.
@@ -108,5 +122,6 @@ pub fn render_vertical_inside_block(
     theme: &Theme,
     target: ScrollTarget,
 ) {
-    render_vertical(f, track_area_inside_block(block_area), view, theme, target);
+    let inner = block_inner(block_area);
+    render_track(f, track_area_right(inner), inner, view, theme, target);
 }

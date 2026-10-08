@@ -1,11 +1,13 @@
 //! Handles key input for the GitDiffView popup.
 
 use crate::app::context::AppContext;
+use crate::app::git_local::GitContext;
 use crate::app::list_nav::{ScrollKeys, scroll_key};
-use crate::app::state::popup::GitPromptPopup;
+use crate::app::state::popup::{GitDiffViewState, GitPromptPopup};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
+use std::path::Path;
 
 const DIFF_SCROLL: ScrollKeys = ScrollKeys {
     vim: false,
@@ -29,4 +31,35 @@ pub fn handle_diff(
         state.dialogs.replace(*diff.previous_popup);
     }
     Ok(None)
+}
+
+/// Computes a diff in the background (`work`) and opens the diff view over
+/// the current dialog (the Git panel) when it is ready. `file_path` /
+/// `commit_hash` label the view.
+pub fn open_diff<W>(
+    state: &mut AppState,
+    repo_path: &Path,
+    file_path: Option<String>,
+    commit_hash: Option<String>,
+    work: W,
+) where
+    W: FnOnce(&git2::Repository) -> anyhow::Result<String> + Send + 'static,
+{
+    let repo_path_buf = repo_path.to_path_buf();
+    state.run_git_local(
+        repo_path,
+        move |repo| work(repo).ctx("git_error_diff_failed"),
+        move |state, diff_content| {
+            state.dialogs.open_over(|previous_popup| {
+                PopupType::GitPrompt(GitPromptPopup::DiffView(GitDiffViewState {
+                    repo_path: repo_path_buf,
+                    file_path,
+                    commit_hash,
+                    diff_content,
+                    scroll_y: 0,
+                    previous_popup,
+                }))
+            });
+        },
+    );
 }

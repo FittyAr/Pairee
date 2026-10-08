@@ -105,7 +105,7 @@ Press `Shift+F6` (or **Files → Multi-Rename**) to rename every selected item (
 ### 3.3 Built-in Editor
 * All editing happens in the built-in editor (`F4`); Pairee never launches an external editor.
 * Undo/redo (`Ctrl+Z` / `Ctrl+Y`), search, save and save as (`Shift+F2`).
-* Selection with `Shift` + movement keys or the mouse, vertical block selection with `Alt+Shift` + arrows, and copy / cut / paste (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) through the system clipboard, with an internal clipboard when none is available.
+* Selection with `Shift` + movement keys or the mouse, vertical block selection with `Alt+Shift` + arrows (or `Ctrl+B` block mode and `Shift` + arrows, for Windows Terminal), and copy / cut / paste (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) through the system clipboard, with an internal clipboard when none is available.
 * Keeps line endings (LF/CRLF), the final newline and the UTF-8 BOM; honors the tab size, tab expansion, auto indent and line number settings.
 * Warns about or locks read-only files, and asks before overwriting a file that another program changed.
 
