@@ -23,12 +23,13 @@ pub enum SearchKey {
 }
 
 impl TextSearchState {
-    pub const FORM: FormLayout = FormLayout::with_input(4, 2);
+    pub const FORM: FormLayout = FormLayout::new(4, 2);
     pub const ROW_CASE: usize = 1;
     pub const BUTTON_CANCEL: usize = 3;
 
     pub fn handle_key(&mut self, key: &KeyEvent) -> SearchKey {
-        match Self::FORM.handle(&mut self.cursor_idx, Some(&mut self.query), key) {
+        let field = (self.cursor_idx == 0).then_some(&mut self.query);
+        match Self::FORM.handle(&mut self.cursor_idx, field, key) {
             FormKey::Toggle(Self::ROW_CASE) => {
                 self.case_sensitive = !self.case_sensitive;
                 SearchKey::Stay

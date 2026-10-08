@@ -30,7 +30,8 @@ pub fn handle(
         }
         return Ok(None);
     }
-    match Prompt::FORM.handle(&mut prompt.cursor_idx, Some(&mut prompt.input), &key) {
+    let field = (prompt.cursor_idx == Prompt::ROW_INPUT).then_some(&mut prompt.input);
+    match Prompt::FORM.handle(&mut prompt.cursor_idx, field, &key) {
         FormKey::Toggle(row) => prompt.toggle(row),
         FormKey::Activate(Prompt::BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
         FormKey::Activate(Prompt::BUTTON_TREE) => submit::open_tree_view(state),

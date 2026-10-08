@@ -38,7 +38,8 @@ pub fn handle_prompt(
         *include_untracked = !*include_untracked;
         return Ok(None);
     }
-    match Prompt::FORM.handle(&mut prompt.cursor_idx, Some(&mut prompt.input), &key) {
+    let field = (prompt.cursor_idx == 0).then_some(&mut prompt.input);
+    match Prompt::FORM.handle(&mut prompt.cursor_idx, field, &key) {
         FormKey::Activate(Prompt::BUTTON_CANCEL) | FormKey::Cancel => back(state),
         FormKey::Activate(_) => submit(state),
         FormKey::Toggle(_) | FormKey::Handled | FormKey::Other => {}

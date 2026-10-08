@@ -35,6 +35,16 @@ impl PopupType {
                 Some(&mut search.query)
             }
             PopupType::EditorSaveAsPrompt { input } => Some(input),
+            PopupType::SearchPrompt {
+                query,
+                content_query,
+                cursor_idx,
+                ..
+            } => match *cursor_idx {
+                0 => Some(query),
+                1 => Some(content_query),
+                _ => None,
+            },
             PopupType::SshConnectPrompt(prompt) => {
                 let row = prompt.cursor_idx;
                 prompt.field_at(row).map(|(_, field)| field)

@@ -9,12 +9,11 @@ use crate::app::list_nav::{wrap_next, wrap_prev};
 use crate::app::text_input::TextField;
 use crossterm::event::{KeyCode, KeyEvent};
 
-/// Shape of a form dialog: `rows` focusable rows, the text field (if any) on
-/// `input_row`, and the buttons on rows `first_button..rows`.
+/// Shape of a form dialog: `rows` focusable rows (text fields and option
+/// rows) with the buttons on rows `first_button..rows`.
 #[derive(Debug, Clone, Copy)]
 pub struct FormLayout {
     pub rows: usize,
-    pub input_row: Option<usize>,
     pub first_button: usize,
 }
 
@@ -34,13 +33,8 @@ pub enum FormKey {
 }
 
 impl FormLayout {
-    /// A text field on row 0 followed by buttons from `first_button`.
-    pub const fn with_input(rows: usize, first_button: usize) -> Self {
-        Self {
-            rows,
-            input_row: Some(0),
-            first_button,
-        }
+    pub const fn new(rows: usize, first_button: usize) -> Self {
+        Self { rows, first_button }
     }
 
     pub fn is_button(&self, row: usize) -> bool {
@@ -52,8 +46,8 @@ impl FormLayout {
         self.is_button(focus).then(|| focus - self.first_button)
     }
 
-    /// Applies `key` to the focus (`*focus`) and to `field` (the text field on
-    /// [`Self::input_row`]).
+    /// Applies `key` to the focus (`*focus`) and to `field`, the text field
+    /// of the focused row (`None` when that row is not a text field).
     pub fn handle(
         &self,
         focus: &mut usize,
@@ -61,7 +55,7 @@ impl FormLayout {
         key: &KeyEvent,
     ) -> FormKey {
         let row = *focus;
-        let on_input = self.input_row == Some(row);
+        let on_input = field.is_some();
         match key.code {
             KeyCode::Up | KeyCode::BackTab => *focus = wrap_prev(row, self.rows),
             KeyCode::Down | KeyCode::Tab => *focus = wrap_next(row, self.rows),
@@ -78,10 +72,7 @@ impl FormLayout {
             KeyCode::Esc => return FormKey::Cancel,
             KeyCode::Char(' ') if !on_input => return FormKey::Toggle(row),
             _ => {
-                let edited = match field {
-                    Some(field) if on_input => field.handle_key(key).consumed(),
-                    _ => false,
-                };
+                let edited = field.is_some_and(|field| field.handle_key(key).consumed());
                 if !edited && !is_editing_key(key.code) {
                     return FormKey::Other;
                 }
@@ -181,7 +172,7 @@ mod tests {
     use super::*;
     use crossterm::event::KeyModifiers;
 
-    const LAYOUT: FormLayout = FormLayout::with_input(4, 2);
+    const LAYOUT: FormLayout = FormLayout::new(4, 2);
 
     #[test]
     fn field_pair_switches_focus_and_edits_the_focused_field() {
@@ -228,15 +219,15 @@ mod tests {
         assert_eq!(field.text(), "b ");
         focus = 1;
         assert_eq!(
-            LAYOUT.handle(&mut focus, Some(&mut field), &key(KeyCode::Char(' '))),
+            LAYOUT.handle(&mut focus, None, &key(KeyCode::Char(' '))),
             FormKey::Toggle(1)
         );
         assert_eq!(
-            LAYOUT.handle(&mut focus, Some(&mut field), &key(KeyCode::F(10))),
+            LAYOUT.handle(&mut focus, None, &key(KeyCode::F(10))),
             FormKey::Other
         );
         assert_eq!(
-            LAYOUT.handle(&mut focus, Some(&mut field), &key(KeyCode::Esc)),
+            LAYOUT.handle(&mut focus, None, &key(KeyCode::Esc)),
             FormKey::Cancel
         );
     }

@@ -51,7 +51,7 @@ pub struct GitNamePromptState {
 
 impl GitNamePromptState {
     /// Name field, OK, Cancel.
-    pub const FORM: FormLayout = FormLayout::with_input(3, 1);
+    pub const FORM: FormLayout = FormLayout::new(3, 1);
     pub const BUTTON_CANCEL: usize = 2;
 
     /// A prompt for `action`; renaming starts from the current name.

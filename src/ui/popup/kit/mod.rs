@@ -211,6 +211,31 @@ impl FocusStyles {
     }
 }
 
+/// `"► text"` when focused, `"  text"` otherwise, in the focus style.
+pub fn marked_row<'a>(text: &str, focused: bool, styles: FocusStyles) -> Paragraph<'a> {
+    let marker = if focused { "► " } else { "  " };
+    Paragraph::new(format!("{marker}{text}")).style(styles.pick(focused))
+}
+
+/// Two lines: `"► label"` and `"   > field"`, the field with a cursor when
+/// focused.
+pub fn labelled_field<'a>(
+    label: &str,
+    field: &TextField,
+    focused: bool,
+    styles: FocusStyles,
+) -> Paragraph<'a> {
+    let style = styles.pick(focused);
+    let marker = if focused { "► " } else { "  " };
+    let mut value = vec![Span::styled("   > ", style)];
+    value.extend(field_spans(field, style, styles.cursor(), focused));
+    Paragraph::new(vec![
+        Line::from(format!("{marker}{label}")),
+        Line::from(value),
+    ])
+    .style(style)
+}
+
 /// `[x]` / `[ ]`.
 pub fn checkbox(checked: bool) -> &'static str {
     if checked { "[x]" } else { "[ ]" }

@@ -193,8 +193,8 @@ pub enum PopupType {
     },
 
     SearchPrompt {
-        query: String,
-        content_query: String,
+        query: TextField,
+        content_query: TextField,
         search_root: PathBuf,
         case_sensitive: bool,
         search_target: crate::fs::search::SearchTarget,

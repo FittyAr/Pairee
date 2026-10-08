@@ -1,272 +1,138 @@
+//! Find file dialog and its results list.
+
 use crate::app::context::AppContext;
+use crate::app::form::{FormKey, FormLayout};
+use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
+
+/// Name pattern, content, case, target, then [OK] [Cancel].
+pub const SEARCH_FORM: FormLayout = FormLayout::new(6, 4);
+const ROW_CASE: usize = 2;
+const ROW_TARGET: usize = 3;
+const BUTTON_CANCEL: usize = 5;
 
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let popup = state.dialogs.top().cloned();
-    if let Some(p) = popup {
-        match p {
-            PopupType::SearchPrompt {
-                query,
-                content_query,
-                search_root,
-                case_sensitive,
-                search_target,
-                cursor_idx,
-            } => {
-                match key.code {
-                    KeyCode::Tab | KeyCode::Down => {
-                        let next_idx = (cursor_idx + 1) % 6;
-                        state.dialogs.replace(PopupType::SearchPrompt {
-                            query,
-                            content_query,
-                            search_root,
-                            case_sensitive,
-                            search_target,
-                            cursor_idx: next_idx,
-                        });
-                        return Ok(None);
-                    }
-                    KeyCode::Up => {
-                        let next_idx = if cursor_idx == 0 { 5 } else { cursor_idx - 1 };
-                        state.dialogs.replace(PopupType::SearchPrompt {
-                            query,
-                            content_query,
-                            search_root,
-                            case_sensitive,
-                            search_target,
-                            cursor_idx: next_idx,
-                        });
-                        return Ok(None);
-                    }
-                    KeyCode::Char(c) => {
-                        let mut new_query = query;
-                        let mut new_content = content_query;
-                        let mut new_case = case_sensitive;
-                        let mut new_target = search_target;
-
-                        if cursor_idx == 0 {
-                            new_query.push(c);
-                        } else if cursor_idx == 1 {
-                            new_content.push(c);
-                        } else if cursor_idx == 2 && c == ' ' {
-                            new_case = !new_case;
-                        } else if cursor_idx == 3 && c == ' ' {
-                            new_target = match search_target {
-                                crate::fs::search::SearchTarget::Any => {
-                                    crate::fs::search::SearchTarget::File
-                                }
-                                crate::fs::search::SearchTarget::File => {
-                                    crate::fs::search::SearchTarget::Directory
-                                }
-                                crate::fs::search::SearchTarget::Directory => {
-                                    crate::fs::search::SearchTarget::Any
-                                }
-                            };
-                        }
-
-                        state.dialogs.replace(PopupType::SearchPrompt {
-                            query: new_query,
-                            content_query: new_content,
-                            search_root,
-                            case_sensitive: new_case,
-                            search_target: new_target,
-                            cursor_idx,
-                        });
-                        return Ok(None);
-                    }
-                    KeyCode::Left | KeyCode::Right => {
-                        if cursor_idx == 3 {
-                            let new_target = match search_target {
-                                crate::fs::search::SearchTarget::Any => {
-                                    if key.code == KeyCode::Left {
-                                        crate::fs::search::SearchTarget::Directory
-                                    } else {
-                                        crate::fs::search::SearchTarget::File
-                                    }
-                                }
-                                crate::fs::search::SearchTarget::File => {
-                                    if key.code == KeyCode::Left {
-                                        crate::fs::search::SearchTarget::Any
-                                    } else {
-                                        crate::fs::search::SearchTarget::Directory
-                                    }
-                                }
-                                crate::fs::search::SearchTarget::Directory => {
-                                    if key.code == KeyCode::Left {
-                                        crate::fs::search::SearchTarget::File
-                                    } else {
-                                        crate::fs::search::SearchTarget::Any
-                                    }
-                                }
-                            };
-                            state.dialogs.replace(PopupType::SearchPrompt {
-                                query,
-                                content_query,
-                                search_root,
-                                case_sensitive,
-                                search_target: new_target,
-                                cursor_idx,
-                            });
-                        } else if cursor_idx == 4 || cursor_idx == 5 {
-                            let next_idx = if cursor_idx == 4 { 5 } else { 4 };
-                            state.dialogs.replace(PopupType::SearchPrompt {
-                                query,
-                                content_query,
-                                search_root,
-                                case_sensitive,
-                                search_target,
-                                cursor_idx: next_idx,
-                            });
-                        }
-                        return Ok(None);
-                    }
-                    KeyCode::Backspace => {
-                        let mut new_query = query;
-                        let mut new_content = content_query;
-                        if cursor_idx == 0 {
-                            new_query.pop();
-                        } else if cursor_idx == 1 {
-                            new_content.pop();
-                        }
-                        state.dialogs.replace(PopupType::SearchPrompt {
-                            query: new_query,
-                            content_query: new_content,
-                            search_root,
-                            case_sensitive,
-                            search_target,
-                            cursor_idx,
-                        });
-                        return Ok(None);
-                    }
-                    KeyCode::Enter => {
-                        if cursor_idx == 5 {
-                            state.dialogs.clear();
-                            return Ok(None);
-                        }
-
-                        let q = query.clone();
-                        let c_q = content_query.clone();
-                        if !q.is_empty() || !c_q.is_empty() {
-                            let name_glob = if q.is_empty() {
-                                "".to_string()
-                            } else if q.contains('*') || q.contains('?') {
-                                q.to_string()
-                            } else {
-                                format!("*{}*", q)
-                            };
-
-                            let q_struct = crate::fs::search::SearchQuery {
-                                name_glob,
-                                content: if c_q.is_empty() {
-                                    None
-                                } else {
-                                    Some(c_q.clone())
-                                },
-                                root: search_root.clone(),
-                                case_sensitive,
-                                target: search_target,
-                            };
-
-                            let rx = crate::fs::search::find_files(q_struct);
-                            state.search_rx = Some(rx);
-
-                            state.dialogs.replace(PopupType::SearchResults {
-                                query: if q.is_empty() { c_q } else { q },
-                                results: Vec::new(),
-                                cursor_idx: 0,
-                                searching: true,
-                            });
-                        } else {
-                            state.dialogs.clear();
-                        }
-                        return Ok(None);
-                    }
-                    KeyCode::Esc => {
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
-                    _ => {}
-                }
-                Err(())
-            }
-            PopupType::SearchResults {
-                query,
-                results,
-                cursor_idx,
-                searching,
-            } => {
-                match key.code {
-                    KeyCode::Esc => {
-                        // Cancel active background search if Esc is pressed
-                        state.search_rx = None;
-                        state.dialogs.clear();
-                        return Ok(None);
-                    }
-                    KeyCode::Up => {
-                        if !results.is_empty() {
-                            let new_idx = if cursor_idx > 0 {
-                                cursor_idx - 1
-                            } else {
-                                results.len() - 1
-                            };
-                            state.dialogs.replace(PopupType::SearchResults {
-                                query,
-                                results,
-                                cursor_idx: new_idx,
-                                searching,
-                            });
-                        }
-                        return Ok(None);
-                    }
-                    KeyCode::Down => {
-                        if !results.is_empty() {
-                            let new_idx = if cursor_idx < results.len() - 1 {
-                                cursor_idx + 1
-                            } else {
-                                0
-                            };
-                            state.dialogs.replace(PopupType::SearchResults {
-                                query,
-                                results,
-                                cursor_idx: new_idx,
-                                searching,
-                            });
-                        }
-                        return Ok(None);
-                    }
-                    KeyCode::Enter => {
-                        if let Some((result_path, is_dir)) = results.get(cursor_idx) {
-                            state.search_rx = None;
-                            let target_dir = if *is_dir {
-                                result_path.clone()
-                            } else {
-                                result_path
-                                    .parent()
-                                    .map(|p| p.to_path_buf())
-                                    .unwrap_or_else(|| result_path.clone())
-                            };
-                            let panel = state.get_active_panel_mut();
-                            panel.current_path = target_dir;
-                            panel.cursor_index = 0;
-                            panel.clear_selection();
-                            state.dialogs.clear();
-                            state.refresh_both_panels(context.config.settings.show_hidden);
-                        }
-                        return Ok(None);
-                    }
-                    _ => {}
-                }
-                Err(())
-            }
-            _ => Err(()),
-        }
-    } else {
-        Err(())
+    match state.dialogs.top() {
+        Some(PopupType::SearchPrompt { .. }) => handle_prompt(state, key),
+        Some(PopupType::SearchResults { .. }) => handle_results(state, key, context),
+        _ => Err(()),
     }
+}
+
+fn handle_prompt(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, ()> {
+    let Some(PopupType::SearchPrompt {
+        query,
+        content_query,
+        case_sensitive,
+        search_target,
+        cursor_idx,
+        ..
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    if *cursor_idx == ROW_TARGET && matches!(key.code, KeyCode::Left | KeyCode::Right) {
+        *search_target = search_target.cycle(key.code == KeyCode::Right);
+        return Ok(None);
+    }
+    let field = match *cursor_idx {
+        0 => Some(query),
+        1 => Some(content_query),
+        _ => None,
+    };
+    match SEARCH_FORM.handle(cursor_idx, field, &key) {
+        FormKey::Toggle(ROW_CASE) => *case_sensitive = !*case_sensitive,
+        FormKey::Toggle(ROW_TARGET) => *search_target = search_target.cycle(true),
+        FormKey::Activate(BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
+        FormKey::Activate(_) => start_search(state),
+        FormKey::Toggle(_) | FormKey::Handled => {}
+        FormKey::Other => return Err(()),
+    }
+    Ok(None)
+}
+
+/// Starts the background search and shows the (filling) results list.
+fn start_search(state: &mut AppState) {
+    let Some(PopupType::SearchPrompt {
+        query,
+        content_query,
+        search_root,
+        case_sensitive,
+        search_target,
+        ..
+    }) = state.dialogs.top()
+    else {
+        return;
+    };
+    let (name, content) = (query.text().to_string(), content_query.text().to_string());
+    if name.is_empty() && content.is_empty() {
+        state.dialogs.clear();
+        return;
+    }
+    let name_glob = if name.is_empty() || name.contains(['*', '?']) {
+        name.clone()
+    } else {
+        format!("*{}*", name)
+    };
+    let search = crate::fs::search::SearchQuery {
+        name_glob,
+        content: (!content.is_empty()).then(|| content.clone()),
+        root: search_root.clone(),
+        case_sensitive: *case_sensitive,
+        target: *search_target,
+    };
+    state.search_rx = Some(crate::fs::search::find_files(search));
+    state.dialogs.replace(PopupType::SearchResults {
+        query: if name.is_empty() { content } else { name },
+        results: Vec::new(),
+        cursor_idx: 0,
+        searching: true,
+    });
+}
+
+fn handle_results(
+    state: &mut AppState,
+    key: KeyEvent,
+    context: &AppContext,
+) -> Result<Option<Action>, ()> {
+    let Some(PopupType::SearchResults {
+        results,
+        cursor_idx,
+        ..
+    }) = state.dialogs.top_mut()
+    else {
+        return Err(());
+    };
+    match list_key(ListKeys::ARROWS, key.code, cursor_idx, results.len()) {
+        ListKey::Moved => {}
+        ListKey::Close => {
+            // Esc also cancels a search still running.
+            state.search_rx = None;
+            state.dialogs.clear();
+        }
+        ListKey::Activate(idx) => {
+            let Some((path, is_dir)) = results.get(idx) else {
+                return Ok(None);
+            };
+            let target = if *is_dir {
+                path.clone()
+            } else {
+                path.parent()
+                    .map(|p| p.to_path_buf())
+                    .unwrap_or_else(|| path.clone())
+            };
+            state.search_rx = None;
+            state.get_active_panel_mut().open_path(target);
+            state.dialogs.clear();
+            state.refresh_both_panels(context.config.settings.show_hidden);
+        }
+        ListKey::Other => return Err(()),
+    }
+    Ok(None)
 }

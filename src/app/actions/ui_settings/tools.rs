@@ -112,8 +112,8 @@ pub fn handle_tools_action(
         Action::FindFile => {
             let root = state.get_active_panel().current_path.clone();
             state.dialogs.replace(PopupType::SearchPrompt {
-                query: String::new(),
-                content_query: String::new(),
+                query: Default::default(),
+                content_query: Default::default(),
                 search_root: root,
                 case_sensitive: false,
                 search_target: crate::fs::search::SearchTarget::Any,

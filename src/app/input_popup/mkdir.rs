@@ -22,7 +22,8 @@ pub fn handle(
     else {
         return Err(());
     };
-    match MKDIR_FORM.handle(cursor_idx, Some(input), &key) {
+    let field = (*cursor_idx == 0).then_some(&mut *input);
+    match MKDIR_FORM.handle(cursor_idx, field, &key) {
         FormKey::Toggle(ROW_MULTIPLE) => *process_multiple = !*process_multiple,
         FormKey::Activate(BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
         FormKey::Activate(_) => {

@@ -8,8 +8,6 @@ use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    text::{Line, Span},
-    widgets::Paragraph,
 };
 
 pub fn render_viewer_popup(
@@ -52,29 +50,17 @@ pub fn render_search(
         normal: kit::popup_fg(theme),
     };
     let focus = search.cursor_idx;
-    let marker = |row: usize| if focus == row { "► " } else { "  " };
-
-    let style = styles.row(focus, 0);
-    let mut field = vec![Span::styled("   > ", style)];
-    field.extend(kit::field_spans(
-        &search.query,
-        style,
-        styles.cursor(),
-        focus == 0,
-    ));
-    let label = Line::from(format!("{}{}", marker(0), t("search_query_label")));
     f.render_widget(
-        Paragraph::new(vec![label, Line::from(field)]).style(style),
+        kit::labelled_field(&t("search_query_label"), &search.query, focus == 0, styles),
         chunks[0],
     );
     f.render_widget(kit::separator(inner.width, border), chunks[1]);
     f.render_widget(
-        Paragraph::new(format!(
-            "{}{}",
-            marker(Search::ROW_CASE),
-            kit::checkbox_row(search.case_sensitive, &t("sys_case_sensitive"))
-        ))
-        .style(styles.row(focus, Search::ROW_CASE)),
+        kit::marked_row(
+            &kit::checkbox_row(search.case_sensitive, &t("sys_case_sensitive")),
+            focus == Search::ROW_CASE,
+            styles,
+        ),
         chunks[2],
     );
     f.render_widget(
