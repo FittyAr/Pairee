@@ -28,7 +28,7 @@ pub struct TransferUIState {
     /// First visible line in the transfer event log tab.
     pub log_scroll: usize,
 
-    // Snaphots de tiempo real para renderizar sin bloquear el hilo principal
+    // Snapshots de tiempo real para renderizar sin bloquear el hilo principal
     pub speed_info: (f64, Option<u64>), // (bytes_per_second, eta_seconds)
     pub post_action: crate::fs::transfer::post_action::PostAction,
     pub active_conflict_info: Option<(

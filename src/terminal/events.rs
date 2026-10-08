@@ -26,6 +26,11 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Starts a background thread polling Crossterm input events and returns the handler.
+    // `has_focus` only gates the Windows/Linux modifier polling; other targets never read it.
+    #[cfg_attr(
+        not(any(windows, target_os = "linux")),
+        allow(unused_variables, unused_assignments)
+    )]
     pub fn new(tick_rate: Duration) -> Self {
         let (sender, receiver) = mpsc::channel(100);
 

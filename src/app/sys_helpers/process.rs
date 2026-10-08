@@ -199,7 +199,7 @@ fn get_process_restart_info(pid: u32) -> Option<(String, Vec<String>, Option<Pat
 fn get_process_restart_info(pid: u32) -> Option<(String, Vec<String>, Option<PathBuf>)> {
     use std::process::Command;
     let output = Command::new("ps")
-        .args(&["-p", &pid.to_string(), "-o", "comm="])
+        .args(["-p", &pid.to_string(), "-o", "comm="])
         .output()
         .ok()?;
     if output.status.success() {

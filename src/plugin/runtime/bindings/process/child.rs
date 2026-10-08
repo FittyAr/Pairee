@@ -194,7 +194,10 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn write_all_then_close_stdin_streams_through_cat() {
-        let mut cmd = LuaCommand::new("cat".into(), true, false);
+        let mut cmd = LuaCommand::new(
+            "cat".into(),
+            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
+        );
         cmd.stdin = StdioKind::Piped;
         cmd.stdout = StdioKind::Piped;
         let mut child = cmd.spawn_inner().await.unwrap();

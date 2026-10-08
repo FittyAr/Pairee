@@ -1,4 +1,6 @@
-use std::fs::{File, OpenOptions};
+use std::fs::File;
+#[cfg(any(target_os = "windows", target_os = "linux"))]
+use std::fs::OpenOptions;
 use std::path::{Path, PathBuf};
 
 #[cfg(target_os = "windows")]
