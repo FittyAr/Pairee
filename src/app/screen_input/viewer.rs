@@ -28,7 +28,7 @@ pub fn handle_viewer_screen(
         KeyCode::F(6) => {
             // Viewer → editor: always the built-in editor.
             let path = vw.path.clone();
-            crate::app::editor::open::open_in_editor(state, path, &context.config.settings);
+            crate::app::actions::fs_ops::edit::edit_file(state, path, &context.config.settings);
         }
         KeyCode::F(7) => state
             .dialogs

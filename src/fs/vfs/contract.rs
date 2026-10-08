@@ -188,6 +188,25 @@ pub fn renames_entries(f: &Fixture) {
     assert!(!f.vfs.exists(&f.root.join("a.txt")));
 }
 
+pub fn changes_attributes(f: &Fixture) {
+    let path = f.root.join("a.txt");
+    let change = |readonly| crate::fs::attrs::AttrChange {
+        mode: None,
+        readonly,
+    };
+    let result = f.vfs.set_attributes(&path, change(true));
+    if !f.vfs.capabilities().attributes {
+        assert!(f.vfs.attributes(&path).is_err());
+        return assert_unsupported(result);
+    }
+    result.unwrap();
+    let attrs = f.vfs.attributes(&path).unwrap();
+    assert!(attrs.readonly);
+    assert_eq!(attrs.size, 5);
+    f.vfs.set_attributes(&path, change(false)).unwrap();
+    assert!(!f.vfs.attributes(&path).unwrap().readonly);
+}
+
 /// Instantiates every contract check for one adapter fixture.
 macro_rules! vfs_contract {
     ($name:ident, $fixture:expr) => {
@@ -233,6 +252,10 @@ macro_rules! vfs_contract {
             #[test]
             fn renames_entries() {
                 c::renames_entries(&$fixture());
+            }
+            #[test]
+            fn changes_attributes() {
+                c::changes_attributes(&$fixture());
             }
         }
     };

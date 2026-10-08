@@ -153,13 +153,15 @@ The module is decomposed into focused subcomponents:
 
 ## 🗄️ 8. Panel Sources (VFS port)
 
-Panels never special-case where their entries come from. `fs::vfs::Vfs` is the port (Ports & Adapters): `list`, `stat`, `open_read`, `write_file`, `mkdir`, `remove_*`, `rename`, plus provided operations built on them (`remove_all`, `walk`, `mkdir_all`, `read_prefix`, `open_store` for the viewer, `read_panel` for listings, `du_list` for folder sizes) and `Capabilities` flags (write, mkdir, remove, rename, local tools).
+Panels never special-case where their entries come from. `fs::vfs::Vfs` is the port (Ports & Adapters): `list`, `stat`, `open_read`, `write_file`, `mkdir`, `remove_*`, `rename`, plus provided operations built on them (`remove_all`, `walk`, `mkdir_all`, `read_prefix`, `open_store` for the viewer, `read_panel` for listings, `du_list` for folder sizes) and `Capabilities` flags (write, mkdir, remove, rename, attributes, local tools). `attributes` / `set_attributes` back the Attributes dialog (SFTP: `stat` / `setstat`).
 
 | Adapter | Where | Capabilities |
 | :--- | :--- | :--- |
 | `LocalVfs` | `fs/vfs/local.rs` | everything; listings keep the elevated retry, folder sizes keep hard-link identities, the viewer pages files from disk |
 | `SharedSshClient` | `fs/ssh/vfs.rs` | everything but local tools (one SFTP call per lock) |
 | `ArchiveVfs` | `fs/archive/vfs.rs` | read-only for tar/tar.gz/7z; zip adds write, mkdir and remove (rewrite to a temp file, atomic rename) |
+
+One-off changes of a non-local source run in the background through `AppState::start_vfs_task`, which returns a follow-up command for the UI thread. F4 on an SFTP or zip entry uses it: `app::editor::remote` downloads the file into a private temp folder, the editor keeps a `RemoteOrigin` (source, path, size and time) and saving uploads the copy after comparing the original with that stamp.
 
 `PanelState::source` (`PanelSource`: `Local`, `Remote`, `Archive`) plus `current_path` is the panel location. Archive paths are `archive.ext/inner/path`, so `..`, history and the title work unchanged; `PanelSource::locate` switches the source when a refresh enters or leaves an archive file. Listing, folder sizes, the disk usage view, multi-rename (and its undo), compare/synchronize, the viewer and Quick View all go through the port, and `app::actions::fs_ops::capability` refuses actions a source cannot run with one message.
 

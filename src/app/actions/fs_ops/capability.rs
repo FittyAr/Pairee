@@ -12,19 +12,18 @@ use crate::keybindings::Action;
 fn requirements(action: &Action) -> (Option<Capability>, Option<Capability>) {
     use Capability::*;
     match action {
-        Action::Edit
-        | Action::Rename
-        | Action::WipeFile
+        Action::WipeFile
         | Action::CreateLink
-        | Action::FileAttributes
         | Action::ApplyCommand
         | Action::DescribeFile
         | Action::CompressFiles
         | Action::ExtractArchive
         | Action::ArchiveCommands => (Some(LocalTools), None),
+        Action::Edit => (Some(Write), None),
+        Action::FileAttributes => (Some(Attributes), None),
         Action::MkDir => (Some(MkDir), None),
         Action::Delete => (Some(Remove), None),
-        Action::MultiRename => (Some(Rename), None),
+        Action::Rename | Action::MultiRename => (Some(Rename), None),
         Action::Copy => (None, Some(Write)),
         Action::Move => (Some(Remove), Some(Write)),
         _ => (None, None),

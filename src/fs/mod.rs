@@ -25,7 +25,6 @@ pub mod vfs;
 pub mod watch;
 pub mod wipe;
 
-pub use attrs::read_attrs;
 pub use compare::CompareStatus;
 pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;

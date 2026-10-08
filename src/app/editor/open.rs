@@ -19,6 +19,8 @@ pub enum OverwriteReason {
     ChangedOnDisk,
     /// "Save as" target already exists.
     TargetExists,
+    /// The original of a remote copy changed on its server or archive.
+    ChangedRemotely,
 }
 
 impl OverwriteReason {
@@ -26,6 +28,7 @@ impl OverwriteReason {
         match self {
             Self::ChangedOnDisk => "editor_changed_on_disk",
             Self::TargetExists => "editor_target_exists",
+            Self::ChangedRemotely => "editor_changed_remotely",
         }
     }
 }
@@ -87,6 +90,7 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
         return false;
     };
     let target = target.unwrap_or_else(|| ed.path.clone());
+    let own_file = target == ed.path;
     let reason = if force {
         None
     } else if target == ed.path {
@@ -102,7 +106,19 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
         return false;
     }
     match ed.save_to(&target) {
-        Ok(()) => true,
+        Ok(()) => {
+            // A remote copy is uploaded; "save as" keeps the new file local.
+            let origin = if own_file {
+                ed.remote.clone()
+            } else {
+                ed.remote = None;
+                None
+            };
+            if let Some(origin) = origin {
+                super::remote::start_upload(state, origin, target, force);
+            }
+            true
+        }
         Err(e) => {
             state.dialogs.replace(PopupType::Error(
                 t("error_save_failed").replace("{}", &e.to_string()),

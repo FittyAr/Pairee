@@ -111,13 +111,13 @@ fn local_only_actions_are_refused_inside_archives() {
     let (_dir, mut context, mut state) = app();
     cursor_to(&mut state, "bundle.zip");
     act(&mut state, &mut context, Action::Execute);
-    for action in [Action::Edit, Action::Rename, Action::MultiRename] {
+    for action in [Action::Rename, Action::MultiRename, Action::FileAttributes] {
         state.dialogs.clear();
         assert!(refuse_unsupported(&mut state, &action), "{action:?}");
         assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
     }
-    // Zip archives take new folders, copies out and deletions.
-    for action in [Action::MkDir, Action::Copy, Action::Delete] {
+    // Zip archives take new folders, copies out, deletions and edits.
+    for action in [Action::MkDir, Action::Copy, Action::Delete, Action::Edit] {
         assert!(!refuse_unsupported(&mut state, &action), "{action:?}");
     }
     assert!(refuse_unsupported(&mut state, &Action::Move));
@@ -143,4 +143,27 @@ fn viewer_and_quick_view_read_archive_entries() {
     state.open_viewer(entry, &context.config.settings, false);
     let viewer = state.active_viewer_mut().expect("viewer screen");
     assert_eq!(viewer.doc.lines(0, 5), ["alpha"]);
+}
+
+#[test]
+fn f4_edits_an_archive_entry_through_a_local_copy() {
+    let (dir, mut context, mut state) = app();
+    cursor_to(&mut state, "bundle.zip");
+    act(&mut state, &mut context, Action::Execute);
+    cursor_to(&mut state, "a.txt");
+    crate::app::actions::fs_ops::edit::handle(&mut state, &mut context);
+    assert!(state.poll_vfs_op(&context.config.settings));
+    let entry = dir.path().join("bundle.zip").join("a.txt");
+    let ed = state.active_editor_mut().expect("editor screen");
+    assert_eq!(ed.display_path(), entry.as_path());
+    assert_ne!(ed.path, entry, "edits a local copy");
+    ed.lines = vec!["changed".to_string()];
+    assert!(crate::app::editor::open::save_active_editor(
+        &mut state, None, false
+    ));
+    assert!(state.poll_vfs_op(&context.config.settings));
+    assert!(state.dialogs.top().is_none(), "{:?}", state.dialogs.top());
+    let vfs = state.vfs_of_listed(&entry);
+    let text = vfs.read_prefix(&entry, 64).unwrap();
+    assert!(text.starts_with(b"changed"), "{text:?}");
 }

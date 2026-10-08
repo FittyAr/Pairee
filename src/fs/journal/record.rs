@@ -2,6 +2,8 @@
 
 use super::command::{FileBatch, FileStep, FsCommand, Irreversible};
 use super::trash::RESTORE_SUPPORTED;
+use crate::fs::multi_rename::Step;
+use crate::fs::ssh::SharedSshClient;
 use crate::fs::transfer::job::{TransferJob, TransferOperation, TransferResults};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -17,6 +19,14 @@ pub fn from_transfer(
 ) -> Option<FsCommand> {
     if crate::fs::transfer::backend::archive_vfs::plan(job).is_some() {
         return None;
+    }
+    if let Some(client) = same_server_move(job) {
+        // A move within one SFTP server is a series of renames.
+        let command = FsCommand::Rename {
+            steps: rename_steps(results),
+            ssh: Some(client),
+        };
+        return (!command.is_empty()).then_some(command);
     }
     let done: Vec<PathBuf> = results
         .completed_files
@@ -50,6 +60,32 @@ pub fn from_transfer(
         | TransferOperation::ApplyCommand => return None,
     };
     (!command.is_empty()).then_some(command)
+}
+
+/// The server of a move whose source and destination are on the same SFTP
+/// connection (run as renames, see `fast_remote_rename`).
+fn same_server_move(job: &TransferJob) -> Option<SharedSshClient> {
+    let ssh = job.ssh.as_ref()?;
+    match (&ssh.src, &ssh.dst) {
+        (Some(src), Some(dst))
+            if job.operation == TransferOperation::Move && src.is_same_server(dst) =>
+        {
+            Some(src.clone())
+        }
+        _ => None,
+    }
+}
+
+/// The renames a job ran, one per completed entry.
+pub(super) fn rename_steps(results: &TransferResults) -> Vec<Step> {
+    results
+        .completed_files
+        .iter()
+        .map(|f| Step {
+            from: f.src.clone(),
+            to: f.dst.clone(),
+        })
+        .collect()
 }
 
 /// The files and folders a copy/move created.

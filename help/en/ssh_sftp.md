@@ -41,11 +41,14 @@ Once a connection is established, the active panel transitions into SFTP mode:
   - **`Enter`**: Open the highlighted folder or run associations on files.
   - **`Backspace`** or **`..`**: Navigate to the parent directory.
 * **File Operations:**
-  - **`F7`** (Rename): Rename a file directly on the remote server.
-  - **`F6`** (Move): Relocate remote files between directories.
-  - **`F8`** (Delete): Recursively delete files and folders on the remote server.
-  - **`F3`** (Viewer): View remote file contents in plain text or hex modes.
-  - **`F4`** (Editor): Edit text files directly on the remote server. Pairee handles temp buffers automatically.
+  - **`F7`** (Rename): Rename a file directly on the remote server (SFTP rename; an existing name is never overwritten). Undo (`Alt+Backspace`) renames it back.
+  - **`F6`** (Move): Relocate remote files between directories. When both panels show the same connection the move is a server-side rename, and it can be undone.
+  - **Make folder**: Creates the folder on the server.
+  - **`F8`** (Delete): Recursively delete files and folders on the remote server (not undoable).
+  - **`F3`** (Viewer): View remote file contents in plain text or hex modes (read into memory, up to 64 MiB).
+  - **`F4`** (Editor): The file is downloaded to a private temporary folder and opened in the built-in editor; the title shows the remote path. Saving uploads it in the background. If the file on the server changed since it was opened (different size or modification time), Pairee asks before overwriting it. "Save as" writes a local file and stops uploading. The temporary copy is removed when the editor closes.
+  - **`Ctrl+A`** (Attributes): Shows size, modification time, permissions and the numeric owner (`uid:gid`; SFTP does not report user names). Changing the octal mode or the read-only flag runs `chmod` on the server (SFTP `setstat`); read-only clears every write bit and wins over the typed mode.
+  - Copies to or from the server and deletions are recorded as not undoable.
 
 ---
 
