@@ -27,13 +27,27 @@ pub fn load_keybinds(
     let mut chord_owner: HashMap<String, String> = HashMap::new();
 
     let toml_src = disk::load_preset_toml(preset, &mut report);
-    let mut pairs: Vec<(String, String)> = Vec::new();
+    // (action, keys, strict): non-strict pairs are shipped defaults filled in
+    // for a built-in preset whose on-disk copy predates the action; they never
+    // override or conflict with the user's file and fail silently.
+    let mut pairs: Vec<(String, String, bool)> = Vec::new();
+    let mut fallback: Vec<(String, String, bool)> = Vec::new();
 
     if let Some(content) = toml_src {
         match toml::from_str::<PresetFile>(&content) {
             Ok(file) => {
+                if let Some(embedded) = disk::embedded_preset_toml(preset)
+                    && let Ok(defaults) = toml::from_str::<PresetFile>(embedded)
+                {
+                    fallback = defaults
+                        .bindings
+                        .into_iter()
+                        .filter(|(action, _)| !file.bindings.contains_key(action))
+                        .map(|(action, keys)| (action, keys, false))
+                        .collect();
+                }
                 for (action, keys) in file.bindings {
-                    pairs.push((action, keys));
+                    pairs.push((action, keys, true));
                 }
             }
             Err(e) => {
@@ -45,11 +59,16 @@ pub fn load_keybinds(
     }
 
     for (action, keys) in custom_bindings {
-        pairs.push((action.clone(), keys.clone()));
+        pairs.push((action.clone(), keys.clone(), true));
     }
+    fallback.sort();
+    pairs.extend(fallback);
 
-    for (action_name, keys_field) in pairs {
+    for (action_name, keys_field, strict) in pairs {
         let Some(action) = parse_action_name(&action_name) else {
+            if !strict {
+                continue;
+            }
             report
                 .warnings
                 .push(format!("Unknown action '{action_name}' — skipped"));
@@ -64,6 +83,7 @@ pub fn load_keybinds(
 
             let seq: KeySeq = match chord.parse() {
                 Ok(s) => s,
+                Err(_) if !strict => continue,
                 Err(e) => {
                     report.errors.push(format!(
                         "Invalid key chord '{chord}' for action '{action_name}': {e}"
@@ -74,7 +94,7 @@ pub fn load_keybinds(
 
             let chord_key = seq.to_string();
             if let Some(prev) = chord_owner.get(&chord_key) {
-                if prev != &action_name {
+                if strict && prev != &action_name {
                     report.errors.push(format!(
                         "Duplicate key chord '{chord_key}': already bound to '{prev}', cannot also bind '{action_name}'"
                     ));
@@ -88,6 +108,9 @@ pub fn load_keybinds(
                 .iter()
                 .any(|b| b.seq == seq && b.action != action)
             {
+                if !strict {
+                    continue;
+                }
                 report.errors.push(format!(
                     "Duplicate key chord '{chord_key}' conflicts with an existing binding"
                 ));
@@ -151,6 +174,32 @@ mod tests {
         assert_eq!(kb.dispatch(up).copied(), Some(Action::MoveUp));
         let f5 = KeyEvent::new(KeyCode::F(5), KeyModifiers::empty());
         assert_eq!(kb.dispatch(f5).copied(), Some(Action::Copy));
+    }
+
+    #[test]
+    fn hotlist_and_git_panel_are_bound_in_every_builtin_preset() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+        for preset in ["norton", "neovim", "vscode"] {
+            let (mut kb, _) = load_keybinds(preset, &HashMap::new());
+            let hotlist = KeyEvent::new(KeyCode::Char('\\'), KeyModifiers::CONTROL);
+            assert_eq!(
+                kb.dispatch(hotlist).copied(),
+                Some(Action::Hotlist),
+                "{preset}"
+            );
+            let git = KeyEvent::new(KeyCode::Char('g'), KeyModifiers::ALT);
+            assert_eq!(
+                kb.dispatch(git).copied(),
+                Some(Action::OpenGitPanel),
+                "{preset}"
+            );
+        }
+    }
+
+    #[test]
+    fn embedded_presets_only_exist_for_builtins() {
+        assert!(disk::embedded_preset_toml("vim").is_some());
+        assert!(disk::embedded_preset_toml("my-custom").is_none());
     }
 
     #[test]

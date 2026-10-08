@@ -15,7 +15,8 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `Ctrl+U` | Swap directory paths between the Left and Right panels. |
 | `Ctrl+H` | Toggle visibility of hidden files and system dotfiles. |
 | `Ctrl+R` | Reread and refresh the active panel's directory content. |
-| `Ctrl+\` | Open the Directory Bookmarks Hotlist dialog. |
+| `Ctrl+\` | Open the Directory Hotlist (`Enter` go, `Ins`/`+` add the current folder, `Del`/`-` remove). Saved in `bookmarks.toml`. |
+| `Ctrl+Alt+1` … `Ctrl+Alt+9` | Jump to folder shortcut 1–9. Assign them from **Commands → Folder shortcuts** (`Ins`/`Space` or the slot digit assigns the current folder, `Del` clears). |
 
 ---
 
@@ -52,7 +53,7 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `F5` | Copy highlighted or selected files to passive panel destination. |
 | `Alt+F5` | Print file utility (applies custom filter command). |
 | `F6` | Move selected items to passive panel destination. Press `Tab` from the path field to expand advanced options (symlinks, attributes, filter, etc.). |
-| `Alt+F6` / `Ctrl+L` | Open Symlink / Hardlink creation dialog. |
+| `Alt+F6` | Open Symlink / Hardlink creation dialog. |
 | `F7` | Rename the highlighted item in place (filename only). |
 | `F8` / `Delete` | Delete highlighted or tagged files. |
 | `Alt+Delete` | Secure Wipe: Overwrites file sectors before permanent deletion. |
@@ -60,13 +61,13 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `F10` | Close / Quit Pairee. |
 | `F12` | Open screens and background tabs navigation overlay. |
 | `Esc` | Clear command prompts, close dialogs, or exit overlays. |
-| `Shift+F10` | Open context actions menu relative to file type. |
+| `Menu` / `Alt+M` | Open context actions menu relative to file type. |
 
 > **Tip:** Items previously on `F7` (MkDir) and `F11` (Plugins) are now reachable from the **Top Menu Bar** → **Files** submenu. **MkDir** is also available as a default entry (`6`) inside the **User Menu** (`F2`).
 
 ---
 
-##  Tagging & Bulk Selection
+## 🏷️ 4. Tagging & Bulk Selection
 
 | Key | Action |
 | :--- | :--- |
@@ -74,10 +75,19 @@ This guide compiles all interactive hotkeys and keyboard shortcuts available in 
 | `+` (Keypad) | Tag a group of files matching a glob mask (e.g. `*.rs`). |
 | `-` (Keypad) | Untag a group of files matching a glob mask. |
 | `*` (Keypad) | Invert selection state of the entire panel. |
-
-> **Keymap TOML:** Far-style `Gray+` / `Gray-` / `Gray*` are accepted and mapped to `Plus` / `-` / `*`. Prefer `Plus` in new keymap files. Invalid or duplicate chords are rejected; Settings → Interface lists them.
 | `Ctrl+M` | Restore the last tagged selection group. |
 | `Ctrl+I` | Apply a persistent file name search filter on the active panel. |
+
+> **Keymap TOML:** Far-style `Gray+` / `Gray-` / `Gray*` are accepted and mapped to `Plus` / `-` / `*`. Prefer `Plus` in new keymap files. Invalid or duplicate chords are rejected; Settings → Interface lists them.
+
+> **Terminal limitation (`Ctrl+H`, `Ctrl+I`, `Ctrl+M`):** legacy terminals send the same bytes for `Ctrl+H` and `Backspace`, `Ctrl+I` and `Tab`, `Ctrl+M` and `Enter`. These three shortcuts only work in terminals that support the kitty keyboard protocol (kitty, WezTerm, foot, Ghostty, Alacritty, recent Windows Terminal, …). Elsewhere, rebind them in `keybindings.toml`:
+>
+> ```toml
+> [custom_bindings]
+> toggle_hidden     = "Alt+h"
+> file_panel_filter = "Alt+i"
+> restore_selection = "Alt+r"
+> ```
 
 ---
 

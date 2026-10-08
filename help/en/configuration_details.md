@@ -2,6 +2,8 @@
 
 This manual provides an exhaustive, field-by-field description of all interactive options available in Pairee's Setup Dialog (`F2 -> Options -> Configuration` or `Commands -> Configuration`).
 
+> **Note:** options that are not implemented yet (file descriptions, info panel details, dialog/command-line editing behaviour, most editor and viewer options, plugin manager compatibility flags and a few confirmations) are hidden from the dialog. Their values are kept in `config.toml`, but they have no effect until implemented. If an option described here is missing from the dialog, it belongs to that group.
+
 ---
 
 ## 📂 Tab 0: System Settings

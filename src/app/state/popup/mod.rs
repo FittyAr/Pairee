@@ -147,7 +147,11 @@ pub enum PopupType {
         cursor_idx: usize,
     },
     Hotlist {
-        bookmarks: Vec<(String, PathBuf)>,
+        entries: Vec<crate::config::bookmarks::HotlistEntry>,
+        cursor_idx: usize,
+    },
+    /// Folder shortcut slots 1–9 (contents live in `AppState::folder_shortcuts`).
+    FolderShortcuts {
         cursor_idx: usize,
     },
     PluginMenu(PluginMenuState),

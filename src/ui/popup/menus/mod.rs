@@ -1,13 +1,13 @@
 //! Menu, sorting, drive selection, and context action popup rendering.
 
+pub mod bookmarks;
 pub mod dialogs;
 pub mod selectors;
 pub mod top_bar;
 
+pub use bookmarks::{render_folder_shortcuts, render_hotlist};
 pub use dialogs::{render_sort_modes_dialog, render_user_menu_dialog};
-pub use selectors::{
-    render_archive_commands_menu, render_context_menu, render_drive_select, render_hotlist,
-};
+pub use selectors::{render_archive_commands_menu, render_context_menu, render_drive_select};
 pub use top_bar::render_top_dropdown;
 
 use crate::app::state::PopupType;
@@ -71,10 +71,21 @@ pub fn render_menu_popup(
             true
         }
         PopupType::Hotlist {
-            bookmarks,
+            entries,
             cursor_idx,
         } => {
-            render_hotlist(f, theme, size, bookmarks, *cursor_idx);
+            render_hotlist(f, theme, size, entries, *cursor_idx);
+            true
+        }
+        PopupType::FolderShortcuts { cursor_idx } => {
+            render_folder_shortcuts(
+                f,
+                theme,
+                size,
+                &state.folder_shortcuts,
+                &context.resolver,
+                *cursor_idx,
+            );
             true
         }
         PopupType::ContextMenu { items, cursor_idx } => {

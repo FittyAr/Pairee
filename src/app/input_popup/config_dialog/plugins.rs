@@ -20,30 +20,6 @@ pub fn handle_row(
                 settings.language = discovered[next_idx].0.clone();
             }
         }
-        3 => {
-            settings.plugins_manager_oem_support = !settings.plugins_manager_oem_support;
-        }
-        4 => {
-            settings.plugins_manager_scan_symlinks = !settings.plugins_manager_scan_symlinks;
-        }
-        6 => {
-            settings.plugins_manager_file_processing = !settings.plugins_manager_file_processing;
-        }
-        7 => {
-            settings.plugins_manager_show_standard_association =
-                !settings.plugins_manager_show_standard_association;
-        }
-        8 => {
-            settings.plugins_manager_even_if_one_found =
-                !settings.plugins_manager_even_if_one_found;
-        }
-        9 => {
-            settings.plugins_manager_search_results = !settings.plugins_manager_search_results;
-        }
-        10 => {
-            settings.plugins_manager_prefix_processing =
-                !settings.plugins_manager_prefix_processing;
-        }
         11 => {
             settings.plugins_developer_mode = !settings.plugins_developer_mode;
         }

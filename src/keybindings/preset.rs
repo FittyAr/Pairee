@@ -112,6 +112,7 @@ pub fn parse_action_name(name: &str) -> Option<Action> {
         "edit_user_menu" => Some(Action::EditUserMenu),
         "file_associations" => Some(Action::FileAssociations),
         "folder_shortcuts_config" => Some(Action::FolderShortcutsConfig),
+        "hotlist" => Some(Action::Hotlist),
         "file_panel_filter" => Some(Action::FilePanelFilter),
         "quick_filter" => Some(Action::QuickFilter),
         "task_list" => Some(Action::TaskList),

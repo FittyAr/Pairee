@@ -2,6 +2,7 @@ use super::highlight::highlight_line;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
+use crate::ui::text_width::{display_width, expand_tabs};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -21,6 +22,7 @@ pub fn render_editor_widget(
     cursor_y: usize,
     scroll_y: usize,
     is_dirty: bool,
+    tab_size: usize,
     theme: &crate::config::theme::Theme,
     active_popup: Option<&PopupType>,
 ) {
@@ -48,7 +50,12 @@ pub fn render_editor_widget(
     let status_area = chunks[1];
 
     let height = edit_area.height as usize;
-    let visible_lines: Vec<String> = lines.iter().skip(scroll_y).take(height).cloned().collect();
+    let visible_lines: Vec<String> = lines
+        .iter()
+        .skip(scroll_y)
+        .take(height)
+        .map(|l| expand_tabs(l, tab_size))
+        .collect();
 
     // Check if there is an active search query from the search popup
     let search_info = match active_popup {
@@ -101,8 +108,9 @@ pub fn render_editor_widget(
 
     // Draw the terminal blinking cursor at the editing position
     let prefix_len = 7u16;
+    let (before_cursor, _, _) = text_input::split_at_cursor(current_line, cursor_x);
     let editor_cursor_x =
-        edit_area.x + prefix_len + text_input::display_col(current_line, cursor_x) as u16;
+        edit_area.x + prefix_len + display_width(&expand_tabs(before_cursor, tab_size)) as u16;
     let editor_cursor_y = edit_area.y + (cursor_y - scroll_y) as u16;
 
     if editor_cursor_x < edit_area.x + edit_area.width

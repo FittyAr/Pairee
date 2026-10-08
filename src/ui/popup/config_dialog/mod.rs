@@ -153,23 +153,10 @@ pub fn render_config_dialog_popup(
             match active_tab {
                 0 => system::populate_rows(settings, &mut rows),
                 1 => panel::populate_rows(settings, &mut rows),
-                2 => interface::populate_rows(
-                    settings,
-                    *editing_value,
-                    *cursor_idx,
-                    edit_buffer,
-                    &mut rows,
-                    custom_bindings,
-                ),
+                2 => interface::populate_rows(settings, &mut rows, custom_bindings),
                 3 => confirmations::populate_rows(settings, &mut rows),
                 4 => plugins::populate_rows(settings, &mut rows),
-                5 => editor_viewer::populate_rows(
-                    settings,
-                    *editing_value,
-                    *cursor_idx,
-                    edit_buffer,
-                    &mut rows,
-                ),
+                5 => editor_viewer::populate_rows(settings, &mut rows),
                 6 => colors::populate_rows(settings, &mut rows),
                 7 => git::populate_rows(
                     settings,

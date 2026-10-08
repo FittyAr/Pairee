@@ -40,13 +40,7 @@ pub fn handle_editing(
                     && let crate::ui::popup::config_dialog::RowType::Setting(setting_id) =
                         current_rows[cursor_idx].1
                 {
-                    if active_tab == 5 && setting_id == 1 {
-                        settings.default_editor = edit_buffer.clone();
-                    } else if active_tab == 5 && setting_id == 22 {
-                        settings.viewer_command = edit_buffer.clone();
-                    } else if active_tab == 2 && setting_id == 14 {
-                        settings.interface_window_title_addons = edit_buffer.clone();
-                    } else if active_tab == 4 && setting_id == 12 {
+                    if active_tab == 4 && setting_id == 12 {
                         settings.plugins_dev_dir = edit_buffer.clone();
                     } else if active_tab == 7 {
                         git::apply_edit(setting_id, &mut settings, &edit_buffer);

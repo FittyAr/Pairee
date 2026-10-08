@@ -19,6 +19,7 @@ pub mod file_associations;
 pub mod file_attributes;
 pub mod file_filter;
 pub mod files_highlighting;
+pub mod folder_shortcuts;
 pub mod help;
 pub mod history_list;
 pub mod hotlist;
@@ -86,6 +87,7 @@ pub fn handle_popup_input(
             PopupType::ScreensMenu { .. } => screens_menu::handle(state, key, context),
             PopupType::DriveSelect { .. } => drive_select::handle(state, key, context),
             PopupType::Hotlist { .. } => hotlist::handle(state, key, context),
+            PopupType::FolderShortcuts { .. } => folder_shortcuts::handle(state, key, context),
             PopupType::MovePrompt(..) => rename_move::handle(state, key, context),
             PopupType::RenamePrompt { .. } => rename::handle(state, key, context),
             PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => {

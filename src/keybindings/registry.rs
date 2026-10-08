@@ -90,6 +90,13 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Git,
     ),
+    d("hotlist", Action::Hotlist, true, ActionCategory::Navigation),
+    d(
+        "folder_shortcuts_config",
+        Action::FolderShortcutsConfig,
+        true,
+        ActionCategory::Navigation,
+    ),
     d("git_init", Action::GitInit, true, ActionCategory::Git),
     d("git_clone", Action::GitClone, true, ActionCategory::Git),
     d(

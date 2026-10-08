@@ -15,7 +15,8 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `Ctrl+U` | Intercambia las rutas de directorio entre el panel izquierdo y derecho. |
 | `Ctrl+H` | Alterna la visualización de archivos ocultos y de sistema. |
 | `Ctrl+R` | Recarga y refresca el contenido del directorio del panel activo. |
-| `Ctrl+\` | Abre la lista de marcadores favoritos (Hotlist) de carpetas. |
+| `Ctrl+\` | Abre la lista de favoritos de carpetas (`Enter` ir, `Ins`/`+` añadir la carpeta actual, `Supr`/`-` quitar). Se guarda en `bookmarks.toml`. |
+| `Ctrl+Alt+1` … `Ctrl+Alt+9` | Salta al atajo de carpeta 1–9. Se asignan desde **Comandos → Accesos dir. carp.** (`Ins`/`Espacio` o el dígito del atajo asigna la carpeta actual, `Supr` lo borra). |
 
 ---
 
@@ -52,7 +53,7 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `F5` | Copia los archivos seleccionados hacia el panel opuesto. |
 | `Alt+F5` | Imprime archivos aplicando un comando filtro. |
 | `F6` | Mueve los elementos seleccionados al panel opuesto. Pulsa `Tab` desde el campo de ruta para ver las opciones avanzadas (enlaces simbólicos, atributos, filtro, etc.). |
-| `Alt+F6` / `Ctrl+L` | Abre el diálogo de creación de enlaces simbólicos o duros. |
+| `Alt+F6` | Abre el diálogo de creación de enlaces simbólicos o duros. |
 | `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
 | `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |
 | `Alt+Delete` | Borrado Seguro (Wipe): Sobrescribe sectores de datos antes de borrar. |
@@ -60,13 +61,13 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `F10` | Cierra y sale de la aplicación. |
 | `F12` | Abre el listado de pantallas y pestañas activas de fondo. |
 | `Esc` | Limpia comandos de consola, cierra popups o sale de menús. |
-| `Shift+F10` | Abre el menú contextual del archivo seleccionado. |
+| `Menu` / `Alt+M` | Abre el menú contextual del archivo seleccionado. |
 
 > **Consejo:** Las acciones que antes estaban en `F7` (Crear carpeta) y `F11` (Plugins) ahora se encuentran en **Barra de menú** → submenú **Archivos**. La opción **Crear carpeta** también está disponible por defecto (tecla `6`) en el **Menú de Usuario** (`F2`).
 
 ---
 
-##  Marcado y Selección Múltiple
+## 🏷️ 4. Marcado y Selección Múltiple
 
 | Tecla | Acción |
 | :--- | :--- |
@@ -74,10 +75,19 @@ Esta guía recopila todas las combinaciones de teclas y atajos interactivos de P
 | `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
 | `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
 | `*` (Teclado numérico) | Invierte la selección en todo el panel. |
-
-> **TOML de atajos:** los acordes Far `Gray+` / `Gray-` / `Gray*` se aceptan y se traducen a `Plus` / `-` / `*`. En archivos nuevos usa `Plus`. Los acordes inválidos o duplicados se rechazan; Ajustes → Interfaz los lista.
 | `Ctrl+M` | Restaura el último grupo de selección marcado. |
 | `Ctrl+I` | Aplica un filtro de búsqueda persistente en el panel activo. |
+
+> **TOML de atajos:** los acordes Far `Gray+` / `Gray-` / `Gray*` se aceptan y se traducen a `Plus` / `-` / `*`. En archivos nuevos usa `Plus`. Los acordes inválidos o duplicados se rechazan; Ajustes → Interfaz los lista.
+
+> **Limitación de la terminal (`Ctrl+H`, `Ctrl+I`, `Ctrl+M`):** las terminales clásicas envían los mismos bytes para `Ctrl+H` y `Retroceso`, `Ctrl+I` y `Tab`, `Ctrl+M` y `Enter`. Estos tres atajos solo funcionan en terminales compatibles con el protocolo de teclado kitty (kitty, WezTerm, foot, Ghostty, Alacritty, Windows Terminal reciente, …). En las demás, reasígnalos en `keybindings.toml`:
+>
+> ```toml
+> [custom_bindings]
+> toggle_hidden     = "Alt+h"
+> file_panel_filter = "Alt+i"
+> restore_selection = "Alt+r"
+> ```
 
 ---
 

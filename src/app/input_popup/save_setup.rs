@@ -15,6 +15,7 @@ pub fn handle(
                 // An explicit "Save setup" is the user's confirmation that an
                 // invalid config.toml (already backed up) may be replaced.
                 crate::config::load_guard::confirm_settings_overwrite();
+                crate::app::sys_helpers::capture_setup(state, &mut context.config.settings);
                 match context.config.save() {
                     Ok(_) => {
                         state

@@ -111,7 +111,7 @@ pub async fn handle_ui_settings_action(
             return true;
         }
         Action::Refresh | Action::RereadPanel => {
-            state.refresh_both_panels(context.config.settings.show_hidden);
+            state.force_refresh_both_panels(context.config.settings.show_hidden);
             return true;
         }
         Action::InfoPanel => {

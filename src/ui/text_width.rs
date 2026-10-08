@@ -7,7 +7,6 @@ use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 /// Display width of `s` in terminal columns.
-#[allow(dead_code)] // public helper for panel/popup layout
 pub fn display_width(s: &str) -> usize {
     s.width()
 }
@@ -66,9 +65,42 @@ pub fn char_width(c: char) -> usize {
     UnicodeWidthChar::width(c).unwrap_or(0)
 }
 
+const TAB: char = '\t';
+
+/// Replaces each tab with spaces up to the next multiple of `tab_size` columns
+/// (editor / viewer `*_tab_size` settings). A size of 0 is treated as 1.
+pub fn expand_tabs(s: &str, tab_size: usize) -> String {
+    if !s.contains(TAB) {
+        return s.to_string();
+    }
+    let tab_size = tab_size.max(1);
+    let mut out = String::with_capacity(s.len());
+    let mut col = 0usize;
+    for c in s.chars() {
+        if c == TAB {
+            let pad = tab_size - col % tab_size;
+            out.extend(std::iter::repeat_n(' ', pad));
+            col += pad;
+        } else {
+            out.push(c);
+            col += UnicodeWidthChar::width(c).unwrap_or(0);
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn expand_tabs_aligns_to_tab_stops() {
+        assert_eq!(expand_tabs("a\tb", 4), "a   b");
+        assert_eq!(expand_tabs("\tx", 2), "  x");
+        assert_eq!(expand_tabs("abcd\te", 4), "abcd    e");
+        assert_eq!(expand_tabs("no tabs", 8), "no tabs");
+        assert_eq!(expand_tabs("\t", 0), " ");
+    }
 
     #[test]
     fn ascii_width() {

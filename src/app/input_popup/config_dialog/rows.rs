@@ -16,17 +16,12 @@ pub fn get_rows_for_tab(
         1 => crate::ui::popup::config_dialog::panel::populate_rows(settings, &mut rows),
         2 => crate::ui::popup::config_dialog::interface::populate_rows(
             settings,
-            editing,
-            c_idx,
-            buf,
             &mut rows,
             custom_bindings,
         ),
         3 => crate::ui::popup::config_dialog::confirmations::populate_rows(settings, &mut rows),
         4 => crate::ui::popup::config_dialog::plugins::populate_rows(settings, &mut rows),
-        5 => crate::ui::popup::config_dialog::editor_viewer::populate_rows(
-            settings, editing, c_idx, buf, &mut rows,
-        ),
+        5 => crate::ui::popup::config_dialog::editor_viewer::populate_rows(settings, &mut rows),
         6 => crate::ui::popup::config_dialog::colors::populate_rows(settings, &mut rows),
         7 => crate::ui::popup::config_dialog::git::populate_rows(
             settings, editing, c_idx, buf, &mut rows,

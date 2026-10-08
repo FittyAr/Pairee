@@ -141,11 +141,7 @@ pub fn handle_navigation_action(
         }
         Action::GoFolderShortcut(n) => {
             if let Some(target) = state.folder_shortcuts.get(n).cloned() {
-                let panel = state.get_active_panel_mut();
-                panel.current_path = target;
-                panel.cursor_index = 0;
-                panel.clear_selection();
-                state.refresh_both_panels(context.config.settings.show_hidden);
+                state.jump_active_panel_to(target, context.config.settings.show_hidden);
             } else {
                 state.dialogs.replace(PopupType::Info(
                     crate::config::localization::t("error_no_folder_shortcut")

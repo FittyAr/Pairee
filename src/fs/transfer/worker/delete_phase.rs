@@ -55,6 +55,8 @@ pub(super) async fn run_delete_phase(
                 let _ = crate::fs::descriptions::remove_description(parent, filename_str);
             }
 
+            // Measure before trashing: the path is gone afterwards.
+            let size = src.symlink_metadata().map(|m| m.len()).unwrap_or(0);
             let res = send_to_recycle_bin_helper(src);
 
             if let Err(e) = res {
@@ -78,7 +80,6 @@ pub(super) async fn run_delete_phase(
                     return Err(anyhow!("Halt on error: Recycle Bin deletion failed"));
                 }
             } else {
-                let size = src.metadata().map(|m| m.len()).unwrap_or(0);
                 let file_result = FileTransferResult {
                     src: src.clone(),
                     dst: PathBuf::new(),

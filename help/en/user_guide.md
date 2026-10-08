@@ -166,9 +166,9 @@ For technical deep-dives:
 ## 📖 5. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:
-* **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_en.md).
-* **Git Integration:** See [Git Integration Reference Manual](file:///home/fitty/GitHub/Pairee/help/git_integration_en.md).
-* **Detailed Configurations:** See [Configuration Settings Manual](file:///home/fitty/GitHub/Pairee/help/configuration_details_en.md).
-* **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_en.md).
+* **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](ssh_sftp.md).
+* **Git Integration:** See [Git Integration Reference Manual](git_integration.md).
+* **Detailed Configurations:** See [Configuration Settings Manual](configuration_details.md).
+* **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](keyboard_shortcuts.md).
 * **Plugin Lua API:** See the [Plugin Lua API Reference](plugins_en.md) for the full `pairee.*` namespace (including the new `pairee.emit`, `pairee.confirm`, `pairee.input`, `pairee.which`, `pairee.notify`, `pairee.file_cache`, and `pairee.utils.*` from the M0 plugin system evolution).
 

@@ -24,6 +24,7 @@ pub fn render_viewer(
     theme: &crate::config::theme::Theme,
     active_popup: Option<&crate::app::state::PopupType>,
     show_scrollbar: bool,
+    tab_size: usize,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let mode_label = match state.mode {
@@ -61,6 +62,7 @@ pub fn render_viewer(
             theme,
             active_popup,
             show_scrollbar,
+            tab_size,
             scrollbar,
         ),
         ViewerMode::Hex => hex::render_hex(f, area, state, block, theme, show_scrollbar, scrollbar),

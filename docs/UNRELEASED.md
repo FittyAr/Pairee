@@ -2,6 +2,13 @@
 
 ### Added
 
+- Folder shortcuts can now be assigned: **Commands → Folder shortcuts** lists slots `Ctrl+Alt+1` … `Ctrl+Alt+9`; `Ins`/`Space` (or the slot digit) assigns the current folder and `Del` clears it. Shortcuts are saved in `bookmarks.toml` in the config folder.
+- The directory hotlist (`Ctrl+\`, also **Commands → Directory hotlist**) is now persistent: `Ins`/`+` adds the current folder, `Del`/`-` removes an entry. Default entries are localized.
+- `Alt+G` now opens the Git panel in every built-in keymap, as the menu already advertised.
+- Built-in keymaps now pick up newly shipped bindings even when an older copy of the keymap file exists in the config folder (user-defined chords always win).
+- Editor and viewer honor the "Tab size" settings when displaying tab characters.
+- Panel visibility, view mode, sort order and long-names mode are restored at startup from the last **Save setup**.
+- The "natural" sorting collation now sorts numbers inside names numerically.
 - `pairee.fs.data_dir()` returns the plugin's private data directory, the only location an untrusted plugin may write to.
 - Support for untracked files in the Git diff viewer, allowing inspection of newly added files with full contents.
 - Home and End key navigation in the unified Git diff viewer.
@@ -26,8 +33,15 @@
 
 ### Removed
 
+- Configuration dialog options that had no effect (file descriptions, info panel details, dialog/command-line editing, most editor/viewer options, plugin manager flags and some confirmations) are hidden until implemented; their stored values are kept. See `docs/technical/settings-audit.md`.
 ### Fixed
 
+- The "Save commands / folders / view and edit history" settings are now honored: disabled categories are no longer written to or restored from `history.toml`.
+- Symbolic links to directories are listed and opened as directories instead of files.
+- On Windows, files with the Hidden attribute are hidden unless "Show hidden files" is on.
+- Delete to Recycle Bin now uses the system trash on Linux, macOS and Windows; when the trash is unavailable the item is kept and an error is shown, instead of being deleted permanently.
+- "Disable panel update if object count exceeds" no longer prevents opening a large directory; it only skips automatic rereads of the same directory, and `Ctrl+R` always rereads.
+- Keyboard shortcuts help: removed the duplicated `Ctrl+L` entry, repaired the selection table, documented that `Ctrl+H` / `Ctrl+I` / `Ctrl+M` need the kitty keyboard protocol (with rebinding examples), and fixed broken links to other manuals.
 - Fixed crashes in the built-in editor, the Git commit prompt and editor search when typing or moving the cursor over non-ASCII text (e.g. `ñ`, `á`, emoji, combining accents); cursor movement, Backspace and Delete now operate on whole grapheme clusters via a shared text-input helper.
 - Fixed the terminal being left in raw mode / alternate screen with mouse capture after a crash: a panic hook now restores the terminal and logs the panic before printing it.
 - Fixed an invalid `config.toml` silently falling back to defaults and later being overwritten: the file is now backed up to `config.toml.bak`, a localized error is shown at startup, and it is not overwritten until the user confirms via Options > Save setup.

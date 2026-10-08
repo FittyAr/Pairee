@@ -166,6 +166,8 @@ pub enum Action {
     FileAssociations,
     /// Configure folder shortcuts (Commands menu)
     FolderShortcutsConfig,
+    /// Open the directory hotlist (Ctrl+\)
+    Hotlist,
     /// Set a permanent file mask filter on the active panel (Ctrl+I)
     FilePanelFilter,
     /// Real-time interactive filename fragment filter (F/f, Ctrl+F)

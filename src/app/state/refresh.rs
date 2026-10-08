@@ -2,10 +2,30 @@ use super::{ActivePanel, AppState};
 use crate::fs;
 
 impl AppState {
+    /// Digit runs compare numerically when "treat digits as numbers" is on or
+    /// the sorting collation is set to `natural`.
+    pub fn natural_sort(&self) -> bool {
+        self.treat_digits_as_numbers || self.sorting_collation == "natural"
+    }
+
     /// Refreshes directories inside left and right panels, using full panel settings.
+    ///
+    /// Automatic rereads of an unchanged, very large directory are skipped
+    /// when `disable_panel_update_object_count` is set; a panel that moved to
+    /// another directory is always loaded.
     pub fn refresh_both_panels(&mut self, show_hidden: bool) {
+        self.refresh_panels(show_hidden, false);
+    }
+
+    /// Explicit reread (Ctrl+R / reread panel): ignores the object-count limit.
+    pub fn force_refresh_both_panels(&mut self, show_hidden: bool) {
+        self.refresh_panels(show_hidden, true);
+    }
+
+    fn refresh_panels(&mut self, show_hidden: bool, force: bool) {
         let left_path = self.panels.left.current_path.clone();
-        if left_path != self.panels.left.last_path {
+        let left_changed = left_path != self.panels.left.last_path;
+        if left_changed {
             self.panels.left.quick_filter_mask = None;
             self.panels.left.last_path = left_path.clone();
             let path_str = left_path.to_string_lossy().to_string();
@@ -15,15 +35,18 @@ impl AppState {
             });
         }
         let left_count = self.panels.left.entries.len();
-        let skip_left = self.disable_panel_update_object_count > 0
-            && left_count as u32 > self.disable_panel_update_object_count;
+        let skip_left = skip_auto_update(
+            self.disable_panel_update_object_count,
+            left_count,
+            left_changed || force,
+        );
         if !skip_left {
             let res = if let Some(client) = &self.panels.left.ssh_conn {
                 client.read_directory(
                     &left_path,
                     show_hidden,
                     self.case_sensitive_sort,
-                    self.treat_digits_as_numbers,
+                    self.natural_sort(),
                     self.panels.left.sort_field,
                     self.panels.left.sort_reverse,
                     self.show_dotdot_in_root_folders,
@@ -33,7 +56,7 @@ impl AppState {
                     &left_path,
                     show_hidden,
                     self.case_sensitive_sort,
-                    self.treat_digits_as_numbers,
+                    self.natural_sort(),
                     &self.sorting_collation,
                     self.req_admin_reading,
                     self.panels.left.sort_field,
@@ -71,7 +94,8 @@ impl AppState {
         }
 
         let right_path = self.panels.right.current_path.clone();
-        if right_path != self.panels.right.last_path {
+        let right_changed = right_path != self.panels.right.last_path;
+        if right_changed {
             self.panels.right.quick_filter_mask = None;
             self.panels.right.last_path = right_path.clone();
             let path_str = right_path.to_string_lossy().to_string();
@@ -81,15 +105,18 @@ impl AppState {
             });
         }
         let right_count = self.panels.right.entries.len();
-        let skip_right = self.disable_panel_update_object_count > 0
-            && right_count as u32 > self.disable_panel_update_object_count;
+        let skip_right = skip_auto_update(
+            self.disable_panel_update_object_count,
+            right_count,
+            right_changed || force,
+        );
         if !skip_right {
             let res = if let Some(client) = &self.panels.right.ssh_conn {
                 client.read_directory(
                     &right_path,
                     show_hidden,
                     self.case_sensitive_sort,
-                    self.treat_digits_as_numbers,
+                    self.natural_sort(),
                     self.panels.right.sort_field,
                     self.panels.right.sort_reverse,
                     self.show_dotdot_in_root_folders,
@@ -99,7 +126,7 @@ impl AppState {
                     &right_path,
                     show_hidden,
                     self.case_sensitive_sort,
-                    self.treat_digits_as_numbers,
+                    self.natural_sort(),
                     &self.sorting_collation,
                     self.req_admin_reading,
                     self.panels.right.sort_field,
@@ -139,17 +166,18 @@ impl AppState {
 
     /// Dynamically applies / updates in-memory sorting and filtering on the active panel.
     pub fn update_panel_filter(&mut self, active_panel: ActivePanel, mask: Option<String>) {
+        let natural = self.natural_sort();
         let (panel, case_sensitive, digits_as_numbers, folder_by_ext) = match active_panel {
             ActivePanel::Left => (
                 &mut self.panels.left,
                 self.case_sensitive_sort,
-                self.treat_digits_as_numbers,
+                natural,
                 self.sort_folder_names_by_extension,
             ),
             ActivePanel::Right => (
                 &mut self.panels.right,
                 self.case_sensitive_sort,
-                self.treat_digits_as_numbers,
+                natural,
                 self.sort_folder_names_by_extension,
             ),
         };
@@ -335,5 +363,37 @@ mod tests {
         assert_eq!(partitioned[2].name, "rust_dir");
         // The last element should be non-matching
         assert_eq!(partitioned[3].name, "other_file.txt");
+    }
+}
+
+/// True when an automatic reread of the *same* directory should be skipped
+/// because it already holds more than `limit` objects (0 disables the limit).
+fn skip_auto_update(limit: u32, current_count: usize, must_load: bool) -> bool {
+    !must_load && limit > 0 && current_count > limit as usize
+}
+
+#[cfg(test)]
+mod skip_tests {
+    use super::skip_auto_update;
+    use crate::app::state::AppState;
+
+    #[test]
+    fn natural_collation_enables_numeric_sort() {
+        let mut state = AppState::new(".".into(), ".".into());
+        state.sorting_collation = "linguistic".into();
+        assert!(!state.natural_sort());
+        state.sorting_collation = "natural".into();
+        assert!(state.natural_sort());
+    }
+
+    #[test]
+    fn limit_only_applies_to_same_directory_auto_refresh() {
+        assert!(skip_auto_update(10, 50, false));
+        assert!(
+            !skip_auto_update(10, 50, true),
+            "new dir / forced reread loads"
+        );
+        assert!(!skip_auto_update(0, 50, false), "0 disables the limit");
+        assert!(!skip_auto_update(10, 5, false));
     }
 }

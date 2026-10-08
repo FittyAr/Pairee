@@ -24,14 +24,6 @@ pub fn populate_rows(
     ));
 
     // 801: git_auto_detect
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.git_auto_detect { "x" } else { " " },
-            t("git_auto_detect")
-        ),
-        RowType::Setting(801),
-    ));
 
     rows.push((t("git_section_author"), RowType::Title));
 

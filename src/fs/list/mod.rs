@@ -77,15 +77,25 @@ pub fn read_directory_ext(
             let mut items = Vec::new();
             for entry in read_dir.flatten() {
                 let name = entry.file_name().to_string_lossy().into_owned();
+                // `DirEntry::metadata` does not follow symlinks: keep it for the
+                // link flag and the hidden attribute, but follow the link so a
+                // symlinked directory is still listed (and entered) as a directory.
+                let link_metadata = entry.metadata().ok();
 
                 // Skip hidden files if show_hidden is not enabled
-                if !show_hidden && name.starts_with('.') {
+                if !show_hidden && is_hidden(&name, link_metadata.as_ref()) {
                     continue;
                 }
 
-                let metadata = entry.metadata().ok();
+                let is_symlink = link_metadata
+                    .as_ref()
+                    .is_some_and(|m| m.file_type().is_symlink());
+                let metadata = if is_symlink {
+                    fs::metadata(entry.path()).ok().or(link_metadata)
+                } else {
+                    link_metadata
+                };
                 let is_dir = metadata.as_ref().map(|m| m.is_dir()).unwrap_or(false);
-                let is_symlink = metadata.as_ref().map(|m| m.is_symlink()).unwrap_or(false);
                 let size = metadata.as_ref().map(|m| m.len()).unwrap_or(0);
                 let modified = metadata.and_then(|m| m.modified().ok());
 
@@ -123,4 +133,74 @@ pub fn read_directory_ext(
     );
 
     Ok(entries)
+}
+
+/// Dot-files are hidden everywhere; on Windows the hidden attribute counts too.
+fn is_hidden(name: &str, metadata: Option<&fs::Metadata>) -> bool {
+    if name.starts_with('.') {
+        return true;
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::MetadataExt;
+        const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
+        if let Some(m) = metadata {
+            return m.file_attributes() & FILE_ATTRIBUTE_HIDDEN != 0;
+        }
+    }
+    #[cfg(not(windows))]
+    let _ = metadata;
+    false
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn names(dir: &Path, show_hidden: bool) -> Vec<FileEntry> {
+        read_directory(dir, show_hidden, false, false, "", false)
+            .unwrap()
+            .into_iter()
+            .filter(|e| e.name != "..")
+            .collect()
+    }
+
+    #[test]
+    fn dot_files_respect_show_hidden() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join(".secret"), b"x").unwrap();
+        std::fs::write(dir.path().join("plain"), b"x").unwrap();
+        assert_eq!(names(dir.path(), false).len(), 1);
+        assert_eq!(names(dir.path(), true).len(), 2);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn symlinked_directory_is_listed_as_directory() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::create_dir(dir.path().join("real")).unwrap();
+        std::os::unix::fs::symlink(dir.path().join("real"), dir.path().join("link")).unwrap();
+        let link = names(dir.path(), true)
+            .into_iter()
+            .find(|e| e.name == "link")
+            .unwrap();
+        assert!(link.is_dir);
+        assert!(link.is_symlink);
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn windows_hidden_attribute_respects_show_hidden() {
+        let dir = tempfile::tempdir().unwrap();
+        let file = dir.path().join("hidden.txt");
+        std::fs::write(&file, b"x").unwrap();
+        let status = std::process::Command::new("attrib")
+            .arg("+h")
+            .arg(&file)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        assert!(names(dir.path(), false).is_empty());
+        assert_eq!(names(dir.path(), true).len(), 1);
+    }
 }

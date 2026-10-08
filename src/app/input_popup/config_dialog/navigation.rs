@@ -164,13 +164,7 @@ pub fn handle_navigation(
                         &mut editing_value,
                         &mut edit_buffer,
                     ),
-                    2 => interface::handle_row(
-                        setting_id,
-                        &mut settings,
-                        &mut editing_value,
-                        &mut edit_buffer,
-                        context,
-                    ),
+                    2 => interface::handle_row(setting_id, &mut settings, context),
                     3 => confirmations::handle_row(
                         setting_id,
                         &mut settings,
@@ -183,12 +177,7 @@ pub fn handle_navigation(
                         &mut editing_value,
                         &mut edit_buffer,
                     ),
-                    5 => editor_viewer::handle_row(
-                        setting_id,
-                        &mut settings,
-                        &mut editing_value,
-                        &mut edit_buffer,
-                    ),
+                    5 => editor_viewer::handle_row(setting_id, &mut settings),
                     6 => colors::handle_row(
                         setting_id,
                         &mut settings,

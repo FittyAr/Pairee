@@ -16,10 +16,6 @@ pub fn handle_row(
             None
         }
         // 801: Toggle git_auto_detect
-        801 => {
-            settings.git_auto_detect = !settings.git_auto_detect;
-            None
-        }
         // 802: Edit git_author_name
         802 => {
             *editing_value = true;

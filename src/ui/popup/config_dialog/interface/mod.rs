@@ -7,13 +7,10 @@ mod general;
 
 pub fn populate_rows(
     settings: &Settings,
-    editing_value: bool,
-    cursor_idx: usize,
-    edit_buffer: &str,
     rows: &mut Vec<(String, RowType)>,
     custom_bindings: &HashMap<String, String>,
 ) {
-    general::populate_general_rows(settings, editing_value, cursor_idx, edit_buffer, rows);
+    general::populate_general_rows(settings, rows);
     advanced::populate_advanced_rows(settings, rows, custom_bindings);
 }
 
@@ -27,7 +24,7 @@ mod tests {
     fn keymap_section_always_has_status_and_view_rows() {
         let settings = Settings::default();
         let mut rows = Vec::new();
-        populate_rows(&settings, false, 0, "", &mut rows, &HashMap::new());
+        populate_rows(&settings, &mut rows, &HashMap::new());
         assert!(
             rows.iter()
                 .any(|(_, kind)| matches!(kind, RowType::Setting(36))),

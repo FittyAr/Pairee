@@ -1,4 +1,5 @@
 pub mod associations;
+pub mod bookmarks;
 pub mod history;
 pub mod keybindings;
 pub mod load_guard;

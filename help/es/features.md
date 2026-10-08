@@ -178,9 +178,9 @@ Si el repositorio no está disponible (ej. instalado como binario independiente)
 ## 📖 8. Manuales de Integración Avanzada
 
 Para módulos más complejos y detallados, por favor consultá sus manuales específicos:
-* **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](file:///home/fitty/GitHub/Pairee/help/ssh_sftp_es.md).
-* **Integración con Git:** Consulta el [Manual de Integración con Git](file:///home/fitty/GitHub/Pairee/help/git_integration_es.md).
-* **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](file:///home/fitty/GitHub/Pairee/help/configuration_details_es.md).
-* **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](file:///home/fitty/GitHub/Pairee/help/keyboard_shortcuts_es.md).
+* **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](ssh_sftp.md).
+* **Integración con Git:** Consulta el [Manual de Integración con Git](git_integration.md).
+* **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](configuration_details.md).
+* **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](keyboard_shortcuts.md).
 * **Guía para Desarrolladores de Complementos:** Consulta la [Guía para Desarrolladores de Complementos](../../docs/plugin-dev-guide-es.md) y la [API Lua v1](../../docs/api/lua/v1.md).
 

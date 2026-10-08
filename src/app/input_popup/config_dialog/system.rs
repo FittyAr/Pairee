@@ -8,11 +8,6 @@ pub fn handle_row(
 ) -> Option<crate::app::state::PopupType> {
     match cursor_idx {
         0 => settings.delete_to_recycle_bin = !settings.delete_to_recycle_bin,
-        1 => settings.use_system_copy_routine = !settings.use_system_copy_routine,
-        2 => {
-            settings.copy_files_opened_for_writing = !settings.copy_files_opened_for_writing;
-        }
-        3 => settings.scan_symbolic_links = !settings.scan_symbolic_links,
         4 => settings.save_commands_history = !settings.save_commands_history,
         5 => settings.save_folders_history = !settings.save_folders_history,
         6 => {
@@ -26,10 +21,6 @@ pub fn handle_row(
         }
         10 => settings.req_admin_modification = !settings.req_admin_modification,
         11 => settings.req_admin_reading = !settings.req_admin_reading,
-        12 => {
-            settings.req_admin_use_additional_privileges =
-                !settings.req_admin_use_additional_privileges;
-        }
         13 => {
             settings.sorting_collation = match settings.sorting_collation.as_str() {
                 "linguistic" => "natural".to_string(),
