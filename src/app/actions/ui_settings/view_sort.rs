@@ -2,7 +2,6 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PanelViewMode, PopupType};
-use crate::config::localization::t;
 use crate::keybindings::Action;
 
 /// Maps a `PanelView*` action to its view mode.
@@ -127,34 +126,11 @@ pub fn handle_view_sort_action(
             true
         }
         Action::CompareFolder => {
-            let left = state.panels.left.current_path.clone();
-            let right = state.panels.right.current_path.clone();
-            match crate::fs::compare_directories(&left, &right) {
-                Ok(diff) => {
-                    for entry in &diff {
-                        if entry.status != crate::fs::CompareStatus::Equal
-                            && let Some(e) = state
-                                .panels
-                                .left
-                                .entries
-                                .iter()
-                                .find(|e| e.name == entry.name)
-                            && state.panels.left.selected_paths.insert(e.path.clone())
-                        {
-                            state.panels.left.selection_order.push(e.path.clone());
-                        }
-                    }
-                    state.dialogs.replace(PopupType::CompareFoldersResult {
-                        diff,
-                        cursor_idx: 0,
-                    });
-                }
-                Err(e) => {
-                    state.dialogs.replace(PopupType::Error(
-                        t("error_compare_failed").replace("{}", &e.to_string()),
-                    ));
-                }
-            }
+            crate::app::sync::start_compare(state, context);
+            true
+        }
+        Action::SyncDirs => {
+            crate::app::sync::open_dialog(state, context);
             true
         }
         _ => false,

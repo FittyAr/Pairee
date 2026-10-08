@@ -36,6 +36,7 @@ pub mod screens_menu;
 pub mod search;
 pub mod select_group;
 pub mod sort_modes;
+pub mod sync_dirs;
 pub mod task_list;
 pub mod transfer_panel;
 pub mod transfer_prompt;
@@ -111,6 +112,8 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::MultiRename(..) => multi_rename::handle,
         PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
         PopupType::TreeView { .. } => tree_view::handle,
+        PopupType::SyncDirs(_) => sync_dirs::handle,
+        PopupType::FolderScanProgress => sync_dirs::handle_progress,
         PopupType::ContextMenu { .. } => context_menu::handle,
         PopupType::CompressPrompt { .. } => compress::handle,
         PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle,

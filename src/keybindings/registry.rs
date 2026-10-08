@@ -148,6 +148,7 @@ pub const CATALOG: &[ActionDef] = &[
         true,
         ActionCategory::Files,
     ),
+    d("sync_dirs", Action::SyncDirs, true, ActionCategory::Files),
     d(
         "calculate_folder_sizes",
         Action::CalculateFolderSizes,

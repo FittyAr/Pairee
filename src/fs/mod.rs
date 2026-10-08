@@ -17,11 +17,12 @@ pub mod progress;
 pub mod search;
 pub mod ssh;
 pub mod text;
+pub mod sync;
 pub mod transfer;
 pub mod wipe;
 
 pub use attrs::read_attrs;
-pub use compare::{CompareStatus, compare_directories};
+pub use compare::CompareStatus;
 pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;
 pub use link::{create_hardlink, create_symlink};

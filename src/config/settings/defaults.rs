@@ -82,6 +82,7 @@ impl Default for Settings {
             git_enabled: true,
             ssh_enabled: true,
             ssh_timeout_secs: default_ssh_timeout_secs(),
+            compare_mtime_tolerance_secs: crate::fs::compare::DEFAULT_MTIME_TOLERANCE_SECS,
             plugins_enabled: true,
             image_preview_enabled: true,
             git_author_name: String::new(),

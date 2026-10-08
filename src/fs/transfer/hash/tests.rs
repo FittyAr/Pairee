@@ -67,3 +67,16 @@ fn crc32_check_value() {
     // Standard CRC-32/ISO-HDLC check value for "123456789".
     assert_eq!(digest(HashAlgorithm::Crc32, &[b"123456789"]), "CBF43926");
 }
+
+#[test]
+fn hash_file_matches_streamed_digest_and_honours_cancel() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().join("abc.txt");
+    std::fs::write(&path, b"abc").unwrap();
+    for (algorithm, _, abc) in VECTORS {
+        let hash = super::hash_file(&path, *algorithm, &|| false).unwrap();
+        assert_eq!(hash, *abc, "{algorithm:?}");
+    }
+    let err = super::hash_file(&path, HashAlgorithm::Blake3, &|| true).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::Interrupted);
+}

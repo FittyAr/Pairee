@@ -208,3 +208,6 @@ Some advanced parameters can be configured directly inside your `settings.toml` 
 * **`dismissed_update_version`** (`string`, default: `null` / empty):
   - *Description:* Stores the version string (e.g., `v1.2.3`) of an update that was explicitly ignored or dismissed by the user, preventing future notification popups for that specific release. You can clear this value to re-enable checks for that version.
 
+### Folder Compare & Synchronize
+* **`compare_mtime_tolerance_secs`** (`integer`, default: `2`):
+  - *Description:* Largest difference, in seconds, between the modification times of two files that folder compare and synchronize still treat as equal. The default of 2 seconds absorbs the 2-second time granularity of FAT/exFAT drives; set `0` for an exact match.

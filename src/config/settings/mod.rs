@@ -9,7 +9,7 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    PluginConfig, SshPreset, TabExpansion, default_git_log_limit, default_plugins_dev_dir,
+    PluginConfig, SshPreset, TabExpansion, default_compare_mtime_tolerance_secs, default_git_log_limit, default_plugins_dev_dir,
     default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
     default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
     default_true, default_viewer_codepage,
@@ -135,6 +135,10 @@ pub struct Settings {
     /// Timeout in seconds for blocking SSH/SFTP calls (0 = no limit)
     #[serde(default = "default_ssh_timeout_secs")]
     pub ssh_timeout_secs: u64,
+    /// Largest modification-time difference (seconds) that folder compare
+    /// and synchronize still treat as equal (2 = FAT granularity)
+    #[serde(default = "default_compare_mtime_tolerance_secs")]
+    pub compare_mtime_tolerance_secs: u64,
     /// Load and run Lua plugins
     #[serde(default = "default_true")]
     pub plugins_enabled: bool,

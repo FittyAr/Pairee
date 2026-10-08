@@ -20,6 +20,7 @@ pub fn process_background_updates(
     }
     crate::app::git_ops::poll_git_op(state);
     crate::app::actions::fs_ops::multi_rename::poll(state, context);
+    crate::app::sync::poll_folder_scan(state);
     channels::process_terminal_updates(state);
     channels::process_ssh_connect_updates(state, context);
     channels::process_search_updates(state);
