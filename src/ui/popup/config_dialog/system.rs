@@ -16,42 +16,6 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, RowType)>) {
         ),
         RowType::Setting(0),
     ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.use_system_copy_routine {
-                "x"
-            } else {
-                " "
-            },
-            t("sys_system_copy")
-        ),
-        RowType::Setting(1),
-    ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.copy_files_opened_for_writing {
-                "x"
-            } else {
-                " "
-            },
-            t("sys_copy_opened")
-        ),
-        RowType::Setting(2),
-    ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.scan_symbolic_links {
-                "x"
-            } else {
-                " "
-            },
-            t("sys_scan_symlinks")
-        ),
-        RowType::Setting(3),
-    ));
 
     rows.push(("History".to_string(), RowType::Title));
     rows.push((
@@ -138,18 +102,6 @@ pub fn populate_rows(settings: &Settings, rows: &mut Vec<(String, RowType)>) {
             t("sys_admin_read")
         ),
         RowType::Setting(11),
-    ));
-    rows.push((
-        format!(
-            "  [{}] {}",
-            if settings.req_admin_use_additional_privileges {
-                "x"
-            } else {
-                " "
-            },
-            t("sys_admin_privs")
-        ),
-        RowType::Setting(12),
     ));
 
     rows.push(("Sorting & Saving".to_string(), RowType::Title));

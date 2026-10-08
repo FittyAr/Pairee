@@ -95,6 +95,12 @@ pub fn get_items(
         )
         .with_action(Action::FolderShortcutsConfig),
         MenuItemData::new(
+            t("menu_hotlist"),
+            &shortcut_for(Action::Hotlist, "Ctrl+\\"),
+            false,
+        )
+        .with_action(Action::Hotlist),
+        MenuItemData::new(
             t("menu_file_panel_filter"),
             &shortcut_for(Action::FilePanelFilter, "Ctrl+I"),
             false,

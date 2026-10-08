@@ -121,6 +121,7 @@ pub fn render_screen(
                 ed.cursor_y,
                 ed.scroll_y,
                 ed.is_dirty,
+                context.config.settings.editor_tab_size as usize,
                 &context.config.theme,
                 state.dialogs.top(),
             );
@@ -133,6 +134,7 @@ pub fn render_screen(
                 &context.config.theme,
                 state.dialogs.top(),
                 context.config.settings.viewer_show_scrollbar,
+                context.config.settings.viewer_tab_size as usize,
                 Some(&state.scrollbar),
             );
         }

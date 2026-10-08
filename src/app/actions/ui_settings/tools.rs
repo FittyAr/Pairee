@@ -2,7 +2,7 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crate::app::sys_helpers::{get_hotlist_bookmarks, get_process_list};
+use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 
@@ -71,9 +71,15 @@ pub fn handle_tools_action(
             true
         }
         Action::FolderShortcutsConfig => {
-            let bookmarks = get_hotlist_bookmarks();
+            state
+                .dialogs
+                .replace(PopupType::FolderShortcuts { cursor_idx: 0 });
+            true
+        }
+        Action::Hotlist => {
+            let entries = crate::config::bookmarks::BookmarksFile::load().hotlist_entries();
             state.dialogs.replace(PopupType::Hotlist {
-                bookmarks,
+                entries,
                 cursor_idx: 0,
             });
             true

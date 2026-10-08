@@ -27,18 +27,6 @@ pub fn populate_display(settings: &Settings, rows: &mut Vec<(String, RowType)>) 
         ),
         RowType::Setting(2),
     ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.right_click_selects_files {
-                "x"
-            } else {
-                " "
-            },
-            t("pan_right_click")
-        ),
-        RowType::Setting(3),
-    ));
 
     rows.push(("Sorting".to_string(), RowType::Title));
     rows.push((
@@ -82,30 +70,6 @@ pub fn populate_display(settings: &Settings, rows: &mut Vec<(String, RowType)>) 
             settings.disable_panel_update_object_count
         ),
         RowType::Setting(6),
-    ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.network_drives_autorefresh {
-                "x"
-            } else {
-                " "
-            },
-            t("pan_net_refresh")
-        ),
-        RowType::Setting(7),
-    ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.detect_volume_mount_points {
-                "x"
-            } else {
-                " "
-            },
-            t("pan_volume_points")
-        ),
-        RowType::Setting(10),
     ));
     rows.push((
         format!(
@@ -156,18 +120,6 @@ pub fn populate_display(settings: &Settings, rows: &mut Vec<(String, RowType)>) 
             t("pan_scrollbar")
         ),
         RowType::Setting(13),
-    ));
-    rows.push((
-        format!(
-            "[{}] {}",
-            if settings.show_background_screens_number {
-                "x"
-            } else {
-                " "
-            },
-            t("pan_bg_screens")
-        ),
-        RowType::Setting(14),
     ));
     rows.push((
         format!(

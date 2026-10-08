@@ -38,6 +38,21 @@ impl HistoryStore {
         std::fs::write(&path, toml_str).with_context(|| format!("Writing history file {:?}", path))
     }
 
+    /// Clears the lists whose "save … history" setting is off, so only the
+    /// categories the user opted into are restored or written to disk.
+    pub fn retain_enabled(mut self, commands: bool, folders: bool, viewed_files: bool) -> Self {
+        if !commands {
+            self.commands.clear();
+        }
+        if !folders {
+            self.visited_folders.clear();
+        }
+        if !viewed_files {
+            self.viewed_files.clear();
+        }
+        self
+    }
+
     /// Adds a command to the front of the list, removing duplicates and capping at MAX_HISTORY.
     pub fn push_command(&mut self, cmd: impl Into<String>) {
         let cmd = cmd.into();
@@ -89,6 +104,21 @@ mod tests {
             store.push_command(format!("cmd_{}", i));
         }
         assert_eq!(store.commands.len(), MAX_HISTORY);
+    }
+
+    #[test]
+    fn test_retain_enabled_clears_disabled_lists() {
+        let mut store = HistoryStore::default();
+        store.push_command("ls");
+        store.push_visited_folder(PathBuf::from("/tmp"));
+        store.push_viewed_file(PathBuf::from("/tmp/a.txt"));
+        let kept = store.clone().retain_enabled(false, true, false);
+        assert!(kept.commands.is_empty());
+        assert_eq!(kept.visited_folders.len(), 1);
+        assert!(kept.viewed_files.is_empty());
+        let all = store.retain_enabled(true, true, true);
+        assert_eq!(all.commands.len(), 1);
+        assert_eq!(all.viewed_files.len(), 1);
     }
 
     #[test]

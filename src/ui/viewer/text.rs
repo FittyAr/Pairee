@@ -1,5 +1,6 @@
 use super::state::ViewerState;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
+use crate::ui::text_width::expand_tabs;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -91,6 +92,7 @@ pub(crate) fn render_text(
     theme: &crate::config::theme::Theme,
     active_popup: Option<&crate::app::state::PopupType>,
     show_scrollbar: bool,
+    tab_size: usize,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height.saturating_sub(2) as usize;
@@ -109,6 +111,7 @@ pub(crate) fn render_text(
         .iter()
         .skip(state.scroll)
         .take(height)
+        .map(|l| expand_tabs(l, tab_size))
         .map(|l| {
             if let Some((q, cs)) = search_info {
                 let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
@@ -116,9 +119,9 @@ pub(crate) fn render_text(
                     .bg(parse_color(&theme.selection_bg))
                     .fg(parse_color(&theme.marked_fg))
                     .add_modifier(Modifier::BOLD);
-                Line::from(highlight_line(l, q, cs, normal_style, highlight_style))
+                Line::from(highlight_line(&l, q, cs, normal_style, highlight_style))
             } else {
-                Line::from(Span::raw(l.clone()))
+                Line::from(Span::raw(l))
             }
         })
         .collect();

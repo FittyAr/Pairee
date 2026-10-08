@@ -2,6 +2,8 @@
 
 Este manual proporciona una descripción exhaustiva de todas las opciones de configuración disponibles en el Diálogo de Configuración de Pairee (`F2 -> Opciones -> Configuración` o `Comandos -> Configuración`).
 
+> **Nota:** las opciones que todavía no están implementadas (descripciones de archivos, detalles del panel de información, comportamiento de edición en diálogos y línea de comandos, la mayoría de las opciones del editor y del visor, indicadores de compatibilidad del gestor de plugins y algunas confirmaciones) están ocultas en el diálogo. Sus valores se conservan en `config.toml`, pero no tienen efecto hasta que se implementen. Si una opción descrita aquí no aparece en el diálogo, pertenece a ese grupo.
+
 ---
 
 ## 📂 Pestaña 0: Ajustes del Sistema

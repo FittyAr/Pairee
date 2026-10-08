@@ -1,37 +1,4 @@
 use std::collections::BTreeMap;
-use std::path::PathBuf;
-
-/// Returns a list of default bookmarks/shortcuts.
-pub fn get_hotlist_bookmarks() -> Vec<(String, PathBuf)> {
-    let mut bookmarks = Vec::new();
-    if let Some(path) = directories::UserDirs::new().map(|u| u.home_dir().to_path_buf()) {
-        bookmarks.push(("Home Directory".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.desktop_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Desktop".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.document_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Documents".to_string(), path));
-    }
-    if let Some(path) =
-        directories::UserDirs::new().and_then(|u| u.download_dir().map(|d| d.to_path_buf()))
-    {
-        bookmarks.push(("Downloads".to_string(), path));
-    }
-    bookmarks.push((
-        "System Root".to_string(),
-        PathBuf::from(if cfg!(target_os = "windows") {
-            "C:\\"
-        } else {
-            "/"
-        }),
-    ));
-    bookmarks
-}
 
 pub fn load_user_menu_commands() -> BTreeMap<String, String> {
     let path = crate::config::paths::get_config_dir().join("usermenu.toml");

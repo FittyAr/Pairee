@@ -62,6 +62,16 @@ fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
     out
 }
 
+/// Shipped TOML for a built-in preset name (`None` for custom presets).
+pub fn embedded_preset_toml(preset: &str) -> Option<&'static str> {
+    match normalize_preset_name(preset).as_str() {
+        "norton" => Some(EMBEDDED_NORTON),
+        "neovim" => Some(EMBEDDED_NEOVIM),
+        "vscode" => Some(EMBEDDED_VSCODE),
+        _ => None,
+    }
+}
+
 pub fn normalize_preset_name(preset: &str) -> String {
     match preset.to_lowercase().as_str() {
         "vim" => "neovim".into(),

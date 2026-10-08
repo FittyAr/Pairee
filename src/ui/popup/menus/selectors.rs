@@ -1,4 +1,4 @@
-//! Drive selection, hotlist, context menu, and archive commands rendering.
+//! Drive selection, context menu, and archive commands rendering.
 
 use super::super::{centered_rect, centered_rect_in};
 use crate::app::state::ActivePanel;
@@ -59,42 +59,6 @@ pub fn render_drive_select(
             .borders(Borders::ALL)
             .border_style(Style::default().fg(parse_color(&theme.popup_border)))
             .title(title)
-            .style(Style::default().bg(parse_color(&theme.popup_bg))),
-    );
-
-    f.render_widget(paragraph, area);
-}
-
-pub fn render_hotlist(
-    f: &mut Frame,
-    theme: &Theme,
-    size: Rect,
-    bookmarks: &[(String, std::path::PathBuf)],
-    cursor_idx: usize,
-) {
-    let area = centered_rect(60, 40, size);
-    f.render_widget(Clear, area);
-
-    let mut lines = Vec::new();
-    for (i, (name, path)) in bookmarks.iter().enumerate() {
-        let is_cursor = i == cursor_idx;
-        let line_str = format!(" {:<20} ->  {} ", name, path.to_string_lossy());
-        let style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
-        } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
-        };
-        lines.push(Line::from(Span::styled(line_str, style)));
-    }
-
-    let paragraph = Paragraph::new(lines).block(
-        Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-            .title(t("popup_hotlist"))
             .style(Style::default().bg(parse_color(&theme.popup_bg))),
     );
 

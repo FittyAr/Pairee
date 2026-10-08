@@ -13,13 +13,6 @@ pub fn handle_row(
         1 => {
             settings.confirmations.confirm_move = !settings.confirmations.confirm_move;
         }
-        2 => {
-            settings.confirmations.confirm_overwrite = !settings.confirmations.confirm_overwrite;
-        }
-        3 => {
-            settings.confirmations.confirm_drag_and_drop =
-                !settings.confirmations.confirm_drag_and_drop;
-        }
         4 => {
             settings.confirmations.confirm_delete = !settings.confirmations.confirm_delete;
         }
@@ -30,22 +23,6 @@ pub fn handle_row(
         6 => {
             settings.confirmations.confirm_interrupt_operation =
                 !settings.confirmations.confirm_interrupt_operation;
-        }
-        7 => {
-            settings.confirmations.confirm_disconnect_network_drive =
-                !settings.confirmations.confirm_disconnect_network_drive;
-        }
-        8 => {
-            settings.confirmations.confirm_delete_subst_disk =
-                !settings.confirmations.confirm_delete_subst_disk;
-        }
-        9 => {
-            settings.confirmations.confirm_detach_virtual_disk =
-                !settings.confirmations.confirm_detach_virtual_disk;
-        }
-        10 => {
-            settings.confirmations.confirm_hotplug_removal =
-                !settings.confirmations.confirm_hotplug_removal;
         }
         11 => {
             settings.confirmations.confirm_reload_edited_file =

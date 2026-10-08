@@ -9,7 +9,6 @@
 //! `String::insert` / `String::remove` or on slicing.
 
 use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 
 /// Returns the largest grapheme boundary `<= idx` (clamped to `s.len()`).
 pub fn floor_boundary(s: &str, idx: usize) -> usize {
@@ -86,11 +85,6 @@ pub fn delete(s: &mut String, cursor: &mut usize) -> bool {
 /// Number of graphemes before the cursor (a 0-based "column" for status bars).
 pub fn grapheme_col(s: &str, cursor: usize) -> usize {
     s[..floor_boundary(s, cursor)].graphemes(true).count()
-}
-
-/// Terminal display width of the text before the cursor.
-pub fn display_col(s: &str, cursor: usize) -> usize {
-    s[..floor_boundary(s, cursor)].width()
 }
 
 /// Splits `s` into (before cursor, grapheme at cursor, after it) for rendering
@@ -197,7 +191,6 @@ mod tests {
         let s = "ñ界x";
         let cur = next_boundary(s, 0);
         assert_eq!(split_at_cursor(s, cur), ("ñ", "界", "x"));
-        assert_eq!(display_col(s, s.len()), 4);
         assert_eq!(split_at_cursor(s, s.len()), (s, "", ""));
     }
 }

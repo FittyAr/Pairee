@@ -154,3 +154,7 @@ go_folder_shortcut_6 = "Ctrl+Alt+6"
 go_folder_shortcut_7 = "Ctrl+Alt+7"
 go_folder_shortcut_8 = "Ctrl+Alt+8"
 go_folder_shortcut_9 = "Ctrl+Alt+9"
+
+# ── Bookmarks & Git ──────────────────────────────────────────────────────────
+hotlist              = "Ctrl+\\"
+open_git_panel       = "Alt+g"

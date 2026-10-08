@@ -187,6 +187,17 @@ impl AppState {
         self.last_selection_order_snapshot = self.get_active_panel().selection_order.clone();
     }
 
+    /// Points the active panel at a local folder (hotlist / folder shortcut jump).
+    pub fn jump_active_panel_to(&mut self, target: PathBuf, show_hidden: bool) {
+        let panel = self.get_active_panel_mut();
+        panel.ssh_conn = None;
+        panel.current_path = target.clone();
+        panel.cursor_index = 0;
+        panel.clear_selection();
+        self.push_folders_history(target);
+        self.refresh_both_panels(show_hidden);
+    }
+
     /// Restores the last saved selection snapshot.
     pub fn restore_selection(&mut self) {
         let snapshot = self.last_selection_snapshot.clone();
