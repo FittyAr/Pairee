@@ -1,0 +1,4 @@
+# Shell scripts and git hooks run under bash/sh on every OS (including the
+# Windows release runners, where core.autocrlf is on): keep them LF.
+*.sh text eol=lf
+.githooks/* text eol=lf
