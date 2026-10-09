@@ -1,148 +1,28 @@
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    style::{Modifier, Style},
-    text::{Line, Span},
-    widgets::{Cell, Row},
-};
+use super::{KeyGrid, key_rows};
+use ratatui::widgets::Row;
+
+/// View-mode keys of the Yazi-style popup, three rows of four.
+const VIEW_KEYS: KeyGrid = [
+    [
+        Some((" 1/b ", " Brief")),
+        Some((" 2/m ", " Medium")),
+        Some((" 3/f ", " Full")),
+        Some((" 4/w ", " Wide")),
+    ],
+    [
+        Some((" 5/d ", " Detailed")),
+        Some((" 6/x ", " Descriptions")),
+        Some((" 7/o ", " File owners")),
+        Some((" 8/l ", " File links")),
+    ],
+    [
+        Some((" 9/a ", " Alt full")),
+        Some((" i ", " Info panel")),
+        Some((" q ", " Quick view")),
+        None,
+    ],
+];
 
 pub fn build_view_rows(theme: &crate::config::theme::Theme) -> Vec<Row<'static>> {
-    let row1 = Row::new(vec![
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 1/b ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(" Brief", Style::default().fg(parse_color(&theme.popup_fg))),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 2/m ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(" Medium", Style::default().fg(parse_color(&theme.popup_fg))),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 3/f ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(" Full", Style::default().fg(parse_color(&theme.popup_fg))),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 4/w ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(" Wide", Style::default().fg(parse_color(&theme.popup_fg))),
-        ])),
-    ]);
-    let row2 = Row::new(vec![
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 5/d ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " Detailed",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 6/x ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " Descriptions",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 7/o ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " File owners",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 8/l ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " File links",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-    ]);
-    let row3 = Row::new(vec![
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " 9/a ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " Alt full",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " i ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " Info panel",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(Line::from(vec![
-            Span::styled(
-                " q ",
-                Style::default()
-                    .fg(ratatui::style::Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ),
-            Span::styled("⋄", Style::default().fg(ratatui::style::Color::DarkGray)),
-            Span::styled(
-                " Quick view",
-                Style::default().fg(parse_color(&theme.popup_fg)),
-            ),
-        ])),
-        Cell::from(""),
-    ]);
-    vec![row1, row2, row3]
+    key_rows(theme, &VIEW_KEYS)
 }

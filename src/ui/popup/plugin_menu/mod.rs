@@ -9,6 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+mod detail;
 pub mod dev;
 pub mod installed;
 pub mod search;

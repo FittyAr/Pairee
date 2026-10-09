@@ -9,9 +9,33 @@ use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
-    style::Style,
-    widgets::{Block, Borders, Clear, Table},
+    style::{Color, Modifier, Style},
+    text::{Line, Span},
+    widgets::{Block, Borders, Cell, Clear, Row, Table},
 };
+
+/// `(key, label)` cells of a key popup: rows of four, `None` for an empty cell.
+pub type KeyGrid = [[Option<(&'static str, &'static str)>; 4]; 3];
+
+/// Table rows of `grid`: yellow key, `⋄`, label.
+pub fn key_rows(theme: &crate::config::theme::Theme, grid: &KeyGrid) -> Vec<Row<'static>> {
+    let key_style = Style::default()
+        .fg(Color::Yellow)
+        .add_modifier(Modifier::BOLD);
+    let label_style = Style::default().fg(parse_color(&theme.popup_fg));
+    grid.iter()
+        .map(|row| {
+            Row::new(row.iter().map(|cell| match cell {
+                Some((key, label)) => Cell::from(Line::from(vec![
+                    Span::styled(*key, key_style),
+                    Span::styled("⋄", Style::default().fg(Color::DarkGray)),
+                    Span::styled(*label, label_style),
+                ])),
+                None => Cell::from(""),
+            }))
+        })
+        .collect()
+}
 
 pub fn render_yazi_popup(
     f: &mut Frame,

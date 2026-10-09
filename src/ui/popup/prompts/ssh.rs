@@ -21,7 +21,6 @@ pub fn render(
 ) -> bool {
     if let PopupType::SshConnectPrompt(prompt) = popup {
         let cursor_idx = &prompt.cursor_idx;
-        let selected_preset_idx = &prompt.selected_preset_idx;
         let area = centered_rect_fixed(75, 12, size);
         f.render_widget(Clear, area);
 
@@ -54,32 +53,13 @@ pub fn render(
         let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
         let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
 
+        let styles = kit::FocusStyles {
+            active: active_style,
+            normal: normal_style,
+        };
+
         // Left column: Presets List
-        let presets = &context.config.settings.ssh_presets;
-        let mut list_items = Vec::new();
-        if presets.is_empty() {
-            list_items.push(ListItem::new(ratatui::text::Line::from(vec![
-                ratatui::text::Span::styled(" <No Presets> ", Style::default().fg(Color::DarkGray)),
-            ])));
-        } else {
-            for (i, p) in presets.iter().enumerate() {
-                let is_current = Some(i) == *selected_preset_idx;
-                let is_active_field = *cursor_idx == 0;
-
-                let style = if is_current && is_active_field {
-                    active_style
-                } else if is_current {
-                    Style::default().bg(Color::DarkGray).fg(Color::White)
-                } else {
-                    normal_style
-                };
-
-                list_items.push(ListItem::new(ratatui::text::Line::from(vec![
-                    ratatui::text::Span::styled(format!("  {}  ", p.name), style),
-                ])));
-            }
-        }
-
+        let list_items = preset_items(prompt, &context.config.settings.ssh_presets, styles);
         let presets_block = Block::default()
             .borders(Borders::NONE)
             .title(format!(" {} ", t("ssh_presets_title").trim()));
@@ -98,31 +78,7 @@ pub fn render(
         }
 
         // Right column: Inputs
-        let input_chunks = Layout::default()
-            .direction(Direction::Vertical)
-            .constraints([
-                Constraint::Length(1), // Spacer / Title
-                Constraint::Length(1), // Name
-                Constraint::Length(1), // Host
-                Constraint::Length(1), // Port
-                Constraint::Length(1), // Username
-                Constraint::Length(1), // Password
-                Constraint::Length(1), // Key Path
-            ])
-            .split(form_chunks[2]);
-
-        f.render_widget(
-            Paragraph::new(format!(" {}", t("ssh_details_title")))
-                .style(Style::default().fg(Color::Yellow)),
-            input_chunks[0],
-        );
-        let styles = kit::FocusStyles {
-            active: active_style,
-            normal: normal_style,
-        };
-        for (field, chunk) in SshField::ALL.iter().zip(&input_chunks[1..]) {
-            f.render_widget(field_line(prompt, *field, styles), *chunk);
-        }
+        render_inputs(f, form_chunks[2], prompt, styles);
 
         // Bottom horizontal separator
         let sep_str_horizontal = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
@@ -151,6 +107,67 @@ pub fn render(
         true
     } else {
         false
+    }
+}
+
+/// Saved presets; the selected one is highlighted (strongly while the list has focus).
+fn preset_items(
+    prompt: &SshConnectPromptState,
+    presets: &[crate::config::settings::SshPreset],
+    styles: kit::FocusStyles,
+) -> Vec<ListItem<'static>> {
+    if presets.is_empty() {
+        return vec![ListItem::new(ratatui::text::Line::from(vec![
+            ratatui::text::Span::styled(" <No Presets> ", Style::default().fg(Color::DarkGray)),
+        ]))];
+    }
+    let is_active_field = prompt.cursor_idx == 0;
+    presets
+        .iter()
+        .enumerate()
+        .map(|(i, p)| {
+            let is_current = Some(i) == prompt.selected_preset_idx;
+            let style = if is_current && is_active_field {
+                styles.active
+            } else if is_current {
+                Style::default().bg(Color::DarkGray).fg(Color::White)
+            } else {
+                styles.normal
+            };
+            ListItem::new(ratatui::text::Line::from(vec![
+                ratatui::text::Span::styled(format!("  {}  ", p.name), style),
+            ]))
+        })
+        .collect()
+}
+
+/// Title and one row per connection field.
+fn render_inputs(
+    f: &mut Frame,
+    area: Rect,
+    prompt: &SshConnectPromptState,
+    styles: kit::FocusStyles,
+) {
+    let input_chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(1), // Spacer / Title
+            Constraint::Length(1), // Name
+            Constraint::Length(1), // Host
+            Constraint::Length(1), // Port
+            Constraint::Length(1), // Username
+            Constraint::Length(1), // Password
+            Constraint::Length(1), // Key Path
+        ])
+        .split(area);
+
+    f.render_widget(
+        Paragraph::new(format!(" {}", t("ssh_details_title")))
+            .style(Style::default().fg(Color::Yellow)),
+        input_chunks[0],
+    );
+    for (field, chunk) in SshField::ALL.iter().zip(&input_chunks[1..]) {
+        f.render_widget(field_line(prompt, *field, styles), *chunk);
     }
 }
 

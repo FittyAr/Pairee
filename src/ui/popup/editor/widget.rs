@@ -30,21 +30,7 @@ pub fn render_editor_widget(
     theme: &crate::config::theme::Theme,
     active_popup: Option<&PopupType>,
 ) {
-    let title = t("editor_title")
-        .replacen("{}", &ed.display_path().to_string_lossy(), 1)
-        .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.panel_border)))
-        .title(ratatui::text::Span::styled(
-            title,
-            Style::default()
-                .fg(parse_color(&theme.header_fg))
-                .add_modifier(ratatui::style::Modifier::BOLD),
-        ))
-        .style(Style::default().bg(parse_color(&theme.panel_bg)));
-
+    let block = editor_block(ed, theme);
     let inner = block.inner(area);
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -113,26 +99,7 @@ pub fn render_editor_widget(
     f.render_widget(block, area);
     f.render_widget(Paragraph::new(text).style(normal_style), edit_area);
 
-    let mut flags = ed.format.line_ending.label().to_string();
-    for (on, key) in [
-        (ed.stamp.read_only, "editor_read_only_flag"),
-        (ed.block_mode, "editor_block_mode_flag"),
-    ] {
-        if on {
-            flags.push_str(" | ");
-            flags.push_str(&t(key));
-        }
-    }
-    let status_text = t("editor_status_text")
-        .replacen("{}", &current_line.graphemes(true).count().to_string(), 1)
-        .replacen("{}", &ed.lines.len().to_string(), 1)
-        .replacen("{}", &(ed.cursor_y + 1).to_string(), 1)
-        .replacen(
-            "{}",
-            &(text_input::grapheme_col(current_line, ed.cursor_x) + 1).to_string(),
-            1,
-        )
-        .replacen("{}", &flags, 1);
+    let status_text = status_text(ed, current_line);
     let status_para = Paragraph::new(status_text).style(
         Style::default()
             .bg(parse_color(&theme.header_fg))
@@ -147,4 +114,45 @@ pub fn render_editor_widget(
     if cursor_x < edit_area.x + edit_area.width && cursor_y < edit_area.y + edit_area.height {
         f.set_cursor_position((cursor_x, cursor_y));
     }
+}
+
+/// Frame titled with the file name and a `*` when modified.
+fn editor_block<'a>(ed: &EditorState, theme: &crate::config::theme::Theme) -> Block<'a> {
+    let title = t("editor_title")
+        .replacen("{}", &ed.display_path().to_string_lossy(), 1)
+        .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
+    Block::default()
+        .borders(Borders::ALL)
+        .border_style(Style::default().fg(parse_color(&theme.panel_border)))
+        .title(ratatui::text::Span::styled(
+            title,
+            Style::default()
+                .fg(parse_color(&theme.header_fg))
+                .add_modifier(ratatui::style::Modifier::BOLD),
+        ))
+        .style(Style::default().bg(parse_color(&theme.panel_bg)))
+}
+
+/// Line length, line count, cursor position, line ending and mode flags.
+fn status_text(ed: &EditorState, current_line: &str) -> String {
+    let mut flags = ed.format.line_ending.label().to_string();
+    for (on, key) in [
+        (ed.stamp.read_only, "editor_read_only_flag"),
+        (ed.block_mode, "editor_block_mode_flag"),
+    ] {
+        if on {
+            flags.push_str(" | ");
+            flags.push_str(&t(key));
+        }
+    }
+    t("editor_status_text")
+        .replacen("{}", &current_line.graphemes(true).count().to_string(), 1)
+        .replacen("{}", &ed.lines.len().to_string(), 1)
+        .replacen("{}", &(ed.cursor_y + 1).to_string(), 1)
+        .replacen(
+            "{}",
+            &(text_input::grapheme_col(current_line, ed.cursor_x) + 1).to_string(),
+            1,
+        )
+        .replacen("{}", &flags, 1)
 }

@@ -93,100 +93,118 @@ pub fn render_panel(
 
     // ── Optional scrollbar (fractional thumb via tui-scrollbar) ───────────────
     if show_scrollbar && !panel.entries.is_empty() {
-        let inner_height = list_area.height.saturating_sub(2) as usize;
-        let total = panel.entries.len();
-        let offset = scrollbar::centered_scroll(panel.cursor_index, total, inner_height);
-        scrollbar::render_vertical_inside_block(
-            f,
-            list_area,
-            ScrollView {
-                content_len: total,
-                viewport_len: inner_height,
-                offset,
-            },
-            theme,
-            ScrollTarget {
-                surface: ScrollbarSurface::Panel,
-                hits: scrollbar,
-                id: scroll_id,
-            },
-        );
+        render_scrollbar(f, list_area, panel, theme, (scrollbar, scroll_id));
     }
 
     // ── Optional footer lines ─────────────────────────────────────────────────
     if let Some(footer_area) = footer_area {
-        let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
-        let total_dirs = panel
-            .entries
-            .iter()
-            .filter(|e| e.is_dir && e.name != "..")
-            .count();
-        let total_size: u64 = panel
-            .entries
-            .iter()
-            .filter(|e| !e.is_dir)
-            .map(|e| e.size)
-            .sum();
-        let tagged = panel.selected_paths.len();
-
-        let fg = Style::default()
-            .fg(parse_color(&theme.panel_fg))
-            .bg(parse_color(&theme.panel_bg));
-
-        let mut footer_lines: Vec<Line> = Vec::new();
-
-        if show_status {
-            // Status: highlighted entry name + size
-            let status_text = if let Some(entry) = panel.entries.get(panel.cursor_index) {
-                let size = entry_size_text(panel, entry).unwrap_or_else(|| "[DIR]".to_string());
-                format!(
-                    " {}  {}  {} {}",
-                    entry.name,
-                    size,
-                    tagged,
-                    t("label_tagged")
-                )
-            } else {
-                String::new()
-            };
-            footer_lines.push(Line::from(Span::styled(status_text, fg)));
-        }
-
-        if show_total {
-            let files_label = if total_files == 1 {
-                t("label_file")
-            } else {
-                t("label_files")
-            };
-            let dirs_label = if total_dirs == 1 {
-                t("label_dir")
-            } else {
-                t("label_dirs")
-            };
-            let info_text = format!(
-                " {} {}  {} {}  {}",
-                total_files,
-                files_label,
-                total_dirs,
-                dirs_label,
-                format_file_size(total_size),
-            );
-            footer_lines.push(Line::from(Span::styled(info_text, fg)));
-        }
-
-        if show_free {
-            let free_text = free_space_text(panel.free_space);
-            footer_lines.push(Line::from(Span::styled(
-                format!(" {} {}", t("label_free"), free_text),
-                Style::default()
-                    .fg(Color::Green)
-                    .bg(parse_color(&theme.panel_bg)),
-            )));
-        }
-
+        let footer_lines = footer_lines(panel, context);
         if !footer_lines.is_empty() {
-            let paragraph = Paragraph::new(footer_lines);
-            f.render_widget(paragraph, footer_area);
+            f.render_widget(Paragraph::new(footer_lines), footer_area);
         }
     }
+}
+
+/// Scrollbar of the entry list, inside the panel frame.
+fn render_scrollbar(
+    f: &mut Frame,
+    list_area: Rect,
+    panel: &PanelState,
+    theme: &crate::config::theme::Theme,
+    (hits, id): (Option<&ScrollbarUiState>, ScrollTargetId),
+) {
+    let inner_height = list_area.height.saturating_sub(2) as usize;
+    let total = panel.entries.len();
+    let offset = scrollbar::centered_scroll(panel.cursor_index, total, inner_height);
+    scrollbar::render_vertical_inside_block(
+        f,
+        list_area,
+        ScrollView {
+            content_len: total,
+            viewport_len: inner_height,
+            offset,
+        },
+        theme,
+        ScrollTarget {
+            surface: ScrollbarSurface::Panel,
+            hits,
+            id,
+        },
+    );
+}
+
+/// Status line, totals and free space, as enabled in the settings.
+fn footer_lines(panel: &PanelState, context: &AppContext) -> Vec<Line<'static>> {
+    let theme = &context.config.theme;
+    let settings = &context.config.settings;
+    let fg = Style::default()
+        .fg(parse_color(&theme.panel_fg))
+        .bg(parse_color(&theme.panel_bg));
+
+    let mut footer_lines: Vec<Line> = Vec::new();
+    if settings.show_status_line {
+        footer_lines.push(Line::from(Span::styled(status_text(panel), fg)));
+    }
+    if settings.show_files_total_information {
+        footer_lines.push(Line::from(Span::styled(totals_text(panel), fg)));
+    }
+    if settings.show_free_size {
+        let free_text = free_space_text(panel.free_space);
+        footer_lines.push(Line::from(Span::styled(
+            format!(" {} {}", t("label_free"), free_text),
+            Style::default()
+                .fg(Color::Green)
+                .bg(parse_color(&theme.panel_bg)),
+        )));
+    }
+    footer_lines
+}
+
+/// Status: highlighted entry name + size and the number of tagged entries.
+fn status_text(panel: &PanelState) -> String {
+    let Some(entry) = panel.entries.get(panel.cursor_index) else {
+        return String::new();
+    };
+    let size = entry_size_text(panel, entry).unwrap_or_else(|| "[DIR]".to_string());
+    format!(
+        " {}  {}  {} {}",
+        entry.name,
+        size,
+        panel.selected_paths.len(),
+        t("label_tagged")
+    )
+}
+
+/// Number of files and folders and the total size of the files.
+fn totals_text(panel: &PanelState) -> String {
+    let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
+    let total_dirs = panel
+        .entries
+        .iter()
+        .filter(|e| e.is_dir && e.name != "..")
+        .count();
+    let total_size: u64 = panel
+        .entries
+        .iter()
+        .filter(|e| !e.is_dir)
+        .map(|e| e.size)
+        .sum();
+    let files_label = t(if total_files == 1 {
+        "label_file"
+    } else {
+        "label_files"
+    });
+    let dirs_label = t(if total_dirs == 1 {
+        "label_dir"
+    } else {
+        "label_dirs"
+    });
+    format!(
+        " {} {}  {} {}  {}",
+        total_files,
+        files_label,
+        total_dirs,
+        dirs_label,
+        format_file_size(total_size),
+    )
 }

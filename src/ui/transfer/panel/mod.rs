@@ -1,11 +1,12 @@
 use ratatui::Frame;
-use ratatui::layout::{Constraint, Direction, Layout};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, Clear, Paragraph};
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, TransferTab, TransferViewMode};
 use crate::config::localization::t;
+use crate::fs::transfer::job::TransferJob;
 use crate::ui::popup::centered_rect;
 
 mod file_list;
@@ -74,74 +75,82 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
                         .border_style(Style::default().fg(Color::DarkGray)),
                 );
         f.render_widget(empty_p, main_layout[1]);
-    } else {
-        let cursor_idx = transfer_state
-            .queue_cursor
-            .min(jobs.len().saturating_sub(1));
-        if let Some(selected_job) = jobs.get(cursor_idx) {
-            let inspector_area = main_layout[1];
-            // Aseguramos una división vertical del inspector con borde izquierdo
-            let inspector_block = Block::default()
-                .borders(Borders::LEFT)
-                .border_style(Style::default().fg(Color::DarkGray));
-            let inner_inspector = inspector_block.inner(inspector_area);
-            f.render_widget(inspector_block, inspector_area);
-
-            let chunks = Layout::default()
-                .direction(Direction::Vertical)
-                .constraints([
-                    Constraint::Length(4), // Cabecera
-                    Constraint::Length(3), // Pestañas
-                    Constraint::Min(5),    // Contenido
-                    Constraint::Length(3), // Footer (Acciones)
-                ])
-                .split(inner_inspector);
-
-            let progress = selected_job.progress.as_ref();
-            let results = &selected_job.results;
-            let log_lines = &selected_job.log_lines;
-
-            // Header
-            inspector::render_header(f, chunks[0], transfer_state, progress, selected_job);
-
-            // Tabs
-            inspector::render_tabs(
-                f,
-                chunks[1],
-                transfer_state.active_tab,
-                &context.config.theme,
-            );
-
-            // Content
-            match transfer_state.active_tab {
-                TransferTab::FileList => file_list::render_file_list_tab(
-                    f,
-                    chunks[2],
-                    transfer_state,
-                    results,
-                    theme,
-                    Some(&state.scrollbar),
-                ),
-                TransferTab::Options => {
-                    inspector::render_options_tab(f, chunks[2], transfer_state, selected_job)
-                }
-                TransferTab::Status => {
-                    inspector::render_status_tab(f, chunks[2], transfer_state, progress, results)
-                }
-                TransferTab::Log => inspector::render_log_tab(
-                    f,
-                    chunks[2],
-                    log_lines,
-                    theme,
-                    transfer_state,
-                    Some(&state.scrollbar),
-                ),
-            }
-
-            // Footer
-            inspector::render_footer(f, chunks[3], selected_job);
-        }
+        return;
     }
+    let cursor_idx = transfer_state
+        .queue_cursor
+        .min(jobs.len().saturating_sub(1));
+    if let Some(selected_job) = jobs.get(cursor_idx) {
+        render_inspector(f, main_layout[1], state, context, selected_job);
+    }
+}
+
+/// Header, tabs, the active tab and the actions of the selected job.
+fn render_inspector(
+    f: &mut Frame,
+    inspector_area: Rect,
+    state: &AppState,
+    context: &AppContext,
+    selected_job: &TransferJob,
+) {
+    let Some(transfer_state) = &state.transfer else {
+        return;
+    };
+    let theme = &context.config.theme;
+    // Aseguramos una división vertical del inspector con borde izquierdo
+    let inspector_block = Block::default()
+        .borders(Borders::LEFT)
+        .border_style(Style::default().fg(Color::DarkGray));
+    let inner_inspector = inspector_block.inner(inspector_area);
+    f.render_widget(inspector_block, inspector_area);
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(4), // Cabecera
+            Constraint::Length(3), // Pestañas
+            Constraint::Min(5),    // Contenido
+            Constraint::Length(3), // Footer (Acciones)
+        ])
+        .split(inner_inspector);
+
+    let progress = selected_job.progress.as_ref();
+    let results = &selected_job.results;
+
+    // Header
+    inspector::render_header(f, chunks[0], transfer_state, progress, selected_job);
+
+    // Tabs
+    inspector::render_tabs(f, chunks[1], transfer_state.active_tab, theme);
+
+    // Content
+    match transfer_state.active_tab {
+        TransferTab::FileList => file_list::render_file_list_tab(
+            f,
+            chunks[2],
+            transfer_state,
+            results,
+            theme,
+            Some(&state.scrollbar),
+        ),
+        TransferTab::Options => {
+            inspector::render_options_tab(f, chunks[2], transfer_state, selected_job)
+        }
+        TransferTab::Status => {
+            inspector::render_status_tab(f, chunks[2], transfer_state, progress, results)
+        }
+        TransferTab::Log => inspector::render_log_tab(
+            f,
+            chunks[2],
+            &selected_job.log_lines,
+            theme,
+            transfer_state,
+            Some(&state.scrollbar),
+        ),
+    }
+
+    // Footer
+    inspector::render_footer(f, chunks[3], selected_job);
 }
 
 pub fn summarize_path(path: &std::path::Path) -> String {

@@ -1,36 +1,76 @@
+use super::detail::{pane_block, row_style, text_style};
 use super::{Pane, spinner_frame, wrap_text};
+use crate::app::state::PluginMenuState;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier as StyleModifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, Gauge, List, ListItem, Paragraph, Wrap},
 };
 
+/// `(label, description)` keys of the developer options 1-8; option 0
+/// (active plugin) and the description of option 1 depend on the state.
+const DEV_OPTIONS: [(&str, &str); 9] = [
+    ("", "plugin_dev_desc_active"),
+    ("plugin_dev_opt_init", "plugin_dev_desc_init"),
+    ("plugin_dev_opt_lint", "plugin_dev_desc_lint"),
+    ("plugin_dev_opt_package", "plugin_dev_desc_package"),
+    ("plugin_dev_opt_install", "plugin_dev_desc_install"),
+    ("plugin_dev_opt_submit", "plugin_dev_desc_submit"),
+    // "open folder" group: dev, package and submit folders
+    ("plugin_dev_opt_open_dev", "plugin_dev_desc_open_dev"),
+    ("plugin_dev_opt_open_pack", "plugin_dev_desc_open_pack"),
+    ("plugin_dev_opt_open_subm", "plugin_dev_desc_open_subm"),
+];
+
+/// Index of the first "open folder" option (preceded by a separator).
+const OPEN_FOLDER_GROUP: usize = 6;
+
 pub fn render_dev(
     f: &mut Frame,
     pane: &Pane,
-    menu: &crate::app::state::PluginMenuState,
+    menu: &PluginMenuState,
     active_dev_plugin: &Option<String>,
 ) {
-    let Pane {
-        list_area,
-        detail_area,
-        theme,
-        border_style,
-        bg_style,
-    } = *pane;
-    let cursor_idx = menu.cursor_idx;
-    let dev_results = menu.dev_results.as_str();
-    let dev_loading = menu.dev_loading;
-    let dev_loading_status = menu.dev_loading_status.as_str();
-    let dev_loading_progress = menu.dev_loading_progress;
-    let text_style = Style::default().fg(parse_color(&theme.popup_fg));
-    let dim_style = Style::default()
-        .fg(parse_color(&theme.popup_fg))
-        .add_modifier(StyleModifier::ITALIC);
+    let list_block = pane_block(pane, t("plugin_tools_title"));
+    let list = List::new(option_items(pane, menu.cursor_idx, active_dev_plugin)).block(list_block);
+    f.render_widget(list, pane.list_area);
 
+    // === Right-hand console: progress bar (when loading) > results (when set) > description ===
+    if menu.dev_loading {
+        render_progress(f, pane, menu);
+        return;
+    }
+
+    // === Idle: show previous results or the description for the current option ===
+    let detail_block = pane_block(pane, t("plugin_action_console"));
+    let text = if menu.dev_results.is_empty() {
+        option_description(menu.cursor_idx, active_dev_plugin)
+    } else {
+        menu.dev_results.clone()
+    };
+    let text_style = text_style(pane);
+    let max_width = (pane.detail_area.width as usize).saturating_sub(2);
+    let detail_lines: Vec<Line> = wrap_text(&text, max_width)
+        .into_iter()
+        .map(|line| Line::from(Span::styled(line, text_style)))
+        .collect();
+    let detail_para = Paragraph::new(detail_lines)
+        .block(detail_block)
+        .wrap(Wrap { trim: false });
+    f.render_widget(detail_para, pane.detail_area);
+}
+
+/// The option list with a separator before the "open folder" group; "new
+/// plugin" is dimmed while a plugin is active.
+fn option_items(
+    pane: &Pane,
+    cursor_idx: usize,
+    active_dev_plugin: &Option<String>,
+) -> Vec<ListItem<'static>> {
     // === Option 0 label: changes when a plugin is active ===
     let active_name = active_dev_plugin.as_deref().unwrap_or("");
     let opt0_label = if active_name.is_empty() {
@@ -39,198 +79,127 @@ pub fn render_dev(
         t("plugin_dev_opt_active_change").replace("{}", active_name)
     };
 
-    // Build the full options list (0-8) with a visual separator before the
-    // "move to folder" group.
-    let dev_options: Vec<(String, bool)> = vec![
-        (opt0_label, false),                    // 0
-        (t("plugin_dev_opt_init"), false),      // 1
-        (t("plugin_dev_opt_lint"), false),      // 2
-        (t("plugin_dev_opt_package"), false),   // 3
-        (t("plugin_dev_opt_install"), false),   // 4
-        (t("plugin_dev_opt_submit"), false),    // 5
-        (t("plugin_dev_opt_open_dev"), false),  // 6 - open dev folder
-        (t("plugin_dev_opt_open_pack"), false), // 7 - open package folder
-        (t("plugin_dev_opt_open_subm"), false), // 8 - open submit folder
-    ];
-
     let mut list_items = Vec::new();
-    for (i, (opt, _)) in dev_options.iter().enumerate() {
+    for (i, (label_key, _)) in DEV_OPTIONS.iter().enumerate() {
         let is_disabled = i == 1 && active_dev_plugin.is_some();
         let style = if i == cursor_idx {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(StyleModifier::BOLD)
+            row_style(pane, true)
         } else if is_disabled {
             Style::default().fg(Color::DarkGray)
-        } else if i >= 6 {
+        } else if i >= OPEN_FOLDER_GROUP {
             // Highlight "open folder" group in cyan to visually separate them.
             Style::default().fg(Color::Cyan)
         } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
+            text_style(pane)
         };
-        // Insert a visual separator just before the navigation group.
-        if i == 6 {
+        if i == OPEN_FOLDER_GROUP {
             list_items.push(ListItem::new(Line::from(Span::styled(
                 "  ───────────────────────",
                 Style::default().fg(Color::DarkGray),
             ))));
         }
-        list_items.push(ListItem::new(Line::from(vec![Span::styled(
-            opt.clone(),
-            style,
-        )])));
+        let label = if i == 0 {
+            opt0_label.clone()
+        } else {
+            t(label_key)
+        };
+        list_items.push(ListItem::new(Line::from(vec![Span::styled(label, style)])));
     }
+    list_items
+}
 
-    let list_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(t("plugin_tools_title"))
-        .style(bg_style);
-    let list = List::new(list_items).block(list_block);
-    f.render_widget(list, list_area);
+/// Description of the option under the cursor.
+fn option_description(cursor_idx: usize, active_dev_plugin: &Option<String>) -> String {
+    match DEV_OPTIONS.get(cursor_idx) {
+        Some(_) if cursor_idx == 1 && active_dev_plugin.is_some() => {
+            t("plugin_dev_desc_init_disabled")
+        }
+        Some((_, desc_key)) => t(desc_key),
+        None => String::new(),
+    }
+}
 
-    let detail_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(t("plugin_action_console"))
-        .style(bg_style);
+/// Status line, gauge and the results streamed so far.
+fn render_progress(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
+    let detail_area = pane.detail_area;
+    let status = if menu.dev_loading_status.is_empty() {
+        t("plugin_dev_progress_working")
+    } else {
+        menu.dev_loading_status.clone()
+    };
 
-    // === Right-hand console: progress bar (when loading) > results (when set) > description ===
-    if dev_loading {
-        let status = if dev_loading_status.is_empty() {
-            t("plugin_dev_progress_working")
-        } else {
-            dev_loading_status.to_string()
-        };
+    // Build a vertical layout: [status line][gauge][extra info if any].
+    let inner_h = detail_area.height.saturating_sub(2);
+    let v_chunks = if inner_h >= 4 {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(1), // status
+                Constraint::Length(3), // gauge + padding
+                Constraint::Min(1),    // extra info
+            ])
+            .split(detail_area)
+    } else {
+        Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([Constraint::Length(1), Constraint::Min(1)])
+            .split(detail_area)
+    };
 
-        // Build a vertical layout: [status line][gauge][extra info if any].
-        let inner_h = detail_area.height.saturating_sub(2);
-        let v_chunks = if inner_h >= 4 {
-            ratatui::layout::Layout::default()
-                .direction(ratatui::layout::Direction::Vertical)
-                .constraints([
-                    ratatui::layout::Constraint::Length(1), // status
-                    ratatui::layout::Constraint::Length(3), // gauge + padding
-                    ratatui::layout::Constraint::Min(1),    // extra info
-                ])
-                .split(detail_area)
-        } else {
-            ratatui::layout::Layout::default()
-                .direction(ratatui::layout::Direction::Vertical)
-                .constraints([
-                    ratatui::layout::Constraint::Length(1),
-                    ratatui::layout::Constraint::Min(1),
-                ])
-                .split(detail_area)
-        };
+    let status_line = Line::from(vec![Span::styled(
+        format!("{} {}", spinner_frame(), status),
+        Style::default().fg(Color::Yellow),
+    )]);
+    f.render_widget(
+        Paragraph::new(status_line).style(pane.bg_style),
+        v_chunks[0],
+    );
 
-        let status_line = Line::from(vec![Span::styled(
-            format!("{} {}", spinner_frame(), status),
-            Style::default().fg(Color::Yellow),
-        )]);
-        f.render_widget(Paragraph::new(status_line).style(bg_style), v_chunks[0]);
-
-        let gauge_area = v_chunks[1];
-        if let Some((cur, total)) = dev_loading_progress {
+    // Indeterminate progress: an empty gauge with the spinner.
+    let (ratio, label) = match menu.dev_loading_progress {
+        Some((cur, total)) => {
             let ratio = if total == 0 {
                 0.0
             } else {
                 (cur as f64 / total as f64).clamp(0.0, 1.0)
             };
-            let gauge = Gauge::default()
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(border_style),
-                )
-                .gauge_style(
-                    Style::default()
-                        .fg(parse_color(&theme.selection_bg))
-                        .bg(parse_color(&theme.popup_bg)),
-                )
-                .ratio(ratio)
-                .label(format!("{} / {}", cur, total));
-            f.render_widget(gauge, gauge_area);
-        } else {
-            // Indeterminate: render an empty gauge with the spinner
-            let gauge = Gauge::default()
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(border_style),
-                )
-                .gauge_style(
-                    Style::default()
-                        .fg(parse_color(&theme.selection_bg))
-                        .bg(parse_color(&theme.popup_bg)),
-                )
-                .ratio(0.0)
-                .label(spinner_frame());
-            f.render_widget(gauge, gauge_area);
+            (ratio, format!("{} / {}", cur, total))
         }
+        None => (0.0, spinner_frame().to_string()),
+    };
+    let gauge = Gauge::default()
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(pane.border_style),
+        )
+        .gauge_style(
+            Style::default()
+                .fg(parse_color(&pane.theme.selection_bg))
+                .bg(parse_color(&pane.theme.popup_bg)),
+        )
+        .ratio(ratio)
+        .label(label);
+    f.render_widget(gauge, v_chunks[1]);
 
-        // Show any partial results that have been streamed so far.
-        if !dev_results.is_empty() && inner_h >= 4 {
-            let mut lines = Vec::new();
-            let max_width = (v_chunks[2].width as usize).saturating_sub(2);
-            for line in wrap_text(dev_results, max_width) {
-                lines.push(Line::from(Span::styled(line, dim_style)));
-            }
-            let p = Paragraph::new(lines)
-                .block(
-                    Block::default()
-                        .borders(Borders::ALL)
-                        .border_style(border_style),
-                )
-                .wrap(Wrap { trim: false })
-                .style(bg_style);
-            f.render_widget(p, v_chunks[2]);
-        }
-        return;
+    // Show any partial results that have been streamed so far.
+    if !menu.dev_results.is_empty() && inner_h >= 4 {
+        let dim_style = Style::default()
+            .fg(parse_color(&pane.theme.popup_fg))
+            .add_modifier(StyleModifier::ITALIC);
+        let max_width = (v_chunks[2].width as usize).saturating_sub(2);
+        let lines: Vec<Line> = wrap_text(&menu.dev_results, max_width)
+            .into_iter()
+            .map(|line| Line::from(Span::styled(line, dim_style)))
+            .collect();
+        let p = Paragraph::new(lines)
+            .block(
+                Block::default()
+                    .borders(Borders::ALL)
+                    .border_style(pane.border_style),
+            )
+            .wrap(Wrap { trim: false })
+            .style(pane.bg_style);
+        f.render_widget(p, v_chunks[2]);
     }
-
-    // === Idle: show previous results or the description for the current option ===
-    let mut detail_lines = Vec::new();
-    let max_width = (detail_area.width as usize).saturating_sub(2);
-    if !dev_results.is_empty() {
-        for line in wrap_text(dev_results, max_width) {
-            detail_lines.push(Line::from(Span::styled(line, text_style)));
-        }
-    } else {
-        let desc_active = t("plugin_dev_desc_active");
-        let desc_init = if active_dev_plugin.is_some() {
-            t("plugin_dev_desc_init_disabled")
-        } else {
-            t("plugin_dev_desc_init")
-        };
-        let desc_lint = t("plugin_dev_desc_lint");
-        let desc_package = t("plugin_dev_desc_package");
-        let desc_install = t("plugin_dev_desc_install");
-        let desc_submit = t("plugin_dev_desc_submit");
-        let desc_open_dev = t("plugin_dev_desc_open_dev");
-        let desc_open_pack = t("plugin_dev_desc_open_pack");
-        let desc_open_subm = t("plugin_dev_desc_open_subm");
-
-        let hint = match cursor_idx {
-            0 => desc_active,
-            1 => desc_init,
-            2 => desc_lint,
-            3 => desc_package,
-            4 => desc_install,
-            5 => desc_submit,
-            6 => desc_open_dev,
-            7 => desc_open_pack,
-            8 => desc_open_subm,
-            _ => String::new(),
-        };
-        for line in wrap_text(&hint, max_width) {
-            detail_lines.push(Line::from(Span::styled(line, text_style)));
-        }
-    }
-
-    let detail_para = Paragraph::new(detail_lines)
-        .block(detail_block)
-        .wrap(Wrap { trim: false });
-    f.render_widget(detail_para, detail_area);
 }

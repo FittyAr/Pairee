@@ -34,77 +34,9 @@ pub(crate) fn render_file_list_tab(
     let start = scrollbar::centered_scroll(cursor, total_files, height);
     let end = start + height.min(total_files.saturating_sub(start));
 
-    let mut rows = Vec::new();
-    let f_len = res.failed_files.len();
-    let s_len = res.skipped_files.len();
-
-    for i in start..end {
-        let is_selected = i == cursor;
-        let style = if is_selected {
-            let (fg_sel, bg_sel) = if i < f_len {
-                (Color::White, Color::Red)
-            } else if i < f_len + s_len {
-                (Color::Black, Color::Yellow)
-            } else {
-                (Color::Black, Color::Green)
-            };
-            Style::default()
-                .fg(fg_sel)
-                .bg(bg_sel)
-                .add_modifier(Modifier::BOLD)
-        } else {
-            if i < f_len {
-                Style::default().fg(Color::Red)
-            } else if i < f_len + s_len {
-                Style::default().fg(Color::Yellow)
-            } else {
-                Style::default().fg(Color::Green)
-            }
-        };
-
-        if i < f_len {
-            let f = &res.failed_files[i];
-            rows.push(
-                Row::new(vec![
-                    " ✗ FAIL ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    "-".to_string(),
-                    f.error.clone(),
-                ])
-                .style(style),
-            );
-        } else if i < f_len + s_len {
-            let f = &res.skipped_files[i - f_len];
-            rows.push(
-                Row::new(vec![
-                    " ⚠ SKIP ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    "-".to_string(),
-                    f.reason.clone(),
-                ])
-                .style(style),
-            );
-        } else {
-            let f = &res.completed_files[i - f_len - s_len];
-            let src_hash = f.src_hash.as_deref().unwrap_or("-");
-            let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
-            let hash_text = format!(
-                "{} : {}",
-                &src_hash[..src_hash.len().min(4)],
-                &dst_hash[..dst_hash.len().min(4)]
-            );
-
-            rows.push(
-                Row::new(vec![
-                    " ✓ OK ".to_string(),
-                    f.src.to_string_lossy().into_owned(),
-                    bytesize::ByteSize(f.size).to_string(),
-                    hash_text,
-                ])
-                .style(style),
-            );
-        }
-    }
+    let rows: Vec<Row> = (start..end)
+        .map(|i| file_row(res, i, i == cursor))
+        .collect();
 
     let table = Table::new(
         rows,
@@ -149,4 +81,55 @@ pub(crate) fn render_file_list_tab(
             id: ScrollTargetId::TransferFiles,
         },
     );
+}
+
+/// Row `i` of the list: failed files first, then skipped, then completed,
+/// colored red/yellow/green (inverted when selected).
+fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
+    let f_len = res.failed_files.len();
+    let s_len = res.skipped_files.len();
+    let (cells, color, selected_fg) = if i < f_len {
+        let f = &res.failed_files[i];
+        let cells = [
+            " ✗ FAIL ".to_string(),
+            f.src.to_string_lossy().into_owned(),
+            "-".to_string(),
+            f.error.clone(),
+        ];
+        (cells, Color::Red, Color::White)
+    } else if i < f_len + s_len {
+        let f = &res.skipped_files[i - f_len];
+        let cells = [
+            " ⚠ SKIP ".to_string(),
+            f.src.to_string_lossy().into_owned(),
+            "-".to_string(),
+            f.reason.clone(),
+        ];
+        (cells, Color::Yellow, Color::Black)
+    } else {
+        let f = &res.completed_files[i - f_len - s_len];
+        let src_hash = f.src_hash.as_deref().unwrap_or("-");
+        let dst_hash = f.dst_hash.as_deref().unwrap_or("-");
+        let hash_text = format!(
+            "{} : {}",
+            &src_hash[..src_hash.len().min(4)],
+            &dst_hash[..dst_hash.len().min(4)]
+        );
+        let cells = [
+            " ✓ OK ".to_string(),
+            f.src.to_string_lossy().into_owned(),
+            bytesize::ByteSize(f.size).to_string(),
+            hash_text,
+        ];
+        (cells, Color::Green, Color::Black)
+    };
+    let style = if selected {
+        Style::default()
+            .fg(selected_fg)
+            .bg(color)
+            .add_modifier(Modifier::BOLD)
+    } else {
+        Style::default().fg(color)
+    };
+    Row::new(cells).style(style)
 }
