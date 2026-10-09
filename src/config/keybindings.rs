@@ -1,54 +1,130 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-/// Configuration for keybinding preset selection and per-user overrides.
+/// Key of [`KeybindingsConfig::overrides`] that applies to every preset.
+pub const ALL_PRESETS: &str = "all";
+
+/// User keymap overrides: action id → chords (`"Ctrl+k, F1"`; `""` unbinds).
+pub type OverrideTable = BTreeMap<String, String>;
+
+/// Keybinding preset selection and per-user overrides (`keybindings.toml`).
 ///
 /// ## Preset files
 /// Each preset is a TOML file in the `keymaps/` subdirectory of the Pairee
 /// config folder (e.g. `%APPDATA%\pairee\config\keymaps\` on Windows).
-///
-/// Built-in presets shipped with Pairee:
-/// - `"norton"` — Norton Commander / Far Manager classic layout (default)
-/// - `"neovim"` — Neovim-style navigation (h/j/k/l, gg/G, :, /, Ctrl+d/u)
-/// - `"vscode"` — VS Code Explorer-style shortcuts (Ctrl+C copy, Delete delete, …)
+/// Built-in presets: `"norton"` (default), `"neovim"`, `"vscode"`.
 ///
 /// ## Custom presets
-/// Create any file `<name>.toml` in the `keymaps/` directory and set
-/// `preset = "<name>"` here to activate it. The file must have a `[bindings]`
-/// table mapping snake_case action names to key strings, for example:
+/// Create `keymaps/<name>.toml` and set `preset = "<name>"`. A preset can
+/// inherit another one and only list its differences:
 ///
 /// ```toml
-/// [bindings]
-/// move_up   = "k"
-/// move_down = "j"
-/// copy      = "F5"
+/// extends = "norton"
+///
+/// [options]
+/// typing = "commands"     # cli | type_ahead | commands
+/// leader = "Space"        # what <leader> stands for
+/// sequence_timeout = 1000 # ms between the keys of a sequence; 0 = wait
+///
+/// [panels]
+/// move_down = "j, Down"
+/// go_to_top = "g g, Home"
+/// delete    = ""          # unbind what the parent assigned
 /// ```
 ///
-/// ## Per-binding overrides
-/// `custom_bindings` overlays individual key assignments on top of the active
-/// preset without replacing the whole file. This is the recommended way to
-/// tweak one or two shortcuts without duplicating an entire preset file.
+/// ## Overrides
+/// `[overrides.all]` applies on top of any preset, `[overrides.<preset>]`
+/// only on top of that one (and wins over `all`). An override replaces the
+/// action's chords and takes a chord away from any action that had it.
 ///
 /// ## Far-style gray keys
-/// Legacy chords `Gray+`, `Gray-`, and `Gray*` (numpad keys in Far Manager
-/// docs) are accepted in keymap TOML and mapped to `Plus`, `-`, and `*`.
-/// Prefer the `keybinds` names (`Plus`) in new files. Invalid or duplicate
-/// chords are rejected and listed in Settings → Interface.
+/// `Gray+`, `Gray-` and `Gray*` are accepted and mapped to `Plus`, `-` and
+/// `*`. Invalid or duplicate chords are listed in Settings → Interface.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct KeybindingsConfig {
     /// Active preset profile name. Must match a file in the `keymaps/` directory.
-    /// Built-in values: `"norton"`, `"neovim"`, `"vscode"`.
     pub preset: String,
-    /// Per-binding overrides applied on top of the active preset.
-    /// Maps action names (e.g. `"copy"`) to key strings (e.g. `"Ctrl+c"`).
-    pub custom_bindings: HashMap<String, String>,
+    /// `"all"` or a preset name → overrides.
+    #[serde(default)]
+    pub overrides: BTreeMap<String, OverrideTable>,
+    /// Pre-0.8 flat overrides; read once and moved to `overrides.all`.
+    #[serde(default, skip_serializing)]
+    custom_bindings: HashMap<String, String>,
 }
 
 impl Default for KeybindingsConfig {
     fn default() -> Self {
         Self {
             preset: "norton".to_string(),
+            overrides: BTreeMap::new(),
             custom_bindings: HashMap::new(),
         }
+    }
+}
+
+impl KeybindingsConfig {
+    /// Parses `keybindings.toml`, moving legacy `custom_bindings` into
+    /// `overrides.all` (an existing `all` entry for the same action wins).
+    pub fn from_toml(src: &str) -> Result<Self, toml::de::Error> {
+        let mut cfg: Self = toml::from_str(src)?;
+        let legacy = std::mem::take(&mut cfg.custom_bindings);
+        if !legacy.is_empty() {
+            let all = cfg.overrides.entry(ALL_PRESETS.to_string()).or_default();
+            for (action, keys) in legacy {
+                all.entry(action).or_insert(keys);
+            }
+        }
+        Ok(cfg)
+    }
+
+    /// Override tables that apply to `preset`, lowest priority first.
+    pub fn overrides_for<'a>(&'a self, preset: &str) -> Vec<(&'a str, &'a OverrideTable)> {
+        [ALL_PRESETS, preset]
+            .into_iter()
+            .filter_map(|key| self.overrides.get_key_value(key))
+            .map(|(k, table)| (k.as_str(), table))
+            .collect()
+    }
+
+    /// Sets one override (`preset` = `"all"` or a preset name).
+    pub fn set_override(&mut self, preset: &str, action: &str, keys: &str) {
+        self.overrides
+            .entry(preset.to_string())
+            .or_default()
+            .insert(action.to_string(), keys.to_string());
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_custom_bindings_move_to_all() {
+        let cfg = KeybindingsConfig::from_toml(
+            "preset = \"neovim\"\n[custom_bindings]\ncopy = \"F5\"\nquit = \"F10\"\n\
+             [overrides.all]\nquit = \"Ctrl+q\"\n",
+        )
+        .unwrap();
+        let all = &cfg.overrides[ALL_PRESETS];
+        assert_eq!(all["copy"], "F5");
+        assert_eq!(all["quit"], "Ctrl+q");
+        let saved = toml::to_string(&cfg).unwrap();
+        assert!(!saved.contains("custom_bindings"), "{saved}");
+        assert!(saved.contains("[overrides.all]"), "{saved}");
+    }
+
+    #[test]
+    fn preset_overrides_come_after_all() {
+        let mut cfg = KeybindingsConfig::default();
+        cfg.set_override("neovim", "copy", "y y");
+        cfg.set_override(ALL_PRESETS, "copy", "F5");
+        cfg.set_override("norton", "copy", "F15");
+        let names: Vec<&str> = cfg
+            .overrides_for("neovim")
+            .iter()
+            .map(|(k, _)| *k)
+            .collect();
+        assert_eq!(names, ["all", "neovim"]);
     }
 }

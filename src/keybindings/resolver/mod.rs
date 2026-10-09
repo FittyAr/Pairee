@@ -4,58 +4,69 @@
 //! (parse + dispatch + sequences). Invalid chords never enter the map.
 
 use super::actions::Action;
-use super::loader::{KeymapLoadReport, load_keybinds};
+use super::chord::fragility;
+use super::loader::assign::Row;
+use super::loader::{KeymapLoadReport, KeymapSpec, LoadedKeymap, load_keymap};
+use super::options::KeymapOptions;
 use crate::config::AppConfig;
 use crossterm::event::{KeyEvent, KeyEventKind};
 use keybinds::{KeyInput, KeySeq, Keybinds, Match};
 use std::collections::HashMap;
+use std::time::Instant;
 
 pub struct KeybindingResolver {
     keybinds: Keybinds<Action>,
-    /// Action → first bound chord display (for F-key bar / help).
-    inverse: HashMap<Action, String>,
+    rows: Vec<Row<Action>>,
+    /// Action → its chords, terminal-robust ones first.
+    inverse: HashMap<Action, Vec<String>>,
+    options: KeymapOptions,
     load_report: KeymapLoadReport,
+    /// When the pending sequence received its last key.
+    last_input: Option<Instant>,
 }
 
 impl KeybindingResolver {
     pub fn new(config: &AppConfig) -> Self {
-        let (keybinds, report) = load_keybinds(
-            &config.keybindings.preset,
-            &config.keybindings.custom_bindings,
-        );
+        let loaded = load_keymap(&KeymapSpec::from_config(config));
+        log_report(&config.keybindings.preset, &loaded.report);
+        Self::from_loaded(loaded)
+    }
 
-        for w in &report.warnings {
-            log::warn!("keymap: {w}");
-        }
-        for e in &report.errors {
-            log::error!("keymap: {e}");
-        }
-        if !report.ok() {
-            log::error!(
-                "keymap loaded with {} error(s); {} binding(s) active",
-                report.errors.len(),
-                report.bound_count
-            );
-        } else {
-            log::info!(
-                "keymap preset='{}' loaded ({} bindings)",
-                config.keybindings.preset,
-                report.bound_count
-            );
-        }
-
-        let mut inverse: HashMap<Action, String> = HashMap::new();
-        for bind in keybinds.as_slice() {
+    pub fn from_loaded(loaded: LoadedKeymap) -> Self {
+        let LoadedKeymap {
+            mut keybinds,
+            rows,
+            options,
+            report,
+        } = loaded;
+        keybinds.set_timeout(options.sequence_timeout());
+        let mut inverse: HashMap<Action, Vec<String>> = HashMap::new();
+        let mut ordered: Vec<&Row<Action>> = rows.iter().collect();
+        ordered.sort_by_key(|r| fragility(&r.seq).is_some());
+        for row in ordered {
             inverse
-                .entry(bind.action)
-                .or_insert_with(|| bind.seq.to_string());
+                .entry(row.command)
+                .or_default()
+                .push(row.seq.to_string());
         }
-
         Self {
             keybinds,
+            rows,
             inverse,
+            options,
             load_report: report,
+            last_input: None,
         }
+    }
+
+    /// Options of the active preset (typing mode, leader, timeout).
+    pub fn options(&self) -> &KeymapOptions {
+        &self.options
+    }
+
+    /// Live bindings with their origin, sorted by chord.
+    pub fn rows(&self) -> &[Row<Action>] {
+        &self.rows
     }
 
     /// Validation result of the last keymap load (preset + custom overlays).
@@ -69,7 +80,21 @@ impl KeybindingResolver {
         if key_event.kind != KeyEventKind::Press && key_event.kind != KeyEventKind::Repeat {
             return None;
         }
-        self.keybinds.dispatch(key_event).copied()
+        let action = self.keybinds.dispatch(key_event).copied();
+        self.last_input = self.keybinds.is_ongoing().then(Instant::now);
+        action
+    }
+
+    /// Drops a pending sequence whose next key did not arrive in time, so
+    /// the prefix HUD closes without another key press. `true` if dropped.
+    pub fn expire_pending(&mut self, now: Instant) -> bool {
+        let stale = self
+            .last_input
+            .is_some_and(|t| now.saturating_duration_since(t) > self.options.sequence_timeout());
+        if stale {
+            self.reset();
+        }
+        stale
     }
 
     /// True if this key is a complete binding or starts a multi-key sequence.
@@ -92,9 +117,15 @@ impl KeybindingResolver {
         false
     }
 
-    /// Returns the key string bound to `action`, or `None` if unbound.
+    /// The chord to show for `action` (a terminal-robust one when there is
+    /// one), or `None` if unbound.
     pub fn key_for_action(&self, action: Action) -> Option<&str> {
-        self.inverse.get(&action).map(|s| s.as_str())
+        self.keys_for_action(action).first().map(String::as_str)
+    }
+
+    /// Every chord bound to `action`, terminal-robust ones first.
+    pub fn keys_for_action(&self, action: Action) -> &[String] {
+        self.inverse.get(&action).map_or(&[], Vec::as_slice)
     }
 
     /// Resolve a config-style key string (e.g. `"F7"`, `"Alt+F5"`) to its action.
@@ -107,14 +138,6 @@ impl KeybindingResolver {
             .map(|b| b.action)
     }
 
-    /// Live keymap rows: display chord + action (one row per bound sequence).
-    pub fn bindings(&self) -> impl Iterator<Item = (String, Action)> + '_ {
-        self.keybinds
-            .as_slice()
-            .iter()
-            .map(|b| (b.seq.to_string(), b.action))
-    }
-
     /// True while a multi-key sequence is waiting for the next chord.
     pub fn is_ongoing(&self) -> bool {
         self.keybinds.is_ongoing()
@@ -123,6 +146,7 @@ impl KeybindingResolver {
     /// Drop an in-progress sequence (Esc / timeout UX).
     pub fn reset(&mut self) {
         self.keybinds.reset();
+        self.last_input = None;
     }
 
     /// Human-readable prefix currently being matched (`"Alt+q"`).
@@ -155,6 +179,27 @@ impl KeybindingResolver {
         }
         out.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
         out
+    }
+}
+
+fn log_report(preset: &str, report: &KeymapLoadReport) {
+    for w in report.warnings.iter().chain(&report.robustness) {
+        log::warn!("keymap: {w}");
+    }
+    for e in &report.errors {
+        log::error!("keymap: {e}");
+    }
+    if report.ok() {
+        log::info!(
+            "keymap preset='{preset}' loaded ({} bindings)",
+            report.bound_count
+        );
+    } else {
+        log::error!(
+            "keymap loaded with {} error(s); {} binding(s) active",
+            report.errors.len(),
+            report.bound_count
+        );
     }
 }
 

@@ -14,5 +14,6 @@ mod refresh_resize;
 mod sizes_sync;
 mod tabs_session;
 mod transfer;
+mod typing_modes;
 mod vfs_followups;
 mod viewer;

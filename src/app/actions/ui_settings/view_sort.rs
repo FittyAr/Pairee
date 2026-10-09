@@ -31,6 +31,17 @@ fn set_active_view_mode(state: &mut AppState, mode: PanelViewMode, show_hidden: 
     }
 }
 
+/// The one-key sort and view-mode pickers (yazi workflow `s` / `v`).
+pub fn open_picker(state: &mut AppState, action: &Action) -> bool {
+    let popup = match action {
+        Action::SortMenu => PopupType::YaziSortPopup,
+        Action::ViewModeMenu => PopupType::YaziViewPopup,
+        _ => return false,
+    };
+    state.dialogs.replace(popup);
+    true
+}
+
 pub fn handle_view_sort_action(
     state: &mut AppState,
     action: &Action,

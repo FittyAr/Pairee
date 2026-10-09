@@ -12,7 +12,6 @@ use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
-use std::collections::HashMap;
 
 /// Translation keys of the tab titles (with their `&` hotkeys), in order.
 pub const TAB_KEYS: [&str; 8] = [
@@ -136,7 +135,7 @@ impl Row {
 /// Inputs some tabs need besides the settings being edited.
 pub struct RowCtx<'a> {
     pub settings: &'a ConfigDraft,
-    pub custom_bindings: &'a HashMap<String, String>,
+    pub keybindings: &'a crate::config::keybindings::KeybindingsConfig,
 }
 
 /// The rows of tab `tab` (without the OK / Cancel buttons).

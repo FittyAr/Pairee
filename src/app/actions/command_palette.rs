@@ -2,14 +2,14 @@
 
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crate::keybindings::registry::{self, ActionDef};
+use crate::keybindings::registry::{self, ActionDef, Bindable};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
 /// Build the full catalogue of palette entries (label, action).
 pub fn all_palette_items() -> Vec<(String, Action)> {
     let mut items: Vec<(String, Action)> = registry::palette_defs()
-        .map(|def: &ActionDef| (def.palette_label(), def.action))
+        .map(|def: &ActionDef| (registry::label_for(def.action), def.action))
         .collect();
     items.sort_by(|a, b| a.0.cmp(&b.0));
     items
@@ -24,18 +24,24 @@ pub fn filter_items(query: &str) -> Vec<(String, Action)> {
     let mut matcher = Matcher::new(Config::DEFAULT);
     let pattern = Pattern::parse(q, CaseMatching::Ignore, Normalization::Smart);
     let mut buf = Vec::new();
-    let mut scored: Vec<(u32, String, Action)> = Vec::new();
+    let exact_id = q.to_lowercase().replace(' ', "_");
+    let mut scored: Vec<(bool, u32, String, Action)> = Vec::new();
     for (label, action) in items {
-        let hay = format!("{label} {}", label.replace(' ', "_"));
+        // The keymap id is searchable too, and typing it exactly wins.
+        let hay = format!("{label} {}", action.id());
         let utf = Utf32Str::new(&hay, &mut buf);
         if let Some(score) = pattern.score(utf, &mut matcher) {
-            scored.push((score, label, action));
+            scored.push((action.id() == exact_id, score, label, action));
         }
     }
-    scored.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.cmp(&b.1)));
+    scored.sort_by(|a, b| {
+        b.0.cmp(&a.0)
+            .then_with(|| b.1.cmp(&a.1))
+            .then_with(|| a.2.cmp(&b.2))
+    });
     scored
         .into_iter()
-        .map(|(_, label, action)| (label, action))
+        .map(|(_, _, label, action)| (label, action))
         .collect()
 }
 

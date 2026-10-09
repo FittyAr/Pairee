@@ -5,6 +5,11 @@ use crate::config::localization::t;
 pub struct KeymapLoadReport {
     pub errors: Vec<String>,
     pub warnings: Vec<String>,
+    /// Chords a later layer took from another action (expected with
+    /// `extends` and overrides; informative only).
+    pub displaced: Vec<String>,
+    /// Essential actions without a chord every terminal can send.
+    pub robustness: Vec<String>,
     pub bound_count: usize,
 }
 
@@ -25,11 +30,14 @@ impl KeymapLoadReport {
     /// Multi-line report for the nested keymap-issues overlay.
     pub fn detail_lines(&self) -> Vec<String> {
         let mut lines = vec![self.summary_line()];
-        for e in &self.errors {
-            lines.push(format!("! {e}"));
-        }
-        for w in &self.warnings {
-            lines.push(format!("* {w}"));
+        let sections = [
+            ("!", &self.errors),
+            ("*", &self.warnings),
+            ("≈", &self.robustness),
+            ("~", &self.displaced),
+        ];
+        for (mark, items) in sections {
+            lines.extend(items.iter().map(|item| format!("{mark} {item}")));
         }
         lines.push(t("int_keymap_gray"));
         lines

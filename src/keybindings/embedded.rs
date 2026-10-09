@@ -7,9 +7,13 @@ use std::path::{Path, PathBuf};
 const NORTON: &str = include_str!("../../keymaps/norton.toml");
 const NEOVIM: &str = include_str!("../../keymaps/neovim.toml");
 const VSCODE: &str = include_str!("../../keymaps/vscode.toml");
+const BASE: &str = include_str!("../../keymaps/base.toml");
 
 /// Built-in presets with their shipped TOML, in display order.
 pub const PRESETS: &[(&str, &str)] = &[("norton", NORTON), ("neovim", NEOVIM), ("vscode", VSCODE)];
+
+/// Shipped presets that only exist to be extended (not selectable, not seeded).
+const HIDDEN: &[(&str, &str)] = &[("base", BASE)];
 
 /// Canonical name of a preset: lower case, with the legacy aliases
 /// (`vim`, `modern`) mapped to the built-in they stand for.
@@ -26,6 +30,7 @@ pub fn preset_toml(preset: &str) -> Option<&'static str> {
     let name = normalize_preset_name(preset);
     PRESETS
         .iter()
+        .chain(HIDDEN)
         .find(|(builtin, _)| *builtin == name)
         .map(|(_, toml)| *toml)
 }
@@ -34,11 +39,6 @@ pub fn preset_toml(preset: &str) -> Option<&'static str> {
 /// `keymaps/<name>.toml` differs from it.
 pub fn pending_update_path(keymaps_dir: &Path, name: &str) -> PathBuf {
     keymaps_dir.join(format!("{name}.toml.new"))
-}
-
-/// Shipped TOML of the default preset (norton).
-pub fn default_preset_toml() -> &'static str {
-    NORTON
 }
 
 #[cfg(test)]

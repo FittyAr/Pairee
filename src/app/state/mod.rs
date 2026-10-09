@@ -46,6 +46,11 @@ pub struct AppState {
     pub history: HistoryState,
     pub update: UpdateState,
     pub cli_input: String,
+    /// The command line was opened explicitly (`focus_cli`) and takes every
+    /// printable key, even while empty.
+    pub cli_focused: bool,
+    /// Letters typed for type-ahead find.
+    pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
@@ -145,6 +150,8 @@ impl AppState {
             history: HistoryState::default(),
             update: UpdateState::default(),
             cli_input: String::new(),
+            cli_focused: false,
+            type_ahead: Default::default(),
             dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect: Default::default(),

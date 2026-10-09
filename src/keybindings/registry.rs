@@ -1,353 +1,151 @@
-//! Canonical action catalogue (id + `Action` + palette flag + category).
-//!
-//! Chord strings stay in `keymaps/*.toml`. This is **not** a second keymap.
+//! Lookups over the action [`catalog`](super::catalog): id ↔ action,
+//! localized labels and the [`Bindable`] trait the loader is generic over.
 
 use super::actions::Action;
+pub use super::catalog::{ActionDef, Category};
+use super::catalog::{CATALOG, all_defs};
+use crate::config::localization::t;
+use std::fmt::Debug;
+use std::hash::Hash;
 
-/// Grouping for palette / future help surfaces.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ActionCategory {
-    Navigation,
-    Files,
-    View,
-    Search,
-    Git,
-    System,
+/// Anything a keymap layer can bind a chord to. Implemented by [`Action`]
+/// (panels); editor / viewer / plugin commands plug into the same loader.
+pub trait Bindable: Copy + Eq + Hash + Debug + 'static {
+    /// The command for a keymap id (`"copy_path"`, `"go_to_tab_3"`).
+    fn from_id(id: &str) -> Option<Self>;
+    /// Stable keymap id.
+    fn id(self) -> &'static str;
+    /// Localized human label.
+    fn label(self) -> String;
+    fn category(self) -> Category;
+    /// Must keep a terminal-robust chord in every preset.
+    fn essential(self) -> bool;
+    /// Every command of this kind.
+    fn all() -> Vec<Self>;
 }
 
-/// One logical action as the rest of the UI should describe it.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct ActionDef {
-    pub id: &'static str,
-    pub action: Action,
-    pub in_palette: bool,
-    pub category: ActionCategory,
+/// Catalogue row of `action`. Every action is catalogued (tested).
+pub fn def_for(action: Action) -> &'static ActionDef {
+    all_defs()
+        .find(|d| d.action == action)
+        .expect("every Action is catalogued")
 }
 
-impl ActionDef {
-    /// Human palette label (`copy_path` → `copy path`).
-    pub fn palette_label(self) -> String {
-        self.id.replace('_', " ")
+impl Bindable for Action {
+    fn from_id(id: &str) -> Option<Self> {
+        all_defs().find(|d| d.id == id).map(|d| d.action)
+    }
+
+    fn id(self) -> &'static str {
+        def_for(self).id
+    }
+
+    fn label(self) -> String {
+        match self {
+            Action::GoFolderShortcut(n) | Action::GoToTab(n) => {
+                let key = if matches!(self, Action::GoToTab(_)) {
+                    "action_go_to_tab"
+                } else {
+                    "action_go_folder_shortcut"
+                };
+                t(key).replace("{n}", &n.to_string())
+            }
+            _ => t(&format!("action_{}", self.id())),
+        }
+    }
+
+    fn category(self) -> Category {
+        def_for(self).category
+    }
+
+    fn essential(self) -> bool {
+        def_for(self).essential
+    }
+
+    fn all() -> Vec<Self> {
+        all_defs().map(|d| d.action).collect()
     }
 }
-
-const fn d(
-    id: &'static str,
-    action: Action,
-    in_palette: bool,
-    category: ActionCategory,
-) -> ActionDef {
-    ActionDef {
-        id,
-        action,
-        in_palette,
-        category,
-    }
-}
-
-/// Shipped catalogue. Palette entries match the previous hardcoded name list.
-pub const CATALOG: &[ActionDef] = &[
-    d("move_up", Action::MoveUp, true, ActionCategory::Navigation),
-    d(
-        "move_down",
-        Action::MoveDown,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "change_panel",
-        Action::ChangePanel,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "open_archive",
-        Action::OpenArchive,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d("help", Action::Help, true, ActionCategory::System),
-    d("about", Action::About, true, ActionCategory::System),
-    d("copy", Action::Copy, true, ActionCategory::Files),
-    d("copy_path", Action::CopyPath, true, ActionCategory::Files),
-    d("move", Action::Move, true, ActionCategory::Files),
-    d("rename", Action::Rename, true, ActionCategory::Files),
-    d(
-        "multi_rename_tool",
-        Action::MultiRename,
-        true,
-        ActionCategory::Files,
-    ),
-    d("delete", Action::Delete, true, ActionCategory::Files),
-    d(
-        "undo_file_operation",
-        Action::UndoFileOp,
-        true,
-        ActionCategory::Files,
-    ),
-    d(
-        "redo_file_operation",
-        Action::RedoFileOp,
-        true,
-        ActionCategory::Files,
-    ),
-    d("mkdir", Action::MkDir, true, ActionCategory::Files),
-    d("view", Action::View, true, ActionCategory::Files),
-    d("edit", Action::Edit, true, ActionCategory::Files),
-    d("find_file", Action::FindFile, true, ActionCategory::Search),
-    d("refresh", Action::Refresh, true, ActionCategory::View),
-    d(
-        "toggle_hidden",
-        Action::ToggleHidden,
-        true,
-        ActionCategory::View,
-    ),
-    d(
-        "swap_panels",
-        Action::SwapPanels,
-        true,
-        ActionCategory::View,
-    ),
-    d(
-        "open_git_panel",
-        Action::OpenGitPanel,
-        true,
-        ActionCategory::Git,
-    ),
-    d("hotlist", Action::Hotlist, true, ActionCategory::Navigation),
-    d(
-        "folder_shortcuts_config",
-        Action::FolderShortcutsConfig,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d("git_init", Action::GitInit, true, ActionCategory::Git),
-    d("git_clone", Action::GitClone, true, ActionCategory::Git),
-    d(
-        "ssh_connect",
-        Action::SshConnect,
-        true,
-        ActionCategory::System,
-    ),
-    d(
-        "ssh_disconnect",
-        Action::SshDisconnect,
-        true,
-        ActionCategory::System,
-    ),
-    d(
-        "plugin_menu",
-        Action::PluginMenu,
-        true,
-        ActionCategory::System,
-    ),
-    d(
-        "system_settings",
-        Action::SystemSettings,
-        true,
-        ActionCategory::System,
-    ),
-    d(
-        "check_for_updates",
-        Action::CheckForUpdates,
-        true,
-        ActionCategory::System,
-    ),
-    d(
-        "toggle_transfer_panel",
-        Action::ToggleTransferPanel,
-        true,
-        ActionCategory::System,
-    ),
-    d("quit", Action::Quit, true, ActionCategory::System),
-    d(
-        "compare_folder",
-        Action::CompareFolder,
-        true,
-        ActionCategory::Files,
-    ),
-    d("sync_dirs", Action::SyncDirs, true, ActionCategory::Files),
-    d(
-        "calculate_folder_sizes",
-        Action::CalculateFolderSizes,
-        true,
-        ActionCategory::Files,
-    ),
-    d("disk_usage", Action::DiskUsage, true, ActionCategory::Files),
-    d("task_list", Action::TaskList, true, ActionCategory::System),
-    d("tree_view", Action::TreeView, true, ActionCategory::View),
-    d(
-        "command_history",
-        Action::CommandHistory,
-        true,
-        ActionCategory::Search,
-    ),
-    d(
-        "folders_history",
-        Action::FoldersHistory,
-        true,
-        ActionCategory::Search,
-    ),
-    d(
-        "file_view_history",
-        Action::FileViewHistory,
-        true,
-        ActionCategory::Search,
-    ),
-    d(
-        "save_setup",
-        Action::SaveSetup,
-        true,
-        ActionCategory::System,
-    ),
-    d("user_menu", Action::UserMenu, true, ActionCategory::System),
-    d(
-        "file_associations",
-        Action::FileAssociations,
-        true,
-        ActionCategory::Files,
-    ),
-    d(
-        "compress_files",
-        Action::CompressFiles,
-        true,
-        ActionCategory::Files,
-    ),
-    d(
-        "extract_archive",
-        Action::ExtractArchive,
-        true,
-        ActionCategory::Files,
-    ),
-    d("which_key", Action::WhichKey, true, ActionCategory::System),
-    d("new_tab", Action::NewTab, true, ActionCategory::Navigation),
-    d(
-        "close_tab",
-        Action::CloseTab,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "next_tab",
-        Action::NextTab,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "prev_tab",
-        Action::PrevTab,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "move_tab_left",
-        Action::MoveTabLeft,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "move_tab_right",
-        Action::MoveTabRight,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "toggle_tab_lock",
-        Action::ToggleTabLock,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "rename_tab",
-        Action::RenameTab,
-        true,
-        ActionCategory::Navigation,
-    ),
-    d(
-        "open_in_new_tab",
-        Action::OpenInNewTab,
-        true,
-        ActionCategory::Navigation,
-    ),
-];
 
 /// Palette-visible catalogue rows.
 pub fn palette_defs() -> impl Iterator<Item = &'static ActionDef> {
     CATALOG.iter().filter(|def| def.in_palette)
 }
 
-/// Human label for an action (catalogue id, else a readable Debug name).
+/// Localized label for an action.
 pub fn label_for(action: Action) -> String {
-    if let Some(def) = CATALOG.iter().find(|d| d.action == action) {
-        return def.palette_label();
-    }
-    match action {
-        Action::GoFolderShortcut(n) => format!("go folder shortcut {n}"),
-        Action::GoToTab(n) => format!("go to tab {n}"),
-        other => pascal_to_words(&format!("{other:?}")),
-    }
-}
-
-fn pascal_to_words(name: &str) -> String {
-    let mut out = String::new();
-    for (i, c) in name.chars().enumerate() {
-        if i > 0 && c.is_uppercase() {
-            out.push(' ');
-        }
-        out.extend(c.to_lowercase());
-    }
-    out
+    action.label()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::keybindings::preset::parse_action_name;
+    use crate::config::localization::translator::get_default_english_translation;
+
+    /// Variant names declared in `actions.rs`, read from the source so a new
+    /// variant cannot be added without a catalogue row.
+    fn declared_variants() -> Vec<String> {
+        include_str!("actions.rs")
+            .lines()
+            .map(str::trim)
+            .filter(|l| l.chars().next().is_some_and(char::is_uppercase))
+            .filter_map(|l| l.split(['(', ',']).next())
+            .map(str::to_string)
+            .collect()
+    }
 
     #[test]
-    fn catalog_ids_match_parse_action_name() {
-        for def in CATALOG {
-            assert_eq!(
-                parse_action_name(def.id),
-                Some(def.action),
-                "id {} must parse to {:?}",
-                def.id,
-                def.action
-            );
+    fn every_action_variant_is_catalogued() {
+        let catalogued: std::collections::HashSet<String> = all_defs()
+            .map(|d| format!("{:?}", d.action))
+            .map(|s| s.split('(').next().unwrap().to_string())
+            .collect();
+        let variants = declared_variants();
+        assert!(variants.len() > 100, "parsed {} variants", variants.len());
+        for v in variants {
+            assert!(catalogued.contains(&v), "{v} has no catalogue row");
         }
     }
 
     #[test]
-    fn catalog_ids_are_unique() {
-        let mut ids: Vec<&str> = CATALOG.iter().map(|d| d.id).collect();
+    fn ids_and_actions_are_unique_and_round_trip() {
+        let mut ids: Vec<&str> = all_defs().map(|d| d.id).collect();
         ids.sort_unstable();
         ids.dedup();
-        assert_eq!(ids.len(), CATALOG.len());
+        assert_eq!(ids.len(), all_defs().count());
+        for d in all_defs() {
+            assert_eq!(Action::from_id(d.id), Some(d.action), "{}", d.id);
+            assert_eq!(d.action.id(), d.id);
+        }
     }
 
     #[test]
-    fn catalog_actions_are_unique() {
-        let set: std::collections::HashSet<Action> = CATALOG.iter().map(|d| d.action).collect();
-        assert_eq!(set.len(), CATALOG.len());
+    fn every_action_has_an_english_label() {
+        for d in CATALOG {
+            let key = format!("action_{}", d.id);
+            assert_ne!(get_default_english_translation(&key), key, "missing {key}");
+        }
+        for key in ["action_go_to_tab", "action_go_folder_shortcut"] {
+            assert!(
+                get_default_english_translation(key).contains("{n}"),
+                "{key}"
+            );
+        }
+        for d in all_defs() {
+            let key = d.category.label_key();
+            assert_ne!(get_default_english_translation(key), key, "missing {key}");
+        }
     }
 
     #[test]
-    fn palette_includes_copy_path_and_extract() {
-        let ids: Vec<&str> = palette_defs().map(|d| d.id).collect();
-        assert!(ids.contains(&"copy_path"));
-        assert!(ids.contains(&"extract_archive"));
-        assert!(ids.contains(&"which_key"));
-        assert_eq!(ids.len(), CATALOG.len());
+    fn numbered_labels_fill_in_the_slot() {
+        assert!(label_for(Action::GoToTab(3)).contains('3'));
+        assert!(label_for(Action::GoFolderShortcut(7)).contains('7'));
     }
 
     #[test]
-    fn label_for_uses_catalog_then_debug() {
-        assert_eq!(label_for(Action::CopyPath), "copy path");
-        assert_eq!(label_for(Action::WhichKey), "which key");
-        assert_eq!(label_for(Action::CommandPalette), "command palette");
-        assert_eq!(
-            label_for(Action::GoFolderShortcut(3)),
-            "go folder shortcut 3"
-        );
+    fn palette_lists_plain_actions_only() {
+        assert!(palette_defs().any(|d| d.id == "copy_path"));
+        assert!(palette_defs().all(|d| !d.id.starts_with("go_to_tab_")));
     }
 }

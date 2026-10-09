@@ -16,7 +16,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let custom_bindings = context.config.keybindings.custom_bindings.clone();
+    let keybindings = context.config.keybindings.clone();
     let Some(PopupType::ConfigurationDialog(dlg)) = state.dialogs.top_mut() else {
         return Err(());
     };
@@ -24,7 +24,7 @@ pub fn handle(
         dlg.active_tab,
         &RowCtx {
             settings: &dlg.draft,
-            custom_bindings: &custom_bindings,
+            keybindings: &keybindings,
         },
     );
     if dlg.edit.is_some() {
@@ -50,7 +50,7 @@ pub fn handle(
                 wrap_next
             };
             let tab = step(dlg.active_tab, TAB_KEYS.len());
-            open_tab(dlg, tab, &custom_bindings);
+            open_tab(dlg, tab, &keybindings);
         }
         KeyCode::Up => dlg.cursor_idx = next_selectable(&rows, dlg.cursor_idx, wrap_prev),
         KeyCode::Down => dlg.cursor_idx = next_selectable(&rows, dlg.cursor_idx, wrap_next),
@@ -77,7 +77,7 @@ pub fn handle(
         KeyCode::Char(c) => {
             if let Some(tab) = tab_for_hotkey(c) {
                 dlg.focus_on_tabs = false;
-                open_tab(dlg, tab, &custom_bindings);
+                open_tab(dlg, tab, &keybindings);
             }
         }
         _ => {}
@@ -115,14 +115,14 @@ fn apply(state: &mut AppState, context: &mut AppContext) {
 fn open_tab(
     dlg: &mut ConfigurationDialogState,
     tab: usize,
-    custom_bindings: &std::collections::HashMap<String, String>,
+    keybindings: &crate::config::keybindings::KeybindingsConfig,
 ) {
     dlg.active_tab = tab;
     let rows = tab_rows(
         tab,
         &RowCtx {
             settings: &dlg.draft,
-            custom_bindings,
+            keybindings,
         },
     );
     dlg.cursor_idx = (0..rows.len())

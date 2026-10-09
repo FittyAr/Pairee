@@ -3,7 +3,7 @@ use crate::app::context::AppContext;
 use crate::app::input::handle_cli_input;
 use crate::app::input_popup::handle_popup_input;
 use crate::app::screen_input::handle_screen_input;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
 use crate::terminal::{Event, TerminalBackend};
 
 pub async fn handle_input_event(
@@ -44,20 +44,6 @@ pub async fn handle_input_event(
             // Screens consume inputs before CLI and Panels (unless it's a global shortcut)
             if handle_screen_input(state, key, context).is_ok() {
                 return Ok(());
-            }
-
-            if context.config.settings.enable_yazi_workflow
-                && state.cli_input.is_empty()
-                && let crossterm::event::KeyCode::Char(c) = key.code
-                && key.modifiers.is_empty()
-            {
-                if c == 's' {
-                    state.dialogs.replace(PopupType::YaziSortPopup);
-                    return Ok(());
-                } else if c == 'v' {
-                    state.dialogs.replace(PopupType::YaziViewPopup);
-                    return Ok(());
-                }
             }
 
             // CLI input takes priority next if applicable
@@ -105,7 +91,11 @@ pub async fn handle_input_event(
             tracing::info!("Application termination requested by OS signal");
             state.should_quit = true;
         }
-        Event::Tick => {}
+        Event::Tick => {
+            if context.resolver.expire_pending(std::time::Instant::now()) {
+                state.mark_ui_dirty();
+            }
+        }
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);
             if context.config.settings.mouse_support

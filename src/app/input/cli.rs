@@ -1,11 +1,19 @@
 use crate::app::actions::execute_shell_command;
 use crate::app::context::AppContext;
+use crate::app::input::type_ahead::find_match;
 use crate::app::state::AppState;
+use crate::keybindings::options::TypingMode;
 use crate::terminal::TerminalBackend;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::path::{Path, PathBuf};
+use std::time::Instant;
 
 /// Captures characters for bottom shell CLI command input.
+///
+/// While the command line is idle (empty and not focused), bound keys go to
+/// the keymap and an unbound printable key follows the preset's
+/// [`TypingMode`]: it starts the command line (Far), jumps to a file
+/// (type-ahead) or is left to the keymap and plugins (Vim / yazi).
 pub fn handle_cli_input(
     state: &mut AppState,
     key: KeyEvent,
@@ -15,45 +23,75 @@ pub fn handle_cli_input(
     if state.dialogs.is_some() {
         return Err(());
     }
-
-    // Bypass CLI capture when this key is (or starts) a bound shortcut.
-    // Uses immutable peek so multi-key sequences are not consumed here.
-    if state.cli_input.is_empty() && context.resolver.would_trigger(key) {
+    if state.cli_focused || !state.cli_input.is_empty() {
+        return edit_cli(state, key, context, terminal_backend);
+    }
+    // Uses an immutable peek so multi-key sequences are not consumed here.
+    if context.resolver.would_trigger(key) {
         return Err(());
     }
+    let Some(c) = printable(key) else {
+        return Err(());
+    };
+    match context.resolver.options().typing {
+        TypingMode::Cli => state.cli_input.push(c),
+        TypingMode::TypeAhead => type_ahead(state, c),
+        TypingMode::Commands => return Err(()),
+    }
+    Ok(())
+}
 
+/// A character typed without modifiers other than Shift.
+fn printable(key: KeyEvent) -> Option<char> {
     match key.code {
-        KeyCode::Char(c) => {
-            if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT {
-                state.cli_input.push(c);
-                return Ok(());
-            }
-            Err(())
+        KeyCode::Char(c) if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT => {
+            Some(c)
         }
+        _ => None,
+    }
+}
+
+/// Moves the active panel's cursor to the entry the typed letters name.
+fn type_ahead(state: &mut AppState, c: char) {
+    let query = state.type_ahead.push(c, Instant::now()).to_string();
+    let panel = state.get_active_panel_mut();
+    let names: Vec<&str> = panel.entries.iter().map(|e| e.name.as_str()).collect();
+    if let Some(i) = find_match(&names, panel.cursor_index, &query) {
+        panel.cursor_index = i;
+    }
+}
+
+/// Keys while the command line is being edited.
+fn edit_cli(
+    state: &mut AppState,
+    key: KeyEvent,
+    context: &AppContext,
+    terminal_backend: &mut TerminalBackend,
+) -> Result<(), ()> {
+    if let Some(c) = printable(key) {
+        state.cli_input.push(c);
+        return Ok(());
+    }
+    match key.code {
         KeyCode::Backspace => {
-            if !state.cli_input.is_empty() {
-                state.cli_input.pop();
-                return Ok(());
-            }
-            Err(())
+            state.cli_input.pop();
+            Ok(())
         }
         KeyCode::Enter => {
-            if state.cli_input.is_empty() {
-                return Err(());
-            }
+            state.cli_focused = false;
             let cmd = state.cli_input.trim().to_string();
             state.cli_input.clear();
-            state.push_command_history(cmd.clone());
-            run_cli_command(state, &cmd, context, terminal_backend);
-            state.refresh_both_panels(context.config.settings.show_hidden);
+            if !cmd.is_empty() {
+                state.push_command_history(cmd.clone());
+                run_cli_command(state, &cmd, context, terminal_backend);
+                state.refresh_both_panels(context.config.settings.show_hidden);
+            }
             Ok(())
         }
         KeyCode::Esc => {
-            if !state.cli_input.is_empty() {
-                state.cli_input.clear();
-                return Ok(());
-            }
-            Err(())
+            state.cli_focused = false;
+            state.cli_input.clear();
+            Ok(())
         }
         _ => Err(()),
     }

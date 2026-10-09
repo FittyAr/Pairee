@@ -470,14 +470,14 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] Corregir el formato de tecla de los plugins con el normalizador común, y añadir desregistro al desinstalar.
 
 ### Fase 1 — Modelo de keymap v2
-- [ ] `trait Bindable` + `Category` + catálogo completo. Test: toda variante catalogada y etiquetada en `en`/`es`.
-- [ ] Claves i18n `action_<id>` (y `action_<id>_desc` opcional) en `lang/en.toml` y `lang/es.toml`.
-- [ ] Loader con capas: `extends` (con detección de ciclos), `""` = desasignar, orden determinista (`IndexMap`/`toml` `preserve_order`), última capa gana, `report.displaced`.
-- [ ] `[options]`: `typing`, `leader` (expansión `<leader>`) y `sequence_timeout` en el resolver.
-- [ ] Validación de prefijos: dentro de una capa de preset, un chord no puede ser a la vez completo y prefijo.
-- [ ] `fragility()` + aviso para acciones `essential` sin chord robusto, y activación del protocolo kitty.
-- [ ] Config `overrides.all` / `overrides.<preset>` + migración de `custom_bindings`.
-- [ ] Pipeline de entrada (§3.4): modo de tecleo, quitar el cableado de yazi `s`/`v`.
+- [x] `trait Bindable` + `Category` + catálogo completo (`keybindings/catalog.rs`). Test: toda variante del enum catalogada (se lee de `actions.rs`) y etiquetada en `en`/`es`.
+- [x] Claves i18n `action_<id>` y `category_<name>` en `lang/en.toml` y `lang/es.toml`; which-key y la paleta muestran etiquetas localizadas.
+- [x] Loader con capas (`loader/{layers,assign,validate}.rs`): `extends` (con detección de ciclos), `""` = desasignar, orden determinista (`BTreeMap` + filas ordenadas por chord), última capa gana, `report.displaced`. Los presets incluidos pasan a `extends = "base"` sin cambiar ningún binding (verificado contra una captura); efecto lateral: `Alt+F3` vuelve a abrir el visor alternativo (`view_alt` se leía como alias de `view`).
+- [x] `[options]`: `typing`, `leader` (expansión `<leader>` en forma separada o compacta) y `sequence_timeout` en el resolver, con expiración en el tick para cerrar el HUD de prefijo.
+- [x] Validación de prefijos sobre el keymap final: un chord completo que es prefijo de otra secuencia es error.
+- [x] `chord::fragility()` + `report.robustness` para acciones `essential` sin chord robusto. El protocolo kitty ya se activaba en `terminal/backend.rs`.
+- [x] Config `[overrides.all]` / `[overrides.<preset>]` en `keybindings.toml` + migración de `custom_bindings`.
+- [x] Pipeline de entrada (§3.4): modos `cli` / `type_ahead` / `commands`, foco explícito de la CLI (`focus_cli`), y las teclas `s`/`v` del flujo yazi pasan a ser una capa de ajustes (`sort_menu` / `view_mode_menu`) en lugar de código fijo.
 
 ### Fase 2 — Acciones nuevas (§4)
 - [ ] Portapapeles de archivos (`yank`/`cut`/`paste`/`paste_overwrite`/`paste_as_link`/`clear_clipboard`) sobre el motor de transferencia + undo + indicador de estado.

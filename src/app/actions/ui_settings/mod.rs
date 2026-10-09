@@ -34,6 +34,7 @@ pub async fn handle_ui_settings_action(
     menu_action(state, action, context)
         || app_control_action(state, action, context)
         || feature_action(state, action, context)
+        || view_sort::open_picker(state, action)
         || view_sort::handle_view_sort_action(state, action, context)
         || tools::handle_tools_action(state, action, context)
 }
@@ -64,10 +65,7 @@ fn app_control_action(state: &mut AppState, action: &Action, context: &mut AppCo
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
-        Action::FocusCli => {
-            state.cli_input.push(' ');
-            state.cli_input.clear();
-        }
+        Action::FocusCli => state.cli_focused = true,
         Action::Unfocus => unfocus(state),
         Action::Refresh | Action::RereadPanel => {
             state.force_refresh_both_panels(context.config.settings.show_hidden);
@@ -153,6 +151,7 @@ fn open_context_menu(state: &mut AppState) {
 fn unfocus(state: &mut AppState) {
     state.dialogs.clear();
     state.cli_input.clear();
+    state.cli_focused = false;
     state.fkeys_modifier_override = None;
     for (_, tab) in state.panels.all_tabs_mut() {
         tab.panel.dir_sizes.cancel();

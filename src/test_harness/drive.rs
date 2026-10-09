@@ -59,8 +59,9 @@ impl Harness {
     /// unbound action (e.g. `mkdir` in the Norton keymap, reached from the
     /// menu there) is dispatched directly.
     pub fn trigger(&mut self, name: &str) {
-        let action = crate::keybindings::preset::parse_action_name(name)
-            .unwrap_or_else(|| panic!("unknown action {name:?}"));
+        let action =
+            <crate::keybindings::Action as crate::keybindings::registry::Bindable>::from_id(name)
+                .unwrap_or_else(|| panic!("unknown action {name:?}"));
         match self.chord_for(action) {
             Some(key) => self.send(Event::Key(key)),
             None => self.dispatch(action),

@@ -306,7 +306,9 @@ mod tests {
         let context = AppContext::new(AppConfig::default());
         let unlabeled: Vec<String> = context
             .resolver
-            .bindings()
+            .rows()
+            .iter()
+            .map(|row| (row.seq.to_string(), row.command))
             .filter(|(chord, _)| {
                 let key = chord.rsplit('+').next().unwrap_or_default();
                 key.len() > 1 && key.starts_with('F') && key[1..].parse::<u8>().is_ok()

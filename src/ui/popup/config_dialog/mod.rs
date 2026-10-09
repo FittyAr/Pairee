@@ -21,7 +21,7 @@ pub fn render_config_dialog_popup(
     popup: &PopupType,
     theme: &Theme,
     size: Rect,
-    custom_bindings: &std::collections::HashMap<String, String>,
+    keybindings: &crate::config::keybindings::KeybindingsConfig,
 ) -> bool {
     let PopupType::ConfigurationDialog(dialog) = popup else {
         return false;
@@ -59,7 +59,7 @@ pub fn render_config_dialog_popup(
     render_separators(f, body_chunks[1], main_chunks[1], inner.width);
     f.render_widget(Paragraph::new(tab_lines(dialog, theme)), body_chunks[0]);
     let content_area = body_chunks[2];
-    let lines = row_lines(dialog, theme, custom_bindings, content_area.height as usize);
+    let lines = row_lines(dialog, theme, keybindings, content_area.height as usize);
     f.render_widget(Paragraph::new(lines), content_area);
 
     let hint_widget =
@@ -132,7 +132,7 @@ fn tab_lines(dialog: &ConfigurationDialogState, theme: &Theme) -> Vec<Line<'stat
 fn row_lines(
     dialog: &ConfigurationDialogState,
     theme: &Theme,
-    custom_bindings: &std::collections::HashMap<String, String>,
+    keybindings: &crate::config::keybindings::KeybindingsConfig,
     list_height: usize,
 ) -> Vec<Line<'static>> {
     let settings = &dialog.draft;
@@ -140,7 +140,7 @@ fn row_lines(
         dialog.active_tab,
         &RowCtx {
             settings,
-            custom_bindings,
+            keybindings,
         },
     );
     let ok_cancel = [t("btn_ok"), t("btn_cancel")];

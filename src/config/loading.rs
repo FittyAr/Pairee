@@ -108,7 +108,7 @@ pub(super) fn load_keybindings(settings_path: &Path) -> Result<KeybindingsConfig
     if keybindings_path.exists() {
         let content =
             fs::read_to_string(&keybindings_path).context("Failed to read keybindings.toml")?;
-        return Ok(toml::from_str(&content).unwrap_or_default());
+        return Ok(KeybindingsConfig::from_toml(&content).unwrap_or_default());
     }
     let mut default_keybindings = KeybindingsConfig::default();
     if let Some(preset) = fs::read_to_string(settings_path)

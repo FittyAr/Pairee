@@ -128,7 +128,7 @@ fn draw_ui_which_key_overlay_lists_live_chords() {
         "overlay title missing, got {painted:?}"
     );
     assert!(
-        painted.contains("F5") || painted.contains("copy") || painted.contains("go to tab"),
+        painted.contains("Alt+F1") && painted.contains("Change drive"),
         "live keymap rows missing, got {painted:?}"
     );
 }
@@ -136,14 +136,8 @@ fn draw_ui_which_key_overlay_lists_live_chords() {
 #[test]
 fn draw_ui_prefix_hud_while_sequence_ongoing() {
     let mut config = AppConfig::default();
-    config
-        .keybindings
-        .custom_bindings
-        .insert("about".into(), "Alt+q x".into());
-    config
-        .keybindings
-        .custom_bindings
-        .insert("help".into(), "Alt+q h".into());
+    config.keybindings.set_override("all", "about", "Alt+q x");
+    config.keybindings.set_override("all", "help", "Alt+q h");
     let mut context = AppContext::new(config);
     let state = AppState::new(PathBuf::from("."), PathBuf::from("."));
     let alt_q = crossterm::event::KeyEvent::new(

@@ -1,5 +1,9 @@
 use super::*;
-use crate::keybindings::preset::parse_action_name;
+use crate::keybindings::preset::parse_id;
+
+fn parse_action_name(name: &str) -> Option<Action> {
+    parse_id::<Action>(name).map(|p| p.command)
+}
 use crossterm::event::{KeyCode, KeyModifiers};
 
 #[test]
@@ -82,8 +86,7 @@ fn custom_which_key_chord_resolves() {
     let mut config = AppConfig::default();
     config
         .keybindings
-        .custom_bindings
-        .insert("which_key".into(), "Ctrl+Alt+Shift+F11".into());
+        .set_override("all", "which_key", "Ctrl+Alt+Shift+F11");
     let resolver = KeybindingResolver::new(&config);
     assert_eq!(
         resolver.resolve_for_key_string("Ctrl+Alt+Shift+F11"),
@@ -94,14 +97,8 @@ fn custom_which_key_chord_resolves() {
 #[test]
 fn prefix_completions_list_remaining_suffixes() {
     let mut config = AppConfig::default();
-    config
-        .keybindings
-        .custom_bindings
-        .insert("about".into(), "Alt+q x".into());
-    config
-        .keybindings
-        .custom_bindings
-        .insert("help".into(), "Alt+q h".into());
+    config.keybindings.set_override("all", "about", "Alt+q x");
+    config.keybindings.set_override("all", "help", "Alt+q h");
     let mut resolver = KeybindingResolver::new(&config);
 
     let alt_q = KeyEvent::new(KeyCode::Char('q'), KeyModifiers::ALT);
@@ -224,4 +221,19 @@ fn every_preset_binds_folder_sizes_and_disk_usage_on_free_keys() {
             assert_eq!(resolver.resolve(key), Some(action), "{preset}: {key:?}");
         }
     }
+}
+
+#[test]
+fn a_stale_sequence_expires_on_tick() {
+    let mut config = AppConfig::default();
+    config.keybindings.set_override("all", "about", "Alt+q x");
+    let mut resolver = KeybindingResolver::new(&config);
+    let start = std::time::Instant::now();
+    assert!(!resolver.expire_pending(start));
+    resolver.resolve(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::ALT));
+    assert!(resolver.is_ongoing());
+    assert!(!resolver.expire_pending(std::time::Instant::now()));
+    let late = std::time::Instant::now() + std::time::Duration::from_secs(2);
+    assert!(resolver.expire_pending(late));
+    assert!(!resolver.is_ongoing());
 }

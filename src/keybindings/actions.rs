@@ -234,6 +234,10 @@ pub enum Action {
     OpenGitPanel,
     /// Toggle reverse sorting order for active panel
     ToggleSortReverse,
+    /// One-key sort picker (yazi workflow `s`)
+    SortMenu,
+    /// One-key view-mode picker (yazi workflow `v`)
+    ViewModeMenu,
     /// Install local plugin in development (developer mode)
     InstallDevPlugin,
     /// Toggle Transfer Panel (Ctrl+T)

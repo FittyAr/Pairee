@@ -1,6 +1,7 @@
 pub mod cli;
 pub mod panel_nav;
 pub mod paste;
+pub mod type_ahead;
 
 pub use cli::handle_cli_input;
 pub use panel_nav::{

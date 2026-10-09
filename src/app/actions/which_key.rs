@@ -1,7 +1,9 @@
 //! Which-key overlay: live chords from the `keybinds` map (not a second keymap).
 
 use crate::app::state::{AppState, PopupType};
-use crate::keybindings::registry;
+use crate::config::localization::t;
+use crate::keybindings::loader::Origin;
+use crate::keybindings::registry::{self, Bindable};
 use crate::keybindings::{Action, KeybindingResolver};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
@@ -9,14 +11,26 @@ use nucleo_matcher::{Config, Matcher, Utf32Str};
 /// One overlay row: display chord, human label, action to run.
 pub type WhichKeyItem = (String, String, Action);
 
-/// Snapshot of the live keymap, sorted by chord then label.
+/// Snapshot of the live keymap grouped by category, then by chord. Labels
+/// read "Category · Action", with `●` on chords the user overrode.
 pub fn all_items(resolver: &KeybindingResolver) -> Vec<WhichKeyItem> {
-    let mut items: Vec<WhichKeyItem> = resolver
-        .bindings()
-        .map(|(chord, action)| (chord, registry::label_for(action), action))
-        .collect();
-    items.sort_by(|a, b| a.0.cmp(&b.0).then_with(|| a.1.cmp(&b.1)));
-    items
+    let mut rows: Vec<_> = resolver.rows().iter().collect();
+    rows.sort_by_cached_key(|r| (r.command.category(), r.seq.to_string()));
+    rows.into_iter()
+        .map(|row| {
+            let mark = if matches!(row.origin, Origin::Override(_)) {
+                " ●"
+            } else {
+                ""
+            };
+            let label = format!(
+                "{} · {}{mark}",
+                t(row.command.category().label_key()),
+                registry::label_for(row.command)
+            );
+            (row.seq.to_string(), label, row.command)
+        })
+        .collect()
 }
 
 /// Fuzzy-filter `items` by chord + label (nucleo, same matcher as the palette).
@@ -59,10 +73,7 @@ mod tests {
     fn resolver_with(extra: &[(&str, &str)]) -> KeybindingResolver {
         let mut config = AppConfig::default();
         for (action, chord) in extra {
-            config
-                .keybindings
-                .custom_bindings
-                .insert((*action).into(), (*chord).into());
+            config.keybindings.set_override("all", action, chord);
         }
         KeybindingResolver::new(&config)
     }

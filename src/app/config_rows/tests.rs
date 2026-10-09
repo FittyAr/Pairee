@@ -11,7 +11,7 @@ fn ctx_rows(tab: usize, settings: &ConfigDraft) -> Vec<Row> {
         tab,
         &RowCtx {
             settings,
-            custom_bindings: &HashMap::new(),
+            keybindings: &Default::default(),
         },
     )
 }

@@ -10,178 +10,64 @@
 # Keys are specified as human-readable strings:
 #   "k", "Ctrl+d", "Alt+F7", "Shift+F9"
 
-[bindings]
+extends = "base"
 
-# ── Navigation (Neovim-style primary) ─────────────────────────────────────────
-move_up             = "k"
-move_down           = "j"
-go_parent           = "h"
-execute             = "l"
-page_up             = "Ctrl+u"
-page_down           = "Ctrl+d"
-go_to_top           = "g"
-go_to_bottom        = "G"
-select_item         = "v, Insert, Space"
-change_panel        = "Tab"
-unfocus             = "Esc"
+[panels]
 
-# ── Navigation (universal arrow-key fallbacks) ────────────────────────────────
-move_up_arrow       = "Up"
-move_down_arrow     = "Down"
-page_up_pgkey       = "PageUp"
-page_down_pgkey     = "PageDown"
-go_to_top_home      = "Home"
-go_to_bottom_end    = "End"
-execute_enter       = "Enter"
-go_parent_bs        = "Backspace"
-go_parent_pgkey     = "Ctrl+PageUp"
-open_archive        = "Ctrl+PageDown"
+# ── Navigation ────────────────────────────────────────────────────────────────
+move_up            = "k, Up"
+move_down          = "j, Down"
+page_up            = "Ctrl+u, PageUp"
+page_down          = "Ctrl+d, PageDown"
+go_to_top          = "g, Home"
+go_to_bottom       = "G, End"
+execute            = "l, Enter"
+go_parent          = "h, Backspace, Ctrl+PageUp"
+tree_view          = "Alt+F10"
 
-# ── Search / CLI (Neovim-style) ───────────────────────────────────────────────
-focus_cli           = ":"
-find_file           = "/"
+# ── Selection ─────────────────────────────────────────────────────────────────
+select_item        = "v, Insert, Space"
 
-# ── File operations (Neovim-style mnemonics) ──────────────────────────────────
-copy                = "y"
-copy_path           = "Ctrl+C"
-move                = "m"
-delete              = "d"
-mkdir               = "Ctrl+N"
-rename              = "r"
-view                = "o"
-edit                = "e"
+# ── Files ─────────────────────────────────────────────────────────────────────
+view               = "o, F3"
+view_alt           = "Alt+F3"
+edit               = "e, F4"
+copy               = "y, F5"
+move               = "m, F6"
+rename             = "r, F7"
+mkdir              = "Ctrl+N"
+delete             = "d, F8"
+wipe_file          = "Alt+Delete"
+create_link        = "Alt+F6"
+print_file         = "Alt+F5"
 
-# ── Panel operations ──────────────────────────────────────────────────────────
-toggle_both_panels  = "Ctrl+o"
-toggle_hidden       = "Ctrl+h"
-refresh             = "Ctrl+r"
-swap_panels         = "Ctrl+s"
+# ── Archives ──────────────────────────────────────────────────────────────────
+compress_files     = "Shift+F1"
+extract_archive    = "Shift+F2"
 
-# ── Quit ──────────────────────────────────────────────────────────────────────
-quit                = "Ctrl+c"
-quit_f10            = "F10"
+# ── Search & history ──────────────────────────────────────────────────────────
+find_file          = "/, Alt+F7"
+command_history    = "Alt+F8"
 
-# ── F-key fallbacks (for users who know Norton bindings) ──────────────────────
-help                = "F1"
-user_menu           = "F2"
-view_fkey           = "F3"
-edit_fkey           = "F4"
-copy_fkey           = "F5"
-move_fkey           = "F6"
-rename_fkey         = "F7"
-delete_fkey         = "F8"
-menu                = "F9"
-screens_list        = "F12"
-next_screen         = "Ctrl+Tab"
-prev_screen         = "Ctrl+Shift+Tab"
+# ── View ──────────────────────────────────────────────────────────────────────
+toggle_hidden      = "Ctrl+h"
+toggle_long_names  = "Ctrl+n"
+refresh            = "Ctrl+r"
+video_mode         = "Alt+F9"
 
-# ── Shift+F fallbacks ─────────────────────────────────────────────────────────
-compress_files      = "Shift+F1"
-extract_archive     = "Shift+F2"
-archive_commands    = "Shift+F3"
-multi_rename_tool   = "Shift+F6"
-undo_file_operation = "Alt+Backspace"
-redo_file_operation = "Ctrl+y"
-save_setup          = "Shift+F9"
+# ── Panels ────────────────────────────────────────────────────────────────────
+swap_panels        = "Ctrl+s"
+toggle_both_panels = "Ctrl+o"
+quick_view         = "Ctrl+q"
 
-# ── Alt+F fallbacks ───────────────────────────────────────────────────────────
-drive_select_left   = "Alt+F1"
-drive_select_right  = "Alt+F2"
-view_alt            = "Alt+F3"
-print_file          = "Alt+F5"
-create_link         = "Alt+F6"
-find_file_alt       = "Alt+F7"
-command_history     = "Alt+F8"
-video_mode          = "Alt+F9"
-tree_view           = "Alt+F10"
-file_view_history   = "Alt+F11"
-folders_history     = "Alt+F12"
+# ── Tabs & screens ────────────────────────────────────────────────────────────
+new_tab            = "Ctrl+t, Alt+t"
 
-# ── Sorting (Ctrl+F-keys) ─────────────────────────────────────────────────────
-sort_by_name            = "Ctrl+F3"
-sort_by_extension       = "Ctrl+F4"
-sort_by_write_time      = "Ctrl+F5"
-sort_by_size            = "Ctrl+F6"
-sort_unsorted           = "Ctrl+F7"
-sort_by_creation_time   = "Ctrl+F8"
-sort_by_access_time     = "Ctrl+F9"
-sort_by_description     = "Ctrl+F10"
-sort_by_owner           = "Ctrl+F11"
-sort_modes              = "Ctrl+F12"
+# ── Tools ─────────────────────────────────────────────────────────────────────
+user_menu          = "F2"
+focus_cli          = ":"
 
-# ── Panel toggles ─────────────────────────────────────────────────────────────
-toggle_panel_left   = "Ctrl+F1"
-toggle_panel_right  = "Ctrl+F2"
-info_panel          = "Ctrl+l"
-quick_view          = "Ctrl+q"
-toggle_long_names   = "Ctrl+n"
-
-# ── Bulk selection ────────────────────────────────────────────────────────────
-select_group        = "Gray+"
-unselect_group      = "Gray-"
-invert_selection    = "Gray*"
-restore_selection   = "Ctrl+m"
-
-# ── Misc ──────────────────────────────────────────────────────────────────────
-wipe_file               = "Alt+Delete"
-file_attributes         = "Ctrl+a"
-apply_command           = "Ctrl+g"
-describe_file           = "Ctrl+z"
-calculate_folder_sizes  = "Alt+s"
-disk_usage              = "Alt+d"
-file_panel_filter       = "Ctrl+i"
-quick_filter            = "Ctrl+f, f, F"
-task_list               = "Ctrl+w"
-cycle_fkeys_modifiers   = "Ctrl+p"
-ssh_connect             = "Ctrl+S"
-command_palette         = "Ctrl+P"
-which_key               = "Ctrl+K"
-context_menu            = "Menu"
-context_menu_alt        = "Alt+m"
-
-# ── Panel view modes ──────────────────────────────────────────────────────────
-panel_view_brief        = "Ctrl+1"
-panel_view_medium       = "Ctrl+2"
-panel_view_full         = "Ctrl+3"
-panel_view_wide         = "Ctrl+4"
-panel_view_detailed     = "Ctrl+5"
-panel_view_descriptions = "Ctrl+6"
-panel_view_file_owners  = "Ctrl+7"
-panel_view_file_links   = "Ctrl+8"
-panel_view_alt_full     = "Ctrl+9"
-
-# ── Folder shortcuts (Ctrl+Alt+1 … Ctrl+Alt+9) ───────────────────────────────
-go_folder_shortcut_1 = "Ctrl+Alt+1"
-go_folder_shortcut_2 = "Ctrl+Alt+2"
-go_folder_shortcut_3 = "Ctrl+Alt+3"
-go_folder_shortcut_4 = "Ctrl+Alt+4"
-go_folder_shortcut_5 = "Ctrl+Alt+5"
-go_folder_shortcut_6 = "Ctrl+Alt+6"
-go_folder_shortcut_7 = "Ctrl+Alt+7"
-go_folder_shortcut_8 = "Ctrl+Alt+8"
-go_folder_shortcut_9 = "Ctrl+Alt+9"
-
-# ── Bookmarks & Git ──────────────────────────────────────────────────────────
-hotlist              = "Ctrl+\\"
-open_git_panel       = "Alt+g"
-
-# ── Folder tabs ──────────────────────────────────────────────────────────────
-# Ctrl+Tab / Ctrl+W are taken (screens, task list) and many terminals keep
-# Ctrl+Tab and Alt+arrows for themselves, hence Alt+PgUp/PgDn first.
-# Ctrl+Enter needs a terminal with the kitty keyboard protocol; Alt+O always works.
-new_tab              = "Ctrl+t, Alt+t"
-close_tab            = "Alt+w"
-next_tab             = "Alt+PageDown, Alt+Right"
-prev_tab             = "Alt+PageUp, Alt+Left"
-move_tab_left        = "Alt+Shift+PageUp"
-move_tab_right       = "Alt+Shift+PageDown"
-open_in_new_tab      = "Ctrl+Enter, Alt+o"
-go_to_tab_1          = "Alt+1"
-go_to_tab_2          = "Alt+2"
-go_to_tab_3          = "Alt+3"
-go_to_tab_4          = "Alt+4"
-go_to_tab_5          = "Alt+5"
-go_to_tab_6          = "Alt+6"
-go_to_tab_7          = "Alt+7"
-go_to_tab_8          = "Alt+8"
-go_to_tab_9          = "Alt+9"
+# ── System ────────────────────────────────────────────────────────────────────
+context_menu       = "Menu, Alt+m"
+save_setup         = "Shift+F9"
+quit               = "Ctrl+c, F10"

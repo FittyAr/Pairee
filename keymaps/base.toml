@@ -1,0 +1,119 @@
+# Pairee keymap: base layer
+#
+# Bindings every built-in preset shares. Presets inherit them with
+# `extends = "base"` and only list what differs; naming an action in a
+# preset replaces the chords inherited for it, and `action = ""` unbinds it.
+# This layer is not selectable on its own.
+
+[panels]
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+open_archive            = "Ctrl+PageDown"
+hotlist                 = "Ctrl+\\"
+drive_select_left       = "Alt+F1"
+drive_select_right      = "Alt+F2"
+
+# ── Selection ─────────────────────────────────────────────────────────────────
+select_group            = "Gray+"
+unselect_group          = "Gray-"
+invert_selection        = "Gray*"
+restore_selection       = "Ctrl+m"
+
+# ── Files ─────────────────────────────────────────────────────────────────────
+copy_path               = "Ctrl+C"
+multi_rename_tool       = "Shift+F6"
+file_attributes         = "Ctrl+a"
+describe_file           = "Ctrl+z"
+undo_file_operation     = "Alt+Backspace"
+redo_file_operation     = "Ctrl+y"
+calculate_folder_sizes  = "Alt+s"
+disk_usage              = "Alt+d"
+apply_command           = "Ctrl+g"
+
+# ── Archives ──────────────────────────────────────────────────────────────────
+archive_commands        = "Shift+F3"
+
+# ── Search & history ──────────────────────────────────────────────────────────
+quick_filter            = "Ctrl+f, f, F"
+file_panel_filter       = "Ctrl+i"
+file_view_history       = "Alt+F11"
+folders_history         = "Alt+F12"
+
+# ── View ──────────────────────────────────────────────────────────────────────
+panel_view_brief        = "Ctrl+1"
+panel_view_medium       = "Ctrl+2"
+panel_view_full         = "Ctrl+3"
+panel_view_wide         = "Ctrl+4"
+panel_view_detailed     = "Ctrl+5"
+panel_view_descriptions = "Ctrl+6"
+panel_view_file_owners  = "Ctrl+7"
+panel_view_file_links   = "Ctrl+8"
+panel_view_alt_full     = "Ctrl+9"
+cycle_fkeys_modifiers   = "Ctrl+p"
+
+# ── Sort ──────────────────────────────────────────────────────────────────────
+sort_modes              = "Ctrl+F12"
+sort_by_name            = "Ctrl+F3"
+sort_by_extension       = "Ctrl+F4"
+sort_by_write_time      = "Ctrl+F5"
+sort_by_size            = "Ctrl+F6"
+sort_unsorted           = "Ctrl+F7"
+sort_by_creation_time   = "Ctrl+F8"
+sort_by_access_time     = "Ctrl+F9"
+sort_by_description     = "Ctrl+F10"
+sort_by_owner           = "Ctrl+F11"
+
+# ── Panels ────────────────────────────────────────────────────────────────────
+change_panel            = "Tab"
+toggle_panel_left       = "Ctrl+F1"
+toggle_panel_right      = "Ctrl+F2"
+info_panel              = "Ctrl+l"
+
+# ── Tabs & screens ────────────────────────────────────────────────────────────
+close_tab               = "Alt+w"
+next_tab                = "Alt+PageDown, Alt+Right"
+prev_tab                = "Alt+PageUp, Alt+Left"
+move_tab_left           = "Alt+Shift+PageUp"
+move_tab_right          = "Alt+Shift+PageDown"
+open_in_new_tab         = "Ctrl+Enter, Alt+o"
+screens_list            = "F12"
+next_screen             = "Ctrl+Tab"
+prev_screen             = "Ctrl+Shift+Tab"
+
+# ── Git ───────────────────────────────────────────────────────────────────────
+open_git_panel          = "Alt+g"
+
+# ── Remote ────────────────────────────────────────────────────────────────────
+ssh_connect             = "Ctrl+S"
+
+# ── Tools ─────────────────────────────────────────────────────────────────────
+task_list               = "Ctrl+w"
+
+# ── System ────────────────────────────────────────────────────────────────────
+help                    = "F1"
+menu                    = "F9"
+command_palette         = "Ctrl+P"
+which_key               = "Ctrl+K"
+unfocus                 = "Esc"
+
+# ── Folder shortcuts ──────────────────────────────────────────────────────────
+go_folder_shortcut_1    = "Ctrl+Alt+1"
+go_folder_shortcut_2    = "Ctrl+Alt+2"
+go_folder_shortcut_3    = "Ctrl+Alt+3"
+go_folder_shortcut_4    = "Ctrl+Alt+4"
+go_folder_shortcut_5    = "Ctrl+Alt+5"
+go_folder_shortcut_6    = "Ctrl+Alt+6"
+go_folder_shortcut_7    = "Ctrl+Alt+7"
+go_folder_shortcut_8    = "Ctrl+Alt+8"
+go_folder_shortcut_9    = "Ctrl+Alt+9"
+
+# ── Tabs & screens ────────────────────────────────────────────────────────────
+go_to_tab_1             = "Alt+1"
+go_to_tab_2             = "Alt+2"
+go_to_tab_3             = "Alt+3"
+go_to_tab_4             = "Alt+4"
+go_to_tab_5             = "Alt+5"
+go_to_tab_6             = "Alt+6"
+go_to_tab_7             = "Alt+7"
+go_to_tab_8             = "Alt+8"
+go_to_tab_9             = "Alt+9"

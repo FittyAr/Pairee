@@ -5,10 +5,11 @@ use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
-use crate::keybindings::loader::load_keybinds;
+use crate::keybindings::embedded::PRESETS;
+use crate::keybindings::loader::{KeymapLoadReport, KeymapSpec, load_keymap};
 
 pub fn interface(ctx: &RowCtx) -> Vec<Row> {
-    let (_, report) = load_keybinds(&ctx.settings.keymap_preset, ctx.custom_bindings);
+    let report = keymap_report(ctx.settings, ctx.keybindings);
     let status = Label::Owned(report.summary_line());
     let status_row = if report.ok() && report.warnings.is_empty() {
         Row::Hint(status)
@@ -28,28 +29,40 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
             0,
             CycleFormat::Angle,
             |s| s.keymap_preset.clone(),
-            |s| {
-                s.keymap_preset = match s.keymap_preset.as_str() {
-                    "norton" => "neovim",
-                    "neovim" => "vscode",
-                    _ => "norton",
-                }
-                .to_string();
-            },
+            |s| s.keymap_preset = next_preset(&s.keymap_preset).to_string(),
         ),
         status_row,
         Row::Hint(Label::Key("int_keymap_gray")),
         action("int_keymap_view", |s, context| {
-            let (_, report) = load_keybinds(
-                &s.keymap_preset,
-                &context.config.keybindings.custom_bindings,
-            );
             Some(PopupType::InfoPanel {
-                lines: report.detail_lines(),
+                lines: keymap_report(s, &context.config.keybindings).detail_lines(),
             })
         }),
         toggle!("int_yazi_workflow", enable_yazi_workflow),
     ]
+}
+
+/// Validation report of the keymap the draft would load.
+fn keymap_report(
+    draft: &ConfigDraft,
+    keybindings: &crate::config::keybindings::KeybindingsConfig,
+) -> KeymapLoadReport {
+    load_keymap(&KeymapSpec {
+        preset: &draft.keymap_preset,
+        keybindings,
+        yazi_letters: draft.enable_yazi_workflow,
+    })
+    .report
+}
+
+/// The built-in preset after `current` (wrapping; unknown names restart).
+fn next_preset(current: &str) -> &'static str {
+    let names: Vec<&'static str> = PRESETS.iter().map(|(name, _)| *name).collect();
+    let next = names
+        .iter()
+        .position(|n| *n == current)
+        .map_or(0, |i| i + 1);
+    names[next % names.len()]
 }
 
 pub fn plugins(settings: &Settings) -> Vec<Row> {
