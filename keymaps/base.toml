@@ -117,3 +117,54 @@ go_to_tab_6             = "Alt+6"
 go_to_tab_7             = "Alt+7"
 go_to_tab_8             = "Alt+8"
 go_to_tab_9             = "Alt+9"
+
+# ══ Editor screen ═════════════════════════════════════════════════════════════
+# Typing and cursor motions (arrows, Home/End, PgUp/PgDn; Shift selects,
+# Alt+Shift selects a block) belong to the editor; these are its commands.
+[editor]
+
+save              = "F2, Ctrl+s"
+save_as           = "Shift+F2"
+reload            = "Ctrl+r, Ctrl+d"
+search            = "F7, Ctrl+f"
+search_next       = "F3, Shift+F7"
+open_viewer       = "F4"
+discard           = "F8"
+quit              = "Esc, F10"
+toggle_block_mode = "Ctrl+b"
+undo              = "Ctrl+z"
+redo              = "Ctrl+y, Ctrl+Z"
+copy              = "Ctrl+c, Ctrl+C, Ctrl+Insert"
+cut               = "Ctrl+x, Ctrl+X, Shift+Delete"
+paste             = "Ctrl+v, Ctrl+V, Shift+Insert"
+select_all        = "Ctrl+a, Ctrl+A"
+
+# ══ Viewer screen ═════════════════════════════════════════════════════════════
+[viewer]
+
+line_up     = "Up"
+line_down   = "Down"
+page_up     = "PageUp"
+page_down   = "PageDown"
+top         = "Home"
+bottom      = "End"
+toggle_hex  = "F4"
+edit        = "F6"
+search      = "F7"
+search_next = "F3"
+encoding    = "F8"
+quit        = "Esc, F10"
+
+# ══ Lists in dialogs (menus, history, pickers...) ═════════════════════════════
+# A key bound here acts as the arrow / Enter / Esc key it names, in every
+# dialog that is not typing into a text field.
+[list]
+
+up        = "Up"
+down      = "Down"
+page_up   = "PageUp"
+page_down = "PageDown"
+first     = "Home"
+last      = "End"
+activate  = "Enter"
+close     = "Esc"

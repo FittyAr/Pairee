@@ -2,6 +2,9 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
+use crate::keybindings::keymap::ContextKeymap;
+use crate::keybindings::registry::def_for;
+use crate::keybindings::screens::ScreenCommand;
 use crate::ui::theme_apply::parse_color;
 use crossterm::event::KeyModifiers;
 use ratatui::{
@@ -85,7 +88,7 @@ fn modifier_prefix(modifiers: KeyModifiers) -> String {
 /// Panel row for the held modifiers, read from the keymap: the label of the
 /// action bound to `<prefix>F<n>`, empty when the key is unbound.
 fn keymap_cells(context: &AppContext, prefix: &str) -> Vec<(String, String)> {
-    cells(&[""; 12], |slot, _| {
+    cells(|slot| {
         context
             .resolver
             .resolve_for_key_string(&format!("{prefix}F{}", slot + 1))
@@ -95,70 +98,35 @@ fn keymap_cells(context: &AppContext, prefix: &str) -> Vec<(String, String)> {
     })
 }
 
-/// Labels of the twelve F-keys, `""` for an unlabeled key (editor and viewer
-/// keys are handled by those screens, not by the keymap).
-type Row = [&'static str; 12];
-
-const EDITOR_ROW: Row = [
-    "fkey_help",
-    "fkey_ed_save",
-    "fkey_ed_next",
-    "fkey_ed_hex",
-    "",
-    "",
-    "fkey_ed_search",
-    "fkey_ed_discard",
-    "",
-    "fkey_ed_quit",
-    "",
-    "",
-];
-
-const EDITOR_SHIFT_ROW: Row = [
-    "",
-    "fkey_ed_save_as",
-    "",
-    "",
-    "",
-    "",
-    "fkey_ed_next",
-    "",
-    "",
-    "",
-    "",
-    "",
-];
-
-const VIEWER_ROW: Row = [
-    "fkey_help",
-    "",
-    "",
-    "fkey_vw_hex",
-    "",
-    "fkey_edit",
-    "fkey_vw_search",
-    "",
-    "",
-    "fkey_vw_quit",
-    "",
-    "",
-];
-
-/// `(key number, label)` cells of a row, labels produced by `label`.
-fn cells(row: &Row, label: impl Fn(usize, &str) -> String) -> Vec<(String, String)> {
-    row.iter()
-        .enumerate()
-        .map(|(i, key)| ((i + 1).to_string(), label(i, key)))
-        .collect()
+/// Editor / viewer row for the held modifiers: the F-key label of the
+/// command `keymap` binds to `<prefix>F<n>`, else of a global panel action
+/// (help, screens) bound there.
+fn screen_cells<B: ScreenCommand>(
+    keymap: &ContextKeymap<B>,
+    context: &AppContext,
+    prefix: &str,
+) -> Vec<(String, String)> {
+    cells(|slot| {
+        let chord = format!("{prefix}F{}", slot + 1);
+        keymap
+            .resolve_key_string(&chord)
+            .and_then(|command| command.def().fkey)
+            .or_else(|| {
+                context
+                    .resolver
+                    .resolve_for_key_string(&chord)
+                    .filter(|action| def_for(*action).global)
+                    .and_then(action_label)
+            })
+            .map(t)
+            .unwrap_or_default()
+    })
 }
 
-/// Translated label, empty for an unlabeled key.
-fn translated(_slot: usize, key: &str) -> String {
-    if key.is_empty() {
-        String::new()
-    } else {
-        t(key)
-    }
+/// `(key number, label)` cells of the twelve F-keys, labels produced by
+/// `label` from the slot index (empty for an unlabeled key).
+fn cells(label: impl Fn(usize) -> String) -> Vec<(String, String)> {
+    (0..12).map(|i| ((i + 1).to_string(), label(i))).collect()
 }
 
 /// The cells shown for the active screen and held modifier keys.
@@ -166,13 +134,12 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
     let modifiers = state
         .fkeys_modifier_override
         .unwrap_or(state.current_modifiers);
-    let shift = modifiers.contains(KeyModifiers::SHIFT);
+    let prefix = modifier_prefix(modifiers);
     match state.screens.get(state.active_screen_idx) {
-        Some(Screen::Editor(_)) if shift => cells(&EDITOR_SHIFT_ROW, translated),
-        Some(Screen::Editor(_)) => cells(&EDITOR_ROW, translated),
-        Some(Screen::Viewer(_)) => cells(&VIEWER_ROW, translated),
+        Some(Screen::Editor(_)) => screen_cells(&context.resolver.editor, context, &prefix),
+        Some(Screen::Viewer(_)) => screen_cells(&context.resolver.viewer, context, &prefix),
         _ => {
-            let mut row = keymap_cells(context, &modifier_prefix(modifiers));
+            let mut row = keymap_cells(context, &prefix);
             if modifiers == KeyModifiers::SHIFT && is_dev_plugin_dir(context, state) {
                 row[10].1 = t("plugin_install_dev");
             }

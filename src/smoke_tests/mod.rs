@@ -13,6 +13,7 @@ mod navigation;
 mod panel_search;
 mod polish;
 mod refresh_resize;
+mod screen_keymaps;
 mod selection_jumps;
 mod sizes_sync;
 mod tabs_session;

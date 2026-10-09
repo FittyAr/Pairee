@@ -34,11 +34,12 @@ fn key(code: KeyCode, mods: KeyModifiers) -> KeyEvent {
 }
 
 fn dispatch(map: &mut LoadedKeymap, event: KeyEvent) -> Option<Action> {
-    map.keybinds.dispatch(event).copied()
+    map.panels.dispatch(event)
 }
 
 fn chords_of(map: &LoadedKeymap, action: Action) -> Vec<String> {
-    map.rows
+    map.panels
+        .rows()
         .iter()
         .filter(|r| r.command == action)
         .map(|r| r.seq.to_string())
@@ -119,7 +120,8 @@ fn base_layer_reaches_every_preset() {
             "{preset}"
         );
         assert!(
-            map.rows
+            map.panels
+                .rows()
                 .iter()
                 .any(|r| r.origin == Origin::Preset("base".into()))
         );
@@ -180,7 +182,8 @@ fn two_actions_claiming_a_chord_in_one_layer_is_an_error() {
 #[test]
 fn loading_is_deterministic() {
     let render = |map: LoadedKeymap| {
-        map.rows
+        map.panels
+            .rows()
             .iter()
             .map(|r| format!("{} {:?} {}", r.seq, r.command, r.origin))
             .collect::<Vec<_>>()

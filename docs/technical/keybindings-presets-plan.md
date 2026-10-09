@@ -487,9 +487,11 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] `focus_left/right_panel`, `copy_name`/`copy_name_no_ext`/`copy_dir_path`, `new_file`/`create` (undo con `MakeFile`, solo mientras el archivo siga vacío), `rename_basename`, `cycle_panel_view`/`cycle_sort`.
 
 ### Fase 3 — Contextos editor / visor / lista
-- [ ] `EditorAction`, `ViewerAction`, `ListAction` con `Bindable`; mover las teclas fijas a las capas `[editor]`, `[viewer]`, `[list]`.
-- [ ] Pass-through "global" por metadato, sin F12/Ctrl+Tab fijos.
-- [ ] Filas de F-keys de editor y visor generadas desde las capas.
+- [x] `EditorAction`, `ViewerAction`, `ListAction` (`keybindings/screens.rs`) con `Bindable` genérico vía `ScreenCommand`; secciones `[editor]`, `[viewer]`, `[list]` en los presets (`base.toml` reproduce las teclas que estaban fijas) y overrides con prefijo (`editor.save`, `viewer.quit`, `list.down`). El loader construye los cuatro contextos con la misma función genérica (`ContextKeymap<B>`).
+  - En el editor siguen fijos, por ser comportamiento del campo de texto, el tecleo y los movimientos de cursor con selección (Shift / Alt+Shift).
+  - La capa `[list]` se aplica una sola vez en el despachador (`input_popup/list_keys.rs`): fuera de campos de texto, la tecla asignada llega a cualquier diálogo como la flecha / PgUp / Home / Enter / Esc que nombra. Así los 29 manejadores de listas no cambian.
+- [x] Pass-through global por metadato (`ActionDef::global`: ayuda, lista de pantallas, pantalla siguiente / anterior, paleta, atajos) en lugar de F12 / Ctrl+Tab fijos. De paso `Ctrl+Shift+Tab` vuelve a llegar a "pantalla anterior" desde el editor y el visor.
+- [x] Filas de F-keys de editor y visor generadas desde sus capas (etiqueta por comando en el catálogo + acciones globales del panel), para cualquier modificador.
 
 ### Fase 4 — Presets
 - [ ] `base.toml`, `standard.toml` (+ alias `vscode`/`modern`), `norton.toml` (con §5.8: reubicaciones, precedencia de la CLI, acciones `insert_*_to_cli`, `toggle_inactive_panel`, `toggle_keybar`, `cli_history_*`; quitar `has_outdated_layout`), `neovim.toml`, `yazi.toml` según §5, cada línea con comentario de criterio cuando sea *ext.* o desviación.

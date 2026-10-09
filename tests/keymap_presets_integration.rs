@@ -15,6 +15,12 @@ struct PresetFile {
     #[allow(dead_code)]
     options: Option<toml::Table>,
     panels: BTreeMap<String, String>,
+    #[serde(default)]
+    editor: BTreeMap<String, String>,
+    #[serde(default)]
+    viewer: BTreeMap<String, String>,
+    #[serde(default)]
+    list: BTreeMap<String, String>,
 }
 
 fn load_preset(name: &str) -> PresetFile {
@@ -30,6 +36,13 @@ fn base_is_the_root_layer() {
     let base = load_preset("base");
     assert_eq!(base.extends, None);
     assert!(base.panels.len() > 50, "base holds the shared bindings");
+    for (section, table) in [
+        ("editor", &base.editor),
+        ("viewer", &base.viewer),
+        ("list", &base.list),
+    ] {
+        assert!(!table.is_empty(), "base defines the {section} keys");
+    }
 }
 
 #[test]

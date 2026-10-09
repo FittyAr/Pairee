@@ -11,6 +11,8 @@ use std::hash::Hash;
 /// Anything a keymap layer can bind a chord to. Implemented by [`Action`]
 /// (panels); editor / viewer / plugin commands plug into the same loader.
 pub trait Bindable: Copy + Eq + Hash + Debug + 'static {
+    /// Preset section (`panels`, `editor`, ...) and override prefix.
+    const SECTION: &'static str;
     /// The command for a keymap id (`"copy_path"`, `"go_to_tab_3"`).
     fn from_id(id: &str) -> Option<Self>;
     /// Stable keymap id.
@@ -32,6 +34,8 @@ pub fn def_for(action: Action) -> &'static ActionDef {
 }
 
 impl Bindable for Action {
+    const SECTION: &'static str = "panels";
+
     fn from_id(id: &str) -> Option<Self> {
         all_defs().find(|d| d.id == id).map(|d| d.action)
     }

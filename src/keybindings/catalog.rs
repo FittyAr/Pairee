@@ -56,6 +56,8 @@ pub struct ActionDef {
     pub in_palette: bool,
     /// Must keep a terminal-robust chord in every preset.
     pub essential: bool,
+    /// Also works over the editor and viewer screens.
+    pub global: bool,
 }
 
 const fn def(id: &'static str, action: Action, category: Category) -> ActionDef {
@@ -65,6 +67,15 @@ const fn def(id: &'static str, action: Action, category: Category) -> ActionDef 
         category,
         in_palette: true,
         essential: false,
+        global: false,
+    }
+}
+
+/// An essential action that also works over the editor and viewer screens.
+const fn global(id: &'static str, action: Action, category: Category) -> ActionDef {
+    ActionDef {
+        global: true,
+        ..essential(id, action, category)
     }
 }
 
@@ -244,9 +255,9 @@ pub const CATALOG: &[ActionDef] = &[
     def("toggle_tab_lock", Action::ToggleTabLock, C::Tabs),
     def("rename_tab", Action::RenameTab, C::Tabs),
     def("open_in_new_tab", Action::OpenInNewTab, C::Tabs),
-    def("screens_list", Action::ScreensList, C::Tabs),
-    def("next_screen", Action::NextScreen, C::Tabs),
-    def("prev_screen", Action::PrevScreen, C::Tabs),
+    global("screens_list", Action::ScreensList, C::Tabs),
+    global("next_screen", Action::NextScreen, C::Tabs),
+    global("prev_screen", Action::PrevScreen, C::Tabs),
     // Git
     def("open_git_panel", Action::OpenGitPanel, C::Git),
     def("git_init", Action::GitInit, C::Git),
@@ -262,12 +273,12 @@ pub const CATALOG: &[ActionDef] = &[
     def("install_dev_plugin", Action::InstallDevPlugin, C::Tools),
     def("focus_cli", Action::FocusCli, C::Tools),
     // System
-    essential("help", Action::Help, C::System),
+    global("help", Action::Help, C::System),
     def("about", Action::About, C::System),
     essential("menu", Action::Menu, C::System),
     def("context_menu", Action::ContextMenu, C::System),
-    essential("command_palette", Action::CommandPalette, C::System),
-    essential("which_key", Action::WhichKey, C::System),
+    global("command_palette", Action::CommandPalette, C::System),
+    global("which_key", Action::WhichKey, C::System),
     essential("unfocus", Action::Unfocus, C::System),
     def("save_setup", Action::SaveSetup, C::System),
     def("system_settings", Action::SystemSettings, C::System),

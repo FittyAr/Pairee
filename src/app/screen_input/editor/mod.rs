@@ -1,7 +1,8 @@
 //! Key and mouse handling for the built-in editor screen.
 //!
-//! Keys are tried in order: cursor motions (with selection), text edits
-//! (typing, clipboard), then screen commands (save, search, quit, …).
+//! Keys are tried in order: global panel actions (passed on), the
+//! `[editor]` keymap commands (save, search, clipboard, quit, …), cursor
+//! motions (with selection), then typing.
 
 mod clipboard;
 mod commands;
@@ -47,14 +48,18 @@ pub fn handle_editor_screen(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<(), ()> {
-    let height = editor_page_height();
-    let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-
-    // Some global keys should still pass through like F12, Ctrl+Tab
-    if key.code == KeyCode::F(12) || (key.code == KeyCode::Tab && is_ctrl) {
-        return Err(()); // pass to global resolver
+    // Screens list, help, palette... work over the editor too.
+    if context.resolver.global_action(key).is_some() || state.active_editor_mut().is_none() {
+        return Err(());
     }
-
+    let height = editor_page_height();
+    if let Some(command) = context.resolver.editor.dispatch(key) {
+        let edit = commands::run(state, command, context, height);
+        return finish(state, edit, height);
+    }
+    if context.resolver.editor.is_ongoing() {
+        return Ok(());
+    }
     let options = EditorOptions::from(&context.config.settings);
     let Some(ed) = state.active_editor_mut() else {
         return Err(());
@@ -64,44 +69,34 @@ pub fn handle_editor_screen(
         ed.ensure_cursor_visible(height);
         return Ok(());
     }
+    let edit = typing_key(state, &key, &options);
+    finish(state, edit, height)
+}
 
-    let edit = match clipboard::handle_key(state, &key) {
-        Some(edit) => edit,
-        None => typing_key(state, &key, &options),
-    };
-    match edit {
-        Edit::Done => {}
-        Edit::Locked => {
-            state
-                .dialogs
-                .replace(PopupType::Info(t("editor_read_only_locked")));
-            return Ok(());
-        }
-        Edit::Ignored => commands::handle(state, &key, context, height),
-    }
-    if let Some(ed) = state.active_editor_mut() {
+/// Explains a refused edit and keeps the cursor on screen.
+fn finish(state: &mut AppState, edit: Edit, height: usize) -> Result<(), ()> {
+    if let Edit::Locked = edit {
+        state
+            .dialogs
+            .replace(PopupType::Info(t("editor_read_only_locked")));
+    } else if let Some(ed) = state.active_editor_mut() {
         ed.ensure_cursor_visible(height);
     }
     Ok(())
 }
 
-/// Typing, Tab, Enter, Backspace/Delete and undo/redo.
+/// Typing, Tab, Enter, Backspace and Delete.
 fn typing_key(state: &mut AppState, key: &KeyEvent, options: &EditorOptions) -> Edit {
     let Some(ed) = state.active_editor_mut() else {
         return Edit::Ignored;
     };
     let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let is_shift = key.modifiers.contains(KeyModifiers::SHIFT);
     let done = match key.code {
         KeyCode::Char(c) if !is_ctrl => ed.insert_char(c),
         KeyCode::Tab => ed.insert_tab(options),
         KeyCode::Enter => ed.insert_newline(options.auto_indent),
         KeyCode::Backspace => ed.backspace(),
         KeyCode::Delete => ed.delete_forward(),
-        KeyCode::Char('z') if is_ctrl && is_shift => ed.redo(),
-        KeyCode::Char('Z') if is_ctrl => ed.redo(),
-        KeyCode::Char('z') if is_ctrl => ed.undo(),
-        KeyCode::Char('y') if is_ctrl => ed.redo(),
         _ => return Edit::Ignored,
     };
     edit_result(done, ed)

@@ -24,8 +24,20 @@ pub async fn handle_input_event(
                 return Ok(());
             }
 
-            // Popups consume inputs first
+            // Popups consume inputs first; list keys of the preset act as arrows.
             let popup_active = state.dialogs.is_some();
+            let key = if popup_active {
+                match crate::app::input_popup::list_keys::translate(
+                    state,
+                    &mut context.resolver,
+                    key,
+                ) {
+                    Some(key) => key,
+                    None => return Ok(()),
+                }
+            } else {
+                key
+            };
             match handle_popup_input(state, key, context) {
                 Ok(Some(action)) => {
                     handle_action(state, action, context, terminal_backend).await?;

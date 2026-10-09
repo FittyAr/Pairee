@@ -1,47 +1,53 @@
+//! Viewer screen keys: global panel actions pass through, everything else
+//! runs the command the `[viewer]` keymap section binds.
+
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::keybindings::screens::ViewerAction;
+use crossterm::event::KeyEvent;
+
+/// Lines moved by PgUp / PgDn.
+const PAGE: usize = 20;
 
 pub fn handle_viewer_screen(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<(), ()> {
-    let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-
-    // Global pass through
-    if key.code == KeyCode::F(12) || (key.code == KeyCode::Tab && is_ctrl) {
+    if context.resolver.global_action(key).is_some() || state.active_viewer_mut().is_none() {
         return Err(());
     }
+    if let Some(command) = context.resolver.viewer.dispatch(key) {
+        run(state, command, context);
+    }
+    Ok(())
+}
 
+fn run(state: &mut AppState, command: ViewerAction, context: &AppContext) {
+    use ViewerAction as V;
     let Some(vw) = state.active_viewer_mut() else {
-        return Err(());
+        return;
     };
-    match key.code {
-        KeyCode::Up => vw.scroll_up(1),
-        KeyCode::Down => vw.scroll_down(1),
-        KeyCode::PageUp => vw.scroll_up(20),
-        KeyCode::PageDown => vw.scroll_down(20),
-        KeyCode::Home => vw.scroll = 0,
-        KeyCode::End => vw.scroll = vw.last_scroll(),
-        KeyCode::F(4) => vw.toggle_mode(),
-        KeyCode::F(6) => {
+    match command {
+        V::LineUp => vw.scroll_up(1),
+        V::LineDown => vw.scroll_down(1),
+        V::PageUp => vw.scroll_up(PAGE),
+        V::PageDown => vw.scroll_down(PAGE),
+        V::Top => vw.scroll = 0,
+        V::Bottom => vw.scroll = vw.last_scroll(),
+        V::ToggleHex => vw.toggle_mode(),
+        V::Edit => {
             // Viewer → editor: always the built-in editor.
             let path = vw.path.clone();
             crate::app::actions::fs_ops::edit::edit_file(state, path, &context.config.settings);
         }
-        KeyCode::F(7) => state
+        V::Search => state
             .dialogs
             .replace(PopupType::ViewerSearchPrompt(Default::default())),
-        KeyCode::F(8) => crate::app::input_popup::viewer::open_encoding_selector(state),
-        KeyCode::F(3) => state.repeat_viewer_search(),
-        // Esc first stops a running search, then closes the viewer.
-        KeyCode::Esc if state.cancel_viewer_search() => {}
-        KeyCode::Esc | KeyCode::F(10) => {
-            state.cancel_viewer_search();
-            state.close_current_screen();
-        }
-        _ => {}
+        V::Encoding => crate::app::input_popup::viewer::open_encoding_selector(state),
+        V::SearchNext => state.repeat_viewer_search(),
+        // A running search stops first; the next Quit closes the viewer.
+        V::Quit if state.cancel_viewer_search() => {}
+        V::Quit => state.close_current_screen(),
     }
-    Ok(())
 }

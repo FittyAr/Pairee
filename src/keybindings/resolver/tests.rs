@@ -237,3 +237,17 @@ fn a_stale_sequence_expires_on_tick() {
     assert!(resolver.expire_pending(late));
     assert!(!resolver.is_ongoing());
 }
+
+#[test]
+fn ctrl_shift_tab_reaches_prev_screen_over_the_screens() {
+    let resolver = KeybindingResolver::new(&AppConfig::default());
+    let back_tab = KeyEvent::new(
+        KeyCode::BackTab,
+        KeyModifiers::CONTROL | KeyModifiers::SHIFT,
+    );
+    assert_eq!(resolver.global_action(back_tab), Some(Action::PrevScreen));
+    let f12 = KeyEvent::new(KeyCode::F(12), KeyModifiers::NONE);
+    assert_eq!(resolver.global_action(f12), Some(Action::ScreensList));
+    let f5 = KeyEvent::new(KeyCode::F(5), KeyModifiers::NONE);
+    assert_eq!(resolver.global_action(f5), None, "copy is not global");
+}

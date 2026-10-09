@@ -30,11 +30,40 @@ impl fmt::Display for Origin {
     }
 }
 
-/// One set of `action id → chords` applied over the layers before it.
+/// `action id → chords` of one section.
+pub type Table = BTreeMap<String, String>;
+
+/// One section's bindings, applied over the layers before it.
 #[derive(Debug, Clone)]
 pub struct Layer {
     pub origin: Origin,
-    pub bindings: BTreeMap<String, String>,
+    pub bindings: Table,
+}
+
+/// A layer of every section (a preset file, an override table...).
+#[derive(Debug, Clone)]
+pub struct FileLayer {
+    pub origin: Origin,
+    /// Section name (`panels`, `editor`, `viewer`, `list`) → table.
+    pub sections: BTreeMap<String, Table>,
+}
+
+impl FileLayer {
+    /// A layer of the panels section only.
+    pub fn panels(origin: Origin, bindings: Table) -> Self {
+        Self {
+            origin,
+            sections: BTreeMap::from([("panels".to_string(), bindings)]),
+        }
+    }
+
+    /// The bindings of `section` as a layer.
+    pub fn section(&self, section: &str) -> Layer {
+        Layer {
+            origin: self.origin.clone(),
+            bindings: self.sections.get(section).cloned().unwrap_or_default(),
+        }
+    }
 }
 
 /// A preset file (v2). `[bindings]` is the pre-v2 name of `[panels]`.
@@ -45,7 +74,24 @@ struct PresetFile {
     #[serde(default)]
     options: OptionsTable,
     #[serde(default, alias = "bindings")]
-    panels: BTreeMap<String, String>,
+    panels: Table,
+    #[serde(default)]
+    editor: Table,
+    #[serde(default)]
+    viewer: Table,
+    #[serde(default)]
+    list: Table,
+}
+
+impl PresetFile {
+    fn into_sections(self) -> BTreeMap<String, Table> {
+        BTreeMap::from([
+            ("panels".to_string(), self.panels),
+            ("editor".to_string(), self.editor),
+            ("viewer".to_string(), self.viewer),
+            ("list".to_string(), self.list),
+        ])
+    }
 }
 
 /// Loads the TOML of a preset by name (`None` when it does not exist).
@@ -54,7 +100,7 @@ pub type PresetSource<'a> = &'a dyn Fn(&str, &mut KeymapLoadReport) -> Option<St
 /// A preset with its ancestors: layers root first, options merged.
 #[derive(Debug, Default)]
 pub struct PresetChain {
-    pub layers: Vec<Layer>,
+    pub layers: Vec<FileLayer>,
     pub options: KeymapOptions,
 }
 
@@ -98,9 +144,9 @@ pub fn resolve_chain(
     let mut chain = PresetChain::default();
     for (name, file) in files.into_iter().rev() {
         chain.options.overlay(&file.options);
-        chain.layers.push(Layer {
+        chain.layers.push(FileLayer {
             origin: Origin::Preset(name),
-            bindings: file.panels,
+            sections: file.into_sections(),
         });
     }
     Some(chain)
@@ -135,7 +181,7 @@ mod tests {
         let chain = resolve_chain("top", &src, &mut report).unwrap();
         let names: Vec<String> = chain.layers.iter().map(|l| l.origin.to_string()).collect();
         assert_eq!(names, ["preset 'root'", "preset 'mid'", "preset 'top'"]);
-        assert_eq!(chain.layers[1].bindings["move"], "F6");
+        assert_eq!(chain.layers[1].section("panels").bindings["move"], "F6");
         assert_eq!(chain.options.leader.as_deref(), Some("Space"));
         assert!(report.errors.is_empty(), "{:?}", report.errors);
     }

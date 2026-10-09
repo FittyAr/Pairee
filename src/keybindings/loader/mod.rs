@@ -1,9 +1,11 @@
 //! Load and **validate** keymaps using the `keybinds` crate.
 //!
-//! Layers, lowest priority first: the preset and every preset it `extends`
-//! (root first), shipped defaults for actions an older on-disk copy of a
-//! built-in preset lacks, setting layers, `[overrides.all]`, then
-//! `[overrides.<preset>]`. See [`assign`] for how layers combine.
+//! Every context (panels, editor, viewer, lists) is built the same way from
+//! its preset section. Layers, lowest priority first: the preset and every
+//! preset it `extends` (root first), shipped defaults for actions an older
+//! on-disk copy of a built-in preset lacks, setting layers,
+//! `[overrides.all]`, then `[overrides.<preset>]`. See [`assign`] for how
+//! layers combine.
 
 pub mod assign;
 pub mod disk;
@@ -12,16 +14,18 @@ pub mod report;
 mod validate;
 
 pub use crate::keybindings::chord::normalize_user_chord;
-pub use layers::{Layer, Origin};
+pub use layers::{FileLayer, Origin, Table};
 pub use report::KeymapLoadReport;
 
 use super::actions::Action;
 use super::embedded::{self, normalize_preset_name};
+use super::keymap::ContextKeymap;
 use super::options::KeymapOptions;
+use super::registry::Bindable;
+use super::screens::{EditorAction, ListAction, ViewerAction};
 use crate::config::AppConfig;
-use crate::config::keybindings::KeybindingsConfig;
-use assign::{Assignments, Row};
-use keybinds::Keybinds;
+use crate::config::keybindings::{KeybindingsConfig, OverrideTable};
+use assign::Assignments;
 use layers::{PresetSource, resolve_chain};
 use std::collections::BTreeMap;
 
@@ -46,10 +50,12 @@ impl<'a> KeymapSpec<'a> {
     }
 }
 
-/// A validated keymap ready for the resolver.
+/// The validated keymaps of every context.
 pub struct LoadedKeymap {
-    pub keybinds: Keybinds<Action>,
-    pub rows: Vec<Row<Action>>,
+    pub panels: ContextKeymap<Action>,
+    pub editor: ContextKeymap<EditorAction>,
+    pub viewer: ContextKeymap<ViewerAction>,
+    pub list: ContextKeymap<ListAction>,
     pub options: KeymapOptions,
     pub report: KeymapLoadReport,
 }
@@ -57,6 +63,16 @@ pub struct LoadedKeymap {
 /// Loads the keymap `spec` describes from the preset files on disk.
 pub fn load_keymap(spec: &KeymapSpec) -> LoadedKeymap {
     build_keymap(spec, &disk::find_preset_toml)
+}
+
+/// The layers of every context, in application order.
+struct Plan {
+    chain: Vec<FileLayer>,
+    /// Shipped layers of a built-in preset, for actions an older on-disk
+    /// copy does not name.
+    defaults: Option<Vec<FileLayer>>,
+    extra: Vec<FileLayer>,
+    options: KeymapOptions,
 }
 
 /// Builds the keymap of `spec`, reading preset files through `source`.
@@ -70,70 +86,101 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
         ));
         resolve_chain(FALLBACK_PRESET, &embedded_source, &mut report).unwrap_or_default()
     });
-    let leader = chain.options.leader.as_deref();
-    let mut assignments = Assignments::default();
-    for layer in &chain.layers {
-        assignments.apply(layer, leader, &mut report);
-    }
-    if let Some(defaults) = shipped_defaults(&name, leader) {
-        assignments.fill_missing_from(&defaults);
-    }
-    for layer in extra_layers(spec, &name) {
-        assignments.apply(&layer, leader, &mut report);
-    }
-    validate::check_prefixes(assignments.rows(), &mut report);
-    validate::check_robustness(assignments.rows(), &mut report);
-    let (keybinds, rows) = assignments.finish();
-    report.bound_count = rows.len();
-    if rows.is_empty() {
+    let defaults = embedded::preset_toml(&name).and_then(|_| {
+        resolve_chain(&name, &embedded_source, &mut KeymapLoadReport::default()).map(|c| c.layers)
+    });
+    let plan = Plan {
+        chain: chain.layers,
+        defaults,
+        extra: extra_layers(spec, &name),
+        options: chain.options,
+    };
+    let loaded = LoadedKeymap {
+        panels: build_context(&plan, &mut report),
+        editor: build_context(&plan, &mut report),
+        viewer: build_context(&plan, &mut report),
+        list: build_context(&plan, &mut report),
+        options: plan.options,
+        report: KeymapLoadReport::default(),
+    };
+    report.bound_count = loaded.panels.rows().len()
+        + loaded.editor.rows().len()
+        + loaded.viewer.rows().len()
+        + loaded.list.rows().len();
+    if loaded.panels.rows().is_empty() {
         report
             .errors
             .push("No key bindings loaded — keymap is empty after validation".into());
     }
-    LoadedKeymap {
-        keybinds,
-        rows,
-        options: chain.options,
-        report,
+    LoadedKeymap { report, ..loaded }
+}
+
+/// Applies every layer of `plan` to the section of `B` and validates it.
+fn build_context<B: Bindable>(plan: &Plan, report: &mut KeymapLoadReport) -> ContextKeymap<B> {
+    let leader = plan.options.leader.as_deref();
+    let mut assignments = Assignments::<B>::default();
+    for layer in &plan.chain {
+        assignments.apply(&layer.section(B::SECTION), leader, report);
     }
+    if let Some(layers) = &plan.defaults {
+        let mut silent = KeymapLoadReport::default();
+        let mut defaults = Assignments::<B>::default();
+        for layer in layers {
+            defaults.apply(&layer.section(B::SECTION), leader, &mut silent);
+        }
+        assignments.fill_missing_from(&defaults);
+    }
+    for layer in &plan.extra {
+        assignments.apply(&layer.section(B::SECTION), leader, report);
+    }
+    validate::check_prefixes(assignments.rows(), report);
+    validate::check_robustness(assignments.rows(), report);
+    let (keybinds, rows) = assignments.finish();
+    ContextKeymap::new(keybinds, rows, plan.options.sequence_timeout())
 }
 
 fn embedded_source(name: &str, _: &mut KeymapLoadReport) -> Option<String> {
     embedded::preset_toml(name).map(str::to_string)
 }
 
-/// The shipped bindings of built-in preset `name` (problems in shipped
-/// files are caught by tests, so they are not reported here).
-fn shipped_defaults(name: &str, leader: Option<&str>) -> Option<Assignments<Action>> {
-    embedded::preset_toml(name)?;
-    let mut silent = KeymapLoadReport::default();
-    let chain = resolve_chain(name, &embedded_source, &mut silent)?;
-    let mut defaults = Assignments::default();
-    for layer in &chain.layers {
-        defaults.apply(layer, leader, &mut silent);
-    }
-    Some(defaults)
-}
-
 /// Setting layers, then the user's overrides for `preset`.
-fn extra_layers(spec: &KeymapSpec, preset: &str) -> Vec<Layer> {
+fn extra_layers(spec: &KeymapSpec, preset: &str) -> Vec<FileLayer> {
     let mut out = Vec::new();
     if spec.yazi_letters {
-        out.push(Layer {
-            origin: Origin::Setting("int_yazi_workflow"),
-            bindings: BTreeMap::from([
+        out.push(FileLayer::panels(
+            Origin::Setting("int_yazi_workflow"),
+            BTreeMap::from([
                 ("sort_menu".to_string(), "s".to_string()),
                 ("view_mode_menu".to_string(), "v".to_string()),
             ]),
-        });
+        ));
     }
     for (key, table) in spec.keybindings.overrides_for(preset) {
-        out.push(Layer {
+        out.push(FileLayer {
             origin: Origin::Override(key.to_string()),
-            bindings: table.clone(),
+            sections: split_sections(table),
         });
     }
     out
+}
+
+/// Override ids name their section with a prefix (`editor.save`); plain
+/// ids are panel actions.
+fn split_sections(table: &OverrideTable) -> BTreeMap<String, Table> {
+    let mut sections: BTreeMap<String, Table> = BTreeMap::new();
+    for (id, keys) in table {
+        let (section, id) = match id.split_once('.') {
+            Some((section, rest)) if ["panels", "editor", "viewer", "list"].contains(&section) => {
+                (section, rest)
+            }
+            _ => ("panels", id.as_str()),
+        };
+        sections
+            .entry(section.to_string())
+            .or_default()
+            .insert(id.to_string(), keys.clone());
+    }
+    sections
 }
 
 #[cfg(test)]

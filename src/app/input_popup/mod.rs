@@ -24,6 +24,7 @@ pub mod folder_shortcuts;
 pub mod help;
 pub mod history_list;
 pub mod hotlist;
+pub mod list_keys;
 pub mod menu;
 pub mod mkdir;
 pub mod multi_rename;

@@ -1,20 +1,32 @@
-//! Editor screen commands: save, save as, reload, search, viewer, quit.
+//! Editor screen commands, bound in the `[editor]` keymap section: save,
+//! save as, reload, search, viewer, block mode, undo / redo, clipboard and
+//! quit.
 
+use super::{Edit, clipboard, edit_result};
 use crate::app::context::AppContext;
 use crate::app::editor::open::{reload_active_editor, save_active_editor};
 use crate::app::state::{AppState, PopupType};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::keybindings::screens::EditorAction;
 
-/// Runs the command bound to `key`, if any.
-pub(super) fn handle(state: &mut AppState, key: &KeyEvent, context: &AppContext, height: usize) {
-    let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
-    let is_shift = key.modifiers.contains(KeyModifiers::SHIFT);
+/// Runs `command` on the active editor.
+pub(super) fn run(
+    state: &mut AppState,
+    command: EditorAction,
+    context: &AppContext,
+    height: usize,
+) -> Edit {
+    use EditorAction as E;
+    if matches!(command, E::Copy | E::Cut | E::Paste | E::SelectAll) {
+        return clipboard::run(state, command);
+    }
     let settings = &context.config.settings;
     let Some(ed) = state.active_editor_mut() else {
-        return;
+        return Edit::Ignored;
     };
-    match key.code {
-        KeyCode::F(2) if is_shift => {
+    match command {
+        E::Undo => return edit_result(ed.undo(), ed),
+        E::Redo => return edit_result(ed.redo(), ed),
+        E::SaveAs => {
             let name = ed
                 .path
                 .file_name()
@@ -24,50 +36,36 @@ pub(super) fn handle(state: &mut AppState, key: &KeyEvent, context: &AppContext,
                 .dialogs
                 .replace(PopupType::EditorSaveAsPrompt { input: name.into() });
         }
-        KeyCode::F(2) => {
+        E::Save => {
             save_active_editor(state, None, false);
         }
-        KeyCode::Char('b') if is_ctrl => ed.block_mode = !ed.block_mode,
-        KeyCode::Char('s') if is_ctrl => {
-            save_active_editor(state, None, false);
-        }
-        KeyCode::Char('r') | KeyCode::Char('d') if is_ctrl => {
+        E::ToggleBlockMode => ed.block_mode = !ed.block_mode,
+        E::Reload => {
             if ed.is_dirty() && settings.confirmations.confirm_reload_edited_file {
                 state.dialogs.replace(PopupType::ConfirmReload);
             } else {
                 reload_active_editor(state);
             }
         }
-        KeyCode::F(7) if is_shift => {
+        E::SearchNext => {
             ed.repeat_search(height);
         }
-        KeyCode::F(3) => {
-            ed.repeat_search(height);
-        }
-        KeyCode::F(7) | KeyCode::Char('f') if is_ctrl || key.code == KeyCode::F(7) => {
-            state
-                .dialogs
-                .replace(PopupType::EditorSearchPrompt(Default::default()));
-        }
-        KeyCode::F(4) => {
+        E::Search => state
+            .dialogs
+            .replace(PopupType::EditorSearchPrompt(Default::default())),
+        E::OpenViewer => {
             let path = ed.path.clone();
             state.open_viewer(path, settings, true);
         }
-        KeyCode::F(8) => {
-            state
-                .dialogs
-                .replace(PopupType::ConfirmDiscardEditorChanges);
-        }
-        KeyCode::Esc if ed.has_selection() => ed.selection = None,
-        KeyCode::Esc | KeyCode::F(10) => {
-            if ed.is_dirty() {
-                state
-                    .dialogs
-                    .replace(PopupType::ConfirmDiscardEditorChanges);
-            } else {
-                state.close_current_screen();
-            }
-        }
-        _ => {}
+        E::Discard => state
+            .dialogs
+            .replace(PopupType::ConfirmDiscardEditorChanges),
+        E::Quit if ed.has_selection() => ed.selection = None,
+        E::Quit if ed.is_dirty() => state
+            .dialogs
+            .replace(PopupType::ConfirmDiscardEditorChanges),
+        E::Quit => state.close_current_screen(),
+        E::Copy | E::Cut | E::Paste | E::SelectAll => {}
     }
+    Edit::Done
 }
