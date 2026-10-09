@@ -65,6 +65,7 @@
 - Internal: each panel side now holds a list of folder tabs (`app::state::tabs`); a tab owns the whole panel state (location and source, listing, cursor, selection, view, sort, filters, folder sizes) and its background jobs, identified by a stable `TabId`, so listings and SSH connections finish in the tab that started them even after switching tabs. Tabs describe themselves as a plain, serializable `TabSpec`.
 - Internal: `bookmarks.toml`, `history.toml` and the new `session.toml` share one TOML state-file store (`config::toml_store`): tolerant reads and atomic writes (owner-only `0600` on Unix); the history file is no longer rewritten in place.
 - **Commands → Compare folders** reads both panels through their source, so a folder inside an archive or on an SFTP server can be compared with any other panel (content hashes are computed from the source too). **Synchronize folders** also works with folders inside archives (zip archives accept the copies and deletions); only SFTP panels are refused, with a clearer message.
+- Internal: no function is longer than 100 lines any more (`clippy::too_many_lines` is enforced in CI): long key, action and plugin-request dispatchers became per-group handlers and tables, and long renderers small render steps; duplicated code is down to 0.73% (jscpd).
 
 ### Deprecated
 

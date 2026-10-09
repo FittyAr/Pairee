@@ -17,17 +17,20 @@ holds the totals below.
 
 ## Before and after
 
-| | Before (`dee133e`) | After | Change |
-|---|---:|---:|---:|
-| Clone pairs | 265 | 77 | -71% |
-| Duplicated lines | 4,286 | 824 | -81% |
-| Duplicated lines (%) | 6.68% | 1.39% | -5.29 pts |
-| Duplicated tokens (%) | 6.95% | 1.53% | -5.42 pts |
-| Lines of Rust (src + tests) | 64,191 | 59,142 | -5,049 |
-| `dialogs.top().cloned()` (clone dialog per key) | 51 | 3 | |
+| | Before (`dee133e`) | After | G.5 (`7d1da5e`) | Change since before |
+|---|---:|---:|---:|---:|
+| Clone pairs | 265 | 77 | 59 | -78% |
+| Duplicated lines | 4,286 | 824 | 591 | -86% |
+| Duplicated lines (%) | 6.68% | 1.39% | 0.73% | -5.95 pts |
+| Duplicated tokens (%) | 6.95% | 1.53% | 0.82% | -6.13 pts |
+| Lines of Rust (src + tests) | 64,191 | 59,142 | 80,892 | +16,701 |
+| `dialogs.top().cloned()` (clone dialog per key) | 51 | 3 | 3 | |
 
 The "before" column is the branch point; the editor work that landed in
 master later (`938b96d`) only touched a few of the clusters listed here.
+The G.5 column was measured after the Fase G waves (VFS, archives, Git
+jobs, tabs, sessions, smoke tests) and the `too_many_lines` pass: the code
+grew by about 21,700 lines while the duplicated lines went down.
 
 ## Biggest clusters before
 
@@ -96,39 +99,39 @@ generic extractor over `fs::archive::format::ArchiveReader`.
   a parameter struct: `ListOptions` (directory listings), `ScrollView` and
   `ScrollTarget` (scrollbars), `ViewerOpts`, `Pane` (plugin manager tabs),
   `JobControl`, among others.
-- `clippy::too_many_lines` (100) is not enabled: 46 functions still exceed
-  it. Most are large `match` dispatchers (plugin API dispatcher, action
-  dispatch in `run.rs` and `ui_settings`, key handlers) where splitting
-  would scatter one table over several functions. Turning it on needs a
-  dedicated pass; the list is in the next section.
+- `clippy::too_many_lines` is enabled with `too-many-lines-threshold = 100`
+  (`[lints.clippy]` in `Cargo.toml`, so CI's `-D warnings` enforces it on
+  every target). The 38 functions above it were split in G.5, with no
+  `#[allow]` left: request and action dispatchers route to per-group
+  handlers (plugin requests, navigation, UI settings, tools, transfer
+  queue `QueueOp`), long renderers became line builders plus small render
+  steps, the CLI subcommands moved to `run::cli`, `AppConfig` loading to
+  `config::loading`, and data that was code became tables (action names,
+  Yazi sort/view keys, About libraries, developer-tool options).
 
 ## What is left
 
-Remaining clone pairs of 15 lines or more:
+Remaining clone pairs of 13 lines or more (none above 15):
 
 | Lines | Blocks | Files |
 |---:|---:|---|
-| 26 | 2 | `plugin_menu/dev/actions/build.rs` (internal) |
-| 24 | 2 | `git_panel/tabs/status_log.rs` (internal) |
-| 22 | 1 | `transfer_panel/queue.rs` (internal) |
-| 22 | 1 | `app/state/panel.rs` (internal) |
-| 20 | 2 | `plugin/runtime/bindings/app.rs` (internal) |
-| 20 | 2 | `ui/popup/mod.rs` (internal) |
-| 19 | 2 | `ui/popup/menus/dialogs.rs` (internal) |
-| 19 | 1 | `git_new_popups/confirm.rs` ↔ `git_panel/mod.rs` |
-| 18 | 1 | `plugin/command_policy/mod.rs` ↔ `resolve.rs` |
-| 17 | 1 | `git_new_popups/diff.rs` ↔ `git_panel/mod.rs` |
-| 16 | 1 | `prompts/confirm.rs` ↔ `prompts/file_ops/wipe.rs` |
-| 16 | 1 | `fs/archive/tar_ops.rs` ↔ `zip_ops.rs` |
 | 15 | 1 | `ui_settings/plugins.rs` ↔ `plugin_menu/dev/actions/build.rs` |
+| 14 | 1 | `fs/archive/tar_ops.rs` ↔ `zip_ops.rs` |
+| 14 | 1 | `ui/tests_archive.rs` ↔ `ui/tests_disk_usage.rs` (test setup) |
+| 13 | 2 | `plugin_menu/dev/actions/build.rs` (internal) |
+| 13 | 3 | `git_new_popups/confirm.rs` ↔ `diff.rs` ↔ `remote_manage.rs` (layout) |
+| 13 | 1 | `ui/popup/git_panel/lines.rs` (internal) |
+| 13 | 1 | `config/localization/loader.rs` (internal) |
+| 13 | 1 | `input_popup/command_palette.rs` ↔ `which_key.rs` (imports) |
+| 13 | 1 | `ui/tests_disk_usage.rs` ↔ `popup/sync_dirs/tests.rs` (test setup) |
 
-The rest are 10 to 13 line pairs, mostly small popup layouts (a centered
-box, a title, a hint line) that already use the kit and differ only in
-content.
+The rest are 8 to 12 line pairs, mostly import blocks and small popup
+layouts (a centered box, a title, a hint line) that already use the kit
+and differ only in content.
 
-Functions over 100 lines (`clippy::too_many_lines`), longest first:
-`plugin/manager/dispatcher.rs` (230), `run.rs` (205),
-`ui/popup/plugin_menu/dev.rs` (196), `actions/ui_settings/tools.rs` (194),
-`ui/popup/update/mod.rs` (184), `git_panel/tabs/status_log.rs` (181),
-`transfer_panel/queue.rs` (178), `ui/popup/git_panel/mod.rs` (177), then 38
-more between 100 and 170 lines.
+Removed in G.5: the panel test fixtures and the totals of the panel footer
+and info panel (`PanelState::entry_totals`), the Git confirm/diff/checkout
+frames (`kit::frame_in`), the confirm and wipe prompts (`kit::TextBox`),
+the `make_tool` test helper of the command policy, and the internal clones
+of `transfer_panel/queue.rs`, `plugin/runtime/bindings/app.rs`, the
+plugin-manager tabs (`plugin_menu/detail.rs`) and the Yazi popups.

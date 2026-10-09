@@ -22,12 +22,13 @@ Actualizar este archivo **entre tarea y tarea**, junto con commit + push.
 
 | Indicador | Baseline (2026-08-12) | Actual |
 |-----------|----------------------|--------|
-| Fuentes Rust | ~316 archivos, ~44 700 LOC | sin re-conteo global |
-| Tests | 115 unitarios; `tests/` vacío | **263 unit + 15 integration** |
+| Fuentes Rust | ~316 archivos, ~44 700 LOC | **701 archivos, ~80 900 LOC** (`src` + `tests`, 2026-10-08) |
+| Tests | 115 unitarios; `tests/` vacío | **948 unit (incl. smoke TUI) + 15 integration** |
 | Binario release | ~15.6 MB | sin cambio de features |
 | Idiomas UI | EN + ES | sin cambio |
 | Rama default | `master` | CI alineado a `master`/`main` |
-| Clippy crate-level | `#![allow(clippy::all)]` | **eliminado**; `-D warnings` OK |
+| Clippy crate-level | `#![allow(clippy::all)]` | **eliminado**; `-D warnings` OK; `too_many_lines` (100) activo, sin `allow` |
+| Duplicación (jscpd, ≥8 líneas) | 6.68 % (`dee133e`) | **0.73 %** (59 pares, ninguno > 15 líneas) |
 | CI check branches | solo `main` (incorrecto) | **`master` + `main` + matrix OS** |
 
 ### Prioridades
@@ -463,12 +464,13 @@ Bajo impacto │  [x Más idiomas pipeline ] [x macOS CI ]
 **Fase D cerrada** (diálogos, File/cx, fs+Command, aceptación CI, API Lua v1).  
 **Fase E cerrada** (onboarding, flags, threat model, i18n pipeline, fuzz parsers, CI macOS).  
 **Fase F:** keybinds, scrollbars, unicode-width, dirty draw, sync-update, less `clear()`, keyboard feature-detect, bracketed paste, TestBackend smoke, overlay which-key sobre el keymap actual, PTY real para Terminal/apply-command.  
-Siguiente: **checklist TTY manual** (pase humano WT/conhost/Linux). Segmentación de archivos (~450 LOC) **al final**.  
+**Fase G (G.1–G.5):** backlog funcional cerrado salvo el pase manual en terminales reales; `clippy::too_many_lines` (100) activo sin excepciones y duplicación en 0.73 %.  
+Siguiente: **checklist TTY manual** (pase humano WT/conhost/Linux/macOS) y publicar `docs/UNRELEASED.md` en `docs/CHANGELOG.md`.  
 `ratatui-which-key` no se usa (no dual-keymap). `alacritty_terminal` no se usa (no emulador VT completo).
 
 ---
 
-*Última actualización del progreso: 2026-09-08 (PTY real command & / apply-command).*
+*Última actualización del progreso: 2026-10-08 (G.5: funciones ≤ 100 líneas con `clippy::too_many_lines`, duplicación 0.73 %).*
 
 ---
 
@@ -504,7 +506,7 @@ Reglas de cada tarea: worktree propio, commits incrementales, `docs/UNRELEASED.m
 
 ### G.5 Oleada 5 — cierre
 
-- [ ] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines`
+- [x] Funciones de más de 100 líneas: dividir despachos en tablas/handlers; activar `clippy::too_many_lines` (umbral 100 en `clippy.toml`, lint en `[lints.clippy]` de `Cargo.toml`; 38 funciones divididas sin ningún `#[allow]`; duplicación 0.73 %, ver `docs/technical/duplication-report.md`)
 - [x] Pruebas de humo de la TUI completas (TestBackend) cubriendo editor, Hotlist, accesos a carpetas, papelera, copiar/mover, progreso Git y las funciones nuevas (`src/test_harness/` + `src/smoke_tests/`, keymaps norton y vscode; encontraron y corrigieron la copia de un solo elemento desde/hacia archivos comprimidos y cambios perdidos al armar el refresco automático)
   - Pasada manual que sigue haciendo falta (no automatizable con TestBackend): aspecto real en terminales (colores, anchos de emoji/CJK por emulador, parpadeo, sincronización DEC 2026), teclas que intercepta el terminal (Alt+flechas, Ctrl+Tab, Ctrl+Enter, AltGr), portapapeles del sistema, ratón real (arrastrar, rueda), enlaces simbólicos en Windows, papelera de macOS, SSH/SFTP contra un servidor real, unidades de red (sondeo), editor/visor externos y terminal en segundo plano (PTY), elevación de privilegios, actualizaciones y plugins instalados
 - [x] Pulido de lo pendiente de G.1–G.2:
