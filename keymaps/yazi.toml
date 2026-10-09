@@ -1,0 +1,97 @@
+# Pairee keymap: yazi
+#
+# yazi's default keymap: y / x / p yank, cut and paste, d / D trash and
+# delete, a creates (a trailing / makes a folder), r renames, . shows hidden
+# files, , sorts, m changes the columns, c copies paths, t / 1-9 / [ ] handle
+# tabs, ~ lists the keys, q quits. Sequences wait for their next key as in
+# yazi. Every Norton Commander F-key still works.
+#
+# Pairee shows two panels: Tab switches between them (yazi's Tab "spot" is
+# `i`, the information panel). s / S / z search names and contents and Z
+# opens the folder history (yazi: fd, rg, fzf, zoxide).
+
+extends = "vi"
+
+[options]
+sequence_timeout = 0
+
+[panels]
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+execute         = "l, o, Enter"
+go_parent       = "h, Backspace, Ctrl+PageUp"
+history_back    = "H"
+history_forward = "L"
+
+# ── Selection ─────────────────────────────────────────────────────────────────
+select_item      = "Space, Insert"
+select_all       = "Ctrl+a"
+invert_selection = "Ctrl+r, Gray*"
+unselect_group   = ""
+
+# ── Clipboard ─────────────────────────────────────────────────────────────────
+yank             = "y"
+cut              = "x"
+paste            = "p"
+paste_overwrite  = "P"
+clear_clipboard  = "Y, X"
+paste_as_link    = "-"
+copy_path        = "c c, Alt+Shift+Insert"
+copy_dir_path    = "c d"
+copy_name        = "c f, Ctrl+Insert"
+copy_name_no_ext = "c n"
+
+# ── Files ─────────────────────────────────────────────────────────────────────
+trash             = "d"
+delete_permanent  = "D, Shift+Delete"
+create            = "a"
+rename_basename   = "r"
+multi_rename_tool = "R, Ctrl+Shift+F6"
+edit              = "e, F4"
+context_menu      = "O, Menu, Shift+F10, Ctrl+Alt+m"
+file_attributes   = "Ctrl+Alt+a"
+
+# ── Search ────────────────────────────────────────────────────────────────────
+quick_filter    = "f, Ctrl+Alt+f"
+find_file       = "s, S, z, Alt+F7"
+folders_history = "Z, Alt+F12"
+
+# ── View: . hidden; m + linemode → the closest column set ────────────────────
+toggle_hidden          = "., Ctrl+h"
+refresh                = "Ctrl+l"
+info_panel             = "i"
+panel_view_brief       = "m n, Ctrl+1"
+panel_view_full        = "m s, m m, m b, Ctrl+3"
+panel_view_detailed    = "m p, Ctrl+5"
+panel_view_file_owners = "m o, Ctrl+7"
+
+# ── Sort: , + key (yazi uses the uppercase letter for reverse; here , r) ─────
+sort_by_name          = "Comma a, Comma n, Ctrl+F3"
+sort_by_extension     = "Comma e, Ctrl+F4"
+sort_by_write_time    = "Comma m, Ctrl+F5"
+sort_by_size          = "Comma s, Ctrl+F6"
+sort_by_creation_time = "Comma b, Ctrl+F8"
+toggle_sort_reverse   = "Comma r"
+
+# ── Tabs ──────────────────────────────────────────────────────────────────────
+new_tab        = "t, Ctrl+Alt+t"
+close_tab      = "Ctrl+c, Ctrl+Alt+w"
+next_tab       = "], Alt+PageDown, Alt+Right"
+prev_tab       = "[, Alt+PageUp, Alt+Left"
+move_tab_left  = "{, Alt+Shift+PageUp"
+move_tab_right = "}, Alt+Shift+PageDown"
+go_to_tab_1    = "1, Alt+1"
+go_to_tab_2    = "2, Alt+2"
+go_to_tab_3    = "3, Alt+3"
+go_to_tab_4    = "4, Alt+4"
+go_to_tab_5    = "5, Alt+5"
+go_to_tab_6    = "6, Alt+6"
+go_to_tab_7    = "7, Alt+7"
+go_to_tab_8    = "8, Alt+8"
+go_to_tab_9    = "9, Alt+9"
+
+# ── Tools & system ────────────────────────────────────────────────────────────
+task_list = "w"
+focus_cli = ";, :"
+which_key = "~, Ctrl+K"
+quit      = "q, Q, F10"

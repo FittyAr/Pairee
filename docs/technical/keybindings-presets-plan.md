@@ -494,9 +494,13 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] Filas de F-keys de editor y visor generadas desde sus capas (etiqueta por comando en el catálogo + acciones globales del panel), para cualquier modificador.
 
 ### Fase 4 — Presets
-- [ ] `base.toml`, `standard.toml` (+ alias `vscode`/`modern`), `norton.toml` (con §5.8: reubicaciones, precedencia de la CLI, acciones `insert_*_to_cli`, `toggle_inactive_panel`, `toggle_keybar`, `cli_history_*`; quitar `has_outdated_layout`), `neovim.toml`, `yazi.toml` según §5, cada línea con comentario de criterio cuando sea *ext.* o desviación.
-- [ ] Migración: `preset = "vscode"` → `standard`.
-- [ ] Onboarding y Settings con los 4 presets.
+- [x] Jerarquía `base → {norton, standard}`, `norton → vi → {neovim, yazi}` (`base` y `vi` ocultos). `base` lleva solo lo universal: flechas, fila F3–F8, keypad, Ctrl+F3…F12, Ctrl+1…9, pestañas, pantallas, accesos a carpetas y las secciones de editor / visor / lista. `vi` reúne lo común de neovim y yazi (hjkl, `g g`/`G`, `/` `n` `N`, visual, `commands`, y j/k/q en visor y listas).
+- [x] `norton` según §5.8 (D1 y D7): F7 MkDir, Shift+F6 renombrar, Ctrl+Shift+F6 renombrado múltiple, F11 plugins, `Alt+letra` libre para la búsqueda rápida y extensiones de Pairee en `Ctrl+Alt+<letra>`. Acciones nuevas de Far: `toggle_inactive_panel` (Ctrl+P), `toggle_keybar` (Ctrl+B), `cli_history_prev/next` (Ctrl+E/X), `insert_name/path/left_path/right_path_to_cli` (Ctrl+Enter, Ctrl+F, Ctrl+[ y ]), `clear_cli` (Ctrl+Y).
+- [x] `standard` (antes `vscode`; `vscode` y `modern` son alias y la config guardada se migra), `neovim` y `yazi` según §5. Ningún preset tiene errores, avisos ni acciones esenciales sin tecla robusta (test).
+- [x] Tests de fidelidad `(preset, tecla) → acción` por preset (`loader/fidelity_tests.rs`) y del modo de tecleo / leader / timeout.
+- [x] Onboarding y Settings con los 4 presets, generados de `embedded::PRESETS`.
+- [x] Actualización de copias viejas: el sembrado reconoce por hash cualquier versión distribuida (`config/keymap_seed/shipped.rs`) y la reemplaza; una copia editada se conserva y, al rellenar acciones nuevas, nunca se añade una secuencia que quede tapada por una tecla suya. Fragilidad nueva: `Ctrl+Alt+{dígito, e, q, m}` (AltGr).
+- [x] Los tests de unidad usan una carpeta temporal por proceso: antes compartían una con copias viejas de corridas anteriores.
 
 ### Fase 5 — Plugins (§6)
 - [ ] Manifiesto `[[commands]]` + compatibilidad con `[keybindings]`.

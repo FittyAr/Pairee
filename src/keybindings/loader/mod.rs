@@ -184,4 +184,6 @@ fn split_sections(table: &OverrideTable) -> BTreeMap<String, Table> {
 }
 
 #[cfg(test)]
+mod fidelity_tests;
+#[cfg(test)]
 mod tests;

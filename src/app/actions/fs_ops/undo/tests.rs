@@ -190,12 +190,32 @@ fn finished_transfer_jobs_are_journaled_once() {
 
 #[test]
 fn every_keymap_binds_undo_and_redo() {
-    for preset in ["norton", "vscode", "neovim"] {
+    // (preset, undo key, redo key): Far's free Alt+Backspace, Explorer's
+    // Ctrl+Z / Ctrl+Y, Vim's u / Ctrl+R.
+    let ctrl = KeyModifiers::CONTROL;
+    let cases = [
+        (
+            "norton",
+            (KeyCode::Backspace, KeyModifiers::ALT),
+            (KeyCode::Backspace, KeyModifiers::ALT | KeyModifiers::SHIFT),
+        ),
+        (
+            "standard",
+            (KeyCode::Char('z'), ctrl),
+            (KeyCode::Char('y'), ctrl),
+        ),
+        (
+            "neovim",
+            (KeyCode::Char('u'), KeyModifiers::NONE),
+            (KeyCode::Char('r'), ctrl),
+        ),
+    ];
+    for (preset, undo, redo) in cases {
         let mut config = AppConfig::default();
         config.keybindings.preset = preset.into();
         let mut resolver = KeybindingResolver::new(&config);
-        let undo = KeyEvent::new(KeyCode::Backspace, KeyModifiers::ALT);
-        let redo = KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL);
+        let undo = KeyEvent::new(undo.0, undo.1);
+        let redo = KeyEvent::new(redo.0, redo.1);
         assert_eq!(resolver.resolve(undo), Some(Action::UndoFileOp), "{preset}");
         assert_eq!(resolver.resolve(redo), Some(Action::RedoFileOp), "{preset}");
     }

@@ -38,6 +38,7 @@ const ACTION_LABELS: &[(Action, &str)] = &[
     (Action::ExtractArchive, "fkey_sh_unpack"),
     (Action::ArchiveCommands, "fkey_sh_arccmd"),
     (Action::MultiRename, "fkey_sh_mrename"),
+    (Action::NewFile, "fkey_sh_new"),
     (Action::SaveSetup, "fkey_sh_save"),
     (Action::ContextMenu, "fkey_sh_context"),
     (Action::TogglePanelLeft, "fkey_ctrl_left"),
@@ -257,10 +258,10 @@ mod tests {
     fn panel_rows_follow_the_keymap() {
         let plain = panel_cells(KeyModifiers::NONE);
         assert_eq!(label(&plain, 5), t("fkey_copy"));
-        assert_eq!(label(&plain, 11), "", "F11 is unbound");
+        assert_eq!(label(&plain, 11), t("fkey_plugin"), "F11: Far's plugins");
         let shift = panel_cells(KeyModifiers::SHIFT);
         assert_eq!(label(&shift, 1), t("fkey_sh_pack"));
-        assert_eq!(label(&shift, 6), t("fkey_sh_mrename"));
+        assert_eq!(label(&shift, 6), t("fkey_rename"));
         let ctrl = panel_cells(KeyModifiers::CONTROL);
         assert_eq!(label(&ctrl, 3), t("fkey_ctrl_name"));
         let alt = panel_cells(KeyModifiers::ALT);

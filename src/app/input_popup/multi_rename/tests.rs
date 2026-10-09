@@ -259,12 +259,19 @@ fn renders_fields_preview_and_conflicts() {
 }
 
 #[test]
-fn shift_f6_opens_multi_rename_in_every_keymap() {
-    for preset in ["norton", "neovim", "vscode"] {
+fn every_keymap_reaches_multi_rename() {
+    // Far: Shift+F6 renames in place, so multi-rename is Ctrl+Shift+F6;
+    // Total Commander's Ctrl+M in the standard preset.
+    let ctrl_shift = KeyModifiers::CONTROL | KeyModifiers::SHIFT;
+    let cases = [
+        ("norton", KeyEvent::new(KeyCode::F(6), ctrl_shift)),
+        ("neovim", KeyEvent::new(KeyCode::F(6), ctrl_shift)),
+        ("standard", KeyEvent::new(KeyCode::Char('M'), ctrl_shift)),
+    ];
+    for (preset, key) in cases {
         let mut config = AppConfig::default();
         config.keybindings.preset = preset.into();
         let mut resolver = crate::keybindings::KeybindingResolver::new(&config);
-        let key = KeyEvent::new(KeyCode::F(6), KeyModifiers::SHIFT);
         assert_eq!(
             resolver.resolve(key),
             Some(crate::keybindings::Action::MultiRename),

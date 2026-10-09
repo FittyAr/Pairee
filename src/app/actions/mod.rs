@@ -1,3 +1,4 @@
+pub mod cli_line;
 pub mod command_palette;
 pub mod exec;
 pub mod fs_ops;
@@ -25,6 +26,7 @@ pub async fn handle_action(
 ) -> Result<()> {
     let handled = navigation::handle_navigation_action(state, &action, context)
         || jumps::handle_jump_action(state, &action, context)
+        || cli_line::handle(state, &action, context)
         || panel_search::handle(state, &action)
         || tabs::handle_tab_action(state, &action, context)
         || fs_ops::handle_fs_action(state, &action, context, terminal_backend)

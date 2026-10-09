@@ -30,16 +30,21 @@ fn in_editor(h: &Harness) -> bool {
 }
 
 #[test]
-fn alt_s_and_alt_d_measure_and_open_disk_usage() {
-    for keymap in ["norton", "neovim", "vscode"] {
+fn folder_sizes_and_disk_usage_keys_measure_and_open_disk_usage() {
+    // Ctrl+Alt in Far-based presets (Alt+letter is the quick search there).
+    for (keymap, sizes, usage) in [
+        ("norton", "Ctrl+Alt+s", "Ctrl+Alt+d"),
+        ("neovim", "Ctrl+Alt+s", "Ctrl+Alt+d"),
+        ("standard", "Alt+s", "Alt+d"),
+    ] {
         let mut h = Harness::builder().keymap(keymap).build();
         h.write("work/left/media/clip.bin", vec![0u8; 3000]);
-        h.reread().keys("Alt+s");
+        h.reread().keys(sizes);
         h.wait_until("folder size", |h| {
             let media = h.left().join("media");
             h.state.get_active_panel().dir_sizes.get(&media).is_some()
         });
-        h.keys("Alt+d");
+        h.keys(usage);
         assert!(
             matches!(h.state.dialogs.top(), Some(PopupType::DiskUsage)),
             "{keymap}"

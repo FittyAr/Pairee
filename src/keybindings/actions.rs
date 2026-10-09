@@ -238,6 +238,24 @@ pub enum Action {
     SortMenu,
     /// Next sort field of the active panel
     CycleSort,
+    /// Append the highlighted name to the command line (Far Ctrl+Enter)
+    InsertNameToCli,
+    /// Append the highlighted full path to the command line (Far Ctrl+F)
+    InsertPathToCli,
+    /// Append the left panel's folder to the command line (Far Ctrl+[)
+    InsertLeftPathToCli,
+    /// Append the right panel's folder to the command line (Far Ctrl+])
+    InsertRightPathToCli,
+    /// Clear the command line (Far Ctrl+Y)
+    ClearCli,
+    /// Previous command of the history on the command line (Far Ctrl+E)
+    CliHistoryPrev,
+    /// Next command of the history on the command line (Far Ctrl+X)
+    CliHistoryNext,
+    /// Hide / show the passive panel (Far Ctrl+P)
+    ToggleInactivePanel,
+    /// Hide / show the key bar (Far Ctrl+B)
+    ToggleKeybar,
     /// Create an empty file
     NewFile,
     /// Create a file, or a folder when the name ends with `/`

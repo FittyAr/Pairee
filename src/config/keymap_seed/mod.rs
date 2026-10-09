@@ -1,12 +1,15 @@
 //! Seeds the user's `keymaps/` folder with the shipped presets without ever
 //! overwriting a file the user may have edited.
 //!
-//! A preset file that differs from the shipped one is left alone; the new
+//! A preset file still identical to the version Pairee last wrote is
+//! updated in place. One that differs from it was edited and is left alone; the new
 //! shipped version is written next to it as `<name>.toml.new` (see
 //! [`embedded::pending_update_path`]) and the loader warns about it. Each
 //! shipped version is offered once: `.<name>.toml.seeded` keeps the hash of
 //! the last version written or offered, so deleting the `.new` file after
 //! merging it sticks until the next release changes the preset.
+
+mod shipped;
 
 use crate::keybindings::embedded;
 use anyhow::{Context, Result};
@@ -38,6 +41,12 @@ fn seed_preset(dir: &Path, name: &str, shipped: &str) -> Result<()> {
             // Up to date: drop an offer the user no longer needs.
             let _ = fs::remove_file(&pending);
         }
+        // Written by Pairee and never edited: a version it shipped, or the
+        // one it last wrote here.
+        Ok(current) if unedited(&current, &stamp) => {
+            fs::write(&path, shipped).with_context(|| format!("writing {}", path.display()))?;
+            let _ = fs::remove_file(&pending);
+        }
         Ok(_) if fs::read_to_string(&stamp).is_ok_and(|s| s.trim() == shipped_digest) => {}
         Ok(_) => {
             fs::write(&pending, shipped)
@@ -45,6 +54,12 @@ fn seed_preset(dir: &Path, name: &str, shipped: &str) -> Result<()> {
         }
     }
     fs::write(&stamp, &shipped_digest).with_context(|| format!("writing {}", stamp.display()))
+}
+
+/// `current` is a preset version Pairee shipped or last wrote (`stamp`).
+fn unedited(current: &str, stamp: &Path) -> bool {
+    let current = digest(current);
+    shipped::was_shipped(&current) || fs::read_to_string(stamp).is_ok_and(|s| s.trim() == current)
 }
 
 /// Hidden file holding the hash of the last shipped version handled.
@@ -96,6 +111,32 @@ mod tests {
         seed_preset_keymaps(dir.path()).unwrap();
         assert_eq!(fs::read_to_string(&path).unwrap(), edited);
         assert!(!pending.exists());
+    }
+
+    #[test]
+    fn an_unedited_older_copy_is_updated_in_place() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("norton.toml");
+        let old = "[bindings]
+quit = \"F10\"
+";
+        fs::write(&path, old).unwrap();
+        fs::write(stamp_path(dir.path(), "norton"), digest(old)).unwrap();
+        seed_preset_keymaps(dir.path()).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), norton());
+        assert!(!embedded::pending_update_path(dir.path(), "norton").exists());
+    }
+
+    #[test]
+    fn unknown_text_without_a_stamp_is_kept() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("norton.toml");
+        let custom = "[bindings]
+move_up = \"Up\"
+";
+        fs::write(&path, custom).unwrap();
+        seed_preset_keymaps(dir.path()).unwrap();
+        assert_eq!(fs::read_to_string(&path).unwrap(), custom);
     }
 
     #[test]

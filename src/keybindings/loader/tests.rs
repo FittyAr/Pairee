@@ -3,14 +3,14 @@ use crate::config::keybindings::ALL_PRESETS;
 use crate::keybindings::options::TypingMode;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
-const BUILTIN: [&str; 3] = ["norton", "neovim", "vscode"];
+pub(super) const BUILTIN: [&str; 4] = ["norton", "standard", "neovim", "yazi"];
 
-fn embedded(name: &str, _: &mut KeymapLoadReport) -> Option<String> {
+pub(super) fn embedded(name: &str, _: &mut KeymapLoadReport) -> Option<String> {
     embedded::preset_toml(name).map(str::to_string)
 }
 
 /// The shipped `preset` plus `overrides` as `(table, action, chords)`.
-fn load(preset: &str, overrides: &[(&str, &str, &str)]) -> LoadedKeymap {
+pub(super) fn load(preset: &str, overrides: &[(&str, &str, &str)]) -> LoadedKeymap {
     load_from(&embedded, preset, overrides)
 }
 
@@ -50,39 +50,15 @@ fn chords_of(map: &LoadedKeymap, action: Action) -> Vec<String> {
 fn shipped_presets_load_without_errors_or_warnings() {
     for preset in BUILTIN {
         let map = load(preset, &[]);
+        let report = &map.report;
         assert!(
-            map.report.errors.is_empty() && map.report.warnings.is_empty(),
-            "{preset}: {:?} {:?}",
-            map.report.errors,
-            map.report.warnings
+            report.errors.is_empty() && report.warnings.is_empty() && report.robustness.is_empty(),
+            "{preset}: {:?} {:?} {:?}",
+            report.errors,
+            report.warnings,
+            report.robustness
         );
         assert!(map.report.bound_count > 100, "{preset}");
-    }
-}
-
-#[test]
-fn each_preset_keeps_its_identity() {
-    let cases: [(&str, Action, &[&str]); 9] = [
-        ("norton", Action::MoveUp, &["Up"]),
-        ("norton", Action::Copy, &["F5"]),
-        ("neovim", Action::MoveUp, &["Up", "k"]),
-        (
-            "neovim",
-            Action::GoParent,
-            &["Backspace", "Ctrl+PageUp", "h"],
-        ),
-        ("neovim", Action::Execute, &["Enter", "l"]),
-        ("vscode", Action::Copy, &["Ctrl+c"]),
-        ("vscode", Action::Move, &["Ctrl+x"]),
-        ("vscode", Action::CopyPath, &["Ctrl+C"]),
-        ("vscode", Action::WhichKey, &["Ctrl+K"]),
-    ];
-    for (preset, action, chords) in cases {
-        assert_eq!(
-            chords_of(&load(preset, &[]), action),
-            chords,
-            "{preset} {action:?}"
-        );
     }
 }
 
@@ -107,16 +83,15 @@ fn norton_loads_core_bindings() {
 fn base_layer_reaches_every_preset() {
     for preset in BUILTIN {
         let mut map = load(preset, &[]);
-        let hotlist = key(KeyCode::Char('\\'), KeyModifiers::CONTROL);
-        assert_eq!(
-            dispatch(&mut map, hotlist),
-            Some(Action::Hotlist),
-            "{preset}"
+        let help = key(KeyCode::F(1), KeyModifiers::NONE);
+        assert_eq!(dispatch(&mut map, help), Some(Action::Help), "{preset}");
+        let shortcut = key(
+            KeyCode::Char('3'),
+            KeyModifiers::CONTROL | KeyModifiers::ALT,
         );
-        let git = key(KeyCode::Char('g'), KeyModifiers::ALT);
         assert_eq!(
-            dispatch(&mut map, git),
-            Some(Action::OpenGitPanel),
+            dispatch(&mut map, shortcut),
+            Some(Action::GoFolderShortcut(3)),
             "{preset}"
         );
         assert!(
@@ -257,8 +232,36 @@ fn an_older_copy_of_a_builtin_gets_new_actions_on_free_chords() {
     let map = load_from(&src, "norton", &[]);
     assert_eq!(chords_of(&map, Action::Delete), ["F8"]);
     assert!(
-        chords_of(&map, Action::Hotlist).is_empty(),
+        chords_of(&map, Action::GoRoot).is_empty(),
         "Ctrl+\\ is taken by move"
+    );
+}
+
+#[test]
+fn an_older_copy_with_single_letters_gets_no_hidden_sequences() {
+    let src = |name: &str, report: &mut KeymapLoadReport| match name {
+        "neovim" => Some(
+            "[bindings]
+go_to_top = \"g\"
+copy = \"y\""
+                .to_string(),
+        ),
+        other => embedded(other, report),
+    };
+    let map = load_from(&src, "neovim", &[]);
+    assert!(map.report.errors.is_empty(), "{:?}", map.report.errors);
+    assert!(
+        chords_of(&map, Action::GoHome).is_empty(),
+        "`g h` would hide behind `g`"
+    );
+    assert!(
+        chords_of(&map, Action::Yank).is_empty(),
+        "`y y` would hide behind `y`"
+    );
+    assert_eq!(
+        chords_of(&map, Action::Delete),
+        ["F8"],
+        "free chords still fill in"
     );
 }
 

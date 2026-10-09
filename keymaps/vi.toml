@@ -1,0 +1,51 @@
+# Pairee keymap: shared Vim-style layer
+#
+# What the Neovim and yazi presets have in common: hjkl, gg / G, Ctrl+u / d /
+# b / f, / n N, visual mode, letters as commands, and j / k / gg / G / q in
+# the viewer and in dialog lists. It keeps every Norton Commander / Far key
+# underneath, so the F-key row still works. Not selectable on its own.
+
+extends = "norton"
+
+[options]
+typing           = "commands"
+alt_quick_search = false
+
+[panels]
+
+move_up        = "k, Up"
+move_down      = "j, Down"
+page_up        = "Ctrl+b, PageUp"
+page_down      = "Ctrl+f, PageDown"
+half_page_up   = "Ctrl+u"
+half_page_down = "Ctrl+d"
+go_to_top      = "g g, Home"
+go_to_bottom   = "G, End"
+go_home        = "g h"
+go_root        = "g /, Ctrl+\\"
+visual_mode    = "v, V"
+find_in_panel  = "/"
+find_next      = "n"
+find_prev      = "N"
+
+[viewer]
+
+line_up     = "k, Up"
+line_down   = "j, Down"
+page_up     = "Ctrl+b, Ctrl+u, PageUp"
+page_down   = "Ctrl+f, Ctrl+d, PageDown"
+top         = "g g, Home"
+bottom      = "G, End"
+search      = "/, F7"
+search_next = "n, F3"
+quit        = "q, Esc, F10"
+
+[list]
+
+up        = "k, Up"
+down      = "j, Down"
+page_up   = "Ctrl+u, Ctrl+b, PageUp"
+page_down = "Ctrl+d, Ctrl+f, PageDown"
+first     = "g g, Home"
+last      = "G, End"
+close     = "q, Esc"

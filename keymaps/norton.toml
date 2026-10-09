@@ -1,71 +1,118 @@
-# Pairee Keybinding Preset: Norton Commander / Far Manager
+# Pairee keymap: Norton Commander / Far Manager
 #
-# This file defines the complete key-to-action mapping for the classic
-# Norton Commander / Far Manager layout.
+# Every key keeps its Norton Commander / Far meaning. Pairee features those
+# programs do not have (tabs, Git, SSH, folder sizes...) use Ctrl+Alt+<letter>,
+# because Alt+<letter> is NC's quick search and plain letters go to the
+# command line. While the command line holds text, Ctrl+E / Ctrl+X walk its
+# history, Ctrl+Y clears it and Ctrl+Enter / Ctrl+F / Ctrl+[ / Ctrl+] insert
+# names and paths, as in Far.
 #
-# Keys are specified as human-readable strings, for example:
-#   "F5", "Ctrl+c", "Alt+F7", "Shift+F9", "Ctrl+Alt+1"
-#
-# Action names match the snake_case variants of the Action enum.
-# Refer to the Pairee documentation for a full list of available actions.
+# Ctrl+Alt is AltGr on Windows: with some layouts Ctrl+Alt+<key> types a
+# character instead. Every action below is also in the menu bar (F9) and in
+# the command palette (Ctrl+Alt+p).
 
 extends = "base"
+
+[options]
+typing           = "cli"
+alt_quick_search = true
 
 [panels]
 
 # ── Navigation ────────────────────────────────────────────────────────────────
-move_up               = "Up"
-move_down             = "Down"
-page_up               = "PageUp"
-page_down             = "PageDown"
-go_to_top             = "Home"
-go_to_bottom          = "End"
-execute               = "Enter"
-go_parent             = "Backspace, Ctrl+PageUp"
-tree_view             = "Alt+F10"
+go_parent          = "Backspace, Ctrl+PageUp"
+open_archive       = "Ctrl+PageDown"
+go_root            = "Ctrl+\\"
+hotlist            = "Ctrl+Alt+h"
+drive_select_left  = "Alt+F1"
+drive_select_right = "Alt+F2"
+tree_view          = "Alt+F10"
 
 # ── Selection ─────────────────────────────────────────────────────────────────
-select_item           = "Insert, Space"
+# Space selects only while the command line is empty.
+select_item       = "Insert, Space"
+select_all        = "Shift+Plus"
+restore_selection = "Ctrl+m"
 
 # ── Files ─────────────────────────────────────────────────────────────────────
-view                  = "F3"
-view_alt              = "Alt+F3"
-edit                  = "F4"
-copy                  = "F5"
-move                  = "F6"
-rename                = "F7"
-delete                = "F8"
-wipe_file             = "Alt+Delete"
-create_link           = "Alt+F6"
-print_file            = "Alt+F5"
+user_menu           = "F2"
+view_alt            = "Alt+F3"
+new_file            = "Shift+F4"
+rename              = "Shift+F6"
+multi_rename_tool   = "Ctrl+Shift+F6"
+delete_permanent    = "Shift+Delete"
+wipe_file           = "Alt+Delete"
+print_file          = "Alt+F5"
+create_link         = "Alt+F6"
+file_attributes     = "Ctrl+a"
+describe_file       = "Ctrl+z"
+apply_command       = "Ctrl+g"
+# Far has no undo: Alt+Backspace is free.
+undo_file_operation = "Alt+Backspace"
+redo_file_operation = "Alt+Shift+Backspace"
+calculate_folder_sizes = "Ctrl+Alt+s"
+disk_usage          = "Ctrl+Alt+d"
+
+# ── Clipboard (Far: Ctrl+Ins copies names, Alt+Shift+Ins full paths) ─────────
+copy_name = "Ctrl+Insert"
+copy_path = "Alt+Shift+Insert"
 
 # ── Archives ──────────────────────────────────────────────────────────────────
-compress_files        = "Shift+F1, Alt+c"
-extract_archive       = "Shift+F2, Alt+e"
+compress_files   = "Shift+F1"
+extract_archive  = "Shift+F2"
+archive_commands = "Shift+F3"
 
 # ── Search & history ──────────────────────────────────────────────────────────
-find_file             = "Alt+F7"
-command_history       = "Alt+F8"
+find_file         = "Alt+F7"
+command_history   = "Alt+F8"
+file_view_history = "Alt+F11"
+folders_history   = "Alt+F12"
+file_panel_filter = "Ctrl+i, Ctrl+Alt+i"
+quick_filter      = "Ctrl+Alt+f"
 
 # ── View ──────────────────────────────────────────────────────────────────────
 toggle_hidden         = "Ctrl+h"
 toggle_long_names     = "Ctrl+n"
 refresh               = "Ctrl+r"
 video_mode            = "Alt+F9"
+toggle_keybar         = "Ctrl+b"
+cycle_fkeys_modifiers = "Ctrl+Alt+k"
 
 # ── Panels ────────────────────────────────────────────────────────────────────
-swap_panels           = "Ctrl+u"
+toggle_panel_left     = "Ctrl+F1"
+toggle_panel_right    = "Ctrl+F2"
 toggle_both_panels    = "Ctrl+o"
+toggle_inactive_panel = "Ctrl+p"
+swap_panels           = "Ctrl+u"
+info_panel            = "Ctrl+l"
 quick_view            = "Ctrl+q"
 toggle_transfer_panel = "Ctrl+t"
 
-# ── Tabs & screens ────────────────────────────────────────────────────────────
-new_tab               = "Alt+t"
+# ── Tabs (not in NC / Far) ────────────────────────────────────────────────────
+new_tab         = "Ctrl+Alt+t"
+close_tab       = "Ctrl+Alt+w"
+next_tab        = "Alt+PageDown, Alt+Right"
+prev_tab        = "Alt+PageUp, Alt+Left"
+open_in_new_tab = "Ctrl+Alt+o"
 
-# ── Tools ─────────────────────────────────────────────────────────────────────
-user_menu             = "F2"
+# ── Git, SSH, tools ───────────────────────────────────────────────────────────
+open_git_panel = "Ctrl+Alt+g"
+ssh_connect    = "Ctrl+Alt+r"
+task_list      = "Ctrl+w"
+plugin_menu    = "F11"
+
+# ── Command line (Far) ────────────────────────────────────────────────────────
+insert_name_to_cli       = "Ctrl+Enter"
+insert_path_to_cli       = "Ctrl+f"
+insert_left_path_to_cli  = "Ctrl+["
+insert_right_path_to_cli = "Ctrl+]"
+clear_cli                = "Ctrl+y"
+cli_history_prev         = "Ctrl+e"
+cli_history_next         = "Ctrl+x"
 
 # ── System ────────────────────────────────────────────────────────────────────
-context_menu          = "Menu, Alt+m"
-save_setup            = "Shift+F9"
-quit                  = "F10"
+menu         = "F9"
+save_setup   = "Shift+F9"
+quit         = "F10"
+which_key    = "Ctrl+k, Ctrl+K"
+context_menu = "Menu, Shift+F10, Ctrl+Alt+m"

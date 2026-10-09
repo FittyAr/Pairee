@@ -12,7 +12,13 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-pub const PRESET_IDS: [&str; 3] = ["norton", "neovim", "vscode"];
+/// The presets offered, in the order of the built-in list.
+pub fn preset_ids() -> Vec<&'static str> {
+    crate::keybindings::embedded::PRESETS
+        .iter()
+        .map(|(name, _)| *name)
+        .collect()
+}
 
 pub fn render(
     f: &mut Frame,
@@ -24,7 +30,7 @@ pub fn render(
         return false;
     };
 
-    let area = centered_rect_fixed(62, 16, size);
+    let area = centered_rect_fixed(66, 4 + 3 * preset_ids().len() as u16 + 2, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()
@@ -35,15 +41,14 @@ pub fn render(
     let inner = block.inner(area);
     f.render_widget(block, area);
 
+    let ids = preset_ids();
+    let constraints: Vec<Constraint> = std::iter::once(Constraint::Length(2))
+        .chain(ids.iter().map(|_| Constraint::Length(3)))
+        .chain(std::iter::once(Constraint::Min(1)))
+        .collect();
     let chunks = Layout::default()
         .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(2),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Length(3),
-            Constraint::Min(1),
-        ])
+        .constraints(constraints)
         .split(inner);
 
     f.render_widget(
@@ -52,11 +57,15 @@ pub fn render(
         chunks[0],
     );
 
-    let rows = [
-        (t("onboarding_norton"), t("onboarding_norton_desc")),
-        (t("onboarding_neovim"), t("onboarding_neovim_desc")),
-        (t("onboarding_vscode"), t("onboarding_vscode_desc")),
-    ];
+    let rows: Vec<(String, String)> = ids
+        .iter()
+        .map(|id| {
+            (
+                t(&format!("onboarding_{id}")),
+                t(&format!("onboarding_{id}_desc")),
+            )
+        })
+        .collect();
     for (i, (title, desc)) in rows.iter().enumerate() {
         let selected = i == *cursor_idx;
         let style = if selected {
@@ -80,7 +89,7 @@ pub fn render(
 
     f.render_widget(
         Paragraph::new(t("onboarding_hint")).style(Style::default().fg(Color::DarkGray)),
-        chunks[4],
+        chunks[ids.len() + 1],
     );
     true
 }
@@ -90,7 +99,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn preset_ids_match_builtin_keymaps() {
-        assert_eq!(PRESET_IDS, ["norton", "neovim", "vscode"]);
+    fn every_preset_has_a_title_and_description() {
+        use crate::config::localization::translator::get_default_english_translation as en;
+        assert_eq!(preset_ids(), ["norton", "standard", "neovim", "yazi"]);
+        for id in preset_ids() {
+            for key in [format!("onboarding_{id}"), format!("onboarding_{id}_desc")] {
+                assert_ne!(en(&key), key);
+            }
+        }
     }
 }

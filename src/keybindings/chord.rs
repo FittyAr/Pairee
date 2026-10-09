@@ -100,6 +100,9 @@ pub enum Fragility {
     AliasesLegacyKey,
     /// Commonly taken by the terminal or window manager (`Alt+F4`, `F11`).
     TakenByTerminal,
+    /// `Ctrl+Alt` is AltGr on Windows: with a digit or `e` / `q` / `m` it
+    /// types a character (`@`, `€`...) on many keyboard layouts.
+    AltGr,
 }
 
 impl Fragility {
@@ -109,6 +112,7 @@ impl Fragility {
             Self::NeedsKittyProtocol => "keymap_fragile_kitty",
             Self::AliasesLegacyKey => "keymap_fragile_alias",
             Self::TakenByTerminal => "keymap_fragile_taken",
+            Self::AltGr => "keymap_fragile_altgr",
         }
     }
 }
@@ -121,7 +125,11 @@ pub fn fragility(seq: &KeySeq) -> Option<Fragility> {
 fn input_fragility(input: &KeyInput) -> Option<Fragility> {
     let mods = input.mods();
     let ctrl = mods.contains(Mods::CTRL);
+    let alt = mods.contains(Mods::ALT);
     match input.key() {
+        Key::Char(c) if ctrl && alt && (c.is_ascii_digit() || matches!(c, 'e' | 'q' | 'm')) => {
+            Some(Fragility::AltGr)
+        }
         Key::Char(c) if ctrl && matches!(c, 'i' | 'm' | 'h' | '[') => {
             Some(Fragility::AliasesLegacyKey)
         }
@@ -185,6 +193,9 @@ mod tests {
             fragility(&seq("g Ctrl+m")),
             Some(Fragility::AliasesLegacyKey)
         );
+        assert_eq!(fragility(&seq("Ctrl+Alt+2")), Some(Fragility::AltGr));
+        assert_eq!(fragility(&seq("Ctrl+Alt+e")), Some(Fragility::AltGr));
+        assert_eq!(fragility(&seq("Ctrl+Alt+t")), None);
         for robust in [
             "Ctrl+k",
             "F5",

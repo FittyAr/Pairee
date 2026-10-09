@@ -5,22 +5,29 @@
 use std::path::{Path, PathBuf};
 
 const NORTON: &str = include_str!("../../keymaps/norton.toml");
+const STANDARD: &str = include_str!("../../keymaps/standard.toml");
 const NEOVIM: &str = include_str!("../../keymaps/neovim.toml");
-const VSCODE: &str = include_str!("../../keymaps/vscode.toml");
+const YAZI: &str = include_str!("../../keymaps/yazi.toml");
 const BASE: &str = include_str!("../../keymaps/base.toml");
+const VI: &str = include_str!("../../keymaps/vi.toml");
 
 /// Built-in presets with their shipped TOML, in display order.
-pub const PRESETS: &[(&str, &str)] = &[("norton", NORTON), ("neovim", NEOVIM), ("vscode", VSCODE)];
+pub const PRESETS: &[(&str, &str)] = &[
+    ("norton", NORTON),
+    ("standard", STANDARD),
+    ("neovim", NEOVIM),
+    ("yazi", YAZI),
+];
 
 /// Shipped presets that only exist to be extended (not selectable, not seeded).
-const HIDDEN: &[(&str, &str)] = &[("base", BASE)];
+const HIDDEN: &[(&str, &str)] = &[("base", BASE), ("vi", VI)];
 
-/// Canonical name of a preset: lower case, with the legacy aliases
-/// (`vim`, `modern`) mapped to the built-in they stand for.
+/// Canonical name of a preset: lower case, with the legacy names (`vim`,
+/// `vscode`, `modern`) mapped to the built-in they stand for.
 pub fn normalize_preset_name(preset: &str) -> String {
     match preset.to_lowercase().as_str() {
-        "vim" => "neovim".into(),
-        "modern" => "vscode".into(),
+        "vim" | "nvim" => "neovim".into(),
+        "vscode" | "modern" => "standard".into(),
         other => other.to_string(),
     }
 }
@@ -48,7 +55,9 @@ mod tests {
     #[test]
     fn aliases_resolve_to_builtins() {
         assert_eq!(preset_toml("vim"), Some(NEOVIM));
-        assert_eq!(preset_toml("Modern"), Some(VSCODE));
+        assert_eq!(preset_toml("Modern"), Some(STANDARD));
+        assert_eq!(preset_toml("vscode"), Some(STANDARD));
+        assert_eq!(preset_toml("vi"), Some(VI));
         assert_eq!(preset_toml("norton"), Some(NORTON));
         assert_eq!(preset_toml("my-custom"), None);
     }

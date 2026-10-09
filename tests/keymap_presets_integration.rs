@@ -45,18 +45,38 @@ fn base_is_the_root_layer() {
     }
 }
 
+/// `(preset, parent)`: Far and standard build on base; the Vim presets on
+/// the shared `vi` layer, which builds on Far.
+const TREE: [(&str, &str); 5] = [
+    ("norton", "base"),
+    ("standard", "base"),
+    ("vi", "norton"),
+    ("neovim", "vi"),
+    ("yazi", "vi"),
+];
+
 #[test]
-fn selectable_presets_extend_base_and_only_list_differences() {
-    let base = load_preset("base");
-    for name in ["norton", "neovim", "vscode"] {
+fn presets_extend_their_parent_and_only_list_differences() {
+    for (name, parent) in TREE {
         let preset = load_preset(name);
-        assert_eq!(preset.extends.as_deref(), Some("base"), "{name}");
-        let repeated: Vec<&String> = preset
-            .panels
-            .iter()
-            .filter(|(action, keys)| base.panels.get(*action) == Some(keys))
-            .map(|(action, _)| action)
-            .collect();
-        assert!(repeated.is_empty(), "{name} repeats base: {repeated:?}");
+        assert_eq!(preset.extends.as_deref(), Some(parent), "{name}");
+        let parent = load_preset(parent);
+        let tables = [
+            (&preset.panels, &parent.panels),
+            (&preset.editor, &parent.editor),
+            (&preset.viewer, &parent.viewer),
+            (&preset.list, &parent.list),
+        ];
+        for (own, inherited) in tables {
+            let repeated: Vec<&String> = own
+                .iter()
+                .filter(|(action, keys)| inherited.get(*action) == Some(keys))
+                .map(|(action, _)| action)
+                .collect();
+            assert!(
+                repeated.is_empty(),
+                "{name} repeats its parent: {repeated:?}"
+            );
+        }
     }
 }

@@ -4,7 +4,7 @@ use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
-use crate::ui::popup::onboarding::PRESET_IDS;
+use crate::ui::popup::onboarding::preset_ids;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(
@@ -21,12 +21,13 @@ pub fn handle(
         KeyCode::BackTab => KeyCode::Up,
         other => other,
     };
-    let choice = match list_key(ListKeys::ARROWS, code, cursor_idx, PRESET_IDS.len()) {
+    let ids = preset_ids();
+    let choice = match list_key(ListKeys::ARROWS, code, cursor_idx, ids.len()) {
         ListKey::Moved => {
             state.mark_ui_dirty();
             return Ok(None);
         }
-        ListKey::Activate(idx) => Some(PRESET_IDS[idx.min(PRESET_IDS.len() - 1)]),
+        ListKey::Activate(idx) => Some(ids[idx.min(ids.len() - 1)]),
         ListKey::Close => None,
         ListKey::Other => return Ok(None),
     };
@@ -79,8 +80,9 @@ mod tests {
             Some(PopupType::OnboardingKeymap { cursor_idx }) => assert_eq!(*cursor_idx, 1),
             _ => panic!("expected onboarding"),
         }
-        handle(&mut state, make_key(KeyCode::Down), &mut context).unwrap();
-        handle(&mut state, make_key(KeyCode::Down), &mut context).unwrap();
+        for _ in 1..preset_ids().len() {
+            handle(&mut state, make_key(KeyCode::Down), &mut context).unwrap();
+        }
         match state.dialogs.top() {
             Some(PopupType::OnboardingKeymap { cursor_idx }) => assert_eq!(*cursor_idx, 0),
             _ => panic!("expected onboarding"),

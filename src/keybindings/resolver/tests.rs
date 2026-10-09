@@ -24,8 +24,11 @@ fn test_resolver_norton_standard() {
     let key_up = KeyEvent::new(KeyCode::Up, KeyModifiers::empty());
     assert_eq!(resolver.resolve(key_up), Some(Action::MoveUp));
 
+    // Norton Commander: F7 makes a folder, Shift+F6 renames.
     let key_f7 = KeyEvent::new(KeyCode::F(7), KeyModifiers::empty());
-    assert_eq!(resolver.resolve(key_f7), Some(Action::Rename));
+    assert_eq!(resolver.resolve(key_f7), Some(Action::MkDir));
+    let key_shift_f6 = KeyEvent::new(KeyCode::F(6), KeyModifiers::SHIFT);
+    assert_eq!(resolver.resolve(key_shift_f6), Some(Action::Rename));
 
     let key_f8 = KeyEvent::new(KeyCode::F(8), KeyModifiers::empty());
     assert_eq!(resolver.resolve(key_f8), Some(Action::Delete));
@@ -45,10 +48,11 @@ fn test_resolver_new_actions() {
     let key_ctrl_w = KeyEvent::new(KeyCode::Char('w'), KeyModifiers::CONTROL);
     assert_eq!(resolver.resolve(key_ctrl_w), Some(Action::TaskList));
 
+    // Far: Ctrl+P hides the passive panel.
     let key_ctrl_p = KeyEvent::new(KeyCode::Char('p'), KeyModifiers::CONTROL);
     assert_eq!(
         resolver.resolve(key_ctrl_p),
-        Some(Action::CycleFKeysModifiers)
+        Some(Action::ToggleInactivePanel)
     );
 }
 
@@ -128,59 +132,32 @@ fn prefix_completions_list_remaining_suffixes() {
     assert!(resolver.prefix_completions().is_empty());
 }
 
-/// Tab chords every built-in preset binds, as key events.
-fn tab_keys() -> Vec<(KeyEvent, Action)> {
-    let alt = KeyModifiers::ALT;
-    let mut keys = vec![
-        (KeyEvent::new(KeyCode::Char('t'), alt), Action::NewTab),
-        (KeyEvent::new(KeyCode::Char('w'), alt), Action::CloseTab),
-        (KeyEvent::new(KeyCode::PageDown, alt), Action::NextTab),
-        (KeyEvent::new(KeyCode::Right, alt), Action::NextTab),
-        (KeyEvent::new(KeyCode::PageUp, alt), Action::PrevTab),
-        (KeyEvent::new(KeyCode::Left, alt), Action::PrevTab),
-        (
-            KeyEvent::new(KeyCode::PageUp, alt | KeyModifiers::SHIFT),
-            Action::MoveTabLeft,
-        ),
-        (
-            KeyEvent::new(KeyCode::PageDown, alt | KeyModifiers::SHIFT),
-            Action::MoveTabRight,
-        ),
-        (KeyEvent::new(KeyCode::Char('o'), alt), Action::OpenInNewTab),
-        (
-            KeyEvent::new(KeyCode::Enter, KeyModifiers::CONTROL),
-            Action::OpenInNewTab,
-        ),
-    ];
-    for n in 1..=9u8 {
-        let digit = char::from(b'0' + n);
-        keys.push((KeyEvent::new(KeyCode::Char(digit), alt), Action::GoToTab(n)));
-    }
-    keys
-}
-
 #[test]
-fn every_preset_binds_the_tab_actions_without_conflicts() {
-    for preset in ["norton", "neovim", "vscode"] {
+fn every_preset_reaches_tabs_folder_sizes_and_disk_usage() {
+    use crate::keybindings::embedded::PRESETS;
+    let mut wanted = vec![
+        Action::NewTab,
+        Action::CloseTab,
+        Action::NextTab,
+        Action::PrevTab,
+        Action::MoveTabLeft,
+        Action::MoveTabRight,
+        Action::OpenInNewTab,
+        Action::CalculateFolderSizes,
+        Action::DiskUsage,
+    ];
+    wanted.extend((1..=9).map(Action::GoToTab));
+    for (preset, _) in PRESETS {
         let mut config = AppConfig::default();
-        config.keybindings.preset = preset.into();
-        let mut resolver = KeybindingResolver::new(&config);
-        // Every tab action id contains `_tab`; none may be rejected.
-        let errors = &resolver.load_report().errors;
-        assert!(
-            !errors.iter().any(|e| e.contains("_tab")),
-            "{preset}: {errors:?}"
-        );
-        for (key, action) in tab_keys() {
-            assert_eq!(resolver.resolve(key), Some(action), "{preset}: {key:?}");
+        config.keybindings.preset = (*preset).into();
+        let resolver = KeybindingResolver::new(&config);
+        assert!(resolver.load_report().ok(), "{preset}");
+        for action in &wanted {
+            assert!(
+                resolver.key_for_action(*action).is_some(),
+                "{preset}: {action:?} has no key"
+            );
         }
-        let ctrl_t = KeyEvent::new(KeyCode::Char('t'), KeyModifiers::CONTROL);
-        let expected = if preset == "norton" {
-            Action::ToggleTransferPanel
-        } else {
-            Action::NewTab
-        };
-        assert_eq!(resolver.resolve(ctrl_t), Some(expected), "{preset}: Ctrl+T");
     }
 }
 
@@ -193,34 +170,6 @@ fn tab_action_names_parse() {
         parse_action_name("toggle_tab_lock"),
         Some(Action::ToggleTabLock)
     );
-}
-
-#[test]
-fn every_preset_binds_folder_sizes_and_disk_usage_on_free_keys() {
-    let alt = KeyModifiers::ALT;
-    let keys = [
-        (KeyCode::Char('s'), Action::CalculateFolderSizes),
-        (KeyCode::Char('d'), Action::DiskUsage),
-    ];
-    for preset in ["norton", "neovim", "vscode"] {
-        let mut config = AppConfig::default();
-        config.keybindings.preset = preset.into();
-        let mut resolver = KeybindingResolver::new(&config);
-        // A chord bound twice is rejected with a "Duplicate key chord" error.
-        let errors = &resolver.load_report().errors;
-        assert!(
-            !errors
-                .iter()
-                .any(|e| ["'Alt+s'", "'Alt+d'", "folder_sizes", "disk_usage"]
-                    .iter()
-                    .any(|needle| e.contains(needle))),
-            "{preset}: {errors:?}"
-        );
-        for (code, action) in keys {
-            let key = KeyEvent::new(code, alt);
-            assert_eq!(resolver.resolve(key), Some(action), "{preset}: {key:?}");
-        }
-    }
 }
 
 #[test]

@@ -132,7 +132,15 @@ pub mod test_root {
     /// in tests; an `Option` so the callers fall through in other builds).
     pub fn current() -> Option<PathBuf> {
         let redirected = ROOT.with(|root| root.borrow().clone());
-        Some(redirected.unwrap_or_else(|| std::env::temp_dir().join("pairee-unit-tests")))
+        Some(redirected.unwrap_or_else(shared_root))
+    }
+
+    /// One scratch root per test process, so files a previous run (or an
+    /// older build) left behind never change what a test sees.
+    fn shared_root() -> PathBuf {
+        std::env::temp_dir()
+            .join("pairee-unit-tests")
+            .join(std::process::id().to_string())
     }
 
     /// Restores the previous root of this thread when dropped.

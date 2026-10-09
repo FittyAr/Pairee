@@ -12,7 +12,8 @@ pub type OverrideTable = BTreeMap<String, String>;
 /// ## Preset files
 /// Each preset is a TOML file in the `keymaps/` subdirectory of the Pairee
 /// config folder (e.g. `%APPDATA%\pairee\config\keymaps\` on Windows).
-/// Built-in presets: `"norton"` (default), `"neovim"`, `"vscode"`.
+/// Built-in presets: `"norton"` (default), `"standard"`, `"neovim"`, `"yazi"`
+/// (`"vscode"` is the old name of `"standard"`).
 ///
 /// ## Custom presets
 /// Create `keymaps/<name>.toml` and set `preset = "<name>"`. A preset can
@@ -67,6 +68,7 @@ impl KeybindingsConfig {
     /// `overrides.all` (an existing `all` entry for the same action wins).
     pub fn from_toml(src: &str) -> Result<Self, toml::de::Error> {
         let mut cfg: Self = toml::from_str(src)?;
+        cfg.preset = crate::keybindings::embedded::normalize_preset_name(&cfg.preset);
         let legacy = std::mem::take(&mut cfg.custom_bindings);
         if !legacy.is_empty() {
             let all = cfg.overrides.entry(ALL_PRESETS.to_string()).or_default();

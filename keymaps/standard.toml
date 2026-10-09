@@ -1,0 +1,97 @@
+# Pairee keymap: Standard (Windows Explorer, VS Code, Total Commander)
+#
+# The keys most desktop programs share: Ctrl+C / X / V copy, cut and paste
+# files, Delete sends to the recycle bin, F2 renames, Ctrl+Z undoes, Ctrl+T /
+# Ctrl+W / Ctrl+Tab handle tabs, Alt+← / → go back and forward. Typing a name
+# jumps to the matching file, as in Explorer. The F-key row of dual-panel
+# managers (F3 view … F8 delete) comes from the base layer, as in Total
+# Commander.
+#
+# Chords marked fragile in Settings → Interface (Ctrl+Shift+<letter>,
+# Ctrl+Tab) need a terminal with the kitty keyboard protocol; each such
+# action also has a key every terminal sends.
+
+extends = "base"
+
+[options]
+typing = "type_ahead"
+
+[panels]
+
+# ── Navigation ────────────────────────────────────────────────────────────────
+go_parent       = "Backspace, Alt+Up"
+history_back    = "Alt+Left"
+history_forward = "Alt+Right"
+folders_history = "Alt+Down"
+
+# ── Selection ─────────────────────────────────────────────────────────────────
+select_item      = "Space, Ctrl+Space, Insert"
+select_all       = "Ctrl+a"
+invert_selection = "Ctrl+Alt+i, Gray*"
+
+# ── Files ─────────────────────────────────────────────────────────────────────
+edit                = "F4, Ctrl+e"
+rename              = "F2"
+multi_rename_tool   = "Ctrl+M"
+mkdir               = "F7, Ctrl+N"
+new_file            = "Ctrl+n"
+trash               = "Delete"
+delete_permanent    = "Shift+Delete"
+file_attributes     = "Alt+Enter"
+create_link         = "Ctrl+Alt+l"
+undo_file_operation = "Ctrl+z"
+redo_file_operation = "Ctrl+y, Ctrl+Z"
+calculate_folder_sizes = "Alt+s"
+disk_usage          = "Alt+d"
+
+# ── Clipboard ─────────────────────────────────────────────────────────────────
+yank      = "Ctrl+c"
+cut       = "Ctrl+x"
+paste     = "Ctrl+v"
+copy_path = "Ctrl+C, Alt+C"
+
+# ── Search ────────────────────────────────────────────────────────────────────
+# F3 stays "view" (Total Commander); find next is Ctrl+G as in browsers.
+find_in_panel = "Ctrl+f"
+find_next     = "Ctrl+g"
+find_prev     = "Ctrl+G"
+find_file     = "Ctrl+F, Ctrl+Alt+f"
+
+# ── View ──────────────────────────────────────────────────────────────────────
+toggle_hidden    = "Ctrl+h, Ctrl+."
+refresh          = "Ctrl+r"
+cycle_panel_view = "Ctrl+Alt+v"
+cycle_sort       = "Ctrl+Alt+s"
+sort_modes       = ""
+
+# ── Panels ────────────────────────────────────────────────────────────────────
+quick_view         = "Alt+p"
+toggle_both_panels = "Ctrl+b"
+swap_panels        = "Ctrl+u"
+
+# ── Tabs & screens ────────────────────────────────────────────────────────────
+new_tab        = "Ctrl+t"
+close_tab      = "Ctrl+w"
+next_tab       = "Ctrl+Tab, Ctrl+PageDown"
+prev_tab       = "Ctrl+Shift+Tab, Ctrl+PageUp"
+open_in_new_tab = "Ctrl+Enter, Alt+o"
+move_tab_left  = "Ctrl+Shift+PageUp"
+move_tab_right = "Ctrl+Shift+PageDown"
+next_screen    = "Ctrl+F12"
+prev_screen    = "Ctrl+Shift+F12"
+
+# ── Git, SSH, tools ───────────────────────────────────────────────────────────
+open_git_panel = "Alt+g"
+ssh_connect    = "Ctrl+Alt+r"
+task_list      = "Ctrl+Alt+t"
+focus_cli      = "Ctrl+`"
+
+# ── System ────────────────────────────────────────────────────────────────────
+# VS Code's Ctrl+K Ctrl+S lists the shortcuts.
+menu            = "F10"
+quit            = "Ctrl+q"
+system_settings = "Ctrl+Comma"
+which_key       = "Ctrl+k Ctrl+s, Ctrl+K"
+
+[viewer]
+search = "Ctrl+f, F7"

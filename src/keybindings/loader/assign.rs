@@ -10,7 +10,7 @@ use super::report::KeymapLoadReport;
 use crate::keybindings::chord::normalize_chord;
 use crate::keybindings::preset::parse_id;
 use crate::keybindings::registry::Bindable;
-use keybinds::{KeySeq, Keybind, Keybinds};
+use keybinds::{KeySeq, Keybind, Keybinds, Match};
 use std::collections::{HashMap, HashSet};
 
 /// One live binding.
@@ -98,7 +98,8 @@ impl<B: Bindable> Assignments<B> {
     /// getting the actions added since it was written.
     pub fn fill_missing_from(&mut self, defaults: &Assignments<B>) {
         for row in &defaults.rows {
-            if !self.mentioned.contains(&row.command) && !self.rows.iter().any(|r| r.seq == row.seq)
+            if !self.mentioned.contains(&row.command)
+                && !self.rows.iter().any(|r| overlaps(&r.seq, &row.seq))
             {
                 self.rows.push(row.clone());
             }
@@ -116,6 +117,12 @@ impl<B: Bindable> Assignments<B> {
             .collect();
         (Keybinds::new(binds), self.rows)
     }
+}
+
+/// Equal chords, or one the start of the other (a default `g h` would be
+/// hidden by an older copy's single `g`).
+fn overlaps(a: &KeySeq, b: &KeySeq) -> bool {
+    a == b || a.match_to(b.as_slice()) == Match::Prefix || b.match_to(a.as_slice()) == Match::Prefix
 }
 
 /// Parses the ids of `layer`, merging legacy aliases of one command.

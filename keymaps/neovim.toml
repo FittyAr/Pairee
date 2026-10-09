@@ -1,73 +1,113 @@
-# Pairee Keybinding Preset: Neovim
+# Pairee keymap: Neovim
 #
-# This file defines the key-to-action mapping for Neovim-style navigation.
-# Inspired by Oil.nvim, NvimTree, and standard Neovim motion conventions.
+# Vim motions plus the conventions of Vim file managers: vifm (yy / dd / cw,
+# Ctrl+W for the panes), oil.nvim and vim-vinegar (`-` goes up), nvim-tree
+# (`a` creates, `g?` lists the keys) and LazyVim's Space leader (<leader>ff
+# finds files, <leader>gg opens Git). Unbound letters do nothing; `:` opens
+# the command palette and `!` the shell command line. Every Norton Commander
+# F-key still works.
 #
-# Navigation uses h/j/k/l, with gg/G for top/bottom and Ctrl+d/u for half-pages.
-# All F-key fallbacks are preserved so Norton Commander users switching presets
-# can still reach every action via function keys.
-#
-# Keys are specified as human-readable strings:
-#   "k", "Ctrl+d", "Alt+F7", "Shift+F9"
+# The built-in editor is not modal: it keeps the standard editing keys.
 
-extends = "base"
+extends = "vi"
+
+[options]
+leader = "Space"
 
 [panels]
 
 # ── Navigation ────────────────────────────────────────────────────────────────
-move_up            = "k, Up"
-move_down          = "j, Down"
-page_up            = "Ctrl+u, PageUp"
-page_down          = "Ctrl+d, PageDown"
-go_to_top          = "g, Home"
-go_to_bottom       = "G, End"
-execute            = "l, Enter"
-go_parent          = "h, Backspace, Ctrl+PageUp"
-tree_view          = "Alt+F10"
+execute         = "l, Enter"
+go_parent       = "h, -, Backspace, Ctrl+PageUp"
+history_back    = "Ctrl+o"
+history_forward = "Ctrl+i"
 
-# ── Selection ─────────────────────────────────────────────────────────────────
-select_item        = "v, Insert, Space"
+# ── Panes (Vim windows) ───────────────────────────────────────────────────────
+change_panel       = "Tab, Ctrl+w w"
+focus_left_panel   = "Ctrl+w h"
+focus_right_panel  = "Ctrl+w l"
+swap_panels        = "Ctrl+w x"
+toggle_both_panels = "Ctrl+w o"
+
+# ── Selection (vifm tags with `t`; Space is the leader) ──────────────────────
+select_item      = "t, Insert"
+select_all       = "<leader>a, Shift+Plus"
+unselect_all     = "<leader>A"
+invert_selection = "<leader>i, Gray*"
+select_group     = "<leader> Plus, Gray+"
+unselect_group   = "<leader>-"
+
+# ── Clipboard: yank / put; `x` cuts like Vim's x ─────────────────────────────
+yank            = "y y"
+cut             = "x"
+paste           = "p"
+paste_overwrite = "P"
+clear_clipboard = "<leader>y"
+copy_path       = "y p, Alt+Shift+Insert"
+copy_name       = "y n, Ctrl+Insert"
 
 # ── Files ─────────────────────────────────────────────────────────────────────
-view               = "o, F3"
-view_alt           = "Alt+F3"
-edit               = "e, F4"
-copy               = "y, F5"
-move               = "m, F6"
-rename             = "r, F7"
-mkdir              = "Ctrl+N"
-delete             = "d, F8"
-wipe_file          = "Alt+Delete"
-create_link        = "Alt+F6"
-print_file         = "Alt+F5"
+trash               = "d d"
+delete_permanent    = "D D, Shift+Delete"
+rename              = "c w, Shift+F6"
+rename_basename     = "c W"
+multi_rename_tool   = "<leader>r, Ctrl+Shift+F6"
+create              = "a"
+view                = "o, F3"
+edit                = "e, F4"
+context_menu        = "g x, Menu, Shift+F10, Ctrl+Alt+m"
+file_attributes     = "<leader>., Ctrl+a"
+undo_file_operation = "u, Alt+Backspace"
+redo_file_operation = "Ctrl+r, Alt+Shift+Backspace"
+compress_files      = "<leader>z, Shift+F1"
+extract_archive     = "<leader>x, Shift+F2"
 
-# ── Archives ──────────────────────────────────────────────────────────────────
-compress_files     = "Shift+F1"
-extract_archive    = "Shift+F2"
+# ── Search ────────────────────────────────────────────────────────────────────
+find_file         = "<leader>ff, Alt+F7"
+folders_history   = "<leader>fr, Alt+F12"
+quick_filter      = "<leader>/, Ctrl+Alt+f"
+file_panel_filter = "<leader>F"
 
-# ── Search & history ──────────────────────────────────────────────────────────
-find_file          = "/, Alt+F7"
-command_history    = "Alt+F8"
+# ── View (oil.nvim g. / vifm za for hidden files; K shows details) ───────────
+toggle_hidden           = "g ., z a, Ctrl+h"
+refresh                 = "Ctrl+l"
+info_panel              = "K"
+quick_view              = "g p, Ctrl+q"
+panel_view_brief        = "<leader>v1, Ctrl+1"
+panel_view_medium       = "<leader>v2, Ctrl+2"
+panel_view_full         = "<leader>v3, Ctrl+3"
+panel_view_wide         = "<leader>v4, Ctrl+4"
+panel_view_detailed     = "<leader>v5, Ctrl+5"
+panel_view_descriptions = "<leader>v6, Ctrl+6"
+panel_view_file_owners  = "<leader>v7, Ctrl+7"
+panel_view_file_links   = "<leader>v8, Ctrl+8"
+panel_view_alt_full     = "<leader>v9, Ctrl+9"
 
-# ── View ──────────────────────────────────────────────────────────────────────
-toggle_hidden      = "Ctrl+h"
-toggle_long_names  = "Ctrl+n"
-refresh            = "Ctrl+r"
-video_mode         = "Alt+F9"
+# ── Sort: g s + name / extension / modified / size / created / reverse ───────
+sort_by_name          = "g s n, Ctrl+F3"
+sort_by_extension     = "g s e, Ctrl+F4"
+sort_by_write_time    = "g s m, Ctrl+F5"
+sort_by_size          = "g s s, Ctrl+F6"
+sort_by_creation_time = "g s c, Ctrl+F8"
+toggle_sort_reverse   = "g s r"
 
-# ── Panels ────────────────────────────────────────────────────────────────────
-swap_panels        = "Ctrl+s"
-toggle_both_panels = "Ctrl+o"
-quick_view         = "Ctrl+q"
+# ── Tabs (Vim gt / gT) ────────────────────────────────────────────────────────
+new_tab        = "<leader>tn, Ctrl+Alt+t"
+close_tab      = "<leader>tc, Ctrl+Alt+w"
+next_tab       = "g t, Alt+PageDown, Alt+Right"
+prev_tab       = "g T, Alt+PageUp, Alt+Left"
+move_tab_left  = "<leader>t<, Alt+Shift+PageUp"
+move_tab_right = "<leader>t>, Alt+Shift+PageDown"
 
-# ── Tabs & screens ────────────────────────────────────────────────────────────
-new_tab            = "Ctrl+t, Alt+t"
-
-# ── Tools ─────────────────────────────────────────────────────────────────────
-user_menu          = "F2"
-focus_cli          = ":"
+# ── Git, SSH, tools ───────────────────────────────────────────────────────────
+open_git_panel = "<leader>gg, Ctrl+Alt+g"
+ssh_connect    = "<leader>ss, Ctrl+Alt+r"
+task_list      = "<leader>w"
+user_menu      = "<leader>u, F2"
 
 # ── System ────────────────────────────────────────────────────────────────────
-context_menu       = "Menu, Alt+m"
-save_setup         = "Shift+F9"
-quit               = "Ctrl+c, F10"
+command_palette = ":, Ctrl+P, Ctrl+Alt+p"
+focus_cli       = "!"
+which_key       = "g ?, <leader>?, Ctrl+K"
+system_settings = "<leader> Comma"
+quit            = "Z Z, <leader>qq, F10"

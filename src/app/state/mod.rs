@@ -52,6 +52,8 @@ pub struct AppState {
     /// The command line was opened explicitly (`focus_cli`) and takes every
     /// printable key, even while empty.
     pub cli_focused: bool,
+    /// Command-history entry shown on the command line (`cli_history_*`).
+    pub cli_history_pos: Option<usize>,
     /// Letters typed for type-ahead find.
     pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
     /// Items yanked / cut for a later paste.
@@ -158,6 +160,7 @@ impl AppState {
             update: UpdateState::default(),
             cli_input: String::new(),
             cli_focused: false,
+            cli_history_pos: None,
             type_ahead: Default::default(),
             file_clipboard: None,
             last_panel_search: None,

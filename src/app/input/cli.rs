@@ -97,6 +97,7 @@ fn edit_cli(
         }
         KeyCode::Enter => {
             state.cli_focused = false;
+            state.cli_history_pos = None;
             let cmd = state.cli_input.trim().to_string();
             state.cli_input.clear();
             if !cmd.is_empty() {
@@ -108,6 +109,7 @@ fn edit_cli(
         }
         KeyCode::Esc => {
             state.cli_focused = false;
+            state.cli_history_pos = None;
             state.cli_input.clear();
             Ok(())
         }

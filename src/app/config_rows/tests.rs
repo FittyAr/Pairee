@@ -120,5 +120,5 @@ fn keymap_cycle_edits_the_draft_preset() {
     let mut s = draft();
     assert_eq!(s.keymap_preset, "norton");
     activate(2, "int_keybindings", &mut s);
-    assert_eq!(s.keymap_preset, "neovim");
+    assert_eq!(s.keymap_preset, "standard");
 }
