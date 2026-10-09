@@ -130,37 +130,6 @@ fn legacy_preset(config_toml: &str) -> Option<String> {
     Some(table.get("keybinding_preset")?.as_str()?.to_owned())
 }
 
-/// Seeds the `keymaps/` folder with the built-in presets and refreshes
-/// copies written by versions with the old F7/F11 layout.
-pub(super) fn seed_preset_keymaps() -> Result<()> {
-    let keymaps_dir = paths::get_keymaps_dir();
-    if !keymaps_dir.exists() {
-        fs::create_dir_all(&keymaps_dir).context("Failed to create keymaps directory")?;
-    }
-    for (preset_name, toml_content) in crate::keybindings::embedded::PRESETS {
-        let preset_path = keymaps_dir.join(format!("{}.toml", preset_name));
-        if !preset_path.exists() {
-            fs::write(&preset_path, toml_content).with_context(|| {
-                format!("Failed to write default keymap file: {}.toml", preset_name)
-            })?;
-        } else if let Ok(existing) = fs::read_to_string(&preset_path)
-            && has_outdated_layout(&existing)
-            && let Err(e) = fs::write(&preset_path, toml_content)
-        {
-            log::warn!("Failed to refresh preset keymap {:?}: {}", preset_path, e);
-        }
-    }
-    Ok(())
-}
-
-/// A preset written before rename moved to F7 and the plugin menu left F11.
-fn has_outdated_layout(existing: &str) -> bool {
-    (!existing.contains("rename = \"F7\"") && !existing.contains("rename_fkey = \"F7\""))
-        || existing.contains("mkdir = \"F7\"")
-        || existing.contains("mkdir_fkey = \"F7\"")
-        || existing.contains("plugin_menu = \"F11\"")
-}
-
 /// Reads `themes/<name>.toml`, falling back to the built-in theme of that name.
 pub(super) fn load_theme(theme_name: &str) -> Result<Theme> {
     let builtin = || {

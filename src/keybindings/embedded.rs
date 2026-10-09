@@ -2,6 +2,8 @@
 //! `keymaps/*.toml`, used both to seed the user's `keymaps/` folder and as
 //! the last fallback of the loader.
 
+use std::path::{Path, PathBuf};
+
 const NORTON: &str = include_str!("../../keymaps/norton.toml");
 const NEOVIM: &str = include_str!("../../keymaps/neovim.toml");
 const VSCODE: &str = include_str!("../../keymaps/vscode.toml");
@@ -26,6 +28,12 @@ pub fn preset_toml(preset: &str) -> Option<&'static str> {
         .iter()
         .find(|(builtin, _)| *builtin == name)
         .map(|(_, toml)| *toml)
+}
+
+/// Where the seeder offers a newer shipped `name` preset when the user's
+/// `keymaps/<name>.toml` differs from it.
+pub fn pending_update_path(keymaps_dir: &Path, name: &str) -> PathBuf {
+    keymaps_dir.join(format!("{name}.toml.new"))
 }
 
 /// Shipped TOML of the default preset (norton).

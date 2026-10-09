@@ -2,6 +2,7 @@ pub mod associations;
 pub mod bookmarks;
 pub mod history;
 pub mod keybindings;
+mod keymap_seed;
 pub mod load_guard;
 pub mod localization;
 pub mod paths;
@@ -57,7 +58,7 @@ impl AppConfig {
 
         // 2. Keybindings Loading, 2b. preset keymap files
         let keybindings = loading::load_keybindings(&settings_path)?;
-        loading::seed_preset_keymaps()?;
+        keymap_seed::seed_preset_keymaps(&paths::get_keymaps_dir())?;
 
         // 3. Theme Loading
         let theme = loading::load_theme(&settings.theme)?;

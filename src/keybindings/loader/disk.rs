@@ -1,20 +1,14 @@
 use super::report::KeymapLoadReport;
 use crate::config::paths;
 use crate::keybindings::embedded::{self, normalize_preset_name};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 pub fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<String> {
     let name = normalize_preset_name(preset);
 
     // 1) User config dir
-    let path = paths::get_keymaps_dir().join(format!("{name}.toml"));
-    if path.exists() {
-        match std::fs::read_to_string(&path) {
-            Ok(s) => return Some(s),
-            Err(e) => report
-                .warnings
-                .push(format!("Could not read '{}': {e}", path.display())),
-        }
+    if let Some(user) = read_user_preset(&paths::get_keymaps_dir(), &name, report) {
+        return Some(user);
     }
 
     // 2) CWD / shipped keymaps next to binary
@@ -34,6 +28,36 @@ pub fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<S
         embedded::default_preset_toml()
     });
     Some(embedded.to_string())
+}
+
+/// `keymaps_dir/<name>.toml` when present, warning when the seeder left a
+/// newer shipped version next to it.
+fn read_user_preset(
+    keymaps_dir: &Path,
+    name: &str,
+    report: &mut KeymapLoadReport,
+) -> Option<String> {
+    let path = keymaps_dir.join(format!("{name}.toml"));
+    if !path.exists() {
+        return None;
+    }
+    let pending = embedded::pending_update_path(keymaps_dir, name);
+    if pending.exists() {
+        report.warnings.push(format!(
+            "'{}' differs from the shipped preset and was kept; the new version is in '{}'",
+            path.display(),
+            pending.display()
+        ));
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(s) => Some(s),
+        Err(e) => {
+            report
+                .warnings
+                .push(format!("Could not read '{}': {e}", path.display()));
+            None
+        }
+    }
 }
 
 fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
@@ -104,4 +128,27 @@ fn shift_letter_to_uppercase(chord: &str) -> Option<String> {
         .collect();
     out.push(letter.to_uppercase().collect());
     Some(out.join("+"))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn user_preset_warns_about_a_pending_shipped_update() {
+        let dir = tempfile::tempdir().unwrap();
+        let mut report = KeymapLoadReport::default();
+        assert_eq!(read_user_preset(dir.path(), "norton", &mut report), None);
+        std::fs::write(
+            dir.path().join("norton.toml"),
+            "[bindings]
+",
+        )
+        .unwrap();
+        assert!(read_user_preset(dir.path(), "norton", &mut report).is_some());
+        assert!(report.warnings.is_empty());
+        std::fs::write(embedded::pending_update_path(dir.path(), "norton"), "").unwrap();
+        read_user_preset(dir.path(), "norton", &mut report);
+        assert!(report.warnings[0].contains("norton.toml.new"));
+    }
 }
