@@ -35,7 +35,14 @@ Our custom build script `build.rs` automatically captures target compilation, gi
 
 ### Formatting & Lints
 
-Before submitting code, you must ensure that formatting and lints pass:
+Install the git hook once so every `git push` runs the fast checks (rustfmt,
+[typos](https://github.com/crate-ci/typos), translation key parity) first:
+
+```sh
+cargo xtask install-hooks
+```
+
+Run them by hand with `cargo xtask lint`. Before submitting code, you must ensure that formatting and lints pass:
 
 1. **Format Code**: Check and write formatting.
    ```sh
@@ -43,7 +50,7 @@ Before submitting code, you must ensure that formatting and lints pass:
    ```
 2. **Clippy Lints**: Run clippy check.
    ```sh
-   cargo clippy --all-targets -- -D warnings
+   cargo clippy --workspace --all-targets -- -D warnings
    ```
 3. **Unit Tests**: Run tests.
    ```sh
@@ -69,3 +76,19 @@ Our code architecture values modularity and clean decoupling. All modifications 
 - Follow the template in `.github/pull_request_template.md`.
 - Include visual proof (screenshots or recordings) if you change the UI.
 - Update `docs/UNRELEASED.md` in the `[Unreleased]` section with a brief description of user-facing changes.
+
+## Releasing (maintainers)
+
+```sh
+cargo xtask release            # or option 10 of run.bat / run.sh
+```
+
+The task updates every dependency to its latest compatible version, runs the
+local gate (lint, clippy, tests), bumps the version (Cargo.toml, installer,
+WinGet manifests), moves `docs/UNRELEASED.md` into `docs/CHANGELOG.md`, then
+commits, tags and pushes. `cargo xtask help` lists its options.
+
+The tag starts the Release workflow: it re-runs every check, builds and
+smoke-tests all targets, and creates a signed **draft** release. Approve the
+`release` environment in the Actions run to publish it; WinGet is submitted
+right after.

@@ -1,5 +1,9 @@
 name: Release
 
+# Started by the tag that `cargo xtask release` pushes (or by hand from the
+# Actions tab). Flow:
+#   check + release notes -> build & smoke-test every target -> signed draft
+#   release -> approval of the `release` environment -> publish -> WinGet.
 on:
   push:
     tags:
@@ -16,9 +20,15 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
 
 jobs:
-  # Extract changelog section for the tagged version
+  # Nothing is built from a commit that fails the Check workflow.
+  check:
+    name: Check
+    uses: ./.github/workflows/check.yml
+    permissions:
+      contents: read
+
   release-notes:
-    name: Extract Release Notes
+    name: Release notes
     runs-on: ubuntu-latest
     outputs:
       body: ${{ steps.extract.outputs.body }}
@@ -26,25 +36,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Tag matches the Cargo.toml version
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: |
+          crate=$(cargo metadata --no-deps --format-version 1 |
+            jq -r '.packages[] | select(.name == "pairee") | .version')
+          if [ "v${crate}" != "${GITHUB_REF_NAME}" ]; then
+            echo "::error::Tag ${GITHUB_REF_NAME} does not match the Cargo.toml version ${crate}"
+            exit 1
+          fi
+
       - name: Extract changelog section
         id: extract
         shell: bash
         run: |
-          VERSION="${GITHUB_REF_NAME:-}"
-          if [[ -z "$VERSION" ]]; then
-            echo "body=No release notes available." >> "$GITHUB_OUTPUT"
-            exit 0
+          if ! BODY=$(cargo xtask changelog "${GITHUB_REF_NAME}"); then
+            echo "::warning::No changelog section for ${GITHUB_REF_NAME}"
+            BODY="See the [changelog](https://github.com/${GITHUB_REPOSITORY}/blob/master/docs/CHANGELOG.md)."
           fi
-
-          chmod +x scripts/extract_changelog.sh
-          BODY=$(scripts/extract_changelog.sh "$VERSION" 2>/dev/null || echo "")
-
-          if [[ -z "$BODY" ]]; then
-            COMPARE_URL="https://github.com/${{ github.repository }}/compare"
-            BODY="See the [full changelog]($COMPARE_URL) for changes in this release."
-          fi
-
-          # GitHub Actions multiline output
           {
             echo "body<<CHANGELOG_EOF"
             echo "$BODY"
@@ -54,28 +67,33 @@ jobs:
   build:
     name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
-    needs: release-notes
+    needs: [check, release-notes]
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - x86_64-unknown-linux-musl
-          - aarch64-unknown-linux-musl
-          - x86_64-pc-windows-msvc
-          - aarch64-pc-windows-msvc
         include:
+          # runnable: the runner executes this target, so the packaged
+          # binaries are run by the smoke test.
           - target: x86_64-unknown-linux-gnu
             os: ubuntu-latest
+            runnable: true
           - target: x86_64-unknown-linux-musl
             os: ubuntu-latest
-            use-musl: true
+            runnable: true
           - target: aarch64-unknown-linux-musl
             os: ubuntu-latest
+            cross: true
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+            runnable: true
           - target: aarch64-pc-windows-msvc
             os: windows-latest
+          - target: x86_64-apple-darwin
+            os: macos-15-intel
+            runnable: true
+          - target: aarch64-apple-darwin
+            os: macos-latest
+            runnable: true
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -85,11 +103,28 @@ jobs:
         with:
           targets: ${{ matrix.target }}
 
-      - name: Install musl-tools
-        if: matrix.use-musl
+      - name: Install Linux packaging tools
+        if: matrix.target == 'x86_64-unknown-linux-musl'
         run: |
           sudo apt-get update
-          sudo apt-get install -y musl-tools
+          sudo apt-get install -y musl-tools rpm
+
+      - name: Install macOS build deps
+        if: runner.os == 'macOS'
+        run: brew install pkg-config
+
+      # Latest releases, as prebuilt binaries (no compiling the tools).
+      - name: Install cross
+        if: matrix.cross
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cross
+
+      - name: Install cargo-deb and cargo-generate-rpm
+        if: matrix.target == 'x86_64-unknown-linux-musl'
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deb,cargo-generate-rpm
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
@@ -97,15 +132,13 @@ jobs:
           key: ${{ matrix.target }}
 
       - name: Build release binary
+        shell: bash
         run: |
-          if [ "${{ matrix.target }}" = "aarch64-unknown-linux-musl" ]; then
-            curl -LSfs https://github.com/cross-rs/cross/releases/download/v0.2.5/cross-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /usr/local/bin
+          if [ "${{ matrix.cross }}" = "true" ]; then
             cross build --release --target ${{ matrix.target }}
           else
-            cargo clean
             cargo build --release --target ${{ matrix.target }}
           fi
-        shell: bash
 
       - name: Package release assets
         shell: bash
@@ -123,7 +156,7 @@ jobs:
           # Copy resources
           cp -r lang help README.md LICENSE "$PKG_NAME/"
 
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+          if [ "${{ runner.os }}" = "Windows" ]; then
             cp "target/${{ matrix.target }}/release/pairee.exe" "$PKG_NAME/"
             powershell -Command "Compress-Archive -Path '$PKG_NAME' -DestinationPath '${PKG_NAME}.zip' -Force"
             mv "${PKG_NAME}.zip" dist/
@@ -169,19 +202,21 @@ jobs:
             mv "${PKG_NAME}.tar.gz" dist/
 
             if [ "${{ matrix.target }}" = "x86_64-unknown-linux-musl" ]; then
-              # Install cargo-deb and cargo-generate-rpm
-              cargo install cargo-deb
-              cargo install cargo-generate-rpm
-
-              # Build DEB
               cargo deb --target x86_64-unknown-linux-musl --no-build
               mv target/x86_64-unknown-linux-musl/debian/*.deb dist/
 
-              # Build RPM
               cargo generate-rpm --target x86_64-unknown-linux-musl
               mv target/x86_64-unknown-linux-musl/generate-rpm/*.rpm dist/
             fi
           fi
+
+      - name: Smoke-test packages
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          VERSION: ${{ github.ref_name }}
+          RUNNABLE: ${{ matrix.runnable || false }}
+        run: bash .github/scripts/verify-dist.sh
 
       - name: Generate SHA-256 checksums
         shell: bash
@@ -189,7 +224,11 @@ jobs:
           cd dist
           for f in *; do
             if [ -f "$f" ]; then
-              sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
+              if command -v sha256sum > /dev/null; then
+                sha256sum "$f" | awk '{print $1}' > "${f}.sha256"
+              else
+                shasum -a 256 "$f" | awk '{print $1}' > "${f}.sha256"
+              fi
             fi
           done
 
@@ -198,13 +237,12 @@ jobs:
         with:
           name: dist-${{ matrix.target }}
           path: dist/*
-          retention-days: 1
+          retention-days: 7
 
-  # Auto-publish release as soon as all builds succeed. The bump_version.ps1
-  # script no longer expects a maintainer to publish a draft — if you need a
-  # manual review step, re-run this workflow from the Actions tab after edits.
-  release:
-    name: Publish Release
+  # Signed draft release: assets can be checked on GitHub before the
+  # `publish` job makes it public.
+  draft:
+    name: Draft release
     runs-on: ubuntu-latest
     needs: [release-notes, build]
     if: startsWith(github.ref, 'refs/tags/')
@@ -262,13 +300,45 @@ jobs:
           done
           ls -l
 
-      - name: Publish GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          prerelease: false
-          files: dist/*
-          body: ${{ needs.release-notes.outputs.body }}
-          name: ${{ github.ref_name }}
+      # A re-run replaces an earlier draft of the same tag; a published
+      # release is never touched (`gh release create` fails on it).
+      - name: Create draft release
+        shell: bash
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          NOTES: ${{ needs.release-notes.outputs.body }}
+        run: |
+          set -euo pipefail
+          if [ "$(gh release view "$GITHUB_REF_NAME" --json isDraft --jq .isDraft 2> /dev/null)" = "true" ]; then
+            gh release delete "$GITHUB_REF_NAME" --yes
+          fi
+          printf '%s\n' "$NOTES" > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" dist/* \
+            --draft --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file "$RUNNER_TEMP/notes.md"
+
+  # Waits for a reviewer to approve the `release` environment (Settings ->
+  # Environments), then makes the draft public.
+  publish:
+    name: Publish release
+    runs-on: ubuntu-latest
+    needs: draft
+    environment:
+      name: release
+      url: https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}
+    steps:
+      - name: Publish the draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  # Called directly: a release published with GITHUB_TOKEN does not start
+  # other workflows through the `release: published` event.
+  winget:
+    name: WinGet
+    needs: publish
+    uses: ./.github/workflows/winget.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit
