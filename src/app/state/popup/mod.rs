@@ -57,6 +57,13 @@ pub enum PopupType {
     Error(String),
     Info(String),
 
+    /// In-panel search (`find_in_panel`, NC quick search).
+    PanelSearch {
+        query: TextField,
+        how: crate::app::input::panel_find::NameMatch,
+        /// Cursor when the search started.
+        origin: usize,
+    },
     MkDirPrompt {
         input: TextField,
         cursor_idx: usize,

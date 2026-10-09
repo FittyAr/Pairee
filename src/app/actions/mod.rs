@@ -3,6 +3,7 @@ pub mod exec;
 pub mod fs_ops;
 pub mod jumps;
 pub mod navigation;
+pub mod panel_search;
 pub mod tabs;
 pub mod ui_settings;
 pub mod which_key;
@@ -24,6 +25,7 @@ pub async fn handle_action(
 ) -> Result<()> {
     let handled = navigation::handle_navigation_action(state, &action, context)
         || jumps::handle_jump_action(state, &action, context)
+        || panel_search::handle(state, &action)
         || tabs::handle_tab_action(state, &action, context)
         || fs_ops::handle_fs_action(state, &action, context, terminal_backend)
         || ui_settings::handle_ui_settings_action(state, &action, context).await;

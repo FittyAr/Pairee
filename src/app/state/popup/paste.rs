@@ -20,6 +20,7 @@ impl PopupType {
             | PopupType::FilePanelFilterPrompt { input, .. }
             | PopupType::RenameTabPrompt { input, .. }
             | PopupType::QuickFilterPrompt { input, .. }
+            | PopupType::PanelSearch { query: input, .. }
             | PopupType::DescribeFilePrompt { input, .. }
             | PopupType::CopyMoveFilterPrompt { input, .. }
             | PopupType::SelectGroupPrompt { query: input, .. }

@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod panel_find;
 pub mod panel_nav;
 pub mod paste;
 pub mod type_ahead;

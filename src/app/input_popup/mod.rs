@@ -28,6 +28,7 @@ pub mod menu;
 pub mod mkdir;
 pub mod multi_rename;
 pub mod onboarding;
+pub mod panel_search;
 pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
@@ -90,6 +91,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::Help { .. } => help::handle,
         PopupType::About { .. } => about::handle,
         PopupType::MkDirPrompt { .. } => mkdir::handle,
+        PopupType::PanelSearch { .. } => panel_search::handle,
         PopupType::TransferPrompt(..) => transfer_prompt::handle,
         PopupType::ConfirmQuit
         | PopupType::ConfirmUndo { .. }

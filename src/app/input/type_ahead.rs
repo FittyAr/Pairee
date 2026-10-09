@@ -2,6 +2,7 @@
 //! jumps to the first entry whose name starts with them, as in Explorer and
 //! Total Commander.
 
+use super::panel_find::{Direction, NameMatch, find};
 use std::time::{Duration, Instant};
 
 /// Pause after which typing starts a new search.
@@ -39,10 +40,7 @@ pub fn find_match(names: &[&str], cursor: usize, query: &str) -> Option<usize> {
     } else {
         (query.to_string(), cursor)
     };
-    let start = start.min(names.len());
-    (start..names.len())
-        .chain(0..start)
-        .find(|&i| names[i].to_lowercase().starts_with(&needle))
+    find(names, start, &needle, NameMatch::Prefix, Direction::Forward)
 }
 
 #[cfg(test)]

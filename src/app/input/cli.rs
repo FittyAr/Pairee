@@ -1,5 +1,7 @@
 use crate::app::actions::execute_shell_command;
+use crate::app::actions::panel_search::open as open_search;
 use crate::app::context::AppContext;
+use crate::app::input::panel_find::NameMatch;
 use crate::app::input::type_ahead::find_match;
 use crate::app::state::AppState;
 use crate::keybindings::options::TypingMode;
@@ -30,6 +32,12 @@ pub fn handle_cli_input(
     if context.resolver.would_trigger(key) {
         return Err(());
     }
+    if let Some(c) = alt_letter(key)
+        && context.resolver.options().alt_quick_search
+    {
+        open_search(state, NameMatch::Prefix, Some(c));
+        return Ok(());
+    }
     let Some(c) = printable(key) else {
         return Err(());
     };
@@ -47,6 +55,16 @@ fn printable(key: KeyEvent) -> Option<char> {
         KeyCode::Char(c) if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT => {
             Some(c)
         }
+        _ => None,
+    }
+}
+
+/// A character typed with Alt (and maybe Shift).
+fn alt_letter(key: KeyEvent) -> Option<char> {
+    let alt = key.modifiers == KeyModifiers::ALT
+        || key.modifiers == KeyModifiers::ALT | KeyModifiers::SHIFT;
+    match key.code {
+        KeyCode::Char(c) if alt && !c.is_control() => Some(c),
         _ => None,
     }
 }

@@ -44,7 +44,8 @@ pub fn render_prompt_popup(
         PopupType::FilePanelFilterPrompt { .. }
         | PopupType::QuickFilterPrompt { .. }
         | PopupType::CopyMoveFilterPrompt { .. }
-        | PopupType::RenameTabPrompt { .. } => filter::render(f, popup, theme, size),
+        | PopupType::RenameTabPrompt { .. }
+        | PopupType::PanelSearch { .. } => filter::render(f, popup, theme, size),
 
         PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
 

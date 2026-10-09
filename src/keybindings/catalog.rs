@@ -164,6 +164,9 @@ pub const CATALOG: &[ActionDef] = &[
     def("archive_commands", Action::ArchiveCommands, C::Archives),
     // Search & history
     def("find_file", Action::FindFile, C::Search),
+    def("find_in_panel", Action::FindInPanel, C::Search),
+    def("find_next", Action::FindNext, C::Search),
+    def("find_prev", Action::FindPrev, C::Search),
     def("quick_filter", Action::QuickFilter, C::Search),
     def("file_panel_filter", Action::FilePanelFilter, C::Search),
     def("command_history", Action::CommandHistory, C::Search),

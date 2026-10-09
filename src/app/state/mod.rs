@@ -56,6 +56,8 @@ pub struct AppState {
     pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
     /// Items yanked / cut for a later paste.
     pub file_clipboard: Option<file_clipboard::FileClipboard>,
+    /// Last confirmed in-panel search (`find_next` / `find_prev`).
+    pub last_panel_search: Option<crate::app::actions::panel_search::PanelQuery>,
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
@@ -158,6 +160,7 @@ impl AppState {
             cli_focused: false,
             type_ahead: Default::default(),
             file_clipboard: None,
+            last_panel_search: None,
             dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect: Default::default(),

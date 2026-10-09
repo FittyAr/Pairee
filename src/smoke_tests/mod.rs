@@ -10,6 +10,7 @@ mod file_clipboard;
 mod file_ops;
 mod git_panel;
 mod navigation;
+mod panel_search;
 mod polish;
 mod refresh_resize;
 mod selection_jumps;

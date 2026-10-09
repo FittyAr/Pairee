@@ -238,6 +238,12 @@ pub enum Action {
     SortMenu,
     /// Next sort field of the active panel
     CycleSort,
+    /// Search names in the active panel (Vim / yazi `/`)
+    FindInPanel,
+    /// Next match of the last in-panel search
+    FindNext,
+    /// Previous match of the last in-panel search
+    FindPrev,
     /// Put the targeted items on Pairee's file clipboard (paste copies)
     Yank,
     /// Put the targeted items on the file clipboard (paste moves)

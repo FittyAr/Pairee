@@ -29,6 +29,8 @@ pub struct KeymapOptions {
     pub leader: Option<String>,
     /// `0` waits for the next key indefinitely (yazi).
     pub sequence_timeout_ms: u64,
+    /// Alt+<letter> starts a quick search by name (Norton Commander / Far).
+    pub alt_quick_search: bool,
 }
 
 impl Default for KeymapOptions {
@@ -37,6 +39,7 @@ impl Default for KeymapOptions {
             typing: TypingMode::default(),
             leader: None,
             sequence_timeout_ms: DEFAULT_SEQUENCE_TIMEOUT_MS,
+            alt_quick_search: false,
         }
     }
 }
@@ -52,6 +55,9 @@ impl KeymapOptions {
         }
         if let Some(ms) = file.sequence_timeout {
             self.sequence_timeout_ms = ms;
+        }
+        if let Some(on) = file.alt_quick_search {
+            self.alt_quick_search = on;
         }
     }
 
@@ -72,6 +78,7 @@ pub struct OptionsTable {
     pub typing: Option<TypingMode>,
     pub leader: Option<String>,
     pub sequence_timeout: Option<u64>,
+    pub alt_quick_search: Option<bool>,
 }
 
 #[cfg(test)]
