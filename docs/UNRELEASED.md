@@ -14,3 +14,5 @@
 ### Removed
 
 ### Fixed
+- The `.deb` package declared an invalid dependency (`$default`), so dpkg and apt refused to install it.
+- The Windows installer no longer asks for administrator rights: it installs for the current user, as it always did, and new terminals see the updated PATH right away.

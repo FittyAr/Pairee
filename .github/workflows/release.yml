@@ -75,6 +75,8 @@ jobs:
     name: Build (${{ matrix.target }})
     runs-on: ${{ matrix.os }}
     needs: [check, release-notes]
+    # A hung step must not hold a runner for the 6-hour default.
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:

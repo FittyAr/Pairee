@@ -95,7 +95,6 @@ libc = "0.2"
 name = "pairee"
 maintainer = "FittyAr <10284757+FittyAr@users.noreply.github.com>"
 license-file = ["LICENSE"]
-depends = "$default"
 section = "utils"
 priority = "optional"
 assets = [

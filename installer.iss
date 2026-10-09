@@ -29,6 +29,11 @@ SetupIconFile=manifests\windows\pairee.ico
 WizardImageFile=manifests\windows\wizard_image.png
 WizardSmallImageFile=manifests\windows\wizard_small_image.png
 UninstallDisplayIcon={app}\{#AppExeName}
+; Per-user install ({localappdata}, HKCU): no UAC prompt, and the files land in
+; the profile of the user who runs it rather than an elevating administrator's.
+PrivilegesRequired=lowest
+; Broadcast the PATH change so new terminals find pairee without a sign-out.
+ChangesEnvironment=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked

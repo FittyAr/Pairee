@@ -59,9 +59,22 @@ case "$TARGET" in
     SETUP="dist/pairee-setup-${NUM}-${ARCH}.exe"
     [ -s "$SETUP" ] || fail "missing $(basename "$SETUP")"
     if [ "${RUNNABLE:-false}" = true ]; then
+      # Silent install with a deadline: a setup that waits for input must not
+      # hold the job until the 6-hour limit. Exit 124 = timed out.
+      SETUP_W="$(cygpath -w "$SETUP")"
       DIR="$(cygpath -w "$WORK/installed")"
-      "$SETUP" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /CURRENTUSER "/DIR=${DIR}" ||
-        fail "the installer failed"
+      LOG="$(cygpath -w "$WORK/setup.log")"
+      status=0
+      powershell -NoProfile -Command "
+        \$p = Start-Process -FilePath '${SETUP_W}' -PassThru -ArgumentList \
+          '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/NOICONS','/DIR=\"${DIR}\"','/LOG=\"${LOG}\"';
+        if (-not \$p.WaitForExit(180000)) { Get-Process | Where-Object { \$_.Path -like '*\\Temp\\is-*' } | Stop-Process -Force; \$p.Kill(); exit 124 }
+        exit \$p.ExitCode" || status=$?
+      if [ "$status" -ne 0 ]; then
+        cat "$WORK/setup.log" 2> /dev/null || true
+        [ "$status" -eq 124 ] && fail "the installer did not finish within 3 minutes (log above)"
+        fail "the installer exited with ${status} (log above)"
+      fi
       check_binary "$WORK/installed/pairee.exe" installer
     fi
 
