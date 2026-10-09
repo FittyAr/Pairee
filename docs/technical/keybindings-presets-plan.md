@@ -270,8 +270,8 @@ base ─┬─ standard
 | Papelera | `Delete` | `F8` | `d d` | `d` | vifm `dd` = papelera. |
 | Borrado definitivo | `Shift+Delete` | `Shift+Delete` | `D D` | `D` | |
 | Wipe | paleta | `Alt+Delete` | paleta | paleta | |
-| Renombrar | `F2` | `Shift+F6` | `c w` / `c W` (basename) | `r` | **Ver decisión D1** sobre `F7`. |
-| Renombrado múltiple | `Ctrl+Shift+M`≈, paleta | `Ctrl+Shift+F6`≈, paleta (ver D1) | `<leader>r` | `R` (ext.) | `Ctrl+M` = Enter en legacy. |
+| Renombrar | `F2` | `Shift+F6` | `c w` / `c W` (basename) | `r` | D1: se vuelve al original de NC/Far. |
+| Renombrado múltiple | `Ctrl+Shift+M`≈, paleta | `Ctrl+Shift+F6`≈, paleta | `<leader>r` | `R` (ext.) | `Ctrl+M` = Enter en legacy. |
 | Nueva carpeta | `Ctrl+Shift+N`≈, `F7` | `F7` | `a` (con `/` final) | `a` (con `/` final) | Explorer y TC; nvim-tree y yazi. |
 | Nuevo archivo | `Ctrl+N` (VS Code) | `Shift+F4` | `a` | `a` | |
 | Ver | `F3`, `Alt+P` (vista previa) | `F3`, `Ctrl+Q` (quick view) | `o`, `F3` | `Enter` en archivo, `o` | |
@@ -302,20 +302,20 @@ base ─┬─ standard
 
 | Acción | Standard | Norton/Far | Neovim | Yazi |
 |---|---|---|---|---|
-| Nueva / cerrar pestaña | `Ctrl+T` / `Ctrl+W` | `Alt+T` / `Alt+W` | `<leader>tn` / `<leader>tc` | `t` / `Ctrl+c` |
+| Nueva / cerrar pestaña | `Ctrl+T` / `Ctrl+W` | `Ctrl+Alt+T` / `Ctrl+Alt+W` | `<leader>tn` / `<leader>tc` | `t` / `Ctrl+c` |
 | Siguiente / anterior | `Ctrl+Tab`≈, `Ctrl+PgDn` / `Ctrl+Shift+Tab`≈, `Ctrl+PgUp` | `Alt+PgDn` / `Alt+PgUp` | `g t` / `g T` | `]` / `[` |
 | Mover pestaña | `Ctrl+Shift+PgUp/PgDn` | `Alt+Shift+PgUp/PgDn` | `<leader>t<` / `<leader>t>` | `{` / `}` |
 | Ir a pestaña N | `Alt+1..9` (`Ctrl+1..9`≈) | `Alt+1..9` | `Alt+1..9` | `1..9` |
 | Pantallas (editor/visor) | `F12` / `Ctrl+F12` | `F12`, `Ctrl+Tab` | `F12` | `F12` |
-| Paleta de comandos | `Ctrl+Shift+P`≈, `Ctrl+Alt+P` | `Ctrl+Shift+P`≈, `Alt+X` (ext.) | `:` | `Ctrl+Shift+P`≈, `Alt+x` (`:` es shell en yazi) |
+| Paleta de comandos | `Ctrl+Shift+P`≈, `Ctrl+Alt+P` | `Ctrl+Shift+P`≈, `Ctrl+Alt+P` | `:` | `Ctrl+Shift+P`≈, `Alt+x` (`:` es shell en yazi) |
 | Línea de comandos / shell | ``Ctrl+` `` | escribir directamente | `!` | `;`, `:` |
 | Menú principal | `F10`, `Alt` | `F9` | `F9` | `F9` |
 | Menú de usuario | paleta | `F2` | `<leader>u` | paleta |
 | Ayuda | `F1` | `F1` | `F1` | `F1` |
 | **Modal de atajos** | `Ctrl+K Ctrl+S` (VS Code), `Ctrl+/` | `Ctrl+K`, entrada en `F1` | `g ?` (nvim-tree), `<leader>?` | `~`, `F1` |
 | Ajustes | `Ctrl+,` | `Alt+Shift+F9`, `F9`→Opciones | `<leader>,` | paleta |
-| Git | `Ctrl+Shift+G`≈, `Alt+G` | `Alt+G` | `<leader>gg` | `Alt+g` (`g g` es ir al inicio) |
-| SSH | `Ctrl+Alt+S` | `Ctrl+Shift+S`≈, menú | `<leader>ss` | paleta |
+| Git | `Ctrl+Shift+G`≈, `Alt+G` | `Ctrl+Alt+G` | `<leader>gg` | `Alt+g` (`g g` es ir al inicio) |
+| SSH | `Ctrl+Alt+S` | `Ctrl+Alt+R` (remoto), menú | `<leader>ss` | paleta |
 | Tareas / transferencias | `Ctrl+Alt+T` | `Ctrl+W` / `Ctrl+T` | `<leader>w` | `w` |
 | Salir | `Ctrl+Q` | `F10` | `Z Z`, `Z Q` (sin estado), `<leader>qq` | `q`, `Q` |
 
@@ -334,6 +334,32 @@ base ─┬─ standard
   - Para neovim **no** se implementa un modo modal completo en este plan: queda como fase futura (editor modal). Se mapean solo `Esc`→salir, `Ctrl+s`/`:w`, `/`, `n`/`N`, `u`/`Ctrl+r`.
 - **Visor.** standard/norton = actual; neovim/yazi = `j`/`k`/`g g`/`G`/`Ctrl+d`/`Ctrl+u`, `/`, `n`/`N`, `q` sale.
 - **Listas y popups.** `list_nav.rs` ya tiene `ListKeys::ARROWS_VIM`. La capa `list` decide por preset si `j`/`k` navegan (neovim/yazi) o filtran (standard/norton). Así se elimina la elección fija por popup.
+
+### 5.8 Norton: atajos de NC intocables y reubicación de extensiones (D7)
+
+**Regla:** todo atajo que exista en NC/Far conserva su significado. Las extensiones de Pairee que chocaban se mueven a chords libres. Las búsquedas rápidas y la línea de comandos funcionan como en Far.
+
+| Chord NC/Far | Significado NC/Far (se respeta) | Antes en Pairee | Nuevo atajo de la acción desplazada |
+|---|---|---|---|
+| `Alt+<letra>` | Quick search en el panel | `Alt+T` nueva pestaña, `Alt+W` cerrar pestaña, `Alt+G` Git, `Alt+S` tamaños de carpeta, `Alt+D` uso de disco, `Alt+M` menú contextual, `Alt+C`/`Alt+E` comprimir/extraer, `Alt+O` abrir en pestaña nueva | `Ctrl+Alt+T`, `Ctrl+Alt+W`, `Ctrl+Alt+G`, `Ctrl+Alt+S` (y `F3` sobre carpeta, como Far), `Ctrl+Alt+D`, `Ctrl+Alt+M` (y la tecla `Menu`), solo `Shift+F1`/`Shift+F2` (eran alias), `Ctrl+Alt+O` |
+| `F7` | Crear carpeta | renombrar | renombrar → `Shift+F6` (D1); renombrado múltiple → `Ctrl+Shift+F6`≈ + paleta |
+| `Ctrl+\` | Ir a la raíz | hotlist | hotlist → `Ctrl+Alt+H` |
+| `Ctrl+Enter` | Insertar el nombre del archivo en la CLI | abrir en pestaña nueva | acción nueva `insert_name_to_cli`; abrir en pestaña → `Ctrl+Alt+O` |
+| `Ctrl+F` | Insertar la ruta completa en la CLI | filtro rápido (`Ctrl+f`, `f`, `F`) | acción nueva `insert_path_to_cli`; filtro rápido → `Ctrl+Alt+F`; se quitan `f`/`F` (las letras van a la CLI) |
+| `Ctrl+[` / `Ctrl+]` | Insertar la ruta del panel izquierdo / derecho en la CLI | — | acciones nuevas `insert_left_path_to_cli` / `insert_right_path_to_cli`. `Ctrl+[` = `Esc` en terminales legacy (≈) |
+| `Ctrl+P` | Ocultar/mostrar el panel inactivo | ciclar modificadores de la barra de F-keys | acción nueva `toggle_inactive_panel`; ciclar F-keys → `Ctrl+Alt+K` |
+| `Ctrl+B` | Ocultar/mostrar la barra de F-keys | — | acción nueva `toggle_keybar` |
+| `Ctrl+Y` | Borrar la línea de comandos | rehacer | rehacer → `Alt+Shift+Backspace` |
+| `Ctrl+E` / `Ctrl+X` | Comando anterior / siguiente del historial | — | acciones nuevas `cli_history_prev` / `cli_history_next` |
+| `Ctrl+Shift+S` (≈ `Ctrl+S`) | `Ctrl+S` = cursor a la izquierda en la CLI (WordStar) | conectar SSH | SSH → `Ctrl+Alt+R` |
+| `Ctrl+Shift+P` (≈ `Ctrl+P`) | — (choca con `Ctrl+P` en terminales legacy) | paleta | paleta → `Ctrl+Shift+P`≈ + `Ctrl+Alt+P` robusto |
+| `F11` | Menú de plugins | — | `plugin_menu` → `F11` |
+
+**Precedencia de la línea de comandos (modo `cli`).** Cuando la CLI tiene texto, sus teclas de edición tienen prioridad sobre el keymap del panel, igual que en Far: `Ctrl+Y`, `Ctrl+K`, `Ctrl+S`/`Ctrl+D`, `Ctrl+E`/`Ctrl+X`, `Ctrl+Enter`, `Ctrl+F`, `Ctrl+[`/`Ctrl+]`, `Home`/`End`. Con la CLI vacía, esos chords van al panel; por eso `Ctrl+K` (modal de atajos) sigue funcionando.
+
+**Notas sobre las teclas reubicadas:**
+- **`Alt+<dígito>`.** Se mantiene para ir a la pestaña N: la quick search de NC se usa con letras, y Far no da significado propio a `Alt+<dígito>`. Si el usuario escribe un dígito en la quick search ya abierta, se añade a la búsqueda.
+- **AltGr.** En Windows, `Ctrl+Alt` es AltGr. Con teclado español, alemán o polaco, algunos `Ctrl+Alt+<tecla>` producen un carácter (`@`, `€`, `ś`…) y no llegan como chord. Por eso toda acción reubicada sigue accesible desde la barra de menú (`F9`) y la paleta, y el validador marca como frágiles `Ctrl+Alt+{E, Q, M, 1-9}` (≈).
 
 ---
 
@@ -368,7 +394,7 @@ standard = "Ctrl+Alt+B"
 - **Prefijo reservado para plugins**, sugerido en la guía para minimizar choques:
   - neovim `<leader>p…`;
   - yazi `Alt+p` y luego una letra (secuencia);
-  - norton y standard `Ctrl+Alt+<letra>`.
+  - norton y standard `Ctrl+Alt+X` y luego una letra (secuencia), porque `Ctrl+Alt+<letra>` ya aloja las extensiones de Pairee en norton (§5.8).
   - Los chords de plugins fuera del prefijo se aceptan si están libres.
 - Se usa un único parser de chords para todo: el de `keybinds` + `normalize_user_chord` + `normalize_key_spec`, fusionados en `keybindings::chord`. Desaparece la duplicación con `plugin/manager/dialogs.rs`.
 - Al instalar, desinstalar, activar o desactivar un plugin se reconstruye el `Keymap` en caliente (`Keymap::rebuild(&config, &plugins)`), y con eso desaparece el mapa global de `plugin/registry.rs`.
@@ -466,7 +492,7 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [ ] Filas de F-keys de editor y visor generadas desde las capas.
 
 ### Fase 4 — Presets
-- [ ] `base.toml`, `standard.toml` (+ alias `vscode`/`modern`), `norton.toml`, `neovim.toml`, `yazi.toml` según §5, cada línea con comentario de criterio cuando sea *ext.* o desviación.
+- [ ] `base.toml`, `standard.toml` (+ alias `vscode`/`modern`), `norton.toml` (con §5.8: reubicaciones, precedencia de la CLI, acciones `insert_*_to_cli`, `toggle_inactive_panel`, `toggle_keybar`, `cli_history_*`; quitar `has_outdated_layout`), `neovim.toml`, `yazi.toml` según §5, cada línea con comentario de criterio cuando sea *ext.* o desviación.
 - [ ] Migración: `preset = "vscode"` → `standard`.
 - [ ] Onboarding y Settings con los 4 presets.
 
@@ -518,10 +544,10 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 
 | # | Decisión | Recomendación |
 |---|---|---|
-| D1 | **Norton `F7`.** Hoy `F7` = renombrar y mkdir salió de las F-keys (cambio deliberado anterior). En NC/Far, `F7` = MkDir y `Shift+F6` = renombrar. | Para fidelidad con quien viene de NC: `F7` = MkDir, `Shift+F6` = renombrar, multi-rename a `Ctrl+Shift+F6` o paleta. Si la decisión anterior debe mantenerse, documentarla como desviación del preset norton. |
-| D2 | Renombrar `vscode` → `standard`. | Sí, con alias. "Estándar" cubre Explorer, VS Code y TC, no solo VS Code. |
+| D1 | Norton `F7`. | **Decidido (2026-10-09):** volver al original de NC/Far. `F7` = MkDir, `Shift+F6` = renombrar, renombrado múltiple → `Ctrl+Shift+F6`≈ + paleta. Hay que retirar el chequeo `has_outdated_layout`, que fuerza `rename = "F7"`. |
+| D2 | Renombrar `vscode` → `standard`. | **Decidido (2026-10-09):** sí; `vscode` y `modern` quedan como alias. |
 | D3 | Preset por defecto. | Mantener `norton` (identidad de Pairee) y que el onboarding pregunte con vista previa. |
 | D4 | Overrides por preset o globales. | Ambos (`overrides.all` + `overrides.<preset>`). El modal por defecto escribe en el preset activo. |
 | D5 | Editor modal tipo vim para el preset neovim. | Fuera de este plan: fase futura. Aquí solo se mapean las teclas básicas. |
-| D7 | **Norton `Alt+letra`.** En NC/Far es quick search, pero Pairee ya usa `Alt+T/W/G/S/D/M/C/E/O` en norton (pestañas, Git, tamaños…). | Quick search con `Alt+letra` solo para letras libres, y mover las extensiones de Pairee a `Ctrl+Alt+<letra>` en norton, para que `Alt+letra` quede casi entero para la búsqueda como en NC. |
-| D6 | Prefijo reservado para plugins. | Recomendado, no obligatorio: `<leader>p` (neovim), `Alt+p` (yazi), `Ctrl+Alt+<letra>` (norton y standard). |
+| D6 | Prefijo reservado para plugins. | Recomendado, no obligatorio: `<leader>p` (neovim), `Alt+p` + letra (yazi), `Ctrl+Alt+X` + letra (norton y standard). |
+| D7 | Norton `Alt+letra` y demás choques con NC. | **Decidido (2026-10-09):** se respetan todos los atajos de NC/Far; las extensiones de Pairee que chocaban se reubican según §5.8. |
