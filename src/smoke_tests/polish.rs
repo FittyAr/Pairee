@@ -109,3 +109,14 @@ fn editor_block_mode_selects_columns_with_shift_arrows() {
         _ => panic!("editor expected\n{}", h.screen_text()),
     }
 }
+
+#[test]
+fn unbound_letters_start_the_command_line_in_every_preset() {
+    // Typing modes per preset arrive in phase 1; until then an unbound
+    // letter types into the CLI whatever the keymap.
+    for keymap in ["norton", "vscode", "neovim"] {
+        let mut h = Harness::builder().keymap(keymap).build();
+        h.text("zx");
+        assert_eq!(h.state.cli_input, "zx", "{keymap}");
+    }
+}

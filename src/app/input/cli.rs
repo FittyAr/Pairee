@@ -22,22 +22,8 @@ pub fn handle_cli_input(
         return Err(());
     }
 
-    let is_vim = context.config.keybindings.preset == "vim";
-    let is_active = !state.cli_input.is_empty() || !is_vim;
-
-    if !is_active {
-        return Err(());
-    }
-
     match key.code {
         KeyCode::Char(c) => {
-            // Vim start trigger bypass
-            if is_vim && state.cli_input.is_empty() && c == ':' {
-                state.cli_input.push(' ');
-                state.cli_input.clear();
-                return Ok(());
-            }
-
             if key.modifiers.is_empty() || key.modifiers == KeyModifiers::SHIFT {
                 state.cli_input.push(c);
                 return Ok(());
