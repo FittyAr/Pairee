@@ -18,8 +18,12 @@ pub trait Bindable: Copy + Eq + Hash + Debug + 'static {
     fn from_id(id: &str) -> Option<Self>;
     /// Stable keymap id.
     fn id(self) -> &'static str;
-    /// Localized human label.
-    fn label(self) -> String;
+    /// Human label translated by `tr` (an i18n key → text lookup).
+    fn label_in(self, tr: &dyn Fn(&str) -> String) -> String;
+    /// Human label in the active language.
+    fn label(self) -> String {
+        self.label_in(&t)
+    }
     fn category(self) -> Category;
     /// Must keep a terminal-robust chord in every preset.
     fn essential(self) -> bool;
@@ -55,7 +59,7 @@ impl Bindable for Action {
         }
     }
 
-    fn label(self) -> String {
+    fn label_in(self, tr: &dyn Fn(&str) -> String) -> String {
         match self {
             Action::GoFolderShortcut(n) | Action::GoToTab(n) => {
                 let key = if matches!(self, Action::GoToTab(_)) {
@@ -63,12 +67,12 @@ impl Bindable for Action {
                 } else {
                     "action_go_folder_shortcut"
                 };
-                t(key).replace("{n}", &n.to_string())
+                tr(key).replace("{n}", &n.to_string())
             }
             Action::Plugin(id) => {
                 plugin_commands::get(id).map_or_else(|| self.id().to_string(), |c| c.title)
             }
-            _ => t(&format!("action_{}", self.id())),
+            _ => tr(&format!("action_{}", self.id())),
         }
     }
 

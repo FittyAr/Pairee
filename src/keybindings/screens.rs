@@ -6,7 +6,6 @@
 
 use super::catalog::Category;
 use super::registry::Bindable;
-use crate::config::localization::t;
 use std::fmt::Debug;
 use std::hash::Hash;
 
@@ -193,8 +192,8 @@ impl<T: ScreenCommand> Bindable for T {
         self.def().id
     }
 
-    fn label(self) -> String {
-        t(&format!("action_{}_{}", T::SECTION, self.id()))
+    fn label_in(self, tr: &dyn Fn(&str) -> String) -> String {
+        tr(&format!("action_{}_{}", T::SECTION, self.id()))
     }
 
     fn category(self) -> Category {

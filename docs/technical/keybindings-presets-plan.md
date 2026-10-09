@@ -517,9 +517,15 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] De paso: el selector de preset de Ajustes recorre también los presets propios; la lista de favoritos de Norton pasa a `Ctrl+Alt+b` (`Ctrl+Alt+h` llega como `Alt+Backspace` en terminales antiguos).
 
 ### Fase 7 — Documentación y CI
-- [ ] `pairee keymap print` + test de no-deriva de `help/*/keyboard_shortcuts.md` y README.
-- [ ] Reescribir la ayuda (en/es) y añadir guías "Vengo de Norton / Neovim / yazi / Explorer" con las diferencias inevitables.
-- [ ] CHANGELOG y nota de migración.
+- [x] `keybindings/reference.rs` genera la referencia Markdown de cada preset (opciones + teclas por contexto y categoría); `pairee keymap print --preset <p> --lang <código>` la imprime. Las páginas `help/{en,es}/keymap_<preset>.md` salen de ahí, y un test falla si se desactualizan (`PAIREE_REGEN_DOCS=1 cargo test keymap_reference` las regenera). Para traducir sin tocar el idioma global, `Bindable` tiene `label_in(traductor)`.
+- [x] `help/{en,es}/keyboard_shortcuts.md` reescritas como guía de conceptos (presets, la lista de atajos, cómo funcionan las teclas, overrides y presets propios, límites de terminal, plugins, editor/visor y teclas de diálogos); `help/{en,es}/coming_from.md` con lo igual / lo agregado / lo distinto para NC/Far, Explorer/VS Code/TC, Neovim y yazi; títulos de las páginas en la ayuda F1. El README ya no lista teclas (no puede desactualizarse) y enlaza la ayuda.
+- [x] `docs/UNRELEASED.md`: sección de teclado, cambios de Norton/Standard y nota de migración; las entradas anteriores que citaban teclas viejas se corrigieron. El plan (en español) se excluye de `typos`.
+
+---
+
+## Estado final
+
+Las ocho fases están hechas. Cuatro presets fieles a sus programas sobre capas `base`/`vi`; editor, visor y listas en el keymap; acciones nuevas (portapapeles de archivos, papelera, visual, historial, búsqueda en el panel, crear/renombrar, teclas de línea de comandos de Far); comandos de plugins en el mismo keymap; la lista de atajos editable; y referencia generada en la ayuda. Pendiente fuera de este plan: editor modal tipo Vim (D5) y conteos (`5j`) en el preset Neovim.
 
 ---
 

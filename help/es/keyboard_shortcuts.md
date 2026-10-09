@@ -1,199 +1,209 @@
-# Guía de Atajos de Teclado
+# Atajos de teclado
 
-Esta guía recopila todas las combinaciones de teclas y atajos interactivos de Pairee, ordenados por categorías funcionales.
-
----
-
-## 📂 1. Navegación de Paneles y Foco
-
-| Tecla / Atajo | Acción |
-| :--- | :--- |
-| `Tab` | Cambia el foco de selección entre el panel izquierdo y derecho. |
-| `Arriba` / `Abajo` | Desplaza el cursor de selección una posición. |
-| `Re Pág` / `Av Pág` | Desplaza la lista de archivos una pantalla completa. |
-| `Inicio` / `Fin` | Salta directamente al primer o último archivo de la lista. |
-| `Enter` / `Ctrl+Av Pág` | Entra en la carpeta resaltada, o abre como carpeta el archivo comprimido zip / tar / tar.gz / tar.bz2 / tar.xz / 7z resaltado (`Ctrl+Av Pág` nunca abre archivos). |
-| `Retroceso` / `Ctrl+Re Pág` | Sube a la carpeta padre; en la raíz de un archivo comprimido, vuelve a la carpeta que lo contiene (con el cursor sobre él). |
-| `Ctrl+U` | Intercambia las rutas de directorio entre el panel izquierdo y derecho. |
-| `Ctrl+H` | Alterna la visualización de archivos ocultos y de sistema. |
-| `Ctrl+R` | Recarga y refresca el contenido del directorio del panel activo (las carpetas locales también se refrescan solas al cambiar, ver ajustes de **Panel**). |
-| `Ctrl+\` | Abre la lista de favoritos de carpetas (`Enter` ir, `Ins`/`+` añadir la carpeta actual, `Supr`/`-` quitar). Se guarda en `bookmarks.toml`. |
-| `Ctrl+Alt+1` … `Ctrl+Alt+9` | Salta al atajo de carpeta 1–9. Se asignan desde **Comandos → Accesos dir. carp.** (`Ins`/`Espacio` o el dígito del atajo asigna la carpeta actual, `Supr` lo borra). |
-
-### Pestañas de carpetas
-
-Cada panel puede tener varias pestañas de carpetas. La barra de pestañas aparece sobre el panel cuando tiene más de una (o siempre, con **Opciones → Configuración → Panel → Mostrar siempre la barra de pestañas**); un clic en una pestaña la muestra y el clic central la cierra. Las pestañas bloqueadas se marcan con `*`. Todo está también en **Izquierdo/Derecho → Pestañas**.
-
-| Tecla / Atajo | Acción |
-| :--- | :--- |
-| `Alt+T` (`Ctrl+T` en los mapas NeoVim y VSCode) | Nueva pestaña en la carpeta actual (en Norton `Ctrl+T` sigue siendo el panel de transferencias). |
-| `Alt+O` / `Ctrl+Enter` | Abre la carpeta o archivo comprimido bajo el cursor en una pestaña nueva (`Ctrl+Enter` requiere una terminal que lo informe, p. ej. kitty, WezTerm, foot). |
-| `Alt+W` | Cierra la pestaña actual (la última pestaña de un panel no se cierra; `Ctrl+W` es la lista de tareas). |
-| `Alt+Av Pág` / `Alt+Derecha` | Pestaña siguiente. |
-| `Alt+Re Pág` / `Alt+Izquierda` | Pestaña anterior. |
-| `Alt+Mayús+Re Pág` / `Alt+Mayús+Av Pág` | Mueve la pestaña actual a la izquierda / derecha. |
-| `Alt+1` … `Alt+9` | Muestra la pestaña 1–9 del panel con el foco. |
-| *(menú / paleta de comandos)* | **Cambiar nombre** (vacío: el nombre de la carpeta) y **Bloquear pestaña**: una pestaña bloqueada conserva su carpeta y, al entrar en otra carpeta desde ella, esa carpeta se abre en una pestaña nueva. |
-
-`Ctrl+Tab` sigue cambiando de pantalla. Algunas terminales usan `Alt+flechas` o `Alt+dígitos` para sí mismas (paneles de Windows Terminal, pestañas de GNOME Terminal); `Alt+Re Pág`/`Alt+Av Pág` funcionan ahí, y cada combinación puede cambiarse en el mapa de teclas.
+Pairee no te pide aprender un teclado nuevo. Elige el preset del programa que
+tus dedos ya conocen y cada tecla funciona como funcionaba allí. Esta página
+explica cómo funcionan las teclas; la lista completa de cada preset está en
+las páginas **Teclas:** de esta ayuda y, dentro de Pairee, en la lista de
+atajos.
 
 ---
 
-## 🗂️ 2. Modos de Vista y Visibilidad
+## 1. Presets
 
-| Tecla / Atajo | Acción |
-| :--- | :--- |
-| `Ctrl+1` | **Brief (Breve):** Nombres de archivo únicamente en varias columnas. |
-| `Ctrl+2` | **Medium (Medio):** Nombre y extensión lado a lado. |
-| `Ctrl+3` | **Full (Detallado):** Vista estándar (Nombre, Tamaño, Fecha). |
-| `Ctrl+4` | **Wide (Ancho):** Listado con nombres ensanchados. |
-| `Ctrl+5` | **Detailed (Completo):** Permisos Unix, propietarios, enlaces duros. |
-| `Ctrl+6` | **Descriptions (Descripciones):** Renderiza descripciones de `Descript.ion`. |
-| `Ctrl+7` | **File owners (Propietarios):** Muestra usuarios y grupos del sistema. |
-| `Ctrl+8` | **File links (Enlaces):** Muestra el contador de enlaces duros. |
-| `Ctrl+9` | **Alt Full:** Vista configurable personalizada por el usuario. |
-| `Ctrl+F1` | Muestra / oculta el panel izquierdo. |
-| `Ctrl+F2` | Muestra / oculta el panel derecho. |
-| `Ctrl+O` | Muestra / oculta ambos paneles (inspecciona la salida de consola). |
-| `Ctrl+Q` | Alterna la **Vista Rápida** de archivos en el panel opuesto. |
-| `Ctrl+L` | Alterna el **Panel de Información del Sistema** en el panel activo. |
+| Preset | Para quien viene de | En resumen |
+| :--- | :--- | :--- |
+| **Norton Commander / Far** | Norton Commander, Far Manager, Midnight Commander | `F3` ver, `F5` copiar, `F6` mover, `F7` carpeta, `F8` borrar, lo que escribes va a la línea de comandos, `Alt`+letra búsqueda rápida |
+| **Estándar** | Explorador de Windows, VS Code, Total Commander | `Ctrl+C/X/V` con archivos, `Supr` a la papelera, `F2` renombrar, `Ctrl+T` pestañas, escribir salta a un archivo |
+| **Neovim** | Vim, Neovim, vifm, oil.nvim, nvim-tree | `hjkl`, `gg`/`G`, `yy`/`dd`/`p`, `/` `n` `N`, líder `Espacio` |
+| **yazi** | yazi | `hjkl`, `y`/`x`/`p`, `d`/`D`, `a` crear, `.` ocultos, `~` atajos |
+
+Elige uno la primera vez que abres Pairee, o después en **Opciones →
+Configuración → Interfaz → Preajuste de atajos de teclado**, o en la lista de atajos (`Ctrl+←`/`Ctrl+→`
+y luego `F5`). Los presets Neovim y yazi conservan todas las teclas F de
+Norton Commander, así que `F5` sigue copiando.
+
+La página **Si vienes de otro programa** cuenta qué es igual y qué cambia en
+cada caso.
 
 ---
 
-## 🛠️ 3. Acciones de Archivo Estándar (Teclas F)
+## 2. La lista de atajos
 
-| Tecla | Acción |
+Ábrela con la tecla de tu preset (`Ctrl+K` en Norton, `Ctrl+K Ctrl+S` en
+Estándar, `g?` en Neovim, `~` en yazi; `Ctrl+Shift+K` en todos si el terminal
+la envía) o desde **Opciones → Configuración → Interfaz → Atajos de
+teclado…**.
+
+Muestra cada comando de los paneles, el editor, el visor y las listas de los
+diálogos (`Tab` cambia entre ellos), agrupados por categoría, incluidos los
+que no tienen tecla y los de tus plugins. Marcas delante de cada fila:
+
+| Marca | Significado |
 | :--- | :--- |
-| `F1` | Abre el visualizador de ayuda y manuales del sistema. |
-| `F2` | Abre el menú de comandos definidos por el usuario. |
-| `F3` | Abre el visor de archivos interno (modos Texto o Hexadecimal). Sobre una carpeta: calcula su tamaño. |
-| `Alt+F3` | Abre el visor de archivos interno en modo alternativo. |
-| `F4` | Abre el editor integrado (ver [sección 7](#-7-editor-integrado-f4)). |
-| `F5` | Copia los archivos seleccionados hacia el panel opuesto. |
-| `Alt+F5` | Imprime archivos aplicando un comando filtro. |
-| `F6` | Mueve los elementos seleccionados al panel opuesto. Pulsa `Tab` desde el campo de ruta para ver las opciones avanzadas (enlaces simbólicos, atributos, filtro, etc.). |
-| `Alt+F6` | Abre el diálogo de creación de enlaces simbólicos o duros. |
-| `Alt+Retroceso` | Deshace la última operación de archivos (renombrar, mover, copiar, crear carpeta, enlace, enviar a la papelera) tras una confirmación (ver Funciones, sección 2.4.1). |
-| `Ctrl+Y` | Rehace la última operación de archivos deshecha. |
-| `F7` | Renombra el archivo resaltado en el mismo directorio (solo nombre). |
-| `Shift+F6` | Renombrado múltiple de los elementos seleccionados con máscaras, contador, buscar y reemplazar y vista previa en vivo (ver Funciones, sección 2.2.1). En el diálogo: `Tab`/flechas cambian de campo, `Espacio` marca opciones, `Izquierda`/`Derecha` cambian el modo de mayúsculas, `RePág`/`AvPág`, la rueda del ratón o la barra de desplazamiento desplazan la vista previa, `Enter` renombra, `Esc` cancela. |
-| `F8` / `Delete` | Elimina los archivos seleccionados o marcados. |
-| `Alt+Delete` | Borrado Seguro (Wipe): Sobrescribe sectores de datos antes de borrar. |
-| `F9` | Activa la barra superior de menú desplegable. |
-| `F10` | Cierra y sale de la aplicación. |
-| `F12` | Abre el listado de pantallas y pestañas activas de fondo. |
-| `Esc` | Limpia comandos de consola, cierra popups o sale de menús. |
-| `Menu` / `Alt+M` | Abre el menú contextual del archivo seleccionado. |
+| `●` | Cambiaste las teclas de este comando. |
+| `⚠` | Un plugin sugirió una tecla que ya estaba en uso, así que no tiene ninguna. |
+| `≈` | Sus teclas necesitan un terminal capaz (ver la sección 5). |
+| `∅` | Sin tecla: usa la paleta de comandos o asígnale una. |
 
-> **Consejo:** Las acciones que antes estaban en `F7` (Crear carpeta) y `F11` (Plugins) ahora se encuentran en **Barra de menú** → submenú **Archivos**. La opción **Crear carpeta** también está disponible por defecto (tecla `6`) en el **Menú de Usuario** (`F2`).
+| Tecla | En la lista |
+| :--- | :--- |
+| *escribir* | Filtra por nombre, id o tecla. |
+| `F3` | Pulsa cualquier tecla para ver qué hace. |
+| `Enter` | Ejecuta la acción marcada. |
+| `F2` | Da una tecla nueva a la acción: púlsala (o una secuencia) y `Enter`. Si otra acción la usa, Pairee pregunta antes. |
+| `Ins` | Añade una tecla más a la acción. |
+| `Supr` | Quita las teclas de la acción. |
+| `F8` / `Shift+F8` | Devuelve a la acción (o a todas) las teclas del preset. |
+| `Ctrl+←` / `Ctrl+→` | Muestra otro preset; `F5` lo vuelve el activo. |
+| `F9` | Guarda el preset con tus cambios como un archivo de preset propio. |
+
+Los cambios se guardan al instante y funcionan enseguida. La **paleta de
+comandos** (`Ctrl+Shift+P`, `Ctrl+Alt+P`, `:` en Neovim) lista cada acción con
+su tecla.
 
 ---
 
-## 🏷️ 4. Marcado y Selección Múltiple
+## 3. Cómo funcionan las teclas
 
-| Tecla | Acción |
-| :--- | :--- |
-| `Insert` / `Espacio` | Marca/desmarca archivos. El cursor avanza hacia abajo. Sobre una carpeta también calcula su tamaño (`Esc` lo detiene). |
-| `Alt+S` | Calcula el tamaño de las carpetas marcadas (o de todas si no hay ninguna marcada). |
-| `Alt+D` | Vista de uso de disco de la carpeta actual. |
-| `+` (Teclado numérico) | Marca un grupo de archivos según un patrón wildcard (ej. `*.rs`). |
-| `-` (Teclado numérico) | Desmarca un grupo de archivos según patrón wildcard. |
-| `*` (Teclado numérico) | Invierte la selección en todo el panel. |
-| `Ctrl+M` | Restaura el último grupo de selección marcado. |
-| `Ctrl+I` | Aplica un filtro de búsqueda persistente en el panel activo. |
-
-> **TOML de atajos:** los acordes Far `Gray+` / `Gray-` / `Gray*` se aceptan y se traducen a `Plus` / `-` / `*`. En archivos nuevos usa `Plus`. Los acordes inválidos o duplicados se rechazan; Ajustes → Interfaz los lista.
-
-> **Limitación de la terminal (`Ctrl+H`, `Ctrl+I`, `Ctrl+M`):** las terminales clásicas envían los mismos bytes para `Ctrl+H` y `Retroceso`, `Ctrl+I` y `Tab`, `Ctrl+M` y `Enter`. Estos tres atajos solo funcionan en terminales compatibles con el protocolo de teclado kitty (kitty, WezTerm, foot, Ghostty, Alacritty, Windows Terminal reciente, …). En las demás, reasígnalos en `keybindings.toml`:
->
-> ```toml
-> [custom_bindings]
-> toggle_hidden     = "Alt+h"
-> file_panel_filter = "Alt+i"
-> restore_selection = "Alt+r"
-> ```
+- **Chords**: una tecla con modificadores: `F5`, `Ctrl+c`, `Alt+Shift+PageUp`.
+  Una letra mayúscula significa `Shift` (`Ctrl+K` es `Ctrl+Shift+k`).
+- **Secuencias**: varias teclas una tras otra: `g g`, `Ctrl+w h`. Mientras hay
+  una en curso, abajo se ven las teclas que pueden seguir; `Esc` la cancela.
+  Una secuencia espera un segundo su siguiente tecla (en yazi espera lo que
+  haga falta).
+- **La tecla líder** (Neovim: `Espacio`) inicia casi todas las secuencias de
+  Neovim: `Espacio f f` busca archivos.
+- **Las letras** hacen lo que hacían en tu programa: en Norton escriben en la
+  línea de comandos, en Estándar saltan al archivo cuyo nombre empieza así, y
+  en Neovim y yazi son comandos (una letra sin comando no hace nada; `!`, `;`
+  o `:` abren la línea de comandos).
+- **Búsqueda rápida** (Norton): `Alt` y una letra busca por nombre; sigue
+  escribiendo, `↑`/`↓` pasan de una coincidencia a otra, `Esc` cierra.
+- **Contextos**: los paneles, el editor, el visor y las listas de los diálogos
+  tienen sus propias teclas. La ayuda, la lista de pantallas, la paleta de
+  comandos y la lista de atajos funcionan en todas partes.
 
 ---
 
-## 🌐 5. SSH, Git y Herramientas de Sistema
+## 4. Cambiar teclas en archivos
 
-| Tecla / Atajo | Acción |
-| :--- | :--- |
-| `Ctrl+Shift+S` | Abre el cuadro de diálogo de conexión SSH / SFTP. |
-| `Alt+G` | Abre el panel de integración con Git. |
-| `Ctrl+W` | Abre el administrador de procesos activos del sistema operativo. |
-| `Alt+F10` | Abre el navegador de directorios en árbol gráfico. |
-| `Ctrl+p` / `Ctrl+P` | Cambia manualmente la barra de teclas F (Normal -> Ctrl -> Alt -> Shift). Cada fila muestra lo que el mapa de teclas asigna a `F1`…`F12` con ese modificador (p. ej. `Shift+F6` renombrado múltiple). |
-| `s` | (Con flujo Yazi activo) Abre el menú inferior modal de ordenación. |
-| `v` | (Con flujo Yazi activo) Abre el menú inferior modal de vista. |
-| `Ctrl+Tab` | Salta a la siguiente pestaña abierta de fondo. |
-| `Ctrl+Shift+Tab` | Regresa a la pestaña anterior de fondo. |
+Todo lo que hace la lista de atajos se escribe en `keybindings.toml`, en la
+carpeta de configuración, que también puedes editar:
 
-### Archivos de mapas de teclas y atajos `Ctrl+Shift`
+```toml
+preset = "norton"
 
-* En `keymaps/*.toml` y `[custom_bindings]` una letra con Mayús se escribe en mayúscula: `Ctrl+K` significa `Ctrl+Shift+K`. La forma antigua `Ctrl+Shift+k` se sigue aceptando y se reescribe. `Comma` nombra la tecla `,` (`Ctrl+Comma`), ya que las comas separan atajos alternativos.
-* Los atajos `Ctrl+Shift+<letra>` (copiar ruta `Ctrl+Shift+C`, paleta de comandos `Ctrl+Shift+P`, lista de teclas `Ctrl+Shift+K`, SSH `Ctrl+Shift+S`) necesitan una terminal que informe `Shift` junto con `Ctrl` (Windows Terminal, kitty, WezTerm, foot…).
-* Mapa VSCode: `F2` es solo Renombrar; el menú de usuario pasa a `Alt+U`, intercambiar paneles a `Ctrl+U`, buscar archivos a `Ctrl+Shift+F` (`Ctrl+F` es el filtro rápido), mostrar ocultos a `Ctrl+.`, y la configuración con `Ctrl+,` ahora funciona.
-* Todos los mapas de teclas incluidos cargan sin errores ni combinaciones duplicadas (lo comprueba una prueba).
+[overrides.all]            # todos los presets
+copy = "F5, Ctrl+Alt+c"    # varias teclas: separadas por comas
+quick_view = ""            # sin tecla
+
+[overrides.norton]         # solo este preset
+"editor.save" = "Ctrl+s"   # las teclas de editor, visor y listas llevan prefijo
+"viewer.quit" = "q, Esc"
+"plugin.git-blame.toggle" = "Ctrl+Alt+g"
+```
+
+Nombrar una acción reemplaza sus teclas, y una tecla que tenía otra acción
+pasa a ella. Un preset propio va en la carpeta `keymaps` (`F9` en la lista
+escribe uno) y solo lista lo que cambia:
+
+```toml
+extends = "neovim"
+
+[options]
+typing = "commands"        # cli | type_ahead | commands
+leader = "Space"
+sequence_timeout = 1000    # milisegundos; 0 espera lo necesario
+alt_quick_search = false
+
+[panels]
+go_parent = "h, -"
+
+[editor]
+save = "Ctrl+s, F2"
+```
+
+Los problemas de estos archivos (una acción desconocida, una tecla que no se
+puede escribir, dos acciones en una tecla) aparecen en **Opciones →
+Configuración → Interfaz → Ver problemas del mapa de teclas…**.
 
 ---
 
-## 🔗 6. Editor de Asociaciones de Archivos
+## 5. Límites de los terminales
 
-| Tecla / Atajo | Acción |
-| :--- | :--- |
-| `↑` / `↓` | Navegar por la lista de reglas. |
-| `A` / `a` / `Insert` | Añadir una nueva regla de asociación. |
-| `E` / `e` / `Enter` | Editar la regla de asociación seleccionada. |
-| `D` / `d` / `Delete` | Eliminar la regla de asociación seleccionada. |
-| `Esc` | Cerrar el editor o cancelar el paso de edición actual. |
+Algunas teclas solo llegan si el terminal las informa; la lista las marca
+con `≈`:
+
+- `Ctrl+Shift+letra`, `Ctrl+Enter`, `Ctrl+Tab` y `Ctrl+dígito` necesitan un
+  terminal con el protocolo de teclado de kitty (kitty, WezTerm, foot,
+  Ghostty, Windows Terminal).
+- `Ctrl+i`, `Ctrl+m`, `Ctrl+h` y `Ctrl+[` son lo mismo que `Tab`, `Enter`,
+  `Retroceso` y `Esc` en terminales antiguos.
+- En Windows `Ctrl+Alt` es `AltGr`: con algunas distribuciones de teclado
+  `Ctrl+Alt+2` o `Ctrl+Alt+E` escriben un carácter.
+- Algunos terminales se quedan con `F11`, `Alt+F4` o `Alt`+flechas.
+
+Cada acción esencial tiene al menos una tecla que funciona en todas partes, y
+todas las acciones están también en la barra de menú (`F9`/`F10`) y en la
+paleta de comandos.
 
 ---
 
-## 📝 7. Editor integrado (F4)
+## 6. Teclas de los plugins
 
-Pairee edita los archivos siempre con su editor integrado; nunca lanza un editor externo. Se abre con `F4` en un panel, con `F6` en el visor y desde **Comandos → Editar menú de usuario**.
+Los plugins sugieren teclas para sus comandos. Una tecla que tu preset ya usa
+nunca se les da: el comando queda sin tecla (marcado `⚠` en la lista) y
+puedes asignarle una. Ver **Plugins** para escribir plugins con teclas.
 
-| Tecla / Atajo | Acción |
+---
+
+## 7. Editor y visor
+
+Pairee edita los archivos siempre con su editor integrado; nunca lanza un
+editor externo. Sus comandos (guardar, buscar, copiar, deshacer, cerrar...)
+y todas las teclas del visor vienen de tu preset y aparecen en las páginas
+**Teclas:** y en la lista de atajos. Moverse y seleccionar texto funciona
+igual en todos los presets:
+
+| Tecla | En el editor |
 | :--- | :--- |
-| `F2` / `Ctrl+S` | Guardar. Si otro programa modificó el archivo desde que se abrió, se pide confirmación antes de sobrescribirlo. |
-| `Shift+F2` | Guardar como (un nombre relativo se resuelve respecto de la carpeta del archivo; un archivo existente solo se sobrescribe tras confirmar). |
-| `Ctrl+Z` | Deshacer (una racha de escritura se deshace en un solo paso). |
-| `Ctrl+Y` / `Ctrl+Shift+Z` | Rehacer. |
-| `F7` / `Ctrl+F` | Buscar. `F3` / `Shift+F7` repiten la última búsqueda. |
-| `Ctrl+R` | Recargar el archivo desde disco (pregunta antes si hay cambios sin guardar y la confirmación está activa). |
-| `Inicio` / `Fin` | Inicio / fin de línea. `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
-| `Shift` + flechas / `Inicio` / `Fin` / `RePág` / `AvPág` / `Ctrl+Inicio` / `Ctrl+Fin` | Seleccionar texto. Arrastrar con el ratón también selecciona. |
+| Flechas, `Inicio` / `Fin`, `RePág` / `AvPág` | Moverse; `Ctrl+Inicio` / `Ctrl+Fin` van al inicio / final del archivo. |
+| `Shift` + esas teclas | Seleccionar texto. Arrastrar con el ratón también selecciona. |
 | `Alt+Shift` + flechas / `Inicio` / `Fin` (también `Ctrl+Alt+Shift`) | Selección vertical por bloques (columnas), al estilo Far. `Alt` + arrastrar con el ratón también selecciona un bloque. |
-| `Ctrl+B` | Activa o desactiva el modo bloque: `Shift` + flechas y arrastrar con el ratón seleccionan un bloque vertical (la línea de estado muestra "Modo bloque"). Úsalo en terminales que se quedan con `Alt+Shift` + flechas, como Windows Terminal (redimensionar paneles). |
-| `Ctrl+A` | Seleccionar todo. `Esc` quita la selección. |
-| `Ctrl+C` / `Ctrl+Insert` | Copiar la selección. |
-| `Ctrl+X` / `Shift+Supr` | Cortar la selección. |
-| `Ctrl+V` / `Shift+Insert` | Pegar (un solo paso de deshacer). Pegar desde la terminal (pegado entre corchetes) inserta todas las líneas. |
 | Escribir, `Retroceso`, `Supr` | Reemplazan / borran la selección. |
 | `Tab` | Inserta una tabulación, o espacios hasta la siguiente parada si **Expandir tabulaciones** está activo. |
-| `F4` | Abre el archivo en el visor (modo hexadecimal). |
-| `F8` | Descartar cambios y cerrar. |
-| `Esc` / `F10` | Cerrar (pregunta si hay cambios sin guardar). |
 
-El editor conserva los finales de línea del archivo (LF o CRLF), el salto de línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que superan 64 MiB no se abren (usa el visor).
+El modo bloque (`Ctrl+B` en todos los presets) hace que `Shift` + flechas y
+arrastrar con el ratón seleccionen un bloque vertical, para terminales que se
+quedan con `Alt+Shift` + flechas, como Windows Terminal.
 
-Copiar y cortar usan el portapapeles del sistema. Si no está disponible (por ejemplo por SSH o en una sesión Linux sin entorno gráfico) Pairee guarda el texto en su propio portapapeles, así que copiar y pegar siguen funcionando entre pantallas de editor. Un bloque copiado se pega como líneas normales. Mantén `Shift` para ver `Shift+F2` (guardar como) y `Shift+F7` en la barra de teclas.
+El editor conserva los finales de línea del archivo (LF o CRLF), el salto de
+línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que
+superan 64 MiB no se abren (usa el visor). Copiar y cortar usan el
+portapapeles del sistema; si no está disponible (por SSH o en una sesión
+Linux sin entorno gráfico) Pairee guarda el texto en su propio portapapeles,
+así que copiar y pegar siguen funcionando entre pantallas de editor.
+
+El visor lee los archivos por bloques, así que incluso los de varios
+gigabytes se abren al instante. Su línea de estado muestra la codificación,
+la línea actual (o la posición en hexadecimal) y el progreso del indexado o
+de una búsqueda. La codificación se detecta sola (marca de orden de bytes,
+UTF-16, UTF-8 y, si no, la página de códigos heredada más probable); el
+comando de codificación del visor elige otra, y la detección se puede
+desactivar en **Opciones → Configuración → Editor/Visor**.
 
 ---
 
-## 👁️ 8. Visor interno (F3)
+## 8. Teclas dentro de los diálogos
 
-El visor lee los archivos por bloques, así que incluso los de varios gigabytes se abren al instante; el número de líneas crece en la línea de estado mientras el archivo se indexa en segundo plano. La línea de estado (borde inferior) muestra la codificación, la línea actual (o la posición en hexadecimal) y el progreso del indexado o de una búsqueda en curso.
+Las listas de los diálogos (menús, historiales, selectores) se recorren con
+las flechas, `RePág` / `AvPág` e `Inicio` / `Fin`; `Enter` elige y `Esc` cierra.
+Los presets Neovim y yazi suman `j` / `k`, `gg` / `G` y `q`. Algunos diálogos
+tienen teclas propias, indicadas en su línea inferior. El editor de
+asociaciones de archivos:
 
-| Tecla / Atajo | Acción |
+| Tecla | Acción |
 | :--- | :--- |
-| `↑` / `↓` / `RePág` / `AvPág` | Desplazarse. |
-| `Inicio` / `Fin` | Primera / última línea (o fila hexadecimal). |
-| `F4` | Alternar Texto / Hex (e Imagen para imágenes). |
-| `F6` | Abrir el archivo en el editor integrado. |
-| `F7` | Buscar (desde la línea actual, volviendo al principio). `F3` repite la última búsqueda. |
-| `F8` | Elegir la codificación (UTF-8, UTF-16 LE/BE, páginas de códigos Windows/ISO, Shift-JIS, EUC, GBK, Big5...). |
-| `Esc` | Detener una búsqueda en curso; si no hay ninguna, cerrar el visor (también `F10`). |
-
-La codificación se detecta automáticamente: primero la marca de orden de bytes (UTF-8, UTF-16 LE/BE), después UTF-16 sin marca, después UTF-8 y, si no, la página de códigos heredada más probable (por ejemplo Windows-1252 para acentos Latin-1 o Shift-JIS). Los archivos en otra codificación se muestran como texto en vez de tratarse como binarios. La detección se puede desactivar en **Opciones → Configuración → Editor/Visor**.
+| `A` / `a` / `Insert` | Añadir una regla. |
+| `E` / `e` / `Enter` | Editar la regla marcada. |
+| `D` / `d` / `Supr` | Borrar la regla marcada. |

@@ -8,6 +8,7 @@ pub mod options;
 pub mod plugin_commands;
 pub mod preset;
 pub mod published;
+pub mod reference;
 pub mod registry;
 pub mod resolver;
 pub mod screens;

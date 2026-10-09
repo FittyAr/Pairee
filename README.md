@@ -14,7 +14,7 @@ Pairee is a modern, highly modular, and cross-platform terminal file manager ins
 - 🚀 **Full Asynchronous Support**: All long-running filesystem operations (Copy, Move, Wipe, Delete) run on background threads (`tokio`), keeping the UI perfectly responsive.
 - 💪 **Async Task Scheduling**: Real-time progress tracking, progress bar popups, and task cancellation for concurrent workers.
 - 🎨 **Visual Themes & Layouts**: Customizable theme loader supporting Slate, Blue, and other custom styles, alongside responsive layout division.
-- ⚙️ **Flexible Keybindings**: Dynamic keybinding resolver featuring preset profiles for Classic Norton (F1-F10), Vim navigation, and Modern keys.
+- ⌨️ **Keys you already know**: presets that keep the keys of Norton Commander / Far, Windows Explorer / VS Code / Total Commander, Neovim and yazi, a searchable keyboard-shortcuts list where any key can be changed, and plugin commands in the same keymap ([help/en/keyboard_shortcuts.md](help/en/keyboard_shortcuts.md)).
 - 🔌 **Extensible Plugin System**: Sandboxed Lua plugins (`mlua`) with real confirm/input/which dialogs, `pairee.cx` + `File` userdata, `pairee.fs` extras, and `pairee.Command` streaming. Lua API **v1.0** ([docs/api/lua](docs/api/lua/README.md)).
 - 🧰 **Advanced Utilities**: Built-in file search by name/content, folder comparison, custom user commands menu, OS process manager, and file attributes viewer.
 - 📦 **Smart Auto-Updates**: Secure checks supporting auto-detection across 13 installation methods with SHA-256 verification.
