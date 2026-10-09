@@ -1,15 +1,24 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::fs::journal::FsCommand;
 use crate::fs::multi_rename::Step;
 
-pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
+/// Opens the rename prompt; with `basename` the cursor starts before the
+/// extension (Vim's `cW`, yazi's `r`).
+pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -> bool {
     let active = state.get_active_panel();
     if let Some(entry) = active.entries.get(active.cursor_index) {
         let original = entry.name.clone();
+        let mut input = TextField::new(original.as_str());
+        if basename {
+            for _ in 0..extension_len(&original) {
+                input.move_left();
+            }
+        }
         state.dialogs.replace(PopupType::RenamePrompt {
-            input: original.as_str().into(),
+            input,
             original,
             src_path: entry.path.clone(),
             parent_dir: active.current_path.clone(),
@@ -21,6 +30,14 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
             .dialogs
             .replace(PopupType::Error(t("error_no_entry_rename")));
         true
+    }
+}
+
+/// Characters of `.ext` in `name` (none for dot files like `.bashrc`).
+fn extension_len(name: &str) -> usize {
+    match name.rfind('.') {
+        Some(0) | None => 0,
+        Some(dot) => name[dot..].chars().count(),
     }
 }
 
@@ -87,5 +104,18 @@ pub fn commit(
                 )));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::extension_len;
+
+    #[test]
+    fn extension_is_what_follows_the_last_dot() {
+        assert_eq!(extension_len("report.tar.gz"), 3);
+        assert_eq!(extension_len("Makefile"), 0);
+        assert_eq!(extension_len(".bashrc"), 0, "a dot file has no extension");
+        assert_eq!(extension_len("año.txt"), 4);
     }
 }

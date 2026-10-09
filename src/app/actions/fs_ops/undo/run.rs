@@ -70,6 +70,10 @@ pub(super) fn run(
             crate::fs::create_directory(path, false).map_err(|e| e.to_string())
         }
         FsCommand::RemoveDir { path } => std::fs::remove_dir(path).map_err(|e| e.to_string()),
+        FsCommand::MakeFile { path } => {
+            crate::fs::create_empty_file(path).map_err(|e| e.to_string())
+        }
+        FsCommand::RemoveFile { path } => std::fs::remove_file(path).map_err(|e| e.to_string()),
         FsCommand::Link { link, target, kind } => {
             crate::fs::create_link(target, link, *kind).map_err(|e| e.to_string())
         }

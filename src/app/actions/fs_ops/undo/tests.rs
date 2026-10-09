@@ -2,6 +2,7 @@
 
 use super::{request, transfer_finished};
 use crate::app::context::AppContext;
+use crate::app::state::popup::CreateKind;
 use crate::app::state::{AppState, PopupType};
 use crate::config::AppConfig;
 use crate::config::localization::t;
@@ -54,10 +55,27 @@ fn irreversible_entry_is_reported_and_dropped() {
 }
 
 #[test]
+fn new_file_is_undone_only_while_empty() {
+    let tmp = tempfile::tempdir().unwrap();
+    let (mut context, mut state) = app(tmp.path());
+    crate::app::actions::fs_ops::mkdir::handle(&mut state, CreateKind::Auto);
+    for c in "notes.md".chars() {
+        press(&mut state, &mut context, KeyCode::Char(c));
+    }
+    press(&mut state, &mut context, KeyCode::Enter);
+    let made = tmp.path().join("notes.md");
+    assert!(made.is_file());
+    assert_eq!(
+        state.journal.peek(Direction::Undo).map(FsCommand::verb),
+        Some(t("journal_verb_mkfile"))
+    );
+}
+
+#[test]
 fn make_folder_is_undone_and_redone_from_the_dialog() {
     let tmp = tempfile::tempdir().unwrap();
     let (mut context, mut state) = app(tmp.path());
-    crate::app::actions::fs_ops::mkdir::handle(&mut state);
+    crate::app::actions::fs_ops::mkdir::handle(&mut state, CreateKind::Folder);
     for c in "made".chars() {
         press(&mut state, &mut context, KeyCode::Char(c));
     }

@@ -480,11 +480,11 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] Pipeline de entrada (§3.4): modos `cli` / `type_ahead` / `commands`, foco explícito de la CLI (`focus_cli`), y las teclas `s`/`v` del flujo yazi pasan a ser una capa de ajustes (`sort_menu` / `view_mode_menu`) en lugar de código fijo.
 
 ### Fase 2 — Acciones nuevas (§4)
-- [ ] Portapapeles de archivos (`yank`/`cut`/`paste`/`paste_overwrite`/`paste_as_link`/`clear_clipboard`) sobre el motor de transferencia + undo + indicador de estado.
-- [ ] `trash`/`delete_permanent`, `select_all`/`unselect_all`/`visual_mode`/`toggle_select_and_down`.
-- [ ] Historial `back`/`forward`, `go_home`/`go_root`, media página.
-- [ ] `find_in_panel`/`find_next`/`find_prev` + type-ahead + quick search `Alt+letra`.
-- [ ] `focus_left/right_panel`, variantes de `copy_*`, `new_file`/`create`, `rename_basename`, `cycle_panel_view`/`cycle_sort`.
+- [x] Portapapeles de archivos (`yank`/`cut`/`paste`/`paste_overwrite`/`paste_as_link`/`clear_clipboard`) sobre el motor de transferencia (undo y conflictos incluidos) + indicador en la línea de comandos. Pegar una copia en su misma carpeta conserva ambas; un corte pegado en su carpeta no hace nada.
+- [x] `trash`/`delete_permanent` (el título de la confirmación dice adónde van), `select_all`/`unselect_all`/`visual_mode`. `toggle_select_and_down` no hace falta: `select_item` ya marca y baja (NC `Insert`, yazi `Space`).
+- [x] Historial `history_back`/`history_forward` por panel, `go_home`/`go_root`, `half_page_up`/`half_page_down` (la página sigue siendo de 10 filas fijas; ajustarla a la altura real queda pendiente).
+- [x] `find_in_panel`/`find_next`/`find_prev` + type-ahead + quick search `Alt+letra` (opción de preset `alt_quick_search`), con un único buscador de nombres compartido.
+- [x] `focus_left/right_panel`, `copy_name`/`copy_name_no_ext`/`copy_dir_path`, `new_file`/`create` (undo con `MakeFile`, solo mientras el archivo siga vacío), `rename_basename`, `cycle_panel_view`/`cycle_sort`.
 
 ### Fase 3 — Contextos editor / visor / lista
 - [ ] `EditorAction`, `ViewerAction`, `ListAction` con `Bindable`; mover las teclas fijas a las capas `[editor]`, `[viewer]`, `[list]`.

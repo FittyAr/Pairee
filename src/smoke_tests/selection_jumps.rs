@@ -87,3 +87,39 @@ fn focus_actions_pick_a_side() {
     h.dispatch(Action::FocusLeftPanel);
     assert_eq!(h.state.panels.active, ActivePanel::Left);
 }
+
+#[test]
+fn rename_basename_puts_the_cursor_before_the_extension() {
+    let mut h = with_files();
+    h.write("work/left/report.tar.gz", "r");
+    h.write("work/left/Makefile", "b");
+    h.reread();
+    for (name, cursor) in [
+        ("report.tar.gz", "report.tar".len()),
+        ("Makefile", "Makefile".len()),
+    ] {
+        h.focus(name);
+        h.dispatch(Action::RenameBasename);
+        match h.state.dialogs.top() {
+            Some(PopupType::RenamePrompt { input, .. }) => {
+                assert_eq!(input.cursor(), cursor, "{name}")
+            }
+            other => panic!("expected rename prompt, got {other:?}"),
+        }
+        h.keys("Esc");
+    }
+}
+
+#[test]
+fn create_makes_a_file_or_a_folder() {
+    let mut h = with_files();
+    h.dispatch(Action::Create);
+    h.text("notes.md").keys("Enter");
+    h.dispatch(Action::Create);
+    h.text("docs/").keys("Enter");
+    h.dispatch(Action::NewFile);
+    h.text("empty").keys("Enter");
+    assert!(h.root().join("work/left/notes.md").is_file());
+    assert!(h.root().join("work/left/docs").is_dir());
+    assert!(h.root().join("work/left/empty").is_file());
+}

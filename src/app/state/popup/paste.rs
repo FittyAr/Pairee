@@ -88,6 +88,7 @@ mod tests {
             input: "dir".into(),
             cursor_idx: 0,
             process_multiple: false,
+            kind: crate::app::state::popup::CreateKind::Folder,
         };
         assert!(popup.apply_paste("_x"));
         match &popup {

@@ -22,7 +22,7 @@ pub mod wipe;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
-use crate::app::state::popup::TransferPromptOp;
+use crate::app::state::popup::{CreateKind, TransferPromptOp};
 use crate::fs::journal::Direction;
 use crate::keybindings::Action;
 use crate::terminal::TerminalBackend;
@@ -48,11 +48,14 @@ pub fn handle_fs_action(
         Action::CopyNameNoExt => copy_path::handle(state, copy_path::PathText::NameNoExt),
         Action::CopyDirPath => copy_path::handle(state, copy_path::PathText::Folder),
         Action::Move => transfer::handle(state, context, TransferPromptOp::Move),
-        Action::Rename => rename::handle(state, context),
+        Action::Rename => rename::handle(state, context, false),
+        Action::RenameBasename => rename::handle(state, context, true),
         Action::MultiRename => multi_rename::handle(state),
         Action::CompressFiles => compress::handle(state, context),
         Action::ExtractArchive => extract::handle(state),
-        Action::MkDir => mkdir::handle(state),
+        Action::MkDir => mkdir::handle(state, CreateKind::Folder),
+        Action::NewFile => mkdir::handle(state, CreateKind::File),
+        Action::Create => mkdir::handle(state, CreateKind::Auto),
         Action::Delete => delete::handle(state, context, delete::DeleteMode::Configured),
         Action::Trash => delete::handle(state, context, delete::DeleteMode::Trash),
         Action::DeletePermanent => delete::handle(state, context, delete::DeleteMode::Permanent),

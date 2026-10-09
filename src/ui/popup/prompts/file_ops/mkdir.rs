@@ -1,4 +1,5 @@
 use crate::app::state::PopupType;
+use crate::app::state::popup::CreateKind;
 use crate::app::state::popup::forms::MKDIR_FORM;
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, FocusStyles};
@@ -20,6 +21,7 @@ pub fn render(
         input,
         cursor_idx,
         process_multiple,
+        kind,
     } = popup
     else {
         return false;
@@ -28,7 +30,11 @@ pub fn render(
         f,
         size,
         (50, 9),
-        t("prompt_mkdir_title"),
+        t(match kind {
+            CreateKind::Folder => "prompt_mkdir_title",
+            CreateKind::File => "prompt_new_file_title",
+            CreateKind::Auto => "prompt_create_title",
+        }),
         kit::fg(parse_color(&theme.popup_border)),
         theme,
     );
@@ -47,7 +53,15 @@ pub fn render(
     let mut field = vec![ratatui::text::Span::styled(" > ", style)];
     field.extend(kit::field_spans(input, style, styles.cursor(), focused));
     f.render_widget(
-        Paragraph::new(vec![Line::from(t("prompt_mkdir_to")), Line::from(field)]).style(style),
+        Paragraph::new(vec![
+            Line::from(t(match kind {
+                CreateKind::Folder => "prompt_mkdir_to",
+                CreateKind::File => "prompt_new_file_to",
+                CreateKind::Auto => "prompt_create_to",
+            })),
+            Line::from(field),
+        ])
+        .style(style),
         chunks[0],
     );
     f.render_widget(

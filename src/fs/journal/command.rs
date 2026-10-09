@@ -103,6 +103,14 @@ pub enum FsCommand {
     RemoveDir {
         path: PathBuf,
     },
+    /// An empty file was created.
+    MakeFile {
+        path: PathBuf,
+    },
+    /// An empty file was removed (undoing `MakeFile`).
+    RemoveFile {
+        path: PathBuf,
+    },
     Link {
         link: PathBuf,
         target: PathBuf,
@@ -156,6 +164,8 @@ impl FsCommand {
             },
             Self::MakeDir { path } => Self::RemoveDir { path: path.clone() },
             Self::RemoveDir { path } => Self::MakeDir { path: path.clone() },
+            Self::MakeFile { path } => Self::RemoveFile { path: path.clone() },
+            Self::RemoveFile { path } => Self::MakeFile { path: path.clone() },
             Self::Link { link, target, kind } => Self::Unlink {
                 link: link.clone(),
                 target: target.clone(),
@@ -193,7 +203,10 @@ impl FsCommand {
             Self::Trash { paths } | Self::Restore { paths } => {
                 paths.iter().map(|p| (p.clone(), None)).collect()
             }
-            Self::MakeDir { path } | Self::RemoveDir { path } => vec![(path.clone(), None)],
+            Self::MakeDir { path }
+            | Self::RemoveDir { path }
+            | Self::MakeFile { path }
+            | Self::RemoveFile { path } => vec![(path.clone(), None)],
             Self::Link { link, target, .. } | Self::Unlink { link, target, .. } => {
                 vec![(link.clone(), Some(target.clone()))]
             }
@@ -225,6 +238,8 @@ impl FsCommand {
             Self::Restore { .. } => "journal_verb_restore",
             Self::MakeDir { .. } => "journal_verb_mkdir",
             Self::RemoveDir { .. } => "journal_verb_rmdir",
+            Self::MakeFile { .. } => "journal_verb_mkfile",
+            Self::RemoveFile { .. } => "journal_verb_rmfile",
             Self::Link { .. } => "journal_verb_link",
             Self::Unlink { .. } => "journal_verb_unlink",
             Self::NotUndoable { kind, .. } => match kind {

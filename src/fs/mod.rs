@@ -29,6 +29,6 @@ pub use compare::CompareStatus;
 pub use descriptions::{read_description, write_description};
 pub use entry::FileEntry;
 pub use link::{LinkKind, create_link, remove_link};
-pub use mkdir::create_directory;
+pub use mkdir::{create_directory, create_empty_file};
 pub use path_util::file_name_lossy;
 pub use privileges::{FsOperation, acquire_admin_privileges, is_elevated, run_in_elevated_helper};

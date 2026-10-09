@@ -83,6 +83,8 @@ pub fn check(command: &FsCommand) -> Checked {
         .map(|paths| FsCommand::Restore { paths }),
         FsCommand::MakeDir { path } => single(path, &mut skipped, occupied(path), command),
         FsCommand::RemoveDir { path } => single(path, &mut skipped, dir_removal(path), command),
+        FsCommand::MakeFile { path } => single(path, &mut skipped, occupied(path), command),
+        FsCommand::RemoveFile { path } => single(path, &mut skipped, file_removal(path), command),
         FsCommand::Link { link, target, .. } => {
             let reason = occupied(link).or((!entry_exists(target)).then_some(SkipReason::Missing));
             single(link, &mut skipped, reason, command)
@@ -203,6 +205,15 @@ fn dir_removal(path: &Path) -> Option<SkipReason> {
     }
     let empty = std::fs::read_dir(path).is_ok_and(|mut entries| entries.next().is_none());
     (!empty).then_some(SkipReason::NotEmpty)
+}
+
+/// A created file is only removed while it is still empty.
+fn file_removal(path: &Path) -> Option<SkipReason> {
+    match std::fs::metadata(path) {
+        Ok(meta) if meta.is_file() && meta.len() == 0 => None,
+        Ok(_) => Some(SkipReason::Changed),
+        Err(_) => Some(SkipReason::Missing),
+    }
 }
 
 fn link_removal(link: &Path, target: &Path, kind: LinkKind) -> Option<SkipReason> {

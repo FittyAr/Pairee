@@ -40,6 +40,16 @@ use super::types::{
 use crate::app::text_input::TextField;
 use std::path::PathBuf;
 
+/// What the create prompt makes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CreateKind {
+    Folder,
+    File,
+    /// A folder when the name ends with a path separator, else a file
+    /// (yazi / nvim-tree `a`).
+    Auto,
+}
+
 #[derive(Debug, Clone)]
 pub enum PopupType {
     Help {
@@ -68,6 +78,8 @@ pub enum PopupType {
         input: TextField,
         cursor_idx: usize,
         process_multiple: bool,
+        /// Folder (`mkdir`), file (`new_file`) or either (`create`).
+        kind: CreateKind,
     },
     /// Copy (F5) / Move (F6) dialog.
     TransferPrompt(CopyMovePromptState),

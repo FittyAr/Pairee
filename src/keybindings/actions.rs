@@ -238,6 +238,12 @@ pub enum Action {
     SortMenu,
     /// Next sort field of the active panel
     CycleSort,
+    /// Create an empty file
+    NewFile,
+    /// Create a file, or a folder when the name ends with `/`
+    Create,
+    /// Rename with the cursor before the extension
+    RenameBasename,
     /// Search names in the active panel (Vim / yazi `/`)
     FindInPanel,
     /// Next match of the last in-panel search
