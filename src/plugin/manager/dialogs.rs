@@ -79,75 +79,6 @@ pub fn open_which(
     state.mark_ui_dirty();
 }
 
-/// Compare a pressed key (keybinds display form) to a Lua `on` spec.
-///
-/// Accepts both `Ctrl+c` / `Down` (resolver) and `<C-c>` / `<Down>` (Lua).
-pub fn key_matches_spec(pressed: &str, spec: &str) -> bool {
-    normalize_key_spec(pressed) == normalize_key_spec(spec)
-}
-
-pub fn normalize_key_spec(raw: &str) -> String {
-    let trimmed = raw.trim();
-    let inner = trimmed
-        .strip_prefix('<')
-        .and_then(|s| s.strip_suffix('>'))
-        .unwrap_or(trimmed)
-        .trim();
-
-    let mut ctrl = false;
-    let mut alt = false;
-    let mut shift = false;
-    let mut rest = inner.to_string();
-
-    loop {
-        let lower = rest.to_ascii_lowercase();
-        if let Some(next) = lower
-            .strip_prefix("ctrl+")
-            .or_else(|| lower.strip_prefix("ctrl-"))
-            .or_else(|| lower.strip_prefix("control+"))
-            .or_else(|| lower.strip_prefix("control-"))
-            .or_else(|| lower.strip_prefix("c-"))
-        {
-            ctrl = true;
-            rest = next.to_string();
-            continue;
-        }
-        if let Some(next) = lower
-            .strip_prefix("alt+")
-            .or_else(|| lower.strip_prefix("alt-"))
-            .or_else(|| lower.strip_prefix("a-"))
-        {
-            alt = true;
-            rest = next.to_string();
-            continue;
-        }
-        if let Some(next) = lower
-            .strip_prefix("shift+")
-            .or_else(|| lower.strip_prefix("shift-"))
-            .or_else(|| lower.strip_prefix("s-"))
-        {
-            shift = true;
-            rest = next.to_string();
-            continue;
-        }
-        break;
-    }
-
-    let key = rest.to_ascii_lowercase();
-    let mut out = String::new();
-    if ctrl {
-        out.push_str("ctrl+");
-    }
-    if alt {
-        out.push_str("alt+");
-    }
-    if shift {
-        out.push_str("shift+");
-    }
-    out.push_str(&key);
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -156,24 +87,6 @@ mod tests {
 
     fn test_state() -> AppState {
         AppState::new(PathBuf::from("."), PathBuf::from("."))
-    }
-
-    #[test]
-    fn normalize_lua_and_resolver_ctrl_c() {
-        assert_eq!(normalize_key_spec("<C-c>"), "ctrl+c");
-        assert_eq!(normalize_key_spec("Ctrl+c"), "ctrl+c");
-        assert_eq!(normalize_key_spec("Ctrl+C"), "ctrl+c");
-        assert!(key_matches_spec("Ctrl+c", "<C-c>"));
-    }
-
-    #[test]
-    fn normalize_arrow_and_plain_char() {
-        assert_eq!(normalize_key_spec("<Down>"), "down");
-        assert_eq!(normalize_key_spec("Down"), "down");
-        assert!(key_matches_spec("Down", "<Down>"));
-        assert!(key_matches_spec("a", "a"));
-        assert!(key_matches_spec("A", "a"));
-        assert!(!key_matches_spec("a", "b"));
     }
 
     #[test]

@@ -165,14 +165,36 @@ fn update_index(index_path: &Path, manifest: &PluginManifest) -> anyhow::Result<
         description: manifest.description.clone(),
         author: manifest.author.clone(),
         languages: manifest.languages.clone(),
-        hooks: manifest
-            .keybindings
-            .as_ref()
-            .map(|kb| kb.values().cloned().collect()),
+        // The manifest does not declare the hook events a plugin handles;
+        // its `[keybindings]` actions are not hooks.
+        hooks: None,
         min_pairee: manifest.min_pairee.clone(),
     };
     index_data.plugins.insert(manifest.name.clone(), reg_plugin);
 
     std::fs::write(index_path, toml::to_string_pretty(&index_data)?)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn keybinding_actions_are_not_listed_as_hooks() {
+        let manifest = PluginManifest::parse(
+            "name = \"demo\"
+version = \"1.0.0\"
+[keybindings]
+\"ctrl+h\" = \"hello\"
+",
+        )
+        .unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        let index_path = dir.path().join("registry").join("index.toml");
+        update_index(&index_path, &manifest).unwrap();
+        let index: crate::plugin::updater::RegistryIndex =
+            toml::from_str(&std::fs::read_to_string(&index_path).unwrap()).unwrap();
+        assert_eq!(index.plugins["demo"].hooks, None);
+    }
 }

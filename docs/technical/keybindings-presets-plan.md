@@ -467,7 +467,7 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] Unificar `include_str!` de los presets en un único módulo `keymaps::embedded`.
 - [x] Sembrado no destructivo: si el archivo del usuario difiere del embebido, no se pisa. Se escribe `<name>.toml.new` y se avisa en el reporte.
 - [x] Eliminar el `preset == "vim"` de `cli.rs` (se reemplaza en la fase 1 por `typing`).
-- [ ] Corregir el formato de tecla de los plugins con el normalizador común, y añadir desregistro al desinstalar.
+- [x] Corregir el formato de tecla de los plugins con el normalizador común, y añadir desregistro al desinstalar.
 
 ### Fase 1 — Modelo de keymap v2
 - [ ] `trait Bindable` + `Category` + catálogo completo. Test: toda variante catalogada y etiquetada en `en`/`es`.

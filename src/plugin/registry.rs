@@ -1,5 +1,6 @@
 use crate::app::state::types::PluginWidget;
 use crate::plugin::loader::PluginManifest;
+use crate::plugin::plugin_keymap::PluginKeymap;
 use mlua::LuaSerdeExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -37,7 +38,7 @@ pub struct PluginInfo {
 struct Registry {
     plugins: RwLock<HashMap<String, PluginInfo>>,
     channels: RwLock<HashMap<String, mpsc::Sender<PluginTaskRequest>>>,
-    keybindings: RwLock<HashMap<String, (String, String)>>, // Key -> (PluginName, ActionName)
+    keybindings: RwLock<PluginKeymap>,
 }
 
 static REGISTRY: OnceLock<Registry> = OnceLock::new();
@@ -46,7 +47,7 @@ fn get_registry() -> &'static Registry {
     REGISTRY.get_or_init(|| Registry {
         plugins: RwLock::new(HashMap::new()),
         channels: RwLock::new(HashMap::new()),
-        keybindings: RwLock::new(HashMap::new()),
+        keybindings: RwLock::new(PluginKeymap::default()),
     })
 }
 
@@ -66,12 +67,15 @@ pub async fn register_plugin(
     };
     registry.plugins.write().await.insert(name.clone(), info);
 
-    // Register keybindings
-    if let Some(ref keymaps) = manifest.keybindings {
-        let mut keybindings = registry.keybindings.write().await;
-        for (key, action) in keymaps {
-            keybindings.insert(key.clone(), (name.clone(), action.clone()));
-        }
+    // Register keybindings (replacing those of an earlier load)
+    let bindings = manifest.keybindings.clone().unwrap_or_default();
+    let invalid = registry
+        .keybindings
+        .write()
+        .await
+        .register(&name, &bindings);
+    if !invalid.is_empty() {
+        log::warn!("Plugin '{name}': ignoring invalid keybindings {invalid:?}");
     }
 
     // Set up communication channel and spawn task
@@ -246,7 +250,16 @@ pub async fn get_loaded_plugins() -> Vec<PluginInfo> {
     registry.plugins.read().await.values().cloned().collect()
 }
 
+/// `(plugin, action)` bound to `key_str` (resolver display form).
 pub async fn resolve_keybinding(key_str: &str) -> Option<(String, String)> {
+    get_registry().keybindings.read().await.resolve(key_str)
+}
+
+/// Forgets a plugin that was uninstalled: its keybindings, its entry in the
+/// loaded list and its channel (which ends its task).
+pub async fn unregister_plugin(name: &str) {
     let registry = get_registry();
-    registry.keybindings.read().await.get(key_str).cloned()
+    registry.keybindings.write().await.unregister(name);
+    registry.plugins.write().await.remove(name);
+    registry.channels.write().await.remove(name);
 }

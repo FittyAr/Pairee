@@ -3,8 +3,8 @@ use crate::app::form::{FieldKey, field_key};
 use crate::app::state::popup::PluginDialog;
 use crate::app::state::{AppState, PendingPluginReply, PopupType};
 use crate::keybindings::Action;
+use crate::plugin::keyspec::key_matches_spec;
 use crate::plugin::manager::InputDialogResult;
-use crate::plugin::manager::dialogs::key_matches_spec;
 use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle(

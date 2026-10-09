@@ -51,7 +51,12 @@ pub fn handle_installed(
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
             if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
-                let _ = crate::plugin::updater::remove(name);
+                if crate::plugin::updater::remove(name).is_ok() {
+                    let name = name.clone();
+                    tokio::spawn(async move {
+                        crate::plugin::registry::unregister_plugin(&name).await;
+                    });
+                }
                 *installed = reload_installed_plugins(context, &None);
                 *cursor_idx = (*cursor_idx).min(installed.len().saturating_sub(1));
             }
