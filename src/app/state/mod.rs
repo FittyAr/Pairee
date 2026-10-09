@@ -1,5 +1,6 @@
 pub mod dialog_stack;
 pub mod dir_sizes;
+pub mod file_clipboard;
 pub mod glob;
 pub mod history;
 pub mod nav_history;
@@ -53,6 +54,8 @@ pub struct AppState {
     pub cli_focused: bool,
     /// Letters typed for type-ahead find.
     pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
+    /// Items yanked / cut for a later paste.
+    pub file_clipboard: Option<file_clipboard::FileClipboard>,
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
@@ -154,6 +157,7 @@ impl AppState {
             cli_input: String::new(),
             cli_focused: false,
             type_ahead: Default::default(),
+            file_clipboard: None,
             dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect: Default::default(),

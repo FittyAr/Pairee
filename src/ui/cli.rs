@@ -1,5 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
+use crate::app::state::file_clipboard::ClipMode;
+use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -29,9 +31,22 @@ pub fn render_cli(f: &mut Frame, area: Rect, state: &AppState, context: &AppCont
         String::new()
     };
 
+    let clipboard_indicator = state
+        .file_clipboard
+        .as_ref()
+        .map(|clip| {
+            let key = match clip.mode {
+                ClipMode::Copy => "clipboard_indicator_copy",
+                ClipMode::Cut => "clipboard_indicator_cut",
+            };
+            format!("{} ", t(key).replace("{}", &clip.paths.len().to_string()))
+        })
+        .unwrap_or_default();
+
     let prompt = format!(
-        "{}{}{}",
+        "{}{}{}{}",
         screen_indicator,
+        clipboard_indicator,
         active_path.to_string_lossy(),
         prompt_symbol
     );

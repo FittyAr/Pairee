@@ -6,6 +6,7 @@
 mod archives;
 mod bookmarks;
 mod editor;
+mod file_clipboard;
 mod file_ops;
 mod git_panel;
 mod navigation;

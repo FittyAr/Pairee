@@ -238,6 +238,24 @@ pub enum Action {
     SortMenu,
     /// Next sort field of the active panel
     CycleSort,
+    /// Put the targeted items on Pairee's file clipboard (paste copies)
+    Yank,
+    /// Put the targeted items on the file clipboard (paste moves)
+    Cut,
+    /// Copy / move the file clipboard into the active panel's folder
+    Paste,
+    /// Paste, replacing items with the same name
+    PasteOverwrite,
+    /// Create symbolic links to the clipboard's items in the active folder
+    PasteAsLink,
+    /// Empty the file clipboard
+    ClearClipboard,
+    /// Copy the targeted names to the system clipboard
+    CopyName,
+    /// Copy the targeted names without extension to the system clipboard
+    CopyNameNoExt,
+    /// Copy the active panel's folder path to the system clipboard
+    CopyDirPath,
     /// Next view mode of the active panel
     CyclePanelView,
     /// Move the highlighted / selected items to the recycle bin

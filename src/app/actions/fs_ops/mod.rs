@@ -8,6 +8,7 @@ pub mod delete;
 pub mod describe;
 pub mod edit;
 pub mod extract;
+pub mod file_clipboard;
 pub mod folder_size;
 pub mod helper;
 pub mod link;
@@ -35,11 +36,17 @@ pub fn handle_fs_action(
     if capability::refuse_unsupported(state, action) {
         return true;
     }
+    if file_clipboard::handle(state, action, context) {
+        return true;
+    }
     match action {
         Action::View | Action::ViewAlt => view::handle(state, action, context, terminal_backend),
         Action::Edit => edit::handle(state, context),
         Action::Copy => transfer::handle(state, context, TransferPromptOp::Copy),
-        Action::CopyPath => copy_path::handle(state),
+        Action::CopyPath => copy_path::handle(state, copy_path::PathText::FullPath),
+        Action::CopyName => copy_path::handle(state, copy_path::PathText::Name),
+        Action::CopyNameNoExt => copy_path::handle(state, copy_path::PathText::NameNoExt),
+        Action::CopyDirPath => copy_path::handle(state, copy_path::PathText::Folder),
         Action::Move => transfer::handle(state, context, TransferPromptOp::Move),
         Action::Rename => rename::handle(state, context),
         Action::MultiRename => multi_rename::handle(state),

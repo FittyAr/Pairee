@@ -25,6 +25,9 @@ fn requirements(action: &Action) -> (Option<Capability>, Option<Capability>) {
         Action::Delete | Action::Trash | Action::DeletePermanent => (Some(Remove), None),
         Action::Rename | Action::MultiRename => (Some(Rename), None),
         Action::Copy => (None, Some(Write)),
+        Action::Cut => (Some(Remove), None),
+        Action::Paste | Action::PasteOverwrite => (Some(Write), None),
+        Action::PasteAsLink => (Some(LocalTools), None),
         Action::Move => (Some(Remove), Some(Write)),
         _ => (None, None),
     }
@@ -37,11 +40,12 @@ pub fn refuse_unsupported(state: &mut AppState, action: &Action) -> bool {
     let passive_ok =
         passive.is_none_or(|c| state.get_passive_panel().source.capabilities().allows(c));
     // Archives are copied in and out; moving would delete from them.
-    let moves_archive = matches!(action, Action::Move)
+    let moves_archive = (matches!(action, Action::Move)
         && (state.get_active_panel().source.archive().is_some()
-            || state.get_passive_panel().source.archive().is_some());
+            || state.get_passive_panel().source.archive().is_some()))
+        || (matches!(action, Action::Cut) && state.get_active_panel().source.archive().is_some());
     // An archive inside an archive is only browsed and viewed.
-    let copies_nested = matches!(action, Action::Copy)
+    let copies_nested = matches!(action, Action::Copy | Action::Yank)
         && state
             .get_active_panel()
             .source

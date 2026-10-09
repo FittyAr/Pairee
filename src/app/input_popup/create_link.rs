@@ -49,18 +49,11 @@ fn create(
 ) {
     let dest = state.get_passive_panel().current_path.join(name);
     state.dialogs.clear();
-    match crate::fs::create_link(src, &dest, kind) {
+    match crate::app::actions::fs_ops::link::make(state, src, &dest, kind) {
         Err(e) => state
             .dialogs
             .replace(PopupType::Error(format!("Link failed: {}", e))),
-        Ok(()) => {
-            state.journal.record(crate::fs::journal::FsCommand::Link {
-                link: dest,
-                target: src.to_path_buf(),
-                kind,
-            });
-            state.refresh_both_panels(context.config.settings.show_hidden);
-        }
+        Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
     }
 }
 
