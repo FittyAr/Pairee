@@ -57,6 +57,13 @@ fn operation_log(op: TransferOperation) -> OperationLog {
 /// Updates `job` for `event` (events of other jobs must not be passed).
 pub fn apply_event(job: &mut TransferJob, event: &TransferEvent) {
     let log = operation_log(job.operation);
+    if !apply_file_event(job, &log, event) {
+        apply_job_event(job, &log, event);
+    }
+}
+
+/// Job-level events: start, scan, speed, completion and failure.
+fn apply_job_event(job: &mut TransferJob, log: &OperationLog, event: &TransferEvent) {
     match event {
         TransferEvent::JobStarted { job_id } => {
             job.progress = Some(TransferProgress::default());
@@ -86,6 +93,31 @@ pub fn apply_event(job: &mut TransferJob, event: &TransferEvent) {
                 bytesize::ByteSize(*total_bytes)
             ));
         }
+        TransferEvent::SpeedUpdate {
+            bytes_per_second,
+            eta_seconds,
+            ..
+        } => progress(job, |p| {
+            p.bytes_per_second = *bytes_per_second;
+            p.eta_seconds = *eta_seconds;
+        }),
+        TransferEvent::JobCompleted { job_id, .. } => {
+            job.log_lines
+                .push(format!("[{}] Job completed successfully", job_id));
+        }
+        TransferEvent::JobFailed { job_id, error } => {
+            job.log_lines
+                .push(format!("[{}] Job failed: {}", job_id, error));
+        }
+        // File events are handled by `apply_file_event`; command output is
+        // streamed to the terminal screen, not the job log.
+        _ => {}
+    }
+}
+
+/// Per-file events. Returns `false` for events that are not about one file.
+fn apply_file_event(job: &mut TransferJob, log: &OperationLog, event: &TransferEvent) -> bool {
+    match event {
         TransferEvent::FileStarted { file, index, .. } => {
             let file = file.to_string_lossy();
             progress(job, |p| p.current_file = file.to_string());
@@ -134,22 +166,6 @@ pub fn apply_event(job: &mut TransferJob, event: &TransferEvent) {
             job.log_lines
                 .push(format!("⚠ SKIP: {} - {}", file.to_string_lossy(), reason));
         }
-        TransferEvent::SpeedUpdate {
-            bytes_per_second,
-            eta_seconds,
-            ..
-        } => progress(job, |p| {
-            p.bytes_per_second = *bytes_per_second;
-            p.eta_seconds = *eta_seconds;
-        }),
-        TransferEvent::JobCompleted { job_id, .. } => {
-            job.log_lines
-                .push(format!("[{}] Job completed successfully", job_id));
-        }
-        TransferEvent::JobFailed { job_id, error } => {
-            job.log_lines
-                .push(format!("[{}] Job failed: {}", job_id, error));
-        }
         TransferEvent::ConflictDetected { file, .. } => {
             job.log_lines
                 .push(format!("Conflict detected: {}", file.to_string_lossy()));
@@ -163,8 +179,9 @@ pub fn apply_event(job: &mut TransferJob, event: &TransferEvent) {
                 file.to_string_lossy()
             ));
         }
-        TransferEvent::CommandOutput { .. } => {}
+        _ => return false,
     }
+    true
 }
 
 /// Runs `update` on the job progress, if the job has started.
