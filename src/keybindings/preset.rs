@@ -1,22 +1,9 @@
-//! Action name parsing and embedded preset TOML helpers.
+//! Action name parsing.
 //!
 //! Chord validation and dispatch live in [`super::loader`] / [`super::resolver`]
 //! via the `keybinds` crate — do not reintroduce string-hash key maps here.
 
 use super::actions::Action;
-
-const EMBEDDED_NORTON: &str = include_str!("../../keymaps/norton.toml");
-const EMBEDDED_NEOVIM: &str = include_str!("../../keymaps/neovim.toml");
-const EMBEDDED_VSCODE: &str = include_str!("../../keymaps/vscode.toml");
-
-/// Returns the shipped TOML body for a built-in preset (for first-run install).
-pub fn get_builtin_preset_toml(preset: &str) -> String {
-    match preset.to_lowercase().as_str() {
-        "neovim" | "vim" => EMBEDDED_NEOVIM.to_string(),
-        "vscode" | "modern" => EMBEDDED_VSCODE.to_string(),
-        _ => EMBEDDED_NORTON.to_string(),
-    }
-}
 
 /// Plain (non-parameterised) action names of `keymaps/*.toml`.
 const ACTION_NAMES: &[(&str, Action)] = &[

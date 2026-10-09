@@ -132,21 +132,20 @@ fn legacy_preset(config_toml: &str) -> Option<String> {
 
 /// Seeds the `keymaps/` folder with the built-in presets and refreshes
 /// copies written by versions with the old F7/F11 layout.
-pub(super) fn seed_preset_keymaps(presets: &[&str]) -> Result<()> {
+pub(super) fn seed_preset_keymaps() -> Result<()> {
     let keymaps_dir = paths::get_keymaps_dir();
     if !keymaps_dir.exists() {
         fs::create_dir_all(&keymaps_dir).context("Failed to create keymaps directory")?;
     }
-    for preset_name in presets {
+    for (preset_name, toml_content) in crate::keybindings::embedded::PRESETS {
         let preset_path = keymaps_dir.join(format!("{}.toml", preset_name));
-        let toml_content = crate::keybindings::preset::get_builtin_preset_toml(preset_name);
         if !preset_path.exists() {
-            fs::write(&preset_path, &toml_content).with_context(|| {
+            fs::write(&preset_path, toml_content).with_context(|| {
                 format!("Failed to write default keymap file: {}.toml", preset_name)
             })?;
         } else if let Ok(existing) = fs::read_to_string(&preset_path)
             && has_outdated_layout(&existing)
-            && let Err(e) = fs::write(&preset_path, &toml_content)
+            && let Err(e) = fs::write(&preset_path, toml_content)
         {
             log::warn!("Failed to refresh preset keymap {:?}: {}", preset_path, e);
         }

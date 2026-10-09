@@ -19,9 +19,6 @@ use settings::Settings;
 use std::fs;
 use theme::Theme;
 
-/// Names of the preset TOML files shipped with Pairee.
-const BUILTIN_PRESETS: &[&str] = &["norton", "neovim", "vscode"];
-
 #[derive(Debug, Clone, Default)]
 pub struct AppConfig {
     pub settings: Settings,
@@ -60,7 +57,7 @@ impl AppConfig {
 
         // 2. Keybindings Loading, 2b. preset keymap files
         let keybindings = loading::load_keybindings(&settings_path)?;
-        loading::seed_preset_keymaps(BUILTIN_PRESETS)?;
+        loading::seed_preset_keymaps()?;
 
         // 3. Theme Loading
         let theme = loading::load_theme(&settings.theme)?;

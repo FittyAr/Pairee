@@ -1,10 +1,7 @@
 use super::report::KeymapLoadReport;
 use crate::config::paths;
+use crate::keybindings::embedded::{self, normalize_preset_name};
 use std::path::PathBuf;
-
-const EMBEDDED_NORTON: &str = include_str!("../../../keymaps/norton.toml");
-const EMBEDDED_NEOVIM: &str = include_str!("../../../keymaps/neovim.toml");
-const EMBEDDED_VSCODE: &str = include_str!("../../../keymaps/vscode.toml");
 
 pub fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<String> {
     let name = normalize_preset_name(preset);
@@ -30,19 +27,13 @@ pub fn load_preset_toml(preset: &str, report: &mut KeymapLoadReport) -> Option<S
     }
 
     // 3) Embedded defaults
-    let embedded = match name.as_str() {
-        "neovim" | "vim" => Some(EMBEDDED_NEOVIM),
-        "vscode" | "modern" => Some(EMBEDDED_VSCODE),
-        _ => {
-            if name != "norton" {
-                report.warnings.push(format!(
-                    "Preset '{preset}' not found on disk — falling back to embedded norton"
-                ));
-            }
-            Some(EMBEDDED_NORTON)
-        }
-    };
-    embedded.map(|s| s.to_string())
+    let embedded = embedded::preset_toml(&name).unwrap_or_else(|| {
+        report.warnings.push(format!(
+            "Preset '{preset}' not found on disk — falling back to embedded norton"
+        ));
+        embedded::default_preset_toml()
+    });
+    Some(embedded.to_string())
 }
 
 fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
@@ -60,24 +51,6 @@ fn shipped_keymap_candidates(name: &str) -> Vec<PathBuf> {
         );
     }
     out
-}
-
-/// Shipped TOML for a built-in preset name (`None` for custom presets).
-pub fn embedded_preset_toml(preset: &str) -> Option<&'static str> {
-    match normalize_preset_name(preset).as_str() {
-        "norton" => Some(EMBEDDED_NORTON),
-        "neovim" => Some(EMBEDDED_NEOVIM),
-        "vscode" => Some(EMBEDDED_VSCODE),
-        _ => None,
-    }
-}
-
-pub fn normalize_preset_name(preset: &str) -> String {
-    match preset.to_lowercase().as_str() {
-        "vim" => "neovim".into(),
-        "modern" => "vscode".into(),
-        other => other.to_string(),
-    }
 }
 
 /// Map legacy / friendly aliases to keybinds grammar.

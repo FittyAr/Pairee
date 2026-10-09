@@ -76,7 +76,7 @@ fn collect_pairs(
     if let Some(content) = toml_src {
         match toml::from_str::<PresetFile>(content) {
             Ok(file) => {
-                if let Some(embedded) = disk::embedded_preset_toml(preset)
+                if let Some(embedded) = crate::keybindings::embedded::preset_toml(preset)
                     && let Ok(defaults) = toml::from_str::<PresetFile>(embedded)
                 {
                     fallback = defaults
@@ -238,7 +238,7 @@ mod tests {
     #[test]
     fn shipped_presets_load_without_errors_or_duplicate_chords() {
         for preset in ["norton", "neovim", "vscode"] {
-            let src = disk::embedded_preset_toml(preset).unwrap();
+            let src = crate::keybindings::embedded::preset_toml(preset).unwrap();
             let (_, report) =
                 build_keybinds(preset, Some(src), &HashMap::new(), Default::default());
             assert!(
@@ -275,12 +275,6 @@ mod tests {
             KeyModifiers::CONTROL | KeyModifiers::SHIFT,
         );
         assert_eq!(kb.dispatch(key).copied(), Some(Action::WhichKey));
-    }
-
-    #[test]
-    fn embedded_presets_only_exist_for_builtins() {
-        assert!(disk::embedded_preset_toml("vim").is_some());
-        assert!(disk::embedded_preset_toml("my-custom").is_none());
     }
 
     #[test]

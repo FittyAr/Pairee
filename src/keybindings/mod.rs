@@ -1,4 +1,5 @@
 pub mod actions;
+pub mod embedded;
 pub mod loader;
 pub mod preset;
 pub mod registry;
