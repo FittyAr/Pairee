@@ -25,10 +25,14 @@ pub fn handle(
         return Err(());
     };
     match state.dialogs.pop() {
-        Some(PopupType::ConfirmDelete { paths, cursor_idx }) if confirmed => {
+        Some(PopupType::ConfirmDelete {
+            paths,
+            cursor_idx,
+            to_trash,
+        }) if confirmed => {
             if cursor_idx == 0 {
                 let options = TransferOptions {
-                    delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
+                    delete_to_recycle_bin: to_trash,
                     ..Default::default()
                 };
                 let ssh = state.get_active_panel().source.ssh().cloned();

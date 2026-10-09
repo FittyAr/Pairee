@@ -54,6 +54,10 @@ pub struct PanelState {
     pub free_space: Option<u64>,
     /// Folder sizes computed on request, kept until another directory is listed.
     pub dir_sizes: DirSizes,
+    /// Back / forward history of the folders this panel showed.
+    pub nav: super::nav_history::NavHistory,
+    /// Active visual selection (`visual_mode`).
+    pub visual: Option<super::visual::VisualSelection>,
 }
 
 impl PanelState {
@@ -81,6 +85,8 @@ impl PanelState {
             attrs: HashMap::new(),
             free_space: None,
             dir_sizes: DirSizes::default(),
+            nav: Default::default(),
+            visual: None,
         }
     }
 

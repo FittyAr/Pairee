@@ -122,12 +122,7 @@ fn run_cli_command(
 /// against the active panel's folder.
 fn change_dir(state: &mut AppState, target_dir: &str, current_path: &Path) {
     let new_path = if target_dir.is_empty() || target_dir == "~" {
-        let home = if cfg!(target_os = "windows") {
-            std::env::var("USERPROFILE").unwrap_or_else(|_| "C:\\".to_string())
-        } else {
-            std::env::var("HOME").unwrap_or_else(|_| "/".to_string())
-        };
-        PathBuf::from(home)
+        crate::app::session::restore::home_dir()
     } else {
         current_path.join(Path::new(target_dir))
     };

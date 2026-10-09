@@ -2,6 +2,7 @@ pub mod dialog_stack;
 pub mod dir_sizes;
 pub mod glob;
 pub mod history;
+pub mod nav_history;
 pub mod panel;
 pub mod panel_pair;
 pub mod plugin_host;
@@ -18,6 +19,7 @@ pub mod tabs;
 mod vfs_op;
 pub use vfs_op::VfsFollowUp;
 pub mod viewer;
+pub mod visual;
 
 pub use crate::fs::compare::CompareStatus;
 pub use dialog_stack::DialogStack;

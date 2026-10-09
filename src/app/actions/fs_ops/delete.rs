@@ -17,10 +17,39 @@ fn is_non_empty_dir(path: &std::path::Path) -> bool {
     }
 }
 
-/// F8: deletes the targeted items of the active panel.
-pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
+/// Where deleted items go.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DeleteMode {
+    /// As the "Delete to Recycle Bin" setting says (`delete`, F8).
+    Configured,
+    /// Always the recycle bin (`trash`).
+    Trash,
+    /// Never the recycle bin (`delete_permanent`).
+    Permanent,
+}
+
+impl DeleteMode {
+    fn to_trash(self, context: &AppContext) -> bool {
+        match self {
+            Self::Configured => context.config.settings.delete_to_recycle_bin,
+            Self::Trash => true,
+            Self::Permanent => false,
+        }
+    }
+}
+
+/// Deletes the targeted items of the active panel.
+pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) -> bool {
+    if mode == DeleteMode::Trash && !state.get_active_panel().source.is_local() {
+        state
+            .dialogs
+            .replace(PopupType::Info(crate::config::localization::t(
+                "trash_unsupported",
+            )));
+        return true;
+    }
     let targets = state.get_active_panel().get_targeted_paths();
-    request(state, context, targets, false);
+    request(state, context, targets, false, mode);
     true
 }
 
@@ -32,10 +61,12 @@ pub fn request(
     context: &AppContext,
     targets: Vec<PathBuf>,
     over_dialog: bool,
+    mode: DeleteMode,
 ) {
     if targets.is_empty() {
         return;
     }
+    let to_trash = mode.to_trash(context);
     let active_panel = state.get_active_panel();
     let is_remote = !active_panel.source.is_local();
     let show_prompt = context.config.settings.confirmations.confirm_delete
@@ -59,6 +90,7 @@ pub fn request(
         let confirm = PopupType::ConfirmDelete {
             paths: targets,
             cursor_idx: 0,
+            to_trash,
         };
         if over_dialog {
             state.dialogs.push(confirm);
@@ -68,7 +100,7 @@ pub fn request(
     } else {
         let ssh = state.get_active_panel().source.ssh().cloned();
         let options = TransferOptions {
-            delete_to_recycle_bin: context.config.settings.delete_to_recycle_bin,
+            delete_to_recycle_bin: to_trash,
             ..Default::default()
         };
         submit_keeping_dialogs(state, TransferOperation::Delete, targets, options, ssh);

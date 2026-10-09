@@ -236,6 +236,36 @@ pub enum Action {
     ToggleSortReverse,
     /// One-key sort picker (yazi workflow `s`)
     SortMenu,
+    /// Next sort field of the active panel
+    CycleSort,
+    /// Next view mode of the active panel
+    CyclePanelView,
+    /// Move the highlighted / selected items to the recycle bin
+    Trash,
+    /// Delete the highlighted / selected items without the recycle bin
+    DeletePermanent,
+    /// Select every entry of the active panel
+    SelectAll,
+    /// Clear the selection of the active panel
+    UnselectAll,
+    /// Start / leave visual (range) selection
+    VisualMode,
+    /// Previous folder of the active panel's history
+    HistoryBack,
+    /// Next folder of the active panel's history
+    HistoryForward,
+    /// Open the home folder
+    GoHome,
+    /// Open the root of the current drive / filesystem
+    GoRoot,
+    /// Move the cursor half a page up
+    HalfPageUp,
+    /// Move the cursor half a page down
+    HalfPageDown,
+    /// Focus the left panel
+    FocusLeftPanel,
+    /// Focus the right panel
+    FocusRightPanel,
     /// One-key view-mode picker (yazi workflow `v`)
     ViewModeMenu,
     /// Install local plugin in development (developer mode)

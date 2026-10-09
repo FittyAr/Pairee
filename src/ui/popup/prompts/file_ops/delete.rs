@@ -15,14 +15,23 @@ pub fn render(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    if let PopupType::ConfirmDelete { paths, cursor_idx } = popup {
+    if let PopupType::ConfirmDelete {
+        paths,
+        cursor_idx,
+        to_trash,
+    } = popup
+    {
         let area = centered_rect_fixed(50, 8, size);
         f.render_widget(Clear, area);
 
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Red))
-            .title(t("prompt_delete_title"))
+            .title(t(if *to_trash {
+                "prompt_trash_title"
+            } else {
+                "prompt_delete_title"
+            }))
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
         let inner = block.inner(area);

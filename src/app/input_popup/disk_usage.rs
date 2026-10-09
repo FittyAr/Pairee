@@ -51,5 +51,11 @@ fn delete_selected(state: &mut AppState, context: &AppContext) {
     let Some(path) = state.disk_usage.selected_path() else {
         return;
     };
-    crate::app::actions::fs_ops::delete::request(state, context, vec![path], true);
+    crate::app::actions::fs_ops::delete::request(
+        state,
+        context,
+        vec![path],
+        true,
+        crate::app::actions::fs_ops::delete::DeleteMode::Configured,
+    );
 }

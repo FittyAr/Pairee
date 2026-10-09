@@ -42,6 +42,24 @@ pub fn open_picker(state: &mut AppState, action: &Action) -> bool {
     true
 }
 
+/// `cycle_panel_view` / `cycle_sort`: one key steps through the modes.
+pub fn cycle_action(state: &mut AppState, action: &Action, context: &AppContext) -> bool {
+    let show_hidden = context.config.settings.show_hidden;
+    match action {
+        Action::CyclePanelView => {
+            let next = state.get_active_panel().view_mode.next();
+            set_active_view_mode(state, next, show_hidden);
+        }
+        Action::CycleSort => {
+            let panel = state.get_active_panel_mut();
+            panel.sort_field = panel.sort_field.next();
+            state.refresh_both_panels(show_hidden);
+        }
+        _ => return false,
+    }
+    true
+}
+
 pub fn handle_view_sort_action(
     state: &mut AppState,
     action: &Action,

@@ -79,7 +79,9 @@ impl AppState {
         let changed = path != panel.last_path;
         if changed {
             panel.quick_filter_mask = None;
-            panel.last_path = path.clone();
+            panel.visual = None;
+            let left = std::mem::replace(&mut panel.last_path, path.clone());
+            panel.nav.visited(left, &path);
             emit_on_cd(&path, side);
         }
         if skip_auto_update(limit, panel.entries.len(), changed || force) {

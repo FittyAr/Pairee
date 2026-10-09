@@ -5,6 +5,9 @@ use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 
+/// Rows a page step moves the cursor.
+const PAGE_ROWS: usize = 10;
+
 /// Handles navigation, selection, and history actions. Returns `true` if the action was handled.
 pub fn handle_navigation_action(
     state: &mut AppState,
@@ -22,17 +25,22 @@ fn cursor_action(state: &mut AppState, action: &Action) -> bool {
     match action {
         Action::ChangePanel => state.toggle_focus(),
         Action::SwapPanels => state.swap_panels(),
+        Action::FocusLeftPanel => state.panels.active = ActivePanel::Left,
+        Action::FocusRightPanel => state.panels.active = ActivePanel::Right,
         _ => {
             let panel = state.get_active_panel_mut();
             match action {
                 Action::MoveUp => panel.move_cursor_up(),
                 Action::MoveDown => panel.move_cursor_down(),
-                Action::PageUp => panel.page_up(10),
-                Action::PageDown => panel.page_down(10),
+                Action::PageUp => panel.page_up(PAGE_ROWS),
+                Action::PageDown => panel.page_down(PAGE_ROWS),
+                Action::HalfPageUp => panel.page_up(PAGE_ROWS / 2),
+                Action::HalfPageDown => panel.page_down(PAGE_ROWS / 2),
                 Action::GoToTop => panel.go_to_top(),
                 Action::GoToBottom => panel.go_to_bottom(),
                 _ => return false,
             }
+            panel.extend_visual();
         }
     }
     true
@@ -73,6 +81,15 @@ fn selection_action(state: &mut AppState, action: &Action) -> bool {
             state.get_active_panel_mut().invert_selection();
         }
         Action::RestoreSelection => state.restore_selection(),
+        Action::SelectAll => {
+            state.snapshot_selection();
+            state.get_active_panel_mut().select_group("*");
+        }
+        Action::UnselectAll => {
+            state.snapshot_selection();
+            state.get_active_panel_mut().clear_selection();
+        }
+        Action::VisualMode => state.get_active_panel_mut().toggle_visual(),
         _ => return false,
     }
     true

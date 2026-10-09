@@ -11,6 +11,7 @@ mod git_panel;
 mod navigation;
 mod polish;
 mod refresh_resize;
+mod selection_jumps;
 mod sizes_sync;
 mod tabs_session;
 mod transfer;

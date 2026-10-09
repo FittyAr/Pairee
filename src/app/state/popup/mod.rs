@@ -133,6 +133,8 @@ pub enum PopupType {
     ConfirmDelete {
         paths: Vec<PathBuf>,
         cursor_idx: usize,
+        /// Goes to the recycle bin (else deleted for good).
+        to_trash: bool,
     },
     WipeConfirm {
         paths: Vec<PathBuf>,

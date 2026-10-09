@@ -22,7 +22,7 @@ fn requirements(action: &Action) -> (Option<Capability>, Option<Capability>) {
         Action::Edit => (Some(Write), None),
         Action::FileAttributes => (Some(Attributes), None),
         Action::MkDir => (Some(MkDir), None),
-        Action::Delete => (Some(Remove), None),
+        Action::Delete | Action::Trash | Action::DeletePermanent => (Some(Remove), None),
         Action::Rename | Action::MultiRename => (Some(Rename), None),
         Action::Copy => (None, Some(Write)),
         Action::Move => (Some(Remove), Some(Write)),

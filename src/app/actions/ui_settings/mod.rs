@@ -35,6 +35,7 @@ pub async fn handle_ui_settings_action(
         || app_control_action(state, action, context)
         || feature_action(state, action, context)
         || view_sort::open_picker(state, action)
+        || view_sort::cycle_action(state, action, context)
         || view_sort::handle_view_sort_action(state, action, context)
         || tools::handle_tools_action(state, action, context)
 }
@@ -152,6 +153,7 @@ fn unfocus(state: &mut AppState) {
     state.dialogs.clear();
     state.cli_input.clear();
     state.cli_focused = false;
+    state.get_active_panel_mut().visual = None;
     state.fkeys_modifier_override = None;
     for (_, tab) in state.panels.all_tabs_mut() {
         tab.panel.dir_sizes.cancel();

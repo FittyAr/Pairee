@@ -43,6 +43,24 @@ pub enum PanelViewMode {
 }
 
 impl PanelViewMode {
+    /// Every mode in Ctrl+1 … Ctrl+9 order.
+    pub const ALL: [Self; 9] = [
+        Self::Brief,
+        Self::Medium,
+        Self::Full,
+        Self::Wide,
+        Self::Detailed,
+        Self::Descriptions,
+        Self::FileOwners,
+        Self::FileLinks,
+        Self::AltFull,
+    ];
+
+    /// The mode after this one (wrapping).
+    pub fn next(self) -> Self {
+        next_of(&Self::ALL, self)
+    }
+
     /// Modes whose columns need per-entry attributes (owner, mode, links),
     /// which the background listing then reads ahead of rendering.
     pub fn needs_attrs(self) -> bool {
@@ -60,6 +78,27 @@ pub enum SortField {
     Size,
     Date,
     Unsorted,
+}
+
+impl SortField {
+    pub const ALL: [Self; 5] = [
+        Self::Name,
+        Self::Extension,
+        Self::Size,
+        Self::Date,
+        Self::Unsorted,
+    ];
+
+    /// The field after this one (wrapping).
+    pub fn next(self) -> Self {
+        next_of(&Self::ALL, self)
+    }
+}
+
+/// The element after `current` in `all`, wrapping to the first.
+fn next_of<T: Copy + PartialEq>(all: &[T], current: T) -> T {
+    let i = all.iter().position(|x| *x == current).map_or(0, |i| i + 1);
+    all[i % all.len()]
 }
 
 // File attribute snapshot (cross-platform subset)
