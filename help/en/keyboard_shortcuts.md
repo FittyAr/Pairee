@@ -31,8 +31,9 @@ differs for each of them.
 
 Open it with the key your preset gives it (`Ctrl+K` in Norton, `Ctrl+K Ctrl+S`
 in Standard, `g?` in Neovim, `~` in yazi; `Ctrl+Shift+K` in all of them on
-terminals that report it), or from **Options → Configuration → Interface →
-Keyboard shortcuts…**.
+terminals that report it), from the menu (`F9`) **Options → Keyboard
+shortcuts...**, or from **Options → Configuration → Interface → Keyboard
+shortcuts…**.
 
 It shows every command of the panels, the editor, the viewer and the lists in
 dialogs (`Tab` switches between them), grouped by category, with the commands

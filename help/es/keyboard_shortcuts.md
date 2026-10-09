@@ -31,8 +31,8 @@ cada caso.
 
 Ábrela con la tecla de tu preset (`Ctrl+K` en Norton, `Ctrl+K Ctrl+S` en
 Estándar, `g?` en Neovim, `~` en yazi; `Ctrl+Shift+K` en todos si el terminal
-la envía) o desde **Opciones → Configuración → Interfaz → Atajos de
-teclado…**.
+la envía), desde el menú (`F9`) **Opciones → Atajos de teclado...** o desde
+**Opciones → Configuración → Interfaz → Atajos de teclado…**.
 
 Muestra cada comando de los paneles, el editor, el visor y las listas de los
 diálogos (`Tab` cambia entre ellos), agrupados por categoría, incluidos los

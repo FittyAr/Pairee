@@ -9,6 +9,7 @@ pub fn get_items(resolver: &KeybindingResolver) -> Vec<MenuItemData> {
         ])
         .separator()
         .action(("menu_configuration", Action::SystemSettings, ""))
+        .action(("menu_keyboard_shortcuts", Action::WhichKey, ""))
         .plain("menu_check_updates", "", Some(Action::CheckForUpdates))
         .separator()
         .action(("menu_save_setup", Action::SaveSetup, "Shf+F9"))
