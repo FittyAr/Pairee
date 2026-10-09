@@ -32,6 +32,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       body: ${{ steps.extract.outputs.body }}
+      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
@@ -39,23 +40,29 @@ jobs:
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Tag matches the Cargo.toml version
-        if: startsWith(github.ref, 'refs/tags/')
+      # The Cargo.toml version names the packages; a tag must match it. A
+      # manual run on a branch is a dry run: it builds and smoke-tests
+      # everything but publishes nothing.
+      - name: Version
+        id: version
         shell: bash
         run: |
           crate=$(cargo metadata --no-deps --format-version 1 |
             jq -r '.packages[] | select(.name == "pairee") | .version')
-          if [ "v${crate}" != "${GITHUB_REF_NAME}" ]; then
+          if [ "${GITHUB_REF_TYPE}" = "tag" ] && [ "v${crate}" != "${GITHUB_REF_NAME}" ]; then
             echo "::error::Tag ${GITHUB_REF_NAME} does not match the Cargo.toml version ${crate}"
             exit 1
           fi
+          echo "version=v${crate}" >> "$GITHUB_OUTPUT"
 
       - name: Extract changelog section
         id: extract
         shell: bash
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
-          if ! BODY=$(cargo xtask changelog "${GITHUB_REF_NAME}"); then
-            echo "::warning::No changelog section for ${GITHUB_REF_NAME}"
+          if ! BODY=$(cargo xtask changelog "${VERSION}"); then
+            echo "::warning::No changelog section for ${VERSION}"
             BODY="See the [changelog](https://github.com/${GITHUB_REPOSITORY}/blob/master/docs/CHANGELOG.md)."
           fi
           {
@@ -143,11 +150,11 @@ jobs:
       - name: Package release assets
         shell: bash
         env:
+          VERSION: ${{ needs.release-notes.outputs.version }}
           STORE_PACKAGE_NAME: ${{ secrets.STORE_PACKAGE_NAME || vars.STORE_PACKAGE_NAME || '30176FittyDev.Pairee' }}
           STORE_PUBLISHER: ${{ secrets.STORE_PUBLISHER || vars.STORE_PUBLISHER || 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' }}
           STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.STORE_PUBLISHER_DISPLAY_NAME || vars.STORE_PUBLISHER_DISPLAY_NAME || 'FittyAr' }}
         run: |
-          VERSION="${GITHUB_REF_NAME:-latest}"
           VERSION_NUM="${VERSION#v}"
           PKG_NAME="pairee-${VERSION}-${{ matrix.target }}"
           mkdir -p "$PKG_NAME"
@@ -214,7 +221,7 @@ jobs:
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
-          VERSION: ${{ github.ref_name }}
+          VERSION: ${{ needs.release-notes.outputs.version }}
           RUNNABLE: ${{ matrix.runnable || false }}
         run: bash .github/scripts/verify-dist.sh
 
@@ -306,6 +313,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           NOTES: ${{ needs.release-notes.outputs.body }}
         run: |
           set -euo pipefail
