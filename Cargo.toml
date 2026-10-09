@@ -133,6 +133,12 @@ embed-resource = "2.5"
 [lints.clippy]
 too_many_lines = "warn"
 
+[lints.rust]
+# MSVC's link.exe reports the import library it writes for the symbols the
+# vendored Lua exports ("Creating library pairee.lib and object pairee.exp");
+# it is informational, and newer rustc turns any linker output into a warning.
+linker_messages = "allow"
+
 [workspace]
 
 
