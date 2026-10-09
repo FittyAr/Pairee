@@ -1,4 +1,4 @@
-use crossterm::event::{self, Event as CrossEvent, KeyEvent, MouseEvent};
+use crossterm::event::{self, Event as CrossEvent, KeyEvent, KeyModifiers, MouseEvent};
 use std::time::Duration;
 use tokio::sync::mpsc;
 
@@ -26,11 +26,6 @@ pub struct EventHandler {
 
 impl EventHandler {
     /// Starts a background thread polling Crossterm input events and returns the handler.
-    // `has_focus` only gates the Windows/Linux modifier polling; other targets never read it.
-    #[cfg_attr(
-        not(any(windows, target_os = "linux")),
-        allow(unused_variables, unused_assignments)
-    )]
     pub fn new(tick_rate: Duration) -> Self {
         let (sender, receiver) = mpsc::channel(100);
 
@@ -47,105 +42,12 @@ impl EventHandler {
         }
 
         std::thread::spawn(move || {
-            let mut last_modifiers = crossterm::event::KeyModifiers::empty();
-            let mut has_focus = true;
-
-            loop {
-                // Poll for new input event with timeout
-                match event::poll(tick_rate) {
-                    Ok(true) =>
-                    {
-                        #[allow(clippy::collapsible_match)]
-                        match event::read() {
-                            Ok(CrossEvent::FocusGained) => {
-                                has_focus = true;
-                            }
-                            Ok(CrossEvent::FocusLost) => {
-                                has_focus = false;
-                                if !last_modifiers.is_empty() {
-                                    last_modifiers = crossterm::event::KeyModifiers::empty();
-                                    let _ = sender
-                                        .blocking_send(Event::ModifiersChanged(last_modifiers));
-                                }
-                            }
-                            Ok(CrossEvent::Key(key)) => {
-                                if sender.blocking_send(Event::Key(key)).is_err() {
-                                    break;
-                                }
-                            }
-                            Ok(CrossEvent::Mouse(mouse)) => {
-                                if sender.blocking_send(Event::Mouse(mouse)).is_err() {
-                                    break;
-                                }
-                            }
-                            Ok(CrossEvent::Resize(w, h)) => {
-                                if sender.blocking_send(Event::Resize(w, h)).is_err() {
-                                    break;
-                                }
-                            }
-                            Ok(CrossEvent::Paste(text)) => {
-                                if sender.blocking_send(Event::Paste(text)).is_err() {
-                                    break;
-                                }
-                            }
-                            _ => {}
-                        }
-                    }
-                    Ok(false) => {
-                        // Timeout reached, check modifiers then send Tick event
-                        #[cfg(windows)]
-                        {
-                            if has_focus {
-                                use crossterm::event::KeyModifiers;
-                                use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
-                                    GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT,
-                                };
-
-                                unsafe {
-                                    let mut current_modifiers = KeyModifiers::empty();
-
-                                    if (GetAsyncKeyState(VK_CONTROL as i32) as u16 & 0x8000) != 0 {
-                                        current_modifiers |= KeyModifiers::CONTROL;
-                                    }
-                                    if (GetAsyncKeyState(VK_MENU as i32) as u16 & 0x8000) != 0 {
-                                        current_modifiers |= KeyModifiers::ALT;
-                                    }
-                                    if (GetAsyncKeyState(VK_SHIFT as i32) as u16 & 0x8000) != 0 {
-                                        current_modifiers |= KeyModifiers::SHIFT;
-                                    }
-
-                                    if current_modifiers != last_modifiers {
-                                        last_modifiers = current_modifiers;
-                                        let _ = sender.blocking_send(Event::ModifiersChanged(
-                                            current_modifiers,
-                                        ));
-                                    }
-                                }
-                            }
-                        }
-
-                        #[cfg(target_os = "linux")]
-                        {
-                            if has_focus
-                                && let Some(current_modifiers) =
-                                    super::x11_poll::get_x11_modifiers()
-                                && current_modifiers != last_modifiers
-                            {
-                                last_modifiers = current_modifiers;
-                                let _ = sender
-                                    .blocking_send(Event::ModifiersChanged(current_modifiers));
-                            }
-                        }
-
-                        if sender.blocking_send(Event::Tick).is_err() {
-                            break;
-                        }
-                    }
-                    Err(_) => {
-                        break;
-                    }
-                }
+            InputPump {
+                sender,
+                last_modifiers: KeyModifiers::empty(),
+                has_focus: true,
             }
+            .run(tick_rate)
         });
 
         Self { receiver }
@@ -155,4 +57,101 @@ impl EventHandler {
     pub async fn next(&mut self) -> Option<Event> {
         self.receiver.recv().await
     }
+}
+
+/// Input thread state: forwards Crossterm events and, on each tick, the
+/// modifier keys held down (where the platform can report them).
+struct InputPump {
+    sender: mpsc::Sender<Event>,
+    last_modifiers: KeyModifiers,
+    // Only read by the Windows/Linux modifier polling.
+    #[cfg_attr(not(any(windows, target_os = "linux")), allow(dead_code))]
+    has_focus: bool,
+}
+
+impl InputPump {
+    fn run(mut self, tick_rate: Duration) {
+        loop {
+            // Poll for new input event with timeout
+            let keep_going = match event::poll(tick_rate) {
+                Ok(true) => match event::read() {
+                    Ok(ev) => self.forward(ev),
+                    Err(_) => true,
+                },
+                // Timeout reached, check modifiers then send Tick event
+                Ok(false) => self.tick(),
+                Err(_) => false,
+            };
+            if !keep_going {
+                break;
+            }
+        }
+    }
+
+    /// Forwards one Crossterm event. Returns `false` once the receiver is gone.
+    fn forward(&mut self, ev: CrossEvent) -> bool {
+        let event = match ev {
+            CrossEvent::FocusGained => {
+                self.has_focus = true;
+                return true;
+            }
+            CrossEvent::FocusLost => {
+                self.has_focus = false;
+                if !self.last_modifiers.is_empty() {
+                    self.last_modifiers = KeyModifiers::empty();
+                    let _ = self
+                        .sender
+                        .blocking_send(Event::ModifiersChanged(self.last_modifiers));
+                }
+                return true;
+            }
+            CrossEvent::Key(key) => Event::Key(key),
+            CrossEvent::Mouse(mouse) => Event::Mouse(mouse),
+            CrossEvent::Resize(w, h) => Event::Resize(w, h),
+            CrossEvent::Paste(text) => Event::Paste(text),
+        };
+        self.sender.blocking_send(event).is_ok()
+    }
+
+    /// Reports changed modifiers, then a tick. Returns `false` once the receiver is gone.
+    fn tick(&mut self) -> bool {
+        #[cfg(any(windows, target_os = "linux"))]
+        if self.has_focus
+            && let Some(current_modifiers) = held_modifiers()
+            && current_modifiers != self.last_modifiers
+        {
+            self.last_modifiers = current_modifiers;
+            let _ = self
+                .sender
+                .blocking_send(Event::ModifiersChanged(current_modifiers));
+        }
+        self.sender.blocking_send(Event::Tick).is_ok()
+    }
+}
+
+/// Modifier keys currently held down (Windows: `GetAsyncKeyState`).
+#[cfg(windows)]
+fn held_modifiers() -> Option<KeyModifiers> {
+    use windows_sys::Win32::UI::Input::KeyboardAndMouse::{
+        GetAsyncKeyState, VK_CONTROL, VK_MENU, VK_SHIFT,
+    };
+    let keys = [
+        (VK_CONTROL, KeyModifiers::CONTROL),
+        (VK_MENU, KeyModifiers::ALT),
+        (VK_SHIFT, KeyModifiers::SHIFT),
+    ];
+    let mut current_modifiers = KeyModifiers::empty();
+    for (vk, modifier) in keys {
+        // SAFETY: GetAsyncKeyState only reads the keyboard state.
+        if (unsafe { GetAsyncKeyState(vk as i32) } as u16 & 0x8000) != 0 {
+            current_modifiers |= modifier;
+        }
+    }
+    Some(current_modifiers)
+}
+
+/// Modifier keys currently held down (Linux: X11 query, when available).
+#[cfg(target_os = "linux")]
+fn held_modifiers() -> Option<KeyModifiers> {
+    super::x11_poll::get_x11_modifiers()
 }
