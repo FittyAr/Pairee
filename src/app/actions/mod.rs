@@ -7,7 +7,6 @@ pub mod navigation;
 pub mod panel_search;
 pub mod tabs;
 pub mod ui_settings;
-pub mod which_key;
 
 pub use exec::execute_shell_command;
 

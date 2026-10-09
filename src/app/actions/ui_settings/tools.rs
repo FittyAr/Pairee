@@ -102,9 +102,7 @@ fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::CycleFKeysModifiers => cycle_fkeys_modifiers(state),
         Action::CheckForUpdates => check_for_updates(state),
         Action::CommandPalette => crate::app::actions::command_palette::open_palette(state),
-        Action::WhichKey => {
-            crate::app::actions::which_key::open_which_key(state, &context.resolver);
-        }
+        Action::WhichKey => crate::app::shortcuts::open(state, context),
         Action::ToggleTransferPanel => toggle_transfer_panel(state),
         _ => return false,
     }

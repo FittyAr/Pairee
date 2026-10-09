@@ -16,6 +16,7 @@ mod polish;
 mod refresh_resize;
 mod screen_keymaps;
 mod selection_jumps;
+mod shortcuts_modal;
 mod sizes_sync;
 mod tabs_session;
 mod transfer;

@@ -343,11 +343,8 @@ pub enum PopupType {
         items: Vec<(String, crate::keybindings::Action)>,
     },
 
-    WhichKey {
-        query: TextField,
-        cursor_idx: usize,
-        items: Vec<(String, String, crate::keybindings::Action)>,
-    },
+    /// Keyboard-shortcuts modal (`which_key`).
+    Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
 
     Plugin(PluginDialog),
 }

@@ -7,10 +7,10 @@
 
 use super::layers::{Layer, Origin};
 use super::report::KeymapLoadReport;
-use crate::keybindings::chord::normalize_chord;
+use crate::keybindings::chord::{normalize_chord, seqs_overlap};
 use crate::keybindings::preset::parse_id;
 use crate::keybindings::registry::Bindable;
-use keybinds::{KeySeq, Keybind, Keybinds, Match};
+use keybinds::{KeySeq, Keybind, Keybinds};
 use std::collections::{HashMap, HashSet};
 
 /// One live binding.
@@ -102,7 +102,7 @@ impl<B: Bindable> Assignments<B> {
                 let Some(seq) = parse_seq(raw, leader, &entry.id, report) else {
                     continue;
                 };
-                if let Some(owner) = self.rows.iter().find(|r| overlaps(&r.seq, &seq)) {
+                if let Some(owner) = self.rows.iter().find(|r| seqs_overlap(&r.seq, &seq)) {
                     report.conflicts.push(format!(
                         "'{seq}' for {} ({}) is taken by {}",
                         entry.id,
@@ -126,7 +126,7 @@ impl<B: Bindable> Assignments<B> {
     pub fn fill_missing_from(&mut self, defaults: &Assignments<B>) {
         for row in &defaults.rows {
             if !self.mentioned.contains(&row.command)
-                && !self.rows.iter().any(|r| overlaps(&r.seq, &row.seq))
+                && !self.rows.iter().any(|r| seqs_overlap(&r.seq, &row.seq))
             {
                 self.rows.push(row.clone());
             }
@@ -144,12 +144,6 @@ impl<B: Bindable> Assignments<B> {
             .collect();
         (Keybinds::new(binds), self.rows)
     }
-}
-
-/// Equal chords, or one the start of the other (a default `g h` would be
-/// hidden by an older copy's single `g`).
-fn overlaps(a: &KeySeq, b: &KeySeq) -> bool {
-    a == b || a.match_to(b.as_slice()) == Match::Prefix || b.match_to(a.as_slice()) == Match::Prefix
 }
 
 /// Parses the ids of `layer`, merging legacy aliases of one command.

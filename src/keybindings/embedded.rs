@@ -42,6 +42,22 @@ pub fn preset_toml(preset: &str) -> Option<&'static str> {
         .map(|(_, toml)| *toml)
 }
 
+/// Selectable presets: the built-in ones, then the user's own files in
+/// `keymaps_dir` (by name), without the hidden layers.
+pub fn available_presets(keymaps_dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = PRESETS.iter().map(|(n, _)| n.to_string()).collect();
+    let mut custom: Vec<String> = std::fs::read_dir(keymaps_dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| e.ok()?.file_name().into_string().ok())
+        .filter_map(|f| f.strip_suffix(".toml").map(str::to_string))
+        .filter(|n| preset_toml(n).is_none() && normalize_preset_name(n) == *n)
+        .collect();
+    custom.sort();
+    names.extend(custom);
+    names
+}
+
 /// Where the seeder offers a newer shipped `name` preset when the user's
 /// `keymaps/<name>.toml` differs from it.
 pub fn pending_update_path(keymaps_dir: &Path, name: &str) -> PathBuf {
@@ -51,6 +67,24 @@ pub fn pending_update_path(keymaps_dir: &Path, name: &str) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn available_presets_add_user_files_after_the_builtins() {
+        let dir = tempfile::tempdir().unwrap();
+        for f in [
+            "mine.toml",
+            "norton.toml",
+            "vscode.toml",
+            "base.toml",
+            "notes.txt",
+        ] {
+            std::fs::write(dir.path().join(f), "").unwrap();
+        }
+        assert_eq!(
+            available_presets(dir.path()),
+            ["norton", "standard", "neovim", "yazi", "mine"]
+        );
+    }
 
     #[test]
     fn aliases_resolve_to_builtins() {

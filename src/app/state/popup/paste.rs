@@ -28,9 +28,12 @@ impl PopupType {
                 dest_input: input, ..
             } => Some(input),
             PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
-            PopupType::CommandPalette { query, .. } | PopupType::WhichKey { query, .. } => {
-                Some(query)
-            }
+            PopupType::CommandPalette { query, .. } => Some(query),
+            PopupType::Shortcuts(s) => match &mut s.mode {
+                crate::app::shortcuts::state::Mode::Browse => Some(&mut s.query),
+                crate::app::shortcuts::state::Mode::Export { name } => Some(name),
+                _ => None,
+            },
             PopupType::EditorSearchPrompt(search) | PopupType::ViewerSearchPrompt(search)
                 if search.cursor_idx == 0 =>
             {
@@ -137,17 +140,18 @@ mod tests {
     }
 
     #[test]
-    fn which_key_appends_to_query() {
-        let mut popup = PopupType::WhichKey {
-            query: "F".into(),
-            cursor_idx: 0,
-            items: vec![],
-        };
+    fn shortcuts_filter_takes_pastes_only_while_browsing() {
+        use crate::app::shortcuts::state::{Mode, ShortcutsState};
+        let mut s = ShortcutsState::new("norton".into(), Vec::new());
+        s.query.set_text("F");
+        let mut popup = PopupType::Shortcuts(Box::new(s));
         assert!(popup.apply_paste("5"));
-        match popup {
-            PopupType::WhichKey { query, .. } => assert_eq!(query, "F5"),
-            _ => panic!("expected which-key"),
-        }
+        let PopupType::Shortcuts(s) = &mut popup else {
+            panic!("expected shortcuts");
+        };
+        assert_eq!(s.query.text(), "F5");
+        s.mode = Mode::KeySearch;
+        assert!(!popup.apply_paste("x"));
     }
 
     #[test]

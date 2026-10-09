@@ -2,7 +2,7 @@
 //! config overrides and plugin manifests into `keybinds` grammar, plus the
 //! table of chords that some terminals cannot deliver.
 
-use keybinds::{Key, KeyInput, KeySeq, Mods};
+use keybinds::{Key, KeyInput, KeySeq, Match, Mods};
 
 /// Token that stands for the preset's leader key (`"<leader> g b"`,
 /// or compact `"<leader>gb"`).
@@ -87,6 +87,12 @@ fn shift_letter_to_uppercase(chord: &str) -> Option<String> {
         .collect();
     out.push(letter.to_uppercase().collect());
     Some(out.join("+"))
+}
+
+/// Equal sequences, or one the start of the other (`g` and `g h` cannot
+/// both be bound: the first would fire before the second completes).
+pub fn seqs_overlap(a: &KeySeq, b: &KeySeq) -> bool {
+    a == b || a.match_to(b.as_slice()) == Match::Prefix || b.match_to(a.as_slice()) == Match::Prefix
 }
 
 /// Why a chord may never reach Pairee on some terminals.

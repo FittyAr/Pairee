@@ -334,15 +334,7 @@ fn plugin_command(
     command: &str,
     keys: &[(&str, &str)],
 ) -> (PluginCommandId, PluginCommand) {
-    let command = PluginCommand {
-        plugin: plugin.into(),
-        command: command.into(),
-        title: command.into(),
-        keys: keys
-            .iter()
-            .map(|(p, k)| (p.to_string(), k.to_string()))
-            .collect(),
-    };
+    let command = crate::keybindings::plugin_commands::test_command(plugin, command, keys);
     crate::keybindings::plugin_commands::register(plugin, vec![command.clone()]);
     let id = crate::keybindings::plugin_commands::find(&command.keymap_id()).unwrap();
     (id, command)

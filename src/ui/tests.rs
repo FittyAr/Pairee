@@ -114,18 +114,18 @@ fn draw_ui_rename_prompt_does_not_panic() {
 }
 
 #[test]
-fn draw_ui_which_key_overlay_lists_live_chords() {
+fn draw_ui_shortcuts_modal_lists_live_chords() {
     let (context, mut state) = test_app();
-    crate::app::actions::which_key::open_which_key(&mut state, &context.resolver);
-    let backend = TestBackend::new(80, 24);
+    crate::app::shortcuts::open(&mut state, &context);
+    let backend = TestBackend::new(120, 40);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal
         .draw(|f| draw_ui(f, &context, &state))
-        .expect("draw which-key overlay");
+        .expect("draw shortcuts modal");
     let painted = buffer_joined(&terminal);
     assert!(
-        painted.contains("Which-key"),
-        "overlay title missing, got {painted:?}"
+        painted.contains(&crate::config::localization::t("shortcuts_title")),
+        "modal title missing, got {painted:?}"
     );
     assert!(
         painted.contains("Alt+F1") && painted.contains("Change drive"),
@@ -284,4 +284,29 @@ fn draw_ui_viewer_decodes_legacy_text_and_lists_encodings() {
     let painted = buffer_joined(&terminal);
     assert!(painted.contains("UTF-16LE"), "selector lists encodings");
     assert!(painted.contains("ISO-8859-2"));
+}
+
+#[test]
+fn draw_ui_palette_keeps_a_far_cursor_in_view_and_shows_keys() {
+    let (context, mut state) = test_app();
+    crate::app::actions::command_palette::open_palette(&mut state);
+    let last = match state.dialogs.top_mut() {
+        Some(PopupType::CommandPalette {
+            cursor_idx, items, ..
+        }) => {
+            *cursor_idx = items.len() - 1;
+            items[items.len() - 1].0.clone()
+        }
+        other => panic!("expected palette, got {other:?}"),
+    };
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).expect("test terminal");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw palette");
+    let painted = buffer_joined(&terminal);
+    assert!(painted.contains(&last), "{last} not in view: {painted:?}");
+    assert!(
+        painted.contains("(Ctrl+"),
+        "title shows the palette key: {painted:?}"
+    );
 }

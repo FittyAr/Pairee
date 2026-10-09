@@ -38,6 +38,7 @@ pub mod save_setup;
 pub mod screens_menu;
 pub mod search;
 pub mod select_group;
+pub mod shortcuts;
 pub mod sort_modes;
 pub mod sync_dirs;
 pub mod task_list;
@@ -46,7 +47,6 @@ pub mod transfer_prompt;
 pub mod tree_view;
 pub mod user_menu;
 pub mod viewer;
-pub mod which_key;
 
 pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
@@ -176,7 +176,7 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::FileAssociationsDialog { .. } => file_associations::handle,
         PopupType::OnboardingKeymap { .. } => onboarding::handle,
         PopupType::CommandPalette { .. } => command_palette::handle,
-        PopupType::WhichKey { .. } => which_key::handle,
+        PopupType::Shortcuts(_) => shortcuts::handle,
         PopupType::Plugin(_) => plugin_dialogs::handle,
         _ => dismiss_only::handle,
     }

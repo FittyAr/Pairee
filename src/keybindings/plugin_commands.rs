@@ -166,21 +166,24 @@ pub fn active() -> Vec<(PluginCommandId, PluginCommand)> {
     out
 }
 
+/// A command titled like its id, with `(preset, chords)` keys (tests).
+#[cfg(test)]
+pub fn test_command(plugin: &str, command: &str, keys: &[(&str, &str)]) -> PluginCommand {
+    PluginCommand {
+        plugin: plugin.into(),
+        command: command.into(),
+        title: command.into(),
+        keys: keys
+            .iter()
+            .map(|(p, k)| (p.to_string(), k.to_string()))
+            .collect(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
+    use super::test_command as cmd;
     use super::*;
-
-    fn cmd(plugin: &str, command: &str, keys: &[(&str, &str)]) -> PluginCommand {
-        PluginCommand {
-            plugin: plugin.into(),
-            command: command.into(),
-            title: command.into(),
-            keys: keys
-                .iter()
-                .map(|(p, k)| (p.to_string(), k.to_string()))
-                .collect(),
-        }
-    }
 
     #[test]
     fn ids_survive_reloads_and_unloading_deactivates() {

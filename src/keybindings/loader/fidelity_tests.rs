@@ -54,7 +54,7 @@ fn norton_keeps_norton_commander_and_far_keys() {
             ("Ctrl+x", A::CliHistoryNext),
             ("Ctrl+Alt+t", A::NewTab),
             ("Ctrl+Alt+g", A::OpenGitPanel),
-            ("Ctrl+Alt+h", A::Hotlist),
+            ("Ctrl+Alt+b", A::Hotlist),
         ],
     );
 }

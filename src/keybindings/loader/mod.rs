@@ -200,7 +200,7 @@ fn extra_layers(spec: &KeymapSpec, preset: &str) -> Vec<FileLayer> {
 
 /// Override ids name their section with a prefix (`editor.save`); plain
 /// ids are panel actions.
-fn split_sections(table: &OverrideTable) -> BTreeMap<String, Table> {
+pub fn split_sections(table: &OverrideTable) -> BTreeMap<String, Table> {
     let mut sections: BTreeMap<String, Table> = BTreeMap::new();
     for (id, keys) in table {
         let (section, id) = match id.split_once('.') {

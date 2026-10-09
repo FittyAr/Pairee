@@ -509,11 +509,12 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] `pairee developer lint` informa por preset las teclas sugeridas ocupadas o inválidas; el detalle del plugin en el gestor muestra sus comandos con la tecla vigente. El fix del packager se hizo en la Fase 0.
 - [x] Guías de plugins (en/es) §6 reescrita, diseño §5, plugin de aceptación `tests/plugin_acceptance/keymap_command`.
 
-### Fase 6 — Modal de atajos (§7)
-- [ ] Popup `KeyboardShortcuts` sobre `ListPopup` con cabeceras de categoría, pestañas de contexto, filtro y marcas.
-- [ ] Buscar por tecla, reasignar/añadir/quitar/restaurar con diálogo de conflicto, persistencia y reconstrucción en caliente.
-- [ ] Previsualizar preset y exportar preset derivado.
-- [ ] Paleta con chords; título dinámico.
+### Fase 6 — Modal de atajos
+- [x] Popup `Shortcuts` (`app/shortcuts/`) sobre `ListPopup`: pestañas Paneles / Editor / Visor / Listas, preset mostrado, cabeceras por categoría, filtro por texto (etiqueta, id o tecla), marcas `●` tuya, `⚠` conflicto de plugin, `≈` solo teclas frágiles, `∅` sin tecla. Incluye las acciones sin tecla y los comandos de plugins. Reemplaza al overlay which-key (el HUD de prefijo sigue).
+- [x] F3 busca qué hace una tecla (salta a la pestaña donde está); F2 reasigna e Ins añade capturando la tecla o secuencia (Enter confirma, Esc cancela), con diálogo si otra acción la usa; Supr quita las teclas; F8 restaura (Shift+F8: todo con confirmación). Se guarda al momento en `[overrides.<preset>]` de `keybindings.toml` y el keymap se reconstruye en caliente; avisa si la tecla es frágil.
+- [x] Ctrl+←/→ previsualiza otro preset (incluidos los del usuario en `keymaps/`), F5 lo activa; F9 exporta `keymaps/<nombre>.toml` con `extends` y solo los cambios.
+- [x] Paleta con la tecla de cada acción y título con la tecla real; `FilterListView` ahora desplaza la lista para que el cursor no quede fuera de vista. Acceso desde Ajustes → Interfaz ("Atajos de teclado…"), y Esc vuelve a Ajustes.
+- [x] De paso: el selector de preset de Ajustes recorre también los presets propios; la lista de favoritos de Norton pasa a `Ctrl+Alt+b` (`Ctrl+Alt+h` llega como `Alt+Backspace` en terminales antiguos).
 
 ### Fase 7 — Documentación y CI
 - [ ] `pairee keymap print` + test de no-deriva de `help/*/keyboard_shortcuts.md` y README.

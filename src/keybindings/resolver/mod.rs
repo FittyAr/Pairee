@@ -7,7 +7,6 @@
 
 use super::actions::Action;
 use super::keymap::ContextKeymap;
-use super::loader::assign::Row;
 use super::loader::{KeymapLoadReport, KeymapSpec, LoadedKeymap, load_keymap};
 use super::options::KeymapOptions;
 use super::registry::is_global;
@@ -54,7 +53,8 @@ impl KeybindingResolver {
     }
 
     /// Live panel bindings with their origin, sorted by chord.
-    pub fn rows(&self) -> &[Row<Action>] {
+    #[cfg(test)]
+    pub fn rows(&self) -> &[super::loader::assign::Row<Action>] {
         self.panels.rows()
     }
 

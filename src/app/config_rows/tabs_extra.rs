@@ -5,7 +5,7 @@ use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
-use crate::keybindings::embedded::PRESETS;
+use crate::keybindings::embedded::available_presets;
 use crate::keybindings::loader::{KeymapLoadReport, KeymapSpec, load_keymap};
 
 pub fn interface(ctx: &RowCtx) -> Vec<Row> {
@@ -29,7 +29,7 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
             0,
             CycleFormat::Angle,
             |s| s.keymap_preset.clone(),
-            |s| s.keymap_preset = next_preset(&s.keymap_preset).to_string(),
+            |s| s.keymap_preset = next_preset(&s.keymap_preset),
         ),
         status_row,
         Row::Hint(Label::Key("int_keymap_gray")),
@@ -37,6 +37,13 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
             Some(PopupType::InfoPanel {
                 lines: keymap_report(s, &context.config.keybindings).detail_lines(),
             })
+        }),
+        action("int_keymap_shortcuts", |s, context| {
+            let preset = crate::keybindings::embedded::normalize_preset_name(&s.keymap_preset);
+            let rows = crate::app::shortcuts::edit::rows_for(context, &preset);
+            Some(PopupType::Shortcuts(Box::new(
+                crate::app::shortcuts::state::ShortcutsState::new(preset, rows),
+            )))
         }),
         toggle!("int_yazi_workflow", enable_yazi_workflow),
     ]
@@ -56,14 +63,12 @@ fn keymap_report(
     .report
 }
 
-/// The built-in preset after `current` (wrapping; unknown names restart).
-fn next_preset(current: &str) -> &'static str {
-    let names: Vec<&'static str> = PRESETS.iter().map(|(name, _)| *name).collect();
-    let next = names
-        .iter()
-        .position(|n| *n == current)
-        .map_or(0, |i| i + 1);
-    names[next % names.len()]
+/// The preset after `current` (built-in ones, then the user's own files;
+/// wrapping, unknown names restart).
+fn next_preset(current: &str) -> String {
+    let names = available_presets(&crate::config::paths::get_keymaps_dir());
+    let next = names.iter().position(|n| n == current).map_or(0, |i| i + 1);
+    names[next % names.len()].clone()
 }
 
 pub fn plugins(settings: &Settings) -> Vec<Row> {

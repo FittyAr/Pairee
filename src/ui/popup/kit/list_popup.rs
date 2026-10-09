@@ -50,7 +50,7 @@ pub struct ListPopup<'a> {
     pub rows: Vec<(String, Style)>,
     pub cursor: usize,
     pub scroll: Scroll,
-    /// Dim help line under the list (after a blank line).
+    /// Dim help under the list (after a blank line), one row per line.
     pub hint: Option<String>,
     /// Scrollbar hit-testing state and target, when the list has a scrollbar.
     pub scrollbar: Option<(Option<&'a ScrollbarUiState>, ScrollTargetId)>,
@@ -65,7 +65,11 @@ impl ListPopup<'_> {
             f.render_widget(Paragraph::new(empty).style(popup_fg(theme)), inner);
             return;
         }
-        let hint_rows = if self.hint.is_some() { 2 } else { 0 }; // blank line + hint
+        // A blank line, then the hint (one row per line of it).
+        let hint_rows = self
+            .hint
+            .as_ref()
+            .map_or(0, |h| 1 + h.lines().count() as u16);
         let reserved = hint_rows + self.header.len() as u16;
         let height = inner.height.saturating_sub(reserved) as usize;
         let start = match self.scroll {
@@ -88,7 +92,10 @@ impl ListPopup<'_> {
         );
         if let Some(hint) = self.hint {
             lines.push(Line::from(""));
-            lines.push(Line::from(Span::styled(hint, fg(Color::DarkGray))));
+            lines.extend(
+                hint.lines()
+                    .map(|l| Line::from(Span::styled(l.to_string(), fg(Color::DarkGray)))),
+            );
         }
         f.render_widget(Paragraph::new(lines).style(popup_fg(theme)), inner);
 

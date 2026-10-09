@@ -95,6 +95,31 @@ impl KeybindingsConfig {
             .or_default()
             .insert(action.to_string(), keys.to_string());
     }
+
+    /// Drops the override of `action` from `[overrides.all]` and
+    /// `[overrides.<preset>]`, giving it back its preset keys.
+    pub fn restore(&mut self, preset: &str, action: &str) {
+        for table in [ALL_PRESETS, preset] {
+            if let Some(overrides) = self.overrides.get_mut(table) {
+                overrides.remove(action);
+            }
+        }
+        self.overrides.retain(|_, table| !table.is_empty());
+    }
+
+    /// Drops every override that applies to `preset`.
+    pub fn restore_all(&mut self, preset: &str) {
+        self.overrides.remove(ALL_PRESETS);
+        self.overrides.remove(preset);
+    }
+
+    /// The overrides that apply to `preset`, `all` first then the preset's.
+    pub fn merged_overrides(&self, preset: &str) -> OverrideTable {
+        self.overrides_for(preset)
+            .into_iter()
+            .flat_map(|(_, table)| table.clone())
+            .collect()
+    }
 }
 
 #[cfg(test)]
@@ -114,6 +139,23 @@ mod tests {
         let saved = toml::to_string(&cfg).unwrap();
         assert!(!saved.contains("custom_bindings"), "{saved}");
         assert!(saved.contains("[overrides.all]"), "{saved}");
+    }
+
+    #[test]
+    fn restoring_drops_the_action_from_both_tables() {
+        let mut cfg = KeybindingsConfig::default();
+        cfg.set_override(ALL_PRESETS, "copy", "F15");
+        cfg.set_override("norton", "copy", "F16");
+        cfg.set_override("norton", "move", "F17");
+        assert_eq!(cfg.merged_overrides("norton")["copy"], "F16");
+        cfg.restore("norton", "copy");
+        assert!(
+            !cfg.overrides.contains_key(ALL_PRESETS),
+            "empty tables go away"
+        );
+        assert_eq!(cfg.merged_overrides("norton").len(), 1);
+        cfg.restore_all("norton");
+        assert!(cfg.overrides.is_empty());
     }
 
     #[test]

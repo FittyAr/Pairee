@@ -1,4 +1,4 @@
-//! Type-to-filter list popup (command palette, which-key): a `> query` line,
+//! Type-to-filter list popup (command palette): a `> query` line,
 //! the matching rows with the cursor highlighted, and an optional hint.
 
 use super::{popup_fg, selection};
@@ -61,10 +61,15 @@ impl FilterListView<'_> {
 
         let cursor = self.cursor.min(self.rows.len().saturating_sub(1));
         let highlighted = selection(theme).add_modifier(Modifier::BOLD);
+        // Keep the cursor row in view when the list is taller than the box.
+        let height = chunks[1].height as usize;
+        let start = crate::ui::scrollbar::centered_scroll(cursor, self.rows.len(), height);
         let items: Vec<ListItem> = self
             .rows
             .into_iter()
             .enumerate()
+            .skip(start)
+            .take(height)
             .map(|(i, row)| {
                 ListItem::new(row).style(if i == cursor { highlighted } else { normal })
             })

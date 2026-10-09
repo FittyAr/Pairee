@@ -18,8 +18,11 @@ pub fn translate(
     let Some(top) = state.dialogs.top_mut() else {
         return Some(key);
     };
-    // Typing goes to the field; plugin dialogs match keys themselves.
-    if top.focused_field_mut().is_some() || matches!(top, PopupType::Plugin(_)) {
+    // Typing goes to the field; plugin dialogs and the shortcuts modal
+    // (which records keys) read keys themselves.
+    if top.focused_field_mut().is_some()
+        || matches!(top, PopupType::Plugin(_) | PopupType::Shortcuts(_))
+    {
         return Some(key);
     }
     match resolver.list.dispatch(key) {

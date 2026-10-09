@@ -76,7 +76,7 @@ fn fixed_keymap_chords_reach_their_actions() {
         );
         h.keys("Esc Ctrl+Shift+K");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::WhichKey { .. })),
+            matches!(h.state.dialogs.top(), Some(PopupType::Shortcuts(_))),
             "{keymap}"
         );
     }
