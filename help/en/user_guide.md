@@ -183,6 +183,7 @@ pairee [--cwd-file <file>] [--print-cwd] [<left folder> [<right folder>]]
 * `<left folder>` / `<right folder>` open in the shown tab of each panel, overriding the restored folders (other tabs are kept). A file opens its folder with the cursor on it.
 * `--cwd-file <file>` writes the folder of the focused panel to `<file>` on exit (empty for SFTP panels), so a shell function can `cd` there.
 * `--print-cwd` prints that folder to standard output on exit.
+* `--version` (`-V`) prints the installed version and exits.
 
 ### Change the shell folder on exit
 Add one of these functions to your shell profile and start Pairee with `p`:

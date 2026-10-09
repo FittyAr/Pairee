@@ -183,6 +183,7 @@ pairee [--cwd-file <archivo>] [--print-cwd] [<carpeta izquierda> [<carpeta derec
 * `<carpeta izquierda>` / `<carpeta derecha>` se abren en la pestaña visible de cada panel y tienen prioridad sobre las carpetas restauradas (las demás pestañas se conservan). Un archivo abre su carpeta con el cursor sobre él.
 * `--cwd-file <archivo>` escribe al salir la carpeta del panel activo en `<archivo>` (vacío en paneles SFTP), para que una función de la shell haga `cd` allí.
 * `--print-cwd` imprime esa carpeta por la salida estándar al salir.
+* `--version` (`-V`) muestra la versión instalada y termina.
 
 ### Cambiar la carpeta de la shell al salir
 Añade una de estas funciones al perfil de tu shell e inicia Pairee con `p`:

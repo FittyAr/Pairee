@@ -1,4 +1,4 @@
-//! Non-interactive subcommands: `--elevated-helper`, `pairee plugin ...` and
+//! Non-interactive subcommands: `--elevated-helper`, `--version`, `pairee plugin ...` and
 //! `pairee developer ...`. Each runs to completion without starting the TUI.
 
 use anyhow::Result;
@@ -18,6 +18,10 @@ pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
         return Ok(true);
     }
     match args.get(1).map(String::as_str) {
+        Some("--version" | "-V") => {
+            println!("pairee {}", env!("CARGO_PKG_VERSION"));
+            Ok(true)
+        }
         Some("plugin") => {
             match args.get(2) {
                 Some(cmd) => plugin_command(cmd, args.get(3..).unwrap_or_default()).await?,
