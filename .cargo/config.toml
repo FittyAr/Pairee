@@ -3,3 +3,7 @@ rustflags = ["-C", "target-feature=+crt-static"]
 
 [target.aarch64-pc-windows-msvc]
 rustflags = ["-C", "target-feature=+crt-static"]
+
+# Maintenance tasks (release, changelog, lint, hooks): `cargo xtask help`.
+[alias]
+xtask = "run --quiet --package xtask --"

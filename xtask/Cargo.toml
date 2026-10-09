@@ -1,0 +1,12 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.93"
+description = "Pairee maintenance tasks: release, changelog, lint and git hooks (`cargo xtask`)"
+license = "GPL-3.0-only"
+publish = false
+
+# Standard library only: the release tooling must not add dependencies to the
+# lockfile it updates.
+[dependencies]

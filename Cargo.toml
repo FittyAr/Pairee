@@ -140,8 +140,4 @@ too_many_lines = "warn"
 linker_messages = "allow"
 
 [workspace]
-
-
-
-
-
+members = ["xtask"]

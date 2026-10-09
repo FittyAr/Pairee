@@ -118,8 +118,10 @@ if "%opt%"=="9" (
     goto msix_menu
 )
 if "%opt%"=="10" (
-    echo [INFO] Running bump version and release script...
-    powershell -ExecutionPolicy Bypass -File "%~dp0scripts\bump_version.ps1"
+    echo [INFO] Running the release task: cargo xtask release
+    pushd "%~dp0"
+    cargo xtask release
+    popd
     pause
     goto menu
 )

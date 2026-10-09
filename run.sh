@@ -286,8 +286,8 @@ while true; do
             show_msix_menu
             ;;
         10)
-            echo -e "\n${GREEN}[INFO]${RESET} Running bump version and release script...\n"
-            run_and_pause "$SCRIPT_DIR/scripts/bump_version.sh"
+            echo -e "\n${GREEN}[INFO]${RESET} Running the release task: cargo xtask release\n"
+            run_and_pause cargo xtask release
             ;;
         11)
             echo -e "${CYAN}Bye!${RESET}"
