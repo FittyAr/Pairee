@@ -40,12 +40,16 @@ pub fn get_user_menu_items() -> Vec<UserMenuItem> {
             });
         }
     } else {
-        items.extend(DEFAULT_ITEMS.iter().map(|&(key, label, action)| UserMenuItem {
-            key: key.to_string(),
-            label: crate::config::localization::t(label),
-            command: None,
-            action: Some(action),
-        }));
+        items.extend(
+            DEFAULT_ITEMS
+                .iter()
+                .map(|&(key, label, action)| UserMenuItem {
+                    key: key.to_string(),
+                    label: crate::config::localization::t(label),
+                    command: None,
+                    action: Some(action),
+                }),
+        );
     }
     // Always append Edit option at the end
     items.push(UserMenuItem {

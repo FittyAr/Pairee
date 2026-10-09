@@ -209,7 +209,7 @@ mod tests {
 
     #[test]
     fn unknown_sections_are_rejected() {
-        let src = source(&[("x", "[panles]\ncopy = \"F5\"")]);
+        let src = source(&[("x", "[not_a_section]\ncopy = \"F5\"")]);
         let mut report = KeymapLoadReport::default();
         resolve_chain("x", &src, &mut report);
         assert!(
