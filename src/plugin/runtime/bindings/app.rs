@@ -3,41 +3,20 @@ use tokio::sync::mpsc;
 
 pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
     let app = lua.create_table()?;
-    let tx_clone = tx.clone();
 
     // Read active cwd from snapshot
     app.set(
         "cwd",
         lua.create_function(|lua_ctx, ()| {
-            let globals = lua_ctx.globals();
-            let pairee: mlua::Table = globals.get("pairee")?;
-            let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(mlua::Value::Table(ref t)) =
-                app_table.get::<_, mlua::Value>("_current_snapshot")
-            {
-                let active_panel: String =
-                    t.get("active_panel").unwrap_or_else(|_| "left".to_string());
-                let resolved_cwd: String = if active_panel == "left" {
-                    t.get("left_cwd").unwrap_or_default()
-                } else {
-                    t.get("right_cwd").unwrap_or_default()
-                };
-                return Ok(resolved_cwd);
-            }
-            Ok(String::new())
-        })?,
-    )?;
-
-    // Navigate active panel to path
-    let tx_cd = tx_clone.clone();
-    app.set(
-        "cd",
-        lua.create_async_function(move |_, path: String| {
-            let tx = tx_cd.clone();
-            async move {
-                let _ = tx.send(PluginRequest::Cd { path }).await;
-                Ok(())
-            }
+            let Some(t) = snapshot_table(lua_ctx)? else {
+                return Ok(String::new());
+            };
+            let cwd_key = if active_panel(&t) == "left" {
+                "left_cwd"
+            } else {
+                "right_cwd"
+            };
+            Ok(t.get::<_, String>(cwd_key).unwrap_or_default())
         })?,
     )?;
 
@@ -45,66 +24,64 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
     app.set(
         "focus",
         lua.create_function(|lua_ctx, ()| {
-            let globals = lua_ctx.globals();
-            let pairee: mlua::Table = globals.get("pairee")?;
-            let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(mlua::Value::Table(ref t)) =
-                app_table.get::<_, mlua::Value>("_current_snapshot")
-            {
-                let active_panel: String =
-                    t.get("active_panel").unwrap_or_else(|_| "left".to_string());
-                return Ok(active_panel);
-            }
-            Ok("left".to_string())
+            Ok(snapshot_table(lua_ctx)?
+                .map(|t| active_panel(&t))
+                .unwrap_or_else(|| "left".to_string()))
         })?,
     )?;
 
-    // Set focus side
-    let tx_focus = tx_clone.clone();
+    // Get currently hovered file entry from snapshot
+    app.set(
+        "hovered",
+        lua.create_function(|lua_ctx, ()| {
+            Ok(snapshot_table(lua_ctx)?
+                .map(|t| t.get("hovered_file").unwrap_or(mlua::Value::Nil))
+                .unwrap_or(mlua::Value::Nil))
+        })?,
+    )?;
+
+    // Navigate active panel to path, set focus side, popup notification
+    app.set(
+        "cd",
+        fire_and_forget(lua, &tx, |path: String| PluginRequest::Cd { path })?,
+    )?;
     app.set(
         "set_focus",
-        lua.create_async_function(move |_, side: String| {
-            let tx = tx_focus.clone();
-            async move {
-                let _ = tx.send(PluginRequest::SetFocus { side }).await;
-                Ok(())
-            }
-        })?,
+        fire_and_forget(lua, &tx, |side: String| PluginRequest::SetFocus { side })?,
     )?;
-
-    // Trigger popup notification
-    let tx_notify = tx_clone.clone();
     app.set(
         "notify",
-        lua.create_async_function(move |_, (title, msg, level): (String, String, String)| {
-            let tx = tx_notify.clone();
-            async move {
-                let _ = tx.send(PluginRequest::Notify { title, msg, level }).await;
-                Ok(())
-            }
+        fire_and_forget(lua, &tx, |(title, msg, level): (String, String, String)| {
+            PluginRequest::Notify { title, msg, level }
         })?,
     )?;
 
-    // Blocking confirm dialog (legacy signature, routes through the
-    // deprecated stub dispatcher in the main loop. New code should
-    // call `pairee.confirm({pos, title, body})` via the top-level
-    // `pairee.confirm` registered in `standard.rs`.)
-    let tx_confirm = tx_clone.clone();
+    bind_legacy_dialogs(lua, &app, &tx)?;
+    Ok(app)
+}
+
+/// Blocking confirm/input dialogs with the legacy signatures; they route
+/// through the deprecated stub dispatcher in the main loop. New code calls
+/// the top-level `pairee.confirm` / `pairee.input` registered in
+/// `standard.rs` with the structured opts table.
+fn bind_legacy_dialogs<'lua>(
+    lua: &'lua mlua::Lua,
+    app: &mlua::Table<'lua>,
+    tx: &mpsc::Sender<PluginRequest>,
+) -> mlua::Result<()> {
+    let tx_confirm = tx.clone();
     app.set(
         "confirm",
         lua.create_async_function(move |_, (title, msg): (String, String)| {
             let tx = tx_confirm.clone();
             async move {
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-                if tx
-                    .send(PluginRequest::Confirm {
-                        title,
-                        msg,
-                        reply_tx,
-                    })
-                    .await
-                    .is_ok()
-                {
+                let request = PluginRequest::Confirm {
+                    title,
+                    msg,
+                    reply_tx,
+                };
+                if tx.send(request).await.is_ok() {
                     Ok(reply_rx.await.unwrap_or(false))
                 } else {
                     Ok(false)
@@ -113,25 +90,19 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         })?,
     )?;
 
-    // Blocking input dialog (legacy signature — see note above for
-    // `confirm`). New code uses `pairee.input` with the structured
-    // opts table.
-    let tx_input = tx_clone.clone();
+    let tx_input = tx.clone();
     app.set(
         "input",
         lua.create_async_function(move |_, (title, default): (String, String)| {
             let tx = tx_input.clone();
             async move {
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-                if tx
-                    .send(PluginRequest::Input {
-                        title,
-                        default,
-                        reply_tx,
-                    })
-                    .await
-                    .is_ok()
-                {
+                let request = PluginRequest::Input {
+                    title,
+                    default,
+                    reply_tx,
+                };
+                if tx.send(request).await.is_ok() {
                     Ok(reply_rx.await.unwrap_or_default())
                 } else {
                     Ok(String::new())
@@ -139,23 +110,41 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
             }
         })?,
     )?;
+    Ok(())
+}
 
-    // Get currently hovered file entry from snapshot
-    app.set(
-        "hovered",
-        lua.create_function(|lua_ctx, ()| {
-            let globals = lua_ctx.globals();
-            let pairee: mlua::Table = globals.get("pairee")?;
-            let app_table: mlua::Table = pairee.get("app")?;
-            if let Ok(mlua::Value::Table(ref t)) =
-                app_table.get::<_, mlua::Value>("_current_snapshot")
-            {
-                let hovered: mlua::Value = t.get("hovered_file").unwrap_or(mlua::Value::Nil);
-                return Ok(hovered);
-            }
-            Ok(mlua::Value::Nil)
-        })?,
-    )?;
+/// Async Lua function that sends the request built from its arguments and returns nothing.
+fn fire_and_forget<'lua, A>(
+    lua: &'lua mlua::Lua,
+    tx: &mpsc::Sender<PluginRequest>,
+    make: fn(A) -> PluginRequest,
+) -> mlua::Result<mlua::Function<'lua>>
+where
+    A: mlua::FromLuaMulti<'lua> + 'static,
+{
+    let tx = tx.clone();
+    lua.create_async_function(move |_, args: A| {
+        let tx = tx.clone();
+        let request = make(args);
+        async move {
+            let _ = tx.send(request).await;
+            Ok(())
+        }
+    })
+}
 
-    Ok(app)
+/// `pairee.app._current_snapshot`, when a snapshot was taken.
+fn snapshot_table(lua: &mlua::Lua) -> mlua::Result<Option<mlua::Table<'_>>> {
+    let pairee: mlua::Table = lua.globals().get("pairee")?;
+    let app_table: mlua::Table = pairee.get("app")?;
+    Ok(match app_table.get::<_, mlua::Value>("_current_snapshot") {
+        Ok(mlua::Value::Table(t)) => Some(t),
+        _ => None,
+    })
+}
+
+fn active_panel(snapshot: &mlua::Table) -> String {
+    snapshot
+        .get("active_panel")
+        .unwrap_or_else(|_| "left".to_string())
 }

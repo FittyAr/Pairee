@@ -3,15 +3,17 @@ use super::registry_repo::fetch_or_clone_registry;
 use super::validate::validate_for_publish_with_progress;
 use crate::app::state::DevProgress;
 use crate::config::localization::t;
+use crate::plugin::loader::PluginManifest;
 use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::UnboundedSender;
 
-pub fn package_to_registry(plugin_dir: &std::path::Path) -> anyhow::Result<String> {
+pub fn package_to_registry(plugin_dir: &Path) -> anyhow::Result<String> {
     package_to_registry_with_progress(plugin_dir, None)
 }
 
 pub fn package_to_registry_with_progress(
-    plugin_dir: &std::path::Path,
+    plugin_dir: &Path,
     progress: Option<UnboundedSender<DevProgress>>,
 ) -> anyhow::Result<String> {
     // 1. Validate the plugin
@@ -22,72 +24,11 @@ pub fn package_to_registry_with_progress(
     let manifest_path = plugin_dir.join("manifest.toml");
     progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let content = std::fs::read_to_string(&manifest_path)?;
-    let mut manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
-    let mut manifest_table: toml::Table = toml::from_str(&content)?;
-
-    // Check for LICENSE file (case-insensitive)
-    let mut license_file = None;
-    if let Ok(entries) = std::fs::read_dir(plugin_dir) {
-        for entry in entries.flatten() {
-            let name_lower = entry.file_name().to_string_lossy().to_lowercase();
-            if name_lower == "license" || name_lower == "license.txt" || name_lower == "license.md"
-            {
-                license_file = Some(entry.path());
-                break;
-            }
-        }
+    let mut manifest = PluginManifest::parse(&content)?;
+    if let Some(lic) = super::license::resolve_license(plugin_dir, &manifest)? {
+        write_manifest_license(&manifest_path, &content, &lic)?;
+        manifest.license = Some(lic);
     }
-
-    let mut license_to_set = manifest.license.clone();
-
-    if let Some(_path) = license_file {
-        if manifest.license.is_none()
-            || manifest
-                .license
-                .as_ref()
-                .map(|l| l.trim().is_empty())
-                .unwrap_or(true)
-        {
-            // Prompt the user for license name if stdin is a terminal
-            let mut license_name = String::new();
-            use std::io::IsTerminal;
-            if std::io::stdin().is_terminal() {
-                println!("LICENSE file detected, but no license name specified in manifest.toml.");
-                println!("Please enter the license name (e.g. MIT, GPL-3.0, Apache-2.0):");
-                let _ = std::io::stdin().read_line(&mut license_name);
-            }
-            let license_name = license_name.trim().to_string();
-            let license_name = if license_name.is_empty() {
-                "Custom".to_string()
-            } else {
-                license_name
-            };
-            license_to_set = Some(license_name);
-        }
-    } else {
-        // No license file present. Auto-assign MIT
-        license_to_set = Some("MIT".to_string());
-        let current_year = chrono::Local::now().format("%Y").to_string();
-        let author_name = manifest.author.as_deref().unwrap_or("unknown");
-        let mit_license_text = format!(
-            "MIT License\n\nCopyright (c) {} {}\n\nPermission is hereby granted, free of charge, to any person obtaining a copy\nof this software and associated documentation files (the \"Software\"), to deal\nin the Software without restriction, including without limitation the rights\nto use, copy, modify, merge, publish, distribute, sublicense, and/or sell\ncopies of the Software, and to permit persons to whom the Software is\nfurnished to do so, subject to the following conditions:\n\nThe above copyright notice and this permission notice shall be included in all\ncopies or substantial portions of the Software.\n\nTHE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\nIMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\nFITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\nAUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\nLIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\nOUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\nSOFTWARE.\n",
-            current_year, author_name
-        );
-        std::fs::write(plugin_dir.join("LICENSE"), mit_license_text)?;
-    }
-
-    if let Some(ref lic) = license_to_set {
-        manifest.license = Some(lic.clone());
-        if let Some(toml::Value::Table(plugin_table)) = manifest_table.get_mut("plugin") {
-            plugin_table.insert("license".to_string(), toml::Value::String(lic.clone()));
-        } else {
-            manifest_table.insert("license".to_string(), toml::Value::String(lic.clone()));
-        }
-        let updated_content = toml::to_string_pretty(&manifest_table)?;
-        std::fs::write(&manifest_path, updated_content)?;
-    }
-
-    let name = manifest.name.clone();
 
     // 2. Clone or update the registry repo in temporary directory
     let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
@@ -95,6 +36,43 @@ pub fn package_to_registry_with_progress(
     let _repo = fetch_or_clone_registry(&temp_dir)?;
 
     // 3. Copy plugin files to the cloned repo
+    let dest_plugin_dir = registry_plugin_dir(&temp_dir, &manifest);
+    if dest_plugin_dir.exists() {
+        let _ = std::fs::remove_dir_all(&dest_plugin_dir);
+    }
+    std::fs::create_dir_all(&dest_plugin_dir)?;
+    let files_hash = copy_plugin_files(plugin_dir, &dest_plugin_dir, &progress)?;
+    write_checksums(&manifest_path, &dest_plugin_dir, &files_hash)?;
+
+    // 4. Update registry/index.toml
+    progress_status(&progress, t("plugin_dev_progress_updating_index"));
+    update_index(&temp_dir.join("registry").join("index.toml"), &manifest)?;
+
+    let success_msg = t("plugin_dev_pack_success")
+        .replace("{}", &manifest.name)
+        .replace("{v}", &manifest.version);
+    Ok(format!(
+        "{}\nPath: {}",
+        success_msg,
+        dest_plugin_dir.display()
+    ))
+}
+
+/// Sets `license` in `[plugin]` (or at the top level) of `manifest.toml`.
+fn write_manifest_license(manifest_path: &Path, content: &str, lic: &str) -> anyhow::Result<()> {
+    let mut manifest_table: toml::Table = toml::from_str(content)?;
+    let value = toml::Value::String(lic.to_string());
+    if let Some(toml::Value::Table(plugin_table)) = manifest_table.get_mut("plugin") {
+        plugin_table.insert("license".to_string(), value);
+    } else {
+        manifest_table.insert("license".to_string(), value);
+    }
+    std::fs::write(manifest_path, toml::to_string_pretty(&manifest_table)?)?;
+    Ok(())
+}
+
+/// `registry/plugins/<initial>/<author>/<name>` inside the registry clone.
+fn registry_plugin_dir(temp_dir: &Path, manifest: &PluginManifest) -> PathBuf {
     let author = manifest.author.as_deref().unwrap_or("unknown").trim();
     let author = if author.is_empty() { "unknown" } else { author };
     let first_char = author.chars().next().unwrap_or('u').to_ascii_lowercase();
@@ -103,26 +81,27 @@ pub fn package_to_registry_with_progress(
     } else {
         "_".to_string()
     };
-
-    let dest_plugin_dir = temp_dir
+    temp_dir
         .join("registry")
         .join("plugins")
         .join(&first_char_str)
         .join(author)
-        .join(&name);
+        .join(&manifest.name)
+}
 
-    if dest_plugin_dir.exists() {
-        let _ = std::fs::remove_dir_all(&dest_plugin_dir);
-    }
-    std::fs::create_dir_all(&dest_plugin_dir)?;
-
+/// Copies the plugin files, returning the SHA-256 of each relative path.
+fn copy_plugin_files(
+    plugin_dir: &Path,
+    dest_plugin_dir: &Path,
+    progress: &Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<HashMap<String, String>> {
     let mut files_hash = HashMap::new();
     let files = crate::plugin::loader::get_plugin_files(plugin_dir);
     let total_files = files.len().max(1);
-    progress_status(&progress, t("plugin_dev_progress_copying_files"));
+    progress_status(progress, t("plugin_dev_progress_copying_files"));
     for (idx, (rel_path, src_file_path)) in files.into_iter().enumerate() {
         progress_progress(
-            &progress,
+            progress,
             t("plugin_dev_progress_copying_file")
                 .replace("{}", &rel_path)
                 .replace("{n}", &(idx + 1).to_string())
@@ -139,45 +118,49 @@ pub fn package_to_registry_with_progress(
         let hash = crate::update::downloader::compute_sha256(&dest_file_path)?;
         files_hash.insert(rel_path, hash);
     }
+    Ok(files_hash)
+}
 
-    // Write sha256.sum inside the registry folder
+/// Writes `sha256.sum` and the manifest with a `[files]` checksum section.
+fn write_checksums(
+    manifest_path: &Path,
+    dest_plugin_dir: &Path,
+    files_hash: &HashMap<String, String>,
+) -> anyhow::Result<()> {
     let mut sha_content = String::new();
-    for (f, h) in &files_hash {
+    for (f, h) in files_hash {
         sha_content.push_str(&format!("{}  {}\n", h, f));
     }
     std::fs::write(dest_plugin_dir.join("sha256.sum"), sha_content)?;
 
-    // Copy manifest.toml to registry/plugins/.../manifest.toml with the [files] section appended
-    let mut manifest_content = std::fs::read_to_string(&manifest_path)?;
+    let mut manifest_content = std::fs::read_to_string(manifest_path)?;
     if !manifest_content.ends_with('\n') {
         manifest_content.push('\n');
     }
     manifest_content.push_str("\n[files]\n");
-    for (f, h) in &files_hash {
+    for (f, h) in files_hash {
         manifest_content.push_str(&format!("\"{}\" = \"{}\"\n", f, h));
     }
     std::fs::write(dest_plugin_dir.join("manifest.toml"), manifest_content)?;
+    Ok(())
+}
 
-    // 4. Update registry/index.toml
-    progress_status(&progress, t("plugin_dev_progress_updating_index"));
-    let index_path = temp_dir.join("registry").join("index.toml");
+/// Adds or replaces the plugin entry of `registry/index.toml`.
+fn update_index(index_path: &Path, manifest: &PluginManifest) -> anyhow::Result<()> {
+    use crate::plugin::updater::{RegistryIndex, RegistryPlugin};
+    let empty = || RegistryIndex {
+        plugins: HashMap::new(),
+    };
     let mut index_data = if index_path.exists() {
-        let content = std::fs::read_to_string(&index_path)?;
-        toml::from_str::<crate::plugin::updater::RegistryIndex>(&content).unwrap_or_else(|_| {
-            crate::plugin::updater::RegistryIndex {
-                plugins: HashMap::new(),
-            }
-        })
+        let content = std::fs::read_to_string(index_path)?;
+        toml::from_str::<RegistryIndex>(&content).unwrap_or_else(|_| empty())
     } else {
         std::fs::create_dir_all(index_path.parent().unwrap())?;
-        crate::plugin::updater::RegistryIndex {
-            plugins: HashMap::new(),
-        }
+        empty()
     };
 
-    // Construct RegistryPlugin
-    let reg_plugin = crate::plugin::updater::RegistryPlugin {
-        name: name.clone(),
+    let reg_plugin = RegistryPlugin {
+        name: manifest.name.clone(),
         version: manifest.version.clone(),
         description: manifest.description.clone(),
         author: manifest.author.clone(),
@@ -188,19 +171,8 @@ pub fn package_to_registry_with_progress(
             .map(|kb| kb.values().cloned().collect()),
         min_pairee: manifest.min_pairee.clone(),
     };
+    index_data.plugins.insert(manifest.name.clone(), reg_plugin);
 
-    index_data.plugins.insert(name.clone(), reg_plugin);
-
-    // Serialize and write back
-    let serialized = toml::to_string_pretty(&index_data)?;
-    std::fs::write(&index_path, serialized)?;
-
-    let success_msg = t("plugin_dev_pack_success")
-        .replace("{}", &name)
-        .replace("{v}", &manifest.version);
-    Ok(format!(
-        "{}\nPath: {}",
-        success_msg,
-        dest_plugin_dir.display()
-    ))
+    std::fs::write(index_path, toml::to_string_pretty(&index_data)?)?;
+    Ok(())
 }

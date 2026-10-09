@@ -1,3 +1,4 @@
+mod license;
 pub mod registry_pack;
 pub mod registry_repo;
 pub mod validate;
