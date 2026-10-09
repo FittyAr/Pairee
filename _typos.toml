@@ -63,3 +63,4 @@ creens = "creens"
 contxt = "contxt"
 # the byte literal caf+0xE9 (Latin-1 "cafe") in the viewer encoding tests.
 caf = "caf"
+fase = "fase"
