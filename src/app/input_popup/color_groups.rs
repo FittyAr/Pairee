@@ -24,7 +24,7 @@ pub fn handle(
     };
     match handle_key(theme, cursor_idx, edit, &key) {
         ColorListKey::Handled => {}
-        ColorListKey::Back => back_to_config(state, &context.config.settings, CONFIG_ROW),
+        ColorListKey::Back => back_to_config(state, &context.config, CONFIG_ROW),
         ColorListKey::Save => {
             let settings = &mut context.config.settings;
             if settings.theme == "slate" || settings.theme == "classic_blue" {
@@ -33,7 +33,7 @@ pub fn handle(
             context.config.theme = theme.clone();
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
-            back_to_config(state, &context.config.settings, CONFIG_ROW);
+            back_to_config(state, &context.config, CONFIG_ROW);
         }
     }
     Ok(None)

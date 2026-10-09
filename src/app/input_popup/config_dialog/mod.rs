@@ -23,7 +23,7 @@ pub fn handle(
     let rows = tab_rows(
         dlg.active_tab,
         &RowCtx {
-            settings: &dlg.settings,
+            settings: &dlg.draft,
             custom_bindings: &custom_bindings,
         },
     );
@@ -61,7 +61,7 @@ pub fn handle(
             let Some(setting) = rows.get(dlg.cursor_idx).and_then(Row::setting) else {
                 return Ok(None);
             };
-            match setting.activate(&mut dlg.settings, context) {
+            match setting.activate(&mut dlg.draft, context) {
                 Activation::Changed => {}
                 Activation::StartEdit(field) => dlg.edit = Some(field),
                 // Info panels open over the dialog; other dialogs replace it.
@@ -94,7 +94,7 @@ fn edit_key(dlg: &mut ConfigurationDialogState, rows: &[Row], key: &KeyEvent) {
         KeyCode::Esc => dlg.edit = None,
         KeyCode::Enter => {
             if let Some(setting) = rows.get(dlg.cursor_idx).and_then(Row::setting) {
-                setting.commit_edit(&mut dlg.settings, field.text());
+                setting.commit_edit(&mut dlg.draft, field.text());
             }
             dlg.edit = None;
         }
@@ -107,7 +107,7 @@ fn edit_key(dlg: &mut ConfigurationDialogState, rows: &[Row], key: &KeyEvent) {
 /// Applies the edited settings and closes the dialog.
 fn apply(state: &mut AppState, context: &mut AppContext) {
     if let Some(PopupType::ConfigurationDialog(dlg)) = state.dialogs.pop() {
-        apply::apply_settings(state, context, *dlg.settings);
+        apply::apply_settings(state, context, *dlg.draft);
     }
 }
 
@@ -121,7 +121,7 @@ fn open_tab(
     let rows = tab_rows(
         tab,
         &RowCtx {
-            settings: &dlg.settings,
+            settings: &dlg.draft,
             custom_bindings,
         },
     );

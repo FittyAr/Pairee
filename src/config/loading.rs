@@ -100,19 +100,34 @@ pub(super) fn drop_missing_dev_plugin(
     }
 }
 
-/// Reads `keybindings.toml` (written with defaults when missing).
-pub(super) fn load_keybindings() -> Result<KeybindingsConfig> {
+/// Reads `keybindings.toml` (written with defaults when missing). A missing
+/// file takes its preset from the legacy `keybinding_preset` key of
+/// `config.toml` (`settings_path`), which older releases also wrote.
+pub(super) fn load_keybindings(settings_path: &Path) -> Result<KeybindingsConfig> {
     let keybindings_path = paths::get_keybindings_file_path();
     if keybindings_path.exists() {
         let content =
             fs::read_to_string(&keybindings_path).context("Failed to read keybindings.toml")?;
         return Ok(toml::from_str(&content).unwrap_or_default());
     }
-    let default_keybindings = KeybindingsConfig::default();
+    let mut default_keybindings = KeybindingsConfig::default();
+    if let Some(preset) = fs::read_to_string(settings_path)
+        .ok()
+        .and_then(|content| legacy_preset(&content))
+    {
+        default_keybindings.preset = preset;
+    }
     let toml_str = toml::to_string_pretty(&default_keybindings)
         .context("Failed to serialize default keybindings")?;
     fs::write(&keybindings_path, toml_str).context("Failed to write default keybindings.toml")?;
     Ok(default_keybindings)
+}
+
+/// The `keybinding_preset` key that `config.toml` held before the preset
+/// moved to `keybindings.toml`.
+fn legacy_preset(config_toml: &str) -> Option<String> {
+    let table = config_toml.parse::<toml::Table>().ok()?;
+    Some(table.get("keybinding_preset")?.as_str()?.to_owned())
 }
 
 /// Seeds the `keymaps/` folder with the built-in presets and refreshes
@@ -162,4 +177,25 @@ pub(super) fn load_theme(theme_name: &str) -> Result<Theme> {
     }
     let content = fs::read_to_string(&theme_path).context("Failed to read theme file")?;
     Ok(toml::from_str(&content).unwrap_or_else(|_| builtin()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn legacy_preset_is_read_from_old_config_toml() {
+        let old = "show_hidden = true
+keybinding_preset = \"neovim\"
+";
+        assert_eq!(legacy_preset(old).as_deref(), Some("neovim"));
+        assert_eq!(
+            legacy_preset(
+                "show_hidden = true
+"
+            ),
+            None
+        );
+        assert_eq!(legacy_preset("not toml ["), None);
+    }
 }

@@ -6,7 +6,7 @@
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, ConfigurationDialogState, PopupType};
 use crate::app::text_input::TextField;
-use crate::config::settings::Settings;
+use crate::config::AppConfig;
 use crate::config::theme::{COLOR_PROPS, Theme, cycle_named_color};
 use crate::ui::highlight::HighlightRule;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -91,9 +91,9 @@ pub fn handle_key<L: ColorList>(
 }
 
 /// Back to the configuration dialog's Colors tab, on row `row`.
-pub fn back_to_config(state: &mut AppState, settings: &Settings, row: usize) {
+pub fn back_to_config(state: &mut AppState, config: &AppConfig, row: usize) {
     state.dialogs.replace(PopupType::ConfigurationDialog(
-        ConfigurationDialogState::new(settings, COLORS_TAB, row, false),
+        ConfigurationDialogState::new(config, COLORS_TAB, row, false),
     ));
 }
 

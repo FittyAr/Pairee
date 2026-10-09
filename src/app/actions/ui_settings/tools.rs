@@ -46,12 +46,7 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::SaveSetup => state.dialogs.replace(PopupType::SaveSetupConfirm),
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
-                crate::app::state::ConfigurationDialogState::new(
-                    &context.config.settings,
-                    0,
-                    0,
-                    true,
-                ),
+                crate::app::state::ConfigurationDialogState::new(&context.config, 0, 0, true),
             ));
         }
         _ => return false,

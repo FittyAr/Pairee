@@ -22,8 +22,9 @@ pub struct AppLayout {
 pub fn calculate_layout(
     area: Rect,
     state: &AppState,
-    settings: &crate::config::settings::Settings,
+    config: &crate::config::AppConfig,
 ) -> AppLayout {
+    let settings = &config.settings;
     let menu_active = matches!(
         state.dialogs.top(),
         Some(crate::app::state::PopupType::Menu { .. })
@@ -34,8 +35,7 @@ pub fn calculate_layout(
         0
     };
 
-    let fkeys_height = if settings.interface_show_key_bar && settings.keybinding_preset == "norton"
-    {
+    let fkeys_height = if settings.interface_show_key_bar && config.keybindings.preset == "norton" {
         1
     } else {
         0

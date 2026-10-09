@@ -27,8 +27,8 @@ pub use panel::PanelState;
 pub use panel_pair::PanelPair;
 pub use plugin_host::{PendingPluginReply, PluginHostState};
 pub use popup::{
-    ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState, PopupType,
-    SshConnectPromptState,
+    ConfigDraft, ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState,
+    PopupType, SshConnectPromptState,
 };
 pub use tabs::TabId;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};

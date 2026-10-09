@@ -59,7 +59,7 @@ impl AppConfig {
         };
 
         // 2. Keybindings Loading, 2b. preset keymap files
-        let keybindings = loading::load_keybindings()?;
+        let keybindings = loading::load_keybindings(&settings_path)?;
         loading::seed_preset_keymaps(BUILTIN_PRESETS)?;
 
         // 3. Theme Loading

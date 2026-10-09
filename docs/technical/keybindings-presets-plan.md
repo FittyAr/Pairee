@@ -437,7 +437,7 @@ standard = "Ctrl+Alt+B"
 Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -D warnings`, sin duplicados (jscpd), módulos < 500 LOC y funciones < 100 líneas.
 
 ### Fase 0 — Saneamiento (bugs §1.2)
-- [ ] Unificar el nombre del preset en `keybindings.preset`, migrar `settings.keybinding_preset` y corregir `every_keymap_binds_undo_and_redo`.
+- [x] Unificar el nombre del preset en `keybindings.preset`, migrar `settings.keybinding_preset` y corregir `every_keymap_binds_undo_and_redo`.
 - [ ] Unificar `include_str!` de los presets en un único módulo `keymaps::embedded`.
 - [ ] Sembrado no destructivo: si el archivo del usuario difiere del embebido, no se pisa. Se escribe `<name>.toml.new` y se avisa en el reporte.
 - [ ] Eliminar el `preset == "vim"` de `cli.rs` (se reemplaza en la fase 1 por `typing`).

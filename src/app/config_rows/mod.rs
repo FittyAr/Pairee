@@ -8,10 +8,10 @@ mod tabs;
 mod tabs_extra;
 
 use crate::app::context::AppContext;
+use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
-use crate::config::settings::Settings;
 use std::collections::HashMap;
 
 /// Translation keys of the tab titles (with their `&` hotkeys), in order.
@@ -60,23 +60,23 @@ pub enum CycleFormat {
 pub enum Kind {
     /// `[x] label`; flips the flag.
     Toggle {
-        get: fn(&Settings) -> bool,
-        set: fn(&mut Settings, bool),
+        get: fn(&ConfigDraft) -> bool,
+        set: fn(&mut ConfigDraft, bool),
     },
     /// Label and current value; advances to the next value.
     Cycle {
-        show: fn(&Settings) -> String,
-        next: fn(&mut Settings),
+        show: fn(&ConfigDraft) -> String,
+        next: fn(&mut ConfigDraft),
         format: CycleFormat,
     },
     /// `label: value`; Enter edits the text in place.
     Edit {
-        show: fn(&Settings) -> String,
-        get: fn(&Settings) -> String,
-        set: fn(&mut Settings, &str),
+        show: fn(&ConfigDraft) -> String,
+        get: fn(&ConfigDraft) -> String,
+        set: fn(&mut ConfigDraft, &str),
     },
     /// Plain label; opens another dialog or panel.
-    Action(fn(&Settings, &AppContext) -> Option<PopupType>),
+    Action(fn(&ConfigDraft, &AppContext) -> Option<PopupType>),
 }
 
 #[derive(Clone)]
@@ -89,7 +89,7 @@ pub struct Setting {
 
 impl Setting {
     /// Display text; `edit` is the in-progress text of an edited row.
-    pub fn text(&self, settings: &Settings, edit: Option<&TextField>) -> String {
+    pub fn text(&self, settings: &ConfigDraft, edit: Option<&TextField>) -> String {
         let pad = "  ".repeat(self.indent);
         let label = self.label.text();
         let body = match (self.kind, edit) {
@@ -135,7 +135,7 @@ impl Row {
 
 /// Inputs some tabs need besides the settings being edited.
 pub struct RowCtx<'a> {
-    pub settings: &'a Settings,
+    pub settings: &'a ConfigDraft,
     pub custom_bindings: &'a HashMap<String, String>,
 }
 
@@ -166,7 +166,7 @@ pub enum Activation {
 
 impl Setting {
     /// Enter / Space on the row.
-    pub fn activate(&self, settings: &mut Settings, context: &AppContext) -> Activation {
+    pub fn activate(&self, settings: &mut ConfigDraft, context: &AppContext) -> Activation {
         match self.kind {
             Kind::Toggle { get, set } => {
                 let value = get(settings);
@@ -184,14 +184,14 @@ impl Setting {
     }
 
     /// Enter while editing: store `text`.
-    pub fn commit_edit(&self, settings: &mut Settings, text: &str) {
+    pub fn commit_edit(&self, settings: &mut ConfigDraft, text: &str) {
         if let Kind::Edit { set, .. } = self.kind {
             set(settings, text);
         }
     }
 }
 
-/// `[x] label` row for a `bool` field path of [`Settings`]; `indent` levels
+/// `[x] label` row for a `bool` field path of [`crate::config::settings::Settings`]; `indent` levels
 /// of two spaces.
 macro_rules! toggle {
     ($key:literal, $($field:ident).+) => {
@@ -225,8 +225,8 @@ pub fn cycle(
     key: &'static str,
     indent: usize,
     format: CycleFormat,
-    show: fn(&Settings) -> String,
-    next: fn(&mut Settings),
+    show: fn(&ConfigDraft) -> String,
+    next: fn(&mut ConfigDraft),
 ) -> Row {
     Row::Setting(Setting {
         label: Label::Key(key),

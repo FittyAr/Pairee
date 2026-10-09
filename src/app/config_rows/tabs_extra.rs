@@ -1,13 +1,14 @@
 //! Interface, Plugins, Editor/Viewer, Colors and Git tabs.
 
 use super::{CycleFormat, Kind, Label, Row, RowCtx, Setting, cycle, title, title_key, toggle};
+use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
 use crate::keybindings::loader::load_keybinds;
 
 pub fn interface(ctx: &RowCtx) -> Vec<Row> {
-    let (_, report) = load_keybinds(&ctx.settings.keybinding_preset, ctx.custom_bindings);
+    let (_, report) = load_keybinds(&ctx.settings.keymap_preset, ctx.custom_bindings);
     let status = Label::Owned(report.summary_line());
     let status_row = if report.ok() && report.warnings.is_empty() {
         Row::Hint(status)
@@ -26,9 +27,9 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
             "int_keybindings",
             0,
             CycleFormat::Angle,
-            |s| s.keybinding_preset.clone(),
+            |s| s.keymap_preset.clone(),
             |s| {
-                s.keybinding_preset = match s.keybinding_preset.as_str() {
+                s.keymap_preset = match s.keymap_preset.as_str() {
                     "norton" => "neovim",
                     "neovim" => "vscode",
                     _ => "norton",
@@ -40,7 +41,7 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         Row::Hint(Label::Key("int_keymap_gray")),
         action("int_keymap_view", |s, context| {
             let (_, report) = load_keybinds(
-                &s.keybinding_preset,
+                &s.keymap_preset,
                 &context.config.keybindings.custom_bindings,
             );
             Some(PopupType::InfoPanel {
@@ -80,7 +81,7 @@ pub fn plugins(settings: &Settings) -> Vec<Row> {
 }
 
 /// Next language among the installed translation files.
-fn next_language(s: &mut Settings) {
+fn next_language(s: &mut ConfigDraft) {
     let discovered = crate::config::localization::discover_languages();
     if discovered.is_empty() {
         return;
@@ -233,7 +234,7 @@ fn or_git_config(value: &str) -> String {
 
 fn action(
     key: &'static str,
-    open: fn(&Settings, &crate::app::context::AppContext) -> Option<PopupType>,
+    open: fn(&ConfigDraft, &crate::app::context::AppContext) -> Option<PopupType>,
 ) -> Row {
     Row::Setting(Setting {
         label: Label::Key(key),
@@ -244,9 +245,9 @@ fn action(
 
 fn edit(
     key: &'static str,
-    show: fn(&Settings) -> String,
-    get: fn(&Settings) -> String,
-    set: fn(&mut Settings, &str),
+    show: fn(&ConfigDraft) -> String,
+    get: fn(&ConfigDraft) -> String,
+    set: fn(&mut ConfigDraft, &str),
 ) -> Row {
     Row::Setting(Setting {
         label: Label::Key(key),

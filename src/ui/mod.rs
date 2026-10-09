@@ -35,7 +35,7 @@ use ratatui::Frame;
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     // 1. Compute geometry partitions (respects panel visibility flags)
-    let layout = layout::calculate_layout(f.area(), state, &context.config.settings);
+    let layout = layout::calculate_layout(f.area(), state, &context.config);
 
     // 2. Draw static bar layouts
     if layout.menu_rect.height > 0 {

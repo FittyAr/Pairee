@@ -2,7 +2,11 @@ use super::*;
 use crate::config::AppConfig;
 use crate::config::settings::TabExpansion;
 
-fn ctx_rows(tab: usize, settings: &Settings) -> Vec<Row> {
+fn draft() -> ConfigDraft {
+    ConfigDraft::new(&AppConfig::default())
+}
+
+fn ctx_rows(tab: usize, settings: &ConfigDraft) -> Vec<Row> {
     tab_rows(
         tab,
         &RowCtx {
@@ -13,7 +17,7 @@ fn ctx_rows(tab: usize, settings: &Settings) -> Vec<Row> {
 }
 
 /// Activates the setting row whose label key is `key` on `tab`.
-fn activate(tab: usize, key: &str, settings: &mut Settings) -> Activation {
+fn activate(tab: usize, key: &str, settings: &mut ConfigDraft) -> Activation {
     let rows = ctx_rows(tab, settings);
     let setting = rows
         .iter()
@@ -26,7 +30,7 @@ fn activate(tab: usize, key: &str, settings: &mut Settings) -> Activation {
 
 #[test]
 fn toggles_flip_their_flags_and_render_checkboxes() {
-    let mut s = Settings::default();
+    let mut s = draft();
     assert!(s.ssh_enabled);
     activate(0, "feature_ssh", &mut s);
     assert!(!s.ssh_enabled);
@@ -43,7 +47,7 @@ fn toggles_flip_their_flags_and_render_checkboxes() {
 
 #[test]
 fn cycles_and_nested_fields() {
-    let mut s = Settings::default();
+    let mut s = draft();
     activate(5, "ed_expand_tabs", &mut s);
     assert_eq!(s.editor_expand_tabs, TabExpansion::NewTabs);
     s.editor_tab_size = 8;
@@ -56,7 +60,7 @@ fn cycles_and_nested_fields() {
 
 #[test]
 fn edit_rows_start_editing_and_commit() {
-    let mut s = Settings::default();
+    let mut s = draft();
     let Activation::StartEdit(field) = activate(7, "git_log_limit", &mut s) else {
         panic!("expected edit");
     };
@@ -74,7 +78,7 @@ fn edit_rows_start_editing_and_commit() {
 
 #[test]
 fn view_keymap_issues_opens_info_panel() {
-    let mut s = Settings::default();
+    let mut s = draft();
     match activate(2, "int_keymap_view", &mut s) {
         Activation::Open(popup) => {
             let PopupType::InfoPanel { lines } = *popup else {
@@ -92,7 +96,7 @@ fn view_keymap_issues_opens_info_panel() {
 
 #[test]
 fn keymap_section_has_status_and_view_rows() {
-    let rows = ctx_rows(2, &Settings::default());
+    let rows = ctx_rows(2, &draft());
     assert!(rows.iter().any(|r| matches!(
         r,
         Row::Hint(Label::Owned(_)) | Row::Subtitle(Label::Owned(_))
@@ -101,14 +105,20 @@ fn keymap_section_has_status_and_view_rows() {
 
 #[test]
 fn plugin_path_row_only_in_developer_mode() {
-    let mut s = Settings {
-        plugins_developer_mode: false,
-        ..Default::default()
-    };
+    let mut s = draft();
+    s.plugins_developer_mode = false;
     let count = ctx_rows(4, &s).iter().filter(|r| r.is_selectable()).count();
     s.plugins_developer_mode = true;
     assert_eq!(
         ctx_rows(4, &s).iter().filter(|r| r.is_selectable()).count(),
         count + 1
     );
+}
+
+#[test]
+fn keymap_cycle_edits_the_draft_preset() {
+    let mut s = draft();
+    assert_eq!(s.keymap_preset, "norton");
+    activate(2, "int_keybindings", &mut s);
+    assert_eq!(s.keymap_preset, "neovim");
 }

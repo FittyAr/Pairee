@@ -174,7 +174,7 @@ fn finished_transfer_jobs_are_journaled_once() {
 fn every_keymap_binds_undo_and_redo() {
     for preset in ["norton", "vscode", "neovim"] {
         let mut config = AppConfig::default();
-        config.settings.keybinding_preset = preset.into();
+        config.keybindings.preset = preset.into();
         let mut resolver = KeybindingResolver::new(&config);
         let undo = KeyEvent::new(KeyCode::Backspace, KeyModifiers::ALT);
         let redo = KeyEvent::new(KeyCode::Char('y'), KeyModifiers::CONTROL);

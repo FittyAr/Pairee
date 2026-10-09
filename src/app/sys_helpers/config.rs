@@ -17,7 +17,6 @@ pub fn change_theme(context: &mut AppContext, state: &mut AppState, theme_name: 
 /// Changes the current keybinding preset.
 pub fn change_preset(context: &mut AppContext, preset_name: &str) {
     context.config.keybindings.preset = preset_name.to_string();
-    context.config.settings.keybinding_preset = preset_name.to_string();
     context.resolver = crate::keybindings::KeybindingResolver::new(&context.config);
     context.config.save_logging();
 }

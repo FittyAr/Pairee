@@ -135,7 +135,7 @@ fn row_lines(
     custom_bindings: &std::collections::HashMap<String, String>,
     list_height: usize,
 ) -> Vec<Line<'static>> {
-    let settings = &dialog.settings;
+    let settings = &dialog.draft;
     let rows = tab_rows(
         dialog.active_tab,
         &RowCtx {

@@ -66,7 +66,7 @@ fn draw(context: &AppContext, state: &AppState, w: u16, h: u16) -> Terminal<Test
 /// Screen row of the left panel's first line (below the menu bar).
 fn panel_top(context: &AppContext, state: &AppState, w: u16, h: u16) -> u16 {
     let area = ratatui::layout::Rect::new(0, 0, w, h);
-    crate::ui::layout::calculate_layout(area, state, &context.config.settings)
+    crate::ui::layout::calculate_layout(area, state, &context.config)
         .left_rect
         .y
 }

@@ -40,7 +40,6 @@ pub fn handle(
 pub fn apply_choice(context: &mut AppContext, state: &mut AppState, preset: Option<&str>) {
     if let Some(name) = preset {
         context.config.keybindings.preset = name.to_string();
-        context.config.settings.keybinding_preset = name.to_string();
         context.resolver = crate::keybindings::KeybindingResolver::new(&context.config);
     }
     context.config.settings.onboarding_completed = true;
@@ -97,7 +96,6 @@ mod tests {
             .replace(PopupType::OnboardingKeymap { cursor_idx: 1 });
         apply_choice(&mut context, &mut state, Some("neovim"));
         assert!(context.config.settings.onboarding_completed);
-        assert_eq!(context.config.settings.keybinding_preset, "neovim");
         assert_eq!(context.config.keybindings.preset, "neovim");
         assert!(state.dialogs.is_none());
     }
@@ -108,6 +106,6 @@ mod tests {
         let mut context = ctx();
         apply_choice(&mut context, &mut state, None);
         assert!(context.config.settings.onboarding_completed);
-        assert_eq!(context.config.settings.keybinding_preset, "norton");
+        assert_eq!(context.config.keybindings.preset, "norton");
     }
 }

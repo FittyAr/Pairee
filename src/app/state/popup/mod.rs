@@ -16,7 +16,7 @@ mod ssh;
 pub mod sync;
 mod text_search;
 
-pub use config_dialog::ConfigurationDialogState;
+pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use file_ops::{CopyMovePromptState, TransferPromptOp};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{

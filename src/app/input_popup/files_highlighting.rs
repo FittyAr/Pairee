@@ -24,12 +24,12 @@ pub fn handle(
     };
     match handle_key(rules, cursor_idx, edit, &key) {
         ColorListKey::Handled => {}
-        ColorListKey::Back => back_to_config(state, &context.config.settings, CONFIG_ROW),
+        ColorListKey::Back => back_to_config(state, &context.config, CONFIG_ROW),
         ColorListKey::Save => {
             context.config.settings.highlight_rules = rules.clone();
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
-            back_to_config(state, &context.config.settings, CONFIG_ROW);
+            back_to_config(state, &context.config, CONFIG_ROW);
         }
     }
     Ok(None)

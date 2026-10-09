@@ -1,14 +1,18 @@
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
+use crate::app::state::ConfigDraft;
 use crate::app::sys_helpers::{change_preset, change_theme};
-use crate::config::settings::Settings;
 
-pub fn apply_settings(state: &mut AppState, context: &mut AppContext, settings: Settings) {
+pub fn apply_settings(state: &mut AppState, context: &mut AppContext, draft: ConfigDraft) {
+    let ConfigDraft {
+        settings,
+        keymap_preset,
+    } = draft;
     if settings.theme != context.config.settings.theme {
         change_theme(context, state, &settings.theme);
     }
-    if settings.keybinding_preset != context.config.settings.keybinding_preset {
-        change_preset(context, &settings.keybinding_preset);
+    if keymap_preset != context.config.keybindings.preset {
+        change_preset(context, &keymap_preset);
     }
     state.case_sensitive_sort = settings.case_sensitive_sort;
     state.treat_digits_as_numbers = settings.treat_digits_as_numbers;

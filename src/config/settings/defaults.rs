@@ -10,7 +10,6 @@ impl Default for Settings {
             show_hidden: false,
             secure_mode: false,
             mouse_support: true,
-            keybinding_preset: "norton".to_string(),
             onboarding_completed: false,
             theme: "slate".to_string(),
             panel_view_mode: PanelViewMode::default(),

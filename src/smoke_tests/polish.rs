@@ -84,17 +84,16 @@ fn fixed_keymap_chords_reach_their_actions() {
 
 #[test]
 fn fkey_bar_shift_row_comes_from_the_keymap() {
-    for keymap in ["norton", "vscode"] {
-        // Wide enough for whole six-letter labels.
-        let mut h = Harness::builder().keymap(keymap).size(200, 30).build();
-        // Normal -> Ctrl -> Alt -> Shift.
-        h.keys("@cycle_fkeys_modifiers*3").render();
-        h.assert_screen(&t("fkey_sh_mrename"));
-        h.assert_screen(&t("fkey_sh_pack"));
-        // A fourth press goes back to following the held modifiers.
-        h.keys("@cycle_fkeys_modifiers");
-        assert_eq!(h.state.fkeys_modifier_override, None, "{keymap}");
-    }
+    // Only the norton preset shows the F-key bar; wide enough for whole
+    // six-letter labels.
+    let mut h = Harness::builder().keymap("norton").size(200, 30).build();
+    // Normal -> Ctrl -> Alt -> Shift.
+    h.keys("@cycle_fkeys_modifiers*3").render();
+    h.assert_screen(&t("fkey_sh_mrename"));
+    h.assert_screen(&t("fkey_sh_pack"));
+    // A fourth press goes back to following the held modifiers.
+    h.keys("@cycle_fkeys_modifiers");
+    assert_eq!(h.state.fkeys_modifier_override, None);
 }
 
 #[test]

@@ -16,7 +16,6 @@ fn settings_default_survives_temp_file_roundtrip() {
     let loaded_src = fs::read_to_string(&path).expect("read settings");
     let loaded: Settings = toml::from_str(&loaded_src).expect("deserialize settings");
 
-    assert_eq!(loaded.keybinding_preset, original.keybinding_preset);
     assert_eq!(loaded.theme, original.theme);
     assert_eq!(loaded.language, original.language);
     assert_eq!(loaded.show_hidden, original.show_hidden);

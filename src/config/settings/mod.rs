@@ -30,8 +30,6 @@ pub struct Settings {
     pub secure_mode: bool,
     /// Toggle terminal mouse interactions
     pub mouse_support: bool,
-    /// Active keybinding preset profile: "norton", "vim", "modern", "custom"
-    pub keybinding_preset: String,
     /// False only on a freshly created config. Existing files without the
     /// field deserialize as `true` so upgrades skip the first-run dialog.
     #[serde(default = "default_true")]
