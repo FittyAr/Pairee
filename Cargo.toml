@@ -129,6 +129,10 @@ assets = [
 [build-dependencies]
 embed-resource = "2.5"
 
+# Lints for every target (lib, bins, tests, benches); CI runs clippy with `-D warnings`.
+[lints.clippy]
+too_many_lines = "warn"
+
 [workspace]
 
 

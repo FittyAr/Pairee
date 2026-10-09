@@ -7,3 +7,6 @@ too-many-arguments-threshold = 7
 type-complexity-threshold = 250
 allow-expect-in-tests = true
 allow-unwrap-in-tests = true
+# Functions longer than this are split into handlers/helpers (`too_many_lines`
+# is enabled in Cargo.toml `[lints.clippy]`).
+too-many-lines-threshold = 100
