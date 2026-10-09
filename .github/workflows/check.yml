@@ -43,10 +43,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v7
 
-      - name: Check licenses, advisories, and crate sources
-        uses: EmbarkStudios/cargo-deny-action@v2
+      # Prebuilt latest cargo-deny: the Docker-based action pulled its image
+      # from Docker Hub on every run and failed on its rate limits.
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
         with:
-          command: check
+          tool: cargo-deny
+
+      - name: Check licenses, advisories, and crate sources
+        run: cargo deny check
 
   typos:
     name: Spell check
