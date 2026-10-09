@@ -136,7 +136,7 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 * **Directory Tree View:** Traverses the directory structure and displays a graph-like tree layout.
 * **File Descriptions:** Supports editing and saving file description tags to hidden `Descript.ion` lists.
 * **File Associations:** Map file extensions (e.g., `*.py`) to custom launch commands.
-* **Custom User Commands Menu:** Define custom shell commands or script execution shortcuts to run on highlighted or tagged files. The popup is bound to `F2` and ships with a small set of built-in shortcuts (Refresh, Toggle hidden, Swap panels, Task list, Git panel, **Create folder**, Quick filter, Help, Edit).
+* **Custom User Commands Menu:** Define custom shell commands or script execution shortcuts to run on highlighted or tagged files. The popup is bound to `F2` and ships with a small set of built-in shortcuts (Refresh, Toggle hidden, Swap panels, Task list, Git panel, **Create folder**, new tab, open in a new tab, close tab, Quick filter, Help, Edit).
 * **Drive Select Panel:** Displays removable disks, external USB drives, and mounted network drives to switch panel paths.
 * **System Info Panel:** Overlay window displaying current OS distribution name, machine hostname, logged-in username, available system RAM, and environment parameters.
 

@@ -12,6 +12,21 @@ pub struct UserMenuItem {
     pub action: Option<Action>,
 }
 
+/// The menu shown while `usermenu.toml` defines no commands: key, label, action.
+const DEFAULT_ITEMS: [(&str, &str, Action); 11] = [
+    ("1", "user_cmd_refresh", Action::Refresh),
+    ("2", "user_cmd_toggle_hidden", Action::ToggleHidden),
+    ("3", "user_cmd_swap", Action::SwapPanels),
+    ("4", "user_cmd_task_list", Action::TaskList),
+    ("5", "user_cmd_git", Action::OpenGitPanel),
+    ("6", "user_cmd_mkdir", Action::MkDir),
+    ("T", "user_cmd_new_tab", Action::NewTab),
+    ("O", "user_cmd_open_in_new_tab", Action::OpenInNewTab),
+    ("W", "user_cmd_close_tab", Action::CloseTab),
+    ("F", "user_cmd_quick_filter", Action::QuickFilter),
+    ("H", "user_cmd_help", Action::Help),
+];
+
 pub fn get_user_menu_items() -> Vec<UserMenuItem> {
     let custom_cmds = crate::app::sys_helpers::load_user_menu_commands();
     let mut items = Vec::new();
@@ -25,55 +40,12 @@ pub fn get_user_menu_items() -> Vec<UserMenuItem> {
             });
         }
     } else {
-        // Defaults
-        items.push(UserMenuItem {
-            key: "1".to_string(),
-            label: crate::config::localization::t("user_cmd_refresh"),
+        items.extend(DEFAULT_ITEMS.iter().map(|&(key, label, action)| UserMenuItem {
+            key: key.to_string(),
+            label: crate::config::localization::t(label),
             command: None,
-            action: Some(Action::Refresh),
-        });
-        items.push(UserMenuItem {
-            key: "2".to_string(),
-            label: crate::config::localization::t("user_cmd_toggle_hidden"),
-            command: None,
-            action: Some(Action::ToggleHidden),
-        });
-        items.push(UserMenuItem {
-            key: "3".to_string(),
-            label: crate::config::localization::t("user_cmd_swap"),
-            command: None,
-            action: Some(Action::SwapPanels),
-        });
-        items.push(UserMenuItem {
-            key: "4".to_string(),
-            label: crate::config::localization::t("user_cmd_task_list"),
-            command: None,
-            action: Some(Action::TaskList),
-        });
-        items.push(UserMenuItem {
-            key: "5".to_string(),
-            label: crate::config::localization::t("user_cmd_git"),
-            command: None,
-            action: Some(Action::OpenGitPanel),
-        });
-        items.push(UserMenuItem {
-            key: "6".to_string(),
-            label: crate::config::localization::t("user_cmd_mkdir"),
-            command: None,
-            action: Some(Action::MkDir),
-        });
-        items.push(UserMenuItem {
-            key: "F".to_string(),
-            label: crate::config::localization::t("user_cmd_quick_filter"),
-            command: None,
-            action: Some(Action::QuickFilter),
-        });
-        items.push(UserMenuItem {
-            key: "H".to_string(),
-            label: crate::config::localization::t("user_cmd_help"),
-            command: None,
-            action: Some(Action::Help),
-        });
+            action: Some(action),
+        }));
     }
     // Always append Edit option at the end
     items.push(UserMenuItem {

@@ -1,6 +1,6 @@
 //! Sorting modes and user menu dialog rendering.
 
-use super::super::{centered_rect, centered_rect_in};
+use super::super::{centered_rect, centered_rect_fixed};
 use crate::app::state::{ActivePanel, SortField};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
@@ -101,7 +101,10 @@ pub fn render_user_menu_dialog(
         ActivePanel::Left => left_rect,
         ActivePanel::Right => right_rect,
     };
-    let area = centered_rect_in(80, 55, panel_rect);
+    let items = crate::app::input_popup::user_menu::get_user_menu_items();
+    // Borders and the header row take three lines; the panel caps the height.
+    let height = u16::try_from(items.len() + 3).unwrap_or(u16::MAX);
+    let area = centered_rect_fixed(panel_rect.width * 4 / 5, height, panel_rect);
     f.render_widget(Clear, area);
 
     let block = Block::default()
@@ -110,7 +113,6 @@ pub fn render_user_menu_dialog(
         .title(t("popup_user_menu"))
         .style(Style::default().bg(parse_color(&theme.popup_bg)));
 
-    let items = crate::app::input_popup::user_menu::get_user_menu_items();
     let mut menu_rows = Vec::new();
     for (i, item) in items.iter().enumerate() {
         let is_cursor = i == cursor_idx;

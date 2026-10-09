@@ -13,6 +13,7 @@
 - *Norton Commander / Far* follows NC/Far again: `F7` makes a folder, `Shift+F6` renames, `Ctrl+Shift+F6` is the multi-rename tool, `F11` opens plugins, `Ctrl+\` goes to the root, and `Alt`+letter is the quick search. Pairee's own keys moved to `Ctrl+Alt`+letter: tabs `Ctrl+Alt+T`/`W`/`O`, Git `Ctrl+Alt+G`, SSH `Ctrl+Alt+R`, folder sizes `Ctrl+Alt+S`, disk usage `Ctrl+Alt+D`, hotlist `Ctrl+Alt+B`, quick filter `Ctrl+Alt+F`; redo is `Alt+Shift+Backspace`.
 - The *VSCode* preset is now *Standard* (`vscode` still works as a name).
 - `Alt+F3` opens the alternative viewer again.
+- The `F2` user menu offers new tab (`T`), open in a new tab (`O`) and close tab (`W`) while `usermenu.toml` defines no commands of its own.
 
 ### Migration
 
