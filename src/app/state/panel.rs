@@ -267,33 +267,45 @@ impl PanelState {
             Vec::new()
         }
     }
+
+    /// Files, folders (without `..`) and total file size of the listing.
+    pub fn entry_totals(&self) -> (usize, usize, u64) {
+        let files = self.entries.iter().filter(|e| !e.is_dir);
+        let total_files = files.clone().count();
+        let total_size = files.map(|e| e.size).sum();
+        let total_dirs = self
+            .entries
+            .iter()
+            .filter(|e| e.is_dir && e.name != "..")
+            .count();
+        (total_files, total_dirs, total_size)
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// A panel on `/tmp` listing `a.rs` and `b.rs`.
+    fn panel_with_two_files() -> PanelState {
+        let mut panel = PanelState::new(PathBuf::from("/tmp"));
+        panel.entries = ["a.rs", "b.rs"]
+            .into_iter()
+            .map(|name| FileEntry {
+                name: name.to_string(),
+                path: PathBuf::from("/tmp").join(name),
+                is_dir: false,
+                is_symlink: false,
+                size: 0,
+                modified: None,
+            })
+            .collect();
+        panel
+    }
+
     #[test]
     fn test_invert_selection() {
-        let mut panel = PanelState::new(PathBuf::from("/tmp"));
-        panel.entries = vec![
-            FileEntry {
-                name: "a.rs".to_string(),
-                path: PathBuf::from("/tmp/a.rs"),
-                is_dir: false,
-                is_symlink: false,
-                size: 0,
-                modified: None,
-            },
-            FileEntry {
-                name: "b.rs".to_string(),
-                path: PathBuf::from("/tmp/b.rs"),
-                is_dir: false,
-                is_symlink: false,
-                size: 0,
-                modified: None,
-            },
-        ];
+        let mut panel = panel_with_two_files();
         panel.selected_paths.insert(PathBuf::from("/tmp/a.rs"));
         panel.invert_selection();
         assert!(!panel.selected_paths.contains(&PathBuf::from("/tmp/a.rs")));
@@ -302,25 +314,7 @@ mod tests {
 
     #[test]
     fn test_selection_order() {
-        let mut panel = PanelState::new(PathBuf::from("/tmp"));
-        panel.entries = vec![
-            FileEntry {
-                name: "a.rs".to_string(),
-                path: PathBuf::from("/tmp/a.rs"),
-                is_dir: false,
-                is_symlink: false,
-                size: 0,
-                modified: None,
-            },
-            FileEntry {
-                name: "b.rs".to_string(),
-                path: PathBuf::from("/tmp/b.rs"),
-                is_dir: false,
-                is_symlink: false,
-                size: 0,
-                modified: None,
-            },
-        ];
+        let mut panel = panel_with_two_files();
 
         // Toggle selection on a.rs (index 0)
         panel.cursor_index = 0;

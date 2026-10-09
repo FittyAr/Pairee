@@ -44,19 +44,7 @@ pub fn build_info_panel_lines(state: &AppState) -> Vec<String> {
         panel.current_path.to_string_lossy()
     ));
 
-    let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
-    let total_dirs = panel
-        .entries
-        .iter()
-        .filter(|e| e.is_dir && e.name != "..")
-        .count();
-    let total_size: u64 = panel
-        .entries
-        .iter()
-        .filter(|e| !e.is_dir)
-        .map(|e| e.size)
-        .sum();
-
+    let (total_files, total_dirs, total_size) = panel.entry_totals();
     lines.push(format!("Files   : {}", total_files));
     lines.push(format!("Folders : {}", total_dirs));
     lines.push(format!(

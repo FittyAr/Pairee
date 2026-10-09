@@ -1,13 +1,14 @@
 use crate::app::state::PopupType;
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_fixed;
+use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 use crate::app::state::popup::GitPromptPopup;
@@ -18,7 +19,6 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         let target = &state.target;
         let is_branch = &state.is_branch;
         let area = centered_rect_fixed(60, 8, size);
-        f.render_widget(Clear, area);
 
         let kind_str = if *is_branch {
             crate::config::localization::t("git_checkout_branch")
@@ -28,19 +28,13 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
 
         let title = format!(" {} ", crate::config::localization::t("git_checkout_title"));
 
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow))
-            .title(Span::styled(
-                title,
-                Style::default()
-                    .fg(Color::Yellow)
-                    .add_modifier(Modifier::BOLD),
-            ))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
+        let inner = kit::frame_in(
+            f,
+            area,
+            kit::accent_title(title, Color::Yellow),
+            kit::fg(Color::Yellow),
+            theme,
+        );
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

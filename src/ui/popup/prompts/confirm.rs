@@ -1,13 +1,7 @@
-use super::super::centered_rect_fixed;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
-use ratatui::{
-    Frame,
-    layout::Rect,
-    style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
-};
+use crate::ui::popup::kit;
+use ratatui::{Frame, layout::Rect, style::Color};
 
 pub fn render(
     f: &mut Frame,
@@ -15,110 +9,56 @@ pub fn render(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    match popup {
-        PopupType::ConfirmQuit => {
-            let area = centered_rect_fixed(45, 7, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
-                .title(t("prompt_exit_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_exit_text");
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::ConfirmInterrupt => {
-            let area = centered_rect_fixed(45, 7, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Red))
-                .title(t("prompt_abort_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_abort_text");
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::ConfirmReload => {
-            let area = centered_rect_fixed(50, 8, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
-                .title(t("prompt_reload_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_reload_text");
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
+    let (dims, title_key, border, text) = match popup {
+        PopupType::ConfirmQuit => (
+            (45, 7),
+            "prompt_exit_title",
+            Color::Yellow,
+            t("prompt_exit_text"),
+        ),
+        PopupType::ConfirmInterrupt => (
+            (45, 7),
+            "prompt_abort_title",
+            Color::Red,
+            t("prompt_abort_text"),
+        ),
+        PopupType::ConfirmReload => (
+            (50, 8),
+            "prompt_reload_title",
+            Color::Yellow,
+            t("prompt_reload_text"),
+        ),
         PopupType::ConfirmClearHistory { history_type } => {
-            let area = centered_rect_fixed(45, 7, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Yellow))
-                .title(t("prompt_clear_history_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
             let hist_type_translated = match history_type.as_str() {
                 "command" => t("history_type_command"),
                 "view" => t("history_type_view"),
                 "folder" => t("history_type_folder"),
                 _ => history_type.clone(),
             };
-
             let text = t("prompt_clear_history_text").replacen("{}", &hist_type_translated, 1);
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
+            ((45, 7), "prompt_clear_history_title", Color::Yellow, text)
         }
+        PopupType::SaveSetupConfirm => (
+            (45, 7),
+            "prompt_save_setup_title",
+            Color::Green,
+            t("prompt_save_setup_text"),
+        ),
         PopupType::ConfirmUndo { direction, lines } => {
             render_undo(f, *direction, lines, theme, size);
-            true
+            return true;
         }
-        PopupType::SaveSetupConfirm => {
-            let area = centered_rect_fixed(45, 7, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Green))
-                .title(t("prompt_save_setup_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-            let text = t("prompt_save_setup_text");
-            let paragraph = Paragraph::new(text)
-                .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
-
-            f.render_widget(paragraph, area);
-            true
-        }
-        _ => false,
+        _ => return false,
+    };
+    kit::TextBox {
+        size: dims,
+        title: t(title_key),
+        border: kit::fg(border),
+        body: text.into(),
+        body_style: kit::popup_fg(theme),
     }
+    .render(f, size, theme);
+    true
 }
 
 /// Undo/redo confirmation: question, entries and the Enter/Esc hint.
@@ -130,7 +70,7 @@ fn render_undo(
     size: Rect,
 ) {
     use crate::fs::journal::Direction;
-    use crate::ui::popup::kit::{self, TextBox};
+    use crate::ui::popup::kit::TextBox;
     let title = match direction {
         Direction::Undo => t("journal_undo_title"),
         Direction::Redo => t("journal_redo_title"),

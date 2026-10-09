@@ -122,26 +122,11 @@ fn is_bare_name(program: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use super::resolve::make_tool;
     use super::*;
 
     fn declared(names: &[&str]) -> Vec<String> {
         names.iter().map(|s| s.to_string()).collect()
-    }
-
-    #[cfg(windows)]
-    fn make_tool(dir: &Path, stem: &str) -> PathBuf {
-        let p = dir.join(format!("{stem}.exe"));
-        std::fs::write(&p, b"MZ").unwrap();
-        p
-    }
-
-    #[cfg(not(windows))]
-    fn make_tool(dir: &Path, stem: &str) -> PathBuf {
-        use std::os::unix::fs::PermissionsExt;
-        let p = dir.join(stem);
-        std::fs::write(&p, b"#!").unwrap();
-        std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
-        p
     }
 
     #[test]

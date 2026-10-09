@@ -177,18 +177,7 @@ fn status_text(panel: &PanelState) -> String {
 
 /// Number of files and folders and the total size of the files.
 fn totals_text(panel: &PanelState) -> String {
-    let total_files = panel.entries.iter().filter(|e| !e.is_dir).count();
-    let total_dirs = panel
-        .entries
-        .iter()
-        .filter(|e| e.is_dir && e.name != "..")
-        .count();
-    let total_size: u64 = panel
-        .entries
-        .iter()
-        .filter(|e| !e.is_dir)
-        .map(|e| e.size)
-        .sum();
+    let (total_files, total_dirs, total_size) = panel.entry_totals();
     let files_label = t(if total_files == 1 {
         "label_file"
     } else {

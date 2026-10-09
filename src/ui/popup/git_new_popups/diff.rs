@@ -1,12 +1,13 @@
 use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect;
+use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 /// Renders the unified diff viewer.
@@ -22,9 +23,6 @@ pub fn render_diff_view(
     let scroll_y = &state.scroll_y;
     {
         let area = centered_rect(80, 80, size);
-        f.render_widget(Clear, area);
-
-        let border_style = Style::default().fg(Color::Cyan);
         let title = if let Some(path) = file_path {
             crate::config::localization::t("git_diff_view_title").replace("{}", path)
         } else if let Some(hash) = commit_hash {
@@ -32,20 +30,13 @@ pub fn render_diff_view(
         } else {
             crate::config::localization::t("git_diff_default_title")
         };
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(border_style)
-            .title(Span::styled(
-                title,
-                Style::default()
-                    .fg(Color::Cyan)
-                    .add_modifier(Modifier::BOLD),
-            ))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
+        let inner = kit::frame_in(
+            f,
+            area,
+            kit::accent_title(title, Color::Cyan),
+            kit::fg(Color::Cyan),
+            theme,
+        );
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

@@ -56,25 +56,28 @@ fn is_executable_file(path: &Path) -> bool {
     std::fs::metadata(path).is_ok_and(|m| m.is_file() && m.permissions().mode() & 0o111 != 0)
 }
 
+/// Test helper: an executable `stem` in `dir` (`.exe` on Windows, mode 755 elsewhere).
 #[cfg(test)]
-mod tests {
-    use super::*;
-
+pub(super) fn make_tool(dir: &Path, stem: &str) -> PathBuf {
     #[cfg(windows)]
-    fn make_tool(dir: &Path, stem: &str) -> PathBuf {
+    {
         let p = dir.join(format!("{stem}.exe"));
         std::fs::write(&p, b"MZ").unwrap();
         p
     }
-
     #[cfg(not(windows))]
-    fn make_tool(dir: &Path, stem: &str) -> PathBuf {
+    {
         use std::os::unix::fs::PermissionsExt;
         let p = dir.join(stem);
         std::fs::write(&p, b"#!").unwrap();
         std::fs::set_permissions(&p, std::fs::Permissions::from_mode(0o755)).unwrap();
         p
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
 
     #[test]
     fn finds_tool_in_absolute_path_entry() {
