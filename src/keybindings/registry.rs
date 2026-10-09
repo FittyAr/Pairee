@@ -4,6 +4,7 @@
 use super::actions::Action;
 pub use super::catalog::{ActionDef, Category};
 use super::catalog::{CATALOG, all_defs};
+use super::plugin_commands;
 use crate::config::localization::t;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -26,22 +27,32 @@ pub trait Bindable: Copy + Eq + Hash + Debug + 'static {
     fn all() -> Vec<Self>;
 }
 
-/// Catalogue row of `action`. Every action is catalogued (tested).
-pub fn def_for(action: Action) -> &'static ActionDef {
-    all_defs()
-        .find(|d| d.action == action)
-        .expect("every Action is catalogued")
+/// Catalogue row of `action`; every built-in action has one (tested),
+/// plugin commands have none.
+pub fn def_for(action: Action) -> Option<&'static ActionDef> {
+    all_defs().find(|d| d.action == action)
+}
+
+/// `action` also works over the editor and viewer screens.
+pub fn is_global(action: Action) -> bool {
+    def_for(action).is_some_and(|d| d.global)
 }
 
 impl Bindable for Action {
     const SECTION: &'static str = "panels";
 
     fn from_id(id: &str) -> Option<Self> {
-        all_defs().find(|d| d.id == id).map(|d| d.action)
+        all_defs()
+            .find(|d| d.id == id)
+            .map(|d| d.action)
+            .or_else(|| plugin_commands::find(id).map(Action::Plugin))
     }
 
     fn id(self) -> &'static str {
-        def_for(self).id
+        match self {
+            Action::Plugin(id) => plugin_commands::keymap_id(id),
+            _ => def_for(self).map_or("", |d| d.id),
+        }
     }
 
     fn label(self) -> String {
@@ -54,16 +65,19 @@ impl Bindable for Action {
                 };
                 t(key).replace("{n}", &n.to_string())
             }
+            Action::Plugin(id) => {
+                plugin_commands::get(id).map_or_else(|| self.id().to_string(), |c| c.title)
+            }
             _ => t(&format!("action_{}", self.id())),
         }
     }
 
     fn category(self) -> Category {
-        def_for(self).category
+        def_for(self).map_or(Category::Plugins, |d| d.category)
     }
 
     fn essential(self) -> bool {
-        def_for(self).essential
+        def_for(self).is_some_and(|d| d.essential)
     }
 
     fn all() -> Vec<Self> {
@@ -93,6 +107,8 @@ mod tests {
             .lines()
             .map(str::trim)
             .filter(|l| l.chars().next().is_some_and(char::is_uppercase))
+            // Plugin commands are declared by plugins, not catalogued.
+            .filter(|l| !l.starts_with("Plugin("))
             .filter_map(|l| l.split(['(', ',']).next())
             .map(str::to_string)
             .collect()

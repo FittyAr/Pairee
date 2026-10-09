@@ -1,15 +1,9 @@
 //! Lua binding for `pairee.emit(action, args)`.
 //!
-//! `pairee.emit` is the unified action-dispatch entry point for plugins.
-//! It sends a request to the main loop that invokes an existing key-binding
-//! action by name, optionally with arguments.
-//!
-//! Today (M0), the dispatcher only wires two actions directly: `cd` and
-//! `set_focus` (alias `focus`). These are the historical plugin-only paths
-//! that have always been available through `pairee.app.cd` and
-//! `pairee.app.set_focus`. A future phase will route the call through the
-//! key-binding resolver to support arbitrary actions; today the dispatcher
-//! logs a warning for any unknown name.
+//! `pairee.emit` fires an action as if its key were pressed: any keymap id
+//! (`"copy"`, `"go_to_tab_2"`, `"plugin.<name>.<command>"`) is queued for the
+//! main loop. `cd` and `set_focus` (alias `focus`) also take arguments
+//! (a path, a side). The call returns once the request is enqueued.
 
 use crate::plugin::manager::PluginRequest;
 use tokio::sync::mpsc;
@@ -46,8 +40,7 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                 log::error!("pairee.emit('{name}') could not enqueue; main loop not running");
                 return Ok(mlua::Value::Nil);
             }
-            // M0: we do not yet route through the resolver, so the
-            // dispatch is fire-and-forget; ignore the reply.
+            // Fire-and-forget: the main loop runs the action later.
             let _ = reply_rx.await;
             Ok(mlua::Value::Nil)
         }

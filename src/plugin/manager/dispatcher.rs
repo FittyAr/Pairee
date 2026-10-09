@@ -55,9 +55,8 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
             reply_tx,
         } => {
             dispatch_emit_action(state, context, &name, &args);
-            // M0: emit is fire-and-forget for the caller; send `null` so the
-            // awaiting binding returns immediately rather than blocking on a
-            // never-completed oneshot.
+            // Emit is fire-and-forget for the caller; send `null` so the
+            // awaiting binding returns at once.
             if let Some(tx) = reply_tx {
                 let _ = tx.send(serde_json::Value::Null);
             }

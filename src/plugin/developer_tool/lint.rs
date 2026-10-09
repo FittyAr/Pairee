@@ -50,6 +50,11 @@ pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> any
         }
     }
 
+    for problem in key_problems(&manifest) {
+        print!("{}", t("plugin_dev_lint_warn_key").replace("{}", &problem));
+        warnings += 1;
+    }
+
     if warnings == 0 {
         print!("{}", t("plugin_dev_lint_ok"));
         println!();
@@ -61,4 +66,69 @@ pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> any
         println!();
     }
     Ok(())
+}
+
+/// Key problems of the plugin's commands in each built-in preset: invalid
+/// chords, and suggested keys that preset already uses (they would stay
+/// unbound there), as `[preset] detail`.
+pub fn key_problems(manifest: &crate::plugin::loader::PluginManifest) -> Vec<String> {
+    use crate::keybindings::embedded::PRESETS;
+    use crate::keybindings::loader::{KeymapSpec, build_shipped_keymap};
+    use crate::keybindings::plugin_commands;
+    plugin_commands::register(&manifest.name, manifest.keymap_commands());
+    let plugins: Vec<_> = plugin_commands::active()
+        .into_iter()
+        .filter(|(_, c)| c.plugin == manifest.name)
+        .collect();
+    let keybindings = crate::config::keybindings::KeybindingsConfig::default();
+    let prefix = format!("plugin.{}.", manifest.name);
+    let mut out = Vec::new();
+    for (preset, _) in PRESETS {
+        let map = build_shipped_keymap(&KeymapSpec {
+            preset,
+            keybindings: &keybindings,
+            yazi_letters: false,
+            plugins: plugins.clone(),
+        });
+        let report = map.report;
+        out.extend(
+            report
+                .errors
+                .iter()
+                .chain(&report.conflicts)
+                .filter(|p| p.contains(&prefix))
+                .map(|p| format!("[{preset}] {p}")),
+        );
+    }
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn suggested_keys_taken_by_a_preset_are_reported_per_preset() {
+        let manifest = crate::plugin::loader::PluginManifest::parse(
+            "name = \"lint-demo\"
+version = \"1\"
+             [[commands]]
+id = \"go\"
+[commands.keys]
+default = \"F5\"
+neovim = \"<leader>pg\"
+",
+        )
+        .unwrap();
+        let problems = key_problems(&manifest);
+        assert!(
+            problems
+                .iter()
+                .any(|p| p.starts_with("[norton]") && p.contains("'F5'"))
+        );
+        assert!(
+            !problems.iter().any(|p| p.starts_with("[neovim]")),
+            "{problems:?}"
+        );
+    }
 }

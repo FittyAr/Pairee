@@ -1,6 +1,7 @@
 use super::*;
 use crate::config::keybindings::ALL_PRESETS;
 use crate::keybindings::options::TypingMode;
+use crate::keybindings::plugin_commands::{PluginCommand, PluginCommandId};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub(super) const BUILTIN: [&str; 4] = ["norton", "standard", "neovim", "yazi"];
@@ -24,6 +25,7 @@ fn load_from(source: PresetSource, preset: &str, overrides: &[(&str, &str, &str)
             preset,
             keybindings: &keybindings,
             yazi_letters: false,
+            plugins: Vec::new(),
         },
         source,
     )
@@ -272,6 +274,7 @@ fn yazi_setting_binds_its_letters() {
         preset: "norton",
         keybindings: &keybindings,
         yazi_letters: true,
+        plugins: Vec::new(),
     };
     let map = build_keymap(&spec, &embedded);
     assert_eq!(chords_of(&map, Action::SortMenu), ["s"]);
@@ -324,4 +327,92 @@ fn unbinding_an_essential_action_is_a_robustness_note() {
             .any(|r| r.contains("'quit' has no key"))
     );
     assert!(map.report.ok());
+}
+
+fn plugin_command(
+    plugin: &str,
+    command: &str,
+    keys: &[(&str, &str)],
+) -> (PluginCommandId, PluginCommand) {
+    let command = PluginCommand {
+        plugin: plugin.into(),
+        command: command.into(),
+        title: command.into(),
+        keys: keys
+            .iter()
+            .map(|(p, k)| (p.to_string(), k.to_string()))
+            .collect(),
+    };
+    crate::keybindings::plugin_commands::register(plugin, vec![command.clone()]);
+    let id = crate::keybindings::plugin_commands::find(&command.keymap_id()).unwrap();
+    (id, command)
+}
+
+fn load_with_plugins(
+    preset: &str,
+    plugins: Vec<(PluginCommandId, PluginCommand)>,
+    overrides: &[(&str, &str, &str)],
+) -> LoadedKeymap {
+    let mut keybindings = KeybindingsConfig::default();
+    for (table, action, keys) in overrides {
+        keybindings.set_override(table, action, keys);
+    }
+    let spec = KeymapSpec {
+        preset,
+        keybindings: &keybindings,
+        yazi_letters: false,
+        plugins,
+    };
+    build_keymap(&spec, &embedded)
+}
+
+#[test]
+fn plugin_keys_never_take_a_core_chord() {
+    let (id, cmd) = plugin_command("lt-blame", "toggle", &[("default", "F5, Alt+Shift+B")]);
+    let map = load_with_plugins("norton", vec![(id, cmd)], &[]);
+    assert_eq!(chords_of(&map, Action::Copy), ["F5"]);
+    assert_eq!(chords_of(&map, Action::Plugin(id)), ["Alt+B"]);
+    assert!(
+        map.report
+            .conflicts
+            .iter()
+            .any(|c| c.contains("'F5'") && c.contains("copy"))
+    );
+    assert!(map.report.ok());
+}
+
+#[test]
+fn the_first_plugin_by_name_keeps_a_contested_chord_and_presets_pick_keys() {
+    let zeta = plugin_command("lt-zeta", "go", &[("default", "Alt+Shift+Z")]);
+    let alpha = plugin_command(
+        "lt-alpha",
+        "go",
+        &[("default", "Alt+Shift+Z"), ("neovim", "<leader>pa")],
+    );
+    for order in [
+        vec![zeta.clone(), alpha.clone()],
+        vec![alpha.clone(), zeta.clone()],
+    ] {
+        let map = load_with_plugins("norton", order, &[]);
+        assert_eq!(chords_of(&map, Action::Plugin(alpha.0)), ["Alt+Z"]);
+        assert!(chords_of(&map, Action::Plugin(zeta.0)).is_empty());
+    }
+    let map = load_with_plugins("neovim", vec![alpha.clone()], &[]);
+    assert_eq!(chords_of(&map, Action::Plugin(alpha.0)), ["Space p a"]);
+}
+
+#[test]
+fn users_rebind_plugin_commands_like_any_action() {
+    let blame = plugin_command("lt-user", "toggle", &[("default", "F5")]);
+    let map = load_with_plugins(
+        "norton",
+        vec![blame.clone()],
+        &[(ALL_PRESETS, "plugin.lt-user.toggle", "F5")],
+    );
+    assert_eq!(
+        chords_of(&map, Action::Plugin(blame.0)),
+        ["F5"],
+        "the user decides"
+    );
+    assert!(chords_of(&map, Action::Copy).is_empty());
 }

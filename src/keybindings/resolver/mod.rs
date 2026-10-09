@@ -10,7 +10,7 @@ use super::keymap::ContextKeymap;
 use super::loader::assign::Row;
 use super::loader::{KeymapLoadReport, KeymapSpec, LoadedKeymap, load_keymap};
 use super::options::KeymapOptions;
-use super::registry::def_for;
+use super::registry::is_global;
 use super::screens::{EditorAction, ListAction, ViewerAction};
 use crate::config::AppConfig;
 use crossterm::event::KeyEvent;
@@ -36,6 +36,7 @@ impl KeybindingResolver {
     }
 
     pub fn from_loaded(loaded: LoadedKeymap) -> Self {
+        super::published::publish(loaded.panels.rows());
         Self {
             panels: loaded.panels,
             editor: loaded.editor,
@@ -93,7 +94,7 @@ impl KeybindingResolver {
     pub fn global_action(&self, key: KeyEvent) -> Option<Action> {
         self.panels
             .peek_single(key)
-            .filter(|action| def_for(*action).global)
+            .filter(|action| is_global(*action))
     }
 
     /// The chord to show for `action` (a terminal-robust one when there is

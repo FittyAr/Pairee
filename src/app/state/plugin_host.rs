@@ -20,6 +20,8 @@ pub struct PluginHostState {
     pub dev_progress_rx: Option<tokio::sync::mpsc::UnboundedReceiver<DevProgress>>,
     /// Reply channel for the active plugin confirm/input/which dialog.
     pub pending_dialog: Option<PendingPluginReply>,
+    /// Actions plugins fired with `pairee.emit`, run by the main loop.
+    pub emitted_actions: Vec<crate::keybindings::Action>,
 }
 
 impl PluginHostState {

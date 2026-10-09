@@ -21,6 +21,7 @@ pub enum Category {
     Remote,
     Tools,
     System,
+    Plugins,
 }
 
 impl Category {
@@ -41,6 +42,7 @@ impl Category {
             Self::Remote => "category_remote",
             Self::Tools => "category_tools",
             Self::System => "category_system",
+            Self::Plugins => "category_plugins",
         }
     }
 }

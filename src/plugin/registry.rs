@@ -1,6 +1,5 @@
 use crate::app::state::types::PluginWidget;
 use crate::plugin::loader::PluginManifest;
-use crate::plugin::plugin_keymap::PluginKeymap;
 use mlua::LuaSerdeExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -38,7 +37,6 @@ pub struct PluginInfo {
 struct Registry {
     plugins: RwLock<HashMap<String, PluginInfo>>,
     channels: RwLock<HashMap<String, mpsc::Sender<PluginTaskRequest>>>,
-    keybindings: RwLock<PluginKeymap>,
 }
 
 static REGISTRY: OnceLock<Registry> = OnceLock::new();
@@ -47,7 +45,6 @@ fn get_registry() -> &'static Registry {
     REGISTRY.get_or_init(|| Registry {
         plugins: RwLock::new(HashMap::new()),
         channels: RwLock::new(HashMap::new()),
-        keybindings: RwLock::new(PluginKeymap::default()),
     })
 }
 
@@ -67,16 +64,8 @@ pub async fn register_plugin(
     };
     registry.plugins.write().await.insert(name.clone(), info);
 
-    // Register keybindings (replacing those of an earlier load)
-    let bindings = manifest.keybindings.clone().unwrap_or_default();
-    let invalid = registry
-        .keybindings
-        .write()
-        .await
-        .register(&name, &bindings);
-    if !invalid.is_empty() {
-        log::warn!("Plugin '{name}': ignoring invalid keybindings {invalid:?}");
-    }
+    // Its commands join the keymap (replacing those of an earlier load).
+    crate::keybindings::plugin_commands::register(&name, manifest.keymap_commands());
 
     // Set up communication channel and spawn task
     let (tx, mut rx) = mpsc::channel::<PluginTaskRequest>(50);
@@ -165,6 +154,9 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
         for (i, arg) in args.iter().enumerate() {
             let _ = args_table.set(i + 1, arg.clone());
         }
+        if let Some(command) = args.first() {
+            let _ = args_table.set("command", command.clone());
+        }
         let _: Result<(), mlua::Error> = entry_fn.call((table, args_table));
     }
 }
@@ -250,16 +242,11 @@ pub async fn get_loaded_plugins() -> Vec<PluginInfo> {
     registry.plugins.read().await.values().cloned().collect()
 }
 
-/// `(plugin, action)` bound to `key_str` (resolver display form).
-pub async fn resolve_keybinding(key_str: &str) -> Option<(String, String)> {
-    get_registry().keybindings.read().await.resolve(key_str)
-}
-
-/// Forgets a plugin that was uninstalled: its keybindings, its entry in the
+/// Forgets a plugin that was uninstalled: its commands, its entry in the
 /// loaded list and its channel (which ends its task).
 pub async fn unregister_plugin(name: &str) {
     let registry = get_registry();
-    registry.keybindings.write().await.unregister(name);
+    crate::keybindings::plugin_commands::unregister(name);
     registry.plugins.write().await.remove(name);
     registry.channels.write().await.remove(name);
 }

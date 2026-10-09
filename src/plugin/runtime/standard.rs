@@ -56,6 +56,7 @@ pub fn bind_runtime(
     pairee.set("ui", super::bindings::ui::bind(lua)?)?;
     pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
     pairee.set("log", super::bindings::log::bind(lua)?)?;
+    pairee.set("keymap", super::bindings::keymap::bind(lua)?)?;
     pairee.set(
         "notify",
         super::bindings::notify_ext::bind(lua, tx.clone())?,

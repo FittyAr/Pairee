@@ -10,6 +10,8 @@ pub struct KeymapLoadReport {
     pub displaced: Vec<String>,
     /// Essential actions without a chord every terminal can send.
     pub robustness: Vec<String>,
+    /// Plugin keys left unassigned because the chord was taken.
+    pub conflicts: Vec<String>,
     pub bound_count: usize,
 }
 
@@ -34,6 +36,7 @@ impl KeymapLoadReport {
             ("!", &self.errors),
             ("*", &self.warnings),
             ("≈", &self.robustness),
+            ("⚠", &self.conflicts),
             ("~", &self.displaced),
         ];
         for (mark, items) in sections {

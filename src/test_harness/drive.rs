@@ -2,7 +2,7 @@
 
 use super::Harness;
 use super::keys::{self, Token};
-use crate::app::app::{background, events};
+use crate::app::app::{background, events, plugin_effects};
 use crate::keybindings::Action;
 use crate::terminal::Event;
 use crossterm::event::{KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -106,6 +106,9 @@ impl Harness {
         state.mark_ui_dirty();
         rt.block_on(events::handle_input_event(state, ctx, backend, event))
             .expect("input event");
+        // As the event loop: keymap changes and actions plugins emitted.
+        rt.block_on(plugin_effects::apply(state, ctx, backend))
+            .expect("plugin effects");
         self.settle();
     }
 

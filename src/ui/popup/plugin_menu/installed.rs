@@ -87,7 +87,27 @@ fn render_loading(f: &mut Frame, pane: &Pane, loading_status: &str) {
     render_details(f, pane, vec![status_line]);
 }
 
-/// Name, version, trust, pin, commands and update state of `plugin`.
+/// `title (chord)` of each command `plugin` declares, with the key it has
+/// in the live keymap (or none when the preset already used it).
+fn key_summary(plugin: &str) -> String {
+    use crate::keybindings::{plugin_commands, published};
+    let items: Vec<String> = plugin_commands::active()
+        .into_iter()
+        .filter(|(_, c)| c.plugin == plugin)
+        .map(|(_, c)| {
+            let chord = published::chord_for(&c.keymap_id())
+                .unwrap_or_else(|| t("plugin_detail_key_unbound"));
+            format!("{} ({chord})", c.title)
+        })
+        .collect();
+    if items.is_empty() {
+        t("plugin_detail_commands_none")
+    } else {
+        items.join(", ")
+    }
+}
+
+/// Name, version, trust, pin, commands, keys and update state of `plugin`.
 fn plugin_details(pane: &Pane, plugin: &InstalledPlugin) -> Vec<Line<'static>> {
     let pick = |flag: bool, yes: &str, no: &str| t(if flag { yes } else { no });
     let commands = if plugin.commands.is_empty() {
@@ -117,6 +137,7 @@ fn plugin_details(pane: &Pane, plugin: &InstalledPlugin) -> Vec<Line<'static>> {
             ),
         ),
         field_line(pane, "plugin_detail_commands", commands),
+        field_line(pane, "plugin_detail_keys", key_summary(&plugin.name)),
     ];
     lines.push(match &plugin.update_available {
         Some(new_ver) => {

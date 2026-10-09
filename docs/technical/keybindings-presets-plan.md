@@ -502,12 +502,12 @@ Cada fase va en commits pequeños. Al final de cada una: tests verdes, `clippy -
 - [x] Actualización de copias viejas: el sembrado reconoce por hash cualquier versión distribuida (`config/keymap_seed/shipped.rs`) y la reemplaza; una copia editada se conserva y, al rellenar acciones nuevas, nunca se añade una secuencia que quede tapada por una tecla suya. Fragilidad nueva: `Ctrl+Alt+{dígito, e, q, m}` (AltGr).
 - [x] Los tests de unidad usan una carpeta temporal por proceso: antes compartían una con copias viejas de corridas anteriores.
 
-### Fase 5 — Plugins (§6)
-- [ ] Manifiesto `[[commands]]` + compatibilidad con `[keybindings]`.
-- [ ] `Command::Plugin` en la capa de plugins, política de colisión y reconstrucción en caliente.
-- [ ] Paleta y modal con comandos de plugins; `pairee.keymap.*`; `pairee.emit` completo vía cola.
-- [ ] `developer check`, fix del packager y `plugin info`.
-- [ ] Actualizar `plugin-dev-guide(.es).md`, `plugin-system-design(.es).md` y la plantilla.
+### Fase 5 — Plugins
+- [x] Manifiesto `[[commands]]` (`id`, `title`, `[commands.keys]` por preset con `default`) + compatibilidad con `[keybindings]` (`plugin/commands_decl.rs`); las grafías `ctrl-h` / `<C-h>` se normalizan.
+- [x] `Action::Plugin(PluginCommandId)`: comandos internados con id estable (`keybindings/plugin_commands.rs`); entran al keymap de paneles en una capa de sugerencias por plugin (orden por nombre) que nunca toma un chord ocupado ni tapa / queda tapada por una secuencia (`report.conflicts`, marca ⚠). Se quitó el mapa paralelo de la Fase 0. Cargar o descargar un plugin reconstruye el keymap en el bucle principal.
+- [x] Paleta con los comandos de plugins; `entry(args)` recibe `args.command` y `args[1]`; `pairee.keymap.list()` / `chord_for(id)` sobre una copia publicada del keymap; `pairee.emit(id)` acepta cualquier acción (cola que ejecuta el bucle principal).
+- [x] `pairee developer lint` informa por preset las teclas sugeridas ocupadas o inválidas; el detalle del plugin en el gestor muestra sus comandos con la tecla vigente. El fix del packager se hizo en la Fase 0.
+- [x] Guías de plugins (en/es) §6 reescrita, diseño §5, plugin de aceptación `tests/plugin_acceptance/keymap_command`.
 
 ### Fase 6 — Modal de atajos (§7)
 - [ ] Popup `KeyboardShortcuts` sobre `ListPopup` con cabeceras de categoría, pestañas de contexto, filtro y marcas.

@@ -3,7 +3,7 @@ use crate::app::state::{AppState, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::keybindings::keymap::ContextKeymap;
-use crate::keybindings::registry::def_for;
+use crate::keybindings::registry::is_global;
 use crate::keybindings::screens::ScreenCommand;
 use crate::ui::theme_apply::parse_color;
 use crossterm::event::KeyModifiers;
@@ -116,7 +116,7 @@ fn screen_cells<B: ScreenCommand>(
                 context
                     .resolver
                     .resolve_for_key_string(&chord)
-                    .filter(|action| def_for(*action).global)
+                    .filter(|action| is_global(*action))
                     .and_then(action_label)
             })
             .map(t)

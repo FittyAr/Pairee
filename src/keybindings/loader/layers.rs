@@ -18,6 +18,8 @@ pub enum Origin {
     Setting(&'static str),
     /// `[overrides.<key>]` of `keybindings.toml` (`all` or a preset).
     Override(String),
+    /// Keys a plugin suggests in its manifest.
+    Plugin(String),
 }
 
 impl fmt::Display for Origin {
@@ -26,6 +28,7 @@ impl fmt::Display for Origin {
             Self::Preset(name) => write!(f, "preset '{name}'"),
             Self::Setting(key) => write!(f, "setting '{key}'"),
             Self::Override(key) => write!(f, "overrides.{key}"),
+            Self::Plugin(name) => write!(f, "plugin '{name}'"),
         }
     }
 }

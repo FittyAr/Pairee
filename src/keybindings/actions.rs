@@ -350,4 +350,6 @@ pub enum Action {
     RenameTab,
     /// Open the folder or archive under the cursor in a new tab (Ctrl+Enter / Alt+O)
     OpenInNewTab,
+    /// A command a plugin declares (`plugin.<name>.<command>`)
+    Plugin(super::plugin_commands::PluginCommandId),
 }

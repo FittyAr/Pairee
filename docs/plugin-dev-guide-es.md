@@ -11,7 +11,7 @@
 3. [Tu Primer Complemento — Hola Mundo](#3-tu-primer-complemento--hola-mundo)
 4. [Estructura de Archivos del Complemento](#4-estructura-de-archivos-del-complemento)
 5. [Resumen de la API](#5-resumen-de-la-api)
-6. [Superposición de Atajos Dinámicos](#6-superposición-de-atajos-dinámicos)
+6. [Comandos y atajos de teclado](#6-comandos-y-atajos-de-teclado)
 7. [Escribir un Complemento Previewer](#7-escribir-un-complemento-previewer)
 8. [Escribir un Complemento Hook](#8-escribir-un-complemento-hook)
 9. [Escribir un Complemento Comando](#9-escribir-un-complemento-comando)
@@ -86,7 +86,7 @@ name    = "hello"
 trusted = false
 ```
 
-Lanza Pairee, abre la entrada de comandos (o vincúlalo a una tecla) y ejecuta `plugin:hello`. Aparecerá una notificación.
+Lanza Pairee, y ejecuta su comando desde la paleta de comandos. Aparecerá una notificación.
 
 ---
 
@@ -216,20 +216,67 @@ pairee.log.debug(msg)                  -- Registrar mensaje a nivel debug
 
 ---
 
-## 6. Superposición de Atajos Dinámicos
+## 6. Comandos y atajos de teclado
 
-En lugar de requerir que los usuarios modifiquen manualmente sus archivos de configuración global, un complemento puede declarar sus atajos predeterminados directamente dentro de su `manifest.toml`:
+Un plugin declara sus comandos en `manifest.toml`, cada uno con las teclas que
+sugiere. Pairee los suma al mismo keymap que sus acciones propias: funcionan
+con secuencias y con la tecla `<leader>`, aparecen en la paleta de comandos y
+en la lista de atajos, y el usuario puede reasignarlos.
 
 ```toml
 # En manifest.toml
-[keybindings]
-"ctrl+h" = "entry"          # Vincula Ctrl+H a la función entry() de este complemento
-"g"      = "run_action"     # Mapea la tecla "g" a la función run_action
+[[commands]]
+id    = "toggle"               # id en el keymap: plugin.<nombre del plugin>.toggle
+title = "Alternar blame"       # se muestra en la paleta y en la lista de atajos
+
+[commands.keys]                # por preset; "default" para el resto
+default  = "Ctrl+Alt+b"
+neovim   = "<leader>gb"
+yazi     = "g b"
+standard = "Alt+Shift+B"
 ```
 
-Cuando se carga el complemento, el resolutor de atajos de Pairee fusiona automáticamente estos accesos directos en el entorno de ejecución. Si el usuario desinstala el complemento, los atajos se eliminan de forma limpia.
+Al pulsar la tecla se llama a `entry(args)`; `args.command` (y `args[1]`) es
+el id del comando, así un mismo `entry` atiende varios comandos:
 
----
+```lua
+function M:entry(args)
+    if args.command == "toggle" then
+        -- ...
+    end
+end
+```
+
+**Las teclas son sugerencias.** Una tecla que el preset activo ya usa queda
+sin asignar para el plugin (Pairee mantiene los atajos del usuario); si dos
+plugins sugieren la misma tecla, la recibe el plugin cuyo nombre va primero
+alfabéticamente. Los comandos sin tecla siguen en la paleta. El usuario
+reasigna cualquier comando en `keybindings.toml`:
+
+```toml
+[overrides.all]
+"plugin.git-blame.toggle" = "Ctrl+Alt+g"
+```
+
+Para evitar conflictos conviene usar `<leader>p…` en Neovim, `Alt+p` y una
+letra en yazi, y `Ctrl+Alt+x` y una letra en los demás presets.
+`pairee developer lint` lista, por preset, las teclas sugeridas que están
+ocupadas o no son válidas.
+
+Escritura de teclas: `Ctrl+h`, `ctrl-h` y `<C-h>` son el mismo chord; una
+letra mayúscula significa Shift (`Ctrl+H`); un espacio separa las teclas de
+una secuencia (`g b`).
+
+**Leer el keymap desde Lua.** `pairee.keymap.list()` devuelve cada binding
+activo como `{ chord, id, label, origin }`; `pairee.keymap.chord_for(id)`
+devuelve el primer chord de una acción (`"copy"`,
+`"plugin.<nombre>.<comando>"`) o `nil`. **Disparar acciones.**
+`pairee.emit(id)` ejecuta cualquier acción del keymap como si se pulsara su
+tecla (`pairee.emit("go_to_tab_2")`); `cd` y `focus` aceptan además
+argumentos.
+
+La tabla anterior `[keybindings] "ctrl+h" = "toggle"` sigue funcionando: cada
+valor pasa a ser un comando con esas teclas como predeterminadas.
 
 ## 7. Escribir un Complemento Previewer
 
@@ -308,7 +355,7 @@ return M
 
 ## 9. Escribir un Complemento Comando
 
-Los complementos comando implementan `entry(args)`. Son invocados explícitamente mediante un atajo de teclado o comando usando `plugin:<nombre>`.
+Los complementos comando implementan `entry(args)`. Se ejecutan con sus teclas o desde la paleta de comandos (ver la sección 6).
 
 ```lua
 local M = {}
@@ -689,8 +736,11 @@ languages     = ["en", "es"]         # Autodetectado desde el directorio lang/
 show_hidden = { type = "bool", default = false, description = "Mostrar archivos ocultos de VCS" }
 git_path    = { type = "string", default = "git", description = "Ruta personalizada al ejecutable Git" }
 
-[keybindings]
-"ctrl+h" = "entry"
+[[commands]]
+id = "run"
+title = "Run"
+[commands.keys]
+default = "Ctrl+Alt+r"
 
 # Programas que el complemento puede ejecutar con el Modo Seguro activo (nombres simples, ver 13.3)
 [permissions]

@@ -5,6 +5,8 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::keybindings::Action;
+use crate::keybindings::registry::Bindable;
 use std::path::{Path, PathBuf};
 
 use super::request::NotifyPayload;
@@ -32,18 +34,11 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
 
 /// Dispatches a `pairee.emit(action, args)` request.
 ///
-/// M0 wires the dispatch envelope and supports the two simplest cases
-/// (`cd` and `set_focus` / `focus`) directly, since they have always been
-/// available through the older `Cd` and `SetFocus` request variants. A
-/// full resolver-based dispatch (which would let plugins fire any
-/// registered action) is deferred to a later phase, because the current
-/// `handle_action` API is async and takes a `&mut TerminalBackend`,
-/// neither of which is available from this sync dispatch site.
-///
-/// `args` is a JSON value. For `cd` it is either a string path or an
-/// object with a `path` field. For `set_focus` / `focus` it is either a
-/// string side or an object with a `side` field. All other action names
-/// are logged as warnings and no-op for now.
+/// `cd` and `set_focus` / `focus` take arguments and run here: for `cd`,
+/// `args` is a string path or `{ path = ... }`; for focus, `"left"` /
+/// `"right"` or `{ side = ... }`. Any other name is a keymap action id
+/// (`"copy"`, `"go_to_tab_2"`, `"plugin.other.cmd"`): it is queued and the
+/// main loop runs it like a key press (this site cannot run async actions).
 pub fn dispatch_emit_action(
     state: &mut AppState,
     context: &AppContext,
@@ -97,15 +92,10 @@ pub fn dispatch_emit_action(
             }
             log::info!("pairee.emit('{}') -> {}", name, side);
         }
-        _ => {
-            log::warn!(
-                "pairee.emit('{}', {}) called but the action is not yet wired in M0; \
-                 a future phase will route it through the keybinding resolver. \
-                 Today, only 'cd' and 'set_focus' (or 'focus') are dispatched.",
-                name,
-                args
-            );
-        }
+        _ => match <Action as Bindable>::from_id(name) {
+            Some(action) => state.plugins.emitted_actions.push(action),
+            None => log::warn!("pairee.emit('{name}'): no such action"),
+        },
     }
 }
 

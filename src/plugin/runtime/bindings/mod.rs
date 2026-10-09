@@ -4,6 +4,7 @@ pub mod dialogs;
 pub mod emit;
 pub mod file_cache;
 pub mod fs;
+pub mod keymap;
 pub mod log;
 pub mod notify_ext;
 pub mod process;

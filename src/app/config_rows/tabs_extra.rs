@@ -51,6 +51,7 @@ fn keymap_report(
         preset: &draft.keymap_preset,
         keybindings,
         yazi_letters: draft.enable_yazi_workflow,
+        plugins: crate::keybindings::plugin_commands::active(),
     })
     .report
 }

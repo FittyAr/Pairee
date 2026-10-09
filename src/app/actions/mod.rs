@@ -24,6 +24,12 @@ pub async fn handle_action(
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<()> {
+    if let Action::Plugin(id) = action {
+        if let Some(command) = crate::keybindings::plugin_commands::get(id) {
+            crate::plugin::registry::run_command(&command.plugin, vec![command.command]).await;
+        }
+        return Ok(());
+    }
     let handled = navigation::handle_navigation_action(state, &action, context)
         || jumps::handle_jump_action(state, &action, context)
         || cli_line::handle(state, &action, context)

@@ -11,6 +11,7 @@ mod file_ops;
 mod git_panel;
 mod navigation;
 mod panel_search;
+mod plugin_keys;
 mod polish;
 mod refresh_resize;
 mod screen_keymaps;

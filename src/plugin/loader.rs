@@ -17,7 +17,11 @@ pub struct PluginManifest {
     pub languages: Option<Vec<String>>,
     pub icon: Option<String>,
     pub screenshots: Option<Vec<String>>,
+    /// Pre-v2 `"key" = "action"` table (see [`super::commands_decl`]).
     pub keybindings: Option<HashMap<String, String>>,
+    /// `[[commands]]`: commands with the keys they suggest per preset.
+    #[serde(default)]
+    pub commands: Vec<super::commands_decl::CommandDecl>,
     pub settings_schema: Option<HashMap<String, toml::Value>>,
     #[serde(default)]
     pub permissions: PluginPermissions,
@@ -41,6 +45,11 @@ impl PluginManifest {
         }
         let manifest: Self = toml::Value::Table(table).try_into()?;
         Ok(manifest)
+    }
+
+    /// The commands this plugin declares, in keymap form.
+    pub fn keymap_commands(&self) -> Vec<crate::keybindings::plugin_commands::PluginCommand> {
+        super::commands_decl::plugin_commands(&self.name, &self.commands, self.keybindings.as_ref())
     }
 
     /// Read and parse `<plugin_dir>/manifest.toml`, if present and valid.

@@ -108,8 +108,48 @@ mod tests {
     }
 
     #[test]
+    fn keymap_command_reads_the_keymap_and_gets_its_command() {
+        let (lua, dir) = load_plugin("keymap_command", false);
+        let module = eval_module(&lua, &dir);
+        let result = call_run(&module, ());
+        assert_ok(&result, "keymap_command");
+        let entry: Function = module.get("entry").unwrap();
+        let args = lua.create_table().unwrap();
+        args.set(1, "legacy").unwrap();
+        args.set("command", "legacy").unwrap();
+        entry.call::<_, ()>((module.clone(), args)).unwrap();
+        let received: String = module.get("received").unwrap();
+        assert_eq!(received, "legacy");
+    }
+
+    #[test]
+    fn keymap_command_manifest_declares_its_keys() {
+        let manifest = crate::plugin::loader::PluginManifest::read_from_dir(
+            &acceptance_root().join("keymap_command"),
+        )
+        .expect("manifest");
+        let commands = manifest.keymap_commands();
+        let ids: Vec<String> = commands.iter().map(|c| c.keymap_id()).collect();
+        assert_eq!(
+            ids,
+            [
+                "plugin.acceptance-keymap.hop",
+                "plugin.acceptance-keymap.legacy"
+            ]
+        );
+        assert_eq!(commands[0].keys_for("neovim"), Some("<leader>ph"));
+        assert_eq!(commands[1].keys_for("norton"), Some("Ctrl+Alt+j"));
+    }
+
+    #[test]
     fn acceptance_tree_has_manifests() {
-        for name in ["surface", "fs_roundtrip", "cx_utils", "command_echo"] {
+        for name in [
+            "surface",
+            "fs_roundtrip",
+            "cx_utils",
+            "command_echo",
+            "keymap_command",
+        ] {
             let dir = acceptance_root().join(name);
             assert!(dir.join("manifest.toml").is_file(), "{name} manifest");
             assert!(dir.join("main.lua").is_file(), "{name} main.lua");

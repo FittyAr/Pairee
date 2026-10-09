@@ -133,18 +133,24 @@ Cada archivo en `src/plugin/` tiene una única responsabilidad, cumpliendo las r
 
 ---
 
-## 5. Superposición Dinámica de Atajos de Teclado
+## 5. Comandos de plugins en el keymap
 
-Para facilitar el uso de los complementos, los desarrolladores pueden definir atajos de teclado directamente en el manifiesto `manifest.toml` del complemento:
+Los plugins declaran comandos con teclas sugeridas en `manifest.toml`
+(`[[commands]]`, ver la guía de plugins §6). Cada comando se interna como
+`Action::Plugin(id)` (`src/keybindings/plugin_commands.rs`) y entra al keymap
+de paneles como cualquier acción propia: tiene secuencias, `<leader>`,
+which-key, la paleta de comandos y overrides del usuario
+(`"plugin.<nombre>.<comando>"` en `keybindings.toml`).
 
-```toml
-# En manifest.toml del complemento
-[keybindings]
-"ctrl+h" = "entry"          # Vincula Ctrl+H a la función entry() del complemento
-"g"      = "run_action"     # Vincula la tecla "g" al método run_action()
-```
-
-Durante el arranque, `PluginManager` lee estos atajos y los superpone automáticamente sobre el resolutor de teclado activo en Pairee, asegurando que los controles funcionen sin requerir modificaciones manuales de los archivos del proyecto por parte del usuario.
+El loader aplica una capa de sugerencias por plugin, en orden de nombre,
+después del preset y antes de los overrides del usuario. Una capa de
+sugerencias nunca toma un chord: una tecla que el preset (o un plugin
+anterior) ya usa, o que taparía o quedaría tapada por una secuencia, queda sin
+asignar y se informa en `KeymapLoadReport::conflicts`. Cargar o descargar un
+plugin levanta una marca que el bucle principal revisa para reconstruir el
+keymap. `pairee.keymap.list()` / `chord_for(id)` leen una copia publicada del
+keymap vivo, y `pairee.emit(id)` encola cualquier acción para que la ejecute el
+bucle principal.
 
 ---
 

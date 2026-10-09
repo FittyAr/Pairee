@@ -1,15 +1,22 @@
 //! Command palette (Ctrl+Shift+P): fuzzy list of logical actions.
 
 use crate::app::state::{AppState, PopupType};
-use crate::keybindings::Action;
 use crate::keybindings::registry::{self, ActionDef, Bindable};
+use crate::keybindings::{Action, plugin_commands};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
 use nucleo_matcher::{Config, Matcher, Utf32Str};
 
-/// Build the full catalogue of palette entries (label, action).
+/// Build the full catalogue of palette entries (label, action): built-in
+/// actions and the commands of the loaded plugins.
 pub fn all_palette_items() -> Vec<(String, Action)> {
     let mut items: Vec<(String, Action)> = registry::palette_defs()
         .map(|def: &ActionDef| (registry::label_for(def.action), def.action))
+        .chain(plugin_commands::active().into_iter().map(|(id, cmd)| {
+            (
+                format!("{} · {}", cmd.plugin, cmd.title),
+                Action::Plugin(id),
+            )
+        }))
         .collect();
     items.sort_by(|a, b| a.0.cmp(&b.0));
     items

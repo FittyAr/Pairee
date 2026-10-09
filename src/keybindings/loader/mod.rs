@@ -21,6 +21,7 @@ use super::actions::Action;
 use super::embedded::{self, normalize_preset_name};
 use super::keymap::ContextKeymap;
 use super::options::KeymapOptions;
+use super::plugin_commands::{self, PluginCommand, PluginCommandId};
 use super::registry::Bindable;
 use super::screens::{EditorAction, ListAction, ViewerAction};
 use crate::config::AppConfig;
@@ -38,6 +39,8 @@ pub struct KeymapSpec<'a> {
     pub keybindings: &'a KeybindingsConfig,
     /// The yazi workflow setting binds `s` / `v` to its sort and view menus.
     pub yazi_letters: bool,
+    /// Commands of the loaded plugins, with the keys they suggest.
+    pub plugins: Vec<(PluginCommandId, PluginCommand)>,
 }
 
 impl<'a> KeymapSpec<'a> {
@@ -46,6 +49,7 @@ impl<'a> KeymapSpec<'a> {
             preset: &config.keybindings.preset,
             keybindings: &config.keybindings,
             yazi_letters: config.settings.enable_yazi_workflow,
+            plugins: plugin_commands::active(),
         }
     }
 }
@@ -60,6 +64,12 @@ pub struct LoadedKeymap {
     pub report: KeymapLoadReport,
 }
 
+/// Builds the keymap of `spec` from the presets shipped with Pairee only
+/// (the plugin developer checks).
+pub fn build_shipped_keymap(spec: &KeymapSpec) -> LoadedKeymap {
+    build_keymap(spec, &embedded_source)
+}
+
 /// Loads the keymap `spec` describes from the preset files on disk.
 pub fn load_keymap(spec: &KeymapSpec) -> LoadedKeymap {
     build_keymap(spec, &disk::find_preset_toml)
@@ -71,6 +81,8 @@ struct Plan {
     /// Shipped layers of a built-in preset, for actions an older on-disk
     /// copy does not name.
     defaults: Option<Vec<FileLayer>>,
+    /// One suggestion layer per plugin, by plugin name.
+    plugins: Vec<FileLayer>,
     extra: Vec<FileLayer>,
     options: KeymapOptions,
 }
@@ -92,6 +104,7 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
     let plan = Plan {
         chain: chain.layers,
         defaults,
+        plugins: plugin_layers(&spec.plugins, &name),
         extra: extra_layers(spec, &name),
         options: chain.options,
     };
@@ -130,6 +143,9 @@ fn build_context<B: Bindable>(plan: &Plan, report: &mut KeymapLoadReport) -> Con
         }
         assignments.fill_missing_from(&defaults);
     }
+    for layer in &plan.plugins {
+        assignments.suggest(&layer.section(B::SECTION), leader, report);
+    }
     for layer in &plan.extra {
         assignments.apply(&layer.section(B::SECTION), leader, report);
     }
@@ -141,6 +157,24 @@ fn build_context<B: Bindable>(plan: &Plan, report: &mut KeymapLoadReport) -> Con
 
 fn embedded_source(name: &str, _: &mut KeymapLoadReport) -> Option<String> {
     embedded::preset_toml(name).map(str::to_string)
+}
+
+/// The keys each plugin suggests for `preset`, one layer per plugin in name
+/// order, so between plugins the first by name keeps a contested chord.
+fn plugin_layers(commands: &[(PluginCommandId, PluginCommand)], preset: &str) -> Vec<FileLayer> {
+    let mut by_plugin: BTreeMap<&str, Table> = BTreeMap::new();
+    for (_, command) in commands {
+        if let Some(keys) = command.keys_for(preset) {
+            by_plugin
+                .entry(&command.plugin)
+                .or_default()
+                .insert(command.keymap_id(), keys.to_string());
+        }
+    }
+    by_plugin
+        .into_iter()
+        .map(|(plugin, table)| FileLayer::panels(Origin::Plugin(plugin.to_string()), table))
+        .collect()
 }
 
 /// Setting layers, then the user's overrides for `preset`.

@@ -136,18 +136,23 @@ Each file in `src/plugin/` has a single responsibility, honoring the SRP rules i
 
 ---
 
-## 5. Dynamic Keybindings Overlay
+## 5. Plugin Commands in the Keymap
 
-To make plugin installation seamless, plugins define default keymaps inside their `manifest.toml` file:
+Plugins declare commands with suggested keys in `manifest.toml`
+(`[[commands]]`, see the plugin guide §6). Each command is interned as
+`Action::Plugin(id)` (`src/keybindings/plugin_commands.rs`) and joins the
+panels keymap like a built-in action, so it gets sequences, `<leader>`,
+which-key, the command palette and user overrides
+(`"plugin.<name>.<command>"` in `keybindings.toml`).
 
-```toml
-# In plugin's manifest.toml
-[keybindings]
-"ctrl+h" = "entry"          # Binds Ctrl+H to this plugin's entry() function
-"g"      = "run_action"     # Maps key "g" to the run_action() method
-```
-
-During startup, the `PluginManager` reads these keybindings and overlays them on top of Pairee's active key resolver. This guarantees that user shortcuts are configured automatically without manual changes to the core project settings.
+The loader applies one suggestion layer per plugin, by plugin name, after the
+preset and before the user's overrides. A suggestion layer never takes a
+chord: a key the preset (or an earlier plugin) already uses, or one that
+would hide or be hidden by a sequence, stays unbound and is reported in
+`KeymapLoadReport::conflicts`. Loading or unloading a plugin raises a flag the
+main loop checks to rebuild the keymap. `pairee.keymap.list()` /
+`chord_for(id)` read a published copy of the live keymap, and
+`pairee.emit(id)` queues any action for the main loop to run.
 
 ---
 

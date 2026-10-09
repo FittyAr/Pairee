@@ -1,5 +1,6 @@
 pub mod background;
 pub mod events;
+pub(crate) mod plugin_effects;
 pub mod scrollbar_mouse;
 pub mod tab_mouse;
 pub mod updates;
@@ -40,6 +41,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         updates::process_update_events(&mut state, &mut context);
         // 1.9 Process plugin requests
         crate::plugin::process_plugin_requests(&mut state, &context);
+        plugin_effects::apply(&mut state, &mut context, &mut terminal_backend).await?;
 
         // Rate-limit transfer-driven redraws when only progress ticks changed.
         if state.transfer.is_some() {

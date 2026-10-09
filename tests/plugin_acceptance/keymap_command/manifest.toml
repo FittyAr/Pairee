@@ -1,0 +1,19 @@
+[plugin]
+name = "acceptance-keymap"
+version = "1.0.0"
+description = "CI acceptance: commands with suggested keys and pairee.keymap"
+author = "Pairee"
+default_language = "en"
+
+[[commands]]
+id = "hop"
+title = "Hop to the second tab"
+
+[commands.keys]
+default = "Alt+Shift+H"
+neovim = "<leader>ph"
+yazi = "g p h"
+
+# Pre-v2 spelling: becomes command "legacy" with Ctrl+Alt+J as default key.
+[keybindings]
+"ctrl-alt-j" = "legacy"

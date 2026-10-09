@@ -11,7 +11,7 @@
 3. [Your First Plugin — Hello World](#3-your-first-plugin--hello-world)
 4. [Plugin File Structure](#4-plugin-file-structure)
 5. [API Reference Summary](#5-api-reference-summary)
-6. [Dynamic Keybindings Overlay](#6-dynamic-keybindings-overlay)
+6. [Commands and Keyboard Shortcuts](#6-commands-and-keyboard-shortcuts)
 7. [Writing a Previewer Plugin](#7-writing-a-previewer-plugin)
 8. [Writing a Hook Plugin](#8-writing-a-hook-plugin)
 9. [Writing a Command Plugin](#9-writing-a-command-plugin)
@@ -86,7 +86,7 @@ name    = "hello"
 trusted = false
 ```
 
-Launch Pairee, open the command input (or bind it to a key), and execute `plugin:hello`. A notification will appear.
+Launch Pairee, open the command input (or bind it to a key), and run its command from the command palette. A notification will appear.
 
 ---
 
@@ -98,7 +98,7 @@ A plugin is a folder containing a main Lua script, manifest, and optional submod
 ~/.config/pairee/plugins/
 └── my-plugin/
     ├── main.lua              # Required — plugin entry point
-    ├── manifest.toml         # Required — metadata and keybindings
+    ├── manifest.toml         # Required — metadata and commands
     ├── utils.lua             # Optional submodule
     └── locale/               # Optional localization files
         ├── en.toml
@@ -216,20 +216,66 @@ pairee.log.debug(msg)                  -- Log debug level message
 
 ---
 
-## 6. Dynamic Keybindings Overlay
+## 6. Commands and Keyboard Shortcuts
 
-Instead of requiring users to manually modify their global settings files, a plugin can declare its default shortcuts directly inside its `manifest.toml`:
+A plugin declares its commands in `manifest.toml`, each with the keys it
+suggests. Pairee adds them to the same keymap as its built-in actions, so they
+work with key sequences and the `<leader>` key, appear in the command palette
+and in the keyboard-shortcuts list, and can be rebound by the user.
 
 ```toml
 # In manifest.toml
-[keybindings]
-"ctrl+h" = "entry"          # Binds Ctrl+H to this plugin's entry() function
-"g"      = "run_action"     # Maps key "g" to the run_action function
+[[commands]]
+id    = "toggle"               # keymap id: plugin.<plugin name>.toggle
+title = "Toggle blame"         # shown in the palette and the shortcuts list
+
+[commands.keys]                # per preset; "default" for every other one
+default  = "Ctrl+Alt+b"
+neovim   = "<leader>gb"
+yazi     = "g b"
+standard = "Alt+Shift+B"
 ```
 
-When the plugin is loaded, Pairee's keybinding resolver automatically merges these shortcuts into the runtime environment. If the user uninstalls the plugin, the keybindings are cleanly removed.
+Pressing the key calls `entry(args)`; `args.command` (and `args[1]`) is the
+command id, so one `entry` can serve several commands:
 
----
+```lua
+function M:entry(args)
+    if args.command == "toggle" then
+        -- ...
+    end
+end
+```
+
+**Keys are suggestions.** A key the active preset already uses stays unbound
+for the plugin (Pairee keeps the user's keys working); when two plugins
+suggest the same key, the plugin whose name sorts first gets it. Unbound
+commands remain in the palette. Users rebind any command in
+`keybindings.toml`:
+
+```toml
+[overrides.all]
+"plugin.git-blame.toggle" = "Ctrl+Alt+g"
+```
+
+To avoid conflicts, prefer `<leader>p…` in Neovim, `Alt+p` followed by a
+letter in yazi, and `Ctrl+Alt+x` followed by a letter in the other presets.
+`pairee developer lint` lists, per preset, the suggested keys that are taken
+or invalid.
+
+Key spellings: `Ctrl+h`, `ctrl-h` and `<C-h>` are the same chord; an uppercase
+letter means Shift (`Ctrl+H`); a space separates the keys of a sequence
+(`g b`).
+
+**Reading the keymap from Lua.** `pairee.keymap.list()` returns every live
+binding as `{ chord, id, label, origin }`; `pairee.keymap.chord_for(id)`
+returns the first chord of an action (`"copy"`, `"plugin.<name>.<command>"`)
+or `nil`. **Firing actions.** `pairee.emit(id)` runs any keymap action as if
+its key were pressed (`pairee.emit("go_to_tab_2")`); `cd` and `focus` also
+take arguments.
+
+The pre-v2 table `[keybindings] "ctrl+h" = "toggle"` still works: each value
+becomes a command with those keys as its default.
 
 ## 7. Writing a Previewer Plugin
 
@@ -308,7 +354,7 @@ return M
 
 ## 9. Writing a Command Plugin
 
-Command plugins implement `entry(args)`. They are invoked explicitly via keybinding or command line using `plugin:<name>`.
+Command plugins implement `entry(args)`. They run from their keys or from the command palette (see section 6).
 
 ```lua
 local M = {}
@@ -691,8 +737,11 @@ languages     = ["en", "es"]         # Auto-detected from lang/ directory
 show_hidden = { type = "bool", default = false, description = "Show hidden VCS files" }
 git_path    = { type = "string", default = "git", description = "Custom Git executable path" }
 
-[keybindings]
-"ctrl+h" = "entry"
+[[commands]]
+id = "run"
+title = "Run"
+[commands.keys]
+default = "Ctrl+Alt+r"
 
 # Programs the plugin may spawn when Secure Mode is on (bare names, see 13.3)
 [permissions]

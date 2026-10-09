@@ -93,6 +93,33 @@ impl<B: Bindable> Assignments<B> {
         }
     }
 
+    /// Applies suggested bindings (a plugin's keys) that never take a chord:
+    /// a chord already bound, or the start or extension of a bound sequence,
+    /// is left unassigned and recorded in [`KeymapLoadReport::conflicts`].
+    pub fn suggest(&mut self, layer: &Layer, leader: Option<&str>, report: &mut KeymapLoadReport) {
+        for entry in entries::<B>(layer, report) {
+            for raw in &entry.chords {
+                let Some(seq) = parse_seq(raw, leader, &entry.id, report) else {
+                    continue;
+                };
+                if let Some(owner) = self.rows.iter().find(|r| overlaps(&r.seq, &seq)) {
+                    report.conflicts.push(format!(
+                        "'{seq}' for {} ({}) is taken by {}",
+                        entry.id,
+                        layer.origin,
+                        owner.command.id()
+                    ));
+                    continue;
+                }
+                self.rows.push(Row {
+                    seq,
+                    command: entry.command,
+                    origin: layer.origin.clone(),
+                });
+            }
+        }
+    }
+
     /// Adds the bindings of `defaults` for commands no layer named, on
     /// chords still free: a user's older copy of a built-in preset keeps
     /// getting the actions added since it was written.

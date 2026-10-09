@@ -83,11 +83,6 @@ pub async fn handle_input_event(
                 handle_action(state, action, context, terminal_backend).await?;
             } else if context.resolver.is_ongoing() {
                 state.mark_ui_dirty();
-            } else if !key_str.is_empty()
-                && let Some((plugin_name, action_name)) =
-                    crate::plugin::registry::resolve_keybinding(&key_str).await
-            {
-                crate::plugin::registry::run_command(&plugin_name, vec![action_name]).await;
             }
         }
         Event::ModifiersChanged(modifiers) => {
