@@ -64,4 +64,8 @@ pub fn render_cli(f: &mut Frame, area: Rect, state: &AppState, context: &AppCont
     let paragraph = Paragraph::new(line).style(Style::default().bg(parse_color(&theme.cli_bg)));
 
     f.render_widget(paragraph, area);
+    crate::ui::hit::register(
+        area,
+        crate::ui::hit::HitTarget::Action(crate::keybindings::Action::FocusCli),
+    );
 }

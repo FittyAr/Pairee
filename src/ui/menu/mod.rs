@@ -65,7 +65,27 @@ pub fn get_menu_titles() -> Vec<String> {
     ]
 }
 
+/// Screen cells of the top menu titles on a bar starting at `area`, in
+/// title order (the drop-downs open below them, clicks find them).
+pub fn title_cells(area: Rect) -> Vec<Rect> {
+    let mut x = area.x;
+    get_menu_titles()
+        .iter()
+        .map(|title| {
+            let width = crate::ui::text_width::display_width(
+                &crate::ui::hotkey::parse_hotkey(title).clean_text,
+            ) as u16;
+            let cell = Rect::new(x, area.y, width, 1).intersection(area);
+            x = x.saturating_add(width);
+            cell
+        })
+        .collect()
+}
+
 pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
+    for (i, cell) in title_cells(area).into_iter().enumerate() {
+        crate::ui::hit::register(cell, crate::ui::hit::HitTarget::MenuTitle(i));
+    }
     let theme = &context.config.theme;
 
     let active_menu_idx = if let Some(PopupType::Menu {

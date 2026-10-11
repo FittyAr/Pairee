@@ -16,6 +16,7 @@ pub async fn handle_input_event(
         Event::Key(key) => {
             // Always track the most recent keyboard modifiers
             state.current_modifiers = key.modifiers;
+            state.mouse.keyboard_used();
 
             log::debug!("KeyEvent received: {:?}", key);
 

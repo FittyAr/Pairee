@@ -211,9 +211,9 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 - [x] Rueda sin depender de que la scrollbar esté visible.
 
 ### Fase 3 — Barras
-- [ ] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover.
-- [ ] Barra de F-keys (`src/ui/fkeys.rs`) → acción vía keymap vivo.
-- [ ] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update, rueda en la barra de pestañas.
+- [x] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover. Los desplegables se ubican bajo su título (antes, columnas fijas que no seguían la traducción). Con la barra oculta, la fila superior la revela al apuntar (como Far); las pestañas de esa fila conservan sus clics.
+- [x] Barra de F-keys (`src/ui/fkeys.rs`): el clic pulsa la tecla con los modificadores de la fila mostrada, así sirve en panel, editor y visor.
+- [x] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update. La rueda en la barra de pestañas se descartó: no queda claro qué lado ni desde qué pestaña avanzar.
 
 ### Fase 4 — Popups vía kit
 - [ ] Kit registra filas, campos, botones y checkboxes; clic fuera.

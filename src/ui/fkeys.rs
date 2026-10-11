@@ -132,9 +132,7 @@ fn cells(label: impl Fn(usize) -> String) -> Vec<(String, String)> {
 
 /// The cells shown for the active screen and held modifier keys.
 fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
-    let modifiers = state
-        .fkeys_modifier_override
-        .unwrap_or(state.current_modifiers);
+    let modifiers = bar_modifiers(state);
     let prefix = modifier_prefix(modifiers);
     match state.screens.get(state.active_screen_idx) {
         Some(Screen::Editor(_)) => screen_cells(&context.resolver.editor, context, &prefix),
@@ -147,6 +145,13 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
             row
         }
     }
+}
+
+/// Modifiers whose row the bar shows.
+fn bar_modifiers(state: &AppState) -> KeyModifiers {
+    state
+        .fkeys_modifier_override
+        .unwrap_or(state.current_modifiers)
 }
 
 /// `Shift+F11` installs the plugin under the cursor in developer mode.
@@ -182,8 +187,16 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         .bg(parse_color("DarkGray"))
         .fg(parse_color(&theme.fkey_text_fg));
 
+    let modifiers = bar_modifiers(state);
     for (i, (num, text)) in fkeys.iter().enumerate() {
         let block_area = columns[i];
+        crate::ui::hit::register(
+            block_area,
+            crate::ui::hit::HitTarget::FKey {
+                number: i as u8 + 1,
+                modifiers,
+            },
+        );
 
         // Compose block as " 1 Help   "
         let line = Line::from(vec![
@@ -210,6 +223,10 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         let badge_paragraph = Paragraph::new(badge_line);
         // Overlay on the last (F12) key column
         f.render_widget(badge_paragraph, last_col);
+        crate::ui::hit::register(
+            last_col,
+            crate::ui::hit::HitTarget::Action(Action::CheckForUpdates),
+        );
     }
 }
 

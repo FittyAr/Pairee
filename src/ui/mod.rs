@@ -32,6 +32,7 @@ mod tests_tab_bar;
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use ratatui::Frame;
+use ratatui::layout::Rect;
 
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
@@ -54,6 +55,17 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     // 3. Draw active screen
     if let Some(screen) = state.screens.get(state.active_screen_idx) {
         screens::render_screen(f, &layout, context, state, screen);
+    }
+
+    // 3b. A hidden menu bar shows up when the pointer reaches the top row.
+    if layout.menu_rect.height == 0 && state.dialogs.is_none() {
+        hit::register(
+            Rect {
+                height: 1,
+                ..f.area()
+            },
+            hit::HitTarget::MenuReveal,
+        );
     }
 
     // 4. Overlay active popup dialogs if present

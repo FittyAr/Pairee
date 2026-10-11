@@ -114,6 +114,11 @@ fn the_bar_records_a_click_target_per_tab() {
     let first = state.panels.tabs(ActivePanel::Left).tabs()[0].id;
     let top = panel_top(&context, &state, 80, 24);
     draw(&context, &state, 80, 24);
-    let hit = state.hits.at(2, top).expect("tab cell");
+    let hit = state
+        .hits
+        .find(2, top, |hit| {
+            matches!(hit.target, crate::ui::hit::HitTarget::Tab(_))
+        })
+        .expect("tab cell");
     assert_eq!(hit.target, crate::ui::hit::HitTarget::Tab(first));
 }

@@ -25,8 +25,6 @@ pub struct MenuFocus {
 
 /// Width of a drop-down (and of a submenu).
 const DROPDOWN_WIDTH: u16 = 37;
-/// Column of each top menu's drop-down.
-const DROPDOWN_X: [u16; 5] = [2, 10, 19, 31, 42];
 
 pub fn render_top_dropdown(
     f: &mut Frame,
@@ -42,7 +40,10 @@ pub fn render_top_dropdown(
     let items_of = |menu| {
         crate::ui::menu::get_menu_items(menu, state, &context.resolver, &context.config.settings)
     };
-    let x = DROPDOWN_X.get(focus.menu).copied().unwrap_or(DROPDOWN_X[0]);
+    // Each drop-down opens under its title (the bar is the first row).
+    let x = crate::ui::menu::title_cells(Rect { height: 1, ..size })
+        .get(focus.menu)
+        .map_or(0, |cell| cell.x);
     let items = items_of(focus.menu);
     let rect = Rect::new(x, 1, DROPDOWN_WIDTH, (items.len() + 2) as u16).intersection(size);
     // While a submenu is open its parent row is highlighted differently.
@@ -54,7 +55,7 @@ pub fn render_top_dropdown(
         Some(_) => (item, parent),
         None => (item, selected(theme)),
     };
-    render_box(f, rect, &items, highlight, theme);
+    render_box(f, rect, (focus.menu, &items), highlight, theme);
 
     if let (Some(sub), Some(sub_item)) = (focus.submenu, focus.sub_item) {
         let sub_items = items_of(sub);
@@ -65,7 +66,13 @@ pub fn render_top_dropdown(
         let sub_y = item as u16 + 2;
         let sub_rect = Rect::new(sub_x, sub_y, DROPDOWN_WIDTH, (sub_items.len() + 2) as u16)
             .intersection(size);
-        render_box(f, sub_rect, &sub_items, (sub_item, selected(theme)), theme);
+        render_box(
+            f,
+            sub_rect,
+            (sub, &sub_items),
+            (sub_item, selected(theme)),
+            theme,
+        );
     }
 }
 
@@ -73,14 +80,26 @@ fn selected(theme: &Theme) -> Style {
     kit::selection(theme).add_modifier(Modifier::BOLD)
 }
 
-/// Draws `items` in a bordered box, row `highlight.0` in style `highlight.1`.
+/// Draws the `items` of menu `menu` in a bordered box, row `highlight.0` in
+/// style `highlight.1`, and records the rows for the mouse.
 fn render_box(
     f: &mut Frame,
     rect: Rect,
-    items: &[MenuItemData],
+    (menu, items): (usize, &[MenuItemData]),
     (highlight_row, highlight): (usize, Style),
     theme: &Theme,
 ) {
+    crate::ui::popup::popup_body(rect);
+    let rows = rect.inner(ratatui::layout::Margin::new(1, 1));
+    for (row, item) in items.iter().enumerate() {
+        let y = rows.y + row as u16;
+        if !item.is_separator && y < rows.bottom() {
+            crate::ui::hit::register(
+                Rect::new(rows.x, y, rows.width, 1),
+                crate::ui::hit::HitTarget::MenuItem { menu, row },
+            );
+        }
+    }
     f.render_widget(Clear, rect);
     let normal = kit::popup_fg(theme);
     let lines: Vec<Line> = items

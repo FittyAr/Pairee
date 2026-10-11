@@ -15,7 +15,9 @@
 
 use crate::app::state::tabs::TabId;
 use crate::app::state::{ActivePanel, SortField};
+use crate::keybindings::Action;
 use crate::ui::scrollbar::types::ScrollbarHitTarget;
+use crossterm::event::KeyModifiers;
 use ratatui::layout::{Position, Rect};
 use std::cell::RefCell;
 
@@ -48,8 +50,17 @@ pub enum HitTarget {
     PanelRow { side: ActivePanel, index: usize },
     /// A cell of a panel's tab bar.
     Tab(TabId),
-    /// A key of the function-key bar (1-based, like `F1`).
-    FKey(u8),
+    /// A key of the function-key bar: `F<number>` with the modifiers whose
+    /// row the bar showed.
+    FKey { number: u8, modifiers: KeyModifiers },
+    /// A title of the top menu bar.
+    MenuTitle(usize),
+    /// The top row while the menu bar is hidden: pointing there shows it.
+    MenuReveal,
+    /// Row `row` of drop-down (or submenu) `menu`.
+    MenuItem { menu: usize, row: usize },
+    /// Runs an action when clicked (update badge, transfer bar, CLI).
+    Action(Action),
     /// A scrollbar track and the view its wheel scrolls.
     Scrollbar(ScrollbarHitTarget),
     /// The whole area of a dialog: a click there is "inside" even where
@@ -195,18 +206,18 @@ mod tests {
     #[test]
     fn later_hits_sit_on_top() {
         let map = record(|| {
-            register(Rect::new(0, 0, 10, 10), HitTarget::FKey(1));
-            register(Rect::new(2, 2, 3, 3), HitTarget::FKey(2));
+            register(Rect::new(0, 0, 10, 10), HitTarget::MenuTitle(1));
+            register(Rect::new(2, 2, 3, 3), HitTarget::MenuTitle(2));
         });
-        assert_eq!(map.at(3, 3).unwrap().target, HitTarget::FKey(2));
-        assert_eq!(map.at(0, 0).unwrap().target, HitTarget::FKey(1));
+        assert_eq!(map.at(3, 3).unwrap().target, HitTarget::MenuTitle(2));
+        assert_eq!(map.at(0, 0).unwrap().target, HitTarget::MenuTitle(1));
         assert!(map.at(20, 20).is_none());
     }
 
     #[test]
     fn layers_tell_dialogs_from_the_panels_behind() {
         let map = record(|| {
-            register(Rect::new(0, 0, 80, 24), HitTarget::FKey(1));
+            register(Rect::new(0, 0, 80, 24), HitTarget::MenuTitle(1));
             begin_layer(Layer::Popup);
             register(Rect::new(10, 5, 20, 10), HitTarget::PopupBody);
         });

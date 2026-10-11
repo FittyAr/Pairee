@@ -122,4 +122,9 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
             .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM)),
         chunks[3],
     );
+    // A click anywhere on the bar expands the transfer panel.
+    crate::ui::hit::register(
+        area,
+        crate::ui::hit::HitTarget::Action(crate::keybindings::Action::ToggleTransferPanel),
+    );
 }
