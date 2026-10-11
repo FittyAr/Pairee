@@ -14,14 +14,20 @@ pub fn submit(state: &mut AppState, context: &AppContext) {
     let mut options = transfer_options_from_settings(&context.config.settings);
     prompt.apply_to(&mut options);
     let destination = prompt.destination();
+    let (src_ssh, dst_ssh) = prompt.endpoints.clone().unwrap_or_else(|| {
+        (
+            state.get_active_panel().source.ssh().cloned(),
+            state.get_passive_panel().source.ssh().cloned(),
+        )
+    });
     submit_simple(
         state,
         prompt.op.operation(),
         prompt.src_paths,
         destination,
         options,
-        state.get_active_panel().source.ssh().cloned(),
-        state.get_passive_panel().source.ssh().cloned(),
+        src_ssh,
+        dst_ssh,
     );
 }
 

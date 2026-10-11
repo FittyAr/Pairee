@@ -4,6 +4,7 @@
 
 mod bars;
 mod dialog_drag;
+pub mod file_drag;
 pub mod gesture;
 mod panel;
 mod popup;
@@ -29,12 +30,22 @@ pub struct MouseState {
     split_drag: Option<panel::SplitDrag>,
     /// Where the user moved (or how they resized) the open dialog.
     dialog: dialog_drag::DialogPlacement,
+    /// Files pressed (and maybe being dragged) out of a panel.
+    file_drag: Option<file_drag::FileDrag>,
 }
 
 impl MouseState {
     /// The keyboard took over: a menu shown by pointing stays open.
     pub fn keyboard_used(&mut self) {
         self.menu_revealed = false;
+        self.file_drag = None;
+    }
+
+    /// Files being dragged, once the pointer left the pressed row.
+    pub fn file_drag(&self) -> Option<&file_drag::FileDrag> {
+        self.file_drag
+            .as_ref()
+            .filter(|drag| drag.pointer().is_some())
     }
 
     /// Where to paint the top dialog, and whether it can be resized.
@@ -140,11 +151,21 @@ fn own_drag(state: &mut AppState, context: &mut AppContext, mouse: MouseEvent) -
             if button == MouseButton::Left && state.mouse.dialog.follow((mouse.column, mouse.row)) {
                 return Some(true);
             }
+            if button == MouseButton::Left && state.mouse.file_drag.is_some() {
+                let at = (mouse.column, mouse.row);
+                return Some(file_drag::follow(state, at, mouse.modifiers));
+            }
             None
         }
         MouseEventKind::Up(_) => {
             if state.mouse.dialog.stop() || state.mouse.mark_drag.take().is_some() {
                 return Some(true);
+            }
+            if state.mouse.file_drag.is_some() {
+                let target = lookup(state, mouse.column, mouse.row).map(|hit| hit.target);
+                if file_drag::release(state, context, target.as_ref(), mouse.modifiers) {
+                    return Some(true);
+                }
             }
             if state.mouse.split_drag.take().is_some() {
                 context.config.save_logging();

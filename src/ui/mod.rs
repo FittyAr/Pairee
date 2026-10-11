@@ -1,4 +1,5 @@
 pub mod cli;
+pub mod drag_label;
 pub mod fkeys;
 pub mod half_block_image;
 pub mod highlight;
@@ -110,4 +111,6 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
     }
     state.mouse.placed(placement::finish());
+    // Last, over everything: where dragged files would go.
+    drag_label::render(f, state, &context.config.theme);
 }

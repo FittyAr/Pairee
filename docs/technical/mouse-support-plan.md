@@ -234,11 +234,13 @@ Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias 
 - [x] `panel_split` + `PanelSplitter` (arrastre relativo al agarre, doble clic = 50 %) + acciones `panel_split_grow` / `panel_split_shrink` / `panel_split_reset`.
 
 ### Fase 5c — Arrastrar y soltar
-- [ ] Máquina de estados `drag.rs`, etiqueta flotante, resaltado de destino y autoscroll.
-- [ ] Destinos: otro panel, carpeta, pestaña, hotlist, CLI.
-- [ ] Copiar / mover / enlazar por modificadores (con menú de respaldo); ejecución vía el prompt F5/F6.
-- [ ] Rutas pegadas desde el SO → copiar/mover al panel activo.
-- [ ] Probar con panel SFTP como origen y destino.
+- [x] `app::mouse::file_drag`: un clic izquierdo simple sobre una fila queda pendiente; al moverse una celda empieza el arrastre (marcados si la fila está marcada, si no esa fila; nunca `..`). `Esc` o cualquier tecla lo cancela.
+- [x] Etiqueta junto al puntero (`ui::drag_label`): "Copiar alpha.txt → destino", o solo el nombre cuando ahí no se puede soltar.
+- [x] Destinos: el otro panel (filas, vacío, título, encabezados), una carpeta de cualquier panel, `..` (carpeta padre), una pestaña, la línea de comandos (rutas entre comillas). Soltar donde ya están los archivos, o una carpeta dentro de sí misma, no hace nada.
+- [x] Sin modificador copia; con `Shift` al soltar mueve (Shift al presionar marca un rango). Se ejecuta con `fs_ops::transfer::start`, el mismo camino de F5/F6 (diálogo o envío directo según la confirmación); el diálogo guarda las sesiones SSH de origen y destino (`CopyMovePromptState::endpoints`), así funciona también al soltar en una subcarpeta del mismo panel SFTP.
+- [~] Enlazar con `Ctrl+Shift` y el menú de respaldo cuando el terminal no informa modificadores: no implementados; Copiar/Mover cubren el uso y el diálogo deja cambiar el destino.
+- [~] Autoscroll al acercarse al borde de un panel: no implementado (el cursor del panel no debe moverse mientras se arrastra hacia él).
+- [~] Rutas soltadas desde el Explorador/Finder: siguen insertándose en la línea de comandos (el terminal las entrega como pegado); convertirlas en una copia rompería pegar rutas en la CLI.
 
 ### Fase 6 — Plugins (opcional)
 - [ ] Evento Lua `on_mouse` (`{kind, button, x, y, target}`) vía `plugin::hooks::emit_event`, documentado en `docs/api/lua/v1.md` y su CHANGELOG.

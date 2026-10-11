@@ -98,6 +98,11 @@ async fn row(
             state.snapshot_selection();
             set_range(state, anchor, index, true);
         }
+        MouseButton::Left if click.modifiers.is_empty() => {
+            // The press may become a drag of the files.
+            let side = state.panels.active;
+            super::file_drag::press(state, side, index, (click.column, click.row));
+        }
         MouseButton::Right => match context.config.settings.mouse_right_click {
             RightClick::Mark => {
                 let selected = !state.get_active_panel().is_selected(index);

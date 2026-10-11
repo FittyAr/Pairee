@@ -12,30 +12,48 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, op: TransferPrompt
         return true;
     }
     let dest_dir = state.get_passive_panel().current_path.clone();
+    let endpoints = (
+        state.get_active_panel().source.ssh().cloned(),
+        state.get_passive_panel().source.ssh().cloned(),
+    );
+    start(state, context, (op, targets, dest_dir), endpoints);
+    true
+}
+
+/// Copies or moves `targets` into `dest_dir` between `endpoints`: through
+/// the transfer dialog, or straight away when its confirmation is off.
+pub fn start(
+    state: &mut AppState,
+    context: &AppContext,
+    (op, targets, dest_dir): (
+        TransferPromptOp,
+        Vec<std::path::PathBuf>,
+        std::path::PathBuf,
+    ),
+    endpoints: crate::app::state::popup::TransferEndpoints,
+) {
     let confirmations = &context.config.settings.confirmations;
     let confirm = match op {
         TransferPromptOp::Copy => confirmations.confirm_copy,
         TransferPromptOp::Move => confirmations.confirm_move,
     };
     if confirm {
-        state
-            .dialogs
-            .replace(PopupType::TransferPrompt(CopyMovePromptState::new(
-                op, targets, dest_dir,
-            )));
+        let mut prompt = CopyMovePromptState::new(op, targets, dest_dir);
+        prompt.endpoints = Some(endpoints);
+        state.dialogs.replace(PopupType::TransferPrompt(prompt));
     } else {
         let options = transfer_options_from_settings(&context.config.settings);
+        let (src_ssh, dst_ssh) = endpoints;
         submit_simple(
             state,
             op.operation(),
             targets,
             dest_dir,
             options,
-            state.get_active_panel().source.ssh().cloned(),
-            state.get_passive_panel().source.ssh().cloned(),
+            src_ssh,
+            dst_ssh,
         );
     }
-    true
 }
 
 #[cfg(test)]
@@ -90,6 +108,29 @@ mod tests {
                 assert_eq!(p.src_paths.len(), 1);
             }
             other => panic!("expected transfer prompt, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn the_dialog_remembers_where_the_files_come_from_and_go() {
+        let mut state = AppState::new("src".into(), "dst".into());
+        let context = context();
+        start(
+            &mut state,
+            &context,
+            (
+                TransferPromptOp::Copy,
+                vec!["src/a.txt".into()],
+                "src/sub".into(),
+            ),
+            (None, None),
+        );
+        match state.dialogs.top() {
+            Some(PopupType::TransferPrompt(prompt)) => {
+                assert_eq!(prompt.dest_dir, std::path::PathBuf::from("src/sub"));
+                assert!(matches!(prompt.endpoints, Some((None, None))));
+            }
+            other => panic!("expected the transfer dialog, got {other:?}"),
         }
     }
 }

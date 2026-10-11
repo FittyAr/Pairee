@@ -52,10 +52,19 @@ pub struct TransferPromptLabels {
     pub button: &'static str,
 }
 
+/// SSH sessions of a transfer's source and destination (`None`: local).
+pub type TransferEndpoints = (
+    Option<crate::fs::ssh::SharedSshClient>,
+    Option<crate::fs::ssh::SharedSshClient>,
+);
+
 /// State of the Copy (F5) / Move (F6) dialog.
 #[derive(Debug, Clone)]
 pub struct CopyMovePromptState {
     pub op: TransferPromptOp,
+    /// Source and destination sessions when they are not the active and
+    /// passive panels (a drop into a folder of the same panel).
+    pub endpoints: Option<TransferEndpoints>,
     pub input: TextField,
     pub src_paths: Vec<PathBuf>,
     pub dest_dir: PathBuf,
@@ -79,6 +88,7 @@ impl CopyMovePromptState {
         let input = default_destination(&src_paths, &dest_dir);
         Self {
             op,
+            endpoints: None,
             input: TextField::new(input),
             src_paths,
             dest_dir,
