@@ -821,3 +821,27 @@ fn the_pointer_label_says_what_goes_where() {
     let copy = crate::config::localization::t("drag_copy");
     h.assert_screen(&format!("{copy} alpha.txt → right"));
 }
+
+#[test]
+fn pressing_shift_alone_keeps_the_drag_going() {
+    use crate::app::state::popup::TransferPromptOp;
+    use crossterm::event::{KeyCode, KeyEvent, ModifierKeyCode, MouseEventKind as K};
+    let mut h = panels(0);
+    let from = h.locate("alpha.txt");
+    h.mouse(
+        K::Down(MouseButton::Left),
+        from.0,
+        from.1,
+        KeyModifiers::NONE,
+    );
+    h.mouse(K::Drag(MouseButton::Left), 80, 20, KeyModifiers::NONE);
+    h.send(crate::terminal::Event::Key(KeyEvent::new(
+        KeyCode::Modifier(ModifierKeyCode::LeftShift),
+        KeyModifiers::SHIFT,
+    )));
+    h.mouse(K::Up(MouseButton::Left), 80, 20, KeyModifiers::SHIFT);
+    assert_eq!(
+        transfer_prompt(&h).expect("move dialog").0,
+        TransferPromptOp::Move
+    );
+}

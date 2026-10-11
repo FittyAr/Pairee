@@ -29,11 +29,9 @@ pub fn calculate_layout(
         state.dialogs.top(),
         Some(crate::app::state::PopupType::Menu { .. })
     );
-    let menu_height = if settings.interface_always_show_menu_bar || menu_active {
-        1
-    } else {
-        0
-    };
+    // A menu bar that is not always shown lies over the top row while a
+    // menu is open (as in Far), so opening it never moves the panels.
+    let menu_height = u16::from(settings.interface_always_show_menu_bar);
 
     let fkeys_height = if settings.interface_show_key_bar && config.keybindings.preset == "norton" {
         1
@@ -94,8 +92,14 @@ pub fn calculate_layout(
         .constraints([left_constraint, right_constraint])
         .split(chunks[1]);
 
+    let menu_rect = if menu_height == 0 && menu_active {
+        Rect { height: 1, ..area }
+    } else {
+        chunks[0]
+    };
+
     AppLayout {
-        menu_rect: chunks[0],
+        menu_rect,
         main_rect: chunks[1],
         left_rect: panels_chunks[0],
         right_rect: panels_chunks[1],

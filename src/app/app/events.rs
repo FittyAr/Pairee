@@ -16,13 +16,17 @@ pub async fn handle_input_event(
         Event::Key(key) => {
             // Always track the most recent keyboard modifiers
             state.current_modifiers = key.modifiers;
-            state.mouse.keyboard_used();
 
             log::debug!("KeyEvent received: {:?}", key);
 
             // Filter out KeyRelease events on Windows to prevent double-step triggers
             if key.kind == crossterm::event::KeyEventKind::Release {
                 return Ok(());
+            }
+            // A real key ends mouse gestures (a drag, a menu shown by
+            // pointing); Shift alone must not, it turns a drop into a move.
+            if !matches!(key.code, crossterm::event::KeyCode::Modifier(_)) {
+                state.mouse.keyboard_used();
             }
 
             // Popups consume inputs first.

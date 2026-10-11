@@ -43,9 +43,6 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     let layout = layout::calculate_layout(f.area(), state, &context.config);
 
     // 2. Draw static bar layouts
-    if layout.menu_rect.height > 0 {
-        menu::render_menu(f, layout.menu_rect, context, state);
-    }
     if layout.fkeys_rect.height > 0 {
         fkeys::render_fkeys(f, layout.fkeys_rect, context, state);
     }
@@ -59,7 +56,12 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         screens::render_screen(f, &layout, context, state, screen);
     }
 
-    // 3a. The border between two visible panels can be dragged.
+    // 3a. The menu bar, after the screen: it may lie over the top row.
+    if layout.menu_rect.height > 0 {
+        menu::render_menu(f, layout.menu_rect, context, state);
+    }
+
+    // 3b. The border between two visible panels can be dragged.
     if matches!(
         state.screens.get(state.active_screen_idx),
         Some(crate::app::state::Screen::Panels)
@@ -78,7 +80,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         hit::register(border, hit::HitTarget::PanelSplitter { width });
     }
 
-    // 3b. A hidden menu bar shows up when the pointer reaches the top row.
+    // 3c. A hidden menu bar shows up when the pointer reaches the top row.
     if layout.menu_rect.height == 0 && state.dialogs.is_none() {
         hit::register(
             Rect {
