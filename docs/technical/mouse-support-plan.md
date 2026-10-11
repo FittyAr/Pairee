@@ -242,15 +242,13 @@ Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias 
 - [~] Autoscroll al acercarse al borde de un panel: no implementado (el cursor del panel no debe moverse mientras se arrastra hacia él).
 - [~] Rutas soltadas desde el Explorador/Finder: siguen insertándose en la línea de comandos (el terminal las entrega como pegado); convertirlas en una copia rompería pegar rutas en la CLI.
 
-### Fase 6 — Plugins (opcional)
-- [ ] Evento Lua `on_mouse` (`{kind, button, x, y, target}`) vía `plugin::hooks::emit_event`, documentado en `docs/api/lua/v1.md` y su CHANGELOG.
+### Fase 6 — Plugins
+- [x] Evento Lua `on_mouse` (`{kind, button, x, y, target, side?, index?}`) para clics en paneles y barras (no dentro de diálogos, igual que `on_key`), documentado en las guías de plugins y en `docs/api/lua/CHANGELOG.md`.
 
 ### Fase 7 — Documentación y cierre
-- [ ] `help/{en,es}/configuration_details.md` (modo auto/on/off, clic derecho), `features.md`, sección "Mouse" en `keyboard_shortcuts.md`; corregir lo que hoy promete de más.
-- [ ] `docs/UNRELEASED.md` (Added / Fixed: captura con mouse apagado, basura en procesos hijos).
-- [ ] Actualizar `docs/technical/architecture_{en,es}.md` con `HitMap` + router.
-
----
+- [x] `help/{en,es}/features.md` (sección 1.5 Ratón), `configuration_details.md` (modo, clic derecho, doble clic), `user_guide.md` (`--no-mouse`).
+- [x] `docs/UNRELEASED.md` (Added / Fixed).
+- [x] `docs/technical/architecture_{en,es}.md`, sección 11.
 
 ## 4. Pruebas
 

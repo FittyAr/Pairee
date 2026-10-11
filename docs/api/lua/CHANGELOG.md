@@ -13,6 +13,8 @@ Policy:
 
 ### Added
 
+- `on_mouse` hook event: clicks on the panels and the bars, with the button,
+  the cell, what was clicked and (for a file row) its panel and 1-based index.
 - `pairee.fs.data_dir()` — the plugin's private data directory.
 - `[permissions] commands` manifest field (Secure Mode command allowlist,
   shown in the Plugin Manager details).

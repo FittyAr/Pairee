@@ -332,6 +332,7 @@ Hook plugins subscribe to lifecycle events during their `setup(opts)` call.
 | `on_cd` | `{ cwd: string }` | Active panel changes directory |
 | `on_hover` | `{ entry: Entry }` | User moves cursor to a different file |
 | `on_key` | `{ key: string }` | A key is pressed (before resolver) |
+| `on_mouse` | `{ kind, button, x, y, target, side?, index? }` | A mouse click on the panels or the bars (not inside dialogs). `kind`: `click` / `double_click`; `button`: `left` / `right` / `middle`; `target`: `panel_row`, `panel`, `panel_title`, `panel_header`, `tab`, `menu`, `fkey`, `command_line`, `other`; `side`: `left` / `right`; `index`: 1-based entry of a `panel_row` |
 | `on_focus` | `{ side: string }` | Panel focus switches |
 
 ```lua

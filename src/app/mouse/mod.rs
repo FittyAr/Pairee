@@ -125,6 +125,7 @@ pub async fn handle(
             column: mouse.column,
             row: mouse.row,
         };
+        notify_plugins(state, click);
         if let Some(consumed) = on_click(state, context, terminal_backend, click).await? {
             return Ok(consumed);
         }
@@ -349,4 +350,47 @@ fn lookup(state: &AppState, x: u16, y: u16) -> Option<Hit> {
         .hits
         .find(x, y, |below| matches!(below.target, HitTarget::Tab(_)))
         .or(Some(hit))
+}
+
+/// `on_mouse` for plugins: presses on the panels and the bars (as `on_key`,
+/// not while a dialog is open).
+fn notify_plugins(state: &AppState, click: Click) {
+    if state.dialogs.is_some() {
+        return;
+    }
+    let hit = lookup(state, click.column, click.row);
+    let (target, side, index) = match hit.map(|hit| hit.target) {
+        Some(HitTarget::PanelRow { side, index }) => ("panel_row", Some(side), Some(index)),
+        Some(HitTarget::PanelBody(side)) => ("panel", Some(side), None),
+        Some(HitTarget::PanelTitle(side)) => ("panel_title", Some(side), None),
+        Some(HitTarget::PanelHeader { side, .. }) => ("panel_header", Some(side), None),
+        Some(HitTarget::Tab(_)) => ("tab", None, None),
+        Some(HitTarget::MenuTitle(_) | HitTarget::MenuReveal) => ("menu", None, None),
+        Some(HitTarget::FKey { .. }) => ("fkey", None, None),
+        Some(HitTarget::Action(crate::keybindings::Action::FocusCli)) => {
+            ("command_line", None, None)
+        }
+        _ => ("other", None, None),
+    };
+    let button = match click.button {
+        MouseButton::Left => "left",
+        MouseButton::Right => "right",
+        MouseButton::Middle => "middle",
+    };
+    let side = side.map(|side| match side {
+        crate::app::state::ActivePanel::Left => "left",
+        crate::app::state::ActivePanel::Right => "right",
+    });
+    let payload = serde_json::json!({
+        "kind": if click.is_double() { "double_click" } else { "click" },
+        "button": button,
+        "x": click.column,
+        "y": click.row,
+        "target": target,
+        "side": side,
+        "index": index.map(|i| i + 1),
+    });
+    tokio::spawn(async move {
+        crate::plugin::hooks::emit_event("on_mouse", payload).await;
+    });
 }

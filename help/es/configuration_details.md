@@ -106,6 +106,8 @@ Configura aspectos visuales, redibujado de terminal y flujos de trabajo rápidos
 ### General
 * **Clock (Reloj):** Renderiza la hora digital en tiempo real en la esquina superior derecha.
 * **Soporte de ratón:** `Automático` (por defecto) captura el ratón cuando el terminal lo reporta (no en la consola VT de Linux ni con `TERM=dumb`), `Activado` captura siempre y `Desactivado` nunca, dejándole al terminal su selección de texto. La variable de entorno `PAIREE_MOUSE=0|1` fuerza la detección y `--no-mouse` desactiva la captura en esa ejecución. La acción **Soltar ratón** (`toggle_mouse_capture`, sin atajo por defecto) le devuelve el ratón al terminal hasta volver a usarla; además, la mayoría de terminales seleccionan texto con `Shift` + arrastre aunque Pairee capture. Las configuraciones viejas con `mouse_support = true/false` siguen funcionando.
+  * **Clic derecho en un archivo:** lo marca (y arrastrar marca un rango, como en Norton y Far) o abre el menú contextual.
+  * **Intervalo de doble clic (ms):** pausa máxima entre los dos clics de un doble clic (de 250 a 900).
 * **Show bottom F-keys bar (Mostrar barra de teclas F):** Toggles la barra inferior de accesos F1-F10.
 * **Always show the menu bar (Mostrar barra de menú siempre):** Mantiene visible el menú superior.
 * **Restore last session (Restaurar la última sesión):** Guarda al salir las pestañas, carpetas, el lado activo, la visibilidad de los paneles y la Vista rápida en `session.toml` y los reabre al iniciar (las carpetas indicadas en la línea de comandos tienen prioridad). Las pestañas SFTP se reconectan desde su perfil al mostrarse. Activado por defecto.

@@ -109,6 +109,8 @@ Configures UI general appearance, terminal rendering, and modal workflow.
 ### General
 * **Clock:** Displays a live digital clock widget in the top right.
 * **Mouse:** `Auto` (default) captures the mouse when the terminal reports it (not on the Linux VT console or `TERM=dumb`), `On` always captures, `Off` never does and leaves the terminal its own text selection. The `PAIREE_MOUSE=0|1` environment variable overrides detection and `--no-mouse` turns capture off for one run. The **Release mouse** action (`toggle_mouse_capture`, unbound by default) hands the mouse back to the terminal until it is used again; most terminals also select text with `Shift` + drag while Pairee captures. Configs from older releases with `mouse_support = true/false` keep working.
+  * **Right click on a file:** tag it (and drag to tag a range, as in Norton and Far) or open the context menu.
+  * **Double-click interval (ms):** longest pause between the two clicks of a double click (250 to 900).
 * **Show bottom F-keys bar:** Toggles the F1-F10 shortcuts line at the bottom.
 * **Always show the menu bar:** Toggles persistent visibility of the top menu bar.
 * **Restore last session:** Saves tabs, folders, the focused side, panel visibility and Quick View to `session.toml` on exit and reopens them at startup (folders given on the command line win). SFTP tabs reconnect from their preset when shown. On by default.

@@ -267,8 +267,8 @@ fn clicking_a_menu_item_runs_it() {
     let row = menu_row(&h, 1, |item| {
         item.action == Some(crate::keybindings::Action::MkDir)
     });
-    let (ix, iy) = h.hit_cell(|t| *t == HitTarget::MenuItem { menu: 1, row });
-    h.click(ix + 2, iy);
+    let (item_x, item_y) = h.hit_cell(|t| *t == HitTarget::MenuItem { menu: 1, row });
+    h.click(item_x + 2, item_y);
     assert!(
         matches!(top(&h), Some(PopupType::MkDirPrompt { .. })),
         "{}",
@@ -283,8 +283,8 @@ fn hovering_moves_the_menu_highlight_and_opens_submenus() {
     let (x, y) = h.hit_cell(|t| *t == HitTarget::MenuTitle(0));
     h.click(x + 1, y);
     let row = menu_row(&h, 0, |item| item.submenu_idx.is_some());
-    let (ix, iy) = h.hit_cell(|t| *t == HitTarget::MenuItem { menu: 0, row });
-    h.hover(ix + 2, iy);
+    let (item_x, item_y) = h.hit_cell(|t| *t == HitTarget::MenuItem { menu: 0, row });
+    h.hover(item_x + 2, item_y);
     let (menu, item, submenu) = open_menu(&h).expect("menu open");
     assert_eq!((menu, item), (0, Some(row)));
     let sub = submenu.expect("submenu opened on hover");

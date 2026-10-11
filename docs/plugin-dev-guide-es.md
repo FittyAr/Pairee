@@ -333,6 +333,7 @@ Los complementos hook se suscriben a eventos de ciclo de vida durante su llamada
 | `on_cd` | `{ cwd: string }` | El panel activo cambia de directorio |
 | `on_hover` | `{ entry: Entry }` | El usuario mueve el cursor a un archivo diferente |
 | `on_key` | `{ key: string }` | Se presiona una tecla (antes del resolver) |
+| `on_mouse` | `{ kind, button, x, y, target, side?, index? }` | Un clic en los paneles o las barras (no dentro de diálogos). `kind`: `click` / `double_click`; `button`: `left` / `right` / `middle`; `target`: `panel_row`, `panel`, `panel_title`, `panel_header`, `tab`, `menu`, `fkey`, `command_line`, `other`; `side`: `left` / `right`; `index`: entrada (desde 1) de un `panel_row` |
 | `on_focus` | `{ side: string }` | El foco de panel cambia |
 
 ```lua

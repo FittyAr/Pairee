@@ -39,6 +39,15 @@ You can configure each panel independently to display files using different deta
 * Network shares, WSL paths and folders that cannot be watched are polled instead (**Poll interval for network folders**). SFTP folders are polled over the connection only with **Also poll SFTP panel folders** (every 30 s by default); archive panels and folders above **Disable automatic panel update if object count exceeds** are not refreshed automatically.
 * Turn it off with **Options → Configuration → Panel → Refresh panels automatically when folders change**.
 
+### 1.5 Mouse
+Wherever the terminal reports the mouse (see **Mouse** in the Interface settings), everything the keyboard does is also a click away:
+* **Panels:** a click focuses the panel and moves the cursor, a double click opens. `Ctrl`+click tags one entry, `Shift`+click tags from the cursor to the entry. A right click tags (dragging with the right button tags a range), or opens the context menu if **Right click on a file** says so. Column titles sort (click again to reverse). The folder title opens the folder history; a right click on it chooses a drive. The wheel moves the cursor of the panel under the pointer.
+* **Drag and drop:** drag files (the tagged ones, if you grab a tagged row) onto the other panel, a folder, `..`, a tab or the command line. A label next to the pointer says what goes where. Dropping copies; hold `Shift` when you let go to move. The usual Copy / Move dialog opens (or the job starts directly when its confirmation is off), so filters, conflicts, the queue and SFTP work as with `F5` / `F6`. Any key cancels a drag. Files dropped from the system file manager onto the terminal arrive as text: their paths go to the command line.
+* **Border between the panels:** drag it to give one panel more room; a double click splits them evenly again (also the `panel_split_grow`, `panel_split_shrink` and `panel_split_reset` actions).
+* **Bars:** the menu titles open their menus, the items run, hovering moves the highlight and opens submenus. When the menu bar is hidden, pointing at the top row shows it. The function-key bar presses its key (with the modifiers it shows), the command line takes the focus, the transfer bar opens the transfer panel and the update badge opens the update dialog. Tabs: click to switch, middle click to close.
+* **Dialogs:** buttons, lists, check boxes, choices, tabs and text fields (the click places the cursor) all react; a double click on a list row is Enter and the wheel scrolls lists. Drag a dialog by its top border to move it (double click: back to the centre); dialogs whose content flows (help, lists, Git, transfer panel...) also resize by their bottom-right corner. A click outside closes menus, lists and information windows, never a dialog where you were typing or deciding something.
+* **Viewer and editor:** the wheel scrolls (also without the scrollbar); in the editor, click places the cursor and dragging selects (`Alt` + drag selects a block).
+
 ---
 
 ## 📂 2. File System Operations
