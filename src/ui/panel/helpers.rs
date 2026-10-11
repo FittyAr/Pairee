@@ -68,6 +68,21 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     )
 }
 
+/// The shown entries: from `peek` when a file drag scrolled the view (see
+/// `app::mouse::file_drag`), else around the cursor ([`visible_range`]).
+pub(crate) fn shown_range(
+    panel: &PanelState,
+    height: usize,
+    peek: Option<usize>,
+) -> (usize, usize) {
+    let Some(peek) = peek else {
+        return visible_range(panel, height);
+    };
+    let len = panel.entries.len();
+    let start = peek.min(len.saturating_sub(height));
+    (start, start + height.min(len - start))
+}
+
 pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize) {
     let start = if panel.cursor_index > height / 2 {
         panel.cursor_index.saturating_sub(height / 2)

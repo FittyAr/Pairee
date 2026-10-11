@@ -74,6 +74,9 @@ pub fn render_search(f: &mut Frame, pane: &Pane, menu: &crate::app::state::Plugi
     };
     let list_block = pane_block(pane, list_title).border_style(border_style);
     f.render_widget(List::new(list_items).block(list_block), pane.list_area);
+    if !menu.is_searching {
+        register_page(pane, menu.registry.len(), menu.cursor_idx);
+    }
 
     // ── Detail panel ─────────────────────────────────────────────────────────
     let detail_lines = match menu.registry.get(menu.cursor_idx) {
@@ -84,6 +87,58 @@ pub fn render_search(f: &mut Frame, pane: &Pane, menu: &crate::app::state::Plugi
         None => Vec::new(),
     };
     render_details(f, pane, detail_lines);
+}
+
+/// The page of the registry list that holds the cursor.
+struct Page {
+    page: usize,
+    total_pages: usize,
+    start: usize,
+    end: usize,
+}
+
+impl Page {
+    fn of(pane: &Pane, len: usize, cursor_idx: usize) -> Self {
+        // Leave 2 rows for borders, 1 for the column titles and 1 for the
+        // page indicator at the bottom.
+        let size = (pane.list_area.height as usize).saturating_sub(4).max(1);
+        let page = cursor_idx / size;
+        let start = page * size;
+        Self {
+            page,
+            total_pages: len.div_ceil(size),
+            start,
+            end: (start + size).min(len),
+        }
+    }
+}
+
+/// Rows of the page take clicks (the header row above them does not); the
+/// page indicator turns the page.
+fn register_page(pane: &Pane, len: usize, cursor_idx: usize) {
+    use crate::ui::popup::kit::mouse;
+    let page = Page::of(pane, len, cursor_idx);
+    let inner = pane.list_area.inner(ratatui::layout::Margin::new(1, 1));
+    let rows = ratatui::layout::Rect {
+        y: inner.y + 1,
+        height: inner.height.saturating_sub(1),
+        ..inner
+    };
+    mouse::list_rows(rows, page.start, page.end, cursor_idx);
+    let indicator_y = rows.y + (page.end - page.start) as u16;
+    if page.total_pages > 1 && indicator_y < inner.bottom() {
+        let indicator = ratatui::layout::Rect {
+            y: indicator_y,
+            height: 1,
+            ..inner
+        };
+        let key = if page.page + 1 < page.total_pages {
+            crossterm::event::KeyCode::PageDown
+        } else {
+            crossterm::event::KeyCode::PageUp
+        };
+        mouse::keys(indicator, mouse::key(key));
+    }
 }
 
 /// Header, the page of entries holding the cursor and a page indicator.
@@ -97,12 +152,13 @@ fn registry_page(
     let inner_w = (pane.list_area.width as usize).saturating_sub(3);
     let columns = Columns::for_width(inner_w);
 
-    // Leave 2 rows for borders and 1 for the page indicator at the bottom.
-    let page_size = (pane.list_area.height as usize).saturating_sub(3).max(1);
-    let page = cursor_idx / page_size;
-    let total_pages = registry.len().div_ceil(page_size);
-    let slice_start = page * page_size;
-    let slice_end = (slice_start + page_size).min(registry.len());
+    let Page {
+        page,
+        total_pages,
+        start: slice_start,
+        end: slice_end,
+        ..
+    } = Page::of(pane, registry.len(), cursor_idx);
 
     let mut list_items = vec![ListItem::new(Line::from(vec![Span::styled(
         columns.row("Plugin", "Author", "Version"),

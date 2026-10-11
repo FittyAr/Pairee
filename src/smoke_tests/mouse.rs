@@ -845,3 +845,158 @@ fn pressing_shift_alone_keeps_the_drag_going() {
         TransferPromptOp::Move
     );
 }
+
+#[test]
+fn clicking_in_a_one_field_prompt_moves_its_cursor() {
+    let mut h = Harness::new();
+    h.keys("@file_panel_filter").text("abcdef");
+    let (fx, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
+    let text_x = match h.state.hits.at(fx, fy).map(|hit| hit.target) {
+        Some(HitTarget::PopupField { text_x, .. }) => text_x,
+        other => panic!("{other:?}"),
+    };
+    // The field shows where the hit says it starts.
+    let row: String = h
+        .screen_text()
+        .lines()
+        .nth(fy as usize)
+        .unwrap()
+        .chars()
+        .skip(text_x as usize)
+        .collect();
+    assert!(row.starts_with("abcdef"), "{row:?}");
+    h.click(text_x + 2, fy);
+    let cursor = match top(&h) {
+        Some(PopupType::FilePanelFilterPrompt { input }) => input.cursor(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(cursor, 2);
+}
+
+#[test]
+fn plugin_search_rows_and_pages_take_clicks() {
+    let mut h = Harness::new();
+    let registry: Vec<(String, String, String, String)> = (0..60)
+        .map(|i| {
+            (
+                format!("plugin{i:02}"),
+                "1.0".into(),
+                "desc".into(),
+                "me".into(),
+            )
+        })
+        .collect();
+    h.state
+        .dialogs
+        .replace(PopupType::PluginMenu(crate::app::state::PluginMenuState {
+            active_tab: 1,
+            cursor_idx: 0,
+            installed: Vec::new(),
+            all_registry: registry.clone(),
+            registry,
+            search_query: String::new(),
+            is_searching: false,
+            editing_query: false,
+            dev_results: String::new(),
+            dev_wizard_step: 0,
+            dev_wizard_data: Vec::new(),
+            installed_loading: false,
+            installed_loading_status: String::new(),
+            dev_loading: false,
+            dev_loading_status: String::new(),
+            dev_loading_progress: None,
+        }));
+    let cursor = |h: &Harness| match top(h) {
+        Some(PopupType::PluginMenu(menu)) => menu.cursor_idx,
+        other => panic!("{other:?}"),
+    };
+    let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PopupRow { steps: 3, .. }));
+    h.click(x + 2, y);
+    assert_eq!(cursor(&h), 3);
+    // The page indicator turns the page.
+    let (px, py) = h.locate("Pg 1/");
+    h.click(px, py);
+    assert!(cursor(&h) > 3, "{}", h.screen_text());
+}
+
+#[test]
+fn transfer_jobs_take_clicks() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "a");
+    h.write("work/left/b.txt", "b");
+    h.reread();
+    for name in ["a.txt", "b.txt"] {
+        h.focus(name).keys("@copy Enter");
+        let target = format!("work/right/{name}");
+        h.wait_until("copy", |h| h.exists(&target));
+    }
+    h.keys("@toggle_transfer_panel");
+    if !matches!(top(&h), Some(PopupType::TransferPanel)) {
+        h.keys("@toggle_transfer_panel");
+    }
+    assert!(
+        matches!(top(&h), Some(PopupType::TransferPanel)),
+        "{}",
+        h.screen_text()
+    );
+    let queue = |h: &Harness| h.state.transfer.as_ref().unwrap().queue_cursor;
+    let (x, y) = h.locate("#2 ");
+    h.click(x + 1, y);
+    assert_eq!(queue(&h), 1);
+    let (x, y) = h.locate("#1 ");
+    h.click(x + 1, y + 1);
+    assert_eq!(queue(&h), 0);
+}
+
+#[test]
+fn dragging_to_a_panel_edge_scrolls_its_view_not_its_cursor() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "a");
+    for i in 0..60 {
+        h.write(&format!("work/right/r{i:02}.dat"), "x");
+    }
+    h.reread();
+    let shown = |h: &mut Harness| {
+        h.render();
+        h.state.hits.collect(|t| match *t {
+            HitTarget::PanelRow {
+                side: ActivePanel::Right,
+                index,
+            } => Some(index),
+            _ => None,
+        })
+    };
+    let rows = shown(&mut h);
+    let (first, last) = (*rows.iter().min().unwrap(), *rows.iter().max().unwrap());
+    assert_eq!(first, 0);
+    let (_, last_y) = h.hit_cell(|t| {
+        *t == HitTarget::PanelRow {
+            side: ActivePanel::Right,
+            index: last,
+        }
+    });
+    let right_cursor = h.state.panels.tabs(ActivePanel::Right).panel().cursor_index;
+    let from = h.locate("a.txt");
+    use crossterm::event::MouseEventKind as K;
+    h.mouse(
+        K::Down(MouseButton::Left),
+        from.0,
+        from.1,
+        KeyModifiers::NONE,
+    );
+    h.mouse(K::Drag(MouseButton::Left), 70, last_y, KeyModifiers::NONE);
+    let scrolled = shown(&mut h);
+    assert_eq!(*scrolled.iter().min().unwrap(), 1, "one row further down");
+    assert_eq!(
+        h.state.panels.tabs(ActivePanel::Right).panel().cursor_index,
+        right_cursor,
+        "the cursor stays"
+    );
+    // Holding still there keeps scrolling with the timer.
+    std::thread::sleep(std::time::Duration::from_millis(120));
+    h.send(crate::terminal::Event::Tick);
+    assert_eq!(*shown(&mut h).iter().min().unwrap(), 2);
+    // After the drop the view follows the cursor again.
+    h.keys("Esc");
+    assert_eq!(*shown(&mut h).iter().min().unwrap(), 0);
+}

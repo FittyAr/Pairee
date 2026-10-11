@@ -100,6 +100,7 @@ pub(crate) fn render_jobs_sidebar(
     list_state.select(Some(ts.queue_cursor));
 
     f.render_stateful_widget(jobs_list, area, &mut list_state);
+    register_jobs(area, list_state.offset(), jobs.len(), ts.queue_cursor);
 
     // Jobs list items are multi-line (~3 rows each); approximate viewport by area height.
     let viewport = area.height.saturating_sub(2) as usize;
@@ -119,4 +120,20 @@ pub(crate) fn render_jobs_sidebar(
             id: ScrollTargetId::TransferJobs,
         },
     );
+}
+
+/// Each job takes three rows (title, destination, blank) from the list's
+/// first shown job on; a click on them moves the cursor there.
+fn register_jobs(area: Rect, offset: usize, count: usize, cursor: usize) {
+    const JOB_ROWS: u16 = 3;
+    let inner = area.inner(ratatui::layout::Margin::new(1, 1));
+    let mut y = inner.y;
+    for index in offset..count {
+        if y >= inner.bottom() {
+            break;
+        }
+        let rows = Rect::new(inner.x, y, inner.width, JOB_ROWS).intersection(inner);
+        crate::ui::popup::kit::mouse::list_item(rows, (index, cursor), &[]);
+        y += JOB_ROWS;
+    }
 }

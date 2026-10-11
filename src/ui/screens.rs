@@ -117,7 +117,10 @@ fn render_side(
         f,
         rect,
         tabs.panel(),
-        side,
+        (
+            side,
+            state.mouse.file_drag().and_then(|drag| drag.peek_for(side)),
+        ),
         is_active,
         context,
         Some(&state.scrollbar),

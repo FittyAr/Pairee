@@ -80,7 +80,12 @@ pub async fn handle_input_event(
             state.should_quit = true;
         }
         Event::Tick => {
-            if context.resolver.expire_pending(std::time::Instant::now()) {
+            let now = std::time::Instant::now();
+            if context.resolver.expire_pending(now) {
+                state.mark_ui_dirty();
+            }
+            // Dragged files held at a panel's edge keep scrolling it.
+            if crate::app::mouse::file_drag::autoscroll(state, now) {
                 state.mark_ui_dirty();
             }
         }

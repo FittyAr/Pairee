@@ -13,12 +13,19 @@ use ratatui::style::{Color, Modifier, Style};
 pub(crate) struct ListCtx<'a> {
     pub panel: &'a PanelState,
     pub side: ActivePanel,
+    /// First shown entry while a file drag scrolls this panel.
+    pub peek: Option<usize>,
     pub is_active: bool,
     pub context: &'a AppContext,
     pub highlight_files: bool,
 }
 
 impl ListCtx<'_> {
+    /// Entries shown in `height` rows.
+    pub fn range(&self, height: usize) -> (usize, usize) {
+        super::helpers::shown_range(self.panel, height, self.peek)
+    }
+
     /// Records the rows drawn in `area`, top down, from entry `first` on.
     pub fn register_rows(&self, area: Rect, first: usize) {
         let shown = self.panel.entries.len().saturating_sub(first);

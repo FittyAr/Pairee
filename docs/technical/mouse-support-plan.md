@@ -4,7 +4,7 @@
 > **Rama de trabajo:** `master`
 > **Objetivo:** que todo lo que hoy se hace con teclado pueda hacerse también con el puntero (clic, doble clic, clic derecho, rueda, arrastre) **cuando el terminal reporta eventos de mouse**, sin degradar la experiencia donde no los hay (consola Linux sin gpm, `TERM=dumb`, pipes, terminales que no los soportan) y sin robarle al usuario la selección de texto nativa cuando el mouse está apagado.
 
-Cada ítem usa checkbox (`[ ]` pendiente / `[x]` hecho, con commit). Actualizar entre tarea y tarea.
+Cada ítem usa checkbox (`[ ]` pendiente / `[x]` hecho, con commit / `[-]` decisión de no realizarlo). Actualizar entre tarea y tarea.
 
 ---
 
@@ -213,7 +213,8 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 ### Fase 3 — Barras
 - [x] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover. Los desplegables se ubican bajo su título (antes, columnas fijas que no seguían la traducción). Con la barra oculta, la fila superior la revela al apuntar (como Far); las pestañas de esa fila conservan sus clics.
 - [x] Barra de F-keys (`src/ui/fkeys.rs`): el clic pulsa la tecla con los modificadores de la fila mostrada, así sirve en panel, editor y visor.
-- [x] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update. La rueda en la barra de pestañas se descartó: no queda claro qué lado ni desde qué pestaña avanzar.
+- [x] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update.
+- [-] **Decisión: NO realizar.** Rueda en la barra de pestañas: no queda claro qué lado ni desde qué pestaña avanzar.
 
 ### Fase 4 — Popups vía kit
 Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias teclas**. El renderer sabe dónde está el foco o el cursor, así que cada control registra las teclas que lo alcanzan y lo usan desde ahí (`HitTarget::PopupKeys`, `PopupRow { steps, focus }`, `PopupField { keys, text_x }`), y el router las inyecta por el manejador de teclado del diálogo. No hay código de mouse por popup ni estado duplicado.
@@ -221,7 +222,9 @@ Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias 
 - [x] Formularios: crear carpeta, renombrar, copiar/mover, buscar en editor/visor, buscar archivos, opciones de sincronización, renombrado múltiple, prompts de Git (nombre, dos campos), conexión SSH (incluida la lista de presets).
 - [x] Hechos a mano: confirmar borrado, diálogos de plugins (sí/no, lista "which"; además se corrigió el cuerpo registrado cuando el plugin elige la posición), confirmaciones de Git, actualización, ayuda (pestañas + lista), configuración (pestañas por su tecla rápida, filas saltando títulos, OK/Cancelar, edición en curso), panel de Git (pestañas + filas), menú de usuario, modos de orden (clic = aplicar), bienvenida, grupos de color y resaltado (filas + `<` `>`), asociaciones, remotos de Git, gestor de plugins (pestañas, instalados, desarrollo), pestañas del panel de transferencias, atajos (filas con encabezados de categoría + pestañas), popups Yazi (cuerpo + celdas), atributos (solo lectura).
 - [x] Test de cobertura `every_dialog_records_its_body_and_its_controls`: abre 35 diálogos con sus acciones reales y exige cuerpo y al menos un control.
-- [~] Pendiente menor: ubicar el cursor con un clic en los 11 prompts de un solo campo dibujados con `prompt_text` (el campo ya tiene el foco; el texto va dentro de una frase traducida), la pestaña Buscar del gestor de plugins (paginada) y la lista de trabajos del panel de transferencias (filas de altura variable; ya tiene rueda por su scrollbar).
+- [x] Clic en el campo de los 11 prompts de un solo campo (`kit::TextBox::with_field` + `kit::field_at`, que calcula fila y columna del campo en la frase traducida).
+- [x] Pestaña Buscar del gestor de plugins: filas clicables y el indicador de página pasa de página (se corrigió además que ese indicador nunca se veía: la página no reservaba la fila de títulos).
+- [x] Lista de trabajos del panel de transferencias: cada trabajo (tres filas) toma el clic.
 
 ### Fase 5 — Visor, QuickView, editor
 - [x] Rueda en visor siempre, también con la scrollbar apagada (`scrollbar::register_wheel`); QuickView ya la tenía. El editor sigue con su manejo propio, como último destino del router.
@@ -230,7 +233,7 @@ Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias 
 - [x] `ui::placement`: las funciones de centrado aplican la ubicación del diálogo abierto (`place`), sin tocar cada popup. La ubicación vale para ese diálogo (profundidad + tipo) y se pierde al cerrarlo. Se unificaron `centered_rect` y `centered_rect_in`, que eran iguales.
 - [x] Arrastrar el borde superior mueve, doble clic recentra; siempre dentro de la pantalla, y al volver desde el borde responde enseguida.
 - [x] Redimensionar desde la esquina en los diálogos de contenido elástico (`PopupType::resizable`).
-- [~] Acciones de teclado `popup_move` / `popup_recenter`: descartadas por ahora; mover un diálogo con teclas pediría un modo propio y el valor es bajo.
+- [-] **Decisión: NO realizar.** Acciones de teclado `popup_move` / `popup_recenter`: mover un diálogo con teclas pediría un modo propio y el valor es bajo.
 - [x] `panel_split` + `PanelSplitter` (arrastre relativo al agarre, doble clic = 50 %) + acciones `panel_split_grow` / `panel_split_shrink` / `panel_split_reset`.
 
 ### Fase 5c — Arrastrar y soltar
@@ -238,9 +241,9 @@ Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias 
 - [x] Etiqueta junto al puntero (`ui::drag_label`): "Copiar alpha.txt → destino", o solo el nombre cuando ahí no se puede soltar.
 - [x] Destinos: el otro panel (filas, vacío, título, encabezados), una carpeta de cualquier panel, `..` (carpeta padre), una pestaña, la línea de comandos (rutas entre comillas). Soltar donde ya están los archivos, o una carpeta dentro de sí misma, no hace nada.
 - [x] Sin modificador copia; con `Shift` al soltar mueve (Shift al presionar marca un rango). Se ejecuta con `fs_ops::transfer::start`, el mismo camino de F5/F6 (diálogo o envío directo según la confirmación); el diálogo guarda las sesiones SSH de origen y destino (`CopyMovePromptState::endpoints`), así funciona también al soltar en una subcarpeta del mismo panel SFTP.
-- [~] Enlazar con `Ctrl+Shift` y el menú de respaldo cuando el terminal no informa modificadores: no implementados; Copiar/Mover cubren el uso y el diálogo deja cambiar el destino.
-- [~] Autoscroll al acercarse al borde de un panel: no implementado (el cursor del panel no debe moverse mientras se arrastra hacia él).
-- [~] Rutas soltadas desde el Explorador/Finder: siguen insertándose en la línea de comandos (el terminal las entrega como pegado); convertirlas en una copia rompería pegar rutas en la CLI.
+- [-] **Decisión: NO realizar.** Enlazar con `Ctrl+Shift` y el menú de respaldo cuando el terminal no informa modificadores: Copiar/Mover cubren el uso y el diálogo deja cambiar el destino.
+- [x] Autoscroll al acercarse al borde de un panel: con el puntero en la primera o última fila visible, la vista de ese panel avanza una fila (al moverse y cada 100 ms con el temporizador) sin mover su cursor; al soltar o cancelar vuelve a seguir al cursor (`FileDrag::peek`).
+- [-] **Decisión: NO realizar.** Convertir en copia las rutas soltadas desde el Explorador/Finder: el terminal las entrega como pegado y siguen yendo a la línea de comandos; convertirlas rompería pegar rutas en la CLI.
 
 ### Fase 6 — Plugins
 - [x] Evento Lua `on_mouse` (`{kind, button, x, y, target, side?, index?}`) para clics en paneles y barras (no dentro de diálogos, igual que `on_key`), documentado en las guías de plugins y en `docs/api/lua/CHANGELOG.md`.

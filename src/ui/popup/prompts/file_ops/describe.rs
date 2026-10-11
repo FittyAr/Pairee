@@ -27,6 +27,7 @@ pub fn render(
         body: kit::prompt_text(&template, input, theme),
         body_style: kit::popup_fg(theme),
     }
+    .with_field(kit::field_at(&template))
     .render(f, size, theme);
     true
 }

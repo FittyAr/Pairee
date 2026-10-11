@@ -9,6 +9,7 @@ use crate::app::state::{ActivePanel, AppState};
 use crate::ui::hit::HitTarget;
 use crossterm::event::KeyModifiers;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 /// A press on a panel row that may turn into a drag.
 #[derive(Debug, Clone)]
@@ -20,7 +21,16 @@ pub struct FileDrag {
     at: Option<(u16, u16)>,
     modifiers: KeyModifiers,
     paths: Vec<PathBuf>,
+    /// A panel whose view the drag scrolled (pointer on its first or last
+    /// shown row), and the first entry it shows. Only the view moves: the
+    /// panel's cursor stays, and the view follows it again after the drop.
+    peek: Option<(ActivePanel, usize)>,
+    /// When the view last scrolled, to scroll at a steady pace.
+    scrolled_at: Option<Instant>,
 }
+
+/// Pause between two rows of automatic scrolling.
+const SCROLL_EVERY: Duration = Duration::from_millis(100);
 
 /// Where a drop puts the files.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -42,6 +52,13 @@ impl FileDrag {
         self.at
     }
 
+    /// First entry panel `side` shows while the drag scrolls it.
+    pub fn peek_for(&self, side: ActivePanel) -> Option<usize> {
+        self.peek
+            .filter(|(s, _)| *s == side)
+            .map(|(_, start)| start)
+    }
+
     /// The operation a drop would run now.
     pub fn op(&self) -> TransferPromptOp {
         if self.modifiers.contains(KeyModifiers::SHIFT) {
@@ -61,6 +78,8 @@ pub fn press(state: &mut AppState, side: ActivePanel, index: usize, at: (u16, u1
         at: None,
         modifiers: KeyModifiers::NONE,
         paths: Vec::new(),
+        peek: None,
+        scrolled_at: None,
     });
 }
 
@@ -83,6 +102,50 @@ pub fn follow(state: &mut AppState, at: (u16, u16), modifiers: KeyModifiers) -> 
     drag.at = Some(at);
     drag.modifiers = modifiers;
     state.mouse.file_drag = Some(drag);
+    autoscroll(state, Instant::now());
+    true
+}
+
+/// Scrolls the view of the panel under the pointer by one row when the
+/// pointer rests on its first or last shown row (called on every pointer
+/// move and timer tick, at most once per [`SCROLL_EVERY`]). Returns whether
+/// the view moved.
+pub fn autoscroll(state: &mut AppState, now: Instant) -> bool {
+    let Some(drag) = state.mouse.file_drag.as_ref() else {
+        return false;
+    };
+    let Some((x, y)) = drag.at else {
+        return false;
+    };
+    if drag
+        .scrolled_at
+        .is_some_and(|last| now.saturating_duration_since(last) < SCROLL_EVERY)
+    {
+        return false;
+    }
+    let Some(HitTarget::PanelRow { side, index }) = state.hits.at(x, y).map(|hit| hit.target)
+    else {
+        return false;
+    };
+    let shown = state.hits.collect(|target| match *target {
+        HitTarget::PanelRow { side: s, index } if s == side => Some(index),
+        _ => None,
+    });
+    let (Some(&first), Some(&last)) = (shown.iter().min(), shown.iter().max()) else {
+        return false;
+    };
+    let len = state.panels.tabs(side).panel().entries.len();
+    let start = if index == first && first > 0 {
+        first - 1
+    } else if index == last && last + 1 < len {
+        first + 1
+    } else {
+        return false;
+    };
+    if let Some(drag) = state.mouse.file_drag.as_mut() {
+        drag.peek = Some((side, start));
+        drag.scrolled_at = Some(now);
+    }
     true
 }
 

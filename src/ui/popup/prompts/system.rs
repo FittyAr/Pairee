@@ -50,6 +50,9 @@ pub fn render(
                 body: kit::prompt_text(&template, input, theme),
                 body_style: fg,
             }
+            .with_field(kit::field_at(&template))
+            .render(f, size, theme);
+            return true;
         }
         PopupType::SelectGroupPrompt { mode, query } => {
             let (title, label) = match mode {
@@ -68,6 +71,9 @@ pub fn render(
                 body: kit::prompt_text(&template, query, theme),
                 body_style: fg,
             }
+            .with_field(kit::field_at(&template))
+            .render(f, size, theme);
+            return true;
         }
         _ => return false,
     };

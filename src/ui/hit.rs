@@ -136,6 +136,15 @@ impl HitMap {
             .collect()
     }
 
+    /// Every recorded target `pick` maps to a value, in painting order.
+    pub fn collect<T>(&self, pick: impl Fn(&HitTarget) -> Option<T>) -> Vec<T> {
+        self.hits
+            .borrow()
+            .iter()
+            .filter_map(|hit| pick(&hit.target))
+            .collect()
+    }
+
     /// The first recorded hit whose target `pick` maps to a value.
     pub fn first<T>(&self, pick: impl Fn(&HitTarget) -> Option<T>) -> Option<(Rect, T)> {
         self.hits

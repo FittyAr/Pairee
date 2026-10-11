@@ -2,7 +2,7 @@
 //! File owners, File links) described as tables of [`Column`]s and drawn by
 //! one renderer.
 
-use super::helpers::{entry_size_text, format_date, visible_range, visible_slice};
+use super::helpers::{entry_size_text, format_date, visible_slice};
 use super::list_ctx::ListCtx;
 use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
@@ -226,7 +226,7 @@ pub(crate) fn render_table(
     let settings = &ctx.context.config.settings;
     let headers = view.headers && settings.show_column_titles;
     let height = area.height.saturating_sub(if headers { 3 } else { 2 }) as usize;
-    let (start, end) = visible_range(ctx.panel, height);
+    let (start, end) = ctx.range(height);
     let name_width = view.name.width(area.width, view.name_percent);
 
     let rows: Vec<Row> = visible_slice(ctx.panel, start, end)

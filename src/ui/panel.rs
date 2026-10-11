@@ -29,7 +29,7 @@ pub fn render_panel(
     f: &mut Frame,
     area: Rect,
     panel: &PanelState,
-    side: ActivePanel,
+    (side, peek): (ActivePanel, Option<usize>),
     is_active: bool,
     context: &AppContext,
     scrollbar: Option<&ScrollbarUiState>,
@@ -98,6 +98,7 @@ pub fn render_panel(
     let ctx = ListCtx {
         panel,
         side,
+        peek,
         is_active,
         context,
         highlight_files,

@@ -33,6 +33,7 @@ pub fn render_editor_popup(
                 body: kit::prompt_text(&t("editor_save_as_text"), input, theme),
                 body_style: kit::popup_fg(theme),
             }
+            .with_field(kit::field_at(&t("editor_save_as_text")))
             .render(f, size, theme);
             true
         }

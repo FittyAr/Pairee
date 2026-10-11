@@ -92,7 +92,7 @@ pub struct TextBox<'a> {
     pub body_style: Style,
 }
 
-impl TextBox<'_> {
+impl<'a> TextBox<'a> {
     /// Clears the area and draws `body` (in `body_style`) inside the block.
     pub fn render(self, f: &mut Frame, screen: Rect, theme: &Theme) {
         self.draw(f, screen, theme, false);
@@ -103,7 +103,13 @@ impl TextBox<'_> {
         self.draw(f, screen, theme, true);
     }
 
-    fn draw(self, f: &mut Frame, screen: Rect, theme: &Theme, wrap: bool) {
+    /// The body holds the prompt's text field at `at` (see [`field_at`]):
+    /// a click on that row puts the field's cursor under the pointer.
+    pub fn with_field(self, at: (u16, u16)) -> FieldBox<'a> {
+        FieldBox { text_box: self, at }
+    }
+
+    fn draw(self, f: &mut Frame, screen: Rect, theme: &Theme, wrap: bool) -> Rect {
         let area = centered_rect_fixed(self.size.0, self.size.1, screen);
         f.render_widget(Clear, area);
         let mut paragraph = Paragraph::new(self.body)
@@ -113,7 +119,46 @@ impl TextBox<'_> {
             paragraph = paragraph.wrap(Wrap { trim: true });
         }
         f.render_widget(paragraph, area);
+        area
     }
+}
+
+/// A [`TextBox`] whose body holds a text field (a one-field prompt).
+pub struct FieldBox<'a> {
+    pub text_box: TextBox<'a>,
+    /// Row and column of the field's first character inside the body.
+    pub at: (u16, u16),
+}
+
+impl FieldBox<'_> {
+    pub fn render(self, f: &mut Frame, screen: Rect, theme: &Theme) {
+        let area = self.text_box.draw(f, screen, theme, false);
+        let inner = area.inner(ratatui::layout::Margin::new(1, 1));
+        let y = inner.y + self.at.0;
+        if y < inner.bottom() {
+            crate::ui::hit::register(
+                Rect::new(inner.x, y, inner.width, 1),
+                crate::ui::hit::HitTarget::PopupField {
+                    keys: Vec::new(),
+                    text_x: inner.x + self.at.1,
+                },
+            );
+        }
+    }
+}
+
+/// Where [`prompt_text`] puts the field of `template`: its line and the
+/// display column it starts at.
+pub fn field_at(template: &str) -> (u16, u16) {
+    let before = template
+        .split_once("{}")
+        .map_or(template, |(before, _)| before);
+    let line = before.matches('\n').count();
+    let head = before.rsplit('\n').next().unwrap_or_default();
+    (
+        line as u16,
+        crate::ui::text_width::display_width(head) as u16,
+    )
 }
 
 /// A one-field prompt body: `template` with its first `{}` replaced by the
