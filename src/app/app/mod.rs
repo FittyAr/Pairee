@@ -19,7 +19,9 @@ use std::time::{Duration, Instant};
 /// Runs the main loop for Pairee. Returns the local folder of the focused
 /// panel at exit (for `--cwd-file` / `--print-cwd`).
 pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<PathBuf>> {
-    let mut terminal_backend = TerminalBackend::init()?;
+    let mouse_probe = crate::terminal::mouse::EnvProbe::current();
+    let mut terminal_backend =
+        TerminalBackend::init(mouse_probe.captures(context.config.settings.mouse))?;
     let mut event_handler = EventHandler::new(Duration::from_millis(50));
     prepare_first_frame(&mut state, &mut context);
 
@@ -34,6 +36,12 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
     const TRANSFER_DRAW_MIN: Duration = Duration::from_millis(80);
 
     loop {
+        // 0. Follow the mouse setting and `toggle_mouse_capture` live.
+        let capture = mouse_probe.captures(context.config.settings.mouse) && !state.mouse_released;
+        if let Err(err) = crate::terminal::mouse::set_capture(capture) {
+            log::debug!("Mouse capture change failed: {err}");
+        }
+
         // 1. Process background operation updates (e.g. copy progress)
         let bg_before = state.ui_dirty;
         background::process_background_updates(&mut state, &context, &mut terminal_backend);

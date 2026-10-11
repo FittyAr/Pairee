@@ -219,6 +219,7 @@ pub const CATALOG: &[ActionDef] = &[
     def("view_mode_menu", Action::ViewModeMenu, C::View),
     def("cycle_panel_view", Action::CyclePanelView, C::View),
     def("toggle_keybar", Action::ToggleKeybar, C::View),
+    def("toggle_mouse_capture", Action::ToggleMouseCapture, C::View),
     // Sort
     def("sort_modes", Action::SortModes, C::Sort),
     def("sort_by_name", Action::SortByName, C::Sort),

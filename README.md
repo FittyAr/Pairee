@@ -116,7 +116,7 @@ cargo build --release
 
 ### Command Line & Shell Integration
 ```sh
-pairee [--cwd-file <file>] [--print-cwd] [<left folder> [<right folder>]]
+pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left folder> [<right folder>]]
 ```
 The last session (tabs, folders, layout) is restored at startup (**Restore last session** setting); folders given on the command line win. `--cwd-file` writes the focused panel's folder on exit so a shell function can `cd` there:
 

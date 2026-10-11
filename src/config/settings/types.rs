@@ -61,6 +61,71 @@ impl TabExpansion {
     }
 }
 
+/// When Pairee captures the mouse (`mouse`).
+///
+/// Also reads the boolean `mouse_support` written by older releases:
+/// `true` → [`MouseMode::Auto`], `false` → [`MouseMode::Off`].
+#[derive(Debug, Clone, Copy, Serialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum MouseMode {
+    /// Capture when the terminal reports mouse events.
+    #[default]
+    Auto,
+    /// Always capture, even where detection says the terminal cannot.
+    On,
+    /// Never capture: the terminal keeps its native text selection.
+    Off,
+}
+
+impl<'de> Deserialize<'de> for MouseMode {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        #[derive(Deserialize)]
+        #[serde(untagged)]
+        enum Raw {
+            Flag(bool),
+            Name(String),
+        }
+        Ok(match Raw::deserialize(deserializer)? {
+            Raw::Flag(true) => Self::Auto,
+            Raw::Flag(false) => Self::Off,
+            Raw::Name(name) => match name.to_ascii_lowercase().as_str() {
+                "on" => Self::On,
+                "off" => Self::Off,
+                _ => Self::Auto,
+            },
+        })
+    }
+}
+
+impl MouseMode {
+    /// Next option in the configuration dialog cycle.
+    pub fn next(self) -> Self {
+        match self {
+            Self::Auto => Self::On,
+            Self::On => Self::Off,
+            Self::Off => Self::Auto,
+        }
+    }
+
+    /// Translation key of the option label.
+    pub fn label_key(self) -> &'static str {
+        match self {
+            Self::Auto => "int_mouse_auto",
+            Self::On => "int_mouse_on",
+            Self::Off => "int_mouse_off",
+        }
+    }
+
+    /// Whether to capture, given what detection found about the terminal.
+    pub fn wants_capture(self, terminal_reports_mouse: bool) -> bool {
+        match self {
+            Self::Auto => terminal_reports_mouse,
+            Self::On => true,
+            Self::Off => false,
+        }
+    }
+}
+
 pub fn default_true() -> bool {
     true
 }

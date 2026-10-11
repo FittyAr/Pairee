@@ -8,7 +8,7 @@
 
 use crossterm::{
     cursor::Show,
-    event::{DisableBracketedPaste, DisableFocusChange, DisableMouseCapture},
+    event::{DisableBracketedPaste, DisableFocusChange},
     execute,
     terminal::{LeaveAlternateScreen, disable_raw_mode},
 };
@@ -18,9 +18,9 @@ use std::io;
 /// stdout cannot cause a second panic inside the hook.
 pub fn restore_terminal() {
     let _ = disable_raw_mode();
+    super::mouse::release();
     let _ = execute!(
         io::stdout(),
-        DisableMouseCapture,
         DisableBracketedPaste,
         DisableFocusChange,
         LeaveAlternateScreen,

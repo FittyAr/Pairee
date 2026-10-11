@@ -178,11 +178,12 @@ When **Restore last session** (`restore_session`, **Options â†’ Configuration â†
 
 ### Command-line arguments
 ```
-pairee [--cwd-file <file>] [--print-cwd] [<left folder> [<right folder>]]
+pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left folder> [<right folder>]]
 ```
 * `<left folder>` / `<right folder>` open in the shown tab of each panel, overriding the restored folders (other tabs are kept). A file opens its folder with the cursor on it.
 * `--cwd-file <file>` writes the folder of the focused panel to `<file>` on exit (empty for SFTP panels), so a shell function can `cd` there.
 * `--print-cwd` prints that folder to standard output on exit.
+* `--no-mouse` starts without mouse capture, whatever the configuration says.
 * `--version` (`-V`) prints the installed version and exits.
 
 ### Change the shell folder on exit

@@ -2,9 +2,8 @@ use anyhow::Result;
 use crossterm::{
     cursor::{Hide, Show},
     event::{
-        DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
-        EnableFocusChange, EnableMouseCapture, KeyboardEnhancementFlags,
-        PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+        DisableBracketedPaste, DisableFocusChange, EnableBracketedPaste, EnableFocusChange,
+        KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
     },
     execute,
     terminal::{
@@ -58,10 +57,14 @@ fn enable_keyboard_enhancement(stdout: &mut Stdout) -> bool {
 
 impl TerminalBackend {
     /// Enables raw mode, switches to alternate screen, and returns the Terminal instance.
-    pub fn init() -> Result<Self> {
+    /// `capture_mouse` turns on mouse reporting (see [`super::mouse`]).
+    pub fn init(capture_mouse: bool) -> Result<Self> {
         enable_raw_mode()?;
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, Hide, EnableMouseCapture)?;
+        execute!(stdout, EnterAlternateScreen, Hide)?;
+        if let Err(err) = super::mouse::set_capture(capture_mouse) {
+            log::debug!("Mouse capture not enabled: {err}");
+        }
 
         let keyboard_enhancement = enable_keyboard_enhancement(&mut stdout);
         if !keyboard_enhancement {
@@ -122,12 +125,8 @@ impl TerminalBackend {
             self.bracketed_paste = false;
         }
 
-        execute!(
-            io::stdout(),
-            DisableMouseCapture,
-            LeaveAlternateScreen,
-            Show
-        )?;
+        super::mouse::release();
+        execute!(io::stdout(), LeaveAlternateScreen, Show)?;
         Ok(())
     }
 }

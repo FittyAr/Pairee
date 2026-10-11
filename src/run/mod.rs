@@ -35,6 +35,9 @@ pub async fn run() -> Result<()> {
     // 1b. Interactive arguments (after the language is loaded, so errors are localized)
     let launch = crate::launch_args::LaunchArgs::parse(args.into_iter().skip(1))
         .map_err(|e| anyhow::anyhow!(e.message()))?;
+    if launch.no_mouse {
+        terminal::mouse::disable_from_cli();
+    }
 
     // 2. Setup application debug logger (structured tracing)
     let log_path = config::paths::get_log_file_path();

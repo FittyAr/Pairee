@@ -3,6 +3,7 @@
 ### Added
 - `pairee --version` (`-V`) prints the installed version.
 - macOS builds (Intel and Apple silicon) on every release; the built-in updater picks them up.
+- Mouse setting `Auto` / `On` / `Off` (was on/off): `Auto` captures the mouse only where the terminal reports it. `PAIREE_MOUSE=0|1` and `--no-mouse` override it, and the `toggle_mouse_capture` action hands the mouse back to the terminal to select text.
 
 ### Improved
 
@@ -14,5 +15,7 @@
 ### Removed
 
 ### Fixed
+- With the mouse setting off, Pairee still captured the mouse, so the terminal could not select text.
+- Programs started from Pairee (shell commands, file associations, `sudo`) received mouse escape sequences when the pointer moved.
 - The `.deb` package declared an invalid dependency (`$default`), so dpkg and apt refused to install it.
 - The Windows installer no longer asks for administrator rights: it installs for the current user, as it always did, and new terminals see the updated PATH right away.

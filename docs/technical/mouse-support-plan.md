@@ -190,13 +190,13 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 ## 3. Fases y tareas
 
 ### Fase 0 — Disponibilidad y captura (corrige bugs 1–4)
-- [ ] `MouseMode` + migración serde de `mouse_support`; actualizar defaults, fila de config, `lang/*`, settings-helper.
-- [ ] `src/terminal/mouse.rs::mouse_available` con `EnvProbe`; tests por `TERM`/TTY/override.
-- [ ] `--no-mouse` y `PAIREE_MOUSE`.
-- [ ] `TerminalBackend::set_mouse_capture` + `suspend()/resume()`; `init`, `restore`, panic hook.
-- [ ] `exec.rs` usa `suspend/resume` (fin de secuencias de mouse en procesos hijos).
-- [ ] Aplicar el cambio de setting en caliente.
-- [ ] Acción `toggle_mouse_capture` + entrada en catálogo de acciones.
+- [x] `MouseMode` + migración serde de `mouse_support`; actualizar defaults, fila de config, `lang/*`, settings-helper.
+- [x] `src/terminal/mouse.rs::mouse_available` con `EnvProbe`; tests por `TERM`/TTY/override.
+- [x] `--no-mouse` y `PAIREE_MOUSE`.
+- [x] `TerminalBackend::set_mouse_capture` + `suspend()/resume()`; `init`, `restore`, panic hook.
+- [x] `exec.rs` usa `suspend/resume` (fin de secuencias de mouse en procesos hijos).
+- [x] Aplicar el cambio de setting en caliente.
+- [x] Acción `toggle_mouse_capture` + entrada en catálogo de acciones.
 
 ### Fase 1 — Infraestructura
 - [ ] `ui::hit::HitMap` + `Layer` + `HitTarget`; `state.hits`; `clear` al inicio de `draw_ui`.

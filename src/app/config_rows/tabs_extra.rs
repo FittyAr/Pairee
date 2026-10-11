@@ -19,7 +19,13 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
     vec![
         title("General"),
         toggle!("int_clock", interface_clock),
-        toggle!("int_mouse", mouse_support),
+        cycle(
+            "int_mouse",
+            0,
+            CycleFormat::Angle,
+            |s| t(s.mouse.label_key()),
+            |s| s.mouse = s.mouse.next(),
+        ),
         toggle!("int_key_bar", interface_show_key_bar),
         toggle!("int_menu_bar", interface_always_show_menu_bar),
         toggle!("int_restore_session", restore_session),

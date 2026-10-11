@@ -256,6 +256,8 @@ pub enum Action {
     ToggleInactivePanel,
     /// Hide / show the key bar (Far Ctrl+B)
     ToggleKeybar,
+    /// Release / take back mouse capture (to select text with the terminal)
+    ToggleMouseCapture,
     /// Create an empty file
     NewFile,
     /// Create a file, or a folder when the name ends with `/`

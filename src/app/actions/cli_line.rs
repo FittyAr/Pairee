@@ -43,6 +43,7 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
             settings.interface_show_key_bar = !settings.interface_show_key_bar;
             context.config.save_logging();
         }
+        Action::ToggleMouseCapture => state.mouse_released = !state.mouse_released,
         _ => return false,
     }
     true

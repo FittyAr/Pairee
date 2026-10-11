@@ -105,7 +105,7 @@ pub async fn handle_input_event(
         }
         Event::Mouse(mouse) => {
             log::debug!("Mouse event: {:?}", mouse);
-            if context.config.settings.mouse_support
+            if context.config.settings.mouse != crate::config::settings::MouseMode::Off
                 && (super::scrollbar_mouse::handle_scrollbar_mouse(state, mouse)
                     || super::tab_mouse::handle_tab_bar_mouse(
                         state,

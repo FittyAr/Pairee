@@ -9,7 +9,7 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    PluginConfig, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
+    MouseMode, PluginConfig, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
     default_auto_refresh_ssh_poll_secs, default_compare_mtime_tolerance_secs,
     default_git_log_limit, default_plugins_dev_dir, default_ssh_timeout_secs,
     default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
@@ -28,8 +28,10 @@ pub struct Settings {
     pub show_hidden: bool,
     /// Global Secure Mode boundary
     pub secure_mode: bool,
-    /// Toggle terminal mouse interactions
-    pub mouse_support: bool,
+    /// When to capture the mouse (`auto` / `on` / `off`). Older files
+    /// stored the boolean `mouse_support`.
+    #[serde(default, alias = "mouse_support")]
+    pub mouse: MouseMode,
     /// False only on a freshly created config. Existing files without the
     /// field deserialize as `true` so upgrades skip the first-run dialog.
     #[serde(default = "default_true")]

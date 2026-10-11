@@ -1,11 +1,12 @@
 //! Command-line arguments of an interactive run:
-//! `pairee [--cwd-file <file>] [--print-cwd] [<left> [<right>]]`.
+//! `pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left> [<right>]]`.
 
 use crate::config::localization::t;
 use std::path::PathBuf;
 
 const CWD_FILE: &str = "--cwd-file";
 const PRINT_CWD: &str = "--print-cwd";
+const NO_MOUSE: &str = "--no-mouse";
 /// Consumed by the standalone launcher before the arguments are parsed.
 const STANDALONE: &str = "--standalone";
 const MAX_PATHS: usize = 2;
@@ -18,6 +19,8 @@ pub struct LaunchArgs {
     pub cwd_file: Option<PathBuf>,
     /// Print the focused panel's folder to stdout on exit.
     pub print_cwd: bool,
+    /// Never capture the mouse, whatever the configuration says.
+    pub no_mouse: bool,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -59,6 +62,8 @@ impl LaunchArgs {
                 parsed.cwd_file = Some(PathBuf::from(value));
             } else if arg == PRINT_CWD {
                 parsed.print_cwd = true;
+            } else if arg == NO_MOUSE {
+                parsed.no_mouse = true;
             } else if arg != STANDALONE {
                 return Err(ArgError::UnknownOption(arg));
             }
@@ -106,6 +111,7 @@ mod tests {
 
     #[test]
     fn standalone_flag_is_ignored() {
+        assert!(parse(&["--no-mouse"]).unwrap().no_mouse);
         let args = parse(&["--standalone", "/a"]).unwrap();
         assert_eq!(args.paths, [PathBuf::from("/a")]);
     }

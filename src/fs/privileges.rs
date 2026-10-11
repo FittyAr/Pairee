@@ -50,15 +50,9 @@ pub fn acquire_admin_privileges() -> Result<()> {
 /// for the password) and restores the TUI afterwards.
 #[cfg(not(target_os = "windows"))]
 fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::process::ExitStatus> {
-    use crossterm::cursor::Show;
-    use crossterm::execute;
-    use crossterm::terminal::{
-        EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode,
-    };
     use std::process::Stdio;
 
-    let _ = disable_raw_mode();
-    let _ = execute!(std::io::stdout(), LeaveAlternateScreen, Show);
+    let suspended = crate::terminal::suspend::suspend();
 
     println!("\n{message}");
 
@@ -69,8 +63,9 @@ fn run_sudo(message: &str, args: &[&std::ffi::OsStr]) -> std::io::Result<std::pr
         .stderr(Stdio::inherit())
         .status();
 
-    let _ = enable_raw_mode();
-    let _ = execute!(std::io::stdout(), EnterAlternateScreen);
+    if let Ok(suspended) = suspended {
+        let _ = suspended.resume();
+    }
     status
 }
 

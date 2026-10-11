@@ -81,3 +81,25 @@ fn existing_config_without_field_skips_onboarding() {
         "missing field must mean already onboarded"
     );
 }
+
+#[test]
+fn mouse_mode_reads_the_old_boolean_and_the_new_names() {
+    use super::MouseMode;
+    let load = |line: &str| -> MouseMode {
+        let mut table: toml::Table =
+            toml::from_str(&toml::to_string(&Settings::default()).unwrap()).unwrap();
+        table.remove("mouse");
+        let extra: toml::Table = toml::from_str(line).unwrap();
+        table.extend(extra);
+        let loaded: Settings = toml::from_str(&toml::to_string(&table).unwrap()).unwrap();
+        loaded.mouse
+    };
+    assert_eq!(load("mouse_support = true"), MouseMode::Auto);
+    assert_eq!(load("mouse_support = false"), MouseMode::Off);
+    assert_eq!(load("mouse = \"on\""), MouseMode::On);
+    assert_eq!(load("mouse = \"off\""), MouseMode::Off);
+    assert_eq!(load("mouse = \"whatever\""), MouseMode::Auto);
+    assert_eq!(load(""), MouseMode::Auto);
+    let written = toml::to_string(&Settings::default()).unwrap();
+    assert!(written.contains("mouse = \"auto\""), "{written}");
+}

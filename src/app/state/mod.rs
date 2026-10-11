@@ -145,6 +145,9 @@ pub struct AppState {
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
     /// Tab bar cells painted last frame (mouse clicks on tabs).
     pub tab_bar: crate::ui::tab_bar::TabBarHits,
+    /// Mouse capture handed back to the terminal (`toggle_mouse_capture`)
+    /// so it can select text; the main loop releases it while set.
+    pub mouse_released: bool,
 
     /// Clipboard shared by every editor screen (system + internal fallback).
     pub editor_clipboard: crate::app::editor::EditorClipboard,
@@ -206,6 +209,7 @@ impl AppState {
             auto_refresh: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             tab_bar: Default::default(),
+            mouse_released: false,
             editor_clipboard: Default::default(),
         }
     }

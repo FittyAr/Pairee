@@ -178,11 +178,12 @@ Con **Restaurar la última sesión** (`restore_session`, **Opciones → Configur
 
 ### Argumentos de línea de comandos
 ```
-pairee [--cwd-file <archivo>] [--print-cwd] [<carpeta izquierda> [<carpeta derecha>]]
+pairee [--cwd-file <archivo>] [--print-cwd] [--no-mouse] [<carpeta izquierda> [<carpeta derecha>]]
 ```
 * `<carpeta izquierda>` / `<carpeta derecha>` se abren en la pestaña visible de cada panel y tienen prioridad sobre las carpetas restauradas (las demás pestañas se conservan). Un archivo abre su carpeta con el cursor sobre él.
 * `--cwd-file <archivo>` escribe al salir la carpeta del panel activo en `<archivo>` (vacío en paneles SFTP), para que una función de la shell haga `cd` allí.
 * `--print-cwd` imprime esa carpeta por la salida estándar al salir.
+* `--no-mouse` arranca sin capturar el ratón, diga lo que diga la configuración.
 * `--version` (`-V`) muestra la versión instalada y termina.
 
 ### Cambiar la carpeta de la shell al salir
