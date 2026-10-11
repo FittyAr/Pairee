@@ -534,6 +534,16 @@ fn double_clicking_a_list_row_runs_it() {
     );
 }
 
+/// Cell of the first option row (a control that ends pressing Space) of
+/// the open dialog.
+fn option_row(h: &mut Harness) -> (u16, u16) {
+    let (x, y) = h.hit_cell(|t| {
+        matches!(t, HitTarget::PopupKeys(keys)
+            if keys.last().map(|k| k.code) == Some(crossterm::event::KeyCode::Char(' ')))
+    });
+    (x + 1, y)
+}
+
 /// Cell of the first dialog control showing `label` on screen.
 fn control(h: &mut Harness, label: &str) -> (u16, u16) {
     h.render();
@@ -552,7 +562,7 @@ fn form_controls_toggle_type_and_press_buttons() {
         other => panic!("mkdir closed: {other:?}"),
     };
     let before = multiple(&h);
-    let (x, y) = control(&mut h, "[ ]");
+    let (x, y) = option_row(&mut h);
     h.click(x, y);
     assert_ne!(multiple(&h), before, "the checkbox row toggles");
     // Back in the field, typing goes to it; then OK creates the folder.
@@ -602,13 +612,14 @@ fn copy_dialog_option_rows_toggle_on_click() {
     h.reread();
     h.focus("a.txt").keys("@copy");
     let flags = |h: &Harness| match top(h) {
-        Some(PopupType::TransferPrompt(p)) => {
-            p.flags().into_iter().map(|(on, _)| on).collect::<Vec<_>>()
-        }
+        Some(PopupType::TransferPrompt(p)) => (
+            p.already_existing,
+            p.flags().into_iter().map(|(on, _)| on).collect::<Vec<_>>(),
+        ),
         other => panic!("{other:?}"),
     };
     let before = flags(&h);
-    let (x, y) = control(&mut h, "[");
+    let (x, y) = option_row(&mut h);
     h.click(x, y);
     assert_ne!(flags(&h), before, "{}", h.screen_text());
 }
