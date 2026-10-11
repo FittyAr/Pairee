@@ -2,7 +2,7 @@ use crate::app::state::PopupType;
 use crate::app::state::popup::CreateKind;
 use crate::app::state::popup::forms::MKDIR_FORM;
 use crate::config::localization::t;
-use crate::ui::popup::kit::{self, FocusStyles};
+use crate::ui::popup::kit::{self, FocusStyles, mouse::FormFocus};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -48,6 +48,14 @@ pub fn render(
         .split(inner);
 
     let styles = FocusStyles::from_theme(theme);
+    let form = FormFocus::new(MKDIR_FORM, *cursor_idx);
+    let field_row = Rect {
+        y: chunks[0].y + 1,
+        height: 1,
+        ..chunks[0]
+    };
+    form.field(field_row, 0, field_row.x + 3);
+    form.option(chunks[1], 1);
     let focused = *cursor_idx == 0;
     let style = styles.pick(focused);
     let mut field = vec![ratatui::text::Span::styled(" > ", style)];
@@ -72,13 +80,12 @@ pub fn render(
         .style(styles.row(*cursor_idx, 1)),
         chunks[1],
     );
-    f.render_widget(
-        kit::button_bar(
-            &[t("btn_ok_bracket"), t("btn_cancel_bracket")],
-            MKDIR_FORM.focused_button(*cursor_idx),
-            styles,
-        ),
+    kit::form_buttons(
+        f,
         chunks[2],
+        &[t("btn_ok_bracket"), t("btn_cancel_bracket")],
+        form,
+        styles,
     );
     true
 }

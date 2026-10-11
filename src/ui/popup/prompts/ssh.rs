@@ -67,6 +67,13 @@ pub fn render(
             .block(presets_block)
             .style(Style::default().bg(parse_color(&theme.popup_bg)));
         f.render_widget(list, form_chunks[0]);
+        let form = kit::mouse::FormFocus::new(FORM, *cursor_idx);
+        register_presets(
+            form_chunks[0],
+            prompt,
+            &context.config.settings.ssh_presets,
+            form,
+        );
 
         // Vertical separator
         let sep_str_vertical = ratatui::symbols::line::VERTICAL;
@@ -78,7 +85,7 @@ pub fn render(
         }
 
         // Right column: Inputs
-        render_inputs(f, form_chunks[2], prompt, styles);
+        render_inputs(f, form_chunks[2], prompt, styles, form);
 
         // Bottom horizontal separator
         let sep_str_horizontal = ratatui::symbols::line::HORIZONTAL.repeat(inner.width as usize);
@@ -95,18 +102,40 @@ pub fn render(
             "btn_cancel_bracket",
         ]
         .map(|key| format!(" {} ", t(key)));
-        f.render_widget(
-            kit::button_bar(
-                &buttons,
-                cursor_idx.checked_sub(SshConnectPromptState::BUTTON_CONNECT),
-                styles,
-            ),
-            main_chunks[2],
-        );
+        kit::form_buttons(f, main_chunks[2], &buttons, form, styles);
 
         true
     } else {
         false
+    }
+}
+
+/// Focus order of the dialog for the mouse: the preset list, the fields,
+/// then the buttons (Tab walks them in that order).
+const FORM: crate::app::form::FormLayout = crate::app::form::FormLayout::new(
+    SshConnectPromptState::ROW_COUNT,
+    SshConnectPromptState::BUTTON_CONNECT,
+);
+
+/// A click on a preset focuses the list and walks to the preset with the
+/// arrows (which load it).
+fn register_presets(
+    area: Rect,
+    prompt: &SshConnectPromptState,
+    presets: &[crate::config::settings::SshPreset],
+    form: kit::mouse::FormFocus,
+) {
+    use crossterm::event::KeyCode;
+    let current = prompt.selected_preset_idx.unwrap_or(0) as i64;
+    // The list's title takes the first row.
+    for (i, y) in (0..presets.len()).zip(area.y + 1..area.bottom()) {
+        let mut keys = form.keys_to(SshConnectPromptState::ROW_PRESETS);
+        keys.extend(kit::mouse::presses(
+            i as i64 - current,
+            KeyCode::Down,
+            KeyCode::Up,
+        ));
+        kit::mouse::keys(Rect::new(area.x, y, area.width, 1), keys);
     }
 }
 
@@ -147,6 +176,7 @@ fn render_inputs(
     area: Rect,
     prompt: &SshConnectPromptState,
     styles: kit::FocusStyles,
+    form: kit::mouse::FormFocus,
 ) {
     let input_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -168,6 +198,8 @@ fn render_inputs(
     );
     for (field, chunk) in SshField::ALL.iter().zip(&input_chunks[1..]) {
         f.render_widget(field_line(prompt, *field, styles), *chunk);
+        // Text after `" {label:<14} "`.
+        form.field(*chunk, field.row(), chunk.x + 16);
     }
 }
 

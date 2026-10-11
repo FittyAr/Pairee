@@ -84,13 +84,12 @@ pub fn render(
             ..styles
         }
     };
-    f.render_widget(
-        kit::button_bar(
-            &[t("multi_rename_button"), t("btn_cancel_bracket")],
-            Dialog::FORM.focused_button(dialog.focus),
-            rename_style,
-        ),
+    kit::form_buttons(
+        f,
         rows[8],
+        &[t("multi_rename_button"), t("btn_cancel_bracket")],
+        kit::mouse::FormFocus::new(Dialog::FORM, dialog.focus),
+        rename_style,
     );
     true
 }
@@ -124,12 +123,16 @@ fn render_fields(
     fields: &[RenameField],
 ) {
     let columns = equal_columns(area, fields.len());
+    let focus = kit::mouse::FormFocus::new(Dialog::FORM, dialog.focus);
     for (field, column) in fields.iter().zip(columns.iter()) {
         let label = t(field.label_key());
-        let focused = dialog.focus == field.row();
-        f.render_widget(
-            kit::inline_field(&label, dialog.field(*field), focused, styles),
+        kit::form_inline_field(
+            f,
             *column,
+            (&label, dialog.field(*field)),
+            field.row(),
+            focus,
+            styles,
         );
     }
 }
@@ -155,8 +158,9 @@ fn render_options(f: &mut Frame, dialog: &Dialog, styles: kit::FocusStyles, area
             ),
         ),
     ];
+    let focus = kit::mouse::FormFocus::new(Dialog::FORM, dialog.focus);
     for ((row, text), column) in cells.iter().zip(columns.iter()) {
-        f.render_widget(kit::marked_row(text, dialog.focus == *row, styles), *column);
+        kit::form_option(f, *column, text, *row, focus, styles);
     }
 }
 

@@ -495,3 +495,120 @@ fn flowing_dialogs_resize_by_their_corner_and_fixed_ones_do_not() {
             .is_none()
     );
 }
+
+fn palette_cursor(h: &Harness) -> usize {
+    match top(h) {
+        Some(PopupType::CommandPalette { cursor_idx, .. }) => *cursor_idx,
+        other => panic!("palette not open: {other:?}"),
+    }
+}
+
+#[test]
+fn list_rows_take_clicks_double_clicks_and_the_wheel() {
+    let mut h = Harness::new();
+    h.keys("@command_palette");
+    let row = |steps| move |t: &HitTarget| *t == HitTarget::PopupRow { steps };
+    let (x, y) = h.hit_cell(row(2));
+    h.click(x + 2, y);
+    assert_eq!(palette_cursor(&h), 2);
+    h.wheel(x + 2, y, true);
+    assert_eq!(palette_cursor(&h), 5);
+    h.wheel(x + 2, y, false);
+    assert_eq!(palette_cursor(&h), 2);
+    // Clicking inside the palette keeps it open (it records its body now).
+    let (qx, qy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
+    h.click(qx + 4, qy);
+    assert!(matches!(top(&h), Some(PopupType::CommandPalette { .. })));
+}
+
+#[test]
+fn double_clicking_a_list_row_runs_it() {
+    let mut h = Harness::new();
+    h.keys("@command_palette").text("about");
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupRow { steps: 0 });
+    h.double_click(x + 2, y);
+    assert!(
+        matches!(top(&h), Some(PopupType::About { .. })),
+        "{}",
+        h.screen_text()
+    );
+}
+
+/// Cell of the first dialog control showing `label` on screen.
+fn control(h: &mut Harness, label: &str) -> (u16, u16) {
+    h.render();
+    let (x, y) = h.locate(label);
+    (x + 1, y)
+}
+
+#[test]
+fn form_controls_toggle_type_and_press_buttons() {
+    let mut h = Harness::new();
+    h.keys("@mkdir");
+    let multiple = |h: &Harness| match top(h) {
+        Some(PopupType::MkDirPrompt {
+            process_multiple, ..
+        }) => *process_multiple,
+        other => panic!("mkdir closed: {other:?}"),
+    };
+    let before = multiple(&h);
+    let (x, y) = control(&mut h, "[ ]");
+    h.click(x, y);
+    assert_ne!(multiple(&h), before, "the checkbox row toggles");
+    // Back in the field, typing goes to it; then OK creates the folder.
+    let (fx, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
+    h.click(fx + 10, fy);
+    h.text("made_by_mouse");
+    let ok = crate::config::localization::t("btn_ok_bracket");
+    let (x, y) = control(&mut h, &ok);
+    h.click(x, y);
+    assert!(top(&h).is_none(), "{}", h.screen_text());
+    assert!(h.exists("work/left/made_by_mouse"));
+}
+
+#[test]
+fn a_cancel_button_closes_its_form() {
+    let mut h = Harness::new();
+    h.keys("@mkdir");
+    let cancel = crate::config::localization::t("btn_cancel_bracket");
+    let (x, y) = control(&mut h, &cancel);
+    h.click(x, y);
+    assert!(top(&h).is_none());
+}
+
+#[test]
+fn clicking_in_a_field_moves_its_cursor() {
+    let mut h = Harness::new();
+    h.write("work/left/report.txt", "r");
+    h.reread();
+    h.focus("report.txt").keys("@rename");
+    let (fx, fy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
+    let text_x = match h.state.hits.at(fx, fy).map(|hit| hit.target) {
+        Some(HitTarget::PopupField { text_x, .. }) => text_x,
+        other => panic!("{other:?}"),
+    };
+    h.click(text_x + 3, fy);
+    let cursor = match top(&h) {
+        Some(PopupType::RenamePrompt { input, .. }) => input.cursor(),
+        other => panic!("{other:?}"),
+    };
+    assert_eq!(cursor, 3);
+}
+
+#[test]
+fn copy_dialog_option_rows_toggle_on_click() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "a");
+    h.reread();
+    h.focus("a.txt").keys("@copy");
+    let flags = |h: &Harness| match top(h) {
+        Some(PopupType::TransferPrompt(p)) => {
+            p.flags().into_iter().map(|(on, _)| on).collect::<Vec<_>>()
+        }
+        other => panic!("{other:?}"),
+    };
+    let before = flags(&h);
+    let (x, y) = control(&mut h, "[");
+    h.click(x, y);
+    assert_ne!(flags(&h), before, "{}", h.screen_text());
+}

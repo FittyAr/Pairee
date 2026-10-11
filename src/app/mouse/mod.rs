@@ -6,6 +6,7 @@ mod bars;
 mod dialog_drag;
 pub mod gesture;
 mod panel;
+mod popup;
 pub mod scrollbar;
 mod tabs;
 
@@ -86,7 +87,7 @@ pub async fn handle(
     if matches!(
         mouse.kind,
         MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
-    ) && let Some(consumed) = wheel(state, mouse)
+    ) && let Some(consumed) = wheel(state, context, terminal_backend, mouse).await?
     {
         return Ok(consumed);
     }
@@ -220,6 +221,9 @@ async fn on_click(
             }
             Some(true)
         }
+        HitTarget::PopupKeys(_) | HitTarget::PopupRow { .. } | HitTarget::PopupField { .. } => {
+            Some(popup::click(state, context, terminal_backend, &target, click).await?)
+        }
         HitTarget::MenuReveal => {
             let width = state
                 .hits
@@ -247,14 +251,27 @@ async fn on_click(
     })
 }
 
-/// A wheel notch not taken by a scrollbar. `None` lets it fall through.
-fn wheel(state: &mut AppState, mouse: MouseEvent) -> Option<bool> {
-    let hit = lookup(state, mouse.column, mouse.row)?;
+/// A wheel notch over a panel or a dialog list (the cursor follows; a
+/// scrollbar would only shift the view). `None` lets it fall through.
+async fn wheel(
+    state: &mut AppState,
+    context: &mut AppContext,
+    terminal_backend: &mut TerminalBackend,
+    mouse: MouseEvent,
+) -> anyhow::Result<Option<bool>> {
+    let Some(hit) = lookup(state, mouse.column, mouse.row) else {
+        return Ok(None);
+    };
     if state.dialogs.is_some() && hit.layer < Layer::Popup {
-        return Some(false);
+        return Ok(Some(false));
     }
     let down = mouse.kind == MouseEventKind::ScrollDown;
-    panel::side_of(&hit.target).map(|side| panel::wheel(state, side, down))
+    if let HitTarget::PopupRow { .. } = hit.target {
+        return popup::wheel(state, context, terminal_backend, down)
+            .await
+            .map(Some);
+    }
+    Ok(panel::side_of(&hit.target).map(|side| panel::wheel(state, side, down)))
 }
 
 /// Runs `action` as if its key had been pressed.

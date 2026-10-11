@@ -166,7 +166,7 @@ pub(crate) fn popup_body(area: Rect) -> Rect {
 
 /// A centered dialog area on `screen`, moved where the user put the dialog,
 /// and recorded for the mouse.
-fn place_popup(area: Rect, screen: Rect) -> Rect {
+pub(crate) fn place_popup(area: Rect, screen: Rect) -> Rect {
     popup_body(crate::ui::placement::place(area, screen))
 }
 

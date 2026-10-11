@@ -40,7 +40,7 @@ pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &Theme, size: Re
     f.render_widget(path_line("sync_right_path", &dialog.right), chunks[1]);
     f.render_widget(kit::separator(inner.width, fg), chunks[2]);
 
-    let focus = dialog.focus;
+    let focus = kit::mouse::FormFocus::new(OPTIONS_FORM, dialog.focus);
     let direction =
         t("sync_direction_row").replacen("{}", &t(dialog.options.direction.label_key()), 1);
     let content = t("sync_compare_content").replacen("{}", dialog.algorithm.as_str(), 1);
@@ -56,19 +56,17 @@ pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &Theme, size: Re
         ),
     ];
     for (row, text) in option_rows {
-        f.render_widget(
-            kit::marked_row(&text, focus == row, styles),
-            chunks[3 + row],
-        );
+        kit::form_option(f, chunks[3 + row], &text, row, focus, styles);
     }
-    f.render_widget(
-        kit::labelled_field(&t("sync_mask"), &dialog.mask, focus == rows::MASK, styles),
+    kit::form_labelled_field(
+        f,
         chunks[6],
+        (&t("sync_mask"), &dialog.mask),
+        rows::MASK,
+        focus,
+        styles,
     );
     f.render_widget(kit::separator(inner.width, fg), chunks[7]);
     let buttons = [t("sync_btn_compare"), t("btn_cancel_bracket")];
-    f.render_widget(
-        kit::button_bar(&buttons, OPTIONS_FORM.focused_button(focus), styles),
-        chunks[8],
-    );
+    kit::form_buttons(f, chunks[8], &buttons, focus, styles);
 }

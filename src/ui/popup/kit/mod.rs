@@ -6,6 +6,7 @@
 mod field;
 mod filter_list;
 mod list_popup;
+pub mod mouse;
 
 pub use field::{field_spans, template_with_field};
 pub use filter_list::FilterListView;
@@ -281,6 +282,66 @@ pub fn button_bar<'a>(
         spans.push(Span::styled(label.clone(), styles.pick(focused == Some(i))));
     }
     Paragraph::new(Line::from(spans)).alignment(Alignment::Center)
+}
+
+/// [`labelled_field`] for form row `row`, drawn at `area` and clickable.
+pub fn form_labelled_field(
+    f: &mut Frame,
+    area: Rect,
+    (label, field): (&str, &TextField),
+    row: usize,
+    focus: mouse::FormFocus,
+    styles: FocusStyles,
+) {
+    let focused = focus.focus == row;
+    f.render_widget(labelled_field(label, field, focused, styles), area);
+    focus.field(area, row, area.x + 5);
+}
+
+/// [`inline_field`] for form row `row`, drawn at `area` and clickable.
+pub fn form_inline_field(
+    f: &mut Frame,
+    area: Rect,
+    (label, field): (&str, &TextField),
+    row: usize,
+    focus: mouse::FormFocus,
+    styles: FocusStyles,
+) {
+    let focused = focus.focus == row;
+    f.render_widget(inline_field(label, field, focused, styles), area);
+    let prefix = crate::ui::text_width::display_width(focus_marker(focused))
+        + crate::ui::text_width::display_width(label)
+        + 1;
+    focus.field(area, row, area.x + prefix as u16);
+}
+
+/// [`marked_row`] for option row `row` (checkbox, cycle), drawn at `area`;
+/// a click focuses it and presses Space.
+pub fn form_option(
+    f: &mut Frame,
+    area: Rect,
+    text: &str,
+    row: usize,
+    focus: mouse::FormFocus,
+    styles: FocusStyles,
+) {
+    f.render_widget(marked_row(text, focus.focus == row, styles), area);
+    focus.option(area, row);
+}
+
+/// [`button_bar`] of a form dialog drawn at `area`, its buttons clickable.
+pub fn form_buttons(
+    f: &mut Frame,
+    area: Rect,
+    labels: &[String],
+    focus: mouse::FormFocus,
+    styles: FocusStyles,
+) {
+    f.render_widget(
+        button_bar(labels, focus.form.focused_button(focus.focus), styles),
+        area,
+    );
+    focus.buttons(area, labels);
 }
 
 /// A full-width horizontal rule.

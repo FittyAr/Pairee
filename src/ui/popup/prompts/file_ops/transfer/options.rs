@@ -24,6 +24,7 @@ pub fn render_options(
     width: u16,
 ) {
     let focus = prompt.cursor_idx;
+    let form = kit::mouse::FormFocus::new(Prompt::FORM, focus);
     let sep = Style::default().fg(Color::Yellow);
     for chunk in [1, 10, 12] {
         f.render_widget(kit::separator(width, sep), chunks[chunk]);
@@ -57,6 +58,7 @@ pub fn render_options(
             Paragraph::new(text).style(styles.row(focus, row)),
             chunks[row + 1],
         );
+        form.option(chunks[row + 1], row);
     }
 
     let mask = if prompt.filter_mask.is_empty() {
@@ -73,4 +75,5 @@ pub fn render_options(
         Paragraph::new(filter).style(styles.row(focus, Prompt::ROW_FILTER)),
         chunks[11],
     );
+    form.option(chunks[11], Prompt::ROW_FILTER);
 }

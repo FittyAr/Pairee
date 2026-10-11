@@ -17,7 +17,7 @@ use crate::app::state::tabs::TabId;
 use crate::app::state::{ActivePanel, SortField};
 use crate::keybindings::Action;
 use crate::ui::scrollbar::types::ScrollbarHitTarget;
-use crossterm::event::KeyModifiers;
+use crossterm::event::{KeyEvent, KeyModifiers};
 use ratatui::layout::{Position, Rect};
 use std::cell::RefCell;
 
@@ -71,6 +71,16 @@ pub enum HitTarget {
     PopupBody,
     /// A dialog's top border: dragging it moves the dialog.
     PopupTitle,
+    /// A dialog control (button, option row, tab) driven through the
+    /// dialog's own keys: a click presses `keys` in order.
+    PopupKeys(Vec<KeyEvent>),
+    /// A list row `steps` rows below (negative: above) the cursor: a click
+    /// moves the cursor there with the arrow keys, a double click also
+    /// presses Enter, the wheel moves it.
+    PopupRow { steps: i32 },
+    /// A text field: a click presses `keys` (to focus it), then puts the
+    /// cursor under the pointer, the text starting at column `text_x`.
+    PopupField { keys: Vec<KeyEvent>, text_x: u16 },
     /// A dialog's bottom-right corner: dragging it resizes the dialog.
     PopupResize,
 }

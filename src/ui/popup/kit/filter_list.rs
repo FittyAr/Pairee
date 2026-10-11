@@ -31,7 +31,7 @@ impl FilterListView<'_> {
         let height = area.height.min(18);
         let x = area.x + (area.width.saturating_sub(width)) / 2;
         let y = area.y + (area.height.saturating_sub(height)) / 3;
-        let rect = Rect::new(x, y, width, height);
+        let rect = crate::ui::popup::place_popup(Rect::new(x, y, width, height), area);
 
         let normal = popup_fg(theme).bg(parse_color(&theme.popup_bg));
         f.render_widget(Clear, rect);
@@ -58,12 +58,20 @@ impl FilterListView<'_> {
             Span::raw(self.query.text().to_string()),
         ]);
         f.render_widget(Paragraph::new(prompt).style(normal), chunks[0]);
+        crate::ui::hit::register(
+            chunks[0],
+            crate::ui::hit::HitTarget::PopupField {
+                keys: Vec::new(),
+                text_x: chunks[0].x + 2,
+            },
+        );
 
         let cursor = self.cursor.min(self.rows.len().saturating_sub(1));
         let highlighted = selection(theme).add_modifier(Modifier::BOLD);
         // Keep the cursor row in view when the list is taller than the box.
         let height = chunks[1].height as usize;
         let start = crate::ui::scrollbar::centered_scroll(cursor, self.rows.len(), height);
+        super::mouse::list_rows(chunks[1], start, self.rows.len(), cursor);
         let items: Vec<ListItem> = self
             .rows
             .into_iter()

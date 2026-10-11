@@ -46,13 +46,12 @@ pub fn render(
         t("btn_filter"),
         t("btn_cancel_bracket"),
     ];
-    f.render_widget(
-        kit::button_bar(
-            &buttons,
-            Prompt::FORM.focused_button(prompt.cursor_idx),
-            styles,
-        ),
+    kit::form_buttons(
+        f,
         chunks[13],
+        &buttons,
+        kit::mouse::FormFocus::new(Prompt::FORM, prompt.cursor_idx),
+        styles,
     );
     true
 }

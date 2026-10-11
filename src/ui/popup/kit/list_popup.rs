@@ -98,6 +98,13 @@ impl ListPopup<'_> {
             );
         }
         f.render_widget(Paragraph::new(lines).style(popup_fg(theme)), inner);
+        let header = reserved - hint_rows;
+        let rows_area = Rect {
+            y: inner.y + header,
+            height: (height as u16).min(inner.height.saturating_sub(header)),
+            ..inner
+        };
+        super::mouse::list_rows(rows_area, start, total, self.cursor);
 
         if let Some((hits, id)) = self.scrollbar {
             scrollbar::render_vertical_right(

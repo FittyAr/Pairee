@@ -31,4 +31,14 @@ pub fn render_input(f: &mut Frame, area: Rect, prompt: &Prompt, styles: FocusSty
         Line::from(spans),
     ];
     f.render_widget(Paragraph::new(Text::from(lines)), area);
+    let field = Rect {
+        y: area.y + 1,
+        height: 1,
+        ..area
+    };
+    kit::mouse::FormFocus::new(Prompt::FORM, prompt.cursor_idx).field(
+        field,
+        Prompt::ROW_INPUT,
+        field.x,
+    );
 }

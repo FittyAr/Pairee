@@ -73,7 +73,7 @@ fn render_search_prompt(
         .split(inner);
 
     let styles = kit::FocusStyles::from_theme(theme);
-    let focus = *cursor_idx;
+    let focus = kit::mouse::FormFocus::new(SEARCH_FORM, *cursor_idx);
     f.render_widget(
         Paragraph::new(format!(
             " {}: {}",
@@ -83,42 +83,49 @@ fn render_search_prompt(
         .style(styles.normal),
         chunks[0],
     );
-    f.render_widget(
-        kit::labelled_field(&t("prompt_find_pattern"), query, focus == 0, styles),
+    kit::form_labelled_field(
+        f,
         chunks[1],
+        (&t("prompt_find_pattern"), query),
+        0,
+        focus,
+        styles,
     );
-    f.render_widget(
-        kit::labelled_field(&t("prompt_find_content"), content_query, focus == 1, styles),
+    kit::form_labelled_field(
+        f,
         chunks[2],
+        (&t("prompt_find_content"), content_query),
+        1,
+        focus,
+        styles,
     );
     f.render_widget(kit::separator(inner.width, kit::fg(Color::Cyan)), chunks[3]);
-    f.render_widget(
-        kit::marked_row(
-            &kit::checkbox_row(*case_sensitive, &t("sys_case_sensitive")),
-            focus == 2,
-            styles,
-        ),
+    kit::form_option(
+        f,
         chunks[4],
+        &kit::checkbox_row(*case_sensitive, &t("sys_case_sensitive")),
+        2,
+        focus,
+        styles,
     );
-    f.render_widget(
-        kit::marked_row(
-            &format!(
-                "{} < {} >",
-                t("search_target_label"),
-                t(search_target.label_key())
-            ),
-            focus == 3,
-            styles,
-        ),
+    kit::form_option(
+        f,
         chunks[5],
-    );
-    f.render_widget(
-        kit::button_bar(
-            &[t("btn_ok_bracket"), t("btn_cancel_bracket")],
-            SEARCH_FORM.focused_button(focus),
-            styles,
+        &format!(
+            "{} < {} >",
+            t("search_target_label"),
+            t(search_target.label_key())
         ),
+        3,
+        focus,
+        styles,
+    );
+    kit::form_buttons(
+        f,
         chunks[7],
+        &[t("btn_ok_bracket"), t("btn_cancel_bracket")],
+        focus,
+        styles,
     );
 
     true

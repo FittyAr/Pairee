@@ -79,27 +79,30 @@ pub fn render_search(
         active: kit::selection(theme),
         normal: kit::popup_fg(theme),
     };
-    let focus = search.cursor_idx;
-    f.render_widget(
-        kit::labelled_field(&t("search_query_label"), &search.query, focus == 0, styles),
+    let focus = kit::mouse::FormFocus::new(Search::FORM, search.cursor_idx);
+    kit::form_labelled_field(
+        f,
         chunks[0],
+        (&t("search_query_label"), &search.query),
+        0,
+        focus,
+        styles,
     );
     f.render_widget(kit::separator(inner.width, border), chunks[1]);
-    f.render_widget(
-        kit::marked_row(
-            &kit::checkbox_row(search.case_sensitive, &t("sys_case_sensitive")),
-            focus == Search::ROW_CASE,
-            styles,
-        ),
+    kit::form_option(
+        f,
         chunks[2],
+        &kit::checkbox_row(search.case_sensitive, &t("sys_case_sensitive")),
+        Search::ROW_CASE,
+        focus,
+        styles,
     );
-    f.render_widget(
-        kit::button_bar(
-            &[t("btn_search_bracket"), t("btn_cancel_bracket")],
-            Search::FORM.focused_button(focus),
-            styles,
-        ),
+    kit::form_buttons(
+        f,
         chunks[4],
+        &[t("btn_search_bracket"), t("btn_cancel_bracket")],
+        focus,
+        styles,
     );
     true
 }

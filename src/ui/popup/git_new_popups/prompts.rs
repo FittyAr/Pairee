@@ -57,10 +57,12 @@ pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: R
         .split(inner);
 
     f.render_widget(Paragraph::new(label), chunks[0]);
+    let focus = kit::mouse::FormFocus::new(Prompt::FORM, prompt.cursor_idx);
     f.render_widget(
         kit::input_box(&prompt.input, prompt.cursor_idx == 0, theme),
         chunks[1],
     );
+    focus.field(chunks[1], 0, chunks[1].x + 1);
     let styles = FocusStyles {
         active: kit::selection(theme).add_modifier(Modifier::BOLD),
         normal: kit::popup_fg(theme),
@@ -69,14 +71,7 @@ pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: R
         format!(" [ {} ] ", t("btn_ok").trim()),
         format!(" [ {} ] ", t("btn_cancel").trim()),
     ];
-    f.render_widget(
-        kit::button_bar(
-            &buttons,
-            Prompt::FORM.focused_button(prompt.cursor_idx),
-            styles,
-        ),
-        chunks[3],
-    );
+    kit::form_buttons(f, chunks[3], &buttons, focus, styles);
     true
 }
 
@@ -121,6 +116,12 @@ pub fn render_field_pair(
         f.render_widget(
             kit::input_box(&pair.fields[i], pair.focus == i, theme),
             chunks[i * 2 + 1],
+        );
+        // The pair switches fields with Tab like a two-row form.
+        kit::mouse::FormFocus::new(crate::app::form::FormLayout::new(2, 2), pair.focus).field(
+            chunks[i * 2 + 1],
+            i,
+            chunks[i * 2 + 1].x + 1,
         );
     }
     f.render_widget(kit::hint(texts.hint), chunks[5]);
