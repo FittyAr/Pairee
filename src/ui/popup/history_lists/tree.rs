@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, ListPopup, Scroll};
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
@@ -38,7 +38,7 @@ pub(super) fn render_tree(
         })
         .collect();
     ListPopup {
-        area: centered_rect(55, 70, size),
+        area: centered_rect_in(55, 70, size),
         title: t("tree_view_title"),
         border: Color::Green,
         empty: None,

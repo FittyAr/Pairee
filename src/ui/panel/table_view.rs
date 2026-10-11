@@ -4,14 +4,15 @@
 
 use super::helpers::{entry_size_text, format_date, visible_range, visible_slice};
 use super::list_ctx::ListCtx;
-use crate::app::state::{PanelState, PanelViewMode};
+use crate::app::state::{PanelState, PanelViewMode, SortField};
 use crate::config::localization::t;
 use crate::fs::FileEntry;
 use crate::fs::attrs::format_unix_mode;
+use crate::ui::hit::{self, HitTarget};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
-    layout::{Constraint, Rect},
+    layout::{Constraint, Layout, Rect},
     style::{Modifier, Style},
     widgets::{Block, Cell, Row, Table},
 };
@@ -20,11 +21,13 @@ use std::path::Path;
 /// Text of one cell for an entry.
 type CellFn = fn(&PanelState, &FileEntry) -> String;
 
-/// A non-name column: header key, width share and cell text.
+/// A non-name column: header key, width share, cell text and the sort its
+/// title selects when clicked.
 pub(crate) struct Column {
     header: &'static str,
     percent: u16,
     cell: CellFn,
+    sort: Option<SortField>,
 }
 
 /// How the name column is drawn.
@@ -65,6 +68,7 @@ const SIZE: Column = Column {
     header: "col_size",
     percent: 25,
     cell: |p, e| size_or(p, e, ""),
+    sort: Some(SortField::Size),
 };
 
 pub(crate) const MEDIUM: TableView = TableView {
@@ -84,6 +88,7 @@ pub(crate) const MEDIUM: TableView = TableView {
                         .unwrap_or_default()
                 }
             },
+            sort: Some(SortField::Extension),
         },
         SIZE,
     ],
@@ -98,11 +103,13 @@ pub(crate) const FULL: TableView = TableView {
             header: "col_size",
             percent: 15,
             cell: |p, e| size_or(p, e, "  <DIR>  "),
+            sort: Some(SortField::Size),
         },
         Column {
             header: "col_date_modified",
             percent: 30,
             cell: |_, e| format_date(e.modified),
+            sort: Some(SortField::Date),
         },
     ],
     headers: true,
@@ -127,16 +134,19 @@ pub(crate) const DETAILED: TableView = TableView {
                     .map(|a| format_unix_mode(a.mode))
                     .unwrap_or_else(|| "?????????".to_string())
             },
+            sort: None,
         },
         Column {
             header: "col_owner",
             percent: 20,
             cell: owner,
+            sort: None,
         },
         Column {
             header: "col_size",
             percent: 25,
             cell: |p, e| size_or(p, e, "<DIR>"),
+            sort: Some(SortField::Size),
         },
     ],
     headers: true,
@@ -151,6 +161,7 @@ pub(crate) const DESCRIPTIONS: TableView = TableView {
         cell: |p, e| {
             crate::fs::descriptions::read_description(&p.current_path, &e.name).unwrap_or_default()
         },
+        sort: None,
     }],
     headers: true,
 };
@@ -162,6 +173,7 @@ pub(crate) const FILE_OWNERS: TableView = TableView {
         header: "col_owner",
         percent: 40,
         cell: owner,
+        sort: None,
     }],
     headers: true,
 };
@@ -177,6 +189,7 @@ pub(crate) const FILE_LINKS: TableView = TableView {
                 .map(|a| a.nlinks.to_string())
                 .unwrap_or_else(|| "?".to_string())
         },
+        sort: None,
     }],
     headers: true,
 };
@@ -230,9 +243,23 @@ pub(crate) fn render_table(
         })
         .collect();
 
-    let widths = std::iter::once(view.name_percent)
+    let widths: Vec<Constraint> = std::iter::once(view.name_percent)
         .chain(view.columns.iter().map(|c| c.percent))
-        .map(Constraint::Percentage);
+        .map(Constraint::Percentage)
+        .collect();
+    let inner = block.inner(area);
+    let header_rows = u16::from(headers);
+    if headers {
+        register_headers(ctx, view, inner, &widths);
+    }
+    ctx.register_rows(
+        Rect {
+            y: inner.y + header_rows,
+            height: inner.height.saturating_sub(header_rows),
+            ..inner
+        },
+        start,
+    );
     let mut table = Table::new(rows, widths).block(block);
     if headers {
         let titles = std::iter::once("col_name")
@@ -247,4 +274,23 @@ pub(crate) fn render_table(
         );
     }
     f.render_widget(table, area);
+}
+
+/// Records the column titles on the first inner row; the columns are laid
+/// out as [`Table`] lays them (one blank column between cells).
+fn register_headers(ctx: &ListCtx, view: &TableView, inner: Rect, widths: &[Constraint]) {
+    let row = Rect { height: 1, ..inner };
+    let cells = Layout::horizontal(widths.iter().copied())
+        .spacing(1)
+        .split(row);
+    let sorts = std::iter::once(Some(SortField::Name)).chain(view.columns.iter().map(|c| c.sort));
+    for (cell, sort) in cells.iter().zip(sorts) {
+        hit::register(
+            *cell,
+            HitTarget::PanelHeader {
+                side: ctx.side,
+                sort,
+            },
+        );
+    }
 }

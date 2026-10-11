@@ -5,7 +5,7 @@ use crate::app::form::FieldPair;
 use crate::app::state::popup::{GitNameAction, GitNamePromptState as Prompt};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, FocusStyles};
 use ratatui::{
     Frame,
@@ -41,7 +41,7 @@ pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: R
     let (title, label) = texts(&prompt.action);
     let inner = kit::frame_in(
         f,
-        centered_rect(60, 25, size),
+        centered_rect_in(60, 25, size),
         kit::accent_title(format!(" {} ", title), Color::Cyan),
         kit::fg(Color::Cyan),
         theme,
@@ -97,7 +97,7 @@ pub fn render_field_pair(
 ) -> bool {
     let inner = kit::frame_in(
         f,
-        centered_rect(65, 38, size),
+        centered_rect_in(65, 38, size),
         kit::accent_title(texts.title, Color::Cyan),
         kit::fg(Color::Cyan),
         theme,

@@ -85,15 +85,9 @@ fn render_side(
     side: ActivePanel,
     rect: Rect,
 ) {
-    let (visible, scroll_id) = match side {
-        ActivePanel::Left => (
-            state.panels.left_visible,
-            crate::ui::scrollbar::ScrollTargetId::PanelLeft,
-        ),
-        ActivePanel::Right => (
-            state.panels.right_visible,
-            crate::ui::scrollbar::ScrollTargetId::PanelRight,
-        ),
+    let visible = match side {
+        ActivePanel::Left => state.panels.left_visible,
+        ActivePanel::Right => state.panels.right_visible,
     };
     if !visible || rect.width <= 1 {
         return;
@@ -110,14 +104,7 @@ fn render_side(
     let settings = &context.config.settings;
     let rect = if tab_bar::is_visible(tabs, settings.always_show_tab_bar) && rect.height > 1 {
         let bar = Rect { height: 1, ..rect };
-        tab_bar::render(
-            f,
-            bar,
-            tabs,
-            is_active,
-            &context.config.theme,
-            &state.tab_bar,
-        );
+        tab_bar::render(f, bar, tabs, is_active, &context.config.theme);
         Rect {
             y: rect.y + 1,
             height: rect.height - 1,
@@ -130,9 +117,9 @@ fn render_side(
         f,
         rect,
         tabs.panel(),
+        side,
         is_active,
         context,
         Some(&state.scrollbar),
-        scroll_id,
     );
 }

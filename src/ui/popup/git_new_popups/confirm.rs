@@ -1,5 +1,5 @@
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -19,7 +19,7 @@ pub fn render_confirm_action(
 ) -> bool {
     let message = &state.message;
     // Centered small confirmation box
-    let area = centered_rect(50, 20, size);
+    let area = centered_rect_in(50, 20, size);
     let title = crate::config::localization::t("git_confirm_action_title");
     let inner = kit::frame_in(
         f,

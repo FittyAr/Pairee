@@ -6,7 +6,7 @@ use crate::app::state::popup::{SyncDialog, SyncReview};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
 use crate::fs::sync::{SyncAction, SyncItem, SyncSummary};
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, ListPopup, Scroll, TextBox};
 use ratatui::{
     Frame,
@@ -45,7 +45,7 @@ pub(super) fn render(
         .style(Style::default().add_modifier(Modifier::BOLD)),
     ];
     ListPopup {
-        area: centered_rect(90, 80, size),
+        area: centered_rect_in(90, 80, size),
         title: super::title(dialog.options.direction),
         border: Color::Yellow,
         empty: Some(t("sync_no_differences")),

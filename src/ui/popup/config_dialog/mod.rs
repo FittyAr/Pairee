@@ -1,7 +1,7 @@
 //! Configuration dialog: tab list on the left, the rows of the active tab
 //! (from [`crate::app::config_rows`]) on the right.
 
-use super::centered_rect;
+use super::centered_rect_in;
 use crate::app::config_rows::{Row, RowCtx, TAB_KEYS, tab_rows};
 use crate::app::state::{ConfigurationDialogState, PopupType};
 use crate::config::localization::t;
@@ -26,7 +26,7 @@ pub fn render_config_dialog_popup(
     let PopupType::ConfigurationDialog(dialog) = popup else {
         return false;
     };
-    let area = centered_rect(85, 85, size);
+    let area = centered_rect_in(85, 85, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()

@@ -58,6 +58,41 @@ impl Harness {
         );
     }
 
+    /// Screen cell (column, row) where `needle` first appears, scanning rows
+    /// top down and only from column `from_column` on (to pick a panel).
+    #[track_caller]
+    pub fn locate_from(&self, needle: &str, from_column: u16) -> (u16, u16) {
+        let text = self.screen_text();
+        for (row, line) in text.lines().enumerate() {
+            let cells: Vec<char> = line.chars().collect();
+            let tail: String = cells.iter().skip(usize::from(from_column)).collect();
+            if let Some(byte) = tail.find(needle) {
+                let column = from_column as usize + tail[..byte].chars().count();
+                return (column as u16, row as u16);
+            }
+        }
+        panic!("{needle:?} not on screen from column {from_column}:\n{text}");
+    }
+
+    /// Top-left cell of the first area the last frame recorded for a
+    /// target `pick` accepts (paints a frame first).
+    #[track_caller]
+    pub fn hit_cell(&mut self, pick: impl Fn(&crate::ui::hit::HitTarget) -> bool) -> (u16, u16) {
+        self.render();
+        let (area, ()) = self
+            .state
+            .hits
+            .first(|target| pick(target).then_some(()))
+            .unwrap_or_else(|| panic!("no such target on screen:\n{}", self.screen_text()));
+        (area.x, area.y)
+    }
+
+    /// Screen cell where `needle` first appears.
+    #[track_caller]
+    pub fn locate(&self, needle: &str) -> (u16, u16) {
+        self.locate_from(needle, 0)
+    }
+
     /// Name of the entry under the cursor of the focused panel.
     pub fn cursor_name(&self) -> String {
         let panel = self.state.get_active_panel();

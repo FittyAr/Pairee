@@ -6,6 +6,7 @@ mod file_ops;
 pub mod forms;
 mod git_panel;
 mod git_prompts;
+mod mouse;
 mod multi_rename;
 mod paste;
 mod plugin;

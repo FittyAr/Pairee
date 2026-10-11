@@ -9,7 +9,7 @@ use crate::app::git_panel_load::GitPanelLoader;
 use crate::app::state::{GitPanelState, PopupType};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
@@ -50,7 +50,7 @@ pub fn render(
         return false;
     };
     let loading = loader.is_loading(&panel.repo_path);
-    let area = centered_rect(85, 88, size);
+    let area = centered_rect_in(85, 88, size);
     f.render_widget(Clear, area);
     let marker = if loader.is_working(&panel.repo_path) {
         Some("git_panel_working")

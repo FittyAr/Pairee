@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, ListPopup, Scroll};
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
@@ -68,7 +68,7 @@ pub(super) fn render_task_list(
         "task_list_hint_normal"
     };
     ListPopup {
-        area: centered_rect(70, 60, size),
+        area: centered_rect_in(70, 60, size),
         title: t("task_list_title"),
         border: Color::Cyan,
         empty: Some(t("task_list_empty")),

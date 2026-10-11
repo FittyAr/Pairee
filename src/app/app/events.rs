@@ -24,33 +24,9 @@ pub async fn handle_input_event(
                 return Ok(());
             }
 
-            // Popups consume inputs first; list keys of the preset act as arrows.
-            let popup_active = state.dialogs.is_some();
-            let key = if popup_active {
-                match crate::app::input_popup::list_keys::translate(
-                    state,
-                    &mut context.resolver,
-                    key,
-                ) {
-                    Some(key) => key,
-                    None => return Ok(()),
-                }
-            } else {
-                key
-            };
-            match handle_popup_input(state, key, context) {
-                Ok(Some(action)) => {
-                    handle_action(state, action, context, terminal_backend).await?;
-                    return Ok(());
-                }
-                Ok(None) => {
-                    return Ok(());
-                }
-                Err(()) => {
-                    if popup_active {
-                        return Ok(());
-                    }
-                }
+            // Popups consume inputs first.
+            if dispatch_popup_key(state, context, terminal_backend, key).await? {
+                return Ok(());
             }
 
             // Screens consume inputs before CLI and Panels (unless it's a global shortcut)
@@ -104,21 +80,41 @@ pub async fn handle_input_event(
             }
         }
         Event::Mouse(mouse) => {
-            log::debug!("Mouse event: {:?}", mouse);
             if context.config.settings.mouse != crate::config::settings::MouseMode::Off
-                && (super::scrollbar_mouse::handle_scrollbar_mouse(state, mouse)
-                    || super::tab_mouse::handle_tab_bar_mouse(
-                        state,
-                        mouse,
-                        context.config.settings.show_hidden,
-                    )
-                    || crate::app::screen_input::editor::handle_editor_mouse(state, mouse))
+                && crate::app::mouse::handle(state, context, terminal_backend, mouse).await?
             {
                 state.mark_ui_dirty();
             }
         }
     }
     Ok(())
+}
+
+/// Gives `key` to the open popup, if any; list keys of the preset act as
+/// arrows there. Returns `true` when a popup was open (it owns all input).
+pub async fn dispatch_popup_key(
+    state: &mut AppState,
+    context: &mut AppContext,
+    terminal_backend: &mut TerminalBackend,
+    key: crossterm::event::KeyEvent,
+) -> anyhow::Result<bool> {
+    let popup_active = state.dialogs.is_some();
+    let key = if popup_active {
+        match crate::app::input_popup::list_keys::translate(state, &mut context.resolver, key) {
+            Some(key) => key,
+            None => return Ok(true),
+        }
+    } else {
+        key
+    };
+    match handle_popup_input(state, key, context) {
+        Ok(Some(action)) => {
+            handle_action(state, action, context, terminal_backend).await?;
+            Ok(true)
+        }
+        Ok(None) => Ok(true),
+        Err(()) => Ok(popup_active),
+    }
 }
 
 /// Resize is a screen-mode change: request a full-screen clear on the next paint.

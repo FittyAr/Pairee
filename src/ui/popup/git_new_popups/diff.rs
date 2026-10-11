@@ -1,5 +1,5 @@
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -22,7 +22,7 @@ pub fn render_diff_view(
     let diff_content = &state.diff_content;
     let scroll_y = &state.scroll_y;
     {
-        let area = centered_rect(80, 80, size);
+        let area = centered_rect_in(80, 80, size);
         let title = if let Some(path) = file_path {
             crate::config::localization::t("git_diff_view_title").replace("{}", path)
         } else if let Some(hash) = commit_hash {

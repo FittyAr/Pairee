@@ -160,19 +160,36 @@ impl PanelState {
     /// Selects / tags the highlighted entry.
     /// `select_folders` controls whether directory entries can be tagged.
     pub fn toggle_selection_with_opts(&mut self, select_folders: bool) {
-        if let Some(entry) = self.entries.get(self.cursor_index)
-            && entry.name != ".."
-            && (!entry.is_dir || select_folders)
-        {
-            let path = entry.path.clone();
-            if self.selected_paths.contains(&path) {
-                self.selected_paths.remove(&path);
-                self.selection_order.retain(|p| p != &path);
-            } else {
-                self.selected_paths.insert(path.clone());
-                self.selection_order.push(path);
-            }
+        if let Some(entry) = self.entries.get(self.cursor_index) {
+            let selected = !self.selected_paths.contains(&entry.path);
+            self.set_selected(self.cursor_index, selected, select_folders);
         }
+    }
+
+    /// Tags (`selected`) or untags entry `idx`; `..` never is, and folders
+    /// only when `select_folders`.
+    pub fn set_selected(&mut self, idx: usize, selected: bool, select_folders: bool) {
+        let Some(entry) = self.entries.get(idx) else {
+            return;
+        };
+        if entry.name == ".." || (entry.is_dir && !select_folders) {
+            return;
+        }
+        let path = entry.path.clone();
+        if !selected {
+            if self.selected_paths.remove(&path) {
+                self.selection_order.retain(|p| p != &path);
+            }
+        } else if self.selected_paths.insert(path.clone()) {
+            self.selection_order.push(path);
+        }
+    }
+
+    /// Whether entry `idx` is tagged.
+    pub fn is_selected(&self, idx: usize) -> bool {
+        self.entries
+            .get(idx)
+            .is_some_and(|entry| self.selected_paths.contains(&entry.path))
     }
 
     /// Selects all entries matching a glob mask.

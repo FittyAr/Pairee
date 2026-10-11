@@ -1,3 +1,4 @@
+use super::helpers::visible_range;
 use super::list_ctx::ListCtx;
 use ratatui::{
     Frame,
@@ -16,18 +17,7 @@ pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCt
         .split(inner);
 
     let col_height = cols[0].height.saturating_sub(2) as usize;
-    let total_visible = col_height * 2;
-
-    let start = if panel.cursor_index > total_visible / 2 {
-        panel.cursor_index.saturating_sub(total_visible / 2)
-    } else {
-        0
-    };
-    let start = if start + total_visible > panel.entries.len() {
-        panel.entries.len().saturating_sub(total_visible)
-    } else {
-        start
-    };
+    let (start, _) = visible_range(panel, col_height * 2);
 
     for col_idx in 0..2usize {
         let col_start = start + col_idx * col_height;
@@ -47,5 +37,10 @@ pub(crate) fn render_brief(f: &mut Frame, area: Rect, block: Block, ctx: &ListCt
         let table = Table::new(rows, [Constraint::Percentage(100)])
             .block(Block::default().borders(Borders::NONE));
         f.render_widget(table, cols[col_idx]);
+        let shown = Rect {
+            height: col_height as u16,
+            ..cols[col_idx]
+        };
+        ctx.register_rows(shown, col_start);
     }
 }

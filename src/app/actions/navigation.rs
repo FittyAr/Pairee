@@ -125,15 +125,23 @@ fn list_dialog_action(state: &mut AppState, action: &Action) -> bool {
 }
 
 fn select_item(state: &mut AppState) {
+    let panel = state.get_active_panel_mut();
+    let cursor = panel.cursor_index;
+    let selected = !panel.is_selected(cursor);
+    set_selected(state, cursor, selected);
+    state.get_active_panel_mut().move_cursor_down();
+}
+
+/// Tags or untags entry `idx` of the active panel. Like Far/MC, tagging a
+/// folder also measures it.
+pub(crate) fn set_selected(state: &mut AppState, idx: usize, selected: bool) {
     let select_folders = state.select_folders;
     let panel = state.get_active_panel_mut();
-    // Like Far/MC: selecting a folder also measures it.
-    if let Some(entry) = panel.entries.get(panel.cursor_index) {
+    if selected && let Some(entry) = panel.entries.get(idx) {
         let path = entry.path.clone();
         panel.calculate_dir_sizes(&[path]);
     }
-    panel.toggle_selection_with_opts(select_folders);
-    panel.move_cursor_down();
+    panel.set_selected(idx, selected, select_folders);
 }
 
 fn open_select_group(state: &mut AppState, mode: SelectMode) {

@@ -5,8 +5,7 @@
 use crate::app::state::AppState;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
-/// Lines scrolled per wheel notch.
-const WHEEL_LINES: usize = 3;
+use crate::ui::hit::WHEEL_LINES;
 
 /// Applies `mouse` to the active editor. Returns `true` when consumed.
 pub fn handle_editor_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {

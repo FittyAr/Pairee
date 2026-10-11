@@ -122,3 +122,20 @@ fn keymap_cycle_edits_the_draft_preset() {
     activate(2, "int_keybindings", &mut s);
     assert_eq!(s.keymap_preset, "standard");
 }
+
+#[test]
+fn mouse_rows_cycle_their_options() {
+    use crate::config::settings::{MouseMode, RightClick};
+    let mut s = draft();
+    assert_eq!(s.mouse, MouseMode::Auto);
+    activate(2, "int_mouse", &mut s);
+    assert_eq!(s.mouse, MouseMode::On);
+    activate(2, "int_right_click", &mut s);
+    assert_eq!(s.mouse_right_click, RightClick::Menu);
+    assert_eq!(s.mouse_double_click_ms, 400);
+    activate(2, "int_double_click_ms", &mut s);
+    assert_eq!(s.mouse_double_click_ms, 550);
+    s.mouse_double_click_ms = 900;
+    activate(2, "int_double_click_ms", &mut s);
+    assert_eq!(s.mouse_double_click_ms, 250);
+}

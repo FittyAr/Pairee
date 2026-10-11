@@ -56,6 +56,7 @@ pub fn frame_in(
     border: Style,
     theme: &Theme,
 ) -> Rect {
+    super::popup_body(area);
     f.render_widget(Clear, area);
     let block = popup_block(title, border, theme);
     let inner = block.inner(area);

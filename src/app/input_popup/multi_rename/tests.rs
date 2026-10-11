@@ -289,11 +289,10 @@ fn long_preview_registers_a_wheel_scrollable_scrollbar() {
     let (context, mut state) = app(&dir, &names);
     select(&mut state, &names);
     multi_rename::handle(&mut state);
-    state.scrollbar.clear_targets();
     render(&context, &state);
     let target = state
-        .scrollbar
-        .targets_snapshot()
+        .hits
+        .scrollbars()
         .into_iter()
         .find(|t| t.id == ScrollTargetId::MultiRenamePreview)
         .expect("preview scrollbar registered");
@@ -306,7 +305,7 @@ fn long_preview_registers_a_wheel_scrollable_scrollbar() {
         row: target.wheel_area.y + 1,
         modifiers: KeyModifiers::NONE,
     };
-    assert!(crate::app::app::scrollbar_mouse::handle_scrollbar_mouse(
+    assert!(crate::app::mouse::scrollbar::handle_scrollbar_mouse(
         &mut state, wheel
     ));
     assert!(dialog(&state).scroll > 0);

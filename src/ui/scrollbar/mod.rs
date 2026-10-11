@@ -20,7 +20,6 @@ pub use types::{ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 mod tests {
     use super::layout::{block_inner, should_show, track_area_right};
     use super::render::vertical_bar;
-    use super::types::ScrollbarHitTarget;
     use super::*;
     use crate::config::theme::Theme;
     use ratatui::layout::Rect;
@@ -83,22 +82,5 @@ mod tests {
         cursor = 12;
         clamp_cursor_to_offset(&mut cursor, 10, 5, 50);
         assert_eq!(cursor, 12);
-    }
-
-    #[test]
-    fn hit_state_registers_targets() {
-        let state = ScrollbarUiState::default();
-        state.clear_targets();
-        state.register(ScrollbarHitTarget {
-            area: Rect::new(0, 0, 1, 10),
-            wheel_area: Rect::new(0, 0, 10, 10),
-            content_len: 100,
-            viewport_len: 10,
-            offset: 0,
-            id: ScrollTargetId::Viewer,
-        });
-        assert_eq!(state.targets_snapshot().len(), 1);
-        state.clear_targets();
-        assert!(state.targets_snapshot().is_empty());
     }
 }

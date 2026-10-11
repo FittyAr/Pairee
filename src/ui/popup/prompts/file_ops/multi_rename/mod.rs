@@ -5,7 +5,7 @@ mod preview;
 use crate::app::state::popup::{MultiRenameState as Dialog, RenameField};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
-use crate::ui::popup::{centered_rect, kit};
+use crate::ui::popup::{centered_rect_in, kit};
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
     Frame,
@@ -24,7 +24,7 @@ pub fn render(
     size: Rect,
     scrollbar: &ScrollbarUiState,
 ) -> bool {
-    let area = centered_rect(SIZE_PERCENT.0, SIZE_PERCENT.1, size);
+    let area = centered_rect_in(SIZE_PERCENT.0, SIZE_PERCENT.1, size);
     let mut title = t("multi_rename_title");
     if dialog.running {
         title.push_str(&t("multi_rename_running"));

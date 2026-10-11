@@ -141,13 +141,15 @@ pub struct AppState {
     /// Folder monitors that reread panels when their folder changes.
     pub auto_refresh: crate::app::auto_refresh::AutoRefresh,
 
-    // ── Scrollbar mouse hit-testing (filled each paint) ───────────
+    // ── Mouse (hits are recorded by each paint) ──────────────────
     pub scrollbar: crate::ui::scrollbar::ScrollbarUiState,
-    /// Tab bar cells painted last frame (mouse clicks on tabs).
-    pub tab_bar: crate::ui::tab_bar::TabBarHits,
+    /// What the last frame painted where, for the mouse router.
+    pub hits: crate::ui::hit::HitMap,
     /// Mouse capture handed back to the terminal (`toggle_mouse_capture`)
     /// so it can select text; the main loop releases it while set.
     pub mouse_released: bool,
+    /// Click counting and other state kept between mouse events.
+    pub mouse: crate::app::mouse::MouseState,
 
     /// Clipboard shared by every editor screen (system + internal fallback).
     pub editor_clipboard: crate::app::editor::EditorClipboard,
@@ -208,8 +210,9 @@ impl AppState {
             disk_usage: Default::default(),
             auto_refresh: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
-            tab_bar: Default::default(),
+            hits: Default::default(),
             mouse_released: false,
+            mouse: Default::default(),
             editor_clipboard: Default::default(),
         }
     }

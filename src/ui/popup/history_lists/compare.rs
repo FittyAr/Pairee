@@ -1,6 +1,6 @@
 use crate::app::state::{CompareStatus, PopupType};
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
@@ -35,7 +35,7 @@ pub(super) fn render_compare(
         })
         .collect();
     ListPopup {
-        area: centered_rect(75, 60, size),
+        area: centered_rect_in(75, 60, size),
         title: t("compare_results_title"),
         border: Color::Yellow,
         empty: Some(t("compare_results_empty")),

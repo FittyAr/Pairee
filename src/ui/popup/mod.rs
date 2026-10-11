@@ -143,25 +143,11 @@ fn render_specific_popup(
     if shortcuts::render(f, popup, theme, size) {}
 }
 
-/// Centers a rectangle of `percent_x` × `percent_y` over the full screen.
-pub(crate) fn centered_rect(percent_x: u16, percent_y: u16, r: Rect) -> Rect {
-    let popup_layout = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Percentage((100 - percent_y) / 2),
-            Constraint::Percentage(percent_y),
-            Constraint::Percentage((100 - percent_y) / 2),
-        ])
-        .split(r);
-
-    Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Percentage((100 - percent_x) / 2),
-            Constraint::Percentage(percent_x),
-            Constraint::Percentage((100 - percent_x) / 2),
-        ])
-        .split(popup_layout[1])[1]
+/// Records `area` as a dialog on screen, so a click there counts as inside
+/// it, and returns it.
+pub(crate) fn popup_body(area: Rect) -> Rect {
+    crate::ui::hit::register(area, crate::ui::hit::HitTarget::PopupBody);
+    area
 }
 
 /// Centers a rectangle of fixed `width` and `height` over the full screen.
@@ -175,18 +161,19 @@ pub(crate) fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
         ])
         .split(r);
 
-    Layout::default()
+    let area = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Length(r.width.saturating_sub(width) / 2),
             Constraint::Length(width.min(r.width)),
             Constraint::Length(r.width.saturating_sub(width) / 2),
         ])
-        .split(popup_layout[1])[1]
+        .split(popup_layout[1])[1];
+    popup_body(area)
 }
 
-/// Centers a rectangle of `percent_x` × `percent_y` within a given parent rectangle.
-/// Used for panel-specific popups (e.g. DriveSelect).
+/// Centers a rectangle of `percent_x` × `percent_y` within `parent` (the
+/// screen, or a panel for panel-specific popups such as DriveSelect).
 pub(crate) fn centered_rect_in(percent_x: u16, percent_y: u16, parent: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
@@ -197,12 +184,13 @@ pub(crate) fn centered_rect_in(percent_x: u16, percent_y: u16, parent: Rect) -> 
         ])
         .split(parent);
 
-    Layout::default()
+    let area = Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Percentage((100 - percent_x) / 2),
             Constraint::Percentage(percent_x),
             Constraint::Percentage((100 - percent_x) / 2),
         ])
-        .split(popup_layout[1])[1]
+        .split(popup_layout[1])[1];
+    popup_body(area)
 }

@@ -199,16 +199,16 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 - [x] Acción `toggle_mouse_capture` + entrada en catálogo de acciones.
 
 ### Fase 1 — Infraestructura
-- [ ] `ui::hit::HitMap` + `Layer` + `HitTarget`; `state.hits`; `clear` al inicio de `draw_ui`.
-- [ ] Migrar `TabBarHits` y los targets de scrollbar a `HitMap` (borrar el código viejo, tests existentes en verde).
-- [ ] `gesture.rs` (doble clic, drag, filtrado de `Moved`) con reloj inyectable.
-- [ ] `router.rs` con política modal; `events.rs` delega en él.
-- [ ] Harness: `right_click`, `middle_click`, `double_click`, `wheel`, `drag`, `hover`.
+- [x] `ui::hit::HitMap` + `Layer` + `HitTarget`; `state.hits`; `clear` al inicio de `draw_ui`.
+- [x] Migrar `TabBarHits` y los targets de scrollbar a `HitMap` (borrar el código viejo, tests existentes en verde).
+- [x] `gesture.rs` (doble clic, drag, filtrado de `Moved`) con reloj inyectable.
+- [x] `router.rs` con política modal; `events.rs` delega en él.
+- [x] Harness: `right_click`, `middle_click`, `double_click`, `wheel`, `drag`, `hover`.
 
 ### Fase 2 — Paneles
-- [ ] Registrar filas en vistas brief y tabla (`src/ui/panel/*`, `list_ctx.rs`), encabezados y ruta.
-- [ ] Clic / doble clic / `Ctrl`/`Shift`+clic / clic der. / drag der. / rueda.
-- [ ] Rueda sin depender de que la scrollbar esté visible.
+- [x] Registrar filas en vistas brief y tabla (`src/ui/panel/*`, `list_ctx.rs`), encabezados y ruta.
+- [x] Clic / doble clic / `Ctrl`/`Shift`+clic / clic der. / drag der. / rueda.
+- [x] Rueda sin depender de que la scrollbar esté visible.
 
 ### Fase 3 — Barras
 - [ ] Menú superior y desplegables (`src/ui/menu/*`, `input_popup/menu.rs`), hover.

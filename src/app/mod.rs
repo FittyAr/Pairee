@@ -15,6 +15,7 @@ pub mod input_popup;
 pub mod jobs;
 pub mod list_nav;
 pub mod menu_handler;
+pub mod mouse;
 pub mod screen_input;
 pub mod session;
 pub mod shortcuts;

@@ -9,6 +9,7 @@ mod editor;
 mod file_clipboard;
 mod file_ops;
 mod git_panel;
+mod mouse;
 mod navigation;
 mod panel_search;
 mod plugin_keys;

@@ -7,7 +7,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, TransferTab, TransferViewMode};
 use crate::config::localization::t;
 use crate::fs::transfer::job::TransferJob;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 
 mod file_list;
 mod inspector;
@@ -25,7 +25,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
 
     let size = f.area();
     // Popup centrado: 80% ancho, 75% alto
-    let popup_area = centered_rect(80, 75, size);
+    let popup_area = centered_rect_in(80, 75, size);
 
     // Clear para tapar los paneles debajo
     f.render_widget(Clear, popup_area);

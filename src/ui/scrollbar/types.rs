@@ -1,5 +1,4 @@
 use ratatui::layout::Rect;
-use std::cell::RefCell;
 use tui_scrollbar::ScrollBarInteraction;
 
 /// Which theme surface colors to use for track/thumb.
@@ -33,7 +32,7 @@ pub enum ScrollTargetId {
 }
 
 /// Geometry + identity for one scrollbar painted last frame.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScrollbarHitTarget {
     /// The track (thumb drag and click).
     pub area: Rect,
@@ -45,23 +44,17 @@ pub struct ScrollbarHitTarget {
     pub id: ScrollTargetId,
 }
 
-/// Persistent drag state + hit targets registered during the last paint.
+/// Persistent drag state; the tracks themselves are recorded in the frame's
+/// [`HitMap`](crate::ui::hit::HitMap).
 #[derive(Debug, Default)]
 pub struct ScrollbarUiState {
     pub interaction: ScrollBarInteraction,
-    targets: RefCell<Vec<ScrollbarHitTarget>>,
 }
 
 impl ScrollbarUiState {
-    pub fn clear_targets(&self) {
-        self.targets.borrow_mut().clear();
-    }
-
+    /// Records `target` in the frame being painted.
     pub fn register(&self, target: ScrollbarHitTarget) {
-        self.targets.borrow_mut().push(target);
-    }
-
-    pub fn targets_snapshot(&self) -> Vec<ScrollbarHitTarget> {
-        self.targets.borrow().clone()
+        let area = target.wheel_area.union(target.area);
+        crate::ui::hit::register(area, crate::ui::hit::HitTarget::Scrollbar(target));
     }
 }

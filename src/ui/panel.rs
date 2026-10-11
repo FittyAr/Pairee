@@ -4,8 +4,9 @@ mod list_ctx;
 mod table_view;
 
 use crate::app::context::AppContext;
-use crate::app::state::PanelState;
+use crate::app::state::{ActivePanel, PanelState};
 use crate::config::localization::t;
+use crate::ui::hit::{self, HitTarget};
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use crate::ui::theme_apply::parse_color;
@@ -28,11 +29,25 @@ pub fn render_panel(
     f: &mut Frame,
     area: Rect,
     panel: &PanelState,
+    side: ActivePanel,
     is_active: bool,
     context: &AppContext,
     scrollbar: Option<&ScrollbarUiState>,
-    scroll_id: ScrollTargetId,
 ) {
+    let scroll_id = match side {
+        ActivePanel::Left => ScrollTargetId::PanelLeft,
+        ActivePanel::Right => ScrollTargetId::PanelRight,
+    };
+    hit::register(area, HitTarget::PanelBody(side));
+    hit::register(
+        Rect {
+            x: area.x + 1,
+            height: 1,
+            width: area.width.saturating_sub(2),
+            ..area
+        },
+        HitTarget::PanelTitle(side),
+    );
     let theme = &context.config.theme;
     let settings = &context.config.settings;
 
@@ -82,6 +97,7 @@ pub fn render_panel(
     // ── Dispatch to view-specific renderer (list area only) ───────────────────
     let ctx = ListCtx {
         panel,
+        side,
         is_active,
         context,
         highlight_files,

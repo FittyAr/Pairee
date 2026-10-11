@@ -7,7 +7,7 @@ use crate::config::localization::t;
 use crate::config::theme::Theme;
 use crate::fs::du::DuNode;
 use crate::ui::panel::helpers::{dir_size_text, format_file_size};
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, ListPopup, Scroll};
 use ratatui::{
     Frame,
@@ -43,7 +43,7 @@ pub fn render(
         })
         .unwrap_or_default();
     ListPopup {
-        area: centered_rect(80, 80, size),
+        area: centered_rect_in(80, 80, size),
         title: t("du_title").replace("{}", &du.current_path().to_string_lossy()),
         border: Color::Cyan,
         empty: Some(empty_text(du)),

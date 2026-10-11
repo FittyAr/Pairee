@@ -1,6 +1,6 @@
 //! Drive selection, context menu, and archive commands rendering.
 
-use super::super::{centered_rect, centered_rect_in};
+use super::super::centered_rect_in;
 use crate::app::state::ActivePanel;
 use crate::config::localization::t;
 use crate::config::theme::Theme;
@@ -111,7 +111,7 @@ pub fn render_archive_commands_menu(
         empty: Some(t("no_archive_commands")),
         hint: Some(t("archive_commands_hint")),
         ..menu_popup(
-            centered_rect(60, 45, size),
+            centered_rect_in(60, 45, size),
             title,
             Color::Yellow,
             marked_rows(items, cursor_idx, kit::popup_fg(theme)),

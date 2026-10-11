@@ -72,6 +72,8 @@ fn clicking_a_tab_in_the_bar_switches_to_it() {
     let column = line[..line.find("uno").unwrap()].chars().count() as u16;
     h.click(column + 1, row as u16);
     assert_eq!(active_index(&h), 0, "{screen}");
+    h.middle_click(column + 1, row as u16);
+    assert_eq!(titles(&h), ["dos"], "{screen}");
 }
 
 #[test]

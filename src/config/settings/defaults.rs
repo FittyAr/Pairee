@@ -1,6 +1,7 @@
 use super::{
-    ConfirmationSettings, MouseMode, Settings, TabExpansion, default_auto_refresh_poll_secs,
-    default_auto_refresh_ssh_poll_secs, default_plugins_dev_dir, default_ssh_timeout_secs,
+    ConfirmationSettings, MouseMode, RightClick, Settings, TabExpansion,
+    default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs, default_double_click_ms,
+    default_plugins_dev_dir, default_ssh_timeout_secs,
 };
 use crate::app::state::{PanelViewMode, SortField};
 
@@ -10,6 +11,8 @@ impl Default for Settings {
             show_hidden: false,
             secure_mode: false,
             mouse: MouseMode::Auto,
+            mouse_double_click_ms: default_double_click_ms(),
+            mouse_right_click: RightClick::Mark,
             onboarding_completed: false,
             theme: "slate".to_string(),
             panel_view_mode: PanelViewMode::default(),

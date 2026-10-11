@@ -3,19 +3,36 @@
 
 use super::helpers::{entry_display_name, entry_display_name_truncated};
 use crate::app::context::AppContext;
-use crate::app::state::PanelState;
+use crate::app::state::{ActivePanel, PanelState};
 use crate::fs::FileEntry;
+use crate::ui::hit::{self, HitTarget};
 use crate::ui::theme_apply::parse_color;
+use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 
 pub(crate) struct ListCtx<'a> {
     pub panel: &'a PanelState,
+    pub side: ActivePanel,
     pub is_active: bool,
     pub context: &'a AppContext,
     pub highlight_files: bool,
 }
 
 impl ListCtx<'_> {
+    /// Records the rows drawn in `area`, top down, from entry `first` on.
+    pub fn register_rows(&self, area: Rect, first: usize) {
+        let shown = self.panel.entries.len().saturating_sub(first);
+        for (row, index) in (area.y..area.bottom()).zip(first..first + shown) {
+            hit::register(
+                Rect::new(area.x, row, area.width, 1),
+                HitTarget::PanelRow {
+                    side: self.side,
+                    index,
+                },
+            );
+        }
+    }
+
     /// Git status letter of `entry` (when Git integration is on).
     pub fn git_status(&self, entry: &FileEntry) -> Option<&str> {
         if self.context.config.settings.git_enabled {

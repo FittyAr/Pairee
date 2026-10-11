@@ -39,20 +39,95 @@ impl Harness {
         self
     }
 
+    /// Sends one mouse event at a cell, after painting a frame as the event
+    /// loop does (the router looks the pointer up in the last frame).
+    pub fn mouse(
+        &mut self,
+        kind: MouseEventKind,
+        column: u16,
+        row: u16,
+        modifiers: KeyModifiers,
+    ) -> &mut Self {
+        self.render();
+        self.send(Event::Mouse(MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers,
+        }));
+        self
+    }
+
+    /// Press and release of `button` with `modifiers`.
+    pub fn press(
+        &mut self,
+        button: MouseButton,
+        column: u16,
+        row: u16,
+        modifiers: KeyModifiers,
+    ) -> &mut Self {
+        self.mouse(MouseEventKind::Down(button), column, row, modifiers)
+            .mouse(MouseEventKind::Up(button), column, row, modifiers)
+    }
+
     /// Left click at a cell of the frame.
     pub fn click(&mut self, column: u16, row: u16) -> &mut Self {
-        for kind in [
-            MouseEventKind::Down(MouseButton::Left),
-            MouseEventKind::Up(MouseButton::Left),
-        ] {
-            self.send(Event::Mouse(MouseEvent {
-                kind,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }));
+        self.press(MouseButton::Left, column, row, KeyModifiers::NONE)
+    }
+
+    /// Two quick left clicks on one cell.
+    pub fn double_click(&mut self, column: u16, row: u16) -> &mut Self {
+        self.click(column, row).click(column, row)
+    }
+
+    pub fn right_click(&mut self, column: u16, row: u16) -> &mut Self {
+        self.press(MouseButton::Right, column, row, KeyModifiers::NONE)
+    }
+
+    pub fn middle_click(&mut self, column: u16, row: u16) -> &mut Self {
+        self.press(MouseButton::Middle, column, row, KeyModifiers::NONE)
+    }
+
+    /// One wheel notch: down when `down`, up otherwise.
+    pub fn wheel(&mut self, column: u16, row: u16, down: bool) -> &mut Self {
+        let kind = if down {
+            MouseEventKind::ScrollDown
+        } else {
+            MouseEventKind::ScrollUp
+        };
+        self.mouse(kind, column, row, KeyModifiers::NONE)
+    }
+
+    /// Presses `button` at `from`, drags through the cells of a straight
+    /// line to `to` and releases there.
+    pub fn drag(
+        &mut self,
+        button: MouseButton,
+        from: (u16, u16),
+        to: (u16, u16),
+        modifiers: KeyModifiers,
+    ) -> &mut Self {
+        self.mouse(MouseEventKind::Down(button), from.0, from.1, modifiers);
+        let steps = from.0.abs_diff(to.0).max(from.1.abs_diff(to.1)).max(1);
+        for step in 1..=steps {
+            let lerp = |a: u16, b: u16| {
+                let (a, b, step, steps) = (
+                    i32::from(a),
+                    i32::from(b),
+                    i32::from(step),
+                    i32::from(steps),
+                );
+                (a + (b - a) * step / steps) as u16
+            };
+            let (x, y) = (lerp(from.0, to.0), lerp(from.1, to.1));
+            self.mouse(MouseEventKind::Drag(button), x, y, modifiers);
         }
-        self
+        self.mouse(MouseEventKind::Up(button), to.0, to.1, modifiers)
+    }
+
+    /// Pointer motion without a button.
+    pub fn hover(&mut self, column: u16, row: u16) -> &mut Self {
+        self.mouse(MouseEventKind::Moved, column, row, KeyModifiers::NONE)
     }
 
     /// Presses the chord the active keymap binds to action `name`; an

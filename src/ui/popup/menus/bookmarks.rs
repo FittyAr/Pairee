@@ -1,6 +1,6 @@
 //! Directory hotlist and folder shortcut dialog rendering.
 
-use super::super::centered_rect;
+use super::super::centered_rect_in;
 use crate::app::input_popup::folder_shortcuts::{SLOT_COUNT, slot_for_row};
 use crate::config::bookmarks::HotlistEntry;
 use crate::config::localization::t;
@@ -83,7 +83,7 @@ pub fn render_folder_shortcuts(
 /// Frame shared by the hotlist and the folder shortcuts (rows set by the caller).
 fn bookmark_popup(theme: &Theme, size: Rect, title: String, hint: String) -> ListPopup<'static> {
     ListPopup {
-        area: centered_rect(60, 40, size),
+        area: centered_rect_in(60, 40, size),
         title,
         border: parse_color(&theme.popup_border),
         empty: None,

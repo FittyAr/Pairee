@@ -3,7 +3,7 @@ mod markdown;
 pub use crate::ui::wrap::wrap_lines;
 pub use markdown::parse_markdown_to_lines;
 
-use super::super::centered_rect;
+use super::super::centered_rect_in;
 use crate::app::state::PopupType;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
@@ -37,7 +37,7 @@ pub fn render(
     else {
         return false;
     };
-    let area = centered_rect(90, 85, size); // Expand to 90% width, 85% height
+    let area = centered_rect_in(90, 85, size); // Expand to 90% width, 85% height
     f.render_widget(Clear, area);
 
     // Split into Left (list) and Right (content viewer)

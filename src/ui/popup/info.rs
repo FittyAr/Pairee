@@ -1,4 +1,4 @@
-use super::centered_rect;
+use super::centered_rect_in;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::theme_apply::parse_color;
@@ -18,7 +18,7 @@ pub fn render_info_popup(
 ) -> bool {
     match popup {
         PopupType::InfoPanel { lines } => {
-            let area = centered_rect(55, 55, size);
+            let area = centered_rect_in(55, 55, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()
@@ -40,7 +40,7 @@ pub fn render_info_popup(
             true
         }
         PopupType::FileAttributesDialog { attrs, mode_input } => {
-            let area = centered_rect(65, 45, size);
+            let area = centered_rect_in(65, 45, size);
             f.render_widget(Clear, area);
 
             let block = Block::default()

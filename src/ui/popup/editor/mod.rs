@@ -3,7 +3,7 @@ pub mod widget;
 
 pub use widget::{EditorView, render_editor_widget};
 
-use super::{centered_rect, centered_rect_fixed};
+use super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
@@ -55,7 +55,7 @@ pub fn render_editor_popup(
             true
         }
         PopupType::ConfirmDiscardEditorChanges => {
-            let area = centered_rect(50, 20, size);
+            let area = centered_rect_in(50, 20, size);
             f.render_widget(Clear, area);
             let block = Block::default()
                 .borders(Borders::ALL)

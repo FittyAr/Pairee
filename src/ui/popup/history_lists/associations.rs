@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::scrollbar::ScrollbarUiState;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -65,7 +65,7 @@ pub(super) fn render_associations(
     else {
         return false;
     };
-    let area = centered_rect(75, 60, size);
+    let area = centered_rect_in(75, 60, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()

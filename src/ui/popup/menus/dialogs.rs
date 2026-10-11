@@ -1,6 +1,6 @@
 //! Sorting modes and user menu dialog rendering.
 
-use super::super::{centered_rect, centered_rect_fixed};
+use super::super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::{ActivePanel, SortField};
 use crate::config::localization::t;
 use crate::config::theme::Theme;
@@ -21,7 +21,7 @@ pub fn render_sort_modes_dialog(
     reverse: bool,
     cursor_idx: usize,
 ) {
-    let area = centered_rect(45, 35, size);
+    let area = centered_rect_in(45, 35, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()

@@ -1,7 +1,7 @@
 use crate::app::state::popup::GitRemoteManageState;
 use crate::config::localization::t;
 use crate::config::theme::Theme;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -20,7 +20,7 @@ pub fn render_remote_manage(
 ) -> bool {
     let inner = kit::frame_in(
         f,
-        centered_rect(70, 60, size),
+        centered_rect_in(70, 60, size),
         kit::accent_title(t("git_remote_manage_title"), Color::Cyan),
         kit::fg(Color::Cyan),
         theme,

@@ -126,6 +126,39 @@ impl MouseMode {
     }
 }
 
+/// What a right click on a panel row does (`mouse_right_click`).
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum RightClick {
+    /// Tags the entry, and dragging tags a range (Norton / Far).
+    #[default]
+    Mark,
+    /// Opens the context menu.
+    #[serde(other)]
+    Menu,
+}
+
+impl RightClick {
+    pub fn next(self) -> Self {
+        match self {
+            Self::Mark => Self::Menu,
+            Self::Menu => Self::Mark,
+        }
+    }
+
+    pub fn label_key(self) -> &'static str {
+        match self {
+            Self::Mark => "int_right_click_mark",
+            Self::Menu => "int_right_click_menu",
+        }
+    }
+}
+
+/// Longest pause between the clicks of a double click (`mouse_double_click_ms`).
+pub fn default_double_click_ms() -> u32 {
+    400
+}
+
 pub fn default_true() -> bool {
     true
 }

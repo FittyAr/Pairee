@@ -1,6 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, ListPopup, Scroll};
 use crate::ui::scrollbar::{ScrollTargetId, ScrollbarUiState};
 use ratatui::{Frame, layout::Rect, style::Color};
@@ -66,7 +66,7 @@ pub(super) fn render_history_lists(
     let [title, empty, hint] = keys;
     let style = kit::popup_fg(theme);
     ListPopup {
-        area: centered_rect(width, 50, size),
+        area: centered_rect_in(width, 50, size),
         title: t(title),
         border: Color::Cyan,
         empty: Some(t(empty)),

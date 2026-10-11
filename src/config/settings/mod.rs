@@ -9,12 +9,12 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    MouseMode, PluginConfig, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
+    MouseMode, PluginConfig, RightClick, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
     default_auto_refresh_ssh_poll_secs, default_compare_mtime_tolerance_secs,
-    default_git_log_limit, default_plugins_dev_dir, default_ssh_timeout_secs,
-    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
-    default_transfer_max_retries, default_transfer_report_format, default_true,
-    default_viewer_codepage,
+    default_double_click_ms, default_git_log_limit, default_plugins_dev_dir,
+    default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
+    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
+    default_true, default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -32,6 +32,12 @@ pub struct Settings {
     /// stored the boolean `mouse_support`.
     #[serde(default, alias = "mouse_support")]
     pub mouse: MouseMode,
+    /// Longest pause between the clicks of a double click, in milliseconds.
+    #[serde(default = "default_double_click_ms")]
+    pub mouse_double_click_ms: u32,
+    /// What a right click on a panel row does.
+    #[serde(default)]
+    pub mouse_right_click: RightClick,
     /// False only on a freshly created config. Existing files without the
     /// field deserialize as `true` so upgrades skip the first-run dialog.
     #[serde(default = "default_true")]

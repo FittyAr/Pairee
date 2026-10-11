@@ -1,7 +1,7 @@
 //! "Color groups" and "Files highlighting" dialogs: a scrolled list of
 //! `name < color >` rows with the cursor row highlighted.
 
-use super::centered_rect;
+use super::centered_rect_in;
 use crate::app::state::PopupType;
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
@@ -74,7 +74,7 @@ pub fn render_color_groups_popup(
         _ => return false,
     };
     let border = kit::fg(parse_color(&theme.popup_border));
-    let inner = kit::frame_in(f, centered_rect(60, 60, size), title, border, theme);
+    let inner = kit::frame_in(f, centered_rect_in(60, 60, size), title, border, theme);
     let lines = color_lines(&rows, cursor, edit.as_ref(), inner.height as usize);
     f.render_widget(Paragraph::new(lines), inner);
     true

@@ -1,8 +1,6 @@
 pub mod background;
 pub mod events;
 pub(crate) mod plugin_effects;
-pub mod scrollbar_mouse;
-pub mod tab_mouse;
 pub mod updates;
 
 use super::context::AppContext;
@@ -103,15 +101,16 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         };
         if let Some(event) = next_event {
             match &event {
+                // Mouse events mark the UI dirty themselves when they
+                // change something: pointer motion must not redraw.
                 crate::terminal::Event::Key(_)
-                | crate::terminal::Event::Mouse(_)
                 | crate::terminal::Event::Resize(_, _)
                 | crate::terminal::Event::ModifiersChanged(_)
                 | crate::terminal::Event::Paste(_)
                 | crate::terminal::Event::Terminate => {
                     state.mark_ui_dirty();
                 }
-                crate::terminal::Event::Tick => {}
+                crate::terminal::Event::Mouse(_) | crate::terminal::Event::Tick => {}
             }
             events::handle_input_event(&mut state, &mut context, &mut terminal_backend, event)
                 .await?;
@@ -143,7 +142,7 @@ pub(crate) fn prepare_first_frame(state: &mut AppState, context: &mut AppContext
     state.mark_ui_dirty();
 }
 
-/// Draws one frame, resetting the click targets the frame records.
+/// Draws one frame (which records its mouse targets in `state.hits`).
 pub(crate) fn paint<B>(
     terminal: &mut ratatui::Terminal<B>,
     context: &AppContext,
@@ -153,8 +152,6 @@ where
     B: ratatui::backend::Backend,
     B::Error: Send + Sync + 'static,
 {
-    state.scrollbar.clear_targets();
-    state.tab_bar.clear();
     terminal.draw(|f| ui::draw_ui(f, context, state))?;
     Ok(())
 }

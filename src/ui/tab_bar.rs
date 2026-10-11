@@ -1,8 +1,9 @@
 //! One-line bar of folder tabs above a panel, shown when the side has more
 //! than one tab (or always, with `always_show_tab_bar`).
 
-use crate::app::state::tabs::{PanelTabs, Tab, TabId};
+use crate::app::state::tabs::{PanelTabs, Tab};
 use crate::config::theme::Theme;
+use crate::ui::hit::HitTarget;
 use crate::ui::text_width::{display_width, truncate_to_width};
 use crate::ui::theme_apply::parse_color;
 use ratatui::Frame;
@@ -10,37 +11,11 @@ use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::Paragraph;
-use std::cell::RefCell;
 
 /// Narrowest cell a tab is squeezed to: padding plus two columns.
 const MIN_CELL: usize = 4;
 /// Spaces around a title inside its cell.
 const PADDING: usize = 2;
-
-/// Tab cells painted last frame, for mouse clicks.
-#[derive(Debug, Default)]
-pub struct TabBarHits {
-    cells: RefCell<Vec<(Rect, TabId)>>,
-}
-
-impl TabBarHits {
-    pub fn clear(&self) {
-        self.cells.borrow_mut().clear();
-    }
-
-    fn register(&self, area: Rect, id: TabId) {
-        self.cells.borrow_mut().push((area, id));
-    }
-
-    /// The tab painted at column `x`, row `y`.
-    pub fn tab_at(&self, x: u16, y: u16) -> Option<TabId> {
-        self.cells
-            .borrow()
-            .iter()
-            .find(|(area, _)| area.contains(ratatui::layout::Position { x, y }))
-            .map(|(_, id)| *id)
-    }
-}
 
 /// Whether a side shows its tab bar.
 pub fn is_visible(tabs: &PanelTabs, always: bool) -> bool {
@@ -113,14 +88,7 @@ fn window(widths: &[usize], active: usize, total: usize) -> (usize, usize) {
 }
 
 /// Paints the bar of `tabs` on `area` and records the cells for clicks.
-pub fn render(
-    f: &mut Frame,
-    area: Rect,
-    tabs: &PanelTabs,
-    side_focused: bool,
-    theme: &Theme,
-    hits: &TabBarHits,
-) {
+pub fn render(f: &mut Frame, area: Rect, tabs: &PanelTabs, side_focused: bool, theme: &Theme) {
     let labels: Vec<String> = tabs
         .tabs()
         .iter()
@@ -148,7 +116,7 @@ pub fn render(
         };
         spans.push(Span::styled(format!(" {text}{}", " ".repeat(pad)), style));
         let cell_area = Rect::new(area.x + cell.x as u16, area.y, cell.width as u16, 1);
-        hits.register(cell_area, tabs.tabs()[cell.index].id);
+        crate::ui::hit::register(cell_area, HitTarget::Tab(tabs.tabs()[cell.index].id));
     }
     f.render_widget(Paragraph::new(Line::from(spans)).style(base), area);
 }

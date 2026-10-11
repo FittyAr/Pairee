@@ -2,6 +2,7 @@ pub mod cli;
 pub mod fkeys;
 pub mod half_block_image;
 pub mod highlight;
+pub mod hit;
 pub mod hotkey;
 pub mod layout;
 pub mod menu;
@@ -34,6 +35,7 @@ use ratatui::Frame;
 
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
+    let _recording = hit::Recording::start(&state.hits);
     // 1. Compute geometry partitions (respects panel visibility flags)
     let layout = layout::calculate_layout(f.area(), state, &context.config);
 
@@ -55,6 +57,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     }
 
     // 4. Overlay active popup dialogs if present
+    hit::begin_layer(hit::Layer::Popup);
     popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
 
     // 4b. Prefix HUD for in-progress multi-key sequences (not a second keymap).

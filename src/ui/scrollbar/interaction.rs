@@ -4,8 +4,7 @@ use crossterm::event::{MouseEvent, MouseEventKind};
 use ratatui::layout::{Position, Rect};
 use tui_scrollbar::{ScrollBarInteraction, ScrollCommand};
 
-/// Rows scrolled per mouse-wheel step over a scrolled view.
-const WHEEL_STEP: usize = 3;
+use crate::ui::hit::WHEEL_LINES as WHEEL_STEP;
 
 /// Apply a mouse event against last-frame hit targets.
 /// Returns `Some(id, new_offset)` when a scrollbar consumed the event.

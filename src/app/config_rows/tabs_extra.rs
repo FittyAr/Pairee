@@ -26,6 +26,20 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
             |s| t(s.mouse.label_key()),
             |s| s.mouse = s.mouse.next(),
         ),
+        cycle(
+            "int_right_click",
+            1,
+            CycleFormat::Angle,
+            |s| t(s.mouse_right_click.label_key()),
+            |s| s.mouse_right_click = s.mouse_right_click.next(),
+        ),
+        cycle(
+            "int_double_click_ms",
+            1,
+            CycleFormat::Angle,
+            |s| s.mouse_double_click_ms.to_string(),
+            |s| s.mouse_double_click_ms = next_double_click_ms(s.mouse_double_click_ms),
+        ),
         toggle!("int_key_bar", interface_show_key_bar),
         toggle!("int_menu_bar", interface_always_show_menu_bar),
         toggle!("int_restore_session", restore_session),
@@ -53,6 +67,18 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         }),
         toggle!("int_yazi_workflow", enable_yazi_workflow),
     ]
+}
+
+/// Double-click intervals offered by the configuration dialog (ms).
+const DOUBLE_CLICK_STEPS: [u32; 5] = [250, 400, 550, 700, 900];
+
+/// The next interval of [`DOUBLE_CLICK_STEPS`] (wraps; values from a hand
+/// edited file move to the next step above them).
+fn next_double_click_ms(ms: u32) -> u32 {
+    DOUBLE_CLICK_STEPS
+        .into_iter()
+        .find(|&step| step > ms)
+        .unwrap_or(DOUBLE_CLICK_STEPS[0])
 }
 
 /// Validation report of the keymap the draft would load.

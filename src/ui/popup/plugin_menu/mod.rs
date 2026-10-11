@@ -102,7 +102,7 @@ pub fn render(
     let PopupType::PluginMenu(menu) = popup else {
         return false;
     };
-    let area = super::centered_rect(85, 80, size);
+    let area = super::centered_rect_in(85, 80, size);
     f.render_widget(Clear, area);
 
     let border_style = Style::default().fg(parse_color(&theme.popup_border));

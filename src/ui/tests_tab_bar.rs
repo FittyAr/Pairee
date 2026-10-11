@@ -4,7 +4,6 @@ use crate::app::state::{ActivePanel, AppState, PanelState};
 use crate::config::AppConfig;
 use crate::ui::draw_ui;
 use crate::ui::tab_bar::{Cell, layout};
-use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use ratatui::{Terminal, backend::TestBackend};
 use std::path::PathBuf;
 
@@ -58,7 +57,6 @@ fn row(terminal: &Terminal<TestBackend>, y: u16) -> String {
 
 fn draw(context: &AppContext, state: &AppState, w: u16, h: u16) -> Terminal<TestBackend> {
     let mut terminal = Terminal::new(TestBackend::new(w, h)).expect("terminal");
-    state.tab_bar.clear();
     terminal.draw(|f| draw_ui(f, context, state)).expect("draw");
     terminal
 }
@@ -110,21 +108,12 @@ fn narrow_terminal_truncates_titles_with_an_ellipsis() {
 }
 
 #[test]
-fn clicks_on_the_bar_switch_and_close_tabs() {
+fn the_bar_records_a_click_target_per_tab() {
     let (context, mut state) = app(false);
     add_tab(&mut state, "beta_dir");
     let first = state.panels.tabs(ActivePanel::Left).tabs()[0].id;
     let top = panel_top(&context, &state, 80, 24);
     draw(&context, &state, 80, 24);
-    let click = |button| MouseEvent {
-        kind: MouseEventKind::Down(button),
-        column: 2,
-        row: top,
-        modifiers: KeyModifiers::empty(),
-    };
-    let handle = crate::app::app::tab_mouse::handle_tab_bar_mouse;
-    assert!(handle(&mut state, click(MouseButton::Left), false));
-    assert_eq!(state.panels.active_tab_id(ActivePanel::Left), first);
-    assert!(handle(&mut state, click(MouseButton::Middle), false));
-    assert_eq!(state.panels.tabs(ActivePanel::Left).count(), 1);
+    let hit = state.hits.at(2, top).expect("tab cell");
+    assert_eq!(hit.target, crate::ui::hit::HitTarget::Tab(first));
 }

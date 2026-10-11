@@ -1,7 +1,7 @@
 use crate::app::input_popup::search::SEARCH_FORM;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect;
+use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::scrollbar::ScrollbarUiState;
 use crate::ui::theme_apply::parse_color;
@@ -46,7 +46,7 @@ fn render_search_prompt(
         return false;
     };
 
-    let area = centered_rect(65, 40, size);
+    let area = centered_rect_in(65, 40, size);
     f.render_widget(Clear, area);
 
     let block = Block::default()
@@ -160,7 +160,7 @@ fn render_search_results(
         })
         .collect();
     kit::ListPopup {
-        area: centered_rect(70, 60, size),
+        area: centered_rect_in(70, 60, size),
         title,
         border: Color::Cyan,
         empty: Some(t(if *searching {
