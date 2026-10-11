@@ -154,6 +154,19 @@ impl RightClick {
     }
 }
 
+/// Narrowest share of the screen a panel keeps when the split moves (%).
+pub const PANEL_SPLIT_MIN: u16 = 15;
+
+/// Width of the left panel in percent of the screen (`panel_split`).
+pub fn default_panel_split() -> u16 {
+    50
+}
+
+/// `split` kept within [`PANEL_SPLIT_MIN`] of either edge.
+pub fn clamp_panel_split(split: u16) -> u16 {
+    split.clamp(PANEL_SPLIT_MIN, 100 - PANEL_SPLIT_MIN)
+}
+
 /// Longest pause between the clicks of a double click (`mouse_double_click_ms`).
 pub fn default_double_click_ms() -> u32 {
     400

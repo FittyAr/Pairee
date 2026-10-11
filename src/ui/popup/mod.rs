@@ -143,11 +143,31 @@ fn render_specific_popup(
     if shortcuts::render(f, popup, theme, size) {}
 }
 
-/// Records `area` as a dialog on screen, so a click there counts as inside
-/// it, and returns it.
+/// Records `area` as a dialog on screen: a click there counts as inside it,
+/// its top border moves it and (when resizable) its bottom-right corner
+/// resizes it. Returns `area`.
 pub(crate) fn popup_body(area: Rect) -> Rect {
-    crate::ui::hit::register(area, crate::ui::hit::HitTarget::PopupBody);
+    use crate::ui::hit::{HitTarget, register};
+    register(area, HitTarget::PopupBody);
+    if area.width > 2 {
+        register(
+            Rect::new(area.x + 1, area.y, area.width - 2, 1),
+            HitTarget::PopupTitle,
+        );
+    }
+    if crate::ui::placement::resizable() && area.width > 1 && area.height > 1 {
+        register(
+            Rect::new(area.right() - 1, area.bottom() - 1, 1, 1),
+            HitTarget::PopupResize,
+        );
+    }
     area
+}
+
+/// A centered dialog area on `screen`, moved where the user put the dialog,
+/// and recorded for the mouse.
+fn place_popup(area: Rect, screen: Rect) -> Rect {
+    popup_body(crate::ui::placement::place(area, screen))
 }
 
 /// Centers a rectangle of fixed `width` and `height` over the full screen.
@@ -169,7 +189,7 @@ pub(crate) fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
             Constraint::Length(r.width.saturating_sub(width) / 2),
         ])
         .split(popup_layout[1])[1];
-    popup_body(area)
+    place_popup(area, r)
 }
 
 /// Centers a rectangle of `percent_x` × `percent_y` within `parent` (the
@@ -192,5 +212,5 @@ pub(crate) fn centered_rect_in(percent_x: u16, percent_y: u16, parent: Rect) -> 
             Constraint::Percentage((100 - percent_x) / 2),
         ])
         .split(popup_layout[1])[1];
-    popup_body(area)
+    place_popup(area, parent)
 }

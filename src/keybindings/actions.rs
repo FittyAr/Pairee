@@ -258,6 +258,12 @@ pub enum Action {
     ToggleKeybar,
     /// Release / take back mouse capture (to select text with the terminal)
     ToggleMouseCapture,
+    /// Widen the left panel (move the border between the panels right)
+    PanelSplitGrow,
+    /// Narrow the left panel (move the border between the panels left)
+    PanelSplitShrink,
+    /// Split the screen evenly between the panels again
+    PanelSplitReset,
     /// Create an empty file
     NewFile,
     /// Create a file, or a folder when the name ends with `/`

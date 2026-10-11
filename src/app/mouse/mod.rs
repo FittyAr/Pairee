@@ -3,6 +3,7 @@
 //! the keyboard's actions wherever one exists.
 
 mod bars;
+mod dialog_drag;
 pub mod gesture;
 mod panel;
 pub mod scrollbar;
@@ -23,12 +24,29 @@ pub struct MouseState {
     mark_drag: Option<panel::MarkDrag>,
     /// The menu bar is shown because the pointer reached the hidden bar.
     menu_revealed: bool,
+    /// Dragging the border between the panels.
+    split_drag: Option<panel::SplitDrag>,
+    /// Where the user moved (or how they resized) the open dialog.
+    dialog: dialog_drag::DialogPlacement,
 }
 
 impl MouseState {
     /// The keyboard took over: a menu shown by pointing stays open.
     pub fn keyboard_used(&mut self) {
         self.menu_revealed = false;
+    }
+
+    /// Where to paint the top dialog, and whether it can be resized.
+    pub fn placement_for(
+        &self,
+        dialogs: &crate::app::state::DialogStack,
+    ) -> (crate::ui::placement::Placement, bool) {
+        self.dialog.for_top(dialogs)
+    }
+
+    /// What the painted frame could honour of the placement.
+    pub fn placed(&self, effective: Option<crate::ui::placement::Placement>) {
+        self.dialog.placed(effective);
     }
 }
 
@@ -72,18 +90,12 @@ pub async fn handle(
     {
         return Ok(consumed);
     }
+    // A drag this router started owns the pointer until release, even when
+    // it crosses a scrollbar.
+    if let Some(consumed) = own_drag(state, context, mouse) {
+        return Ok(consumed);
+    }
     if scrollbar::handle_scrollbar_mouse(state, mouse) {
-        return Ok(true);
-    }
-    if let MouseEventKind::Drag(button) = mouse.kind {
-        // A press after a drag is a new single click.
-        state.mouse.clicks.reset();
-        let target = lookup(state, mouse.column, mouse.row).map(|hit| hit.target);
-        if button == MouseButton::Right && panel::drag(state, target.as_ref()) {
-            return Ok(true);
-        }
-    }
-    if matches!(mouse.kind, MouseEventKind::Up(_)) && state.mouse.mark_drag.take().is_some() {
         return Ok(true);
     }
     if let MouseEventKind::Down(button) = mouse.kind {
@@ -108,6 +120,39 @@ pub async fn handle(
     Ok(crate::app::screen_input::editor::handle_editor_mouse(
         state, mouse,
     ))
+}
+
+/// Continues or ends a drag started here (tagging rows, moving the panel
+/// border, moving or resizing a dialog). `None` when none is going on.
+fn own_drag(state: &mut AppState, context: &mut AppContext, mouse: MouseEvent) -> Option<bool> {
+    match mouse.kind {
+        MouseEventKind::Drag(button) => {
+            // A press after a drag is a new single click.
+            state.mouse.clicks.reset();
+            if button == MouseButton::Right && state.mouse.mark_drag.is_some() {
+                let target = lookup(state, mouse.column, mouse.row).map(|hit| hit.target);
+                return Some(panel::drag(state, target.as_ref()));
+            }
+            if let Some(drag) = state.mouse.split_drag {
+                return Some(panel::move_split(context, drag, mouse.column));
+            }
+            if button == MouseButton::Left && state.mouse.dialog.follow((mouse.column, mouse.row)) {
+                return Some(true);
+            }
+            None
+        }
+        MouseEventKind::Up(_) => {
+            if state.mouse.dialog.stop() || state.mouse.mark_drag.take().is_some() {
+                return Some(true);
+            }
+            if state.mouse.split_drag.take().is_some() {
+                context.config.save_logging();
+                return Some(true);
+            }
+            None
+        }
+        _ => None,
+    }
 }
 
 /// Acts on a press. `None` lets the event fall through to the editor.
@@ -143,6 +188,38 @@ async fn on_click(
         | HitTarget::PanelRow { .. } => {
             Some(panel::click(state, context, terminal_backend, target, click).await?)
         }
+        HitTarget::PanelSplitter { width } if click.button == MouseButton::Left => {
+            if click.is_double() {
+                act(
+                    state,
+                    context,
+                    terminal_backend,
+                    crate::keybindings::Action::PanelSplitReset,
+                )
+                .await?;
+            } else {
+                state.mouse.split_drag = Some(panel::SplitDrag {
+                    width,
+                    grab: click.column,
+                    split: context.config.settings.panel_split,
+                });
+            }
+            Some(true)
+        }
+        HitTarget::PopupTitle | HitTarget::PopupResize if click.button == MouseButton::Left => {
+            if target == HitTarget::PopupTitle && click.is_double() {
+                state.mouse.dialog.recenter(&state.dialogs);
+            } else {
+                let kind = if target == HitTarget::PopupTitle {
+                    dialog_drag::DragKind::Move
+                } else {
+                    dialog_drag::DragKind::Resize
+                };
+                let at = (click.column, click.row);
+                state.mouse.dialog.start(&state.dialogs, kind, at);
+            }
+            Some(true)
+        }
         HitTarget::MenuReveal => {
             let width = state
                 .hits
@@ -161,8 +238,11 @@ async fn on_click(
             Some(true)
         }
         HitTarget::MenuTitle(_)
+        | HitTarget::PanelSplitter { .. }
         | HitTarget::Action(_)
         | HitTarget::PopupBody
+        | HitTarget::PopupTitle
+        | HitTarget::PopupResize
         | HitTarget::Scrollbar(_) => Some(false),
     })
 }

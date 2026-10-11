@@ -354,3 +354,144 @@ fn the_hidden_menu_bar_shows_while_pointed_at() {
     h.click(x + 1, 0);
     assert_eq!(open_menu(&h), Some((1, Some(0), None)));
 }
+
+#[test]
+fn the_wheel_scrolls_the_viewer_without_a_scrollbar() {
+    let mut h = Harness::new();
+    let text: String = (0..200).map(|i| format!("line {i}\n")).collect();
+    h.write("work/left/long.txt", text);
+    h.reread();
+    h.focus("long.txt").keys("@view");
+    let scroll = |h: &Harness| match h.state.screens.get(h.state.active_screen_idx) {
+        Some(crate::app::state::Screen::Viewer(vw)) => vw.scroll,
+        _ => panic!("viewer not open"),
+    };
+    assert_eq!(scroll(&h), 0);
+    h.wheel(10, 10, true);
+    assert_eq!(scroll(&h), crate::ui::hit::WHEEL_LINES);
+    h.wheel(10, 10, false);
+    assert_eq!(scroll(&h), 0);
+}
+
+#[test]
+fn dragging_the_border_between_the_panels_moves_the_split() {
+    let mut h = panels(0);
+    let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PanelSplitter { .. }));
+    assert_eq!(h.ctx.config.settings.panel_split, 50);
+    h.drag(
+        MouseButton::Left,
+        (x, y + 3),
+        (x + 20, y + 3),
+        KeyModifiers::NONE,
+    );
+    assert_eq!(h.ctx.config.settings.panel_split, 70);
+    let left = h.state.panels.active;
+    assert_eq!(left, ActivePanel::Left, "the drag only moved the border");
+    // Never past the minimum share, and a double click evens them out.
+    h.drag(
+        MouseButton::Left,
+        (x + 20, y + 3),
+        (99, y + 3),
+        KeyModifiers::NONE,
+    );
+    assert_eq!(h.ctx.config.settings.panel_split, 85);
+    let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PanelSplitter { .. }));
+    h.double_click(x, y + 3);
+    assert_eq!(h.ctx.config.settings.panel_split, 50);
+}
+
+#[test]
+fn split_keys_move_the_border_in_steps() {
+    let mut h = Harness::new();
+    h.keys("@panel_split_grow @panel_split_grow");
+    assert_eq!(h.ctx.config.settings.panel_split, 60);
+    h.keys("@panel_split_shrink");
+    assert_eq!(h.ctx.config.settings.panel_split, 55);
+    h.keys("@panel_split_reset");
+    assert_eq!(h.ctx.config.settings.panel_split, 50);
+}
+
+fn body(h: &mut Harness) -> ratatui::layout::Rect {
+    h.render();
+    h.state
+        .hits
+        .first(|t| (*t == HitTarget::PopupBody).then_some(()))
+        .expect("dialog body")
+        .0
+}
+
+#[test]
+fn dialogs_move_by_their_top_border_and_recenter_on_double_click() {
+    let mut h = Harness::new();
+    h.keys("@about");
+    let start = body(&mut h);
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupTitle);
+    h.drag(
+        MouseButton::Left,
+        (x + 3, y),
+        (x + 13, y + 2),
+        KeyModifiers::NONE,
+    );
+    let moved = body(&mut h);
+    assert_eq!((moved.x, moved.y), (start.x + 10, start.y + 2));
+    assert!(
+        matches!(top(&h), Some(PopupType::About { .. })),
+        "still open"
+    );
+    // A click inside the moved dialog does not count as outside.
+    h.click(moved.x + 2, moved.y + 3);
+    assert!(top(&h).is_some());
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupTitle);
+    h.double_click(x + 3, y);
+    assert_eq!(body(&mut h), start);
+}
+
+#[test]
+fn dialogs_stay_on_screen_and_follow_back_at_once() {
+    let mut h = Harness::new();
+    h.keys("@about");
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupTitle);
+    h.drag(MouseButton::Left, (x + 3, y), (99, y), KeyModifiers::NONE);
+    let at_edge = body(&mut h);
+    assert_eq!(at_edge.right(), 100);
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupTitle);
+    h.drag(
+        MouseButton::Left,
+        (x + 3, y),
+        (x + 1, y),
+        KeyModifiers::NONE,
+    );
+    assert_eq!(body(&mut h).x, at_edge.x - 2);
+}
+
+#[test]
+fn flowing_dialogs_resize_by_their_corner_and_fixed_ones_do_not() {
+    let mut h = Harness::new();
+    h.keys("@about");
+    let start = body(&mut h);
+    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupResize);
+    h.drag(
+        MouseButton::Left,
+        (x, y),
+        (x + 6, y + 2),
+        KeyModifiers::NONE,
+    );
+    let grown = body(&mut h);
+    assert_eq!(
+        (grown.width, grown.height),
+        (start.width + 6, start.height + 2)
+    );
+    assert_eq!(
+        (grown.x, grown.y),
+        (start.x, start.y),
+        "the top-left corner stays"
+    );
+    h.keys("Esc @mkdir");
+    h.render();
+    assert!(
+        h.state
+            .hits
+            .first(|t| (*t == HitTarget::PopupResize).then_some(()))
+            .is_none()
+    );
+}

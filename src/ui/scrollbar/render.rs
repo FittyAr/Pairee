@@ -125,3 +125,21 @@ pub fn render_vertical_inside_block(
     let inner = block_inner(block_area);
     render_track(f, track_area_right(inner), inner, view, theme, target);
 }
+
+/// Records the wheel over `content` without drawing a bar, for views whose
+/// scrollbar is turned off: the wheel scrolls them all the same.
+pub fn register_wheel(content: Rect, view: ScrollView, target: ScrollTarget) {
+    let Some(hits) = target.hits else {
+        return;
+    };
+    if should_show(view.content_len, view.viewport_len) {
+        hits.register(ScrollbarHitTarget {
+            area: Rect::default(),
+            wheel_area: content,
+            content_len: view.content_len,
+            viewport_len: view.viewport_len,
+            offset: view.offset,
+            id: target.id,
+        });
+    }
+}

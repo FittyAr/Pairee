@@ -220,6 +220,9 @@ pub const CATALOG: &[ActionDef] = &[
     def("cycle_panel_view", Action::CyclePanelView, C::View),
     def("toggle_keybar", Action::ToggleKeybar, C::View),
     def("toggle_mouse_capture", Action::ToggleMouseCapture, C::View),
+    def("panel_split_grow", Action::PanelSplitGrow, C::Panels),
+    def("panel_split_shrink", Action::PanelSplitShrink, C::Panels),
+    def("panel_split_reset", Action::PanelSplitReset, C::Panels),
     // Sort
     def("sort_modes", Action::SortModes, C::Sort),
     def("sort_by_name", Action::SortByName, C::Sort),

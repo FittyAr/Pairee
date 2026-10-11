@@ -9,12 +9,13 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    MouseMode, PluginConfig, RightClick, SshPreset, TabExpansion, default_auto_refresh_poll_secs,
-    default_auto_refresh_ssh_poll_secs, default_compare_mtime_tolerance_secs,
-    default_double_click_ms, default_git_log_limit, default_plugins_dev_dir,
-    default_ssh_timeout_secs, default_transfer_buffer, default_transfer_conflict,
-    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
-    default_true, default_viewer_codepage,
+    MouseMode, PluginConfig, RightClick, SshPreset, TabExpansion, clamp_panel_split,
+    default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
+    default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
+    default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
+    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
+    default_transfer_max_retries, default_transfer_report_format, default_true,
+    default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -58,6 +59,10 @@ pub struct Settings {
     // ── Panel visibility defaults ────────────────────────────────────────────
     pub left_panel_visible: bool,
     pub right_panel_visible: bool,
+    /// Width of the left panel in percent when both show (drag the border
+    /// between them, or `panel_split_*` actions).
+    #[serde(default = "default_panel_split")]
+    pub panel_split: u16,
 
     // ── Confirmations ────────────────────────────────────────────────────────
     pub confirmations: ConfirmationSettings,

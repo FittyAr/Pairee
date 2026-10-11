@@ -1,7 +1,7 @@
 use super::{
     ConfirmationSettings, MouseMode, RightClick, Settings, TabExpansion,
     default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs, default_double_click_ms,
-    default_plugins_dev_dir, default_ssh_timeout_secs,
+    default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
 };
 use crate::app::state::{PanelViewMode, SortField};
 
@@ -21,6 +21,7 @@ impl Default for Settings {
             show_long_names: true,
             left_panel_visible: true,
             right_panel_visible: true,
+            panel_split: default_panel_split(),
             confirmations: ConfirmationSettings::default(),
 
             // Tab 0

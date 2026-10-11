@@ -83,21 +83,19 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
         .block(block)
         .style(Style::default().fg(parse_color(&theme.panel_fg)));
     f.render_widget(para, area);
+    let view = ScrollView {
+        content_len: state.content_rows(),
+        viewport_len: height,
+        offset: state.scroll,
+    };
+    let target = ScrollTarget {
+        surface: ScrollbarSurface::Panel,
+        hits: scrollbar,
+        id: ScrollTargetId::Viewer,
+    };
     if show_scrollbar {
-        scrollbar::render_vertical_inside_block(
-            f,
-            area,
-            ScrollView {
-                content_len: state.content_rows(),
-                viewport_len: height,
-                offset: state.scroll,
-            },
-            theme,
-            ScrollTarget {
-                surface: ScrollbarSurface::Panel,
-                hits: scrollbar,
-                id: ScrollTargetId::Viewer,
-            },
-        );
+        scrollbar::render_vertical_inside_block(f, area, view, theme, target);
+    } else {
+        scrollbar::register_wheel(area.inner(ratatui::layout::Margin::new(1, 1)), view, target);
     }
 }

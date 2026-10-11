@@ -1,11 +1,14 @@
 //! Norton Commander / Far command-line and layout keys: put names or paths
 //! on the command line, walk its history, clear it, hide the passive panel
-//! and the key bar.
+//! and the key bar, move the border between the panels.
 
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState};
 use crate::keybindings::Action;
 use std::path::Path;
+
+/// Percent the `panel_split_grow` / `panel_split_shrink` keys move the border.
+const PANEL_SPLIT_STEP: u16 = 5;
 
 pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -> bool {
     match action {
@@ -44,6 +47,16 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
             context.config.save_logging();
         }
         Action::ToggleMouseCapture => state.mouse_released = !state.mouse_released,
+        Action::PanelSplitGrow | Action::PanelSplitShrink | Action::PanelSplitReset => {
+            let settings = &mut context.config.settings;
+            settings.panel_split = match action {
+                Action::PanelSplitGrow => settings.panel_split.saturating_add(PANEL_SPLIT_STEP),
+                Action::PanelSplitShrink => settings.panel_split.saturating_sub(PANEL_SPLIT_STEP),
+                _ => crate::config::settings::default_panel_split(),
+            };
+            settings.panel_split = crate::config::settings::clamp_panel_split(settings.panel_split);
+            context.config.save_logging();
+        }
         _ => return false,
     }
     true

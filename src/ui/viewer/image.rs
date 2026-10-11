@@ -46,21 +46,19 @@ pub(crate) fn render_image(
         state.scroll,
         parse_color(&theme.panel_bg),
     );
+    let view = ScrollView {
+        content_len: rows,
+        viewport_len: inner_h as usize,
+        offset: state.scroll,
+    };
+    let target = ScrollTarget {
+        surface: ScrollbarSurface::Panel,
+        hits: scrollbar,
+        id: ScrollTargetId::Viewer,
+    };
     if show_scrollbar && rows > inner_h as usize {
-        scrollbar::render_vertical_right(
-            f,
-            inner_area,
-            ScrollView {
-                content_len: rows,
-                viewport_len: inner_h as usize,
-                offset: state.scroll,
-            },
-            theme,
-            ScrollTarget {
-                surface: ScrollbarSurface::Panel,
-                hits: scrollbar,
-                id: ScrollTargetId::Viewer,
-            },
-        );
+        scrollbar::render_vertical_right(f, inner_area, view, theme, target);
+    } else {
+        scrollbar::register_wheel(inner_area, view, target);
     }
 }

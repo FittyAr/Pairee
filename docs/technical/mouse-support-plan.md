@@ -224,14 +224,14 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 - [ ] Inventario completo (§2.10) en este documento + test de cobertura de `PopupType`/`Screen` en CI.
 
 ### Fase 5 — Visor, QuickView, editor
-- [ ] Rueda en visor/QuickView siempre; integrar editor al router (`EditorText`) sin cambiar su comportamiento.
+- [x] Rueda en visor siempre, también con la scrollbar apagada (`scrollbar::register_wheel`); QuickView ya la tenía. El editor sigue con su manejo propio, como último destino del router.
 
 ### Fase 5b — Modales movibles y divisor de paneles
-- [ ] `Placement` en `DialogStack`; `place()` único reemplaza `centered_rect*`; auditar los `Rect::new` sueltos de popups.
-- [ ] Arrastrar título = mover, doble clic = recentrar, acotado a pantalla y robusto a `Resize`.
-- [ ] Redimensionar desde la esquina en modales elásticos.
-- [ ] Acciones de teclado `popup_move` / `popup_recenter`.
-- [ ] `panel_split` + `PanelSplitter` + acciones de teclado.
+- [x] `ui::placement`: las funciones de centrado aplican la ubicación del diálogo abierto (`place`), sin tocar cada popup. La ubicación vale para ese diálogo (profundidad + tipo) y se pierde al cerrarlo. Se unificaron `centered_rect` y `centered_rect_in`, que eran iguales.
+- [x] Arrastrar el borde superior mueve, doble clic recentra; siempre dentro de la pantalla, y al volver desde el borde responde enseguida.
+- [x] Redimensionar desde la esquina en los diálogos de contenido elástico (`PopupType::resizable`).
+- [~] Acciones de teclado `popup_move` / `popup_recenter`: descartadas por ahora; mover un diálogo con teclas pediría un modo propio y el valor es bajo.
+- [x] `panel_split` + `PanelSplitter` (arrastre relativo al agarre, doble clic = 50 %) + acciones `panel_split_grow` / `panel_split_shrink` / `panel_split_reset`.
 
 ### Fase 5c — Arrastrar y soltar
 - [ ] Máquina de estados `drag.rs`, etiqueta flotante, resaltado de destino y autoscroll.

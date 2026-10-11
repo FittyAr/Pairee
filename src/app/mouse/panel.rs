@@ -179,3 +179,29 @@ fn sort_action(field: SortField) -> Action {
         SortField::Unsorted => Action::SortUnsorted,
     }
 }
+
+/// A drag of the border between the panels: the columns the panels share,
+/// where the border was grabbed and the split at that moment.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SplitDrag {
+    pub width: u16,
+    pub grab: u16,
+    pub split: u16,
+}
+
+/// Moves the border by as many columns as the pointer moved since the grab
+/// (so grabbing does not jump). Saved when the drag ends.
+pub fn move_split(context: &mut AppContext, drag: SplitDrag, x: u16) -> bool {
+    if drag.width == 0 {
+        return false;
+    }
+    let moved = i32::from(x) - i32::from(drag.grab);
+    let width = i32::from(drag.width);
+    let delta = (moved * 100 + moved.signum() * width / 2) / width;
+    let percent = (i32::from(drag.split) + delta).clamp(0, 100) as u16;
+    let split = crate::config::settings::clamp_panel_split(percent);
+    let settings = &mut context.config.settings;
+    let changed = settings.panel_split != split;
+    settings.panel_split = split;
+    changed
+}

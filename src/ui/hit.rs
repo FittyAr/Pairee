@@ -48,6 +48,9 @@ pub enum HitTarget {
     },
     /// The row showing entry `index` of a panel.
     PanelRow { side: ActivePanel, index: usize },
+    /// The border between the two panels: dragging it moves the split.
+    /// `width` is the number of columns the two panels share.
+    PanelSplitter { width: u16 },
     /// A cell of a panel's tab bar.
     Tab(TabId),
     /// A key of the function-key bar: `F<number>` with the modifiers whose
@@ -66,6 +69,10 @@ pub enum HitTarget {
     /// The whole area of a dialog: a click there is "inside" even where
     /// nothing reacts to it.
     PopupBody,
+    /// A dialog's top border: dragging it moves the dialog.
+    PopupTitle,
+    /// A dialog's bottom-right corner: dragging it resizes the dialog.
+    PopupResize,
 }
 
 /// One recorded area.

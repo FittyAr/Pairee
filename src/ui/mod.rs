@@ -7,6 +7,7 @@ pub mod hotkey;
 pub mod layout;
 pub mod menu;
 pub mod panel;
+pub mod placement;
 pub mod popup;
 pub mod quickview;
 pub mod screens;
@@ -57,6 +58,25 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         screens::render_screen(f, &layout, context, state, screen);
     }
 
+    // 3a. The border between two visible panels can be dragged.
+    if matches!(
+        state.screens.get(state.active_screen_idx),
+        Some(crate::app::state::Screen::Panels)
+    ) && state.panels.left_visible
+        && state.panels.right_visible
+        && layout.left_rect.width > 1
+        && layout.right_rect.width > 1
+    {
+        let border = Rect {
+            x: layout.left_rect.right() - 1,
+            width: 2,
+            y: layout.left_rect.y + 1,
+            height: layout.left_rect.height.saturating_sub(2),
+        };
+        let width = layout.right_rect.right() - layout.left_rect.x;
+        hit::register(border, hit::HitTarget::PanelSplitter { width });
+    }
+
     // 3b. A hidden menu bar shows up when the pointer reaches the top row.
     if layout.menu_rect.height == 0 && state.dialogs.is_none() {
         hit::register(
@@ -68,8 +88,10 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         );
     }
 
-    // 4. Overlay active popup dialogs if present
+    // 4. Overlay active popup dialogs if present, where the user put them.
     hit::begin_layer(hit::Layer::Popup);
+    let (placement, resizable) = state.mouse.placement_for(&state.dialogs);
+    placement::apply(placement, resizable);
     popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
 
     // 4b. Prefix HUD for in-progress multi-key sequences (not a second keymap).
@@ -87,4 +109,5 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
         let size = f.area();
         transfer::conflict_dialog::render_conflict_dialog(f, size, ts);
     }
+    state.mouse.placed(placement::finish());
 }

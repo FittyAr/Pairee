@@ -54,7 +54,12 @@ pub struct ScrollbarUiState {
 impl ScrollbarUiState {
     /// Records `target` in the frame being painted.
     pub fn register(&self, target: ScrollbarHitTarget) {
-        let area = target.wheel_area.union(target.area);
+        // A wheel-only target (bar turned off) has an empty track.
+        let area = if target.area.is_empty() {
+            target.wheel_area
+        } else {
+            target.wheel_area.union(target.area)
+        };
         crate::ui::hit::register(area, crate::ui::hit::HitTarget::Scrollbar(target));
     }
 }

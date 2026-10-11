@@ -34,4 +34,29 @@ impl PopupType {
                 | PopupType::UpdateAvailable { .. }
         )
     }
+
+    /// Its content flows into whatever size it gets, so the user may resize
+    /// it (by its bottom-right corner).
+    pub fn resizable(&self) -> bool {
+        matches!(
+            self,
+            PopupType::Help { .. }
+                | PopupType::About { .. }
+                | PopupType::InfoPanel { .. }
+                | PopupType::UpdateAvailable { .. }
+                | PopupType::GitPanel(_)
+                | PopupType::SearchResults { .. }
+                | PopupType::CommandHistoryList { .. }
+                | PopupType::FileViewHistoryList { .. }
+                | PopupType::FoldersHistoryList { .. }
+                | PopupType::CompareFoldersResult { .. }
+                | PopupType::TaskListDialog { .. }
+                | PopupType::TreeView { .. }
+                | PopupType::TransferPanel
+                | PopupType::CommandPalette { .. }
+                | PopupType::Shortcuts(_)
+                | PopupType::DiskUsage
+                | PopupType::SyncDirs(_)
+        )
+    }
 }
