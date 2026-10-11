@@ -67,6 +67,7 @@ pub fn render(
         })
         .collect();
     for (i, (title, desc)) in rows.iter().enumerate() {
+        crate::ui::popup::kit::mouse::list_item(chunks[i + 1], (i, *cursor_idx), &[]);
         let selected = i == *cursor_idx;
         let style = if selected {
             Style::default()

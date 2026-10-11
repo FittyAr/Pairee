@@ -128,6 +128,18 @@ fn render_tab_header(f: &mut Frame, area: Rect, active_tab: usize, theme: &Theme
             Span::styled(format!("  [ {} ]  ", t(name)), style)
         })
         .collect();
+    // Tab / Shift+Tab walk the tabs.
+    let labels: Vec<String> = spans.iter().map(|s| s.content.to_string()).collect();
+    let keys = (0..labels.len())
+        .map(|i| {
+            crate::ui::popup::kit::mouse::presses(
+                i as i64 - active_tab as i64,
+                crossterm::event::KeyCode::Tab,
+                crossterm::event::KeyCode::BackTab,
+            )
+        })
+        .collect();
+    crate::ui::popup::kit::mouse::span_buttons(area, &labels, (0, false), keys);
     f.render_widget(Paragraph::new(Line::from(spans)), area);
 }
 
@@ -173,6 +185,7 @@ fn render_content(
         return;
     }
     f.render_widget(Paragraph::new(rows), area);
+    crate::ui::popup::kit::mouse::list_rows(area, offset, panel.tab_len(panel.active_tab), cursor);
     scrollbar::render_vertical_right(
         f,
         area,

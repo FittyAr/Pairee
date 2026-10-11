@@ -50,8 +50,9 @@ pub async fn click(
     }
     let keys = match target {
         HitTarget::PopupKeys(keys) => keys.clone(),
-        HitTarget::PopupRow { steps } => {
-            let mut keys = presses(i64::from(*steps), KeyCode::Down, KeyCode::Up);
+        HitTarget::PopupRow { steps, focus } => {
+            let mut keys = focus.clone();
+            keys.extend(presses(i64::from(*steps), KeyCode::Down, KeyCode::Up));
             if click.is_double() {
                 keys.push(KeyEvent::from(KeyCode::Enter));
             }
@@ -70,21 +71,17 @@ pub async fn click(
     Ok(true)
 }
 
-/// The wheel over a dialog list moves its cursor.
+/// The wheel over a dialog list (focused with `focus`) moves its cursor.
 pub async fn wheel(
     state: &mut AppState,
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
-    down: bool,
+    (focus, down): (Vec<KeyEvent>, bool),
 ) -> anyhow::Result<bool> {
     let steps = WHEEL_LINES as i64;
     let steps = if down { steps } else { -steps };
-    press(
-        state,
-        context,
-        terminal_backend,
-        presses(steps, KeyCode::Down, KeyCode::Up),
-    )
-    .await?;
+    let mut keys = focus;
+    keys.extend(presses(steps, KeyCode::Down, KeyCode::Up));
+    press(state, context, terminal_backend, keys).await?;
     Ok(true)
 }

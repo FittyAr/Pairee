@@ -67,6 +67,29 @@ fn tabs_line(active_tab: usize, dev_mode: bool) -> Line<'static> {
     Line::from(spans)
 }
 
+/// A click on a tab presses Tab (which only walks forward) until it is open.
+fn register_tabs(line: &Line, area: Rect, active: usize, count: usize) {
+    use crate::ui::popup::kit::mouse;
+    // Each tab is three spans: opening bracket, name, closing bracket.
+    let labels: Vec<String> = line
+        .spans
+        .chunks(3)
+        .map(|tab| tab.iter().map(|s| s.content.as_ref()).collect())
+        .collect();
+    let row = area.inner(ratatui::layout::Margin::new(1, 1));
+    let keys = (0..labels.len())
+        .map(|tab| {
+            let forward = (tab + count - active) % count;
+            mouse::presses(
+                forward as i64,
+                crossterm::event::KeyCode::Tab,
+                crossterm::event::KeyCode::Tab,
+            )
+        })
+        .collect();
+    mouse::span_buttons(row, &labels, (0, false), keys);
+}
+
 /// Text and title of the input row: the registry query on the Search tab,
 /// or the current developer-wizard prompt.
 fn input_row(menu: &crate::app::state::PluginMenuState) -> (String, String) {
@@ -127,10 +150,14 @@ pub fn render(
         .title(t("plugin_manager_title"))
         .style(bg_style);
     let dev_mode = context.config.settings.plugins_developer_mode;
-    f.render_widget(
-        Paragraph::new(tabs_line(menu.active_tab, dev_mode)).block(tab_block),
+    let tabs = tabs_line(menu.active_tab, dev_mode);
+    register_tabs(
+        &tabs,
         chunks[0],
+        menu.active_tab,
+        if dev_mode { 3 } else { 2 },
     );
+    f.render_widget(Paragraph::new(tabs).block(tab_block), chunks[0]);
 
     if input {
         let (text, title) = input_row(menu);

@@ -130,10 +130,7 @@ fn open_tab(
         .unwrap_or(rows.len());
 }
 
-/// Setting rows and the two buttons after them are selectable.
-fn is_selectable(rows: &[Row], idx: usize) -> bool {
-    rows.get(idx).is_none_or(Row::is_selectable)
-}
+use crate::app::config_rows::is_selectable;
 
 /// The next selectable index from `idx` in the direction of `step`.
 fn next_selectable(rows: &[Row], idx: usize, step: fn(usize, usize) -> usize) -> usize {

@@ -1,7 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::plugin::manager::DialogPosition;
-use crate::ui::popup::centered_rect_fixed;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -61,7 +60,7 @@ fn dialog_area(
         ),
         None => (default_w, default_h),
     };
-    let mut area = centered_rect_fixed(w.min(size.width), h.min(size.height), size);
+    let mut area = crate::ui::popup::centered_area(w.min(size.width), h.min(size.height), size);
     if let Some(p) = position {
         let origin = p.origin.to_ascii_lowercase();
         if origin.contains("top") {
@@ -72,7 +71,7 @@ fn dialog_area(
         area.x = offset_u16(area.x, p.x, size.width.saturating_sub(area.width));
         area.y = offset_u16(area.y, p.y, size.height.saturating_sub(area.height));
     }
-    area
+    crate::ui::popup::place_popup(area, size)
 }
 
 fn offset_u16(base: u16, delta: i32, max: u16) -> u16 {
@@ -132,12 +131,22 @@ fn render_confirm(
     } else {
         Style::default().fg(Color::Red)
     };
+    let labels = [
+        format!(" [{}] ", t("plugin_dialog_yes")),
+        format!(" [{}] ", t("plugin_dialog_no")),
+    ];
     let buttons = Line::from(vec![
-        Span::styled(format!(" [{}] ", t("plugin_dialog_yes")), yes_style),
+        Span::styled(labels[0].clone(), yes_style),
         Span::raw("  "),
-        Span::styled(format!(" [{}] ", t("plugin_dialog_no")), no_style),
+        Span::styled(labels[1].clone(), no_style),
     ]);
     f.render_widget(Paragraph::new(buttons), chunks[1]);
+    {
+        use crate::ui::popup::kit::mouse::{key, span_buttons};
+        use crossterm::event::KeyCode;
+        let keys = vec![key(KeyCode::Char('y')), key(KeyCode::Char('n'))];
+        span_buttons(chunks[1], &labels, (2, false), keys);
+    }
     f.render_widget(
         Paragraph::new(t("plugin_dialog_confirm_hint")).style(Style::default().fg(Color::DarkGray)),
         chunks[2],
@@ -244,6 +253,16 @@ fn render_which(
             ])
         })
         .collect();
+    // A click on a one-character candidate presses its key.
+    for (c, y) in candidates.iter().zip(inner.y..inner.bottom()) {
+        let mut chars = c.on.first().map(|k| k.chars()).into_iter().flatten();
+        if let (Some(ch), None) = (chars.next(), chars.next()) {
+            crate::ui::popup::kit::mouse::keys(
+                Rect::new(inner.x, y, inner.width, 1),
+                crate::ui::popup::kit::mouse::key(crossterm::event::KeyCode::Char(ch)),
+            );
+        }
+    }
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(
         t("plugin_dialog_which_hint"),

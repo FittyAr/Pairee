@@ -58,6 +58,16 @@ pub fn render_controls(
                 .alignment(ratatui::layout::Alignment::Center),
             btn_cols[i],
         );
+        // Right / Left walk the buttons, Enter presses the focused one.
+        let mut keys = crate::ui::popup::kit::mouse::presses(
+            *idx as i64 - cursor_idx as i64,
+            crossterm::event::KeyCode::Right,
+            crossterm::event::KeyCode::Left,
+        );
+        keys.push(crossterm::event::KeyEvent::from(
+            crossterm::event::KeyCode::Enter,
+        ));
+        crate::ui::popup::kit::mouse::keys(btn_cols[i], keys);
     }
 
     // Progress bar (during download/install)

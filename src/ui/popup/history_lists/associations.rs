@@ -95,6 +95,16 @@ pub(super) fn render_associations(
     let list_paragraph = Paragraph::new(rule_lines(rules, *cursor_idx, chunks[0], theme))
         .style(Style::default().fg(parse_color(&theme.popup_fg)));
     f.render_widget(list_paragraph, chunks[0]);
+    if !editing {
+        // Rules under the header row, scrolled as `rule_lines` scrolls them.
+        let rows = Rect {
+            y: chunks[0].y + 1,
+            height: chunks[0].height.saturating_sub(1),
+            ..chunks[0]
+        };
+        let start = cursor_idx.saturating_sub(rows.height as usize / 2);
+        crate::ui::popup::kit::mouse::list_rows(rows, start, rules.len(), *cursor_idx);
+    }
 
     // 2. Renderizar Cuadro de Edición
     if editing {

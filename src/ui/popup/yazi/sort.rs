@@ -1,8 +1,7 @@
-use super::{KeyGrid, key_rows};
-use ratatui::widgets::Row;
+use super::KeyGrid;
 
 /// Sort keys of the Yazi-style popup, three rows of four.
-const SORT_KEYS: KeyGrid = [
+pub const SORT_KEYS: KeyGrid = [
     [
         Some((" n ", " Name")),
         Some((" e ", " Extension")),
@@ -22,7 +21,3 @@ const SORT_KEYS: KeyGrid = [
         None,
     ],
 ];
-
-pub fn build_sort_rows(theme: &crate::config::theme::Theme) -> Vec<Row<'static>> {
-    key_rows(theme, &SORT_KEYS)
-}

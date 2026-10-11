@@ -1,9 +1,6 @@
 pub mod sort;
 pub mod view;
 
-pub use sort::build_sort_rows;
-pub use view::build_view_rows;
-
 use crate::app::state::PopupType;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
@@ -43,11 +40,12 @@ pub fn render_yazi_popup(
     theme: &crate::config::theme::Theme,
     size: Rect,
 ) -> bool {
-    let (title, rows) = match popup {
-        PopupType::YaziSortPopup => (" Sort modes (Yazi style) ", build_sort_rows(theme)),
-        PopupType::YaziViewPopup => (" View modes (Yazi style) ", build_view_rows(theme)),
+    let (title, grid) = match popup {
+        PopupType::YaziSortPopup => (" Sort modes (Yazi style) ", &sort::SORT_KEYS),
+        PopupType::YaziViewPopup => (" View modes (Yazi style) ", &view::VIEW_KEYS),
         _ => return false,
     };
+    let rows = key_rows(theme, grid);
 
     let panel_height = 4;
     let area = Rect::new(
@@ -76,5 +74,30 @@ pub fn render_yazi_popup(
     .block(block);
 
     f.render_widget(table, area);
+    register_keys(area, grid);
     true
+}
+
+/// The strip counts as inside the popup; a click on a cell presses its key.
+fn register_keys(area: Rect, grid: &KeyGrid) {
+    use crate::ui::hit::{HitTarget, register};
+    register(area, HitTarget::PopupBody);
+    let rows = Rect {
+        y: area.y + 1,
+        height: area.height.saturating_sub(1),
+        ..area
+    };
+    let columns = ratatui::layout::Layout::horizontal([Constraint::Percentage(25); 4])
+        .spacing(1)
+        .split(rows);
+    for (y, row) in (rows.y..rows.bottom()).zip(grid) {
+        for (column, cell) in columns.iter().zip(row) {
+            if let Some(c) = cell.and_then(|(key, _)| key.trim().chars().next()) {
+                crate::ui::popup::kit::mouse::keys(
+                    Rect::new(column.x, y, column.width, 1),
+                    crate::ui::popup::kit::mouse::key(crossterm::event::KeyCode::Char(c)),
+                );
+            }
+        }
+    }
 }

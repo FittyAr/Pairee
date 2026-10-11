@@ -58,6 +58,18 @@ pub struct ListPopup<'a> {
 
 impl ListPopup<'_> {
     pub fn render(self, f: &mut Frame, theme: &Theme) {
+        self.render_items(f, theme, None);
+    }
+
+    /// Like [`Self::render`] for rows that are not all items (category
+    /// headings): `items` gives each row's item index, `None` for the
+    /// others, and the item under the cursor.
+    pub fn render_items(
+        self,
+        f: &mut Frame,
+        theme: &Theme,
+        items: Option<(&[Option<usize>], usize)>,
+    ) {
         let inner = frame_in(f, self.area, self.title, fg(self.border), theme);
         if self.rows.is_empty()
             && let Some(empty) = self.empty
@@ -104,7 +116,17 @@ impl ListPopup<'_> {
             height: (height as u16).min(inner.height.saturating_sub(header)),
             ..inner
         };
-        super::mouse::list_rows(rows_area, start, total, self.cursor);
+        match items {
+            None => super::mouse::list_rows(rows_area, start, total, self.cursor),
+            Some((items, cursor_item)) => {
+                for (y, line) in (rows_area.y..rows_area.bottom()).zip(start..total) {
+                    if let Some(Some(item)) = items.get(line) {
+                        let row = Rect::new(rows_area.x, y, rows_area.width, 1);
+                        super::mouse::list_item(row, (*item, cursor_item), &[]);
+                    }
+                }
+            }
+        }
 
         if let Some((hits, id)) = self.scrollbar {
             scrollbar::render_vertical_right(

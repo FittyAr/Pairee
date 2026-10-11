@@ -1,8 +1,7 @@
-use super::{KeyGrid, key_rows};
-use ratatui::widgets::Row;
+use super::KeyGrid;
 
 /// View-mode keys of the Yazi-style popup, three rows of four.
-const VIEW_KEYS: KeyGrid = [
+pub const VIEW_KEYS: KeyGrid = [
     [
         Some((" 1/b ", " Brief")),
         Some((" 2/m ", " Medium")),
@@ -22,7 +21,3 @@ const VIEW_KEYS: KeyGrid = [
         None,
     ],
 ];
-
-pub fn build_view_rows(theme: &crate::config::theme::Theme) -> Vec<Row<'static>> {
-    key_rows(theme, &VIEW_KEYS)
-}

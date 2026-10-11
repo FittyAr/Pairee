@@ -266,8 +266,8 @@ async fn wheel(
         return Ok(Some(false));
     }
     let down = mouse.kind == MouseEventKind::ScrollDown;
-    if let HitTarget::PopupRow { .. } = hit.target {
-        return popup::wheel(state, context, terminal_backend, down)
+    if let HitTarget::PopupRow { focus, .. } = hit.target {
+        return popup::wheel(state, context, terminal_backend, (focus, down))
             .await
             .map(Some);
     }

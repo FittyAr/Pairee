@@ -61,11 +61,82 @@ pub fn render_config_dialog_popup(
     let content_area = body_chunks[2];
     let lines = row_lines(dialog, theme, keybindings, content_area.height as usize);
     f.render_widget(Paragraph::new(lines), content_area);
+    register_mouse(dialog, keybindings, body_chunks[0], content_area);
 
     let hint_widget =
         Paragraph::new(t("config_dialog_hint")).style(Style::default().fg(Color::Yellow));
     f.render_widget(hint_widget, main_chunks[2]);
     true
+}
+
+/// Tabs take a click through their hotkey; a row is reached with the arrows
+/// (which skip titles and hints) and used with Space, OK / Cancel with Enter.
+fn register_mouse(
+    dialog: &ConfigurationDialogState,
+    keybindings: &crate::config::keybindings::KeybindingsConfig,
+    tabs_area: Rect,
+    rows_area: Rect,
+) {
+    use crate::app::config_rows::is_selectable;
+    use crate::ui::popup::kit::mouse;
+    use crossterm::event::{KeyCode, KeyEvent};
+    // While a row is edited, a click elsewhere commits it first.
+    let prefix: Vec<KeyEvent> = if dialog.edit.is_some() {
+        mouse::key(KeyCode::Enter)
+    } else {
+        Vec::new()
+    };
+    for (i, title) in TAB_KEYS.map(t).iter().enumerate() {
+        let y = tabs_area.y + i as u16;
+        if let Some(c) = crate::ui::hotkey::parse_hotkey(title).hotkey
+            && y < tabs_area.bottom()
+        {
+            let mut keys = prefix.clone();
+            keys.push(KeyEvent::from(KeyCode::Char(c)));
+            mouse::keys(Rect::new(tabs_area.x, y, tabs_area.width, 1), keys);
+        }
+    }
+    let rows = tab_rows(
+        dialog.active_tab,
+        &RowCtx {
+            settings: &dialog.draft,
+            keybindings,
+        },
+    );
+    let count = rows.len() + 2;
+    let start = dialog
+        .cursor_idx
+        .saturating_sub(rows_area.height as usize / 2);
+    // The key handler first moves a cursor left on a title to the next
+    // selectable row; count from there.
+    let cursor = (dialog.cursor_idx..count)
+        .chain(0..dialog.cursor_idx)
+        .find(|&j| is_selectable(&rows, j))
+        .unwrap_or(dialog.cursor_idx);
+    for (y, i) in (rows_area.y..rows_area.bottom()).zip(start..count) {
+        let editing_here = dialog.edit.is_some() && i == cursor;
+        if !is_selectable(&rows, i) || editing_here {
+            continue;
+        }
+        let between =
+            |from: usize, to: usize| (from..to).filter(|&j| is_selectable(&rows, j)).count() as i64;
+        let steps = if i >= cursor {
+            between(cursor + 1, i + 1)
+        } else {
+            -between(i, cursor)
+        };
+        let mut keys = prefix.clone();
+        if dialog.focus_on_tabs && dialog.edit.is_none() {
+            keys.push(KeyEvent::from(KeyCode::Right));
+        }
+        keys.extend(mouse::presses(steps, KeyCode::Down, KeyCode::Up));
+        keys.push(KeyEvent::from(if i >= rows.len() {
+            KeyCode::Enter
+        } else {
+            KeyCode::Char(' ')
+        }));
+        mouse::keys(Rect::new(rows_area.x, y, rows_area.width, 1), keys);
+    }
 }
 
 /// Vertical line between tabs and rows, horizontal line above the hint.

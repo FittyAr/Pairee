@@ -49,6 +49,13 @@ pub(crate) fn render_tabs(
     let fg_color = crate::ui::theme_apply::parse_color(&theme.popup_fg);
 
     for (idx, (tab_idx, title)) in tab_titles.into_iter().enumerate() {
+        // Digits 1-4 open the tabs.
+        crate::ui::popup::kit::mouse::keys(
+            tab_chunks[idx],
+            crate::ui::popup::kit::mouse::key(crossterm::event::KeyCode::Char(char::from(
+                b'1' + idx as u8,
+            ))),
+        );
         let is_active = tab_idx == active_tab as usize;
         let text = if is_active {
             format!("▶ {} ◀", title)

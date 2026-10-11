@@ -119,6 +119,11 @@ pub enum Row {
     Setting(Setting),
 }
 
+/// Setting rows and the OK / Cancel buttons after them are selectable.
+pub fn is_selectable(rows: &[Row], idx: usize) -> bool {
+    rows.get(idx).is_none_or(Row::is_selectable)
+}
+
 impl Row {
     pub fn is_selectable(&self) -> bool {
         matches!(self, Self::Setting(_))

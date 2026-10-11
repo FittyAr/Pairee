@@ -507,7 +507,7 @@ fn palette_cursor(h: &Harness) -> usize {
 fn list_rows_take_clicks_double_clicks_and_the_wheel() {
     let mut h = Harness::new();
     h.keys("@command_palette");
-    let row = |steps| move |t: &HitTarget| *t == HitTarget::PopupRow { steps };
+    let row = |steps| move |t: &HitTarget| matches!(t, HitTarget::PopupRow { steps: s, .. } if *s == steps);
     let (x, y) = h.hit_cell(row(2));
     h.click(x + 2, y);
     assert_eq!(palette_cursor(&h), 2);
@@ -525,7 +525,7 @@ fn list_rows_take_clicks_double_clicks_and_the_wheel() {
 fn double_clicking_a_list_row_runs_it() {
     let mut h = Harness::new();
     h.keys("@command_palette").text("about");
-    let (x, y) = h.hit_cell(|t| *t == HitTarget::PopupRow { steps: 0 });
+    let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PopupRow { steps: 0, .. }));
     h.double_click(x + 2, y);
     assert!(
         matches!(top(&h), Some(PopupType::About { .. })),
@@ -611,4 +611,98 @@ fn copy_dialog_option_rows_toggle_on_click() {
     let (x, y) = control(&mut h, "[");
     h.click(x, y);
     assert_ne!(flags(&h), before, "{}", h.screen_text());
+}
+
+#[test]
+fn configuration_rows_toggle_and_tabs_switch_on_click() {
+    let mut h = Harness::new();
+    h.keys("@system_settings");
+    let dialog = |h: &Harness| match top(h) {
+        Some(PopupType::ConfigurationDialog(d)) => (d.active_tab, d.draft.clone()),
+        other => panic!("{other:?}"),
+    };
+    // The Interface tab, through its title on the left.
+    let title = crate::config::localization::t("tab_interface");
+    let clean = crate::ui::hotkey::parse_hotkey(&title).clean_text;
+    let (x, y) = control(&mut h, &clean);
+    h.click(x, y);
+    assert_eq!(dialog(&h).0, 2);
+    let label = crate::config::localization::t("int_clock");
+    let before = dialog(&h).1.interface_clock;
+    let (x, y) = control(&mut h, &label);
+    h.click(x, y);
+    assert_ne!(dialog(&h).1.interface_clock, before, "{}", h.screen_text());
+}
+
+/// Every dialog the actions below open must record its body (so clicks
+/// inside never count as outside) and, unless it is plain text, at least
+/// one control the mouse can use.
+#[test]
+fn every_dialog_records_its_body_and_its_controls() {
+    // (action, has controls)
+    const DIALOGS: &[(&str, bool)] = &[
+        ("about", false),
+        ("help", true),
+        ("mkdir", true),
+        ("rename", true),
+        ("copy", true),
+        ("move", true),
+        ("delete", true),
+        ("multi_rename_tool", true),
+        ("create_link", false),
+        ("file_attributes", true),
+        ("describe_file", false),
+        ("apply_command", false),
+        ("compress_files", false),
+        ("find_file", true),
+        ("quick_filter", false),
+        ("file_panel_filter", false),
+        ("command_history", false),
+        ("file_view_history", false),
+        ("folders_history", false),
+        ("sort_modes", true),
+        ("context_menu", true),
+        ("user_menu", true),
+        ("hotlist", false),
+        ("drive_select_left", true),
+        ("tree_view", true),
+        ("file_associations", false),
+        ("task_list", false),
+        ("plugin_menu", false), // plugins are off in the harness: an Info
+        ("system_settings", true),
+        ("command_palette", true),
+        ("screens_list", true),
+        ("sync_dirs", true),
+        ("save_setup", false),
+        ("rename_tab", false),
+        ("which_key", true),
+    ];
+    for (action, has_controls) in DIALOGS {
+        let mut h = Harness::new();
+        h.write("work/left/subject.txt", "x");
+        h.reread();
+        h.focus("subject.txt").keys(&format!("@{action}"));
+        if top(&h).is_none() {
+            panic!("@{action} opened no dialog:\n{}", h.screen_text());
+        }
+        h.render();
+        let has =
+            |pick: fn(&HitTarget) -> bool| h.state.hits.first(|t| pick(t).then_some(())).is_some();
+        assert!(
+            has(|t| *t == HitTarget::PopupBody),
+            "@{action}: no dialog body"
+        );
+        if *has_controls {
+            assert!(
+                has(|t| matches!(
+                    t,
+                    HitTarget::PopupKeys(_)
+                        | HitTarget::PopupRow { .. }
+                        | HitTarget::PopupField { .. }
+                )),
+                "@{action}: no clickable control\n{}",
+                h.screen_text()
+            );
+        }
+    }
 }

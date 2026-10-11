@@ -38,6 +38,18 @@ pub fn render_dev(
     let list_block = pane_block(pane, t("plugin_tools_title"));
     let list = List::new(option_items(pane, menu.cursor_idx, active_dev_plugin)).block(list_block);
     f.render_widget(list, pane.list_area);
+    // The options, with one separator row before the "open folder" group.
+    let rows = pane.list_area.inner(ratatui::layout::Margin::new(1, 1));
+    for i in 0..DEV_OPTIONS.len() {
+        let y = rows.y + i as u16 + u16::from(i >= OPEN_FOLDER_GROUP);
+        if y < rows.bottom() {
+            crate::ui::popup::kit::mouse::list_item(
+                ratatui::layout::Rect::new(rows.x, y, rows.width, 1),
+                (i, menu.cursor_idx),
+                &[],
+            );
+        }
+    }
 
     // === Right-hand console: progress bar (when loading) > results (when set) > description ===
     if menu.dev_loading {

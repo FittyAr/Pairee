@@ -77,7 +77,35 @@ pub fn render_color_groups_popup(
     let inner = kit::frame_in(f, centered_rect_in(60, 60, size), title, border, theme);
     let lines = color_lines(&rows, cursor, edit.as_ref(), inner.height as usize);
     f.render_widget(Paragraph::new(lines), inner);
+    register_rows(inner, &rows, cursor, edit.is_some());
     true
+}
+
+/// Rows take clicks (double click edits); the `<` and `>` around a color
+/// cycle it. While a color is typed, a click elsewhere commits it first.
+fn register_rows(inner: Rect, rows: &[ColorRow], cursor: usize, editing: bool) {
+    use crate::ui::popup::kit::mouse;
+    use crossterm::event::{KeyCode, KeyEvent};
+    let focus = if editing {
+        mouse::key(KeyCode::Enter)
+    } else {
+        Vec::new()
+    };
+    let start = cursor.saturating_sub(inner.height as usize / 2);
+    for (y, (i, row)) in (inner.y..inner.bottom()).zip(rows.iter().enumerate().skip(start)) {
+        mouse::list_item(Rect::new(inner.x, y, inner.width, 1), (i, cursor), &focus);
+        let left = inner.x + 1 + crate::ui::text_width::display_width(&row.label) as u16 + 1;
+        for (x, code) in [(left, KeyCode::Left), (left + 18, KeyCode::Right)] {
+            let mut keys = focus.clone();
+            keys.extend(mouse::presses(
+                i as i64 - cursor as i64,
+                KeyCode::Down,
+                KeyCode::Up,
+            ));
+            keys.push(KeyEvent::from(code));
+            mouse::keys(Rect::new(x, y, 1, 1).intersection(inner), keys);
+        }
+    }
 }
 
 /// The visible rows, scrolled so the cursor stays near the middle.

@@ -93,6 +93,26 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             ),
         ]);
         f.render_widget(Paragraph::new(buttons), chunks[3]);
+        {
+            use crate::ui::popup::kit::mouse::{key, span_buttons};
+            use crossterm::event::KeyCode;
+            let labels = [
+                format!(
+                    "  [ Enter / Y ] {}",
+                    crate::config::localization::t("git_checkout_yes")
+                ),
+                format!(
+                    "[ Esc / N ] {}",
+                    crate::config::localization::t("git_checkout_no")
+                ),
+            ];
+            span_buttons(
+                chunks[3],
+                &labels,
+                (4, false),
+                vec![key(KeyCode::Enter), key(KeyCode::Esc)],
+            );
+        }
 
         true
     } else {

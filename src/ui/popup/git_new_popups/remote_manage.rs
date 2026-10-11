@@ -67,6 +67,12 @@ pub fn render_remote_manage(
             })
             .collect();
         f.render_widget(Paragraph::new(lines), chunks[0]);
+        crate::ui::popup::kit::mouse::list_rows(
+            chunks[0],
+            0,
+            state.remotes.len(),
+            state.selected_idx,
+        );
     }
 
     f.render_widget(kit::hint(t("git_remote_manage_hint")), chunks[1]);

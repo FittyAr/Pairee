@@ -86,29 +86,51 @@ pub fn render(
             chunks[0],
         );
 
-        let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
-        let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
-        let btn1 = if *cursor_idx == 0 {
-            active_style
-        } else {
-            normal_style
-        };
-        let btn2 = if *cursor_idx == 1 {
-            active_style
-        } else {
-            normal_style
-        };
-        let btns = ratatui::text::Line::from(vec![
-            ratatui::text::Span::styled(t("btn_delete_bracket"), btn1),
-            ratatui::text::Span::raw("  "),
-            ratatui::text::Span::styled(t("btn_cancel_bracket"), btn2),
-        ]);
-        f.render_widget(
-            Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
-            chunks[1],
-        );
+        render_buttons(f, chunks[1], *cursor_idx, theme);
         true
     } else {
         false
     }
+}
+
+/// `[Delete]  [Cancel]`, the focused one highlighted; Left + Enter deletes,
+/// Esc cancels.
+fn render_buttons(
+    f: &mut Frame,
+    area: Rect,
+    cursor_idx: usize,
+    theme: &crate::config::theme::Theme,
+) {
+    let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
+    let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
+    let btn1 = if cursor_idx == 0 {
+        active_style
+    } else {
+        normal_style
+    };
+    let btn2 = if cursor_idx == 1 {
+        active_style
+    } else {
+        normal_style
+    };
+    let labels = [t("btn_delete_bracket"), t("btn_cancel_bracket")];
+    let btns = ratatui::text::Line::from(vec![
+        ratatui::text::Span::styled(labels[0].clone(), btn1),
+        ratatui::text::Span::raw("  "),
+        ratatui::text::Span::styled(labels[1].clone(), btn2),
+    ]);
+    {
+        use crate::ui::popup::kit::mouse::{key, span_buttons};
+        use crossterm::event::{KeyCode, KeyEvent};
+        // Left focuses [Delete], Enter runs the focused button.
+        let delete = vec![
+            KeyEvent::from(KeyCode::Left),
+            KeyEvent::from(KeyCode::Enter),
+        ];
+        span_buttons(area, &labels, (2, true), vec![delete, key(KeyCode::Esc)]);
+    }
+    f.render_widget(
+        Paragraph::new(btns).alignment(ratatui::layout::Alignment::Center),
+        area,
+    );
 }

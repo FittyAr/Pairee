@@ -216,12 +216,12 @@ Criterio de aceptación: **todo elemento que se pueda accionar con teclado se pu
 - [x] CLI (`src/ui/cli.rs`), barra de transferencias, badge de update. La rueda en la barra de pestañas se descartó: no queda claro qué lado ni desde qué pestaña avanzar.
 
 ### Fase 4 — Popups vía kit
-- [ ] Kit registra filas, campos, botones y checkboxes; clic fuera.
-- [ ] Revisar popups que no usan el kit (config dialog, SSH connect, multi-rename, git panel, transfer panel, command palette, which-key) y llevarlos al kit o registrar a mano lo mínimo.
-- [ ] Menú contextual del panel abierto en la posición del puntero.
-
-- [ ] Controles del kit con mouse: botón, checkbox, radio, selector cíclico, pestañas internas, árbol.
-- [ ] Inventario completo (§2.10) en este documento + test de cobertura de `PopupType`/`Screen` en CI.
+Enfoque elegido al implementar: **el mouse maneja cada diálogo con sus propias teclas**. El renderer sabe dónde está el foco o el cursor, así que cada control registra las teclas que lo alcanzan y lo usan desde ahí (`HitTarget::PopupKeys`, `PopupRow { steps, focus }`, `PopupField { keys, text_x }`), y el router las inyecta por el manejador de teclado del diálogo. No hay código de mouse por popup ni estado duplicado.
+- [x] Kit: `ListPopup` (18 diálogos) y `FilterListView` registran filas; `kit::mouse::FormFocus` + `form_buttons` / `form_labelled_field` / `form_inline_field` / `form_option` registran campos, opciones y botones de los formularios con `FormLayout`.
+- [x] Formularios: crear carpeta, renombrar, copiar/mover, buscar en editor/visor, buscar archivos, opciones de sincronización, renombrado múltiple, prompts de Git (nombre, dos campos), conexión SSH (incluida la lista de presets).
+- [x] Hechos a mano: confirmar borrado, diálogos de plugins (sí/no, lista "which"; además se corrigió el cuerpo registrado cuando el plugin elige la posición), confirmaciones de Git, actualización, ayuda (pestañas + lista), configuración (pestañas por su tecla rápida, filas saltando títulos, OK/Cancelar, edición en curso), panel de Git (pestañas + filas), menú de usuario, modos de orden (clic = aplicar), bienvenida, grupos de color y resaltado (filas + `<` `>`), asociaciones, remotos de Git, gestor de plugins (pestañas, instalados, desarrollo), pestañas del panel de transferencias, atajos (filas con encabezados de categoría + pestañas), popups Yazi (cuerpo + celdas), atributos (solo lectura).
+- [x] Test de cobertura `every_dialog_records_its_body_and_its_controls`: abre 35 diálogos con sus acciones reales y exige cuerpo y al menos un control.
+- [~] Pendiente menor: ubicar el cursor con un clic en los 11 prompts de un solo campo dibujados con `prompt_text` (el campo ya tiene el foco; el texto va dentro de una frase traducida), la pestaña Buscar del gestor de plugins (paginada) y la lista de trabajos del panel de transferencias (filas de altura variable; ya tiene rueda por su scrollbar).
 
 ### Fase 5 — Visor, QuickView, editor
 - [x] Rueda en visor siempre, también con la scrollbar apagada (`scrollbar::register_wheel`); QuickView ya la tenía. El editor sigue con su manejo propio, como último destino del router.

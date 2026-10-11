@@ -172,6 +172,12 @@ pub(crate) fn place_popup(area: Rect, screen: Rect) -> Rect {
 
 /// Centers a rectangle of fixed `width` and `height` over the full screen.
 pub(crate) fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
+    place_popup(centered_area(width, height, r), r)
+}
+
+/// Where [`centered_rect_fixed`] puts a dialog, before the user moves it
+/// and without recording it (for dialogs that shift it first).
+pub(crate) fn centered_area(width: u16, height: u16, r: Rect) -> Rect {
     let popup_layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
@@ -181,15 +187,14 @@ pub(crate) fn centered_rect_fixed(width: u16, height: u16, r: Rect) -> Rect {
         ])
         .split(r);
 
-    let area = Layout::default()
+    Layout::default()
         .direction(Direction::Horizontal)
         .constraints([
             Constraint::Length(r.width.saturating_sub(width) / 2),
             Constraint::Length(width.min(r.width)),
             Constraint::Length(r.width.saturating_sub(width) / 2),
         ])
-        .split(popup_layout[1])[1];
-    place_popup(area, r)
+        .split(popup_layout[1])[1]
 }
 
 /// Centers a rectangle of `percent_x` × `percent_y` within `parent` (the

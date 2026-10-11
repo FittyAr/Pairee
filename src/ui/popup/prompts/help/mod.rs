@@ -179,7 +179,52 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &Theme, list: &DocList
         .border_style(border_style)
         .style(bg_style);
     let doc_list = List::new(list_items).block(left_block).style(bg_style);
+    let rows_area = left_block_inner(left_chunks[1]);
     f.render_widget(doc_list, left_chunks[1]);
+    register_doc_list(left_chunks[0], rows_area, list);
+}
+
+/// Inside of the list block (borders left, right and bottom).
+fn left_block_inner(area: Rect) -> Rect {
+    Rect {
+        x: area.x + 1,
+        width: area.width.saturating_sub(2),
+        height: area.height.saturating_sub(1),
+        ..area
+    }
+}
+
+/// Mouse targets of the left pane: the two tabs (Left / Right switch
+/// them) and the documents (Tab first when the reader has the focus).
+fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
+    use crate::ui::popup::kit::mouse;
+    use crossterm::event::{KeyCode, KeyEvent};
+    let focus: Vec<KeyEvent> = if list.focused {
+        Vec::new()
+    } else {
+        mouse::key(KeyCode::Tab)
+    };
+    let tabs_row = Rect {
+        x: tabs_area.x + 1,
+        y: tabs_area.y + 1,
+        width: tabs_area.width.saturating_sub(2),
+        height: 1,
+    };
+    let labels = [
+        " [ Core Help ]".to_string(),
+        "  [ Plugins Help ]".to_string(),
+    ];
+    let keys = (0..2)
+        .map(|tab| {
+            let mut keys = focus.clone();
+            if tab != list.active_tab {
+                keys.push(KeyEvent::from(KeyCode::Left));
+            }
+            keys
+        })
+        .collect();
+    mouse::span_buttons(tabs_row, &labels, (0, false), keys);
+    mouse::focused_list_rows(rows_area, (0, list.docs.len(), list.cursor_idx), &focus);
 }
 
 /// The document as wrapped Markdown, with a scrollbar when it overflows.

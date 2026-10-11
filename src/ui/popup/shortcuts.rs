@@ -23,8 +23,10 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, area: Rect) -> bo
         return false;
     };
     let (rows, cursor) = list_rows(s, theme);
+    let items = row_items(s);
+    let area = centered_rect_fixed(area.width * 9 / 10, area.height * 17 / 20, area);
     ListPopup {
-        area: centered_rect_fixed(area.width * 9 / 10, area.height * 17 / 20, area),
+        area,
         title: format!(" {} ", t("shortcuts_title")),
         border: Color::Cyan,
         empty: Some(t("shortcuts_empty")),
@@ -35,8 +37,49 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, area: Rect) -> bo
         hint: Some(t("shortcuts_hint")),
         scrollbar: None,
     }
-    .render(f, theme);
+    .render_items(f, theme, Some((&items, s.cursor)));
+    // After the frame, which records the dialog body under everything.
+    register_tabs(s, area);
     true
+}
+
+/// Item index of each drawn row (`None` for category headings), in the
+/// order [`list_rows`] draws them.
+fn row_items(s: &ShortcutsState) -> Vec<Option<usize>> {
+    let mut items = Vec::new();
+    let mut category: Option<Category> = None;
+    for (i, row) in s.visible().into_iter().enumerate() {
+        if category != Some(row.category) {
+            category = Some(row.category);
+            items.push(None);
+        }
+        items.push(Some(i));
+    }
+    items
+}
+
+/// The context tabs on the first header row: Tab / Shift+Tab walk them.
+fn register_tabs(s: &ShortcutsState, area: Rect) {
+    use crate::ui::popup::kit::mouse;
+    let row = area.inner(ratatui::layout::Margin::new(1, 1));
+    let current = ContextTab::ALL
+        .iter()
+        .position(|tab| *tab == s.tab)
+        .unwrap_or(0);
+    let labels: Vec<String> = ContextTab::ALL
+        .iter()
+        .map(|tab| format!("  {}  ", t(tab.label_key())))
+        .collect();
+    let keys = (0..labels.len())
+        .map(|i| {
+            mouse::presses(
+                i as i64 - current as i64,
+                crossterm::event::KeyCode::Tab,
+                crossterm::event::KeyCode::BackTab,
+            )
+        })
+        .collect();
+    mouse::span_buttons(row, &labels, (0, false), keys);
 }
 
 /// Context tabs and preset, the mode line and the feedback line.

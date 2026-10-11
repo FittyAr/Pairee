@@ -89,8 +89,30 @@ pub fn render_info_popup(
                 .style(Style::default().fg(parse_color(&theme.popup_fg)));
 
             f.render_widget(paragraph, area);
+            register_readonly_row(area);
             true
         }
         _ => false,
+    }
+}
+
+/// The read-only line (the sixth value of `info_attrs_text`) toggles the
+/// flag on click, as `r` does.
+fn register_readonly_row(area: Rect) {
+    const READONLY_VALUE: usize = 6;
+    let mut seen = 0;
+    let line = t("info_attrs_text").lines().position(|line| {
+        seen += line.matches("{}").count();
+        seen >= READONLY_VALUE
+    });
+    if let Some(line) = line {
+        let inner = area.inner(ratatui::layout::Margin::new(1, 1));
+        let y = inner.y + line as u16;
+        if y < inner.bottom() {
+            crate::ui::popup::kit::mouse::keys(
+                Rect::new(inner.x, y, inner.width, 1),
+                crate::ui::popup::kit::mouse::key(crossterm::event::KeyCode::Char('r')),
+            );
+        }
     }
 }

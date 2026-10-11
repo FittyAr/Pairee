@@ -19,24 +19,34 @@ pub fn presses(count: i64, forward: KeyCode, back: KeyCode) -> Vec<KeyEvent> {
     vec![key; count.unsigned_abs() as usize]
 }
 
-/// Records list row `index` drawn at `area` of a list whose cursor is on
-/// `cursor`.
-pub fn list_row(area: Rect, index: usize, cursor: usize) {
+/// Records the rows of a list drawn top down in `area`, from entry `first`
+/// on, `count` entries in all, the cursor on entry `cursor`.
+pub fn list_rows(area: Rect, first: usize, count: usize, cursor: usize) {
+    focused_list_rows(area, (first, count, cursor), &[]);
+}
+
+/// [`list_rows`] for a list that needs `focus` pressed first.
+pub fn focused_list_rows(
+    area: Rect,
+    (first, count, cursor): (usize, usize, usize),
+    focus: &[KeyEvent],
+) {
+    for (y, index) in (area.y..area.bottom()).zip(first..count) {
+        list_item(Rect::new(area.x, y, area.width, 1), (index, cursor), focus);
+    }
+}
+
+/// Records list entry `index` drawn at `area` (one or more rows), the
+/// cursor on entry `cursor`, the list focused with `focus`.
+pub fn list_item(area: Rect, (index, cursor): (usize, usize), focus: &[KeyEvent]) {
     let steps = (index as i64 - cursor as i64).clamp(i64::from(i32::MIN), i64::from(i32::MAX));
     hit::register(
         area,
         HitTarget::PopupRow {
             steps: steps as i32,
+            focus: focus.to_vec(),
         },
     );
-}
-
-/// Records the rows of a list drawn top down in `area`, from entry `first`
-/// on, `count` entries in all.
-pub fn list_rows(area: Rect, first: usize, count: usize, cursor: usize) {
-    for (y, index) in (area.y..area.bottom()).zip(first..count) {
-        list_row(Rect::new(area.x, y, area.width, 1), index, cursor);
-    }
 }
 
 /// Records a control at `area` that `keys` use.
@@ -47,17 +57,49 @@ pub fn keys(area: Rect, keys: Vec<KeyEvent>) {
 /// Cells of the buttons of a centered button bar (`kit::button_bar`) drawn
 /// on the first row of `area`.
 pub fn button_cells(area: Rect, labels: &[String]) -> Vec<Rect> {
+    span_cells(area, labels, 2, true)
+}
+
+/// Cells of `labels` laid out on the first row of `area` with `gap` blank
+/// columns between them, centered or from the left edge.
+pub fn span_cells(area: Rect, labels: &[String], gap: u16, centered: bool) -> Vec<Rect> {
     let widths: Vec<u16> = labels.iter().map(|l| display_width(l) as u16).collect();
-    let total: u16 = widths.iter().sum::<u16>() + 2 * widths.len().saturating_sub(1) as u16;
-    let mut x = area.x + area.width.saturating_sub(total) / 2;
+    let total: u16 = widths.iter().sum::<u16>() + gap * widths.len().saturating_sub(1) as u16;
+    let mut x = area.x
+        + if centered {
+            area.width.saturating_sub(total) / 2
+        } else {
+            0
+        };
     widths
         .into_iter()
         .map(|width| {
             let cell = Rect::new(x, area.y, width, 1).intersection(area);
-            x += width + 2;
+            x += width + gap;
             cell
         })
         .collect()
+}
+
+/// Buttons drawn as `labels` (see [`span_cells`]); a click on button `i`
+/// presses `keys[i]`.
+pub fn span_buttons(
+    area: Rect,
+    labels: &[String],
+    (gap, centered): (u16, bool),
+    keys: Vec<Vec<KeyEvent>>,
+) {
+    for (cell, keys) in span_cells(area, labels, gap, centered)
+        .into_iter()
+        .zip(keys)
+    {
+        self::keys(cell, keys);
+    }
+}
+
+/// A single key press.
+pub fn key(code: KeyCode) -> Vec<KeyEvent> {
+    vec![KeyEvent::from(code)]
 }
 
 /// A form dialog's layout and where its focus is.

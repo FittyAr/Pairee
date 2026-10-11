@@ -86,8 +86,25 @@ pub fn render_sort_modes_dialog(
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(line_str, style)));
 
+    let inner = block.inner(area);
     let paragraph = Paragraph::new(lines).block(block);
     f.render_widget(paragraph, area);
+    // A click picks the row and applies it (Space), keeping the dialog open.
+    let rows = (0..fields.len()).map(|i| (i, inner.y + i as u16));
+    let reverse_row = std::iter::once((fields.len(), inner.y + fields.len() as u16 + 1));
+    for (i, y) in rows.chain(reverse_row) {
+        if y < inner.bottom() {
+            let mut keys = crate::ui::popup::kit::mouse::presses(
+                i as i64 - cursor_idx as i64,
+                crossterm::event::KeyCode::Down,
+                crossterm::event::KeyCode::Up,
+            );
+            keys.push(crossterm::event::KeyEvent::from(
+                crossterm::event::KeyCode::Char(' '),
+            ));
+            crate::ui::popup::kit::mouse::keys(Rect::new(inner.x, y, inner.width, 1), keys);
+        }
+    }
 }
 
 pub fn render_user_menu_dialog(
@@ -141,4 +158,12 @@ pub fn render_user_menu_dialog(
     );
 
     f.render_widget(table, area);
+    // Rows start under the borders and the header row.
+    let rows = area.inner(ratatui::layout::Margin::new(1, 1));
+    let rows = Rect {
+        y: rows.y + 1,
+        height: rows.height.saturating_sub(1),
+        ..rows
+    };
+    crate::ui::popup::kit::mouse::list_rows(rows, 0, items.len(), cursor_idx);
 }

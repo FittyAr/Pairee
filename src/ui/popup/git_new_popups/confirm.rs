@@ -59,6 +59,17 @@ pub fn render_confirm_action(
         " [ {} (Esc) ] ",
         crate::config::localization::t("git_btn_no")
     );
+    {
+        use crate::ui::popup::kit::mouse::{key, span_buttons};
+        use crossterm::event::KeyCode;
+        let labels = [yes_text.clone(), no_text.clone()];
+        span_buttons(
+            chunks[2],
+            &labels,
+            (4, true),
+            vec![key(KeyCode::Enter), key(KeyCode::Esc)],
+        );
+    }
     let buttons_line = Line::from(vec![
         Span::styled(yes_text, yes_style),
         Span::raw("    "),

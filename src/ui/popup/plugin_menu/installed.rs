@@ -29,6 +29,14 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     };
     let list = List::new(list_items).block(pane_block(pane, t("plugin_title")));
     f.render_widget(list, pane.list_area);
+    if !loading {
+        crate::ui::popup::kit::mouse::list_rows(
+            pane.list_area.inner(ratatui::layout::Margin::new(1, 1)),
+            0,
+            installed.len(),
+            menu.cursor_idx,
+        );
+    }
 
     if loading {
         render_loading(f, pane, &menu.installed_loading_status);

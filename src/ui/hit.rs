@@ -75,9 +75,10 @@ pub enum HitTarget {
     /// dialog's own keys: a click presses `keys` in order.
     PopupKeys(Vec<KeyEvent>),
     /// A list row `steps` rows below (negative: above) the cursor: a click
-    /// moves the cursor there with the arrow keys, a double click also
-    /// presses Enter, the wheel moves it.
-    PopupRow { steps: i32 },
+    /// presses `focus` (to give the list the focus, in dialogs with several
+    /// panes) and moves the cursor there with the arrow keys, a double click
+    /// also presses Enter, the wheel moves it.
+    PopupRow { steps: i32, focus: Vec<KeyEvent> },
     /// A text field: a click presses `keys` (to focus it), then puts the
     /// cursor under the pointer, the text starting at column `text_x`.
     PopupField { keys: Vec<KeyEvent>, text_x: u16 },
