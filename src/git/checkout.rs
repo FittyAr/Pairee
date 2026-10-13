@@ -27,11 +27,7 @@ pub fn local_branch_name_for_remote(repo: &git2::Repository, remote_branch_name:
 pub fn checkout_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Result<String> {
     // 1. Try finding as a local branch first
     if let Ok(local_branch) = repo.find_branch(branch_name, git2::BranchType::Local) {
-        let branch_ref = local_branch.get();
-        let branch_ref_name = branch_ref.name()?;
-        let obj = repo.revparse_single(branch_ref_name)?;
-        repo.checkout_tree(&obj, None)?;
-        repo.set_head(branch_ref_name)?;
+        switch_to_branch(repo, &local_branch)?;
         return Ok(branch_name.to_string());
     }
 
@@ -71,11 +67,7 @@ fn checkout_remote_tracking(
         if local_branch.upstream().is_err() {
             let _ = local_branch.set_upstream(Some(remote_ref_name));
         }
-        let branch_ref = local_branch.get();
-        let branch_ref_name = branch_ref.name()?;
-        let obj = repo.revparse_single(branch_ref_name)?;
-        repo.checkout_tree(&obj, None)?;
-        repo.set_head(branch_ref_name)?;
+        switch_to_branch(repo, &local_branch)?;
         return Ok(local_name.to_string());
     }
 
@@ -88,14 +80,17 @@ fn checkout_remote_tracking(
         log::warn!("Failed to set upstream for branch {}: {}", local_name, e);
     }
 
-    // Checkout the newly created branch
-    let branch_ref = new_branch.get();
-    let branch_ref_name = branch_ref.name()?;
+    switch_to_branch(repo, &new_branch)?;
+    Ok(local_name.to_string())
+}
+
+/// Checks out a local branch's tree and points HEAD at the branch.
+fn switch_to_branch(repo: &git2::Repository, branch: &git2::Branch) -> anyhow::Result<()> {
+    let branch_ref_name = branch.get().name()?;
     let obj = repo.revparse_single(branch_ref_name)?;
     repo.checkout_tree(&obj, None)?;
     repo.set_head(branch_ref_name)?;
-
-    Ok(local_name.to_string())
+    Ok(())
 }
 
 /// Checks out a specific commit by its hash (full or short), leaving HEAD detached.

@@ -236,11 +236,7 @@ pub fn pull(
         let tree_id = index.write_tree_to(repo)?;
         let tree = repo.find_tree(tree_id)?;
 
-        let sig = match repo.signature() {
-            Ok(s) => s,
-            Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")
-                .map_err(|e| anyhow::anyhow!("Failed to build fallback git signature: {}", e))?,
-        };
+        let sig = crate::git::signature::default_signature(repo)?;
         let message = format!(
             "Merge branch '{}/{}' into {}",
             remote_name, branch_name, branch_name

@@ -10,6 +10,7 @@ pub mod remote;
 pub mod repo;
 pub mod reset;
 pub mod revert;
+pub mod signature;
 pub mod snapshot;
 pub mod stage;
 pub mod stash;
@@ -18,9 +19,3 @@ pub mod tags;
 
 #[cfg(test)]
 mod tests;
-
-/// Keepalive function to reference API functions that are implemented but not yet integrated into the UI.
-/// This prevents compiler dead_code warnings without bypassing the strict dead code policy.
-pub fn unused_keepalive() {
-    let _ = repo::init_repo;
-}

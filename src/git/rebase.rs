@@ -16,10 +16,7 @@ pub fn rebase_branch(repo: &git2::Repository, onto_branch_name: &str) -> Result<
         .rebase(None, Some(&onto_annotated), None, Some(&mut rebase_opts))
         .context("Failed to initialize rebase")?;
 
-    let sig = match repo.signature() {
-        Ok(s) => s,
-        Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")?,
-    };
+    let sig = crate::git::signature::default_signature(repo)?;
 
     while let Some(op_res) = rebase.next() {
         let _op = match op_res {

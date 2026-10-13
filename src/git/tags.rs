@@ -7,10 +7,7 @@ pub fn create_tag(
 ) -> anyhow::Result<git2::Oid> {
     let obj = repo.revparse_single(target)?;
     if let Some(msg) = message {
-        let sig = match repo.signature() {
-            Ok(s) => s,
-            Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")?,
-        };
+        let sig = crate::git::signature::default_signature(repo)?;
         let oid = repo.tag(tag_name, &obj, &sig, msg, false)?;
         Ok(oid)
     } else {

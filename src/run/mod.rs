@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 use crate::app;
 use crate::config;
-use crate::git;
 use crate::plugin;
 use crate::terminal;
 use crate::update;
@@ -48,7 +47,6 @@ pub async fn run() -> Result<()> {
     terminal::panic_hook::install();
 
     log::info!("Starting Pairee application...");
-    git::unused_keepalive();
 
     // 3-4. Context and state, with the panels of the restored session
     let context = app::AppContext::new(config);

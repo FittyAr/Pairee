@@ -1,3 +1,5 @@
+use crate::git::signature::{fallback_identity, resolve_signature};
+
 /// Creates a commit with all staged changes.
 ///
 /// If `author_name` or `author_email` are empty, they are read from the repo config.
@@ -7,26 +9,7 @@ pub fn commit(
     author_name: &str,
     author_email: &str,
 ) -> anyhow::Result<git2::Oid> {
-    // Resolve author identity: prefer provided values, fall back to repo/global config
-    let config = repo.config().ok();
-    let resolved_name = if !author_name.is_empty() {
-        author_name.to_string()
-    } else {
-        config
-            .as_ref()
-            .and_then(|c| c.get_string("user.name").ok())
-            .unwrap_or_else(|| "Pairee User".to_string())
-    };
-    let resolved_email = if !author_email.is_empty() {
-        author_email.to_string()
-    } else {
-        config
-            .as_ref()
-            .and_then(|c| c.get_string("user.email").ok())
-            .unwrap_or_else(|| "pairee@localhost".to_string())
-    };
-
-    let sig = git2::Signature::now(&resolved_name, &resolved_email)?;
+    let sig = resolve_signature(repo, author_name, author_email, fallback_identity())?;
     let mut index = repo.index()?;
     let tree_oid = index.write_tree()?;
     let tree = repo.find_tree(tree_oid)?;
@@ -49,31 +32,13 @@ pub fn commit_amend(
     let head = repo.head()?;
     let parent = head.peel_to_commit()?;
 
-    let config = repo.config().ok();
-    let resolved_name = if !author_name.is_empty() {
-        author_name.to_string()
-    } else {
-        config
-            .as_ref()
-            .and_then(|c| c.get_string("user.name").ok())
-            .unwrap_or_else(|| parent.author().name().unwrap_or("Pairee User").to_string())
-    };
-    let resolved_email = if !author_email.is_empty() {
-        author_email.to_string()
-    } else {
-        config
-            .as_ref()
-            .and_then(|c| c.get_string("user.email").ok())
-            .unwrap_or_else(|| {
-                parent
-                    .author()
-                    .email()
-                    .unwrap_or("pairee@localhost")
-                    .to_string()
-            })
-    };
-
-    let sig = git2::Signature::now(&resolved_name, &resolved_email)?;
+    let (default_name, default_email) = fallback_identity();
+    let parent_author = parent.author();
+    let fallback = (
+        parent_author.name().unwrap_or(default_name),
+        parent_author.email().unwrap_or(default_email),
+    );
+    let sig = resolve_signature(repo, author_name, author_email, fallback)?;
     let mut index = repo.index()?;
     let tree_oid = index.write_tree()?;
     let tree = repo.find_tree(tree_oid)?;
