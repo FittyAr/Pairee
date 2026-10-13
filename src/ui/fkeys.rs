@@ -5,7 +5,6 @@ use crate::keybindings::Action;
 use crate::keybindings::keymap::ContextKeymap;
 use crate::keybindings::registry::is_global;
 use crate::keybindings::screens::ScreenCommand;
-use crate::ui::theme_apply::parse_color;
 use crossterm::event::KeyModifiers;
 use ratatui::{
     Frame,
@@ -169,7 +168,7 @@ fn is_dev_plugin_dir(context: &AppContext, state: &AppState) -> bool {
 }
 
 pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let fkeys = bar_cells(context, state);
 
     // Divide the row into 12 equal columns
@@ -179,13 +178,9 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         .constraints(constraints)
         .split(area);
 
-    let num_style = Style::default()
-        .bg(parse_color(&theme.fkey_bg))
-        .fg(parse_color(&theme.fkey_num_fg));
+    let num_style = Style::default().bg(theme.fkey_bg).fg(theme.fkey_num_fg);
 
-    let text_style = Style::default()
-        .bg(parse_color("DarkGray"))
-        .fg(parse_color(&theme.fkey_text_fg));
+    let text_style = Style::default().bg(Color::DarkGray).fg(theme.fkey_text_fg);
 
     let modifiers = bar_modifiers(state);
     for (i, (num, text)) in fkeys.iter().enumerate() {

@@ -64,7 +64,7 @@ fn render_specific_popup(
     context: &AppContext,
     panels: (Rect, Rect),
 ) {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let size = f.area();
     if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
         return;

@@ -41,6 +41,12 @@ impl Harness {
         self.render()
     }
 
+    /// Style of the screen cell (column, row) in a freshly painted frame.
+    pub fn cell_style(&mut self, column: u16, row: u16) -> ratatui::style::Style {
+        self.render();
+        self.screen.backend().buffer()[(column, row)].style()
+    }
+
     /// Asserts the screen shows `needle`.
     #[track_caller]
     pub fn assert_screen(&self, needle: &str) {

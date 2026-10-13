@@ -22,7 +22,7 @@ mod tests {
     use super::layout::{block_inner, should_show, track_area_right};
     use super::render::vertical_bar;
     use super::*;
-    use crate::config::theme::Theme;
+    use crate::ui::resolved_theme::ResolvedTheme;
     use ratatui::layout::Rect;
 
     #[test]
@@ -62,7 +62,7 @@ mod tests {
 
     #[test]
     fn vertical_bar_none_when_no_overflow() {
-        let theme = Theme::default();
+        let theme = ResolvedTheme::default();
         assert!(vertical_bar(5, 10, 0, &theme, ScrollbarSurface::Popup).is_none());
         assert!(vertical_bar(20, 10, 3, &theme, ScrollbarSurface::Panel).is_some());
     }

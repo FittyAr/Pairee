@@ -6,11 +6,11 @@ pub mod remote_manage;
 use crate::app::state::PopupType;
 use crate::app::state::popup::GitPromptPopup;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{Frame, layout::Rect};
 
 /// Main entry point to render the new Git popups.
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
+pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, size: Rect) -> bool {
     match popup {
         PopupType::GitPrompt(GitPromptPopup::DiffView(diff_state)) => {
             diff::render_diff_view(f, diff_state, theme, size)

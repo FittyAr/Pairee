@@ -2,7 +2,6 @@ pub mod sort;
 pub mod view;
 
 use crate::app::state::PopupType;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -15,11 +14,14 @@ use ratatui::{
 pub type KeyGrid = [[Option<(&'static str, &'static str)>; 4]; 3];
 
 /// Table rows of `grid`: yellow key, `⋄`, label.
-pub fn key_rows(theme: &crate::config::theme::Theme, grid: &KeyGrid) -> Vec<Row<'static>> {
+pub fn key_rows(
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+    grid: &KeyGrid,
+) -> Vec<Row<'static>> {
     let key_style = Style::default()
         .fg(Color::Yellow)
         .add_modifier(Modifier::BOLD);
-    let label_style = Style::default().fg(parse_color(&theme.popup_fg));
+    let label_style = Style::default().fg(theme.popup_fg);
     grid.iter()
         .map(|row| {
             Row::new(row.iter().map(|cell| match cell {
@@ -37,7 +39,7 @@ pub fn key_rows(theme: &crate::config::theme::Theme, grid: &KeyGrid) -> Vec<Row<
 pub fn render_yazi_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let (title, grid) = match popup {
@@ -58,9 +60,9 @@ pub fn render_yazi_popup(
 
     let block = Block::default()
         .borders(Borders::TOP)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(title)
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let table = Table::new(
         rows,

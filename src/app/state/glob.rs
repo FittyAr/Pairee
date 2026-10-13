@@ -20,12 +20,28 @@ pub fn glob_matches(pattern: &str, name: &str) -> bool {
 
 /// Matches `name` against a shell-style glob pattern supporting case-sensitivity option.
 pub fn glob_matches_case(pattern: &str, name: &str, case_sensitive: bool) -> bool {
-    for pat in expand_braces(pattern, 0) {
-        if glob_match_iter(&pat, name, case_sensitive) {
-            return true;
+    Glob::new(pattern).matches(name, case_sensitive)
+}
+
+/// A glob with its `{a,b}` groups expanded once, for patterns matched
+/// against many names (panel highlighting runs it for every row).
+#[derive(Debug, Clone)]
+pub struct Glob {
+    alternatives: Vec<String>,
+}
+
+impl Glob {
+    pub fn new(pattern: &str) -> Self {
+        Self {
+            alternatives: expand_braces(pattern, 0),
         }
     }
-    false
+
+    pub fn matches(&self, name: &str, case_sensitive: bool) -> bool {
+        self.alternatives
+            .iter()
+            .any(|pat| glob_match_iter(pat, name, case_sensitive))
+    }
 }
 
 fn expand_braces(pattern: &str, depth: usize) -> Vec<String> {

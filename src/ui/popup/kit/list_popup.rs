@@ -2,8 +2,8 @@
 //! a hint line and an optional scrollbar (history lists, tree view, folder
 //! comparison, task list...).
 
-use super::{fg, frame_in, popup_fg, selection};
-use crate::config::theme::Theme;
+use super::{fg, frame_in};
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
@@ -57,7 +57,7 @@ pub struct ListPopup<'a> {
 }
 
 impl ListPopup<'_> {
-    pub fn render(self, f: &mut Frame, theme: &Theme) {
+    pub fn render(self, f: &mut Frame, theme: &ResolvedTheme) {
         self.render_items(f, theme, None);
     }
 
@@ -67,14 +67,14 @@ impl ListPopup<'_> {
     pub fn render_items(
         self,
         f: &mut Frame,
-        theme: &Theme,
+        theme: &ResolvedTheme,
         items: Option<(&[Option<usize>], usize)>,
     ) {
         let inner = frame_in(f, self.area, self.title, fg(self.border), theme);
         if self.rows.is_empty()
             && let Some(empty) = self.empty
         {
-            f.render_widget(Paragraph::new(empty).style(popup_fg(theme)), inner);
+            f.render_widget(Paragraph::new(empty).style(theme.popup_fg()), inner);
             return;
         }
         // A blank line, then the hint (one row per line of it).
@@ -89,7 +89,7 @@ impl ListPopup<'_> {
             Scroll::HalfPage => self.cursor.saturating_sub(height / 2),
         };
         let total = self.rows.len();
-        let selected = selection(theme).add_modifier(Modifier::BOLD);
+        let selected = theme.selection().add_modifier(Modifier::BOLD);
         let mut lines = self.header;
         lines.extend(
             self.rows
@@ -109,7 +109,7 @@ impl ListPopup<'_> {
                     .map(|l| Line::from(Span::styled(l.to_string(), fg(Color::DarkGray)))),
             );
         }
-        f.render_widget(Paragraph::new(lines).style(popup_fg(theme)), inner);
+        f.render_widget(Paragraph::new(lines).style(theme.popup_fg()), inner);
         let header = reserved - hint_rows;
         let rows_area = Rect {
             y: inner.y + header,

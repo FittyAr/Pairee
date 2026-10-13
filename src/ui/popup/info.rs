@@ -1,7 +1,6 @@
 use super::centered_rect_in;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -13,7 +12,7 @@ use ratatui::{
 pub fn render_info_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     match popup {
@@ -25,7 +24,7 @@ pub fn render_info_popup(
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan))
                 .title(t("info_panel_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                .style(Style::default().bg(theme.popup_bg));
 
             let text_lines: Vec<Line> = lines
                 .iter()
@@ -34,7 +33,7 @@ pub fn render_info_popup(
 
             let paragraph = Paragraph::new(text_lines)
                 .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+                .style(Style::default().fg(theme.popup_fg));
 
             f.render_widget(paragraph, area);
             true
@@ -45,9 +44,9 @@ pub fn render_info_popup(
 
             let block = Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                .border_style(Style::default().fg(theme.popup_border))
                 .title(t("prompt_attributes_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                .style(Style::default().bg(theme.popup_bg));
 
             let path_str = attrs.path.to_string_lossy();
             let file_name = attrs
@@ -86,7 +85,7 @@ pub fn render_info_popup(
 
             let paragraph = Paragraph::new(text)
                 .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg)));
+                .style(Style::default().fg(theme.popup_fg));
 
             f.render_widget(paragraph, area);
             register_readonly_row(area);

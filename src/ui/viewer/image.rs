@@ -2,7 +2,6 @@ use super::state::ViewerState;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -16,7 +15,7 @@ pub(crate) fn render_image(
     area: Rect,
     state: &ViewerState,
     block: Block,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     show_scrollbar: bool,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
@@ -32,20 +31,14 @@ pub(crate) fn render_image(
         None => {
             let para = Paragraph::new(vec![Line::from(t("view_image_error"))])
                 .block(block)
-                .style(Style::default().fg(parse_color(&theme.panel_fg)));
+                .style(Style::default().fg(theme.panel_fg));
             f.render_widget(para, area);
             return;
         }
     };
 
     f.render_widget(block, area);
-    let rows = crate::ui::half_block_image::draw(
-        f,
-        inner_area,
-        img,
-        state.scroll,
-        parse_color(&theme.panel_bg),
-    );
+    let rows = crate::ui::half_block_image::draw(f, inner_area, img, state.scroll, theme.panel_bg);
     let view = ScrollView {
         content_len: rows,
         viewport_len: inner_h as usize,

@@ -3,7 +3,6 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::scrollbar::ScrollbarUiState;
 use crate::ui::text_width::truncate_to_width;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,7 +11,7 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-type Theme = crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 
 /// Widths of the mask, open command and view command columns.
 struct Columns {
@@ -47,7 +46,7 @@ impl Columns {
 pub(super) fn render_associations(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     _scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -69,7 +68,7 @@ pub(super) fn render_associations(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan))
         .title(t("prompt_associations_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -90,7 +89,7 @@ pub(super) fn render_associations(
 
     // 1. Renderizar Listado de Reglas
     let list_paragraph = Paragraph::new(rule_lines(rules, *cursor_idx, chunks[0], theme))
-        .style(Style::default().fg(parse_color(&theme.popup_fg)));
+        .style(Style::default().fg(theme.popup_fg));
     f.render_widget(list_paragraph, chunks[0]);
     if !editing {
         // Rules under the header row, scrolled as `rule_lines` scrolls them.
@@ -129,7 +128,7 @@ fn rule_lines(
     rules: &[crate::config::associations::AssocRule],
     cursor_idx: usize,
     area: Rect,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     let columns = Columns::for_width(area.width as usize);
     let mut list_lines = vec![Line::from(vec![Span::styled(
@@ -145,18 +144,15 @@ fn rule_lines(
         list_lines.push(Line::from(""));
         list_lines.push(Line::from(Span::styled(
             format!("   {}", t("associations_no_rules")),
-            Style::default().fg(parse_color(&theme.popup_fg)),
+            Style::default().fg(theme.popup_fg),
         )));
         return list_lines;
     }
     let list_height = area.height.saturating_sub(1) as usize;
     let scroll_start = cursor_idx.saturating_sub(list_height / 2);
     let same_as_open = t("associations_same_as_open");
-    let cursor_style = Style::default()
-        .bg(parse_color(&theme.selection_bg))
-        .fg(parse_color(&theme.selection_fg))
-        .add_modifier(Modifier::BOLD);
-    let normal = Style::default().fg(parse_color(&theme.popup_fg));
+    let cursor_style = theme.selection().add_modifier(Modifier::BOLD);
+    let normal = Style::default().fg(theme.popup_fg);
     for (i, rule) in rules
         .iter()
         .enumerate()
@@ -181,7 +177,7 @@ fn render_edit_box(
     area: Rect,
     editing_field: usize,
     edit_buffer: &crate::app::text_input::TextField,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) {
     let field_label = match editing_field {
         0 => t("associations_editing_mask"),
@@ -189,12 +185,12 @@ fn render_edit_box(
         2 => t("associations_editing_view"),
         _ => String::new(),
     };
-    let style = crate::ui::popup::kit::popup_fg(theme);
+    let style = theme.popup_fg();
     let mut spans = vec![Span::styled(format!(" {} ", field_label), style)];
     spans.extend(crate::ui::popup::kit::field_spans(
         edit_buffer,
         style,
-        crate::ui::popup::kit::selection(theme),
+        theme.selection(),
         true,
     ));
     let edit_paragraph = Paragraph::new(Line::from(spans)).block(

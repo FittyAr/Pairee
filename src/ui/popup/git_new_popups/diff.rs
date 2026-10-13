@@ -1,7 +1,6 @@
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,7 +13,7 @@ use ratatui::{
 pub fn render_diff_view(
     f: &mut Frame,
     state: &crate::app::state::popup::GitDiffViewState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     let file_path = &state.file_path;
@@ -71,7 +70,7 @@ pub fn render_diff_view(
                     } else if line.starts_with("@@") {
                         Style::default().fg(Color::Cyan)
                     } else {
-                        Style::default().fg(parse_color(&theme.popup_fg))
+                        Style::default().fg(theme.popup_fg)
                     };
                     Line::from(Span::styled(line.to_string(), style))
                 })

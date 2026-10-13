@@ -4,11 +4,11 @@
 use crate::app::disk_usage::DiskUsageState;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::fs::du::DuNode;
 use crate::ui::panel::helpers::{dir_size_text, format_file_size};
 use crate::ui::popup::centered_rect_in;
-use crate::ui::popup::kit::{self, ListPopup, Scroll};
+use crate::ui::popup::kit::{ListPopup, Scroll};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -25,7 +25,7 @@ pub fn render(
     f: &mut Frame,
     popup: &PopupType,
     state: &AppState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     if !matches!(popup, PopupType::DiskUsage) {
@@ -77,9 +77,9 @@ fn row_text(node: &DuNode, total: u64) -> String {
     )
 }
 
-fn row_style(node: &DuNode, theme: &Theme) -> Style {
+fn row_style(node: &DuNode, theme: &ResolvedTheme) -> Style {
     if node.is_dir {
-        kit::popup_fg(theme)
+        theme.popup_fg()
     } else {
         Style::default().fg(Color::Gray)
     }

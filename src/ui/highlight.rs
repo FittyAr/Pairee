@@ -1,11 +1,15 @@
+use crate::app::state::Glob;
 use crate::fs::FileEntry;
 use crate::ui::theme_apply::parse_color;
 use ratatui::style::{Color, Style};
 
 use serde::{Deserialize, Serialize};
 
+/// Mask of the rule that colors folders.
+const DIR_MASK: &str = "[DIR]";
+
 /// A file highlight rule: files matching the glob mask get a specific foreground color.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct HighlightRule {
     /// Glob pattern (e.g. "*.rs", "*.{zip,tar}")
     pub mask: String,
@@ -27,7 +31,7 @@ impl HighlightRule {
 pub fn default_highlight_rules() -> Vec<HighlightRule> {
     vec![
         // Directories — bright cyan
-        HighlightRule::new("[DIR]", "LightCyan"),
+        HighlightRule::new(DIR_MASK, "LightCyan"),
         // Source code — green
         HighlightRule::new("*.{rs,py,js,ts,c,cpp,h,go,java,kt,rb,swift}", "LightGreen"),
         // Archives — red / magenta
@@ -43,27 +47,39 @@ pub fn default_highlight_rules() -> Vec<HighlightRule> {
     ]
 }
 
-/// Returns the appropriate Ratatui Style for a FileEntry based on highlight rules.
-/// Falls back to the base style if no rule matches.
-pub fn style_for_entry(entry: &FileEntry, rules: &[HighlightRule], base: Style) -> Style {
-    if entry.is_dir {
-        // Directories always get their dedicated highlight
-        if let Some(rule) = rules.iter().find(|r| r.mask == "[DIR]") {
-            return base.fg(parse_color(&rule.color));
-        }
-        return base.fg(Color::Cyan);
+/// Highlight rules with masks expanded and colors parsed once (when the
+/// rules change), ready to style every panel row.
+#[derive(Debug, Clone)]
+pub struct Highlighter {
+    dir: Color,
+    files: Vec<(Glob, Color)>,
+}
+
+impl Highlighter {
+    pub fn new(rules: &[HighlightRule]) -> Self {
+        let dir = rules
+            .iter()
+            .find(|r| r.mask == DIR_MASK)
+            .map_or(Color::Cyan, |r| parse_color(&r.color));
+        let files = rules
+            .iter()
+            .filter(|r| r.mask != DIR_MASK)
+            .map(|r| (Glob::new(&r.mask), parse_color(&r.color)))
+            .collect();
+        Self { dir, files }
     }
 
-    for rule in rules {
-        if rule.mask == "[DIR]" {
-            continue;
+    /// `base` with the foreground of the first rule matching `entry`
+    /// (folders always take the `[DIR]` color).
+    pub fn style(&self, entry: &FileEntry, base: Style) -> Style {
+        if entry.is_dir {
+            return base.fg(self.dir);
         }
-        if crate::app::state::glob_matches(&rule.mask, &entry.name) {
-            return base.fg(parse_color(&rule.color));
-        }
+        self.files
+            .iter()
+            .find(|(glob, _)| glob.matches(&entry.name, false))
+            .map_or(base, |(_, color)| base.fg(*color))
     }
-
-    base
 }
 
 #[cfg(test)]
@@ -82,28 +98,33 @@ mod tests {
         }
     }
 
+    fn style(rules: &[HighlightRule], name: &str, is_dir: bool) -> Style {
+        Highlighter::new(rules).style(&make_entry(name, is_dir), Style::default())
+    }
+
     #[test]
     fn test_dir_highlight() {
         let rules = default_highlight_rules();
-        let entry = make_entry("my_dir", true);
-        let style = style_for_entry(&entry, &rules, Style::default());
-        // Directory should get a non-default foreground
-        assert_ne!(style, Style::default());
+        assert_eq!(style(&rules, "my_dir", true).fg, Some(Color::LightCyan));
+        assert_eq!(style(&[], "my_dir", true).fg, Some(Color::Cyan));
     }
 
     #[test]
     fn test_rs_file_highlight() {
         let rules = default_highlight_rules();
-        let entry = make_entry("main.rs", false);
-        let style = style_for_entry(&entry, &rules, Style::default());
-        assert_eq!(style.fg, Some(Color::LightGreen));
+        assert_eq!(style(&rules, "main.rs", false).fg, Some(Color::LightGreen));
     }
 
     #[test]
     fn test_unknown_file_falls_back() {
         let rules = default_highlight_rules();
-        let entry = make_entry("unknown.xyz", false);
-        let style = style_for_entry(&entry, &rules, Style::default());
-        assert_eq!(style, Style::default());
+        assert_eq!(style(&rules, "unknown.xyz", false), Style::default());
+    }
+
+    #[test]
+    fn user_rules_replace_the_defaults() {
+        let rules = vec![HighlightRule::new("*.xyz", "Magenta")];
+        assert_eq!(style(&rules, "a.XYZ", false).fg, Some(Color::Magenta));
+        assert_eq!(style(&rules, "main.rs", false), Style::default());
     }
 }

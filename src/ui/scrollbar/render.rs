@@ -1,7 +1,6 @@
 use super::layout::{block_inner, lengths, should_show, track_area_right};
 use super::types::{ScrollTargetId, ScrollbarHitTarget, ScrollbarSurface, ScrollbarUiState};
-use crate::config::theme::Theme;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{Frame, layout::Rect, style::Style};
 use tui_scrollbar::{GlyphSet, ScrollBar, ScrollBarArrows, TrackClickBehavior};
 
@@ -10,7 +9,7 @@ pub fn vertical_bar(
     content_len: usize,
     viewport_len: usize,
     offset: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     surface: ScrollbarSurface,
 ) -> Option<ScrollBar> {
     if !should_show(content_len, viewport_len) {
@@ -18,16 +17,8 @@ pub fn vertical_bar(
     }
 
     let (bg, track_fg, thumb_fg) = match surface {
-        ScrollbarSurface::Panel => (
-            parse_color(&theme.panel_bg),
-            parse_color(&theme.panel_border),
-            parse_color(&theme.selection_bg),
-        ),
-        ScrollbarSurface::Popup => (
-            parse_color(&theme.popup_bg),
-            parse_color(&theme.popup_border),
-            parse_color(&theme.selection_bg),
-        ),
+        ScrollbarSurface::Panel => (theme.panel_bg, theme.panel_border, theme.selection_bg),
+        ScrollbarSurface::Popup => (theme.popup_bg, theme.popup_border, theme.selection_bg),
     };
 
     Some(
@@ -62,7 +53,7 @@ pub fn render_vertical(
     f: &mut Frame,
     track: Rect,
     view: ScrollView,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     target: ScrollTarget,
 ) {
     render_track(f, track, track, view, theme, target);
@@ -74,7 +65,7 @@ fn render_track(
     track: Rect,
     wheel_area: Rect,
     view: ScrollView,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     target: ScrollTarget,
 ) {
     if track.width == 0 || track.height == 0 {
@@ -107,7 +98,7 @@ pub fn render_vertical_right(
     f: &mut Frame,
     content_area: Rect,
     view: ScrollView,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     target: ScrollTarget,
 ) {
     let track = track_area_right(content_area);
@@ -119,7 +110,7 @@ pub fn render_vertical_inside_block(
     f: &mut Frame,
     block_area: Rect,
     view: ScrollView,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     target: ScrollTarget,
 ) {
     let inner = block_inner(block_area);

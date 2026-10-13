@@ -3,7 +3,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_fixed;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -23,7 +22,7 @@ pub fn preset_ids() -> Vec<&'static str> {
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::OnboardingKeymap { cursor_idx } = popup else {
@@ -37,7 +36,7 @@ pub fn render(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan))
         .title(t("onboarding_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -52,8 +51,7 @@ pub fn render(
         .split(inner);
 
     f.render_widget(
-        Paragraph::new(t("onboarding_intro"))
-            .style(Style::default().fg(parse_color(&theme.popup_fg))),
+        Paragraph::new(t("onboarding_intro")).style(Style::default().fg(theme.popup_fg)),
         chunks[0],
     );
 
@@ -75,7 +73,7 @@ pub fn render(
                 .bg(Color::Cyan)
                 .add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
+            Style::default().fg(theme.popup_fg)
         };
         let mark = if selected { ">" } else { " " };
         f.render_widget(

@@ -2,9 +2,9 @@
 
 use crate::app::state::popup::MultiRenameState as Dialog;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::fs::multi_rename::PreviewRow;
 use crate::ui::popup::kit;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{
     self, ScrollTarget, ScrollTargetId, ScrollView, ScrollbarSurface, ScrollbarUiState,
 };
@@ -22,11 +22,11 @@ const COLUMNS: [u16; 3] = [40, 40, 20];
 pub(super) fn render(
     f: &mut Frame,
     dialog: &Dialog,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     area: Rect,
     hits: &ScrollbarUiState,
 ) {
-    let normal = kit::popup_fg(theme);
+    let normal = theme.popup_fg();
     let header = normal.add_modifier(Modifier::BOLD | Modifier::UNDERLINED);
     let height = area.height.saturating_sub(1) as usize;
     let start = dialog

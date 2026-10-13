@@ -48,7 +48,7 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
 
     let jobs = transfer_state.engine.queue.get_all();
 
-    let theme = &context.config.theme;
+    let theme = &context.theme();
 
     // --- 1. RENDER SIDEBAR (COL IZQUIERDA) ---
     jobs::render_jobs_sidebar(
@@ -96,7 +96,7 @@ fn render_inspector(
     let Some(transfer_state) = &state.transfer else {
         return;
     };
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     // Aseguramos una división vertical del inspector con borde izquierdo
     let inspector_block = Block::default()
         .borders(Borders::LEFT)

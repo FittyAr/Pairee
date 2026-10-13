@@ -16,7 +16,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     prompt: &Prompt,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let labels = prompt.op.labels();

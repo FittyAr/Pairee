@@ -221,7 +221,7 @@ mod tests {
 
     #[test]
     fn non_ascii_registry_fields_are_cut_by_columns() {
-        let theme = crate::config::theme::Theme::default();
+        let theme = crate::ui::resolved_theme::ResolvedTheme::default();
         let pane = Pane {
             list_area: Rect::new(0, 0, 50, 10),
             detail_area: Rect::new(50, 0, 30, 10),

@@ -5,8 +5,9 @@ use super::centered_rect_in;
 use crate::app::state::PopupType;
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
-use crate::config::theme::{COLOR_PROPS, Theme};
+use crate::config::theme::COLOR_PROPS;
 use crate::ui::popup::kit;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -27,10 +28,10 @@ struct ColorRow {
 pub fn render_color_groups_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
-    let selection = kit::selection(theme).add_modifier(Modifier::BOLD);
+    let selection = theme.selection().add_modifier(Modifier::BOLD);
     let (title, cursor, edit, rows) = match popup {
         PopupType::ColorGroupsDialog {
             cursor_idx,
@@ -42,7 +43,7 @@ pub fn render_color_groups_popup(
                 .map(|prop| ColorRow {
                     label: format!("{:<20}", prop.name),
                     color: (prop.get)(edited).clone(),
-                    style: kit::popup_fg(theme),
+                    style: theme.popup_fg(),
                     selected: selection,
                 })
                 .collect::<Vec<_>>();
@@ -61,9 +62,9 @@ pub fn render_color_groups_popup(
                     ColorRow {
                         label: format!("{:<30}", rule.mask),
                         color: rule.color.clone(),
-                        style: Style::default().bg(parse_color(&theme.popup_bg)).fg(fg),
+                        style: Style::default().bg(theme.popup_bg).fg(fg),
                         selected: Style::default()
-                            .bg(parse_color(&theme.selection_bg))
+                            .bg(theme.selection_bg)
                             .fg(fg)
                             .add_modifier(Modifier::BOLD),
                     }
@@ -73,7 +74,7 @@ pub fn render_color_groups_popup(
         }
         _ => return false,
     };
-    let border = kit::fg(parse_color(&theme.popup_border));
+    let border = kit::fg(theme.popup_border);
     let inner = kit::frame_in(f, centered_rect_in(60, 60, size), title, border, theme);
     let lines = color_lines(&rows, cursor, edit.as_ref(), inner.height as usize);
     f.render_widget(Paragraph::new(lines), inner);

@@ -9,7 +9,7 @@ use ratatui::{Frame, layout::Rect, style::Color};
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let (input, title, text) = match popup {
@@ -44,7 +44,7 @@ pub fn render(
         title: t(title),
         border: kit::fg(Color::Cyan),
         body: kit::prompt_text(&t(text), input, theme),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .with_field(kit::field_at(&t(text)))
     .render(f, size, theme);

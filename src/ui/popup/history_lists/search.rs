@@ -4,7 +4,6 @@ use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::scrollbar::ScrollbarUiState;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -15,7 +14,7 @@ use ratatui::{
 pub(super) fn render_search(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     _scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -30,7 +29,7 @@ pub(super) fn render_search(
 fn render_search_prompt(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     use ratatui::layout::{Constraint, Direction, Layout};
@@ -53,7 +52,7 @@ fn render_search_prompt(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan))
         .title(t("prompt_search_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -135,7 +134,7 @@ fn render_search_prompt(
 fn render_search_results(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::SearchResults {
@@ -161,7 +160,7 @@ fn render_search_results(
             let (icon, style) = if *is_dir {
                 ("📁", Style::default().fg(Color::LightBlue))
             } else {
-                ("📄", kit::popup_fg(theme))
+                ("📄", theme.popup_fg())
             };
             (format!(" {}  {} ", icon, path.to_string_lossy()), style)
         })

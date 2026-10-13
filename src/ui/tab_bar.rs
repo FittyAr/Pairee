@@ -2,10 +2,9 @@
 //! than one tab (or always, with `always_show_tab_bar`).
 
 use crate::app::state::tabs::{PanelTabs, Tab};
-use crate::config::theme::Theme;
 use crate::ui::hit::HitTarget;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::text_width::{display_width, truncate_to_width};
-use crate::ui::theme_apply::parse_color;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Modifier, Style};
@@ -88,7 +87,13 @@ fn window(widths: &[usize], active: usize, total: usize) -> (usize, usize) {
 }
 
 /// Paints the bar of `tabs` on `area` and records the cells for clicks.
-pub fn render(f: &mut Frame, area: Rect, tabs: &PanelTabs, side_focused: bool, theme: &Theme) {
+pub fn render(
+    f: &mut Frame,
+    area: Rect,
+    tabs: &PanelTabs,
+    side_focused: bool,
+    theme: &ResolvedTheme,
+) {
     let labels: Vec<String> = tabs
         .tabs()
         .iter()
@@ -96,12 +101,8 @@ pub fn render(f: &mut Frame, area: Rect, tabs: &PanelTabs, side_focused: bool, t
         .map(|(i, tab)| label(i, tab))
         .collect();
     let natural: Vec<usize> = labels.iter().map(|l| display_width(l) + PADDING).collect();
-    let base = Style::default()
-        .fg(parse_color(&theme.panel_fg))
-        .bg(parse_color(&theme.panel_bg));
-    let mut current = Style::default()
-        .fg(parse_color(&theme.selection_fg))
-        .bg(parse_color(&theme.selection_bg));
+    let base = Style::default().fg(theme.panel_fg).bg(theme.panel_bg);
+    let mut current = theme.selection();
     if side_focused {
         current = current.add_modifier(Modifier::BOLD);
     }

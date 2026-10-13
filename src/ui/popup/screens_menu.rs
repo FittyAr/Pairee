@@ -1,4 +1,4 @@
-use super::kit::{ListPopup, Scroll, list_area, popup_fg};
+use super::kit::{ListPopup, Scroll, list_area};
 use crate::app::state::{AppState, PopupType, Screen};
 use ratatui::{Frame, layout::Rect, style::Color};
 
@@ -6,7 +6,7 @@ pub fn render_screens_menu(
     f: &mut Frame,
     popup: &PopupType,
     state: &AppState,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::ScreensMenu { cursor_idx, .. } = popup else {
@@ -30,7 +30,7 @@ pub fn render_screens_menu(
             };
             (
                 format!("{} {} {}", active_marker, i + 1, name),
-                popup_fg(theme),
+                theme.popup_fg(),
             )
         })
         .collect();

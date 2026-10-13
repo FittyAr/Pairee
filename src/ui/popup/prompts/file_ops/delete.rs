@@ -1,7 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_fixed;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,7 +11,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     if let PopupType::ConfirmDelete {
@@ -32,7 +31,7 @@ pub fn render(
             } else {
                 "prompt_delete_title"
             }))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            .style(Style::default().bg(theme.popup_bg));
 
         let inner = block.inner(area);
         f.render_widget(block, area);
@@ -82,7 +81,7 @@ pub fn render(
             Paragraph::new(text)
                 .alignment(ratatui::layout::Alignment::Center)
                 .wrap(ratatui::widgets::Wrap { trim: true })
-                .style(Style::default().fg(parse_color(&theme.popup_fg))),
+                .style(Style::default().fg(theme.popup_fg)),
             chunks[0],
         );
 
@@ -99,10 +98,10 @@ fn render_buttons(
     f: &mut Frame,
     area: Rect,
     cursor_idx: usize,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
-    let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
+    let normal_style = Style::default().fg(theme.popup_fg);
     let btn1 = if cursor_idx == 0 {
         active_style
     } else {

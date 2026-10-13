@@ -9,7 +9,6 @@ use crate::config::localization::t;
 use crate::ui::hit::{self, HitTarget};
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -48,13 +47,13 @@ pub fn render_panel(
         },
         HitTarget::PanelTitle(side),
     );
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let settings = &context.config.settings;
 
     let border_color = if is_active {
-        parse_color(&theme.panel_border)
+        theme.panel_border
     } else {
-        parse_color("DarkGray")
+        Color::DarkGray
     };
 
     let title = build_panel_title(panel, settings);
@@ -64,7 +63,6 @@ pub fn render_panel(
     let show_total = settings.show_files_total_information;
     let show_free = settings.show_free_size;
     let show_scrollbar = settings.show_scrollbar;
-    let highlight_files = settings.highlight_files;
 
     let footer_height = u16::from(show_status) + u16::from(show_total) + u16::from(show_free);
 
@@ -92,7 +90,7 @@ pub fn render_panel(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(border_color))
         .title(title)
-        .style(Style::default().bg(parse_color(&theme.panel_bg)));
+        .style(Style::default().bg(theme.panel_bg));
 
     // ── Dispatch to view-specific renderer (list area only) ───────────────────
     let ctx = ListCtx {
@@ -101,7 +99,8 @@ pub fn render_panel(
         peek,
         is_active,
         context,
-        highlight_files,
+        theme: context.theme(),
+        highlighter: settings.highlight_files.then(|| context.highlighter()),
     };
     match table_view::for_mode(panel.view_mode) {
         Some(view) => render_table(f, list_area, block, &ctx, view),
@@ -127,7 +126,7 @@ fn render_scrollbar(
     f: &mut Frame,
     list_area: Rect,
     panel: &PanelState,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     (hits, id): (Option<&ScrollbarUiState>, ScrollTargetId),
 ) {
     let inner_height = list_area.height.saturating_sub(2) as usize;
@@ -152,11 +151,9 @@ fn render_scrollbar(
 
 /// Status line, totals and free space, as enabled in the settings.
 fn footer_lines(panel: &PanelState, context: &AppContext) -> Vec<Line<'static>> {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let settings = &context.config.settings;
-    let fg = Style::default()
-        .fg(parse_color(&theme.panel_fg))
-        .bg(parse_color(&theme.panel_bg));
+    let fg = Style::default().fg(theme.panel_fg).bg(theme.panel_bg);
 
     let mut footer_lines: Vec<Line> = Vec::new();
     if settings.show_status_line {
@@ -169,9 +166,7 @@ fn footer_lines(panel: &PanelState, context: &AppContext) -> Vec<Line<'static>> 
         let free_text = free_space_text(panel.free_space);
         footer_lines.push(Line::from(Span::styled(
             format!(" {} {}", t("label_free"), free_text),
-            Style::default()
-                .fg(Color::Green)
-                .bg(parse_color(&theme.panel_bg)),
+            Style::default().fg(Color::Green).bg(theme.panel_bg),
         )));
     }
     footer_lines

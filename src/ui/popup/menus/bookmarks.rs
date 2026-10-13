@@ -4,22 +4,21 @@ use super::super::centered_rect_in;
 use crate::app::input_popup::folder_shortcuts::{SLOT_COUNT, slot_for_row};
 use crate::config::bookmarks::HotlistEntry;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::keybindings::{Action, KeybindingResolver};
-use crate::ui::popup::kit::{self, ListPopup, Scroll};
-use crate::ui::theme_apply::parse_color;
+use crate::ui::popup::kit::{ListPopup, Scroll};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{Frame, layout::Rect, text::Line};
 use std::collections::HashMap;
 use std::path::PathBuf;
 
 pub fn render_hotlist(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     entries: &[HotlistEntry],
     cursor_idx: usize,
 ) {
-    let style = kit::popup_fg(theme);
+    let style = theme.popup_fg();
     let rows = entries
         .iter()
         .map(|e| {
@@ -45,14 +44,14 @@ pub fn render_hotlist(
 
 pub fn render_folder_shortcuts(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     shortcuts: &HashMap<u8, PathBuf>,
     resolver: &KeybindingResolver,
     cursor_idx: usize,
 ) {
     let unassigned = t("folder_shortcut_unassigned");
-    let style = kit::popup_fg(theme);
+    let style = theme.popup_fg();
     let rows = (0..SLOT_COUNT)
         .map(|i| {
             let slot = slot_for_row(i);
@@ -81,11 +80,16 @@ pub fn render_folder_shortcuts(
 }
 
 /// Frame shared by the hotlist and the folder shortcuts (rows set by the caller).
-fn bookmark_popup(theme: &Theme, size: Rect, title: String, hint: String) -> ListPopup<'static> {
+fn bookmark_popup(
+    theme: &ResolvedTheme,
+    size: Rect,
+    title: String,
+    hint: String,
+) -> ListPopup<'static> {
     ListPopup {
         area: centered_rect_in(60, 40, size),
         title,
-        border: parse_color(&theme.popup_border),
+        border: theme.popup_border,
         empty: None,
         header: Vec::new(),
         rows: Vec::new(),

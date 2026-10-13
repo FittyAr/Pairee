@@ -44,7 +44,7 @@ pub fn render_screen(
                 crate::ui::popup::editor::EditorView {
                     show_line_numbers: settings.editor_show_line_numbers,
                 },
-                &context.config.theme,
+                &context.theme(),
                 state.dialogs.top(),
             );
         }
@@ -54,7 +54,7 @@ pub fn render_screen(
                 layout.main_rect,
                 vw,
                 &crate::ui::viewer::ViewerOpts {
-                    theme: &context.config.theme,
+                    theme: &context.theme(),
                     active_popup: state.dialogs.top(),
                     show_scrollbar: context.config.settings.viewer_show_scrollbar,
                     tab_size: context.config.settings.viewer_tab_size as usize,
@@ -97,14 +97,14 @@ fn render_side(
         && !is_active
         && let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top()
     {
-        quickview::draw_quick_view(f, rect, qv, &context.config.theme, Some(&state.scrollbar));
+        quickview::draw_quick_view(f, rect, qv, &context.theme(), Some(&state.scrollbar));
         return;
     }
     let tabs = state.panels.tabs(side);
     let settings = &context.config.settings;
     let rect = if tab_bar::is_visible(tabs, settings.always_show_tab_bar) && rect.height > 1 {
         let bar = Rect { height: 1, ..rect };
-        tab_bar::render(f, bar, tabs, is_active, &context.config.theme);
+        tab_bar::render(f, bar, tabs, is_active, &context.theme());
         Rect {
             y: rect.y + 1,
             height: rect.height - 1,

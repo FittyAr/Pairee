@@ -3,7 +3,6 @@ use super::{Pane, spinner_frame};
 use crate::app::state::PluginMenuState;
 use crate::config::localization::t;
 use crate::plugin::installed::InstalledPlugin;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     style::{Color, Modifier as StyleModifier, Style},
@@ -82,8 +81,8 @@ fn render_loading(f: &mut Frame, pane: &Pane, loading_status: &str) {
         .block(Block::default().borders(Borders::NONE))
         .gauge_style(
             Style::default()
-                .fg(parse_color(&pane.theme.selection_bg))
-                .bg(parse_color(&pane.theme.popup_bg)),
+                .fg(pane.theme.selection_bg)
+                .bg(pane.theme.popup_bg),
         )
         .ratio(0.0)
         .label("");

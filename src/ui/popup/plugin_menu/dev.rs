@@ -2,7 +2,6 @@ use super::detail::{pane_block, row_style, text_style};
 use super::{Pane, spinner_frame, wrap_text};
 use crate::app::state::PluginMenuState;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout},
@@ -187,8 +186,8 @@ fn render_progress(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
         )
         .gauge_style(
             Style::default()
-                .fg(parse_color(&pane.theme.selection_bg))
-                .bg(parse_color(&pane.theme.popup_bg)),
+                .fg(pane.theme.selection_bg)
+                .bg(pane.theme.popup_bg),
         )
         .ratio(ratio)
         .label(label);
@@ -197,7 +196,7 @@ fn render_progress(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     // Show any partial results that have been streamed so far.
     if !menu.dev_results.is_empty() && inner_h >= 4 {
         let dim_style = Style::default()
-            .fg(parse_color(&pane.theme.popup_fg))
+            .fg(pane.theme.popup_fg)
             .add_modifier(StyleModifier::ITALIC);
         let max_width = (v_chunks[2].width as usize).saturating_sub(2);
         let lines: Vec<Line> = wrap_text(&menu.dev_results, max_width)

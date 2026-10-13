@@ -3,7 +3,6 @@
 
 use super::Pane;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     style::{Modifier, Style},
@@ -24,10 +23,7 @@ pub(super) fn pane_block(pane: &Pane, title: String) -> Block<'static> {
 pub(super) fn row_style(pane: &Pane, selected: bool) -> Style {
     let theme = pane.theme;
     if selected {
-        Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD)
+        theme.selection().add_modifier(Modifier::BOLD)
     } else {
         text_style(pane)
     }
@@ -35,7 +31,7 @@ pub(super) fn row_style(pane: &Pane, selected: bool) -> Style {
 
 /// Plain popup text.
 pub(super) fn text_style(pane: &Pane) -> Style {
-    Style::default().fg(parse_color(&pane.theme.popup_fg))
+    Style::default().fg(pane.theme.popup_fg)
 }
 
 /// `label value` with the label in bold.

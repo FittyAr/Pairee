@@ -6,7 +6,7 @@ use ratatui::{Frame, layout::Rect, style::Color};
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::CreateLinkPrompt {
@@ -27,7 +27,7 @@ pub fn render(
         title,
         border: kit::fg(Color::Yellow),
         body: kit::prompt_text(&template, dest_input, theme),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .with_field(kit::field_at(&template))
     .render(f, size, theme);

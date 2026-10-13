@@ -13,9 +13,8 @@ pub use filter_list::FilterListView;
 pub use list_popup::{ListPopup, Scroll, list_area, marked};
 
 use crate::app::text_input::TextField;
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_fixed;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Alignment, Rect},
@@ -25,12 +24,16 @@ use ratatui::{
 };
 
 /// Bordered block titled `title` over the popup background.
-pub fn popup_block<'a>(title: impl Into<Line<'a>>, border: Style, theme: &Theme) -> Block<'a> {
+pub fn popup_block<'a>(
+    title: impl Into<Line<'a>>,
+    border: Style,
+    theme: &ResolvedTheme,
+) -> Block<'a> {
     Block::default()
         .borders(Borders::ALL)
         .border_style(border)
         .title(title)
-        .style(Style::default().bg(parse_color(&theme.popup_bg)))
+        .style(Style::default().bg(theme.popup_bg))
 }
 
 /// Bold title in `color` (Git dialogs).
@@ -55,7 +58,7 @@ pub fn frame_in(
     area: Rect,
     title: impl Into<Line<'static>>,
     border: Style,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Rect {
     super::popup_body(area);
     f.render_widget(Clear, area);
@@ -72,7 +75,7 @@ pub fn dialog_frame(
     (width, height): (u16, u16),
     title: impl Into<Line<'static>>,
     border: Style,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Rect {
     frame_in(
         f,
@@ -94,12 +97,12 @@ pub struct TextBox<'a> {
 
 impl<'a> TextBox<'a> {
     /// Clears the area and draws `body` (in `body_style`) inside the block.
-    pub fn render(self, f: &mut Frame, screen: Rect, theme: &Theme) {
+    pub fn render(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme) {
         self.draw(f, screen, theme, false);
     }
 
     /// Like [`Self::render`], word-wrapping the body.
-    pub fn render_wrapped(self, f: &mut Frame, screen: Rect, theme: &Theme) {
+    pub fn render_wrapped(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme) {
         self.draw(f, screen, theme, true);
     }
 
@@ -109,7 +112,7 @@ impl<'a> TextBox<'a> {
         FieldBox { text_box: self, at }
     }
 
-    fn draw(self, f: &mut Frame, screen: Rect, theme: &Theme, wrap: bool) -> Rect {
+    fn draw(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme, wrap: bool) -> Rect {
         let area = centered_rect_fixed(self.size.0, self.size.1, screen);
         f.render_widget(Clear, area);
         let mut paragraph = Paragraph::new(self.body)
@@ -131,7 +134,7 @@ pub struct FieldBox<'a> {
 }
 
 impl FieldBox<'_> {
-    pub fn render(self, f: &mut Frame, screen: Rect, theme: &Theme) {
+    pub fn render(self, f: &mut Frame, screen: Rect, theme: &ResolvedTheme) {
         let area = self.text_box.draw(f, screen, theme, false);
         let inner = area.inner(ratatui::layout::Margin::new(1, 1));
         let y = inner.y + self.at.0;
@@ -163,8 +166,8 @@ pub fn field_at(template: &str) -> (u16, u16) {
 
 /// A one-field prompt body: `template` with its first `{}` replaced by the
 /// (always focused) `field`, in the popup foreground with a reversed cursor.
-pub fn prompt_text(template: &str, field: &TextField, theme: &Theme) -> Text<'static> {
-    let style = popup_fg(theme);
+pub fn prompt_text(template: &str, field: &TextField, theme: &ResolvedTheme) -> Text<'static> {
+    let style = theme.popup_fg();
     template_with_field(
         template,
         field,
@@ -189,16 +192,9 @@ pub fn items_label(paths: &[std::path::PathBuf], single_key: &str, plural_key: &
     }
 }
 
-/// Theme selection colors (highlighted list rows, focused buttons).
-pub fn selection(theme: &Theme) -> Style {
-    Style::default()
-        .bg(parse_color(&theme.selection_bg))
-        .fg(parse_color(&theme.selection_fg))
-}
-
 /// A [`TextField`] in its own bordered box (Git dialogs): yellow border and
 /// bold text with a cursor when focused, dim border otherwise.
-pub fn input_box(field: &TextField, focused: bool, theme: &Theme) -> Paragraph<'static> {
+pub fn input_box(field: &TextField, focused: bool, theme: &ResolvedTheme) -> Paragraph<'static> {
     let (border, style) = if focused {
         (
             Color::Yellow,
@@ -207,9 +203,9 @@ pub fn input_box(field: &TextField, focused: bool, theme: &Theme) -> Paragraph<'
                 .add_modifier(Modifier::BOLD),
         )
     } else {
-        (Color::DarkGray, popup_fg(theme))
+        (Color::DarkGray, theme.popup_fg())
     };
-    let spans = field_spans(field, style, selection(theme), focused);
+    let spans = field_spans(field, style, theme.selection(), focused);
     Paragraph::new(Line::from(spans)).block(
         Block::default()
             .borders(Borders::ALL)
@@ -222,11 +218,6 @@ pub fn fg(color: Color) -> Style {
     Style::default().fg(color)
 }
 
-/// Theme popup foreground.
-pub fn popup_fg(theme: &Theme) -> Style {
-    Style::default().fg(parse_color(&theme.popup_fg))
-}
-
 /// Focused / unfocused styles for dialog rows and buttons.
 #[derive(Debug, Clone, Copy)]
 pub struct FocusStyles {
@@ -236,10 +227,10 @@ pub struct FocusStyles {
 
 impl FocusStyles {
     /// Cyan-on-black focus over the theme's popup foreground.
-    pub fn from_theme(theme: &Theme) -> Self {
+    pub fn from_theme(theme: &ResolvedTheme) -> Self {
         Self {
             active: Style::default().bg(Color::Cyan).fg(Color::Black),
-            normal: popup_fg(theme),
+            normal: theme.popup_fg(),
         }
     }
 

@@ -8,11 +8,10 @@ mod lines;
 use crate::app::git_panel_load::GitPanelLoader;
 use crate::app::state::{GitPanelState, PopupType};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_in;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -41,7 +40,7 @@ fn tab_keys(tab: usize) -> (&'static str, &'static str, &'static str) {
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
     loader: &GitPanelLoader,
@@ -89,7 +88,11 @@ pub fn render(
 }
 
 /// Border with "Git: <repo> [<branch>]" and a busy marker (localization key).
-fn frame_block(panel: &GitPanelState, marker: Option<&str>, theme: &Theme) -> Block<'static> {
+fn frame_block(
+    panel: &GitPanelState,
+    marker: Option<&str>,
+    theme: &ResolvedTheme,
+) -> Block<'static> {
     let repo_name = panel
         .repo_path
         .file_name()
@@ -109,21 +112,18 @@ fn frame_block(panel: &GitPanelState, marker: Option<&str>, theme: &Theme) -> Bl
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         ))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)))
+        .style(Style::default().bg(theme.popup_bg))
 }
 
-fn render_tab_header(f: &mut Frame, area: Rect, active_tab: usize, theme: &Theme) {
+fn render_tab_header(f: &mut Frame, area: Rect, active_tab: usize, theme: &ResolvedTheme) {
     let spans: Vec<Span> = TABS
         .iter()
         .enumerate()
         .map(|(i, (name, _, _))| {
             let style = if i == active_tab {
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg))
-                    .add_modifier(Modifier::BOLD)
+                theme.selection().add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
+                Style::default().fg(theme.popup_fg)
             };
             Span::styled(format!("  [ {} ]  ", t(name)), style)
         })
@@ -149,7 +149,7 @@ fn render_content(
     area: Rect,
     panel: &GitPanelState,
     loading: bool,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let height = area.height as usize;

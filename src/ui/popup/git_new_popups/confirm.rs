@@ -1,7 +1,6 @@
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,7 +13,7 @@ use ratatui::{
 pub fn render_confirm_action(
     f: &mut Frame,
     state: &crate::app::state::popup::GitConfirmActionState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     let message = &state.message;
@@ -41,15 +40,12 @@ pub fn render_confirm_action(
     // Render message
     let msg_para = Paragraph::new(message.as_str())
         .alignment(ratatui::layout::Alignment::Center)
-        .style(Style::default().fg(parse_color(&theme.popup_fg)));
+        .style(Style::default().fg(theme.popup_fg));
     f.render_widget(msg_para, chunks[0]);
 
     // Yes/No Buttons. By default YES is focused (we handle Enter / Esc).
-    let yes_style = Style::default()
-        .bg(parse_color(&theme.selection_bg))
-        .fg(parse_color(&theme.selection_fg))
-        .add_modifier(Modifier::BOLD);
-    let no_style = Style::default().fg(parse_color(&theme.popup_fg));
+    let yes_style = theme.selection().add_modifier(Modifier::BOLD);
+    let no_style = Style::default().fg(theme.popup_fg);
 
     let yes_text = format!(
         " [ {} (Enter) ] ",

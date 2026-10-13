@@ -12,7 +12,7 @@ use ratatui::{
 pub(super) fn render_compare(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     _scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {

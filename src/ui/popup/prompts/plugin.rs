@@ -1,7 +1,6 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::plugin::manager::DialogPosition;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -13,7 +12,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     match popup {
@@ -81,7 +80,7 @@ fn offset_u16(base: u16, delta: i32, max: u16) -> u16 {
 
 fn render_confirm(
     f: &mut Frame,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     title: &str,
     msg: &str,
@@ -95,7 +94,7 @@ fn render_confirm(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Yellow))
         .title(format!(" {title} "))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -110,7 +109,7 @@ fn render_confirm(
 
     f.render_widget(
         Paragraph::new(msg.to_string())
-            .style(Style::default().fg(parse_color(&theme.popup_fg)))
+            .style(Style::default().fg(theme.popup_fg))
             .wrap(Wrap { trim: false }),
         chunks[0],
     );
@@ -155,7 +154,7 @@ fn render_confirm(
 
 fn render_input(
     f: &mut Frame,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     title: &str,
     input: &crate::app::text_input::TextField,
@@ -167,9 +166,9 @@ fn render_input(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(format!(" {title} "))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -178,7 +177,7 @@ fn render_input(
         .constraints([Constraint::Length(2), Constraint::Length(1)])
         .split(inner);
 
-    let style = Style::default().fg(parse_color(&theme.popup_fg));
+    let style = Style::default().fg(theme.popup_fg);
     let mut spans = vec![ratatui::text::Span::styled(" > ", style)];
     if obscure {
         let masked = "*".repeat(input.text().chars().count());
@@ -187,7 +186,7 @@ fn render_input(
         spans.extend(crate::ui::popup::kit::field_spans(
             input,
             style,
-            crate::ui::popup::kit::selection(theme),
+            theme.selection(),
             true,
         ));
     }
@@ -200,7 +199,7 @@ fn render_input(
 
 fn render_which(
     f: &mut Frame,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     candidates: &[crate::plugin::manager::WhichCandidate],
     silent: bool,
@@ -212,11 +211,11 @@ fn render_which(
         let block = Block::default()
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            .style(Style::default().bg(theme.popup_bg));
         f.render_widget(
             Paragraph::new(t("plugin_dialog_which_silent"))
                 .block(block)
-                .style(Style::default().fg(parse_color(&theme.popup_fg))),
+                .style(Style::default().fg(theme.popup_fg)),
             area,
         );
         return;
@@ -230,7 +229,7 @@ fn render_which(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan))
         .title(t("plugin_dialog_which_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -246,10 +245,7 @@ fn render_which(
                         .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
-                Span::styled(
-                    desc.to_string(),
-                    Style::default().fg(parse_color(&theme.popup_fg)),
-                ),
+                Span::styled(desc.to_string(), Style::default().fg(theme.popup_fg)),
             ])
         })
         .collect();

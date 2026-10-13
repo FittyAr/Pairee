@@ -11,11 +11,10 @@ pub use types::MenuItemData;
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Modifier, Style},
+    style::{Color, Modifier, Style},
     text::Line,
     widgets::Paragraph,
 };
@@ -86,7 +85,7 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     for (i, cell) in title_cells(area).into_iter().enumerate() {
         crate::ui::hit::register(cell, crate::ui::hit::HitTarget::MenuTitle(i));
     }
-    let theme = &context.config.theme;
+    let theme = &context.theme();
 
     let active_menu_idx = if let Some(PopupType::Menu {
         active_menu_idx, ..
@@ -102,13 +101,10 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     for (i, title) in titles.iter().enumerate() {
         let is_active = Some(i) == active_menu_idx.copied();
         let style = if is_active {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
+            theme.selection().add_modifier(Modifier::BOLD)
         } else {
             Style::default()
-                .fg(parse_color(&theme.panel_fg))
+                .fg(theme.panel_fg)
                 .add_modifier(Modifier::BOLD)
         };
 
@@ -127,13 +123,13 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
         .split(area);
 
     let line = Line::from(spans);
-    let paragraph = Paragraph::new(line).style(Style::default().bg(parse_color("DarkGray")));
+    let paragraph = Paragraph::new(line).style(Style::default().bg(Color::DarkGray));
     f.render_widget(paragraph, menu_chunks[0]);
 
     if state.is_root {
         let root_para = Paragraph::new(" [ROOT] ").style(
             Style::default()
-                .bg(parse_color("DarkGray"))
+                .bg(Color::DarkGray)
                 .fg(ratatui::style::Color::Red)
                 .add_modifier(Modifier::BOLD),
         );
@@ -143,15 +139,11 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     if context.config.settings.interface_clock {
         let time_str = chrono::Local::now().format(" %H:%M:%S ").to_string();
         let clock_para = Paragraph::new(time_str)
-            .style(
-                Style::default()
-                    .bg(parse_color("DarkGray"))
-                    .fg(parse_color(&theme.panel_fg)),
-            )
+            .style(Style::default().bg(Color::DarkGray).fg(theme.panel_fg))
             .alignment(ratatui::layout::Alignment::Right);
         f.render_widget(clock_para, menu_chunks[2]);
     } else {
-        let empty_para = Paragraph::new("").style(Style::default().bg(parse_color("DarkGray")));
+        let empty_para = Paragraph::new("").style(Style::default().bg(Color::DarkGray));
         f.render_widget(empty_para, menu_chunks[2]);
     }
 }

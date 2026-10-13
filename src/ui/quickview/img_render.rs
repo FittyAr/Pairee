@@ -1,4 +1,3 @@
-use crate::ui::theme_apply::parse_color;
 use ratatui::{Frame, layout::Rect, widgets::Block};
 
 pub fn render_quick_view_image(
@@ -6,7 +5,7 @@ pub fn render_quick_view_image(
     area: Rect,
     img: &image::DynamicImage,
     block: Block,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     scroll_offset: usize,
 ) {
     let inner = block.inner(area);
@@ -14,5 +13,5 @@ pub fn render_quick_view_image(
         return;
     }
     f.render_widget(block, area);
-    crate::ui::half_block_image::draw(f, inner, img, scroll_offset, parse_color(&theme.panel_bg));
+    crate::ui::half_block_image::draw(f, inner, img, scroll_offset, theme.panel_bg);
 }

@@ -5,10 +5,12 @@ use super::helpers::{entry_display_name, entry_display_name_truncated};
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, PanelState};
 use crate::fs::FileEntry;
+use crate::ui::highlight::Highlighter;
 use crate::ui::hit::{self, HitTarget};
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
+use std::sync::Arc;
 
 pub(crate) struct ListCtx<'a> {
     pub panel: &'a PanelState,
@@ -17,7 +19,9 @@ pub(crate) struct ListCtx<'a> {
     pub peek: Option<usize>,
     pub is_active: bool,
     pub context: &'a AppContext,
-    pub highlight_files: bool,
+    pub theme: Arc<ResolvedTheme>,
+    /// Compiled "Files highlighting" rules, when highlighting is on.
+    pub highlighter: Option<Arc<Highlighter>>,
 }
 
 impl ListCtx<'_> {
@@ -70,15 +74,13 @@ impl ListCtx<'_> {
 
     /// Style of the row showing entry `idx`.
     pub fn row_style(&self, idx: usize, entry: &FileEntry) -> Style {
-        let theme = &self.context.config.theme;
+        let theme = &self.theme;
         let is_cursor = idx == self.panel.cursor_index;
         let is_selected = self.panel.selected_paths.contains(&entry.path);
-        let base = Style::default().fg(parse_color(&theme.panel_fg));
-        let mut style = if self.highlight_files {
-            let rules = crate::ui::highlight::default_highlight_rules();
-            crate::ui::highlight::style_for_entry(entry, &rules, base)
-        } else {
-            base
+        let base = Style::default().fg(theme.panel_fg);
+        let mut style = match &self.highlighter {
+            Some(highlighter) => highlighter.style(entry, base),
+            None => base,
         };
         if !is_selected
             && (!is_cursor || !self.is_active)
@@ -90,14 +92,11 @@ impl ListCtx<'_> {
             style = style.fg(Color::DarkGray);
         }
         if is_selected {
-            style = style.fg(parse_color(&theme.marked_fg));
+            style = style.fg(theme.marked_fg);
         }
         match (is_cursor, self.is_active) {
-            (true, true) => style
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD),
-            (true, false) => style.bg(parse_color("DarkGray")),
+            (true, true) => style.patch(theme.selection()).add_modifier(Modifier::BOLD),
+            (true, false) => style.bg(Color::DarkGray),
             _ => style,
         }
     }

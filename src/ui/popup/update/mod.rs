@@ -5,10 +5,9 @@ pub use controls::render_controls;
 
 use super::centered_rect_fixed;
 use crate::app::state::PopupType;
-use crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use crate::update::UpdateInfo;
 use crate::update::detect::InstallMethod;
 use ratatui::{
@@ -24,7 +23,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -45,11 +44,9 @@ pub fn render(
 
     f.render_widget(Clear, area);
 
-    let border_style = Style::default().fg(parse_color(&theme.popup_border));
-    let bg_style = Style::default().bg(parse_color(&theme.popup_bg));
-    let fg_style = Style::default()
-        .fg(parse_color(&theme.popup_fg))
-        .bg(parse_color(&theme.popup_bg));
+    let border_style = Style::default().fg(theme.popup_border);
+    let bg_style = Style::default().bg(theme.popup_bg);
+    let fg_style = Style::default().fg(theme.popup_fg).bg(theme.popup_bg);
 
     let method = crate::update::detect::detect_install_method();
     let size_str = download_size_suffix(info, &method);
@@ -107,8 +104,8 @@ pub fn render(
         *cursor_idx,
         install_progress.as_ref(),
         error.as_ref(),
-        parse_color(&theme.popup_fg),
-        parse_color(&theme.popup_bg),
+        theme.popup_fg,
+        theme.popup_bg,
     );
 
     // Hint line at the bottom
@@ -179,7 +176,7 @@ fn render_notes(
     f: &mut Frame,
     area: Rect,
     info: &UpdateInfo,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     scroll_y: usize,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
@@ -194,7 +191,7 @@ fn render_notes(
                     .fg(Color::Yellow)
                     .add_modifier(Modifier::BOLD)
             } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
+                Style::default().fg(theme.popup_fg)
             };
             Line::from(Span::styled(format!(" {}", clean), style))
         })
@@ -210,7 +207,7 @@ fn render_notes(
 
     let paragraph = Paragraph::new(wrapped_notes)
         .scroll((clamped_scroll as u16, 0))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     f.render_widget(paragraph, area);
 
     scrollbar::render_vertical_right(

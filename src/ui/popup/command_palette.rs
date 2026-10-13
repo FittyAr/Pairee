@@ -2,9 +2,9 @@
 
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::keybindings::{Action, KeybindingResolver};
 use crate::ui::popup::kit::FilterListView;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{Frame, layout::Rect};
 
 /// Columns of the action label, before its key.
@@ -13,7 +13,7 @@ const LABEL_WIDTH: usize = 46;
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     area: Rect,
     resolver: &KeybindingResolver,
 ) -> bool {

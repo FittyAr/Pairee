@@ -24,7 +24,7 @@ pub mod visual;
 
 pub use crate::fs::compare::CompareStatus;
 pub use dialog_stack::DialogStack;
-pub use glob::{glob_matches, glob_matches_case};
+pub use glob::{Glob, glob_matches, glob_matches_case};
 pub use history::HistoryState;
 pub use panel::PanelState;
 pub use panel_pair::PanelPair;

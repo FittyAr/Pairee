@@ -21,7 +21,7 @@ pub fn render_menu_popup(
     state: &crate::app::state::AppState,
     context: &crate::app::context::AppContext,
 ) -> bool {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     match popup {
         PopupType::SortModesDialog {
             current,

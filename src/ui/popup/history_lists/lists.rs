@@ -1,7 +1,7 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
-use crate::ui::popup::kit::{self, ListPopup, Scroll};
+use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::scrollbar::{ScrollTargetId, ScrollbarUiState};
 use ratatui::{Frame, layout::Rect, style::Color};
 
@@ -26,7 +26,7 @@ const FOLDER_KEYS: [&str; 3] = [
 pub(super) fn render_history_lists(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -64,7 +64,7 @@ pub(super) fn render_history_lists(
         _ => return false,
     };
     let [title, empty, hint] = keys;
-    let style = kit::popup_fg(theme);
+    let style = theme.popup_fg();
     ListPopup {
         area: centered_rect_in(width, 50, size),
         title: t(title),

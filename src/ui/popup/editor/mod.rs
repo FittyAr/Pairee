@@ -7,7 +7,6 @@ use super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -18,7 +17,7 @@ use ratatui::{
 pub fn render_editor_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     match popup {
@@ -29,9 +28,9 @@ pub fn render_editor_popup(
             kit::TextBox {
                 size: (60, 7),
                 title: t("editor_save_as_title"),
-                border: kit::fg(parse_color(&theme.popup_border)),
+                border: kit::fg(theme.popup_border),
                 body: kit::prompt_text(&t("editor_save_as_text"), input, theme),
-                body_style: kit::popup_fg(theme),
+                body_style: theme.popup_fg(),
             }
             .with_field(kit::field_at(&t("editor_save_as_text")))
             .render(f, size, theme);
@@ -42,15 +41,15 @@ pub fn render_editor_popup(
             f.render_widget(Clear, area);
             let block = Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                .border_style(Style::default().fg(theme.popup_border))
                 .title(t("editor_overwrite_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                .style(Style::default().bg(theme.popup_bg));
             let text = t(reason.message_key()).replacen("{}", &target.to_string_lossy(), 1);
             f.render_widget(
                 Paragraph::new(text)
                     .block(block)
                     .wrap(ratatui::widgets::Wrap { trim: false })
-                    .style(Style::default().fg(parse_color(&theme.popup_fg))),
+                    .style(Style::default().fg(theme.popup_fg)),
                 area,
             );
             true
@@ -60,12 +59,12 @@ pub fn render_editor_popup(
             f.render_widget(Clear, area);
             let block = Block::default()
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+                .border_style(Style::default().fg(theme.popup_border))
                 .title(t("editor_discard_title"))
-                .style(Style::default().bg(parse_color(&theme.popup_bg)));
+                .style(Style::default().bg(theme.popup_bg));
             let text = ratatui::text::Line::from(vec![ratatui::text::Span::styled(
                 t("editor_discard_prompt"),
-                Style::default().fg(parse_color(&theme.popup_fg)),
+                Style::default().fg(theme.popup_fg),
             )]);
             let para = Paragraph::new(text)
                 .block(block)

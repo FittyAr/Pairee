@@ -5,15 +5,14 @@ use crate::app::mouse::file_drag::{Drop, drop_target};
 use crate::app::state::AppState;
 use crate::app::state::popup::TransferPromptOp;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::text_width::display_width;
-use crate::ui::theme_apply::parse_color;
 use ratatui::Frame;
 use ratatui::layout::Rect;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Clear, Paragraph};
 
-pub fn render(f: &mut Frame, state: &AppState, theme: &Theme) {
+pub fn render(f: &mut Frame, state: &AppState, theme: &ResolvedTheme) {
     let Some(drag) = state.mouse.file_drag() else {
         return;
     };
@@ -31,9 +30,7 @@ pub fn render(f: &mut Frame, state: &AppState, theme: &Theme) {
         TransferPromptOp::Copy => "drag_copy",
         TransferPromptOp::Move => "drag_move",
     });
-    let selected = Style::default()
-        .bg(parse_color(&theme.selection_bg))
-        .fg(parse_color(&theme.selection_fg));
+    let selected = theme.selection();
     let (text, style) = match drop_target(state, drag, target.as_ref()) {
         Some(Drop::Folder { dir, .. }) => {
             let name = dir

@@ -5,7 +5,6 @@ pub use libs::DEPENDENCY_LIBRARIES;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
-use crate::ui::theme_apply::parse_color;
 use crate::ui::wrap::wrap_lines;
 use ratatui::{
     Frame,
@@ -24,8 +23,8 @@ struct AboutStyles {
 }
 
 impl AboutStyles {
-    fn new(theme: &crate::config::theme::Theme) -> Self {
-        let text = Style::default().fg(parse_color(&theme.popup_fg));
+    fn new(theme: &crate::ui::resolved_theme::ResolvedTheme) -> Self {
+        let text = Style::default().fg(theme.popup_fg);
         Self {
             text,
             bold: text.add_modifier(Modifier::BOLD),
@@ -42,7 +41,7 @@ impl AboutStyles {
 pub fn render_about_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -56,9 +55,9 @@ pub fn render_about_popup(
     let styles = AboutStyles::new(theme);
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(t("about_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let inner_width = area.width.saturating_sub(4) as usize;
     let wrapped_lines = wrap_lines(about_lines(&styles), inner_width);

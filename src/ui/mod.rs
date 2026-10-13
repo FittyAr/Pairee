@@ -11,6 +11,8 @@ pub mod panel;
 pub mod placement;
 pub mod popup;
 pub mod quickview;
+pub mod render_cache;
+pub mod resolved_theme;
 pub mod screens;
 pub mod scrollbar;
 pub mod search_highlight;
@@ -114,5 +116,5 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     }
     state.mouse.placed(placement::finish());
     // Last, over everything: where dragged files would go.
-    drag_label::render(f, state, &context.config.theme);
+    drag_label::render(f, state, &context.theme());
 }

@@ -6,11 +6,11 @@ use ratatui::{Frame, layout::Rect, style::Color};
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     _state: &crate::app::state::AppState,
 ) -> bool {
-    let fg = kit::popup_fg(theme);
+    let fg = theme.popup_fg();
     let text_box = match popup {
         PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
             let text_key = match op_kind {

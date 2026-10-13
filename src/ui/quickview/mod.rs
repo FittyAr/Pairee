@@ -7,7 +7,6 @@ pub use plugin::render_plugin_widget;
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -25,7 +24,7 @@ pub fn draw_quick_view(
     f: &mut Frame,
     area: Rect,
     qv: &crate::app::state::popup::QuickViewDialog,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let (path, content, scroll) = (&qv.path, qv.content.as_slice(), qv.scroll);
@@ -39,14 +38,14 @@ pub fn draw_quick_view(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(Line::from(Span::styled(
             title,
             Style::default()
-                .fg(parse_color(&theme.header_fg))
+                .fg(theme.header_fg)
                 .add_modifier(Modifier::BOLD),
         )))
-        .style(Style::default().bg(parse_color(&theme.panel_bg)));
+        .style(Style::default().bg(theme.panel_bg));
 
     if let Some(widget) = plugin_widget {
         render_plugin_widget(f, area, widget, block, theme, scroll, scrollbar);
@@ -63,7 +62,7 @@ pub fn draw_quick_view(
 
         let para = Paragraph::new(lines)
             .block(block)
-            .style(Style::default().fg(parse_color(&theme.panel_fg)))
+            .style(Style::default().fg(theme.panel_fg))
             .wrap(Wrap { trim: false });
 
         f.render_widget(para, area);
