@@ -65,7 +65,7 @@ pub async fn run() -> Result<()> {
     // 5.5. Initialize and load plugins
     plugin::PluginManager::init();
     if context.config.settings.plugins_enabled {
-        plugin::PluginManager::load_all_plugins(&context).await;
+        plugin::PluginManager::load_all_plugins(&context.config).await;
     } else {
         log::info!("Plugins disabled by feature flag; skipping load");
     }

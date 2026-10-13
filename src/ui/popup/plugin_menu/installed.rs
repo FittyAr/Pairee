@@ -53,9 +53,11 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     render_details(f, pane, detail_lines);
 }
 
-/// `name vX [P][T|U][▲]` row: pinned, trusted/untrusted, update available.
+/// `name vX [P][T|U][off][▲]` row: pinned, trusted/untrusted, disabled,
+/// update available.
 fn plugin_item(pane: &Pane, plugin: &InstalledPlugin, selected: bool) -> ListItem<'static> {
     let pin_badge = if plugin.pinned { " [P]" } else { "" };
+    let off_badge = if plugin.enabled { "" } else { " [-]" };
     let trust_badge = if plugin.trusted { " [T]" } else { " [U]" };
     let update_badge = if plugin.update_available.is_some() {
         " [▲]"
@@ -64,8 +66,8 @@ fn plugin_item(pane: &Pane, plugin: &InstalledPlugin, selected: bool) -> ListIte
     };
     ListItem::new(Line::from(vec![Span::styled(
         format!(
-            "  {} v{}{}{}{}",
-            plugin.name, plugin.version, pin_badge, trust_badge, update_badge
+            "  {} v{}{}{}{}{}",
+            plugin.name, plugin.version, pin_badge, trust_badge, off_badge, update_badge
         ),
         row_style(pane, selected),
     )]))
@@ -133,6 +135,24 @@ fn plugin_details(pane: &Pane, plugin: &InstalledPlugin) -> Vec<Line<'static>> {
                 plugin.trusted,
                 "plugin_detail_trusted_desc",
                 "plugin_detail_untrusted_desc",
+            ),
+        ),
+        field_line(
+            pane,
+            "plugin_detail_enabled",
+            pick(
+                plugin.enabled,
+                "plugin_detail_enabled_yes",
+                "plugin_detail_enabled_no",
+            ),
+        ),
+        field_line(
+            pane,
+            "plugin_detail_secure_mode",
+            pick(
+                plugin.secure_mode,
+                "plugin_detail_secure_mode_on",
+                "plugin_detail_secure_mode_off",
             ),
         ),
         field_line(

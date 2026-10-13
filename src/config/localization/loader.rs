@@ -90,29 +90,12 @@ pub fn load_language(language_name: &str) {
     }
 }
 
-/// Returns the active language code (e.g. "en", "es").
+/// Returns the active language code (e.g. "en", "es"); `"en"` until
+/// [`load_language`] ran (it never reads `config.toml` itself, so plugin
+/// tasks asking for the language cannot trigger a config reload).
 pub fn get_active_language_code() -> String {
-    if let Some(lock) = CURRENT_LANGUAGE_CODE.get()
-        && let Ok(reader) = lock.read()
-    {
-        return reader.clone();
-    }
-    // Fallback if not initialized (e.g. called early or in tests)
-    if let Ok(config) = crate::config::AppConfig::load_or_create() {
-        let active_name = &config.settings.language;
-        if active_name.eq_ignore_ascii_case("English") {
-            return "en".to_string();
-        }
-        let langs = discover_languages();
-        if let Some((_, path)) = langs.iter().find(|(name, _)| name == active_name) {
-            if !path.as_os_str().is_empty() {
-                if let Some(stem) = path.file_stem().and_then(|s| s.to_str()) {
-                    return stem.to_lowercase();
-                }
-            } else if active_name == "Español" {
-                return "es".to_string();
-            }
-        }
-    }
-    "en".to_string()
+    CURRENT_LANGUAGE_CODE
+        .get()
+        .and_then(|lock| lock.read().ok().map(|code| code.clone()))
+        .unwrap_or_else(|| "en".to_string())
 }

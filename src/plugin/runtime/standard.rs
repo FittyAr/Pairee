@@ -1,211 +1,85 @@
+use crate::plugin::load_options::PluginLoadOptions;
 use crate::plugin::loader::PluginManifest;
-use crate::plugin::manager::PluginRequest;
+use crate::plugin::manager::{PluginOrigin, PluginRequest};
 use std::path::Path;
+use std::sync::Arc;
 use tokio::sync::mpsc;
 
+/// Builds the `pairee` global for the plugin in `plugin_dir`.
+///
+/// Everything the host decided (`options`: trust, Secure Mode, user
+/// settings) is captured by the Rust closures here; the Lua copies
+/// (`pairee._secure_mode`, `pairee.settings`) are informational only.
 pub fn bind_runtime(
     lua: &mlua::Lua,
     plugin_dir: &Path,
-    trusted: bool,
+    options: &PluginLoadOptions,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
     let globals = lua.globals();
-
-    // Create central pairee table
     let pairee = lua.create_table()?;
+    let trusted = options.trusted;
 
-    // 1. Resolve Secure Mode once, in Rust. It is captured by the fs/process
-    // closures, so overwriting the Lua copy below has no effect.
-    let secure_mode_active = crate::config::AppConfig::load_or_create()
-        .map(|config| config.settings.secure_mode)
-        .unwrap_or(false);
-    // Informational only: nothing in Rust reads this back.
-    pairee.set("_secure_mode", secure_mode_active)?;
+    // 1. Secure Mode comes from the host; nothing in Rust reads the Lua copy.
+    pairee.set("_secure_mode", options.secure_mode)?;
     pairee.set("_lua_api_version", super::api_version::LUA_API_VERSION)?;
     let manifest = PluginManifest::read_from_dir(plugin_dir);
     let declared_commands = manifest
         .as_ref()
         .map(|m| m.permissions.commands.clone())
         .unwrap_or_default();
-    let command_policy = std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::new(
+    let command_policy = Arc::new(crate::plugin::command_policy::CommandPolicy::new(
         trusted,
-        secure_mode_active,
+        options.secure_mode,
         &declared_commands,
     ));
+    let fs_policy = Arc::new(super::bindings::fs::FsPolicy::new(
+        plugin_dir,
+        trusted,
+        options.secure_mode,
+    ));
+    let origin = PluginOrigin {
+        name: options.name.clone(),
+        trusted,
+    };
 
     // 2. Bind submodules
-    pairee.set("app", super::bindings::app::bind(lua, tx.clone())?)?;
-    pairee.set("emit", super::bindings::emit::bind(lua, tx.clone())?)?;
-    pairee.set(
-        "file_cache",
-        super::bindings::file_cache::bind(lua, tx.clone())?,
-    )?;
+    use super::bindings as b;
+    pairee.set("app", b::app::bind(lua, tx.clone(), origin.clone())?)?;
+    pairee.set("emit", b::emit::bind(lua, tx.clone(), origin)?)?;
+    pairee.set("file_cache", b::file_cache::bind(lua, tx.clone())?)?;
     // Dialogs write their entries directly on the central `pairee`
     // table so that the top-level `pairee.confirm` and `pairee.input`
     // are discoverable alongside the existing `pairee.app.*` stubs.
-    super::bindings::dialogs::bind(lua, &pairee, tx.clone())?;
-    let fs_policy = super::bindings::fs::FsPolicy::new(plugin_dir, trusted, secure_mode_active);
+    b::dialogs::bind(lua, &pairee, tx.clone())?;
     pairee.set(
         "fs",
-        super::bindings::fs::bind(lua, fs_policy, command_policy.clone(), tx.clone())?,
+        b::fs::bind(
+            lua,
+            Arc::clone(&fs_policy),
+            command_policy.clone(),
+            tx.clone(),
+        )?,
     )?;
-    pairee.set(
-        "Command",
-        super::bindings::process::bind(lua, command_policy)?,
-    )?;
-    pairee.set("ui", super::bindings::ui::bind(lua)?)?;
-    pairee.set("ps", super::bindings::ps::bind(lua, tx.clone())?)?;
-    pairee.set("log", super::bindings::log::bind(lua)?)?;
-    pairee.set("keymap", super::bindings::keymap::bind(lua)?)?;
-    pairee.set(
-        "notify",
-        super::bindings::notify_ext::bind(lua, tx.clone())?,
-    )?;
-    pairee.set("sync", super::bindings::sync::bind(lua, tx.clone())?)?;
-    pairee.set("utils", super::bindings::utils_ext::bind(lua)?)?;
-    pairee.set("which", super::bindings::which::bind(lua, tx.clone())?)?;
-    super::bindings::cx::bind_empty(lua, &pairee)?;
+    pairee.set("Command", b::process::bind(lua, command_policy, fs_policy)?)?;
+    pairee.set("ui", b::ui::bind(lua)?)?;
+    pairee.set("ps", b::ps::bind(lua, tx.clone())?)?;
+    pairee.set("log", b::log::bind(lua)?)?;
+    pairee.set("keymap", b::keymap::bind(lua)?)?;
+    pairee.set("notify", b::notify_ext::bind(lua, tx.clone())?)?;
+    pairee.set("sync", b::sync::bind(lua, tx.clone())?)?;
+    pairee.set("utils", b::utils_ext::bind(lua)?)?;
+    pairee.set("which", b::which::bind(lua, tx.clone())?)?;
+    b::cx::bind_empty(lua, &pairee)?;
 
-    // 3. Bind settings
-    bind_settings(lua, &pairee, manifest.as_ref())?;
+    // 3. Settings (schema defaults + the user's values from the host)
+    let settings = super::settings::build(lua, manifest.as_ref(), &options.settings)?;
+    pairee.set("settings", settings)?;
 
-    // 4. Bind i18n translation helper: pairee.t
-    bind_translations(lua, &pairee, plugin_dir, manifest.as_ref())?;
+    // 4. i18n translation helper: pairee.t
+    let t = super::i18n::bind(lua, plugin_dir, manifest.as_ref())?;
+    pairee.set("t", t)?;
 
     globals.set("pairee", pairee)?;
-    Ok(())
-}
-
-fn bind_settings(
-    lua: &mlua::Lua,
-    pairee: &mlua::Table<'_>,
-    manifest: Option<&PluginManifest>,
-) -> mlua::Result<()> {
-    let settings_table = lua.create_table()?;
-
-    let mut plugin_name = String::new();
-    let mut default_settings = std::collections::HashMap::new();
-
-    if let Some(manifest) = manifest {
-        plugin_name = manifest.name.clone();
-        if let Some(schema) = manifest.settings_schema.clone() {
-            for (k, v) in schema {
-                // Extract default value
-                if let Some(tbl) = v.as_table()
-                    && let Some(default_val) = tbl.get("default")
-                {
-                    default_settings.insert(k, default_val.clone());
-                }
-            }
-        }
-    }
-
-    // Load active settings from config
-    let mut active_settings = std::collections::HashMap::new();
-    if let Ok(config) = crate::config::AppConfig::load_or_create()
-        && let Some(user_settings) = config.settings.plugin_settings.get(&plugin_name)
-    {
-        for (k, v) in user_settings {
-            active_settings.insert(k.clone(), v.clone());
-        }
-    }
-
-    // Merge default and user active settings, populate Lua settings table
-    for (k, def) in default_settings {
-        let val_str = active_settings.get(&k);
-        let val: mlua::Value = match val_str {
-            Some(s) => {
-                // Parse string back to appropriate type
-                if let Ok(b) = s.parse::<bool>() {
-                    mlua::Value::Boolean(b)
-                } else if let Ok(i) = s.parse::<i64>() {
-                    mlua::Value::Integer(i)
-                } else {
-                    mlua::Value::String(lua.create_string(s)?)
-                }
-            }
-            None => {
-                // Use default
-                match def {
-                    toml::Value::Boolean(b) => mlua::Value::Boolean(b),
-                    toml::Value::Integer(i) => mlua::Value::Integer(i),
-                    toml::Value::String(s) => mlua::Value::String(lua.create_string(&s)?),
-                    _ => mlua::Value::Nil,
-                }
-            }
-        };
-        settings_table.set(k, val)?;
-    }
-
-    pairee.set("settings", settings_table)?;
-    Ok(())
-}
-
-fn bind_translations(
-    lua: &mlua::Lua,
-    pairee: &mlua::Table<'_>,
-    plugin_dir: &Path,
-    manifest: Option<&PluginManifest>,
-) -> mlua::Result<()> {
-    let default_lang = manifest
-        .and_then(|m| m.default_language.clone())
-        .unwrap_or_else(|| "en".to_string());
-
-    let lang_dir = plugin_dir.join("lang");
-    let current_lang = crate::config::localization::get_active_language_code();
-
-    // Load active locale TOML
-    let mut active_dict = toml::Table::default();
-    let active_path = lang_dir.join(format!("{}.toml", current_lang));
-    if active_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&active_path)
-        && let Ok(dict) = toml::from_str::<toml::Table>(&content)
-    {
-        active_dict = dict;
-    }
-
-    // Load fallback default locale TOML
-    let mut fallback_dict = toml::Table::default();
-    let fallback_path = lang_dir.join(format!("{}.toml", default_lang));
-    if fallback_path.exists()
-        && let Ok(content) = std::fs::read_to_string(&fallback_path)
-        && let Ok(dict) = toml::from_str::<toml::Table>(&content)
-    {
-        fallback_dict = dict;
-    }
-
-    let t_fn = lua.create_function(
-        move |_lua_ctx, (key, vars): (String, Option<mlua::Table>)| {
-            let lookup = |dict: &toml::Table, k: &str| -> Option<String> {
-                let parts: Vec<&str> = k.split('.').collect();
-                let mut current = dict;
-                for (i, &part) in parts.iter().enumerate() {
-                    let val = current.get(part)?;
-                    if i == parts.len() - 1 {
-                        return val.as_str().map(|s| s.to_string());
-                    }
-                    current = val.as_table()?;
-                }
-                None
-            };
-
-            // Resolve value from active or fallback dictionary
-            let mut raw_val = lookup(&active_dict, &key)
-                .or_else(|| lookup(&fallback_dict, &key))
-                .unwrap_or_else(|| format!("[{}]", key));
-
-            // Perform variable interpolation
-            if let Some(tbl) = vars {
-                for pair in tbl.pairs::<String, String>().flatten() {
-                    let placeholder = format!("{{{}}}", pair.0);
-                    raw_val = raw_val.replace(&placeholder, &pair.1);
-                }
-            }
-
-            Ok(raw_val)
-        },
-    )?;
-
-    pairee.set("t", t_fn)?;
     Ok(())
 }

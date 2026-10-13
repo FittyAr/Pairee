@@ -21,13 +21,15 @@
 pub mod dialogs;
 pub mod dispatch_actions;
 pub mod dispatcher;
+pub mod emit_policy;
 pub mod lifecycle;
 pub mod request;
 pub mod snapshot;
+pub mod toggles;
 
 pub use lifecycle::PluginManager;
 pub use request::{
-    DialogPosition, InputDialogResult, NotifyPayload, PluginRequest, WhichCandidate,
+    DialogPosition, InputDialogResult, NotifyPayload, PluginOrigin, PluginRequest, WhichCandidate,
 };
 // `FileEntrySnapshot` is intentionally not re-exported here: it is only
 // used internally by `dispatcher.rs` to build `AppStateSnapshot`. Plugins

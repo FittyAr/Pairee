@@ -12,17 +12,22 @@ pub struct InstalledPlugin {
     pub version: String,
     pub pinned: bool,
     pub trusted: bool,
+    /// Loaded at startup / on reload (the user can disable it).
+    pub enabled: bool,
+    /// Secure Mode as plugins currently see it (global, repeated per row).
+    pub secure_mode: bool,
     /// Newer registry version, if any.
     pub update_available: Option<String>,
     /// Commands declared in `[permissions] commands` (Secure Mode allowlist).
     pub commands: Vec<String>,
 }
 
-/// Build the installed list from the lockfile, the trust settings and an
-/// optional registry index (for update badges).
+/// Build the installed list from the lockfile, the trust settings, the
+/// effective Secure Mode and an optional registry index (update badges).
 pub fn installed_rows(
     lock: &PluginsLock,
     plugins: &HashMap<String, PluginConfig>,
+    secure_mode: bool,
     index: Option<&RegistryIndex>,
 ) -> Vec<InstalledPlugin> {
     let mut installed: Vec<InstalledPlugin> = lock
@@ -33,6 +38,8 @@ pub fn installed_rows(
             version: info.version.clone(),
             pinned: info.pinned,
             trusted: plugins.get(name).is_some_and(|p| p.trusted),
+            enabled: plugins.get(name).is_none_or(|p| p.enabled),
+            secure_mode,
             update_available: index
                 .and_then(|idx| idx.plugins.get(name))
                 .filter(|reg| reg.version != info.version)
@@ -73,6 +80,7 @@ mod tests {
             PluginConfig {
                 name: "zz-demo-not-installed".into(),
                 trusted: true,
+                enabled: false,
             },
         );
         let mut index = RegistryIndex {
@@ -90,9 +98,10 @@ mod tests {
                 min_pairee: None,
             },
         );
-        let rows = installed_rows(&lock, &plugins, Some(&index));
+        let rows = installed_rows(&lock, &plugins, true, Some(&index));
         assert_eq!(rows.len(), 1);
-        assert!(rows[0].trusted && rows[0].pinned);
+        assert!(rows[0].trusted && rows[0].pinned && rows[0].secure_mode);
+        assert!(!rows[0].enabled);
         assert_eq!(rows[0].update_available.as_deref(), Some("1.1.0"));
         assert!(rows[0].commands.is_empty());
     }

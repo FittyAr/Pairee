@@ -10,11 +10,29 @@ pub struct SshPreset {
     pub key_path: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PluginConfig {
     pub name: String,
     #[serde(default)]
     pub trusted: bool,
+    /// Disabled plugins are not loaded (no code runs, no hooks fire).
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+}
+
+impl PluginConfig {
+    /// Settings of a plugin the user has not configured yet.
+    pub fn new(name: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            trusted: false,
+            enabled: true,
+        }
+    }
+}
+
+fn enabled_by_default() -> bool {
+    true
 }
 
 /// How the built-in editor treats tab characters (`editor_expand_tabs`).

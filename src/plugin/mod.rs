@@ -6,6 +6,7 @@ pub mod hooks;
 pub mod installed;
 pub mod keyspec;
 pub mod limits;
+pub mod load_options;
 pub mod loader;
 pub mod manager;
 pub mod registry;

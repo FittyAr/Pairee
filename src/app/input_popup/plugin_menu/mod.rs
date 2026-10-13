@@ -15,6 +15,7 @@ pub fn reload_installed_plugins(
     crate::plugin::installed::installed_rows(
         &crate::plugin::updater::read_lockfile(),
         &context.config.settings.plugins,
+        crate::plugin::load_options::effective_secure_mode(&context.config),
         index.as_ref(),
     )
 }
