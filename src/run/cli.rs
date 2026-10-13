@@ -149,29 +149,37 @@ async fn install_plugins(
     report
 }
 
-/// `foo@1.2` → (`foo.pairee`, `Some("1.2")`); the `.pairee` suffix is added when missing.
+/// `foo@1.2` -> (`foo`, `Some("1.2")`). Registry names are bare identifiers,
+/// so a `.pairee` suffix (the name of the installed folder) is dropped.
 fn parse_install_spec(spec: &str) -> (String, Option<&str>) {
-    let mut parts = spec.split('@');
-    let base = parts.next().unwrap_or_default();
-    let version = parts.next();
-    let name = if base.ends_with(".pairee") {
-        base.to_string()
-    } else {
-        format!("{}.pairee", base)
+    let (base, version) = match spec.split_once('@') {
+        Some((base, version)) => (base, Some(version).filter(|v| !v.is_empty())),
+        None => (spec, None),
     };
-    (name, version)
+    let name = base.strip_suffix(".pairee").unwrap_or(base);
+    (name.to_string(), version)
 }
 
 #[cfg(test)]
 mod tests {
     use super::parse_install_spec;
+    use crate::plugin::updater::ops::validate_identifier;
 
     #[test]
-    fn install_spec_adds_suffix_and_splits_version() {
-        assert_eq!(parse_install_spec("foo"), ("foo.pairee".into(), None));
+    fn install_spec_drops_suffix_and_splits_version() {
+        assert_eq!(parse_install_spec("foo"), ("foo".into(), None));
+        assert_eq!(parse_install_spec("foo@"), ("foo".into(), None));
         assert_eq!(
             parse_install_spec("foo.pairee@1.2"),
-            ("foo.pairee".into(), Some("1.2"))
+            ("foo".into(), Some("1.2"))
         );
+    }
+
+    #[test]
+    fn install_spec_names_pass_the_install_guard() {
+        for spec in ["demo-plugin", "demo-plugin.pairee", "demo_2@0.3.0"] {
+            let (name, _) = parse_install_spec(spec);
+            assert!(validate_identifier("name", &name).is_ok(), "{spec}");
+        }
     }
 }
