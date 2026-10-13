@@ -6,6 +6,8 @@
 - Setting "Lines kept per terminal screen" (System tab) bounds the output a terminal screen keeps.
 - Command line editing: cursor keys, Home/End, Delete, Ctrl+W to delete a word and Tab to complete file and folder names.
 - A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
+- The viewer's key bar shows the encoding key (F8).
+- Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
 
 ### Improved
 
@@ -15,6 +17,7 @@
 ### Changed
 
 - The screens list and the command-line screen indicator are translated.
+- Keymap problem reports are translated; unused translation keys were removed and a few Spanish texts translated.
 
 ### Deprecated
 
@@ -30,3 +33,4 @@
 - Typed text stays visible on the command line when the prompt is long.
 - A double click in a long panel opens the entry that was clicked: the panel scrolls only when the cursor leaves the view, as in Far and Midnight Commander.
 - The help window no longer crashes in a very small terminal, and its texts are translated.
+- Missing texts for the plugin developer install messages and the video mode hint.

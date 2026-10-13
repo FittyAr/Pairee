@@ -86,3 +86,16 @@ fn large_sparse_file_opens_and_scrolls() {
         Some(Screen::Panels)
     ));
 }
+
+#[test]
+fn key_bar_shows_the_encoding_key() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "text");
+    open(&mut h, "a.txt");
+    h.assert_screen(&crate::config::localization::t("fkey_vw_encoding"));
+    h.keys("F8");
+    assert!(
+        h.state.dialogs.top().is_some(),
+        "F8 opens the encoding selector"
+    );
+}

@@ -133,7 +133,7 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 
 * **`cd`** entiende nombres entre comillas (`cd "Mis Documentos"`, como los inserta el arrastrar y soltar), `~` y `~/carpeta`, `cd -` (vuelve a la carpeta anterior), rutas relativas, y funciona dentro de paneles SFTP y de archivos comprimidos. Cada `cd` se agrega al historial de carpetas.
 * **Edición:** `Izquierda`/`Derecha`, `Inicio`/`Fin`, `Retroceso`/`Supr` y `Ctrl+W` (borra la palabra anterior) editan la línea; un prompt largo se desplaza para que lo que escribes siga visible.
-* **Autocompletado:** `Tab` completa el nombre de archivo o carpeta antes del cursor; pulsalo otra vez para la siguiente coincidencia.
+* **Autocompletado:** `Tab` completa el nombre de archivo o carpeta antes del cursor; púlsalo otra vez para la siguiente coincidencia.
 
 ---
 

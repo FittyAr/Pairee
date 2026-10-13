@@ -141,6 +141,12 @@ mod tests {
             .replace("\r\n", "\n")
     }
 
+    /// Presets with a help page: the selectable ones and the shared Vi
+    /// layer the Neovim and yazi presets extend.
+    fn documented() -> impl Iterator<Item = &'static str> {
+        PRESETS.iter().map(|(preset, _)| *preset).chain(["vi"])
+    }
+
     /// The help pages match the presets. `PAIREE_REGEN_DOCS=1 cargo test
     /// keymap_reference` rewrites them after a preset change.
     #[test]
@@ -149,7 +155,7 @@ mod tests {
         let mut stale = Vec::new();
         for code in ["en", "es"] {
             let tr = translator(code);
-            for (preset, _) in PRESETS {
+            for preset in documented() {
                 let text = markdown(preset, &tr);
                 let path = page(code, preset);
                 if regen {
