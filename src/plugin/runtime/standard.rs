@@ -92,19 +92,58 @@ pub fn bind_runtime(
     let t = super::i18n::bind(lua, plugin_dir, manifest.as_ref())?;
     pairee.set("t", t)?;
 
-    // 5. Namespaces built on first use.
-    let image_policy = Arc::clone(&fs_policy);
-    super::composer::install(
+    b::preview::bind(
         lua,
         &pairee,
-        vec![(
-            "image",
-            super::composer::builder(move |lua| {
-                b::image::bind(lua, Arc::clone(&image_policy)).map(mlua::Value::Table)
-            }),
-        )],
+        (&options.name, Arc::clone(&fs_policy)),
+        tx.clone(),
     )?;
+
+    // 5. Namespaces built on first use.
+    lazy_namespaces(lua, &pairee, options, plugin_dir, &fs_policy)?;
 
     globals.set("pairee", pairee)?;
     Ok(())
+}
+
+/// `pairee.image`, `pairee.rt` and `pairee.th`, built on first access.
+fn lazy_namespaces(
+    lua: &mlua::Lua,
+    pairee: &mlua::Table,
+    options: &PluginLoadOptions,
+    plugin_dir: &Path,
+    fs_policy: &Arc<super::bindings::fs::FsPolicy>,
+) -> mlua::Result<()> {
+    use super::bindings as b;
+    use super::composer::builder;
+    use mlua::Value;
+    let image_policy = Arc::clone(fs_policy);
+    let (rt_options, rt_dir, rt_data) = (
+        options.clone(),
+        plugin_dir.to_path_buf(),
+        fs_policy.data_dir.clone(),
+    );
+    let host = options.host.clone();
+    super::composer::install(
+        lua,
+        pairee,
+        vec![
+            (
+                "image",
+                builder(move |lua| {
+                    b::image::bind(lua, Arc::clone(&image_policy)).map(Value::Table)
+                }),
+            ),
+            (
+                "rt",
+                builder(move |lua| {
+                    b::rt::bind(lua, &rt_options, &rt_dir, &rt_data).map(Value::Table)
+                }),
+            ),
+            (
+                "th",
+                builder(move |lua| b::th::bind(lua, &host).map(Value::Table)),
+            ),
+        ],
+    )
 }

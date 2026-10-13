@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-roadmap-api"
+version = "1.0.0"
+description = "CI acceptance: typed userdata, state, clipboard policy, identity, widgets, rt and th"
+author = "Pairee"
+default_language = "en"

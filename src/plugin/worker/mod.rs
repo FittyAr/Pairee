@@ -10,7 +10,7 @@
 
 mod preview;
 
-pub use preview::PreviewTarget;
+pub use preview::{PreviewTarget, decode_images};
 
 use crate::plugin::annotations::Annotations;
 use crate::plugin::limits::guarded_async;

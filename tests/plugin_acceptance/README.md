@@ -9,6 +9,7 @@ Real plugin trees loaded by `src/plugin/acceptance.rs` during `cargo test`
 | `fs_roundtrip` | `mkdir` / `write` / `read` / `copy` / `rename` / `remove` / `File` (incl. mime/mtime/hidden) |
 | `cx_utils` | `pairee.cx` shape + `utils.target_os/hash/quote` |
 | `command_echo` | `pairee.Command` builder and `:output()` (async) |
+| `roadmap_api` | Untrusted plugin: `Path` / `Url` / `Cha` / `Error`, `fs.cha` jail, `pairee.state`, clipboard read refused, identity utils, `ui` widgets and layout, `rt` / `th`, `image.show` jail, `--- @since` / `--- @sync` |
 
 These are **not** shipped to users. They are the M3-style acceptance suite
 for the APIs that exist today (fzf/zoxide ports still need those binaries).

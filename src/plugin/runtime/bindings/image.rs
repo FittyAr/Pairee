@@ -50,7 +50,7 @@ fn denied(message: String) -> LuaError {
 
 /// The path of `value` if the plugin may show it: the previewed file or a
 /// path its read jail allows (`preview_ok = false` skips the former).
-fn showable(
+pub(crate) fn showable(
     lua: &Lua,
     policy: &FsPolicy,
     value: &Value,

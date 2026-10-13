@@ -85,7 +85,7 @@ fn job_table(
 
 /// Decodes the images of `widget` (the plugin only named the files; the
 /// host reads at most the quick view's size cap of each).
-fn decode_images(widget: &mut Renderable) {
+pub fn decode_images(widget: &mut Renderable) {
     for image in widget.images_mut() {
         image.image = load_image(&image.path);
     }
