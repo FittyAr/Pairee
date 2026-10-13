@@ -211,7 +211,8 @@ Los plugins corren en un sandbox Lua que:
 
 Cuando Secure Mode está activo (`secure_mode = true`, se alterna con `s` en el Gestor de plugins):
 
-- Los comandos deben estar declarados en el manifiesto y nunca son shells, intérpretes ni herramientas de red; `Command:env` solo fija variables de idioma/terminal/color y `Command:cwd` debe quedar dentro de la jaula.
+- Los comandos deben estar declarados en el manifiesto y nunca son shells, intérpretes, editores ni herramientas de red; `Command:env` solo fija variables de idioma/terminal/color y `Command:cwd` debe quedar dentro de la jaula.
+- Se rechazan los argumentos que hacen que una herramienta declarada ejecute otro programa: `git -c core.sshCommand=…` (y otras claves de configuración que nombran programas, `alias.*`), `--upload-pack`, `--exec`, URLs `ext::`; `tar --to-command` / `--use-compress-program` / `-I`; `fd --exec`; `rg --pre`; `zip -TT`; `fzf --preview` y acciones de `--bind` que ejecutan comandos; `less +…`.
 - Las lecturas de archivos se restringen al workspace activo + los directorios de config y caché del usuario + las carpetas del plugin; las escrituras al workspace, la caché y la carpeta de datos del plugin (la carpeta de configuración de Pairee es de solo lectura).
 
 Consulta la sección `[sandbox]` en `docs/plugin-dev-guide-es.md` para la matriz completa.

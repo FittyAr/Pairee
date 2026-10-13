@@ -22,6 +22,9 @@ pub fn bind_spawn(
                 let program = commands
                     .authorize(&cmd)
                     .map_err(mlua::Error::RuntimeError)?;
+                commands
+                    .authorize_args(&cmd, &args)
+                    .map_err(mlua::Error::RuntimeError)?;
                 let output = tokio::process::Command::new(&program)
                     .args(&args)
                     .output()

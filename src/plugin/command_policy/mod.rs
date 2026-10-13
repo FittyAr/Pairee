@@ -10,8 +10,11 @@
 //!   The resolved absolute path is what gets executed, so a renamed binary or
 //!   an explicit path cannot slip through. Environment variables the plugin
 //!   sets are limited to a locale/terminal allowlist (see `env`), and the
-//!   working directory must lie inside the `pairee.fs` jail.
+//!   working directory must lie inside the `pairee.fs` jail. Arguments that
+//!   make an allowed tool run another program (`git -c core.sshCommand=`,
+//!   `tar --to-command`, `fd --exec`, ...) are refused (see `args`).
 
+mod args;
 mod deny;
 mod env;
 mod resolve;
@@ -67,6 +70,16 @@ impl CommandPolicy {
             Self::Allowlist(_) if !env::is_allowed(name) => Err(format!(
                 "Security violation: Secure Mode does not let plugins set the environment variable '{name}'"
             )),
+            _ => Ok(()),
+        }
+    }
+
+    /// `Ok` unless, in Secure Mode, `args` make `program` run another
+    /// program (`git -c core.sshCommand=...`, `tar --to-command`, ...; see
+    /// `args`).
+    pub fn authorize_args(&self, program: &str, args: &[String]) -> Result<(), String> {
+        match self {
+            Self::Allowlist(_) => args::check(&normalize_command_name(program), args),
             _ => Ok(()),
         }
     }
@@ -244,6 +257,26 @@ mod tests {
         assert!(p.authorize_env("LANG").is_ok());
         let free = CommandPolicy::new(true, false, &[]);
         assert!(free.authorize_env("GIT_SSH_COMMAND").is_ok());
+    }
+
+    #[test]
+    fn secure_mode_refuses_exec_arguments_of_declared_tools() {
+        let args = |list: &[&str]| list.iter().map(|s| s.to_string()).collect::<Vec<_>>();
+        let p = CommandPolicy::new(true, true, &declared(&["git", "tar"]));
+        let err = p
+            .authorize_args("git.exe", &args(&["-c", "core.sshCommand=x", "fetch"]))
+            .unwrap_err();
+        assert!(err.contains("Security violation"), "{err}");
+        assert!(
+            p.authorize_args("TAR", &args(&["--to-command=sh", "-xf", "a"]))
+                .is_err()
+        );
+        assert!(p.authorize_args("git", &args(&["status"])).is_ok());
+        let free = CommandPolicy::new(true, false, &[]);
+        assert!(
+            free.authorize_args("git", &args(&["-c", "core.pager=x", "log"]))
+                .is_ok()
+        );
     }
 
     #[test]

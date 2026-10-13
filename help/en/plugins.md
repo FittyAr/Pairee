@@ -211,7 +211,8 @@ Plugins run in a Lua sandbox that:
 
 When Secure Mode is active (`secure_mode = true`, toggled with `s` in the Plugin Manager):
 
-- Commands must be declared in the manifest and are never shells, interpreters or network tools; `Command:env` only sets locale/terminal/colour variables and `Command:cwd` must stay inside the jail.
+- Commands must be declared in the manifest and are never shells, interpreters, editors or network tools; `Command:env` only sets locale/terminal/colour variables and `Command:cwd` must stay inside the jail.
+- Arguments that make a declared tool run another program are refused: `git -c core.sshCommand=…` (and other config keys that name programs, `alias.*`), `--upload-pack`, `--exec`, `ext::` URLs; `tar --to-command` / `--use-compress-program` / `-I`; `fd --exec`; `rg --pre`; `zip -TT`; `fzf --preview` and `--bind` actions that run commands; `less +…`.
 - File reads are restricted to the active workspace + the user's config and cache directories + the plugin's folders; writes to the workspace, the cache and the plugin's data folder (Pairee's config folder is read-only).
 
 See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.

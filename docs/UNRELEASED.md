@@ -39,6 +39,7 @@
 - FTP: file information comes from `MLST` when the server supports it (one request instead of listing the whole folder).
 
 ### Improved
+- Plugins in Secure Mode can no longer use arguments of an allowed tool to run other programs (`git -c core.sshCommand=…`, `--upload-pack`, `tar --to-command`, `fd --exec`, `rg --pre`, `fzf --preview`, ...); `sed` and editors can no longer be declared.
 - Plugins: `pairee.ps.sub` callbacks get who sent each event (`meta.sender`, `meta.trusted`, `meta.from_host`), set by Pairee, and untrusted plugins can no longer publish under Pairee's own event names (`on_cd`, `on_key`, ... and `pairee.*`).
 - Git: a pull whose merge conflicts no longer gives up: like `git pull`, it leaves the merge in progress with conflict markers in the files, lists them, and the Git panel title shows "MERGING (N conflicts)"; stage each resolved file with Space and commit, or abort with `X` (also for cherry-picks and reverts).
 - Git: merges, cherry-picks and reverts without conflicts are committed at once, like the Git command line (default merge message, original message and author for cherry-picks, "Revert ..." for reverts).

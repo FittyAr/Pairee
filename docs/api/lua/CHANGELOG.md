@@ -23,6 +23,9 @@ Policy:
 
 ### Changed
 
+- Secure Mode refuses arguments that make a declared tool run another
+  program (`git -c core.sshCommand=...`, `tar --to-command`, `fd --exec`,
+  `rg --pre`, ...); `sed` and editors joined the deny list.
 - `pairee.ps.pub` from an untrusted plugin refuses reserved event names
   (`on_*`, `pairee.*`) with an error, so it cannot fake host events.
 - `pairee.fs` is always path-jailed for untrusted plugins (read: plugin dir + data dir; write: data dir only).

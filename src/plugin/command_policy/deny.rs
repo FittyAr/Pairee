@@ -79,6 +79,16 @@ const DENIED_COMMANDS: &[&str] = &[
     "gawk",
     "mawk",
     "nawk",
+    // `sed` runs commands (GNU `e`), editors run their `-c` / `+` / `-S`
+    // arguments as commands
+    "sed",
+    "gsed",
+    "vi",
+    "vim",
+    "nvim",
+    "view",
+    "ex",
+    "emacs",
     // Wrappers that execute their arguments as a command
     "env",
     "xargs",
