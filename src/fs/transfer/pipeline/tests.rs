@@ -1,5 +1,32 @@
 use super::*;
+use crate::fs::transfer::direct_io::ALIGN;
 use crate::fs::transfer::job::{TransferJob, TransferOperation};
+use std::path::{Path, PathBuf};
+
+/// Copies the local file `src` into `part` from byte `offset` (0: from
+/// scratch), with Direct I/O and sparse output as the options say.
+async fn copy_file_pipelined(
+    src: &Path,
+    part: &Path,
+    offset: u64,
+    options: &TransferOptions,
+    ctl: &JobControl,
+    bytes_acc: Arc<AtomicU64>,
+) -> anyhow::Result<Option<String>> {
+    let (src, part, opts) = (src.to_path_buf(), part.to_path_buf(), options.clone());
+    let copy = tokio::task::spawn_blocking(move || -> io::Result<ByteCopy> {
+        let (source, size) = local_source(&src, read_start(offset, &opts), &opts)?;
+        Ok(ByteCopy {
+            source,
+            sink: Box::new(LocalSink::open(&part, offset, &opts)?),
+            offset,
+            size,
+        })
+    })
+    .await
+    .map_err(|e| anyhow!("copy task join error: {e}"))??;
+    copy_pipelined(copy, options, ctl, bytes_acc).await
+}
 
 fn control() -> JobControl {
     let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();

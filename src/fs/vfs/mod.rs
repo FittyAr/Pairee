@@ -25,7 +25,6 @@ pub use source::PanelSource;
 
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
-use crate::fs::du::{DuEntry, DuKind};
 use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::text::ByteStore;
@@ -133,9 +132,27 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
         Err(unsupported())
     }
 
+    /// A stream over the contents of the file at `path` from byte `offset`.
+    /// Adapters that can seek override this; the default reads and drops
+    /// the first `offset` bytes.
+    fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
+        let mut reader = self.open_read(path)?;
+        let skipped = io::copy(&mut (&mut reader).take(offset), &mut io::sink())?;
+        if skipped < offset {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
+        Ok(reader)
+    }
+
     /// Creates (or truncates) the file `path` for writing. Flushing the
     /// writer makes its data durable (it reaches the disk or server).
     fn create_file(&self, _path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        Err(unsupported())
+    }
+
+    /// Opens the existing file `path` for writing after its last byte (an
+    /// interrupted copy resumed). Flushing makes the data durable.
+    fn append_file(&self, _path: &Path) -> io::Result<Box<dyn Write + Send>> {
         Err(unsupported())
     }
 
@@ -250,23 +267,5 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     /// The panel listing of `dir`: `..`, hidden filter and sort as `opts` say.
     fn read_panel(&self, dir: &Path, opts: &ListOptions) -> anyhow::Result<Vec<FileEntry>> {
         Ok(panel_listing(dir, self.list(dir)?, opts))
-    }
-
-    /// Children of `dir` for the folder size walker (links not followed).
-    fn du_list(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
-        Ok(self
-            .list(dir)?
-            .into_iter()
-            .map(|e| {
-                let is_dir = e.is_real_dir();
-                DuEntry {
-                    kind: if is_dir { DuKind::Dir } else { DuKind::File },
-                    size: if is_dir { 0 } else { e.size },
-                    name: e.name,
-                    path: e.path,
-                    id: None,
-                }
-            })
-            .collect())
     }
 }

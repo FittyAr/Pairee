@@ -7,12 +7,11 @@ use super::super::events::TransferEvent;
 use super::super::job::{
     FailedFile, FileTransferResult, SkippedFile, TransferOperation, TransferResults,
 };
-use super::super::metadata::preserve_metadata;
 use super::super::options::TransferOptions;
 use super::super::scan::{FileMapping, guard};
 use super::super::speed::SpeedReporter;
 use super::retry::TransferOutcome;
-use super::{Endpoints, single_file, stream};
+use super::{Endpoints, file_copy};
 use crate::config::localization::t;
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
@@ -137,19 +136,11 @@ impl<'a> CopyJob<'a> {
     }
 
     async fn transfer(&self, src: &Path, dst: &Path) -> anyhow::Result<TransferOutcome> {
-        if self.fs.local {
-            single_file::transfer_one_file(src, dst, self.options, self.ctl, &self.copied).await
-        } else {
-            stream::transfer_stream(self.fs, src, dst, self.options, self.ctl, &self.copied).await
-        }
+        file_copy::transfer_file(self.fs, src, dst, self.options, self.ctl, &self.copied).await
     }
 
     fn copy_metadata(&self, src: &Path, dst: &Path) {
-        if self.fs.local {
-            let _ = preserve_metadata(src, dst, self.options);
-        } else {
-            stream::copy_metadata(self.fs, src, dst, self.options);
-        }
+        file_copy::copy_metadata(self.fs, src, dst, self.options);
     }
 
     /// Where `src` is written: `None` when it is not copied (the user or the

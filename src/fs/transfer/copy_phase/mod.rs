@@ -4,16 +4,15 @@
 //! 1. [`CopyJob::prepare`] — destination folders, entries the scan refused
 //!    or skipped;
 //! 2. per file ([`CopyJob::file`]): pause / user skip → same-file guard and
-//!    conflict resolution → atomic transfer with retries (the local pipeline
-//!    of [`single_file`], or a [`stream`] through the [`Vfs`] adapters) →
-//!    metadata → removal of a moved source → result;
+//!    conflict resolution → atomic, resumable transfer with retries through
+//!    the one byte pipeline ([`file_copy`]; local or through the [`Vfs`]
+//!    adapters) → metadata → removal of a moved source → result;
 //! 3. after a move, removal of the emptied source folders.
 
 mod cleanup;
+mod file_copy;
 mod file_step;
 mod retry;
-mod single_file;
-mod stream;
 #[cfg(test)]
 mod tests;
 mod verify_step;
@@ -36,8 +35,8 @@ pub struct Endpoints {
     pub dst: Arc<dyn Vfs>,
     /// One filesystem: the same-file guard applies.
     pub same_fs: bool,
-    /// Both sides are the local disk: files go through the local pipeline
-    /// (Direct I/O, resume, links, sparse files, copy-on-write, trash).
+    /// Both sides are the local disk: the pipeline uses the local-only
+    /// features (Direct I/O, links, sparse files, copy-on-write, trash).
     pub local: bool,
 }
 

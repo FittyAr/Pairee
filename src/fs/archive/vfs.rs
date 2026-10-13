@@ -143,6 +143,7 @@ impl ArchiveVfs {
             is_symlink: node.is_symlink,
             size: node.size,
             modified: node.modified,
+            ..VfsEntry::default()
         }
     }
 

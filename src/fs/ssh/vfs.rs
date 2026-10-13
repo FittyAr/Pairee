@@ -8,7 +8,7 @@ use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, panel_listing};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -79,8 +79,28 @@ impl Vfs for SharedSshClient {
         Ok(Box::new(file))
     }
 
+    fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
+        let mut file = self.lock().sftp.open(path).map_err(io_err)?;
+        file.seek(SeekFrom::Start(offset))?;
+        Ok(Box::new(file))
+    }
+
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
         let file = self.lock().sftp.create(path).map_err(io_err)?;
+        Ok(Box::new(SyncOnFlush(file)))
+    }
+
+    /// Opened for writing without truncation, positioned after the last
+    /// byte (SFTP writes carry their offset, so no server-side append mode
+    /// is needed).
+    fn append_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        let client = self.lock();
+        let size = client.sftp.stat(path).map_err(io_err)?.size.unwrap_or(0);
+        let mut file = client
+            .sftp
+            .open_mode(path, ssh2::OpenFlags::WRITE, 0o644, ssh2::OpenType::File)
+            .map_err(io_err)?;
+        file.seek(SeekFrom::Start(size))?;
         Ok(Box::new(SyncOnFlush(file)))
     }
 
