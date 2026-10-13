@@ -80,6 +80,13 @@ go_to_tab_7    = "Alt+7"
 go_to_tab_8    = "Alt+8"
 go_to_tab_9    = "Alt+9"
 
+# ── Views: branch view (every file below), frequent folders, compare files,
+#    duplicate finder ─────────────────────────────────────────────────────────
+branch_view     = "Ctrl+Alt+x"
+folder_jump     = "Ctrl+Alt+z"
+compare_files   = "Ctrl+Alt+c"
+find_duplicates = "Ctrl+Alt+u"
+
 # ── Folder shortcuts (set them in Commands → Folder shortcuts) ───────────────
 go_folder_shortcut_1 = "Ctrl+Alt+1"
 go_folder_shortcut_2 = "Ctrl+Alt+2"

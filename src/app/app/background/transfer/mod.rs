@@ -43,7 +43,8 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
         // A failed or cancelled job reports the files it finished before.
         let results = results.unwrap_or_else(|| job.results.clone());
         crate::app::actions::fs_ops::undo::transfer_finished(state, &job, &results);
-        if state.disk_usage.job_finished(&job, &results) {
+        if state.disk_usage.job_finished(&job, &results) | state.dupes.job_finished(&job, &results)
+        {
             state.mark_ui_dirty();
         }
     }

@@ -4,6 +4,8 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, Borders, Clear, Paragraph, Wrap};
 
 use crate::app::state::TransferUIState;
+use crate::config::localization::t;
+use crate::ui::panel::helpers::format_date;
 
 pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     let (_, file_path, conflict) = match &ts.active_conflict_info {
@@ -37,7 +39,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .title(" Conflict Detected ")
+        .title(t("transfer_conflict_title"))
         .border_style(Style::default().fg(Color::LightRed))
         .style(Style::default().bg(Color::Black));
 
@@ -54,9 +56,9 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
         .split(inner_area);
 
     // 1. Instrucción
-    let title_text = format!(
-        "File already exists in destination:\n{}",
-        file_path.file_name().unwrap_or_default().to_string_lossy()
+    let title_text = t("transfer_conflict_exists").replace(
+        "{}",
+        &file_path.file_name().unwrap_or_default().to_string_lossy(),
     );
     f.render_widget(
         Paragraph::new(title_text)
@@ -73,24 +75,17 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     let src_size_str = bytesize::ByteSize(conflict.src_size).to_string();
     let dst_size_str = bytesize::ByteSize(conflict.dst_size).to_string();
 
-    let src_time_str = conflict
-        .src_modified
-        .map(|t| format!("{:?}", t))
-        .unwrap_or_else(|| "Unknown".to_string());
-    let dst_time_str = conflict
-        .dst_modified
-        .map(|t| format!("{:?}", t))
-        .unwrap_or_else(|| "Unknown".to_string());
-
-    let comparison_text = format!(
-        "Source Path: {}\n  Size: {} | Modified: {}\nDestination Path: {}\n  Size: {} | Modified: {}",
-        conflict.src_path.to_string_lossy(),
-        src_size_str,
-        src_time_str,
-        conflict.dst_path.to_string_lossy(),
-        dst_size_str,
-        dst_time_str
-    );
+    let time = |time: Option<std::time::SystemTime>| match time {
+        Some(_) => format_date(time),
+        None => t("transfer_unknown"),
+    };
+    let comparison_text = t("transfer_conflict_compare")
+        .replace("{src}", &conflict.src_path.to_string_lossy())
+        .replace("{src_size}", &src_size_str)
+        .replace("{src_time}", &time(conflict.src_modified))
+        .replace("{dst}", &conflict.dst_path.to_string_lossy())
+        .replace("{dst_size}", &dst_size_str)
+        .replace("{dst_time}", &time(conflict.dst_modified));
 
     f.render_widget(
         Paragraph::new(comparison_text)
@@ -100,10 +95,7 @@ pub fn render_conflict_dialog(f: &mut Frame, area: Rect, ts: &TransferUIState) {
     );
 
     // 3. Opciones de resolución
-    let options_text = "\n\
-        [o] Overwrite        [a] Overwrite Older        [s] Skip        [r] Rename Both\n\
-        [O] Overwrite All    [A] Overwrite All Older    [S] Skip All    [R] Rename All\n\
-        [x] Cancel Job";
+    let options_text = t("transfer_conflict_keys");
     f.render_widget(
         Paragraph::new(options_text)
             .style(

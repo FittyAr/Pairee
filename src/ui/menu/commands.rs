@@ -20,6 +20,10 @@ pub fn get_items(resolver: &KeybindingResolver, settings: &Settings) -> Vec<Menu
             ("menu_sync_dirs", Action::SyncDirs, ""),
             ("menu_folder_sizes", Action::CalculateFolderSizes, "Alt+S"),
             ("menu_disk_usage", Action::DiskUsage, "Alt+D"),
+            ("menu_find_duplicates", Action::FindDuplicates, ""),
+            ("menu_compare_files", Action::CompareFiles, ""),
+            ("menu_branch_view", Action::BranchView, ""),
+            ("menu_folder_jump", Action::FolderJump, ""),
         ])
         .separator()
         .actions(&[

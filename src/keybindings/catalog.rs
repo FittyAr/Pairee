@@ -116,6 +116,7 @@ pub const CATALOG: &[ActionDef] = &[
         C::Navigation,
     ),
     def("tree_view", Action::TreeView, C::Navigation),
+    def("folder_jump", Action::FolderJump, C::Navigation),
     def("half_page_up", Action::HalfPageUp, C::Navigation),
     def("half_page_down", Action::HalfPageDown, C::Navigation),
     def("history_back", Action::HistoryBack, C::Navigation),
@@ -161,6 +162,9 @@ pub const CATALOG: &[ActionDef] = &[
         C::Files,
     ),
     def("disk_usage", Action::DiskUsage, C::Files),
+    def("branch_view", Action::BranchView, C::Files),
+    def("compare_files", Action::CompareFiles, C::Files),
+    def("find_duplicates", Action::FindDuplicates, C::Files),
     def("file_associations", Action::FileAssociations, C::Files),
     def("apply_command", Action::ApplyCommand, C::Files),
     // Clipboard

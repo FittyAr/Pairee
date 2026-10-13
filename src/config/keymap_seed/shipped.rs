@@ -61,6 +61,8 @@ const SHIPPED: &[&str] = &[
     "0a2c59ab2abdfecc434949ff74081db72763b3e1e9a42e83e2395eecb3a493a7", // neovim
     "4cdfdf01ce68483d823774c8d5b187547e76f61363f1b5ee8062fba4699e3806", // yazi
     "f23a6501a8a597627181c7845ef9e574cf52629555df75756b9fca8d6a8b5fb9", // norton
+    "4f9ac379f19acfd351b740ae35c7d70ba4b6510a3fcb5ea49603452fbaba8dcd", // standard
+    "abd5ecc9b38cbf235ec377d143b308ca84a7a6b1a69dcc3c065eb5689e9d7169", // yazi
 ];
 
 /// `true` when `digest` is the hash of a preset version Pairee shipped.

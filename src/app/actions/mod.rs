@@ -7,6 +7,7 @@ pub mod navigation;
 pub mod panel_search;
 pub mod tabs;
 pub mod ui_settings;
+pub mod views;
 
 pub use exec::execute_shell_command;
 
@@ -34,6 +35,7 @@ pub async fn handle_action(
         || cli_line::handle(state, &action, context)
         || panel_search::handle(state, &action)
         || tabs::handle_tab_action(state, &action, context)
+        || views::handle(state, &action, context)
         || fs_ops::handle_fs_action(state, &action, context, terminal_backend)
         || ui_settings::handle_ui_settings_action(state, &action, context).await;
 
