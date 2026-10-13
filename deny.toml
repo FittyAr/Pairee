@@ -7,6 +7,7 @@ targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
     "aarch64-unknown-linux-gnu",
+    "aarch64-unknown-linux-musl",
     "x86_64-pc-windows-msvc",
     "aarch64-pc-windows-msvc",
     "x86_64-apple-darwin",
@@ -52,8 +53,18 @@ allow = [
 [bans]
 # Duplicate versions are common (windows-sys, thiserror, nom); warn, do not fail CI.
 multiple-versions = "warn"
-wildcards = "allow"
+# Every dependency names a version; a path dependency of a private
+# (publish = false) workspace crate may omit it.
+wildcards = "deny"
+allow-wildcard-paths = true
 highlight = "all"
+deny = [
+    # OpenSSL is only for libgit2 / libssh2 (vendored on Unix) and, through
+    # native-tls (reqwest on Windows; the graph also shows its Unix OpenSSL
+    # backend through the `openssl` crate). The updater's HTTP client on Linux
+    # and macOS uses rustls; a new path to OpenSSL needs a decision here.
+    { crate = "openssl-sys", wrappers = ["git2", "libgit2-sys", "libssh2-sys", "native-tls", "openssl"], reason = "keep OpenSSL confined to git/ssh and native-tls" },
+]
 
 [sources]
 unknown-registry = "deny"

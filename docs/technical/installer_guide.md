@@ -187,11 +187,14 @@ minisign -V -P RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6 -m paire
 | `MINISIGN_SECRET_KEY` | Full contents of the minisign secret key file (both lines). |
 | `MINISIGN_PASSWORD` | Optional. Only if the secret key is password-protected. |
 
-The `Publish Release` job in `.github/workflows/release.yml` installs
-`minisign`, signs every file in `dist/` (except `.sha256` / `.minisig`) with
-the trusted comment `file:<asset> version:<tag>`, checks every signature
-against the public key embedded in `src/update/signature.rs`, and uploads the
-`.minisig` files with the release. If `MINISIGN_SECRET_KEY` is missing, the
+The `Draft release` job in `.github/workflows/release.yml` installs
+`minisign` and runs `.github/scripts/sign.sh`, which signs every file in
+`dist/` (except `.sha256` / `.minisig`) with the trusted comment
+`file:<asset> version:<tag>` and checks every signature against the public
+key embedded in `src/update/signature.rs`; the job uploads the `.minisig`
+files with the release. Packaging and checksums are
+`.github/scripts/package.sh` (with `package-msix.ps1`) and
+`.github/scripts/checksums.sh`. If `MINISIGN_SECRET_KEY` is missing, the
 job fails instead of publishing unsigned assets.
 
 ### Key custody

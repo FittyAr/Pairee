@@ -1,7 +1,7 @@
 //! The minisign release public key is written in several places (the
 //! updater, both install scripts, the installer guide); they must agree, and
 //! the release workflow must keep checking its signatures against the key
-//! embedded in the updater.
+//! embedded in the updater (.github/scripts/sign.sh).
 
 use std::path::Path;
 
@@ -60,11 +60,16 @@ fn installer_guide_documents_the_updater_key() {
 #[test]
 fn release_workflow_verifies_against_the_updater_key() {
     let workflow = read(".github/workflows/release.yml");
+    let sign = read(".github/scripts/sign.sh");
+    // release.yml checks out signature.rs for sign.sh, which reads the key
+    // from it and verifies every signature with it.
+    assert!(workflow.contains(".github/scripts/sign.sh"));
     assert!(workflow.contains("src/update/signature.rs"));
-    assert!(workflow.contains("RELEASE_PUBLIC_KEY"));
-    // A key pasted into the workflow would silently drift from the updater.
-    assert!(
-        !workflow.contains("RWS"),
-        "release.yml must not hard-code a key"
-    );
+    assert!(sign.contains("src/update/signature.rs"));
+    assert!(sign.contains("RELEASE_PUBLIC_KEY"));
+    assert!(sign.contains("minisign -V"));
+    // A key pasted into either would silently drift from the updater.
+    for (name, text) in [("release.yml", &workflow), ("sign.sh", &sign)] {
+        assert!(!text.contains("RWS"), "{name} must not hard-code a key");
+    }
 }
