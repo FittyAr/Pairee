@@ -49,15 +49,10 @@ pub async fn perform_update(
     }
     tokio::task::spawn_blocking(remove_stale_files);
 
-    let package = platform::package_for(&info.version, method);
-    let asset = find_asset(info, &package.asset_name, "asset")?;
+    let asset = update_asset(info, method)?;
     // Checksum and signature are mandatory: fail closed without them.
-    let sha_asset = find_asset(info, &format!("{}.sha256", package.asset_name), "checksum")?;
-    let sig_asset = find_asset(
-        info,
-        &format!("{}.minisig", package.asset_name),
-        "signature",
-    )?;
+    let sha_asset = find_asset(info, &format!("{}.sha256", asset.name), "checksum")?;
+    let sig_asset = find_asset(info, &format!("{}.minisig", asset.name), "signature")?;
 
     // --- Download into memory and verify ---
     // Install/extract strictly from the verified buffer, so nothing on disk
@@ -72,29 +67,46 @@ pub async fn perform_update(
     super::signature::verify_release_asset(&data, &sig_text, &asset.name)
         .context("signature verification failed")?;
 
-    platform::install(&data, &package)
+    #[cfg(target_os = "windows")]
+    let installed = platform::install(&data, &asset.name, uses_installer(method));
+    #[cfg(not(target_os = "windows"))]
+    let installed = platform::install(&data);
+    installed
 }
 
-/// The release asset that updates this installation.
-struct Package {
-    asset_name: String,
-    /// The asset is the Inno Setup installer rather than an archive.
-    #[cfg(target_os = "windows")]
-    is_installer: bool,
+/// An Inno Setup install updates through the new installer; every other
+/// self-updating install replaces the binary from the archive.
+fn uses_installer(method: &InstallMethod) -> bool {
+    matches!(method, InstallMethod::InnoSetup)
+}
+
+/// The release asset that updates an installation made through `method`:
+/// the first of [`downloader::update_asset_names`] the release carries.
+pub fn update_asset<'a>(info: &'a UpdateInfo, method: &InstallMethod) -> Result<&'a ReleaseAsset> {
+    let names = downloader::update_asset_names(&info.version, uses_installer(method));
+    names
+        .iter()
+        .find_map(|name| info.assets.iter().find(|a| &a.name == name))
+        .ok_or_else(|| missing(info, &names.join(" / "), "asset"))
 }
 
 /// Find a release asset by exact name; refusing to continue without it.
 fn find_asset<'a>(info: &'a UpdateInfo, name: &str, what: &str) -> Result<&'a ReleaseAsset> {
-    info.assets.iter().find(|a| a.name == name).ok_or_else(|| {
-        anyhow::anyhow!(
-            "Release does not contain {what} '{name}'; refusing to install an unverified update. Available: {}",
-            info.assets
-                .iter()
-                .map(|a| a.name.as_str())
-                .collect::<Vec<_>>()
-                .join(", ")
-        )
-    })
+    info.assets
+        .iter()
+        .find(|a| a.name == name)
+        .ok_or_else(|| missing(info, name, what))
+}
+
+fn missing(info: &UpdateInfo, name: &str, what: &str) -> anyhow::Error {
+    anyhow::anyhow!(
+        "Release does not contain {what} '{name}'; refusing to install an unverified update. Available: {}",
+        info.assets
+            .iter()
+            .map(|a| a.name.as_str())
+            .collect::<Vec<_>>()
+            .join(", ")
+    )
 }
 
 /// Download a small UTF-8 side file (checksum / signature).
@@ -103,4 +115,41 @@ async fn download_text(asset: &ReleaseAsset) -> Result<String> {
         .await
         .with_context(|| format!("failed to download {}", asset.name))?;
     String::from_utf8(bytes).with_context(|| format!("{} is not valid UTF-8", asset.name))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn release(names: &[&str]) -> UpdateInfo {
+        UpdateInfo {
+            tag: "v0.11.0".into(),
+            version: "0.11.0".into(),
+            release_notes: String::new(),
+            html_url: String::new(),
+            assets: names
+                .iter()
+                .map(|name| ReleaseAsset {
+                    name: (*name).to_string(),
+                    browser_download_url: String::new(),
+                    size: 0,
+                })
+                .collect(),
+        }
+    }
+
+    #[test]
+    fn archive_prefers_the_friendly_name_and_accepts_the_legacy_one() {
+        let names = downloader::update_asset_names("0.11.0", false);
+        let [friendly, legacy] = names.as_slice() else {
+            panic!("expected the friendly and the legacy name: {names:?}");
+        };
+        let method = InstallMethod::Unknown;
+
+        let both = release(&[legacy, friendly]);
+        assert_eq!(&update_asset(&both, &method).unwrap().name, friendly);
+        let old_only = release(&[legacy]);
+        assert_eq!(&update_asset(&old_only, &method).unwrap().name, legacy);
+        assert!(update_asset(&release(&["other.zip"]), &method).is_err());
+    }
 }
