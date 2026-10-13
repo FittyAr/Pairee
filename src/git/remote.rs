@@ -1,5 +1,3 @@
-use std::path::PathBuf;
-
 pub use crate::git::pull::pull;
 pub use crate::git::push::{delete_remote_branch, push};
 
@@ -24,8 +22,8 @@ pub struct TransferStats {
 /// Progress observer; returning `false` aborts the transfer (cancellation).
 pub type ProgressObserver<'a> = Option<&'a (dyn Fn(TransferStats) -> bool + 'a)>;
 
-/// Helper to configure SSH, credential helper, and basic authentication
-/// callbacks, plus optional progress reporting / cancellation.
+/// Remote callbacks with bounded credential negotiation (see
+/// [`crate::git::credentials`]) plus optional progress reporting / cancellation.
 pub fn create_callbacks(observer: ProgressObserver<'_>) -> git2::RemoteCallbacks<'_> {
     let mut callbacks = git2::RemoteCallbacks::new();
     if let Some(obs) = observer {
@@ -51,47 +49,9 @@ pub fn create_callbacks(observer: ProgressObserver<'_>) -> git2::RemoteCallbacks
             }
         });
     }
-    callbacks.credentials(|url, username_from_url, allowed_types| {
-        let username = username_from_url.unwrap_or("git");
-
-        // 1. Try SSH Key authentication
-        if allowed_types.contains(git2::CredentialType::SSH_KEY) {
-            // Try SSH agent first
-            if let Ok(cred) = git2::Cred::ssh_key_from_agent(username) {
-                return Ok(cred);
-            }
-            // Check standard SSH keys in ~/.ssh
-            if let Some(proj_dir) = directories::BaseDirs::new() {
-                let home_ssh: PathBuf = proj_dir.home_dir().join(".ssh");
-                for key_name in &["id_ed25519", "id_ecdsa", "id_rsa"] {
-                    let key_path = home_ssh.join(key_name);
-                    if key_path.exists()
-                        && let Ok(cred) = git2::Cred::ssh_key(username, None, &key_path, None)
-                    {
-                        return Ok(cred);
-                    }
-                }
-            }
-        }
-
-        // 2. Try git credential helper (e.g. Git Credential Manager on Windows/macOS/Linux)
-        if allowed_types.contains(git2::CredentialType::USER_PASS_PLAINTEXT)
-            && let Ok(config) = git2::Config::open_default()
-            && let Ok(cred) = git2::Cred::credential_helper(&config, url, username_from_url)
-        {
-            return Ok(cred);
-        }
-
-        // 3. Try default credentials
-        if allowed_types.contains(git2::CredentialType::DEFAULT)
-            && let Ok(cred) = git2::Cred::default()
-        {
-            return Ok(cred);
-        }
-
-        Err(git2::Error::from_str(
-            "Authentication failed or no credentials found",
-        ))
+    let mut credentials = crate::git::credentials::CredentialState::with_default_keys();
+    callbacks.credentials(move |url, username_from_url, allowed_types| {
+        credentials.next_credential(url, username_from_url, allowed_types)
     });
     callbacks
 }
