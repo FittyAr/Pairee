@@ -141,10 +141,8 @@ pub enum SelectMode {
 #[derive(Debug, Clone)]
 pub enum TreeViewCaller {
     Panel(ActivePanel),
-    /// Opened from the Copy / Move dialog, which is restored afterwards.
-    TransferPrompt {
-        previous: Box<PopupType>,
-    },
+    /// Opened over the Copy / Move dialog: Enter fills its destination.
+    TransferPrompt,
 }
 
 pub use crate::fs::link::LinkKind;

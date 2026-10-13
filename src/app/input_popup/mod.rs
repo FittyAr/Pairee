@@ -97,20 +97,11 @@ fn git_progress(
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
-        PopupType::TreeView { .. } => tree_view::handle,
-        PopupType::SyncDirs(_) => sync_dirs::handle,
-        PopupType::FolderScanProgress => sync_dirs::handle_progress,
-        PopupType::TaskListDialog { .. } => task_list::handle,
-        PopupType::DiskUsage => disk_usage::handle,
         PopupType::PluginMenu(..) => plugin_menu::handle,
         PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
         PopupType::ConfigurationDialog(..) => config_dialog::handle,
         PopupType::ColorGroupsDialog { .. } => color_groups::handle,
         PopupType::FilesHighlightingDialog { .. } => files_highlighting::handle,
-        PopupType::FileAttributesDialog { .. } => file_attributes::handle,
-        PopupType::CommandHistoryList { .. }
-        | PopupType::FileViewHistoryList { .. }
-        | PopupType::FoldersHistoryList { .. } => history_list::handle,
         PopupType::SshConnectPrompt(..) => ssh_connect::handle,
         PopupType::GitPanel(..) => git_panel::handle,
         PopupType::GitProgress { .. } => git_progress,
@@ -139,8 +130,6 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
             git_new_popups::handle_clone
         }
         PopupType::UpdateAvailable { .. } => update_popup::handle,
-        PopupType::TransferPanel => transfer_panel::handle,
-        PopupType::FileAssociationsDialog { .. } => file_associations::handle,
         PopupType::Plugin(_) => plugin_dialogs::handle,
         _ => dismiss_only::handle,
     }

@@ -1,6 +1,7 @@
 //! Tools, screens, and auxiliary dialog actions for UI settings.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::FileAssociationsDialog;
 use crate::app::state::popup::FilePanelFilterPrompt;
 use crate::app::state::popup::FolderShortcuts;
 use crate::app::state::popup::Hotlist;
@@ -8,6 +9,8 @@ use crate::app::state::popup::QuickFilterPrompt;
 use crate::app::state::popup::SaveSetupConfirm;
 use crate::app::state::popup::ScreensMenu;
 use crate::app::state::popup::SearchPrompt;
+use crate::app::state::popup::TaskListDialog;
+use crate::app::state::popup::TransferPanel;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
@@ -29,14 +32,16 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::EditUserMenu => edit_user_menu(state, context),
         Action::FileAssociations => {
             let config = crate::config::associations::AssociationsConfig::load();
-            state.dialogs.replace(PopupType::FileAssociationsDialog {
-                rules: config.rules,
-                cursor_idx: 0,
-                editing_idx: None,
-                editing_field: 0,
-                edit_buffer: Default::default(),
-                original_rule: None,
-            });
+            state
+                .dialogs
+                .replace(PopupType::FileAssociationsDialog(FileAssociationsDialog {
+                    rules: config.rules,
+                    cursor_idx: 0,
+                    editing_idx: None,
+                    editing_field: 0,
+                    edit_buffer: Default::default(),
+                    original_rule: None,
+                }));
         }
         Action::FolderShortcutsConfig => {
             state.dialogs.replace(FolderShortcuts { cursor_idx: 0 });
@@ -81,12 +86,12 @@ fn panel_prompt_action(state: &mut AppState, action: &Action) -> bool {
             search_target: crate::fs::search::SearchTarget::Any,
             cursor_idx: 0,
         }),
-        Action::TaskList => PopupType::TaskListDialog {
+        Action::TaskList => PopupType::TaskListDialog(TaskListDialog {
             tasks: get_process_list(),
             cursor_idx: 0,
             filter_query: Default::default(),
             is_filtering: false,
-        },
+        }),
         _ => return false,
     };
     state.dialogs.replace(popup);
@@ -186,7 +191,9 @@ fn toggle_transfer_panel(state: &mut AppState) {
     match ts.view_mode {
         TransferViewMode::Hidden | TransferViewMode::Minimized => {
             ts.view_mode = TransferViewMode::Expanded;
-            state.dialogs.replace(PopupType::TransferPanel);
+            state
+                .dialogs
+                .replace(PopupType::TransferPanel(TransferPanel));
         }
         TransferViewMode::Expanded => {
             ts.view_mode = TransferViewMode::Minimized;

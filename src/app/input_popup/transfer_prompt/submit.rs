@@ -2,6 +2,7 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::CopyMoveFilterPrompt;
+use crate::app::state::popup::TreeView;
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
 use crate::fs::transfer::{submit_simple, transfer_options_from_settings};
@@ -40,10 +41,10 @@ pub fn open_tree_view(state: &mut AppState) {
         return;
     };
     let nodes = crate::app::sys_helpers::build_tree_nodes(&prompt.dest_dir, 0, 3);
-    state.dialogs.open_over(|previous| PopupType::TreeView {
+    state.dialogs.push(TreeView {
         nodes,
         cursor_idx: 0,
-        caller: TreeViewCaller::TransferPrompt { previous },
+        caller: TreeViewCaller::TransferPrompt,
     });
 }
 

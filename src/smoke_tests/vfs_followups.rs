@@ -4,6 +4,7 @@
 //! setting, tar.bz2 / tar.xz and archives inside archives. SFTP needs a
 //! server: those paths are unit tested (`fs::ssh`, `app::editor::remote`).
 
+use crate::app::state::popup::DiskUsage;
 use crate::app::state::popup::EditorConfirmOverwrite;
 use crate::app::state::{PopupType, Screen};
 use crate::fs::archive::test_fixtures::{
@@ -44,7 +45,7 @@ fn folder_sizes_and_disk_usage_keys_measure_and_open_disk_usage() {
         });
         h.keys(usage);
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::DiskUsage)),
+            matches!(h.state.dialogs.top(), Some(PopupType::DiskUsage(DiskUsage))),
             "{keymap}"
         );
         h.assert_screen("media/");

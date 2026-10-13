@@ -1,9 +1,10 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::{CommandHistoryList, FileViewHistoryList, FoldersHistoryList};
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
-use crate::ui::scrollbar::{ScrollTargetId, ScrollbarUiState};
-use ratatui::{Frame, layout::Rect, style::Color};
+use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::scrollbar::ScrollTargetId;
+use ratatui::{Frame, style::Color};
 
 /// Title, empty-list text and hint of each history list.
 const COMMAND_KEYS: [&str; 3] = [
@@ -22,51 +23,25 @@ const FOLDER_KEYS: [&str; 3] = [
     "history_folder_hint",
 ];
 
-/// Command, viewed-file and folder history lists.
-pub(super) fn render_history_lists(
+/// What tells the three history lists apart.
+struct ListKind {
+    width: u16,
+    keys: [&'static str; 3],
+    id: ScrollTargetId,
+}
+
+/// A history list of `entries` with the cursor on `cursor`.
+fn history_list(
     f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-    scrollbar: Option<&ScrollbarUiState>,
-) -> bool {
-    let (width, keys, id, cursor, entries) = match popup {
-        PopupType::CommandHistoryList {
-            entries,
-            cursor_idx,
-        } => (
-            60,
-            COMMAND_KEYS,
-            ScrollTargetId::HistoryCommand,
-            *cursor_idx,
-            entries.clone(),
-        ),
-        PopupType::FileViewHistoryList {
-            entries,
-            cursor_idx,
-        } => (
-            65,
-            VIEW_KEYS,
-            ScrollTargetId::HistoryView,
-            *cursor_idx,
-            lossy(entries),
-        ),
-        PopupType::FoldersHistoryList {
-            entries,
-            cursor_idx,
-        } => (
-            65,
-            FOLDER_KEYS,
-            ScrollTargetId::HistoryFolder,
-            *cursor_idx,
-            lossy(entries),
-        ),
-        _ => return false,
-    };
-    let [title, empty, hint] = keys;
-    let style = theme.popup_fg();
+    cx: &ViewCtx<'_>,
+    kind: ListKind,
+    cursor: usize,
+    entries: Vec<String>,
+) {
+    let [title, empty, hint] = kind.keys;
+    let style = cx.theme.popup_fg();
     ListPopup {
-        area: centered_rect_in(width, 50, size),
+        area: centered_rect_in(kind.width, 50, cx.area),
         title: t(title),
         border: Color::Cyan,
         empty: Some(t(empty)),
@@ -78,10 +53,42 @@ pub(super) fn render_history_lists(
         cursor,
         scroll: Scroll::Centered,
         hint: Some(t(hint)),
-        scrollbar: Some((scrollbar, id)),
+        scrollbar: Some((cx.scrollbar(), kind.id)),
     }
-    .render(f, theme);
-    true
+    .render(f, cx.theme);
+}
+
+impl DialogView for CommandHistoryList {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let kind = ListKind {
+            width: 60,
+            keys: COMMAND_KEYS,
+            id: ScrollTargetId::HistoryCommand,
+        };
+        history_list(f, cx, kind, self.cursor_idx, self.entries.clone());
+    }
+}
+
+impl DialogView for FileViewHistoryList {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let kind = ListKind {
+            width: 65,
+            keys: VIEW_KEYS,
+            id: ScrollTargetId::HistoryView,
+        };
+        history_list(f, cx, kind, self.cursor_idx, lossy(&self.entries));
+    }
+}
+
+impl DialogView for FoldersHistoryList {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let kind = ListKind {
+            width: 65,
+            keys: FOLDER_KEYS,
+            id: ScrollTargetId::HistoryFolder,
+        };
+        history_list(f, cx, kind, self.cursor_idx, lossy(&self.entries));
+    }
 }
 
 fn lossy(paths: &[std::path::PathBuf]) -> Vec<String> {

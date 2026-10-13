@@ -5,6 +5,7 @@ mod navigation;
 mod queue;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::{Dialog, KeyHandler, TransferPanel};
 use crate::app::state::{AppState, TransferTab, TransferViewMode};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -45,5 +46,14 @@ pub fn handle(
             Ok(None)
         }
         _ => Err(()),
+    }
+}
+
+impl Dialog for TransferPanel {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
     }
 }

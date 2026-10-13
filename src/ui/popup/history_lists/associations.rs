@@ -1,7 +1,7 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::FileAssociationsDialog;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
-use crate::ui::scrollbar::ScrollbarUiState;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::text_width::truncate_to_width;
 use ratatui::{
     Frame,
@@ -43,84 +43,77 @@ impl Columns {
     }
 }
 
-pub(super) fn render_associations(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &ResolvedTheme,
-    size: Rect,
-    _scrollbar: Option<&ScrollbarUiState>,
-) -> bool {
-    let PopupType::FileAssociationsDialog {
-        rules,
-        cursor_idx,
-        editing_idx,
-        editing_field,
-        edit_buffer,
-        original_rule: _,
-    } = popup
-    else {
-        return false;
-    };
-    let area = centered_rect_in(75, 60, size);
-    f.render_widget(Clear, area);
+impl DialogView for FileAssociationsDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let FileAssociationsDialog {
+            rules,
+            cursor_idx,
+            editing_idx,
+            editing_field,
+            edit_buffer,
+            original_rule: _,
+        } = self;
+        let area = centered_rect_in(75, 60, size);
+        f.render_widget(Clear, area);
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
-        .title(t("prompt_associations_title"))
-        .style(Style::default().bg(theme.popup_bg));
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(t("prompt_associations_title"))
+            .style(Style::default().bg(theme.popup_bg));
 
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+        let inner = block.inner(area);
+        f.render_widget(block, area);
 
-    let editing = editing_idx.is_some();
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(if editing {
-            vec![
-                Constraint::Min(0),
-                Constraint::Length(3),
-                Constraint::Length(1),
-            ]
+        let editing = editing_idx.is_some();
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(if editing {
+                vec![
+                    Constraint::Min(0),
+                    Constraint::Length(3),
+                    Constraint::Length(1),
+                ]
+            } else {
+                vec![Constraint::Min(0), Constraint::Length(1)]
+            })
+            .split(inner);
+
+        // 1. Renderizar Listado de Reglas
+        let list_paragraph = Paragraph::new(rule_lines(rules, *cursor_idx, chunks[0], theme))
+            .style(Style::default().fg(theme.popup_fg));
+        f.render_widget(list_paragraph, chunks[0]);
+        if !editing {
+            // Rules under the header row, scrolled as `rule_lines` scrolls them.
+            let rows = Rect {
+                y: chunks[0].y + 1,
+                height: chunks[0].height.saturating_sub(1),
+                ..chunks[0]
+            };
+            let start = cursor_idx.saturating_sub(rows.height as usize / 2);
+            crate::ui::popup::kit::mouse::list_rows(rows, start, rules.len(), *cursor_idx);
+        }
+
+        // 2. Renderizar Cuadro de Edición
+        if editing {
+            render_edit_box(f, chunks[1], *editing_field, edit_buffer, theme);
+        }
+
+        // 3. Renderizar Leyenda/Hint de Teclas al pie
+        let hint_text = if editing {
+            t("associations_hint_edit")
+        } else if rules.is_empty() {
+            t("associations_hint_nav_empty")
         } else {
-            vec![Constraint::Min(0), Constraint::Length(1)]
-        })
-        .split(inner);
-
-    // 1. Renderizar Listado de Reglas
-    let list_paragraph = Paragraph::new(rule_lines(rules, *cursor_idx, chunks[0], theme))
-        .style(Style::default().fg(theme.popup_fg));
-    f.render_widget(list_paragraph, chunks[0]);
-    if !editing {
-        // Rules under the header row, scrolled as `rule_lines` scrolls them.
-        let rows = Rect {
-            y: chunks[0].y + 1,
-            height: chunks[0].height.saturating_sub(1),
-            ..chunks[0]
+            t("associations_hint_nav")
         };
-        let start = cursor_idx.saturating_sub(rows.height as usize / 2);
-        crate::ui::popup::kit::mouse::list_rows(rows, start, rules.len(), *cursor_idx);
+        let hint_paragraph = Paragraph::new(Span::styled(
+            hint_text,
+            Style::default().fg(Color::DarkGray),
+        ));
+        f.render_widget(hint_paragraph, chunks[if editing { 2 } else { 1 }]);
     }
-
-    // 2. Renderizar Cuadro de Edición
-    if editing {
-        render_edit_box(f, chunks[1], *editing_field, edit_buffer, theme);
-    }
-
-    // 3. Renderizar Leyenda/Hint de Teclas al pie
-    let hint_text = if editing {
-        t("associations_hint_edit")
-    } else if rules.is_empty() {
-        t("associations_hint_nav_empty")
-    } else {
-        t("associations_hint_nav")
-    };
-    let hint_paragraph = Paragraph::new(Span::styled(
-        hint_text,
-        Style::default().fg(Color::DarkGray),
-    ));
-    f.render_widget(hint_paragraph, chunks[if editing { 2 } else { 1 }]);
-    true
 }
 
 /// Header and the rules visible around the cursor (or a "no rules" note).

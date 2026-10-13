@@ -6,10 +6,12 @@ mod review;
 #[cfg(test)]
 mod tests;
 
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::{FolderScanProgress, SyncDialog};
 use crate::config::localization::t;
 use crate::fs::sync::SyncDirection;
 use crate::ui::popup::kit::TextBox;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
@@ -18,26 +20,18 @@ use ratatui::{
     text::Text,
 };
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    state: &AppState,
-    theme: &ResolvedTheme,
-    size: Rect,
-) -> bool {
-    match popup {
-        PopupType::SyncDirs(dialog) => {
-            match &dialog.review {
-                Some(review) => review::render(f, dialog, review, theme, size),
-                None => options::render(f, dialog, theme, size),
-            }
-            true
+impl DialogView for SyncDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        match &self.review {
+            Some(review) => review::render(f, self, review, cx.theme, cx.area),
+            None => options::render(f, self, cx.theme, cx.area),
         }
-        PopupType::FolderScanProgress => {
-            render_progress(f, state, theme, size);
-            true
-        }
-        _ => false,
+    }
+}
+
+impl DialogView for FolderScanProgress {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render_progress(f, cx.state, cx.theme, cx.area);
     }
 }
 

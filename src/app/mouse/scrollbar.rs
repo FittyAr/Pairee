@@ -31,7 +31,6 @@ fn popup_scroll(popup: &mut PopupType, id: ScrollTargetId) -> Option<&mut usize>
         (ScrollTargetId::UpdateNotes, PopupType::UpdateAvailable { scroll_y, .. }) => {
             Some(scroll_y)
         }
-        (ScrollTargetId::QuickView, PopupType::QuickViewPanel(qv)) => Some(&mut qv.scroll),
         _ => None,
     }
 }
@@ -39,27 +38,6 @@ fn popup_scroll(popup: &mut PopupType, id: ScrollTargetId) -> Option<&mut usize>
 /// Cursor and length of the popup list scrolled by `id`, if on top.
 fn popup_list(popup: &mut PopupType, id: ScrollTargetId) -> Option<(&mut usize, usize)> {
     match (id, popup) {
-        (
-            ScrollTargetId::HistoryCommand,
-            PopupType::CommandHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
-        (
-            ScrollTargetId::HistoryView,
-            PopupType::FileViewHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
-        (
-            ScrollTargetId::HistoryFolder,
-            PopupType::FoldersHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
         (
             ScrollTargetId::PluginSelect,
             PopupType::SelectDevPlugin {

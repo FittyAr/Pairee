@@ -1,4 +1,6 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::TaskListDialog;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType, ProcessEntry};
 use crate::app::sys_helpers::{get_process_list, kill_process};
 use crate::app::text_filter::TextFilter;
@@ -11,12 +13,12 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::TaskListDialog {
+    let Some(PopupType::TaskListDialog(TaskListDialog {
         tasks,
         cursor_idx,
         filter_query,
         is_filtering,
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     else {
         return Err(());
     };
@@ -75,12 +77,12 @@ fn on_selected<E: std::fmt::Display>(
     action: fn(u32) -> Result<(), E>,
     error_key: &str,
 ) {
-    let Some(PopupType::TaskListDialog {
+    let Some(PopupType::TaskListDialog(TaskListDialog {
         tasks,
         cursor_idx,
         filter_query,
         ..
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     else {
         return;
     };
@@ -113,6 +115,15 @@ fn apply_filter(tasks: &mut Vec<ProcessEntry>, query: &str) {
 fn get_matching_count(tasks: &[ProcessEntry], query: &str) -> usize {
     let filter = TextFilter::new(query);
     tasks.iter().filter(|t| filter.matches(&t.name)).count()
+}
+
+impl Dialog for TaskListDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
 }
 
 #[cfg(test)]

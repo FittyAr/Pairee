@@ -6,6 +6,7 @@ use crate::app::state::PopupType;
 use crate::app::state::popup::About;
 use crate::app::state::popup::CommandPalette;
 use crate::app::state::popup::MkDirPrompt;
+use crate::app::state::popup::TransferPanel;
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
 use crossterm::event::{KeyModifiers, MouseButton};
@@ -226,11 +227,11 @@ fn transfer_jobs_take_clicks() {
         h.wait_until("copy", |h| h.exists(&target));
     }
     h.keys("@toggle_transfer_panel");
-    if !matches!(top(&h), Some(PopupType::TransferPanel)) {
+    if !matches!(top(&h), Some(PopupType::TransferPanel(TransferPanel))) {
         h.keys("@toggle_transfer_panel");
     }
     assert!(
-        matches!(top(&h), Some(PopupType::TransferPanel)),
+        matches!(top(&h), Some(PopupType::TransferPanel(TransferPanel))),
         "{}",
         h.screen_text()
     );

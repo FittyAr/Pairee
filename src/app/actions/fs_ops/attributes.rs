@@ -1,6 +1,7 @@
 //! Attributes dialog (Ctrl+A): reads the entry through the panel source,
 //! on the UI thread for local files and in the background otherwise.
 
+use crate::app::state::popup::FileAttributesDialog;
 use crate::app::state::{AppState, FileAttrsSnapshot, PopupType, VfsFollowUp};
 use crate::config::localization::t;
 use crate::fs::attrs::FileAttrs;
@@ -35,7 +36,7 @@ pub fn handle(state: &mut AppState) -> bool {
 /// Opens the dialog for `read`, or shows why the attributes are unknown.
 fn show(state: &mut AppState, source: PanelSource, read: io::Result<FileAttrs>) {
     let popup = match read {
-        Ok(attrs) => PopupType::FileAttributesDialog {
+        Ok(attrs) => PopupType::FileAttributesDialog(FileAttributesDialog {
             mode_input: format!("{:o}", attrs.mode & 0o7777),
             attrs: FileAttrsSnapshot {
                 source,
@@ -47,7 +48,7 @@ fn show(state: &mut AppState, source: PanelSource, read: io::Result<FileAttrs>) 
                 owner: attrs.owner,
                 nlinks: attrs.nlinks,
             },
-        },
+        }),
         Err(e) => PopupType::error(format!("{} {}", t("error_read_attrs_failed"), e)),
     };
     state.dialogs.replace(popup);

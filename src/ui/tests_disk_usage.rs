@@ -4,6 +4,7 @@ use crate::app::actions::fs_ops::folder_size;
 use crate::app::context::AppContext;
 use crate::app::input_popup::handle_popup_input;
 use crate::app::state::popup::ConfirmDelete;
+use crate::app::state::popup::DiskUsage;
 use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::config::AppConfig;
 use crate::fs::FileEntry;
@@ -75,7 +76,10 @@ fn disk_usage_view_lists_and_navigates() {
     let dir = tree();
     let (mut context, mut state) = app(dir.path());
     folder_size::open_disk_usage(&mut state);
-    assert!(matches!(state.dialogs.top(), Some(PopupType::DiskUsage)));
+    assert!(matches!(
+        state.dialogs.top(),
+        Some(PopupType::DiskUsage(DiskUsage))
+    ));
     let text = screen(&context, &state);
     assert!(text.contains("media/"), "{text}");
     assert!(text.contains("notes.txt"), "{text}");
@@ -104,5 +108,8 @@ fn disk_usage_delete_opens_confirmation_over_the_view() {
         Some(PopupType::ConfirmDelete(ConfirmDelete { .. }))
     ));
     key(&mut state, &mut context, KeyCode::Esc);
-    assert!(matches!(state.dialogs.top(), Some(PopupType::DiskUsage)));
+    assert!(matches!(
+        state.dialogs.top(),
+        Some(PopupType::DiskUsage(DiskUsage))
+    ));
 }

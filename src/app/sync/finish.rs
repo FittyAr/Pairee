@@ -1,6 +1,8 @@
 //! Delivers a finished folder comparison on the UI thread.
 
 use super::ScanPurpose;
+use crate::app::state::popup::CompareFoldersResult;
+use crate::app::state::popup::FolderScanProgress;
 use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::CompareStatus;
@@ -16,7 +18,10 @@ pub fn poll_folder_scan(state: &mut AppState) -> bool {
         return false;
     };
     let purpose = state.folder_scan.purpose.take();
-    if matches!(state.dialogs.top(), Some(PopupType::FolderScanProgress)) {
+    if matches!(
+        state.dialogs.top(),
+        Some(PopupType::FolderScanProgress(FolderScanProgress))
+    ) {
         state.dialogs.pop();
     }
     match (outcome, purpose) {
@@ -46,8 +51,10 @@ fn show_compare(state: &mut AppState, items: &[SyncItem]) {
             left.selection_order.push(e.path.clone());
         }
     }
-    state.dialogs.replace(PopupType::CompareFoldersResult {
-        diff,
-        cursor_idx: 0,
-    });
+    state
+        .dialogs
+        .replace(PopupType::CompareFoldersResult(CompareFoldersResult {
+            diff,
+            cursor_idx: 0,
+        }));
 }

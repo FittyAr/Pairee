@@ -24,6 +24,7 @@ mod quickview;
 mod ssh;
 pub mod sync;
 mod text_search;
+mod tools;
 
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use confirm::{
@@ -64,10 +65,13 @@ pub use quickview::QuickViewDialog;
 pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
+pub use tools::{
+    CommandHistoryList, CompareFoldersResult, DiskUsage, FileAssociationsDialog,
+    FileAttributesDialog, FileViewHistoryList, FolderScanProgress, FoldersHistoryList,
+    TaskListDialog, TransferPanel, TreeView,
+};
 
-use super::types::{FileAttrsSnapshot, ProcessEntry, TreeNode, TreeViewCaller};
 use crate::app::text_input::TextField;
-use std::path::PathBuf;
 
 /// What the create prompt makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -137,6 +141,19 @@ macro_rules! dialog_list {
                 CommandPalette(CommandPalette),
                 OnboardingKeymap(OnboardingKeymap),
                 Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
+                CommandHistoryList(CommandHistoryList),
+                FileViewHistoryList(FileViewHistoryList),
+                FoldersHistoryList(FoldersHistoryList),
+                DiskUsage(DiskUsage),
+                CompareFoldersResult(CompareFoldersResult),
+                FolderScanProgress(FolderScanProgress),
+                SyncDirs(Box<SyncDialog>),
+                TaskListDialog(TaskListDialog),
+                FileAssociationsDialog(FileAssociationsDialog),
+                TreeView(TreeView),
+                FileAttributesDialog(FileAttributesDialog),
+                TransferPanel(TransferPanel),
+                QuickViewPanel(Box<QuickViewDialog>),
             ]
             legacy: [
         SelectDevPlugin {
@@ -144,54 +161,7 @@ macro_rules! dialog_list {
             cursor_idx: usize,
             previous_popup: Box<PopupType>,
         },
-        TransferPanel,
         PluginMenu(PluginMenuState),
-        QuickViewPanel(Box<QuickViewDialog>),
-        FileAttributesDialog {
-            attrs: FileAttrsSnapshot,
-            mode_input: String,
-        },
-        CommandHistoryList {
-            entries: Vec<String>,
-            cursor_idx: usize,
-        },
-        FileViewHistoryList {
-            entries: Vec<PathBuf>,
-            cursor_idx: usize,
-        },
-        FoldersHistoryList {
-            entries: Vec<PathBuf>,
-            cursor_idx: usize,
-        },
-        /// Disk usage view; its data lives in `AppState::disk_usage`.
-        DiskUsage,
-        CompareFoldersResult {
-            diff: Vec<crate::fs::compare::CompareEntry>,
-            cursor_idx: usize,
-        },
-        /// Recursive folder comparison running (Esc cancels).
-        FolderScanProgress,
-        /// Synchronize folders: options, then review of the differences.
-        SyncDirs(Box<SyncDialog>),
-        TaskListDialog {
-            tasks: Vec<ProcessEntry>,
-            cursor_idx: usize,
-            filter_query: TextField,
-            is_filtering: bool,
-        },
-        FileAssociationsDialog {
-            rules: Vec<crate::config::associations::AssocRule>,
-            cursor_idx: usize,
-            editing_idx: Option<usize>,
-            editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
-            edit_buffer: TextField,
-            original_rule: Option<crate::config::associations::AssocRule>,
-        },
-        TreeView {
-            nodes: Vec<TreeNode>,
-            cursor_idx: usize,
-            caller: TreeViewCaller,
-        },
         ConfigurationDialog(ConfigurationDialogState),
         ColorGroupsDialog {
             cursor_idx: usize,

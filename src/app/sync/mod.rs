@@ -12,6 +12,7 @@ pub use finish::poll_folder_scan;
 
 use crate::app::context::AppContext;
 use crate::app::jobs::{JobContext, JobSlot};
+use crate::app::state::popup::FolderScanProgress;
 use crate::app::state::popup::SyncDialog;
 use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::localization::t;
@@ -133,7 +134,9 @@ pub fn start_scan(
     let left_vfs = state.panels.side(ActivePanel::Left).source.vfs_for(&left);
     let right_vfs = state.panels.side(ActivePanel::Right).source.vfs_for(&right);
     state.folder_scan.purpose = Some(purpose);
-    state.dialogs.push(PopupType::FolderScanProgress);
+    state
+        .dialogs
+        .push(PopupType::FolderScanProgress(FolderScanProgress));
     state.folder_scan.job.start(move |ctx| {
         let left = Side {
             vfs: left_vfs.as_ref(),
@@ -153,7 +156,10 @@ pub fn start_scan(
 pub fn cancel_scan(state: &mut AppState) {
     state.folder_scan.job.cancel();
     state.folder_scan.purpose = None;
-    if matches!(state.dialogs.top(), Some(PopupType::FolderScanProgress)) {
+    if matches!(
+        state.dialogs.top(),
+        Some(PopupType::FolderScanProgress(FolderScanProgress))
+    ) {
         state.dialogs.pop();
     }
 }

@@ -3,6 +3,7 @@
 
 use super::{panels, top};
 use crate::app::state::popup::ContextMenu;
+use crate::app::state::popup::FoldersHistoryList;
 use crate::app::state::{ActivePanel, PopupType, SortField};
 use crate::config::settings::RightClick;
 use crate::test_harness::Harness;
@@ -155,7 +156,7 @@ fn the_folder_title_opens_the_folder_history() {
     assert_eq!(h.state.panels.active, ActivePanel::Right);
     assert!(matches!(
         top(&h),
-        Some(PopupType::FoldersHistoryList { .. })
+        Some(PopupType::FoldersHistoryList(FoldersHistoryList { .. }))
     ));
 }
 

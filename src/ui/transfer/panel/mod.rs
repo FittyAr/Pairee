@@ -13,6 +13,12 @@ mod file_list;
 mod inspector;
 mod jobs;
 
+/// The transfer panel paints after the dialogs (it is drawn while expanded,
+/// focused or not), so its dialog entry paints nothing itself.
+impl crate::ui::popup::view::DialogView for crate::app::state::popup::TransferPanel {
+    fn render(&self, _f: &mut Frame, _cx: &crate::ui::popup::view::ViewCtx<'_>) {}
+}
+
 pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppContext) {
     let transfer_state = match &state.transfer {
         Some(ts) => ts,

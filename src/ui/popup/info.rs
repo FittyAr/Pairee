@@ -1,6 +1,5 @@
 use super::centered_rect_in;
-use crate::app::state::PopupType;
-use crate::app::state::popup::InfoPanel;
+use crate::app::state::popup::{FileAttributesDialog, InfoPanel};
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
@@ -36,14 +35,11 @@ impl DialogView for InfoPanel {
     }
 }
 
-pub fn render_info_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    match popup {
-        PopupType::FileAttributesDialog { attrs, mode_input } => {
+impl DialogView for FileAttributesDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let FileAttributesDialog { attrs, mode_input } = self;
+        {
             let area = centered_rect_in(65, 45, size);
             f.render_widget(Clear, area);
 
@@ -94,9 +90,7 @@ pub fn render_info_popup(
 
             f.render_widget(paragraph, area);
             register_readonly_row(area);
-            true
         }
-        _ => false,
     }
 }
 

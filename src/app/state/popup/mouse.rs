@@ -11,10 +11,6 @@ impl PopupType {
         matches!(
             self,
             PopupType::PluginMenu(_)
-                | PopupType::CommandHistoryList { .. }
-                | PopupType::FileViewHistoryList { .. }
-                | PopupType::FoldersHistoryList { .. }
-                | PopupType::TreeView { .. }
                 | PopupType::SelectDevPlugin { .. }
                 | PopupType::UpdateAvailable { .. }
         )
@@ -28,17 +24,7 @@ impl PopupType {
         }
         matches!(
             self,
-            PopupType::UpdateAvailable { .. }
-                | PopupType::GitPanel(_)
-                | PopupType::CommandHistoryList { .. }
-                | PopupType::FileViewHistoryList { .. }
-                | PopupType::FoldersHistoryList { .. }
-                | PopupType::CompareFoldersResult { .. }
-                | PopupType::TaskListDialog { .. }
-                | PopupType::TreeView { .. }
-                | PopupType::TransferPanel
-                | PopupType::DiskUsage
-                | PopupType::SyncDirs(_)
+            PopupType::UpdateAvailable { .. } | PopupType::GitPanel(_)
         )
     }
 }

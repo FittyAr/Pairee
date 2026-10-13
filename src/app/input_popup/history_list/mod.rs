@@ -4,9 +4,14 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::history::HistoryKind;
+use crate::app::state::popup::CommandHistoryList;
 use crate::app::state::popup::ConfirmClearHistory;
+use crate::app::state::popup::FileViewHistoryList;
+use crate::app::state::popup::FoldersHistoryList;
+use crate::app::state::popup::{Dialog, DialogScroll, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
+use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 pub fn handle(
@@ -45,14 +50,20 @@ pub fn handle(
 /// Enter: run the command line, view the file or open the folder.
 fn activate(state: &mut AppState, context: &AppContext, popup: PopupType, idx: usize) {
     match popup {
-        PopupType::CommandHistoryList { mut entries, .. } if idx < entries.len() => {
+        PopupType::CommandHistoryList(CommandHistoryList { mut entries, .. })
+            if idx < entries.len() =>
+        {
             state.cli.set_text(entries.swap_remove(idx));
         }
-        PopupType::FileViewHistoryList { mut entries, .. } if idx < entries.len() => {
+        PopupType::FileViewHistoryList(FileViewHistoryList { mut entries, .. })
+            if idx < entries.len() =>
+        {
             let path = entries.swap_remove(idx);
             state.open_viewer(path, &context.config.settings, false);
         }
-        PopupType::FoldersHistoryList { mut entries, .. } if idx < entries.len() => {
+        PopupType::FoldersHistoryList(FoldersHistoryList { mut entries, .. })
+            if idx < entries.len() =>
+        {
             state
                 .get_active_panel_mut()
                 .open_path(entries.swap_remove(idx));
@@ -89,5 +100,56 @@ fn remove_entry(state: &mut AppState, kind: HistoryKind, idx: usize) {
     } else {
         let list = kind.list_popup(&state.history, idx.min(remaining - 1));
         state.dialogs.replace(list);
+    }
+}
+
+impl Dialog for CommandHistoryList {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        let len = self.entries.len();
+        (id == ScrollTargetId::HistoryCommand)
+            .then_some(DialogScroll::Cursor(&mut self.cursor_idx, len))
+    }
+}
+
+impl Dialog for FileViewHistoryList {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        let len = self.entries.len();
+        (id == ScrollTargetId::HistoryView)
+            .then_some(DialogScroll::Cursor(&mut self.cursor_idx, len))
+    }
+}
+
+impl Dialog for FoldersHistoryList {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        let len = self.entries.len();
+        (id == ScrollTargetId::HistoryFolder)
+            .then_some(DialogScroll::Cursor(&mut self.cursor_idx, len))
     }
 }
