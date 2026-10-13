@@ -6,8 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use crate::Result;
 use crate::text::TextFile;
 
-const CHANGELOG: &str = "docs/CHANGELOG.md";
-const UNRELEASED: &str = "docs/UNRELEASED.md";
+pub const CHANGELOG: &str = "docs/CHANGELOG.md";
+pub const UNRELEASED: &str = "docs/UNRELEASED.md";
 const UNRELEASED_HEADER: &str = "## [Unreleased]";
 const TEMPLATE: [&str; 13] = [
     UNRELEASED_HEADER,

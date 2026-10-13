@@ -11,26 +11,39 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request supersedes its running checks; runs on the
+# main branch and release runs are never cancelled.
+concurrency:
+  group: check-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 # Align JS actions with Node 24 (same policy as release.yml).
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
+# Third-party actions are pinned by commit SHA (the comment names the
+# release); update the SHA and the comment together.
 jobs:
   policy:
     name: Policy checks
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Forbid crate-level clippy::all allow
+      # Crate roots are where a crate-wide allow would sit: the library, the
+      # binaries, the examples, xtask and the fuzz targets.
+      - name: Forbid crate-level clippy::all / warnings allows
         shell: bash
         run: |
-          if grep -n '#!\[allow(clippy::all)\]' src/main.rs; then
-            echo "::error::src/main.rs must not use #![allow(clippy::all)] — fix lints instead"
+          shopt -s nullglob
+          [ -f src/lib.rs ] || { echo "::error::src/lib.rs not found"; exit 1; }
+          roots=(src/lib.rs src/main.rs src/bin/*.rs examples/*.rs xtask/src/main.rs fuzz/fuzz_targets/*.rs)
+          if grep -nE '^[[:space:]]*#!\[allow\([^]]*\b(clippy::all|warnings)\b' "${roots[@]}"; then
+            echo "::error::crate roots must not allow clippy::all or warnings — fix lints instead"
             exit 1
           fi
-          echo "Policy OK: no crate-level clippy::all allow"
+          echo "Policy OK: no crate-level clippy::all / warnings allow in ${#roots[@]} crate roots"
 
       - name: EN/ES translation key parity
         shell: bash
@@ -41,16 +54,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       # Prebuilt latest cargo-deny: the Docker-based action pulled its image
       # from Docker Hub on every run and failed on its rate limits.
       - name: Install cargo-deny
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
         with:
           tool: cargo-deny
 
-      - name: Check licenses, advisories, and crate sources
+      - name: Check licenses, advisories, bans and crate sources
         run: cargo deny check
 
   typos:
@@ -58,10 +71,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Check spelling (configured in _typos.toml)
-        uses: crate-ci/typos@v1.50.2
+        uses: crate-ci/typos@512fc24f32f44ab01972217aaaf3dc86ec234d53 # v1.50.2
 
   msrv:
     name: MSRV (rust-version from Cargo.toml)
@@ -69,7 +82,7 @@ jobs:
     needs: policy
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Read rust-version from Cargo.toml
         id: msrv
@@ -84,17 +97,15 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
       - name: Install MSRV toolchain
-        uses: dtolnay/rust-toolchain@master
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
         with:
           toolchain: ${{ steps.msrv.outputs.version }}
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install Linux build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
 
       - name: Check all targets with the MSRV toolchain
         run: cargo check --workspace --all-targets --locked
@@ -109,25 +120,19 @@ jobs:
         os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
         with:
+          toolchain: stable
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install Linux build deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
-
-      - name: Install macOS build deps
-        if: runner.os == 'macOS'
-        run: brew install pkg-config
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
 
       - name: Run clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
@@ -137,11 +142,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
         with:
+          toolchain: stable
           components: rustfmt
 
       - name: Check formatting
@@ -155,18 +161,18 @@ jobs:
       RUSTDOCFLAGS: "-D warnings"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install Linux build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
 
       - name: Build documentation (warnings are errors)
         run: cargo doc --no-deps --locked
@@ -178,26 +184,22 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        # ubuntu-24.04-arm: the aarch64 Linux release target, run natively.
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-latest]
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install Linux build deps
-        if: runner.os == 'Linux'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
-
-      - name: Install macOS build deps
-        if: runner.os == 'macOS'
-        run: brew install pkg-config
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
 
       - name: Run unit, integration, and plugin acceptance tests
         run: cargo test --workspace --locked
@@ -208,27 +210,29 @@ jobs:
     needs: policy
     env:
       # Minimum line coverage (%). Raise it as coverage grows; never lower it
-      # without recording the reason in the commit message.
-      COVERAGE_MIN_LINES: "39"
+      # without recording the reason in the commit message. 70.9% measured on
+      # master (66f8afe, 2026-10-11); the margin absorbs small refactors.
+      COVERAGE_MIN_LINES: "68"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v7
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
         with:
+          toolchain: stable
           components: llvm-tools-preview
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
 
-      - name: Install Linux build deps
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libssl-dev
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
 
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@cargo-llvm-cov
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: cargo-llvm-cov
 
       - name: Run tests with coverage instrumentation
         run: cargo llvm-cov --all-targets --locked --no-report
@@ -252,7 +256,7 @@ jobs:
           cargo llvm-cov report --summary-only --fail-under-lines "${COVERAGE_MIN_LINES}"
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: lcov-report
           path: lcov.info

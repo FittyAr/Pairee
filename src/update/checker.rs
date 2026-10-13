@@ -5,6 +5,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 const GITHUB_API_LATEST: &str = "https://api.github.com/repos/FittyAr/Pairee/releases/latest";
 const CACHE_TTL_SECS: u64 = 3600; // 1 hour
+/// Whole-request timeout of the release check.
+const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
 
 /// Parsed information about an available update.
 #[derive(Debug, Clone)]
@@ -144,6 +146,7 @@ impl UpdateChecker {
     /// Returns `Some(UpdateInfo)` when a newer version is available, `None` otherwise.
     pub async fn check() -> Result<Option<UpdateInfo>> {
         let current = env!("CARGO_PKG_VERSION");
+        tokio::task::spawn_blocking(super::installer::remove_stale_files);
 
         // Try cache first
         if let Some(cached) = load_cache() {
@@ -169,10 +172,9 @@ impl UpdateChecker {
         }
 
         // Fetch from GitHub
-        let client = build_client()?;
+        let client = super::downloader::build_client(CHECK_TIMEOUT)?;
         let response = client
             .get(GITHUB_API_LATEST)
-            .header("User-Agent", format!("pairee/{}", current))
             .header("Accept", "application/vnd.github+json")
             .send()
             .await
@@ -239,25 +241,6 @@ fn extract_notes(body: &str) -> String {
         .take(6)
         .collect();
     lines.join("\n")
-}
-
-fn build_client() -> Result<reqwest::Client> {
-    #[cfg(not(target_os = "windows"))]
-    {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()
-            .context("failed to build HTTP client")?;
-        Ok(client)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        let client = reqwest::Client::builder()
-            .timeout(Duration::from_secs(15))
-            .build()
-            .context("failed to build HTTP client")?;
-        Ok(client)
-    }
 }
 
 // ─── Unit tests ─────────────────────────────────────────────────────────────

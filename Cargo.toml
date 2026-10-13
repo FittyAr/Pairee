@@ -29,7 +29,7 @@ tar = "0.4.46"
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 pulldown-cmark = "0.13"
 image = "0.25.10"
-git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https"] }
+git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https", "ssh"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
 percent-encoding = "2.3"
@@ -75,12 +75,19 @@ chardetng = "0.1"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
 notify = "8.2"
 
+[features]
+# Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
+# fuzz/ (not a public API).
+fuzzing = []
+
 [profile.release]
 lto = "thin"
 codegen-units = 1
 strip = true
 
 [dev-dependencies]
+# Runs the built `pairee` binary in the CLI tests (tests/cli.rs).
+assert_cmd = "2.2"
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
@@ -132,15 +139,21 @@ assets = [
 [build-dependencies]
 embed-resource = "2.5"
 
-# Lints for every target (lib, bins, tests, benches); CI runs clippy with `-D warnings`.
-[lints.clippy]
+# Lints for every target (lib, bins, tests, benches) of every workspace
+# member; CI runs clippy with `-D warnings`.
+[lints]
+workspace = true
+
+[workspace]
+members = ["xtask"]
+# cargo-fuzz targets build with nightly and their own lockfile.
+exclude = ["fuzz"]
+
+[workspace.lints.clippy]
 too_many_lines = "warn"
 
-[lints.rust]
+[workspace.lints.rust]
 # MSVC's link.exe reports the import library it writes for the symbols the
 # vendored Lua exports ("Creating library pairee.lib and object pairee.exp");
 # it is informational, and newer rustc turns any linker output into a warning.
 linker_messages = "allow"
-
-[workspace]
-members = ["xtask"]

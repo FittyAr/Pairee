@@ -7,13 +7,24 @@ use std::path::PathBuf;
 
 use crate::app;
 use crate::config;
-use crate::git;
 use crate::plugin;
 use crate::terminal;
 use crate::update;
 
 /// CLI + TUI bootstrap. The binary only installs the tokio runtime around this function.
+///
+/// Logging starts first, so a failing subcommand, configuration load or
+/// argument parse is recorded in `app.log` as well as printed.
 pub async fn run() -> Result<()> {
+    let _ = crate::logging::init_logging(&config::paths::get_log_file_path());
+    let result = run_app().await;
+    if let Err(e) = &result {
+        log::error!("Pairee stopped with an error: {e:#}");
+    }
+    result
+}
+
+async fn run_app() -> Result<()> {
     // Install the rustls ring crypto provider for reqwest on non-Windows platforms
     #[cfg(not(target_os = "windows"))]
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -40,16 +51,11 @@ pub async fn run() -> Result<()> {
         terminal::mouse::disable_from_cli();
     }
 
-    // 2. Setup application debug logger (structured tracing)
-    let log_path = config::paths::get_log_file_path();
-    let _ = crate::logging::init_logging(&log_path);
-
     // Restore the terminal (raw mode, alternate screen, mouse capture) on panic
     // so the message is readable and the user's shell stays usable.
     terminal::panic_hook::install();
 
     log::info!("Starting Pairee application...");
-    git::unused_keepalive();
 
     // 3-4. Context and state, with the panels of the restored session
     let context = app::AppContext::new(config);

@@ -1,4 +1,5 @@
 use anyhow::{Context as _, Result};
+use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Only release assets published under this prefix are ever downloaded.
@@ -7,6 +8,9 @@ pub const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/FittyAr/Pairee/rel
 /// Upper bound for a single downloaded release asset, so a hostile or
 /// broken server cannot exhaust memory.
 pub const MAX_ASSET_BYTES: u64 = 256 * 1024 * 1024;
+
+/// Whole-request timeout of a release asset download.
+const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
 
 /// Rejects any asset URL that is not a plain HTTPS download from the
 /// official Pairee releases. Asset URLs come from the GitHub API or from the
@@ -35,13 +39,9 @@ pub fn validate_release_url(url: &str) -> Result<()> {
 pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -> Result<Vec<u8>> {
     validate_release_url(url)?;
 
-    let client = build_client()?;
+    let client = build_client(DOWNLOAD_TIMEOUT)?;
     let mut response = client
         .get(url)
-        .header(
-            "User-Agent",
-            format!("pairee/{}", env!("CARGO_PKG_VERSION")),
-        )
         .send()
         .await
         .context("failed to start download")?;
@@ -148,10 +148,12 @@ fn current_target() -> &'static str {
     env!("PAIREE_TARGET")
 }
 
-fn build_client() -> Result<reqwest::Client> {
-    use std::time::Duration;
+/// HTTP client of the updater (release check and downloads), identified as
+/// `pairee/<version>` as the GitHub API requires.
+pub fn build_client(timeout: Duration) -> Result<reqwest::Client> {
     reqwest::Client::builder()
-        .timeout(Duration::from_secs(120))
+        .timeout(timeout)
+        .user_agent(concat!("pairee/", env!("CARGO_PKG_VERSION")))
         .build()
         .context("failed to build HTTP client")
 }

@@ -29,11 +29,7 @@ pub fn stash_save(
     message: Option<&str>,
     include_untracked: bool,
 ) -> anyhow::Result<()> {
-    let sig = match repo.signature() {
-        Ok(s) => s,
-        Err(_) => git2::Signature::now("Pairee User", "pairee@localhost")
-            .map_err(|e| anyhow::anyhow!("Failed to build fallback git signature: {}", e))?,
-    };
+    let sig = crate::git::signature::default_signature(repo)?;
     let mut flags = git2::StashFlags::DEFAULT;
     if include_untracked {
         flags.insert(git2::StashFlags::INCLUDE_UNTRACKED);

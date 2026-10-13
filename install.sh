@@ -1,341 +1,384 @@
 #!/bin/sh
-set -e
-
-# Pairee Linux Installer
-# Installs Pairee statically built binary and copies assets to the user's config directories.
+# Pairee installer for Linux (x86_64 and aarch64).
+#
+#   curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
+#   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature]
+#
+# Installs the static (musl) binary to ~/.local/bin and its resources to
+# ${XDG_CONFIG_HOME:-~/.config}/pairee. The download is checked against its
+# SHA-256 and its minisign signature; minisign is required unless
+# --insecure-skip-signature is given (then only the checksum, served from the
+# same place as the archive, is checked).
+#
+# Everything runs from `main` on the last line, so a download cut short
+# executes nothing.
+set -eu
 
 REPO="FittyAr/Pairee"
 # Pairee release signing key (minisign). Must match RELEASE_PUBLIC_KEY in
-# src/update/signature.rs and install.ps1.
+# src/update/signature.rs and install.ps1 (checked by tests/release_key.rs).
 MINISIGN_PUBKEY="RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 INSTALL_DIR="$HOME/.local/bin"
-CONFIG_DIR="$HOME/.config/pairee"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pairee"
 
-# Parse arguments
 DEBUG_MODE=false
 UNINSTALL_MODE=false
-for arg in "$@"; do
-    if [ "$arg" = "debug" ]; then
-        DEBUG_MODE=true
-    elif [ "$arg" = "uninstall" ]; then
-        UNINSTALL_MODE=true
-    fi
-done
+SKIP_SIGNATURE=false
+# Removed on exit, whatever the outcome.
+TEMP_DIR=""
+STAGED_BIN=""
 
-# Colors
 ESC=$(printf '\033')
 RED="${ESC}[0;31m"
 GREEN="${ESC}[0;32m"
 BLUE="${ESC}[0;34m"
 YELLOW="${ESC}[1;33m"
-NC="${ESC}[0m" # No Color
+NC="${ESC}[0m"
 
-# 3. Uninstall logic
-if [ "$UNINSTALL_MODE" = "true" ]; then
+die() {
+    echo "${RED}Error: $*${NC}" >&2
+    exit 1
+}
+
+cleanup() {
+    if [ -n "$STAGED_BIN" ]; then
+        rm -f "$STAGED_BIN"
+    fi
+    if [ -n "$TEMP_DIR" ]; then
+        rm -rf "$TEMP_DIR"
+    fi
+}
+
+parse_args() {
+    for arg in "$@"; do
+        case "$arg" in
+            debug | --debug) DEBUG_MODE=true ;;
+            uninstall | --uninstall) UNINSTALL_MODE=true ;;
+            --insecure-skip-signature) SKIP_SIGNATURE=true ;;
+            *) die "Unknown argument '$arg'. Usage: install.sh [debug] [uninstall] [--insecure-skip-signature]" ;;
+        esac
+    done
+}
+
+# ─── Uninstall ───────────────────────────────────────────────────────────────
+
+remove_binary() {
+    echo "Removing binary: $1"
+    case "$1" in
+        "$HOME"/*) rm -f "$1" ;;
+        *)
+            if [ "$(id -u)" -ne 0 ]; then
+                echo "Requesting root privileges to remove system binary..."
+                sudo rm -f "$1"
+            else
+                rm -f "$1"
+            fi
+            ;;
+    esac
+}
+
+uninstall() {
     echo "${BLUE}Pairee Uninstaller${NC}"
     echo "=============================="
 
-    USER_BIN="$HOME/.local/bin/pairee"
+    USER_BIN="$INSTALL_DIR/pairee"
     SYS_BIN_1="/usr/bin/pairee"
     SYS_BIN_2="/usr/local/bin/pairee"
 
-    INSTALLATIONS=""
-    [ -f "$USER_BIN" ] && INSTALLATIONS="$INSTALLATIONS 1"
-    [ -f "$SYS_BIN_1" ] && INSTALLATIONS="$INSTALLATIONS 2"
-    [ -f "$SYS_BIN_2" ] && INSTALLATIONS="$INSTALLATIONS 3"
+    FOUND=""
+    for bin in "$USER_BIN" "$SYS_BIN_1" "$SYS_BIN_2"; do
+        if [ -f "$bin" ]; then
+            FOUND="$FOUND $bin"
+        fi
+    done
 
-    if [ -z "$INSTALLATIONS" ] && [ ! -d "$CONFIG_DIR" ]; then
+    if [ -z "$FOUND" ] && [ ! -d "$CONFIG_DIR" ]; then
         echo "No Pairee installations or configurations found."
-        exit 0
+        return 0
     fi
 
     TO_REMOVE=""
-    NUM_INST=0
-    for i in $INSTALLATIONS; do
-        NUM_INST=$((NUM_INST + 1))
-    done
-
-    if [ $NUM_INST -eq 0 ]; then
+    # shellcheck disable=SC2086 # split the list into words on purpose
+    set -- $FOUND
+    if [ $# -eq 0 ]; then
         echo "No Pairee binaries found, but configuration folder exists."
-    elif [ $NUM_INST -eq 1 ]; then
-        ACTIVE_BIN=""
-        [ -f "$USER_BIN" ] && ACTIVE_BIN="$USER_BIN"
-        [ -f "$SYS_BIN_1" ] && ACTIVE_BIN="$SYS_BIN_1"
-        [ -f "$SYS_BIN_2" ] && ACTIVE_BIN="$SYS_BIN_2"
-
-        printf "Found Pairee installed at: %s\n" "$ACTIVE_BIN"
+    elif [ $# -eq 1 ]; then
+        printf "Found Pairee installed at: %s\n" "$1"
         printf "Do you want to uninstall it? [y/N]: "
         read -r CONFIRM < /dev/tty || CONFIRM="n"
-        if [ "$CONFIRM" = "y" ] || [ "$CONFIRM" = "Y" ]; then
-            TO_REMOVE="$ACTIVE_BIN"
-        else
-            echo "Uninstall cancelled."
-            exit 0
-        fi
+        case "$CONFIRM" in
+            [yY] | [yY][eE][sS]) TO_REMOVE="$1" ;;
+            *)
+                echo "Uninstall cancelled."
+                return 0
+                ;;
+        esac
     else
         echo "Multiple Pairee installations detected:"
-        [ -f "$USER_BIN" ] && echo "  1) User installation ($USER_BIN)"
-        [ -f "$SYS_BIN_1" ] && echo "  2) System-wide installation ($SYS_BIN_1)"
-        [ -f "$SYS_BIN_2" ] && echo "  3) System-wide installation ($SYS_BIN_2)"
+        if [ -f "$USER_BIN" ]; then echo "  1) User installation ($USER_BIN)"; fi
+        if [ -f "$SYS_BIN_1" ]; then echo "  2) System-wide installation ($SYS_BIN_1)"; fi
+        if [ -f "$SYS_BIN_2" ]; then echo "  3) System-wide installation ($SYS_BIN_2)"; fi
 
         printf "Enter the numbers you want to uninstall (e.g. '1', '1 2', or 'all') [Cancel]: "
         read -r SELECTION < /dev/tty || SELECTION=""
-        
-        if [ "$SELECTION" = "all" ] || [ "$SELECTION" = "ALL" ]; then
-            [ -f "$USER_BIN" ] && TO_REMOVE="$TO_REMOVE $USER_BIN"
-            [ -f "$SYS_BIN_1" ] && TO_REMOVE="$TO_REMOVE $SYS_BIN_1"
-            [ -f "$SYS_BIN_2" ] && TO_REMOVE="$TO_REMOVE $SYS_BIN_2"
-        elif [ -n "$SELECTION" ]; then
-            for sel in $SELECTION; do
-                case "$sel" in
-                    1) [ -f "$USER_BIN" ] && TO_REMOVE="$TO_REMOVE $USER_BIN" ;;
-                    2) [ -f "$SYS_BIN_1" ] && TO_REMOVE="$TO_REMOVE $SYS_BIN_1" ;;
-                    3) [ -f "$SYS_BIN_2" ] && TO_REMOVE="$TO_REMOVE $SYS_BIN_2" ;;
-                esac
-            done
-        else
-            echo "Uninstall cancelled."
-            exit 0
-        fi
+        case "$SELECTION" in
+            all | ALL) SELECTION="1 2 3" ;;
+            "")
+                echo "Uninstall cancelled."
+                return 0
+                ;;
+        esac
+        for sel in $SELECTION; do
+            case "$sel" in
+                1) bin="$USER_BIN" ;;
+                2) bin="$SYS_BIN_1" ;;
+                3) bin="$SYS_BIN_2" ;;
+                *) continue ;;
+            esac
+            if [ -f "$bin" ]; then
+                TO_REMOVE="$TO_REMOVE $bin"
+            fi
+        done
     fi
 
     for bin in $TO_REMOVE; do
-        echo "Removing binary: $bin"
-        if [ "$bin" = "$SYS_BIN_1" ] || [ "$bin" = "$SYS_BIN_2" ]; then
-            if [ "$(id -u)" -ne 0 ]; then
-                echo "Requesting root privileges to remove system binary..."
-                sudo rm -f "$bin"
-            else
-                rm -f "$bin"
-            fi
-        else
-            rm -f "$bin"
-        fi
+        remove_binary "$bin"
     done
 
     if [ -d "$CONFIG_DIR" ]; then
         printf "Do you want to delete the configuration, themes, and history settings at %s? [y/N]: " "$CONFIG_DIR"
         read -r CONFIRM_CONFIG < /dev/tty || CONFIRM_CONFIG="n"
-        if [ "$CONFIRM_CONFIG" = "y" ] || [ "$CONFIRM_CONFIG" = "Y" ]; then
-            echo "Removing configuration folder: $CONFIG_DIR"
-            rm -rf "$CONFIG_DIR"
-        else
-            echo "Keeping configuration settings."
-        fi
+        case "$CONFIRM_CONFIG" in
+            [yY] | [yY][eE][sS])
+                echo "Removing configuration folder: $CONFIG_DIR"
+                rm -rf "$CONFIG_DIR"
+                ;;
+            *) echo "Keeping configuration settings." ;;
+        esac
     fi
 
     echo "=============================="
     echo "${GREEN}Uninstall process completed successfully!${NC}"
-    exit 0
-fi
+}
 
-echo "${BLUE}Pairee Installer for Linux${NC}"
-echo "=============================="
+# ─── Install ─────────────────────────────────────────────────────────────────
 
-# 1. Architecture Check
-OS="$(uname -s)"
-ARCH="$(uname -m)"
+# Release target of this machine (the release publishes static musl builds).
+detect_target() {
+    [ "$(uname -s)" = "Linux" ] || die "This script only supports Linux."
+    case "$(uname -m)" in
+        x86_64 | amd64) TARGET="x86_64-unknown-linux-musl" ;;
+        aarch64 | arm64) TARGET="aarch64-unknown-linux-musl" ;;
+        *) die "Unsupported architecture '$(uname -m)'. Release builds exist for x86_64 and aarch64." ;;
+    esac
+}
 
-if [ "$OS" != "Linux" ]; then
-    echo "${RED}Error: This script only supports Linux.${NC}"
-    exit 1
-fi
-
-if [ "$ARCH" != "x86_64" ]; then
-    echo "${RED}Error: Currently only x86_64 architecture is supported via installer.${NC}"
-    exit 1
-fi
-
-# 2. Dependency Check
-DEPENDENCIES="curl tar"
-if [ "$DEBUG_MODE" = "true" ]; then
-    DEPENDENCIES="git cargo $DEPENDENCIES"
-fi
-for cmd in $DEPENDENCIES; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        echo "${RED}Error: Required command '$cmd' is not installed.${NC}"
-        exit 1
+check_dependencies() {
+    DEPENDENCIES="curl tar"
+    if [ "$DEBUG_MODE" = "true" ]; then
+        DEPENDENCIES="git cargo $DEPENDENCIES"
     fi
-done
-if [ "$DEBUG_MODE" != "true" ] && ! command -v sha256sum >/dev/null 2>&1 && ! command -v shasum >/dev/null 2>&1; then
-    echo "${RED}Error: 'sha256sum' or 'shasum' is required to verify the download.${NC}"
-    exit 1
-fi
+    for cmd in $DEPENDENCIES; do
+        command -v "$cmd" > /dev/null 2>&1 || die "Required command '$cmd' is not installed."
+    done
+    if [ "$DEBUG_MODE" = "true" ]; then
+        return 0
+    fi
+    if ! command -v sha256sum > /dev/null 2>&1 && ! command -v shasum > /dev/null 2>&1; then
+        die "'sha256sum' or 'shasum' is required to verify the download."
+    fi
+    if [ "$SKIP_SIGNATURE" != "true" ] && ! command -v minisign > /dev/null 2>&1; then
+        die "'minisign' is required to verify the release signature.
+Install it (Debian/Ubuntu: 'sudo apt install minisign', Fedora: 'sudo dnf install minisign',
+Arch: 'sudo pacman -S minisign', Alpine: 'sudo apk add minisign') and run the installer again,
+or rerun with --insecure-skip-signature to rely on the SHA-256 checksum only."
+    fi
+}
 
-# 3. Check for Existing Installation
-if [ -f "$INSTALL_DIR/pairee" ] || [ -d "$CONFIG_DIR" ]; then
+confirm_overwrite() {
+    if [ ! -f "$INSTALL_DIR/pairee" ] && [ ! -d "$CONFIG_DIR" ]; then
+        return 0
+    fi
     echo "${YELLOW}Warning: Pairee is already installed.${NC}"
-    
-    if [ -c /dev/tty ]; then
-        printf "Do you want to overwrite and update the binary? [y/N]: "
-        read -r OVERWRITE < /dev/tty || OVERWRITE="n"
-        case "$OVERWRITE" in
-            [yY][eE][sS]|[yY])
-                echo "Proceeding with update..."
-                ;;
-            *)
-                echo "Installation cancelled."
-                exit 0
-                ;;
-        esac
-
-        if [ -d "$CONFIG_DIR" ]; then
-            printf "Do you want to clear old configurations, themes, and history settings? [y/N]: "
-            read -r CLEAR_CONFIG < /dev/tty || CLEAR_CONFIG="n"
-            case "$CLEAR_CONFIG" in
-                [yY][eE][sS]|[yY])
-                    echo "Clearing old settings in $CONFIG_DIR..."
-                    rm -rf "$CONFIG_DIR"
-                    ;;
-                *)
-                    echo "Keeping existing settings."
-                    ;;
-            esac
-        fi
-    else
+    # /dev/tty can exist without a controlling terminal (CI, containers).
+    if ! { [ -c /dev/tty ] && (: < /dev/tty) 2> /dev/null; }; then
         echo "Non-interactive shell detected. Overwriting existing installation..."
+        return 0
     fi
-fi
+    printf "Do you want to overwrite and update the binary? [y/N]: "
+    read -r OVERWRITE < /dev/tty || OVERWRITE="n"
+    case "$OVERWRITE" in
+        [yY][eE][sS] | [yY]) echo "Proceeding with update..." ;;
+        *)
+            echo "Installation cancelled."
+            exit 0
+            ;;
+    esac
 
-# 4. Retrieve Latest Version
-if [ "$DEBUG_MODE" = "true" ]; then
-    VERSION="debug-source"
-    echo "Running in debug mode. Will compile from master branch source..."
-else
+    if [ -d "$CONFIG_DIR" ]; then
+        printf "Do you want to clear old configurations, themes, and history settings? [y/N]: "
+        read -r CLEAR_CONFIG < /dev/tty || CLEAR_CONFIG="n"
+        case "$CLEAR_CONFIG" in
+            [yY][eE][sS] | [yY])
+                echo "Clearing old settings in $CONFIG_DIR..."
+                rm -rf "$CONFIG_DIR"
+                ;;
+            *) echo "Keeping existing settings." ;;
+        esac
+    fi
+}
+
+latest_version() {
     echo "Fetching latest version info..."
     VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
-
-    if [ -z "$VERSION" ]; then
-        echo "${RED}Error: Could not retrieve latest release version from GitHub API.${NC}"
-        exit 1
-    fi
+    [ -n "$VERSION" ] || die "Could not retrieve latest release version from GitHub API."
     case "$VERSION" in
         v[0-9]*.[0-9]*.[0-9]*) ;;
-        *)
-            echo "${RED}Error: Unexpected release tag '${VERSION}'.${NC}"
-            exit 1
-            ;;
+        *) die "Unexpected release tag '${VERSION}'." ;;
     esac
     case "$VERSION" in
-        *[!A-Za-z0-9.-]*)
-            echo "${RED}Error: Unexpected release tag '${VERSION}'.${NC}"
-            exit 1
-            ;;
+        *[!A-Za-z0-9.-]*) die "Unexpected release tag '${VERSION}'." ;;
     esac
     echo "Latest version found: ${GREEN}${VERSION}${NC}"
-fi
+}
 
-# 5. Create paths
-mkdir -p "$INSTALL_DIR"
-mkdir -p "$CONFIG_DIR/lang"
-mkdir -p "$CONFIG_DIR/help"
-mkdir -p "$CONFIG_DIR/keymaps"
+sha256_of() {
+    if command -v sha256sum > /dev/null 2>&1; then
+        sha256sum "$1" | awk '{print $1}'
+    else
+        shasum -a 256 "$1" | awk '{print $1}'
+    fi
+}
 
-# 6. Download and Extract (or Git Clone & Cargo Build in debug mode)
-TEMP_DIR=$(mktemp -d)
-
-if [ "$DEBUG_MODE" = "true" ]; then
-    echo "Cloning repository..."
-    git clone --depth 1 "https://github.com/${REPO}.git" "${TEMP_DIR}/pairee_src"
-
-    echo "Compiling Pairee (cargo build --release)..."
-    # Execute cargo build and handle failures
-    if ! (cd "${TEMP_DIR}/pairee_src" && cargo build --release); then
-        echo "${RED}Error: Compilation failed.${NC}"
-        rm -rf "$TEMP_DIR"
-        exit 1
+# verify_download <file> <asset name> <url>
+verify_download() {
+    echo "Verifying SHA-256 checksum..."
+    curl -fsSL "$3.sha256" -o "$1.sha256"
+    EXPECTED_SHA=$(awk '{print $1}' "$1.sha256" | tr 'A-F' 'a-f')
+    if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$(sha256_of "$1")" ]; then
+        die "SHA-256 checksum mismatch for $2. Aborting."
     fi
 
-    PKG_FOLDER="${TEMP_DIR}/pairee_src"
-    BIN_SRC="${PKG_FOLDER}/target/release/pairee"
-else
-    TARBALL="pairee-${VERSION}-x86_64-unknown-linux-musl.tar.gz"
+    if [ "$SKIP_SIGNATURE" = "true" ]; then
+        echo "${YELLOW}Warning: --insecure-skip-signature given; the minisign signature was not checked.${NC}"
+        return 0
+    fi
+    # The trusted comment, covered by the signature, must name this asset.
+    echo "Verifying minisign signature..."
+    if ! curl -fsSL "$3.minisig" -o "$1.minisig" \
+        || ! SIG_OUT=$(minisign -V -P "$MINISIGN_PUBKEY" -m "$1" -x "$1.minisig") \
+        || ! printf ' %s \n' "$SIG_OUT" | tr '\t' ' ' | grep -qF " file:$2 "; then
+        die "minisign signature verification failed for $2. Aborting."
+    fi
+}
+
+# Sets PKG_FOLDER and BIN_SRC.
+download_release() {
+    TARBALL="pairee-${VERSION}-${TARGET}.tar.gz"
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
 
     echo "Downloading ${TARBALL}..."
     curl -fsSL "$DOWNLOAD_URL" -o "${TEMP_DIR}/${TARBALL}"
-    curl -fsSL "${DOWNLOAD_URL}.sha256" -o "${TEMP_DIR}/${TARBALL}.sha256"
-
-    echo "Verifying SHA-256 checksum..."
-    EXPECTED_SHA=$(awk '{print $1}' "${TEMP_DIR}/${TARBALL}.sha256" | tr 'A-F' 'a-f')
-    if command -v sha256sum >/dev/null 2>&1; then
-        ACTUAL_SHA=$(sha256sum "${TEMP_DIR}/${TARBALL}" | awk '{print $1}')
-    else
-        ACTUAL_SHA=$(shasum -a 256 "${TEMP_DIR}/${TARBALL}" | awk '{print $1}')
-    fi
-    if [ -z "$EXPECTED_SHA" ] || [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
-        echo "${RED}Error: SHA-256 checksum mismatch for ${TARBALL}. Aborting.${NC}"
-        rm -rf "$TEMP_DIR"
-        exit 1
-    fi
-
-    # minisign signature (release key embedded in Pairee, see
-    # docs/technical/installer_guide.md). Mandatory when minisign is installed.
-    if command -v minisign >/dev/null 2>&1; then
-        echo "Verifying minisign signature..."
-        if ! curl -fsSL "${DOWNLOAD_URL}.minisig" -o "${TEMP_DIR}/${TARBALL}.minisig" \
-            || ! SIG_OUT=$(minisign -V -P "$MINISIGN_PUBKEY" -m "${TEMP_DIR}/${TARBALL}" -x "${TEMP_DIR}/${TARBALL}.minisig") \
-            || ! printf ' %s \n' "$SIG_OUT" | tr '\t' ' ' | grep -qF " file:${TARBALL} "; then
-            echo "${RED}Error: minisign signature verification failed for ${TARBALL}. Aborting.${NC}"
-            rm -rf "$TEMP_DIR"
-            exit 1
-        fi
-    else
-        echo "${YELLOW}Note: 'minisign' not found; only the SHA-256 checksum was verified.${NC}"
-    fi
+    verify_download "${TEMP_DIR}/${TARBALL}" "$TARBALL" "$DOWNLOAD_URL"
 
     echo "Extracting archive..."
     tar -xzf "${TEMP_DIR}/${TARBALL}" -C "$TEMP_DIR"
-
-    PKG_FOLDER="${TEMP_DIR}/pairee-${VERSION}-x86_64-unknown-linux-musl"
+    PKG_FOLDER="${TEMP_DIR}/pairee-${VERSION}-${TARGET}"
     BIN_SRC="${PKG_FOLDER}/pairee"
-fi
+}
 
-# 7. Install assets and binary
-echo "Installing files..."
+# Sets PKG_FOLDER and BIN_SRC.
+build_from_source() {
+    echo "Cloning repository..."
+    git clone --depth 1 "https://github.com/${REPO}.git" "${TEMP_DIR}/pairee_src"
 
-# Copy binary
-cp "$BIN_SRC" "$INSTALL_DIR/pairee"
-chmod +x "$INSTALL_DIR/pairee"
+    echo "Compiling Pairee (cargo build --release)..."
+    (cd "${TEMP_DIR}/pairee_src" && cargo build --release) || die "Compilation failed."
+    PKG_FOLDER="${TEMP_DIR}/pairee_src"
+    BIN_SRC="${PKG_FOLDER}/target/release/pairee"
+}
 
-# Copy translations, help markdown and docs
-if [ -d "${PKG_FOLDER}/lang" ]; then
-    cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
-    # Clean up legacy JSON translation files
-    rm -f "$CONFIG_DIR/lang/"*.json
-fi
-if [ -d "${PKG_FOLDER}/help" ]; then
-    cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
-fi
-# Copy keybinding preset files, but skip files already edited by the user
-if [ -d "${PKG_FOLDER}/keymaps" ]; then
-    for preset_file in "${PKG_FOLDER}/keymaps/"*.toml; do
-        [ -f "$preset_file" ] || continue
-        dest="$CONFIG_DIR/keymaps/$(basename "$preset_file")"
-        if [ ! -f "$dest" ]; then
-            cp "$preset_file" "$dest"
-        fi
-    done
-fi
+install_files() {
+    echo "Installing files..."
+    mkdir -p "$INSTALL_DIR" "$CONFIG_DIR/lang" "$CONFIG_DIR/help" "$CONFIG_DIR/keymaps"
 
-# Clean up
-rm -rf "$TEMP_DIR"
+    # Staged next to the target and renamed over it: a running pairee keeps
+    # its old file (no "Text file busy"), and a failed copy changes nothing.
+    STAGED_BIN="$INSTALL_DIR/.pairee.new.$$"
+    cp "$BIN_SRC" "$STAGED_BIN"
+    chmod 755 "$STAGED_BIN"
+    mv -f "$STAGED_BIN" "$INSTALL_DIR/pairee"
+    STAGED_BIN=""
 
-echo "=============================="
-echo "${GREEN}Pairee version ${VERSION} installed successfully!${NC}"
-echo "Binary location: ${BLUE}${INSTALL_DIR}/pairee${NC}"
-echo "Config location: ${BLUE}${CONFIG_DIR}/${NC}"
-echo ""
+    if [ -d "${PKG_FOLDER}/lang" ]; then
+        cp -r "${PKG_FOLDER}/lang/"* "$CONFIG_DIR/lang/"
+        # Clean up legacy JSON translation files
+        rm -f "$CONFIG_DIR/lang/"*.json
+    fi
+    if [ -d "${PKG_FOLDER}/help" ]; then
+        cp -r "${PKG_FOLDER}/help/"* "$CONFIG_DIR/help/"
+    fi
+    # Copy keybinding preset files, but skip files already edited by the user
+    if [ -d "${PKG_FOLDER}/keymaps" ]; then
+        for preset_file in "${PKG_FOLDER}/keymaps/"*.toml; do
+            [ -f "$preset_file" ] || continue
+            dest="$CONFIG_DIR/keymaps/$(basename "$preset_file")"
+            if [ ! -f "$dest" ]; then
+                cp "$preset_file" "$dest"
+            fi
+        done
+    fi
+}
 
-# 8. PATH verification
-case :$PATH: in
-    *:"$INSTALL_DIR":*) ;;
-    *)
-        echo "${BLUE}Note: '${INSTALL_DIR}' is not in your PATH.${NC}"
-        echo "Please add it to your shell configuration (e.g. ~/.bashrc or ~/.zshrc):"
-        echo "  ${GREEN}export PATH=\"\$PATH:\$HOME/.local/bin\"${NC}"
-        echo ""
-        ;;
-esac
+print_summary() {
+    echo "=============================="
+    echo "${GREEN}Pairee version ${VERSION} installed successfully!${NC}"
+    echo "Binary location: ${BLUE}${INSTALL_DIR}/pairee${NC}"
+    echo "Config location: ${BLUE}${CONFIG_DIR}/${NC}"
+    echo ""
 
-echo "Run Pairee by typing: ${GREEN}pairee${NC}"
+    case ":$PATH:" in
+        *:"$INSTALL_DIR":*) ;;
+        *)
+            echo "${BLUE}Note: '${INSTALL_DIR}' is not in your PATH.${NC}"
+            echo "Please add it to your shell configuration (e.g. ~/.bashrc or ~/.zshrc):"
+            echo "  ${GREEN}export PATH=\"\$PATH:\$HOME/.local/bin\"${NC}"
+            echo ""
+            ;;
+    esac
+
+    echo "Run Pairee by typing: ${GREEN}pairee${NC}"
+}
+
+main() {
+    parse_args "$@"
+    if [ "$UNINSTALL_MODE" = "true" ]; then
+        uninstall
+        return 0
+    fi
+
+    echo "${BLUE}Pairee Installer for Linux${NC}"
+    echo "=============================="
+    detect_target
+    check_dependencies
+    confirm_overwrite
+
+    trap cleanup EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    TEMP_DIR=$(mktemp -d)
+
+    if [ "$DEBUG_MODE" = "true" ]; then
+        VERSION="debug-source"
+        echo "Running in debug mode. Will compile from master branch source..."
+        build_from_source
+    else
+        latest_version
+        download_release
+    fi
+
+    install_files
+    print_summary
+}
+
+main "$@"

@@ -13,6 +13,9 @@
 //!    la secuencia Kitty Keyboard como el fallback de borrado antiguo (`0x08`), causando doble acción.
 //!
 //! Para salir del modo de diagnóstico, pulsa la tecla `Esc`.
+//!
+//! Run with `cargo run --example test_keys` (an example, so `cargo install`
+//! installs only `pairee`).
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},

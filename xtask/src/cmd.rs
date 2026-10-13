@@ -23,6 +23,11 @@ pub fn run(program: &str, args: &[&str]) -> Result {
 
 /// Returns the trimmed standard output; fails on a non-zero exit.
 pub fn output(program: &str, args: &[&str]) -> Result<String> {
+    Ok(raw_output(program, args)?.trim().to_string())
+}
+
+/// Returns the standard output as printed; fails on a non-zero exit.
+pub fn raw_output(program: &str, args: &[&str]) -> Result<String> {
     let out = Command::new(program)
         .args(args)
         .stderr(Stdio::inherit())
@@ -31,7 +36,7 @@ pub fn output(program: &str, args: &[&str]) -> Result<String> {
     if !out.status.success() {
         return Err(format!("{} failed ({})", describe(program, args), out.status).into());
     }
-    Ok(String::from_utf8_lossy(&out.stdout).trim().to_string())
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
 }
 
 /// Runs `command` with its output discarded; true when it exits successfully.

@@ -18,6 +18,10 @@ mod terminal;
 mod ui;
 mod update;
 
+/// Parser entry points for `fuzz/` (feature `fuzzing`) and `test_fuzz`.
+#[cfg(any(test, feature = "fuzzing"))]
+#[doc(hidden)]
+pub mod fuzz_api;
 #[cfg(test)]
 mod smoke_tests;
 #[cfg(test)]
