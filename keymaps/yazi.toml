@@ -7,8 +7,8 @@
 # yazi. Every Norton Commander F-key still works.
 #
 # Pairee shows two panels: Tab switches between them (yazi's Tab "spot" is
-# `i`, the information panel). s / S / z search names and contents and Z
-# opens the folder history (yazi: fd, rg, fzf, zoxide).
+# `i`, the information panel). s / S search names and contents, z jumps to a
+# frequent folder and Z opens the folder history (yazi: fd, rg, zoxide, fzf).
 
 extends = "vi"
 
@@ -53,7 +53,8 @@ file_attributes   = "Ctrl+Alt+a"
 
 # ── Search ────────────────────────────────────────────────────────────────────
 quick_filter    = "f, Ctrl+Alt+f"
-find_file       = "s, S, z, Alt+F7"
+find_file       = "s, S, Alt+F7"
+folder_jump     = "z, Ctrl+Alt+z"
 folders_history = "Z, Alt+F12"
 
 # ── View: . hidden; m + linemode → the closest column set ────────────────────

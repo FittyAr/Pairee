@@ -1,13 +1,13 @@
-//! Popups of the built-in editor: search, "save as" and overwrite confirmation.
+//! Popups of the built-in editor: find / replace, "save as" and overwrite
+//! confirmation.
 
 use crate::app::context::AppContext;
 use crate::app::editor::open::{resolve_save_as_path, save_active_editor};
 use crate::app::form::{FieldKey, confirm_answer, field_key};
-use crate::app::screen_input::editor::editor_page_height;
+use crate::app::screen_input::editor::{editor_page_height, report_search};
 use crate::app::state::popup::EditorConfirmOverwrite;
 use crate::app::state::popup::EditorSaveAsPrompt;
-use crate::app::state::popup::SearchKey;
-use crate::app::state::popup::{Dialog, EditorSearchPrompt, KeyHandler};
+use crate::app::state::popup::{Dialog, EditorSearchPrompt, FindButton, FindKey, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
@@ -21,14 +21,15 @@ pub fn handle(
 ) -> Result<Option<Action>, ()> {
     match state.dialogs.top_mut() {
         Some(PopupType::EditorSearchPrompt(search)) => {
-            let request = search.handle_key(&key);
-            let query = search.query.text().to_string();
-            let case_sensitive = search.case_sensitive;
-            match request {
-                SearchKey::Stay => {}
-                SearchKey::Close => state.dialogs.clear(),
-                SearchKey::Find if query.is_empty() => state.dialogs.clear(),
-                SearchKey::Find => find_next(state, &query, case_sensitive),
+            if let Some(older) = EditorSearchPrompt::history_step(&key) {
+                let history = &state.history;
+                search.recall(&history.searches, &history.replacements, older);
+                return Ok(None);
+            }
+            match search.handle_key(&key) {
+                FindKey::Stay => {}
+                FindKey::Close => state.dialogs.clear(),
+                FindKey::Run(button) => run_search(state, button),
             }
             Ok(None)
         }
@@ -59,17 +60,45 @@ pub fn handle(
     }
 }
 
-/// Enter in the find dialog: jump to the next match (or report none).
-fn find_next(state: &mut AppState, query: &str, case_sensitive: bool) {
+/// A button of the find / replace dialog. [Find] and [All] close it,
+/// [Replace] keeps it open for the next match.
+fn run_search(state: &mut AppState, button: FindButton) {
+    let Some(PopupType::EditorSearchPrompt(dialog)) = state.dialogs.top() else {
+        return;
+    };
+    let search = match dialog.to_search() {
+        Ok(Some(search)) => search,
+        Ok(None) => return state.dialogs.clear(),
+        Err(e) => {
+            let text = t("editor_find_bad_regex").replacen("{}", &e.to_string(), 1);
+            return state.dialogs.push(PopupType::error(text));
+        }
+    };
+    state
+        .history
+        .push_search(search.pattern.clone(), search.replacement.clone());
+    if button != FindButton::Replace {
+        state.dialogs.clear();
+    }
     let height = editor_page_height();
     let Some(ed) = state.active_editor_mut() else {
         return state.dialogs.clear();
     };
-    if !ed.find_next(query, case_sensitive, height) {
-        state
-            .dialogs
-            .replace(PopupType::error(t("editor_text_not_found")));
-    }
+    ed.show_matches = true;
+    ed.last_search = Some(Box::new(search.clone()));
+    let backward = search.options.backward;
+    let outcome = match button {
+        FindButton::Replace => ed.replace_match(&search, backward, height),
+        FindButton::ReplaceAll => {
+            let message = match ed.replace_all(&search) {
+                Some(n) => t("editor_replaced_count").replacen("{}", &n.to_string(), 1),
+                None => t("editor_read_only_locked"),
+            };
+            return state.dialogs.replace(PopupType::info(message));
+        }
+        FindButton::Find | FindButton::Cancel => ed.find_match(&search, backward, height),
+    };
+    report_search(state, outcome);
 }
 
 /// Enter in "save as": save to the typed path (relative to the file's folder).
@@ -88,7 +117,7 @@ impl Dialog for EditorSearchPrompt {
         handle
     }
     fn focused_field_mut(&mut self) -> Option<&mut TextField> {
-        (self.cursor_idx == 0).then_some(&mut self.0.query)
+        EditorSearchPrompt::focused_field_mut(self)
     }
 }
 

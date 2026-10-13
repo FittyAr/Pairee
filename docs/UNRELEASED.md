@@ -27,10 +27,18 @@
 - A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
 - The viewer's key bar shows the encoding key (F8).
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
+- Editor: find and replace dialog (`Ctrl+F7` / `Ctrl+H`; find stays on `F7` / `Ctrl+F`) with case sensitive, whole words, regular expression (`$1` groups in the replacement), backward and wrap-around options. Replace goes match by match and "All" replaces every match as one undo step; `Alt+F7` / `Shift+F3` search backward. Matches on screen are highlighted, and patterns and replacements are kept in the history (`Ctrl+Up` / `Ctrl+Down` in the dialog).
+- Syntax highlighting in the editor and the viewer, in new `[syntax]` theme colors. Settings "Syntax highlighting" and "Highlight files up to" (Editor tab, 2 MiB by default).
+- Branch view (`Ctrl+Alt+X`, `Ctrl+Shift+B` in the Standard preset, Commands menu): every file below the current folder in one flat list with its relative path, read in the background; sorting, filters, selection and file operations work on it, and the action again (or leaving the folder) returns to the normal listing.
+- Jump to a frequent folder (`Ctrl+Alt+Z`, `z` in the yazi preset, Commands menu): visited folders ranked by frecency as zoxide does, with a fuzzy filter. `z <words>` on the command line jumps straight to the best match. The ranking is saved in `frecency.toml` only while "Save folders history" is on.
+- Compare files (`Ctrl+Alt+C`, Commands menu): a unified or side-by-side diff of the two selected files (or the cursor file of each panel) outside Git; binary files show whether they are identical, with their hashes.
+- Duplicate finder (`Ctrl+Alt+U`, Commands menu): searches the selection or the current folder (smallest size and hash algorithm to choose), groups the duplicates with their sizes and wasted space, marks every copy but the newest, oldest or first, deletes or trashes the marked files and shows a file in the panel.
 
 ### Improved
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
 - The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
+- The color groups and file highlighting dialogs open over the configuration dialog instead of replacing it, and what they save is no longer undone by pressing OK in the configuration dialog.
+- The Git diff view can show the changes side by side (`Tab`).
 - Git text prompts (commit message, branch / tag / stash names, add remote, clone) accept pasted text, and keys of the `[list]` keymap no longer turn typed letters into list moves there.
 - Files added to a zip, tar or 7z archive keep their permissions and modification time, and extracting zip and 7z archives restores the stored Unix permissions.
 - Moving files or folders within one drive is instant: they are renamed instead of copied and deleted. Moves to another drive, moves with "Verify after copy" and filtered moves still copy.
@@ -55,6 +63,8 @@
 - "Verify after copy" reads every copy back from the disk and compares it with the source; a file that does not match is retried and, if it still differs, reported as failed. Files copied without verification are no longer marked as verified in the job log.
 
 - The screens list and the command-line screen indicator are translated.
+- The transfer panel (conflict dialog, jobs list, tabs, options, statistics), the yazi sort and view key boards and the development plugin picker are translated.
+- yazi preset: `z` jumps to a frequent folder (as zoxide in yazi); finding files stays on `s` / `S`.
 - Keymap problem reports are translated; unused translation keys were removed and a few Spanish texts translated.
 
 ### Deprecated

@@ -12,7 +12,15 @@ use crate::fs::multi_rename::Step;
 pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -> bool {
     let active = state.get_active_panel();
     if let Some(entry) = active.entries.get(active.cursor_index) {
-        let original = entry.name.clone();
+        // A branch view names entries by relative path: rename the file
+        // where it is.
+        let (original, parent_dir) = match entry.path.parent() {
+            Some(parent) if active.branch_view => (
+                crate::fs::file_name_lossy(&entry.path),
+                parent.to_path_buf(),
+            ),
+            _ => (entry.name.clone(), active.current_path.clone()),
+        };
         let mut input = TextField::new(original.as_str());
         if basename {
             for _ in 0..extension_len(&original) {
@@ -23,7 +31,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
             input,
             original,
             src_path: entry.path.clone(),
-            parent_dir: active.current_path.clone(),
+            parent_dir,
             cursor_idx: 0,
         });
         true

@@ -8,9 +8,6 @@ use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
-/// Row of the Colors tab that opens this dialog.
-const CONFIG_ROW: usize = 1;
-
 pub fn handle(
     state: &mut AppState,
     key: KeyEvent,
@@ -24,18 +21,19 @@ pub fn handle(
     else {
         return Err(());
     };
-    match handle_key(theme, cursor_idx, edit, &key) {
+    match handle_key(theme.as_mut(), cursor_idx, edit, &key) {
         ColorListKey::Handled => {}
-        ColorListKey::Back => back_to_config(state, &context.config, CONFIG_ROW),
+        ColorListKey::Back => back_to_config(state, |_| {}),
         ColorListKey::Save => {
             let settings = &mut context.config.settings;
             if settings.theme == "slate" || settings.theme == "classic_blue" {
                 settings.theme = "custom".to_string();
             }
-            context.config.theme = theme.clone();
+            context.config.theme = theme.as_ref().clone();
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
-            back_to_config(state, &context.config, CONFIG_ROW);
+            let theme = context.config.settings.theme.clone();
+            back_to_config(state, |draft| draft.theme = theme);
         }
     }
     Ok(None)

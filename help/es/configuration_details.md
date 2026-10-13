@@ -169,6 +169,8 @@ Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opci
 * **Cursor al final:** Abre los archivos con el cursor en la última línea.
 * **Bloquear edición de archivos de solo lectura:** Los archivos de solo lectura se abren bloqueados; usa `Shift+F2` para guardar una copia.
 * **Avisar al abrir archivos de solo lectura:** Muestra un aviso al abrir un archivo de solo lectura.
+* **Resaltado de sintaxis (editor y visor):** Colorea los archivos de código según el lenguaje (`syntax_highlighting`). Los colores son el grupo `[syntax]` del tema (ver *Color groups*).
+* **Resaltar archivos de hasta:** Los archivos más grandes se abren sin resaltado (`syntax_highlighting_max_kb`; Enter recorre 512 KiB, 1, 2, 8 y 32 MiB).
 
 ---
 
@@ -176,7 +178,7 @@ Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opci
 
 ### Configuración del Tema
 * **Theme (Tema):** Carga perfiles gráficos (Slate, Blue, High Contrast).
-* **Color groups / Highlighting:** Permite personalizar la paleta de colores para los elementos de interfaz y coloreado personalizado de extensiones.
+* **Color groups / Highlighting:** Permite personalizar la paleta de colores para los elementos de interfaz y coloreado personalizado de extensiones. Los grupos `syntax_*` (comment, string, keyword, constant, function, type_name, operator, tag) colorean el resaltado de sintaxis del editor y del visor; en un archivo de tema son la tabla `[syntax]`, y un tema sin ella usa los colores predeterminados.
 
 ---
 

@@ -18,6 +18,9 @@ pub enum EditorAction {
     Reload,
     Search,
     SearchNext,
+    SearchPrev,
+    /// Find / replace dialog.
+    Replace,
     OpenViewer,
     Discard,
     /// Clears the selection, else closes the editor (asking when modified).
@@ -138,6 +141,8 @@ pub const EDITOR_CATALOG: &[ScreenDef<EditorAction>] = &[
     cmd("reload", E::Reload, C::Files),
     on_fkey(cmd("search", E::Search, C::Search), "fkey_ed_search"),
     on_fkey(cmd("search_next", E::SearchNext, C::Search), "fkey_ed_next"),
+    cmd("search_prev", E::SearchPrev, C::Search),
+    cmd("replace", E::Replace, C::Search),
     on_fkey(cmd("open_viewer", E::OpenViewer, C::View), "fkey_ed_hex"),
     on_fkey(cmd("discard", E::Discard, C::Files), "fkey_ed_discard"),
     must(on_fkey(cmd("quit", E::Quit, C::System), "fkey_ed_quit")),

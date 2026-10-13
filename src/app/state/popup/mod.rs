@@ -5,6 +5,7 @@
 mod config_dialog;
 mod confirm;
 mod dialog;
+mod editor_find;
 mod editor_viewer;
 mod file_ops;
 mod filters;
@@ -26,6 +27,7 @@ mod ssh;
 pub mod sync;
 mod text_search;
 mod tools;
+mod views;
 
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use confirm::{
@@ -34,9 +36,9 @@ pub use confirm::{
 };
 use dialog::define_popup_type;
 pub use dialog::{Dialog, DialogKind, DialogScroll, KeyHandler, KeyOutcome};
+pub use editor_find::{EditorSearchPrompt, FindButton, FindKey, FindRow};
 pub use editor_viewer::{
-    EditorConfirmOverwrite, EditorSaveAsPrompt, EditorSearchPrompt, ViewerEncoding,
-    ViewerSearchPrompt,
+    EditorConfirmOverwrite, EditorSaveAsPrompt, ViewerEncoding, ViewerSearchPrompt,
 };
 pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp, split_multiple};
 pub use filters::{
@@ -74,6 +76,9 @@ pub use tools::{
     CommandHistoryList, CompareFoldersResult, DiskUsage, FileAssociationsDialog,
     FileAttributesDialog, FileViewHistoryList, FolderScanProgress, FoldersHistoryList,
     TaskListDialog, TransferPanel, TreeView,
+};
+pub use views::{
+    CompareStatus, DiffViewer, DupeOptionsPrompt, DuplicatesView, FileCompareView, FolderJump,
 };
 
 /// What the create prompt makes.
@@ -128,7 +133,7 @@ macro_rules! dialog_list {
             QuickFilterPrompt(QuickFilterPrompt),
             SearchPrompt(SearchPrompt),
             SearchResults(SearchResults),
-            EditorSearchPrompt(EditorSearchPrompt),
+            EditorSearchPrompt(Box<EditorSearchPrompt>),
             EditorSaveAsPrompt(EditorSaveAsPrompt),
             EditorConfirmOverwrite(EditorConfirmOverwrite),
             ViewerSearchPrompt(ViewerSearchPrompt),
@@ -162,6 +167,11 @@ macro_rules! dialog_list {
             FileAttributesDialog(FileAttributesDialog),
             TransferPanel(TransferPanel),
             QuickViewPanel(Box<QuickViewDialog>),
+            // Views: compare files, folder jump, duplicates
+            FileCompareView(FileCompareView),
+            FolderJump(FolderJump),
+            DupeOptionsPrompt(DupeOptionsPrompt),
+            DuplicatesView(DuplicatesView),
             // Settings, update and SSH
             ConfigurationDialog(ConfigurationDialogState),
             ColorGroupsDialog(ColorGroupsDialog),

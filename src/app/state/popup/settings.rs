@@ -9,7 +9,7 @@ pub struct ColorGroupsDialog {
     pub cursor_idx: usize,
     /// The color being typed (Enter), if any.
     pub edit: Option<TextField>,
-    pub theme: crate::config::theme::Theme,
+    pub theme: Box<crate::config::theme::Theme>,
 }
 
 /// Highlighting rules (mask and color) being edited.

@@ -177,6 +177,20 @@ El modo bloque (`Ctrl+B` en todos los presets) hace que `Shift` + flechas y
 arrastrar con el ratón seleccionen un bloque vertical, para terminales que se
 quedan con `Alt+Shift` + flechas, como Windows Terminal.
 
+Buscar (`F7` / `Ctrl+F`) y buscar y reemplazar (`Ctrl+F7` / `Ctrl+H`)
+comparten un diálogo: el patrón, el reemplazo y las opciones *Distinguir
+mayúsculas*, *Palabras completas*, *Expresión regular*, *Buscar hacia atrás*
+y *Seguir desde el otro extremo*. `Tab` / flechas cambian de fila, `Espacio`
+marca una opción y `Ctrl+Arriba` / `Ctrl+Abajo` (o `Alt`) recuperan patrones
+y reemplazos anteriores. La coincidencia encontrada queda seleccionada, así
+que al escribir se reemplaza; `F3` / `Shift+F7` repiten la búsqueda y
+`Alt+F7` / `Shift+F3` buscan en sentido contrario. **Reemplazar** reemplaza
+la coincidencia seleccionada y busca la siguiente; **Todos** reemplaza todas
+en un solo paso de deshacer. Con *Expresión regular* el patrón usa la
+sintaxis del crate `regex` de Rust y el reemplazo puede insertar grupos con
+`$1` o `${nombre}`. Las coincidencias nunca cruzan un salto de línea. Las
+coincidencias visibles quedan resaltadas hasta pulsar `Esc`.
+
 El editor conserva los finales de línea del archivo (LF o CRLF), el salto de
 línea final y el BOM UTF-8. Los archivos que no son UTF-8 válido o que
 superan 64 MiB no se abren (usa el visor). Copiar y cortar usan el

@@ -8,11 +8,13 @@ mod clipboard;
 mod commands;
 mod motion;
 mod mouse;
+mod search;
 #[cfg(test)]
 mod tests;
 
 pub use clipboard::paste_into_editor;
 pub use mouse::handle_editor_mouse;
+pub use search::report as report_search;
 
 use crate::app::context::AppContext;
 use crate::app::editor::{EditorOptions, EditorState};

@@ -172,6 +172,8 @@ Pairee edits files only with its built-in editor (`F4`); there is no external ed
 * **Cursor at the end:** Opens files with the cursor on the last line.
 * **Lock editing of read-only files:** Read-only files open locked; use `Shift+F2` to save a copy.
 * **Warn when opening read-only files:** Shows a notice when a read-only file is opened.
+* **Syntax highlighting (editor and viewer):** Colors source files by language (`syntax_highlighting`). The colors are the theme's `[syntax]` group (see *Color groups*).
+* **Highlight files up to:** Larger files open without highlighting (`syntax_highlighting_max_kb`; Enter cycles 512 KiB, 1, 2, 8 and 32 MiB).
 
 ---
 
@@ -179,7 +181,7 @@ Pairee edits files only with its built-in editor (`F4`); there is no external ed
 
 ### Theme Configuration
 * **Theme:** Apply color profiles (Slate, Blue, High Contrast).
-* **Color groups / Highlighting:** Edit specific color values for UI components and customized file extensions.
+* **Color groups / Highlighting:** Edit specific color values for UI components and customized file extensions. The `syntax_*` groups (comment, string, keyword, constant, function, type_name, operator, tag) color the syntax highlighting of the editor and viewer; in a theme file they are the `[syntax]` table, and a theme without it uses the default colors.
 
 ---
 

@@ -1,13 +1,11 @@
 use super::state::ViewerState;
-use crate::ui::search_highlight::highlight_line;
-use crate::ui::text_width::expand_tabs;
-use ratatui::{
-    style::Style,
-    text::{Line, Span},
-};
+use crate::syntax::LineTokens;
+use crate::ui::search_highlight::match_ranges;
+use crate::ui::styled_line::{Layer, LineView, styled_spans};
+use ratatui::{style::Style, text::Line};
 
-/// The `height` visible lines, tabs expanded and search matches highlighted
-/// while the find dialog is open.
+/// The `height` visible lines: tabs expanded, colored by syntax (when on)
+/// and with the search matches highlighted while the find dialog is open.
 pub(crate) fn text_lines(
     state: &ViewerState,
     height: usize,
@@ -18,18 +16,35 @@ pub(crate) fn text_lines(
         Some(crate::app::state::PopupType::ViewerSearchPrompt(search)) => search.active_query(),
         _ => None,
     };
-    state
-        .doc
-        .lines(state.scroll as u64, height)
+    let first = state.scroll;
+    let lines = state.doc.lines(first as u64, height);
+    let mut syntax = state.syntax.borrow_mut();
+    let tokens: &[LineTokens] = match syntax.as_mut().filter(|_| opts.syntax) {
+        Some(cache) => cache.highlight(first..first + lines.len(), |r| {
+            state.doc.lines(r.start as u64, r.len())
+        }),
+        None => &[],
+    };
+    let view = LineView {
+        tab_size: opts.tab_size,
+        scroll_x: 0,
+        trailing: None,
+    };
+    lines
         .iter()
-        .map(|l| expand_tabs(l, opts.tab_size))
-        .map(|l| match search_info {
-            Some((q, cs)) => {
-                let normal_style = Style::default().fg(theme.panel_fg);
-                let highlight_style = theme.search_match();
-                Line::from(highlight_line(&l, q, cs, normal_style, highlight_style))
+        .enumerate()
+        .map(|(i, line)| {
+            let mut layers: Vec<Layer> = tokens
+                .get(i)
+                .into_iter()
+                .flatten()
+                .map(|t| (t.range.clone(), theme.syntax(t.kind)))
+                .collect();
+            if let Some((query, case)) = search_info {
+                let found = match_ranges(line, query, case);
+                layers.extend(found.into_iter().map(|r| (r, theme.search_match())));
             }
-            None => Line::from(Span::raw(l)),
+            Line::from(styled_spans(line, Style::default(), &layers, view))
         })
         .collect()
 }

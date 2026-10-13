@@ -49,7 +49,19 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
         String::new()
     };
 
-    let loading = if panel.is_loading() {
+    let branch = if panel.branch_view {
+        format!(" {}", t("panel_branch_view"))
+    } else {
+        String::new()
+    };
+
+    let found = panel.branch_progress().filter(|_| panel.is_loading());
+    let loading = if let Some(found) = found {
+        format!(
+            " {}",
+            t("panel_branch_loading").replace("{}", &found.to_string())
+        )
+    } else if panel.is_loading() {
         format!(" {}", t("panel_loading"))
     } else if panel.dir_sizes.is_running() {
         format!(" {}", t("dir_size_title_running"))
@@ -58,10 +70,11 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     };
 
     format!(
-        " {}{}{} [{}{}]{} ",
+        " {}{}{}{} [{}{}]{} ",
         panel.current_path.to_string_lossy(),
         ssh_suffix,
         git_suffix,
+        branch,
         mode_label,
         sort_letter,
         loading,

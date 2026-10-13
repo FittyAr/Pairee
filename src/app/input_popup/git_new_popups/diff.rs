@@ -2,18 +2,13 @@
 
 use crate::app::context::AppContext;
 use crate::app::git_local::GitContext;
-use crate::app::list_nav::{ScrollKeys, scroll_key};
-use crate::app::state::popup::{Dialog, GitDiffViewState, KeyHandler};
+use crate::app::input_popup::diff_view::{DiffKey, handle_key};
+use crate::app::state::popup::{Dialog, DiffViewer, GitDiffViewState, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::diff::DiffDocument;
 use crate::keybindings::Action;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::KeyEvent;
 use std::path::Path;
-
-const DIFF_SCROLL: ScrollKeys = ScrollKeys {
-    vim: false,
-    home_end: true,
-    page: 15,
-};
 
 pub fn handle_diff(
     state: &mut AppState,
@@ -23,10 +18,7 @@ pub fn handle_diff(
     let Some(PopupType::GitDiffView(diff)) = state.dialogs.top_mut() else {
         return Err(());
     };
-    let last = diff.diff_content.lines().count().saturating_sub(1);
-    if !scroll_key(DIFF_SCROLL, key.code, &mut diff.scroll_y, last)
-        && matches!(key.code, KeyCode::Esc | KeyCode::Char('q' | 'Q'))
-    {
+    if handle_key(&mut diff.viewer, key.code) == DiffKey::Close {
         state.dialogs.pop();
     }
     Ok(None)
@@ -53,8 +45,7 @@ pub fn open_diff<W>(
                 repo_path: repo_path_buf,
                 file_path,
                 commit_hash,
-                diff_content,
-                scroll_y: 0,
+                viewer: DiffViewer::new(DiffDocument::from_unified(&diff_content)),
             });
         },
     );

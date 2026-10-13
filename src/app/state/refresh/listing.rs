@@ -7,6 +7,7 @@
 use super::filter::{apply_masks, git_pathspec_for};
 use crate::fs::FileEntry;
 use crate::fs::attrs::FileAttrs;
+use crate::fs::list::branch::{BranchControl, read_branch};
 use crate::fs::vfs::PanelSource;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -24,7 +25,12 @@ pub struct ListingRequest {
     pub quick_filter_mask: Option<String>,
     /// Read per-entry attributes (owner, mode, links) for detailed views.
     pub want_attrs: bool,
+    /// Branch view: every file of the subtree, named by relative path.
+    pub branch: bool,
 }
+
+/// Progress of a listing job: files found so far (branch view only).
+pub type ListingProgress = u64;
 
 /// Git information for the listed directory.
 #[derive(Debug, Clone, Default)]
@@ -47,8 +53,12 @@ pub struct PanelListing {
 }
 
 /// Executes the request. Blocking: call only from a background job.
-pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
-    let entries = read_entries(req).map(|entries| {
+pub fn run(
+    req: &ListingRequest,
+    cancelled: &dyn Fn() -> bool,
+    progress: &dyn Fn(ListingProgress),
+) -> PanelListing {
+    let entries = read_entries(req, cancelled, progress).map(|entries| {
         apply_masks(
             entries,
             req.filter_mask.as_deref(),
@@ -58,7 +68,7 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
     let local = req.source.is_local();
     let listed = entries.as_deref().unwrap_or(&[]);
     let git = if local && !cancelled() {
-        git_info(&req.path, listed)
+        git_info(&req.path, listed, req.branch)
     } else {
         None
     };
@@ -82,12 +92,23 @@ pub fn run(req: &ListingRequest, cancelled: &dyn Fn() -> bool) -> PanelListing {
     }
 }
 
-fn read_entries(req: &ListingRequest) -> Result<Vec<FileEntry>, String> {
+fn read_entries(
+    req: &ListingRequest,
+    cancelled: &dyn Fn() -> bool,
+    progress: &dyn Fn(ListingProgress),
+) -> Result<Vec<FileEntry>, String> {
     let o = &req.options;
-    req.source
-        .vfs()
-        .read_panel(&req.path, o)
-        .map_err(|e| e.to_string())
+    let vfs = req.source.vfs();
+    let entries = if req.branch {
+        let ctl = BranchControl {
+            cancelled,
+            progress,
+        };
+        read_branch(vfs.as_ref(), &req.path, o, &ctl)
+    } else {
+        vfs.read_panel(&req.path, o)
+    };
+    entries.map_err(|e| e.to_string())
 }
 
 fn read_attrs_map(entries: &[FileEntry]) -> HashMap<PathBuf, FileAttrs> {
@@ -104,7 +125,8 @@ fn read_attrs_map(entries: &[FileEntry]) -> HashMap<PathBuf, FileAttrs> {
 
 /// Branch name plus per-entry status for `path`, scoped with a pathspec to
 /// the listed directory so large repositories are not scanned entirely.
-fn git_info(path: &Path, entries: &[FileEntry]) -> Option<PanelGitInfo> {
+/// A branch view (`branch_view`) keys the statuses by the whole relative path.
+fn git_info(path: &Path, entries: &[FileEntry], branch_view: bool) -> Option<PanelGitInfo> {
     let repo = crate::git::repo::find_repo(path)?;
     let branch = branch_label(&repo);
     let workdir = repo.workdir()?.to_path_buf();
@@ -118,15 +140,19 @@ fn git_info(path: &Path, entries: &[FileEntry]) -> Option<PanelGitInfo> {
         let Some(suffix) = child_suffix(&norm_full, &norm_path) else {
             continue;
         };
-        let entry_name = suffix.split('/').next();
+        let entry_name = if branch_view {
+            Some(suffix.replace('/', std::path::MAIN_SEPARATOR_STR))
+        } else {
+            suffix.split('/').next().map(str::to_string)
+        };
         let Some(entry_name) = entry_name.filter(|n| !n.is_empty()) else {
             continue;
         };
         let actual_name = entries
             .iter()
-            .find(|e| e.name.eq_ignore_ascii_case(entry_name))
+            .find(|e| e.name.eq_ignore_ascii_case(&entry_name))
             .map(|e| e.name.clone())
-            .unwrap_or_else(|| entry_name.to_string());
+            .unwrap_or(entry_name);
         map.entry(actual_name)
             .or_insert_with(|| s.kind.label().to_string());
     }

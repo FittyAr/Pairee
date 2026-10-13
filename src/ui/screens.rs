@@ -31,6 +31,7 @@ pub fn render_screen(
                 ed,
                 crate::ui::popup::editor::EditorView {
                     show_line_numbers: settings.editor_show_line_numbers,
+                    syntax: settings.syntax_highlighting,
                 },
                 &context.theme(),
                 state.dialogs.top(),
@@ -46,6 +47,7 @@ pub fn render_screen(
                     active_popup: state.dialogs.top(),
                     show_scrollbar: context.config.settings.viewer_show_scrollbar,
                     tab_size: context.config.settings.viewer_tab_size as usize,
+                    syntax: context.config.settings.syntax_highlighting,
                     scrollbar: Some(&state.scrollbar),
                     search_progress: state.viewer.search_progress(),
                 },
