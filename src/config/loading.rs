@@ -89,7 +89,7 @@ pub(super) fn drop_missing_dev_plugin(
     }
     settings.active_dev_plugin = None;
     if may_save
-        && let Ok(toml_str) = toml::to_string_pretty(&*settings)
+        && let Ok(toml_str) = super::serialize_settings(settings)
         && let Err(e) = write_atomic(settings_path, toml_str.as_bytes())
     {
         log::warn!(

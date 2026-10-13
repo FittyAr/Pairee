@@ -35,16 +35,21 @@ fn enabled_by_default() -> bool {
     true
 }
 
-/// `[plugin_registry]` of `config.toml`.
+/// `[security]` of `config.toml`: credential storage and how plugin
+/// registry downloads are authenticated.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
-pub struct PluginRegistrySettings {
-    /// minisign public key the registry is checked with (empty = the key
-    /// pinned in Pairee).
+pub struct SecuritySettings {
+    /// Keep SSH preset passwords in `config.toml` (plain text) when the
+    /// system keyring is unavailable. Off: such passwords are not saved.
     #[serde(default)]
-    pub public_key: String,
-    /// Refuse registry files that have no signature.
+    pub ssh_passwords_in_config: bool,
+    /// minisign public key the plugin registry is checked with (empty =
+    /// the key pinned in Pairee).
     #[serde(default)]
-    pub require_signature: bool,
+    pub registry_public_key: String,
+    /// Refuse plugin registry files that have no signature.
+    #[serde(default)]
+    pub registry_require_signature: bool,
 }
 
 /// How the built-in editor treats tab characters (`editor_expand_tabs`).

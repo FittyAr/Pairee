@@ -10,11 +10,11 @@
 //!
 //! * A signature that is present but does not verify is always an error.
 //! * A missing signature is accepted with an "unsigned" warning, unless the
-//!   user set `require_signature = true` under `[plugin_registry]`.
+//!   user set `registry_require_signature = true` under `[security]`.
 //!
 //! The public key defaults to the Pairee release key (the registry is
 //! signed by the same maintainers) and can be replaced with
-//! `[plugin_registry] public_key` in `config.toml`.
+//! `registry_public_key` under `[security]` in `config.toml`.
 
 use crate::config::settings::Settings;
 use anyhow::Result;
@@ -48,14 +48,14 @@ impl Default for RegistryTrust {
 impl RegistryTrust {
     /// The registry trust configured in `settings`.
     pub fn from_settings(settings: &Settings) -> Self {
-        let key = settings.plugin_registry.public_key.trim();
+        let key = settings.security.registry_public_key.trim();
         Self {
             public_key: if key.is_empty() {
                 Self::default().public_key
             } else {
                 key.to_string()
             },
-            require_signature: settings.plugin_registry.require_signature,
+            require_signature: settings.security.registry_require_signature,
         }
     }
 
@@ -76,7 +76,7 @@ impl RegistryTrust {
                 Ok(SignatureStatus::Verified)
             }
             None if self.require_signature => anyhow::bail!(
-                "{signed_name} is not signed and [plugin_registry] require_signature is on"
+                "{signed_name} is not signed and [security] registry_require_signature is on"
             ),
             None => {
                 tracing::warn!("Plugin registry file {signed_name} is not signed");
@@ -152,8 +152,8 @@ trusted comment: timestamp:1700000000\tfile:payload.tar.gz\thashed
             RegistryTrust::from_settings(&settings),
             RegistryTrust::default()
         );
-        settings.plugin_registry.public_key = format!(" {TEST_PK} ");
-        settings.plugin_registry.require_signature = true;
+        settings.security.registry_public_key = format!(" {TEST_PK} ");
+        settings.security.registry_require_signature = true;
         assert_eq!(RegistryTrust::from_settings(&settings), trust(true));
     }
 }

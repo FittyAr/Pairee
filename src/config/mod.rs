@@ -1,5 +1,6 @@
 pub mod associations;
 pub mod bookmarks;
+pub mod credentials;
 pub mod history;
 pub mod keybindings;
 mod keymap_seed;
@@ -58,6 +59,18 @@ impl AppConfig {
         if settings_failed {
             // Plugins run in Secure Mode until the file is readable again.
             errors.push(localization::t("plugin_secure_mode_forced"));
+        }
+        let credentials = credentials::load_passwords(&mut settings);
+        if credentials.migrated && !settings_failed {
+            // Rewrite config.toml without the passwords now in the keyring.
+            let migrated = serialize_settings(&settings)
+                .and_then(|text| write_atomic(&settings_path, text.as_bytes()));
+            if let Err(e) = migrated {
+                log::warn!("Could not remove migrated SSH passwords from config.toml: {e:#}");
+            }
+        }
+        if credentials.not_persisted {
+            errors.push(localization::t("ssh_password_not_persisted"));
         }
 
         // 2. Keybindings Loading, 2b. preset keymap files
@@ -144,7 +157,7 @@ impl AppConfig {
                 settings_path
             );
         } else {
-            let settings_toml = toml::to_string_pretty(&self.settings)?;
+            let settings_toml = serialize_settings(&self.settings)?;
             write_atomic(&settings_path, settings_toml.as_bytes())?;
         }
 
@@ -189,6 +202,12 @@ impl AppConfig {
             );
         }
     }
+}
+
+/// `config.toml` text for `settings`: SSH passwords go to the keyring
+/// (see [`credentials::for_disk`]), never in plain text unless opted in.
+pub fn serialize_settings(settings: &Settings) -> Result<String> {
+    Ok(toml::to_string_pretty(&credentials::for_disk(settings))?)
 }
 
 /// Atomically replaces `path` with `data` by writing to a unique temp
