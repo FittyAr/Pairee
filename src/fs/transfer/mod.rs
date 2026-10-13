@@ -31,5 +31,7 @@ pub mod speed;
 pub mod throttle;
 pub mod verify;
 pub mod worker;
+#[cfg(unix)]
+pub mod xattrs;
 
 pub use options_from_settings::transfer_options_from_settings;

@@ -2484,6 +2484,7 @@ dependencies = [
  "unicode-width",
  "uuid",
  "windows-sys 0.61.2",
+ "xattr",
  "zip",
 ]
 
