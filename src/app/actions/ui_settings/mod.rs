@@ -6,7 +6,10 @@ mod view_sort;
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::ConfirmQuit;
+use crate::app::state::popup::ContextMenu;
 use crate::app::state::popup::InfoPanel;
+use crate::app::state::popup::Menu;
+use crate::app::state::popup::UserMenu;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::build_info_panel_lines;
 use crate::config::localization::t;
@@ -45,7 +48,7 @@ pub async fn handle_ui_settings_action(
 /// Menus, the context menu and quitting.
 fn menu_action(state: &mut AppState, action: &Action, context: &AppContext) -> bool {
     match action {
-        Action::UserMenu => state.dialogs.replace(PopupType::UserMenu { cursor_idx: 0 }),
+        Action::UserMenu => state.dialogs.replace(UserMenu { cursor_idx: 0 }),
         Action::Menu => toggle_main_menu(state, context),
         Action::ContextMenu => open_context_menu(state),
         Action::Quit => {
@@ -75,9 +78,7 @@ fn app_control_action(state: &mut AppState, action: &Action, context: &mut AppCo
         }
         Action::InfoPanel => {
             let lines = build_info_panel_lines(state);
-            state
-                .dialogs
-                .replace(PopupType::InfoPanel(InfoPanel { lines }));
+            state.dialogs.replace(InfoPanel { lines });
         }
         _ => return false,
     }
@@ -106,12 +107,12 @@ fn feature_action(state: &mut AppState, action: &Action, context: &mut AppContex
 }
 
 fn toggle_main_menu(state: &mut AppState, context: &AppContext) {
-    if let Some(PopupType::Menu { .. }) = state.dialogs.top() {
+    if let Some(PopupType::Menu(Menu { .. })) = state.dialogs.top() {
         state.dialogs.clear();
         return;
     }
     let active_item_idx = context.config.settings.auto_drop_menu.then_some(0);
-    state.dialogs.replace(PopupType::Menu {
+    state.dialogs.replace(Menu {
         active_menu_idx: 0,
         active_item_idx,
         active_submenu_idx: None,
@@ -146,7 +147,7 @@ fn open_context_menu(state: &mut AppState) {
     if has_archive {
         items.push(t("ctx_menu_extract"));
     }
-    state.dialogs.replace(PopupType::ContextMenu {
+    state.dialogs.replace(ContextMenu {
         items,
         cursor_idx: 0,
     });

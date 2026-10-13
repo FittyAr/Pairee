@@ -2,6 +2,8 @@
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::FolderShortcuts;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::config::bookmarks::{self, SHORTCUT_SLOTS};
 use crate::config::localization::t;
@@ -22,7 +24,8 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FolderShortcuts { cursor_idx }) = state.dialogs.top_mut() else {
+    let Some(PopupType::FolderShortcuts(FolderShortcuts { cursor_idx })) = state.dialogs.top_mut()
+    else {
         return Err(());
     };
     let action = list_key(ListKeys::ARROWS, key.code, cursor_idx, SLOT_COUNT);
@@ -62,9 +65,7 @@ pub fn handle(
 fn assign(state: &mut AppState, slot: u8, row: usize) {
     let path = state.get_active_panel().current_path.clone();
     state.folder_shortcuts.insert(slot, path);
-    state
-        .dialogs
-        .replace(PopupType::FolderShortcuts { cursor_idx: row });
+    state.dialogs.replace(FolderShortcuts { cursor_idx: row });
     persist(state);
 }
 
@@ -73,5 +74,14 @@ fn persist(state: &mut AppState) {
         state.dialogs.push(PopupType::error(
             t("error_save_bookmarks").replace("{}", &e.to_string()),
         ));
+    }
+}
+
+impl Dialog for FolderShortcuts {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
     }
 }

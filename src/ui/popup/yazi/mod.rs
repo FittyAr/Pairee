@@ -1,7 +1,8 @@
 pub mod sort;
 pub mod view;
 
-use crate::app::state::PopupType;
+use crate::app::state::popup::{YaziSortPopup, YaziViewPopup};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -36,17 +37,27 @@ pub fn key_rows(
         .collect()
 }
 
-pub fn render_yazi_popup(
+impl DialogView for YaziSortPopup {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let title = " Sort modes (Yazi style) ";
+        render_board(f, (title, &sort::SORT_KEYS), cx.theme, cx.area);
+    }
+}
+
+impl DialogView for YaziViewPopup {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let title = " View modes (Yazi style) ";
+        render_board(f, (title, &view::VIEW_KEYS), cx.theme, cx.area);
+    }
+}
+
+/// The key board along the bottom of the screen.
+fn render_board(
     f: &mut Frame,
-    popup: &PopupType,
+    (title, grid): (&'static str, &KeyGrid),
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
-) -> bool {
-    let (title, grid) = match popup {
-        PopupType::YaziSortPopup => (" Sort modes (Yazi style) ", &sort::SORT_KEYS),
-        PopupType::YaziViewPopup => (" View modes (Yazi style) ", &view::VIEW_KEYS),
-        _ => return false,
-    };
+) {
     let rows = key_rows(theme, grid);
 
     let panel_height = 4;
@@ -77,7 +88,6 @@ pub fn render_yazi_popup(
 
     f.render_widget(table, area);
     register_keys(area, grid);
-    true
 }
 
 /// The strip counts as inside the popup; a click on a cell presses its key.

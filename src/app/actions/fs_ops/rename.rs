@@ -19,13 +19,13 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
                 input.move_left();
             }
         }
-        state.dialogs.replace(PopupType::RenamePrompt(RenamePrompt {
+        state.dialogs.replace(RenamePrompt {
             input,
             original,
             src_path: entry.path.clone(),
             parent_dir: active.current_path.clone(),
             cursor_idx: 0,
-        }));
+        });
         true
     } else {
         state
@@ -91,15 +91,13 @@ pub fn commit(
         }
         Err(e) => {
             if !context.config.settings.req_admin_modification {
-                state
-                    .dialogs
-                    .replace(PopupType::ConfirmRetryAsAdmin(ConfirmRetryAsAdmin {
-                        paths: vec![src_path.clone()],
-                        op_kind: crate::app::state::AdminOpKind::Rename {
-                            src: src_path,
-                            target,
-                        },
-                    }));
+                state.dialogs.replace(ConfirmRetryAsAdmin {
+                    paths: vec![src_path.clone()],
+                    op_kind: crate::app::state::AdminOpKind::Rename {
+                        src: src_path,
+                        target,
+                    },
+                });
             } else {
                 state.dialogs.replace(PopupType::error(format!(
                     "{} {}",

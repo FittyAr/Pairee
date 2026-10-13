@@ -2,8 +2,8 @@
 //! `find_prev` (`n` / `N`) and Norton Commander's Alt+letter quick search.
 
 use crate::app::input::panel_find::{Direction, NameMatch, find};
+use crate::app::state::AppState;
 use crate::app::state::popup::PanelSearch;
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 
@@ -33,9 +33,7 @@ pub fn open(state: &mut AppState, how: NameMatch, first: Option<char>) {
         query.insert_char(c);
         jump(state, &c.to_string(), how, origin, Direction::Forward);
     }
-    state
-        .dialogs
-        .replace(PopupType::PanelSearch(PanelSearch { query, how, origin }));
+    state.dialogs.replace(PanelSearch { query, how, origin });
 }
 
 /// Moves the cursor to the next match of `text` from `start`; `false` when

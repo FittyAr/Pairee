@@ -2,6 +2,7 @@
 //! `[viewer]` keymap sections, and global panel actions keep working over
 //! them with whatever keys the keymap gives them.
 
+use crate::app::state::popup::ScreensMenu;
 use crate::app::state::{PopupType, Screen};
 use crate::keybindings::KeybindingResolver;
 use crate::test_harness::Harness;
@@ -48,7 +49,7 @@ fn global_actions_follow_their_keys_over_the_editor() {
     h.keys("@edit F11");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ScreensMenu { .. })
+        Some(PopupType::ScreensMenu(ScreensMenu { .. }))
     ));
 }
 

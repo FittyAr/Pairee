@@ -5,6 +5,7 @@ pub mod updates;
 
 use super::context::AppContext;
 use super::state::AppState;
+use crate::app::state::popup::OnboardingKeymap;
 use crate::terminal::{EventHandler, TerminalBackend};
 use crate::ui;
 use anyhow::Result;
@@ -135,7 +136,9 @@ pub(crate) fn prepare_first_frame(state: &mut AppState, context: &mut AppContext
     if !context.config.settings.onboarding_completed {
         state
             .dialogs
-            .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
+            .replace(crate::app::state::PopupType::OnboardingKeymap(
+                OnboardingKeymap { cursor_idx: 0 },
+            ));
     }
     if let Some(msg) = context.config.take_load_error() {
         state.dialogs.push(crate::app::state::PopupType::error(msg));

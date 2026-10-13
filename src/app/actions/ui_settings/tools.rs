@@ -2,8 +2,11 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::FilePanelFilterPrompt;
+use crate::app::state::popup::FolderShortcuts;
+use crate::app::state::popup::Hotlist;
 use crate::app::state::popup::QuickFilterPrompt;
 use crate::app::state::popup::SaveSetupConfirm;
+use crate::app::state::popup::ScreensMenu;
 use crate::app::state::popup::SearchPrompt;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
@@ -36,13 +39,11 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
             });
         }
         Action::FolderShortcutsConfig => {
-            state
-                .dialogs
-                .replace(PopupType::FolderShortcuts { cursor_idx: 0 });
+            state.dialogs.replace(FolderShortcuts { cursor_idx: 0 });
         }
         Action::Hotlist => {
             let entries = crate::config::bookmarks::BookmarksFile::load().hotlist_entries();
-            state.dialogs.replace(PopupType::Hotlist {
+            state.dialogs.replace(Hotlist {
                 entries,
                 cursor_idx: 0,
             });
@@ -96,11 +97,8 @@ fn panel_prompt_action(state: &mut AppState, action: &Action) -> bool {
 fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) -> bool {
     match action {
         Action::ScreensList => {
-            let suspended = state.dialogs.take();
-            state.dialogs.replace(PopupType::ScreensMenu {
-                cursor_idx: state.screens.active_index(),
-                suspended_popup: suspended.map(Box::new),
-            });
+            let cursor_idx = state.screens.active_index();
+            state.dialogs.push(ScreensMenu { cursor_idx });
         }
         Action::NextScreen => state.next_screen(),
         Action::PrevScreen => state.prev_screen(),

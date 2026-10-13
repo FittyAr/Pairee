@@ -1,50 +1,46 @@
 use super::kit::{ListPopup, Scroll, list_area};
-use crate::app::state::{AppState, PopupType, Screen};
+use crate::app::state::Screen;
+use crate::app::state::popup::ScreensMenu;
 use crate::config::localization::t;
-use ratatui::{Frame, layout::Rect, style::Color};
+use crate::ui::popup::view::{DialogView, ViewCtx};
+use ratatui::{Frame, style::Color};
 
-pub fn render_screens_menu(
-    f: &mut Frame,
-    popup: &PopupType,
-    state: &AppState,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    let PopupType::ScreensMenu { cursor_idx, .. } = popup else {
-        return false;
-    };
-    let rows: Vec<(String, _)> = state
-        .screens
-        .iter()
-        .enumerate()
-        .map(|(i, screen)| {
-            let active_marker = if i == state.screens.active_index() {
-                "*"
-            } else {
-                " "
-            };
-            let name = screen_name(screen);
-            (
-                format!("{} {} {}", active_marker, i + 1, name),
-                theme.popup_fg(),
-            )
-        })
-        .collect();
-    let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
-    ListPopup {
-        area: list_area(size, width.max(20), rows.len(), 20),
-        title: t("screens_menu_title"),
-        border: Color::Yellow,
-        empty: None,
-        header: Vec::new(),
-        rows,
-        cursor: *cursor_idx,
-        scroll: Scroll::Centered,
-        hint: Some(t("screens_menu_hint")),
-        scrollbar: None,
+impl DialogView for ScreensMenu {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (state, theme, size) = (cx.state, cx.theme, cx.area);
+        let ScreensMenu { cursor_idx, .. } = self;
+        let rows: Vec<(String, _)> = state
+            .screens
+            .iter()
+            .enumerate()
+            .map(|(i, screen)| {
+                let active_marker = if i == state.screens.active_index() {
+                    "*"
+                } else {
+                    " "
+                };
+                let name = screen_name(screen);
+                (
+                    format!("{} {} {}", active_marker, i + 1, name),
+                    theme.popup_fg(),
+                )
+            })
+            .collect();
+        let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
+        ListPopup {
+            area: list_area(size, width.max(20), rows.len(), 20),
+            title: t("screens_menu_title"),
+            border: Color::Yellow,
+            empty: None,
+            header: Vec::new(),
+            rows,
+            cursor: *cursor_idx,
+            scroll: Scroll::Centered,
+            hint: Some(t("screens_menu_hint")),
+            scrollbar: None,
+        }
+        .render(f, theme);
     }
-    .render(f, theme);
-    true
 }
 
 /// How the list names `screen`.

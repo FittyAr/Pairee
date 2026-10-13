@@ -84,13 +84,11 @@ mod tests {
     #[test]
     fn s_and_h_are_typed_and_tab_switches_kind() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state
-            .dialogs
-            .replace(PopupType::CreateLinkPrompt(CreateLinkPrompt {
-                src: PathBuf::from("a"),
-                dest_input: Default::default(),
-                kind: LinkKind::Symbolic,
-            }));
+        state.dialogs.replace(CreateLinkPrompt {
+            src: PathBuf::from("a"),
+            dest_input: Default::default(),
+            kind: LinkKind::Symbolic,
+        });
         for c in "hosts".chars() {
             press(&mut state, KeyCode::Char(c));
         }

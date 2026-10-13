@@ -85,13 +85,11 @@ mod tests {
             KeyCode::Char('x')
         );
 
-        state
-            .dialogs
-            .replace(PopupType::QuickFilterPrompt(QuickFilterPrompt {
-                input: Default::default(),
-                original_mask: None,
-                original_cursor: 0,
-            }));
+        state.dialogs.replace(QuickFilterPrompt {
+            input: Default::default(),
+            original_mask: None,
+            original_cursor: 0,
+        });
         let typed = translate(&mut state, &mut resolver, press('j')).unwrap();
         assert_eq!(typed.code, KeyCode::Char('j'));
     }

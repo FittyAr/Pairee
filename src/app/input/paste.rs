@@ -43,13 +43,13 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_rename_prompt() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::RenamePrompt(RenamePrompt {
+        state.dialogs.replace(RenamePrompt {
             input: "old".into(),
             original: "old".into(),
             src_path: PathBuf::from("old"),
             parent_dir: PathBuf::from("."),
             cursor_idx: 0,
-        }));
+        });
         handle_paste(&mut state, "new-name.txt\n");
         match state.dialogs.top() {
             Some(PopupType::RenamePrompt(RenamePrompt { input, .. })) => {
@@ -71,12 +71,10 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_apply_command() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state
-            .dialogs
-            .replace(PopupType::ApplyCommandPrompt(ApplyCommandPrompt {
-                input: "echo ".into(),
-                targets: vec![],
-            }));
+        state.dialogs.replace(ApplyCommandPrompt {
+            input: "echo ".into(),
+            targets: vec![],
+        });
         handle_paste(&mut state, "%f\r\nmore");
         match state.dialogs.top() {
             Some(PopupType::ApplyCommandPrompt(ApplyCommandPrompt { input, .. })) => {

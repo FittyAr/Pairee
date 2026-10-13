@@ -11,6 +11,7 @@ mod filters;
 pub mod forms;
 mod git_panel;
 mod git_prompts;
+mod menus;
 mod messages;
 mod mouse;
 mod multi_rename;
@@ -46,6 +47,10 @@ pub use git_prompts::{
     GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
     GitRemoteManageState,
 };
+pub use menus::{
+    ArchiveCommandsMenu, CommandPalette, ContextMenu, DriveSelect, FolderShortcuts, Hotlist, Menu,
+    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, YaziSortPopup, YaziViewPopup,
+};
 pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
@@ -60,9 +65,7 @@ pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
 
-use super::types::{
-    ActivePanel, FileAttrsSnapshot, ProcessEntry, SortField, TreeNode, TreeViewCaller,
-};
+use super::types::{FileAttrsSnapshot, ProcessEntry, TreeNode, TreeViewCaller};
 use crate::app::text_input::TextField;
 use std::path::PathBuf;
 
@@ -120,6 +123,20 @@ macro_rules! dialog_list {
                 ViewerEncoding(ViewerEncoding),
                 EditorSearchPrompt(EditorSearchPrompt),
                 ViewerSearchPrompt(ViewerSearchPrompt),
+                UserMenu(UserMenu),
+                Menu(Menu),
+                YaziSortPopup(YaziSortPopup),
+                YaziViewPopup(YaziViewPopup),
+                ContextMenu(ContextMenu),
+                DriveSelect(DriveSelect),
+                Hotlist(Hotlist),
+                FolderShortcuts(FolderShortcuts),
+                SortModesDialog(SortModesDialog),
+                ScreensMenu(ScreensMenu),
+                ArchiveCommandsMenu(ArchiveCommandsMenu),
+                CommandPalette(CommandPalette),
+                OnboardingKeymap(OnboardingKeymap),
+                Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
             ]
             legacy: [
         SelectDevPlugin {
@@ -128,44 +145,7 @@ macro_rules! dialog_list {
             previous_popup: Box<PopupType>,
         },
         TransferPanel,
-        UserMenu {
-            cursor_idx: usize,
-        },
-        Menu {
-            active_menu_idx: usize,
-            active_item_idx: Option<usize>,
-            active_submenu_idx: Option<usize>,
-            active_submenu_item_idx: Option<usize>,
-        },
-        YaziSortPopup,
-        YaziViewPopup,
-        ContextMenu {
-            items: Vec<String>,
-            cursor_idx: usize,
-        },
-        DriveSelect {
-            panel: ActivePanel,
-            drives: Vec<String>,
-            cursor_idx: usize,
-        },
-        Hotlist {
-            entries: Vec<crate::config::bookmarks::HotlistEntry>,
-            cursor_idx: usize,
-        },
-        /// Folder shortcut slots 1–9 (contents live in `AppState::folder_shortcuts`).
-        FolderShortcuts {
-            cursor_idx: usize,
-        },
         PluginMenu(PluginMenuState),
-        SortModesDialog {
-            current: SortField,
-            reverse: bool,
-            cursor_idx: usize,
-        },
-        ScreensMenu {
-            cursor_idx: usize,
-            suspended_popup: Option<Box<PopupType>>,
-        },
         QuickViewPanel(Box<QuickViewDialog>),
         FileAttributesDialog {
             attrs: FileAttrsSnapshot,
@@ -212,11 +192,6 @@ macro_rules! dialog_list {
             cursor_idx: usize,
             caller: TreeViewCaller,
         },
-        ArchiveCommandsMenu {
-            archive_path: PathBuf,
-            items: Vec<String>,
-            cursor_idx: usize,
-        },
         ConfigurationDialog(ConfigurationDialogState),
         ColorGroupsDialog {
             cursor_idx: usize,
@@ -244,16 +219,6 @@ macro_rules! dialog_list {
             error: Option<String>,
             scroll_y: usize,
         },
-        OnboardingKeymap {
-            cursor_idx: usize,
-        },
-        CommandPalette {
-            query: TextField,
-            cursor_idx: usize,
-            items: Vec<(String, crate::keybindings::Action)>,
-        },
-        /// Keyboard-shortcuts modal (`which_key`).
-        Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
         Plugin(PluginDialog),
             ]
         }

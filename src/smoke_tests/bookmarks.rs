@@ -2,6 +2,8 @@
 //! sandbox configuration directory.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::FolderShortcuts;
+use crate::app::state::popup::Hotlist;
 use crate::test_harness::Harness;
 
 fn bookmarks_file(h: &Harness) -> String {
@@ -10,7 +12,7 @@ fn bookmarks_file(h: &Harness) -> String {
 
 fn hotlist_index(h: &Harness, needle: &str) -> Option<usize> {
     match h.state.dialogs.top() {
-        Some(PopupType::Hotlist { entries, .. }) => entries
+        Some(PopupType::Hotlist(Hotlist { entries, .. })) => entries
             .iter()
             .position(|e| e.path.to_string_lossy().contains(needle)),
         _ => panic!("hotlist expected\n{}", h.screen_text()),
@@ -53,7 +55,7 @@ fn folder_shortcuts_assign_jump_and_persist() {
         .keys("Enter @folder_shortcuts_config");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::FolderShortcuts { .. })
+        Some(PopupType::FolderShortcuts(FolderShortcuts { .. }))
     ));
     h.keys("3 Esc");
     let target = h.left().join("destino");

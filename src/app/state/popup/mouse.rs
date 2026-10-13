@@ -10,22 +10,10 @@ impl PopupType {
         }
         matches!(
             self,
-            PopupType::UserMenu { .. }
-                | PopupType::Menu { .. }
-                | PopupType::YaziSortPopup
-                | PopupType::YaziViewPopup
-                | PopupType::ContextMenu { .. }
-                | PopupType::DriveSelect { .. }
-                | PopupType::Hotlist { .. }
-                | PopupType::FolderShortcuts { .. }
-                | PopupType::PluginMenu(_)
-                | PopupType::SortModesDialog { .. }
-                | PopupType::ScreensMenu { .. }
-                | PopupType::ArchiveCommandsMenu { .. }
+            PopupType::PluginMenu(_)
                 | PopupType::CommandHistoryList { .. }
                 | PopupType::FileViewHistoryList { .. }
                 | PopupType::FoldersHistoryList { .. }
-                | PopupType::CommandPalette { .. }
                 | PopupType::TreeView { .. }
                 | PopupType::SelectDevPlugin { .. }
                 | PopupType::UpdateAvailable { .. }
@@ -49,8 +37,6 @@ impl PopupType {
                 | PopupType::TaskListDialog { .. }
                 | PopupType::TreeView { .. }
                 | PopupType::TransferPanel
-                | PopupType::CommandPalette { .. }
-                | PopupType::Shortcuts(_)
                 | PopupType::DiskUsage
                 | PopupType::SyncDirs(_)
         )

@@ -70,11 +70,9 @@ fn clear_all(state: &mut AppState, context: &AppContext, kind: HistoryKind) {
         .confirmations
         .confirm_clear_history_list
     {
-        state
-            .dialogs
-            .replace(PopupType::ConfirmClearHistory(ConfirmClearHistory {
-                history_type: kind.key().to_string(),
-            }));
+        state.dialogs.replace(ConfirmClearHistory {
+            history_type: kind.key().to_string(),
+        });
     } else {
         state.history.clear(kind);
         state.history.save();

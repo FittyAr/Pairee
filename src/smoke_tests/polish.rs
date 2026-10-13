@@ -2,6 +2,7 @@
 //! chords that used to be rejected, keymap-driven F-key labels and the
 //! editor's block mode.
 
+use crate::app::state::popup::CommandPalette;
 use crate::app::state::{GitPanelState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::test_harness::Harness;
@@ -69,7 +70,7 @@ fn fixed_keymap_chords_reach_their_actions() {
         assert!(
             matches!(
                 h.state.dialogs.top(),
-                Some(PopupType::CommandPalette { .. })
+                Some(PopupType::CommandPalette(CommandPalette { .. }))
             ),
             "{keymap}: {}",
             h.screen_text()

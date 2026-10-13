@@ -121,12 +121,10 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
     }
     match crate::fs::create_directory(&path, settings.req_admin_modification) {
         Err(_) if !settings.req_admin_modification => {
-            state
-                .dialogs
-                .replace(PopupType::ConfirmRetryAsAdmin(ConfirmRetryAsAdmin {
-                    paths: vec![path],
-                    op_kind: crate::app::state::AdminOpKind::MkDir,
-                }));
+            state.dialogs.replace(ConfirmRetryAsAdmin {
+                paths: vec![path],
+                op_kind: crate::app::state::AdminOpKind::MkDir,
+            });
             false
         }
         Err(e) => {

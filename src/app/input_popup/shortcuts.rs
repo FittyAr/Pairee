@@ -12,7 +12,9 @@ use crate::app::form::{FieldKey, field_key};
 use crate::app::list_nav::NavStep;
 use crate::app::shortcuts::edit;
 use crate::app::shortcuts::state::{Mode, ShortcutsState};
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crate::keybindings::chord::fragility;
@@ -199,4 +201,20 @@ fn export(
         FieldKey::Handled | FieldKey::Other => s.mode = Mode::Export { name },
     }
     Outcome::Stay
+}
+
+impl Dialog for ShortcutsState {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        match &mut self.mode {
+            Mode::Browse => Some(&mut self.query),
+            Mode::Export { name } => Some(name),
+            _ => None,
+        }
+    }
 }

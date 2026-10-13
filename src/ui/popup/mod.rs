@@ -54,21 +54,9 @@ pub fn render_popup(
                 crate::ui::placement::unplaced(|| render_specific_popup(f, popup, &cx))
             });
         } else {
-            render_one(f, popup, &cx);
+            render_specific_popup(f, popup, &cx);
         }
     }
-}
-
-/// Draws the top dialog, after the one a screens list suspended.
-fn render_one(f: &mut Frame, popup: &PopupType, cx: &view::ViewCtx<'_>) {
-    if let PopupType::ScreensMenu {
-        suspended_popup: Some(suspended),
-        ..
-    } = popup
-    {
-        render_specific_popup(f, suspended, cx);
-    }
-    render_specific_popup(f, popup, cx);
 }
 
 /// Draws `popup` (a dialog type, or one of the variants not migrated yet).
@@ -76,18 +64,8 @@ fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::V
     if view::render_dialog(f, popup, cx) {
         return;
     }
-    let (state, context, theme, size, panels) =
-        (cx.state, cx.context, cx.theme, cx.area, cx.panels);
+    let (state, context, theme, size) = (cx.state, cx.context, cx.theme, cx.area);
     if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
-        return;
-    }
-    if yazi::render_yazi_popup(f, popup, theme, size) {
-        return;
-    }
-    if menus::render_menu_popup(f, popup, size, panels, state, context) {
-        return;
-    }
-    if screens_menu::render_screens_menu(f, popup, state, theme, size) {
         return;
     }
     if sync_dirs::render(f, popup, state, theme, size) {
@@ -134,16 +112,7 @@ fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::V
     if git_new_popups::render(f, popup, theme, size) {
         return;
     }
-    if update::render(f, popup, theme, size, Some(&state.scrollbar)) {
-        return;
-    }
-    if onboarding::render(f, popup, theme, size) {
-        return;
-    }
-    if command_palette::render(f, popup, theme, size, &context.resolver) {
-        return;
-    }
-    shortcuts::render(f, popup, theme, size);
+    update::render(f, popup, theme, size, Some(&state.scrollbar));
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,

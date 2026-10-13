@@ -2,6 +2,8 @@
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::ScreensMenu;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::keybindings::Action;
@@ -13,7 +15,8 @@ pub fn handle(
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let screens = state.screens.len();
-    let Some(PopupType::ScreensMenu { cursor_idx, .. }) = state.dialogs.top_mut() else {
+    let Some(PopupType::ScreensMenu(ScreensMenu { cursor_idx, .. })) = state.dialogs.top_mut()
+    else {
         return Err(());
     };
     let code = if key.code == KeyCode::F(12) {
@@ -25,11 +28,8 @@ pub fn handle(
     let cursor = *cursor_idx;
     match action {
         ListKey::Moved => {}
-        ListKey::Close => {
-            // Back to the dialog that was open on this screen, if any.
-            let suspended = take_suspended(state);
-            state.dialogs.set(suspended);
-        }
+        // Back to the dialogs open on this screen, if any.
+        ListKey::Close => drop(state.dialogs.pop_as::<ScreensMenu>()),
         ListKey::Activate(idx) => switch_to(state, idx),
         ListKey::Other if key.code == KeyCode::F(3) => view_terminal_output(state, cursor),
         ListKey::Other if key.code == KeyCode::Delete => close_at(state, cursor),
@@ -38,24 +38,13 @@ pub fn handle(
     Ok(None)
 }
 
-/// Removes the menu, returning the dialog it was opened over.
-fn take_suspended(state: &mut AppState) -> Option<PopupType> {
-    match state.dialogs.pop() {
-        Some(PopupType::ScreensMenu {
-            suspended_popup, ..
-        }) => suspended_popup.map(|p| *p),
-        _ => None,
-    }
-}
-
-/// Enter: show screen `idx`, parking the current screen's dialog.
+/// Enter: show screen `idx`, parking the current screen's dialogs.
 fn switch_to(state: &mut AppState, idx: usize) {
-    let suspended = take_suspended(state);
+    state.dialogs.pop_as::<ScreensMenu>();
     if idx >= state.screens.len() {
         state.dialogs.clear();
         return;
     }
-    state.dialogs.set(suspended);
     state.switch_screen(idx);
 }
 
@@ -66,7 +55,7 @@ fn close_at(state: &mut AppState, idx: usize) {
     };
     state.close_screen(id);
     let last = state.screens.len() - 1;
-    if let Some(PopupType::ScreensMenu { cursor_idx, .. }) = state.dialogs.top_mut() {
+    if let Some(PopupType::ScreensMenu(ScreensMenu { cursor_idx, .. })) = state.dialogs.top_mut() {
         *cursor_idx = (*cursor_idx).min(last);
     }
 }
@@ -81,4 +70,13 @@ fn view_terminal_output(state: &mut AppState, idx: usize) {
         crate::ui::viewer::ViewerState::from_text(std::path::PathBuf::from(title), ts.output.all());
     state.push_screen(Screen::Viewer(viewer));
     state.dialogs.clear();
+}
+
+impl Dialog for ScreensMenu {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
 }

@@ -4,6 +4,7 @@
 use super::top;
 use crate::app::state::PopupType;
 use crate::app::state::popup::About;
+use crate::app::state::popup::CommandPalette;
 use crate::app::state::popup::MkDirPrompt;
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
@@ -128,7 +129,7 @@ fn flowing_dialogs_resize_by_their_corner_and_fixed_ones_do_not() {
 
 fn palette_cursor(h: &Harness) -> usize {
     match top(h) {
-        Some(PopupType::CommandPalette { cursor_idx, .. }) => *cursor_idx,
+        Some(PopupType::CommandPalette(CommandPalette { cursor_idx, .. })) => *cursor_idx,
         other => panic!("palette not open: {other:?}"),
     }
 }
@@ -148,7 +149,10 @@ fn list_rows_take_clicks_double_clicks_and_the_wheel() {
     // Clicking inside the palette keeps it open (it records its body now).
     let (qx, qy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
     h.click(qx + 4, qy);
-    assert!(matches!(top(&h), Some(PopupType::CommandPalette { .. })));
+    assert!(matches!(
+        top(&h),
+        Some(PopupType::CommandPalette(CommandPalette { .. }))
+    ));
 }
 
 #[test]

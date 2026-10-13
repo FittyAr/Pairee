@@ -97,18 +97,9 @@ fn git_progress(
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
-        PopupType::UserMenu { .. } => user_menu::handle,
-        PopupType::Menu { .. } => menu::handle,
-        PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
-        PopupType::ScreensMenu { .. } => screens_menu::handle,
-        PopupType::DriveSelect { .. } => drive_select::handle,
-        PopupType::Hotlist { .. } => hotlist::handle,
-        PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
         PopupType::TreeView { .. } => tree_view::handle,
         PopupType::SyncDirs(_) => sync_dirs::handle,
         PopupType::FolderScanProgress => sync_dirs::handle_progress,
-        PopupType::ContextMenu { .. } => context_menu::handle,
-        PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle,
         PopupType::TaskListDialog { .. } => task_list::handle,
         PopupType::DiskUsage => disk_usage::handle,
         PopupType::PluginMenu(..) => plugin_menu::handle,
@@ -147,13 +138,9 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
             git_new_popups::handle_clone
         }
-        PopupType::SortModesDialog { .. } => sort_modes::handle,
         PopupType::UpdateAvailable { .. } => update_popup::handle,
         PopupType::TransferPanel => transfer_panel::handle,
         PopupType::FileAssociationsDialog { .. } => file_associations::handle,
-        PopupType::OnboardingKeymap { .. } => onboarding::handle,
-        PopupType::CommandPalette { .. } => command_palette::handle,
-        PopupType::Shortcuts(_) => shortcuts::handle,
         PopupType::Plugin(_) => plugin_dialogs::handle,
         _ => dismiss_only::handle,
     }

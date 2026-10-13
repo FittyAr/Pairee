@@ -1,6 +1,7 @@
 //! The menu bar (shown or hidden), its drop-downs and the function keys.
 
 use super::{panels, top};
+use crate::app::state::popup::Menu;
 use crate::app::state::popup::MkDirPrompt;
 use crate::app::state::{ActivePanel, PopupType};
 use crate::test_harness::Harness;
@@ -25,12 +26,12 @@ fn reveal_menu(h: &mut Harness) {
 
 fn open_menu(h: &Harness) -> Option<(usize, Option<usize>, Option<usize>)> {
     match top(h) {
-        Some(&PopupType::Menu {
+        Some(&PopupType::Menu(Menu {
             active_menu_idx,
             active_item_idx,
             active_submenu_idx,
             ..
-        }) => Some((active_menu_idx, active_item_idx, active_submenu_idx)),
+        })) => Some((active_menu_idx, active_item_idx, active_submenu_idx)),
         _ => None,
     }
 }

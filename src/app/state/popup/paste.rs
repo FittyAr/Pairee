@@ -8,12 +8,6 @@ impl PopupType {
             return self.dialog_mut().and_then(|d| d.focused_field_mut());
         }
         match self {
-            PopupType::CommandPalette { query, .. } => Some(query),
-            PopupType::Shortcuts(s) => match &mut s.mode {
-                crate::app::shortcuts::state::Mode::Browse => Some(&mut s.query),
-                crate::app::shortcuts::state::Mode::Export { name } => Some(name),
-                _ => None,
-            },
             PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
             PopupType::SshConnectPrompt(prompt) => {
                 let row = prompt.cursor_idx;
@@ -37,7 +31,9 @@ impl PopupType {
 mod tests {
     use super::*;
     use crate::app::state::popup::ConfirmQuit;
-    use crate::app::state::popup::{ApplyCommandPrompt, CreateLinkPrompt, MkDirPrompt};
+    use crate::app::state::popup::{
+        ApplyCommandPrompt, CommandPalette, CreateLinkPrompt, MkDirPrompt,
+    };
     use crate::app::state::types::LinkKind;
     use std::path::PathBuf;
 
@@ -76,14 +72,14 @@ mod tests {
 
     #[test]
     fn command_palette_appends_to_query() {
-        let mut popup = PopupType::CommandPalette {
+        let mut popup = PopupType::CommandPalette(CommandPalette {
             query: "co".into(),
             cursor_idx: 0,
             items: vec![],
-        };
+        });
         assert!(popup.apply_paste("py"));
         match popup {
-            PopupType::CommandPalette { query, .. } => assert_eq!(query, "copy"),
+            PopupType::CommandPalette(CommandPalette { query, .. }) => assert_eq!(query, "copy"),
             _ => panic!("expected palette"),
         }
     }

@@ -14,6 +14,7 @@ mod tabs;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
+use crate::app::state::popup::Menu;
 use crate::terminal::TerminalBackend;
 use crate::ui::hit::{Hit, HitTarget, Layer};
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -332,7 +333,7 @@ async fn outside_popup(
         .is_some()
         || matches!(
             state.dialogs.top(),
-            Some(crate::app::state::PopupType::Menu { .. })
+            Some(crate::app::state::PopupType::Menu(Menu { .. }))
         );
     let closes = click.button == MouseButton::Left
         && drawn

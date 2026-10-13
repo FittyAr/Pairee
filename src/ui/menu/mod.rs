@@ -9,6 +9,7 @@ pub mod types;
 pub use types::MenuItemData;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::Menu;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use ratatui::{
@@ -87,9 +88,9 @@ pub fn render_menu(f: &mut Frame, area: Rect, context: &AppContext, state: &AppS
     }
     let theme = &context.theme();
 
-    let active_menu_idx = if let Some(PopupType::Menu {
+    let active_menu_idx = if let Some(PopupType::Menu(Menu {
         active_menu_idx, ..
-    }) = state.dialogs.top()
+    })) = state.dialogs.top()
     {
         Some(active_menu_idx)
     } else {

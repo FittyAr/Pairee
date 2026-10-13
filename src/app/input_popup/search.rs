@@ -92,14 +92,12 @@ fn start_search(state: &mut AppState) {
         target: *search_target,
     };
     crate::app::jobs::file_search::start(&mut state.search, search);
-    state
-        .dialogs
-        .replace(PopupType::SearchResults(SearchResults {
-            query: if name.is_empty() { content } else { name },
-            results: Vec::new(),
-            cursor_idx: 0,
-            searching: true,
-        }));
+    state.dialogs.replace(SearchResults {
+        query: if name.is_empty() { content } else { name },
+        results: Vec::new(),
+        cursor_idx: 0,
+        searching: true,
+    });
 }
 
 fn handle_results(

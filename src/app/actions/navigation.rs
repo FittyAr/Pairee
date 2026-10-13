@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::input::{handle_backspace_key, handle_enter_key, handle_open_archive_key};
+use crate::app::state::popup::DriveSelect;
 use crate::app::state::popup::SelectGroupPrompt;
 use crate::app::state::{ActivePanel, AppState, PopupType, SelectMode};
 use crate::app::sys_helpers::{build_tree_nodes, get_system_drives};
@@ -146,16 +147,14 @@ pub(crate) fn set_selected(state: &mut AppState, idx: usize, selected: bool) {
 }
 
 fn open_select_group(state: &mut AppState, mode: SelectMode) {
-    state
-        .dialogs
-        .replace(PopupType::SelectGroupPrompt(SelectGroupPrompt {
-            mode,
-            query: Default::default(),
-        }));
+    state.dialogs.replace(SelectGroupPrompt {
+        mode,
+        query: Default::default(),
+    });
 }
 
 fn open_drive_select(state: &mut AppState, panel: ActivePanel) {
-    state.dialogs.replace(PopupType::DriveSelect {
+    state.dialogs.replace(DriveSelect {
         panel,
         drives: get_system_drives(),
         cursor_idx: 0,

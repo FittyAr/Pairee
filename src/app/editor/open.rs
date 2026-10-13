@@ -103,10 +103,7 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
     if let Some(reason) = reason {
         state
             .dialogs
-            .replace(PopupType::EditorConfirmOverwrite(EditorConfirmOverwrite {
-                target,
-                reason,
-            }));
+            .replace(EditorConfirmOverwrite { target, reason });
         return false;
     }
     match ed.save_to(&target) {

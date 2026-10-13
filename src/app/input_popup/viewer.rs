@@ -51,9 +51,7 @@ pub fn open_encoding_selector(state: &mut AppState) {
     };
     let current = vw.doc.encoding();
     let cursor_idx = ENCODINGS.iter().position(|e| *e == current).unwrap_or(0);
-    state
-        .dialogs
-        .replace(PopupType::ViewerEncoding(ViewerEncoding { cursor_idx }));
+    state.dialogs.replace(ViewerEncoding { cursor_idx });
 }
 
 impl Dialog for ViewerSearchPrompt {

@@ -1,6 +1,7 @@
 //! Command palette (Ctrl+Shift+P): fuzzy list of logical actions.
 
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::CommandPalette;
 use crate::keybindings::registry::{self, ActionDef, Bindable};
 use crate::keybindings::{Action, plugin_commands};
 use nucleo_matcher::pattern::{CaseMatching, Normalization, Pattern};
@@ -55,7 +56,7 @@ pub fn filter_items(query: &str) -> Vec<(String, Action)> {
 /// Open the palette popup on `state`.
 pub fn open_palette(state: &mut AppState) {
     let items = all_palette_items();
-    state.dialogs.replace(PopupType::CommandPalette {
+    state.dialogs.replace(CommandPalette {
         query: Default::default(),
         cursor_idx: 0,
         items,

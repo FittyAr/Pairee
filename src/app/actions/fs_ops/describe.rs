@@ -1,5 +1,5 @@
+use crate::app::state::AppState;
 use crate::app::state::popup::DescribeFilePrompt;
-use crate::app::state::{AppState, PopupType};
 
 pub fn handle(state: &mut AppState) -> bool {
     let active = state.get_active_panel();
@@ -8,13 +8,11 @@ pub fn handle(state: &mut AppState) -> bool {
     {
         let current_desc = crate::fs::read_description(&active.current_path.clone(), &entry.name)
             .unwrap_or_default();
-        state
-            .dialogs
-            .replace(PopupType::DescribeFilePrompt(DescribeFilePrompt {
-                path: entry.path.clone(),
-                current_desc: current_desc.clone(),
-                input: current_desc.into(),
-            }));
+        state.dialogs.replace(DescribeFilePrompt {
+            path: entry.path.clone(),
+            current_desc: current_desc.clone(),
+            input: current_desc.into(),
+        });
     }
     true
 }

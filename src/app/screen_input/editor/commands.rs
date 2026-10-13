@@ -37,9 +37,7 @@ pub(super) fn run(
                 .unwrap_or_default();
             state
                 .dialogs
-                .replace(PopupType::EditorSaveAsPrompt(EditorSaveAsPrompt {
-                    input: name.into(),
-                }));
+                .replace(EditorSaveAsPrompt { input: name.into() });
         }
         E::Save => {
             save_active_editor(state, None, false);
