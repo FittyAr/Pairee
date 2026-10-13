@@ -30,9 +30,9 @@ updates:
         patterns: ["*"]
         update-types: ["minor", "patch"]
     ignore:
-      # Pinned on purpose: 0.9 can hang simple commands under ConPTY
-      # (wezterm#6783). Remove once a fixed release is out.
-      - dependency-name: "portable-pty"
-        versions: [">= 0.9"]
+      # Kept on crossterm's version so only one is built (cargo deny bans
+      # duplicates). Remove once crossterm depends on signal-hook 0.4.
+      - dependency-name: "signal-hook"
+        versions: [">= 0.4"]
     commit-message:
       prefix: "build(deps)"

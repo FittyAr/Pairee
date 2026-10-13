@@ -271,7 +271,7 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `shlex` | Parse seguro de comandos usuario (apply / user menu) | **P2 — hecho** (associations + CLI first token; apply sigue en shell con `%f` quoted) |
 | Terminal capability detection (brand, KKP unreliable) | Degradar features en conhost / tmux viejo | P2 |
 | Tests PTY e2e de render | Smoke resize + draw en CI (`TestBackend`; TUI-en-PTY aún no) | **P2 — smoke CI** |
-| PTY para `command &` / apply | Pipes (`stdout` capturado) | **Hecho** (`portable-pty` 0.8.1; no emulador VT) |
+| PTY para `command &` / apply | Pipes (`stdout` capturado) | **Hecho** (capa PTY propia `src/terminal/pty`; no emulador VT) |
 | `xai-ratatui-inline` (viewport inline + scrollback nativo) | **No** copiar de entrada: es chat/REPL, no dual-panel fullscreen | Fuera de alcance |
 | Mermaid / markdown heavy stack | Solo si un día el help necesita más; hoy `pulldown-cmark` basta | Fuera / P3 |
 
@@ -306,8 +306,8 @@ Problema reportado: UI “funciona pero no termina de quedar bien”; **glitches
 | `arboard` | **Sí** | Copy path + comando de update al clipboard del SO |
 | `signal-hook` | Candidato Unix | SIGWINCH / graceful signals |
 | `xai-ratatui-textarea` | No (interno monorepo) | Evaluar `tui-textarea` público si hace falta editor embebido |
-| `alacritty_terminal` | **No** | Emulador VT completo es otro producto; Pairee usa `portable-pty` + líneas + `ansi-to-tui` |
-| `portable-pty` | **Sí** (0.8.1) | `command &` y apply-command en PTY real (ConPTY / openpty) |
+| `alacritty_terminal` | **No** | Emulador VT completo es otro producto; Pairee usa su capa PTY propia + líneas + `ansi-to-tui` |
+| `portable-pty` | **Reemplazado** | Capa PTY propia (`src/terminal/pty`: ConPTY / `posix_openpt`); 0.8 arrastraba `serial` (RUSTSEC-2017-0008) y duplicados |
 
 ### 6.6 Orden de implementación sugerido (F)
 

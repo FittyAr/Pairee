@@ -65,6 +65,8 @@
 - Plugin `min_pairee` versions are read as semver (pre-releases accepted); an unreadable version stops the plugin from loading.
 - Plugin settings are converted with the type declared in `settings_schema`.
 - "Verify after copy" reads every copy back from the disk and compares it with the source; a file that does not match is retried and, if it still differs, reported as failed. Files copied without verification are no longer marked as verified in the job log.
+- Terminal screens (`command &`) and apply-command run on Pairee's own pseudo-terminal layer (ConPTY on Windows, `posix_openpt` on Unix) instead of `portable-pty`, which also drops the unmaintained `serial` crate (RUSTSEC-2017-0008) and a second copy of `nix`, `bitflags`, `thiserror` and `winreg`. A terminal screen's process now sees the size of Pairee's window and is told when it changes.
+- `cargo deny` now fails on duplicate versions of shipped crates; the few that only an upstream release can remove are listed in `deny.toml` with the condition to drop them.
 
 - The screens list and the command-line screen indicator are translated.
 - The transfer panel (conflict dialog, jobs list, tabs, options, statistics), the yazi sort and view key boards and the development plugin picker are translated.

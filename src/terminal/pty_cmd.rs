@@ -1,11 +1,12 @@
-//! Spawn a shell command on a **real PTY** (Unix `openpty` / Windows ConPTY).
+//! Spawn a shell command on a **real PTY** (see [`super::pty`]: Unix
+//! `posix_openpt` / Windows ConPTY).
 //!
 //! This is not a VT emulator: bytes are split into lines and later rendered
 //! with `ansi-to-tui`. The child sees `isatty(stdout) == true`.
 
+use super::pty::{ChildWaiter, NativePty, PtyCommand, PtySize, PtySystem, SpawnedPty};
 use super::pty_control::{Control, PtyControl};
 use anyhow::{Context, anyhow};
-use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -37,7 +38,7 @@ pub fn stream_shell_on_pty(
     cwd: Option<&Path>,
     on_line: impl FnMut(String),
 ) -> anyhow::Result<PtyRunResult> {
-    let (control, run) = spawn_shell_on_pty(script, cwd)?;
+    let (control, run) = spawn_shell_on_pty(script, cwd, PtySize::DEFAULT)?;
     let success = run.wait(on_line)?;
     Ok(PtyRunResult {
         output: String::new(),
@@ -46,48 +47,44 @@ pub fn stream_shell_on_pty(
     })
 }
 
-/// Starts `script` on a new PTY. The [`PtyControl`] types into and stops
-/// the process; [`PtyRun::wait`] streams its output until it exits.
+/// Starts `script` on a new PTY of `size`. The [`PtyControl`] types into,
+/// resizes and stops the process; [`PtyRun::wait`] streams its output until
+/// it exits.
 pub fn spawn_shell_on_pty(
     script: &str,
     cwd: Option<&Path>,
+    size: PtySize,
+) -> anyhow::Result<(PtyControl, PtyRun)> {
+    spawn_on(&NativePty, script, cwd, size)
+}
+
+fn spawn_on(
+    system: &dyn PtySystem,
+    script: &str,
+    cwd: Option<&Path>,
+    size: PtySize,
 ) -> anyhow::Result<(PtyControl, PtyRun)> {
     if script.trim().is_empty() {
         anyhow::bail!("empty command");
     }
-
-    let pty_system = native_pty_system();
-    let pair = pty_system
-        .openpty(PtySize {
-            rows: 24,
-            cols: 80,
-            pixel_width: 0,
-            pixel_height: 0,
-        })
-        .context("open pty")?;
-
-    let mut cmd = shell_command(script);
-    cmd.env("TERM", "xterm-256color");
-    cmd.env("COLORTERM", "truecolor");
-    if let Some(dir) = cwd {
-        cmd.cwd(dir);
-    }
-
-    let child = pair
-        .slave
-        .spawn_command(cmd)
+    let SpawnedPty {
+        pid,
+        reader,
+        writer,
+        master,
+        killer,
+        waiter,
+    } = system
+        .spawn(&shell_command(script, cwd, size))
         .with_context(|| format!("spawn in pty: {script}"))?;
-    drop(pair.slave);
-    let reader = pair.master.try_clone_reader().context("pty reader")?;
-    let writer = pair.master.take_writer().context("pty writer")?;
     let control = PtyControl::new(Control {
-        pid: child.process_id(),
+        pid,
         writer: Some(writer),
-        master: Some(pair.master),
-        killer: Some(child.clone_killer()),
+        master: Some(master),
+        killer: Some(killer),
     });
     let run = PtyRun {
-        child,
+        waiter,
         reader,
         control: control.clone(),
     };
@@ -96,7 +93,7 @@ pub fn spawn_shell_on_pty(
 
 /// A spawned PTY child whose output is still to be read.
 pub struct PtyRun {
-    child: Box<dyn Child + Send + Sync>,
+    waiter: Box<dyn ChildWaiter>,
     reader: Box<dyn Read + Send>,
     control: PtyControl,
 }
@@ -106,14 +103,14 @@ impl PtyRun {
     /// exits; returns whether it succeeded.
     pub fn wait(self, mut on_line: impl FnMut(String)) -> anyhow::Result<bool> {
         let PtyRun {
-            mut child,
+            waiter,
             reader,
             control,
         } = self;
         let line_rx = read_lines(reader);
         let (done_tx, done_rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
-            let _ = done_tx.send(child.wait());
+            let _ = done_tx.send(waiter.wait());
         });
 
         let status = loop {
@@ -136,7 +133,7 @@ impl PtyRun {
         while let Ok(line) = line_rx.recv() {
             on_line(line);
         }
-        Ok(status?.success())
+        status
     }
 }
 
@@ -176,17 +173,21 @@ fn read_lines(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<Str
     line_rx
 }
 
-/// portable-pty quotes every argument itself, so the shell invocation comes
-/// from `crate::shell::shell_invocation` (script passed via the environment
-/// on Windows instead of an argument cmd.exe would mis-parse).
-fn shell_command(script: &str) -> CommandBuilder {
+/// The PTY layer quotes every argument itself, so the shell invocation
+/// comes from `crate::shell::shell_invocation` (script passed via the
+/// environment on Windows instead of an argument cmd.exe would mis-parse).
+fn shell_command(script: &str, cwd: Option<&Path>, size: PtySize) -> PtyCommand {
     let inv = crate::shell::shell_invocation(script);
-    let mut cmd = CommandBuilder::new(inv.program);
-    cmd.args(inv.args);
-    for (key, value) in inv.env {
-        cmd.env(key, value);
+    let mut env = inv.env;
+    env.push(("TERM".to_string(), "xterm-256color".to_string()));
+    env.push(("COLORTERM".to_string(), "truecolor".to_string()));
+    PtyCommand {
+        program: inv.program,
+        args: inv.args,
+        env,
+        cwd: cwd.map(Path::to_path_buf),
+        size,
     }
-    cmd
 }
 
 fn decode_utf8_chunk(pending: &mut Vec<u8>, chunk: &[u8], acc: &mut String) {
@@ -262,6 +263,91 @@ mod tests {
         assert_eq!(lines, vec!["line".to_string()]);
         assert_eq!(replied, DSR_REPLY);
         assert!(acc.is_empty());
+    }
+
+    /// A child that printed `output` and exited with `success`.
+    struct FakePty {
+        output: &'static [u8],
+        success: bool,
+    }
+
+    struct Inert;
+
+    impl crate::terminal::pty::PtyMaster for Inert {
+        fn resize(&self, _: PtySize) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl crate::terminal::pty::ChildKiller for Inert {
+        fn kill(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    struct Exit(bool);
+
+    impl ChildWaiter for Exit {
+        fn wait(self: Box<Self>) -> std::io::Result<bool> {
+            Ok(self.0)
+        }
+    }
+
+    const FAKE_SIZE: PtySize = PtySize { rows: 9, cols: 33 };
+
+    impl PtySystem for FakePty {
+        fn spawn(&self, cmd: &PtyCommand) -> std::io::Result<SpawnedPty> {
+            assert!(
+                cmd.env
+                    .iter()
+                    .any(|(k, v)| k == "TERM" && v == "xterm-256color")
+            );
+            assert_eq!(cmd.size, FAKE_SIZE);
+            Ok(SpawnedPty {
+                pid: Some(42),
+                reader: Box::new(self.output),
+                writer: Box::new(std::io::sink()),
+                master: Box::new(Inert),
+                killer: Box::new(Inert),
+                waiter: Box::new(Exit(self.success)),
+            })
+        }
+    }
+
+    fn fake_run(output: &'static [u8], success: bool) -> (Vec<String>, bool, PtyControl) {
+        let fake = FakePty { output, success };
+        let (control, run) = spawn_on(&fake, "anything", None, FAKE_SIZE).unwrap();
+        let mut lines = Vec::new();
+        let ok = run.wait(|line| lines.push(line)).unwrap();
+        (lines, ok, control)
+    }
+
+    #[test]
+    fn fake_pty_streams_lines_and_exit_status() {
+        let (lines, ok, control) = fake_run(b"one\r\ntwo\n\xc3", true);
+        assert_eq!(lines, ["one", "two", "\u{FFFD}"]);
+        assert!(ok);
+        assert_eq!(control.pid(), Some(42));
+        // Released once the child exited: no more input, resize or kill.
+        assert!(!control.send(b"x"));
+        control.resize(PtySize::DEFAULT);
+        control.kill();
+    }
+
+    #[test]
+    fn fake_pty_reports_failure() {
+        let (lines, ok, _) = fake_run(b"", false);
+        assert!(lines.is_empty());
+        assert!(!ok);
+    }
+
+    #[test]
+    fn empty_script_is_refused() {
+        let fake = FakePty {
+            output: b"",
+            success: true,
+        };
+        assert!(spawn_on(&fake, "  ", None, FAKE_SIZE).is_err());
     }
 
     fn run_echo_hello() -> PtyRunResult {
