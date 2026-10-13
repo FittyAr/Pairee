@@ -117,25 +117,32 @@ pub async fn load_plugin(
         anyhow::bail!("main.lua not found for plugin {}", name);
     }
     let main_content = std::fs::read_to_string(&main_path)?;
+    let annotations = crate::plugin::annotations::Annotations::parse(&main_content);
+    annotations
+        .check_since(crate::plugin::runtime::api_version::LUA_API_VERSION)
+        .map_err(|e| anyhow::anyhow!("Plugin {name}: {e}"))?;
 
-    // Evaluate Lua and run setup in a nested block to drop all non-Send mlua
-    // types before await. Both run under the CPU watchdog.
-    let table_key = crate::plugin::limits::guarded(&lua, || {
-        let plugin_table: mlua::Table = lua.load(&main_content).eval()?;
-
-        // 5. Run setup() if defined
-        if plugin_table.contains_key("setup")? {
-            let setup_fn: mlua::Function = plugin_table.get("setup")?;
-            let opts = lua.create_table()?;
-            setup_fn.call::<()>((plugin_table.clone(), opts))?;
-        }
-
-        lua.create_registry_value(plugin_table)
-    })?;
+    // Evaluate main.lua, then run setup() if defined, both under the CPU
+    // watchdog. setup runs asynchronously, like every other plugin method,
+    // so it may await dialogs or `pairee.sync`.
+    let plugin_table: mlua::Table =
+        crate::plugin::limits::guarded(&lua, || lua.load(&main_content).eval())?;
+    if let mlua::Value::Function(setup_fn) = plugin_table.get::<mlua::Value>("setup")? {
+        let opts = lua.create_table()?;
+        let call = setup_fn.call_async::<()>((plugin_table.clone(), opts));
+        crate::plugin::limits::guarded_async(&lua, call).await?;
+    }
+    let table_key = lua.create_registry_value(plugin_table)?;
 
     // 6. Register capabilities (Previewers, Commands, Hooks) and spawn task
-    crate::plugin::registry::register_plugin(manifest.clone(), table_key, lua, path.to_path_buf())
-        .await?;
+    let loaded = crate::plugin::registry::LoadedPlugin {
+        manifest: manifest.clone(),
+        path: path.to_path_buf(),
+        lua,
+        table_key,
+        annotations,
+    };
+    crate::plugin::registry::register_plugin(loaded, tx).await?;
 
     tracing::info!(
         "Successfully loaded plugin: {} v{} (License: {:?}, Languages: {:?})",
@@ -161,7 +168,7 @@ fn parse_version(v: &str) -> anyhow::Result<semver::Version> {
 
 /// Fails when `current` is older than `min_version` or either cannot be
 /// parsed (an unreadable requirement is not silently accepted).
-fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
+pub(crate) fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
     let min = parse_version(min_version)?;
     let cur = parse_version(current)?;
     if cur >= min {
@@ -227,6 +234,42 @@ mod tests {
             Some("my_custom_action")
         );
         assert!(manifest.permissions.commands.is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn setup_may_await_and_since_is_enforced() {
+        let root = tempfile::tempdir().unwrap();
+        let dir = root.path().join("async-setup.pairee");
+        std::fs::create_dir(&dir).unwrap();
+        std::fs::write(
+            dir.join("manifest.toml"),
+            "name = \"async-setup\"
+version = \"1.0.0\"
+",
+        )
+        .unwrap();
+        std::fs::write(
+            dir.join("main.lua"),
+            "local M = {}
+function M:setup() pairee.utils.sleep(0) end
+return M
+",
+        )
+        .unwrap();
+        let (tx, _rx) = mpsc::channel(4);
+        let options = PluginLoadOptions::new("async-setup", false, false);
+        load_plugin(&dir, &options, tx.clone()).await.unwrap();
+        crate::plugin::registry::unregister_plugin("async-setup").await;
+
+        std::fs::write(
+            dir.join("main.lua"),
+            "--- @since 99.0
+return {}
+",
+        )
+        .unwrap();
+        let err = load_plugin(&dir, &options, tx).await.unwrap_err();
+        assert!(err.to_string().contains("@since 99.0"), "{err}");
     }
 
     #[test]

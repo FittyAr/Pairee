@@ -20,6 +20,49 @@ pub struct PluginLoadOptions {
     pub secure_mode: bool,
     /// `plugin_settings.<name>` from `config.toml` (string values).
     pub settings: HashMap<String, String>,
+    /// What `pairee.rt` / `pairee.th` show of the host's configuration.
+    pub host: HostSnapshot,
+}
+
+/// The host preferences and theme a plugin may read (`pairee.rt`,
+/// `pairee.th`), copied when the plugins are (re)loaded.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct HostSnapshot {
+    pub show_hidden: bool,
+    /// `name`, `extension`, `size`, `date` or `unsorted`.
+    pub sort_by: String,
+    pub sort_reverse: bool,
+    pub image_preview: bool,
+    /// Syntax highlighting of the viewer, reused by `pairee.preview_code`.
+    pub syntax_highlighting: bool,
+    pub syntax_max_bytes: u64,
+    /// Theme name and `(key, color)` pairs of the active theme.
+    pub theme_name: String,
+    pub theme_colors: Vec<(String, String)>,
+}
+
+impl HostSnapshot {
+    pub fn of(config: &AppConfig) -> Self {
+        let settings = &config.settings;
+        let theme_colors = match toml::Value::try_from(&config.theme) {
+            Ok(toml::Value::Table(table)) => table
+                .into_iter()
+                .filter(|(key, _)| key != "name")
+                .filter_map(|(key, value)| Some((key, value.as_str()?.to_string())))
+                .collect(),
+            _ => Vec::new(),
+        };
+        Self {
+            show_hidden: settings.show_hidden,
+            sort_by: format!("{:?}", settings.sort_field).to_lowercase(),
+            sort_reverse: settings.sort_reverse,
+            image_preview: settings.image_preview_enabled,
+            syntax_highlighting: settings.syntax_highlighting,
+            syntax_max_bytes: u64::from(settings.syntax_highlighting_max_kb) * 1024,
+            theme_name: config.theme.name.clone(),
+            theme_colors,
+        }
+    }
 }
 
 impl PluginLoadOptions {
@@ -31,6 +74,7 @@ impl PluginLoadOptions {
             trusted,
             secure_mode,
             settings: HashMap::new(),
+            host: HostSnapshot::default(),
         }
     }
 
@@ -44,6 +88,7 @@ impl PluginLoadOptions {
                 .get(name)
                 .cloned()
                 .unwrap_or_default(),
+            host: HostSnapshot::default(),
         }
     }
 }
@@ -88,7 +133,8 @@ pub fn load_plan(config: &AppConfig, plugins_dir: &Path) -> Vec<PlannedPlugin> {
                 tracing::info!("Plugin {name} is disabled; not loading it");
                 return None;
             }
-            let options = PluginLoadOptions::from_settings(name, &config.settings, secure_mode);
+            let mut options = PluginLoadOptions::from_settings(name, &config.settings, secure_mode);
+            options.host = HostSnapshot::of(config);
             Some(PlannedPlugin { dir, options })
         })
         .collect();
@@ -149,6 +195,21 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         std::fs::create_dir(dir.path().join("a.pairee")).unwrap();
         assert!(load_plan(&config, dir.path())[0].options.secure_mode);
+    }
+
+    #[test]
+    fn the_host_snapshot_copies_preferences_and_theme() {
+        let mut config = AppConfig::default();
+        config.settings.show_hidden = true;
+        let host = HostSnapshot::of(&config);
+        assert!(host.show_hidden);
+        assert_eq!(
+            host.sort_by,
+            format!("{:?}", config.settings.sort_field).to_lowercase()
+        );
+        assert_eq!(host.theme_name, config.theme.name);
+        assert!(host.theme_colors.iter().any(|(k, _)| k == "panel_fg"));
+        assert!(host.theme_colors.iter().all(|(k, _)| k != "name"));
     }
 
     #[test]

@@ -14,6 +14,7 @@ pub mod dev;
 pub mod installed;
 pub mod search;
 pub mod select;
+pub mod settings;
 
 pub use crate::ui::wrap::wrap_text;
 

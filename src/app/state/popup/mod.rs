@@ -18,7 +18,8 @@ mod multi_rename;
 mod paste;
 mod plugin;
 mod plugin_menu;
-mod plugin_widget;
+mod plugin_settings;
+pub mod plugin_widget;
 mod prompts;
 mod quickview;
 mod settings;
@@ -58,7 +59,10 @@ pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
 pub use plugin_menu::{PluginMenuState, SelectDevPlugin};
-pub use plugin_widget::PluginWidget;
+pub use plugin_settings::{
+    BUTTON_DEFAULTS, BUTTON_SAVE, PluginSettingRow, PluginSettingValue, PluginSettingsDialog,
+};
+pub use plugin_widget::{PluginPreview, Renderable};
 pub use prompts::{
     ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
     DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,
@@ -188,6 +192,7 @@ macro_rules! dialog_list {
             // Plugins
             PluginMenu(PluginMenuState),
             SelectDevPlugin(SelectDevPlugin),
+            PluginSettings(PluginSettingsDialog),
             Plugin(PluginDialog),
         }
     };

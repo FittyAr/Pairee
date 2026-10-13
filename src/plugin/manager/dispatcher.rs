@@ -150,11 +150,11 @@ fn dispatch_dialog_request(state: &mut AppState, req: PluginRequest) {
 /// Requests that refresh data shown by an open popup.
 fn dispatch_popup_update(state: &mut AppState, req: PluginRequest) {
     match req {
-        PluginRequest::UpdatePluginWidget { path, widget } => {
+        PluginRequest::UpdatePluginWidget { path, preview } => {
             if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top_mut()
                 && qv.path == path
             {
-                qv.plugin_widget = Some(widget);
+                qv.plugin = Some(*preview);
             }
         }
         PluginRequest::PluginMenuLoaded {

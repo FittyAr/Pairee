@@ -9,6 +9,7 @@ pub mod entry;
 pub mod external_tools;
 pub mod file_id;
 pub mod glob;
+pub mod identity;
 pub mod journal;
 pub mod link;
 pub mod list;

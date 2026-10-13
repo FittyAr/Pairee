@@ -12,6 +12,15 @@
 //!   Once tripped, the hook fires on every instruction so a `pcall` loop
 //!   cannot swallow the error, until the guarded call returns.
 //!
+//! Asynchronous calls (the plugin's `entry`, `peek`, `preload`, `seek`
+//! and hook callbacks run with `call_async`, so they can await dialogs,
+//! `pairee.sync` or child processes) go through [`guarded_async`]: the
+//! budget only runs while the call's future is being polled, i.e. while
+//! Lua (or a binding) actually executes, and is paused while it waits for
+//! the user or for I/O. Waiting for a confirmation dialog therefore never
+//! aborts a plugin, while ten seconds of busy work spread over many polls
+//! still do.
+//!
 //! A single C function that never returns to the VM (one gigantic
 //! `string.rep` is bounded by the memory cap instead) cannot be
 //! interrupted; the hook fires as soon as control is back in Lua.
@@ -35,8 +44,11 @@ const CHECK_EVERY: u32 = 1_000;
 struct CallState {
     /// Nesting depth of guarded calls (a binding may call back into Lua).
     depth: u32,
-    /// When the outermost guarded call started.
+    /// Since when the outermost guarded call has been running (`None`
+    /// while an async call is suspended).
     started: Option<Instant>,
+    /// Running time of the outermost call before its latest resume.
+    spent: Duration,
     tripped: bool,
 }
 
@@ -66,9 +78,29 @@ impl Watchdog {
         if let Ok(mut s) = self.state.lock() {
             if s.depth == 0 {
                 s.started = Some(Instant::now());
+                s.spent = Duration::ZERO;
                 s.tripped = false;
             }
             s.depth += 1;
+        }
+    }
+
+    /// Stops the clock of the outermost call (its future is suspended).
+    fn pause(&self) {
+        if let Ok(mut s) = self.state.lock()
+            && let Some(start) = s.started.take()
+        {
+            s.spent += start.elapsed();
+        }
+    }
+
+    /// Restarts the clock of the outermost call (its future is polled).
+    fn resume(&self) {
+        if let Ok(mut s) = self.state.lock()
+            && s.depth > 0
+            && s.started.is_none()
+        {
+            s.started = Some(Instant::now());
         }
     }
 
@@ -82,6 +114,7 @@ impl Watchdog {
             return false;
         }
         s.started = None;
+        s.spent = Duration::ZERO;
         std::mem::replace(&mut s.tripped, false)
     }
 
@@ -93,7 +126,7 @@ impl Watchdog {
             return Verdict::StillTripped;
         }
         match s.started {
-            Some(start) if now.duration_since(start) > self.max_run => {
+            Some(start) if s.spent + now.duration_since(start) > self.max_run => {
                 s.tripped = true;
                 Verdict::Tripped
             }
@@ -154,6 +187,38 @@ pub fn guarded<R>(lua: &mlua::Lua, f: impl FnOnce() -> mlua::Result<R>) -> mlua:
         && w.exit()
     {
         // Back to the cheap hook for the next call.
+        set_hook(lua, w, CHECK_EVERY);
+    }
+    result
+}
+
+/// Runs `call` (an async call into the plugin's Lua code) under the CPU
+/// watchdog. The budget is the time spent polling `call`; while it waits
+/// (a dialog, `pairee.sync`, a child process) the clock is stopped.
+pub async fn guarded_async<R>(
+    lua: &mlua::Lua,
+    call: impl std::future::Future<Output = mlua::Result<R>>,
+) -> mlua::Result<R> {
+    let watchdog = lua.app_data_ref::<Watchdog>().map(|w| w.clone());
+    if let Some(w) = &watchdog {
+        w.enter();
+        w.pause();
+    }
+    let mut call = std::pin::pin!(call);
+    let result = std::future::poll_fn(|cx| {
+        if let Some(w) = &watchdog {
+            w.resume();
+        }
+        let poll = call.as_mut().poll(cx);
+        if let Some(w) = &watchdog {
+            w.pause();
+        }
+        poll
+    })
+    .await;
+    if let Some(w) = watchdog
+        && w.exit()
+    {
         set_hook(lua, w, CHECK_EVERY);
     }
     result
@@ -226,6 +291,52 @@ mod tests {
             .build()
             .unwrap();
         let err = guarded(&lua, || rt.block_on(f.call_async::<()>(()))).unwrap_err();
+        assert!(err.to_string().contains("execution time limit"), "{err}");
+    }
+
+    fn async_runtime() -> tokio::runtime::Runtime {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap()
+    }
+
+    /// `wait(secs)`: an async binding that only waits.
+    fn with_wait(lua: &mlua::Lua) {
+        let wait = lua
+            .create_async_function(|_, secs: f64| async move {
+                tokio::time::sleep(Duration::from_secs_f64(secs)).await;
+                Ok(())
+            })
+            .unwrap();
+        lua.globals().set("wait", wait).unwrap();
+    }
+
+    #[test]
+    fn waiting_in_an_async_call_does_not_use_the_budget() {
+        let lua = test_lua();
+        with_wait(&lua);
+        let f: mlua::Function = lua
+            .load("return function() wait(0.5) return 1 end")
+            .eval()
+            .unwrap();
+        let v: i64 = async_runtime()
+            .block_on(guarded_async(&lua, f.call_async(())))
+            .unwrap();
+        assert_eq!(v, 1);
+    }
+
+    #[test]
+    fn busy_work_between_waits_still_trips_the_watchdog() {
+        let lua = test_lua();
+        with_wait(&lua);
+        let f: mlua::Function = lua
+            .load("return function() while true do wait(0) local t = os and 0 or 0 for i = 1, 1e5 do t = t + i end end end")
+            .eval()
+            .unwrap();
+        let err = async_runtime()
+            .block_on(guarded_async(&lua, f.call_async::<()>(())))
+            .unwrap_err();
         assert!(err.to_string().contains("execution time limit"), "{err}");
     }
 

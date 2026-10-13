@@ -31,6 +31,19 @@ fn handle_quick_view(state: &mut AppState, key: KeyEvent, _context: &mut AppCont
             state.dialogs.clear();
             state.panels.quick_view_active = false;
         }
+        KeyCode::PageUp | KeyCode::PageDown if qv.plugin.as_ref().is_some_and(|p| p.seekable) => {
+            let page = QUICK_VIEW_SCROLL.page as i64;
+            let units = if key.code == KeyCode::PageUp {
+                -page
+            } else {
+                page
+            };
+            if let Some(preview) = &qv.plugin {
+                crate::app::state::quick_view::plugin_preview::seek_plugin_preview(
+                    &qv.path, preview, units,
+                );
+            }
+        }
         KeyCode::PageUp | KeyCode::PageDown => {
             let last = match &qv.image_data {
                 Some(img) => (img.height() as usize).div_ceil(2).saturating_sub(5),

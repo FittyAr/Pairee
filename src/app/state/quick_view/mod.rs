@@ -8,6 +8,7 @@
 pub mod cache;
 pub mod load;
 mod pdf;
+pub mod plugin_preview;
 
 #[cfg(test)]
 mod tests;
@@ -59,7 +60,7 @@ impl AppState {
             size: entry.size,
             allow_image,
         };
-        run_plugin_previewers(&entry.path);
+        plugin_preview::run_plugin_previewers(&entry.path, self.preload_ahead());
         match self.quick_view.cache.get(&key) {
             Some(preview) => {
                 self.quick_view.pending = None;
@@ -117,6 +118,19 @@ impl AppState {
         }
     }
 
+    /// The files after the cursor that plugin previewers prepare ahead.
+    fn preload_ahead(&self) -> Vec<std::path::PathBuf> {
+        let active = self.get_active_panel();
+        active
+            .entries
+            .iter()
+            .skip(active.cursor_index + 1)
+            .filter(|e| !e.is_dir)
+            .take(plugin_preview::PRELOAD_AHEAD)
+            .map(|e| e.path.clone())
+            .collect()
+    }
+
     fn show_quick_view(
         &mut self,
         path: std::path::PathBuf,
@@ -129,7 +143,7 @@ impl AppState {
                 content,
                 scroll: 0,
                 image_data,
-                plugin_widget: None,
+                plugin: None,
             })));
     }
 }
@@ -137,7 +151,7 @@ impl AppState {
 /// Shows `preview` if the quick view still targets `key.path`.
 fn show_preview(state: &mut AppState, key: &PreviewKey, preview: &QuickViewPreview) -> bool {
     let still_wanted = match state.dialogs.top() {
-        Some(PopupType::QuickViewPanel(qv)) => qv.path == key.path && qv.plugin_widget.is_none(),
+        Some(PopupType::QuickViewPanel(qv)) => qv.path == key.path && qv.plugin.is_none(),
         None => true,
         _ => false,
     };
@@ -163,33 +177,5 @@ fn emit_hover(entry: &FileEntry) {
     });
     handle.spawn(async move {
         crate::plugin::hooks::emit_event("on_hover", payload).await;
-    });
-}
-
-/// Lets plugin previewers replace the built-in preview (async, best effort).
-fn run_plugin_previewers(path: &std::path::Path) {
-    let Ok(handle) = tokio::runtime::Handle::try_current() else {
-        return;
-    };
-    let path = path.to_path_buf();
-    handle.spawn(async move {
-        for plugin in crate::plugin::registry::get_loaded_plugins().await {
-            let job = crate::plugin::registry::PreviewJob {
-                file_path: path.clone(),
-                area_width: 80,
-                area_height: 25,
-                skip: 0,
-            };
-            if let Some(widget) =
-                crate::plugin::registry::run_previewer(&plugin.manifest.name, job).await
-            {
-                let req = crate::plugin::manager::PluginRequest::UpdatePluginWidget {
-                    path: path.clone(),
-                    widget,
-                };
-                let _ = crate::plugin::PluginManager::get_sender().send(req).await;
-                return;
-            }
-        }
     });
 }

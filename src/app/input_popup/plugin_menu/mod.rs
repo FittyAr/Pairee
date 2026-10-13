@@ -7,6 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 pub mod dev;
 pub mod installed;
 pub mod search;
+pub mod settings;
 pub mod toast;
 
 pub fn reload_installed_plugins(
@@ -60,6 +61,14 @@ pub fn handle(
         menu.dev_results = String::new();
         menu.dev_wizard_step = 0;
         menu.dev_wizard_data.clear();
+        return Ok(None);
+    }
+
+    let settings_key = matches!(key.code, KeyCode::Char('c' | 'C') | KeyCode::Enter);
+    if menu.active_tab == 0 && settings_key {
+        if let Some(name) = menu.installed.get(menu.cursor_idx).map(|p| p.name.clone()) {
+            settings::open(state, context, &name);
+        }
         return Ok(None);
     }
 

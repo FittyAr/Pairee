@@ -57,6 +57,23 @@ function M.run()
     need("Command.INHERIT", pairee.Command.INHERIT ~= nil)
     need("cx.active", type(pairee.cx.active) == "table")
 
+    -- 1.2.0
+    need("clipboard", is_fn(pairee.clipboard))
+    need("state", type(pairee.state) == "table")
+    need("Error", type(pairee.Error) == "table")
+    need("Path", pairee.Path ~= nil)
+    need("Url", is_fn(pairee.Url))
+    need("Cha", is_fn(pairee.Cha))
+    need("fs.cha", is_fn(pairee.fs.cha))
+    need("preview_code", is_fn(pairee.preview_code))
+    need("preview_widget", is_fn(pairee.preview_widget))
+    need("image", type(pairee.image) == "table")
+    need("rt", type(pairee.rt) == "table")
+    need("th", type(pairee.th) == "table")
+    need("utils.host_name", is_fn(pairee.utils.host_name))
+    need("ui.Layout", pairee.ui.Layout ~= nil)
+    need("ui.Style", is_fn(pairee.ui.Style))
+
     return {
         ok = #missing == 0,
         missing = table.concat(missing, ","),

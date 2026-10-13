@@ -29,6 +29,17 @@ elevation from becoming an easy remote-code or credential leak path.
    `pairee.emit` may only fire an explicit allowlist of non-destructive
    actions (navigation, view, sort, selection, help) and the plugin's own
    commands; everything else is refused in Rust.
+   The preview helpers `pairee.image.show` / `image.info` /
+   `pairee.preview_code` also accept the file being previewed (the file of
+   the running `peek` / `preload` / `seek` call, recorded in Rust): they hand
+   it to the host and return an opaque widget (no getters) or the image
+   size, never its bytes. `pairee.image.precache` decodes pixels into a file
+   the plugin can read, so its source must pass the read jail and its target
+   the write jail. `pairee.clipboard` reading is refused (it needs a trusted
+   plugin outside Secure Mode); writing is allowed but stripped of control
+   characters other than tab/LF and capped at 1 MiB. `pairee.state` stores
+   at most 256 KiB in a fixed `state.json` of the data directory, written
+   atomically.
 3. **Trusted plugin** — `StdLib::ALL_SAFE` (io/os/package, no debug) plus
    `pairee.Command` / `fs.spawn`.
 4. **Secure Mode** — extra path jail for trusted plugins (reads: workspace +
@@ -61,19 +72,27 @@ or `..` that leave it at use time (no check-then-use window for content).
 
 Every plugin Lua state (trusted or not) has a memory cap (128 MiB untrusted,
 512 MiB trusted) and a CPU watchdog. The Rust dispatcher marks each call into
-the plugin (`main.lua`, `setup`, `entry`, `peek`, hook callbacks) as "in a
-Lua call" on entry and clears it on exit; an instruction hook aborts the call
-once it has run for 10 s of wall-clock time. Time spent inside C functions
+the plugin (`main.lua`, `setup`, `entry`, `peek`, `preload`, `seek`, hook
+callbacks) as "in a Lua call" on entry and clears it on exit; an instruction
+hook aborts the call once it has run for 10 s. The calls are asynchronous;
+the clock runs only while the call's future is being polled (Lua or a
+binding executing) and is paused while it waits for a dialog, `pairee.sync`,
+a sleep or a child process, so busy work split across many polls still
+trips it while waiting for the user does not. Time spent inside C functions
 (`string.rep`, `string.find`, ...) counts, because the budget only restarts
 when Rust starts a new call. Once tripped the hook checks every instruction,
 so `pcall` loops cannot swallow the abort. A single C call that never returns
 to the VM cannot be interrupted (memory-heavy ones hit the memory cap).
 
 Values a plugin hands to the host as JSON (`pairee.emit` arguments,
-`pairee.ps.pub`, `json_encode`) go through one serde-based converter that
-only accepts dense lists or string-keyed maps, at most 32 levels deep and
-100 000 values, so sparse tables (`{[2^60]=1}`) or cycles cannot exhaust host
-memory.
+`pairee.ps.pub`, `json_encode`, `pairee.state`) go through one serde-based
+converter that only accepts dense lists or string-keyed maps, at most 32
+levels deep and 100 000 values, so sparse tables (`{[2^60]=1}`) or cycles
+cannot exhaust host memory. Widgets handed to the Quick View (`peek`,
+`pairee.preview_widget`) are plain Rust data bounded to 100 000 nodes and
+8 MiB of text; images in them only come from `pairee.image.show` (no table
+form names a file) and are decoded by the host within the Quick View size
+cap and `image` decoder limits (16384 px per side, 256 MiB).
 
 5. **Remote SSH/SFTP** — another host; credentials live in user config.
 6. **Update channel** — GitHub Releases. Asset URLs must start with
@@ -95,7 +114,7 @@ memory.
 
 | Area | Control | Residual risk |
 |------|---------|----------------|
-| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail (config dir read-only) + spawn allowlist + env allowlist; memory cap + wall-clock CPU watchdog; trust / enable / Secure Mode toggles in the Plugin Manager (applied by reloading plugins); disabled plugins are never loaded | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`, so it can still write the config directory through `io.open`). Typosquatting in the registry. Metadata of listed/`stat`ed entries (`File` fields) and `spawn_copy_task` (handed to the transfer engine as plain paths) are still check-then-use. `pairee.ps.pub` events reach every plugin, so an untrusted plugin can send fake events to others. |
+| Plugins | Untrusted sandbox with an always-on `pairee.fs` jail; Secure Mode path jail (config dir read-only) + spawn allowlist + env allowlist; memory cap + wall-clock CPU watchdog; trust / enable / Secure Mode toggles in the Plugin Manager (applied by reloading plugins); disabled plugins are never loaded | A **trusted** plugin is full user-level code (Secure Mode does not restrict its `io`/`os`, so it can still write the config directory through `io.open`). Typosquatting in the registry. Metadata of listed/`stat`ed entries (`File` fields, `fs.cha`), the files `pairee.image` and `preview_code` open after their check, and `spawn_copy_task` (handed to the transfer engine as plain paths) are still check-then-use. `pairee.ps.pub` events reach every plugin, so an untrusted plugin can send fake events to others. Clipboard writes are open to every plugin: a plugin can still put a multi-line shell command there for the user to paste. `pairee.utils.user_name` / `host_name` / `uid` and `pairee.rt` (plugin and data folders, panel preferences) disclose low-sensitivity local facts to every plugin. A single image decode or `string` C call cannot be interrupted by the watchdog (bounded by the size caps). |
 | `pairee.emit` / `pairee.app.cd` | The request carries the plugin's name and trust, captured in Rust. Untrusted: explicit allowlist (navigation, view, sort, selection, help, own commands); refused actions show an error. Trusted: any action, run like a key press, so the normal confirmation dialogs and the user's confirmation settings apply. `cd` resolves relative paths, requires an existing local folder and refuses SSH/archive panels | With `confirm_delete = false` a **trusted** plugin can delete the selection without a prompt (same as the user's key). |
 | Registry install | Plugin name and author must match `[A-Za-z0-9_-]`; `[files]` keys with `..`, absolute, drive-prefixed, `\` or `:` paths are rejected; `index.toml`, `blocklist.toml` and each plugin `manifest.toml` are checked against `<file>.minisig` (updater's minisign code; trusted comment must name the registry path; pinned release key, configurable); every download is size-limited while streaming and SHA-256 verified in memory before anything is written; files dropped by an update are removed | The registry is not signed yet: a missing signature is accepted with an "unsigned" warning unless `[security] registry_require_signature = true`; until then a compromised registry can ship matching hashes. |
 | User menu (F2) / shell commands | `{f}` / `{p}` (and `%f` in apply-command) expanded in a single pass with the shared `shell` quoting module: POSIX single quotes; on Windows MSVCRT quoting plus caret-escaping of every cmd metacharacter (`% ! ^ " & \| < > ( )`), so names are neither split nor `%VAR%`-expanded. cmd is started as `cmd.exe /V:OFF /S /C "<script>"` via `raw_arg` (no Rust `\"` escaping); the PTY path passes the script through an environment variable. Opening a file without association uses `ShellExecuteW` / `xdg-open` / `open` with the path as one argument (no `cmd /c start`) | The template itself is user-written shell code. On the PTY path cmd substring syntax (`%VAR:~0,3%`) is not expanded. |

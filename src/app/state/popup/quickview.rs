@@ -1,4 +1,4 @@
-use super::plugin_widget::PluginWidget;
+use super::plugin_widget::PluginPreview;
 use std::path::PathBuf;
 
 /// Quick-view overlay (passive panel). Boxed in [super::PopupType] because of DynamicImage.
@@ -8,5 +8,6 @@ pub struct QuickViewDialog {
     pub content: Vec<String>,
     pub scroll: usize,
     pub image_data: Option<std::sync::Arc<image::DynamicImage>>,
-    pub plugin_widget: Option<PluginWidget>,
+    /// What a plugin previewer drew instead of the built-in preview.
+    pub plugin: Option<PluginPreview>,
 }

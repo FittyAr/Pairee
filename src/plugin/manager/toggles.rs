@@ -38,6 +38,22 @@ pub fn flip_secure_mode(config: &mut AppConfig) -> bool {
     config.settings.secure_mode
 }
 
+/// Replaces the user values of plugin `name`'s settings (only those that
+/// differ from the schema defaults; none removes the table).
+pub fn set_settings(
+    config: &mut AppConfig,
+    name: &str,
+    values: std::collections::HashMap<String, String>,
+) {
+    let all = &mut config.settings.plugin_settings;
+    if values.is_empty() {
+        all.remove(name);
+    } else {
+        all.insert(name.to_string(), values);
+    }
+    apply(config);
+}
+
 /// Saves `config` and reloads the plugins with it (also used by the
 /// configuration dialog when its Secure Mode row changed).
 pub fn apply(config: &AppConfig) {
@@ -59,5 +75,17 @@ mod tests {
         assert!(!flip(&mut config, "demo", PluginToggle::Enabled));
         assert!(config.settings.plugins["demo"].trusted);
         assert!(flip_secure_mode(&mut config));
+    }
+
+    #[test]
+    fn settings_are_replaced_and_empty_ones_dropped() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = crate::config::paths::test_root::redirect(dir.path());
+        let mut config = AppConfig::default();
+        let values = [("depth".to_string(), "4".to_string())].into();
+        set_settings(&mut config, "demo", values);
+        assert_eq!(config.settings.plugin_settings["demo"]["depth"], "4");
+        set_settings(&mut config, "demo", Default::default());
+        assert!(!config.settings.plugin_settings.contains_key("demo"));
     }
 }

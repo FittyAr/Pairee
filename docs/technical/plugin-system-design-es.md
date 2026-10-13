@@ -367,22 +367,18 @@ git_path    = { type = "string", default = "git", description = "Ruta personaliz
 max_depth   = { type = "integer", default = 3, description = "Profundidad máxima de recursión del directorio" }
 ```
 
-### 12.2 Configuración en TUI y Renderizado Dinámico
-1. **Análisis:** En la inicialización, el cargador de configuración de Pairee lee el `[settings_schema]` de todos los complementos activos.
-2. **Menú de Configuración:** La pantalla de configuración TUI muestra una sección dedicada llamada "Configuración de Complementos" con subcategorías para cada plugin activo.
-3. **Campos del Formulario:** Al seleccionar un complemento, se dibujan dinámicamente los controles correspondientes:
-   * Los tipos `bool` se muestran como casillas de verificación (checkboxes).
-   * Los tipos `string` se muestran como entradas de texto.
-   * Los tipos `integer` se muestran como selectores numéricos.
-   Las descripciones se muestran debajo de cada control como texto de ayuda al enfocar el elemento.
+### 12.2 Formulario de ajustes en el Gestor de Complementos
+1. **Análisis:** `runtime::settings::specs` lee el `[settings_schema]` del complemento (ordenado por clave); `pairee.settings` usa el mismo lector, así que el formulario y el complemento coinciden en tipos y valores por defecto.
+2. **Apertura:** en el Gestor de Complementos (pestaña Instalados) `c` o Enter abre `PluginSettingsDialog` sobre el gestor (una línea en `dialog_list!`; estado en `app/state/popup/plugin_settings.rs`, teclas en `app/input_popup/plugin_menu/settings.rs`, dibujo en `ui/popup/plugin_menu/settings.rs`). Un complemento sin ajustes muestra un mensaje informativo.
+3. **Campos:** los ajustes `bool` son casillas (Espacio); los `string`, `integer` y `number` son campos de texto. Debajo de las filas se muestran la `description` y el valor por defecto del ajuste enfocado. Botones: Guardar, Predeterminados, Cancelar; Enter sobre una fila guarda.
+4. **Validación:** Guardar comprueba cada valor contra su tipo (`Kind::accepts`); uno inválido se nombra en la línea de error y recibe el foco.
 
-### 12.3 Persistencia de Valores (`pairee.toml`)
-Todos los valores personalizados por el usuario se guardan dentro del archivo de configuración global `pairee.toml` bajo una tabla dedicada `[plugins.settings.<nombre_complemento>]`:
+### 12.3 Persistencia de Valores (`config.toml`)
+Solo se guardan, como texto, los valores distintos de los del esquema, en el `config.toml` del usuario bajo `[settings.plugin_settings.<nombre_complemento>]` (`toggles::set_settings`, que guarda a través de la configuración del anfitrión y recarga los complementos para aplicar el cambio de inmediato):
 ```toml
-[plugins.settings.git-status]
-show_hidden = true
-git_path    = "/usr/local/bin/git"
-max_depth   = 5
+[settings.plugin_settings.git-status]
+show_hidden = "true"
+max_depth   = "5"
 ```
 
 ### 12.4 Acceso desde la API Lua (`pairee.settings`)

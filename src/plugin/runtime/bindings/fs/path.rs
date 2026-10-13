@@ -2,7 +2,8 @@
 
 pub use super::jail::{Access, FsPolicy};
 pub use super::target::Target;
-use crate::plugin::runtime::types::LuaFile;
+use crate::plugin::runtime::types::LuaUrl;
+use crate::plugin::runtime::types::path::path_arg;
 use mlua::Value;
 
 /// Validate `path_str` against the captured sandbox policy.
@@ -12,20 +13,17 @@ pub fn validate_path(policy: &FsPolicy, path_str: &str, access: Access) -> mlua:
         .map_err(mlua::Error::RuntimeError)
 }
 
-/// Accept a Lua string or `File` userdata.
+/// Accept a Lua string, `File`, `Path` or local `Url`.
 pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Result<Target> {
-    match value {
-        Value::String(s) => validate_path(policy, &s.to_str()?, access),
-        Value::UserData(ud) => match ud.borrow::<LuaFile>() {
-            Ok(file) => validate_path(policy, &file.path, access),
-            Err(_) => Err(mlua::Error::RuntimeError(
-                "expected a path string or File userdata".into(),
-            )),
-        },
-        _ => Err(mlua::Error::RuntimeError(
-            "expected a path string or File userdata".into(),
-        )),
+    if let Value::UserData(ud) = &value
+        && ud.borrow::<LuaUrl>().is_ok_and(|u| u.scheme.is_some())
+    {
+        return Err(mlua::Error::RuntimeError(
+            "pairee.fs works on local paths only, not on remote URLs".into(),
+        ));
     }
+    let path = path_arg(&value)?;
+    validate_path(policy, &path.to_string_lossy(), access)
 }
 
 #[cfg(test)]
@@ -61,9 +59,20 @@ mod tests {
     }
 
     #[test]
+    fn lua_to_path_from_path_and_url_userdata() {
+        let lua = Lua::new();
+        let path = crate::plugin::runtime::types::path::LuaPath(PathBuf::from("/p"));
+        let ud = lua.create_userdata(path).unwrap();
+        let got = lua_to_path(&open_policy(), Value::UserData(ud), Access::Read).unwrap();
+        assert_eq!(got.path(), PathBuf::from("/p"));
+        let remote = lua.create_userdata(LuaUrl::parse("sftp://h/x")).unwrap();
+        assert!(lua_to_path(&open_policy(), Value::UserData(remote), Access::Read).is_err());
+    }
+
+    #[test]
     fn lua_to_path_from_file_userdata() {
         let lua = Lua::new();
-        let file = LuaFile::from_path(Path::new("/tmp/x.txt"));
+        let file = crate::plugin::runtime::types::LuaFile::from_path(Path::new("/tmp/x.txt"));
         let ud = lua.create_userdata(file).unwrap();
         let path = lua_to_path(&open_policy(), Value::UserData(ud), Access::Read).unwrap();
         assert_eq!(path.path(), PathBuf::from("/tmp/x.txt"));

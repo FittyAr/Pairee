@@ -10,6 +10,9 @@
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.
 - Secure Mode can be toggled in the Plugin Manager (`s`); trust, enable and Secure Mode changes apply at once by reloading the plugins.
 - Secure Mode can also be switched in the configuration dialog (Plugins tab); OK applies it at once, like the Plugin Manager.
+- Plugin settings can be edited in the Plugin Manager (`c` or Enter): a form with a checkbox or field per setting, checked against its type, applied at once.
+- Plugin previews in the Quick View can show images, styled text, lists, tables, gauges and split layouts; plugins can prepare previews ahead of time and scroll them with PgUp / PgDn.
+- Plugin API 1.2.0: clipboard, persistent plugin state, path / URL / file-information values, image helpers, theme and runtime information (see `docs/api/lua/v1.md`).
 - Setting "Overwritten files go to the Recycle Bin" (System tab, `transfer_trash_replaced`, on by default) decides whether a file replaced by a copy or move is sent to the trash first.
 - SSH preset passwords are stored in the system keyring; passwords found in `config.toml` are moved there automatically.
 - Plugin registry files are checked against minisign signatures; unsigned registry files show a warning and can be refused with `[security] registry_require_signature`.
@@ -69,6 +72,7 @@
 ### Removed
 
 ### Fixed
+- Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.
 - Removing or renaming an SSH preset now deletes its old password from the system keyring.
 - Starting Pairee with a plugin under development whose folder was gone deleted the saved SSH preset passwords from the system keyring.
 - `pairee plugin install <name>` failed for every plugin: the name was sent to the registry with a `.pairee` suffix that plugin names cannot have.

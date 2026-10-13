@@ -128,6 +128,19 @@ mod tests {
     }
 
     #[test]
+    fn roadmap_api_plugin_from_an_untrusted_plugin() {
+        let outside = tempfile::tempdir().unwrap();
+        let (lua, dir) = load_plugin("roadmap_api", false);
+        let source = std::fs::read_to_string(dir.join("main.lua")).unwrap();
+        let annotations = crate::plugin::annotations::Annotations::parse(&source);
+        assert!(annotations.is_sync("entry"));
+        annotations.check_since(LUA_API_VERSION).unwrap();
+        let module = eval_module(&lua, &dir);
+        let result = call_run(&module, outside.path().to_string_lossy().as_ref());
+        assert_ok(&result, "roadmap_api");
+    }
+
+    #[test]
     fn keymap_command_manifest_declares_its_keys() {
         let manifest = crate::plugin::loader::PluginManifest::read_from_dir(
             &acceptance_root().join("keymap_command"),
@@ -154,6 +167,7 @@ mod tests {
             "cx_utils",
             "command_echo",
             "keymap_command",
+            "roadmap_api",
         ] {
             let dir = acceptance_root().join(name);
             assert!(dir.join("manifest.toml").is_file(), "{name} manifest");

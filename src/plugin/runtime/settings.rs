@@ -14,7 +14,7 @@ use std::collections::HashMap;
 
 /// The type a setting declares in the schema.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Kind {
+pub enum Kind {
     Bool,
     Integer,
     Number,
@@ -22,7 +22,7 @@ enum Kind {
 }
 
 impl Kind {
-    fn of(entry: &toml::Table) -> Self {
+    pub fn of(entry: &toml::Table) -> Self {
         match entry.get("type").and_then(toml::Value::as_str) {
             Some("bool" | "boolean") => Self::Bool,
             Some("integer" | "int") => Self::Integer,
@@ -37,6 +37,17 @@ impl Kind {
         }
     }
 
+    /// Whether the user value `raw` is valid for this type.
+    pub fn accepts(self, raw: &str) -> bool {
+        let raw = raw.trim();
+        match self {
+            Self::Bool => raw.parse::<bool>().is_ok(),
+            Self::Integer => raw.parse::<i64>().is_ok(),
+            Self::Number => raw.parse::<f64>().is_ok(),
+            Self::Text => true,
+        }
+    }
+
     fn parse(self, lua: &Lua, raw: &str) -> mlua::Result<Option<Value>> {
         let raw = raw.trim();
         Ok(match self {
@@ -45,6 +56,53 @@ impl Kind {
             Self::Number => raw.parse().ok().map(Value::Number),
             Self::Text => Some(Value::String(lua.create_string(raw)?)),
         })
+    }
+}
+
+/// One setting of a plugin's `[settings_schema]`, as the settings form
+/// shows it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SettingSpec {
+    pub key: String,
+    pub kind: Kind,
+    /// The default as the text the user would type (`None` when the
+    /// schema has none).
+    pub default: Option<String>,
+    pub description: Option<String>,
+}
+
+/// The settings of `manifest`'s schema, sorted by key.
+pub fn specs(manifest: &PluginManifest) -> Vec<SettingSpec> {
+    let Some(schema) = manifest.settings_schema.as_ref() else {
+        return Vec::new();
+    };
+    let mut specs: Vec<SettingSpec> = schema
+        .iter()
+        .filter_map(|(key, entry)| {
+            let entry = entry.as_table()?;
+            Some(SettingSpec {
+                key: key.clone(),
+                kind: Kind::of(entry),
+                default: entry.get("default").and_then(toml_to_text),
+                description: entry
+                    .get("description")
+                    .and_then(toml::Value::as_str)
+                    .map(str::to_string),
+            })
+        })
+        .collect();
+    specs.sort_by(|a, b| a.key.cmp(&b.key));
+    specs
+}
+
+/// A scalar schema value as text (`true`, `3`, `0.5`, `abc`).
+fn toml_to_text(value: &toml::Value) -> Option<String> {
+    match value {
+        toml::Value::Boolean(b) => Some(b.to_string()),
+        toml::Value::Integer(i) => Some(i.to_string()),
+        toml::Value::Float(f) => Some(f.to_string()),
+        toml::Value::String(s) => Some(s.clone()),
+        _ => None,
     }
 }
 
@@ -155,6 +213,25 @@ mod tests {
             t.get::<Value>("inferred").unwrap(),
             Value::Integer(11)
         ));
+    }
+
+    #[test]
+    fn specs_list_the_schema_sorted_with_text_defaults() {
+        let specs = specs(&manifest());
+        let keys: Vec<&str> = specs.iter().map(|s| s.key.as_str()).collect();
+        assert_eq!(
+            keys,
+            ["code", "depth", "flag", "inferred", "label", "ratio"]
+        );
+        let depth = &specs[1];
+        assert_eq!(
+            (depth.kind, depth.default.as_deref()),
+            (Kind::Integer, Some("3"))
+        );
+        assert_eq!(specs[2].default.as_deref(), Some("false"));
+        assert!(Kind::Integer.accepts(" 7 ") && !Kind::Integer.accepts("7.5"));
+        assert!(Kind::Bool.accepts("true") && !Kind::Bool.accepts("yes"));
+        assert!(Kind::Number.accepts("1e3") && Kind::Text.accepts(""));
     }
 
     #[test]

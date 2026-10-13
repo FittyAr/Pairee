@@ -70,7 +70,8 @@ impl Target {
         self.with(|p| std::fs::read_to_string(p), |d, r| d.read_to_string(r))
     }
 
-    pub fn write(&self, data: &str) -> io::Result<()> {
+    pub fn write(&self, data: impl AsRef<[u8]>) -> io::Result<()> {
+        let data = data.as_ref();
         self.with(|p| std::fs::write(p, data), |d, r| d.write(r, data))
     }
 
@@ -214,7 +215,7 @@ fn clean_dir(dir: &Dir) -> io::Result<()> {
 }
 
 /// Let other tasks run on a multi-thread runtime while blocking on I/O.
-fn blocking<T>(f: impl FnOnce() -> T) -> T {
+pub(crate) fn blocking<T>(f: impl FnOnce() -> T) -> T {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
             tokio::task::block_in_place(f)

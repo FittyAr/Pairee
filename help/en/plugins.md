@@ -1,6 +1,6 @@
 # Pairee Plugin Lua API Reference
 
-This document describes the Lua API surface exposed to Pairee plugins. The versioned contract is **Lua API v1.1.0** (`pairee._lua_api_version`) — see [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). For architecture see [`docs/technical/plugin-system-design.md`](../../docs/technical/plugin-system-design.md) and the [plugin roadmap](../../docs/technical/plugin-roadmap.md). How-to: [`docs/plugin-dev-guide.md`](../../docs/plugin-dev-guide.md).
+This document describes the Lua API surface exposed to Pairee plugins. The versioned contract is **Lua API v1.2.0** (`pairee._lua_api_version`) — see [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). For architecture see [`docs/technical/plugin-system-design.md`](../../docs/technical/plugin-system-design.md) and the [plugin roadmap](../../docs/technical/plugin-roadmap.md). How-to: [`docs/plugin-dev-guide.md`](../../docs/plugin-dev-guide.md).
 
 ---
 
@@ -24,14 +24,21 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.utils.hash(str)` | Return a stable 64-bit hash of `str` as a hex string | New in M0 |
 | `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Stable + mkdir/remove/rename/copy |
 | `pairee.Command` | Process builder (`:arg` `:cwd` `:env` `:stdin/out/err` `:spawn` `:output`) | Implemented; Child streams via pipes |
-| `pairee.ui.*` | Widget constructors (`Paragraph`, `Gauge`, `List`, `Table`, `Span`, `Line`) | Stable; richer userdata widgets land in M4 |
+| `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (chained builders) | Stable (1.2: userdata) |
+| `pairee.Path / Url / Cha / Error` | Typed path, URL, file-information and error values; `pairee.fs.cha(path)` | New in 1.2 |
+| `pairee.clipboard(text?)` | Write the clipboard; read it (trusted plugins outside Secure Mode only) | New in 1.2 |
+| `pairee.state.get / set / all / clear` | Small store kept between calls and sessions | New in 1.2 |
+| `pairee.image.show / info / precache` | Images in previews | New in 1.2 |
+| `pairee.preview_code / preview_widget` | Highlighted text preview with line numbers; show a widget later | New in 1.2 |
+| `pairee.rt` / `pairee.th` | Runtime facts and preferences; theme colors as styles | New in 1.2 |
+| `pairee.utils.user_name / host_name / uid / gid / group_name` | Who and where Pairee runs (`nil` where the platform has none) | New in 1.2 |
 | `pairee.ps.sub / pub / unsub` | Local pub/sub | Stable |
 | `pairee.log.*` | Log a message at the given level | Stable |
-| `pairee.sync(fn)` | Snapshot-bridge into the main thread state | Stable; full sync/async dual path lands in M3 |
+| `pairee.sync(fn)` | Snapshot-bridge into the main thread state (also `--- @sync <method>`) | Stable |
 | `pairee.settings.*` | Read access to the plugin's resolved settings | Stable |
 | `pairee.t(key, vars)` | Localised string lookup with variable interpolation | Stable |
 | `pairee._secure_mode` | Boolean: `true` when global Secure Mode is active | Stable |
-| `pairee._lua_api_version` | Semver string of this Lua surface (`1.1.0`) | Stable |
+| `pairee._lua_api_version` | Semver string of this Lua surface (`1.2.0`) | Stable |
 
 ---
 

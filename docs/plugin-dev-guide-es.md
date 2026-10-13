@@ -42,8 +42,8 @@ Los complementos se almacenan en tu carpeta de configuración y se declaran en `
 
 | Tipo | Métodos Lua | Invocado Cuando |
 |------|-------------|-----------------|
-| **Previewer** | `peek(job)`, `seek(job)` | Un archivo es resaltado en el panel activo |
-| **Preloader** | `preload(job)` | Un archivo está a punto de entrar en vista |
+| **Previewer** | `peek(job)`, `seek(job)` | La Vista Rápida muestra un archivo (`peek`); RePág / AvPág sobre la vista del complemento (`seek`) |
+| **Preloader** | `preload(job)` | La Vista Rápida muestra un archivo, y para los tres archivos siguientes del panel |
 | **Hook** | `setup(opts)`, suscripciones via `pairee.ps.sub` | Se dispara un evento de ciclo de vida (p.ej. `on_cd`) |
 | **Comando** | `entry(args)` | Un atajo de teclado o entrada de menú llama al complemento por nombre |
 | **Mixto** | Combinación de los anteriores | Múltiples roles |
@@ -114,7 +114,7 @@ Un complemento es una carpeta que contiene un script Lua principal, un manifiest
 ### `pairee.app` — Control de la Aplicación
 
 ```lua
-pairee._lua_api_version                 -- "1.1.0" (semver de la superficie Lua)
+pairee._lua_api_version                 -- "1.2.0" (semver de la superficie Lua)
 pairee.app.cwd()                        -- string: directorio actual
 pairee.app.cd(path)                     -- navegar a path
 pairee.app.focus()                      -- "left" | "right"
@@ -193,16 +193,119 @@ cualquier otro nombre provoca una violación de seguridad. `:cwd(ruta)` debe
 indicar una carpeta existente dentro de la jaula de lectura de `pairee.fs` del
 complemento.
 
-### `pairee.ui` — Constructores de Widgets
+### `pairee.ui` — Widgets
+
+Los widgets son userdata que se construyen encadenando llamadas; `peek`
+devuelve uno (ver sección 7). Todo widget y todo texto acepta los métodos de
+estilo `:style(s)`, `:fg(color)`, `:bg(color)`, `:bold()`, `:dim()`,
+`:italic()`, `:underline()`, `:blink()`, `:reverse()`, `:hidden()`,
+`:crossed()` y `:reset()` (los colores son nombres de tema como `"red"`,
+`"darkgray"` o `"#rrggbb"`).
 
 ```lua
-pairee.ui.Paragraph(text)
-pairee.ui.Gauge(ratio, label)           -- ratio: 0.0 a 1.0
-pairee.ui.List(items)                   -- items: string[]
-pairee.ui.Table(headers, rows)
-pairee.ui.Span(text, style)
-pairee.ui.Line(spans)
+local ui = pairee.ui
+ui.Style():fg("cyan"):bold()                     -- estilo reutilizable
+ui.Span("texto", "red")                          -- texto con estilo (estilo o color)
+ui.Line({ "normal ", ui.Span("negrita"):bold() }):align(ui.Align.CENTER)
+ui.Text("línea 1\nlínea 2")                      -- también un Line, Span o lista de ellos
+ui.Text.parse("\27[31mrojo\27[0m")               -- conserva los colores ANSI
+ui.Paragraph(texto):wrap(ui.Wrap.YES):scroll(2):block(ui.Border(ui.Edge.ALL))
+ui.List({ "a", ui.Span("b"):fg("yellow") })
+ui.Table({ ui.Row({ "a.txt", "12" }), { "b.txt", "7" } })
+    :header({ "Nombre", "Tamaño" })
+    :widths({ ui.Constraint.Length(20), ui.Constraint.Fill(1) })
+ui.Gauge():percent(40):label("40 %"):gauge_style(ui.Style():fg("green"))
+ui.Border(ui.Edge.TOP + ui.Edge.BOTTOM):type(ui.Border.ROUNDED):title("Info")
+ui.Layout():direction(ui.Layout.HORIZONTAL):margin(1)
+    :constraints({ ui.Constraint.Percentage(30), ui.Constraint.Fill(1) })
+    :children({ widget_izquierdo, widget_derecho })
 ```
+
+Constantes: `ui.Align.{LEFT,CENTER,RIGHT}`, `ui.Wrap.{NO,YES,TRIM}`,
+`ui.Edge.{NONE,TOP,RIGHT,BOTTOM,LEFT,ALL}`,
+`ui.Border.{PLAIN,ROUNDED,DOUBLE,THICK}`, `ui.Layout.{HORIZONTAL,VERTICAL}`;
+`ui.Constraint.{Min,Max,Length,Percentage,Ratio,Fill}`. El layout es
+declarativo: Pairee divide el área de vista previa al dibujar, por eso no hay
+`split(rect)`. Las formas de la 1.0 (`ui.Gauge(ratio, label)`,
+`ui.Table(headers, rows)`, `ui.Span(text, color)`, tablas con campo `type`)
+siguen funcionando. Un widget admite como mucho 100 000 nodos y 8 MiB de texto.
+
+### Valores tipados — `Path`, `Url`, `Cha`, `Error`
+
+```lua
+local p = pairee.Path("docs/guia.md")    -- o pairee.Path.os(...)
+p.name, p.stem, p.ext, p.parent, p.is_absolute, p.has_root
+p:join("x"), p:starts_with("docs"), p:ends_with("guia.md"), p:strip_prefix("docs")
+
+local u = pairee.Url("sftp://yo@host//srv/www/index.html")
+u.scheme, u.domain, u.path, u.name, u.parent, u.is_regular   -- "sftp", "yo@host", ...
+u:join("css"), u:starts_with("sftp://yo@host/srv")           -- compara también esquema y host
+
+local cha, err = pairee.fs.cha(ruta, seguir)   -- Cha, nil  |  nil, Error
+cha.is_dir, cha.is_link, cha.is_orphan, cha.is_hidden, cha.is_exec, cha.len
+cha.mtime, cha.atime, cha.btime, cha.mode, cha.uid, cha.gid, cha.nlink
+cha:perm()                                    -- "drwxr-xr-x" (nil en Windows)
+cha:hash()                                    -- resumen hex de tamaño y fechas
+file.cha                                      -- lo mismo para un File
+
+pairee.Error.custom("mensaje")                -- err.kind, err.code, err.message
+```
+
+`Path` y `Url` nunca tocan el disco. Toda función de `pairee.fs` acepta también
+un `Path` o una `Url` local. Las APIs nuevas (`fs.cha`, `clipboard`, `state`,
+`image`, `preview_code`, `preview_widget`) devuelven `valor, nil` si van bien y
+`nil` (o `false`), `Error` si fallan; `err.kind` es un tipo de `std::io` como
+`"NotFound"` o `"PermissionDenied"`. Las APIs anteriores siguen lanzando errores.
+
+### `pairee.clipboard`, `pairee.state`, identidad
+
+```lua
+pairee.clipboard("texto")            -- true | false, Error  (todos los complementos)
+local texto, err = pairee.clipboard() -- solo complementos de confianza fuera del Modo Seguro
+
+pairee.state.set("contador", 3)      -- true | false, Error  (nil borra)
+pairee.state.get("contador")         -- 3, se conserva entre llamadas y sesiones
+pairee.state.all(), pairee.state.clear()
+
+pairee.utils.user_name(), pairee.utils.host_name()
+pairee.utils.uid(), pairee.utils.gid(), pairee.utils.group_name()  -- nil en Windows
+```
+
+`pairee.state` guarda valores compatibles con JSON (escalares, listas, tablas
+con claves de texto) en `state.json` del directorio de datos del complemento,
+256 KiB como máximo; un cambio que lo superaría se rechaza. El texto puesto en
+el portapapeles pierde los caracteres de control salvo tabulador y salto de
+línea y se limita a 1 MiB.
+
+### `pairee.rt`, `pairee.th`
+
+```lua
+pairee.rt.version, pairee.rt.api, pairee.rt.os, pairee.rt.family
+pairee.rt.plugin.name, .dir, .data_dir, .trusted, .secure_mode
+pairee.rt.mgr.show_hidden, .sort_by, .sort_reverse
+pairee.rt.preview.image, .max_bytes
+pairee.rt.term.size()                 -- columnas, filas
+
+pairee.th.name                        -- tema activo
+pairee.th.header_fg                   -- ui.Style de un color del tema (las claves `*_bg` fijan el fondo)
+```
+
+### `pairee.image` y ayudas de vista previa
+
+```lua
+pairee.image.show(job.file)            -- widget de imagen (se dibuja como las imágenes de la Vista Rápida)
+pairee.image.info(ruta)                -- { w, h, format, color }
+pairee.image.precache(origen, destino, { max_width = 512, max_height = 512 })  -- miniatura PNG
+pairee.preview_code({ file = job.file, skip = job.skip, lines = job.area.h })
+pairee.preview_widget({ file = ruta, skip = 0 }, widget)  -- mostrar un widget más tarde
+```
+
+`image.show`, `image.info` y `preview_code` aceptan el archivo que se está
+previsualizando (el archivo del job de `peek` / `preload` / `seek`) aunque esté
+fuera de la jaula de `pairee.fs` del complemento; `precache` necesita un
+origen que la jaula permita. `preview_code` muestra el texto con números de
+línea, resaltado como en el visor integrado cuando el resaltado de sintaxis
+está activo y una gramática reconoce el archivo.
 
 ### `pairee.ps` — Pub/Sub
 
@@ -305,12 +408,24 @@ valor pasa a ser un comando con esas teclas como predeterminadas.
 
 ## 7. Escribir un Complemento Previewer
 
-Los previewers implementan `peek(job)` y opcionalmente `seek(job)` para desplazamiento.
+Los previewers implementan `peek(job)` y opcionalmente `preload(job)` y
+`seek(job)`. Cuando la Vista Rápida muestra un archivo, Pairee llama a
+`preload` de cada complemento que lo tenga y luego a `peek` de cada previewer
+por orden de nombre; el primer widget devuelto sustituye a la vista previa
+integrada (devuelve `nil` para declinar). Después se precargan en segundo
+plano los tres archivos siguientes del panel.
 
 El parámetro `job` provee:
-- `job.file` — la `Entry` resaltada (con `.url`, `.mime`, `.size`, etc.)
-- `job.area` — dimensiones del área de vista previa disponible
-- `job.skip` — desplazamiento de scroll actual
+- `job.file` — un `File` del archivo previsualizado (`.path`, `.name`, `.mime`, `.size`, `.cha`, ...)
+- `job.area` — el área de vista previa en celdas: `x`, `y`, `w`, `h` (también `width`, `height`)
+- `job.skip` — líneas desplazadas
+- `job.units` — (solo `seek`) líneas a desplazar, negativo hacia arriba
+
+`preload(job)` prepara algo por adelantado (una miniatura, un archivo de caché)
+y devuelve `completo[, err]`; una versión de archivo cuyo preload devolvió
+`true` no se vuelve a precargar. `seek(job)` devuelve el nuevo `skip`; Pairee
+vuelve a llamar a `peek` con él. Sin `seek`, RePág / AvPág desplazan el propio
+widget.
 
 ```lua
 local M = {}
@@ -331,18 +446,22 @@ function M:peek(job)
     end
 
     local headers = table.remove(rows, 1)
-    return pairee.ui.Table(headers, rows)
+    return pairee.ui.Table(rows):header(headers):style(pairee.th.panel_fg)
 end
 
 return M
 ```
 
-Registrar como previewer para archivos CSV en `pairee.toml`:
+Un previewer no confiable no puede leer con `pairee.fs` archivos de fuera de su
+carpeta, pero sí puede mostrar el archivo previsualizado a través del anfitrión:
 
-```toml
-[[previewers]]
-mime = "text/csv"
-plugin = "csv-preview"
+```lua
+function M:peek(job)
+    if job.file.mime:match("^image/") then
+        return pairee.image.show(job.file)
+    end
+    return pairee.preview_code({ file = job.file, skip = job.skip, lines = job.area.h })
+end
 ```
 
 ---
@@ -421,6 +540,27 @@ print(estado.cwd)
 - `pairee.sync()` debe llamarse al cargar el complemento (en el nivel superior o dentro de `setup`), no dentro de callbacks asíncronos.
 - El callable devuelto es seguro para llamar desde cualquier contexto asíncrono.
 
+### Anotaciones
+
+El bloque de comentarios inicial de `main.lua` puede llevar anotaciones:
+
+```lua
+--- @since 1.2.0
+--- @sync entry
+local M = {}
+```
+
+- `--- @since <versión>` — la versión de la API Lua que necesita el complemento;
+  un Pairee con una API anterior se niega a cargarlo (con ese motivo en el log)
+  en lugar de fallar más tarde por una función que no existe.
+- `--- @sync entry|peek|preload|seek` — antes de llamar a ese método, Pairee
+  refresca `pairee.cx` (como hace `pairee.sync`), así que lee los paneles tal
+  como están en el momento de la llamada.
+
+Todos los métodos del complemento (`setup`, `entry`, `peek`, `preload`, `seek`
+y los callbacks de `pairee.ps`) se ejecutan de forma asíncrona, así que pueden
+esperar diálogos, `pairee.sync`, `pairee.utils.sleep` o procesos hijos.
+
 ---
 
 ## 11. Eventos Pub/Sub con `pairee.ps`
@@ -478,6 +618,8 @@ Por defecto, todos los complementos se ejecutan en **Modo No Confiable** (`trust
 * **Aislamiento de Require:** `require("lib.util")` carga `lib/util.lua` (o `lib/util/init.lua`) de la carpeta del propio complemento, lo ejecuta una vez y guarda el resultado en una tabla privada del complemento. Funciona igual en complementos confiables y no confiables (no necesita la biblioteca `package`). Los nombres de módulo son identificadores con puntos (letras, dígitos, `_`, `-`); ni `..`, ni separadores, ni enlaces simbólicos o junctions pueden llegar a archivos fuera de la carpeta del complemento.
 * **Sin Comandos Externos:** Cualquier llamada a `pairee.fs.spawn()` generará inmediatamente un error de ejecución.
 * **Jaula del Sistema de Archivos:** `pairee.fs` solo puede leer dentro del directorio del propio complemento y de su directorio de datos privado (`pairee.fs.data_dir()`), y solo puede escribir dentro del directorio de datos. Esto se aplica tanto si el Modo Seguro está activo como si no; los segmentos `..` y los enlaces simbólicos no permiten escapar de ella.
+* **Excepción de vista previa:** `pairee.image.show`, `pairee.image.info` y `pairee.preview_code` aceptan también el archivo que se está previsualizando; se lo pasan al anfitrión y devuelven un widget opaco (o el tamaño de la imagen), nunca su contenido. `pairee.image.precache` decodifica píxeles que el complemento puede volver a leer, así que solo admite orígenes dentro de la jaula.
+* **Portapapeles:** un complemento no confiable puede escribir en el portapapeles pero no leerlo (leer requiere un complemento de confianza fuera del Modo Seguro).
 
 ```toml
 # En pairee.toml
@@ -512,10 +654,10 @@ Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seg
 * **Falla cerrado:** si `config.toml` no se puede leer, los complementos se ejecutan en Modo Seguro hasta que se corrija (el error de inicio lo indica).
 
 ### 13.4 Límites de recursos
-Cada complemento tiene un límite de memoria (128 MiB no confiable, 512 MiB confiable) y un watchdog de CPU: cada llamada que Pairee hace al complemento (`main.lua`, `setup`, `entry`, `peek`, callbacks de hooks) puede durar como máximo 10 segundos de tiempo real, incluido el tiempo dentro de funciones C como `string.rep`. Una llamada que se pasa del presupuesto se aborta con `plugin aborted: exceeded its execution time limit` y `pcall` no puede capturarlo; la siguiente llamada empieza con un presupuesto nuevo.
+Cada complemento tiene un límite de memoria (128 MiB no confiable, 512 MiB confiable) y un watchdog de CPU: cada llamada que Pairee hace al complemento (`main.lua`, `setup`, `entry`, `peek`, callbacks de hooks) puede durar como máximo 10 segundos, incluido el tiempo dentro de funciones C como `string.rep`. El reloj solo corre mientras el complemento se ejecuta: mientras una llamada espera un diálogo, `pairee.sync`, una pausa o un proceso hijo, se detiene. Una llamada que se pasa del presupuesto se aborta con `plugin aborted: exceeded its execution time limit` y `pcall` no puede capturarlo; la siguiente llamada empieza con un presupuesto nuevo.
 
 ### 13.5 Gestionar complementos
-En el Gestor de Complementos (pestaña Instalados) `t` alterna la confianza de un complemento, `e` lo activa o desactiva y `s` alterna el Modo Seguro global. Los cambios se guardan y se aplican de inmediato: todos los complementos se recargan con la nueva configuración. Los complementos desactivados no se cargan, así que no se ejecuta nada de su código ni de sus hooks.
+En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes del complemento (sección 18), `t` alterna la confianza de un complemento, `e` lo activa o desactiva y `s` alterna el Modo Seguro global. Los cambios se guardan y se aplican de inmediato: todos los complementos se recargan con la nueva configuración. Los complementos desactivados no se cargan, así que no se ejecuta nada de su código ni de sus hooks.
 
 ---
 
@@ -688,7 +830,7 @@ Cuando `pairee.t()` resuelve una clave:
 
 ## 18. Configuración Personalizada de Complementos
 
-Los complementos pueden declarar sus propios parámetros de configuración. Estos se cargan y renderizan dinámicamente en la ventana de opciones principal TUI de Pairee, lo que permite a los usuarios modificar variables sin tener que editar directamente el código de Lua.
+Los complementos pueden declarar sus propios ajustes. Los usuarios los editan en el Gestor de Complementos sin tocar el código Lua: `c` o Enter sobre un complemento instalado abre un formulario con una casilla por cada ajuste `bool` y un campo de texto para los demás.
 
 ### 18.1 Definición de settings_schema
 En el manifiesto `manifest.toml` de tu complemento, define una tabla `[settings_schema]` que contenga las opciones configurables. Cada opción debe especificar un tipo `type` (`bool`, `string`, `integer` o `number`), un valor por defecto `default` y una breve descripción `description`. El valor del usuario se convierte con el tipo declarado (sin `type`, se usa el tipo de `default`); un valor que no corresponde al tipo se ignora y se usa el valor por defecto:
@@ -699,7 +841,7 @@ git_path    = { type = "string", default = "git", description = "Ruta personaliz
 max_depth   = { type = "integer", default = 3, description = "Profundidad máxima de recursión" }
 ```
 
-Cuando los usuarios naveguen a la ventana de opciones, Pairee presentará un formulario específico para tu complemento con estos controles. Las opciones elegidas por el usuario se guardan de forma persistente en su archivo `pairee.toml`.
+El formulario muestra la `description` y el valor por defecto del ajuste enfocado. Guardar comprueba cada valor contra su tipo (uno inválido se nombra y recibe el foco); Predeterminados devuelve todos los campos al valor por defecto del esquema. Solo se guardan los valores distintos de los predeterminados, en `config.toml` bajo `[settings.plugin_settings.<complemento>]`, y los complementos se recargan para que los nuevos valores se apliquen de inmediato.
 
 ### 18.2 Acceso a la Configuración en Lua
 Los valores de configuración resueltos se ponen a disposición de tu script Lua dentro de la tabla global de solo lectura `pairee.settings`:
@@ -790,7 +932,7 @@ commands = ["git"]
 | **Nombres de complementos** | Usa el estilo `<name>.pairee` para complementos del registro (p.ej. `git.pairee`, `fzf.pairee`) |
 | **Eventos con espacio de nombres** | Prefija los eventos pub/sub con el nombre del complemento: `mi-complemento:evento` |
 | **Declinar con gracia** | En `peek()`, verifica el tipo de archivo y retorna anticipadamente si no aplica |
-| **Asíncrono primero** | Evita llamadas bloqueantes. Usa `pairee.fs.spawn` y patrones asíncronos |
+| **Asíncrono primero** | Evita llamadas bloqueantes. Usa `pairee.Command` y patrones asíncronos; deja el trabajo lento de la vista previa para `preload` |
 | **Notificaciones de error** | Muestra `pairee.app.notify` con nivel `"error"` en fallos — nunca falles silenciosamente |
 | **Transparencia de confianza** | Si tu complemento necesita `trusted = true`, documéntalo claramente en el manifiesto |
 | **Disciplina SemVer** | Incrementa MAJOR solo en cambios de comportamiento que rompen compatibilidad |

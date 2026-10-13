@@ -61,6 +61,24 @@ impl LuaFile {
     }
 }
 
+impl LuaFile {
+    /// Characteristics of the file, read from the disk when it is there,
+    /// else from what this `File` already knows (remote or vanished files).
+    pub fn cha(&self) -> super::LuaCha {
+        super::LuaCha::read(std::path::Path::new(&self.path), false).unwrap_or_else(|_| {
+            super::LuaCha {
+                is_dir: self.is_dir,
+                is_link: self.is_symlink,
+                is_hidden: self.is_hidden,
+                is_exec: self.is_exec,
+                len: self.size,
+                mtime: self.mtime,
+                ..Default::default()
+            }
+        })
+    }
+}
+
 impl FromLua for LuaFile {
     fn from_lua(value: Value, _lua: &mlua::Lua) -> mlua::Result<Self> {
         match value {
@@ -86,6 +104,7 @@ impl UserData for LuaFile {
         fields.add_field_method_get("mtime", |_, this| Ok(this.mtime));
         fields.add_field_method_get("is_hidden", |_, this| Ok(this.is_hidden));
         fields.add_field_method_get("is_exec", |_, this| Ok(this.is_exec));
+        fields.add_field_method_get("cha", |_, this| Ok(this.cha()));
     }
 
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
@@ -181,6 +200,25 @@ mod tests {
             lua.load("return f.is_exec").eval().unwrap()
         };
         assert!(!exec);
+    }
+
+    #[test]
+    fn cha_comes_from_the_disk_or_the_known_fields() {
+        let tmp = tempfile::NamedTempFile::new().unwrap();
+        std::fs::write(tmp.path(), b"abc").unwrap();
+        let lua = Lua::new();
+        lua.globals()
+            .set("f", LuaFile::from_path(tmp.path()))
+            .unwrap();
+        let (len, has_mtime): (u64, bool) = lua
+            .load("return f.cha.len, f.cha.mtime ~= nil")
+            .eval()
+            .unwrap();
+        assert_eq!(len, 3);
+        assert!(has_mtime);
+        lua.globals().set("g", sample()).unwrap();
+        let (len, is_dir): (u64, bool) = lua.load("return g.cha.len, g.cha.is_dir").eval().unwrap();
+        assert_eq!((len, is_dir), (12, false));
     }
 
     #[test]
