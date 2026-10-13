@@ -1,6 +1,7 @@
 use super::detail::{field_line, pane_block, render_details, row_style, text_style};
 use super::{Pane, wrap_text};
 use crate::config::localization::t;
+use crate::ui::text_width::truncate_to_width;
 use ratatui::{
     Frame,
     style::{Color, Modifier as StyleModifier, Style},
@@ -161,15 +162,15 @@ fn registry_page(
     } = Page::of(pane, registry.len(), cursor_idx);
 
     let mut list_items = vec![ListItem::new(Line::from(vec![Span::styled(
-        columns.row("Plugin", "Author", "Version"),
+        columns.row(&t("col_plugin"), &t("col_author"), &t("about_version")),
         dim_style.add_modifier(StyleModifier::UNDERLINED),
     )]))];
     for (i, (name, version, _, author)) in registry[slice_start..slice_end].iter().enumerate() {
         // Truncate each column to its max width
         let row = columns.row(
-            &truncate(display_name(name), columns.name),
-            &truncate(author, columns.author),
-            &truncate(version, columns.version),
+            &truncate_to_width(display_name(name), columns.name),
+            &truncate_to_width(author, columns.author),
+            &truncate_to_width(version, columns.version),
         );
         let style = row_style(pane, slice_start + i == cursor_idx);
         list_items.push(ListItem::new(Line::from(vec![Span::styled(row, style)])));
@@ -178,7 +179,9 @@ fn registry_page(
     if total_pages > 1 {
         let indicator = format!(
             " {:>w$}",
-            format!("Pg {}/{} — PgUp/PgDn", page + 1, total_pages),
+            t("plugin_page_indicator")
+                .replacen("{}", &(page + 1).to_string(), 1)
+                .replacen("{}", &total_pages.to_string(), 1),
             w = inner_w,
         );
         list_items.push(ListItem::new(Line::from(vec![Span::styled(
@@ -211,11 +214,30 @@ fn entry_details(pane: &Pane, entry: &RegistryEntry) -> Vec<Line<'static>> {
     lines
 }
 
-/// Truncates a string to `max` visible characters, appending `…` if needed.
-fn truncate(s: &str, max: usize) -> String {
-    if s.len() <= max {
-        s.to_string()
-    } else {
-        format!("{}…", &s[..max.saturating_sub(1)])
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ratatui::layout::Rect;
+
+    #[test]
+    fn non_ascii_registry_fields_are_cut_by_columns() {
+        let theme = crate::config::theme::Theme::default();
+        let pane = Pane {
+            list_area: Rect::new(0, 0, 50, 10),
+            detail_area: Rect::new(50, 0, 30, 10),
+            theme: &theme,
+            border_style: Style::default(),
+            bg_style: Style::default(),
+        };
+        let long = "Ñandú Pérez-Gutiérrez de la Peña 日本語";
+        let entry = (
+            format!("{long}.pairee"),
+            "ü1.0.0-ñ".into(),
+            String::new(),
+            long.into(),
+        );
+        // Byte slicing used to panic in the middle of a multi-byte char.
+        let rows = registry_page(&pane, &[entry], 0);
+        assert_eq!(rows.len(), 2);
     }
 }

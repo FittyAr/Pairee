@@ -2,6 +2,7 @@ use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::scrollbar::ScrollbarUiState;
+use crate::ui::text_width::truncate_to_width;
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -10,10 +11,6 @@ use ratatui::{
     text::{Line, Span},
     widgets::{Block, Borders, Clear, Paragraph},
 };
-
-pub(super) fn truncate_str(s: &str, max_len: usize) -> String {
-    crate::ui::text_width::truncate_to_width(s, max_len)
-}
 
 type Theme = crate::config::theme::Theme;
 
@@ -37,9 +34,9 @@ impl Columns {
     fn row(&self, mask: &str, open: &str, view: &str) -> String {
         format!(
             " {:<mw$} | {:<ow$} | {:<vw$} ",
-            truncate_str(mask, self.mask),
-            truncate_str(open, self.open),
-            truncate_str(view, self.view),
+            truncate_to_width(mask, self.mask),
+            truncate_to_width(open, self.open),
+            truncate_to_width(view, self.view),
             mw = self.mask,
             ow = self.open,
             vw = self.view

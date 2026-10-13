@@ -8,6 +8,7 @@ use crate::config::theme::Theme;
 use crate::keybindings::catalog::Category;
 use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::kit::{ListPopup, Scroll, fg, popup_fg};
+use crate::ui::text_width::truncate_to_width;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -170,7 +171,7 @@ fn row_text(row: &ShortcutRow) -> String {
     } else {
         row.chords.join(", ")
     };
-    let chords = clip(&chords, CHORDS_WIDTH);
+    let chords = truncate_to_width(&chords, CHORDS_WIDTH);
     let origin = match (&row.plugin, row.user) {
         (_, true) => format!("  ({})", t("shortcuts_origin_user")),
         (Some(plugin), false) => format!("  ({plugin})"),
@@ -183,23 +184,13 @@ fn row_text(row: &ShortcutRow) -> String {
     )
 }
 
-/// `text` cut to `width` characters, with `…` when cut.
-fn clip(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
-    }
-    let mut out: String = text.chars().take(width - 1).collect();
-    out.push('…');
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn long_chord_lists_are_clipped() {
-        assert_eq!(clip("F5", 4), "F5");
-        assert_eq!(clip("abcdef", 4), "abc…");
+        assert_eq!(truncate_to_width("F5", 4), "F5");
+        assert_eq!(truncate_to_width("abcdef", 4), "abc…");
     }
 }

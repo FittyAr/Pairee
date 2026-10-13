@@ -15,8 +15,7 @@ pub mod installed;
 pub mod search;
 pub mod select;
 
-pub mod wrap;
-pub use wrap::wrap_text;
+pub use crate::ui::wrap::wrap_text;
 
 /// Where a plugin-manager tab draws: list and detail areas plus styles.
 pub struct Pane<'a> {
@@ -207,19 +206,4 @@ pub fn render(
         legend_area,
     );
     true
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_wrap_text_utf8() {
-        let text = "Realiza auditorías de verificación de cumplimiento";
-        let lines = wrap_text(text, 15);
-        assert!(!lines.is_empty());
-        for line in &lines {
-            assert!(line.chars().count() <= 15);
-        }
-    }
 }

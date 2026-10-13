@@ -268,9 +268,5 @@ const LABEL_NAME_CHARS: usize = 32;
 
 /// `name`, cut to [`LABEL_NAME_CHARS`] with an ellipsis.
 fn shortened(name: &str) -> String {
-    if name.chars().count() <= LABEL_NAME_CHARS {
-        return name.to_string();
-    }
-    let kept: String = name.chars().take(LABEL_NAME_CHARS - 1).collect();
-    format!("{kept}…")
+    crate::ui::text_width::truncate_to_width(name, LABEL_NAME_CHARS)
 }

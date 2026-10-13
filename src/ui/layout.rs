@@ -1,7 +1,6 @@
 use crate::app::state::AppState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
-#[allow(dead_code)]
 pub struct AppLayout {
     pub menu_rect: Rect,
     pub main_rect: Rect,

@@ -140,7 +140,7 @@ fn render_specific_popup(
     if command_palette::render(f, popup, theme, size, &context.resolver) {
         return;
     }
-    if shortcuts::render(f, popup, theme, size) {}
+    shortcuts::render(f, popup, theme, size);
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,
