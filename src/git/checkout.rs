@@ -84,11 +84,12 @@ fn checkout_remote_tracking(
     Ok(local_name.to_string())
 }
 
-/// Checks out a local branch's tree and points HEAD at the branch.
+/// Checks out a local branch's tree (safe mode: local changes that would be
+/// overwritten make it fail) and points HEAD at the branch.
 fn switch_to_branch(repo: &git2::Repository, branch: &git2::Branch) -> anyhow::Result<()> {
     let branch_ref_name = branch.get().name()?;
     let obj = repo.revparse_single(branch_ref_name)?;
-    repo.checkout_tree(&obj, None)?;
+    crate::git::worktree::safe_checkout(repo, &obj)?;
     repo.set_head(branch_ref_name)?;
     Ok(())
 }

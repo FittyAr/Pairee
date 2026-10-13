@@ -69,8 +69,6 @@ pub fn push_tags(
     observer: crate::git::remote::ProgressObserver<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(crate::git::remote::create_callbacks(observer));
     let tag_names = repo.tag_names(None)?;
     let mut refspecs = Vec::new();
     for name_opt in &tag_names {
@@ -79,8 +77,7 @@ pub fn push_tags(
         }
     }
     if !refspecs.is_empty() {
-        let refs: Vec<&str> = refspecs.iter().map(|s| s.as_str()).collect();
-        remote.push(&refs, Some(&mut opts))?;
+        crate::git::push::push_refspecs(&mut remote, &refspecs, observer)?;
     }
     Ok(())
 }

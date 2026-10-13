@@ -5,6 +5,8 @@ pub mod commit;
 pub mod diff;
 pub mod log;
 pub mod merge;
+pub mod pull;
+pub mod push;
 pub mod rebase;
 pub mod remote;
 pub mod repo;
@@ -16,6 +18,7 @@ pub mod stage;
 pub mod stash;
 pub mod status;
 pub mod tags;
+pub mod worktree;
 
 #[cfg(test)]
 mod tests;

@@ -1,5 +1,8 @@
 use std::path::PathBuf;
 
+pub use crate::git::pull::pull;
+pub use crate::git::push::{delete_remote_branch, push};
+
 #[derive(Debug, Clone)]
 pub struct RemoteInfo {
     pub name: String,
@@ -157,36 +160,6 @@ pub fn delete_remote(repo: &git2::Repository, name: &str) -> anyhow::Result<()> 
     Ok(())
 }
 
-/// Deletes a remote branch on the specified remote.
-pub fn delete_remote_branch(
-    repo: &git2::Repository,
-    remote_name: &str,
-    branch_name: &str,
-    observer: ProgressObserver<'_>,
-) -> anyhow::Result<()> {
-    let clean_branch =
-        if let Some(stripped) = branch_name.strip_prefix(&format!("{}/", remote_name)) {
-            stripped
-        } else {
-            branch_name
-        };
-
-    let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(create_callbacks(observer));
-
-    let refspec = format!(":refs/heads/{}", clean_branch);
-    remote.push(&[refspec.as_str()], Some(&mut opts))?;
-
-    // Also remove local tracking reference if it exists
-    let refname = format!("refs/remotes/{}/{}", remote_name, clean_branch);
-    if let Ok(mut r) = repo.find_reference(&refname) {
-        let _ = r.delete();
-    }
-
-    Ok(())
-}
-
 /// Fetches objects and refs from the specified remote.
 pub fn fetch(
     repo: &git2::Repository,
@@ -197,92 +170,5 @@ pub fn fetch(
     let mut opts = git2::FetchOptions::new();
     opts.remote_callbacks(create_callbacks(observer));
     remote.fetch(&[] as &[&str], Some(&mut opts), None)?;
-    Ok(())
-}
-
-/// Pulls changes from the specified remote and branch into the current branch.
-pub fn pull(
-    repo: &git2::Repository,
-    remote_name: &str,
-    branch_name: &str,
-    observer: ProgressObserver<'_>,
-) -> anyhow::Result<()> {
-    // 1. Fetch first
-    fetch(repo, remote_name, observer)?;
-
-    // 2. Resolve remote reference
-    let remote_ref_name = format!("refs/remotes/{}/{}", remote_name, branch_name);
-    let remote_ref = repo.find_reference(&remote_ref_name)?;
-    let annotated_commit = repo.reference_to_annotated_commit(&remote_ref)?;
-
-    // 3. Analyze merge
-    let (analysis, _) = repo.merge_analysis(&[&annotated_commit])?;
-
-    if analysis.is_fast_forward() {
-        let refname = format!("refs/heads/{}", branch_name);
-        let mut reference = repo.find_reference(&refname)?;
-        reference.set_target(annotated_commit.id(), "pull: Fast-forward")?;
-        repo.set_head(&refname)?;
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
-    } else if analysis.is_normal() {
-        let local_commit = repo.head()?.peel_to_commit()?;
-        let remote_commit = repo.find_commit(annotated_commit.id())?;
-
-        let mut index = repo.merge_commits(&local_commit, &remote_commit, None)?;
-        if index.has_conflicts() {
-            anyhow::bail!("Merge conflicts detected. Please resolve conflicts manually.");
-        }
-
-        let tree_id = index.write_tree_to(repo)?;
-        let tree = repo.find_tree(tree_id)?;
-
-        let sig = crate::git::signature::default_signature(repo)?;
-        let message = format!(
-            "Merge branch '{}/{}' into {}",
-            remote_name, branch_name, branch_name
-        );
-
-        repo.commit(
-            Some("HEAD"),
-            &sig,
-            &sig,
-            &message,
-            &tree,
-            &[&local_commit, &remote_commit],
-        )?;
-
-        repo.checkout_head(Some(git2::build::CheckoutBuilder::new().force()))?;
-    } else if analysis.is_up_to_date() {
-        // Already up to date, nothing to do
-    } else {
-        anyhow::bail!("Unsupported merge analysis result: {:?}", analysis);
-    }
-
-    Ok(())
-}
-
-/// Pushes local branch commits to the specified remote.
-/// If `set_upstream` is true, configures upstream tracking for the branch.
-pub fn push(
-    repo: &git2::Repository,
-    remote_name: &str,
-    branch_name: &str,
-    set_upstream: bool,
-    observer: ProgressObserver<'_>,
-) -> anyhow::Result<()> {
-    let mut remote = repo.find_remote(remote_name)?;
-    let mut opts = git2::PushOptions::new();
-    opts.remote_callbacks(create_callbacks(observer));
-
-    let refspec = format!("refs/heads/{}:refs/heads/{}", branch_name, branch_name);
-    remote.push(&[refspec.as_str()], Some(&mut opts))?;
-
-    if set_upstream
-        && let Ok(mut local_branch) = repo.find_branch(branch_name, git2::BranchType::Local)
-    {
-        let upstream_ref = format!("{}/{}", remote_name, branch_name);
-        let _ = local_branch.set_upstream(Some(&upstream_ref));
-    }
-
     Ok(())
 }
