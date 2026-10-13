@@ -38,4 +38,4 @@ pub use run::run;
 /// Filesystem engines whose screens come in a later release (the
 /// duplicate finder, the remote `Vfs` backends): library API until then,
 /// exercised by `tests/fs_engines.rs`.
-pub use fs::{dupes, vfs};
+pub use fs::{dupes, remote, vfs};

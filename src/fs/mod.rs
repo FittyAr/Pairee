@@ -17,6 +17,7 @@ pub mod multi_rename;
 pub mod path_util;
 pub mod privileges;
 pub mod progress;
+pub mod remote;
 pub mod remove;
 pub mod search;
 pub mod ssh;

@@ -78,6 +78,17 @@ encoding_rs = "0.8"
 chardetng = "1.0"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
 notify = "8.2"
+# Remote backends (src/fs/remote): FTP/FTPS over rustls (ring), S3 request
+# signing (sans-IO, sent with reqwest), WebDAV PROPFIND parsing, URLs and
+# the streamed request bodies of uploads.
+suppaftp = { version = "12.2.0", features = ["rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7.1"
+rusty-s3 = "0.10.2"
+quick-xml = "0.42.0"
+url = "2.5.8"
+bytes = "1.12"
+http-body = "1.1"
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
@@ -92,6 +103,16 @@ strip = true
 [dev-dependencies]
 # Runs the built `pairee` binary in the CLI tests (tests/cli.rs).
 assert_cmd = "2.2"
+# In-process servers the remote backends run their Vfs contract tests
+# against (src/fs/remote/tests): WebDAV, S3 (checks request signatures)
+# and FTP, all serving temporary folders.
+dav-server = { version = "0.11", default-features = false, features = ["localfs"] }
+s3s = "0.14"
+s3s-fs = "0.14"
+libunftp = { version = "0.23", default-features = false, features = ["ring"] }
+unftp-sbe-fs = "0.4"
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
@@ -100,7 +121,6 @@ ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
 signal-hook = { version = "0.4", features = ["iterator"] }
 # O_NOFOLLOW for symlink-safe secure wipe.

@@ -103,6 +103,34 @@ pub fn unsupported() -> io::Error {
     )
 }
 
+/// [`Vfs::replace`] for servers whose rename refuses an existing target
+/// (SFTP v3, some FTP servers): the old file is moved aside, the new one
+/// put in place and the old one deleted — or put back when the second
+/// rename fails, so the destination is never lost.
+pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Result<()> {
+    let first = match vfs.rename(from, to) {
+        Ok(()) => return Ok(()),
+        Err(e) => e,
+    };
+    if !vfs.stat(to).is_ok_and(|e| !e.is_dir) {
+        return Err(first);
+    }
+    let mut aside = to.as_os_str().to_owned();
+    aside.push(".pairee-old");
+    let aside = PathBuf::from(aside);
+    vfs.rename(to, &aside)?;
+    match vfs.rename(from, to) {
+        Ok(()) => {
+            let _ = vfs.remove_file(&aside);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = vfs.rename(&aside, to);
+            Err(e)
+        }
+    }
+}
+
 /// A browsable filesystem (the port). Paths are absolute in the adapter's
 /// own namespace: local paths, remote paths, or `archive.zip/inner/path`.
 pub trait Vfs: Send + Sync + std::fmt::Debug {

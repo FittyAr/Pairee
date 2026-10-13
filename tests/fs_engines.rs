@@ -22,3 +22,10 @@ fn duplicate_finder_groups_equal_files() {
     assert_eq!(report.groups[0].wasted(), 4);
     assert!(!report.partial);
 }
+
+#[test]
+fn remote_factory_refuses_unknown_schemes() {
+    let err = pairee::remote::connect("gopher://example.org/").unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::Unsupported);
+    assert!(pairee::remote::Scheme::parse("ftps").is_some());
+}
