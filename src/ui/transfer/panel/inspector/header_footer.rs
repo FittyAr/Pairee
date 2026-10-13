@@ -4,7 +4,9 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Gauge, Paragraph};
 
 use crate::app::state::TransferUIState;
+use crate::config::localization::t;
 use crate::fs::transfer::job::{TransferJobStatus, TransferProgress};
+use crate::ui::transfer::labels;
 use crate::ui::transfer::panel::summarize_path;
 
 pub(crate) fn render_header(
@@ -26,9 +28,9 @@ pub(crate) fn render_header(
                 || job.status == TransferJobStatus::Verifying =>
         {
             let path = std::path::Path::new(&p.current_file);
-            format!("Current File: {}", summarize_path(path))
+            t("transfer_current_file").replace("{}", &summarize_path(path))
         }
-        _ => format!("Job status: {:?}", job.status),
+        _ => t("transfer_job_status").replace("{}", &labels::status(job)),
     };
     f.render_widget(
         Paragraph::new(file_text).style(Style::default().fg(Color::White)),
@@ -37,34 +39,16 @@ pub(crate) fn render_header(
 
     let percent = prog.map(|p| p.percent_bytes() as u16).unwrap_or(0);
     let label = match job.status {
-        TransferJobStatus::Completed => "100% (Completed)".to_string(),
-        TransferJobStatus::Failed => "Failed".to_string(),
-        TransferJobStatus::Cancelled => "Cancelled".to_string(),
-        _ => {
-            if prog.is_some() {
-                format!("{}%", percent)
-            } else {
-                "0%".to_string()
-            }
-        }
+        TransferJobStatus::Completed => t("transfer_gauge_completed"),
+        TransferJobStatus::Failed | TransferJobStatus::Cancelled => labels::status(job),
+        _ => format!("{percent}%"),
     };
-    let speed_formatted = if prog.is_some()
+    let moving = prog.is_some()
         && (job.status == TransferJobStatus::Transferring
-            || job.status == TransferJobStatus::Verifying)
-    {
-        bytesize::ByteSize(ts.speed_info.0 as u64).to_string()
-    } else {
-        "0 B".to_string()
-    };
-    let eta_text = match prog.and(ts.speed_info.1) {
-        Some(secs)
-            if job.status == TransferJobStatus::Transferring
-                || job.status == TransferJobStatus::Verifying =>
-        {
-            format!("ETA {}s", secs)
-        }
-        _ => "ETA --".to_string(),
-    };
+            || job.status == TransferJobStatus::Verifying);
+    let speed = if moving { ts.speed_info.0 as u64 } else { 0 };
+    let speed_formatted = bytesize::ByteSize(speed).to_string();
+    let eta_text = labels::eta(ts.speed_info.1.filter(|_| moving));
 
     let gauge_chunk = Layout::default()
         .direction(Direction::Horizontal)
@@ -104,9 +88,7 @@ pub(crate) fn render_footer(
     area: Rect,
     _job: &crate::fs::transfer::job::TransferJob,
 ) {
-    let footer_text =
-        " [p] Pause/Resume  [s] Skip File  [x] Cancel Job  [Del] Remove Job  [Esc] Minimize ";
-    let p = Paragraph::new(footer_text)
+    let p = Paragraph::new(t("transfer_footer_keys"))
         .block(
             ratatui::widgets::Block::default()
                 .borders(ratatui::widgets::Borders::ALL)

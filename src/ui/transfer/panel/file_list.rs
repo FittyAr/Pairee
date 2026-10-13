@@ -4,6 +4,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Table};
 
 use crate::app::state::TransferUIState;
+use crate::config::localization::t;
 use crate::fs::transfer::job::TransferResults;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
@@ -19,7 +20,7 @@ pub(crate) fn render_file_list_tab(
     let total_files = res.failed_files.len() + res.skipped_files.len() + res.completed_files.len();
 
     if total_files == 0 {
-        let empty_p = Paragraph::new("\n No files transferred yet.").style(
+        let empty_p = Paragraph::new(t("transfer_no_files")).style(
             Style::default()
                 .fg(Color::Gray)
                 .add_modifier(Modifier::ITALIC),
@@ -48,7 +49,16 @@ pub(crate) fn render_file_list_tab(
         ],
     )
     .header(
-        Row::new(vec!["Status", "File Path", "Size", "Hashes"]).style(
+        Row::new(
+            [
+                "transfer_col_status",
+                "transfer_col_path",
+                "transfer_col_size",
+                "transfer_col_hashes",
+            ]
+            .map(t),
+        )
+        .style(
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
@@ -91,7 +101,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
     let (cells, color, selected_fg) = if i < f_len {
         let f = &res.failed_files[i];
         let cells = [
-            " ✗ FAIL ".to_string(),
+            t("transfer_row_fail"),
             f.src.to_string_lossy().into_owned(),
             "-".to_string(),
             f.error.clone(),
@@ -100,7 +110,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
     } else if i < f_len + s_len {
         let f = &res.skipped_files[i - f_len];
         let cells = [
-            " ⚠ SKIP ".to_string(),
+            t("transfer_row_skip"),
             f.src.to_string_lossy().into_owned(),
             "-".to_string(),
             f.reason.clone(),
@@ -116,7 +126,7 @@ fn file_row(res: &TransferResults, i: usize, selected: bool) -> Row<'static> {
             &dst_hash[..dst_hash.len().min(4)]
         );
         let cells = [
-            " ✓ OK ".to_string(),
+            t("transfer_row_ok"),
             f.src.to_string_lossy().into_owned(),
             bytesize::ByteSize(f.size).to_string(),
             hash_text,

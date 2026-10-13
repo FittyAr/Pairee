@@ -143,7 +143,7 @@ fn a_conflict_names_the_file_and_offers_the_answers() {
     assert!(screen.contains("Conflict Detected"), "{screen}");
     assert!(screen.contains("a.txt"), "{screen}");
     assert!(screen.contains("[o] Overwrite"), "{screen}");
-    assert!(screen.contains("[x] Cancel Job"), "{screen}");
+    assert!(screen.contains("[x] Cancel job"), "{screen}");
 }
 
 #[test]

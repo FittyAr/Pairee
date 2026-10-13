@@ -4,9 +4,11 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph};
 
 use crate::app::state::{TransferTab, TransferUIState};
+use crate::config::localization::t;
 use crate::fs::transfer::job::TransferResults;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
+use crate::ui::transfer::labels::{post_action, yes_no};
 
 pub(crate) fn render_tabs(
     f: &mut Frame,
@@ -14,11 +16,11 @@ pub(crate) fn render_tabs(
     active_tab: TransferTab,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
-    let tab_titles = vec![
-        (0, "[1] File List"),
-        (1, "[2] Options"),
-        (2, "[3] Status"),
-        (3, "[4] Log"),
+    let tab_titles = [
+        (0, t("transfer_tab_files")),
+        (1, t("transfer_tab_options")),
+        (2, t("transfer_tab_status")),
+        (3, t("transfer_tab_log")),
     ];
 
     let tab_layout = Layout::default()
@@ -84,70 +86,35 @@ pub(crate) fn render_options_tab(
 ) {
     let options = &job.options;
 
-    let opt_labels = vec![
-        format!(
-            "Direct I/O (bypass cache): {}",
-            if options.direct_io { "Yes" } else { "No" }
+    let bandwidth = match options.limit_bandwidth_rate {
+        Some(rate) => format!("{} /s", bytesize::ByteSize(rate)),
+        None => t("transfer_no_limit"),
+    };
+    let buffer = bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string();
+    let opt_labels = [
+        ("transfer_opt_direct_io", yes_no(options.direct_io)),
+        ("transfer_opt_verify", yes_no(options.verify_after_copy)),
+        (
+            "transfer_opt_timestamps",
+            yes_no(options.preserve_timestamps),
         ),
-        format!(
-            "Verify integrity after transfer: {}",
-            if options.verify_after_copy {
-                "Yes"
-            } else {
-                "No"
-            }
+        (
+            "transfer_opt_attributes",
+            yes_no(options.preserve_attributes),
         ),
-        format!(
-            "Preserve timestamps (created, modified): {}",
-            if options.preserve_timestamps {
-                "Yes"
-            } else {
-                "No"
-            }
+        ("transfer_opt_post_action", post_action(&ts.post_action)),
+        ("transfer_opt_buffer", buffer),
+        (
+            "transfer_opt_hash",
+            options.hash_algorithm.as_str().to_string(),
         ),
-        format!(
-            "Preserve attributes and permissions: {}",
-            if options.preserve_attributes {
-                "Yes"
-            } else {
-                "No"
-            }
-        ),
-        format!("Post-Action (On Finish): {:?}", ts.post_action),
-        format!(
-            "Buffer size: {}",
-            bytesize::ByteSize(options.buffer_size.to_bytes() as u64).to_string()
-        ),
-        format!("Hash algorithm: {}", options.hash_algorithm.as_str()),
-        format!(
-            "Preserve Security / ACLs: {}",
-            if options.preserve_acl { "Yes" } else { "No" }
-        ),
-        format!(
-            "Preserve Alternate Data Streams: {}",
-            if options.preserve_streams {
-                "Yes"
-            } else {
-                "No"
-            }
-        ),
-        format!(
-            "Skip symbolic links: {}",
-            if options.skip_symlinks { "Yes" } else { "No" }
-        ),
-        format!(
-            "Follow symbolic links: {}",
-            if options.follow_symlinks { "Yes" } else { "No" }
-        ),
-        format!(
-            "Limit bandwidth: {}",
-            if let Some(rate) = options.limit_bandwidth_rate {
-                format!("{} /s", bytesize::ByteSize(rate))
-            } else {
-                "No limit".to_string()
-            }
-        ),
-    ];
+        ("transfer_opt_acl", yes_no(options.preserve_acl)),
+        ("transfer_opt_streams", yes_no(options.preserve_streams)),
+        ("transfer_opt_skip_links", yes_no(options.skip_symlinks)),
+        ("transfer_opt_follow_links", yes_no(options.follow_symlinks)),
+        ("transfer_opt_bandwidth", bandwidth),
+    ]
+    .map(|(key, value)| t(key).replace("{}", &value));
 
     let mut lines = Vec::new();
     lines.push(ratatui::text::Line::from(""));
@@ -173,7 +140,7 @@ pub(crate) fn render_options_tab(
     let p = Paragraph::new(lines).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Active Transfer Settings (Use Up/Down + Enter to toggle) ")
+            .title(t("transfer_options_title"))
             .border_type(BorderType::Rounded),
     );
     f.render_widget(p, area);
@@ -205,8 +172,8 @@ pub(crate) fn render_status_tab(
             bytesize::ByteSize(p.bytes_transferred).to_string(),
             format!("{}/s", bytesize::ByteSize(ts.speed_info.0 as u64)),
             match ts.speed_info.1 {
-                Some(secs) => format!("{} seconds", secs),
-                None => "Calculating...".to_string(),
+                Some(secs) => t("transfer_seconds").replace("{}", &secs.to_string()),
+                None => t("transfer_calculating"),
             },
         ),
         None => {
@@ -222,37 +189,27 @@ pub(crate) fn render_status_tab(
                 skipped,
                 bytesize::ByteSize(bytes).to_string(),
                 bytesize::ByteSize(bytes).to_string(),
-                "0 B/s".to_string(),
-                "Finished".to_string(),
+                format!("{}/s", bytesize::ByteSize(0)),
+                t("transfer_finished"),
             )
         }
     };
 
-    let text = format!(
-        r#"  - Total Files: {}
-  - Files Completed: {}
-  - Files Failed: {}
-  - Files Skipped: {}
-  
-  - Total Size: {}
-  - Bytes Copied: {}
-  - Current Speed: {}
-  - Estimated Time (ETA): {}"#,
-        files_total,
-        files_completed,
-        files_failed,
-        files_skipped,
-        bytes_total,
-        bytes_transferred,
-        speed,
-        eta
-    );
+    let text = t("transfer_stats_body")
+        .replace("{total}", &files_total.to_string())
+        .replace("{completed}", &files_completed.to_string())
+        .replace("{failed}", &files_failed.to_string())
+        .replace("{skipped}", &files_skipped.to_string())
+        .replace("{size}", &bytes_total)
+        .replace("{copied}", &bytes_transferred)
+        .replace("{speed}", &speed)
+        .replace("{eta}", &eta);
 
     let p = Paragraph::new(text)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Statistics ")
+                .title(t("transfer_stats_title"))
                 .border_type(BorderType::Rounded),
         )
         .style(Style::default().fg(Color::Cyan));
@@ -288,7 +245,7 @@ pub(crate) fn render_log_tab(
     let list = List::new(items).block(
         Block::default()
             .borders(Borders::ALL)
-            .title(" Event Log ")
+            .title(t("transfer_log_title"))
             .border_type(BorderType::Rounded),
     );
     f.render_widget(list, area);

@@ -2,6 +2,7 @@ pub mod sort;
 pub mod view;
 
 use crate::app::state::popup::{YaziSortPopup, YaziViewPopup};
+use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
@@ -11,7 +12,8 @@ use ratatui::{
     widgets::{Block, Borders, Cell, Clear, Row, Table},
 };
 
-/// `(key, label)` cells of a key popup: rows of four, `None` for an empty cell.
+/// `(key, label i18n key)` cells of a key popup: rows of four, `None` for
+/// an empty cell.
 pub type KeyGrid = [[Option<(&'static str, &'static str)>; 4]; 3];
 
 /// Table rows of `grid`: yellow key, `⋄`, label.
@@ -29,7 +31,7 @@ pub fn key_rows(
                 Some((key, label)) => Cell::from(Line::from(vec![
                     Span::styled(*key, key_style),
                     Span::styled("⋄", Style::default().fg(Color::DarkGray)),
-                    Span::styled(*label, label_style),
+                    Span::styled(format!(" {}", t(label)), label_style),
                 ])),
                 None => Cell::from(""),
             }))
@@ -39,14 +41,14 @@ pub fn key_rows(
 
 impl DialogView for YaziSortPopup {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
-        let title = " Sort modes (Yazi style) ";
+        let title = t("yazi_sort_title");
         render_board(f, (title, &sort::SORT_KEYS), cx.theme, cx.area);
     }
 }
 
 impl DialogView for YaziViewPopup {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
-        let title = " View modes (Yazi style) ";
+        let title = t("yazi_view_title");
         render_board(f, (title, &view::VIEW_KEYS), cx.theme, cx.area);
     }
 }
@@ -54,7 +56,7 @@ impl DialogView for YaziViewPopup {
 /// The key board along the bottom of the screen.
 fn render_board(
     f: &mut Frame,
-    (title, grid): (&'static str, &KeyGrid),
+    (title, grid): (String, &KeyGrid),
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) {
