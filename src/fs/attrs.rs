@@ -35,7 +35,7 @@ pub fn read_attrs(path: &Path) -> Result<FileAttrs> {
     let (mode, owner, nlinks) = {
         use std::os::unix::fs::MetadataExt;
         let uid = meta.uid();
-        let owner_name = get_unix_owner_name(uid);
+        let owner_name = super::identity::user_name_of(uid).unwrap_or_else(|| uid.to_string());
         (meta.mode(), owner_name, meta.nlink())
     };
 
@@ -140,57 +140,9 @@ pub fn format_unix_mode(mode: u32) -> String {
         .collect()
 }
 
-#[cfg(unix)]
-fn get_unix_owner_name(uid: u32) -> String {
-    // /etc/passwd is parsed once per process; unknown uids (and a missing
-    // file) fall back to the numeric id without re-reading anything.
-    use std::collections::HashMap;
-    use std::sync::OnceLock;
-
-    static PASSWD: OnceLock<HashMap<u32, String>> = OnceLock::new();
-    PASSWD
-        .get_or_init(|| {
-            std::fs::read_to_string("/etc/passwd")
-                .map(|content| parse_passwd(&content))
-                .unwrap_or_default()
-        })
-        .get(&uid)
-        .cloned()
-        .unwrap_or_else(|| uid.to_string())
-}
-
-/// `uid -> user name` from passwd(5) content (first entry wins).
-#[cfg(any(unix, test))]
-fn parse_passwd(content: &str) -> std::collections::HashMap<u32, String> {
-    let mut map = std::collections::HashMap::new();
-    for line in content.lines() {
-        let mut parts = line.split(':');
-        if let (Some(name), _, Some(uid_str)) = (parts.next(), parts.next(), parts.next())
-            && let Ok(uid) = uid_str.trim().parse::<u32>()
-        {
-            map.entry(uid).or_insert_with(|| name.to_string());
-        }
-    }
-    map
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn passwd_is_parsed_into_uid_map() {
-        let map = parse_passwd(
-            "root:x:0:0::/root:/bin/sh
-bob:x:1000:1000::/home/bob:/bin/sh
-alias:x:0:0::/:/bin/sh
-#bad
-",
-        );
-        assert_eq!(map.get(&0).map(String::as_str), Some("root"));
-        assert_eq!(map.get(&1000).map(String::as_str), Some("bob"));
-        assert_eq!(map.len(), 2);
-    }
 
     #[test]
     fn readonly_flag_wins_over_the_mode() {

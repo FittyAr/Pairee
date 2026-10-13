@@ -26,6 +26,7 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     // Compose on top of `utils_basic` so the existing `target_os`,
     // `target_family`, `time`, `hash` entries remain available.
     let table = utils_basic::bind(lua)?;
+    super::identity::bind_into(lua, &table)?;
 
     // `pairee.quote(str, unix?)` — shell-escape a string. `unix=true`
     // forces POSIX-style escaping, `unix=false` forces Windows-style,

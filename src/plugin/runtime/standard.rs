@@ -61,7 +61,10 @@ pub fn bind_runtime(
             tx.clone(),
         )?,
     )?;
-    pairee.set("Command", b::process::bind(lua, command_policy, fs_policy)?)?;
+    pairee.set(
+        "Command",
+        b::process::bind(lua, command_policy, Arc::clone(&fs_policy))?,
+    )?;
     pairee.set("ui", b::ui::bind(lua)?)?;
     pairee.set("ps", b::ps::bind(lua, tx.clone())?)?;
     pairee.set("log", b::log::bind(lua)?)?;
@@ -69,6 +72,12 @@ pub fn bind_runtime(
     pairee.set("notify", b::notify_ext::bind(lua, tx.clone())?)?;
     pairee.set("sync", b::sync::bind(lua, tx.clone())?)?;
     pairee.set("utils", b::utils_ext::bind(lua)?)?;
+    pairee.set(
+        "clipboard",
+        b::clipboard::bind(lua, trusted && !options.secure_mode)?,
+    )?;
+    pairee.set("Error", super::types::error::bind(lua)?)?;
+    pairee.set("state", b::state::bind(lua, &fs_policy.data_dir)?)?;
     pairee.set("which", b::which::bind(lua, tx.clone())?)?;
     b::cx::bind_empty(lua, &pairee)?;
 

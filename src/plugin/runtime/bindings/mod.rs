@@ -1,14 +1,17 @@
 pub mod app;
+pub mod clipboard;
 pub mod cx;
 pub mod dialogs;
 pub mod emit;
 pub mod file_cache;
 pub mod fs;
+pub mod identity;
 pub mod keymap;
 pub mod log;
 pub mod notify_ext;
 pub mod process;
 pub mod ps;
+pub mod state;
 pub mod sync;
 pub mod ui;
 pub mod utils_basic;
