@@ -2,11 +2,12 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use uuid::Uuid;
 
-/// Optional SSH endpoints for a transfer (Strategy: non-local backend).
+/// The remote ends of a transfer (Strategy: non-local backend): any pair
+/// of connections, or one connection and the local disk.
 #[derive(Debug, Clone)]
-pub struct SshEndpoints {
-    pub src: Option<crate::fs::ssh::SharedSshClient>,
-    pub dst: Option<crate::fs::ssh::SharedSshClient>,
+pub struct RemoteEndpoints {
+    pub src: Option<crate::fs::remote::RemoteConn>,
+    pub dst: Option<crate::fs::remote::RemoteConn>,
 }
 
 #[derive(Debug, Clone)]
@@ -24,8 +25,8 @@ pub struct TransferJob {
     pub is_cancelled: Arc<std::sync::atomic::AtomicBool>,
     pub skip_file_flag: Arc<std::sync::atomic::AtomicBool>,
     pub active_conflict: Arc<crate::fs::transfer::conflict_slot::ConflictSlot>,
-    /// When `Some`, the engine runs the SSH backend instead of the local worker.
-    pub ssh: Option<SshEndpoints>,
+    /// When `Some`, the engine runs the remote backend instead of the local worker.
+    pub remote: Option<RemoteEndpoints>,
     /// Shell command template for [`TransferOperation::ApplyCommand`] (`%f` = path).
     pub shell_template: Option<String>,
     /// Copy/Move of explicit `(source file, destination file)` pairs instead
@@ -59,22 +60,22 @@ impl TransferJob {
             is_cancelled: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             skip_file_flag: Arc::new(std::sync::atomic::AtomicBool::new(false)),
             active_conflict: Arc::default(),
-            ssh: None,
+            remote: None,
             shell_template: None,
             pairs: None,
             prune_dirs: Vec::new(),
             restore_after: Vec::new(),
         }
     }
-
-    /// Whether the job worked on `source`: the same SSH server, or the
+    /// Whether the job worked on `source`: the same remote connection, or
+    /// the local disk (archives included) for a job without remote endpoints.
     /// local disk (archives included) for a job without SSH endpoints.
     pub fn ran_on(&self, source: &crate::fs::vfs::PanelSource) -> bool {
         let remote = self
-            .ssh
+            .remote
             .as_ref()
             .and_then(|e| e.src.as_ref().or(e.dst.as_ref()));
-        match (source.ssh(), remote) {
+        match (source.remote(), remote) {
             (Some(shown), Some(job)) => shown.is_same_server(job),
             (None, None) => true,
             _ => false,
@@ -107,22 +108,22 @@ impl TransferJob {
         self
     }
 
-    /// Attach SSH endpoints (copy/move/delete over SFTP).
-    pub fn with_ssh(mut self, ssh: SshEndpoints) -> Self {
-        self.ssh = Some(ssh);
+    /// Attach remote endpoints (copy/move/delete on remote connections).
+    pub fn with_remote(mut self, remote: RemoteEndpoints) -> Self {
+        self.remote = Some(remote);
         self
     }
 
     /// Attaches the remote ends, when there is any (`None`, `None`: local).
     pub fn with_remotes(
         self,
-        src: Option<crate::fs::ssh::SharedSshClient>,
-        dst: Option<crate::fs::ssh::SharedSshClient>,
+        src: Option<crate::fs::remote::RemoteConn>,
+        dst: Option<crate::fs::remote::RemoteConn>,
     ) -> Self {
         if src.is_none() && dst.is_none() {
             return self;
         }
-        self.with_ssh(SshEndpoints { src, dst })
+        self.with_remote(RemoteEndpoints { src, dst })
     }
 
     /// Attach shell template for ApplyCommand (`%f` expands to each source path).

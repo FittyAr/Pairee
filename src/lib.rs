@@ -5,6 +5,7 @@
 
 mod app;
 mod config;
+mod credential_prompt;
 mod diff;
 mod fs;
 mod git;

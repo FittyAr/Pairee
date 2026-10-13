@@ -63,7 +63,7 @@ pub fn persist_on_exit(state: &AppState, context: &mut AppContext) -> Option<Pat
         log::warn!("Failed to save the folder frecency: {e}");
     }
     if settings.restore_session
-        && let Err(e) = capture::capture(state, &settings.ssh_presets).save()
+        && let Err(e) = capture::capture(state, &settings.connections).save()
     {
         log::warn!("Failed to save the session: {e}");
     }

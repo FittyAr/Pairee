@@ -1,68 +1,72 @@
-# SSH & SFTP Remote Connections Manual
+# Remote Connections Manual (SFTP, FTP, FTPS, WebDAV, S3)
 
-Pairee features a fully integrated SSH client and SFTP protocol backend, enabling you to manage files and folders on remote Unix/Linux or Windows SSH servers directly within one of the standard navigation panels.
+Pairee can show a remote server in either panel and copy between any two places: local ↔ remote and remote ↔ remote (for example from an FTP server straight to an S3 bucket). The protocols are SFTP (SSH), FTP, FTPS (FTP with explicit TLS), WebDAV (HTTP or HTTPS) and S3 (Amazon S3 and compatible stores such as MinIO, Garage, Ceph or Cloudflare R2).
 
 ---
 
-## 1. Establishing a Connection
+## 1. Opening the Connection Manager
 
-There are three ways to launch the SSH connection prompt:
 1. **Shortcut Key:** Press **`Ctrl+Shift+S`**.
-2. **Dropdown Menu:** Select **`Files`** (or **`Commands`**) -> **`Connect SSH...`** from the top menu.
-3. **Drive Selection Panel:** Press **`Alt+F1`** (left panel) or **`Alt+F2`** (right panel) to open the disk menu, and choose the item labeled **`[Connect SSH]`**.
+2. **Dropdown Menu:** **`Files`** (or **`Commands`**) → **`Connect to server...`**.
+
+The connection opens in the panel that was active.
 
 ---
 
-## 2. The SSH Connection Dialog Fields
+## 2. The Connection Dialog
 
-The connection prompt contains the following configuration parameters:
-* **Preset Name:** A user-friendly label/nickname for this connection (e.g., `Production API Server`). If provided, you can save it as a bookmark.
-* **Host:** The remote IP address or domain name (e.g., `192.168.1.50` or `ssh.example.com`).
-* **Port:** The remote SSH listening port (defaults to `22`).
-* **Username:** The login account name on the remote host.
-* **Password:** The password for authentication, OR the passphrase to decrypt your private key file.
-* **Key Path:** The absolute local path to your SSH private key file (e.g., `/home/user/.ssh/id_rsa`). Leave blank to use password-only authentication or standard SSH Agent keys.
+The left column lists the saved connections with their protocol, e.g. `backup (SFTP)`. Use the arrow keys (or click) to show one in the fields on the right. `Tab` / `Shift+Tab` walk through the list, the fields and the buttons.
 
----
+| Field | Meaning |
+| :--- | :--- |
+| **Name** | A label for the saved connection. |
+| **Protocol** | SFTP, FTP, FTPS, WebDAV, WebDAV (HTTPS) or S3. Change it with `←` / `→` or `Space`. A port that was the old protocol's default follows to the new one's. |
+| **Host** (**Bucket** for S3) | The server name or IP address; for S3, the bucket. |
+| **Port** | Empty uses the protocol's default (22, 21, 80 or 443). Not used by S3. |
+| **User** (**Access key** for S3) | The login name. FTP and WebDAV log in anonymously without one; S3 then uses `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. |
+| **Password** (**Secret key** for S3) | Stored in the system keyring when saved (see §5). It may stay empty: Pairee asks for it when connecting. For SFTP it is also the passphrase of the key file. |
+| **Key Path** | SFTP only: your private key file. Empty: ssh-agent and the default keys in `~/.ssh` are tried. |
+| **Folder** | The folder opened after connecting (empty: the server's root). For WebDAV and S3 it is the root of the panel (an S3 key prefix). |
+| **S3 options** | S3 only: `endpoint=https://minio.local:9000&region=eu-west-1&path_style=true`. Without an endpoint, AWS is used. |
 
-## 3. SSH Bookmarks (Presets)
-
-* **Saving Bookmarks:** Fill in the connection details, type a unique **Preset Name**, and click **`[Save]`**. The preset is stored in your configuration file.
-* **Loading Bookmarks:** The left column of the connection dialog lists saved bookmarks. Use the Arrow keys or click to select a preset, press **`[Load]`** to populate the fields, and click **`[Connect]`** (or press `Enter`) to log in.
-* **Deleting Bookmarks:** Select a preset in the list and click **`[Delete]`**.
-
----
-
-## 4. Navigating Remote Filesystems (SFTP)
-
-Once a connection is established, the active panel transitions into SFTP mode:
-* The panel title updates dynamically to: `[SSH: username@host]`.
-* **Basic Navigation:**
-  - **`Enter`**: Open the highlighted folder or run associations on files.
-  - **`Backspace`** or **`..`**: Navigate to the parent directory.
-* **File Operations:**
-  - **`F7`** (Rename): Rename a file directly on the remote server (SFTP rename; an existing name is never overwritten). Undo (`Alt+Backspace`) renames it back.
-  - **`F6`** (Move): Relocate remote files between directories. When both panels show the same connection the move is a server-side rename, and it can be undone.
-  - **Make folder**: Creates the folder on the server.
-  - **`F8`** (Delete): Recursively delete files and folders on the remote server (not undoable).
-  - **`F3`** (Viewer): View remote file contents in plain text or hex modes (read into memory, up to 64 MiB).
-  - **`F4`** (Editor): The file is downloaded to a private temporary folder and opened in the built-in editor; the title shows the remote path. Saving uploads it in the background. If the file on the server changed since it was opened (different size or modification time), Pairee asks before overwriting it. "Save as" writes a local file and stops uploading. The temporary copy is removed when the editor closes.
-  - **`Ctrl+A`** (Attributes): Shows size, modification time, permissions and the numeric owner (`uid:gid`; SFTP does not report user names). Changing the octal mode or the read-only flag runs `chmod` on the server (SFTP `setstat`); read-only clears every write bit and wins over the typed mode.
-  - Copies to or from the server and deletions are recorded as not undoable.
+Buttons: **Connect**, **Save** (stores the fields under their name, replacing a connection with the same name), **Delete** and **Cancel**. Connecting does not save.
 
 ---
 
-## 5. Bidirectional File Transfers
+## 3. Passwords and Passphrases Asked When Needed
 
-You can copy or move files between your local system and the remote server asynchronously:
-* **Upload:** Focus on your local file panel, highlight/tag the files to transfer, and press **`F5`** (Copy) or **`F6`** (Move) to transfer them to the active remote folder in the opposite panel.
-* **Download:** Focus on the SFTP remote panel, highlight/tag remote files, and press **`F5`** (Copy) or **`F6`** (Move) to download them to the active local folder in the opposite panel.
-* **Background Worker:** All transfers run on an asynchronous worker thread. A progress popup displays the current file name, transfer speed (MB/s), elapsed time, total size, and a progress bar. You can switch screens while transfers complete in the background.
+A connection that needs a secret Pairee does not have opens a small **Authentication** prompt while the connection runs in the background:
+
+* an SFTP server that accepts passwords when no key, agent or password worked;
+* the passphrase of an encrypted SSH key (the configured key file or a default key in `~/.ssh`);
+* the password of an FTP, WebDAV or S3 connection that has a user but no stored password, or whose password was rejected;
+* Git fetch, pull and push with an encrypted key in `~/.ssh`.
+
+What you type is masked. `Enter` sends it, `Esc` cancels (the connection then stops with a message). Secrets typed there are used for that login only; save them in the connection to keep them.
+
+---
+
+## 4. Working on a Remote Panel
+
+The panel title shows the protocol and the server, e.g. `[FTP: user@host]`.
+
+* **Navigation:** `Enter` opens folders, `Backspace` / `..` goes up.
+* **F5 / F6 (Copy / Move):** between a remote panel and a local one, or between two remote panels of any protocol. Transfers run in the background with the transfer panel's progress, conflict questions, retries, verification and resume. A move within one connection is a server-side rename (and can be undone).
+* **F7 (Rename), Make folder, F8 (Delete):** on the server (delete is not undoable).
+* **F3 / F4:** view, or edit through a temporary local copy that is uploaded when saved (the server copy is checked for changes first).
+* **Ctrl+A (Attributes):** SFTP only.
+* Auto-refresh polls remote folders only with `auto_refresh_ssh` on.
+
+---
+
+## 5. Where Secrets Are Kept
+
+Passwords and S3 secret keys are stored in the system keyring (Windows Credential Manager, macOS Keychain, Secret Service on Linux), never in `config.toml`. If the keyring cannot be used they are kept for the session only, unless `passwords_in_config = true` is set under `[security]` in `config.toml`. If the keyring cannot be read at startup (locked, temporarily unavailable), the saved password is left untouched and read again when you connect.
+
+Connections saved by older releases (`[[ssh_presets]]`) are read as SFTP connections and their keyring entries are moved automatically.
 
 ---
 
 ## 6. Disconnecting
 
-To close the SSH session and restore the panel to your local disk:
-1. Open the top menu: **`Files`** (or **`Commands`**) -> **`Disconnect SSH`**.
-2. Or open the drive selection panel (`Alt+F1` / `Alt+F2`) and choose any local mount point (e.g. `/` or `C:`).
+**`Files`** (or **`Commands`**) → **`Disconnect`** returns the panel to the local disk, as does choosing a local drive in the drive menu (`Alt+F1` / `Alt+F2`).

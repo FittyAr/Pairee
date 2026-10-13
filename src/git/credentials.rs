@@ -3,16 +3,20 @@
 //! libgit2 calls the credential callback again every time an attempt is
 //! rejected, so each method is offered at most once and the total number of
 //! attempts is capped: a wrong key can never turn into an endless loop.
+//! An encrypted key is offered after asking the user for its passphrase
+//! (see [`crate::credential_prompt`]); a cancelled prompt skips the key.
 
 use crate::config::localization::t;
-use std::path::PathBuf;
+use crate::credential_prompt::{self, CredentialRequest};
+use std::path::{Path, PathBuf};
 
 /// Hard cap on credential callback invocations for one transfer.
 const MAX_CREDENTIAL_ATTEMPTS: usize = 8;
 /// Username used for SSH when the URL does not carry one.
 const DEFAULT_SSH_USER: &str = "git";
-/// Private keys probed in `~/.ssh`, in order of preference.
-const DEFAULT_KEY_NAMES: [&str; 3] = ["id_ed25519", "id_ecdsa", "id_rsa"];
+
+/// Asks the user for a secret (`None`: cancelled or nobody to ask).
+type Prompt = Box<dyn FnMut(CredentialRequest) -> Option<String> + Send>;
 
 /// What has already been offered to the remote during one transfer.
 pub struct CredentialState {
@@ -22,6 +26,7 @@ pub struct CredentialState {
     next_key: usize,
     helper_tried: bool,
     default_tried: bool,
+    prompt: Prompt,
 }
 
 impl CredentialState {
@@ -34,12 +39,23 @@ impl CredentialState {
             next_key: 0,
             helper_tried: false,
             default_tried: false,
+            prompt: Box::new(credential_prompt::ask),
         }
+    }
+
+    /// The same negotiation, asking passphrases through `prompt` (tests).
+    #[cfg(test)]
+    pub fn with_prompt(
+        mut self,
+        prompt: impl FnMut(CredentialRequest) -> Option<String> + Send + 'static,
+    ) -> Self {
+        self.prompt = Box::new(prompt);
+        self
     }
 
     /// A negotiation using the user's default keys in `~/.ssh`.
     pub fn with_default_keys() -> Self {
-        Self::new(default_key_paths())
+        Self::new(credential_prompt::key::default_key_paths())
     }
 
     /// Returns the next credential to offer, or an error once every method
@@ -89,30 +105,30 @@ impl CredentialState {
                 return Some(cred);
             }
         }
-        while let Some(path) = self.key_paths.get(self.next_key) {
+        while let Some(path) = self.key_paths.get(self.next_key).cloned() {
             self.next_key += 1;
             if path.exists()
-                && let Ok(cred) = git2::Cred::ssh_key(username, None, path, None)
+                && let Some(cred) = self.key_credential(username, &path)
             {
                 return Some(cred);
             }
         }
         None
     }
+
+    /// The credential of the key at `path`; an encrypted key needs its
+    /// passphrase from the user (`None` when they cancel).
+    fn key_credential(&mut self, username: &str, path: &Path) -> Option<git2::Cred> {
+        let passphrase = if credential_prompt::key::is_encrypted(path) {
+            Some((self.prompt)(CredentialRequest::passphrase(path))?)
+        } else {
+            None
+        };
+        git2::Cred::ssh_key(username, None, path, passphrase.as_deref()).ok()
+    }
 }
 
-/// `~/.ssh/<name>` for every default key name.
-fn default_key_paths() -> Vec<PathBuf> {
-    directories::BaseDirs::new()
-        .map(|dirs| {
-            let ssh_dir = dirs.home_dir().join(".ssh");
-            DEFAULT_KEY_NAMES.iter().map(|n| ssh_dir.join(n)).collect()
-        })
-        .unwrap_or_default()
-}
-
-/// Localized authentication error; SSH failures explain the passphrase case
-/// (Pairee cannot prompt for one, so such keys must be in ssh-agent).
+/// Localized authentication error (SSH failures name the methods tried).
 fn failure(allowed: git2::CredentialType) -> git2::Error {
     let key = if allowed.contains(git2::CredentialType::SSH_KEY) {
         "git_error_ssh_auth_failed"

@@ -10,13 +10,12 @@ mod apply;
 mod tests;
 
 use crate::config::settings::Settings;
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::remote::RemoteConn;
 use crate::fs::watch::{
     ChangeSink, CoalesceTiming, Coalescer, DirChange, DirMonitor, MonitorPlan, WatchOrigin,
 };
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, Instant};
 
@@ -25,7 +24,7 @@ use std::time::{Duration, Instant};
 pub struct WatchTarget {
     pub dir: PathBuf,
     /// The SFTP connection of a remote folder (`None`: local disk).
-    pub remote: Option<SharedSshClient>,
+    pub remote: Option<RemoteConn>,
 }
 
 impl WatchTarget {
@@ -35,7 +34,7 @@ impl WatchTarget {
 }
 
 /// The watch origin of a folder on `remote` (or on the local disk).
-pub fn origin_of(remote: Option<&SharedSshClient>) -> WatchOrigin {
+pub fn origin_of(remote: Option<&RemoteConn>) -> WatchOrigin {
     remote.map_or(WatchOrigin::Local, |c| WatchOrigin::Remote(c.id()))
 }
 
@@ -121,12 +120,9 @@ impl AutoRefresh {
             let sink = ChangeSink::new(self.tx.clone(), crate::app::jobs::wake_event_loop)
                 .with_origin(key.0);
             let monitor = match target.remote {
-                Some(client) => DirMonitor::start_polling(
-                    target.dir,
-                    Arc::new(client),
-                    plan.poll_interval,
-                    sink,
-                ),
+                Some(client) => {
+                    DirMonitor::start_polling(target.dir, client.vfs(), plan.poll_interval, sink)
+                }
                 None => DirMonitor::start(target.dir, plan, sink),
             };
             self.monitors.insert(key, (plan, monitor));

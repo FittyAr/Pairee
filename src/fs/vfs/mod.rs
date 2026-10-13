@@ -6,6 +6,8 @@
 //!
 //! * [`LocalVfs`] — the local filesystem;
 //! * `SharedSshClient` (in [`crate::fs::ssh`]) — an SFTP server;
+//! * `FtpVfs`, `WebDavVfs`, `S3Vfs` (in [`crate::fs::remote`]) — FTP / FTPS,
+//!   WebDAV and S3 servers (panels hold them as a `RemoteConn`);
 //! * [`crate::fs::archive::ArchiveVfs`] — the inside of a zip / tar / 7z file.
 //!
 //! Every adapter reports what it supports through [`Capabilities`]; the

@@ -3,7 +3,7 @@
 use super::command::{FileBatch, FileStep, FsCommand, Irreversible};
 use super::trash::RESTORE_SUPPORTED;
 use crate::fs::multi_rename::Step;
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::remote::RemoteConn;
 use crate::fs::transfer::job::{TransferJob, TransferOperation, TransferResults};
 use std::collections::HashSet;
 use std::path::PathBuf;
@@ -28,7 +28,7 @@ pub fn from_transfer(
         // A move within one SFTP server is a series of renames.
         let command = FsCommand::Rename {
             steps: rename_steps(results),
-            ssh: Some(client),
+            remote: Some(client),
         };
         return (!command.is_empty()).then_some(command);
     }
@@ -43,7 +43,7 @@ pub fn from_transfer(
     };
     let command = match job.operation {
         TransferOperation::Copy | TransferOperation::Move | TransferOperation::Delete
-            if job.ssh.is_some() =>
+            if job.remote.is_some() =>
         {
             not_undoable(Irreversible::Remote)
         }
@@ -68,9 +68,9 @@ pub fn from_transfer(
 
 /// The server of a move whose source and destination are on the same SFTP
 /// connection (run as renames, see `fast_remote_rename`).
-fn same_server_move(job: &TransferJob) -> Option<SharedSshClient> {
-    let ssh = job.ssh.as_ref()?;
-    match (&ssh.src, &ssh.dst) {
+fn same_server_move(job: &TransferJob) -> Option<RemoteConn> {
+    let remote = job.remote.as_ref()?;
+    match (&remote.src, &remote.dst) {
         (Some(src), Some(dst))
             if job.operation == TransferOperation::Move && src.is_same_server(dst) =>
         {

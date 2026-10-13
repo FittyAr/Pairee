@@ -203,7 +203,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 
 | Teclas | Acción |
 | :--- | :--- |
-| `Ctrl+Alt+r` | SSH: conectar |
+| `Ctrl+Alt+r` | Remoto: conectar |
 
 ### Herramientas
 

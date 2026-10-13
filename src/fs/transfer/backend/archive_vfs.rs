@@ -65,9 +65,9 @@ fn in_nested(inner: &Path, itself: bool) -> bool {
 }
 
 /// The archive plan for `job`, `None` when no path of it is inside an
-/// archive (or it runs over SSH), or the reason it cannot run.
+/// archive (or it runs on a remote connection), or the reason it cannot run.
 pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
-    if job.ssh.is_some() || !job.operation.uses_local_worker() {
+    if job.remote.is_some() || !job.operation.uses_local_worker() {
         return None;
     }
     let destination = target_folder(job);

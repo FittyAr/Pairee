@@ -162,6 +162,7 @@ fn every_dialog_records_its_body_and_its_controls() {
         ("save_setup", false),
         ("rename_tab", false),
         ("which_key", true),
+        ("ssh_connect", true),
     ];
     for (action, has_controls) in DIALOGS {
         let mut h = Harness::new();

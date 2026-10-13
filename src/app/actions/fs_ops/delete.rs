@@ -99,12 +99,12 @@ pub fn request(
             state.dialogs.replace(confirm);
         }
     } else {
-        let ssh = state.get_active_panel().source.ssh().cloned();
+        let remote = state.get_active_panel().source.remote().cloned();
         let options = TransferOptions {
             delete_to_recycle_bin: to_trash,
             ..Default::default()
         };
-        submit_keeping_dialogs(state, TransferOperation::Delete, targets, options, ssh);
+        submit_keeping_dialogs(state, TransferOperation::Delete, targets, options, remote);
         state.get_active_panel_mut().clear_selection();
         state.refresh_both_panels(context.config.settings.show_hidden);
     }
@@ -117,10 +117,18 @@ pub fn submit_keeping_dialogs(
     operation: TransferOperation,
     paths: Vec<PathBuf>,
     options: TransferOptions,
-    ssh: Option<crate::fs::ssh::SharedSshClient>,
+    remote: Option<crate::fs::remote::RemoteConn>,
 ) {
     let open = std::mem::replace(&mut state.dialogs, DialogStack::new());
-    submit_simple(state, operation, paths, PathBuf::new(), options, ssh, None);
+    submit_simple(
+        state,
+        operation,
+        paths,
+        PathBuf::new(),
+        options,
+        remote,
+        None,
+    );
     if !open.is_empty() {
         state.dialogs = open;
     }

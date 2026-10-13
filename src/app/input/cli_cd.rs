@@ -96,7 +96,7 @@ pub fn change_dir(state: &mut AppState, arg: &str) {
     let panel = state.get_active_panel();
     let current = panel.current_path.clone();
     let target = unquote(arg);
-    let home = if panel.source.ssh().is_some() {
+    let home = if panel.source.remote().is_some() {
         PathBuf::from("/")
     } else {
         crate::app::session::restore::home_dir()
@@ -107,7 +107,7 @@ pub fn change_dir(state: &mut AppState, arg: &str) {
             .replace(PopupType::info(t("cli_cd_no_previous")));
         return;
     };
-    let path = if panel.source.ssh().is_some() {
+    let path = if panel.source.remote().is_some() {
         posix_path(&path)
     } else {
         path

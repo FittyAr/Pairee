@@ -74,8 +74,10 @@ cap-std = "4.0"
 minisign-verify = "0.3.0"
 # Plugin `min_pairee` checks (pre-release aware).
 semver = "1.0.28"
-# SSH preset passwords in the OS keyring (Credential Manager, Keychain, Secret Service).
+# Connection passwords in the OS keyring (Credential Manager, Keychain, Secret Service).
 keyring = "4.2.0"
+# Reads OpenSSH private key headers (is the key encrypted? then ask for its passphrase).
+base64 = "0.23.1"
 encoding_rs = "0.8"
 chardetng = "1.0"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
@@ -133,6 +135,8 @@ libunftp = { version = "0.23", default-features = false, features = ["ring"] }
 unftp-sbe-fs = "0.4"
 hyper = { version = "1", features = ["server", "http1"] }
 hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
+# Self-signed certificate of the FTPS test server, made at test time (ring).
+rcgen = "0.14.10"
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }

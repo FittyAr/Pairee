@@ -1,11 +1,11 @@
 //! Transfer backends (Strategy pattern).
 //!
 //! - [`local`] — filesystem worker (`TransferWorker`) for copy/move/delete
-//! - [`ssh`] — SFTP copy/move/delete emitting [`TransferEvent`]s
+//! - [`remote`] — copy/move/delete on remote connections (SFTP, FTP, WebDAV, S3) emitting [`TransferEvent`]s
 //! - [`ops_jobs`] — wipe / compress / extract (same Transfer UI, local)
 //! - [`archive_vfs`] — copy out of / into archives, delete and move inside zip, tar and 7z files
 //!
-//! The engine picks a backend from job operation, optional SSH endpoints
+//! The engine picks a backend from job operation, optional remote endpoints
 //! and whether a path lies inside an archive file.
 
 mod archive_move;
@@ -14,7 +14,7 @@ mod archive_tests;
 pub mod archive_vfs;
 pub mod local;
 pub mod ops_jobs;
-pub mod ssh;
+pub mod remote;
 
 use super::events::TransferEvent;
 use super::job::{TransferJob, TransferResults};
@@ -27,9 +27,9 @@ pub async fn run_job(
 ) -> Result<TransferResults, anyhow::Error> {
     // Wipe / compress / extract / apply-command are local-only Strategy backends.
     if job.operation.uses_ops_backend() {
-        if job.ssh.is_some() {
+        if job.remote.is_some() {
             return Err(anyhow::anyhow!(
-                "{} is not available over SSH; switch to a local panel",
+                "{} is not available on remote connections; switch to a local panel",
                 job.operation.label()
             ));
         }
@@ -64,11 +64,11 @@ pub async fn run_job(
     }
 
     let mut job = job;
-    if let Some(ssh) = job.ssh.take() {
+    if let Some(remote) = job.remote.take() {
         let control = JobControl::for_job(&job, event_tx.clone());
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
-        ssh::run_ssh_job(ssh::SshJob::of(job, ssh), control).await
+        remote::run_remote_job(remote::RemoteJob::of(job, remote), control).await
     } else {
         // Local copy/move/delete worker emits JobStarted / scan events itself.
         local::run_local_job(job, event_tx).await

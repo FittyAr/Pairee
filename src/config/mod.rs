@@ -68,13 +68,13 @@ impl AppConfig {
             let migrated = serialize_settings(&settings)
                 .and_then(|text| write_atomic(&settings_path, text.as_bytes()));
             if let Err(e) = migrated {
-                log::warn!("Could not remove migrated SSH passwords from config.toml: {e:#}");
+                log::warn!("Could not remove migrated passwords from config.toml: {e:#}");
             }
         }
         if credentials.not_persisted {
             errors.push(localization::t("ssh_password_not_persisted"));
         }
-        // After the passwords are loaded: saving settings whose presets have
+        // After the passwords are loaded: saving settings whose connections have
         // no password yet would remove them from the keyring.
         loading::drop_missing_dev_plugin(&mut settings, &settings_path, !settings_failed);
 
@@ -209,7 +209,7 @@ impl AppConfig {
     }
 }
 
-/// `config.toml` text for `settings`: SSH passwords go to the keyring
+/// `config.toml` text for `settings`: connection passwords go to the keyring
 /// (see [`credentials::for_disk`]), never in plain text unless opted in.
 pub fn serialize_settings(settings: &Settings) -> Result<String> {
     Ok(toml::to_string_pretty(&credentials::for_disk(settings))?)
@@ -326,13 +326,13 @@ mod tests {
         let _root = paths::test_root::redirect(dir.path());
         credentials::test_store::set_available(true);
         let mut settings = Settings::default();
-        settings.ssh_presets.push(settings::SshPreset {
+        settings.connections.push(settings::Connection {
             name: "box".into(),
             host: "h".into(),
             port: "22".into(),
             username: "u".into(),
             password: Some("pw".into()),
-            key_path: None,
+            ..settings::Connection::default()
         });
         settings.active_dev_plugin = Some("no-such-plugin".into());
         write_atomic(
@@ -344,11 +344,11 @@ mod tests {
         let config = AppConfig::load_or_create().unwrap();
         assert!(config.settings.active_dev_plugin.is_none());
         assert_eq!(
-            config.settings.ssh_presets[0].password.as_deref(),
+            config.settings.connections[0].password.as_deref(),
             Some("pw")
         );
         assert_eq!(
-            credentials::test_store::secret("ssh-preset:box").as_deref(),
+            credentials::test_store::secret("connection:box").as_deref(),
             Some("pw")
         );
     }

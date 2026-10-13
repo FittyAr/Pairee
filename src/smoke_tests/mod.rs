@@ -21,6 +21,7 @@ mod panel_search;
 mod plugin_keys;
 mod polish;
 mod refresh_resize;
+mod remote_connections;
 mod screen_keymaps;
 mod selection_jumps;
 mod shortcuts_modal;

@@ -11,11 +11,10 @@ mod tests;
 mod vfs;
 
 use crate::config::localization::t;
-use crate::fs::vfs::{LocalVfs, Vfs};
+use crate::credential_prompt::Ask;
 use crate::lock::LockExt;
 use anyhow::Result;
 use ssh2::{Session, Sftp};
-use std::path::Path;
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
@@ -26,6 +25,19 @@ pub struct SshClient {
     /// Kept alive for the lifetime of the SFTP channel.
     pub session: Session,
     pub sftp: Sftp,
+}
+
+/// Where to connect and how to log in.
+pub struct SshLogin<'a> {
+    pub host: &'a str,
+    pub port: u16,
+    pub username: &'a str,
+    /// The password, also the passphrase of an encrypted `key_path`.
+    pub password: Option<&'a str>,
+    pub key_path: Option<&'a str>,
+    pub timeout: Duration,
+    /// Asks the user for a missing password or key passphrase.
+    pub ask: Ask<'a>,
 }
 
 /// Connection identity, readable without locking the client.
@@ -72,16 +84,9 @@ impl SharedSshClient {
     }
 
     /// Connects, verifies the host key and authenticates. Blocking calls on
-    /// the session time out after `timeout` (0 disables the limit).
-    pub fn connect(
-        host: &str,
-        port: u16,
-        username: &str,
-        password: Option<&str>,
-        key_path: Option<&str>,
-        timeout: Duration,
-    ) -> Result<Self> {
-        let session = connection::open_session(host, port, username, password, key_path, timeout)?;
+    /// the session time out after `login.timeout` (0 disables the limit).
+    pub fn connect(login: &SshLogin<'_>) -> Result<Self> {
+        let session = connection::open_session(login)?;
         let sftp = session
             .sftp()
             .map_err(|e| anyhow::anyhow!("{}: {}", t("error_ssh_init_sftp"), e))?;
@@ -89,46 +94,10 @@ impl SharedSshClient {
         Ok(Self {
             inner: Arc::new(Mutex::new(SshClient { session, sftp })),
             info: Arc::new(SshInfo {
-                host: host.to_string(),
-                port,
-                username: username.to_string(),
+                host: login.host.to_string(),
+                port: login.port,
+                username: login.username.to_string(),
             }),
         })
-    }
-
-    /// `true` when `path` exists on the server and is a directory.
-    pub fn is_dir(&self, path: &Path) -> bool {
-        self.lock()
-            .sftp
-            .stat(path)
-            .map(|s| s.is_dir())
-            .unwrap_or(false)
-    }
-
-    /// Size of a remote file (0 when unknown).
-    pub fn file_size(&self, path: &Path) -> u64 {
-        self.lock()
-            .sftp
-            .stat(path)
-            .ok()
-            .and_then(|s| s.size)
-            .unwrap_or(0)
-    }
-}
-
-/// `is_dir` on either side of a transfer: remote when `conn` is set.
-pub fn is_dir_on(path: &Path, conn: &Option<SharedSshClient>) -> bool {
-    match conn {
-        Some(client) => client.is_dir(path),
-        None => path.is_dir(),
-    }
-}
-
-/// The filesystem on one side of a transfer: the server when `conn` is
-/// set, the local disk otherwise.
-pub fn endpoint_vfs(conn: &Option<SharedSshClient>) -> Arc<dyn Vfs> {
-    match conn {
-        Some(client) => Arc::new(client.clone()),
-        None => Arc::new(LocalVfs),
     }
 }

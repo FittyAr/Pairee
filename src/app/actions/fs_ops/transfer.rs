@@ -14,8 +14,8 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, op: TransferPrompt
     }
     let dest_dir = state.get_passive_panel().current_path.clone();
     let endpoints = (
-        state.get_active_panel().source.ssh().cloned(),
-        state.get_passive_panel().source.ssh().cloned(),
+        state.get_active_panel().source.remote().cloned(),
+        state.get_passive_panel().source.remote().cloned(),
     );
     start(state, context, (op, targets, dest_dir), endpoints);
     true

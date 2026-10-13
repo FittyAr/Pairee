@@ -3,7 +3,7 @@
 
 use super::{Capabilities, LocalVfs, Vfs};
 use crate::fs::archive::{ArchiveVfs, split_archive_path};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::remote::RemoteConn;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -12,8 +12,8 @@ pub enum PanelSource {
     /// The local filesystem.
     #[default]
     Local,
-    /// An SFTP server.
-    Remote(SharedSshClient),
+    /// A remote connection (SFTP, FTP / FTPS, WebDAV, S3).
+    Remote(RemoteConn),
     /// The inside of a local archive file.
     Archive(Arc<ArchiveVfs>),
 }
@@ -23,7 +23,7 @@ impl PanelSource {
     pub fn vfs(&self) -> Arc<dyn Vfs> {
         match self {
             Self::Local => Arc::new(LocalVfs),
-            Self::Remote(client) => Arc::new(client.clone()),
+            Self::Remote(conn) => conn.vfs(),
             Self::Archive(archive) => archive.clone(),
         }
     }
@@ -40,10 +40,10 @@ impl PanelSource {
         }
     }
 
-    /// The SSH connection of a remote panel (transfer endpoints).
-    pub fn ssh(&self) -> Option<&SharedSshClient> {
+    /// The connection of a remote panel (transfer endpoints).
+    pub fn remote(&self) -> Option<&RemoteConn> {
         match self {
-            Self::Remote(client) => Some(client),
+            Self::Remote(conn) => Some(conn),
             _ => None,
         }
     }

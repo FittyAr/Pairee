@@ -205,7 +205,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 
 | Teclas | Acción |
 | :--- | :--- |
-| `Ctrl+Alt+r` · `Space s s` | SSH: conectar |
+| `Ctrl+Alt+r` · `Space s s` | Remoto: conectar |
 
 ### Herramientas
 

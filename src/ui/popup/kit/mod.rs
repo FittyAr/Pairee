@@ -8,7 +8,7 @@ mod filter_list;
 mod list_popup;
 pub mod mouse;
 
-pub use field::{field_spans, field_spans_scrolled, template_with_field};
+pub use field::{field_spans, field_spans_scrolled, masked, template_with_field};
 pub use filter_list::FilterListView;
 pub use list_popup::{ListPopup, Scroll, list_area, marked};
 

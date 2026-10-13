@@ -4,6 +4,7 @@ pub mod app;
 pub mod auto_refresh;
 pub mod config_rows;
 pub mod context;
+pub mod credential_requests;
 pub mod disk_usage;
 pub mod dupes;
 pub mod editor;

@@ -2,8 +2,11 @@
 //! S3, each an adapter of the panel source port that passes the same
 //! contract suite as the local, SFTP and archive ones.
 //!
-//! [`connect`] is the factory the connection dialog plugs into: it reads a
-//! URL and returns the adapter for its scheme plus the folder to open.
+//! [`connect`] reads a URL and returns the adapter for its scheme plus the
+//! folder to open; [`open`] is what the connection dialog calls with a
+//! saved connection of any kind (SFTP included), asking for a missing
+//! password. Panels, transfers, the journal and auto-refresh hold the
+//! result as a [`RemoteConn`], whatever the protocol.
 //!
 //! | scheme | backend |
 //! |---|---|
@@ -16,16 +19,20 @@
 //! Every call performs network I/O: like SFTP, run them from background
 //! jobs. Paths are absolute in the adapter's namespace (`/dir/file`).
 
+mod conn;
 mod ftp;
 mod http;
+mod open;
 mod s3;
 mod webdav;
 mod xml;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
+pub use conn::{RemoteConn, RemoteInfo, endpoint_vfs, is_dir_on, user_at_host};
 pub use ftp::FtpVfs;
+pub use open::open;
 pub use s3::S3Vfs;
 pub use webdav::WebDavVfs;
 
@@ -80,14 +87,34 @@ pub fn connect(url: &str) -> io::Result<Remote> {
     }
 }
 
-/// The error of an unusable URL.
+/// The error of an unusable URL (its password, if any, left out).
 fn invalid(url: &str, why: &str) -> io::Error {
     io::Error::new(
         io::ErrorKind::InvalidInput,
         t("remote_invalid_url")
-            .replacen("{}", url, 1)
+            .replacen("{}", &without_password(url), 1)
             .replacen("{}", why, 1),
     )
+}
+
+/// `url` as it may be shown or logged: without its password (cut by hand
+/// when the URL does not parse).
+fn without_password(url: &str) -> String {
+    if let Ok(mut parsed) = url::Url::parse(url) {
+        let _ = parsed.set_password(None);
+        return parsed.into();
+    }
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_string();
+    };
+    let authority = &rest[..rest.find('/').unwrap_or(rest.len())];
+    match authority.rfind('@') {
+        Some(at) => {
+            let user = authority[..at].split(':').next().unwrap_or_default();
+            format!("{scheme}://{user}@{}", &rest[at + 1..])
+        }
+        None => url.to_string(),
+    }
 }
 
 /// What the remote backends support: everything but local tools and the

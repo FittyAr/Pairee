@@ -38,14 +38,14 @@ pub fn handle(
                     delete_to_recycle_bin: to_trash,
                     ..Default::default()
                 };
-                let ssh = state.get_active_panel().source.ssh().cloned();
+                let remote = state.get_active_panel().source.remote().cloned();
                 submit(
                     state,
                     context,
                     TransferOperation::Delete,
                     paths,
                     options,
-                    ssh,
+                    remote,
                 );
             } else {
                 after_submit(state, context);
@@ -74,10 +74,10 @@ fn submit(
     operation: TransferOperation,
     paths: Vec<std::path::PathBuf>,
     options: TransferOptions,
-    ssh: Option<crate::fs::ssh::SharedSshClient>,
+    remote: Option<crate::fs::remote::RemoteConn>,
 ) {
     crate::app::actions::fs_ops::delete::submit_keeping_dialogs(
-        state, operation, paths, options, ssh,
+        state, operation, paths, options, remote,
     );
     after_submit(state, context);
 }

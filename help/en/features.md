@@ -242,7 +242,7 @@ If the repository is not available (e.g. installed as a standalone binary), file
 ## 📖 8. Advanced Integration Manuals
 
 For complex modules, please consult their dedicated documentation guides:
-* **SSH & SFTP Connections:** See [SSH & SFTP Remote Connections Manual](ssh_sftp.md).
+* **Remote Connections (SFTP, FTP, FTPS, WebDAV, S3):** See [Remote Connections Manual](ssh_sftp.md).
 * **Git Integration:** See [Git Integration Reference Manual](git_integration.md).
 * **Detailed Configurations:** See [Configuration Settings Manual](configuration_details.md).
 * **Keyboard Shortcuts Cheatsheet:** See [Keyboard Shortcuts Guide](keyboard_shortcuts.md).

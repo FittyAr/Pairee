@@ -20,9 +20,9 @@ pub(super) fn run(
     command: FsCommand,
 ) {
     let result = match &command {
-        FsCommand::Rename { steps, ssh } => {
+        FsCommand::Rename { steps, remote } => {
             state.journal.begin_rename(direction);
-            run_steps(state, steps.clone(), ssh.clone());
+            run_steps(state, steps.clone(), remote.clone());
             return;
         }
         FsCommand::Move(batch) => {

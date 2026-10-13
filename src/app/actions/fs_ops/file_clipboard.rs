@@ -63,14 +63,14 @@ fn paste(state: &mut AppState, context: &AppContext, overwrite: bool) {
         ClipMode::Copy => TransferOperation::Copy,
         ClipMode::Cut => TransferOperation::Move,
     };
-    let dst_ssh = active.source.ssh().cloned();
+    let dst_ssh = active.source.remote().cloned();
     submit_simple(
         state,
         operation,
         clip.paths,
         dest,
         options,
-        clip.source.ssh().cloned(),
+        clip.source.remote().cloned(),
         dst_ssh,
     );
     if clip.mode == ClipMode::Cut {

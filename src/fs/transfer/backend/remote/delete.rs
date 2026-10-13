@@ -1,20 +1,19 @@
-//! SSH remote deletion operations.
+//! Deletion on a remote connection.
 
-use super::super::super::job::{SshEndpoints, TransferResults};
+use super::super::super::job::{RemoteEndpoints, TransferResults};
 use crate::fs::transfer::control::JobControl;
-use crate::fs::vfs::Vfs;
 use anyhow::anyhow;
 use std::path::PathBuf;
 
-pub fn run_ssh_delete(
+pub fn run_remote_delete(
     sources: Vec<PathBuf>,
-    ssh: SshEndpoints,
+    remote: RemoteEndpoints,
     control: JobControl,
 ) -> Result<TransferResults, anyhow::Error> {
-    let client = ssh
+    let client = remote
         .src
-        .or(ssh.dst)
-        .ok_or_else(|| anyhow!("SSH delete requires a connection"))?;
+        .or(remote.dst)
+        .ok_or_else(|| anyhow!("Remote delete requires a connection"))?;
     control.run_each(&sources, |path| {
         client
             .remove_all(path)

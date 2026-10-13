@@ -18,8 +18,8 @@ pub fn submit(state: &mut AppState, context: &AppContext) {
     prompt.apply_to(&mut options);
     let (src_ssh, dst_ssh) = prompt.endpoints.clone().unwrap_or_else(|| {
         (
-            state.get_active_panel().source.ssh().cloned(),
-            state.get_passive_panel().source.ssh().cloned(),
+            state.get_active_panel().source.remote().cloned(),
+            state.get_passive_panel().source.remote().cloned(),
         )
     });
     // Several destinations become several jobs, run in this order.

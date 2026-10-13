@@ -2,6 +2,7 @@ use crate::app::state::{PanelViewMode, SortField};
 use serde::{Deserialize, Serialize};
 
 mod confirmations;
+mod connection;
 mod defaults;
 #[cfg(test)]
 mod tests;
@@ -9,10 +10,11 @@ mod transfer;
 pub mod types;
 
 pub use confirmations::ConfirmationSettings;
+pub use connection::{Connection, RemoteKind};
 pub use transfer::TransferSettings;
 pub use types::{
-    MouseMode, PluginConfig, RightClick, SecuritySettings, SshPreset, TabExpansion,
-    clamp_panel_split, default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
+    MouseMode, PluginConfig, RightClick, SecuritySettings, TabExpansion, clamp_panel_split,
+    default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
     default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
     default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
     default_syntax_highlighting_max_kb, default_terminal_scrollback_lines, default_true,
@@ -165,8 +167,9 @@ pub struct Settings {
     // ── Colors settings (dialog tab 6) ───────────────────────────────────────
     pub highlight_rules: Vec<crate::ui::highlight::HighlightRule>,
 
-    #[serde(default)]
-    pub ssh_presets: Vec<SshPreset>,
+    /// Saved remote connections (`[[ssh_presets]]` in older releases).
+    #[serde(default, alias = "ssh_presets")]
+    pub connections: Vec<Connection>,
 
     // ── Git Integration settings ────────────────────────────────────────
     /// Whether the Git panel feature is enabled

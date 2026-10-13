@@ -4,7 +4,7 @@
 
 use crate::app::state::types::{Screen, TerminalState};
 use crate::app::state::{AppState, TransferViewMode};
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::remote::RemoteConn;
 use crate::fs::transfer::engine::TransferEngine;
 use crate::fs::transfer::job::{TransferJob, TransferOperation};
 use crate::fs::transfer::options::TransferOptions;
@@ -44,8 +44,8 @@ pub fn submit_simple(
     sources: Vec<PathBuf>,
     destination: PathBuf,
     options: TransferOptions,
-    src_ssh: Option<SharedSshClient>,
-    dst_ssh: Option<SharedSshClient>,
+    src_ssh: Option<RemoteConn>,
+    dst_ssh: Option<RemoteConn>,
 ) {
     let job =
         TransferJob::new(operation, sources, destination, options).with_remotes(src_ssh, dst_ssh);

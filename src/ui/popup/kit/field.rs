@@ -27,6 +27,17 @@ pub fn field_spans(
     ]
 }
 
+/// A secret field as it is shown: one `*` per character, the cursor where
+/// it is in the real text.
+pub fn masked(field: &TextField) -> TextField {
+    use unicode_segmentation::UnicodeSegmentation;
+    let text = field.text();
+    let before = text[..field.cursor()].graphemes(true).count();
+    let mut shown = TextField::new("*".repeat(text.graphemes(true).count()));
+    shown.set_cursor(before);
+    shown
+}
+
 /// [`field_spans`] fitted in `width` columns: when the text is longer, its
 /// start is scrolled out of view so the cursor (at the right edge) stays
 /// visible, as in a shell.
@@ -83,6 +94,15 @@ mod tests {
 
     fn text(spans: &[Span]) -> String {
         spans.iter().map(|s| s.content.as_ref()).collect()
+    }
+
+    #[test]
+    fn masked_fields_hide_the_text_but_keep_the_cursor() {
+        let mut field = TextField::new("pä🙂s");
+        field.move_left();
+        let shown = masked(&field);
+        assert_eq!(shown.text(), "****");
+        assert_eq!(shown.cursor(), 3);
     }
 
     #[test]

@@ -54,8 +54,8 @@ pub struct TransferPromptLabels {
 
 /// SSH sessions of a transfer's source and destination (`None`: local).
 pub type TransferEndpoints = (
-    Option<crate::fs::ssh::SharedSshClient>,
-    Option<crate::fs::ssh::SharedSshClient>,
+    Option<crate::fs::remote::RemoteConn>,
+    Option<crate::fs::remote::RemoteConn>,
 );
 
 /// State of the Copy (F5) / Move (F6) dialog.
