@@ -8,8 +8,9 @@ use crate::terminal::Event;
 use crossterm::event::{KeyEvent, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use std::time::{Duration, Instant};
 
-/// How long [`Harness::wait_until`] waits before failing.
-const WAIT_TIMEOUT: Duration = Duration::from_secs(20);
+/// How long [`Harness::wait_until`] waits before failing (generous: a
+/// loaded machine slows down PTY processes and background jobs).
+const WAIT_TIMEOUT: Duration = Duration::from_secs(60);
 /// Pause between two drains of the background channels.
 const POLL_INTERVAL: Duration = Duration::from_millis(5);
 

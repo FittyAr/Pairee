@@ -144,9 +144,9 @@ fn cycle_fkeys_modifiers(state: &mut AppState) {
     const CYCLE: [Option<M>; 4] = [None, Some(M::CONTROL), Some(M::ALT), Some(M::SHIFT)];
     let current = CYCLE
         .iter()
-        .position(|m| *m == state.fkeys_modifier_override)
+        .position(|m| *m == state.key_bar.pinned)
         .unwrap_or(CYCLE.len() - 1);
-    state.fkeys_modifier_override = CYCLE[(current + 1) % CYCLE.len()];
+    state.key_bar.pinned = CYCLE[(current + 1) % CYCLE.len()];
 }
 
 /// Shows a known update, or starts a fresh check (dropping the cache).
@@ -204,7 +204,7 @@ mod tests {
         let mut seen = Vec::new();
         for _ in 0..4 {
             handle_tools_action(&mut state, &Action::CycleFKeysModifiers, &mut context);
-            seen.push(state.fkeys_modifier_override);
+            seen.push(state.key_bar.pinned);
         }
         assert_eq!(seen, [Some(M::CONTROL), Some(M::ALT), Some(M::SHIFT), None]);
     }

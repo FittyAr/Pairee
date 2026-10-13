@@ -154,7 +154,7 @@ fn unfocus(state: &mut AppState) {
     state.cli.field.clear();
     state.cli.focused = false;
     state.get_active_panel_mut().visual = None;
-    state.fkeys_modifier_override = None;
+    state.key_bar.pinned = None;
     for (_, tab) in state.panels.all_tabs_mut() {
         tab.panel.dir_sizes.cancel();
     }

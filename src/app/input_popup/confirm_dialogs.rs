@@ -101,7 +101,7 @@ fn retry_as_admin(
     crate::fs::acquire_admin_privileges()
         .map_err(|e| format!("{} {}", t("error_acquire_admin_failed"), e))?;
     if cfg!(not(target_os = "windows")) {
-        state.terminal_needs_clear = true;
+        state.redraw.needs_clear = true;
     }
     match op_kind {
         AdminOpKind::MkDir => paths.iter().try_for_each(|path| {

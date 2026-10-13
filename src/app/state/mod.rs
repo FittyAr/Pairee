@@ -51,6 +51,46 @@ pub use update_state::UpdateState;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+/// Dirty-flag rendering: the main loop paints only when something changed.
+#[derive(Debug)]
+pub struct Redraw {
+    /// When false, the main loop may skip `terminal.draw`.
+    pub dirty: bool,
+    /// Full-screen clear on next paint (resize or native TTY/admin restore).
+    /// Applied inside the synchronized-update region to avoid a visible flash.
+    pub needs_clear: bool,
+    /// Last time transfer progress forced a redraw (rate-limit).
+    pub last_transfer_draw: Option<std::time::Instant>,
+}
+
+impl Default for Redraw {
+    fn default() -> Self {
+        Self {
+            dirty: true,
+            needs_clear: false,
+            last_transfer_draw: None,
+        }
+    }
+}
+
+/// Which modifier row of the F-key bar is shown.
+#[derive(Debug, Clone, Copy)]
+pub struct KeyBarMods {
+    /// Modifiers held right now (as the terminal reports them).
+    pub held: crossterm::event::KeyModifiers,
+    /// Row picked with `cycle_fkeys_modifiers` or a click (wins over `held`).
+    pub pinned: Option<crossterm::event::KeyModifiers>,
+}
+
+impl Default for KeyBarMods {
+    fn default() -> Self {
+        Self {
+            held: crossterm::event::KeyModifiers::empty(),
+            pinned: None,
+        }
+    }
+}
+
 /// Selection saved for RestoreSelection: the marked paths and their order.
 #[derive(Debug, Clone, Default)]
 pub struct SelectionSnapshot {
@@ -79,13 +119,8 @@ pub struct AppState {
     /// Background Find file search (matches so far as progress).
     pub search: crate::app::jobs::file_search::SearchSlot,
     pub plugins: PluginHostState,
-    /// Full-screen clear on next paint (resize or native TTY/admin restore).
-    /// Applied inside the synchronized-update region to avoid a visible flash.
-    pub terminal_needs_clear: bool,
-    /// When false, the main loop may skip `terminal.draw` (dirty-flag rendering).
-    pub ui_dirty: bool,
-    /// Last time transfer progress forced a redraw (rate-limit).
-    pub last_transfer_draw: Option<std::time::Instant>,
+    /// When the next frame must be painted (dirty-flag rendering).
+    pub redraw: Redraw,
 
     /// Panels, viewers, editors and terminals the user switches between.
     pub screens: ScreenStack,
@@ -99,8 +134,8 @@ pub struct AppState {
     /// Panel options mirrored from the settings ([`Self::apply_settings`]).
     pub prefs: PanelPrefs,
 
-    pub current_modifiers: crossterm::event::KeyModifiers,
-    pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
+    /// Modifier row the F-key bar shows.
+    pub key_bar: KeyBarMods,
     pub pending_custom_command: Option<String>,
     pub is_root: bool,
 
@@ -170,11 +205,8 @@ impl AppState {
             folder_shortcuts: HashMap::new(),
             selection_snapshot: SelectionSnapshot::default(),
             prefs: PanelPrefs::default(),
-            current_modifiers: crossterm::event::KeyModifiers::empty(),
-            fkeys_modifier_override: None,
-            terminal_needs_clear: false,
-            ui_dirty: true,
-            last_transfer_draw: None,
+            key_bar: KeyBarMods::default(),
+            redraw: Redraw::default(),
             pending_custom_command: None,
             is_root,
             // Transfer Engine
@@ -198,13 +230,13 @@ impl AppState {
     }
 
     pub fn mark_ui_dirty(&mut self) {
-        self.ui_dirty = true;
+        self.redraw.dirty = true;
     }
 
     /// True when the frame should be painted this tick.
     /// Transfer/update progress must call [`Self::mark_ui_dirty`] (rate-limited in the main loop).
     pub fn needs_redraw(&self) -> bool {
-        self.ui_dirty || self.terminal_needs_clear
+        self.redraw.dirty || self.redraw.needs_clear
     }
 
     /// Returns a reference to the active panel state.
@@ -267,9 +299,9 @@ mod tests {
     #[test]
     fn needs_redraw_when_only_terminal_needs_clear() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.ui_dirty = false;
+        state.redraw.dirty = false;
         assert!(!state.needs_redraw());
-        state.terminal_needs_clear = true;
+        state.redraw.needs_clear = true;
         assert!(state.needs_redraw());
     }
 }

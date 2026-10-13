@@ -41,7 +41,7 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
         }
 
         // 1. Process background operation updates (e.g. copy progress)
-        let bg_before = state.ui_dirty;
+        let bg_before = state.redraw.dirty;
         background::process_background_updates(&mut state, &context, &mut terminal_backend);
         // 1.8 Process self-update checking, progress tracking, and installer execution
         updates::process_update_events(&mut state, &mut context);
@@ -59,12 +59,13 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
             if active {
                 let now = Instant::now();
                 let allow = state
+                    .redraw
                     .last_transfer_draw
                     .map(|t| now.duration_since(t) >= TRANSFER_DRAW_MIN)
                     .unwrap_or(true);
                 if allow {
                     state.mark_ui_dirty();
-                    state.last_transfer_draw = Some(now);
+                    state.redraw.last_transfer_draw = Some(now);
                 } else if !bg_before {
                     // Don't leave ui_dirty stuck true every tick from other noise.
                 }
@@ -78,15 +79,15 @@ pub async fn run(mut context: AppContext, mut state: AppState) -> Result<Option<
             let _ = stdout.queue(BeginSynchronizedUpdate);
             let _ = stdout.flush();
 
-            if state.terminal_needs_clear {
+            if state.redraw.needs_clear {
                 let _ = terminal_backend.terminal.clear();
-                state.terminal_needs_clear = false;
+                state.redraw.needs_clear = false;
             }
 
             paint(&mut terminal_backend.terminal, &context, &state)?;
 
             let _ = execute!(stdout, EndSynchronizedUpdate);
-            state.ui_dirty = false;
+            state.redraw.dirty = false;
         }
 
         // 3. Exit check

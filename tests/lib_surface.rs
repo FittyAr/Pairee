@@ -7,9 +7,9 @@ use pairee::{AppState, Settings};
 #[test]
 fn library_exports_app_state() {
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-    assert!(!state.terminal_needs_clear);
+    assert!(!state.redraw.needs_clear);
     assert!(state.needs_redraw());
-    state.ui_dirty = false;
+    state.redraw.dirty = false;
     assert!(!state.needs_redraw());
 }
 

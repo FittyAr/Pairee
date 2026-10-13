@@ -93,7 +93,7 @@ fn fkey_bar_shift_row_comes_from_the_keymap() {
     h.assert_screen(&t("fkey_sh_pack"));
     // A fourth press goes back to following the held modifiers.
     h.keys("@cycle_fkeys_modifiers");
-    assert_eq!(h.state.fkeys_modifier_override, None);
+    assert_eq!(h.state.key_bar.pinned, None);
 }
 
 #[test]

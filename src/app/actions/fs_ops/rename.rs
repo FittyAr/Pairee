@@ -82,7 +82,7 @@ pub fn commit(
                 ssh: None,
             });
             if context.config.settings.req_admin_modification {
-                state.terminal_needs_clear = true;
+                state.redraw.needs_clear = true;
             }
             state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);

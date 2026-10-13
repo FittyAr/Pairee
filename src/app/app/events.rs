@@ -15,7 +15,7 @@ pub async fn handle_input_event(
     match event {
         Event::Key(key) => {
             // Always track the most recent keyboard modifiers
-            state.current_modifiers = key.modifiers;
+            state.key_bar.held = key.modifiers;
 
             log::debug!("KeyEvent received: {:?}", key);
 
@@ -67,7 +67,7 @@ pub async fn handle_input_event(
             }
         }
         Event::ModifiersChanged(modifiers) => {
-            state.current_modifiers = modifiers;
+            state.key_bar.held = modifiers;
         }
         Event::Resize(w, h) => {
             apply_terminal_resize(state, w, h);
@@ -130,7 +130,7 @@ pub async fn dispatch_popup_key(
 /// Resize is a screen-mode change: request a full-screen clear on the next paint.
 fn apply_terminal_resize(state: &mut AppState, width: u16, height: u16) {
     log::debug!("Terminal resized to {}x{}", width, height);
-    state.terminal_needs_clear = true;
+    state.redraw.needs_clear = true;
 }
 
 #[cfg(test)]
@@ -141,10 +141,10 @@ mod tests {
     #[test]
     fn resize_requests_full_screen_clear() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.ui_dirty = false;
-        state.terminal_needs_clear = false;
+        state.redraw.dirty = false;
+        state.redraw.needs_clear = false;
         apply_terminal_resize(&mut state, 80, 24);
-        assert!(state.terminal_needs_clear);
+        assert!(state.redraw.needs_clear);
         assert!(state.needs_redraw());
     }
 

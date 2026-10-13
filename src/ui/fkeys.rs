@@ -149,9 +149,7 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
 
 /// Modifiers whose row the bar shows.
 fn bar_modifiers(state: &AppState) -> KeyModifiers {
-    state
-        .fkeys_modifier_override
-        .unwrap_or(state.current_modifiers)
+    state.key_bar.pinned.unwrap_or(state.key_bar.held)
 }
 
 /// `Shift+F11` installs the plugin under the cursor in developer mode.
@@ -240,7 +238,7 @@ mod tests {
     fn panel_cells(modifiers: KeyModifiers) -> Vec<(String, String)> {
         let context = AppContext::new(AppConfig::default());
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.fkeys_modifier_override = Some(modifiers);
+        state.key_bar.pinned = Some(modifiers);
         bar_cells(&context, &state)
     }
 
@@ -253,7 +251,7 @@ mod tests {
         assert_eq!(label(&plain, 2), t("fkey_ed_save"));
         assert_eq!(label(&plain, 3), t("fkey_ed_next"));
         assert_eq!(label(&plain, 4), t("fkey_ed_hex"));
-        state.fkeys_modifier_override = Some(KeyModifiers::SHIFT);
+        state.key_bar.pinned = Some(KeyModifiers::SHIFT);
         let shifted = bar_cells(&context, &state);
         assert_eq!(label(&shifted, 2), t("fkey_ed_save_as"));
         assert_eq!(label(&shifted, 7), t("fkey_ed_next"));
