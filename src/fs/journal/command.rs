@@ -10,6 +10,7 @@ use crate::fs::LinkKind;
 use crate::fs::multi_rename::Step;
 use crate::fs::ssh::SharedSshClient;
 use crate::fs::stamp::Stamp;
+use crate::fs::transfer::part::Replaced;
 use std::path::PathBuf;
 
 /// One file moved or copied from `from` to `to`.
@@ -20,8 +21,10 @@ pub struct FileStep {
     /// Size and time of the entry the step left: at `to` in a recorded
     /// command, at `from` once [`FsCommand::inverse`] swapped the step.
     pub stamp: Option<Stamp>,
-    /// A copy that overwrote an existing file (never deleted by an undo).
-    pub replaced: bool,
+    /// What the copy did to a file that existed at `to`: an overwritten one
+    /// keeps the copy from being deleted by an undo; a trashed one is put
+    /// back by the undo.
+    pub replaced: Replaced,
 }
 
 impl FileStep {
@@ -46,6 +49,16 @@ pub struct FileBatch {
 }
 
 impl FileBatch {
+    /// The destinations whose replaced file went to the trash (an undo of
+    /// the copy restores them after deleting the copies).
+    pub fn trashed_originals(&self) -> Vec<PathBuf> {
+        self.files
+            .iter()
+            .filter(|f| f.replaced == Replaced::Trashed)
+            .map(|f| f.to.clone())
+            .collect()
+    }
+
     /// A batch of `files` with no folder bookkeeping.
     pub fn of(files: Vec<FileStep>) -> Self {
         Self {

@@ -138,12 +138,15 @@ pub struct PlannedJob {
 impl PlannedJob {
     /// The engine job: copies overwrite (the user chose them), keep the
     /// source times (so the next comparison sees equal files) and honour
-    /// `mask` inside folders that exist on one side only.
+    /// `mask` inside folders that exist on one side only. Deletions never
+    /// follow links, so they cannot reach outside the synchronized trees.
     pub fn into_transfer_job(self, base: &TransferOptions, mask: &str) -> TransferJob {
+        let deletes = self.operation == TransferOperation::Delete;
         let options = TransferOptions {
             conflict_resolution: OVERWRITE.to_owned(),
             preserve_timestamps: true,
             filter_mask: (!mask.is_empty()).then(|| mask.to_owned()),
+            follow_symlinks: base.follow_symlinks && !deletes,
             ..base.clone()
         };
         TransferJob::new(self.operation, self.sources, self.destination, options)

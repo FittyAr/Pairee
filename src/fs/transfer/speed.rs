@@ -2,11 +2,27 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
-use super::super::control::JobControl;
-use super::super::events::TransferEvent;
+use super::control::JobControl;
+use super::events::TransferEvent;
 
-/// Spawns a background task that periodically reports transfer speed and ETA.
-pub(super) fn spawn_speed_reporter(
+/// Background task reporting transfer speed and ETA once a second; it stops
+/// when dropped (the phase ended), when the job is cancelled or when every
+/// byte is done.
+pub struct SpeedReporter(tokio::task::JoinHandle<()>);
+
+impl SpeedReporter {
+    pub fn spawn(ctl: &JobControl, bytes_acc: Arc<AtomicU64>, total_bytes: u64) -> Self {
+        Self(spawn_speed_reporter(ctl, bytes_acc, total_bytes))
+    }
+}
+
+impl Drop for SpeedReporter {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+fn spawn_speed_reporter(
     ctl: &JobControl,
     bytes_acc: Arc<AtomicU64>,
     total_bytes: u64,

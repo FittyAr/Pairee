@@ -109,7 +109,13 @@ pub fn reads_contents(f: &Fixture) {
 }
 
 pub fn walks_the_tree(f: &Fixture) {
-    let mut found: Vec<PathBuf> = f.vfs.walk(&f.root).into_iter().map(|e| e.path).collect();
+    let walker = crate::fs::walk::Walker::new(f.vfs.as_ref(), &f.root, Default::default());
+    let mut found: Vec<PathBuf> = walker
+        .collect::<Result<Vec<_>, _>>()
+        .unwrap()
+        .into_iter()
+        .map(|e| e.entry.path)
+        .collect();
     found.sort();
     let mut want: Vec<PathBuf> = [".hidden", "a.txt", "sub", "sub/b.txt"]
         .iter()

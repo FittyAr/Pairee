@@ -13,45 +13,38 @@ pub(super) fn send_to_recycle_bin_helper(path: &std::path::Path) -> anyhow::Resu
     })
 }
 
-/// Removes the description of `path` from its folder's description file.
-pub(super) fn forget_description(path: &std::path::Path) {
-    if let (Some(parent), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) {
-        let _ = crate::fs::descriptions::remove_description(parent, name);
+/// Puts the trashed files that were at `paths` back (the undo of a copy
+/// that replaced them); a path that is occupied again is left alone.
+pub(super) fn restore_from_trash(
+    paths: &[std::path::PathBuf],
+    ctl: &crate::fs::transfer::control::JobControl,
+    results: &mut crate::fs::transfer::job::TransferResults,
+) {
+    let pending: Vec<_> = paths
+        .iter()
+        .filter(|p| !crate::fs::stamp::entry_exists(p))
+        .collect();
+    if pending.is_empty() {
+        return;
+    }
+    let mut index = match crate::fs::journal::TrashIndex::load() {
+        Ok(index) => index,
+        Err(error) => {
+            for path in pending {
+                ctl.file_failed(results, failed(path, error.clone()));
+            }
+            return;
+        }
+    };
+    for path in pending {
+        if let Err(error) = index.restore(path) {
+            ctl.file_failed(results, failed(path, error));
+        }
     }
 }
 
-/// Runs `remove` on `path`, retrying once after clearing read-only bits.
-pub(super) fn remove_forcing(
-    path: &std::path::Path,
-    remove: impl Fn(&std::path::Path) -> std::io::Result<()>,
-) -> std::io::Result<()> {
-    remove(path).or_else(|_| {
-        let _ = make_writable_helper(path);
-        remove(path)
-    })
-}
-
-pub(super) fn make_writable_helper(path: &std::path::Path) -> std::io::Result<()> {
-    let metadata = path.symlink_metadata()?;
-    if metadata.file_type().is_symlink() {
-        return Ok(());
-    }
-    let mut perms = metadata.permissions();
-    #[cfg(not(target_os = "windows"))]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mode = perms.mode();
-        let is_dir = metadata.is_dir();
-        let new_mode = if is_dir { mode | 0o700 } else { mode | 0o600 };
-        perms.set_mode(new_mode);
-    }
-    #[cfg(target_os = "windows")]
-    {
-        // Windows: clear readonly bit before delete
-        #[allow(clippy::permissions_set_readonly_false)]
-        perms.set_readonly(false);
-    }
-    std::fs::set_permissions(path, perms)
+fn failed(path: &std::path::Path, error: String) -> crate::fs::transfer::job::FailedFile {
+    crate::fs::transfer::control::failed(path, std::path::PathBuf::new(), error)
 }
 
 #[cfg(test)]

@@ -4,6 +4,7 @@
 
 use super::events::{EventSender, TransferEvent};
 use super::job::{FailedFile, FileTransferResult, SkippedFile, TransferJob, TransferResults};
+use super::part::Replaced;
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -88,16 +89,24 @@ impl JobControl {
         if !self.skip_file_flag.swap(false, Ordering::Relaxed) {
             return false;
         }
-        results.skipped_files.push(SkippedFile {
-            src: src.to_path_buf(),
-            reason: SKIPPED_BY_USER.to_string(),
-        });
+        self.file_skipped(
+            results,
+            SkippedFile {
+                src: src.to_path_buf(),
+                reason: SKIPPED_BY_USER.to_string(),
+            },
+        );
+        true
+    }
+
+    /// Records and reports a file left out on purpose.
+    pub fn file_skipped(&self, results: &mut TransferResults, skipped: SkippedFile) {
         self.emit(TransferEvent::FileSkipped {
             job_id: self.job_id,
-            file: src.to_path_buf(),
-            reason: SKIPPED_BY_USER.to_string(),
+            file: skipped.src.clone(),
+            reason: skipped.reason.clone(),
         });
-        true
+        results.skipped_files.push(skipped);
     }
 
     pub fn file_started(&self, file: &Path, index: usize) {
@@ -191,9 +200,9 @@ pub fn done(src: &Path, dst: PathBuf, size: u64, start: Instant) -> FileTransfer
         size,
         src_hash: None,
         dst_hash: None,
-        verified: true,
+        verified: false,
         duration: start.elapsed(),
-        replaced: false,
+        replaced: Replaced::Nothing,
         dst_stamp: None,
     }
 }

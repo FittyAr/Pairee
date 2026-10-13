@@ -34,6 +34,17 @@ pub struct ScannedEntry {
     pub summary: FileSummary,
 }
 
+impl From<VfsEntry> for ScannedEntry {
+    fn from(entry: VfsEntry) -> Self {
+        Self {
+            summary: FileSummary::from_entry(&entry),
+            name: entry.name,
+            path: entry.path,
+            is_symlink: entry.is_symlink,
+        }
+    }
+}
+
 /// Entries of one directory keyed by [`name_key`] (sorted by key).
 pub type ScannedDir = BTreeMap<String, ScannedEntry>;
 
@@ -47,13 +58,9 @@ pub fn scan_directory(
 ) -> std::io::Result<ScannedDir> {
     let mut map = ScannedDir::new();
     for entry in vfs.list(dir)? {
-        let scanned = ScannedEntry {
-            summary: FileSummary::from_entry(&entry),
-            name: entry.name,
-            path: entry.path,
-            is_symlink: entry.is_symlink,
-        };
-        if keep(&scanned, entry.hidden) {
+        let hidden = entry.hidden;
+        let scanned = ScannedEntry::from(entry);
+        if keep(&scanned, hidden) {
             map.insert(name_key(&scanned.name, case_insensitive), scanned);
         }
     }

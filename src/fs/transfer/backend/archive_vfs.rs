@@ -14,6 +14,7 @@ use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::worker::is_destination_parent_dir;
 use crate::fs::vfs::{LocalVfs, Vfs};
+use crate::fs::walk::{WalkError, WalkOptions, Walker};
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -181,7 +182,7 @@ pub async fn run(
             inner,
             sources,
         } => {
-            let mut edit = import_edit(&inner, &sources);
+            let mut edit = import_edit(&inner, &sources).map_err(|e| anyhow!(e.to_string()))?;
             let mut skipped = TransferResults::default();
             resolve_conflicts(&archive, &mut edit, &conflicts, &control, &mut skipped).await?;
             let total = edit.add.len();
@@ -212,8 +213,9 @@ pub async fn run(
     }
 }
 
-/// Every local file and folder of `sources`, placed below `inner`.
-fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
+/// Every local file and folder of `sources`, placed below `inner`. An
+/// unreadable folder fails the import instead of leaving files out.
+fn import_edit(inner: &Path, sources: &[PathBuf]) -> Result<ZipEdit, WalkError> {
     let mut add = Vec::new();
     for src in sources {
         let top = inner.join(crate::fs::file_name_lossy(src));
@@ -222,7 +224,8 @@ fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
             continue;
         }
         add.push((top.clone(), ZipSource::Dir));
-        for entry in LocalVfs.walk(src) {
+        for item in Walker::new(&LocalVfs, src, WalkOptions::default()) {
+            let entry = item?.entry;
             let Ok(rel) = entry.path.strip_prefix(src) else {
                 continue;
             };
@@ -234,10 +237,10 @@ fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
             add.push((top.join(rel), source));
         }
     }
-    ZipEdit {
+    Ok(ZipEdit {
         add,
         ..ZipEdit::default()
-    }
+    })
 }
 
 /// Applies the job's conflict setting to the files of `edit` that already
@@ -257,6 +260,7 @@ async fn resolve_conflicts(
         options: &setup.options,
         ctl: control,
         slot: &setup.slot,
+        src_fs: &LocalVfs,
         dst_fs: &vfs,
         auto: None,
     };

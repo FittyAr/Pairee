@@ -41,7 +41,8 @@ pub(super) fn run(
                 PathBuf::new(),
                 TransferOptions::default(),
             )
-            .with_prune_dirs(batch.prune_dirs.clone());
+            .with_prune_dirs(batch.prune_dirs.clone())
+            .with_restore_after(batch.trashed_originals());
             return submit(state, direction, job, command);
         }
         FsCommand::Trash { paths } => {

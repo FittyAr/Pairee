@@ -1,4 +1,6 @@
 use super::privileges::FsOperation;
+use crate::fs::vfs::{LocalVfs, Vfs};
+use crate::fs::walk::{WalkOptions, Walker};
 use anyhow::{Context, Result};
 use std::path::Path;
 
@@ -14,13 +16,9 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
         for op in ops {
             match op {
                 FsOperation::Delete { path } => {
-                    if path.is_dir() {
-                        std::fs::remove_dir_all(&path)
-                            .with_context(|| format!("Failed to delete directory: {:?}", path))?;
-                    } else {
-                        std::fs::remove_file(&path)
-                            .with_context(|| format!("Failed to delete file: {:?}", path))?;
-                    }
+                    LocalVfs
+                        .remove_all(&path)
+                        .with_context(|| format!("Failed to delete: {:?}", path))?;
                 }
                 FsOperation::MkDir { path } => {
                     std::fs::create_dir_all(&path)
@@ -55,17 +53,21 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
     }
 }
 
+/// Copies `src` (a file, or a folder with everything below it; links are
+/// followed, loops are reported) to `dst`.
 fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
-    if src.is_dir() {
-        std::fs::create_dir_all(dst)?;
-        for entry in std::fs::read_dir(src)? {
-            let entry = entry?;
-            let src_path = entry.path();
-            let dst_path = dst.join(entry.file_name());
-            copy_recursive(&src_path, &dst_path)?;
+    if !src.is_dir() {
+        return std::fs::copy(src, dst).map(|_| ());
+    }
+    std::fs::create_dir_all(dst)?;
+    for item in Walker::new(&LocalVfs, src, WalkOptions::following(true)) {
+        let item = item?;
+        let target = dst.join(item.path().strip_prefix(src).unwrap_or(item.path()));
+        if item.is_dir() {
+            std::fs::create_dir_all(&target)?;
+        } else {
+            std::fs::copy(item.path(), &target)?;
         }
-    } else {
-        std::fs::copy(src, dst)?;
     }
     Ok(())
 }
@@ -73,11 +75,7 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
 fn move_operation(src: &Path, dst: &Path) -> std::io::Result<()> {
     if std::fs::rename(src, dst).is_err() {
         copy_recursive(src, dst)?;
-        if src.is_dir() {
-            std::fs::remove_dir_all(src)?;
-        } else {
-            std::fs::remove_file(src)?;
-        }
+        LocalVfs.remove_all(src)?;
     }
     Ok(())
 }

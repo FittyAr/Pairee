@@ -33,6 +33,9 @@ pub struct TransferJob {
     pub pairs: Option<Vec<(PathBuf, PathBuf)>>,
     /// Folders removed (when empty, deepest first) after the job.
     pub prune_dirs: Vec<PathBuf>,
+    /// Paths a delete job puts back from the trash once it removed what
+    /// was there (undo of a copy that trashed the files it replaced).
+    pub restore_after: Vec<PathBuf>,
 }
 
 impl TransferJob {
@@ -60,6 +63,7 @@ impl TransferJob {
             shell_template: None,
             pairs: None,
             prune_dirs: Vec::new(),
+            restore_after: Vec::new(),
         }
     }
 
@@ -79,6 +83,13 @@ impl TransferJob {
     /// Folders to remove after the job when they are empty.
     pub fn with_prune_dirs(mut self, dirs: Vec<PathBuf>) -> Self {
         self.prune_dirs = dirs;
+        self
+    }
+
+    /// Paths to restore from the trash after the job (see
+    /// [`Self::restore_after`]).
+    pub fn with_restore_after(mut self, paths: Vec<PathBuf>) -> Self {
+        self.restore_after = paths;
         self
     }
 
@@ -237,10 +248,11 @@ pub struct FileTransferResult {
     pub size: u64,
     pub src_hash: Option<String>,
     pub dst_hash: Option<String>,
+    /// The copy was read back from the disk and its hash matched the source.
     pub verified: bool,
     pub duration: std::time::Duration,
-    /// The destination existed and was overwritten.
-    pub replaced: bool,
+    /// What happened to a file that existed at the destination.
+    pub replaced: super::part::Replaced,
     /// The destination as the job left it (copy/move only).
     pub dst_stamp: Option<crate::fs::stamp::Stamp>,
 }

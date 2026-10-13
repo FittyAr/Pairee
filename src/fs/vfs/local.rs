@@ -4,15 +4,32 @@ use super::{Capabilities, Vfs, VfsEntry};
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::du::DuEntry;
+use crate::fs::file_id::{FileIdentity, file_identity};
 use crate::fs::list::{ListOptions, is_hidden};
+use crate::fs::remove::remove_entry;
 use crate::fs::text::{ByteStore, FileStore};
 use std::fs;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::Path;
 use std::sync::Arc;
+use std::time::SystemTime;
 
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LocalVfs;
+
+/// A file whose `flush` also syncs it to the disk.
+struct SyncOnFlush(fs::File);
+
+impl Write for SyncOnFlush {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()?;
+        self.0.sync_all()
+    }
+}
 
 /// Entry for `path` from its link metadata; links are followed for the
 /// folder flag, size and time, so a link to a folder lists (and is
@@ -63,12 +80,51 @@ impl Vfs for LocalVfs {
         Ok(entry)
     }
 
+    fn metadata(&self, path: &Path) -> io::Result<VfsEntry> {
+        // Fails on a broken link (unlike the listing, which keeps it).
+        fs::metadata(path)?;
+        let name = crate::fs::file_name_lossy(path);
+        Ok(local_entry(
+            name,
+            path.to_path_buf(),
+            Some(fs::symlink_metadata(path)?),
+        ))
+    }
+
+    fn identity(&self, path: &Path) -> Option<FileIdentity> {
+        file_identity(path, true).ok()
+    }
+
     fn open_read(&self, path: &Path) -> io::Result<Box<dyn Read + Send>> {
         Ok(Box::new(fs::File::open(path)?))
     }
 
-    fn write_file(&self, path: &Path, data: &mut dyn Read) -> io::Result<()> {
-        io::copy(data, &mut fs::File::create(path)?).map(|_| ())
+    fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        Ok(Box::new(SyncOnFlush(fs::File::create(path)?)))
+    }
+
+    /// A read-only file is replaced too; a folder never is.
+    fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
+        crate::fs::transfer::part::commit(from, to, false).map(|_| ())
+    }
+
+    fn set_metadata(
+        &self,
+        path: &Path,
+        modified: Option<SystemTime>,
+        mode: Option<u32>,
+    ) -> io::Result<()> {
+        if let Some(time) = modified {
+            filetime::set_file_mtime(path, filetime::FileTime::from_system_time(time))?;
+        }
+        #[cfg(unix)]
+        if let Some(mode) = mode {
+            use std::os::unix::fs::PermissionsExt;
+            fs::set_permissions(path, fs::Permissions::from_mode(mode & 0o7777))?;
+        }
+        #[cfg(not(unix))]
+        let _ = mode;
+        Ok(())
     }
 
     fn mkdir(&self, path: &Path) -> io::Result<()> {
@@ -79,12 +135,13 @@ impl Vfs for LocalVfs {
         let _ = fs::create_dir_all(dir);
     }
 
+    /// Files and links (folder links too); read-only entries as well.
     fn remove_file(&self, path: &Path) -> io::Result<()> {
-        fs::remove_file(path)
+        remove_entry(path)
     }
 
     fn remove_dir(&self, path: &Path) -> io::Result<()> {
-        fs::remove_dir(path)
+        remove_entry(path)
     }
 
     fn rename(&self, from: &Path, to: &Path) -> io::Result<()> {

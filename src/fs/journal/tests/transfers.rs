@@ -33,8 +33,20 @@ fn batch(command: &FsCommand) -> &FileBatch {
     }
 }
 
+/// A move within one volume is a single rename of the folder; with
+/// verification it is copied, verified and deleted file by file. Both are
+/// undone and redone.
 #[tokio::test]
 async fn move_of_a_folder_tree_across_dirs_is_undone_and_redone() {
+    move_tree_round_trip(options(), 1, 0).await;
+    let verified = TransferOptions {
+        verify_after_copy: true,
+        ..options()
+    };
+    move_tree_round_trip(verified, 2, 2).await;
+}
+
+async fn move_tree_round_trip(options: TransferOptions, steps: usize, created: usize) {
     let root = tempfile::tempdir().unwrap();
     let (src, dst) = (p(root.path(), "src"), p(root.path(), "dst"));
     write(&src.join("tree").join("a.txt"), "a");
@@ -44,14 +56,15 @@ async fn move_of_a_folder_tree_across_dirs_is_undone_and_redone() {
         TransferOperation::Move,
         vec![src.join("tree")],
         dst.clone(),
-        options(),
+        options,
     );
     let entry = run_recorded(job, None).await.unwrap();
     assert!(!src.join("tree").exists());
+    assert_eq!(batch(&entry).files.len(), steps);
     assert_eq!(
         batch(&entry).created_dirs.len(),
-        2,
-        "dst/tree and dst/tree/sub"
+        created,
+        "dst/tree and dst/tree/sub when copied"
     );
 
     let undo = runnable_inverse(&entry);

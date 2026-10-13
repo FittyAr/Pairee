@@ -70,11 +70,13 @@ pub fn write_description(dir: &Path, filename: &str, description: &str) -> Resul
     }
 }
 
-// Expose remove_description utility function for full API completeness.
-// Currently validated via unit tests.
-/// Removes a file's description entry from the `descript.ion` file.
-pub fn remove_description(dir: &Path, filename: &str) -> Result<()> {
-    write_description(dir, filename, "")
+/// Drops the description of the entry at `path` (deleted, moved or
+/// wiped) from its folder's `descript.ion`. Best effort: a description that
+/// cannot be updated never fails the operation that removed the entry.
+pub fn forget_description(path: &Path) {
+    if let (Some(dir), Some(name)) = (path.parent(), path.file_name().and_then(|n| n.to_str())) {
+        let _ = write_description(dir, name, "");
+    }
 }
 
 /// Parses a single `descript.ion` line into `(filename, description)`.
@@ -164,11 +166,11 @@ mod tests {
     }
 
     #[test]
-    fn test_remove_description() {
+    fn test_forget_description() {
         let dir = tempfile::tempdir().expect("tempdir");
         write_description(dir.path(), "keep.rs", "Keep this").unwrap();
         write_description(dir.path(), "remove.rs", "Remove this").unwrap();
-        remove_description(dir.path(), "remove.rs").unwrap();
+        forget_description(&dir.path().join("remove.rs"));
         assert_eq!(read_description(dir.path(), "remove.rs"), None);
         assert_eq!(
             read_description(dir.path(), "keep.rs"),

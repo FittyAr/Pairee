@@ -1,13 +1,27 @@
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct TransferOptions {
+    /// Re-read every copy from the disk and compare its hash with the source.
     pub verify_after_copy: bool,
     pub hash_algorithm: HashAlgorithm,
     pub buffer_size: BufferSize,
     pub direct_io: bool,
     pub preserve_timestamps: bool,
+    /// Windows file attributes (read-only, hidden, system, archive).
     pub preserve_attributes: bool,
+    /// Access mode: Unix permission bits; on Windows the access control list
+    /// (as [`Self::preserve_acl`]).
+    pub preserve_permissions: bool,
     pub preserve_acl: bool,
+    /// NTFS alternate data streams.
     pub preserve_streams: bool,
+    /// Skip runs of zero bytes, leaving holes (sparse files).
+    pub produce_sparse_files: bool,
+    /// Clone the data blocks (copy-on-write) where the filesystem can.
+    pub use_copy_on_write: bool,
+    /// Send a file that a copy replaces to the trash (so an undo can bring
+    /// it back) instead of overwriting it for good.
+    pub trash_replaced: bool,
     pub skip_symlinks: bool,
     pub follow_symlinks: bool,
     pub max_retries: u32,
@@ -29,8 +43,12 @@ impl Default for TransferOptions {
             direct_io: false,
             preserve_timestamps: true,
             preserve_attributes: true,
+            preserve_permissions: true,
             preserve_acl: false,
             preserve_streams: false,
+            produce_sparse_files: false,
+            use_copy_on_write: false,
+            trash_replaced: false,
             skip_symlinks: false,
             follow_symlinks: false,
             max_retries: 3,

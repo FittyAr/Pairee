@@ -1,15 +1,21 @@
+//! Delete phase: every scanned entry is removed (links themselves, never
+//! what they point to), then the emptied folders, deepest first — or the
+//! sources go to the trash as a whole.
+
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
-use super::super::control::JobControl;
-use super::super::job::{FailedFile, FileTransferResult, TransferResults};
+use super::super::control::{JobControl, done, failed};
+use super::super::job::TransferResults;
 use super::super::options::TransferOptions;
-use super::fs_helpers::{forget_description, remove_forcing, send_to_recycle_bin_helper};
-use super::scan::ScanOutcome;
-use super::speed::spawn_speed_reporter;
+use super::super::scan::ScanOutcome;
+use super::super::speed::SpeedReporter;
+use super::fs_helpers::send_to_recycle_bin_helper;
+use crate::fs::descriptions::forget_description;
+use crate::fs::remove::remove_entry;
 
 /// Run the delete phase (recycle bin or permanent delete) and return results
 /// (the caller reports the end of the job).
@@ -21,7 +27,7 @@ pub(super) async fn run_delete_phase(
 ) -> Result<TransferResults, anyhow::Error> {
     let mut results = TransferResults::default();
     let deleted_bytes = Arc::new(AtomicU64::new(0));
-    let _speed_reporter = spawn_speed_reporter(ctl, Arc::clone(&deleted_bytes), scan.total_bytes);
+    let _speed = SpeedReporter::spawn(ctl, Arc::clone(&deleted_bytes), scan.total_bytes);
 
     if options.delete_to_recycle_bin {
         for (idx, src) in sources.iter().enumerate() {
@@ -42,13 +48,16 @@ pub(super) async fn run_delete_phase(
         return Ok(results);
     }
 
+    for failure in scan.refused {
+        ctl.file_failed(&mut results, failure);
+    }
     for (idx, (src, _, size)) in scan.mappings.into_iter().enumerate() {
         ctl.wait_if_paused().await?;
         if ctl.take_user_skip(&src, &mut results) {
             continue;
         }
         let deleted = delete_one(ctl, &mut results, (idx, &src), size, |p| {
-            remove_forcing(p, |p| std::fs::remove_file(p)).map_err(|e| e.to_string())
+            remove_entry(p).map_err(|e| e.to_string())
         });
         match deleted {
             Ok(size) => deleted_bytes.fetch_add(size, Ordering::SeqCst),
@@ -62,9 +71,9 @@ pub(super) async fn run_delete_phase(
     let mut dirs = scan.dirs_to_delete;
     dirs.sort_by_key(|p| std::cmp::Reverse(p.as_os_str().len()));
     for dir in dirs {
-        forget_description(&dir);
-        if let Err(e) = remove_forcing(&dir, |p| std::fs::remove_dir(p)) {
-            ctl.file_failed(&mut results, failed(&dir, e.to_string()));
+        match remove_entry(&dir) {
+            Ok(()) => forget_description(&dir),
+            Err(e) => ctl.file_failed(&mut results, failed(&dir, PathBuf::new(), e.to_string())),
         }
     }
     Ok(results)
@@ -81,37 +90,15 @@ fn delete_one(
 ) -> Result<u64, ()> {
     let start = Instant::now();
     ctl.file_started(src, index);
-    forget_description(src);
     match remove(src) {
         Err(error) => {
-            ctl.file_failed(results, failed(src, error));
+            ctl.file_failed(results, failed(src, PathBuf::new(), error));
             Err(())
         }
         Ok(()) => {
-            ctl.file_completed(
-                results,
-                FileTransferResult {
-                    src: src.to_path_buf(),
-                    dst: PathBuf::new(),
-                    size,
-                    src_hash: None,
-                    dst_hash: None,
-                    verified: true,
-                    duration: start.elapsed(),
-                    replaced: false,
-                    dst_stamp: None,
-                },
-            );
+            forget_description(src);
+            ctl.file_completed(results, done(src, PathBuf::new(), size, start));
             Ok(size)
         }
-    }
-}
-
-fn failed(src: &Path, error: String) -> FailedFile {
-    FailedFile {
-        src: src.to_path_buf(),
-        dst: PathBuf::new(),
-        error,
-        retries: 0,
     }
 }

@@ -1,8 +1,29 @@
+mod regressions;
+
+use std::path::Path;
 use std::sync::Arc;
 
-use super::super::job::{TransferJob, TransferOperation};
+use super::super::job::{TransferJob, TransferOperation, TransferResults};
 use super::super::options::TransferOptions;
 use super::TransferWorker;
+
+/// A job of `operation` on `sources` into `destination`.
+fn job(
+    operation: TransferOperation,
+    sources: &[&Path],
+    destination: &Path,
+    options: TransferOptions,
+) -> TransferJob {
+    let sources = sources.iter().map(|p| p.to_path_buf()).collect();
+    TransferJob::new(operation, sources, destination.to_path_buf(), options)
+}
+
+/// Runs `job` to the end, discarding its events.
+async fn run(job: TransferJob) -> anyhow::Result<TransferResults> {
+    let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
+    tokio::spawn(async move { while rx.recv().await.is_some() {} });
+    TransferWorker::for_job(job, tx).run().await
+}
 
 #[tokio::test]
 async fn test_worker_move_directory_tree() {

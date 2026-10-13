@@ -5,7 +5,7 @@ use super::super::super::job::{SkippedFile, TransferResults};
 use crate::config::localization::t;
 use crate::fs::progress::ProgressUpdate;
 use crate::fs::transfer::control::JobControl;
-use crate::fs::transfer::control::failed;
+use crate::fs::transfer::control::{done, failed};
 use anyhow::anyhow;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -47,19 +47,12 @@ pub async fn run_extract(
     .await?;
 
     if results.completed_files.is_empty() && results.failed_files.is_empty() {
-        results
-            .completed_files
-            .push(super::super::super::job::FileTransferResult {
-                src: archive_for_complete,
-                dst: destination_dir,
-                size: 0,
-                src_hash: None,
-                dst_hash: None,
-                verified: true,
-                duration: std::time::Duration::ZERO,
-                replaced: false,
-                dst_stamp: None,
-            });
+        results.completed_files.push(done(
+            &archive_for_complete,
+            destination_dir,
+            0,
+            std::time::Instant::now(),
+        ));
     }
     Ok(results)
 }
@@ -165,17 +158,7 @@ async fn bridge_progress_to_events(
             });
         }
 
-        let result = super::super::super::job::FileTransferResult {
-            src: path.clone(),
-            dst: path,
-            size: 0,
-            src_hash: None,
-            dst_hash: None,
-            verified: true,
-            duration: std::time::Duration::ZERO,
-            replaced: false,
-            dst_stamp: None,
-        };
+        let result = done(&path, path.clone(), 0, std::time::Instant::now());
         control.file_completed(&mut results, result);
     }
 

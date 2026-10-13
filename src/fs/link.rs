@@ -16,18 +16,6 @@ pub fn create_link(src: &Path, dest: &Path, kind: LinkKind) -> Result<()> {
     }
 }
 
-/// Removes the link at `path` (never what it points to). Directory
-/// symbolic links on Windows need `remove_dir`.
-pub fn remove_link(path: &Path) -> std::io::Result<()> {
-    std::fs::remove_file(path).or_else(|e| {
-        if path.symlink_metadata()?.file_type().is_symlink() {
-            std::fs::remove_dir(path)
-        } else {
-            Err(e)
-        }
-    })
-}
-
 /// Creates a symbolic link at `dest` pointing to `src`.
 ///
 /// On UNIX/Linux: uses `std::os::unix::fs::symlink`.
