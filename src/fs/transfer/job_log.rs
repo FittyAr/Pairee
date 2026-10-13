@@ -71,7 +71,11 @@ fn apply_job_event(job: &mut TransferJob, log: &OperationLog, event: &TransferEv
             job.log_lines.push(format!("[{}] Job started", job_id));
         }
         TransferEvent::ScanStarted { .. } => {
-            job.status = TransferJobStatus::Scanning;
+            // Events are applied after the fact: a job the engine already
+            // finished keeps its final status.
+            if !job.is_terminal() {
+                job.status = TransferJobStatus::Scanning;
+            }
             job.progress = Some(TransferProgress::default());
             job.log_lines.push(log.scanning.to_string());
         }
