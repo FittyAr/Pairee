@@ -5,6 +5,7 @@
 //! archive in a panel ([`ArchiveVfs`]) and listings all run on it. Rar and
 //! ISO images are extracted by an external 7-Zip.
 
+pub mod edit;
 pub mod external_7z;
 pub mod extract;
 pub mod format;
@@ -12,20 +13,24 @@ pub mod index;
 pub mod nested;
 pub mod safe_extract;
 pub mod sevenz_ops;
+pub mod sevenz_write;
 pub mod tar_ops;
+pub mod tar_write;
 #[cfg(test)]
 pub(crate) mod test_fixtures;
 #[cfg(test)]
 mod tests;
 pub mod vfs;
+#[cfg(test)]
+mod write_tests;
 pub mod zip_ops;
 pub mod zip_write;
 
+pub use edit::{ArchiveEdit, EntrySource};
 pub use external_7z::extract_via_external_7z;
 pub use format::ArchiveReader;
 pub use vfs::ArchiveVfs;
 pub use zip_ops::compress_zip;
-pub use zip_write::{ZipEdit, ZipSource};
 
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};

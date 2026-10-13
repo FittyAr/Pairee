@@ -3,15 +3,15 @@
 //!
 //! The folder tree is read once and cached until the archive file changes
 //! (size or modification time). Entries are read into memory with a size
-//! cap; zip archives can also be edited (see [`super::zip_write`]). An
+//! cap; zip, tar and 7z archives can also be edited (see [`super::edit`]). An
 //! archive inside an archive is browsed read-only from a temporary copy
 //! (see [`super::nested`]).
 
+use super::edit::{ArchiveEdit, EntrySource, OnAdded};
 use super::format::{ArchiveReader, Visit};
 use super::index::{ArchiveIndex, Node};
 use super::nested::ArchiveData;
 use super::safe_extract::ExtractGuard;
-use super::zip_write::{ZipEdit, ZipSource, rewrite_zip};
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, unsupported};
 use crate::lock::LockExt;
 use std::io::{self, Read, Write};
@@ -181,21 +181,20 @@ impl ArchiveVfs {
     }
 
     /// Rewrites a writable archive with `edit`.
-    pub fn edit(
-        &self,
-        edit: &ZipEdit,
-        on_added: &mut dyn FnMut(&Path) -> io::Result<()>,
-    ) -> io::Result<()> {
+    pub fn edit(&self, edit: &ArchiveEdit, on_added: &mut OnAdded) -> io::Result<()> {
         if !self.writable() {
             return Err(unsupported());
         }
-        let result = rewrite_zip(&self.root, edit, on_added).map_err(to_io);
+        let result = self
+            .reader
+            .rewrite(&self.root, edit, on_added)
+            .map_err(to_io);
         // The rewrite may keep the archive's size and time stamp.
         *self.cache.lock_safe() = None;
         result
     }
 
-    fn edit_one(&self, edit: ZipEdit) -> io::Result<()> {
+    fn edit_one(&self, edit: ArchiveEdit) -> io::Result<()> {
         self.edit(&edit, &mut |_| Ok(()))
     }
 }
@@ -254,16 +253,16 @@ impl Vfs for ArchiveVfs {
     fn write_file(&self, path: &Path, data: &mut dyn Read) -> io::Result<()> {
         let mut bytes = Vec::new();
         data.read_to_end(&mut bytes)?;
-        self.edit_one(ZipEdit {
-            add: vec![(self.inner(path)?, ZipSource::Bytes(bytes))],
-            ..ZipEdit::default()
+        self.edit_one(ArchiveEdit {
+            add: vec![(self.inner(path)?, EntrySource::Bytes(bytes))],
+            ..ArchiveEdit::default()
         })
     }
 
     fn mkdir(&self, path: &Path) -> io::Result<()> {
-        self.edit_one(ZipEdit {
-            add: vec![(self.inner(path)?, ZipSource::Dir)],
-            ..ZipEdit::default()
+        self.edit_one(ArchiveEdit {
+            add: vec![(self.inner(path)?, EntrySource::Dir)],
+            ..ArchiveEdit::default()
         })
     }
 
@@ -281,9 +280,9 @@ impl Vfs for ArchiveVfs {
         if inner.as_os_str().is_empty() {
             return Err(unsupported());
         }
-        self.edit_one(ZipEdit {
+        self.edit_one(ArchiveEdit {
             remove: vec![inner],
-            ..ZipEdit::default()
+            ..ArchiveEdit::default()
         })
     }
 }

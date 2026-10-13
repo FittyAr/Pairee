@@ -81,6 +81,11 @@ impl ArchiveReport {
         Arc::clone(&self.ctl.is_cancelled)
     }
 
+    /// What was reported so far.
+    pub fn results(&self) -> &TransferResults {
+        &self.results
+    }
+
     pub fn into_results(self) -> TransferResults {
         self.results
     }

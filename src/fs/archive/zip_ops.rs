@@ -7,6 +7,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
+use super::edit::{ArchiveEdit, OnAdded};
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
 use super::zip_write::file_options;
 use crate::fs::progress::ArchiveReport;
@@ -41,7 +42,7 @@ fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> Result<EntryMeta> {
         },
         size: file.size(),
         modified: file.last_modified().and_then(zip_time),
-        mode: None,
+        mode: file.unix_mode(),
     })
 }
 
@@ -70,6 +71,10 @@ impl ArchiveReader for ZipReader {
 
     fn writable(&self) -> bool {
         true
+    }
+
+    fn rewrite(&self, archive: &Path, edit: &ArchiveEdit, on_added: &mut OnAdded) -> Result<()> {
+        super::zip_write::rewrite_zip(archive, edit, on_added)
     }
 }
 

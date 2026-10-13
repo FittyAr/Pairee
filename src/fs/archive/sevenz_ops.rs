@@ -19,7 +19,9 @@ fn meta(entry: &sevenz_rust2::ArchiveEntry) -> EntryMeta {
         modified: entry
             .has_last_modified_date
             .then(|| entry.last_modified_date.into()),
-        mode: None,
+        mode: (entry.has_windows_attributes
+            && entry.windows_attributes & super::sevenz_write::UNIX_EXTENSION != 0)
+            .then_some(entry.windows_attributes >> 16),
     }
 }
 
@@ -63,5 +65,18 @@ impl ArchiveReader for SevenZReader {
 
     fn count_hint(&self, archive: &Path) -> usize {
         sevenz_rust2::Archive::open(archive).map_or(0, |a| a.files.len())
+    }
+
+    fn writable(&self) -> bool {
+        true
+    }
+
+    fn rewrite(
+        &self,
+        archive: &Path,
+        edit: &super::edit::ArchiveEdit,
+        on_added: &mut super::edit::OnAdded,
+    ) -> Result<()> {
+        super::sevenz_write::rewrite_7z(archive, edit, on_added)
     }
 }

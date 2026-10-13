@@ -25,7 +25,7 @@ pub struct TarReader {
 }
 
 impl TarReader {
-    fn open(&self, archive: &Path) -> Result<Archive<Box<dyn Read>>> {
+    pub(super) fn open(&self, archive: &Path) -> Result<Archive<Box<dyn Read>>> {
         let file = io::BufReader::new(fs::File::open(archive)?);
         let stream: Box<dyn Read> = match self.compression {
             TarCompression::None => Box::new(file),
@@ -76,6 +76,19 @@ impl ArchiveReader for TarReader {
             }
         }
         Ok(())
+    }
+
+    fn writable(&self) -> bool {
+        true
+    }
+
+    fn rewrite(
+        &self,
+        archive: &Path,
+        edit: &super::edit::ArchiveEdit,
+        on_added: &mut super::edit::OnAdded,
+    ) -> Result<()> {
+        super::tar_write::rewrite_tar(self, archive, edit, on_added)
     }
 }
 

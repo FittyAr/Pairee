@@ -116,11 +116,16 @@ fn local_only_actions_are_refused_inside_archives() {
         assert!(refuse_unsupported(&mut state, &action), "{action:?}");
         assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
     }
-    // Zip archives take new folders, copies out, deletions and edits.
-    for action in [Action::MkDir, Action::Copy, Action::Delete, Action::Edit] {
+    // Writable archives take new folders, copies, moves, deletions and edits.
+    for action in [
+        Action::MkDir,
+        Action::Copy,
+        Action::Move,
+        Action::Delete,
+        Action::Edit,
+    ] {
         assert!(!refuse_unsupported(&mut state, &action), "{action:?}");
     }
-    assert!(refuse_unsupported(&mut state, &Action::Move));
 }
 
 #[test]

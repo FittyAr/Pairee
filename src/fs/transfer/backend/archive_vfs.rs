@@ -1,7 +1,9 @@
 //! Transfers that start or end inside an archive file (Strategy picked by
 //! the engine from the job's paths): copying out extracts the selected
-//! entries through the safe extractor, copying in and deleting rewrite a
-//! zip archive in place. Other combinations are refused with a message.
+//! entries through the safe extractor, copying in and deleting rewrite the
+//! archive in place (zip, tar and 7z). A move is the copy followed by the
+//! removal of what was copied (see [`super::archive_move`]). Other
+//! combinations are refused with a message.
 
 use super::super::conflict_resolver::{ConflictAction, ConflictResolver};
 use super::super::conflict_slot::ConflictSlot;
@@ -9,7 +11,9 @@ use super::super::job::{TransferJob, TransferOperation, TransferResults};
 use super::super::options::TransferOptions;
 use super::ops_jobs::archive::run_archive_blocking;
 use crate::config::localization::t;
-use crate::fs::archive::{ArchiveVfs, ZipEdit, ZipSource, extract_selected, split_archive_path};
+use crate::fs::archive::{
+    ArchiveEdit, ArchiveVfs, EntrySource, extract_selected, split_archive_path,
+};
 use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::worker::is_destination_parent_dir;
@@ -23,18 +27,21 @@ use std::sync::Arc;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ArchivePlan {
     /// Copy `selected` (paths inside `archive`) out to `dest`, relative to
-    /// the archive folder `base`.
+    /// the archive folder `base`; a move then removes what was extracted.
     Extract {
         archive: PathBuf,
         base: PathBuf,
         selected: Vec<PathBuf>,
         dest: PathBuf,
+        moving: bool,
     },
-    /// Copy local `sources` into the archive folder `inner`.
+    /// Copy local `sources` into the archive folder `inner`; a move then
+    /// deletes what was added.
     Import {
         archive: PathBuf,
         inner: PathBuf,
         sources: Vec<PathBuf>,
+        moving: bool,
     },
     /// Delete `inner` paths (with everything below them) from `archive`.
     Remove {
@@ -81,28 +88,38 @@ pub fn plan(job: &TransferJob) -> Option<Result<ArchivePlan, String>> {
     {
         return refused();
     }
+    let moving = job.operation == TransferOperation::Move;
     match (job.operation, from_archive, into_archive) {
-        (TransferOperation::Copy, true, None) | (TransferOperation::Delete, true, _) => {
+        (TransferOperation::Delete, true, _) => {
             let Some((archive, inner)) = same_archive(&sources) else {
                 return refused();
             };
-            Some(Ok(if job.operation == TransferOperation::Delete {
-                ArchivePlan::Remove { archive, inner }
-            } else {
-                let base = inner[0].parent().unwrap_or(Path::new("")).to_path_buf();
-                ArchivePlan::Extract {
-                    archive,
-                    base,
-                    selected: inner,
-                    dest: destination,
-                }
+            Some(Ok(ArchivePlan::Remove { archive, inner }))
+        }
+        (TransferOperation::Copy | TransferOperation::Move, true, None) => {
+            let Some((archive, inner)) = same_archive(&sources) else {
+                return refused();
+            };
+            if moving && !super::archive_move::editable(&archive) {
+                return refused();
+            }
+            let base = inner[0].parent().unwrap_or(Path::new("")).to_path_buf();
+            Some(Ok(ArchivePlan::Extract {
+                archive,
+                base,
+                selected: inner,
+                dest: destination,
+                moving,
             }))
         }
-        (TransferOperation::Copy, false, Some((archive, inner))) => Some(Ok(ArchivePlan::Import {
-            archive,
-            inner,
-            sources: job.sources.clone(),
-        })),
+        (TransferOperation::Copy | TransferOperation::Move, false, Some((archive, inner))) => {
+            Some(Ok(ArchivePlan::Import {
+                archive,
+                inner,
+                sources: job.sources.clone(),
+                moving,
+            }))
+        }
         _ => refused(),
     }
 }
@@ -167,12 +184,19 @@ pub async fn run(
             base,
             selected,
             dest,
+            moving,
         } => {
             let total = selected.len();
             run_archive_blocking(
                 control,
                 total,
-                move |report| extract_selected(&archive, &base, &selected, &dest, report),
+                move |report| {
+                    extract_selected(&archive, &base, &selected, &dest, report)?;
+                    if !moving {
+                        return Ok(());
+                    }
+                    super::archive_move::remove_extracted(&archive, &base, &selected, report)
+                },
                 "error_extraction_failed",
             )
             .await
@@ -181,6 +205,7 @@ pub async fn run(
             archive,
             inner,
             sources,
+            moving,
         } => {
             let mut edit = import_edit(&inner, &sources).map_err(|e| anyhow!(e.to_string()))?;
             let mut skipped = TransferResults::default();
@@ -189,7 +214,13 @@ pub async fn run(
             let mut results = run_archive_blocking(
                 control,
                 total,
-                move |report| apply_edit(&archive, &edit, report),
+                move |report| {
+                    apply_edit(&archive, &edit, report)?;
+                    if moving {
+                        super::archive_move::delete_imported(&edit, report);
+                    }
+                    Ok(())
+                },
                 "archive_update_failed",
             )
             .await?;
@@ -198,9 +229,9 @@ pub async fn run(
         }
         ArchivePlan::Remove { archive, inner } => {
             let total = inner.len();
-            let edit = ZipEdit {
+            let edit = ArchiveEdit {
                 remove: inner,
-                ..ZipEdit::default()
+                ..ArchiveEdit::default()
             };
             run_archive_blocking(
                 control,
@@ -215,31 +246,26 @@ pub async fn run(
 
 /// Every local file and folder of `sources`, placed below `inner`. An
 /// unreadable folder fails the import instead of leaving files out.
-fn import_edit(inner: &Path, sources: &[PathBuf]) -> Result<ZipEdit, WalkError> {
+fn import_edit(inner: &Path, sources: &[PathBuf]) -> Result<ArchiveEdit, WalkError> {
     let mut add = Vec::new();
     for src in sources {
         let top = inner.join(crate::fs::file_name_lossy(src));
         if !src.is_dir() {
-            add.push((top, ZipSource::File(src.clone())));
+            add.push((top, EntrySource::File(src.clone())));
             continue;
         }
-        add.push((top.clone(), ZipSource::Dir));
+        add.push((top.clone(), EntrySource::File(src.clone())));
         for item in Walker::new(&LocalVfs, src, WalkOptions::default()) {
             let entry = item?.entry;
             let Ok(rel) = entry.path.strip_prefix(src) else {
                 continue;
             };
-            let source = if entry.is_dir {
-                ZipSource::Dir
-            } else {
-                ZipSource::File(entry.path.clone())
-            };
-            add.push((top.join(rel), source));
+            add.push((top.join(rel), EntrySource::File(entry.path.clone())));
         }
     }
-    Ok(ZipEdit {
+    Ok(ArchiveEdit {
         add,
-        ..ZipEdit::default()
+        ..ArchiveEdit::default()
     })
 }
 
@@ -249,7 +275,7 @@ fn import_edit(inner: &Path, sources: &[PathBuf]) -> Result<ZipEdit, WalkError> 
 /// rewritten.
 async fn resolve_conflicts(
     archive: &Path,
-    edit: &mut ZipEdit,
+    edit: &mut ArchiveEdit,
     setup: &ConflictSetup,
     control: &JobControl,
     results: &mut TransferResults,
@@ -267,11 +293,11 @@ async fn resolve_conflicts(
     let mut kept = Vec::with_capacity(edit.add.len());
     for (rel, source) in std::mem::take(&mut edit.add) {
         let mut dst = archive.join(&rel);
-        let ZipSource::File(src) = &source else {
+        let EntrySource::File(src) = &source else {
             kept.push((rel, source));
             continue;
         };
-        if !vfs.exists(&dst) {
+        if src.is_dir() || !vfs.exists(&dst) {
             kept.push((rel, source));
             continue;
         }
@@ -285,7 +311,11 @@ async fn resolve_conflicts(
 }
 
 /// Rewrites `archive` with `edit`, reporting each added entry.
-fn apply_edit(archive: &Path, edit: &ZipEdit, report: &mut ArchiveReport) -> anyhow::Result<()> {
+pub(super) fn apply_edit(
+    archive: &Path,
+    edit: &ArchiveEdit,
+    report: &mut ArchiveReport,
+) -> anyhow::Result<()> {
     let vfs = ArchiveVfs::open(archive.to_path_buf())
         .ok_or_else(|| anyhow!(t("vfs_action_unsupported")))?;
     report.ensure_running()?;

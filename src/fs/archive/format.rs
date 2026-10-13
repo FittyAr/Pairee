@@ -60,6 +60,16 @@ pub trait ArchiveReader: Send + Sync {
     fn writable(&self) -> bool {
         false
     }
+
+    /// Applies `edit` to `archive`, atomically (see [`super::edit`]).
+    fn rewrite(
+        &self,
+        _archive: &Path,
+        _edit: &super::edit::ArchiveEdit,
+        _on_added: &mut super::edit::OnAdded,
+    ) -> Result<()> {
+        Err(crate::fs::vfs::unsupported().into())
+    }
 }
 
 /// Converts a timestamp in seconds since the Unix epoch.
