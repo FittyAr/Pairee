@@ -117,6 +117,10 @@ pub async fn load_plugin(
         anyhow::bail!("main.lua not found for plugin {}", name);
     }
     let main_content = std::fs::read_to_string(&main_path)?;
+    let annotations = crate::plugin::annotations::Annotations::parse(&main_content);
+    annotations
+        .check_since(crate::plugin::runtime::api_version::LUA_API_VERSION)
+        .map_err(|e| anyhow::anyhow!("Plugin {name}: {e}"))?;
 
     // Evaluate Lua and run setup in a nested block to drop all non-Send mlua
     // types before await. Both run under the CPU watchdog.
@@ -134,8 +138,14 @@ pub async fn load_plugin(
     })?;
 
     // 6. Register capabilities (Previewers, Commands, Hooks) and spawn task
-    crate::plugin::registry::register_plugin(manifest.clone(), table_key, lua, path.to_path_buf())
-        .await?;
+    let loaded = crate::plugin::registry::LoadedPlugin {
+        manifest: manifest.clone(),
+        path: path.to_path_buf(),
+        lua,
+        table_key,
+        annotations,
+    };
+    crate::plugin::registry::register_plugin(loaded, tx).await?;
 
     tracing::info!(
         "Successfully loaded plugin: {} v{} (License: {:?}, Languages: {:?})",
@@ -161,7 +171,7 @@ fn parse_version(v: &str) -> anyhow::Result<semver::Version> {
 
 /// Fails when `current` is older than `min_version` or either cannot be
 /// parsed (an unreadable requirement is not silently accepted).
-fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
+pub(crate) fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
     let min = parse_version(min_version)?;
     let cur = parse_version(current)?;
     if cur >= min {

@@ -1,13 +1,19 @@
+//! The loaded plugins: their manifests, the methods they define and the
+//! channel to each plugin's worker task (see [`super::worker`]), plus the
+//! host-side entry points that send work to them (`run_previewer`,
+//! `run_preload`, `run_seek`, `run_command`, `emit_hook_event`).
+
 use crate::app::state::types::PluginWidget;
-use crate::plugin::limits::guarded;
+use crate::plugin::annotations::Annotations;
 use crate::plugin::loader::PluginManifest;
-use crate::plugin::runtime::lua_json;
-use mlua::LuaSerdeExt;
+use crate::plugin::manager::PluginRequest;
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
 use tokio::sync::{RwLock, mpsc, oneshot};
 
+/// What a previewer is asked to show: the file, the size of the preview
+/// area (in cells) and how far the user scrolled (`skip`, in lines).
 #[derive(Debug, Clone)]
 pub struct PreviewJob {
     pub file_path: PathBuf,
@@ -21,6 +27,19 @@ pub enum PluginTaskRequest {
         job: PreviewJob,
         reply_tx: oneshot::Sender<Option<PluginWidget>>,
     },
+    /// `preload(job)` ahead of a peek; replies whether the plugin reported
+    /// the work complete.
+    Preload {
+        job: PreviewJob,
+        reply_tx: oneshot::Sender<bool>,
+    },
+    /// `seek(job)` with `job.units` lines to scroll; replies the new `skip`
+    /// the plugin chose (`None`: no `seek` or no number returned).
+    Seek {
+        job: PreviewJob,
+        units: i64,
+        reply_tx: oneshot::Sender<Option<usize>>,
+    },
     ExecuteCommand {
         args: Vec<String>,
     },
@@ -30,10 +49,34 @@ pub enum PluginTaskRequest {
     },
 }
 
+/// The plugin methods the host may call, found when the plugin loaded.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct PluginMethods {
+    pub peek: bool,
+    pub preload: bool,
+    pub seek: bool,
+    pub entry: bool,
+}
+
+impl PluginMethods {
+    /// Which methods the plugin table `M` defines.
+    pub fn of(table: &mlua::Table) -> Self {
+        let has =
+            |name: &str| matches!(table.get::<mlua::Value>(name), Ok(mlua::Value::Function(_)));
+        Self {
+            peek: has("peek"),
+            preload: has("preload"),
+            seek: has("seek"),
+            entry: has("entry"),
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct PluginInfo {
     pub manifest: PluginManifest,
     pub path: PathBuf,
+    pub methods: PluginMethods,
 }
 
 struct Registry {
@@ -50,200 +93,116 @@ fn get_registry() -> &'static Registry {
     })
 }
 
-pub async fn register_plugin(
-    manifest: PluginManifest,
-    table_key: mlua::RegistryKey,
-    lua: mlua::Lua,
-    path: PathBuf,
-) -> anyhow::Result<()> {
-    let name = manifest.name.clone();
-    let registry = get_registry();
+/// A loaded plugin, ready to be registered.
+pub struct LoadedPlugin {
+    pub manifest: PluginManifest,
+    pub path: PathBuf,
+    pub lua: mlua::Lua,
+    pub table_key: mlua::RegistryKey,
+    pub annotations: Annotations,
+}
 
-    // Insert into plugins list
+/// Registers a loaded plugin and starts its worker task. `tx` is the
+/// plugin's channel to the main loop (for `--- @sync` refreshes).
+pub async fn register_plugin(
+    plugin: LoadedPlugin,
+    tx: mpsc::Sender<PluginRequest>,
+) -> anyhow::Result<()> {
+    let name = plugin.manifest.name.clone();
+    let registry = get_registry();
+    let table: mlua::Table = plugin.lua.registry_value(&plugin.table_key)?;
     let info = PluginInfo {
-        manifest: manifest.clone(),
-        path: path.clone(),
+        manifest: plugin.manifest.clone(),
+        path: plugin.path.clone(),
+        methods: PluginMethods::of(&table),
     };
+    drop(table);
     registry.plugins.write().await.insert(name.clone(), info);
 
     // Its commands join the keymap (replacing those of an earlier load).
-    crate::keybindings::plugin_commands::register(&name, manifest.keymap_commands());
+    crate::keybindings::plugin_commands::register(&name, plugin.manifest.keymap_commands());
 
-    // Set up communication channel and spawn task
-    let (tx, mut rx) = mpsc::channel::<PluginTaskRequest>(50);
-    registry.channels.write().await.insert(name.clone(), tx);
-
-    tokio::spawn(async move {
-        while let Some(req) = rx.recv().await {
-            match req {
-                PluginTaskRequest::Peek { job, reply_tx } => {
-                    let res = execute_peek_internal(&lua, &table_key, job);
-                    let _ = reply_tx.send(res);
-                }
-                PluginTaskRequest::ExecuteCommand { args } => {
-                    execute_command_internal(&lua, &table_key, args);
-                }
-                PluginTaskRequest::EmitEvent {
-                    name: ev_name,
-                    data,
-                } => {
-                    execute_event_internal(&lua, &table_key, &ev_name, &data);
-                }
-            }
-        }
-    });
-
+    let (task_tx, rx) = mpsc::channel::<PluginTaskRequest>(50);
+    registry
+        .channels
+        .write()
+        .await
+        .insert(name.clone(), task_tx);
+    super::worker::spawn(
+        super::worker::Worker::new(name, plugin.lua, plugin.table_key, plugin.annotations, tx),
+        rx,
+    );
     Ok(())
 }
 
-fn execute_peek_internal(
-    lua: &mlua::Lua,
-    table_key: &mlua::RegistryKey,
-    job: PreviewJob,
-) -> Option<PluginWidget> {
-    let table: mlua::Table = match lua.registry_value(table_key) {
-        Ok(t) => t,
-        Err(_) => return None,
-    };
-    if let Ok(peek_fn) = table.get::<mlua::Function>("peek") {
-        let job_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let file_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let _ = file_table.set("url", job.file_path.to_string_lossy().to_string());
-        let _ = file_table.set("path", job.file_path.to_string_lossy().to_string());
-        let _ = job_table.set("file", file_table);
-
-        let area_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return None,
-        };
-        let _ = area_table.set("width", job.area_width);
-        let _ = area_table.set("height", job.area_height);
-        let _ = job_table.set("area", area_table);
-        let _ = job_table.set("skip", job.skip);
-
-        // Call peek(job) under the CPU watchdog
-        let result: mlua::Value = match guarded(lua, || peek_fn.call((table, job_table))) {
-            Ok(val) => val,
-            Err(e) => {
-                tracing::error!("Error in plugin peek: {:?}", e);
-                return None;
-            }
-        };
-
-        // Parse result into PluginWidget
-        lua.from_value(result).ok()
-    } else {
-        None
-    }
+/// Sends the request `make` builds to plugin `name` and awaits its reply
+/// (`None` when the plugin is not loaded or its task ended).
+async fn ask<T>(
+    name: &str,
+    make: impl FnOnce(oneshot::Sender<T>) -> PluginTaskRequest,
+) -> Option<T> {
+    let tx = get_registry().channels.read().await.get(name).cloned()?;
+    let (reply_tx, reply_rx) = oneshot::channel();
+    tx.send(make(reply_tx)).await.ok()?;
+    reply_rx.await.ok()
 }
 
-fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args: Vec<String>) {
-    let table: mlua::Table = match lua.registry_value(table_key) {
-        Ok(t) => t,
-        Err(_) => return,
-    };
-    if let Ok(entry_fn) = table.get::<mlua::Function>("entry") {
-        let args_table = match lua.create_table() {
-            Ok(t) => t,
-            Err(_) => return,
-        };
-        for (i, arg) in args.iter().enumerate() {
-            let _ = args_table.set(i + 1, arg.clone());
-        }
-        if let Some(command) = args.first() {
-            let _ = args_table.set("command", command.clone());
-        }
-        if let Err(e) = guarded(lua, || entry_fn.call::<()>((table, args_table))) {
-            tracing::error!("Error in plugin command: {e}");
-        }
-    }
-}
-
-fn execute_event_internal(
-    lua: &mlua::Lua,
-    _table_key: &mlua::RegistryKey,
-    event_name: &str,
-    data: &str,
-) {
-    // Look up callbacks for event in global Pub/Sub channel list
-    let globals = lua.globals();
-    if let Ok(pairee_table) = globals.get::<mlua::Table>("pairee")
-        && let Ok(ps_table) = pairee_table.get::<mlua::Table>("ps")
-        && let Ok(callbacks) = ps_table.get::<mlua::Table>("_callbacks")
-        && let Ok(callback_list) = callbacks.get::<mlua::Table>(event_name)
-    {
-        let parsed_data: mlua::Value = serde_json::from_str::<serde_json::Value>(data)
-            .ok()
-            .and_then(|val| lua_json::from_json(lua, &val).ok())
-            .unwrap_or(mlua::Value::Nil);
-        let len = callback_list.len().unwrap_or(0);
-        for i in 1..=len {
-            if let Ok(func) = callback_list.get::<mlua::Function>(i)
-                && let Err(e) = guarded(lua, || func.call::<()>(parsed_data.clone()))
-            {
-                tracing::error!("Error in plugin hook '{event_name}': {e}");
-            }
-        }
+/// Sends a request that has no reply to plugin `name`.
+async fn tell(name: &str, req: PluginTaskRequest) {
+    let tx = get_registry().channels.read().await.get(name).cloned();
+    if let Some(tx) = tx {
+        let _ = tx.send(req).await;
     }
 }
 
 pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<PluginWidget> {
-    let registry = get_registry();
-    let channels = registry.channels.read().await;
-    if let Some(tx) = channels.get(name) {
-        let (reply_tx, reply_rx) = oneshot::channel();
-        if tx
-            .send(PluginTaskRequest::Peek { job, reply_tx })
-            .await
-            .is_ok()
-        {
-            reply_rx.await.ok().flatten()
-        } else {
-            None
-        }
-    } else {
-        None
-    }
+    ask(name, |reply_tx| PluginTaskRequest::Peek { job, reply_tx })
+        .await
+        .flatten()
+}
+
+/// Runs plugin `name`'s `preload(job)`; `true` when it reported the work
+/// complete (or had already completed it for this file version).
+pub async fn run_preload(name: &str, job: PreviewJob) -> bool {
+    ask(name, |reply_tx| PluginTaskRequest::Preload {
+        job,
+        reply_tx,
+    })
+    .await
+    .unwrap_or(false)
+}
+
+/// Runs plugin `name`'s `seek(job)` with `units` lines to scroll.
+pub async fn run_seek(name: &str, job: PreviewJob, units: i64) -> Option<usize> {
+    ask(name, |reply_tx| PluginTaskRequest::Seek {
+        job,
+        units,
+        reply_tx,
+    })
+    .await
+    .flatten()
 }
 
 pub async fn run_command(name: &str, args: Vec<String>) {
-    let registry = get_registry();
-    let plugins = registry.plugins.read().await;
-    if let Some(info) = plugins.get(name) {
-        tracing::debug!(
-            "Running plugin command for {} (path: {:?})",
-            name,
-            info.path
-        );
-    }
-    let channels = registry.channels.read().await;
-    if let Some(tx) = channels.get(name) {
-        let _ = tx.send(PluginTaskRequest::ExecuteCommand { args }).await;
-    }
+    tell(name, PluginTaskRequest::ExecuteCommand { args }).await;
 }
 
 pub async fn emit_hook_event(plugin_name: &str, event_name: &str, data: String) {
-    let registry = get_registry();
-    let channels = registry.channels.read().await;
-    if let Some(tx) = channels.get(plugin_name) {
-        let _ = tx
-            .send(PluginTaskRequest::EmitEvent {
-                name: event_name.to_string(),
-                data,
-            })
-            .await;
-    }
+    let req = PluginTaskRequest::EmitEvent {
+        name: event_name.to_string(),
+        data,
+    };
+    tell(plugin_name, req).await;
 }
 
 pub async fn get_loaded_plugins() -> Vec<PluginInfo> {
     let registry = get_registry();
     registry.plugins.read().await.values().cloned().collect()
+}
+
+/// The loaded plugin `name`, if any.
+pub async fn plugin_info(name: &str) -> Option<PluginInfo> {
+    get_registry().plugins.read().await.get(name).cloned()
 }
 
 /// Forgets a plugin that was uninstalled: its commands, its entry in the

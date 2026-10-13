@@ -34,7 +34,7 @@ pub fn draw_quick_view(
     scrollbar: Option<&ScrollbarUiState>,
 ) {
     let (path, content, scroll) = (&qv.path, qv.content.as_slice(), qv.scroll);
-    let (image_data, plugin_widget) = (qv.image_data.as_deref(), &qv.plugin_widget);
+    let (image_data, plugin_widget) = (qv.image_data.as_deref(), qv.plugin.as_ref());
     let file_name = path
         .file_name()
         .map(|n| n.to_string_lossy().into_owned())
@@ -54,7 +54,7 @@ pub fn draw_quick_view(
         .style(Style::default().bg(theme.panel_bg));
 
     if let Some(widget) = plugin_widget {
-        render_plugin_widget(f, area, widget, block, theme, scroll, scrollbar);
+        render_plugin_widget(f, area, &widget.widget, block, theme, scroll, scrollbar);
     } else if let Some(img) = image_data {
         render_quick_view_image(f, area, img, block, theme, scroll);
     } else {

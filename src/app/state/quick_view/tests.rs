@@ -150,3 +150,65 @@ fn preview_is_debounced_then_cached() {
     assert_eq!(quick_view_lines(&state), Some(vec!["alpha".to_string()]));
     assert!(state.quick_view.pending.is_none());
 }
+
+/// A quick view showing a plugin preview (`seekable` or not).
+fn plugin_quick_view(seekable: bool) -> AppState {
+    use crate::app::state::popup::{PluginPreview, PluginWidget, QuickViewDialog};
+    let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
+    state.panels.quick_view_active = true;
+    state
+        .dialogs
+        .replace(PopupType::QuickViewPanel(Box::new(QuickViewDialog {
+            path: PathBuf::from("a.txt"),
+            content: vec![String::new(); 100],
+            scroll: 0,
+            image_data: None,
+            plugin: Some(PluginPreview {
+                widget: PluginWidget::Paragraph("x".into()),
+                plugin: "demo".into(),
+                skip: 0,
+                seekable,
+            }),
+        })));
+    state
+}
+
+fn page_down(state: &mut AppState) -> usize {
+    use crossterm::event::{KeyCode, KeyEvent};
+    let mut context = crate::app::context::AppContext::new(crate::config::AppConfig::default());
+    let handler = state.dialogs.top().unwrap().dialog().key_handler();
+    let _ = handler(state, KeyEvent::from(KeyCode::PageDown), &mut context);
+    match state.dialogs.top() {
+        Some(PopupType::QuickViewPanel(qv)) => qv.scroll,
+        _ => panic!("quick view closed"),
+    }
+}
+
+#[test]
+fn page_keys_go_to_a_seekable_plugin_instead_of_scrolling() {
+    assert_eq!(page_down(&mut plugin_quick_view(true)), 0);
+    assert!(page_down(&mut plugin_quick_view(false)) > 0);
+}
+
+#[test]
+fn files_after_the_cursor_are_preloaded_ahead() {
+    let dir = tempfile::tempdir().unwrap();
+    for name in ["a.txt", "b.txt", "c.txt", "d.txt", "e.txt"] {
+        std::fs::write(dir.path().join(name), name).unwrap();
+    }
+    std::fs::create_dir(dir.path().join("sub")).unwrap();
+    let mut state = AppState::new(dir.path().into(), dir.path().into());
+    state.refresh_panel(ActivePanel::Left, false, true);
+    let panel = state.panels.side_mut(ActivePanel::Left);
+    panel.cursor_index = panel
+        .entries
+        .iter()
+        .position(|e| e.name == "a.txt")
+        .unwrap();
+    let names: Vec<String> = state
+        .preload_ahead()
+        .iter()
+        .map(|p| p.file_name().unwrap().to_string_lossy().into_owned())
+        .collect();
+    assert_eq!(names, ["b.txt", "c.txt", "d.txt"]);
+}

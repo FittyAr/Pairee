@@ -17,3 +17,15 @@ pub enum PluginWidget {
     },
     Line(Vec<PluginWidget>),
 }
+
+/// A plugin previewer's output in the quick view: the widget, which plugin
+/// drew it, at which `skip` and whether that plugin scrolls by itself
+/// (`seek`), in which case PgUp / PgDn ask the plugin instead of
+/// scrolling the widget.
+#[derive(Debug, Clone)]
+pub struct PluginPreview {
+    pub widget: PluginWidget,
+    pub plugin: String,
+    pub skip: usize,
+    pub seekable: bool,
+}

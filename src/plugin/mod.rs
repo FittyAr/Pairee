@@ -1,4 +1,5 @@
 pub mod acceptance;
+pub mod annotations;
 pub mod command_policy;
 pub mod commands_decl;
 pub mod developer_tool;
@@ -13,5 +14,6 @@ pub mod registry;
 pub mod runtime;
 pub mod sandbox;
 pub mod updater;
+pub mod worker;
 
 pub use manager::{PluginManager, process_plugin_requests};

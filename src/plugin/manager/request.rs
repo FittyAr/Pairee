@@ -86,9 +86,10 @@ pub enum PluginRequest {
         from: PathBuf,
         to: PathBuf,
     },
+    /// A plugin previewer's output for the quick view of `path`.
     UpdatePluginWidget {
         path: PathBuf,
-        widget: crate::app::state::types::PluginWidget,
+        preview: crate::app::state::popup::PluginPreview,
     },
     /// Result of an asynchronous load of the installed-plugins list
     /// (triggered when opening the Plugin Manager). The receiver is the

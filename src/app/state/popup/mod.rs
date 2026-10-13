@@ -56,7 +56,7 @@ pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
 pub use plugin_menu::{PluginMenuState, SelectDevPlugin};
-pub use plugin_widget::PluginWidget;
+pub use plugin_widget::{PluginPreview, PluginWidget};
 pub use prompts::{
     ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
     DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,
