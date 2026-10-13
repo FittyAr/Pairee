@@ -165,6 +165,14 @@ fn plugin_details(pane: &Pane, plugin: &InstalledPlugin) -> Vec<Line<'static>> {
         ),
         field_line(pane, "plugin_detail_commands", commands),
         field_line(pane, "plugin_detail_keys", key_summary(&plugin.name)),
+        field_line(
+            pane,
+            "plugin_detail_settings",
+            match plugin.settings {
+                0 => t("plugin_detail_settings_none"),
+                n => t("plugin_detail_settings_count").replacen("{}", &n.to_string(), 1),
+            },
+        ),
     ];
     lines.push(match &plugin.update_available {
         Some(new_ver) => {

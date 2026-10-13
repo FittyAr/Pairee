@@ -219,3 +219,39 @@ fn clicking_in_a_one_field_prompt_moves_its_cursor() {
     };
     assert_eq!(cursor, 2);
 }
+
+#[test]
+fn plugin_settings_rows_and_buttons_take_clicks() {
+    use crate::app::state::popup::{PluginSettingValue, PluginSettingsDialog};
+    use crate::plugin::runtime::settings::{Kind, SettingSpec};
+    let spec = |key: &str, kind, default: &str| SettingSpec {
+        key: key.into(),
+        kind,
+        default: Some(default.into()),
+        description: Some("help".into()),
+    };
+    let mut h = Harness::new();
+    h.state.dialogs.replace(PluginSettingsDialog::new(
+        "demo",
+        vec![
+            spec("depth", Kind::Integer, "3"),
+            spec("flag", Kind::Bool, "false"),
+        ],
+        &Default::default(),
+    ));
+    let flag = |h: &Harness| match h.state.dialogs.top_as::<PluginSettingsDialog>() {
+        Some(d) => matches!(d.rows[1].value, PluginSettingValue::Toggle(true)),
+        None => panic!("settings closed:\n{}", h.screen_text()),
+    };
+    h.render();
+    assert!(h.screen_text().contains("depth:"), "{}", h.screen_text());
+    let (x, y) = option_row(&mut h);
+    h.click(x, y);
+    assert!(flag(&h));
+    let (x, y) = control(&mut h, "[ Defaults ]");
+    h.click(x, y);
+    assert!(!flag(&h));
+    let (x, y) = control(&mut h, "[ Cancel ]");
+    h.click(x, y);
+    assert!(top(&h).is_none());
+}
