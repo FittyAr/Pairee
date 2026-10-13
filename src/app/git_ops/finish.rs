@@ -13,7 +13,7 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
         }
         return false;
     };
-    if matches!(state.dialogs.top(), Some(PopupType::GitProgress { .. })) {
+    if matches!(state.dialogs.top(), Some(PopupType::GitProgress(_))) {
         state.dialogs.pop();
     }
     let pending = state.git_op.pending.take();
@@ -51,13 +51,8 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
                 .dialogs
                 .push(PopupType::info(t("git_operation_success")));
         }
-        FollowUp::RestorePopup {
-            previous,
-            repo_path,
-        } => {
-            crate::app::input_popup::git_new_popups::restore_previous_and_refresh(
-                state, *previous, &repo_path,
-            );
+        FollowUp::RefreshPanelOnTop { repo_path } => {
+            crate::app::input_popup::git_new_popups::refresh_panel_on_top(state, &repo_path);
         }
         FollowUp::Cloned { show_hidden } => {
             state.refresh_both_panels(show_hidden);

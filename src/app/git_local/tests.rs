@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::app::context::AppContext;
-use crate::app::input_popup::git_new_popups::{handle_confirm_action, open_confirm};
+use crate::app::input_popup::git_new_popups::open_confirm;
 use crate::app::input_popup::git_panel::tabs::{handle_stash_tab, handle_status_tab};
 use crate::app::state::GitConfirmedAction;
 use crate::app::state::popup::ErrorMessage;
@@ -140,7 +140,7 @@ fn confirmed_action_runs_in_background_and_reports() {
     );
     let mut context = AppContext::new(AppConfig::default());
     let enter = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
-    handle_confirm_action(&mut state, enter, &mut context).unwrap();
+    crate::app::input_popup::handle_popup_input(&mut state, enter, &mut context).unwrap();
     assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
     state.dialogs.pop();
     assert!(matches!(state.dialogs.top(), Some(PopupType::GitPanel(_))));

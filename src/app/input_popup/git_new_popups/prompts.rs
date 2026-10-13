@@ -3,8 +3,9 @@
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
 use crate::app::git_local::{GitContext, GitFailure, reload_panel};
-use crate::app::state::popup::{GitNameAction, GitNamePromptState as Prompt, GitPromptPopup};
+use crate::app::state::popup::{Dialog, GitNameAction, GitNamePromptState as Prompt, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use git2::Repository;
@@ -12,13 +13,9 @@ use std::path::Path;
 
 /// Opens the name prompt for `action` over the current dialog (the Git panel).
 pub fn open_name_prompt(state: &mut AppState, repo_path: &Path, action: GitNameAction) {
-    state.dialogs.open_over(|previous| {
-        PopupType::GitPrompt(GitPromptPopup::NamePrompt(Prompt::new(
-            action,
-            repo_path.to_path_buf(),
-            previous,
-        )))
-    });
+    state
+        .dialogs
+        .push(Prompt::new(action, repo_path.to_path_buf()));
 }
 
 pub fn handle_prompt(
@@ -26,8 +23,7 @@ pub fn handle_prompt(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.top_mut()
-    else {
+    let Some(PopupType::GitNamePrompt(prompt)) = state.dialogs.top_mut() else {
         return Err(());
     };
     // Ctrl+U toggles "include untracked files" in the stash prompt.
@@ -47,33 +43,29 @@ pub fn handle_prompt(
     Ok(None)
 }
 
-/// Closes the prompt, returning to the dialog it was opened from.
+/// Closes the prompt, returning to the dialog it was opened over.
 fn back(state: &mut AppState) {
-    if let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.pop() {
-        state.dialogs.replace(*prompt.previous_popup);
-    }
+    state.dialogs.pop_as::<Prompt>();
 }
 
 /// OK: runs the action in the background over the restored Git panel.
 fn submit(state: &mut AppState) {
-    let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.top() else {
+    let Some(PopupType::GitNamePrompt(prompt)) = state.dialogs.top() else {
         return;
     };
     if is_noop(&prompt.action, prompt.input.text()) {
         back(state);
         return;
     }
-    let Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(prompt))) = state.dialogs.pop() else {
+    let Some(prompt) = state.dialogs.pop_as::<Prompt>() else {
         return;
     };
     let Prompt {
         action,
         input,
         repo_path,
-        previous_popup,
         ..
     } = prompt;
-    state.dialogs.replace(*previous_popup);
     let name = input.text().to_string();
     state.run_git_local(
         &repo_path,
@@ -111,5 +103,14 @@ fn run(action: &GitNameAction, repo: &mut Repository, name: &str) -> Result<(), 
         GitNameAction::CreateTag { target } => tags::create_tag(repo, name.trim(), target, None)
             .map(|_| ())
             .ctx("git_error_create_tag_failed"),
+    }
+}
+
+impl Dialog for Prompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle_prompt
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        (self.cursor_idx == 0).then_some(&mut self.input)
     }
 }

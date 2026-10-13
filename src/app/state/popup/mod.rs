@@ -46,7 +46,7 @@ pub use filters::{
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,
-    GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
+    GitDiffViewState, GitNameAction, GitNamePromptState, GitProgress, GitRemoteAddState,
     GitRemoteManageState,
 };
 pub use menus::{
@@ -159,6 +159,16 @@ macro_rules! dialog_list {
                 FilesHighlightingDialog(FilesHighlightingDialog),
                 UpdateAvailable(UpdateAvailable),
                 SshConnectPrompt(SshConnectPromptState),
+                GitPanel(GitPanelState),
+                GitProgress(GitProgress),
+                GitCommitPrompt(GitCommitPromptState),
+                GitConfirmCheckout(GitConfirmCheckoutState),
+                GitDiffView(GitDiffViewState),
+                GitNamePrompt(GitNamePromptState),
+                GitConfirmAction(GitConfirmActionState),
+                GitRemoteManage(GitRemoteManageState),
+                GitRemoteAdd(GitRemoteAddState),
+                GitClonePrompt(GitClonePromptState),
             ]
             legacy: [
         SelectDevPlugin {
@@ -167,12 +177,6 @@ macro_rules! dialog_list {
             previous_popup: Box<PopupType>,
         },
         PluginMenu(PluginMenuState),
-        GitPanel(GitPanelState),
-        GitPrompt(GitPromptPopup),
-        /// Progress of the background Git network operation (`AppState::git_op`).
-        GitProgress {
-            title: String,
-        },
         Plugin(PluginDialog),
             ]
         }

@@ -1,8 +1,9 @@
 use crate::app::context::AppContext;
 use crate::app::git_local::{GitContext, GitFailure};
 use crate::app::input_popup::git_new_popups::{close_to, run_and_report};
-use crate::app::state::popup::{GitCommitPromptState, GitPromptPopup};
+use crate::app::state::popup::{Dialog, GitCommitPromptState, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -13,18 +14,14 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(prompt))) = state.dialogs.top_mut()
-    else {
+    let Some(PopupType::GitCommitPrompt(prompt)) = state.dialogs.top_mut() else {
         return Err(());
     };
     let is_ctrl = key.modifiers.contains(KeyModifiers::CONTROL);
     match key.code {
         KeyCode::Esc => {
-            if let Some(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(prompt))) =
-                state.dialogs.pop()
-            {
-                close_to(state, prompt.previous_popup, &prompt.repo_path);
-            }
+            let repo_path = prompt.repo_path.clone();
+            close_to(state, &repo_path);
         }
         KeyCode::Char('a' | 'A') if is_ctrl => {
             if let Err(msg) = toggle_amend(prompt) {
@@ -32,9 +29,7 @@ pub fn handle(
             }
         }
         KeyCode::Enter => {
-            if let Some(PopupType::GitPrompt(GitPromptPopup::CommitPrompt(prompt))) =
-                state.dialogs.top().cloned()
-            {
+            if let Some(PopupType::GitCommitPrompt(prompt)) = state.dialogs.top().cloned() {
                 commit(state, context, prompt);
             }
         }
@@ -84,7 +79,6 @@ fn commit(state: &mut AppState, context: &AppContext, prompt: GitCommitPromptSta
     let is_amend = prompt.is_amend;
     run_and_report(
         state,
-        prompt.previous_popup,
         &prompt.repo_path,
         settings.show_hidden,
         move |repo| commit_work(repo, &message, is_amend, &author),
@@ -119,4 +113,13 @@ fn commit_work(
         t("git_commit_success"),
         &oid[..7.min(oid.len())]
     )))
+}
+
+impl Dialog for GitCommitPromptState {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.input)
+    }
 }

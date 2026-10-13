@@ -7,7 +7,7 @@ pub mod progress;
 pub mod ssh;
 pub mod system;
 
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::PopupType;
 use ratatui::{Frame, layout::Rect};
 
 pub fn render_prompt_popup(
@@ -15,14 +15,9 @@ pub fn render_prompt_popup(
     popup: &PopupType,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
-    state: &AppState,
 ) -> bool {
     match popup {
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
-
-        PopupType::GitProgress { title } => {
-            progress::render_git(f, title, state.git_op.progress(), theme, size)
-        }
 
         _ => false,
     }

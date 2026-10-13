@@ -74,11 +74,6 @@ fn apply_scroll_offset(
             clamp(cursor, len);
             return;
         }
-        if let (ScrollTargetId::GitList, PopupType::GitPanel(panel)) = (id, popup) {
-            panel.scroll = offset;
-            clamp(&mut panel.cursor_idx, usize::MAX);
-            return;
-        }
     }
     match id {
         ScrollTargetId::Viewer => {

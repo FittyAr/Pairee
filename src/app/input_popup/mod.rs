@@ -51,6 +51,7 @@ pub mod git_commit_prompt;
 pub mod git_confirm_checkout;
 pub mod git_new_popups;
 pub mod git_panel;
+pub mod git_progress;
 pub mod ssh_connect;
 pub mod update_popup;
 pub mod yazi_popup;
@@ -82,49 +83,11 @@ pub fn handle_popup_input(
 
 type PopupHandler = KeyHandler;
 
-/// Esc in the Git progress popup cancels the running operation.
-fn git_progress(
-    state: &mut AppState,
-    key: KeyEvent,
-    _context: &mut AppContext,
-) -> Result<Option<Action>, ()> {
-    if key.code == crossterm::event::KeyCode::Esc {
-        state.cancel_git_op();
-    }
-    Ok(None)
-}
-
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
         PopupType::PluginMenu(..) => plugin_menu::handle,
         PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
-        PopupType::GitPanel(..) => git_panel::handle,
-        PopupType::GitProgress { .. } => git_progress,
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
-            git_commit_prompt::handle
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmCheckout(_)) => {
-            git_confirm_checkout::handle
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::DiffView(_)) => {
-            git_new_popups::handle_diff
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::NamePrompt(_)) => {
-            git_new_popups::handle_prompt
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ConfirmAction(_)) => {
-            git_new_popups::handle_confirm_action
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteManage(_)) => {
-            git_new_popups::handle_remote_manage
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::RemoteAdd(_)) => {
-            git_new_popups::handle_remote_add
-        }
-        PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
-            git_new_popups::handle_clone
-        }
         PopupType::Plugin(_) => plugin_dialogs::handle,
         _ => dismiss_only::handle,
     }

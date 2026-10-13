@@ -5,10 +5,10 @@
 
 mod lines;
 
-use crate::app::git_panel_load::GitPanelLoader;
-use crate::app::state::{GitPanelState, PopupType};
+use crate::app::state::GitPanelState;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
@@ -37,54 +37,48 @@ fn tab_keys(tab: usize) -> (&'static str, &'static str, &'static str) {
     TABS[tab.min(TABS.len() - 1)]
 }
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &ResolvedTheme,
-    size: Rect,
-    scrollbar: Option<&ScrollbarUiState>,
-    loader: &GitPanelLoader,
-) -> bool {
-    let PopupType::GitPanel(panel) = popup else {
-        return false;
-    };
-    let loading = loader.is_loading(&panel.repo_path);
-    let area = centered_rect_in(85, 88, size);
-    f.render_widget(Clear, area);
-    let marker = if loader.is_working(&panel.repo_path) {
-        Some("git_panel_working")
-    } else {
-        loading.then_some("panel_loading")
-    };
-    let block = frame_block(panel, marker, theme);
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+impl DialogView for GitPanelState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size, scrollbar, loader) =
+            (cx.theme, cx.area, cx.scrollbar(), &cx.state.git_panel);
+        let panel = self;
+        let loading = loader.is_loading(&panel.repo_path);
+        let area = centered_rect_in(85, 88, size);
+        f.render_widget(Clear, area);
+        let marker = if loader.is_working(&panel.repo_path) {
+            Some("git_panel_working")
+        } else {
+            loading.then_some("panel_loading")
+        };
+        let block = frame_block(panel, marker, theme);
+        let inner = block.inner(area);
+        f.render_widget(block, area);
 
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Length(3), // tab header
-            Constraint::Length(1), // separator
-            Constraint::Min(3),    // content
-            Constraint::Length(1), // hint bar
-        ])
-        .split(inner);
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Length(3), // tab header
+                Constraint::Length(1), // separator
+                Constraint::Min(3),    // content
+                Constraint::Length(1), // hint bar
+            ])
+            .split(inner);
 
-    render_tab_header(f, chunks[0], panel.active_tab, theme);
-    f.render_widget(
-        Paragraph::new("─".repeat(inner.width as usize))
-            .style(Style::default().fg(Color::DarkGray)),
-        chunks[1],
-    );
-    render_content(f, chunks[2], panel, loading, theme, scrollbar);
-    f.render_widget(
-        Paragraph::new(Span::styled(
-            t(tab_keys(panel.active_tab).2),
-            Style::default().fg(Color::Yellow),
-        )),
-        chunks[3],
-    );
-    true
+        render_tab_header(f, chunks[0], panel.active_tab, theme);
+        f.render_widget(
+            Paragraph::new("─".repeat(inner.width as usize))
+                .style(Style::default().fg(Color::DarkGray)),
+            chunks[1],
+        );
+        render_content(f, chunks[2], panel, loading, theme, scrollbar);
+        f.render_widget(
+            Paragraph::new(Span::styled(
+                t(tab_keys(panel.active_tab).2),
+                Style::default().fg(Color::Yellow),
+            )),
+            chunks[3],
+        );
+    }
 }
 
 /// Border with "Git: <repo> [<branch>]" and a busy marker (localization key).

@@ -1,20 +1,20 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::GitConfirmCheckoutState;
 use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::kit;
-use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
-    layout::{Constraint, Direction, Layout, Rect},
+    layout::{Constraint, Direction, Layout},
     style::{Color, Modifier, Style},
     text::{Line, Span},
     widgets::Paragraph,
 };
 
-use crate::app::state::popup::GitPromptPopup;
-
 /// Renders the git checkout confirmation dialog.
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, size: Rect) -> bool {
-    if let PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(state)) = popup {
+impl DialogView for GitConfirmCheckoutState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let state = self;
         let target = &state.target;
         let is_branch = &state.is_branch;
         let area = centered_rect_fixed(60, 8, size);
@@ -112,9 +112,5 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, size: Rec
                 vec![key(KeyCode::Enter), key(KeyCode::Esc)],
             );
         }
-
-        true
-    } else {
-        false
     }
 }

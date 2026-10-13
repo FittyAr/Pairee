@@ -37,12 +37,7 @@ fn texts(action: &GitNameAction) -> (String, String) {
     }
 }
 
-pub fn render_name_prompt(
-    f: &mut Frame,
-    prompt: &Prompt,
-    theme: &ResolvedTheme,
-    size: Rect,
-) -> bool {
+pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &ResolvedTheme, size: Rect) {
     let (title, label) = texts(&prompt.action);
     let inner = kit::frame_in(
         f,
@@ -77,7 +72,6 @@ pub fn render_name_prompt(
         format!(" [ {} ] ", t("btn_cancel").trim()),
     ];
     kit::form_buttons(f, chunks[3], &buttons, focus, styles);
-    true
 }
 
 /// Labels and hint of a two-field dialog.
@@ -94,7 +88,7 @@ pub fn render_field_pair(
     texts: PairTexts,
     theme: &ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let inner = kit::frame_in(
         f,
         centered_rect_in(65, 38, size),
@@ -127,5 +121,4 @@ pub fn render_field_pair(
         );
     }
     f.render_widget(kit::hint(texts.hint), chunks[5]);
-    true
 }
