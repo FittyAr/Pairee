@@ -29,6 +29,17 @@ async fn a_file_copied_or_moved_onto_itself_is_refused_and_kept() {
         assert!(results.completed_files.is_empty());
         assert_eq!(std::fs::read(&file).unwrap(), b"precious");
     }
+    // "Rename" makes a duplicate next to it instead.
+    let rename = TransferOptions {
+        conflict_resolution: "rename".into(),
+        ..TransferOptions::default()
+    };
+    let results = run(job(TransferOperation::Copy, &[&file], dir.path(), rename))
+        .await
+        .unwrap();
+    assert_eq!(results.completed_files.len(), 1);
+    assert_ne!(results.completed_files[0].dst, file);
+    assert_eq!(std::fs::read(&file).unwrap(), b"precious");
 }
 
 /// FS-05: copying a folder into its own subfolder is refused.

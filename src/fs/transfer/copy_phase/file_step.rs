@@ -153,7 +153,8 @@ impl<'a> CopyJob<'a> {
     }
 
     /// Where `src` is written: `None` when it is not copied (the user or the
-    /// conflict setting skipped it, or it is the destination itself).
+    /// conflict setting skipped it, or it would replace itself). Copying a
+    /// file onto itself is only possible as a renamed duplicate.
     async fn destination(
         &mut self,
         src: &Path,
@@ -162,21 +163,19 @@ impl<'a> CopyJob<'a> {
         if self.fs.dst.stat(&dst).is_err() {
             return Ok(Some(dst));
         }
+        let action = self
+            .conflicts
+            .resolve(src, &mut dst, &mut self.results)
+            .await?;
+        if let ConflictAction::Skip = action {
+            return Ok(None);
+        }
         if self.fs.same_fs && guard::same_entry(self.fs.dst.as_ref(), src, &dst) {
             let error = t("error_copy_onto_itself").replacen("{}", &src.to_string_lossy(), 1);
             self.fail(failure(src, &dst, error, 0))?;
             return Ok(None);
         }
-        Ok(
-            match self
-                .conflicts
-                .resolve(src, &mut dst, &mut self.results)
-                .await?
-            {
-                ConflictAction::Skip => None,
-                ConflictAction::Proceed => Some(dst),
-            },
-        )
+        Ok(Some(dst))
     }
 
     /// Records a file that could not be transferred; with "halt on error"
