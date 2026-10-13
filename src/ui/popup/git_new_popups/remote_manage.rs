@@ -42,16 +42,7 @@ pub fn render_remote_manage(
             .enumerate()
             .map(|(i, remote)| {
                 let is_selected = i == state.selected_idx;
-                let bg = if is_selected {
-                    theme.selection_bg
-                } else {
-                    theme.popup_bg
-                };
-                let fg = if is_selected {
-                    theme.selection_fg
-                } else {
-                    theme.popup_fg
-                };
+                let (bg, fg) = theme.row_colors(is_selected);
                 let url = remote.url.as_deref().unwrap_or("-");
                 Line::from(vec![
                     Span::styled(

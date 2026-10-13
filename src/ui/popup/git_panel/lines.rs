@@ -31,16 +31,7 @@ pub fn render_status_lines(
         .map(|(i, entry)| {
             let is_cursor = i == cursor_idx;
             let label_color = status_color(&entry.kind);
-            let bg = if is_cursor {
-                theme.selection_bg
-            } else {
-                theme.popup_bg
-            };
-            let fg = if is_cursor {
-                theme.selection_fg
-            } else {
-                theme.popup_fg
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let stage_label = if entry.is_staged && entry.is_unstaged {
                 "[staged+] "
             } else if entry.is_staged {
@@ -87,16 +78,7 @@ pub fn render_log_lines(
         .take(height)
         .map(|(i, commit)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                theme.selection_bg
-            } else {
-                theme.popup_bg
-            };
-            let fg = if is_cursor {
-                theme.selection_fg
-            } else {
-                theme.popup_fg
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", commit.hash_short.clone()),
@@ -191,16 +173,7 @@ pub fn render_stash_lines(
         .take(height)
         .map(|(i, stash)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                theme.selection_bg
-            } else {
-                theme.popup_bg
-            };
-            let fg = if is_cursor {
-                theme.selection_fg
-            } else {
-                theme.popup_fg
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let short_oid = if stash.oid.len() > 7 {
                 &stash.oid[..7]
             } else {
@@ -238,16 +211,7 @@ pub fn render_tag_lines(
         .take(height)
         .map(|(i, tag)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                theme.selection_bg
-            } else {
-                theme.popup_bg
-            };
-            let fg = if is_cursor {
-                theme.selection_fg
-            } else {
-                theme.popup_fg
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let short_oid = if tag.target_oid.len() > 7 {
                 &tag.target_oid[..7]
             } else {

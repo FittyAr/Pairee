@@ -43,6 +43,16 @@ impl ResolvedTheme {
         Style::default().bg(self.selection_bg).fg(self.selection_fg)
     }
 
+    /// Background and foreground of a popup list row: the selection colors
+    /// on the cursor row, the popup colors elsewhere.
+    pub fn row_colors(&self, selected: bool) -> (Color, Color) {
+        if selected {
+            (self.selection_bg, self.selection_fg)
+        } else {
+            (self.popup_bg, self.popup_fg)
+        }
+    }
+
     /// Popup foreground.
     pub fn popup_fg(&self) -> Style {
         Style::default().fg(self.popup_fg)
