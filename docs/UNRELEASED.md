@@ -31,3 +31,5 @@
 - The low disk space warning checked a destination folder that did not exist yet.
 - Alternate data streams were copied after the read-only attribute was set, so they were lost; the "copy streams" option now controls them on its own, and long paths work for attributes, streams and permissions on Windows.
 - The transfer speed kept being reported after a job ended.
+- Find files with "containing text" stopped reading a file at the first byte that was not valid UTF-8, so text in Latin-1, UTF-16 or binary files was missed; files are now decoded like the viewer does (binary files are searched byte by byte), and closing the search stops it at once.
+- Adding files to a zip archive changed the archive's permissions to owner-only, and entries over 4 GiB failed; compressing to zip also failed on files over 4 GiB and stopped silently at unreadable folders.

@@ -10,7 +10,10 @@ use tokio::sync::mpsc;
 use zip::ZipArchive;
 
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
+use super::zip_write::file_options;
 use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::vfs::LocalVfs;
+use crate::fs::walk::{WalkOptions, Walker};
 
 pub struct ZipReader;
 
@@ -72,85 +75,56 @@ impl ArchiveReader for ZipReader {
     }
 }
 
+/// Packs `sources` (files, and folders with everything below them; links
+/// are stored as what they point to, links to folders as empty folders)
+/// into the new archive `dest_archive`. An unreadable file or folder fails
+/// the compression instead of leaving it out.
 pub fn compress_zip(
     sources: Vec<PathBuf>,
     dest_archive: &Path,
     tx: &mpsc::Sender<ProgressUpdate>,
     cancel: &AtomicBool,
 ) -> Result<()> {
-    let file = fs::File::create(dest_archive)?;
-    let mut zip = zip::ZipWriter::new(file);
-    let options = zip::write::SimpleFileOptions::default()
-        .compression_method(zip::CompressionMethod::Deflated);
-
-    let mut i = 0usize;
+    let mut zip = zip::ZipWriter::new(fs::File::create(dest_archive)?);
     let total_files = sources.len();
-
-    for src in sources {
-        ensure_not_cancelled(cancel)?;
-        if src.is_dir() {
-            let top = src.file_name().unwrap_or_default().to_os_string();
-            let base_parent = src.parent().map(|p| p.to_path_buf());
-            let mut stack: Vec<PathBuf> = vec![src.clone()];
-            while let Some(dir) = stack.pop() {
-                ensure_not_cancelled(cancel)?;
-                let rel_dir = dir.strip_prefix(&src).unwrap_or(Path::new(""));
-                zip.add_directory(zip_entry_name(&top, rel_dir), options)?;
-
-                let entries = match fs::read_dir(&dir) {
-                    Ok(e) => e,
-                    Err(_) => continue,
-                };
-                for entry in entries.flatten() {
-                    ensure_not_cancelled(cancel)?;
-                    let entry_path = entry.path();
-                    if entry_path.is_dir() {
-                        stack.push(entry_path);
-                    } else {
-                        let rel = entry_path.strip_prefix(&src).unwrap_or(&entry_path);
-                        let zip_path_str = zip_entry_name(&top, rel);
-                        let _ = tx.blocking_send(ProgressUpdate {
-                            skipped: false,
-                            current_file: zip_path_str.clone(),
-                            files_copied: i,
-                            total_files,
-                            bytes_copied: 0,
-                            total_bytes: 0,
-                            error: None,
-                        });
-                        zip.start_file(zip_path_str, options)?;
-                        let mut f = match fs::File::open(&entry_path) {
-                            Ok(f) => f,
-                            Err(e) => {
-                                tracing::warn!("compress_zip: skipping {:?}: {}", entry_path, e);
-                                continue;
-                            }
-                        };
-                        io::copy(&mut f, &mut zip)?;
-                        i += 1;
-                    }
-                }
-            }
-            let _ = base_parent;
-        } else {
-            let name = src.file_name().unwrap_or_default().to_string_lossy();
+    let mut added = 0usize;
+    let mut add_file =
+        |zip: &mut zip::ZipWriter<fs::File>, path: &Path, name: String| -> Result<()> {
             let _ = tx.blocking_send(ProgressUpdate {
                 skipped: false,
-                current_file: name.to_string(),
-                files_copied: i,
+                current_file: name.clone(),
+                files_copied: added,
                 total_files,
                 bytes_copied: 0,
                 total_bytes: 0,
                 error: None,
             });
-
-            zip.start_file(name, options)?;
-            let mut f = fs::File::open(&src)?;
-            io::copy(&mut f, &mut zip)?;
-            i += 1;
+            let mut file = fs::File::open(path)?;
+            zip.start_file(name, file_options(file.metadata()?.len()))?;
+            io::copy(&mut file, zip)?;
+            added += 1;
+            Ok(())
+        };
+    let cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
+    for src in sources {
+        ensure_not_cancelled(cancel)?;
+        let top = src.file_name().unwrap_or_default().to_os_string();
+        if !src.is_dir() {
+            add_file(&mut zip, &src, top.to_string_lossy().into_owned())?;
+            continue;
+        }
+        zip.add_directory(zip_entry_name(&top, Path::new("")), file_options(0))?;
+        for item in Walker::new(&LocalVfs, &src, WalkOptions::default()).with_cancel(&cancelled) {
+            let item = item?;
+            let rel = item.path().strip_prefix(&src).unwrap_or(item.path());
+            let name = zip_entry_name(&top, rel);
+            if item.entry.is_dir {
+                zip.add_directory(name, file_options(0))?;
+            } else {
+                add_file(&mut zip, item.path(), name)?;
+            }
         }
     }
-
     zip.finish()?;
     Ok(())
 }
