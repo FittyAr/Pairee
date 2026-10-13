@@ -57,7 +57,7 @@ pub fn run_elevated_helper_loop(temp_file_path: &Path) -> Result<()> {
 /// followed, loops are reported) to `dst`.
 fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
     if !src.is_dir() {
-        return std::fs::copy(src, dst).map(|_| ());
+        return copy_file(src, dst);
     }
     std::fs::create_dir_all(dst)?;
     for item in Walker::new(&LocalVfs, src, WalkOptions::following(true)) {
@@ -66,10 +66,18 @@ fn copy_recursive(src: &Path, dst: &Path) -> std::io::Result<()> {
         if item.is_dir() {
             std::fs::create_dir_all(&target)?;
         } else {
-            std::fs::copy(item.path(), &target)?;
+            copy_file(item.path(), &target)?;
         }
     }
     Ok(())
+}
+
+/// One file, through the atomic write every local copy uses, with its
+/// times and attributes.
+fn copy_file(src: &Path, dst: &Path) -> std::io::Result<()> {
+    LocalVfs.write_file(dst, &mut std::fs::File::open(src)?)?;
+    let options = crate::fs::transfer::options::TransferOptions::default();
+    crate::fs::transfer::metadata::preserve_metadata(src, dst, &options)
 }
 
 fn move_operation(src: &Path, dst: &Path) -> std::io::Result<()> {
@@ -92,4 +100,30 @@ fn set_mode(path: &Path, mode: u32) -> std::io::Result<()> {
         let _ = (path, mode);
     }
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn copies_and_moves_whole_trees() {
+        let dir = tempfile::tempdir().unwrap();
+        let src = dir.path().join("src");
+        std::fs::create_dir_all(src.join("sub")).unwrap();
+        std::fs::write(src.join("sub").join("f.txt"), b"data").unwrap();
+        let copy = dir.path().join("copy");
+        copy_recursive(&src, &copy).unwrap();
+        assert_eq!(
+            std::fs::read(copy.join("sub").join("f.txt")).unwrap(),
+            b"data"
+        );
+        let moved = dir.path().join("moved");
+        move_operation(&copy, &moved).unwrap();
+        assert!(!copy.exists());
+        assert_eq!(
+            std::fs::read(moved.join("sub").join("f.txt")).unwrap(),
+            b"data"
+        );
+    }
 }
