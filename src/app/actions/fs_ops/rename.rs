@@ -1,4 +1,6 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmRetryAsAdmin;
+use crate::app::state::popup::RenamePrompt;
 use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
@@ -17,7 +19,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
                 input.move_left();
             }
         }
-        state.dialogs.replace(PopupType::RenamePrompt {
+        state.dialogs.replace(RenamePrompt {
             input,
             original,
             src_path: entry.path.clone(),
@@ -28,7 +30,7 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
     } else {
         state
             .dialogs
-            .replace(PopupType::Error(t("error_no_entry_rename")));
+            .replace(PopupType::error(t("error_no_entry_rename")));
         true
     }
 }
@@ -89,7 +91,7 @@ pub fn commit(
         }
         Err(e) => {
             if !context.config.settings.req_admin_modification {
-                state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {
+                state.dialogs.replace(ConfirmRetryAsAdmin {
                     paths: vec![src_path.clone()],
                     op_kind: crate::app::state::AdminOpKind::Rename {
                         src: src_path,
@@ -97,7 +99,7 @@ pub fn commit(
                     },
                 });
             } else {
-                state.dialogs.replace(PopupType::Error(format!(
+                state.dialogs.replace(PopupType::error(format!(
                     "{} {}",
                     t("error_rename_error"),
                     e

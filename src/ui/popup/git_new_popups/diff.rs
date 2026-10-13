@@ -15,7 +15,7 @@ pub fn render_diff_view(
     state: &crate::app::state::popup::GitDiffViewState,
     theme: &ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let file_path = &state.file_path;
     let commit_hash = &state.commit_hash;
     let diff_content = &state.diff_content;
@@ -85,7 +85,5 @@ pub fn render_diff_view(
             Paragraph::new(Span::styled(hint, Style::default().fg(Color::Yellow))),
             hint_area,
         );
-
-        true
     }
 }

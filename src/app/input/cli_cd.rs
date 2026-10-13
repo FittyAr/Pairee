@@ -95,7 +95,7 @@ pub fn change_dir(state: &mut AppState, arg: &str) {
     let Some(path) = resolve(&target, &current, state.cli.previous_dir.as_deref(), &home) else {
         state
             .dialogs
-            .replace(PopupType::Info(t("cli_cd_no_previous")));
+            .replace(PopupType::info(t("cli_cd_no_previous")));
         return;
     };
     let path = if panel.source.ssh().is_some() {
@@ -106,7 +106,7 @@ pub fn change_dir(state: &mut AppState, arg: &str) {
     let source = panel.source.locate(&path);
     if source.is_local() && !path.is_dir() {
         let text = t("cli_cd_not_found").replacen("{}", &path.to_string_lossy(), 1);
-        state.dialogs.replace(PopupType::Error(text));
+        state.dialogs.replace(PopupType::error(text));
         return;
     }
     if path != current {

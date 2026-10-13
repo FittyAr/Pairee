@@ -1,8 +1,12 @@
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
+use crate::app::state::popup::ConfirmRetryAsAdmin;
+use crate::app::state::popup::MkDirPrompt;
 use crate::app::state::popup::forms::MKDIR_FORM;
 use crate::app::state::popup::{CreateKind, split_multiple};
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -15,12 +19,12 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::MkDirPrompt {
+    let Some(MkDirPrompt {
         input,
         cursor_idx,
         process_multiple,
         kind,
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<MkDirPrompt>()
     else {
         return Err(());
     };
@@ -85,7 +89,7 @@ fn create_file(state: &mut AppState, context: &AppContext, name: &str) -> bool {
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+                .replace(PopupType::error(format!("{} {}", t("error_dir_error"), e)));
             false
         }
         Ok(()) => {
@@ -117,7 +121,7 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
     }
     match crate::fs::create_directory(&path, settings.req_admin_modification) {
         Err(_) if !settings.req_admin_modification => {
-            state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {
+            state.dialogs.replace(ConfirmRetryAsAdmin {
                 paths: vec![path],
                 op_kind: crate::app::state::AdminOpKind::MkDir,
             });
@@ -126,7 +130,7 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+                .replace(PopupType::error(format!("{} {}", t("error_dir_error"), e)));
             false
         }
         Ok(()) => {
@@ -140,6 +144,15 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
             state.refresh_both_panels(settings.show_hidden);
             true
         }
+    }
+}
+
+impl Dialog for MkDirPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        (self.cursor_idx == 0).then_some(&mut self.input)
     }
 }
 

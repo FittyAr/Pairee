@@ -59,3 +59,42 @@ fn mit_license(author_name: &str) -> String {
         current_year, author_name
     )
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn manifest(extra: &str) -> PluginManifest {
+        PluginManifest::parse(&format!("name = \"demo\"\nversion = \"1\"\n{extra}")).unwrap()
+    }
+
+    #[test]
+    fn a_plugin_without_a_license_file_gets_mit_in_its_authors_name() {
+        let dir = tempfile::tempdir().unwrap();
+        let license = resolve_license(dir.path(), &manifest("author = \"Ana\"\n"), None).unwrap();
+        assert_eq!(license.as_deref(), Some("MIT"));
+        let text = std::fs::read_to_string(dir.path().join("LICENSE")).unwrap();
+        assert!(text.starts_with("MIT License"));
+        assert!(text.contains(" Ana\n"), "{text}");
+    }
+
+    #[test]
+    fn a_license_file_keeps_the_named_license_or_asks_for_one() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("License.md"), "terms").unwrap();
+        let named = manifest("license = \"Apache-2.0\"\n");
+        let kept = resolve_license(dir.path(), &named, None).unwrap();
+        assert_eq!(kept.as_deref(), Some("Apache-2.0"));
+
+        let unnamed = manifest("");
+        let ask = || " BSD-3-Clause ".to_string();
+        let asked = resolve_license(dir.path(), &unnamed, Some(&ask)).unwrap();
+        assert_eq!(asked.as_deref(), Some("BSD-3-Clause"));
+        let silent = resolve_license(dir.path(), &unnamed, None).unwrap();
+        assert_eq!(silent.as_deref(), Some("Custom"), "the TUI has no prompt");
+        assert_eq!(
+            std::fs::read_to_string(dir.path().join("License.md")).unwrap(),
+            "terms"
+        );
+    }
+}

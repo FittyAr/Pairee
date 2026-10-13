@@ -3,6 +3,7 @@
 
 use super::Click;
 use crate::app::context::AppContext;
+use crate::app::state::popup::Menu;
 use crate::app::state::{AppState, PopupType};
 use crate::terminal::{Event, TerminalBackend};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseButton};
@@ -12,12 +13,12 @@ type MenuFocus = (usize, Option<usize>, Option<usize>, Option<usize>);
 
 fn menu_focus(state: &AppState) -> Option<MenuFocus> {
     match state.dialogs.top() {
-        Some(&PopupType::Menu {
+        Some(&PopupType::Menu(Menu {
             active_menu_idx,
             active_item_idx,
             active_submenu_idx,
             active_submenu_item_idx,
-        }) => Some((
+        })) => Some((
             active_menu_idx,
             active_item_idx,
             active_submenu_idx,
@@ -33,12 +34,12 @@ fn set_menu(state: &mut AppState, focus: MenuFocus) -> bool {
         return false;
     }
     let (menu, item, submenu, sub_item) = focus;
-    let popup = PopupType::Menu {
+    let popup = PopupType::Menu(Menu {
         active_menu_idx: menu,
         active_item_idx: item,
         active_submenu_idx: submenu,
         active_submenu_item_idx: sub_item,
-    };
+    });
     if menu_focus(state).is_some() {
         state.dialogs.replace(popup);
     } else {
@@ -50,7 +51,7 @@ fn set_menu(state: &mut AppState, focus: MenuFocus) -> bool {
 /// `true` when a click on the menu bar should act although a popup is open:
 /// only the menu itself may be open.
 pub fn menu_bar_reachable(state: &AppState) -> bool {
-    state.dialogs.is_none() || menu_focus(state).is_some()
+    state.dialogs.is_empty() || menu_focus(state).is_some()
 }
 
 /// Top menu whose title covers column `x` of the (hidden) bar.

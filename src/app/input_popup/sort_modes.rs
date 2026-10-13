@@ -1,6 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
-use crate::app::state::{AppState, PopupType, SortField};
+use crate::app::state::popup::SortModesDialog;
+use crate::app::state::popup::{Dialog, KeyHandler};
+use crate::app::state::{AppState, SortField};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -18,11 +20,11 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::SortModesDialog {
+    let Some(SortModesDialog {
         current,
         reverse,
         cursor_idx,
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SortModesDialog>()
     else {
         return Err(());
     };
@@ -62,4 +64,13 @@ pub fn handle(
     }
     state.refresh_both_panels(context.config.settings.show_hidden);
     Ok(None)
+}
+
+impl Dialog for SortModesDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
 }

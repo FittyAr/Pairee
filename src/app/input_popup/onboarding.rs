@@ -2,7 +2,9 @@
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::OnboardingKeymap;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::keybindings::Action;
 use crate::ui::popup::onboarding::preset_ids;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -12,7 +14,8 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::OnboardingKeymap { cursor_idx }) = state.dialogs.top_mut() else {
+    let Some(OnboardingKeymap { cursor_idx }) = state.dialogs.top_mut_as::<OnboardingKeymap>()
+    else {
         return Err(());
     };
     // Tab / Shift+Tab move like Down / Up.
@@ -48,9 +51,16 @@ pub fn apply_choice(context: &mut AppContext, state: &mut AppState, preset: Opti
     state.mark_ui_dirty();
 }
 
+impl Dialog for OnboardingKeymap {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::PopupType;
     use crate::config::AppConfig;
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
     use std::path::PathBuf;
@@ -72,19 +82,21 @@ mod tests {
     fn down_wraps_through_presets() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         let mut context = ctx();
-        state
-            .dialogs
-            .replace(PopupType::OnboardingKeymap { cursor_idx: 0 });
+        state.dialogs.replace(OnboardingKeymap { cursor_idx: 0 });
         handle(&mut state, make_key(KeyCode::Down), &mut context).unwrap();
         match state.dialogs.top() {
-            Some(PopupType::OnboardingKeymap { cursor_idx }) => assert_eq!(*cursor_idx, 1),
+            Some(PopupType::OnboardingKeymap(OnboardingKeymap { cursor_idx })) => {
+                assert_eq!(*cursor_idx, 1)
+            }
             _ => panic!("expected onboarding"),
         }
         for _ in 1..preset_ids().len() {
             handle(&mut state, make_key(KeyCode::Down), &mut context).unwrap();
         }
         match state.dialogs.top() {
-            Some(PopupType::OnboardingKeymap { cursor_idx }) => assert_eq!(*cursor_idx, 0),
+            Some(PopupType::OnboardingKeymap(OnboardingKeymap { cursor_idx })) => {
+                assert_eq!(*cursor_idx, 0)
+            }
             _ => panic!("expected onboarding"),
         }
     }
@@ -93,13 +105,11 @@ mod tests {
     fn apply_choice_sets_neovim_and_completes() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         let mut context = ctx();
-        state
-            .dialogs
-            .replace(PopupType::OnboardingKeymap { cursor_idx: 1 });
+        state.dialogs.replace(OnboardingKeymap { cursor_idx: 1 });
         apply_choice(&mut context, &mut state, Some("neovim"));
         assert!(context.config.settings.onboarding_completed);
         assert_eq!(context.config.keybindings.preset, "neovim");
-        assert!(state.dialogs.is_none());
+        assert!(state.dialogs.is_empty());
     }
 
     #[test]

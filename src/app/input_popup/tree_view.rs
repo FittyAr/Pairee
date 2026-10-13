@@ -1,7 +1,9 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::TreeView;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::types::TreeViewCaller;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{AppState, CopyMovePromptState};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -10,9 +12,9 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::TreeView {
+    let Some(TreeView {
         nodes, cursor_idx, ..
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<TreeView>()
     else {
         return Err(());
     };
@@ -24,9 +26,9 @@ pub fn handle(
             }
         }
         ListKey::Activate(_) => {
-            let Some(PopupType::TreeView {
+            let Some(TreeView {
                 nodes, cursor_idx, ..
-            }) = state.dialogs.top()
+            }) = state.dialogs.top_as::<TreeView>()
             else {
                 return Err(());
             };
@@ -53,21 +55,15 @@ pub fn handle(
 
 /// Pops the tree view, returning who opened it.
 fn take_caller(state: &mut AppState) -> Option<TreeViewCaller> {
-    match state.dialogs.pop() {
-        Some(PopupType::TreeView { caller, .. }) => Some(caller),
-        Some(other) => {
-            state.dialogs.push(other);
-            None
-        }
-        None => None,
-    }
+    state.dialogs.pop_as::<TreeView>().map(|tree| tree.caller)
 }
 
 /// Esc: back to where the tree was opened from.
 fn close(state: &mut AppState, caller: TreeViewCaller) {
     match caller {
         TreeViewCaller::Panel(_) => state.dialogs.clear(),
-        TreeViewCaller::TransferPrompt { previous } => state.dialogs.replace(*previous),
+        // The Copy / Move dialog underneath is on top again.
+        TreeViewCaller::TransferPrompt => {}
     }
 }
 
@@ -84,11 +80,22 @@ fn choose(
             state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
-        TreeViewCaller::TransferPrompt { mut previous } => {
-            if let PopupType::TransferPrompt(ref mut prompt) = *previous {
+        TreeViewCaller::TransferPrompt => {
+            if let Some(prompt) = state.dialogs.top_mut_as::<CopyMovePromptState>() {
                 prompt.input.set_text(target.to_string_lossy());
             }
-            state.dialogs.replace(*previous);
         }
+    }
+}
+
+impl Dialog for TreeView {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
     }
 }

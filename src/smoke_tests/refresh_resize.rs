@@ -79,7 +79,7 @@ fn panels_tabs_and_dialogs_at_tiny_sizes() {
         ("@help", "help"),
     ] {
         h.focus("texto.txt").keys(script);
-        assert!(h.state.dialogs.is_some(), "{what} opened");
+        assert!(h.state.dialogs.is_open(), "{what} opened");
         survive_tiny_sizes(&mut h, what);
         h.state.dialogs.clear();
         h.resize(100, 30);
@@ -107,7 +107,7 @@ fn editor_viewer_and_archive_at_tiny_sizes() {
     h.keys("F8");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ViewerEncoding { .. })
+        Some(PopupType::ViewerEncoding(_))
     ));
     survive_tiny_sizes(&mut h, "encoding selector");
     h.keys("Esc Esc");

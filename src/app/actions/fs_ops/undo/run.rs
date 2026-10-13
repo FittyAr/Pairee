@@ -88,7 +88,7 @@ pub(super) fn run(
         }
         Err(error) => {
             let message = t("journal_failed").replacen("{}", &error, 1);
-            state.dialogs.replace(PopupType::Error(message));
+            state.dialogs.replace(PopupType::error(message));
         }
     }
 }

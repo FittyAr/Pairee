@@ -58,7 +58,7 @@ pub fn get_items(
         .separator()
         .toggle(
             ("menu_info_panel", Action::InfoPanel, "Ctrl+L"),
-            matches!(state.dialogs.top(), Some(PopupType::InfoPanel { .. })),
+            matches!(state.dialogs.top(), Some(PopupType::InfoPanel(_))),
         )
         .toggle(
             ("menu_quick_view", Action::QuickView, "Ctrl+Q"),

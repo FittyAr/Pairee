@@ -6,7 +6,7 @@
 use super::branch_stash::open_checkout;
 use crate::app::git_local::{GitContext, reload_panel};
 use crate::app::input_popup::git_new_popups::{open_confirm, open_diff, open_name_prompt};
-use crate::app::state::popup::{GitCommitPromptState, GitNameAction, GitPromptPopup};
+use crate::app::state::popup::{GitCommitPromptState, GitNameAction};
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
 use crate::config::localization::t;
 use crate::git::log::CommitInfo;
@@ -86,13 +86,10 @@ pub fn handle_status_tab(
             }
         }
         KeyCode::Char('c' | 'C') => {
-            state.dialogs.open_over(|current_popup| {
-                PopupType::GitPrompt(GitPromptPopup::CommitPrompt(GitCommitPromptState {
-                    input: Default::default(),
-                    repo_path: repo_path.to_path_buf(),
-                    is_amend: false,
-                    previous_popup: Some(current_popup),
-                }))
+            state.dialogs.push(GitCommitPromptState {
+                input: Default::default(),
+                repo_path: repo_path.to_path_buf(),
+                is_amend: false,
             });
         }
         KeyCode::Char('d' | 'D') => {
@@ -202,11 +199,11 @@ fn copy_hash(state: &mut AppState, commit: &CommitInfo) {
     match crate::app::sys_helpers::clipboard::set_text(&commit.hash_full) {
         Ok(()) => {
             let msg = t("git_hash_copied").replace("{}", &commit.hash_short);
-            state.dialogs.push(PopupType::Info(msg));
+            state.dialogs.push(PopupType::info(msg));
         }
         Err(e) => {
             let msg = t("clipboard_failed").replace("{}", &e.to_string());
-            state.dialogs.push(PopupType::Error(msg));
+            state.dialogs.push(PopupType::error(msg));
         }
     }
 }

@@ -49,7 +49,7 @@ pub fn paste_into_editor(state: &mut AppState, text: &str) -> bool {
     if !done && ed.locked {
         state
             .dialogs
-            .replace(PopupType::Info(t("editor_read_only_locked")));
+            .replace(PopupType::info(t("editor_read_only_locked")));
     }
     true
 }

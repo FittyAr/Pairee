@@ -7,7 +7,10 @@ use crate::app::actions::panel_search::{PanelQuery, jump, step_from};
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
 use crate::app::input::panel_find::{Direction, NameMatch};
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::PanelSearch;
+use crate::app::state::popup::{Dialog, KeyHandler};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -16,7 +19,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::PanelSearch { query, how, origin }) = state.dialogs.top_mut() else {
+    let Some(PanelSearch { query, how, origin }) = state.dialogs.top_mut_as::<PanelSearch>() else {
         return Err(());
     };
     let (how, origin) = (*how, *origin);
@@ -52,4 +55,13 @@ pub fn handle(
         FieldKey::Other => {}
     }
     Ok(None)
+}
+
+impl Dialog for PanelSearch {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.query)
+    }
 }

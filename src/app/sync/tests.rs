@@ -1,6 +1,8 @@
 //! Compare / synchronize flows on `AppState` (scan job, popups, apply).
 
 use super::*;
+use crate::app::state::popup::CompareFoldersResult;
+use crate::app::state::popup::FolderScanProgress;
 use crate::config::AppConfig;
 use crate::fs::CompareStatus;
 
@@ -48,7 +50,8 @@ fn compare_runs_inline_and_lists_rolled_up_top_level_entries() {
 
     start_compare(&mut state, &context());
 
-    let Some(PopupType::CompareFoldersResult { diff, .. }) = state.dialogs.top() else {
+    let Some(CompareFoldersResult { diff, .. }) = state.dialogs.top_as::<CompareFoldersResult>()
+    else {
         panic!("expected compare result, got {:?}", state.dialogs.top());
     };
     let status = |name: &str| diff.iter().find(|e| e.name == name).map(|e| &e.status);
@@ -104,7 +107,7 @@ async fn background_scan_reports_progress_and_can_be_cancelled() {
     start_compare(&mut state, &context());
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::FolderScanProgress)
+        Some(PopupType::FolderScanProgress(FolderScanProgress))
     ));
     assert_eq!(state.folder_scan.purpose(), Some(ScanPurpose::Compare));
     cancel_scan(&mut state);
@@ -120,6 +123,6 @@ async fn background_scan_reports_progress_and_can_be_cancelled() {
     finish_scan(&mut state).await;
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::CompareFoldersResult { .. })
+        Some(PopupType::CompareFoldersResult(_))
     ));
 }

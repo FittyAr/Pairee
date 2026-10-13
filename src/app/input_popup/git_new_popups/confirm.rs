@@ -8,7 +8,7 @@ use super::remote_manage::{show_remotes, then_list_remotes};
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
 use crate::app::git_local::GitContext;
-use crate::app::state::popup::{GitConfirmActionState, GitPromptPopup};
+use crate::app::state::popup::{Dialog, GitConfirmActionState, KeyHandler};
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
@@ -24,14 +24,10 @@ pub fn open_confirm(
     message: String,
     action: GitConfirmedAction,
 ) {
-    let repo_path = repo_path.to_path_buf();
-    state.dialogs.open_over(|previous_popup| {
-        PopupType::GitPrompt(GitPromptPopup::ConfirmAction(GitConfirmActionState {
-            message,
-            repo_path,
-            action,
-            previous_popup,
-        }))
+    state.dialogs.push(GitConfirmActionState {
+        message,
+        repo_path: repo_path.to_path_buf(),
+        action,
     });
 }
 
@@ -40,21 +36,16 @@ pub fn handle_confirm_action(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if !matches!(
-        state.dialogs.top(),
-        Some(PopupType::GitPrompt(GitPromptPopup::ConfirmAction(_)))
-    ) {
+    if !matches!(state.dialogs.top(), Some(PopupType::GitConfirmAction(_))) {
         return Err(());
     }
     let Some(confirmed) = confirm_answer(&key, true) else {
         return Ok(None);
     };
-    if let Some(PopupType::GitPrompt(GitPromptPopup::ConfirmAction(confirm))) = state.dialogs.pop()
-    {
+    if let Some(PopupType::GitConfirmAction(confirm)) = state.dialogs.pop() {
+        // Declined: the dialog under it (the Git panel) is on top again.
         if confirmed {
             run(state, confirm);
-        } else {
-            state.dialogs.replace(*confirm.previous_popup);
         }
     }
     Ok(None)
@@ -77,19 +68,16 @@ impl After {
     fn popup(self, conflicts: bool) -> Option<PopupType> {
         match self {
             After::Nothing => None,
-            After::Info(key) => Some(PopupType::Info(t(key))),
-            After::ConflictsOr(key, _) if conflicts => Some(PopupType::Error(t(key))),
-            After::ConflictsOr(_, key) => Some(PopupType::Info(t(key))),
+            After::Info(key) => Some(PopupType::info(t(key))),
+            After::ConflictsOr(key, _) if conflicts => Some(PopupType::error(t(key))),
+            After::ConflictsOr(_, key) => Some(PopupType::info(t(key))),
         }
     }
 }
 
 fn run(state: &mut AppState, confirm: GitConfirmActionState) {
     let GitConfirmActionState {
-        repo_path,
-        action,
-        previous_popup,
-        ..
+        repo_path, action, ..
     } = confirm;
     match action {
         GitConfirmedAction::DeleteRemoteBranch { remote, branch } => {
@@ -100,15 +88,12 @@ fn run(state: &mut AppState, confirm: GitConfirmActionState) {
                     remote,
                     branch,
                 },
-                crate::app::git_ops::FollowUp::RestorePopup {
-                    previous: previous_popup,
-                    repo_path,
-                },
+                crate::app::git_ops::FollowUp::RefreshPanelOnTop { repo_path },
             );
         }
         GitConfirmedAction::DeleteRemote(name) => {
-            // Back to the remote list, refreshed once the remote is gone.
-            state.dialogs.replace(*previous_popup);
+            // Back to the remote list (under the confirmation), refreshed
+            // once the remote is gone.
             state.run_git_local(
                 &repo_path,
                 move |repo| {
@@ -119,7 +104,6 @@ fn run(state: &mut AppState, confirm: GitConfirmActionState) {
             );
         }
         action => {
-            state.dialogs.replace(*previous_popup);
             let (exec, error_key, after) = plan(action);
             let reload = repo_path.clone();
             state.run_git_local(
@@ -212,5 +196,11 @@ fn plan(action: GitConfirmedAction) -> (Exec, &'static str, After) {
         A::DeleteRemote(_) | A::DeleteRemoteBranch { .. } => {
             (Box::new(|_| Ok(())), "", After::Nothing)
         }
+    }
+}
+
+impl Dialog for GitConfirmActionState {
+    fn key_handler(&self) -> KeyHandler {
+        handle_confirm_action
     }
 }

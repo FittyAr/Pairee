@@ -174,7 +174,7 @@ impl AppState {
             // Not (or no longer) a repository: close the panel with a notice.
             if matches!(self.dialogs.top(), Some(PopupType::GitPanel(p)) if p.repo_path == result.requested)
             {
-                self.dialogs.replace(PopupType::Error(t("git_not_a_repo")));
+                self.dialogs.replace(PopupType::error(t("git_not_a_repo")));
             }
             return;
         };

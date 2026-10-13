@@ -189,6 +189,15 @@ pub fn register(area: Rect, target: HitTarget) {
     });
 }
 
+/// Runs `paint` without recording what it registers: dialogs painted under
+/// the top one show, but the mouse only reaches the top one.
+pub fn muted<R>(paint: impl FnOnce() -> R) -> R {
+    let saved = RECORDING.with_borrow_mut(Option::take);
+    let result = paint();
+    RECORDING.with_borrow_mut(|recording| *recording = saved);
+    result
+}
+
 /// Everything registered from now on belongs to `layer`.
 pub fn begin_layer(layer: Layer) {
     RECORDING.with_borrow_mut(|recording| {

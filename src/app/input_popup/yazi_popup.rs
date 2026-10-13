@@ -1,4 +1,7 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::YaziSortPopup;
+use crate::app::state::popup::YaziViewPopup;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -9,7 +12,7 @@ pub fn handle(
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     match state.dialogs.top() {
-        Some(PopupType::YaziSortPopup) => {
+        Some(PopupType::YaziSortPopup(YaziSortPopup)) => {
             state.dialogs.clear(); // always close on keypress
             if let KeyCode::Char(c) = key.code {
                 let action = match c {
@@ -30,7 +33,7 @@ pub fn handle(
                 Ok(None)
             }
         }
-        Some(PopupType::YaziViewPopup) => {
+        Some(PopupType::YaziViewPopup(YaziViewPopup)) => {
             state.dialogs.clear(); // always close on keypress
             if let KeyCode::Char(c) = key.code {
                 let action = match c {
@@ -53,5 +56,23 @@ pub fn handle(
             }
         }
         _ => Err(()),
+    }
+}
+
+impl Dialog for YaziSortPopup {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+}
+
+impl Dialog for YaziViewPopup {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
     }
 }

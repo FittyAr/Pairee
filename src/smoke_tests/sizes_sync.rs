@@ -1,6 +1,7 @@
 //! Folder sizes, the disk usage view, folder compare and synchronize
 //! (left to right plan applied through the Transfer Engine).
 
+use crate::app::state::popup::DiskUsage;
 use crate::app::state::{ActivePanel, PopupType};
 use crate::test_harness::Harness;
 
@@ -25,7 +26,10 @@ fn folder_sizes_in_the_panel() {
 fn disk_usage_view_navigates_and_deletes() {
     let mut h = tree();
     h.reread().keys("@disk_usage");
-    assert!(matches!(h.state.dialogs.top(), Some(PopupType::DiskUsage)));
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::DiskUsage(DiskUsage))
+    ));
     h.assert_screen("media/");
     h.assert_screen("notes.txt");
     h.keys("Enter");
@@ -35,16 +39,19 @@ fn disk_usage_view_navigates_and_deletes() {
     h.keys("Delete");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ConfirmDelete { .. })
+        Some(PopupType::ConfirmDelete(_))
     ));
     h.keys("Enter");
     h.wait_until("delete from the view", |h| {
         !h.exists("work/left/media/clip.bin")
     });
-    assert!(matches!(h.state.dialogs.top(), Some(PopupType::DiskUsage)));
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::DiskUsage(DiskUsage))
+    ));
     h.assert_no_screen("clip.bin");
     h.keys("Backspace Esc");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
 }
 
 /// left: new.txt, both.txt (newer); right: both.txt (older), extra.txt.
@@ -66,7 +73,7 @@ fn compare_selects_the_differences() {
     h.wait_until("compare result", |h| {
         matches!(
             h.state.dialogs.top(),
-            Some(PopupType::CompareFoldersResult { .. })
+            Some(PopupType::CompareFoldersResult(_))
         )
     });
     let left = h.state.panels.side(ActivePanel::Left);

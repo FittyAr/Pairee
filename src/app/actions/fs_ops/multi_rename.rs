@@ -36,7 +36,7 @@ pub fn handle(state: &mut AppState) -> bool {
     if sources.is_empty() {
         state
             .dialogs
-            .replace(PopupType::Error(t("error_no_entry_rename")));
+            .replace(PopupType::error(t("error_no_entry_rename")));
         return true;
     }
     let siblings = panel
@@ -112,7 +112,7 @@ pub fn poll(state: &mut AppState, context: &AppContext) {
         state.dialogs.pop();
     }
     if let Some(message) = failure_message(&report) {
-        state.dialogs.replace(PopupType::Error(message));
+        state.dialogs.replace(PopupType::error(message));
     } else {
         state.get_active_panel_mut().clear_selection();
     }

@@ -86,7 +86,7 @@ fn paste_links(state: &mut AppState, context: &AppContext) {
     if !clip.source.is_local() || !state.get_active_panel().source.is_local() {
         state
             .dialogs
-            .replace(PopupType::Info(t("vfs_action_unsupported")));
+            .replace(PopupType::info(t("vfs_action_unsupported")));
         return;
     }
     let dest_dir = state.get_active_panel().current_path.clone();
@@ -97,7 +97,7 @@ fn paste_links(state: &mut AppState, context: &AppContext) {
         if let Err(e) = link::make(state, src, &dest_dir.join(name), LinkKind::Symbolic) {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("Link failed: {e}")));
+                .replace(PopupType::error(format!("Link failed: {e}")));
             break;
         }
     }

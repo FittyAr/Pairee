@@ -4,9 +4,10 @@ use super::confirm::open_confirm;
 use crate::app::context::AppContext;
 use crate::app::form::FieldKey;
 use crate::app::git_local::{GitContext, GitFailure};
-use crate::app::state::popup::{GitPromptPopup, GitRemoteAddState};
+use crate::app::state::popup::{Dialog, GitRemoteAddState, GitRemoteManageState, KeyHandler};
 use crate::app::state::types::GitConfirmedAction;
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::git::remote::RemoteInfo;
 use crate::keybindings::Action;
@@ -17,8 +18,7 @@ pub fn handle_remote_manage(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::RemoteManage(manage))) = state.dialogs.top_mut()
-    else {
+    let Some(PopupType::GitRemoteManage(manage)) = state.dialogs.top_mut() else {
         return Err(());
     };
     match key.code {
@@ -32,12 +32,9 @@ pub fn handle_remote_manage(
         }
         KeyCode::Char('a') | KeyCode::Char('A') => {
             let repo_path = manage.repo_path.clone();
-            state.dialogs.open_over(|previous_popup| {
-                PopupType::GitPrompt(GitPromptPopup::RemoteAdd(GitRemoteAddState {
-                    repo_path,
-                    fields: Default::default(),
-                    previous_popup,
-                }))
+            state.dialogs.push(GitRemoteAddState {
+                repo_path,
+                fields: Default::default(),
             });
         }
         KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
@@ -49,11 +46,7 @@ pub fn handle_remote_manage(
             }
         }
         KeyCode::Esc => {
-            if let Some(PopupType::GitPrompt(GitPromptPopup::RemoteManage(manage))) =
-                state.dialogs.pop()
-            {
-                state.dialogs.replace(*manage.previous_popup);
-            }
+            state.dialogs.pop();
         }
         _ => {}
     }
@@ -65,22 +58,18 @@ pub fn handle_remote_add(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::RemoteAdd(add))) = state.dialogs.top_mut() else {
+    let Some(PopupType::GitRemoteAdd(add)) = state.dialogs.top_mut() else {
         return Err(());
     };
     match add.fields.handle_key(&key) {
         FieldKey::Cancel => {
-            if let Some(PopupType::GitPrompt(GitPromptPopup::RemoteAdd(add))) = state.dialogs.pop()
-            {
-                state.dialogs.replace(*add.previous_popup);
-            }
+            state.dialogs.pop();
         }
         FieldKey::Submit => {
             if add.fields.first().trim().is_empty() || add.fields.second().trim().is_empty() {
                 return Ok(None);
             }
-            if let Some(PopupType::GitPrompt(GitPromptPopup::RemoteAdd(add))) = state.dialogs.pop()
-            {
+            if let Some(PopupType::GitRemoteAdd(add)) = state.dialogs.pop() {
                 add_remote(state, add);
             }
         }
@@ -89,11 +78,11 @@ pub fn handle_remote_add(
     Ok(None)
 }
 
-/// Adds the remote in the background and returns to the remote list.
+/// Adds the remote in the background; the remote list (under the form)
+/// shows it once added.
 fn add_remote(state: &mut AppState, add: GitRemoteAddState) {
     let name = add.fields.first().trim().to_string();
     let url = add.fields.second().trim().to_string();
-    state.dialogs.replace(*add.previous_popup);
     state.run_git_local(
         &add.repo_path,
         move |repo| {
@@ -116,7 +105,7 @@ pub(super) fn then_list_remotes(
 /// (otherwise the Git panel is re-read).
 pub(super) fn show_remotes(state: &mut AppState, remotes: Vec<RemoteInfo>) {
     match state.dialogs.top_mut() {
-        Some(PopupType::GitPrompt(GitPromptPopup::RemoteManage(manage))) => {
+        Some(PopupType::GitRemoteManage(manage)) => {
             manage.selected_idx = manage.selected_idx.min(remotes.len().saturating_sub(1));
             manage.remotes = remotes;
         }
@@ -125,5 +114,21 @@ pub(super) fn show_remotes(state: &mut AppState, remotes: Vec<RemoteInfo>) {
             state.reload_git_panel(&repo_path);
         }
         _ => {}
+    }
+}
+
+impl Dialog for GitRemoteManageState {
+    fn key_handler(&self) -> KeyHandler {
+        handle_remote_manage
+    }
+}
+
+impl Dialog for GitRemoteAddState {
+    fn key_handler(&self) -> KeyHandler {
+        handle_remote_add
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        let focus = self.fields.focus;
+        self.fields.fields.get_mut(focus)
     }
 }

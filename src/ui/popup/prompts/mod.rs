@@ -1,3 +1,5 @@
+//! Prompts and questions, one module (and `DialogView`) per kind.
+
 pub mod confirm;
 pub mod file_ops;
 pub mod filter;
@@ -6,61 +8,3 @@ pub mod plugin;
 pub mod progress;
 pub mod ssh;
 pub mod system;
-
-use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
-use ratatui::{Frame, layout::Rect};
-
-pub fn render_prompt_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-    context: &AppContext,
-    state: &AppState,
-) -> bool {
-    match popup {
-        PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
-        PopupType::MultiRename(dialog) => {
-            file_ops::multi_rename::render(f, dialog, theme, size, &state.scrollbar)
-        }
-
-        PopupType::MkDirPrompt { .. }
-        | PopupType::TransferPrompt(..)
-        | PopupType::RenamePrompt { .. }
-        | PopupType::ConfirmDelete { .. }
-        | PopupType::WipeConfirm { .. }
-        | PopupType::CreateLinkPrompt { .. }
-        | PopupType::DescribeFilePrompt { .. }
-        | PopupType::CompressPrompt { .. } => file_ops::render(f, popup, theme, size),
-
-        PopupType::ConfirmQuit
-        | PopupType::ConfirmUndo { .. }
-        | PopupType::ConfirmInterrupt
-        | PopupType::ConfirmReload
-        | PopupType::ConfirmClearHistory { .. }
-        | PopupType::SaveSetupConfirm => confirm::render(f, popup, theme, size),
-
-        PopupType::FilePanelFilterPrompt { .. }
-        | PopupType::QuickFilterPrompt { .. }
-        | PopupType::CopyMoveFilterPrompt { .. }
-        | PopupType::RenameTabPrompt { .. }
-        | PopupType::PanelSearch { .. } => filter::render(f, popup, theme, size),
-
-        PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
-
-        PopupType::ConfirmRetryAsAdmin { .. }
-        | PopupType::Error(_)
-        | PopupType::Info(_)
-        | PopupType::ApplyCommandPrompt { .. }
-        | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
-
-        PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
-
-        PopupType::GitProgress { title } => {
-            progress::render_git(f, title, state.git_op.progress(), theme, size)
-        }
-
-        _ => false,
-    }
-}

@@ -1,6 +1,9 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
+use crate::app::state::popup::CreateLinkPrompt;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, LinkKind, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -9,9 +12,9 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::CreateLinkPrompt {
+    let Some(CreateLinkPrompt {
         dest_input, kind, ..
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<CreateLinkPrompt>()
     else {
         return Err(());
     };
@@ -25,11 +28,11 @@ pub fn handle(
     match field_key(dest_input, &key) {
         FieldKey::Cancel => state.dialogs.clear(),
         FieldKey::Submit => {
-            if let Some(PopupType::CreateLinkPrompt {
+            if let Some(CreateLinkPrompt {
                 src,
                 dest_input,
                 kind,
-            }) = state.dialogs.pop()
+            }) = state.dialogs.pop_as::<CreateLinkPrompt>()
             {
                 create(state, context, &src, dest_input.text(), kind);
             }
@@ -52,8 +55,17 @@ fn create(
     match crate::app::actions::fs_ops::link::make(state, src, &dest, kind) {
         Err(e) => state
             .dialogs
-            .replace(PopupType::Error(format!("Link failed: {}", e))),
+            .replace(PopupType::error(format!("Link failed: {}", e))),
         Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
+    }
+}
+
+impl Dialog for CreateLinkPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.dest_input)
     }
 }
 
@@ -72,7 +84,7 @@ mod tests {
     #[test]
     fn s_and_h_are_typed_and_tab_switches_kind() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::CreateLinkPrompt {
+        state.dialogs.replace(CreateLinkPrompt {
             src: PathBuf::from("a"),
             dest_input: Default::default(),
             kind: LinkKind::Symbolic,
@@ -82,9 +94,9 @@ mod tests {
         }
         press(&mut state, KeyCode::Tab);
         match state.dialogs.top() {
-            Some(PopupType::CreateLinkPrompt {
+            Some(PopupType::CreateLinkPrompt(CreateLinkPrompt {
                 dest_input, kind, ..
-            }) => {
+            })) => {
                 assert_eq!(dest_input, "hosts");
                 assert_eq!(*kind, LinkKind::Hard);
             }

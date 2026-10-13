@@ -5,6 +5,8 @@ mod options;
 mod review;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::FolderScanProgress;
+use crate::app::state::popup::{Dialog, KeyHandler, SyncDialog};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -39,3 +41,18 @@ pub fn handle_progress(
 
 #[cfg(test)]
 mod tests;
+
+impl Dialog for SyncDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+}
+
+impl Dialog for FolderScanProgress {
+    fn key_handler(&self) -> KeyHandler {
+        handle_progress
+    }
+}

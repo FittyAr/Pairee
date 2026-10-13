@@ -4,8 +4,9 @@ pub use crate::ui::wrap::wrap_lines;
 pub use markdown::parse_markdown_to_lines;
 
 use super::super::centered_rect_in;
-use crate::app::state::PopupType;
+use crate::app::state::popup::Help;
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
@@ -18,14 +19,20 @@ use ratatui::{
 
 use crate::ui::resolved_theme::ResolvedTheme;
 
-pub fn render(
+impl DialogView for Help {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render(f, self, cx.theme, cx.area, cx.scrollbar());
+    }
+}
+
+fn render(
     f: &mut Frame,
-    popup: &PopupType,
+    help: &Help,
     theme: &ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
-) -> bool {
-    let PopupType::Help {
+) {
+    let Help {
         mode,
         docs,
         plugin_docs,
@@ -33,10 +40,7 @@ pub fn render(
         cursor_idx,
         scroll_y,
         active_content,
-    } = popup
-    else {
-        return false;
-    };
+    } = help;
     let area = centered_rect_in(90, 85, size); // Expand to 90% width, 85% height
     f.render_widget(Clear, area);
 
@@ -98,7 +102,6 @@ pub fn render(
             .style(Style::default().fg(Color::DarkGray)),
         hint_area,
     );
-    true
 }
 
 /// Yellow border on the focused pane, the theme border otherwise.

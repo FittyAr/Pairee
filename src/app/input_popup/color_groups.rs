@@ -2,7 +2,9 @@
 
 use super::color_list::{ColorListKey, back_to_config, handle_key};
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::ColorGroupsDialog;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
@@ -14,11 +16,11 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ColorGroupsDialog {
+    let Some(ColorGroupsDialog {
         cursor_idx,
         edit,
         theme,
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<ColorGroupsDialog>()
     else {
         return Err(());
     };
@@ -37,4 +39,10 @@ pub fn handle(
         }
     }
     Ok(None)
+}
+
+impl Dialog for ColorGroupsDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
 }

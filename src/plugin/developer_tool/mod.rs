@@ -13,6 +13,9 @@ use tokio::sync::mpsc::UnboundedSender;
 
 const TEMPLATE_BRANCH: &str = "plugin-template";
 
+#[cfg(test)]
+mod tests;
+
 /// Convenience helpers to emit `DevProgress` updates from the (synchronous)
 /// backend. The sender is `Option` so that CLI callers (which have no UI to
 /// drive) can pass `None` and the function no-ops.

@@ -17,11 +17,11 @@ fn make_folder() {
         let mut h = Harness::builder().keymap(keymap).build();
         h.keys("@mkdir");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::MkDirPrompt { .. })),
+            matches!(h.state.dialogs.top(), Some(PopupType::MkDirPrompt(_))),
             "{keymap}"
         );
         h.text("nueva carpeta").keys("Enter");
-        assert!(h.state.dialogs.is_none(), "{keymap}");
+        assert!(h.state.dialogs.is_empty(), "{keymap}");
         assert!(h.left().join("nueva carpeta").is_dir(), "{keymap}");
         h.assert_screen("nueva carpeta");
     }
@@ -33,7 +33,7 @@ fn make_several_folders_at_once() {
     let mut h = Harness::new();
     h.keys("@mkdir");
     h.text("one; two").keys("Down Space Enter");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
     assert!(h.left().join("one").is_dir());
     assert!(h.left().join("two").is_dir());
 }
@@ -52,7 +52,7 @@ fn rename_then_undo_and_redo() {
 
         h.keys("@undo_file_operation");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmUndo { .. })),
+            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmUndo(_))),
             "{keymap}"
         );
         h.keys("Enter");
@@ -72,7 +72,7 @@ fn permanent_delete_asks_first() {
         h.write("work/left/doomed.txt", "x");
         h.reread().focus("doomed.txt").keys("@delete");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmDelete { .. })),
+            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmDelete(_))),
             "{keymap}"
         );
         h.assert_screen("doomed.txt");
@@ -81,7 +81,7 @@ fn permanent_delete_asks_first() {
         assert!(h.exists("work/left/doomed.txt"));
         h.keys("@delete Right Enter");
         assert!(h.exists("work/left/doomed.txt"));
-        assert!(h.state.dialogs.is_none());
+        assert!(h.state.dialogs.is_empty());
         // Enter on [Delete] removes it.
         h.keys("@delete Enter");
         h.wait_until("delete", |h| !h.exists("work/left/doomed.txt"));
@@ -113,7 +113,7 @@ fn delete_to_trash_then_undo_and_redo() {
     let rel = format!("work/left/{name}");
     h.write(&rel, "keep me");
     h.reread().focus(&name).keys("@delete Enter");
-    h.wait_until("trash", |h| !h.exists(&rel) || h.state.dialogs.is_some());
+    h.wait_until("trash", |h| !h.exists(&rel) || h.state.dialogs.is_open());
     if h.exists(&rel) {
         // No usable trash for this folder (e.g. a tmpfs without .Trash).
         return;

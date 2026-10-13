@@ -67,10 +67,7 @@ fn fixed_keymap_chords_reach_their_actions() {
         // Ctrl+Shift+P as a terminal with Shift reporting sends it.
         h.keys("Ctrl+Shift+P");
         assert!(
-            matches!(
-                h.state.dialogs.top(),
-                Some(PopupType::CommandPalette { .. })
-            ),
+            matches!(h.state.dialogs.top(), Some(PopupType::CommandPalette(_))),
             "{keymap}: {}",
             h.screen_text()
         );

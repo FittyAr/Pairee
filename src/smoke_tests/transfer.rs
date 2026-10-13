@@ -2,6 +2,7 @@
 //! prompt) and the multi-rename tool.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::TransferPanel;
 use crate::test_harness::Harness;
 
 #[test]
@@ -31,7 +32,7 @@ fn copy_move_and_conflict_prompt() {
         });
         assert!(matches!(
             h.state.dialogs.top(),
-            Some(PopupType::TransferPanel)
+            Some(PopupType::TransferPanel(TransferPanel))
         ));
         h.keys("o");
         h.wait_until("overwrite", |h| h.read("work/right/a.txt") == b"second");

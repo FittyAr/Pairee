@@ -1,6 +1,7 @@
 //! Folder size calculation and the disk usage view.
 
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::DiskUsage;
 
 /// "Calculate folder sizes": the selected folders, or every listed folder.
 pub fn calculate(state: &mut AppState) -> bool {
@@ -14,6 +15,6 @@ pub fn open_disk_usage(state: &mut AppState) -> bool {
     let root = panel.current_path.clone();
     let source = panel.source.clone();
     state.disk_usage.open(root, source);
-    state.dialogs.replace(PopupType::DiskUsage);
+    state.dialogs.replace(DiskUsage);
     true
 }

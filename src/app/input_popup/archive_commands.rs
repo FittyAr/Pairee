@@ -1,5 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::ArchiveCommandsMenu;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -10,11 +12,11 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ArchiveCommandsMenu {
+    let Some(ArchiveCommandsMenu {
         archive_path,
         items,
         cursor_idx,
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<ArchiveCommandsMenu>()
     else {
         return Err(());
     };
@@ -53,7 +55,7 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
                 Err(e) => {
                     state
                         .dialogs
-                        .replace(PopupType::Error(format!("Failed to list archive: {}", e)));
+                        .replace(PopupType::error(format!("Failed to list archive: {}", e)));
                 }
             }
         }
@@ -63,12 +65,12 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
                 Ok(_) => {
                     state
                         .dialogs
-                        .replace(PopupType::Info(crate::config::localization::t(
+                        .replace(PopupType::info(crate::config::localization::t(
                             "archive_test_ok",
                         )));
                 }
                 Err(e) => {
-                    state.dialogs.replace(PopupType::Error(format!(
+                    state.dialogs.replace(PopupType::error(format!(
                         "Archive integrity check failed: {}",
                         e
                     )));
@@ -93,5 +95,14 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             );
         }
         _ => {}
+    }
+}
+
+impl Dialog for ArchiveCommandsMenu {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
     }
 }

@@ -205,9 +205,9 @@ mod tests {
     #[test]
     fn dialogs_are_parked_per_screen() {
         let mut state = AppState::new(".".into(), ".".into());
-        state.dialogs.replace(PopupType::Info("panels".into()));
+        state.dialogs.replace(PopupType::info("panels"));
         let v = state.push_screen(viewer("v"));
-        assert!(state.dialogs.is_none());
+        assert!(state.dialogs.is_empty());
         state.prev_screen();
         assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
         state.next_screen();

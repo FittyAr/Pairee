@@ -53,7 +53,7 @@ fn enter(state: &mut AppState, context: &crate::app::context::AppContext, folder
     } else {
         match browse_refusal(&active.source) {
             None => change_dir(state, entry.path),
-            Some(key) => state.dialogs.replace(PopupType::Info(t(key))),
+            Some(key) => state.dialogs.replace(PopupType::info(t(key))),
         }
     }
 }

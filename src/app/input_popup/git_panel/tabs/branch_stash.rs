@@ -5,9 +5,7 @@
 
 use crate::app::git_local::GitContext;
 use crate::app::input_popup::git_new_popups::{open_confirm, open_diff, open_name_prompt};
-use crate::app::state::popup::{
-    GitConfirmCheckoutState, GitNameAction, GitPromptPopup, GitRemoteManageState,
-};
+use crate::app::state::popup::{GitConfirmCheckoutState, GitNameAction, GitRemoteManageState};
 use crate::app::state::{AppState, GitConfirmedAction, PopupType};
 use crate::config::localization::t;
 use crate::git::branches::BranchInfo;
@@ -74,13 +72,10 @@ pub fn handle_branch_tab(
 
 /// Opens the checkout confirmation of `target` over the Git panel.
 pub fn open_checkout(state: &mut AppState, repo_path: &Path, target: String, is_branch: bool) {
-    state.dialogs.open_over(|current_popup| {
-        PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(GitConfirmCheckoutState {
-            target,
-            is_branch,
-            repo_path: repo_path.to_path_buf(),
-            previous_popup: Some(current_popup),
-        }))
+    state.dialogs.push(GitConfirmCheckoutState {
+        target,
+        is_branch,
+        repo_path: repo_path.to_path_buf(),
     });
 }
 
@@ -88,7 +83,7 @@ pub fn open_checkout(state: &mut AppState, repo_path: &Path, target: String, is_
 /// checked-out branch cannot be deleted.
 fn confirm_delete_branch(state: &mut AppState, repo_path: &Path, branch: &BranchInfo) {
     if branch.is_current {
-        state.dialogs.push(PopupType::Error(t(
+        state.dialogs.push(PopupType::error(t(
             "git_error_cannot_delete_current_branch",
         )));
         return;
@@ -119,13 +114,10 @@ fn open_remote_manager(state: &mut AppState, repo_path: &Path) {
         repo_path,
         |repo| Ok(crate::git::remote::list_remotes(repo).unwrap_or_default()),
         move |state, remotes| {
-            state.dialogs.open_over(|previous_popup| {
-                PopupType::GitPrompt(GitPromptPopup::RemoteManage(GitRemoteManageState {
-                    repo_path: repo_path_buf,
-                    remotes,
-                    selected_idx: 0,
-                    previous_popup,
-                }))
+            state.dialogs.push(GitRemoteManageState {
+                repo_path: repo_path_buf,
+                remotes,
+                selected_idx: 0,
             });
         },
     );
@@ -154,7 +146,7 @@ fn apply_stash(state: &mut AppState, repo_path: &Path, index: usize) {
             state.reload_git_panel(&reload);
             state
                 .dialogs
-                .push(PopupType::Info(t("git_operation_success")));
+                .push(PopupType::info(t("git_operation_success")));
         },
     );
 }
@@ -213,7 +205,7 @@ mod tests {
     #[test]
     fn rename_prompt_starts_with_the_name_field_focused() {
         let mut state = AppState::new(".".into(), ".".into());
-        state.dialogs.replace(PopupType::Info("panel".into()));
+        state.dialogs.replace(PopupType::info("panel"));
         let branches = [BranchInfo {
             name: "feature".into(),
             is_current: false,
@@ -230,7 +222,7 @@ mod tests {
             "main",
         ));
         match state.dialogs.top() {
-            Some(PopupType::GitPrompt(GitPromptPopup::NamePrompt(p))) => {
+            Some(PopupType::GitNamePrompt(p)) => {
                 assert_eq!(p.cursor_idx, 0);
                 assert_eq!(p.input, "feature");
                 assert!(matches!(p.action, GitNameAction::RenameBranch { .. }));

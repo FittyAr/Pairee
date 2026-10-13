@@ -19,11 +19,15 @@ pub mod screens_menu;
 pub mod shortcuts;
 pub mod sync_dirs;
 pub mod update;
+pub mod view;
 pub mod viewer;
 pub mod yazi;
 
+#[cfg(test)]
+mod tests;
+
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -36,111 +40,26 @@ pub fn render_popup(
     left_rect: Rect,
     right_rect: Rect,
 ) {
-    let popup = match state.dialogs.top() {
-        Some(p) => p,
-        None => return,
+    let theme = context.theme();
+    let cx = view::ViewCtx {
+        state,
+        context,
+        theme: &theme,
+        area: f.area(),
+        panels: (left_rect, right_rect),
     };
-
-    let panels = (left_rect, right_rect);
-
-    // If the active popup is a ScreensMenu that suspended another popup, render the suspended one first!
-    if let PopupType::ScreensMenu {
-        suspended_popup: Some(suspended),
-        ..
-    } = popup
-    {
-        render_specific_popup(f, suspended, state, context, panels);
+    let depth = state.dialogs.depth();
+    for (level, popup) in state.dialogs.iter().enumerate() {
+        if level + 1 < depth {
+            // Dialogs under the top one stay visible where they were
+            // opened, but only the top one takes the mouse.
+            crate::ui::hit::muted(|| {
+                crate::ui::placement::unplaced(|| view::render_dialog(f, popup, &cx))
+            });
+        } else {
+            view::render_dialog(f, popup, &cx);
+        }
     }
-
-    render_specific_popup(f, popup, state, context, panels);
-}
-
-/// Draws `popup`; `panels` are the left and right panel areas (for popups
-/// anchored to a panel).
-fn render_specific_popup(
-    f: &mut ratatui::Frame,
-    popup: &PopupType,
-    state: &AppState,
-    context: &AppContext,
-    panels: (Rect, Rect),
-) {
-    let theme = &context.theme();
-    let size = f.area();
-    if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
-        return;
-    }
-    if yazi::render_yazi_popup(f, popup, theme, size) {
-        return;
-    }
-    if menus::render_menu_popup(f, popup, size, panels, state, context) {
-        return;
-    }
-    if screens_menu::render_screens_menu(f, popup, state, theme, size) {
-        return;
-    }
-    if editor::render_editor_popup(f, popup, theme, size) {
-        return;
-    }
-    if viewer::render_viewer_popup(f, popup, theme, size) {
-        return;
-    }
-    if sync_dirs::render(f, popup, state, theme, size) {
-        return;
-    }
-    if disk_usage::render(f, popup, state, theme, size) {
-        return;
-    }
-    if history_lists::render_history_lists_popup(f, popup, theme, size, Some(&state.scrollbar)) {
-        return;
-    }
-    if config_dialog::render_config_dialog_popup(f, popup, theme, size, &context.config.keybindings)
-    {
-        return;
-    }
-    if color_groups::render_color_groups_popup(f, popup, theme, size) {
-        return;
-    }
-    if info::render_info_popup(f, popup, theme, size) {
-        return;
-    }
-    if about::render_about_popup(f, popup, theme, size, Some(&state.scrollbar)) {
-        return;
-    }
-    if plugin_menu::render(f, popup, theme, size, context) {
-        return;
-    }
-    if plugin_menu::select::render_dev_select(f, popup, theme, size, Some(&state.scrollbar)) {
-        return;
-    }
-    if git_panel::render(
-        f,
-        popup,
-        theme,
-        size,
-        Some(&state.scrollbar),
-        &state.git_panel,
-    ) {
-        return;
-    }
-    if git_commit_prompt::render(f, popup, theme, size) {
-        return;
-    }
-    if git_confirm_checkout::render(f, popup, theme, size) {
-        return;
-    }
-    if git_new_popups::render(f, popup, theme, size) {
-        return;
-    }
-    if update::render(f, popup, theme, size, Some(&state.scrollbar)) {
-        return;
-    }
-    if onboarding::render(f, popup, theme, size) {
-        return;
-    }
-    if command_palette::render(f, popup, theme, size, &context.resolver) {
-        return;
-    }
-    shortcuts::render(f, popup, theme, size);
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,

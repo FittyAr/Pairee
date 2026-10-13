@@ -2,7 +2,7 @@ use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
 use crate::app::git_local::GitContext;
 use crate::app::input_popup::git_new_popups::{close_to, run_and_report};
-use crate::app::state::popup::{GitConfirmCheckoutState, GitPromptPopup};
+use crate::app::state::popup::{Dialog, GitConfirmCheckoutState, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
@@ -14,22 +14,17 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    if !matches!(
-        state.dialogs.top(),
-        Some(PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(_)))
-    ) {
+    if !matches!(state.dialogs.top(), Some(PopupType::GitConfirmCheckout(_))) {
         return Err(());
     }
     let Some(confirmed) = confirm_answer(&key, true) else {
         return Ok(None);
     };
-    if let Some(PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(checkout))) =
-        state.dialogs.top().cloned()
-    {
+    if let Some(PopupType::GitConfirmCheckout(checkout)) = state.dialogs.top().cloned() {
         if confirmed {
             checkout_target(state, context, checkout);
         } else {
-            close_to(state, checkout.previous_popup, &checkout.repo_path);
+            close_to(state, &checkout.repo_path);
         }
     }
     Ok(None)
@@ -41,11 +36,9 @@ fn checkout_target(state: &mut AppState, context: &AppContext, checkout: GitConf
         target,
         is_branch,
         repo_path,
-        previous_popup,
     } = checkout;
     run_and_report(
         state,
-        previous_popup,
         &repo_path,
         context.config.settings.show_hidden,
         move |repo| {
@@ -55,11 +48,17 @@ fn checkout_target(state: &mut AppState, context: &AppContext, checkout: GitConf
                 crate::git::checkout::checkout_commit(repo, &target).map(|()| target.clone())
             }
             .ctx("git_checkout_error")?;
-            Ok(PopupType::Info(format!(
+            Ok(PopupType::info(format!(
                 "{}: {}",
                 t("git_checkout_success"),
                 checked_out
             )))
         },
     );
+}
+
+impl Dialog for GitConfirmCheckoutState {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
 }

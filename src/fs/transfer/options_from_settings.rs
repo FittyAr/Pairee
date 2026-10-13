@@ -37,7 +37,7 @@ pub fn transfer_options_from_settings(settings: &Settings) -> TransferOptions {
         conflict_resolution: settings.transfer.conflict_resolution.clone(),
         delete_to_recycle_bin: settings.delete_to_recycle_bin,
         // Overwritten files go to the trash, so undo can restore them.
-        trash_replaced: true,
+        trash_replaced: settings.transfer.trash_replaced,
         ..Default::default()
     }
 }

@@ -3,6 +3,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::AppState;
+use crate::app::state::popup::{Dialog, DiskUsage, KeyHandler};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -58,4 +59,13 @@ fn delete_selected(state: &mut AppState, context: &AppContext) {
         true,
         crate::app::actions::fs_ops::delete::DeleteMode::Configured,
     );
+}
+
+impl Dialog for DiskUsage {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
 }

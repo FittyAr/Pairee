@@ -87,11 +87,8 @@ pub enum FollowUp {
         active_tab: usize,
         cursor_idx: usize,
     },
-    /// Restore the popup that was open before (refreshing a Git panel).
-    RestorePopup {
-        previous: Box<PopupType>,
-        repo_path: PathBuf,
-    },
+    /// Re-read the Git panel the operation was started over.
+    RefreshPanelOnTop { repo_path: PathBuf },
     /// Reread the file panels and show the clone success message.
     Cloned { show_hidden: bool },
 }
@@ -124,7 +121,7 @@ impl AppState {
     pub fn start_git_op(&mut self, op: GitNetOp, follow_up: FollowUp) {
         if self.git_op.is_running() {
             self.dialogs
-                .push(PopupType::Info(crate::config::localization::t(
+                .push(PopupType::info(crate::config::localization::t(
                     "git_operation_busy",
                 )));
             return;
@@ -132,7 +129,8 @@ impl AppState {
         let title = crate::config::localization::t(op.title_key());
         let job_op = op.clone();
         self.git_op.pending = Some((op, follow_up));
-        self.dialogs.push(PopupType::GitProgress { title });
+        self.dialogs
+            .push(crate::app::state::popup::GitProgress { title });
         self.git_op.job.start(move |ctx| run::run(&job_op, ctx));
         // Inline execution (no runtime) has finished already.
         poll_git_op(self);
@@ -145,11 +143,11 @@ impl AppState {
         }
         self.git_op.job.cancel();
         self.git_op.pending = None;
-        if matches!(self.dialogs.top(), Some(PopupType::GitProgress { .. })) {
+        if matches!(self.dialogs.top(), Some(PopupType::GitProgress(_))) {
             self.dialogs.pop();
         }
         self.dialogs
-            .push(PopupType::Info(crate::config::localization::t(
+            .push(PopupType::info(crate::config::localization::t(
                 "git_operation_cancelled",
             )));
     }

@@ -2,13 +2,14 @@
 //! Esc cancels the search.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::SearchResults;
 use crate::test_harness::Harness;
 
 fn results(h: &Harness) -> Option<(usize, bool)> {
     match h.state.dialogs.top() {
-        Some(PopupType::SearchResults {
+        Some(PopupType::SearchResults(SearchResults {
             results, searching, ..
-        }) => Some((results.len(), *searching)),
+        })) => Some((results.len(), *searching)),
         _ => None,
     }
 }

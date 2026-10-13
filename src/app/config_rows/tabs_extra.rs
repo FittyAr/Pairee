@@ -5,6 +5,9 @@ use super::{
 };
 use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
+use crate::app::state::popup::ColorGroupsDialog;
+use crate::app::state::popup::FilesHighlightingDialog;
+use crate::app::state::popup::InfoPanel;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
 use crate::keybindings::embedded::available_presets;
@@ -56,9 +59,9 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         status_row,
         Row::Hint(Label::Key("int_keymap_gray")),
         action("int_keymap_view", |s, context| {
-            Some(PopupType::InfoPanel {
+            Some(PopupType::InfoPanel(InfoPanel {
                 lines: keymap_report(s, &context.config.keybindings).detail_lines(),
-            })
+            }))
         }),
         action("int_keymap_shortcuts", |s, context| {
             let preset = crate::keybindings::embedded::normalize_preset_name(&s.keymap_preset);
@@ -117,6 +120,7 @@ pub fn plugins(settings: &Settings) -> Vec<Row> {
         ),
         title_key("plugins_manager_settings"),
         Row::Subtitle(Label::Owned(format!("  {}", t("plugin_selection")))),
+        toggle!(1, "cfg_secure_mode", secure_mode),
         toggle!(1, "developer_mode", plugins_developer_mode),
     ];
     if settings.plugins_developer_mode {
@@ -228,18 +232,20 @@ pub fn colors() -> Vec<Row> {
             },
         ),
         action("col_groups", |_, context| {
-            Some(PopupType::ColorGroupsDialog {
+            Some(PopupType::ColorGroupsDialog(ColorGroupsDialog {
                 cursor_idx: 0,
                 edit: None,
                 theme: context.config.theme.clone(),
-            })
+            }))
         }),
         action("col_highlighting", |s, _| {
-            Some(PopupType::FilesHighlightingDialog {
-                cursor_idx: 0,
-                edit: None,
-                rules: s.highlight_rules.clone(),
-            })
+            Some(PopupType::FilesHighlightingDialog(
+                FilesHighlightingDialog {
+                    cursor_idx: 0,
+                    edit: None,
+                    rules: s.highlight_rules.clone(),
+                },
+            ))
         }),
     ]
 }

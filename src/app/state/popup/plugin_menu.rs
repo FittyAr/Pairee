@@ -1,4 +1,5 @@
-#[derive(Debug, Clone)]
+/// The Plugin Manager: Installed, Search and (developer mode) Dev tabs.
+#[derive(Debug, Clone, Default)]
 pub struct PluginMenuState {
     pub active_tab: usize,
     pub cursor_idx: usize,
@@ -16,4 +17,12 @@ pub struct PluginMenuState {
     pub dev_loading: bool,
     pub dev_loading_status: String,
     pub dev_loading_progress: Option<(usize, usize)>,
+}
+
+/// Picker of the active development plugin, pushed over the Plugin Manager.
+#[derive(Debug, Clone)]
+pub struct SelectDevPlugin {
+    /// Label and value of each row.
+    pub options: Vec<(String, String)>,
+    pub cursor_idx: usize,
 }

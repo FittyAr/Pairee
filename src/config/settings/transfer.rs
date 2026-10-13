@@ -50,6 +50,10 @@ pub struct TransferSettings {
         default = "default_transfer_report_format"
     )]
     pub report_format: String,
+    /// A file a copy or move overwrites goes to the trash first, so undo
+    /// can bring it back.
+    #[serde(rename = "transfer_trash_replaced", default = "default_true")]
+    pub trash_replaced: bool,
 }
 
 impl Default for TransferSettings {
@@ -71,6 +75,7 @@ impl Default for TransferSettings {
             limit_bandwidth_rate: None,
             auto_report: false,
             report_format: default_transfer_report_format(),
+            trash_replaced: true,
         }
     }
 }

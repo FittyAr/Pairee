@@ -108,7 +108,7 @@ pub async fn dispatch_popup_key(
     terminal_backend: &mut TerminalBackend,
     key: crossterm::event::KeyEvent,
 ) -> anyhow::Result<bool> {
-    let popup_active = state.dialogs.is_some();
+    let popup_active = state.dialogs.is_open();
     let key = if popup_active {
         match crate::app::input_popup::list_keys::translate(state, &mut context.resolver, key) {
             Some(key) => key,
@@ -146,17 +146,5 @@ mod tests {
         apply_terminal_resize(&mut state, 80, 24);
         assert!(state.redraw.needs_clear);
         assert!(state.needs_redraw());
-    }
-
-    #[test]
-    fn terminate_event_marks_should_quit() {
-        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.should_quit = false;
-        // In handle_input_event, Event::Terminate directly marks should_quit = true
-        let event = Event::Terminate;
-        if let Event::Terminate = event {
-            state.should_quit = true;
-        }
-        assert!(state.should_quit);
     }
 }

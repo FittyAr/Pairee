@@ -3,7 +3,7 @@
 use crate::app::context::AppContext;
 use crate::app::git_local::GitContext;
 use crate::app::list_nav::{ScrollKeys, scroll_key};
-use crate::app::state::popup::{GitDiffViewState, GitPromptPopup};
+use crate::app::state::popup::{Dialog, GitDiffViewState, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -20,15 +20,14 @@ pub fn handle_diff(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::DiffView(diff))) = state.dialogs.top_mut() else {
+    let Some(PopupType::GitDiffView(diff)) = state.dialogs.top_mut() else {
         return Err(());
     };
     let last = diff.diff_content.lines().count().saturating_sub(1);
     if !scroll_key(DIFF_SCROLL, key.code, &mut diff.scroll_y, last)
         && matches!(key.code, KeyCode::Esc | KeyCode::Char('q' | 'Q'))
-        && let Some(PopupType::GitPrompt(GitPromptPopup::DiffView(diff))) = state.dialogs.pop()
     {
-        state.dialogs.replace(*diff.previous_popup);
+        state.dialogs.pop();
     }
     Ok(None)
 }
@@ -50,16 +49,19 @@ pub fn open_diff<W>(
         repo_path,
         move |repo| work(repo).ctx("git_error_diff_failed"),
         move |state, diff_content| {
-            state.dialogs.open_over(|previous_popup| {
-                PopupType::GitPrompt(GitPromptPopup::DiffView(GitDiffViewState {
-                    repo_path: repo_path_buf,
-                    file_path,
-                    commit_hash,
-                    diff_content,
-                    scroll_y: 0,
-                    previous_popup,
-                }))
+            state.dialogs.push(GitDiffViewState {
+                repo_path: repo_path_buf,
+                file_path,
+                commit_hash,
+                diff_content,
+                scroll_y: 0,
             });
         },
     );
+}
+
+impl Dialog for GitDiffViewState {
+    fn key_handler(&self) -> KeyHandler {
+        handle_diff
+    }
 }

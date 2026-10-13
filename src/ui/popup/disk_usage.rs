@@ -2,16 +2,16 @@
 //! their share of the folder as a percentage and a bar.
 
 use crate::app::disk_usage::DiskUsageState;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::popup::DiskUsage;
 use crate::config::localization::t;
 use crate::fs::du::DuNode;
 use crate::ui::panel::helpers::{dir_size_text, format_file_size};
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
-    layout::Rect,
     style::{Color, Style},
     text::{Line, Span},
 };
@@ -21,41 +21,34 @@ const BAR_WIDTH: usize = 20;
 const BAR_FULL: char = '█';
 const BAR_EMPTY: char = '░';
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    state: &AppState,
-    theme: &ResolvedTheme,
-    size: Rect,
-) -> bool {
-    if !matches!(popup, PopupType::DiskUsage) {
-        return false;
+impl DialogView for DiskUsage {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (state, theme, size) = (cx.state, cx.theme, cx.area);
+        let du = &state.disk_usage;
+        let current = du.current();
+        let total = current.map_or(0, |dir| dir.size.bytes);
+        let rows = current
+            .map(|dir| {
+                dir.children
+                    .iter()
+                    .map(|child| (row_text(child, total), row_style(child, theme)))
+                    .collect()
+            })
+            .unwrap_or_default();
+        ListPopup {
+            area: centered_rect_in(80, 80, size),
+            title: t("du_title").replace("{}", &du.current_path().to_string_lossy()),
+            border: Color::Cyan,
+            empty: Some(empty_text(du)),
+            header: header(du, current),
+            rows,
+            cursor: du.cursor,
+            scroll: Scroll::HalfPage,
+            hint: Some(t("du_hint")),
+            scrollbar: None,
+        }
+        .render(f, theme);
     }
-    let du = &state.disk_usage;
-    let current = du.current();
-    let total = current.map_or(0, |dir| dir.size.bytes);
-    let rows = current
-        .map(|dir| {
-            dir.children
-                .iter()
-                .map(|child| (row_text(child, total), row_style(child, theme)))
-                .collect()
-        })
-        .unwrap_or_default();
-    ListPopup {
-        area: centered_rect_in(80, 80, size),
-        title: t("du_title").replace("{}", &du.current_path().to_string_lossy()),
-        border: Color::Cyan,
-        empty: Some(empty_text(du)),
-        header: header(du, current),
-        rows,
-        cursor: du.cursor,
-        scroll: Scroll::HalfPage,
-        hint: Some(t("du_hint")),
-        scrollbar: None,
-    }
-    .render(f, theme);
-    true
 }
 
 /// `"  12.0 MB  45.3% [█████░░░░░] name/"`.

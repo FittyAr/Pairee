@@ -14,7 +14,7 @@ pub fn apply_review(state: &mut AppState, context: &AppContext, items: &[SyncIte
     if jobs.is_empty() {
         state
             .dialogs
-            .replace(PopupType::Info(t("sync_nothing_to_do")));
+            .replace(PopupType::info(t("sync_nothing_to_do")));
         return;
     }
     let base = transfer_options_from_settings(&context.config.settings);

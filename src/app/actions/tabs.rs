@@ -1,7 +1,8 @@
 //! Folder tab actions on the focused side.
 
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::RenameTabPrompt;
 use crate::keybindings::Action;
 
 /// Handles the tab actions. Returns `true` if the action was one of them.
@@ -33,7 +34,7 @@ pub fn handle_tab_action(state: &mut AppState, action: &Action, context: &AppCon
 
 fn open_rename_prompt(state: &mut AppState) {
     let tab = state.panels.tabs(state.panels.active).active();
-    state.dialogs.replace(PopupType::RenameTabPrompt {
+    state.dialogs.replace(RenameTabPrompt {
         tab: tab.id,
         input: tab.name.clone().unwrap_or_default().into(),
     });
@@ -42,7 +43,7 @@ fn open_rename_prompt(state: &mut AppState) {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::state::ActivePanel;
+    use crate::app::state::{ActivePanel, PopupType};
     use crate::config::AppConfig;
 
     fn run(state: &mut AppState, context: &AppContext, action: Action) {
@@ -76,7 +77,7 @@ mod tests {
         run(&mut state, &context, Action::RenameTab);
         assert!(matches!(
             state.dialogs.top(),
-            Some(PopupType::RenameTabPrompt { .. })
+            Some(PopupType::RenameTabPrompt(_))
         ));
         run(&mut state, &context, Action::CloseTab);
         assert_eq!(state.panels.tabs(ActivePanel::Right).count(), 2);

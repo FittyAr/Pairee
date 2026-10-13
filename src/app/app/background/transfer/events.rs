@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::TransferPanel;
 use crate::app::state::{AppState, TransferUIState};
 use crate::fs::transfer::events::TransferEvent;
 use crate::fs::transfer::job::TransferResults;
@@ -62,7 +63,9 @@ pub fn handle_transfer_event(
             transfer.view_mode = crate::app::state::TransferViewMode::Expanded;
             state
                 .dialogs
-                .replace(crate::app::state::types::PopupType::TransferPanel);
+                .replace(crate::app::state::types::PopupType::TransferPanel(
+                    TransferPanel,
+                ));
             effects.refresh_needed = true;
         }
         _ => {}

@@ -69,7 +69,7 @@ impl AppState {
     {
         let job = &mut self.git_panel.local;
         if job.is_running() {
-            self.dialogs.push(PopupType::Info(t("git_local_busy")));
+            self.dialogs.push(PopupType::info(t("git_local_busy")));
             return;
         }
         let path = repo_path.to_path_buf();
@@ -93,7 +93,7 @@ pub fn poll_git_local(state: &mut AppState) -> bool {
     state.git_panel.local.repo = None;
     match outcome {
         Ok(apply) => apply(state),
-        Err(msg) => state.dialogs.push(PopupType::Error(msg)),
+        Err(msg) => state.dialogs.push(PopupType::error(msg)),
     }
     state.mark_ui_dirty();
     true

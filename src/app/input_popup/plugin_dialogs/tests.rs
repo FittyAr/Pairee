@@ -33,7 +33,7 @@ fn confirm_enter_on_yes_sends_true() {
     let res = handle(&mut state, make_key(KeyCode::Enter), &mut context);
     assert!(res.is_ok());
     assert!(rx.blocking_recv().unwrap());
-    assert!(state.dialogs.is_none());
+    assert!(state.dialogs.is_empty());
 }
 
 #[test]
@@ -44,7 +44,7 @@ fn confirm_esc_sends_false() {
     open_confirm(&mut state, "t".into(), "m".into(), None, tx);
     handle(&mut state, make_key(KeyCode::Esc), &mut context).unwrap();
     assert!(!rx.blocking_recv().unwrap());
-    assert!(state.dialogs.is_none());
+    assert!(state.dialogs.is_empty());
 }
 
 #[test]
@@ -119,7 +119,7 @@ fn which_matching_key_returns_one_based_index() {
     );
     handle(&mut state, make_key(KeyCode::Char('b')), &mut context).unwrap();
     assert_eq!(rx.blocking_recv().unwrap(), Some(2));
-    assert!(state.dialogs.is_none());
+    assert!(state.dialogs.is_empty());
 }
 
 #[test]

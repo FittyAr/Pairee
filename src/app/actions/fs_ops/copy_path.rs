@@ -25,12 +25,12 @@ pub fn handle(state: &mut AppState, what: PathText) -> bool {
         Ok(()) => {
             state
                 .dialogs
-                .replace(PopupType::Info(t("clipboard_copied").replace("{}", &text)));
+                .replace(PopupType::info(t("clipboard_copied").replace("{}", &text)));
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(t("clipboard_failed").replace("{}", &e)));
+                .replace(PopupType::error(t("clipboard_failed").replace("{}", &e)));
         }
     }
     true

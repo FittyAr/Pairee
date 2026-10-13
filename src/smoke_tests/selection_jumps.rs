@@ -1,6 +1,8 @@
 //! Keymap actions added for the Vim / yazi / standard presets: delete
 //! modes, select all, visual selection, view and sort cycling, focus.
 
+use crate::app::state::popup::ConfirmDelete;
+use crate::app::state::popup::RenamePrompt;
 use crate::app::state::{ActivePanel, PanelViewMode, PopupType, SortField};
 use crate::keybindings::Action;
 use crate::test_harness::Harness;
@@ -25,7 +27,7 @@ fn trash_and_permanent_delete_say_where_items_go() {
     for (action, to_trash_expected) in [(Action::Trash, true), (Action::DeletePermanent, false)] {
         h.dispatch(action);
         match h.state.dialogs.top() {
-            Some(PopupType::ConfirmDelete { to_trash, .. }) => {
+            Some(PopupType::ConfirmDelete(ConfirmDelete { to_trash, .. })) => {
                 assert_eq!(*to_trash, to_trash_expected, "{action:?}")
             }
             other => panic!("{action:?}: expected ConfirmDelete, got {other:?}"),
@@ -101,7 +103,7 @@ fn rename_basename_puts_the_cursor_before_the_extension() {
         h.focus(name);
         h.dispatch(Action::RenameBasename);
         match h.state.dialogs.top() {
-            Some(PopupType::RenamePrompt { input, .. }) => {
+            Some(PopupType::RenamePrompt(RenamePrompt { input, .. })) => {
                 assert_eq!(input.cursor(), cursor, "{name}")
             }
             other => panic!("expected rename prompt, got {other:?}"),

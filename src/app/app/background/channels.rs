@@ -1,6 +1,7 @@
 //! Background channel event processors for terminal, SSH, search, and plugin dev tools.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::SearchResults;
 use crate::app::state::{AppState, DevProgress, PopupType, Screen};
 use crate::terminal::TerminalBackend;
 
@@ -42,7 +43,7 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
             state.refresh_tab(tab, show_hidden, true);
         }
         Err(e) => {
-            state.dialogs.replace(PopupType::Error(format!(
+            state.dialogs.replace(PopupType::error(format!(
                 "{} {}",
                 crate::config::localization::t("error_ssh_failed"),
                 e
@@ -64,9 +65,9 @@ pub fn process_search_updates(state: &mut AppState) {
         },
         None => return,
     };
-    if let Some(PopupType::SearchResults {
+    if let Some(SearchResults {
         results, searching, ..
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchResults>()
         && (results.len() != hits.len() || !running)
     {
         *results = hits;

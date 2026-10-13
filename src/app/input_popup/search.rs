@@ -3,7 +3,11 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FormKey, FormLayout};
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::SearchPrompt;
+use crate::app::state::popup::SearchResults;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -19,21 +23,21 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     match state.dialogs.top() {
-        Some(PopupType::SearchPrompt { .. }) => handle_prompt(state, key),
-        Some(PopupType::SearchResults { .. }) => handle_results(state, key, context),
+        Some(PopupType::SearchPrompt(_)) => handle_prompt(state, key),
+        Some(PopupType::SearchResults(_)) => handle_results(state, key, context),
         _ => Err(()),
     }
 }
 
 fn handle_prompt(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, ()> {
-    let Some(PopupType::SearchPrompt {
+    let Some(SearchPrompt {
         query,
         content_query,
         case_sensitive,
         search_target,
         cursor_idx,
         ..
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchPrompt>()
     else {
         return Err(());
     };
@@ -59,14 +63,14 @@ fn handle_prompt(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, 
 
 /// Starts the background search and shows the (filling) results list.
 fn start_search(state: &mut AppState) {
-    let Some(PopupType::SearchPrompt {
+    let Some(SearchPrompt {
         query,
         content_query,
         search_root,
         case_sensitive,
         search_target,
         ..
-    }) = state.dialogs.top()
+    }) = state.dialogs.top_as::<SearchPrompt>()
     else {
         return;
     };
@@ -88,7 +92,7 @@ fn start_search(state: &mut AppState) {
         target: *search_target,
     };
     crate::app::jobs::file_search::start(&mut state.search, search);
-    state.dialogs.replace(PopupType::SearchResults {
+    state.dialogs.replace(SearchResults {
         query: if name.is_empty() { content } else { name },
         results: Vec::new(),
         cursor_idx: 0,
@@ -101,11 +105,11 @@ fn handle_results(
     key: KeyEvent,
     context: &AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::SearchResults {
+    let Some(SearchResults {
         results,
         cursor_idx,
         ..
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchResults>()
     else {
         return Err(());
     };
@@ -135,4 +139,26 @@ fn handle_results(
         ListKey::Other => return Err(()),
     }
     Ok(None)
+}
+
+impl Dialog for SearchPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        match self.cursor_idx {
+            0 => Some(&mut self.query),
+            1 => Some(&mut self.content_query),
+            _ => None,
+        }
+    }
+}
+
+impl Dialog for SearchResults {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
 }

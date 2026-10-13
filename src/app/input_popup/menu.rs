@@ -3,6 +3,8 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{wrap_next, wrap_prev};
 use crate::app::menu_handler::trigger_menu_item;
+use crate::app::state::popup::Menu;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::ui::menu::MenuItemData;
@@ -16,12 +18,12 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(&PopupType::Menu {
+    let Some(&PopupType::Menu(Menu {
         active_menu_idx: menu,
         active_item_idx: item,
         active_submenu_idx: submenu,
         active_submenu_item_idx: sub_item,
-    }) = state.dialogs.top()
+    })) = state.dialogs.top()
     else {
         return Err(());
     };
@@ -93,7 +95,7 @@ pub fn handle(
         _ => return Ok(None),
     };
     let (menu, item, submenu, sub_item) = next;
-    state.dialogs.replace(PopupType::Menu {
+    state.dialogs.replace(Menu {
         active_menu_idx: menu,
         active_item_idx: item,
         active_submenu_idx: submenu,
@@ -131,4 +133,13 @@ fn step_item(items: &[MenuItemData], current: Option<usize>, up: bool) -> usize 
 
 fn hotkey(label: &str) -> Option<char> {
     crate::ui::hotkey::parse_hotkey(label).hotkey
+}
+
+impl Dialog for Menu {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
 }

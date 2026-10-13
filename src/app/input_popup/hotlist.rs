@@ -1,5 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::Hotlist;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::config::bookmarks::{self, HotlistEntry};
 use crate::config::localization::t;
@@ -12,10 +14,10 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::Hotlist {
+    let Some(Hotlist {
         entries,
         cursor_idx,
-    }) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<Hotlist>()
     else {
         return Err(());
     };
@@ -59,13 +61,22 @@ pub fn handle(
 
 fn persist(state: &mut AppState, entries: Vec<HotlistEntry>, cursor_idx: usize) {
     let result = bookmarks::save_hotlist(&entries);
-    state.dialogs.replace(PopupType::Hotlist {
+    state.dialogs.replace(Hotlist {
         entries,
         cursor_idx,
     });
     if let Err(e) = result {
-        state.dialogs.push(PopupType::Error(
+        state.dialogs.push(PopupType::error(
             t("error_save_bookmarks").replace("{}", &e.to_string()),
         ));
+    }
+}
+
+impl Dialog for Hotlist {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
     }
 }

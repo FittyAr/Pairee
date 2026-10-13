@@ -23,7 +23,7 @@ fn search_jumps_while_typing_and_n_repeats() {
     h.keys("Down");
     assert_eq!(h.cursor_name(), "grape.txt");
     h.keys("Enter");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
     h.dispatch(Action::FindNext);
     assert_eq!(h.cursor_name(), "pineapple.txt");
     h.dispatch(Action::FindNext);
@@ -56,7 +56,7 @@ fn alt_letter_starts_a_quick_search_when_the_preset_asks() {
     h.keys("Alt+p");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::PanelSearch { .. })
+        Some(PopupType::PanelSearch(_))
     ));
     assert_eq!(h.cursor_name(), "pineapple.txt", "prefix match");
     h.text("i");

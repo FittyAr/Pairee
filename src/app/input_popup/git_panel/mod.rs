@@ -5,8 +5,10 @@ pub(crate) mod tabs;
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{NavStep, wrap_next, wrap_prev};
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::popup::{Dialog, DialogScroll, KeyHandler};
+use crate::app::state::{AppState, GitPanelState, PopupType};
 use crate::keybindings::Action;
+use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 /// Number of Git panel tabs (Status, Log, Branches, Stash, Tags).
@@ -88,5 +90,20 @@ fn tab_action(
         3 => tabs::handle_stash_tab(state, code, repo, &panel.stash_entries, cursor),
         4 => tabs::handle_tag_tab(state, code, repo, &panel.tag_entries, cursor),
         _ => false,
+    }
+}
+
+impl Dialog for GitPanelState {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        (id == ScrollTargetId::GitList).then_some(DialogScroll::OffsetAndCursor {
+            offset: &mut self.scroll,
+            cursor: &mut self.cursor_idx,
+        })
     }
 }

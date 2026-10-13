@@ -12,6 +12,7 @@ mod tests;
 pub use record::transfer_finished;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmUndo;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::journal::{Direction, check};
@@ -24,25 +25,25 @@ pub fn request(state: &mut AppState, direction: Direction) -> bool {
             Direction::Undo => "journal_nothing_to_undo",
             Direction::Redo => "journal_nothing_to_redo",
         };
-        state.dialogs.replace(PopupType::Info(t(key)));
+        state.dialogs.replace(PopupType::info(t(key)));
         return true;
     };
     let label = entry.label();
     let Some(inverse) = entry.inverse() else {
         state.journal.take(direction);
         let message = t("journal_not_undoable").replacen("{}", &label, 1);
-        state.dialogs.replace(PopupType::Error(message));
+        state.dialogs.replace(PopupType::error(message));
         return true;
     };
     let checked = check(&inverse);
     let popup = match &checked.runnable {
-        Some(runnable) => PopupType::ConfirmUndo {
+        Some(runnable) => PopupType::ConfirmUndo(ConfirmUndo {
             direction,
             lines: summary::confirm_lines(&label, direction, runnable, &checked.skipped),
-        },
+        }),
         None => {
             state.journal.take(direction);
-            PopupType::Error(summary::nothing_left(&label, &checked.skipped))
+            PopupType::error(summary::nothing_left(&label, &checked.skipped))
         }
     };
     state.dialogs.replace(popup);
@@ -63,7 +64,7 @@ pub fn confirm(state: &mut AppState, context: &AppContext, direction: Direction)
         Some(runnable) => run::run(state, context, direction, runnable),
         None => {
             let message = summary::nothing_left(&entry.label(), &checked.skipped);
-            state.dialogs.replace(PopupType::Error(message));
+            state.dialogs.replace(PopupType::error(message));
         }
     }
 }

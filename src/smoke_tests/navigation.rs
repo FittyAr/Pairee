@@ -64,7 +64,7 @@ fn symlinked_folder_opens_as_a_folder() {
         h.left().join("link")
     );
     h.assert_screen("readme.txt");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
 }
 
 /// Entries without `..`, in panel order.
@@ -83,11 +83,11 @@ fn quick_filter_brings_matches_first_and_esc_restores() {
         assert_eq!(listed(&h)[0], "beta.log", "{keymap}");
         h.assert_screen("BET");
         h.keys("Esc");
-        assert!(h.state.dialogs.is_none());
+        assert!(h.state.dialogs.is_empty());
         assert_eq!(listed(&h), before, "{keymap}: Esc restores the order");
         // Enter keeps the filter.
         h.keys("@quick_filter").text("alp").keys("Enter");
-        assert!(h.state.dialogs.is_none());
+        assert!(h.state.dialogs.is_empty());
         assert_eq!(listed(&h)[0], "alpha.txt", "{keymap}");
         assert_eq!(
             h.state.get_active_panel().quick_filter_mask.as_deref(),

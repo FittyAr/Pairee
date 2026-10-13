@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::{AppState, DialogStack, PopupType};
 use crate::app::transfer_submit::submit_simple;
 use crate::fs::transfer::job::TransferOperation;
@@ -43,7 +44,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) 
     if mode == DeleteMode::Trash && !state.get_active_panel().source.is_local() {
         state
             .dialogs
-            .replace(PopupType::Info(crate::config::localization::t(
+            .replace(PopupType::info(crate::config::localization::t(
                 "trash_unsupported",
             )));
         return true;
@@ -87,11 +88,11 @@ pub fn request(
             }));
 
     if show_prompt {
-        let confirm = PopupType::ConfirmDelete {
+        let confirm = PopupType::ConfirmDelete(ConfirmDelete {
             paths: targets,
             cursor_idx: 0,
             to_trash,
-        };
+        });
         if over_dialog {
             state.dialogs.push(confirm);
         } else {

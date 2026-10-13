@@ -15,7 +15,7 @@ pub fn render_confirm_action(
     state: &crate::app::state::popup::GitConfirmActionState,
     theme: &ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let message = &state.message;
     // Centered small confirmation box
     let area = centered_rect_in(50, 20, size);
@@ -73,6 +73,4 @@ pub fn render_confirm_action(
     ]);
     let buttons_para = Paragraph::new(buttons_line).alignment(ratatui::layout::Alignment::Center);
     f.render_widget(buttons_para, chunks[2]);
-
-    true
 }

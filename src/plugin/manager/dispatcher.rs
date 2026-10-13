@@ -11,6 +11,7 @@ use super::dispatch_actions::{dispatch_emit_action, set_focus};
 use super::request::PluginRequest;
 use super::snapshot::{AppStateSnapshot, FileEntrySnapshot};
 use crate::app::context::AppContext;
+use crate::app::state::popup::SelectDevPlugin;
 use crate::app::state::{ActivePanel, AppState, PendingPluginReply, PopupType};
 use std::path::PathBuf;
 
@@ -38,7 +39,7 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
         PluginRequest::Notify { title, msg, level } => {
             state
                 .dialogs
-                .replace(PopupType::Info(format!("{}: {}", title, msg)));
+                .replace(PopupType::info(format!("{}: {}", title, msg)));
             log::info!("Plugin notify [{}]: {} - {}", level, title, msg);
         }
         PluginRequest::NotifyStructured(payload) => {
@@ -220,17 +221,11 @@ fn spawn_copy_task(state: &mut AppState, context: &AppContext, from: PathBuf, to
     }
 }
 
-/// Converts a dev-plugin scan into an open `SelectDevPlugin` popup.
+/// Opens the `SelectDevPlugin` picker of a dev-plugin scan over the
+/// current dialog (the Plugin Manager).
 fn open_dev_plugin_select(state: &mut AppState, options: Vec<(String, String)>) {
-    let previous_popup = state
-        .dialogs
-        .top()
-        .cloned()
-        .map(Box::new)
-        .unwrap_or_else(|| Box::new(PopupType::Info(String::new())));
-    state.dialogs.replace(PopupType::SelectDevPlugin {
+    state.dialogs.push(SelectDevPlugin {
         options,
         cursor_idx: 0,
-        previous_popup,
     });
 }

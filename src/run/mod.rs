@@ -119,7 +119,7 @@ pub(crate) fn initial_state(
     let mut state = app::AppState::new(current_dir, right_dir);
     state.apply_settings(settings);
     for notice in app::session::start(&mut state, settings, cli_paths) {
-        state.dialogs.push(app::state::PopupType::Info(notice));
+        state.dialogs.push(app::state::PopupType::info(notice));
     }
     state
 }

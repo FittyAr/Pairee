@@ -1,6 +1,7 @@
 //! Apply scrollbar mouse drag/jump/wheel commands to application scroll state.
 
-use crate::app::state::{ActivePanel, AppState, PopupType, Screen};
+use crate::app::state::popup::DialogScroll;
+use crate::app::state::{ActivePanel, AppState, Screen};
 use crate::ui::scrollbar::{self, ScrollTargetId};
 use crossterm::event::MouseEvent;
 
@@ -24,58 +25,6 @@ pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
     true
 }
 
-/// Scroll offset of the popup text view scrolled by `id`, if on top.
-fn popup_scroll(popup: &mut PopupType, id: ScrollTargetId) -> Option<&mut usize> {
-    match (id, popup) {
-        (ScrollTargetId::HelpContent, PopupType::Help { scroll_y, .. })
-        | (ScrollTargetId::About, PopupType::About { scroll_y })
-        | (ScrollTargetId::UpdateNotes, PopupType::UpdateAvailable { scroll_y, .. }) => {
-            Some(scroll_y)
-        }
-        (ScrollTargetId::QuickView, PopupType::QuickViewPanel(qv)) => Some(&mut qv.scroll),
-        (ScrollTargetId::MultiRenamePreview, PopupType::MultiRename(dialog)) => {
-            Some(&mut dialog.scroll)
-        }
-        _ => None,
-    }
-}
-
-/// Cursor and length of the popup list scrolled by `id`, if on top.
-fn popup_list(popup: &mut PopupType, id: ScrollTargetId) -> Option<(&mut usize, usize)> {
-    match (id, popup) {
-        (
-            ScrollTargetId::HistoryCommand,
-            PopupType::CommandHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
-        (
-            ScrollTargetId::HistoryView,
-            PopupType::FileViewHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
-        (
-            ScrollTargetId::HistoryFolder,
-            PopupType::FoldersHistoryList {
-                cursor_idx,
-                entries,
-            },
-        ) => Some((cursor_idx, entries.len())),
-        (
-            ScrollTargetId::PluginSelect,
-            PopupType::SelectDevPlugin {
-                cursor_idx,
-                options,
-                ..
-            },
-        ) => Some((cursor_idx, options.len())),
-        _ => None,
-    }
-}
-
 fn apply_scroll_offset(
     state: &mut AppState,
     id: ScrollTargetId,
@@ -87,18 +36,24 @@ fn apply_scroll_offset(
         scrollbar::clamp_cursor_to_offset(cursor, offset, viewport, content_len.min(len));
     };
     if let Some(popup) = state.dialogs.top_mut() {
-        if let Some(scroll) = popup_scroll(popup, id) {
-            *scroll = offset;
-            return;
-        }
-        if let Some((cursor, len)) = popup_list(popup, id) {
-            clamp(cursor, len);
-            return;
-        }
-        if let (ScrollTargetId::GitList, PopupType::GitPanel(panel)) = (id, popup) {
-            panel.scroll = offset;
-            clamp(&mut panel.cursor_idx, usize::MAX);
-            return;
+        match popup.dialog_mut().scroll_mut(id) {
+            Some(DialogScroll::Offset(scroll)) => {
+                *scroll = offset;
+                return;
+            }
+            Some(DialogScroll::Cursor(cursor, len)) => {
+                clamp(cursor, len);
+                return;
+            }
+            Some(DialogScroll::OffsetAndCursor {
+                offset: view,
+                cursor,
+            }) => {
+                *view = offset;
+                clamp(cursor, usize::MAX);
+                return;
+            }
+            None => {}
         }
     }
     match id {
@@ -139,6 +94,7 @@ fn apply_scroll_offset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::PopupType;
     use crate::app::state::popup::MultiRenameState;
 
     #[test]

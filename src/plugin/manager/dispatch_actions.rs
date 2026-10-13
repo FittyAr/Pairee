@@ -24,7 +24,7 @@ pub fn render_notify(state: &mut AppState, payload: &NotifyPayload) {
     } else {
         format!("{}: {}", payload.title, payload.content)
     };
-    state.dialogs.replace(PopupType::Info(body));
+    state.dialogs.replace(PopupType::info(body));
     log::info!(
         "Plugin notify [{}]: {} - {} (timeout={:?}s)",
         level,
@@ -65,7 +65,7 @@ pub fn dispatch_emit_action(
                     "pairee.emit('{name}') refused: untrusted plugin '{}' may not fire it",
                     origin.name
                 );
-                state.dialogs.replace(PopupType::Error(
+                state.dialogs.replace(PopupType::error(
                     t("plugin_emit_refused")
                         .replacen("{}", &origin.name, 1)
                         .replacen("{}", name, 1),
@@ -110,7 +110,7 @@ pub fn plugin_cd(state: &mut AppState, context: &AppContext, raw: &str) {
             log::warn!("plugin cd to {raw:?} refused ({key})");
             state
                 .dialogs
-                .replace(PopupType::Error(t(key).replacen("{}", raw, 1)));
+                .replace(PopupType::error(t(key).replacen("{}", raw, 1)));
         }
     }
 }
@@ -167,6 +167,7 @@ pub fn compute_file_cache_path(file_path: &Path, skip: usize) -> Option<PathBuf>
 mod tests {
     use super::*;
     use crate::app::state::PopupType;
+    use crate::app::state::popup::InfoMessage;
 
     fn fresh_state() -> AppState {
         AppState::new(PathBuf::from("/"), PathBuf::from("/"))
@@ -187,7 +188,7 @@ mod tests {
             },
         );
         match state.dialogs.top() {
-            Some(PopupType::Info(text)) => assert_eq!(text, "Hello: World"),
+            Some(PopupType::Info(InfoMessage(text))) => assert_eq!(text, "Hello: World"),
             other => panic!("expected Info popup, got {:?}", other),
         }
     }
@@ -205,7 +206,7 @@ mod tests {
             },
         );
         match state.dialogs.top() {
-            Some(PopupType::Info(text)) => assert_eq!(text, "Only"),
+            Some(PopupType::Info(InfoMessage(text))) => assert_eq!(text, "Only"),
             other => panic!("expected Info popup, got {:?}", other),
         }
     }

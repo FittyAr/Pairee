@@ -1,4 +1,6 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::FileAttributesDialog;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::fs::attrs::AttrChange;
 use crate::fs::vfs::PanelSource;
@@ -14,7 +16,8 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FileAttributesDialog { attrs, mode_input }) = state.dialogs.top_mut()
+    let Some(FileAttributesDialog { attrs, mode_input }) =
+        state.dialogs.top_mut_as::<FileAttributesDialog>()
     else {
         return Err(());
     };
@@ -60,6 +63,12 @@ fn apply(
     }
     match vfs.set_attributes(&path, change) {
         Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
-        Err(e) => state.dialogs.replace(PopupType::Error(e.to_string())),
+        Err(e) => state.dialogs.replace(PopupType::error(e.to_string())),
+    }
+}
+
+impl Dialog for FileAttributesDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
     }
 }

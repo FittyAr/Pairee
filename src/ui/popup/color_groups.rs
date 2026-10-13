@@ -2,12 +2,12 @@
 //! `name < color >` rows with the cursor row highlighted.
 
 use super::centered_rect_in;
-use crate::app::state::PopupType;
+use crate::app::state::popup::{ColorGroupsDialog, FilesHighlightingDialog};
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::config::theme::COLOR_PROPS;
 use crate::ui::popup::kit;
-use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -25,61 +25,74 @@ struct ColorRow {
     selected: Style,
 }
 
-pub fn render_color_groups_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &ResolvedTheme,
-    size: Rect,
-) -> bool {
-    let selection = theme.selection().add_modifier(Modifier::BOLD);
-    let (title, cursor, edit, rows) = match popup {
-        PopupType::ColorGroupsDialog {
-            cursor_idx,
-            edit,
-            theme: edited,
-        } => {
-            let rows = COLOR_PROPS
-                .iter()
-                .map(|prop| ColorRow {
-                    label: format!("{:<20}", prop.name),
-                    color: (prop.get)(edited).clone(),
-                    style: theme.popup_fg(),
-                    selected: selection,
-                })
-                .collect::<Vec<_>>();
-            (t("color_groups_title"), *cursor_idx, edit, rows)
-        }
-        PopupType::FilesHighlightingDialog {
-            cursor_idx,
-            edit,
-            rules,
-        } => {
-            // Each rule is shown in its own color.
-            let rows = rules
-                .iter()
-                .map(|rule| {
-                    let fg = parse_color(&rule.color);
-                    ColorRow {
-                        label: format!("{:<30}", rule.mask),
-                        color: rule.color.clone(),
-                        style: Style::default().bg(theme.popup_bg).fg(fg),
-                        selected: Style::default()
-                            .bg(theme.selection_bg)
-                            .fg(fg)
-                            .add_modifier(Modifier::BOLD),
-                    }
-                })
-                .collect::<Vec<_>>();
-            (t("files_highlighting_title"), *cursor_idx, edit, rows)
-        }
-        _ => return false,
-    };
-    let border = kit::fg(theme.popup_border);
-    let inner = kit::frame_in(f, centered_rect_in(60, 60, size), title, border, theme);
-    let lines = color_lines(&rows, cursor, edit.as_ref(), inner.height as usize);
+impl DialogView for ColorGroupsDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let theme = cx.theme;
+        let selection = theme.selection().add_modifier(Modifier::BOLD);
+        let rows = COLOR_PROPS
+            .iter()
+            .map(|prop| ColorRow {
+                label: format!("{:<20}", prop.name),
+                color: (prop.get)(&self.theme).clone(),
+                style: theme.popup_fg(),
+                selected: selection,
+            })
+            .collect::<Vec<_>>();
+        let list = ColorList {
+            title: t("color_groups_title"),
+            cursor: self.cursor_idx,
+            edit: self.edit.as_ref(),
+            rows,
+        };
+        render_color_list(f, cx, &list);
+    }
+}
+
+impl DialogView for FilesHighlightingDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let theme = cx.theme;
+        // Each rule is shown in its own color.
+        let rows = self
+            .rules
+            .iter()
+            .map(|rule| {
+                let fg = parse_color(&rule.color);
+                ColorRow {
+                    label: format!("{:<30}", rule.mask),
+                    color: rule.color.clone(),
+                    style: Style::default().bg(theme.popup_bg).fg(fg),
+                    selected: Style::default()
+                        .bg(theme.selection_bg)
+                        .fg(fg)
+                        .add_modifier(Modifier::BOLD),
+                }
+            })
+            .collect::<Vec<_>>();
+        let list = ColorList {
+            title: t("files_highlighting_title"),
+            cursor: self.cursor_idx,
+            edit: self.edit.as_ref(),
+            rows,
+        };
+        render_color_list(f, cx, &list);
+    }
+}
+
+/// What both dialogs show: title, rows, cursor and the color being typed.
+struct ColorList<'a> {
+    title: String,
+    cursor: usize,
+    edit: Option<&'a TextField>,
+    rows: Vec<ColorRow>,
+}
+
+fn render_color_list(f: &mut Frame, cx: &ViewCtx<'_>, list: &ColorList<'_>) {
+    let border = kit::fg(cx.theme.popup_border);
+    let area = centered_rect_in(60, 60, cx.area);
+    let inner = kit::frame_in(f, area, list.title.clone(), border, cx.theme);
+    let lines = color_lines(&list.rows, list.cursor, list.edit, inner.height as usize);
     f.render_widget(Paragraph::new(lines), inner);
-    register_rows(inner, &rows, cursor, edit.is_some());
-    true
+    register_rows(inner, &list.rows, list.cursor, list.edit.is_some());
 }
 
 /// Rows take clicks (double click edits); the `<` and `>` around a color

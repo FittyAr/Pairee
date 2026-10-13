@@ -15,6 +15,12 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph, Wrap},
 };
 
+/// The quick view takes the place of the passive panel
+/// (`ui::screens::render_side`), so its dialog entry paints nothing itself.
+impl crate::ui::popup::view::DialogView for crate::app::state::popup::QuickViewDialog {
+    fn render(&self, _f: &mut Frame, _cx: &crate::ui::popup::view::ViewCtx<'_>) {}
+}
+
 /// Renders a quick-view panel showing the text or image content of a file, or a custom plugin widget.
 /// Called when `state.panels.quick_view_active` is true; renders into the passive panel area.
 ///

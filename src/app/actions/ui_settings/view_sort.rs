@@ -1,6 +1,9 @@
 //! View mode and sorting actions for UI settings.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::SortModesDialog;
+use crate::app::state::popup::YaziSortPopup;
+use crate::app::state::popup::YaziViewPopup;
 use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::keybindings::Action;
 
@@ -34,8 +37,8 @@ fn set_active_view_mode(state: &mut AppState, mode: PanelViewMode, show_hidden: 
 /// The one-key sort and view-mode pickers (yazi workflow `s` / `v`).
 pub fn open_picker(state: &mut AppState, action: &Action) -> bool {
     let popup = match action {
-        Action::SortMenu => PopupType::YaziSortPopup,
-        Action::ViewModeMenu => PopupType::YaziViewPopup,
+        Action::SortMenu => PopupType::YaziSortPopup(YaziSortPopup),
+        Action::ViewModeMenu => PopupType::YaziViewPopup(YaziViewPopup),
         _ => return false,
     };
     state.dialogs.replace(popup);
@@ -111,7 +114,7 @@ pub fn handle_view_sort_action(
         Action::SortModes => {
             let current = state.get_active_panel().sort_field;
             let reverse = state.get_active_panel().sort_reverse;
-            state.dialogs.replace(PopupType::SortModesDialog {
+            state.dialogs.replace(SortModesDialog {
                 current,
                 reverse,
                 cursor_idx: 0,

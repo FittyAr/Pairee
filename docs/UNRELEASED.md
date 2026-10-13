@@ -9,6 +9,8 @@
 - Git: fetch, pull and push now work with SSH remotes (`git@...`), using ssh-agent or your default keys in `~/.ssh`.
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.
 - Secure Mode can be toggled in the Plugin Manager (`s`); trust, enable and Secure Mode changes apply at once by reloading the plugins.
+- Secure Mode can also be switched in the configuration dialog (Plugins tab); OK applies it at once, like the Plugin Manager.
+- Setting "Overwritten files go to the Recycle Bin" (System tab, `transfer_trash_replaced`, on by default) decides whether a file replaced by a copy or move is sent to the trash first.
 - SSH preset passwords are stored in the system keyring; passwords found in `config.toml` are moved there automatically.
 - Plugin registry files are checked against minisign signatures; unsigned registry files show a warning and can be refused with `[security] registry_require_signature`.
 - The Copy / Move dialog options now work: "Copy files access mode" keeps permissions (Unix) or the access control list (Windows), "Produce sparse files" leaves runs of zeros as holes, "Use copy on write" clones the data instantly where the file system supports it (Btrfs, XFS, APFS, ReFS) and copies normally elsewhere, and "Process multiple destinations" copies to every `;`-separated destination (a move copies to all and moves to the last).
@@ -24,6 +26,9 @@
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
 
 ### Improved
+- A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
+- The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
+- Git text prompts (commit message, branch / tag / stash names, add remote, clone) accept pasted text, and keys of the `[list]` keymap no longer turn typed letters into list moves there.
 - Files added to a zip, tar or 7z archive keep their permissions and modification time, and extracting zip and 7z archives restores the stored Unix permissions.
 - Moving files or folders within one drive is instant: they are renamed instead of copied and deleted. Moves to another drive, moves with "Verify after copy" and filtered moves still copy.
 - Copies and moves to and from SSH servers now ask (or follow the setting) when a file exists, retry failed files, verify copies, keep times and permissions, and write each file under a temporary name first.

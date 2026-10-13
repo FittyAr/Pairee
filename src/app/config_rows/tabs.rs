@@ -6,6 +6,7 @@ pub fn system() -> Vec<Row> {
     vec![
         title("File Operations"),
         toggle!("sys_delete_recycle", delete_to_recycle_bin),
+        toggle!("sys_trash_replaced", transfer.trash_replaced),
         title("History"),
         toggle!("sys_save_cmd_hist", save_commands_history),
         toggle!("sys_save_folder_hist", save_folders_history),

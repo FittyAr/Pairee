@@ -26,7 +26,7 @@ pub fn calculate_layout(
     let settings = &config.settings;
     let menu_active = matches!(
         state.dialogs.top(),
-        Some(crate::app::state::PopupType::Menu { .. })
+        Some(crate::app::state::PopupType::Menu(_))
     );
     // A menu bar that is not always shown lies over the top row while a
     // menu is open (as in Far), so opening it never moves the panels.

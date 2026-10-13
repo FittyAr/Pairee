@@ -60,7 +60,7 @@ fn stage_commit_and_log() {
 
         // Close the confirmation, then the log tab lists the commit.
         while !matches!(h.state.dialogs.top(), Some(PopupType::GitPanel(_))) {
-            assert!(h.state.dialogs.is_some(), "git panel closed");
+            assert!(h.state.dialogs.is_open(), "git panel closed");
             h.keys("Esc");
         }
         h.keys("Tab");
@@ -69,6 +69,6 @@ fn stage_commit_and_log() {
         });
         h.assert_screen("primer commit");
         h.keys("Esc");
-        assert!(h.state.dialogs.is_none());
+        assert!(h.state.dialogs.is_empty());
     }
 }

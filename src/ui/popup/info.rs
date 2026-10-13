@@ -1,6 +1,7 @@
 use super::centered_rect_in;
-use crate::app::state::PopupType;
+use crate::app::state::popup::{FileAttributesDialog, InfoPanel};
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -9,36 +10,36 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-pub fn render_info_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    match popup {
-        PopupType::InfoPanel { lines } => {
-            let area = centered_rect_in(55, 55, size);
-            f.render_widget(Clear, area);
+impl DialogView for InfoPanel {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let area = centered_rect_in(55, 55, cx.area);
+        f.render_widget(Clear, area);
 
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("info_panel_title"))
-                .style(Style::default().bg(theme.popup_bg));
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(t("info_panel_title"))
+            .style(Style::default().bg(cx.theme.popup_bg));
 
-            let text_lines: Vec<Line> = lines
-                .iter()
-                .map(|l| Line::from(Span::raw(format!(" {}", l))))
-                .collect();
+        let text_lines: Vec<Line> = self
+            .lines
+            .iter()
+            .map(|l| Line::from(Span::raw(format!(" {}", l))))
+            .collect();
 
-            let paragraph = Paragraph::new(text_lines)
-                .block(block)
-                .style(Style::default().fg(theme.popup_fg));
+        let paragraph = Paragraph::new(text_lines)
+            .block(block)
+            .style(Style::default().fg(cx.theme.popup_fg));
 
-            f.render_widget(paragraph, area);
-            true
-        }
-        PopupType::FileAttributesDialog { attrs, mode_input } => {
+        f.render_widget(paragraph, area);
+    }
+}
+
+impl DialogView for FileAttributesDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let FileAttributesDialog { attrs, mode_input } = self;
+        {
             let area = centered_rect_in(65, 45, size);
             f.render_widget(Clear, area);
 
@@ -89,9 +90,7 @@ pub fn render_info_popup(
 
             f.render_widget(paragraph, area);
             register_readonly_row(area);
-            true
         }
-        _ => false,
     }
 }
 

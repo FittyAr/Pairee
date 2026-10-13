@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::state::popup::InfoPanel;
 use crate::config::AppConfig;
 use crate::config::settings::TabExpansion;
 
@@ -46,6 +47,19 @@ fn toggles_flip_their_flags_and_render_checkboxes() {
 }
 
 #[test]
+fn secure_mode_and_trash_replaced_rows_flip_their_settings() {
+    let mut s = draft();
+    assert!(!s.secure_mode);
+    activate(4, "cfg_secure_mode", &mut s);
+    assert!(s.secure_mode);
+    assert!(s.transfer.trash_replaced, "on by default");
+    activate(0, "sys_trash_replaced", &mut s);
+    assert!(!s.transfer.trash_replaced);
+    let options = crate::fs::transfer::options_from_settings::transfer_options_from_settings(&s);
+    assert!(!options.trash_replaced, "the transfer options follow it");
+}
+
+#[test]
 fn cycles_and_nested_fields() {
     let mut s = draft();
     activate(5, "ed_expand_tabs", &mut s);
@@ -81,7 +95,7 @@ fn view_keymap_issues_opens_info_panel() {
     let mut s = draft();
     match activate(2, "int_keymap_view", &mut s) {
         Activation::Open(popup) => {
-            let PopupType::InfoPanel { lines } = *popup else {
+            let PopupType::InfoPanel(InfoPanel { lines }) = *popup else {
                 panic!("expected InfoPanel");
             };
             assert!(

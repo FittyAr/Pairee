@@ -1,7 +1,10 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::popup::SearchKey;
+use crate::app::state::popup::ViewerEncoding;
+use crate::app::state::popup::{Dialog, KeyHandler, ViewerSearchPrompt};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::fs::text::ENCODINGS;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -22,7 +25,7 @@ pub fn handle(
                 state.search_viewer(query, case_sensitive);
             }
         },
-        Some(PopupType::ViewerEncoding { cursor_idx }) => {
+        Some(PopupType::ViewerEncoding(ViewerEncoding { cursor_idx })) => {
             match list_key(ListKeys::FULL, key.code, cursor_idx, ENCODINGS.len()) {
                 ListKey::Moved | ListKey::Other => {}
                 ListKey::Close => state.dialogs.clear(),
@@ -48,7 +51,23 @@ pub fn open_encoding_selector(state: &mut AppState) {
     };
     let current = vw.doc.encoding();
     let cursor_idx = ENCODINGS.iter().position(|e| *e == current).unwrap_or(0);
-    state
-        .dialogs
-        .replace(PopupType::ViewerEncoding { cursor_idx });
+    state.dialogs.replace(ViewerEncoding { cursor_idx });
+}
+
+impl Dialog for ViewerSearchPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        (self.cursor_idx == 0).then_some(&mut self.0.query)
+    }
+}
+
+impl Dialog for ViewerEncoding {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
 }

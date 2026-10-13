@@ -1,4 +1,7 @@
 use super::{AppState, PopupType};
+use crate::app::state::popup::CommandHistoryList;
+use crate::app::state::popup::FileViewHistoryList;
+use crate::app::state::popup::FoldersHistoryList;
 use crate::config::history::HistoryStore;
 use std::path::PathBuf;
 
@@ -37,18 +40,18 @@ impl HistoryKind {
     /// The history popup for this list with the cursor on `cursor_idx`.
     pub fn list_popup(self, history: &HistoryState, cursor_idx: usize) -> PopupType {
         match self {
-            Self::Commands => PopupType::CommandHistoryList {
+            Self::Commands => PopupType::CommandHistoryList(CommandHistoryList {
                 entries: history.commands.clone(),
                 cursor_idx,
-            },
-            Self::ViewedFiles => PopupType::FileViewHistoryList {
+            }),
+            Self::ViewedFiles => PopupType::FileViewHistoryList(FileViewHistoryList {
                 entries: history.viewed_files.clone(),
                 cursor_idx,
-            },
-            Self::Folders => PopupType::FoldersHistoryList {
+            }),
+            Self::Folders => PopupType::FoldersHistoryList(FoldersHistoryList {
                 entries: history.folders.clone(),
                 cursor_idx,
-            },
+            }),
         }
     }
 }
@@ -57,18 +60,18 @@ impl PopupType {
     /// Kind, cursor and length of an open history list popup.
     pub fn history_list_mut(&mut self) -> Option<(HistoryKind, &mut usize, usize)> {
         match self {
-            PopupType::CommandHistoryList {
+            PopupType::CommandHistoryList(CommandHistoryList {
                 entries,
                 cursor_idx,
-            } => Some((HistoryKind::Commands, cursor_idx, entries.len())),
-            PopupType::FileViewHistoryList {
+            }) => Some((HistoryKind::Commands, cursor_idx, entries.len())),
+            PopupType::FileViewHistoryList(FileViewHistoryList {
                 entries,
                 cursor_idx,
-            } => Some((HistoryKind::ViewedFiles, cursor_idx, entries.len())),
-            PopupType::FoldersHistoryList {
+            }) => Some((HistoryKind::ViewedFiles, cursor_idx, entries.len())),
+            PopupType::FoldersHistoryList(FoldersHistoryList {
                 entries,
                 cursor_idx,
-            } => Some((HistoryKind::Folders, cursor_idx, entries.len())),
+            }) => Some((HistoryKind::Folders, cursor_idx, entries.len())),
             _ => None,
         }
     }

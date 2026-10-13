@@ -93,7 +93,7 @@ fn f2_saves_and_shift_f2_opens_save_as() {
     press_mod(&mut state, &mut context, KeyCode::F(2), KeyModifiers::SHIFT);
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::EditorSaveAsPrompt { .. })
+        Some(PopupType::EditorSaveAsPrompt(_))
     ));
 }
 

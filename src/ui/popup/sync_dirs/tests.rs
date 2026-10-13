@@ -1,6 +1,7 @@
 //! TestBackend rendering of the Synchronize folders dialog.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::FolderScanProgress;
 use crate::app::state::popup::SyncDialog;
 use crate::app::state::{AppState, PopupType};
 use crate::config::AppConfig;
@@ -104,7 +105,7 @@ fn empty_review_and_progress_popup_render() {
     let mut state = state_with(dialog);
     assert!(screen(&state).contains("[Esc]"));
 
-    state.dialogs.push(PopupType::FolderScanProgress);
+    state.dialogs.push(FolderScanProgress);
     let counts = t("sync_scan_progress").replacen("{}", "0", 2);
     assert!(screen(&state).contains(counts.trim()));
 }

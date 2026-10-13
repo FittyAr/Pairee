@@ -69,7 +69,7 @@ fn checked_out_branch(
         None => {
             state
                 .dialogs
-                .replace(PopupType::Error(t("git_error_detached_head_operation")));
+                .replace(PopupType::error(t("git_error_detached_head_operation")));
             None
         }
     }

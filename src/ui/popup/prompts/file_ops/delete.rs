@@ -1,6 +1,7 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::ConfirmDelete;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_fixed;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -8,18 +9,14 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    if let PopupType::ConfirmDelete {
-        paths,
-        cursor_idx,
-        to_trash,
-    } = popup
-    {
+impl DialogView for ConfirmDelete {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let ConfirmDelete {
+            paths,
+            cursor_idx,
+            to_trash,
+        } = self;
         let area = centered_rect_fixed(50, 8, size);
         f.render_widget(Clear, area);
 
@@ -86,9 +83,6 @@ pub fn render(
         );
 
         render_buttons(f, chunks[1], *cursor_idx, theme);
-        true
-    } else {
-        false
     }
 }
 

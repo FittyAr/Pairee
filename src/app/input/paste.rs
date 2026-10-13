@@ -5,7 +5,7 @@ use crate::app::text_input::first_paste_line;
 /// Insert a paste into the focused text field, the editor screen (every
 /// line), or the CLI when no overlay is open.
 pub fn handle_paste(state: &mut AppState, raw: &str) {
-    if state.dialogs.is_none()
+    if state.dialogs.is_empty()
         && (crate::app::screen_input::editor::paste_into_editor(state, raw)
             || crate::app::screen_input::terminal::paste_into_terminal(state, raw))
     {
@@ -15,7 +15,7 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
     if line.is_empty() {
         return;
     }
-    if state.dialogs.is_some() {
+    if state.dialogs.is_open() {
         if let Some(popup) = state.dialogs.top_mut() {
             let _ = popup.apply_paste(&line);
         }
@@ -28,6 +28,9 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
 mod paste_tests {
     use super::*;
     use crate::app::state::PopupType;
+    use crate::app::state::popup::ApplyCommandPrompt;
+    use crate::app::state::popup::ConfirmQuit;
+    use crate::app::state::popup::RenamePrompt;
     use std::path::PathBuf;
 
     #[test]
@@ -40,7 +43,7 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_rename_prompt() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::RenamePrompt {
+        state.dialogs.replace(RenamePrompt {
             input: "old".into(),
             original: "old".into(),
             src_path: PathBuf::from("old"),
@@ -49,7 +52,7 @@ mod paste_tests {
         });
         handle_paste(&mut state, "new-name.txt\n");
         match state.dialogs.top() {
-            Some(PopupType::RenamePrompt { input, .. }) => {
+            Some(PopupType::RenamePrompt(RenamePrompt { input, .. })) => {
                 assert_eq!(input, "oldnew-name.txt");
             }
             other => panic!("expected rename prompt, got {other:?}"),
@@ -60,7 +63,7 @@ mod paste_tests {
     #[test]
     fn paste_ignored_on_non_text_dialog() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::ConfirmQuit);
+        state.dialogs.replace(ConfirmQuit);
         handle_paste(&mut state, "should-not-land-in-cli");
         assert!(state.cli.field.is_empty());
     }
@@ -68,13 +71,13 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_apply_command() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::ApplyCommandPrompt {
+        state.dialogs.replace(ApplyCommandPrompt {
             input: "echo ".into(),
             targets: vec![],
         });
         handle_paste(&mut state, "%f\r\nmore");
         match state.dialogs.top() {
-            Some(PopupType::ApplyCommandPrompt { input, .. }) => {
+            Some(PopupType::ApplyCommandPrompt(ApplyCommandPrompt { input, .. })) => {
                 assert_eq!(input, "echo %f");
             }
             other => panic!("expected apply prompt, got {other:?}"),

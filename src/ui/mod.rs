@@ -89,7 +89,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     }
 
     // 3c. A hidden menu bar shows up when the pointer reaches the top row.
-    if layout.menu_rect.height == 0 && state.dialogs.is_none() {
+    if layout.menu_rect.height == 0 && state.dialogs.is_empty() {
         hit::register(
             Rect {
                 height: 1,
@@ -106,7 +106,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     popup::render_popup(f, state, context, layout.left_rect, layout.right_rect);
 
     // 4b. Prefix HUD for in-progress multi-key sequences (not a second keymap).
-    if state.dialogs.is_none() {
+    if state.dialogs.is_empty() {
         which_key_prefix::render(f, context, f.area());
     }
 

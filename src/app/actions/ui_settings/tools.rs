@@ -1,6 +1,17 @@
 //! Tools, screens, and auxiliary dialog actions for UI settings.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::FileAssociationsDialog;
+use crate::app::state::popup::FilePanelFilterPrompt;
+use crate::app::state::popup::FolderShortcuts;
+use crate::app::state::popup::Hotlist;
+use crate::app::state::popup::QuickFilterPrompt;
+use crate::app::state::popup::SaveSetupConfirm;
+use crate::app::state::popup::ScreensMenu;
+use crate::app::state::popup::SearchPrompt;
+use crate::app::state::popup::TaskListDialog;
+use crate::app::state::popup::TransferPanel;
+use crate::app::state::popup::UpdateAvailable;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
@@ -22,28 +33,28 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::EditUserMenu => edit_user_menu(state, context),
         Action::FileAssociations => {
             let config = crate::config::associations::AssociationsConfig::load();
-            state.dialogs.replace(PopupType::FileAssociationsDialog {
-                rules: config.rules,
-                cursor_idx: 0,
-                editing_idx: None,
-                editing_field: 0,
-                edit_buffer: Default::default(),
-                original_rule: None,
-            });
-        }
-        Action::FolderShortcutsConfig => {
             state
                 .dialogs
-                .replace(PopupType::FolderShortcuts { cursor_idx: 0 });
+                .replace(PopupType::FileAssociationsDialog(FileAssociationsDialog {
+                    rules: config.rules,
+                    cursor_idx: 0,
+                    editing_idx: None,
+                    editing_field: 0,
+                    edit_buffer: Default::default(),
+                    original_rule: None,
+                }));
+        }
+        Action::FolderShortcutsConfig => {
+            state.dialogs.replace(FolderShortcuts { cursor_idx: 0 });
         }
         Action::Hotlist => {
             let entries = crate::config::bookmarks::BookmarksFile::load().hotlist_entries();
-            state.dialogs.replace(PopupType::Hotlist {
+            state.dialogs.replace(Hotlist {
                 entries,
                 cursor_idx: 0,
             });
         }
-        Action::SaveSetup => state.dialogs.replace(PopupType::SaveSetupConfirm),
+        Action::SaveSetup => state.dialogs.replace(SaveSetupConfirm),
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
                 crate::app::state::ConfigurationDialogState::new(&context.config, 0, 0, true),
@@ -58,28 +69,28 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
 fn panel_prompt_action(state: &mut AppState, action: &Action) -> bool {
     let active = state.get_active_panel();
     let popup = match action {
-        Action::FilePanelFilter => PopupType::FilePanelFilterPrompt {
+        Action::FilePanelFilter => PopupType::FilePanelFilterPrompt(FilePanelFilterPrompt {
             input: active.filter_mask.clone().unwrap_or_default().into(),
-        },
-        Action::QuickFilter => PopupType::QuickFilterPrompt {
+        }),
+        Action::QuickFilter => PopupType::QuickFilterPrompt(QuickFilterPrompt {
             input: active.quick_filter_mask.clone().unwrap_or_default().into(),
             original_mask: active.quick_filter_mask.clone(),
             original_cursor: active.cursor_index,
-        },
-        Action::FindFile => PopupType::SearchPrompt {
+        }),
+        Action::FindFile => PopupType::SearchPrompt(SearchPrompt {
             query: Default::default(),
             content_query: Default::default(),
             search_root: active.current_path.clone(),
             case_sensitive: false,
             search_target: crate::fs::search::SearchTarget::Any,
             cursor_idx: 0,
-        },
-        Action::TaskList => PopupType::TaskListDialog {
+        }),
+        Action::TaskList => PopupType::TaskListDialog(TaskListDialog {
             tasks: get_process_list(),
             cursor_idx: 0,
             filter_query: Default::default(),
             is_filtering: false,
-        },
+        }),
         _ => return false,
     };
     state.dialogs.replace(popup);
@@ -90,15 +101,12 @@ fn panel_prompt_action(state: &mut AppState, action: &Action) -> bool {
 fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) -> bool {
     match action {
         Action::ScreensList => {
-            let suspended = state.dialogs.take();
-            state.dialogs.replace(PopupType::ScreensMenu {
-                cursor_idx: state.screens.active_index(),
-                suspended_popup: suspended.map(Box::new),
-            });
+            let cursor_idx = state.screens.active_index();
+            state.dialogs.push(ScreensMenu { cursor_idx });
         }
         Action::NextScreen => state.next_screen(),
         Action::PrevScreen => state.prev_screen(),
-        Action::VideoMode => state.dialogs.replace(PopupType::Info(t("video_mode_hint"))),
+        Action::VideoMode => state.dialogs.replace(PopupType::info(t("video_mode_hint"))),
         Action::CycleFKeysModifiers => cycle_fkeys_modifiers(state),
         Action::CheckForUpdates => check_for_updates(state),
         Action::CommandPalette => crate::app::actions::command_palette::open_palette(state),
@@ -130,7 +138,7 @@ fn edit_user_menu(state: &mut AppState, context: &AppContext) {
     if !path.exists()
         && let Err(e) = std::fs::write(&path, USER_MENU_TEMPLATE)
     {
-        state.dialogs.replace(PopupType::Error(
+        state.dialogs.replace(PopupType::error(
             t("error_read_usermenu_failed").replace("{}", &e.to_string()),
         ));
         return;
@@ -152,13 +160,15 @@ fn cycle_fkeys_modifiers(state: &mut AppState) {
 /// Shows a known update, or starts a fresh check (dropping the cache).
 fn check_for_updates(state: &mut AppState) {
     if let Some(info) = state.update.available.clone() {
-        state.dialogs.replace(PopupType::UpdateAvailable {
-            info,
-            cursor_idx: 0,
-            install_progress: None,
-            error: None,
-            scroll_y: 0,
-        });
+        state
+            .dialogs
+            .replace(PopupType::UpdateAvailable(UpdateAvailable {
+                info,
+                cursor_idx: 0,
+                install_progress: None,
+                error: None,
+                scroll_y: 0,
+            }));
         return;
     }
     let cache = crate::config::paths::get_config_dir().join("update_cache.json");
@@ -167,7 +177,7 @@ fn check_for_updates(state: &mut AppState) {
     crate::update::checker::UpdateChecker::check_in_background(tx);
     state.update.check_rx = Some(rx);
     state.update.status = crate::update::UpdateStatus::Checking;
-    state.dialogs.replace(PopupType::Info(t("update_checking")));
+    state.dialogs.replace(PopupType::info(t("update_checking")));
 }
 
 /// Expands a hidden/minimized transfer panel, or minimizes an expanded one.
@@ -176,13 +186,13 @@ fn toggle_transfer_panel(state: &mut AppState) {
     let Some(ref mut ts) = state.transfer else {
         state
             .dialogs
-            .replace(PopupType::Info(t("transfer_no_active")));
+            .replace(PopupType::info(t("transfer_no_active")));
         return;
     };
     match ts.view_mode {
         TransferViewMode::Hidden | TransferViewMode::Minimized => {
             ts.view_mode = TransferViewMode::Expanded;
-            state.dialogs.replace(PopupType::TransferPanel);
+            state.dialogs.replace(TransferPanel);
         }
         TransferViewMode::Expanded => {
             ts.view_mode = TransferViewMode::Minimized;

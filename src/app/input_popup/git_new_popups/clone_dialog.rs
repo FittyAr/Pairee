@@ -1,7 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::form::FieldKey;
-use crate::app::state::popup::GitPromptPopup;
+use crate::app::state::popup::{Dialog, GitClonePromptState, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::keybindings::actions::Action;
 use crossterm::event::KeyEvent;
@@ -11,8 +12,7 @@ pub fn handle_clone(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::GitPrompt(GitPromptPopup::ClonePrompt(clone))) = state.dialogs.top_mut()
-    else {
+    let Some(PopupType::GitClonePrompt(clone)) = state.dialogs.top_mut() else {
         return Err(());
     };
     match clone.fields.handle_key(&key) {
@@ -31,7 +31,7 @@ pub fn handle_clone(
             if target.exists() {
                 state
                     .dialogs
-                    .replace(PopupType::Error(t("git_clone_dir_exists")));
+                    .replace(PopupType::error(t("git_clone_dir_exists")));
                 return Ok(None);
             }
             state.start_git_op(
@@ -52,6 +52,16 @@ fn repo_dir_name(url: &str) -> String {
     match clean.split(['/', ':', '\\']).next_back() {
         Some(last) if !last.is_empty() => last.to_string(),
         _ => "repo".to_string(),
+    }
+}
+
+impl Dialog for GitClonePromptState {
+    fn key_handler(&self) -> KeyHandler {
+        handle_clone
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        let focus = self.fields.focus;
+        self.fields.fields.get_mut(focus)
     }
 }
 

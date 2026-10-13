@@ -16,7 +16,7 @@ pub fn render_remote_manage(
     state: &GitRemoteManageState,
     theme: &ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let inner = kit::frame_in(
         f,
         centered_rect_in(70, 60, size),
@@ -66,6 +66,4 @@ pub fn render_remote_manage(
     }
 
     f.render_widget(kit::hint(t("git_remote_manage_hint")), chunks[1]);
-
-    true
 }

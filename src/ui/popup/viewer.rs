@@ -1,31 +1,26 @@
 //! Find dialog shared by the viewer (F7) and the editor (Ctrl+F / F7), and
 //! the viewer's encoding selector (F8).
 
-use crate::app::state::PopupType;
 use crate::app::state::popup::TextSearchState as Search;
+use crate::app::state::popup::{ViewerEncoding, ViewerSearchPrompt};
 use crate::config::localization::t;
 use crate::fs::text::ENCODINGS;
 use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, list_area, marked};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
 };
 
-pub fn render_viewer_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    match popup {
-        PopupType::ViewerSearchPrompt(search) => {
-            render_search(f, "viewer_search_title", search, theme, size)
-        }
-        PopupType::ViewerEncoding { cursor_idx } => {
-            render_encodings(f, *cursor_idx, theme, size);
-            true
-        }
-        _ => false,
+impl DialogView for ViewerSearchPrompt {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render_search(f, "viewer_search_title", self, cx.theme, cx.area);
+    }
+}
+
+impl DialogView for ViewerEncoding {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render_encodings(f, self.cursor_idx, cx.theme, cx.area);
     }
 }
 
@@ -65,7 +60,7 @@ pub fn render_search(
     search: &Search,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let border = kit::fg(theme.popup_border);
     let inner = kit::dialog_frame(f, size, (50, 9), t(title_key), border, theme);
     let chunks = Layout::default()
@@ -108,5 +103,4 @@ pub fn render_search(
         focus,
         styles,
     );
-    true
 }

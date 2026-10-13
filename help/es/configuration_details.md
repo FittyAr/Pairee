@@ -13,6 +13,8 @@ Esta pestaña controla el procesamiento de archivos, el registro del historial, 
 ### Operaciones de Archivo
 * **Delete to Recycle Bin (Eliminar a la Papelera):**
   - *Descripción:* Cuando está habilitado, los archivos eliminados se mueven a la papelera del sistema. Si está desactivado, se eliminan permanentemente.
+* **Los archivos sobrescritos van a la papelera:**
+  - *Descripción:* Cuando una copia o un movimiento reemplaza un archivo existente, el archivo anterior se envía antes a la papelera, de modo que deshacer la operación lo recupera. Desactívelo para reemplazar los archivos directamente (`transfer_trash_replaced` en `config.toml`; activado por defecto).
 
 ### Funciones opcionales
 * **SSH / SFTP:** muestra Conectar SSH en los menús de panel.
@@ -144,6 +146,7 @@ Ajusta qué acciones requieren mostrar una ventana de advertencia antes de lleva
 * **Main language (Idioma principal):** Permite cambiar el archivo de traducción activo leyendo las configuraciones `.toml` de la carpeta `/lang`.
 
 ### Plugins
+* **Modo Seguro para todos los plugins:** Ejecuta todos los plugins con las restricciones del Modo Seguro (el mismo interruptor que `s` en el Gestor de plugins). Al pulsar Aceptar se guarda y los plugins se recargan en el acto.
 * **Modo desarrollador de plugins:** Activa las herramientas de desarrollo de plugins (carpeta de desarrollo y plugin de prueba).
 
 ---

@@ -1,45 +1,76 @@
-//! Overlay dialogs. Family payloads live beside the enum so PopupType
-//! stays a thin tag; the heaviest variant (quick-view image) is boxed.
+//! Overlay dialogs. Each dialog is a type implementing [`Dialog`];
+//! `PopupType` is the closed set of them, generated from `dialog_list!`.
+//! The heaviest ones (quick-view image, multi-rename) are boxed.
 
 mod config_dialog;
+mod confirm;
+mod dialog;
+mod editor_viewer;
 mod file_ops;
+mod filters;
 pub mod forms;
 mod git_panel;
 mod git_prompts;
-mod mouse;
+mod menus;
+mod messages;
 mod multi_rename;
 mod paste;
 mod plugin;
 mod plugin_menu;
 mod plugin_widget;
+mod prompts;
 mod quickview;
+mod settings;
 mod ssh;
 pub mod sync;
 mod text_search;
+mod tools;
 
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
+pub use confirm::{
+    ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
+    ConfirmRetryAsAdmin, ConfirmUndo, SaveSetupConfirm,
+};
+use dialog::define_popup_type;
+pub use dialog::{Dialog, DialogKind, DialogScroll, KeyHandler, KeyOutcome};
+pub use editor_viewer::{
+    EditorConfirmOverwrite, EditorSaveAsPrompt, EditorSearchPrompt, ViewerEncoding,
+    ViewerSearchPrompt,
+};
 pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp, split_multiple};
+pub use filters::{
+    FilePanelFilterPrompt, PanelSearch, QuickFilterPrompt, RenameTabPrompt, SearchPrompt,
+    SearchResults,
+};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,
-    GitDiffViewState, GitNameAction, GitNamePromptState, GitPromptPopup, GitRemoteAddState,
+    GitDiffViewState, GitNameAction, GitNamePromptState, GitProgress, GitRemoteAddState,
     GitRemoteManageState,
 };
+pub use menus::{
+    ArchiveCommandsMenu, CommandPalette, ContextMenu, DriveSelect, FolderShortcuts, Hotlist, Menu,
+    OnboardingKeymap, ScreensMenu, SortModesDialog, UserMenu, YaziSortPopup, YaziViewPopup,
+};
+pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
-pub use plugin_menu::PluginMenuState;
+pub use plugin_menu::{PluginMenuState, SelectDevPlugin};
 pub use plugin_widget::PluginWidget;
+pub use prompts::{
+    ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
+    DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,
+};
 pub use quickview::QuickViewDialog;
+pub use settings::{ColorGroupsDialog, FilesHighlightingDialog, UpdateAvailable};
 pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
-
-use super::types::{
-    ActivePanel, AdminOpKind, FileAttrsSnapshot, LinkKind, ProcessEntry, SelectMode, SortField,
-    TreeNode, TreeViewCaller,
+pub use tools::{
+    CommandHistoryList, CompareFoldersResult, DiskUsage, FileAssociationsDialog,
+    FileAttributesDialog, FileViewHistoryList, FolderScanProgress, FoldersHistoryList,
+    TaskListDialog, TransferPanel, TreeView,
 };
-use crate::app::text_input::TextField;
-use std::path::PathBuf;
 
 /// What the create prompt makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,301 +82,106 @@ pub enum CreateKind {
     Auto,
 }
 
-#[derive(Debug, Clone)]
-pub enum PopupType {
-    Help {
-        mode: usize,                         // 0 = list focus, 1 = reader focus
-        docs: Vec<(String, PathBuf)>,        // Core docs
-        plugin_docs: Vec<(String, PathBuf)>, // Plugin docs
-        active_tab: usize,                   // 0 = Core Help, 1 = Plugins Help
-        cursor_idx: usize,
-        scroll_y: usize,
-        active_content: Option<String>,
-    },
-    About {
-        scroll_y: usize,
-    },
-    Error(String),
-    Info(String),
-
-    /// In-panel search (`find_in_panel`, NC quick search).
-    PanelSearch {
-        query: TextField,
-        how: crate::app::input::panel_find::NameMatch,
-        /// Cursor when the search started.
-        origin: usize,
-    },
-    MkDirPrompt {
-        input: TextField,
-        cursor_idx: usize,
-        process_multiple: bool,
-        /// Folder (`mkdir`), file (`new_file`) or either (`create`).
-        kind: CreateKind,
-    },
-    /// Copy (F5) / Move (F6) dialog.
-    TransferPrompt(CopyMovePromptState),
-    RenamePrompt {
-        input: TextField,
-        original: String,
-        src_path: PathBuf,
-        parent_dir: PathBuf,
-        cursor_idx: usize,
-    },
-    /// Multi-rename tool (Shift+F6).
-    MultiRename(Box<MultiRenameState>),
-    ConfirmQuit,
-    /// Undo/redo of the newest journal entry: question and summary lines.
-    ConfirmUndo {
-        direction: crate::fs::journal::Direction,
-        lines: Vec<String>,
-    },
-    ConfirmInterrupt,
-    ConfirmReload,
-    ConfirmClearHistory {
-        history_type: String,
-    },
-    CompressPrompt {
-        input: TextField,
-        targets: Vec<PathBuf>,
-        dest_dir: PathBuf,
-    },
-    ApplyCommandPrompt {
-        input: TextField,
-        targets: Vec<PathBuf>,
-    },
-    DescribeFilePrompt {
-        path: PathBuf,
-        current_desc: String,
-        input: TextField,
-    },
-    SelectGroupPrompt {
-        mode: SelectMode,
-        query: TextField,
-    },
-    CreateLinkPrompt {
-        src: PathBuf,
-        dest_input: TextField,
-        kind: LinkKind,
-    },
-    FilePanelFilterPrompt {
-        input: TextField,
-    },
-    /// Title of a folder tab (empty: the folder name).
-    RenameTabPrompt {
-        tab: crate::app::state::TabId,
-        input: TextField,
-    },
-    QuickFilterPrompt {
-        input: TextField,
-        original_mask: Option<String>,
-        original_cursor: usize,
-    },
-    CopyMoveFilterPrompt {
-        input: TextField,
-        previous: Box<PopupType>,
-    },
-    SelectDevPlugin {
-        options: Vec<(String, String)>,
-        cursor_idx: usize,
-        previous_popup: Box<PopupType>,
-    },
-
-    ConfirmDelete {
-        paths: Vec<PathBuf>,
-        cursor_idx: usize,
-        /// Goes to the recycle bin (else deleted for good).
-        to_trash: bool,
-    },
-    WipeConfirm {
-        paths: Vec<PathBuf>,
-    },
-    ConfirmRetryAsAdmin {
-        paths: Vec<PathBuf>,
-        op_kind: AdminOpKind,
-    },
-    SaveSetupConfirm,
-
-    TransferPanel,
-
-    UserMenu {
-        cursor_idx: usize,
-    },
-    Menu {
-        active_menu_idx: usize,
-        active_item_idx: Option<usize>,
-        active_submenu_idx: Option<usize>,
-        active_submenu_item_idx: Option<usize>,
-    },
-    YaziSortPopup,
-    YaziViewPopup,
-    ContextMenu {
-        items: Vec<String>,
-        cursor_idx: usize,
-    },
-    DriveSelect {
-        panel: ActivePanel,
-        drives: Vec<String>,
-        cursor_idx: usize,
-    },
-    Hotlist {
-        entries: Vec<crate::config::bookmarks::HotlistEntry>,
-        cursor_idx: usize,
-    },
-    /// Folder shortcut slots 1–9 (contents live in `AppState::folder_shortcuts`).
-    FolderShortcuts {
-        cursor_idx: usize,
-    },
-    PluginMenu(PluginMenuState),
-
-    SortModesDialog {
-        current: SortField,
-        reverse: bool,
-        cursor_idx: usize,
-    },
-
-    ScreensMenu {
-        cursor_idx: usize,
-        suspended_popup: Option<Box<PopupType>>,
-    },
-
-    EditorSearchPrompt(TextSearchState),
-    ConfirmDiscardEditorChanges,
-    /// "Save as" path entry for the built-in editor (Shift+F2).
-    EditorSaveAsPrompt {
-        input: TextField,
-    },
-    /// Saving would overwrite a file changed on disk or an existing target.
-    EditorConfirmOverwrite {
-        target: PathBuf,
-        reason: crate::app::editor::open::OverwriteReason,
-    },
-    ViewerSearchPrompt(TextSearchState),
-    /// Encoding selector of the viewer (F8); the cursor indexes `fs::text::ENCODINGS`.
-    ViewerEncoding {
-        cursor_idx: usize,
-    },
-    QuickViewPanel(Box<QuickViewDialog>),
-
-    InfoPanel {
-        lines: Vec<String>,
-    },
-    FileAttributesDialog {
-        attrs: FileAttrsSnapshot,
-        mode_input: String,
-    },
-
-    SearchPrompt {
-        query: TextField,
-        content_query: TextField,
-        search_root: PathBuf,
-        case_sensitive: bool,
-        search_target: crate::fs::search::SearchTarget,
-        cursor_idx: usize,
-    },
-    SearchResults {
-        query: String,
-        results: Vec<(PathBuf, bool)>,
-        cursor_idx: usize,
-        searching: bool,
-    },
-
-    CommandHistoryList {
-        entries: Vec<String>,
-        cursor_idx: usize,
-    },
-    FileViewHistoryList {
-        entries: Vec<PathBuf>,
-        cursor_idx: usize,
-    },
-    FoldersHistoryList {
-        entries: Vec<PathBuf>,
-        cursor_idx: usize,
-    },
-
-    /// Disk usage view; its data lives in `AppState::disk_usage`.
-    DiskUsage,
-
-    CompareFoldersResult {
-        diff: Vec<crate::fs::compare::CompareEntry>,
-        cursor_idx: usize,
-    },
-    /// Recursive folder comparison running (Esc cancels).
-    FolderScanProgress,
-    /// Synchronize folders: options, then review of the differences.
-    SyncDirs(Box<SyncDialog>),
-
-    TaskListDialog {
-        tasks: Vec<ProcessEntry>,
-        cursor_idx: usize,
-        filter_query: TextField,
-        is_filtering: bool,
-    },
-
-    FileAssociationsDialog {
-        rules: Vec<crate::config::associations::AssocRule>,
-        cursor_idx: usize,
-        editing_idx: Option<usize>,
-        editing_field: usize, // 0 = mask, 1 = open_cmd, 2 = view_cmd
-        edit_buffer: TextField,
-        original_rule: Option<crate::config::associations::AssocRule>,
-    },
-
-    TreeView {
-        nodes: Vec<TreeNode>,
-        cursor_idx: usize,
-        caller: TreeViewCaller,
-    },
-
-    ArchiveCommandsMenu {
-        archive_path: PathBuf,
-        items: Vec<String>,
-        cursor_idx: usize,
-    },
-
-    ConfigurationDialog(ConfigurationDialogState),
-
-    ColorGroupsDialog {
-        cursor_idx: usize,
-        /// The color being typed (Enter), if any.
-        edit: Option<TextField>,
-        theme: crate::config::theme::Theme,
-    },
-    FilesHighlightingDialog {
-        cursor_idx: usize,
-        /// The color being typed (Enter), if any.
-        edit: Option<TextField>,
-        rules: Vec<crate::ui::highlight::HighlightRule>,
-    },
-
-    GitPanel(GitPanelState),
-    GitPrompt(GitPromptPopup),
-    /// Progress of the background Git network operation (`AppState::git_op`).
-    GitProgress {
-        title: String,
-    },
-
-    SshConnectPrompt(SshConnectPromptState),
-
-    UpdateAvailable {
-        info: crate::update::UpdateInfo,
-        cursor_idx: usize,
-        install_progress: Option<f32>,
-        error: Option<String>,
-        scroll_y: usize,
-    },
-
-    OnboardingKeymap {
-        cursor_idx: usize,
-    },
-
-    CommandPalette {
-        query: TextField,
-        cursor_idx: usize,
-        items: Vec<(String, crate::keybindings::Action)>,
-    },
-
-    /// Keyboard-shortcuts modal (`which_key`).
-    Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
-
-    Plugin(PluginDialog),
+/// Every overlay dialog, once, as `Variant(DialogType)`: `PopupType` (with
+/// its dispatch to [`Dialog`]) and the UI's painting dispatch
+/// (`ui::popup::view::render_dialog`) are generated from this list, so a
+/// new dialog is its type, its `Dialog` and `DialogView` impls and one line
+/// here.
+macro_rules! dialog_list {
+    ($then:ident) => {
+        $then! {
+            // Messages and questions
+            Help(Help),
+            About(About),
+            Error(ErrorMessage),
+            Info(InfoMessage),
+            InfoPanel(InfoPanel),
+            ConfirmQuit(ConfirmQuit),
+            ConfirmUndo(ConfirmUndo),
+            ConfirmInterrupt(ConfirmInterrupt),
+            ConfirmReload(ConfirmReload),
+            ConfirmDiscardEditorChanges(ConfirmDiscardEditorChanges),
+            ConfirmClearHistory(ConfirmClearHistory),
+            ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
+            SaveSetupConfirm(SaveSetupConfirm),
+            // File operations
+            MkDirPrompt(MkDirPrompt),
+            TransferPrompt(CopyMovePromptState),
+            RenamePrompt(RenamePrompt),
+            MultiRename(Box<MultiRenameState>),
+            CompressPrompt(CompressPrompt),
+            ApplyCommandPrompt(ApplyCommandPrompt),
+            DescribeFilePrompt(DescribeFilePrompt),
+            SelectGroupPrompt(SelectGroupPrompt),
+            CreateLinkPrompt(CreateLinkPrompt),
+            CopyMoveFilterPrompt(CopyMoveFilterPrompt),
+            ConfirmDelete(ConfirmDelete),
+            WipeConfirm(WipeConfirm),
+            // Panel prompts, Find file, editor and viewer
+            PanelSearch(PanelSearch),
+            FilePanelFilterPrompt(FilePanelFilterPrompt),
+            RenameTabPrompt(RenameTabPrompt),
+            QuickFilterPrompt(QuickFilterPrompt),
+            SearchPrompt(SearchPrompt),
+            SearchResults(SearchResults),
+            EditorSearchPrompt(EditorSearchPrompt),
+            EditorSaveAsPrompt(EditorSaveAsPrompt),
+            EditorConfirmOverwrite(EditorConfirmOverwrite),
+            ViewerSearchPrompt(ViewerSearchPrompt),
+            ViewerEncoding(ViewerEncoding),
+            // Menus and pickers
+            UserMenu(UserMenu),
+            Menu(Menu),
+            YaziSortPopup(YaziSortPopup),
+            YaziViewPopup(YaziViewPopup),
+            ContextMenu(ContextMenu),
+            DriveSelect(DriveSelect),
+            Hotlist(Hotlist),
+            FolderShortcuts(FolderShortcuts),
+            SortModesDialog(SortModesDialog),
+            ScreensMenu(ScreensMenu),
+            ArchiveCommandsMenu(ArchiveCommandsMenu),
+            CommandPalette(CommandPalette),
+            OnboardingKeymap(OnboardingKeymap),
+            Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
+            // Lists and tools
+            CommandHistoryList(CommandHistoryList),
+            FileViewHistoryList(FileViewHistoryList),
+            FoldersHistoryList(FoldersHistoryList),
+            DiskUsage(DiskUsage),
+            CompareFoldersResult(CompareFoldersResult),
+            FolderScanProgress(FolderScanProgress),
+            SyncDirs(Box<SyncDialog>),
+            TaskListDialog(TaskListDialog),
+            FileAssociationsDialog(FileAssociationsDialog),
+            TreeView(TreeView),
+            FileAttributesDialog(FileAttributesDialog),
+            TransferPanel(TransferPanel),
+            QuickViewPanel(Box<QuickViewDialog>),
+            // Settings, update and SSH
+            ConfigurationDialog(ConfigurationDialogState),
+            ColorGroupsDialog(ColorGroupsDialog),
+            FilesHighlightingDialog(FilesHighlightingDialog),
+            UpdateAvailable(UpdateAvailable),
+            SshConnectPrompt(SshConnectPromptState),
+            // Git
+            GitPanel(GitPanelState),
+            GitProgress(GitProgress),
+            GitCommitPrompt(GitCommitPromptState),
+            GitConfirmCheckout(GitConfirmCheckoutState),
+            GitDiffView(GitDiffViewState),
+            GitNamePrompt(GitNamePromptState),
+            GitConfirmAction(GitConfirmActionState),
+            GitRemoteManage(GitRemoteManageState),
+            GitRemoteAdd(GitRemoteAddState),
+            GitClonePrompt(GitClonePromptState),
+            // Plugins
+            PluginMenu(PluginMenuState),
+            SelectDevPlugin(SelectDevPlugin),
+            Plugin(PluginDialog),
+        }
+    };
 }
+pub(crate) use dialog_list;
+
+dialog_list!(define_popup_type);

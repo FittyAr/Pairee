@@ -4,8 +4,12 @@ use crate::app::context::AppContext;
 use crate::app::editor::open::{resolve_save_as_path, save_active_editor};
 use crate::app::form::{FieldKey, confirm_answer, field_key};
 use crate::app::screen_input::editor::editor_page_height;
+use crate::app::state::popup::EditorConfirmOverwrite;
+use crate::app::state::popup::EditorSaveAsPrompt;
 use crate::app::state::popup::SearchKey;
+use crate::app::state::popup::{Dialog, EditorSearchPrompt, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -28,7 +32,7 @@ pub fn handle(
             }
             Ok(None)
         }
-        Some(PopupType::EditorSaveAsPrompt { input }) => {
+        Some(PopupType::EditorSaveAsPrompt(EditorSaveAsPrompt { input })) => {
             match field_key(input, &key) {
                 FieldKey::Cancel => state.dialogs.clear(),
                 FieldKey::Submit => {
@@ -39,7 +43,7 @@ pub fn handle(
             }
             Ok(None)
         }
-        Some(PopupType::EditorConfirmOverwrite { target, .. }) => {
+        Some(PopupType::EditorConfirmOverwrite(EditorConfirmOverwrite { target, .. })) => {
             let target = target.clone();
             match confirm_answer(&key, true) {
                 Some(true) => {
@@ -64,7 +68,7 @@ fn find_next(state: &mut AppState, query: &str, case_sensitive: bool) {
     if !ed.find_next(query, case_sensitive, height) {
         state
             .dialogs
-            .replace(PopupType::Error(t("editor_text_not_found")));
+            .replace(PopupType::error(t("editor_text_not_found")));
     }
 }
 
@@ -76,5 +80,29 @@ fn save_as(state: &mut AppState, input: &str) {
     state.dialogs.clear();
     if let Some(target) = target {
         save_active_editor(state, Some(target), false);
+    }
+}
+
+impl Dialog for EditorSearchPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        (self.cursor_idx == 0).then_some(&mut self.0.query)
+    }
+}
+
+impl Dialog for EditorSaveAsPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.input)
+    }
+}
+
+impl Dialog for EditorConfirmOverwrite {
+    fn key_handler(&self) -> KeyHandler {
+        handle
     }
 }

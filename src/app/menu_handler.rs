@@ -1,6 +1,7 @@
 use super::sys_helpers::get_system_drives;
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::DriveSelect;
 use crate::keybindings::Action;
 
 /// Resolves the menu item from get_menu_items dynamically by index,
@@ -30,7 +31,7 @@ pub fn trigger_menu_item(
 
     if item.label == crate::config::localization::t("menu_hotplug_devices") {
         let drives = get_system_drives();
-        state.dialogs.replace(PopupType::DriveSelect {
+        state.dialogs.replace(DriveSelect {
             panel: state.panels.active,
             drives,
             cursor_idx: 0,

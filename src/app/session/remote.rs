@@ -103,6 +103,6 @@ pub fn finish(
 }
 
 fn notify(state: &mut AppState, message: String) {
-    state.dialogs.push(PopupType::Info(message));
+    state.dialogs.push(PopupType::info(message));
     state.mark_ui_dirty();
 }

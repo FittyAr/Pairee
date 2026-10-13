@@ -9,7 +9,7 @@ use crate::ui::hit::WHEEL_LINES;
 
 /// Applies `mouse` to the active editor. Returns `true` when consumed.
 pub fn handle_editor_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
-    if state.dialogs.is_some() {
+    if state.dialogs.is_open() {
         return false;
     }
     let Some(ed) = state.active_editor_mut() else {

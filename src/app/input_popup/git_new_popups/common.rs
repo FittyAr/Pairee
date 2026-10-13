@@ -1,25 +1,19 @@
-//! Restores the previous popup state (usually GitPanel) and refreshes its lists.
+//! Closing a Git dialog: back to the dialog under it (usually the Git
+//! panel, which is refreshed).
 
 use crate::app::git_local::GitFailure;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::{AppState, GitPanelState, PopupType};
+use std::path::Path;
 
 /// Ends a Git dialog whose operation changes the working tree (commit,
-/// checkout): the dialog closes at once (back to `previous`, or no dialog),
-/// `work` runs in the background and returns the message to show; then the
-/// file panels and the Git panel are re-read and the message opens on top.
-pub fn run_and_report<W>(
-    state: &mut AppState,
-    previous: Option<Box<PopupType>>,
-    repo_path: &std::path::Path,
-    show_hidden: bool,
-    work: W,
-) where
+/// checkout): the dialog closes at once (back to the one under it), `work`
+/// runs in the background and returns the message to show; then the file
+/// panels and the Git panel are re-read and the message opens on top.
+pub fn run_and_report<W>(state: &mut AppState, repo_path: &Path, show_hidden: bool, work: W)
+where
     W: FnOnce(&mut git2::Repository) -> Result<PopupType, GitFailure> + Send + 'static,
 {
-    match previous {
-        Some(previous) => state.dialogs.replace(*previous),
-        None => state.dialogs.clear(),
-    }
+    state.dialogs.pop();
     let reload = repo_path.to_path_buf();
     state.run_git_local(repo_path, work, move |state, popup| {
         state.refresh_both_panels(show_hidden);
@@ -28,31 +22,18 @@ pub fn run_and_report<W>(
     });
 }
 
-/// Closes a Git dialog: back to `previous` (refreshed), or no dialog at all.
-pub fn close_to(
-    state: &mut AppState,
-    previous: Option<Box<PopupType>>,
-    repo_path: &std::path::Path,
-) {
-    match previous {
-        Some(previous) => restore_previous_and_refresh(state, *previous, repo_path),
-        None => state.dialogs.clear(),
-    }
+/// Closes the Git dialog on top: back to the dialog under it, refreshed
+/// when it is the Git panel.
+pub fn close_to(state: &mut AppState, repo_path: &Path) {
+    state.dialogs.pop();
+    refresh_panel_on_top(state, repo_path);
 }
 
-pub fn restore_previous_and_refresh(
-    state: &mut AppState,
-    previous: PopupType,
-    repo_path: &std::path::Path,
-) {
-    // A Git panel comes back with its current contents and is refreshed in
-    // the background (an error replaces it if the repository is gone).
-    let panel_view = match &previous {
-        PopupType::GitPanel(panel) => Some((panel.active_tab, panel.cursor_idx)),
-        _ => None,
-    };
-    state.dialogs.replace(previous);
-    if let Some((tab, cursor)) = panel_view {
+/// A Git panel on top is re-read in the background, keeping its tab and
+/// cursor (an error replaces it if the repository is gone).
+pub fn refresh_panel_on_top(state: &mut AppState, repo_path: &Path) {
+    if let Some(panel) = state.dialogs.top_as::<GitPanelState>() {
+        let (tab, cursor) = (panel.active_tab, panel.cursor_idx);
         state.refresh_git_panel(repo_path, tab, cursor);
     }
 }

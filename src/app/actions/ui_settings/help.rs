@@ -1,9 +1,11 @@
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
+use crate::app::state::popup::About;
+use crate::app::state::popup::Help;
 use crate::config::localization::{get_active_language_code, t};
 use std::path::{Path, PathBuf};
 
 pub fn open_about(state: &mut AppState) {
-    state.dialogs.replace(PopupType::About { scroll_y: 0 });
+    state.dialogs.replace(About { scroll_y: 0 });
 }
 
 pub async fn open_help(state: &mut AppState) {
@@ -13,7 +15,7 @@ pub async fn open_help(state: &mut AppState) {
         .first()
         .and_then(|(_, path)| std::fs::read_to_string(path).ok());
 
-    state.dialogs.replace(PopupType::Help {
+    state.dialogs.replace(Help {
         mode: 0,
         docs,
         plugin_docs,

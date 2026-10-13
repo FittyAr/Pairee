@@ -13,6 +13,8 @@ This tab controls file processing, history recording, escalation permissions, an
 ### File Operations
 * **Delete to Recycle Bin:**
   - *Description:* When enabled, deleted files are moved to the OS recycle bin (trash). If disabled, files are deleted permanently (unrecoverable without forensics).
+* **Overwritten files go to the Recycle Bin:**
+  - *Description:* When a copy or move replaces an existing file, the old file is sent to the recycle bin (trash) first, so undoing the operation brings it back. Turn it off to replace files in place (`transfer_trash_replaced` in `config.toml`; on by default).
 
 ### Optional features
 * **SSH / SFTP connections:**
@@ -147,6 +149,7 @@ Specifies which operations require an explicit warning dialog before proceeding.
 * **Main language:** Selects the active translations database (detects TOML files in the `/lang` directory).
 
 ### Plugins
+* **Secure Mode for all plugins:** Runs every plugin with the Secure Mode restrictions (same switch as `s` in the Plugin Manager). Pressing OK saves it and reloads the plugins at once.
 * **Plugins developer mode:** Enables the plugin developer tools (development folder and test plugin).
 
 ---

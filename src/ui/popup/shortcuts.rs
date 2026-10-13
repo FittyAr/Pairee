@@ -2,11 +2,11 @@
 
 use crate::app::shortcuts::model::{ContextTab, ShortcutRow};
 use crate::app::shortcuts::state::{Mode, ShortcutsState};
-use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::keybindings::catalog::Category;
 use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::kit::{ListPopup, Scroll, fg};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::text_width::truncate_to_width;
 use ratatui::{
@@ -19,29 +19,29 @@ use ratatui::{
 /// Columns of the chords column.
 const CHORDS_WIDTH: usize = 30;
 
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, area: Rect) -> bool {
-    let PopupType::Shortcuts(s) = popup else {
-        return false;
-    };
-    let (rows, cursor) = list_rows(s, theme);
-    let items = row_items(s);
-    let area = centered_rect_fixed(area.width * 9 / 10, area.height * 17 / 20, area);
-    ListPopup {
-        area,
-        title: format!(" {} ", t("shortcuts_title")),
-        border: Color::Cyan,
-        empty: Some(t("shortcuts_empty")),
-        header: header(s),
-        rows,
-        cursor,
-        scroll: Scroll::Centered,
-        hint: Some(t("shortcuts_hint")),
-        scrollbar: None,
+impl DialogView for ShortcutsState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, area) = (cx.theme, cx.area);
+        let s = self;
+        let (rows, cursor) = list_rows(s, theme);
+        let items = row_items(s);
+        let area = centered_rect_fixed(area.width * 9 / 10, area.height * 17 / 20, area);
+        ListPopup {
+            area,
+            title: format!(" {} ", t("shortcuts_title")),
+            border: Color::Cyan,
+            empty: Some(t("shortcuts_empty")),
+            header: header(s),
+            rows,
+            cursor,
+            scroll: Scroll::Centered,
+            hint: Some(t("shortcuts_hint")),
+            scrollbar: None,
+        }
+        .render_items(f, theme, Some((&items, s.cursor)));
+        // After the frame, which records the dialog body under everything.
+        register_tabs(s, area);
     }
-    .render_items(f, theme, Some((&items, s.cursor)));
-    // After the frame, which records the dialog body under everything.
-    register_tabs(s, area);
-    true
 }
 
 /// Item index of each drawn row (`None` for category headings), in the
