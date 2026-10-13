@@ -108,6 +108,15 @@ impl UserData for LuaFile {
     }
 
     fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
+        // `File` derives from `Cha`: its fields (`len`, `mode`, `perm()`,
+        // ...) are readable on the file itself.
+        methods.add_method("perm", |_, this, ()| Ok(this.cha().perm()));
+        methods.add_method("hash", |_, this, long: Option<bool>| {
+            Ok(this.cha().hash(long.unwrap_or(false)))
+        });
+        methods.add_meta_method(MetaMethod::Index, |lua, this, key: String| {
+            mlua::ObjectLike::get::<Value>(&lua.create_userdata(this.cha())?, key)
+        });
         methods.add_meta_method(MetaMethod::ToString, |_, this, ()| Ok(this.path.clone()));
         methods.add_meta_method(
             MetaMethod::Eq,
@@ -219,6 +228,24 @@ mod tests {
         lua.globals().set("g", sample()).unwrap();
         let (len, is_dir): (u64, bool) = lua.load("return g.cha.len, g.cha.is_dir").eval().unwrap();
         assert_eq!((len, is_dir), (12, false));
+    }
+
+    #[test]
+    fn file_inherits_the_fields_and_methods_of_cha() {
+        let lua = Lua::new();
+        lua.globals().set("g", sample()).unwrap();
+        let (len, is_link, hash, perm_is_nil, missing): (u64, bool, String, bool, mlua::Value) =
+            lua.load("return g.len, g.is_link, g:hash(), g:perm() == nil, g.no_such_field")
+                .eval()
+                .unwrap();
+        assert_eq!(len, 12);
+        assert!(!is_link);
+        assert_eq!(hash, sample().cha().hash(false));
+        assert!(perm_is_nil);
+        assert!(missing.is_nil());
+        // Its own fields still win.
+        let name: String = lua.load("return g.name").eval().unwrap();
+        assert_eq!(name, "readme.md");
     }
 
     #[test]

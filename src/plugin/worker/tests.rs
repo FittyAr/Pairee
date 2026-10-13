@@ -42,6 +42,7 @@ fn fake_main_loop(mut rx: mpsc::Receiver<PluginRequest>, cwd: &str) {
                     right_cwd: String::new(),
                     hovered_file: None,
                     selected_files: Vec::new(),
+                    ..Default::default()
                 });
             }
         }

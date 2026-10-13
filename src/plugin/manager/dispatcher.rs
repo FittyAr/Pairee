@@ -9,10 +9,10 @@
 
 use super::dispatch_actions::{dispatch_emit_action, set_focus};
 use super::request::PluginRequest;
-use super::snapshot::{AppStateSnapshot, FileEntrySnapshot};
+use super::snapshot_build::build_snapshot;
 use crate::app::context::AppContext;
 use crate::app::state::popup::SelectDevPlugin;
-use crate::app::state::{ActivePanel, AppState, PendingPluginReply, PopupType};
+use crate::app::state::{AppState, PendingPluginReply, PopupType};
 use std::path::PathBuf;
 
 use super::dispatch_actions::compute_file_cache_path;
@@ -172,36 +172,6 @@ fn dispatch_popup_update(state: &mut AppState, req: PluginRequest) {
         PluginRequest::DevPluginScan { options } => open_dev_plugin_select(state, options),
         // The remaining variants are routed by the two dispatchers above.
         _ => {}
-    }
-}
-
-/// Read-only view of the panels for `pairee.app.state()`.
-fn build_snapshot(state: &AppState) -> AppStateSnapshot {
-    let active = state.get_active_panel();
-    let hovered = active
-        .entries
-        .get(active.cursor_index)
-        .map(FileEntrySnapshot::from_file_entry);
-    let selected = active
-        .entries
-        .iter()
-        .filter(|e| active.selection_order.contains(&e.path))
-        .map(FileEntrySnapshot::from_file_entry)
-        .collect();
-    let cwd = |side| {
-        state
-            .panels
-            .side(side)
-            .current_path
-            .to_string_lossy()
-            .to_string()
-    };
-    AppStateSnapshot {
-        active_panel: format!("{:?}", state.panels.active).to_lowercase(),
-        left_cwd: cwd(ActivePanel::Left),
-        right_cwd: cwd(ActivePanel::Right),
-        hovered_file: hovered,
-        selected_files: selected,
     }
 }
 
