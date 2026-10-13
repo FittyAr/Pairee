@@ -2550,6 +2550,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rustls",
+ "semver",
  "serde",
  "serde_json",
  "sevenz-rust2",
