@@ -97,6 +97,14 @@ git commit -m "Add/Update plugin <plugin_name> v<version>"
 git push origin plugin-registry
 ```
 
+### 7. Signatures (maintainers)
+Do not add or edit `.minisig` files. After a merge, the **Sign registry**
+workflow (`.github/workflows/sign-registry.yml`) signs `registry/index.toml`,
+`registry/blocklist.toml` and every `manifest.toml` with the Pairee release
+key and commits the signatures; Pairee checks them before installing a
+plugin. Every push to this branch is signed, so it only takes reviewed pull
+requests.
+
 ---
 
 ## 🚫 Blocklist and Moderation Policy
