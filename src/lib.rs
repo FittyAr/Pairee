@@ -5,6 +5,7 @@
 
 mod app;
 mod config;
+mod diff;
 mod fs;
 mod git;
 mod keybindings;
@@ -36,7 +37,7 @@ pub use app::state::ActivePanel;
 pub use config::settings::Settings;
 pub use run::run;
 
-/// Filesystem engines whose screens come in a later release (the
-/// duplicate finder, the remote `Vfs` backends): library API until then,
-/// exercised by `tests/fs_engines.rs`.
+/// Filesystem engines exercised by `tests/fs_engines.rs`: the duplicate
+/// finder (also behind the Find duplicates view) and the remote `Vfs`
+/// backends (library API until their screens come).
 pub use fs::{dupes, remote, vfs};

@@ -260,6 +260,8 @@ impl Harness {
             || state.vfs_op.is_running()
             || state.folder_scan.is_running()
             || state.disk_usage.is_scanning()
+            || state.dupes.is_scanning()
+            || state.file_compare.is_running()
             || state.viewer.search_progress().is_some()
             || state
                 .screens

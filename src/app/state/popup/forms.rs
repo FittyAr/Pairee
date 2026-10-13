@@ -7,3 +7,5 @@ use crate::app::form::FormLayout;
 pub const MKDIR_FORM: FormLayout = FormLayout::new(4, 2);
 /// Rename: new name, OK, Cancel.
 pub const RENAME_FORM: FormLayout = FormLayout::new(3, 1);
+/// Find duplicates: smallest size, hash algorithm, Start, Cancel.
+pub const DUPE_OPTIONS_FORM: FormLayout = FormLayout::new(4, 2);

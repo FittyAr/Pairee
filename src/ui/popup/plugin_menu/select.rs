@@ -1,4 +1,5 @@
 use crate::app::state::popup::SelectDevPlugin;
+use crate::config::localization::t;
 use crate::ui::popup::kit::{ListPopup, Scroll, list_area};
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::ScrollTargetId;
@@ -20,7 +21,7 @@ impl DialogView for SelectDevPlugin {
         ListPopup {
             // Two extra columns for the scrollbar.
             area: list_area(size, width.max(30) + 2, options.len(), 15),
-            title: " Select Active Development Plugin ".to_string(),
+            title: t("dev_plugin_select_title"),
             border: Color::Yellow,
             empty: None,
             header: Vec::new(),

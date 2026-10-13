@@ -43,6 +43,8 @@ undo_file_operation = "Ctrl+z"
 redo_file_operation = "Ctrl+y, Ctrl+Z"
 calculate_folder_sizes = "Alt+s"
 disk_usage          = "Alt+d"
+# Total Commander's branch view.
+branch_view         = "Ctrl+B, Ctrl+Alt+x"
 
 # ── Clipboard ─────────────────────────────────────────────────────────────────
 yank      = "Ctrl+c"

@@ -92,7 +92,7 @@ editor is not modal: it keeps the usual editing keys and `Esc` closes it.
 cut, paste and paste overwriting, `Y` / `X` drop the yank, `-` links, `d` / `D`
 trash and delete, `a` creates (a trailing `/` makes a folder), `r` renames,
 `.` hidden files, `f` filters, `/` `n` `N` search, `s` / `S` search files and
-contents, `z` finds a file, `Z` jumps to a folder you visited, `cc` / `cd` /
+contents, `z` jumps to a frequent folder, `Z` to a folder you visited, `cc` / `cd` /
 `cf` / `cn` copy path, folder, name and name without extension, `,` + a
 letter sorts, `m` + a letter changes the columns, `t` new tab, `1`…`9` switch
 tab, `[` / `]` previous / next, `{` / `}` move it, `Ctrl+C` closes it, `w`
@@ -103,5 +103,5 @@ tasks, `;` / `:` shell, `~` keys, `q` / `Q` quit, `o` / `l` / `Enter` open,
 shows the information panel (yazi's "spot"); `Ctrl+Q` previews the file in the
 other panel. Sorting in reverse is `, r` instead of the uppercase letters.
 There is one kind of link (`_` is not used). `e` edits with the built-in
-editor. `z` and `Z` use Pairee's own search and folder history instead of
-fzf and zoxide. The Norton F-keys still work (`F5` copy, `F7` folder...).
+editor. `z` uses Pairee's own folder frecency (like zoxide) and `Z` its
+folder history instead of fzf. The Norton F-keys still work (`F5` copy, `F7` folder...).

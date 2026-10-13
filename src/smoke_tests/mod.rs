@@ -6,6 +6,7 @@
 mod archives;
 mod bookmarks;
 mod command_line;
+mod config_colors;
 mod editor;
 mod editor_search;
 mod file_clipboard;
@@ -31,3 +32,4 @@ mod transfer;
 mod typing_modes;
 mod vfs_followups;
 mod viewer;
+mod views;

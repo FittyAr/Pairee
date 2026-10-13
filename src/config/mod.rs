@@ -1,6 +1,7 @@
 pub mod associations;
 pub mod bookmarks;
 pub mod credentials;
+pub mod frecency;
 pub mod history;
 pub mod keybindings;
 mod keymap_seed;

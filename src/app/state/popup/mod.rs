@@ -26,6 +26,7 @@ mod ssh;
 pub mod sync;
 mod text_search;
 mod tools;
+mod views;
 
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use confirm::{
@@ -71,6 +72,9 @@ pub use tools::{
     CommandHistoryList, CompareFoldersResult, DiskUsage, FileAssociationsDialog,
     FileAttributesDialog, FileViewHistoryList, FolderScanProgress, FoldersHistoryList,
     TaskListDialog, TransferPanel, TreeView,
+};
+pub use views::{
+    CompareStatus, DiffViewer, DupeOptionsPrompt, DuplicatesView, FileCompareView, FolderJump,
 };
 
 /// What the create prompt makes.
@@ -159,6 +163,11 @@ macro_rules! dialog_list {
             FileAttributesDialog(FileAttributesDialog),
             TransferPanel(TransferPanel),
             QuickViewPanel(Box<QuickViewDialog>),
+            // Views: compare files, folder jump, duplicates
+            FileCompareView(FileCompareView),
+            FolderJump(FolderJump),
+            DupeOptionsPrompt(DupeOptionsPrompt),
+            DuplicatesView(DuplicatesView),
             // Settings, update and SSH
             ConfigurationDialog(ConfigurationDialogState),
             ColorGroupsDialog(ColorGroupsDialog),

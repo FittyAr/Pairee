@@ -1,18 +1,15 @@
 //! Shared key handling of the two color-list dialogs reached from the
 //! configuration "Colors" tab: theme color groups and file highlighting
 //! rules. Each row holds a color name; Left / Right cycle named colors,
-//! Enter types one, `S` saves, Esc goes back.
+//! Enter types one, `S` saves, Esc goes back. They open over the
+//! configuration dialog, whose draft takes what they saved.
 
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
-use crate::app::state::{AppState, ConfigurationDialogState, PopupType};
+use crate::app::state::{AppState, ConfigDraft, ConfigurationDialogState};
 use crate::app::text_input::TextField;
-use crate::config::AppConfig;
 use crate::config::theme::{COLOR_PROPS, Theme, cycle_named_color};
 use crate::ui::highlight::HighlightRule;
 use crossterm::event::{KeyCode, KeyEvent};
-
-/// Configuration dialog tab holding the color dialogs.
-const COLORS_TAB: usize = 6;
 
 /// A list of editable colors (Strategy over theme fields / highlight rules).
 pub trait ColorList {
@@ -90,11 +87,14 @@ pub fn handle_key<L: ColorList>(
     ColorListKey::Handled
 }
 
-/// Back to the configuration dialog's Colors tab, on row `row`.
-pub fn back_to_config(state: &mut AppState, config: &AppConfig, row: usize) {
-    state.dialogs.replace(PopupType::ConfigurationDialog(
-        ConfigurationDialogState::new(config, COLORS_TAB, row, false),
-    ));
+/// Closes the color dialog, back to the configuration dialog underneath,
+/// whose draft `sync` updates with what was saved (so applying the draft
+/// later does not undo it).
+pub fn back_to_config(state: &mut AppState, sync: impl FnOnce(&mut ConfigDraft)) {
+    state.dialogs.pop();
+    if let Some(config) = state.dialogs.top_mut_as::<ConfigurationDialogState>() {
+        sync(&mut config.draft);
+    }
 }
 
 #[cfg(test)]

@@ -22,6 +22,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `g h` | Ir a la carpeta personal |
 | `Ctrl+\` · `g /` | Ir a la carpeta raíz |
 | `-` · `Backspace` · `Ctrl+PageUp` · `h` | Ir a la carpeta superior |
+| `Ctrl+Alt+z` | Ir a una carpeta frecuente |
 | `Ctrl+Alt+1` | Ir al acceso a carpeta 1 |
 | `Ctrl+Alt+2` | Ir al acceso a carpeta 2 |
 | `Ctrl+Alt+3` | Ir al acceso a carpeta 3 |
@@ -60,7 +61,9 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+g` | Aplicar comando |
 | `Ctrl+a` · `Space .` | Atributos del archivo |
 | `Alt+Delete` | Borrado seguro |
+| `Ctrl+Alt+u` | Buscar archivos duplicados |
 | `Ctrl+Alt+s` | Calcular tamaño de carpetas |
+| `Ctrl+Alt+c` | Comparar archivos |
 | `F5` | Copiar al otro panel |
 | `a` | Crear archivo o carpeta |
 | `F7` | Crear carpeta |
@@ -81,6 +84,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+Alt+d` | Uso de disco |
 | `F3` · `o` | Ver archivo |
 | `Alt+F3` | Ver archivo (alternativo) |
+| `Ctrl+Alt+x` | Vista de rama (todos los archivos debajo) |
 
 ### Portapapeles
 

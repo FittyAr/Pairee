@@ -4,6 +4,7 @@ use std::fs;
 use std::path::Path;
 
 mod admin;
+pub mod branch;
 mod sort;
 
 pub use sort::{SortField, sort_entries};

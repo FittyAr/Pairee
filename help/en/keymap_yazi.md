@@ -34,6 +34,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+\` · `g /` | Go to root folder |
 | `Ctrl+d` | Half page down |
 | `Ctrl+u` | Half page up |
+| `Ctrl+Alt+z` · `z` | Jump to a frequent folder |
 | `Down` · `j` | Move down |
 | `Up` · `k` | Move up |
 | `Enter` · `l` · `o` | Open / run |
@@ -56,7 +57,9 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | Keys | Action |
 | :--- | :--- |
 | `Ctrl+g` | Apply command |
+| `Ctrl+Alt+x` | Branch view (every file below) |
 | `Ctrl+Alt+s` | Calculate folder sizes |
+| `Ctrl+Alt+c` | Compare files |
 | `F5` | Copy to other panel |
 | `a` | Create file or folder |
 | `Alt+F6` | Create link |
@@ -66,6 +69,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+Alt+d` | Disk usage |
 | `F4` · `e` | Edit file |
 | `Ctrl+Alt+a` | File attributes |
+| `Ctrl+Alt+u` | Find duplicate files |
 | `F7` | Make folder |
 | `F6` | Move to other panel |
 | `d` | Move to recycle bin |
@@ -109,7 +113,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | :--- | :--- |
 | `Alt+F8` | Command history |
 | `Alt+F11` | File view history |
-| `Alt+F7` · `S` · `s` · `z` | Find files |
+| `Alt+F7` · `S` · `s` | Find files |
 | `Alt+F12` · `Z` | Folder history |
 | `n` | Next match |
 | `Ctrl+Alt+i` · `Ctrl+i` | Panel filter |

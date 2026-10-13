@@ -141,16 +141,7 @@ impl DiskUsageState {
     /// Drops what a finished delete `job` removed from the scanned source
     /// (no rescan, no polling of the server). Returns `true` if any.
     pub fn job_finished(&mut self, job: &TransferJob, results: &TransferResults) -> bool {
-        let remote = job
-            .ssh
-            .as_ref()
-            .and_then(|e| e.src.as_ref().or(e.dst.as_ref()));
-        let same_source = match (self.source.ssh(), remote) {
-            (Some(shown), Some(job)) => shown.is_same_server(job),
-            (None, None) => true,
-            _ => false,
-        };
-        if job.operation != TransferOperation::Delete || !same_source {
+        if job.operation != TransferOperation::Delete || !job.ran_on(&self.source) {
             return false;
         }
         self.remove_deleted(results.completed_files.iter().map(|f| f.src.as_path()))

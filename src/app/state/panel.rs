@@ -1,5 +1,5 @@
 use super::dir_sizes::DirSizes;
-use super::refresh::listing::PanelListing;
+use super::refresh::listing::{ListingProgress, PanelListing};
 use super::types::{PanelViewMode, SortField};
 use crate::app::jobs::JobSlot;
 use crate::fs::FileEntry;
@@ -45,7 +45,10 @@ pub struct PanelState {
     /// Map of entry filename -> Git status label (e.g. "M", "A", "?", "D")
     pub git_statuses: std::collections::HashMap<String, String>,
     /// Background listing job (directory read + git status + free space).
-    pub listing: JobSlot<PanelListing>,
+    pub listing: JobSlot<PanelListing, ListingProgress>,
+    /// Branch view: every file below `current_path`, flat (Total
+    /// Commander's Ctrl+B). Leaving the folder turns it off.
+    pub branch_view: bool,
     /// The running listing is an automatic refresh: no "Loading…" title.
     pub quiet_listing: bool,
     /// Directory whose contents `entries` currently show.
@@ -84,6 +87,7 @@ impl PanelState {
             git_branch: None,
             git_statuses: std::collections::HashMap::new(),
             listing: JobSlot::new(),
+            branch_view: false,
             quiet_listing: false,
             listed_path: None,
             pending_focus: None,
@@ -105,6 +109,21 @@ impl PanelState {
     /// refreshes stay silent so the title does not flicker).
     pub fn is_loading(&self) -> bool {
         self.listing.is_running() && !self.quiet_listing
+    }
+
+    /// Files found so far by a branch view being read.
+    pub fn branch_progress(&self) -> Option<ListingProgress> {
+        self.branch_view.then(|| self.listing.progress()).flatten()
+    }
+
+    /// Points the panel at the folder holding `path`, with the cursor on it
+    /// once the listing arrives (the caller refreshes the listing).
+    pub fn reveal(&mut self, path: &std::path::Path) {
+        let Some(parent) = path.parent() else {
+            return;
+        };
+        self.open_path(parent.to_path_buf());
+        self.pending_focus = Some(crate::fs::file_name_lossy(path));
     }
 
     /// Stops the listing and folder-size jobs (the tab is going away).
