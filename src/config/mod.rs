@@ -36,6 +36,12 @@ pub struct AppConfig {
     pub load_error: Option<String>,
 }
 
+/// Loads the language set in `config.toml` without touching any file, for
+/// the command-line subcommands that print text but need no configuration.
+pub fn load_configured_language() {
+    localization::load_language(&loading::configured_language(&paths::get_config_file_path()));
+}
+
 impl AppConfig {
     /// Loads the settings, theme, and keybindings from disk.
     /// If the configuration directory or files do not exist, they are created with default values.

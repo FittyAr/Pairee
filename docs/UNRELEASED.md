@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
 - `install.sh` installs the aarch64 build on 64-bit ARM Linux, and `install.ps1` the ARM64 build on ARM64 Windows.
 - Git: fetch, pull and push now work with SSH remotes (`git@...`), using ssh-agent or your default keys in `~/.ssh`.
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.

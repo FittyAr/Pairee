@@ -1,5 +1,6 @@
 mod cli;
 mod dev_cli;
+mod help;
 
 use anyhow::{Context, Result};
 use std::env;
