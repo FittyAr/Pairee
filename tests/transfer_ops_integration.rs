@@ -48,7 +48,7 @@ fn extract_simple_zip(archive: &Path, dest: &Path) -> std::io::Result<()> {
     let mut zip = zip::ZipArchive::new(f).map_err(std::io::Error::other)?;
     for i in 0..zip.len() {
         let mut file = zip.by_index(i).map_err(std::io::Error::other)?;
-        let name = file.name().to_string();
+        let name = file.name().unwrap().into_owned();
         if name.ends_with('/') || name.ends_with('\\') {
             continue;
         }

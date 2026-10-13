@@ -69,7 +69,7 @@ pub fn rewrite_zip(
     let replaced: HashSet<&Path> = edit.add.iter().map(|(rel, _)| rel.as_path()).collect();
     for i in 0..old.len() {
         let file = old.by_index_raw(i)?;
-        let dropped = ExtractGuard::sanitize(file.name()).is_ok_and(|rel| {
+        let dropped = ExtractGuard::sanitize(&file.name()?).is_ok_and(|rel| {
             replaced.contains(rel.as_path()) || edit.remove.iter().any(|r| rel.starts_with(r))
         });
         if !dropped {
@@ -121,7 +121,7 @@ mod tests {
         let archive = dir.path().join("a.zip");
         add_one(&archive);
         let zip = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
-        let mut names: Vec<_> = zip.file_names().map(str::to_string).collect();
+        let mut names: Vec<_> = zip.file_names().map(|n| n.unwrap().into_owned()).collect();
         names.sort();
         assert_eq!(names, ["keep.txt", "new.txt"]);
     }

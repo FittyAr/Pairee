@@ -26,9 +26,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-log = "0.2"
 chrono = "0.4"
-zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }
+zip = { version = "9.0.2", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
-flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 pulldown-cmark = "0.13"
 # Only the formats the viewer and Quick View preview (no AVIF/rav1e, EXR, HDR...).
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga"] }
@@ -57,10 +57,10 @@ shlex = "2.0"
 ansi-to-tui = "8.0"
 # Text only: no clipboard images (their image-data feature pulls in image codecs).
 arboard = { version = "3.6.1", default-features = false }
-sevenz-rust2 = "0.22"
+sevenz-rust2 = "0.24"
 # tar.bz2 / tar.xz: pure-Rust decoders (static musl builds keep working).
-bzip2 = "0.6"
-lzma-rust2 = { version = "0.20", default-features = false, features = ["std", "xz"] }
+bzip2 = "0.6.1"
+lzma-rust2 = { version = "0.22", default-features = false, features = ["std", "xz"] }
 nucleo-matcher = "0.3.1"
 # Unix openpty / Windows ConPTY for background Terminal (`command &`) and apply-command.
 # Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
