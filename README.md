@@ -68,11 +68,12 @@ Pairee/
 
 Pairee provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
 
-* **Linux (statically linked, standalone binary):**
+* **Linux (statically linked, standalone binary, x86_64 and aarch64):**
   * **Standard Release:**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
+    The installer verifies the release signature and needs [`minisign`](https://jedisct1.github.io/minisign/) (e.g. `sudo apt install minisign`). Without it, it stops; add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug

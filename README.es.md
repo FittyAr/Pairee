@@ -68,11 +68,12 @@ Pairee/
 
 NCRust ofrece binarios precompilados de forma automática mediante GitHub Actions (compatibles con Windows MSVC, Linux GNU y Linux MUSL estático). Puedes instalarlos al instante desde tu terminal:
 
-* **Linux (enlace estático, ejecutable independiente):**
+* **Linux (enlace estático, ejecutable independiente, x86_64 y aarch64):**
   * **Lanzamiento Estándar:**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
+    El instalador verifica la firma de la versión y necesita [`minisign`](https://jedisct1.github.io/minisign/) (p. ej. `sudo apt install minisign`). Sin él se detiene; agregá `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) para aceptar la descarga solo con su checksum SHA-256.
   * **Compilar desde Código Fuente (Modo Debug):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug

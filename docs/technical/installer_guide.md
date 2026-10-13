@@ -160,12 +160,14 @@ Ed25519). The self-updater (`src/update/signature.rs`) refuses to install an
 update unless the release contains both `<asset>.sha256` **and**
 `<asset>.minisig`, the signature verifies against the embedded public key and
 its trusted comment names the asset (`file:<asset>`). The install scripts
-always check the SHA-256 and also verify the signature when `minisign` is on
-`PATH` (then it is mandatory).
+always check the SHA-256. `install.sh` also requires the signature: without
+`minisign` on `PATH` it stops, unless it is run with
+`--insecure-skip-signature` (checksum only). `install.ps1` verifies the
+signature when `minisign` is on `PATH` (then it is mandatory).
 
 **Public key** (key id `B478F4237C0DE585`), embedded in
 `src/update/signature.rs` (`RELEASE_PUBLIC_KEY`), `install.sh` and
-`install.ps1`:
+`install.ps1` (`tests/release_key.rs` checks that they agree):
 
 ```
 untrusted comment: minisign public key: B478F4237C0DE585
