@@ -130,6 +130,7 @@ To support launching Pairee as a desktop app without an open parent terminal ses
 * Themes are styled via individual TOML profile documents.
 * Themes map logical UI elements (e.g. `panel_border`, `file_executable`, `menu_selected`) to terminal-friendly color palettes (e.g. `Color::Blue`, `Color::Rgb(r,g,b)`).
 * `ui::theme_apply::parse_color` interprets the TOML strings, translating them into `ratatui::style::Color` rules applied directly during frame draws.
+* **Syntax highlighting** (`src/syntax/`, no ratatui): syntect's embedded grammars with the pure-Rust `fancy-regex` engine. A syntect theme built in code maps scope selectors to a `SyntaxKind` (comment, string, keyword, constant, function, type, operator, tag), so syntect's selector scoring picks the class; the UI paints each class with the theme's `[syntax]` colors (`ResolvedTheme::syntax`). `SyntaxCache` parses only the requested lines, keeping parser states every 64 lines (dropped from an edited line on) and restarting near the screen after a far jump. The editor and the viewer paint lines through one layered painter (`ui::styled_line`: syntax, then search matches, then selection).
 
 ---
 

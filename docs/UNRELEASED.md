@@ -24,6 +24,8 @@
 - A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
 - The viewer's key bar shows the encoding key (F8).
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
+- Editor: find and replace dialog (`Ctrl+F7` / `Ctrl+H`; find stays on `F7` / `Ctrl+F`) with case sensitive, whole words, regular expression (`$1` groups in the replacement), backward and wrap-around options. Replace goes match by match and "All" replaces every match as one undo step; `Alt+F7` / `Shift+F3` search backward. Matches on screen are highlighted, and patterns and replacements are kept in the history (`Ctrl+Up` / `Ctrl+Down` in the dialog).
+- Syntax highlighting in the editor and the viewer, in new `[syntax]` theme colors. Settings "Syntax highlighting" and "Highlight files up to" (Editor tab, 2 MiB by default).
 
 ### Improved
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.

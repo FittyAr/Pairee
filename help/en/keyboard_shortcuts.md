@@ -175,6 +175,19 @@ Block mode (`Ctrl+B` in every preset) makes `Shift` + arrows and mouse drags
 select a vertical block, for terminals that keep `Alt+Shift` + arrows for
 themselves, such as Windows Terminal.
 
+Find (`F7` / `Ctrl+F`) and find and replace (`Ctrl+F7` / `Ctrl+H`) share one
+dialog: the pattern, the replacement, and the options *Case sensitive*,
+*Whole words*, *Regular expression*, *Search backward* and *Wrap around*.
+`Tab` / arrows move between rows, `Space` ticks an option, `Ctrl+Up` /
+`Ctrl+Down` (or `Alt`) bring back earlier patterns and replacements. The
+match found is selected, so typing replaces it; `F3` / `Shift+F7` repeat the
+search and `Alt+F7` / `Shift+F3` search the other way. **Replace** replaces
+the selected match and finds the next one; **All** replaces every match as a
+single undo step. With *Regular expression* the pattern uses the Rust
+`regex` syntax and the replacement can insert groups with `$1` or
+`${name}`. Matches never cross a line break. The matches on screen stay
+highlighted until `Esc`.
+
 The editor keeps the file's line endings (LF or CRLF), final newline and
 UTF-8 BOM. Files that are not valid UTF-8 or larger than 64 MiB are not
 opened (use the viewer instead). Copy and cut use the system clipboard; when

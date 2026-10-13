@@ -107,13 +107,16 @@ Press `Shift+F6` (or **Files → Multi-Rename**) to rename every selected item (
 * **Viewer Modes:** Toggle between plain Text mode and Hex Dump mode.
 * **Hex Dump View:** Displays offsets, hex values, and ASCII representation side-by-side. Excellent for inspecting binary files.
 * **Viewer Search:** Press `F7` inside the viewer to search for text strings. The search runs in the background over the whole file (progress in the status line, `Esc` cancels).
+* **Syntax highlighting:** Source files are colored by language in text mode, like in the editor.
 * **Large Files:** Files are read page by page with a line index built in the background, so multi-gigabyte files open instantly with bounded memory.
 * **Encodings:** The encoding is detected (byte-order mark, UTF-16, UTF-8, legacy code pages such as Windows-1252 or Shift-JIS) and shown in the status line; `F8` switches it manually.
 * **Quick View:** Instantly displays a preview of the highlighted file in the opposite panel. Supports text file previews (first 256 KiB, in the detected encoding) and archive metadata listing.
 
 ### 3.3 Built-in Editor
 * All editing happens in the built-in editor (`F4`); Pairee never launches an external editor.
-* Undo/redo (`Ctrl+Z` / `Ctrl+Y`), search, save and save as (`Shift+F2`).
+* Undo/redo (`Ctrl+Z` / `Ctrl+Y`), save and save as (`Shift+F2`).
+* **Find and replace** (`F7` / `Ctrl+F`, `Ctrl+F7` / `Ctrl+H`): case sensitive, whole words, regular expressions (with `$1` groups in the replacement), backward search and wrap around. `F3` / `Shift+F7` find the next match, `Alt+F7` / `Shift+F3` the previous one; **Replace** goes match by match and **All** replaces every match as one undo step. The matches on screen are highlighted, and earlier patterns come back with `Ctrl+Up` / `Ctrl+Down`.
+* **Syntax highlighting** for the languages of Sublime Text's default grammars (Rust, C/C++, Python, JavaScript, HTML, Markdown, JSON, YAML, shell and many more), in the theme's colors. Only the lines on screen are processed, so large files stay fast; it can be turned off, and files above a size limit open without it.
 * Selection with `Shift` + movement keys or the mouse, vertical block selection with `Alt+Shift` + arrows (or `Ctrl+B` block mode and `Shift` + arrows, for Windows Terminal), and copy / cut / paste (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) through the system clipboard, with an internal clipboard when none is available.
 * Keeps line endings (LF/CRLF), the final newline and the UTF-8 BOM; honors the tab size, tab expansion, auto indent and line number settings.
 * Warns about or locks read-only files, and asks before overwriting a file that another program changed.
