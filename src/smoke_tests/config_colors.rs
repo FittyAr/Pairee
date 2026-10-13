@@ -13,7 +13,7 @@ fn color_dialogs_open_over_the_configuration_and_update_its_draft() {
     h.state.dialogs.push(ColorGroupsDialog {
         cursor_idx: 0,
         edit: None,
-        theme: h.ctx.config.theme.clone(),
+        theme: Box::new(h.ctx.config.theme.clone()),
     });
     // `s` saves the colors: the theme becomes custom, in the draft too.
     h.keys("s");

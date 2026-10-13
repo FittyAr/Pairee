@@ -107,13 +107,16 @@ Pulsa `Shift+F6` (o **Archivos → Renombrado múltiple**) para renombrar de una
 * **Modos del Visor:** Alterna entre modo Texto normal y modo Hexadecimal.
 * **Modo Hexadecimal:** Muestra offsets, valores hexadecimales y representación ASCII lado a lado. Excelente para inspeccionar archivos binarios.
 * **Búsqueda en el Visor:** Presiona `F7` dentro del visor para buscar cadenas de texto. La búsqueda recorre todo el archivo en segundo plano (progreso en la línea de estado, `Esc` la cancela).
+* **Resaltado de sintaxis:** Los archivos de código se colorean según el lenguaje en modo texto, como en el editor.
 * **Archivos grandes:** Los archivos se leen por bloques con un índice de líneas construido en segundo plano, así que los de varios gigabytes se abren al instante con memoria acotada.
 * **Codificaciones:** La codificación se detecta (marca de orden de bytes, UTF-16, UTF-8, páginas de códigos como Windows-1252 o Shift-JIS) y se muestra en la línea de estado; `F8` permite cambiarla a mano.
 * **Vista Rápida:** Muestra una vista previa del archivo seleccionado en el panel opuesto. Admite vistas de texto (primeros 256 KiB, en la codificación detectada) y listado de metadatos de archivos comprimidos.
 
 ### 3.3 Editor integrado
 * Toda la edición se hace en el editor integrado (`F4`); Pairee nunca lanza un editor externo.
-* Deshacer/rehacer (`Ctrl+Z` / `Ctrl+Y`), búsqueda, guardar y guardar como (`Shift+F2`).
+* Deshacer/rehacer (`Ctrl+Z` / `Ctrl+Y`), guardar y guardar como (`Shift+F2`).
+* **Buscar y reemplazar** (`F7` / `Ctrl+F`, `Ctrl+F7` / `Ctrl+H`): distinguir mayúsculas, palabras completas, expresiones regulares (con grupos `$1` en el reemplazo), búsqueda hacia atrás y continuar desde el otro extremo. `F3` / `Shift+F7` buscan la siguiente coincidencia y `Alt+F7` / `Shift+F3` la anterior; **Reemplazar** avanza coincidencia por coincidencia y **Todos** reemplaza todas en un solo paso de deshacer. Las coincidencias visibles se resaltan, y los patrones anteriores vuelven con `Ctrl+Arriba` / `Ctrl+Abajo`.
+* **Resaltado de sintaxis** para los lenguajes de las gramáticas predeterminadas de Sublime Text (Rust, C/C++, Python, JavaScript, HTML, Markdown, JSON, YAML, shell y muchos más), con los colores del tema. Solo se procesan las líneas en pantalla, así que los archivos grandes siguen siendo rápidos; se puede desactivar, y los archivos que superan un tamaño se abren sin él.
 * Selección con `Shift` + teclas de movimiento o con el ratón, selección vertical por bloques con `Alt+Shift` + flechas (o el modo bloque `Ctrl+B` y `Shift` + flechas, para Windows Terminal), y copiar / cortar / pegar (`Ctrl+C` / `Ctrl+X` / `Ctrl+V`) con el portapapeles del sistema, o uno interno cuando no hay ninguno disponible.
 * Conserva los finales de línea (LF/CRLF), el salto de línea final y el BOM UTF-8; respeta el tamaño de tabulación, la expansión de tabulaciones, el auto-sangrado y los números de línea.
 * Avisa o bloquea los archivos de solo lectura y pregunta antes de sobrescribir un archivo modificado por otro programa.

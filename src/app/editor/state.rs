@@ -6,10 +6,13 @@
 use super::document::{self, DiskStamp, LoadError, TextFormat};
 use super::history::{EditHistory, Pos, TextEdit};
 use super::options::EditorOptions;
+use super::search::LastSearch;
 use super::selection::Selection;
 use super::viewport::Viewport;
 use crate::app::text_input;
+use crate::syntax::{SyntaxCache, SyntaxLimits};
 use crate::ui::text_width::{display_width, expand_tabs};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -20,8 +23,10 @@ pub struct EditorState {
     pub cursor_x: usize,
     pub cursor_y: usize,
     pub scroll_y: usize,
-    pub last_search: Option<String>,
-    pub last_case_sensitive: bool,
+    /// Last find / replace (F3 / Shift+F7 repeat it).
+    pub last_search: Option<Box<LastSearch>>,
+    /// Highlight the matches of `last_search` (until Esc).
+    pub show_matches: bool,
     /// Line ending, final newline and BOM to write back.
     pub format: TextFormat,
     /// Modification time / read-only flag when the file was read or saved.
@@ -41,6 +46,9 @@ pub struct EditorState {
     /// Set when `path` is a local copy of a file on an SFTP server or in
     /// an archive: saving uploads it (see `editor::remote`).
     pub remote: Option<super::remote::RemoteOrigin>,
+    /// Syntax highlighter (`None`: plain text, highlighting off or file too
+    /// large). Painting fills its cache, hence the cell.
+    pub syntax: RefCell<Option<SyntaxCache>>,
 }
 
 impl EditorState {
@@ -53,7 +61,7 @@ impl EditorState {
             cursor_y: 0,
             scroll_y: 0,
             last_search: None,
-            last_case_sensitive: false,
+            show_matches: false,
             format,
             stamp: DiskStamp::default(),
             locked: false,
@@ -63,6 +71,7 @@ impl EditorState {
             viewport: Default::default(),
             block_mode: false,
             remote: None,
+            syntax: RefCell::new(None),
         }
     }
 
@@ -79,6 +88,7 @@ impl EditorState {
         let mut state = Self::new(path, loaded.lines, loaded.format, options.tab_size);
         state.stamp = loaded.stamp;
         state.locked = options.lock_read_only && loaded.stamp.read_only;
+        state.detect_syntax(&options.syntax);
         if options.tab_expansion == crate::config::settings::TabExpansion::ConvertAll
             && !state.locked
         {
@@ -118,6 +128,9 @@ impl EditorState {
             return false;
         }
         let before = self.cursor();
+        if let Some(first) = edits.iter().map(|e| e.start.y).min() {
+            self.lines_changed_from(first);
+        }
         let after = self.history.apply_group(&mut self.lines, edits, before);
         self.selection = None;
         self.set_cursor(cursor_after.unwrap_or(after));
@@ -236,6 +249,8 @@ impl EditorState {
         let Some(pos) = step(&mut self.history, &mut self.lines) else {
             return false;
         };
+        let first = self.history.first_changed_line().unwrap_or(0);
+        self.lines_changed_from(first);
         self.selection = None;
         self.set_cursor(pos);
         true
@@ -254,6 +269,22 @@ impl EditorState {
             }
         }
         self.set_cursor(Pos::default());
+    }
+
+    /// Picks the syntax highlighter for the file (none when `limits` say
+    /// so or no grammar knows it).
+    pub fn detect_syntax(&mut self, limits: &SyntaxLimits) {
+        let size: usize = self.lines.iter().map(|l| l.len() + 1).sum();
+        let first = self.lines.first().map_or("", String::as_str);
+        let cache = limits.cache_for(self.display_path(), first, size as u64);
+        *self.syntax.get_mut() = cache;
+    }
+
+    /// Lines from `y` on changed: drop what the highlighter knew about them.
+    fn lines_changed_from(&mut self, y: usize) {
+        if let Some(cache) = self.syntax.get_mut() {
+            cache.invalidate_from(y);
+        }
     }
 
     /// `true` when the file on disk changed since it was read or saved.
@@ -279,6 +310,7 @@ impl EditorState {
         self.format = loaded.format;
         self.stamp = loaded.stamp;
         self.history.reset();
+        self.lines_changed_from(0);
         self.selection = None;
         self.set_cursor(self.cursor());
         Ok(())
@@ -300,6 +332,10 @@ mod tests {
             tab_expansion,
             auto_indent: true,
             lock_read_only: true,
+            syntax: SyntaxLimits {
+                enabled: true,
+                max_bytes: 1024,
+            },
         }
     }
 
@@ -360,6 +396,21 @@ mod tests {
         assert_eq!(ed.lines, vec!["    x"]);
         assert!(ed.is_dirty());
         assert_eq!(ed.format.line_ending, document::LineEnding::CrLf);
+        assert!(ed.syntax.borrow().is_none(), "plain text");
+    }
+
+    #[test]
+    fn syntax_follows_the_file_type_and_size_limit() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("m.rs");
+        std::fs::write(&path, "fn main() {}\n").unwrap();
+        let mut ed = EditorState::open(path, &options(TabExpansion::Keep)).unwrap();
+        assert_eq!(ed.syntax.borrow().as_ref().unwrap().language(), "Rust");
+        ed.detect_syntax(&SyntaxLimits {
+            enabled: true,
+            max_bytes: 4,
+        });
+        assert!(ed.syntax.borrow().is_none(), "over the size limit");
     }
 
     #[test]

@@ -7,19 +7,36 @@
 use crate::ui::text_width::display_width;
 use unicode_segmentation::UnicodeSegmentation;
 
-/// `(byte offset, first column, width)` of every grapheme of `line`.
-fn cells(line: &str, tab_size: usize) -> impl Iterator<Item = (usize, usize, usize)> + '_ {
+/// One grapheme of a line as it is drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Cell<'a> {
+    /// Byte offset in the line.
+    pub byte: usize,
+    pub text: &'a str,
+    /// First display column.
+    pub col: usize,
+    /// Columns it takes (a tab reaches the next tab stop).
+    pub width: usize,
+}
+
+/// Every grapheme of `line` with its display columns.
+pub fn cells(line: &str, tab_size: usize) -> impl Iterator<Item = Cell<'_>> + '_ {
     let tab = tab_size.max(1);
     let mut col = 0usize;
-    line.grapheme_indices(true).map(move |(byte, g)| {
-        let width = if g == "\t" {
+    line.grapheme_indices(true).map(move |(byte, text)| {
+        let width = if text == "\t" {
             tab - col % tab
         } else {
-            display_width(g)
+            display_width(text)
         };
         let start = col;
         col += width;
-        (byte, start, width)
+        Cell {
+            byte,
+            text,
+            col: start,
+            width,
+        }
     })
 }
 
@@ -27,11 +44,11 @@ fn cells(line: &str, tab_size: usize) -> impl Iterator<Item = (usize, usize, usi
 /// (`byte` past the end yields the width of the whole line).
 pub fn byte_to_column(line: &str, byte: usize, tab_size: usize) -> usize {
     let mut end = 0;
-    for (b, start, width) in cells(line, tab_size) {
-        if b >= byte {
-            return start;
+    for cell in cells(line, tab_size) {
+        if cell.byte >= byte {
+            return cell.col;
         }
-        end = start + width;
+        end = cell.col + cell.width;
     }
     end
 }
@@ -40,9 +57,9 @@ pub fn byte_to_column(line: &str, byte: usize, tab_size: usize) -> usize {
 /// the middle of a wide grapheme maps to its start). Columns past the end of
 /// the line map to `line.len()`.
 pub fn column_to_byte(line: &str, col: usize, tab_size: usize) -> usize {
-    for (b, start, width) in cells(line, tab_size) {
-        if col < start + width.max(1) {
-            return b;
+    for cell in cells(line, tab_size) {
+        if col < cell.col + cell.width.max(1) {
+            return cell.byte;
         }
     }
     line.len()

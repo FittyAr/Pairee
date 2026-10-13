@@ -24,6 +24,8 @@
 - A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
 - The viewer's key bar shows the encoding key (F8).
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
+- Editor: find and replace dialog (`Ctrl+F7` / `Ctrl+H`; find stays on `F7` / `Ctrl+F`) with case sensitive, whole words, regular expression (`$1` groups in the replacement), backward and wrap-around options. Replace goes match by match and "All" replaces every match as one undo step; `Alt+F7` / `Shift+F3` search backward. Matches on screen are highlighted, and patterns and replacements are kept in the history (`Ctrl+Up` / `Ctrl+Down` in the dialog).
+- Syntax highlighting in the editor and the viewer, in new `[syntax]` theme colors. Settings "Syntax highlighting" and "Highlight files up to" (Editor tab, 2 MiB by default).
 - Branch view (`Ctrl+Alt+X`, `Ctrl+Shift+B` in the Standard preset, Commands menu): every file below the current folder in one flat list with its relative path, read in the background; sorting, filters, selection and file operations work on it, and the action again (or leaving the folder) returns to the normal listing.
 - Jump to a frequent folder (`Ctrl+Alt+Z`, `z` in the yazi preset, Commands menu): visited folders ranked by frecency as zoxide does, with a fuzzy filter. `z <words>` on the command line jumps straight to the best match. The ranking is saved in `frecency.toml` only while "Save folders history" is on.
 - Compare files (`Ctrl+Alt+C`, Commands menu): a unified or side-by-side diff of the two selected files (or the cursor file of each panel) outside Git; binary files show whether they are identical, with their hashes.

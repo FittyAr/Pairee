@@ -247,8 +247,10 @@ This page lists the keys the preset ships with; your own changes are not shown h
 
 | Keys | Action |
 | :--- | :--- |
+| `Ctrl+F7` · `Ctrl+h` | Find and replace |
 | `Ctrl+f` · `F7` | Search |
 | `F3` · `Shift+F7` | Search next |
+| `Alt+F7` · `Shift+F3` | Search previous |
 
 ### View
 

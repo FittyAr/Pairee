@@ -131,6 +131,7 @@ Pairee puede iniciarse de manera nativa sin requerir que el usuario abra una con
 * Los temas gráficos se configuran en archivos TOML independientes.
 * Asocian elementos visuales lógicos (como bordes de paneles, archivos ejecutables o menús seleccionados) a constantes de color del terminal (ej. `Color::Blue` o `Color::Rgb(r,g,b)`).
 * `ui::theme_apply::parse_color` se encarga de parsear las cadenas de texto del archivo TOML para convertirlas en estilos nativos de `ratatui::style::Color` que se inyectan dinámicamente en los componentes durante el frame actual.
+* **Resaltado de sintaxis** (`src/syntax/`, sin ratatui): las gramáticas embebidas de syntect con el motor `fancy-regex` en Rust puro. Un tema de syntect armado en código asigna selectores de scope a un `SyntaxKind` (comentario, cadena, palabra clave, constante, función, tipo, operador, etiqueta), así la puntuación de selectores de syntect elige la clase; la UI pinta cada clase con los colores `[syntax]` del tema (`ResolvedTheme::syntax`). `SyntaxCache` analiza solo las líneas pedidas, guarda el estado del parser cada 64 líneas (se descarta desde la línea editada) y reinicia cerca de la pantalla tras un salto lejano. El editor y el visor pintan las líneas con un único pintor por capas (`ui::styled_line`: sintaxis, luego coincidencias de búsqueda, luego selección).
 
 ---
 

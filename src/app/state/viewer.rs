@@ -55,9 +55,11 @@ impl AppState {
         self.push_screen(Screen::Viewer(ViewerState::loading(path.clone())));
         let allow_image = settings.image_preview_enabled;
         let policy = encoding_policy(settings);
+        let syntax = crate::syntax::SyntaxLimits::from_settings(settings);
         let vfs = self.vfs_of_listed(&path);
         self.viewer.load.start(move |_| {
             let mut viewer = ViewerState::load_with_images(vfs.as_ref(), path, allow_image, policy);
+            viewer.detect_syntax(&syntax);
             if hex {
                 viewer.mode = ViewerMode::Hex;
             }

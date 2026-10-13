@@ -211,6 +211,11 @@ pub fn default_true() -> bool {
     true
 }
 
+/// Largest file (KiB) highlighted by default: 2 MiB.
+pub fn default_syntax_highlighting_max_kb() -> u32 {
+    2048
+}
+
 /// Encoding used by the viewer when automatic detection is off.
 pub fn default_viewer_codepage() -> String {
     encoding_rs::UTF_8.name().to_string()

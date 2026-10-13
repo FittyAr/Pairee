@@ -1,5 +1,4 @@
-//! Find dialog shared by the viewer (F7) and the editor (Ctrl+F / F7), and
-//! the viewer's encoding selector (F8).
+//! The viewer's find dialog (F7) and encoding selector (F8).
 
 use crate::app::state::popup::TextSearchState as Search;
 use crate::app::state::popup::{ViewerEncoding, ViewerSearchPrompt};
@@ -54,7 +53,7 @@ fn render_encodings(
 }
 
 /// Query field, case checkbox and [Search] [Cancel] buttons.
-pub fn render_search(
+fn render_search(
     f: &mut Frame,
     title_key: &str,
     search: &Search,

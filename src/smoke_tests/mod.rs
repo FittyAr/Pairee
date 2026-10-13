@@ -8,6 +8,7 @@ mod bookmarks;
 mod command_line;
 mod config_colors;
 mod editor;
+mod editor_search;
 mod file_clipboard;
 mod file_ops;
 mod find_file;

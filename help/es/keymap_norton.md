@@ -248,7 +248,9 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Ctrl+f` · `F7` | Buscar |
+| `Alt+F7` · `Shift+F3` | Buscar anterior |
 | `F3` · `Shift+F7` | Buscar siguiente |
+| `Ctrl+F7` · `Ctrl+h` | Buscar y reemplazar |
 
 ### Vista
 
