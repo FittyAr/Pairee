@@ -127,6 +127,7 @@ Lists all plugins currently loaded and active in your local Pairee setup.
 * **`[▲]` (Update Available):** A newer version is available in the central registry.
 
 ##### Keyboard Shortcuts:
+* **`c` / `C` / `Enter`:** Edit the highlighted plugin's settings: a form with a checkbox or field per setting (Space toggles, Enter saves, Esc cancels; Defaults restores the plugin's defaults). Values are checked against their type and applied at once.
 * **`t` / `T`:** Toggle trust configuration status for the highlighted plugin.
 * **`e` / `E`:** Enable or disable the highlighted plugin.
 * **`s` / `S`:** Turn the global Secure Mode on or off for all plugins.

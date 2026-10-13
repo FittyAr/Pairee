@@ -366,22 +366,18 @@ git_path    = { type = "string", default = "git", description = "Custom Git exec
 max_depth   = { type = "integer", default = 3, description = "Max directory recursion depth" }
 ```
 
-### 12.2 Config TUI and Dynamic Rendering
-1. **Parsing:** At initialization, Pairee's config loader reads the `[settings_schema]` of all active plugins.
-2. **Settings Menu:** The TUI configuration screen renders a dedicated "Plugins Settings" section containing subcategories for each active plugin.
-3. **Form Fields:** Selecting a plugin dynamically draws settings input forms:
-   * `bool` types render as toggle checkboxes.
-   * `string` types render as text entry inputs.
-   * `integer` types render as number adjusters.
-   Description strings are displayed directly below each control as hover/focused helper text.
+### 12.2 Settings Form in the Plugin Manager
+1. **Parsing:** `runtime::settings::specs` reads the plugin's `[settings_schema]` (sorted by key); `pairee.settings` uses the same reader, so the form and the plugin agree on types and defaults.
+2. **Opening:** in the Plugin Manager (Installed tab) `c` or Enter pushes `PluginSettingsDialog` over the manager (one line in `dialog_list!`; state in `app/state/popup/plugin_settings.rs`, keys in `app/input_popup/plugin_menu/settings.rs`, painting in `ui/popup/plugin_menu/settings.rs`). A plugin without settings gets an Info message.
+3. **Form Fields:** `bool` settings are checkboxes (Space); `string`, `integer` and `number` settings are text fields. The focused setting's `description` and default are shown under the rows. Buttons: Save, Defaults, Cancel; Enter on a row saves.
+4. **Validation:** Save checks every value against its type (`Kind::accepts`); an invalid one is named in the error line and focused.
 
-### 12.3 Value Persistence (`pairee.toml`)
-All customized settings values are stored and maintained inside the user's global `pairee.toml` configuration file under a dedicated `[plugins.settings.<plugin_name>]` table:
+### 12.3 Value Persistence (`config.toml`)
+Only the values that differ from the schema defaults are stored, as strings, in the user's `config.toml` under `[settings.plugin_settings.<plugin_name>]` (`toggles::set_settings`, which saves through the host's config and reloads the plugins so the change applies at once):
 ```toml
-[plugins.settings.git-status]
-show_hidden = true
-git_path    = "/usr/local/bin/git"
-max_depth   = 5
+[settings.plugin_settings.git-status]
+show_hidden = "true"
+max_depth   = "5"
 ```
 
 ### 12.4 Lua API Access (`pairee.settings`)

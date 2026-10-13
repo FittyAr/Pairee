@@ -19,6 +19,32 @@
 11. [Appendix B — Pairee Files Affected](#appendix-b--pairee-files-affected)
 12. [Appendix C — Reference Material](#appendix-c--reference-material)
 
+## Status (2026-10-13, Lua API 1.2.0)
+
+| Item | State | Where |
+|---|---|---|
+| M0 (emit, file_cache, notify, which, utils) | Done earlier | `bindings/{emit,file_cache,notify_ext,which,utils_*}.rs` |
+| M1 dialogs, quote/json/percent/sleep | Done earlier | `bindings/dialogs.rs`, `utils_ext.rs` |
+| M1 `pairee.clipboard` | Done. Read: trusted outside Secure Mode only; write: everyone, control chars stripped, 1 MiB | `bindings/clipboard.rs` |
+| M1 `uid/gid/user_name/group_name/host_name` | Done (`pairee.utils.*`, `nil` where the platform has none) | `bindings/identity.rs`, `fs/identity.rs` |
+| M2 `Path`, `Url`, `Cha`, `Error`; `File.cha`; `fs.cha` | Done. `File` does not deref to `Cha` (use `file.cha`); `File.url` stays a string; `Url` is string-only (no remote I/O through `pairee.fs`) | `runtime/types/` |
+| M2 `pairee.image` (G12) | Done: `show` (widget drawn by the Quick View image renderer), `info`, `precache` | `bindings/image.rs` |
+| M2 Composer | Done: lazily built `pairee.image`, `pairee.rt`, `pairee.th` | `runtime/composer.rs` |
+| M2 `add_cached_field` | Not needed: fields are computed from Rust data on access | — |
+| M3 `preload` / `seek` (G9) | Done: preload of the hovered file and the next 3, completed versions cached; seek on PgUp / PgDn | `plugin/worker/`, `app/state/quick_view/plugin_preview.rs` |
+| M3 `--- @sync` / `--- @since` | Done. Pairee keeps one Lua state per plugin on a worker task (no main-thread Lua), so `@sync <method>` means "refresh `pairee.cx` before the call"; `@since` is checked against the Lua API version | `plugin/annotations.rs` |
+| M3 `pairee.state` (G14) | Done: persistent (`state.json` in the data dir), 256 KiB, atomic writes, bounded JSON values | `bindings/state.rs` |
+| M3 `Runtime` / `runtime_scope!`, main-thread sync context | Not done: out of this design (see `@sync` above); every plugin method now runs asynchronously instead, and the watchdog pauses while a call waits | `plugin/limits.rs` (`guarded_async`) |
+| M3 async fs / Command / Child | Done earlier | `bindings/fs/`, `bindings/process/` |
+| M4 `Renderable` + widgets | Done: `Style`, `Span`, `Line`, `Text` (+ `parse` ANSI), `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout` (declarative children), `Constraint`, `Align`, `Wrap`, `Edge`; data in `app::state::popup::plugin_widget`, ratatui only in `ui::quickview::plugin` | `bindings/ui/` |
+| M4 `ui.Rect` / `Pad` / `Pos` / `Bar` / `Clear` / `Fill`, `Layout:split(rect)` | Not done: the core has no terminal geometry; layouts are split by the UI | — |
+| M4 `rt`, `th` | Done (read-only snapshots of the configuration the plugins loaded with; `rt.term.size()` live) | `bindings/{rt,th}.rs` |
+| M4 `km` | Covered by the existing `pairee.keymap` | `bindings/keymap.rs` |
+| M4 `cx` beyond `active` / `left` / `right` (`tabs`, `tasks`, `yanked`) | Not done | — |
+| M4 `preview_code` / `preview_widget` | Done; `preview_code` is plain text with line numbers (no syntax highlighter in the dependency set) | `bindings/preview.rs` |
+| G11 settings form | Done: `c` / Enter in the Plugin Manager opens a schema-driven form; saved to `[settings.plugin_settings.<name>]`, plugins reloaded | `app/input_popup/plugin_menu/settings.rs`, `ui/popup/plugin_menu/settings.rs` |
+| Acceptance | `tests/plugin_acceptance/roadmap_api` (untrusted plugin over the new surface); fzf / zoxide / code-preview ports still pending | `src/plugin/acceptance.rs` |
+
 ---
 
 ## 1. Executive Summary
@@ -116,6 +142,8 @@ Each gap is cited with `file:line` evidence. The numbers (G1–G14) are used thr
 
 ### 3.1 No typed userdata — G1
 
+**Status (2026-10-13):** `File`, `Cha`, `Path`, `Url`, `Error` exist.
+
 `src/plugin/manager.rs:18-26` defines `FileEntrySnapshot { name, url, path, size, is_dir, is_symlink }` as a plain serializable struct. When sent to Lua, it becomes a plain table (`src/plugin/registry.rs:117-124` builds a table with only `url` and `path` — no `cha`, no `mime`, no `is_hidden`, no `is_exec`, no timestamps, no `perm()`).
 
 Plugins receive a thin table and must derive everything else themselves. There is no way to add methods, no metamethods (`__eq`, `__tostring`, `__concat`), and no way to extend the type from outside the Rust core.
@@ -138,6 +166,8 @@ This alone prevents the entire class of interactive plugins (fuzzy finders, hist
 
 ### 3.5 UI widgets are table-stubs — G5
 
+**Status (2026-10-13):** closed. Widget userdata and the `Renderable` tree (see the status table).
+
 `src/plugin/runtime/bindings/ui.rs:1-69` exposes 6 constructors returning plain tables with a `type=...` discriminator: `Paragraph`, `Gauge`, `List`, `Table`, `Span`, `Line`. The widget values are passed back to the main thread via `PluginRequest::UpdatePluginWidget { path, widget }` and deserialized by serde into `PluginWidget` (`src/app/state/types/...`). No styling, no layout, no Rect positioning, no borders, no alignment, no wrap, no image rendering.
 
 ### 3.6 Pub/sub is local-only and shallow — G6
@@ -154,6 +184,8 @@ This alone prevents the entire class of interactive plugins (fuzzy finders, hist
 
 ### 3.9 Preloader and seek not routed — G9
 
+**Status (2026-10-13):** closed. `PluginTaskRequest::{Preload, Seek}`; jobs carry a `File` and the area.
+
 `src/plugin/registry.rs:17-29` defines only `PluginTaskRequest::{ Peek, ExecuteCommand, EmitEvent }`. `Preload` and `Seek` are documented in `docs/plugin-dev-guide.md:8` but not implemented. The `PreviewJob` (`registry.rs:10-15`) only carries `file_path, area_width, area_height, skip` — no `file` userdata, no `mime`.
 
 ### 3.10 Event coverage is thin — G10
@@ -162,17 +194,25 @@ This alone prevents the entire class of interactive plugins (fuzzy finders, hist
 
 ### 3.11 Per-plugin settings TUI rendering is partial — G11
 
+**Status (2026-10-13):** closed. Schema-driven form pushed over the Plugin Manager.
+
 Pairee has `settings_schema` (`docs/plugin-dev-guide.md:18`) and a TUI section that renders it, but the rendering code is in the broader config UI, not in the plugin module. The TUI is documented but the `src/ui/popup.rs` `PluginMenu` variant (`src/plugin/manager.rs:256-268`) only handles plugin install/update, not per-plugin settings form rendering.
 
 ### 3.12 No image preview — G12
+
+**Status (2026-10-13):** closed. `pairee.image.{show,info,precache}`; images drawn by the Quick View renderer.
 
 `Cargo.toml:25` has the `image` crate (0.25.10), and the core F3 viewer renders images, but no Lua API exposes image preview. The terminal image adapter stack (Chafa, iTerm2, Sixel, Überzug) is also not exposed to plugins.
 
 ### 3.13 Missing utility functions — G13
 
+**Status (2026-10-13):** closed (clipboard and identity added; the rest landed in M0/M1).
+
 None of the following exist today: `clipboard`, `sleep`, `time`, `hash`, `quote` (shell escape), `target_os/family`, `uid/gid/user_name/group_name/host_name`, `json_encode/decode`, `image_show/precache/info`.
 
 ### 3.14 No mutable per-plugin state — G14
+
+**Status (2026-10-13):** closed. `pairee.state` (persistent, bounded).
 
 `pairee.settings` is read-only, derived from the manifest. There is no equivalent of a per-plugin mutable table that persists between calls. A plugin that needs a counter, a cache, or a "last seen" timestamp must re-derive it on every call.
 

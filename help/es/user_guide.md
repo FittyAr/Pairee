@@ -127,6 +127,7 @@ Muestra una lista con todos los plugins que se han cargado y están instalados l
 * **`[▲]` (Update Available):** Indica que existe una versión más reciente de este plugin disponible en el repositorio central.
 
 ##### Controles de Teclado:
+* **`c` / `C` / `Enter`:** Edita los ajustes del plugin seleccionado: un formulario con una casilla o un campo por ajuste (Espacio alterna, Enter guarda, Esc cancela; Predeterminados restaura los valores del plugin). Los valores se comprueban contra su tipo y se aplican de inmediato.
 * **`t` / `T`:** Cambia (activa/desactiva) el estado de confianza (Trusted) del plugin seleccionado en la configuración.
 * **`e` / `E`:** Activa o desactiva el plugin seleccionado.
 * **`s` / `S`:** Activa o desactiva el Modo Seguro global para todos los plugins.

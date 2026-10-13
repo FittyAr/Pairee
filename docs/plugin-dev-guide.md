@@ -42,8 +42,8 @@ Plugins are stored in your configuration folder and declared in `pairee.toml`. O
 
 | Type | Lua Methods | Invoked When |
 |------|-------------|--------------|
-| **Previewer** | `peek(job)`, `seek(job)` | A file is highlighted in the active panel |
-| **Preloader** | `preload(job)` | A file is about to come into view |
+| **Previewer** | `peek(job)`, `seek(job)` | The Quick View shows a file (`peek`); PgUp / PgDn on the plugin's preview (`seek`) |
+| **Preloader** | `preload(job)` | The Quick View shows a file, and for the next three files of the panel |
 | **Hook** | `setup(opts)`, subscriptions via `pairee.ps.sub` | A lifecycle event fires (e.g. `on_cd`) |
 | **Command** | `entry(args)` | A keybinding or menu item calls the plugin by name |
 | **Mixed** | Combination of the above | Multiple roles |
@@ -114,7 +114,7 @@ A plugin is a folder containing a main Lua script, manifest, and optional submod
 ### `pairee.app` — Application Control
 
 ```lua
-pairee._lua_api_version                 -- "1.1.0" (Lua surface semver)
+pairee._lua_api_version                 -- "1.2.0" (Lua surface semver)
 pairee.app.cwd()                        -- string: current directory
 pairee.app.cd(path)                     -- navigate to path
 pairee.app.focus()                      -- "left" | "right"
@@ -192,16 +192,115 @@ colour variables (`LANG`, `LANGUAGE`, `LC_*`, `TERM`, `COLORTERM`, `NO_COLOR`,
 other name raises a security violation. `:cwd(path)` must name an existing
 folder inside the plugin's `pairee.fs` read jail.
 
-### `pairee.ui` — Widget Constructors
+### `pairee.ui` — Widgets
+
+Widgets are userdata built with chained calls; `peek` returns one (see
+section 7). Every widget and text value takes the style methods `:style(s)`,
+`:fg(color)`, `:bg(color)`, `:bold()`, `:dim()`, `:italic()`, `:underline()`,
+`:blink()`, `:reverse()`, `:hidden()`, `:crossed()` and `:reset()` (colors are
+theme names such as `"red"`, `"darkgray"` or `"#rrggbb"`).
 
 ```lua
-pairee.ui.Paragraph(text)
-pairee.ui.Gauge(ratio, label)           -- ratio: 0.0 to 1.0
-pairee.ui.List(items)                   -- items: string[]
-pairee.ui.Table(headers, rows)
-pairee.ui.Span(text, style)
-pairee.ui.Line(spans)
+local ui = pairee.ui
+ui.Style():fg("cyan"):bold()                     -- reusable style
+ui.Span("text", "red")                           -- styled text (style or color)
+ui.Line({ "plain ", ui.Span("bold"):bold() }):align(ui.Align.CENTER)
+ui.Text("line 1\nline 2")                        -- also a Line, Span or list of them
+ui.Text.parse("\27[31mred\27[0m")                -- keeps ANSI colors
+ui.Paragraph(text):wrap(ui.Wrap.YES):scroll(2):block(ui.Border(ui.Edge.ALL))
+ui.List({ "a", ui.Span("b"):fg("yellow") })
+ui.Table({ ui.Row({ "a.txt", "12" }), { "b.txt", "7" } })
+    :header({ "Name", "Size" })
+    :widths({ ui.Constraint.Length(20), ui.Constraint.Fill(1) })
+ui.Gauge():percent(40):label("40 %"):gauge_style(ui.Style():fg("green"))
+ui.Border(ui.Edge.TOP + ui.Edge.BOTTOM):type(ui.Border.ROUNDED):title("Info")
+ui.Layout():direction(ui.Layout.HORIZONTAL):margin(1)
+    :constraints({ ui.Constraint.Percentage(30), ui.Constraint.Fill(1) })
+    :children({ left_widget, right_widget })
 ```
+
+Constants: `ui.Align.{LEFT,CENTER,RIGHT}`, `ui.Wrap.{NO,YES,TRIM}`,
+`ui.Edge.{NONE,TOP,RIGHT,BOTTOM,LEFT,ALL}`,
+`ui.Border.{PLAIN,ROUNDED,DOUBLE,THICK}`, `ui.Layout.{HORIZONTAL,VERTICAL}`;
+`ui.Constraint.{Min,Max,Length,Percentage,Ratio,Fill}`. The layout is
+declarative: Pairee splits the preview area when it draws, so there is no
+`split(rect)`. The 1.0 forms (`ui.Gauge(ratio, label)`, `ui.Table(headers,
+rows)`, `ui.Span(text, color)`, tables with a `type` field) still work. A
+widget may hold at most 100 000 nodes and 8 MiB of text.
+
+### Typed values — `Path`, `Url`, `Cha`, `Error`
+
+```lua
+local p = pairee.Path("docs/guide.md")   -- or pairee.Path.os(...)
+p.name, p.stem, p.ext, p.parent, p.is_absolute, p.has_root
+p:join("x"), p:starts_with("docs"), p:ends_with("guide.md"), p:strip_prefix("docs")
+
+local u = pairee.Url("sftp://me@host//srv/www/index.html")
+u.scheme, u.domain, u.path, u.name, u.parent, u.is_regular   -- "sftp", "me@host", ...
+u:join("css"), u:starts_with("sftp://me@host/srv")           -- compares scheme and host too
+
+local cha, err = pairee.fs.cha(path, follow)   -- Cha, nil  |  nil, Error
+cha.is_dir, cha.is_link, cha.is_orphan, cha.is_hidden, cha.is_exec, cha.len
+cha.mtime, cha.atime, cha.btime, cha.mode, cha.uid, cha.gid, cha.nlink
+cha:perm()                                    -- "drwxr-xr-x" (nil on Windows)
+cha:hash()                                    -- hex digest of size and times
+file.cha                                      -- the same for a File
+
+pairee.Error.custom("message")                -- err.kind, err.code, err.message
+```
+
+`Path` and `Url` never touch the disk. Every `pairee.fs` function also accepts
+a `Path` or a local `Url`. The newer APIs (`fs.cha`, `clipboard`, `state`,
+`image`, `preview_code`, `preview_widget`) return `value, nil` on success and
+`nil` (or `false`), `Error` on failure; `err.kind` is an `std::io` kind such
+as `"NotFound"` or `"PermissionDenied"`. Older APIs keep throwing.
+
+### `pairee.clipboard`, `pairee.state`, identity
+
+```lua
+pairee.clipboard("text")             -- true | false, Error  (every plugin)
+local text, err = pairee.clipboard() -- trusted plugins outside Secure Mode only
+
+pairee.state.set("count", 3)         -- true | false, Error  (nil deletes)
+pairee.state.get("count")            -- 3, kept between calls and sessions
+pairee.state.all(), pairee.state.clear()
+
+pairee.utils.user_name(), pairee.utils.host_name()
+pairee.utils.uid(), pairee.utils.gid(), pairee.utils.group_name()  -- nil on Windows
+```
+
+`pairee.state` keeps JSON-compatible values (scalars, lists, string-keyed
+tables) in `state.json` of the plugin's data directory, at most 256 KiB; a
+change that would go over is refused. Text put on the clipboard loses control
+characters other than tab and line feed and is limited to 1 MiB.
+
+### `pairee.rt`, `pairee.th`
+
+```lua
+pairee.rt.version, pairee.rt.api, pairee.rt.os, pairee.rt.family
+pairee.rt.plugin.name, .dir, .data_dir, .trusted, .secure_mode
+pairee.rt.mgr.show_hidden, .sort_by, .sort_reverse
+pairee.rt.preview.image, .max_bytes
+pairee.rt.term.size()                 -- cols, rows
+
+pairee.th.name                        -- active theme
+pairee.th.header_fg                   -- ui.Style of a theme color (`*_bg` keys set the background)
+```
+
+### `pairee.image` and preview helpers
+
+```lua
+pairee.image.show(job.file)            -- image widget (drawn like the Quick View's images)
+pairee.image.info(path)                -- { w, h, format, color }
+pairee.image.precache(src, dst, { max_width = 512, max_height = 512 })  -- PNG thumbnail
+pairee.preview_code({ file = job.file, skip = job.skip, lines = job.area.h })
+pairee.preview_widget({ file = path, skip = 0 }, widget)  -- show a widget later
+```
+
+`image.show`, `image.info` and `preview_code` accept the file being previewed
+(the `peek` / `preload` / `seek` job's file) even when it is outside the
+plugin's `pairee.fs` jail; `precache` needs a source the jail allows.
+`preview_code` shows plain text with line numbers (no syntax highlighting).
 
 ### `pairee.ps` — Pub/Sub
 
@@ -301,12 +400,22 @@ becomes a command with those keys as its default.
 
 ## 7. Writing a Previewer Plugin
 
-Previewers implement `peek(job)` and optionally `seek(job)` for scrolling.
+Previewers implement `peek(job)` and optionally `preload(job)` and
+`seek(job)`. When the Quick View shows a file, Pairee calls `preload` of every
+plugin that has one, then `peek` of each previewer in name order; the first
+widget returned replaces the built-in preview (return `nil` to decline). After
+that, the next three files of the panel are preloaded in the background.
 
 The `job` parameter provides:
-- `job.file` — the hovered `Entry` (with `.url`, `.mime`, `.size`, etc.)
-- `job.area` — the available preview area dimensions
-- `job.skip` — current scroll offset
+- `job.file` — a `File` of the previewed file (`.path`, `.name`, `.mime`, `.size`, `.cha`, ...)
+- `job.area` — the preview area in cells: `x`, `y`, `w`, `h` (also `width`, `height`)
+- `job.skip` — lines scrolled
+- `job.units` — (`seek` only) lines to scroll, negative upwards
+
+`preload(job)` prepares something ahead (a thumbnail, a cache file) and returns
+`complete[, err]`; a file version whose preload returned `true` is not
+preloaded again. `seek(job)` returns the new `skip`; Pairee then calls `peek`
+again with it. Without `seek`, PgUp / PgDn scroll the widget itself.
 
 ```lua
 local M = {}
@@ -327,18 +436,22 @@ function M:peek(job)
     end
 
     local headers = table.remove(rows, 1)
-    return pairee.ui.Table(headers, rows)
+    return pairee.ui.Table(rows):header(headers):style(pairee.th.panel_fg)
 end
 
 return M
 ```
 
-Register as a previewer for CSV files in `pairee.toml`:
+An untrusted previewer cannot read files outside its folder with `pairee.fs`,
+but it can still show the previewed file through the host:
 
-```toml
-[[previewers]]
-mime = "text/csv"
-plugin = "csv-preview"
+```lua
+function M:peek(job)
+    if job.file.mime:match("^image/") then
+        return pairee.image.show(job.file)
+    end
+    return pairee.preview_code({ file = job.file, skip = job.skip, lines = job.area.h })
+end
 ```
 
 ---
@@ -417,6 +530,27 @@ print(state.cwd)
 - `pairee.sync()` must be called at plugin load time (top-level or inside `setup`), not inside async callbacks.
 - The returned callable is safe to call from any async context.
 
+### Annotations
+
+The leading comment block of `main.lua` may hold annotations:
+
+```lua
+--- @since 1.2.0
+--- @sync entry
+local M = {}
+```
+
+- `--- @since <version>` — the Lua API version the plugin needs; a Pairee with
+  an older API refuses to load it (with that reason in the log) instead of
+  failing later on a missing function.
+- `--- @sync entry|peek|preload|seek` — before calling that method, Pairee
+  refreshes `pairee.cx` (as `pairee.sync` does), so it reads the panels as they
+  are at call time.
+
+All plugin methods (`setup`, `entry`, `peek`, `preload`, `seek` and the
+`pairee.ps` callbacks) run asynchronously, so they may wait for dialogs,
+`pairee.sync`, `pairee.utils.sleep` or child processes.
+
 ---
 
 ## 11. Pub/Sub Events with `pairee.ps`
@@ -474,6 +608,8 @@ By default, all plugins run in **Untrusted Mode** (`trusted = false`), which iso
 * **Require Isolation:** `require("lib.util")` loads `lib/util.lua` (or `lib/util/init.lua`) from the plugin's own folder, runs it once and caches the result in a table private to the plugin. It works for untrusted and trusted plugins alike (it does not need the `package` library). Module names are plain dotted identifiers (letters, digits, `_`, `-`); `..`, separators, symlinks and junctions cannot reach files outside the plugin folder.
 * **No Commands:** Any call to `pairee.fs.spawn()` will immediately throw a runtime error.
 * **Filesystem Jail:** `pairee.fs` can only read inside the plugin's own directory and its private data directory (`pairee.fs.data_dir()`), and can only write inside the data directory. This applies whether or not Secure Mode is enabled; `..` segments and symlinks cannot escape it.
+* **Preview exception:** `pairee.image.show`, `pairee.image.info` and `pairee.preview_code` also accept the file being previewed; they hand it to the host and return an opaque widget (or the image size), never its content. `pairee.image.precache` decodes pixels the plugin can read back, so it only takes sources inside the jail.
+* **Clipboard:** an untrusted plugin may write the clipboard but not read it (reading needs a trusted plugin outside Secure Mode).
 
 ```toml
 # In pairee.toml
@@ -508,10 +644,10 @@ To prevent data exfiltration, users can enable a global **Secure Mode** in their
 * **Fails closed:** if `config.toml` cannot be parsed, plugins run in Secure Mode until it is fixed (the startup error says so).
 
 ### 13.4 Resource limits
-Every plugin has a memory cap (128 MiB untrusted, 512 MiB trusted) and a CPU watchdog: each call Pairee makes into the plugin (`main.lua`, `setup`, `entry`, `peek`, hook callbacks) may run for at most 10 seconds of wall-clock time, time spent inside C functions such as `string.rep` included. A call over budget is aborted with `plugin aborted: exceeded its execution time limit`, and `pcall` cannot catch it; the next call starts with a fresh budget.
+Every plugin has a memory cap (128 MiB untrusted, 512 MiB trusted) and a CPU watchdog: each call Pairee makes into the plugin (`main.lua`, `setup`, `entry`, `peek`, hook callbacks) may run for at most 10 seconds, time spent inside C functions such as `string.rep` included. The clock only runs while the plugin is executing: while a call waits for a dialog, `pairee.sync`, a sleep or a child process it is paused. A call over budget is aborted with `plugin aborted: exceeded its execution time limit`, and `pcall` cannot catch it; the next call starts with a fresh budget.
 
 ### 13.5 Managing plugins
-In the Plugin Manager (Installed tab) `t` toggles a plugin's trust, `e` enables or disables it and `s` toggles the global Secure Mode. Changes are saved and applied at once: all plugins are reloaded with the new settings. Disabled plugins are not loaded at all, so none of their code or hooks run.
+In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (section 18), `t` toggles a plugin's trust, `e` enables or disables it and `s` toggles the global Secure Mode. Changes are saved and applied at once: all plugins are reloaded with the new settings. Disabled plugins are not loaded at all, so none of their code or hooks run.
 
 ---
 
@@ -686,7 +822,7 @@ When `pairee.t()` resolves a key:
 
 ## 18. Custom Settings Configuration
 
-Plugins can declare their own settings and configuration variables. These are dynamically loaded and rendered in Pairee's main TUI options window, allowing users to modify parameters without editing Lua code directly.
+Plugins can declare their own settings. Users edit them in the Plugin Manager without editing Lua code: `c` or Enter on an installed plugin opens a form with a checkbox per `bool` setting and a text field for the others.
 
 ### 18.1 Defining settings_schema
 In your plugin's `manifest.toml`, define a `[settings_schema]` table containing the configurable options. Each option must specify a `type` (`bool`, `string`, `integer` or `number`), a `default` value, and a brief `description`. The user's value is converted with the declared type (without `type`, the type of `default` is used); a value that does not fit the type is ignored and the default is used:
@@ -697,7 +833,7 @@ git_path    = { type = "string", default = "git", description = "Custom Git exec
 max_depth   = { type = "integer", default = 3, description = "Max directory recursion depth" }
 ```
 
-When users navigate to the options window, Pairee will present a form specific to your plugin displaying these controls. The values chosen by the user are stored persistently in their `pairee.toml` settings file.
+The form shows the focused setting's `description` and default. Save checks every value against its type (an invalid one is named and focused); Defaults puts every field back to the schema default. Only values that differ from the defaults are stored, in `config.toml` under `[settings.plugin_settings.<plugin>]`, and the plugins are reloaded so the new values apply at once.
 
 ### 18.2 Accessing Settings in Lua
 The resolved settings values are made available directly to your Lua script inside the read-only global table `pairee.settings`:
@@ -788,7 +924,7 @@ commands = ["git"]
 | **Plugin naming** | Use `<name>.pairee` style for registry plugins (e.g. `git.pairee`, `fzf.pairee`) |
 | **Namespaced events** | Prefix pub/sub events with your plugin name: `my-plugin:event` |
 | **Decline gracefully** | In `peek()`, check the file type and return early if not applicable |
-| **Async-first** | Avoid blocking calls. Use `pairee.fs.spawn` and async patterns |
+| **Async-first** | Avoid blocking calls. Use `pairee.Command` and async patterns; put slow preview work in `preload` |
 | **Error notifications** | Show `pairee.app.notify` with level `"error"` on failures — never silently fail |
 | **Trust transparency** | If your plugin needs `trusted = true`, document it clearly in the manifest |
 | **SemVer discipline** | Bump MAJOR only on breaking behavioral changes |
