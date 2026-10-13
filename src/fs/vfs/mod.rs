@@ -26,11 +26,13 @@ pub use source::PanelSource;
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::du::{DuEntry, DuKind};
+use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::text::ByteStore;
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
+use std::time::SystemTime;
 
 /// What an adapter can do besides listing and reading.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -114,13 +116,60 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     /// Metadata of `path`, without following a final symbolic link.
     fn stat(&self, path: &Path) -> io::Result<VfsEntry>;
 
+    /// Metadata of what `path` leads to (a final link is followed; a broken
+    /// link is an error). Adapters without links use [`Vfs::stat`].
+    fn metadata(&self, path: &Path) -> io::Result<VfsEntry> {
+        self.stat(path)
+    }
+
+    /// Identity of the folder or file `path` leads to, used to detect link
+    /// loops; `None` when the adapter cannot tell.
+    fn identity(&self, _path: &Path) -> Option<FileIdentity> {
+        None
+    }
+
     /// A stream over the contents of the file at `path`.
     fn open_read(&self, _path: &Path) -> io::Result<Box<dyn Read + Send>> {
         Err(unsupported())
     }
 
-    /// Creates or replaces the file at `path` with `data`.
-    fn write_file(&self, _path: &Path, _data: &mut dyn Read) -> io::Result<()> {
+    /// Creates (or truncates) the file `path` for writing. Flushing the
+    /// writer makes its data durable (it reaches the disk or server).
+    fn create_file(&self, _path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        Err(unsupported())
+    }
+
+    /// Moves the file `from` over `to`, replacing a file there.
+    fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
+        self.rename(from, to)
+    }
+
+    /// Creates or replaces the file at `path` with `data`, atomically: the
+    /// data goes to a temporary file that is flushed and then moved over
+    /// `path`, so a failure never leaves a truncated file (nor loses the
+    /// file being replaced).
+    fn write_file(&self, path: &Path, data: &mut dyn Read) -> io::Result<()> {
+        crate::fs::transfer::part::write_atomically(
+            path,
+            |part| {
+                let mut out = self.create_file(part)?;
+                io::copy(data, &mut out)?;
+                out.flush()
+            },
+            |from, to| self.replace(from, to),
+            |part| {
+                let _ = self.remove_file(part);
+            },
+        )
+    }
+
+    /// Sets the modification time and/or the Unix permission bits of `path`.
+    fn set_metadata(
+        &self,
+        _path: &Path,
+        _modified: Option<SystemTime>,
+        _mode: Option<u32>,
+    ) -> io::Result<()> {
         Err(unsupported())
     }
 
@@ -173,44 +222,7 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     /// `remove_dir` only ever runs on an emptied folder. Links are removed,
     /// never followed. A missing `path` is not an error.
     fn remove_all(&self, path: &Path) -> io::Result<()> {
-        match self.stat(path) {
-            Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(()),
-            Err(e) => return Err(e),
-            Ok(entry) if !entry.is_real_dir() => return self.remove_file(path),
-            Ok(_) => {}
-        }
-        let mut stack: Vec<(PathBuf, bool)> = vec![(path.to_path_buf(), false)];
-        while let Some((dir, expanded)) = stack.pop() {
-            if expanded {
-                self.remove_dir(&dir)?;
-                continue;
-            }
-            stack.push((dir.clone(), true));
-            for child in self.list(&dir)? {
-                if child.is_real_dir() {
-                    stack.push((child.path, false));
-                } else {
-                    self.remove_file(&child.path)?;
-                }
-            }
-        }
-        Ok(())
-    }
-
-    /// Every entry below `root` (depth first, links not followed).
-    /// Unreadable folders are skipped.
-    fn walk(&self, root: &Path) -> Vec<VfsEntry> {
-        let mut out = Vec::new();
-        let mut pending = vec![root.to_path_buf()];
-        while let Some(dir) = pending.pop() {
-            for entry in self.list(&dir).unwrap_or_default() {
-                if entry.is_real_dir() {
-                    pending.push(entry.path.clone());
-                }
-                out.push(entry);
-            }
-        }
-        out
+        crate::fs::remove::remove_tree(self, path)
     }
 
     /// The first `max` bytes of the file at `path`.

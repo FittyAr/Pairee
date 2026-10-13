@@ -1,7 +1,7 @@
 //! What to do when a copy's destination already exists: the job's conflict
 //! setting (overwrite, skip, rename, overwrite older) or, for "ask", the
-//! user's answer. Shared by the local worker and by copies into archives;
-//! the destination is read through the [`Vfs`] it lies on.
+//! user's answer. Shared by local copies, SFTP copies and copies into
+//! archives; both sides are read through the [`Vfs`] they lie on.
 
 use super::conflict::{ConflictInfo, ConflictResolution, resolve_filename_conflict};
 use super::conflict_slot::ConflictSlot;
@@ -25,26 +25,22 @@ pub struct ConflictResolver<'a> {
     pub options: &'a TransferOptions,
     pub ctl: &'a JobControl,
     pub slot: &'a ConflictSlot,
+    /// Filesystem of the sources.
+    pub src_fs: &'a dyn Vfs,
     /// Filesystem of the destinations.
     pub dst_fs: &'a dyn Vfs,
     /// Answer applied to every later conflict ("Overwrite all"...).
     pub auto: Option<ConflictResolution>,
 }
 
-fn local_meta(path: &Path) -> (u64, Option<SystemTime>) {
-    path.metadata()
-        .map(|m| (m.len(), m.modified().ok()))
+/// Size and modification time of `path` on `fs` (links followed).
+fn meta_on(fs: &dyn Vfs, path: &Path) -> (u64, Option<SystemTime>) {
+    fs.metadata(path)
+        .map(|e| (e.size, e.modified))
         .unwrap_or_default()
 }
 
 impl ConflictResolver<'_> {
-    fn dst_meta(&self, path: &Path) -> (u64, Option<SystemTime>) {
-        self.dst_fs
-            .stat(path)
-            .map(|e| (e.size, e.modified))
-            .unwrap_or_default()
-    }
-
     /// The setting to apply to `dst`, asking the user for "ask".
     async fn mode(&mut self, src: &Path, dst: &Path) -> anyhow::Result<String> {
         if self.options.conflict_resolution != "ask" {
@@ -74,8 +70,8 @@ impl ConflictResolver<'_> {
     /// Shows the conflict dialog and waits (without polling) for the answer.
     async fn ask(&mut self, src: &Path, dst: &Path) -> anyhow::Result<ConflictResolution> {
         self.slot.reset();
-        let (src_size, src_modified) = local_meta(src);
-        let (dst_size, dst_modified) = self.dst_meta(dst);
+        let (src_size, src_modified) = meta_on(self.src_fs, src);
+        let (dst_size, dst_modified) = meta_on(self.dst_fs, dst);
         self.ctl.emit(TransferEvent::ConflictDetected {
             job_id: self.ctl.job_id,
             file: dst.to_path_buf(),
@@ -113,17 +109,17 @@ impl ConflictResolver<'_> {
         results: &mut TransferResults,
     ) -> anyhow::Result<ConflictAction> {
         match self.mode(src, dst).await?.as_str() {
-            "skip" => Ok(self.skipped(src, results, "File already exists")),
+            "skip" => Ok(self.skipped(src, results, "transfer_skip_exists")),
             "rename" | "keep_both" => {
                 *dst = resolve_filename_conflict(dst, &|p| self.dst_fs.exists(p));
                 Ok(ConflictAction::Proceed)
             }
             "overwrite_older" => {
-                let (_, src_time) = local_meta(src);
-                let (_, dst_time) = self.dst_meta(dst);
+                let (_, src_time) = meta_on(self.src_fs, src);
+                let (_, dst_time) = meta_on(self.dst_fs, dst);
                 match (src_time, dst_time) {
                     (Some(s), Some(d)) if s <= d => {
-                        Ok(self.skipped(src, results, "Destination is newer or equal"))
+                        Ok(self.skipped(src, results, "transfer_skip_newer"))
                     }
                     _ => Ok(ConflictAction::Proceed),
                 }
@@ -132,16 +128,13 @@ impl ConflictResolver<'_> {
         }
     }
 
-    fn skipped(&self, src: &Path, results: &mut TransferResults, reason: &str) -> ConflictAction {
-        results.skipped_files.push(SkippedFile {
+    /// Records `src` as skipped for the reason with translation `key`.
+    fn skipped(&self, src: &Path, results: &mut TransferResults, key: &str) -> ConflictAction {
+        let skipped = SkippedFile {
             src: src.to_path_buf(),
-            reason: format!("{reason} (skipped)"),
-        });
-        self.ctl.emit(TransferEvent::FileSkipped {
-            job_id: self.ctl.job_id,
-            file: src.to_path_buf(),
-            reason: reason.to_string(),
-        });
+            reason: crate::config::localization::t(key),
+        };
+        self.ctl.file_skipped(results, skipped);
         ConflictAction::Skip
     }
 }

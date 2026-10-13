@@ -10,10 +10,11 @@ use super::super::options::TransferOptions;
 use super::ops_jobs::archive::run_archive_blocking;
 use crate::config::localization::t;
 use crate::fs::archive::{ArchiveVfs, ZipEdit, ZipSource, extract_selected, split_archive_path};
-use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::worker::is_destination_parent_dir;
 use crate::fs::vfs::{LocalVfs, Vfs};
+use crate::fs::walk::{WalkError, WalkOptions, Walker};
 use anyhow::anyhow;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -171,7 +172,7 @@ pub async fn run(
             run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| extract_selected(&archive, &base, &selected, &dest, tx, cancel),
+                move |report| extract_selected(&archive, &base, &selected, &dest, report),
                 "error_extraction_failed",
             )
             .await
@@ -181,14 +182,14 @@ pub async fn run(
             inner,
             sources,
         } => {
-            let mut edit = import_edit(&inner, &sources);
+            let mut edit = import_edit(&inner, &sources).map_err(|e| anyhow!(e.to_string()))?;
             let mut skipped = TransferResults::default();
             resolve_conflicts(&archive, &mut edit, &conflicts, &control, &mut skipped).await?;
             let total = edit.add.len();
             let mut results = run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| apply_edit(&archive, &edit, tx, cancel),
+                move |report| apply_edit(&archive, &edit, report),
                 "archive_update_failed",
             )
             .await?;
@@ -204,7 +205,7 @@ pub async fn run(
             run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| apply_edit(&archive, &edit, tx, cancel),
+                move |report| apply_edit(&archive, &edit, report),
                 "archive_update_failed",
             )
             .await
@@ -212,8 +213,9 @@ pub async fn run(
     }
 }
 
-/// Every local file and folder of `sources`, placed below `inner`.
-fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
+/// Every local file and folder of `sources`, placed below `inner`. An
+/// unreadable folder fails the import instead of leaving files out.
+fn import_edit(inner: &Path, sources: &[PathBuf]) -> Result<ZipEdit, WalkError> {
     let mut add = Vec::new();
     for src in sources {
         let top = inner.join(crate::fs::file_name_lossy(src));
@@ -222,7 +224,8 @@ fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
             continue;
         }
         add.push((top.clone(), ZipSource::Dir));
-        for entry in LocalVfs.walk(src) {
+        for item in Walker::new(&LocalVfs, src, WalkOptions::default()) {
+            let entry = item?.entry;
             let Ok(rel) = entry.path.strip_prefix(src) else {
                 continue;
             };
@@ -234,10 +237,10 @@ fn import_edit(inner: &Path, sources: &[PathBuf]) -> ZipEdit {
             add.push((top.join(rel), source));
         }
     }
-    ZipEdit {
+    Ok(ZipEdit {
         add,
         ..ZipEdit::default()
-    }
+    })
 }
 
 /// Applies the job's conflict setting to the files of `edit` that already
@@ -257,6 +260,7 @@ async fn resolve_conflicts(
         options: &setup.options,
         ctl: control,
         slot: &setup.slot,
+        src_fs: &LocalVfs,
         dst_fs: &vfs,
         auto: None,
     };
@@ -281,28 +285,15 @@ async fn resolve_conflicts(
 }
 
 /// Rewrites `archive` with `edit`, reporting each added entry.
-fn apply_edit(
-    archive: &Path,
-    edit: &ZipEdit,
-    tx: &tokio::sync::mpsc::Sender<ProgressUpdate>,
-    cancel: &std::sync::atomic::AtomicBool,
-) -> anyhow::Result<()> {
+fn apply_edit(archive: &Path, edit: &ZipEdit, report: &mut ArchiveReport) -> anyhow::Result<()> {
     let vfs = ArchiveVfs::open(archive.to_path_buf())
         .ok_or_else(|| anyhow!(t("vfs_action_unsupported")))?;
-    ensure_not_cancelled(cancel)?;
+    report.ensure_running()?;
     let total_files = edit.add.len();
     let mut done = 0usize;
     vfs.edit(edit, &mut |rel| {
-        ensure_not_cancelled(cancel).map_err(std::io::Error::other)?;
-        let _ = tx.blocking_send(ProgressUpdate {
-            skipped: false,
-            current_file: crate::fs::file_name_lossy(rel),
-            files_copied: done,
-            total_files,
-            bytes_copied: 0,
-            total_bytes: 0,
-            error: None,
-        });
+        report.ensure_running().map_err(std::io::Error::other)?;
+        report.entry(&crate::fs::file_name_lossy(rel), done, total_files);
         done += 1;
         Ok(())
     })?;

@@ -6,12 +6,10 @@
 use anyhow::Result;
 use std::io::Read;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit};
 use super::safe_extract::ExtractGuard;
-use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::progress::ArchiveReport;
 
 /// Maps an entry's sanitized relative path to where it is written below
 /// the destination, or `None` to leave it out.
@@ -23,34 +21,25 @@ pub fn extract_entries(
     archive: &Path,
     dest: &Path,
     select: &Selector,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
+    report: &mut ArchiveReport,
 ) -> Result<()> {
     let mut guard = ExtractGuard::new(dest)?;
     let total_files = reader.count_hint(archive);
     let mut files_copied = 0usize;
     reader.visit(archive, &mut |meta, data| {
-        ensure_not_cancelled(cancel)?;
+        report.ensure_running()?;
         guard.count_entry()?;
         let rel = ExtractGuard::sanitize(&meta.name)?;
         let Some(rel) = select(&rel).filter(|r| !r.as_os_str().is_empty()) else {
             return Ok(Visit::Continue);
         };
-        let _ = tx.blocking_send(ProgressUpdate {
-            skipped: false,
-            current_file: crate::fs::file_name_lossy(&rel),
-            files_copied,
-            total_files,
-            bytes_copied: 0,
-            total_bytes: 0,
-            error: None,
-        });
+        report.entry(&crate::fs::file_name_lossy(&rel), files_copied, total_files);
         files_copied += 1;
         write_entry(&mut guard, &rel, meta, data)?;
         Ok(Visit::Continue)
     })?;
-    ensure_not_cancelled(cancel)?;
-    guard.report_skipped(tx);
+    report.ensure_running()?;
+    guard.report_skipped(report);
     Ok(())
 }
 

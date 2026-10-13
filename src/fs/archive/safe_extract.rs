@@ -13,9 +13,8 @@ use anyhow::{Result, anyhow, bail};
 use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Component, Path, PathBuf};
-use tokio::sync::mpsc;
 
-use crate::fs::progress::ProgressUpdate;
+use crate::fs::progress::ArchiveReport;
 
 /// Maximum total uncompressed bytes a single extraction may write.
 pub const MAX_EXTRACT_TOTAL_BYTES: u64 = 32 * 1024 * 1024 * 1024;
@@ -65,18 +64,10 @@ impl ExtractGuard {
         &self.skipped
     }
 
-    /// Emits one `skipped` progress update per entry that was not written.
-    pub fn report_skipped(&self, tx: &mpsc::Sender<ProgressUpdate>) {
+    /// Reports every entry that was not written (something existed there).
+    pub fn report_skipped(&self, report: &mut ArchiveReport) {
         for rel in &self.skipped {
-            let _ = tx.blocking_send(ProgressUpdate {
-                current_file: rel.to_string_lossy().into_owned(),
-                files_copied: 0,
-                total_files: 0,
-                bytes_copied: 0,
-                total_bytes: 0,
-                error: None,
-                skipped: true,
-            });
+            report.skipped(rel);
         }
     }
 

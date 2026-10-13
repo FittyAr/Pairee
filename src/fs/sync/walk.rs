@@ -9,6 +9,7 @@ use crate::fs::compare::{
     scan_directory,
 };
 use crate::fs::vfs::Vfs;
+use crate::fs::walk::{WalkError, WalkOptions, Walker};
 use std::path::{Path, PathBuf};
 
 /// Scan statistics published while comparing.
@@ -64,7 +65,7 @@ pub fn diff_trees(
     options: &SyncOptions,
     observer: &dyn ScanObserver,
 ) -> Result<Vec<SyncItem>, SyncError> {
-    let mut walker = Walker {
+    let mut walker = TreeDiff {
         options,
         filter: options.filter(),
         observer,
@@ -78,7 +79,10 @@ pub fn diff_trees(
     Ok(items)
 }
 
-struct Walker<'a> {
+/// The two-tree comparison: both sides are read one level at a time and
+/// matched by name (a merge of two trees, unlike the single-tree
+/// [`Walker`] used for the sizes of one-sided folders).
+struct TreeDiff<'a> {
     options: &'a SyncOptions,
     filter: SyncFilter,
     observer: &'a dyn ScanObserver,
@@ -91,7 +95,7 @@ struct Walker<'a> {
 const LEFT: usize = 0;
 const RIGHT: usize = 1;
 
-impl Walker<'_> {
+impl TreeDiff<'_> {
     /// Compares one folder pair; returns whether anything below differs.
     fn walk(&mut self, rel: &Path, left: &Path, right: &Path) -> Result<bool, SyncError> {
         self.enter(rel)?;
@@ -225,23 +229,27 @@ impl Walker<'_> {
         self.tree_bytes(if left { LEFT } else { RIGHT }, &entry.path)
     }
 
+    /// Bytes of the files below `dir` that take part (links not entered).
     fn tree_bytes(&self, side: usize, dir: &Path) -> Result<u64, SyncError> {
-        if self.observer.is_cancelled() {
-            return Err(SyncError::Cancelled);
+        let cancelled = || self.observer.is_cancelled();
+        let mut walker =
+            Walker::new(self.vfs[side], dir, WalkOptions::default()).with_cancel(&cancelled);
+        let mut total = 0u64;
+        while let Some(item) = walker.next() {
+            let item = item?;
+            let hidden = item.entry.hidden;
+            let scanned = ScannedEntry::from(item.entry);
+            if !self.filter.accepts(&scanned, hidden) {
+                if item.descends {
+                    walker.skip_dir();
+                }
+                continue;
+            }
+            if !scanned.summary.is_dir {
+                total += scanned.summary.size;
+            }
         }
-        let ci = self.options.compare.case_insensitive;
-        let entries = scan_directory(self.vfs[side], dir, ci, |e, hidden| {
-            self.filter.accepts(e, hidden)
-        })
-        .map_err(|source| io_or_cancel(dir, source))?;
-        entries.values().try_fold(0u64, |acc, e| {
-            let bytes = match (e.summary.is_dir, e.is_symlink) {
-                (true, false) => self.tree_bytes(side, &e.path)?,
-                (true, true) => 0,
-                (false, _) => e.summary.size,
-            };
-            Ok(acc + bytes)
-        })
+        Ok(total)
     }
 }
 
@@ -254,6 +262,19 @@ fn newer_side(l: &FileSummary, r: &FileSummary, tolerance: std::time::Duration) 
         (Some(lt), Some(rt)) if lt > rt => DiffKind::LeftNewer,
         (Some(_), Some(_)) | (None, Some(_)) => DiffKind::RightNewer,
         _ => DiffKind::LeftNewer,
+    }
+}
+
+impl From<WalkError> for SyncError {
+    fn from(e: WalkError) -> Self {
+        match e {
+            WalkError::Cancelled => Self::Cancelled,
+            WalkError::Io { path, source } => io_or_cancel(&path, source),
+            other => Self::Io {
+                path: other.path().map(Path::to_path_buf).unwrap_or_default(),
+                source: std::io::Error::other(other.to_string()),
+            },
+        }
     }
 }
 

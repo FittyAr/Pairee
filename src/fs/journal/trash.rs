@@ -155,5 +155,11 @@ by_platform! {
                 Err(not_in_trash(path))
             }
         }
+
+        /// Test probe: the trash cannot be read back here.
+        #[cfg(test)]
+        pub fn trash_round_trips_in(_dir: &Path) -> bool {
+            false
+        }
     }
 }

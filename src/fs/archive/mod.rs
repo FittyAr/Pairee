@@ -29,10 +29,8 @@ pub use zip_write::{ZipEdit, ZipSource};
 
 use anyhow::{Result, anyhow};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 
-use crate::fs::progress::ProgressUpdate;
+use crate::fs::progress::ArchiveReport;
 use extract::{everything, extract_entries};
 
 static ZIP: zip_ops::ZipReader = zip_ops::ZipReader;
@@ -147,14 +145,13 @@ pub fn split_archive_path(path: &Path) -> Option<(PathBuf, PathBuf)> {
 pub fn extract_archive(
     archive_path: &Path,
     dest_dir: &Path,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
+    report: &mut ArchiveReport,
 ) -> Result<()> {
     let format = detect_format(archive_path);
     match format.reader() {
-        Some(reader) => extract_entries(reader, archive_path, dest_dir, &everything, tx, cancel),
+        Some(reader) => extract_entries(reader, archive_path, dest_dir, &everything, report),
         None if matches!(format, ArchiveFormat::Rar | ArchiveFormat::Iso) => {
-            extract_via_external_7z(archive_path, dest_dir, tx, cancel)
+            extract_via_external_7z(archive_path, dest_dir, report)
         }
         None => Err(anyhow!("Unsupported archive format")),
     }
@@ -168,8 +165,7 @@ pub fn extract_selected(
     base: &Path,
     selected: &[PathBuf],
     dest_dir: &Path,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
+    report: &mut ArchiveReport,
 ) -> Result<()> {
     let reader = browsable_reader(archive).ok_or_else(|| anyhow!("Unsupported archive format"))?;
     let select = |rel: &Path| {
@@ -179,7 +175,7 @@ pub fn extract_selected(
             .then(|| rel.strip_prefix(base).ok().map(Path::to_path_buf))
             .flatten()
     };
-    extract_entries(reader, archive, dest_dir, &select, tx, cancel)
+    extract_entries(reader, archive, dest_dir, &select, report)
 }
 
 pub fn list_archive_files(path: &Path) -> Result<Vec<String>> {

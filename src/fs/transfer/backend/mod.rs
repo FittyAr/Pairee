@@ -67,7 +67,7 @@ pub async fn run_job(
         let control = JobControl::for_job(&job, event_tx.clone());
         let _ = event_tx.send(TransferEvent::JobStarted { job_id: job.id });
         let _ = event_tx.send(TransferEvent::ScanStarted { job_id: job.id });
-        ssh::run_ssh_job(job.operation, job.sources, job.destination, ssh, control).await
+        ssh::run_ssh_job(ssh::SshJob::of(job, ssh), control).await
     } else {
         // Local copy/move/delete worker emits JobStarted / scan events itself.
         local::run_local_job(job, event_tx).await

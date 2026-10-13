@@ -7,6 +7,7 @@ use crate::config::localization::t;
 use crate::fs::LinkKind;
 use crate::fs::multi_rename::{Step, TargetFs};
 use crate::fs::stamp::{Stamp, entry_exists};
+use crate::fs::transfer::part::Replaced;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -179,10 +180,11 @@ fn check_transfer(file: &FileStep) -> Option<Skipped> {
     occupied(&file.to).map(|reason| skip(&file.to, reason))
 }
 
-/// Deleting a copy: it is unchanged, did not overwrite anything and its
-/// original still exists.
+/// Deleting a copy: it is unchanged, did not overwrite anything for good
+/// (a replaced file in the trash is restored afterwards) and its original
+/// still exists.
 fn check_copy_removal(file: &FileStep) -> Option<Skipped> {
-    let reason = if file.replaced {
+    let reason = if file.replaced == Replaced::Overwritten {
         Some(SkipReason::Replaced)
     } else if let Some(reason) = stamp_reason(&file.to, file.stamp) {
         Some(reason)

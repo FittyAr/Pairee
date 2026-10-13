@@ -13,22 +13,24 @@ pub fn submit(state: &mut AppState, context: &AppContext) {
     state.dialogs.clear();
     let mut options = transfer_options_from_settings(&context.config.settings);
     prompt.apply_to(&mut options);
-    let destination = prompt.destination();
     let (src_ssh, dst_ssh) = prompt.endpoints.clone().unwrap_or_else(|| {
         (
             state.get_active_panel().source.ssh().cloned(),
             state.get_passive_panel().source.ssh().cloned(),
         )
     });
-    submit_simple(
-        state,
-        prompt.op.operation(),
-        prompt.src_paths,
-        destination,
-        options,
-        src_ssh,
-        dst_ssh,
-    );
+    // Several destinations become several jobs, run in this order.
+    for (operation, destination) in prompt.jobs() {
+        submit_simple(
+            state,
+            operation,
+            prompt.src_paths.clone(),
+            destination,
+            options.clone(),
+            src_ssh.clone(),
+            dst_ssh.clone(),
+        );
+    }
 }
 
 /// F10 / "Tree" button: pick the destination from a folder tree.

@@ -5,13 +5,31 @@ use super::SharedSshClient;
 use super::sftp_ops::{sftp_attrs, sftp_entry};
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
+use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, panel_listing};
-use std::io::{self, Read};
+use std::io::{self, Read, Write};
 use std::path::Path;
+use std::time::SystemTime;
 
 fn io_err(e: ssh2::Error) -> io::Error {
     io::Error::other(e)
+}
+
+/// A remote file whose `flush` also asks the server to sync it (where the
+/// server supports the `fsync` extension).
+struct SyncOnFlush(ssh2::File);
+
+impl Write for SyncOnFlush {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.0.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.0.flush()?;
+        let _ = self.0.fsync();
+        Ok(())
+    }
 }
 
 impl Vfs for SharedSshClient {
@@ -41,14 +59,79 @@ impl Vfs for SharedSshClient {
             .ok_or_else(|| io::Error::from(io::ErrorKind::NotFound))
     }
 
+    fn metadata(&self, path: &Path) -> io::Result<VfsEntry> {
+        let stat = self.lock().sftp.stat(path).map_err(io_err)?;
+        let mut entry = sftp_entry(path.to_path_buf(), &stat)
+            .unwrap_or_else(|| VfsEntry::dir(String::new(), path.to_path_buf()));
+        // `stat` describes the target; the path itself may still be a link.
+        entry.is_symlink = self.stat(path).is_ok_and(|e| e.is_symlink);
+        Ok(entry)
+    }
+
+    /// SFTP has no inodes: the canonical (`realpath`) path identifies.
+    fn identity(&self, path: &Path) -> Option<FileIdentity> {
+        let real = self.lock().sftp.realpath(path).ok()?;
+        Some(FileIdentity::Path(real))
+    }
+
     fn open_read(&self, path: &Path) -> io::Result<Box<dyn Read + Send>> {
         let file = self.lock().sftp.open(path).map_err(io_err)?;
         Ok(Box::new(file))
     }
 
-    fn write_file(&self, path: &Path, data: &mut dyn Read) -> io::Result<()> {
-        let mut file = self.lock().sftp.create(path).map_err(io_err)?;
-        io::copy(data, &mut file).map(|_| ())
+    fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        let file = self.lock().sftp.create(path).map_err(io_err)?;
+        Ok(Box::new(SyncOnFlush(file)))
+    }
+
+    /// SFTP v3 servers (OpenSSH) refuse to rename over an existing file:
+    /// the old file is then moved aside, the new one put in place and the
+    /// old one deleted — or put back when the second rename fails, so the
+    /// destination is never lost.
+    fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
+        let client = self.lock();
+        let first = match client.sftp.rename(from, to, None) {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        };
+        if !client.sftp.lstat(to).is_ok_and(|s| !s.is_dir()) {
+            return Err(io_err(first));
+        }
+        let mut aside = to.as_os_str().to_owned();
+        aside.push(".pairee-old");
+        let aside = std::path::PathBuf::from(aside);
+        client.sftp.rename(to, &aside, None).map_err(io_err)?;
+        match client.sftp.rename(from, to, None) {
+            Ok(()) => {
+                let _ = client.sftp.unlink(&aside);
+                Ok(())
+            }
+            Err(e) => {
+                let _ = client.sftp.rename(&aside, to, None);
+                Err(io_err(e))
+            }
+        }
+    }
+
+    /// `setstat` with the time (access time set alike) and permission bits.
+    fn set_metadata(
+        &self,
+        path: &Path,
+        modified: Option<SystemTime>,
+        mode: Option<u32>,
+    ) -> io::Result<()> {
+        let secs = modified
+            .and_then(|t| t.duration_since(SystemTime::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs());
+        let stat = ssh2::FileStat {
+            size: None,
+            uid: None,
+            gid: None,
+            perm: mode.map(|m| m & 0o7777),
+            atime: secs,
+            mtime: secs,
+        };
+        self.lock().sftp.setstat(path, stat).map_err(io_err)
     }
 
     fn mkdir(&self, path: &Path) -> io::Result<()> {

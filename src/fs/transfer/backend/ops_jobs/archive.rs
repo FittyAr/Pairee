@@ -1,16 +1,13 @@
 //! Archival operation runner (compress, extract) with cooperative cancellation.
 
 use super::super::super::events::TransferEvent;
-use super::super::super::job::{SkippedFile, TransferResults};
+use super::super::super::job::TransferResults;
 use crate::config::localization::t;
-use crate::fs::progress::ProgressUpdate;
+use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
-use crate::fs::transfer::control::failed;
+use crate::fs::transfer::control::done;
 use anyhow::anyhow;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 
 pub async fn run_compress(
     sources: Vec<PathBuf>,
@@ -20,7 +17,7 @@ pub async fn run_compress(
     run_archive_blocking(
         control,
         sources.len().max(1),
-        move |tx, cancel| crate::fs::archive::compress_zip(sources, &dest_archive, tx, cancel),
+        move |report| crate::fs::archive::compress_zip(sources, &dest_archive, report),
         "error_compression_failed",
     )
     .await
@@ -41,31 +38,24 @@ pub async fn run_extract(
     let mut results = run_archive_blocking(
         control,
         1,
-        move |tx, cancel| crate::fs::archive::extract_archive(&archive, &dest, tx, cancel),
+        move |report| crate::fs::archive::extract_archive(&archive, &dest, report),
         "error_extraction_failed",
     )
     .await?;
 
     if results.completed_files.is_empty() && results.failed_files.is_empty() {
-        results
-            .completed_files
-            .push(super::super::super::job::FileTransferResult {
-                src: archive_for_complete,
-                dst: destination_dir,
-                size: 0,
-                src_hash: None,
-                dst_hash: None,
-                verified: true,
-                duration: std::time::Duration::ZERO,
-                replaced: false,
-                dst_stamp: None,
-            });
+        results.completed_files.push(done(
+            &archive_for_complete,
+            destination_dir,
+            0,
+            std::time::Instant::now(),
+        ));
     }
     Ok(results)
 }
 
-/// Runs a blocking archive operation, turning its progress updates into
-/// Transfer Engine events.
+/// Runs a blocking archive operation that reports to the job through an
+/// [`ArchiveReport`].
 pub(in crate::fs::transfer::backend) async fn run_archive_blocking<F>(
     control: JobControl,
     default_total: usize,
@@ -73,29 +63,27 @@ pub(in crate::fs::transfer::backend) async fn run_archive_blocking<F>(
     err_key: &str,
 ) -> Result<TransferResults, anyhow::Error>
 where
-    F: FnOnce(&mpsc::Sender<ProgressUpdate>, &AtomicBool) -> anyhow::Result<()> + Send + 'static,
+    F: FnOnce(&mut ArchiveReport) -> anyhow::Result<()> + Send + 'static,
 {
-    let (tx, rx) = mpsc::channel::<ProgressUpdate>(64);
-    let cancel = Arc::clone(&control.is_cancelled);
-
-    let work_handle = tokio::task::spawn_blocking(move || work(&tx, cancel.as_ref()));
-
-    let results = bridge_progress_to_events(rx, &control, default_total).await?;
-
-    match work_handle.await {
-        Ok(Ok(())) => {
+    let ctl = control.clone();
+    let handle = tokio::task::spawn_blocking(move || {
+        let mut report = ArchiveReport::new(ctl, default_total);
+        let outcome = work(&mut report);
+        (outcome, report.into_results())
+    });
+    match handle.await {
+        Ok((Ok(()), results)) => {
             if control.is_cancelled() {
                 return Err(anyhow!("Job cancelled"));
             }
             control.job_completed(results)
         }
-        Ok(Err(e)) => {
-            let msg = e.to_string();
-            if msg.to_lowercase().contains("cancel") || control.is_cancelled() {
+        Ok((Err(e), _)) => {
+            if control.is_cancelled() {
                 return Err(anyhow!("Job cancelled"));
             }
-            let err_msg = t(err_key).replacen("{}", &msg, 1);
-            let _ = control.event_tx.send(TransferEvent::JobFailed {
+            let err_msg = t(err_key).replacen("{}", &e.to_string(), 1);
+            control.emit(TransferEvent::JobFailed {
                 job_id: control.job_id,
                 error: err_msg.clone(),
             });
@@ -103,81 +91,4 @@ where
         }
         Err(e) => Err(anyhow!("archive task join error: {e}")),
     }
-}
-
-async fn bridge_progress_to_events(
-    mut rx: mpsc::Receiver<ProgressUpdate>,
-    control: &JobControl,
-    default_total: usize,
-) -> Result<TransferResults, anyhow::Error> {
-    let mut results = TransferResults::default();
-    let mut announced_scan = false;
-
-    while let Some(update) = rx.recv().await {
-        if control.is_cancelled() {
-            while rx.try_recv().is_ok() {}
-            break;
-        }
-
-        let total = if update.total_files > 0 {
-            update.total_files
-        } else {
-            default_total
-        };
-
-        if !announced_scan {
-            announced_scan = true;
-            control.scan_complete(total, update.total_bytes);
-        }
-
-        if update.skipped {
-            let file = PathBuf::from(&update.current_file);
-            let reason = t("archive_entry_skipped_exists");
-            results.skipped_files.push(SkippedFile {
-                src: file.clone(),
-                reason: reason.clone(),
-            });
-            let _ = control.event_tx.send(TransferEvent::FileSkipped {
-                job_id: control.job_id,
-                file,
-                reason,
-            });
-            continue;
-        }
-
-        if let Some(err) = update.error {
-            let path = PathBuf::from(&update.current_file);
-            control.file_failed(&mut results, failed(&path, PathBuf::new(), err.clone()));
-            return Err(anyhow!(err));
-        }
-
-        if update.current_file == "Completed" {
-            continue;
-        }
-
-        let path = PathBuf::from(&update.current_file);
-        control.file_started(&path, update.files_copied);
-        if update.total_bytes > 0 {
-            let _ = control.event_tx.send(TransferEvent::FileProgress {
-                job_id: control.job_id,
-                bytes_copied: update.bytes_copied,
-                bytes_total: update.total_bytes,
-            });
-        }
-
-        let result = super::super::super::job::FileTransferResult {
-            src: path.clone(),
-            dst: path,
-            size: 0,
-            src_hash: None,
-            dst_hash: None,
-            verified: true,
-            duration: std::time::Duration::ZERO,
-            replaced: false,
-            dst_stamp: None,
-        };
-        control.file_completed(&mut results, result);
-    }
-
-    Ok(results)
 }

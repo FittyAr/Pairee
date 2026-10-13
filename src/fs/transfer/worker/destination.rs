@@ -1,4 +1,7 @@
-use std::path::PathBuf;
+use crate::config::localization::t;
+use crate::fs::transfer::control::JobControl;
+use crate::fs::transfer::events::TransferEvent;
+use std::path::{Path, PathBuf};
 
 /// Determines if `destination` should be treated as a parent directory into which
 /// source items are placed (appending source item filenames), or if `destination` is
@@ -28,7 +31,7 @@ pub fn is_destination_parent_dir(
 
 /// Creates `dir` with its missing parents, appending every folder it had to
 /// create (outermost first) to `created`.
-pub(super) fn ensure_dir(dir: &std::path::Path, created: &mut Vec<PathBuf>) {
+pub(crate) fn ensure_dir(dir: &std::path::Path, created: &mut Vec<PathBuf>) {
     let missing: Vec<PathBuf> = dir
         .ancestors()
         .take_while(|p| !p.as_os_str().is_empty() && !p.exists())
@@ -38,6 +41,31 @@ pub(super) fn ensure_dir(dir: &std::path::Path, created: &mut Vec<PathBuf>) {
         return;
     }
     created.extend(missing.into_iter().rev().filter(|p| p.is_dir()));
+}
+
+/// Warns (without stopping the job) when the volume of `destination` has
+/// less free space than the job needs. The destination may not exist yet:
+/// its nearest existing folder is measured.
+pub(super) fn warn_low_space(destination: &Path, needed: u64, ctl: &JobControl) {
+    let Some(existing) = destination
+        .ancestors()
+        .find(|p| !p.as_os_str().is_empty() && p.exists())
+    else {
+        return;
+    };
+    let Ok(free) = crate::fs::transfer::network::get_free_space(existing) else {
+        return;
+    };
+    if free >= needed {
+        return;
+    }
+    ctl.emit(TransferEvent::FileSkipped {
+        job_id: ctl.job_id,
+        file: destination.to_path_buf(),
+        reason: t("transfer_low_space_warning")
+            .replacen("{}", &bytesize::ByteSize(needed).to_string(), 1)
+            .replacen("{}", &bytesize::ByteSize(free).to_string(), 1),
+    });
 }
 
 #[cfg(test)]

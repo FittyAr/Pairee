@@ -3,12 +3,10 @@
 use anyhow::{Result, anyhow};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 
 use super::safe_extract::ExtractGuard;
 use crate::fs::external_tools::get_external_7z_path;
-use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::progress::ArchiveReport;
 
 /// One entry of `7z l -slt` output.
 #[derive(Debug, PartialEq)]
@@ -78,8 +76,7 @@ fn preflight_listing(entries: &[ListedEntry], guard: &mut ExtractGuard) -> Resul
 pub fn extract_via_external_7z(
     archive_path: &Path,
     dest_dir: &Path,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
+    report: &mut ArchiveReport,
 ) -> Result<()> {
     let bin_path = get_external_7z_path().ok_or_else(|| anyhow!("Could not determine 7z path"))?;
     if !bin_path.exists() && cfg!(target_os = "windows") {
@@ -104,28 +101,13 @@ pub fn extract_via_external_7z(
     }
     let entries = parse_listing(&String::from_utf8_lossy(&list_output.stdout))?;
     if let Err(e) = preflight_listing(&entries, &mut guard) {
-        let _ = tx.blocking_send(ProgressUpdate {
-            skipped: false,
-            current_file: archive_path.to_string_lossy().into_owned(),
-            files_copied: 0,
-            total_files: 0,
-            bytes_copied: 0,
-            total_bytes: 0,
-            error: Some(e.to_string()),
-        });
+        report.failed(archive_path, e.to_string());
         return Err(e);
     }
 
-    ensure_not_cancelled(cancel)?;
-    let _ = tx.blocking_send(ProgressUpdate {
-        skipped: false,
-        current_file: "Extracting using external 7z...".to_string(),
-        files_copied: 0,
-        total_files: 0,
-        bytes_copied: 0,
-        total_bytes: 0,
-        error: None,
-    });
+    report.ensure_running()?;
+    // 7z extracts everything at once: the archive is the one entry shown.
+    report.entry(&crate::fs::file_name_lossy(archive_path), 0, 1);
 
     // `-aos`: skip files that already exist instead of overwriting them.
     let mut child = std::process::Command::new(&bin_path)
@@ -139,7 +121,7 @@ pub fn extract_via_external_7z(
         .spawn()?;
 
     let status = loop {
-        if ensure_not_cancelled(cancel).is_err() {
+        if report.is_cancelled() {
             let _ = child.kill();
             let _ = child.wait();
             return Err(anyhow!("Job cancelled"));
@@ -154,7 +136,7 @@ pub fn extract_via_external_7z(
         return Err(anyhow!("External 7z extraction failed"));
     }
 
-    guard.report_skipped(tx);
+    guard.report_skipped(report);
     Ok(())
 }
 

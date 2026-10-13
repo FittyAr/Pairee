@@ -33,8 +33,20 @@ fn batch(command: &FsCommand) -> &FileBatch {
     }
 }
 
+/// A move within one volume is a single rename of the folder; with
+/// verification it is copied, verified and deleted file by file. Both are
+/// undone and redone.
 #[tokio::test]
 async fn move_of_a_folder_tree_across_dirs_is_undone_and_redone() {
+    move_tree_round_trip(options(), 1, 0).await;
+    let verified = TransferOptions {
+        verify_after_copy: true,
+        ..options()
+    };
+    move_tree_round_trip(verified, 2, 2).await;
+}
+
+async fn move_tree_round_trip(options: TransferOptions, steps: usize, created: usize) {
     let root = tempfile::tempdir().unwrap();
     let (src, dst) = (p(root.path(), "src"), p(root.path(), "dst"));
     write(&src.join("tree").join("a.txt"), "a");
@@ -44,14 +56,15 @@ async fn move_of_a_folder_tree_across_dirs_is_undone_and_redone() {
         TransferOperation::Move,
         vec![src.join("tree")],
         dst.clone(),
-        options(),
+        options,
     );
     let entry = run_recorded(job, None).await.unwrap();
     assert!(!src.join("tree").exists());
+    assert_eq!(batch(&entry).files.len(), steps);
     assert_eq!(
         batch(&entry).created_dirs.len(),
-        2,
-        "dst/tree and dst/tree/sub"
+        created,
+        "dst/tree and dst/tree/sub when copied"
     );
 
     let undo = runnable_inverse(&entry);
@@ -134,6 +147,44 @@ async fn copy_undo_deletes_only_new_copies() {
     let redo = runnable_inverse(&undone);
     run_job(pairs_job(TransferOperation::Copy, batch(&redo))).await;
     assert_eq!(read(&dst.join("new.txt")), "new");
+}
+
+/// FEAT-03: a file the copy replaced went to the trash; undoing the copy
+/// deletes the copy and puts the original back.
+#[tokio::test]
+async fn copy_undo_restores_a_trashed_original() {
+    let root = tempfile::tempdir().unwrap();
+    if !crate::fs::journal::trash::trash_round_trips_in(root.path()) {
+        return;
+    }
+    let (src, dst) = (p(root.path(), "src"), p(root.path(), "dst"));
+    write(&src.join("old.txt"), "source");
+    write(&dst.join("old.txt"), "precious");
+    let options = TransferOptions {
+        trash_replaced: true,
+        ..options()
+    };
+    let job = TransferJob::new(
+        TransferOperation::Copy,
+        vec![src.join("old.txt")],
+        dst.clone(),
+        options,
+    );
+    let entry = run_recorded(job, None).await.unwrap();
+    assert_eq!(read(&dst.join("old.txt")), "source");
+
+    let undo = runnable_inverse(&entry);
+    let batch = batch(&undo);
+    assert_eq!(batch.trashed_originals(), vec![dst.join("old.txt")]);
+    let delete = TransferJob::new(
+        TransferOperation::Delete,
+        vec![dst.join("old.txt")],
+        PathBuf::new(),
+        TransferOptions::default(),
+    )
+    .with_restore_after(batch.trashed_originals());
+    run_job(delete).await;
+    assert_eq!(read(&dst.join("old.txt")), "precious");
 }
 
 #[tokio::test]

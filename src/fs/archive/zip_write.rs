@@ -32,6 +32,17 @@ pub struct ZipEdit {
     pub add: Vec<(PathBuf, ZipSource)>,
 }
 
+/// Entries this large need the Zip64 format.
+const ZIP64_THRESHOLD: u64 = u32::MAX as u64;
+
+/// Options of a deflated entry of `size` bytes (Zip64 when it needs it:
+/// without it the writer fails on entries over 4 GiB).
+pub(super) fn file_options(size: u64) -> SimpleFileOptions {
+    SimpleFileOptions::default()
+        .compression_method(zip::CompressionMethod::Deflated)
+        .large_file(size >= ZIP64_THRESHOLD)
+}
+
 /// `/`-separated entry name of `rel` (folders end with `/`).
 fn entry_name(rel: &Path, dir: bool) -> String {
     let mut name = rel
@@ -65,24 +76,72 @@ pub fn rewrite_zip(
             out.raw_copy_file(file)?;
         }
     }
-    let options = SimpleFileOptions::default().compression_method(zip::CompressionMethod::Deflated);
     for (rel, source) in &edit.add {
         match source {
-            ZipSource::Dir => out.add_directory(entry_name(rel, true), options)?,
+            ZipSource::Dir => out.add_directory(entry_name(rel, true), file_options(0))?,
             ZipSource::Bytes(bytes) => {
-                out.start_file(entry_name(rel, false), options)?;
+                out.start_file(entry_name(rel, false), file_options(bytes.len() as u64))?;
                 out.write_all(bytes)?;
             }
             ZipSource::File(path) => {
-                out.start_file(entry_name(rel, false), options)?;
-                io::copy(&mut fs::File::open(path)?, &mut out)?;
+                let mut file = fs::File::open(path)?;
+                let size = file.metadata()?.len();
+                out.start_file(entry_name(rel, false), file_options(size))?;
+                io::copy(&mut file, &mut out)?;
             }
         }
         on_added(rel)?;
     }
     let tmp = out.finish()?;
+    // The temporary file is private (0600): give it the archive's mode.
+    tmp.as_file()
+        .set_permissions(fs::metadata(archive)?.permissions())?;
     // Windows cannot replace a file that is still open.
     drop(old);
     tmp.persist(archive)?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn add_one(archive: &Path) {
+        super::super::test_fixtures::write_zip(archive, &[("keep.txt", b"k")]);
+        let edit = ZipEdit {
+            add: vec![(PathBuf::from("new.txt"), ZipSource::Bytes(b"n".to_vec()))],
+            ..ZipEdit::default()
+        };
+        rewrite_zip(archive, &edit, &mut |_| Ok(())).unwrap();
+    }
+
+    #[test]
+    fn rewriting_adds_and_keeps_entries() {
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("a.zip");
+        add_one(&archive);
+        let zip = ZipArchive::new(fs::File::open(&archive).unwrap()).unwrap();
+        let mut names: Vec<_> = zip.file_names().map(str::to_string).collect();
+        names.sort();
+        assert_eq!(names, ["keep.txt", "new.txt"]);
+    }
+
+    /// Regression (FS-14): the rewritten archive kept the 0600 mode of its
+    /// temporary file.
+    #[cfg(unix)]
+    #[test]
+    fn rewriting_keeps_the_archive_permissions() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = tempfile::tempdir().unwrap();
+        let archive = dir.path().join("a.zip");
+        super::super::test_fixtures::write_zip(&archive, &[("old.txt", b"o")]);
+        fs::set_permissions(&archive, fs::Permissions::from_mode(0o644)).unwrap();
+        let edit = ZipEdit {
+            add: vec![(PathBuf::from("new.txt"), ZipSource::Bytes(b"n".to_vec()))],
+            ..ZipEdit::default()
+        };
+        rewrite_zip(&archive, &edit, &mut |_| Ok(())).unwrap();
+        let mode = fs::metadata(&archive).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode, 0o644);
+    }
 }

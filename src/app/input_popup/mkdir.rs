@@ -1,7 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
-use crate::app::state::popup::CreateKind;
 use crate::app::state::popup::forms::MKDIR_FORM;
+use crate::app::state::popup::{CreateKind, split_multiple};
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
@@ -29,10 +29,23 @@ pub fn handle(
         FormKey::Toggle(ROW_MULTIPLE) => *process_multiple = !*process_multiple,
         FormKey::Activate(BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
         FormKey::Activate(_) => {
-            let (name, kind) = resolve(input.text(), *kind);
-            match kind {
-                CreateKind::File => create_file(state, context, &name),
-                _ => create(state, context, &name),
+            let text = input.text().to_string();
+            // "Process multiple names": `a;b;c` creates each of them.
+            let names: Vec<&str> = if *process_multiple {
+                split_multiple(&text).collect()
+            } else {
+                vec![text.as_str()]
+            };
+            let kind = *kind;
+            for name in names {
+                let (name, kind) = resolve(name, kind);
+                let created = match kind {
+                    CreateKind::File => create_file(state, context, &name),
+                    _ => create(state, context, &name),
+                };
+                if !created {
+                    break;
+                }
             }
         }
         FormKey::Toggle(_) | FormKey::Handled | FormKey::Other => {}
@@ -54,39 +67,43 @@ fn resolve(text: &str, kind: CreateKind) -> (String, CreateKind) {
     }
 }
 
-/// Creates an empty file `name` in the active panel.
-fn create_file(state: &mut AppState, context: &AppContext, name: &str) {
+/// Creates an empty file `name` in the active panel; `false` when an error
+/// is shown.
+fn create_file(state: &mut AppState, context: &AppContext, name: &str) -> bool {
     state.dialogs.clear();
     if name.is_empty() {
-        return;
+        return true;
     }
     let panel = state.get_active_panel();
     let path = panel.current_path.join(name);
     if !panel.source.is_local() {
         let vfs = panel.source.vfs();
         state.start_vfs_op(move || vfs.write_file(&path, &mut std::io::empty()));
-        return;
+        return true;
     }
     match crate::fs::create_empty_file(&path) {
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)))
+                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+            false
         }
         Ok(()) => {
             state
                 .journal
                 .record(crate::fs::journal::FsCommand::MakeFile { path });
             state.refresh_both_panels(context.config.settings.show_hidden);
+            true
         }
     }
 }
 
-/// Creates `name` in the active panel (offering an elevated retry on failure).
-fn create(state: &mut AppState, context: &AppContext, name: &str) {
+/// Creates the folder `name` in the active panel (offering an elevated
+/// retry on failure); `false` when an error is shown.
+fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
     if name.is_empty() {
         state.dialogs.clear();
-        return;
+        return true;
     }
     let settings = &context.config.settings;
     let panel = state.get_active_panel();
@@ -96,7 +113,7 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) {
         let vfs = panel.source.vfs();
         state.dialogs.clear();
         state.start_vfs_op(move || vfs.mkdir(&path));
-        return;
+        return true;
     }
     match crate::fs::create_directory(&path, settings.req_admin_modification) {
         Err(_) if !settings.req_admin_modification => {
@@ -104,11 +121,13 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) {
                 paths: vec![path],
                 op_kind: crate::app::state::AdminOpKind::MkDir,
             });
+            false
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)))
+                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+            false
         }
         Ok(()) => {
             state
@@ -119,6 +138,7 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) {
             }
             state.dialogs.clear();
             state.refresh_both_panels(settings.show_hidden);
+            true
         }
     }
 }

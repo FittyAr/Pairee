@@ -18,7 +18,7 @@ pub mod sync;
 mod text_search;
 
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
-pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp};
+pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp, split_multiple};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,

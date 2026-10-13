@@ -1,3 +1,4 @@
+use crate::fs::descriptions::forget_description;
 use anyhow::{Context, Result};
 use std::fs::{File, Metadata};
 use std::io::{Seek, SeekFrom, Write};
@@ -22,8 +23,9 @@ pub fn wipe_file(path: &Path) -> Result<()> {
         .with_context(|| format!("Reading metadata for wipe: {:?}", path))?;
 
     if link_meta.file_type().is_symlink() {
-        remove_link(path, &link_meta)?;
-        remove_description(path);
+        crate::fs::remove::remove_entry(path)
+            .with_context(|| format!("Removing link: {:?}", path))?;
+        forget_description(path);
         return Ok(());
     }
 
@@ -57,31 +59,8 @@ pub fn wipe_file(path: &Path) -> Result<()> {
         }
     }
 
-    remove_description(path);
+    forget_description(path);
     std::fs::remove_file(path).with_context(|| format!("Removing file after wipe: {:?}", path))
-}
-
-fn remove_description(path: &Path) {
-    if let (Some(parent), Some(filename)) = (path.parent(), path.file_name())
-        && let Some(filename_str) = filename.to_str()
-    {
-        let _ = crate::fs::descriptions::remove_description(parent, filename_str);
-    }
-}
-
-/// Removes a symlink/junction without touching what it points to.
-fn remove_link(path: &Path, meta: &Metadata) -> Result<()> {
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::FileTypeExt;
-        if meta.file_type().is_symlink_dir() {
-            return std::fs::remove_dir(path)
-                .with_context(|| format!("Removing directory link: {:?}", path));
-        }
-    }
-    #[cfg(not(windows))]
-    let _ = meta;
-    std::fs::remove_file(path).with_context(|| format!("Removing link: {:?}", path))
 }
 
 /// Opens `path` for writing without following a symlink in the final component.

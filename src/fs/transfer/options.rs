@@ -1,13 +1,27 @@
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, PartialEq, Eq)]
+#[serde(default)]
 pub struct TransferOptions {
+    /// Re-read every copy from the disk and compare its hash with the source.
     pub verify_after_copy: bool,
     pub hash_algorithm: HashAlgorithm,
     pub buffer_size: BufferSize,
     pub direct_io: bool,
     pub preserve_timestamps: bool,
+    /// Windows file attributes (read-only, hidden, system, archive).
     pub preserve_attributes: bool,
+    /// Access mode: Unix permission bits; on Windows the access control list
+    /// (as [`Self::preserve_acl`]).
+    pub preserve_permissions: bool,
     pub preserve_acl: bool,
+    /// NTFS alternate data streams.
     pub preserve_streams: bool,
+    /// Skip runs of zero bytes, leaving holes (sparse files).
+    pub produce_sparse_files: bool,
+    /// Clone the data blocks (copy-on-write) where the filesystem can.
+    pub use_copy_on_write: bool,
+    /// Send a file that a copy replaces to the trash (so an undo can bring
+    /// it back) instead of overwriting it for good.
+    pub trash_replaced: bool,
     pub skip_symlinks: bool,
     pub follow_symlinks: bool,
     pub max_retries: u32,
@@ -29,8 +43,12 @@ impl Default for TransferOptions {
             direct_io: false,
             preserve_timestamps: true,
             preserve_attributes: true,
+            preserve_permissions: true,
             preserve_acl: false,
             preserve_streams: false,
+            produce_sparse_files: false,
+            use_copy_on_write: false,
+            trash_replaced: false,
             skip_symlinks: false,
             follow_symlinks: false,
             max_retries: 3,
@@ -42,6 +60,20 @@ impl Default for TransferOptions {
             halt_on_error: false,
             delete_to_recycle_bin: false,
         }
+    }
+}
+
+impl TransferOptions {
+    /// The options a job of `operation` runs with: deletes and moves never
+    /// follow links (they would delete, or move away, the files a link
+    /// points to outside the tree); links are removed or moved as links.
+    pub fn for_operation(&self, operation: super::job::TransferOperation) -> Self {
+        use super::job::TransferOperation as Op;
+        let mut options = self.clone();
+        if matches!(operation, Op::Delete | Op::Move) {
+            options.follow_symlinks = false;
+        }
+        options
     }
 }
 

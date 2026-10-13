@@ -1,9 +1,14 @@
 //! Single-file copy as a two-stage pipeline: a reader thread feeds blocks
-//! (hashing the source) through a bounded channel to a writer thread
-//! (hashing the destination and reporting progress). Both stages use Direct
-//! I/O when requested, falling back to buffered I/O transparently.
+//! (hashing the source for verification) through a bounded channel to a
+//! writer thread (reporting progress). Both stages use Direct I/O for whole
+//! aligned blocks when requested, and buffered I/O for the rest.
+//!
+//! The writer fills the temporary `.pairee-part` file of the destination
+//! (see [`super::part`]); a copy resumed at `offset` keeps the bytes already
+//! there and only streams the rest.
 
 use anyhow::anyhow;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Seek, SeekFrom, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -12,43 +17,45 @@ use std::time::{Duration, Instant};
 use tokio::sync::mpsc;
 
 use super::control::JobControl;
-use super::direct_io::{AlignedBuffer, open_reader_direct, open_writer_direct, to_long_path};
+use super::direct_io::{ALIGN, AlignedBuffer, DiskReader, open_writer_direct, to_long_path};
 use super::events::TransferEvent;
 use super::hash::{HashStrategy, create_hasher};
 use super::options::TransferOptions;
+use super::sparse;
+use super::throttle::Throttle;
 
-/// Direct I/O block alignment.
-const ALIGN: usize = 4096;
 /// Blocks in flight between reader and writer (backpressure).
 const CHANNEL_BLOCKS: usize = 4;
 /// Minimum interval between progress events of one file.
 const PROGRESS_INTERVAL: Duration = Duration::from_millis(150);
 
-/// Copies `src` to `dst`. Returns the (source, destination) hashes when
-/// verification is enabled.
+/// Copies `src` into `part` from byte `offset` (0: from scratch). Returns
+/// the hash of the whole source when verification is enabled.
 pub async fn copy_file_pipelined(
     src: &Path,
-    dst: &Path,
+    part: &Path,
+    offset: u64,
     options: &TransferOptions,
     ctl: &JobControl,
     bytes_transferred_acc: Arc<AtomicU64>,
-) -> Result<(Option<String>, Option<String>), anyhow::Error> {
+) -> Result<Option<String>, anyhow::Error> {
     let src = to_long_path(src);
-    let dst = to_long_path(dst);
+    let part = to_long_path(part);
     let file_size = std::fs::metadata(&src)?.len();
-    if let Some(parent) = dst.parent() {
+    if let Some(parent) = part.parent() {
         std::fs::create_dir_all(parent)?;
     }
 
     let (block_tx, block_rx) = mpsc::channel::<Vec<u8>>(CHANNEL_BLOCKS);
     let reader = Reader {
         path: src,
-        file_size,
+        offset,
         options: options.clone(),
         ctl: ctl.clone(),
     };
     let writer = Writer {
-        path: dst,
+        path: part,
+        offset,
         file_size,
         options: options.clone(),
         ctl: ctl.clone(),
@@ -58,9 +65,8 @@ pub async fn copy_file_pipelined(
     let writer_handle = tokio::task::spawn_blocking(move || writer.run(block_rx));
 
     let (reader_res, writer_res) = tokio::join!(reader_handle, writer_handle);
-    let dst_hash = writer_res.map_err(|e| anyhow!("Writer task join error: {}", e))??;
-    let src_hash = reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))??;
-    Ok((src_hash, dst_hash))
+    writer_res.map_err(|e| anyhow!("Writer task join error: {}", e))??;
+    reader_res.map_err(|e| anyhow!("Reader task join error: {}", e))?
 }
 
 fn hasher_for(options: &TransferOptions) -> Option<Box<dyn HashStrategy>> {
@@ -72,177 +78,158 @@ fn hasher_for(options: &TransferOptions) -> Option<Box<dyn HashStrategy>> {
 /// Reader stage: reads blocks, hashes them and sends them to the writer.
 struct Reader {
     path: PathBuf,
-    file_size: u64,
+    /// Bytes the writer already has.
+    offset: u64,
     options: TransferOptions,
     ctl: JobControl,
 }
 
 impl Reader {
     fn run(self, block_tx: mpsc::Sender<Vec<u8>>) -> anyhow::Result<Option<String>> {
-        let mut buf = AlignedBuffer::new(self.options.buffer_size.to_bytes(), ALIGN);
         let mut hasher = hasher_for(&self.options);
-        let mut std_file = std::fs::File::open(&self.path)
+        // The hash covers the whole file, so a resumed copy re-reads the
+        // part it does not send.
+        let start = if hasher.is_some() { 0 } else { self.offset };
+        let block = self.options.buffer_size.to_bytes();
+        let mut file = DiskReader::open(&self.path, self.options.direct_io, start, block)
             .map_err(|e| anyhow!("Error opening source file: {}", e))?;
-        let mut direct = if self.options.direct_io {
-            open_reader_direct(&self.path, true).ok()
-        } else {
-            None
-        };
-
-        let start = Instant::now();
-        let mut offset = 0u64;
+        let mut buf = vec![0u8; block];
+        let throttle = Throttle::new(self.options.limit_bandwidth_rate);
+        let mut pos = start;
         loop {
             self.ctl.wait_if_paused_blocking()?;
-            let remaining = self.file_size.saturating_sub(offset);
-            // Direct I/O only for whole aligned blocks; anything else (or a
-            // Direct I/O error) continues with buffered reads from `offset`.
-            let direct_read = match direct.as_mut() {
-                Some(f) if remaining >= ALIGN as u64 && remaining.is_multiple_of(ALIGN as u64) => {
-                    f.read(buf.as_mut_slice()).ok()
-                }
-                _ => None,
-            };
-            let read = match direct_read {
-                Some(n) => n,
-                None => {
-                    if direct.take().is_some() {
-                        std_file.seek(SeekFrom::Start(offset))?;
-                    }
-                    std_file.read(buf.as_mut_slice())?
-                }
-            };
+            let read = file.read(&mut buf)?;
             if read == 0 {
                 break;
             }
-            let chunk = buf.as_slice()[..read].to_vec();
+            let chunk = &buf[..read];
             if let Some(h) = hasher.as_mut() {
-                h.update(&chunk);
+                h.update(chunk);
             }
-            if block_tx.blocking_send(chunk).is_err() {
+            let skip = self.offset.saturating_sub(pos).min(read as u64) as usize;
+            if skip < read && block_tx.blocking_send(chunk[skip..].to_vec()).is_err() {
                 return Err(anyhow!("Writer thread disconnected"));
             }
-            offset += read as u64;
-            self.throttle(start, offset);
+            pos += read as u64;
+            throttle.pace(pos.saturating_sub(self.offset.max(start)));
         }
         Ok(hasher.map(|h| h.finalize()))
     }
-
-    /// Sleeps to keep the average rate under the bandwidth limit.
-    fn throttle(&self, start: Instant, bytes: u64) {
-        if let Some(rate) = self.options.limit_bandwidth_rate.filter(|&r| r > 0) {
-            let expected = Duration::from_secs_f64(bytes as f64 / rate as f64);
-            if let Some(ahead) = expected.checked_sub(start.elapsed()) {
-                std::thread::sleep(ahead);
-            }
-        }
-    }
 }
 
-/// Writer stage: writes received blocks, hashes them and reports progress.
+/// Writer stage: writes received blocks and reports progress.
 struct Writer {
     path: PathBuf,
+    /// Bytes already in the file (a resumed copy).
+    offset: u64,
     file_size: u64,
     options: TransferOptions,
     ctl: JobControl,
     bytes_acc: Arc<AtomicU64>,
 }
 
-impl Writer {
-    fn run(self, mut block_rx: mpsc::Receiver<Vec<u8>>) -> anyhow::Result<Option<String>> {
-        let mut hasher = hasher_for(&self.options);
-        let mut std_file = std::fs::File::create(&self.path)
-            .map_err(|e| anyhow!("Error creating destination file: {}", e))?;
-        let mut direct = if self.options.direct_io {
-            open_writer_direct(&self.path, true).ok()
+/// Where the writer puts its blocks.
+struct Output {
+    file: File,
+    /// Direct I/O handle, used while blocks stay whole and aligned.
+    direct: Option<File>,
+    aligned: Option<AlignedBuffer>,
+    sparse: bool,
+    written: u64,
+}
+
+impl Output {
+    fn write(&mut self, chunk: &[u8]) -> std::io::Result<()> {
+        let len = chunk.len();
+        if let (Some(f), Some(buf)) = (self.direct.as_mut(), self.aligned.as_mut())
+            && len >= ALIGN
+            && len.is_multiple_of(ALIGN)
+        {
+            buf.as_mut_slice()[..len].copy_from_slice(chunk);
+            if f.write_all(&buf.as_slice()[..len]).is_ok() {
+                self.written += len as u64;
+                return Ok(());
+            }
+        }
+        if self.direct.take().is_some() {
+            // Unaligned tail or Direct I/O error: continue buffered.
+            self.file.seek(SeekFrom::Start(self.written))?;
+        }
+        if self.sparse {
+            sparse::write_sparse(&mut self.file, chunk)?;
         } else {
-            None
-        };
-        let mut buf = direct
+            self.file.write_all(chunk)?;
+        }
+        self.written += len as u64;
+        Ok(())
+    }
+
+    fn finish(self) -> std::io::Result<()> {
+        if self.sparse {
+            // A trailing hole is only a seek: give the file its length.
+            self.file.set_len(self.written)?;
+        }
+        match self.direct {
+            Some(f) => f.sync_all(),
+            None => self.file.sync_all(),
+        }
+    }
+}
+
+impl Writer {
+    fn open(&self) -> anyhow::Result<Output> {
+        let mut file = if self.offset > 0 {
+            OpenOptions::new().write(true).open(&self.path)
+        } else {
+            File::create(&self.path)
+        }
+        .map_err(|e| anyhow!("Error creating destination file: {}", e))?;
+        if self.offset > 0 {
+            file.set_len(self.offset)?;
+            file.seek(SeekFrom::Start(self.offset))?;
+        }
+        // Holes need the sparse flag (Windows); without it zeros are written.
+        let sparse = self.options.produce_sparse_files && sparse::mark_sparse(&file).is_ok();
+        // Direct I/O opens (and truncates) the file again: only for a fresh,
+        // non-sparse copy.
+        let direct = (self.options.direct_io && self.offset == 0 && !sparse)
+            .then(|| open_writer_direct(&self.path, true).ok())
+            .flatten();
+        let aligned = direct
             .is_some()
             .then(|| AlignedBuffer::new(self.options.buffer_size.to_bytes(), ALIGN));
+        Ok(Output {
+            file,
+            direct,
+            aligned,
+            sparse,
+            written: self.offset,
+        })
+    }
 
-        let mut written = 0u64;
+    fn run(self, mut block_rx: mpsc::Receiver<Vec<u8>>) -> anyhow::Result<()> {
+        let mut out = self.open()?;
+        // Resumed bytes count as copied.
+        self.bytes_acc.fetch_add(self.offset, Ordering::SeqCst);
         let mut last_progress = Instant::now();
         while let Some(chunk) = block_rx.blocking_recv() {
             self.ctl.wait_if_paused_blocking()?;
-            let len = chunk.len();
-            let wrote_direct = match (direct.as_mut(), buf.as_mut()) {
-                (Some(f), Some(aligned)) if len >= ALIGN && len.is_multiple_of(ALIGN) => {
-                    aligned.as_mut_slice()[..len].copy_from_slice(&chunk);
-                    f.write_all(&aligned.as_slice()[..len]).is_ok()
-                }
-                _ => false,
-            };
-            if !wrote_direct {
-                // Unaligned tail or Direct I/O error: continue buffered.
-                if direct.take().is_some() {
-                    std_file.seek(SeekFrom::Start(written))?;
-                }
-                std_file.write_all(&chunk)?;
-            }
-            written += len as u64;
-            if let Some(h) = hasher.as_mut() {
-                h.update(&chunk);
-            }
-            self.bytes_acc.fetch_add(len as u64, Ordering::SeqCst);
+            out.write(&chunk)?;
+            self.bytes_acc
+                .fetch_add(chunk.len() as u64, Ordering::SeqCst);
             if last_progress.elapsed() >= PROGRESS_INTERVAL {
                 last_progress = Instant::now();
                 self.ctl.emit(TransferEvent::FileProgress {
                     job_id: self.ctl.job_id,
-                    bytes_copied: written,
+                    bytes_copied: out.written,
                     bytes_total: self.file_size,
                 });
             }
         }
-        match direct {
-            Some(f) => f.sync_all()?,
-            None => std_file.sync_all()?,
-        }
-        Ok(hasher.map(|h| h.finalize()))
+        out.finish()?;
+        Ok(())
     }
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::fs::transfer::job::{TransferJob, TransferOperation};
-
-    async fn copy_with(options: TransferOptions) {
-        let dir = tempfile::tempdir().unwrap();
-        let src = dir.path().join("src.bin");
-        let dst = dir.path().join("out").join("dst.bin");
-        // Several aligned blocks plus an unaligned tail.
-        let data: Vec<u8> = (0..(3 * ALIGN + 100)).map(|i| (i % 251) as u8).collect();
-        std::fs::write(&src, &data).unwrap();
-        let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
-        tokio::spawn(async move { while rx.recv().await.is_some() {} });
-        let job = TransferJob::new(
-            TransferOperation::Copy,
-            vec![],
-            dst.clone(),
-            options.clone(),
-        );
-        let ctl = JobControl::for_job(&job, tx);
-        let acc = Arc::new(AtomicU64::new(0));
-
-        let (src_hash, dst_hash) =
-            copy_file_pipelined(&src, &dst, &options, &ctl, Arc::clone(&acc))
-                .await
-                .unwrap();
-        assert_eq!(std::fs::read(&dst).unwrap(), data);
-        assert_eq!(acc.load(Ordering::SeqCst), data.len() as u64);
-        assert_eq!(src_hash, dst_hash);
-        assert_eq!(src_hash.is_some(), options.verify_after_copy);
-    }
-
-    #[tokio::test]
-    async fn copies_buffered_and_direct_with_verification() {
-        copy_with(TransferOptions::default()).await;
-        copy_with(TransferOptions {
-            verify_after_copy: true,
-            direct_io: true,
-            ..TransferOptions::default()
-        })
-        .await;
-    }
-}
+mod tests;
