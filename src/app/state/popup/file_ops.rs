@@ -109,13 +109,53 @@ impl CopyMovePromptState {
     /// Destination typed by the user: empty means `dest_dir`, a relative path
     /// is resolved against `dest_dir`.
     pub fn destination(&self) -> PathBuf {
-        let input = self.input.text();
+        self.resolve(self.input.text())
+    }
+
+    fn resolve(&self, input: &str) -> PathBuf {
         if input.trim().is_empty() {
             self.dest_dir.clone()
         } else {
             self.dest_dir.join(input)
         }
     }
+
+    /// The jobs to queue, one per destination. With "process multiple
+    /// destinations" the input is a `;`-separated list: a copy goes to each
+    /// of them; a move copies to all but the last and moves to the last.
+    pub fn jobs(&self) -> Vec<(TransferOperation, PathBuf)> {
+        let destinations: Vec<PathBuf> = if self.process_multiple {
+            split_multiple(self.input.text())
+                .map(|part| self.resolve(part))
+                .collect()
+        } else {
+            Vec::new()
+        };
+        if destinations.len() <= 1 {
+            return vec![(self.op.operation(), self.destination())];
+        }
+        let last = destinations.len() - 1;
+        destinations
+            .into_iter()
+            .enumerate()
+            .map(|(i, dst)| {
+                let op = if i == last {
+                    self.op.operation()
+                } else {
+                    TransferOperation::Copy
+                };
+                (op, dst)
+            })
+            .collect()
+    }
+}
+
+/// The parts of a "process multiple" input: `;`-separated, trimmed, empty
+/// parts left out.
+pub fn split_multiple(text: &str) -> impl Iterator<Item = &str> {
+    text.split(';')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
 }
 
 /// Focusable rows of the transfer dialog (`cursor_idx` values).
@@ -183,7 +223,10 @@ impl CopyMovePromptState {
     /// Applies the dialog choices on top of the settings-derived `options`.
     pub fn apply_to(&self, options: &mut TransferOptions) {
         options.direct_io = self.disable_write_cache;
+        options.preserve_permissions = self.copy_access_mode;
         options.preserve_attributes = self.copy_extended_attributes;
+        options.produce_sparse_files = self.produce_sparse_files;
+        options.use_copy_on_write = self.use_copy_on_write;
         options.conflict_resolution = match self.already_existing {
             1 => "overwrite",
             2 => "skip",
@@ -263,5 +306,48 @@ mod tests {
         assert_eq!(options.filter_mask.as_deref(), Some("*.rs"));
         p.toggle(CopyMovePromptState::ROW_EXISTING);
         assert_eq!(p.already_existing, 0);
+    }
+
+    /// UI-03: every check box of the dialog reaches the transfer options.
+    #[test]
+    fn every_flag_reaches_the_options() {
+        let mut p = CopyMovePromptState::new(TransferPromptOp::Copy, vec![], PathBuf::from("d"));
+        for row in 3..=7 {
+            p.toggle(row);
+        }
+        let mut options = TransferOptions::default();
+        p.apply_to(&mut options);
+        assert!(!options.preserve_permissions, "access mode was on");
+        assert!(options.preserve_attributes);
+        assert!(options.direct_io);
+        assert!(options.produce_sparse_files);
+        assert!(options.use_copy_on_write);
+    }
+
+    #[test]
+    fn multiple_destinations_copy_then_move_to_the_last() {
+        let mut p = CopyMovePromptState::new(
+            TransferPromptOp::Move,
+            vec![PathBuf::from("a")],
+            PathBuf::from("d"),
+        );
+        p.input.set_text("one; two ;;three");
+        assert_eq!(
+            p.jobs(),
+            vec![(
+                TransferOperation::Move,
+                PathBuf::from("d").join("one; two ;;three")
+            )]
+        );
+        p.toggle(CopyMovePromptState::ROW_FIRST_FLAG);
+        let d = PathBuf::from("d");
+        assert_eq!(
+            p.jobs(),
+            vec![
+                (TransferOperation::Copy, d.join("one")),
+                (TransferOperation::Copy, d.join("two")),
+                (TransferOperation::Move, d.join("three")),
+            ]
+        );
     }
 }

@@ -1,6 +1,8 @@
 ## [Unreleased]
 
 ### Added
+- The Copy / Move dialog options now work: "Copy files access mode" keeps permissions (Unix) or the access control list (Windows), "Produce sparse files" leaves runs of zeros as holes, "Use copy on write" clones the data instantly where the file system supports it (Btrfs, XFS, APFS, ReFS) and copies normally elsewhere, and "Process multiple destinations" copies to every `;`-separated destination (a move copies to all and moves to the last).
+- "Process multiple names" in the Make folder dialog creates every `;`-separated name.
 - Copies resume where they stopped: a copy interrupted by a crash, a power cut or a failed attempt continues from the part already written (after checking it matches the source).
 - When a copy overwrites a file, the old file goes to the trash, so undoing the copy brings it back.
 

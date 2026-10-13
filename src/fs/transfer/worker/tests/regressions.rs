@@ -111,6 +111,32 @@ async fn verified_reflects_a_real_check() {
     }
 }
 
+/// UI-03: copy-on-write (or its fallback) and sparse copies are exact and
+/// verified.
+#[tokio::test]
+async fn copy_on_write_and_sparse_copies_are_exact() {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("data.bin");
+    let mut data = vec![0u8; 256 * 1024];
+    data[100_000] = 42;
+    std::fs::write(&src, &data).unwrap();
+    for (cow, sparse) in [(true, false), (false, true)] {
+        let out = dir.path().join(format!("out-{cow}-{sparse}"));
+        std::fs::create_dir(&out).unwrap();
+        let options = TransferOptions {
+            use_copy_on_write: cow,
+            produce_sparse_files: sparse,
+            verify_after_copy: true,
+            ..TransferOptions::default()
+        };
+        let results = run(job(TransferOperation::Copy, &[&src], &out, options))
+            .await
+            .unwrap();
+        assert!(results.completed_files[0].verified);
+        assert_eq!(std::fs::read(out.join("data.bin")).unwrap(), data);
+    }
+}
+
 /// FEAT-01: a move within one volume renames (the file keeps its identity).
 #[tokio::test]
 async fn a_move_on_one_volume_is_a_rename() {

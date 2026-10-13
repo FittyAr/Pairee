@@ -27,6 +27,17 @@ fn make_folder() {
     }
 }
 
+/// UI-03: "Process multiple names" makes one folder per `;`-separated name.
+#[test]
+fn make_several_folders_at_once() {
+    let mut h = Harness::new();
+    h.keys("@mkdir");
+    h.text("one; two").keys("Down Space Enter");
+    assert!(h.state.dialogs.is_none());
+    assert!(h.left().join("one").is_dir());
+    assert!(h.left().join("two").is_dir());
+}
+
 #[test]
 fn rename_then_undo_and_redo() {
     for keymap in KEYMAPS {
