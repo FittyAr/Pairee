@@ -43,7 +43,7 @@ fn submit(
     if !name.ends_with(".zip") {
         name.push_str(".zip");
     }
-    crate::fs::transfer::submit_simple(
+    crate::app::transfer_submit::submit_simple(
         state,
         crate::fs::transfer::job::TransferOperation::Compress,
         targets,

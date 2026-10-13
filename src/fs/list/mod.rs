@@ -6,7 +6,7 @@ use std::path::Path;
 mod admin;
 mod sort;
 
-pub use sort::sort_entries;
+pub use sort::{SortField, sort_entries};
 
 /// Sorting / visibility options of a directory listing (local or remote).
 #[derive(Debug, Clone)]
@@ -17,7 +17,7 @@ pub struct ListOptions {
     pub natural: bool,
     /// Retry with elevated rights when reading fails.
     pub req_admin: bool,
-    pub sort_field: crate::app::state::SortField,
+    pub sort_field: SortField,
     pub sort_reverse: bool,
     /// Sort folders by extension too.
     pub folder_by_ext: bool,
@@ -91,7 +91,7 @@ mod tests {
                 case_sensitive: false,
                 natural: false,
                 req_admin: false,
-                sort_field: crate::app::state::SortField::Name,
+                sort_field: SortField::Name,
                 sort_reverse: false,
                 folder_by_ext: false,
                 show_dotdot: true,

@@ -2,9 +2,9 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::app::transfer_submit::submit_job;
 use crate::config::localization::t;
 use crate::fs::sync::{SyncItem, plan_jobs};
-use crate::fs::transfer::submit::submit_job;
 use crate::fs::transfer::transfer_options_from_settings;
 
 /// Queues one copy/delete job per group of actions (closing the dialog);

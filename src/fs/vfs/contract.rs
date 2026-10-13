@@ -69,7 +69,7 @@ fn options(show_hidden: bool) -> ListOptions {
         case_sensitive: false,
         natural: false,
         req_admin: false,
-        sort_field: crate::app::state::SortField::Name,
+        sort_field: crate::fs::list::SortField::Name,
         sort_reverse: false,
         folder_by_ext: false,
         show_dotdot: false,

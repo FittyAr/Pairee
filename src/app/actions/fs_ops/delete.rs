@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, DialogStack, PopupType};
+use crate::app::transfer_submit::submit_simple;
 use crate::fs::transfer::job::TransferOperation;
 use crate::fs::transfer::options::TransferOptions;
-use crate::fs::transfer::submit_simple;
 use std::path::PathBuf;
 
 fn is_non_empty_dir(path: &std::path::Path) -> bool {

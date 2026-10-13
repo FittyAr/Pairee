@@ -27,10 +27,9 @@ pub mod resume;
 pub mod scan;
 pub mod sparse;
 pub mod speed;
-pub mod submit;
+
 pub mod throttle;
 pub mod verify;
 pub mod worker;
 
 pub use options_from_settings::transfer_options_from_settings;
-pub use submit::{submit_apply_command, submit_simple};

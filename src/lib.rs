@@ -15,6 +15,7 @@ mod plugin;
 mod run;
 mod shell;
 mod terminal;
+mod text_width;
 mod ui;
 mod update;
 

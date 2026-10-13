@@ -3,7 +3,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
-use crate::fs::transfer::{submit_simple, transfer_options_from_settings};
+use crate::app::transfer_submit::submit_simple;
+use crate::fs::transfer::transfer_options_from_settings;
 
 /// Closes the dialog and queues the Copy / Move job it describes.
 pub fn submit(state: &mut AppState, context: &AppContext) {

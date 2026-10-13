@@ -4,7 +4,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::popup::{CopyMovePromptState, TransferPromptOp};
 use crate::app::state::{AppState, PopupType};
-use crate::fs::transfer::{submit_simple, transfer_options_from_settings};
+use crate::app::transfer_submit::submit_simple;
+use crate::fs::transfer::transfer_options_from_settings;
 
 pub fn handle(state: &mut AppState, context: &mut AppContext, op: TransferPromptOp) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();

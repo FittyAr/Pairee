@@ -45,7 +45,7 @@ fn glob_junk_does_not_panic() {
     for pat in &inputs {
         for name in &names {
             let _ = glob_matches(pat, name);
-            let _ = crate::app::state::glob_matches_case(pat, name, true);
+            let _ = crate::fs::glob::glob_matches_case(pat, name, true);
         }
     }
 }

@@ -281,5 +281,5 @@ const LABEL_NAME_CHARS: usize = 32;
 
 /// `name`, cut to [`LABEL_NAME_CHARS`] with an ellipsis.
 fn shortened(name: &str) -> String {
-    crate::ui::text_width::truncate_to_width(name, LABEL_NAME_CHARS)
+    crate::text_width::truncate_to_width(name, LABEL_NAME_CHARS)
 }

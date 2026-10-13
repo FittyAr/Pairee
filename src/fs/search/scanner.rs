@@ -61,5 +61,5 @@ fn wanted(query: &SearchQuery, is_dir: bool) -> bool {
 
 fn name_matches(query: &SearchQuery, name: &str) -> bool {
     query.name_glob.is_empty()
-        || crate::app::state::glob_matches_case(&query.name_glob, name, query.case_sensitive)
+        || crate::fs::glob::glob_matches_case(&query.name_glob, name, query.case_sensitive)
 }
