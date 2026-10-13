@@ -85,7 +85,8 @@ pub async fn handle_input_event(
                 state.mark_ui_dirty();
             }
             // Dragged files held at a panel's edge keep scrolling it.
-            if crate::app::mouse::file_drag::autoscroll(state, now) {
+            let gesture_now = state.mouse.now();
+            if crate::app::mouse::file_drag::autoscroll(state, gesture_now) {
                 state.mark_ui_dirty();
             }
         }
