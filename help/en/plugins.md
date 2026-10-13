@@ -27,7 +27,7 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (chained builders) | Stable (1.2: userdata) |
 | `pairee.ui.Rect / Pad / Pos / Bar / Clear / Fill`, `widget:area(rect)`, `Layout:split(rect)` | Place widgets at positions of the preview (`job.area` is a `Rect`); `peek` may return a list of widgets | New in 1.3 |
 | `pairee.Path / Url / Cha / Error` | Typed path, URL, file-information and error values; `pairee.fs.cha(path)`; a `File` has every `Cha` field (1.3) | New in 1.2 |
-| `pairee.clipboard(text?)` | Write the clipboard; read it (trusted plugins outside Secure Mode only) | New in 1.2 |
+| `pairee.clipboard(text?)` | Write the clipboard (several lines: Pairee tells the user which plugin copied them); read it (trusted plugins outside Secure Mode only) | New in 1.2 |
 | `pairee.state.get / set / all / clear` | Small store kept between calls and sessions | New in 1.2 |
 | `pairee.image.show / info / precache` | Images in previews | New in 1.2 |
 | `pairee.preview_code / preview_widget` | Highlighted text preview with line numbers; show a widget later | New in 1.2 |

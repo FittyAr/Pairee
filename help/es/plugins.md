@@ -27,7 +27,7 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (constructores encadenables) | Estable (1.2: userdata) |
 | `pairee.ui.Rect / Pad / Pos / Bar / Clear / Fill`, `widget:area(rect)`, `Layout:split(rect)` | Ubican widgets en posiciones de la vista previa (`job.area` es un `Rect`); `peek` puede devolver una lista de widgets | Nuevo en 1.3 |
 | `pairee.Path / Url / Cha / Error` | Valores tipados de ruta, URL, información de archivo y error; `pairee.fs.cha(ruta)`; un `File` tiene todos los campos de `Cha` (1.3) | Nuevo en 1.2 |
-| `pairee.clipboard(texto?)` | Escribir el portapapeles; leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
+| `pairee.clipboard(texto?)` | Escribir el portapapeles (varias líneas: Pairee avisa qué plugin las copió); leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
 | `pairee.state.get / set / all / clear` | Pequeño almacén que se conserva entre llamadas y sesiones | Nuevo en 1.2 |
 | `pairee.image.show / info / precache` | Imágenes en las vistas previas | Nuevo en 1.2 |
 | `pairee.preview_code / preview_widget` | Vista previa de texto resaltado con números de línea; mostrar un widget más tarde | Nuevo en 1.2 |

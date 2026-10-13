@@ -74,7 +74,12 @@ pub fn bind_runtime(
     pairee.set("utils", b::utils_ext::bind(lua)?)?;
     pairee.set(
         "clipboard",
-        b::clipboard::bind(lua, trusted && !options.secure_mode)?,
+        b::clipboard::bind(
+            lua,
+            trusted && !options.secure_mode,
+            options.name.clone(),
+            tx.clone(),
+        )?,
     )?;
     pairee.set("Error", super::types::error::bind(lua)?)?;
     pairee.set("Path", super::types::path::bind(lua)?)?;

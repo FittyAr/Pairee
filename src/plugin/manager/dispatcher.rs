@@ -36,6 +36,13 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
         PluginRequest::GetStateSnapshot(reply_tx) => {
             let _ = reply_tx.send(build_snapshot(state));
         }
+        PluginRequest::ClipboardWritten { plugin, lines } => {
+            state.dialogs.push(PopupType::info(
+                crate::config::localization::t("plugin_clipboard_multiline")
+                    .replacen("{}", &plugin, 1)
+                    .replacen("{}", &lines.to_string(), 1),
+            ));
+        }
         PluginRequest::RemoteConnection {
             scheme,
             domain,

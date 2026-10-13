@@ -106,6 +106,12 @@ pub enum PluginRequest {
     DevPluginScan {
         options: Vec<(String, String)>,
     },
+    /// `plugin` put text of `lines` (more than one) lines on the clipboard:
+    /// the user is told before pasting it.
+    ClipboardWritten {
+        plugin: String,
+        lines: usize,
+    },
     /// The connection open in a panel tab that a remote URL names
     /// (`scheme`, `domain` = `[user@]host[:port]`), for `pairee.fs`.
     RemoteConnection {
