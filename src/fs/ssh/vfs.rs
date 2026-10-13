@@ -85,16 +85,32 @@ impl Vfs for SharedSshClient {
     }
 
     /// SFTP v3 servers (OpenSSH) refuse to rename over an existing file:
-    /// the old file is then removed first (the new one is complete by now).
+    /// the old file is then moved aside, the new one put in place and the
+    /// old one deleted — or put back when the second rename fails, so the
+    /// destination is never lost.
     fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
         let client = self.lock();
-        if client.sftp.rename(from, to, None).is_ok() {
-            return Ok(());
+        let first = match client.sftp.rename(from, to, None) {
+            Ok(()) => return Ok(()),
+            Err(e) => e,
+        };
+        if !client.sftp.lstat(to).is_ok_and(|s| !s.is_dir()) {
+            return Err(io_err(first));
         }
-        if client.sftp.lstat(to).is_ok_and(|s| !s.is_dir()) {
-            client.sftp.unlink(to).map_err(io_err)?;
+        let mut aside = to.as_os_str().to_owned();
+        aside.push(".pairee-old");
+        let aside = std::path::PathBuf::from(aside);
+        client.sftp.rename(to, &aside, None).map_err(io_err)?;
+        match client.sftp.rename(from, to, None) {
+            Ok(()) => {
+                let _ = client.sftp.unlink(&aside);
+                Ok(())
+            }
+            Err(e) => {
+                let _ = client.sftp.rename(&aside, to, None);
+                Err(io_err(e))
+            }
         }
-        client.sftp.rename(from, to, None).map_err(io_err)
     }
 
     /// `setstat` with the time (access time set alike) and permission bits.
