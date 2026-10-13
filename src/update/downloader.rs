@@ -41,8 +41,8 @@ pub fn validate_release_url(url: &str) -> Result<()> {
 pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -> Result<Vec<u8>> {
     validate_release_url(url)?;
 
-    let client = build_client(DOWNLOAD_TIMEOUT)?;
-    let mut response = client
+    let client = super::http::client(DOWNLOAD_TIMEOUT)?;
+    let response = client
         .get(url)
         .send()
         .await
@@ -52,23 +52,15 @@ pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -
         anyhow::bail!("download returned status {}", response.status());
     }
 
-    let total = response.content_length().unwrap_or(0);
-    if total > MAX_ASSET_BYTES {
-        anyhow::bail!("release asset is too large ({total} bytes)");
-    }
-    let mut data = Vec::with_capacity(total as usize);
-
-    while let Some(chunk) = response.chunk().await.context("stream error")? {
-        data.extend_from_slice(&chunk);
-        if data.len() as u64 > MAX_ASSET_BYTES {
-            anyhow::bail!("release asset exceeds {MAX_ASSET_BYTES} bytes");
-        }
+    let data = super::http::read_limited(response, MAX_ASSET_BYTES as usize, |got, total| {
         if total > 0
             && let Some(tx) = &progress_tx
         {
-            let _ = tx.try_send(data.len() as f32 / total as f32);
+            let _ = tx.try_send(got as f32 / total as f32);
         }
-    }
+    })
+    .await
+    .context("release asset download failed")?;
 
     if let Some(tx) = &progress_tx {
         let _ = tx.try_send(1.0);
@@ -143,16 +135,6 @@ pub fn expected_installer_name(version: &str) -> String {
 /// Returns the current target triple for this binary.
 fn current_target() -> &'static str {
     env!("PAIREE_TARGET")
-}
-
-/// HTTP client of the updater (release check and downloads), identified as
-/// `pairee/<version>` as the GitHub API requires.
-pub fn build_client(timeout: Duration) -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .user_agent(concat!("pairee/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .context("failed to build HTTP client")
 }
 
 #[cfg(test)]
