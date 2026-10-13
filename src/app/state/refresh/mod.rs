@@ -147,7 +147,7 @@ impl AppState {
         };
         panel.pending_focus = Some(crate::fs::file_name_lossy(&root));
         panel.current_path = parent.to_path_buf();
-        self.dialogs.replace(super::PopupType::Error(
+        self.dialogs.replace(super::PopupType::error(
             crate::config::localization::t("archive_open_failed")
                 .replacen("{}", &root.to_string_lossy(), 1)
                 .replacen("{}", error, 1),

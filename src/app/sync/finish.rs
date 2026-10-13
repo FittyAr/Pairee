@@ -27,7 +27,7 @@ pub fn poll_folder_scan(state: &mut AppState) -> bool {
             }
         }
         (Ok(_), None) | (Err(SyncError::Cancelled), _) => {}
-        (Err(err), _) => state.dialogs.push(PopupType::Error(
+        (Err(err), _) => state.dialogs.push(PopupType::error(
             t("error_compare_failed").replace("{}", &err.to_string()),
         )),
     }

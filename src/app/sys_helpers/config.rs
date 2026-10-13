@@ -6,7 +6,7 @@ pub fn change_theme(context: &mut AppContext, state: &mut AppState, theme_name: 
     if let Some(error) = context.config.switch_theme(theme_name) {
         state
             .dialogs
-            .replace(crate::app::state::PopupType::Error(error));
+            .replace(crate::app::state::PopupType::error(error));
     }
     context.config.save_logging();
     state.refresh_both_panels(context.config.settings.show_hidden);

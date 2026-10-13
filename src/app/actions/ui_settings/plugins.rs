@@ -142,13 +142,13 @@ pub fn install_dev_plugin(state: &mut AppState, context: &AppContext) -> bool {
             );
             let _ = crate::plugin::updater::write_lockfile(&lock);
 
-            state.dialogs.replace(crate::app::state::PopupType::Info(
+            state.dialogs.replace(crate::app::state::PopupType::info(
                 t("plugin_toast_install_dev_ok")
                     .replace("{}", &name)
                     .replace("{:?}", &format!("{:?}", dest_dir)),
             ));
         } else {
-            state.dialogs.replace(crate::app::state::PopupType::Error(
+            state.dialogs.replace(crate::app::state::PopupType::error(
                 t("plugin_toast_install_dev_failed").replace("{}", &name),
             ));
         }

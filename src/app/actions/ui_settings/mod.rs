@@ -5,6 +5,8 @@ mod tools;
 mod view_sort;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmQuit;
+use crate::app::state::popup::InfoPanel;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::build_info_panel_lines;
 use crate::config::localization::t;
@@ -48,7 +50,7 @@ fn menu_action(state: &mut AppState, action: &Action, context: &AppContext) -> b
         Action::ContextMenu => open_context_menu(state),
         Action::Quit => {
             if context.config.settings.confirmations.confirm_quit {
-                state.dialogs.replace(PopupType::ConfirmQuit);
+                state.dialogs.replace(PopupType::ConfirmQuit(ConfirmQuit));
             } else {
                 state.should_quit = true;
             }
@@ -73,7 +75,9 @@ fn app_control_action(state: &mut AppState, action: &Action, context: &mut AppCo
         }
         Action::InfoPanel => {
             let lines = build_info_panel_lines(state);
-            state.dialogs.replace(PopupType::InfoPanel { lines });
+            state
+                .dialogs
+                .replace(PopupType::InfoPanel(InfoPanel { lines }));
         }
         _ => return false,
     }
@@ -92,7 +96,7 @@ fn feature_action(state: &mut AppState, action: &Action, context: &mut AppContex
             } else {
                 state
                     .dialogs
-                    .replace(PopupType::Info(t("feature_plugins_disabled")));
+                    .replace(PopupType::info(t("feature_plugins_disabled")));
             }
             true
         }

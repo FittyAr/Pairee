@@ -138,7 +138,7 @@ mod tests {
             None,
             PendingPluginReply::Input(tx),
         );
-        state.dialogs.replace(PopupType::Info("gone".into()));
+        state.dialogs.replace(PopupType::info("gone"));
         settle_orphaned_plugin_dialogs(&mut state);
         let result = rx.blocking_recv().unwrap();
         assert_eq!(result.event, 2);

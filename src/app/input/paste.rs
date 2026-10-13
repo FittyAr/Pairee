@@ -28,6 +28,7 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
 mod paste_tests {
     use super::*;
     use crate::app::state::PopupType;
+    use crate::app::state::popup::ConfirmQuit;
     use std::path::PathBuf;
 
     #[test]
@@ -60,7 +61,7 @@ mod paste_tests {
     #[test]
     fn paste_ignored_on_non_text_dialog() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::ConfirmQuit);
+        state.dialogs.replace(PopupType::ConfirmQuit(ConfirmQuit));
         handle_paste(&mut state, "should-not-land-in-cli");
         assert!(state.cli.field.is_empty());
     }

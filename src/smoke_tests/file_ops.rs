@@ -2,6 +2,7 @@
 //! to the trash) and undo / redo of the journal.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::ConfirmUndo;
 use crate::test_harness::Harness;
 
 const KEYMAPS: [&str; 2] = ["norton", "vscode"];
@@ -52,7 +53,10 @@ fn rename_then_undo_and_redo() {
 
         h.keys("@undo_file_operation");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmUndo { .. })),
+            matches!(
+                h.state.dialogs.top(),
+                Some(PopupType::ConfirmUndo(ConfirmUndo { .. }))
+            ),
             "{keymap}"
         );
         h.keys("Enter");

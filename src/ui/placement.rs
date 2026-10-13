@@ -46,6 +46,24 @@ pub fn finish() -> Option<Placement> {
     effective
 }
 
+/// Runs `paint` with dialogs centered where their renderers put them (for
+/// the dialogs under the top one, which the user did not move), then puts
+/// the top dialog's placement back.
+pub fn unplaced<R>(paint: impl FnOnce() -> R) -> R {
+    let saved = (
+        CURRENT.with(Cell::get),
+        RESIZABLE.with(Cell::get),
+        EFFECTIVE.with(Cell::get),
+    );
+    CURRENT.with(|current| current.set(NONE));
+    RESIZABLE.with(|current| current.set(false));
+    let result = paint();
+    CURRENT.with(|current| current.set(saved.0));
+    RESIZABLE.with(|current| current.set(saved.1));
+    EFFECTIVE.with(|effective| effective.set(saved.2));
+    result
+}
+
 /// Whether the dialog being painted can be resized.
 pub fn resizable() -> bool {
     RESIZABLE.with(Cell::get)

@@ -138,7 +138,7 @@ pub(crate) fn prepare_first_frame(state: &mut AppState, context: &mut AppContext
             .replace(crate::app::state::PopupType::OnboardingKeymap { cursor_idx: 0 });
     }
     if let Some(msg) = context.config.take_load_error() {
-        state.dialogs.push(crate::app::state::PopupType::Error(msg));
+        state.dialogs.push(crate::app::state::PopupType::error(msg));
     }
     state.mark_ui_dirty();
 }

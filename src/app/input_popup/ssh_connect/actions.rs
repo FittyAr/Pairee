@@ -22,7 +22,7 @@ pub fn handle_enter(state: &mut AppState, context: &mut AppContext) {
         Prompt::BUTTON_CANCEL => state.dialogs.clear(),
         Prompt::BUTTON_SAVE => {
             if let Err(key) = save_preset(prompt, context) {
-                state.dialogs.replace(PopupType::Error(t(key)));
+                state.dialogs.replace(PopupType::error(t(key)));
             }
         }
         Prompt::BUTTON_DELETE => delete_preset(prompt, context),
@@ -90,18 +90,18 @@ fn connect(state: &mut AppState, context: &AppContext) {
     if preset.host.is_empty() {
         state
             .dialogs
-            .replace(PopupType::Error(t("error_ssh_host_empty")));
+            .replace(PopupType::error(t("error_ssh_host_empty")));
         return;
     }
     if preset.username.is_empty() {
         state
             .dialogs
-            .replace(PopupType::Error(t("error_ssh_user_empty")));
+            .replace(PopupType::error(t("error_ssh_user_empty")));
         return;
     }
     state
         .dialogs
-        .replace(PopupType::Info(t("progress_connecting_ssh")));
+        .replace(PopupType::info(t("progress_connecting_ssh")));
     start_connection(state, context, panel, preset);
 }
 

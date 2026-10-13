@@ -55,7 +55,7 @@ fn checkout_target(state: &mut AppState, context: &AppContext, checkout: GitConf
                 crate::git::checkout::checkout_commit(repo, &target).map(|()| target.clone())
             }
             .ctx("git_checkout_error")?;
-            Ok(PopupType::Info(format!(
+            Ok(PopupType::info(format!(
                 "{}: {}",
                 t("git_checkout_success"),
                 checked_out

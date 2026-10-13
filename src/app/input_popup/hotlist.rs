@@ -64,7 +64,7 @@ fn persist(state: &mut AppState, entries: Vec<HotlistEntry>, cursor_idx: usize) 
         cursor_idx,
     });
     if let Err(e) = result {
-        state.dialogs.push(PopupType::Error(
+        state.dialogs.push(PopupType::error(
             t("error_save_bookmarks").replace("{}", &e.to_string()),
         ));
     }

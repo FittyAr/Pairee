@@ -4,7 +4,7 @@
 //! `replace` is the common “open this dialog” path (clears any underneath).
 //! `push` / `pop` are for nested prompts (filter on copy, git sub-dialogs).
 
-use super::popup::PopupType;
+use super::popup::{DialogKind, PopupType};
 
 /// Stack of overlay dialogs. Empty means the dual-panel UI has focus.
 #[derive(Debug, Default, Clone)]
@@ -25,6 +25,22 @@ impl DialogStack {
         self.frames.last_mut()
     }
 
+    /// The top dialog when it is a `T`.
+    pub fn top_as<T: DialogKind>(&self) -> Option<&T> {
+        self.top().and_then(T::peek)
+    }
+
+    /// The top dialog, mutably, when it is a `T`.
+    pub fn top_mut_as<T: DialogKind>(&mut self) -> Option<&mut T> {
+        self.top_mut().and_then(T::peek_mut)
+    }
+
+    /// Closes the top dialog when it is a `T` and returns it.
+    pub fn pop_as<T: DialogKind>(&mut self) -> Option<T> {
+        self.top_as::<T>()?;
+        self.pop().and_then(T::take)
+    }
+
     pub fn is_empty(&self) -> bool {
         self.frames.is_empty()
     }
@@ -43,7 +59,6 @@ impl DialogStack {
     }
 
     /// Every open dialog, bottom to top.
-    #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = &PopupType> {
         self.frames.iter()
     }
@@ -106,18 +121,20 @@ impl DialogStack {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::popup::ErrorMessage;
+    use crate::app::state::popup::InfoMessage;
 
     #[test]
     fn replace_then_pop() {
         let mut stack = DialogStack::new();
         assert!(stack.is_none());
-        stack.replace(PopupType::Info("a".into()));
+        stack.replace(PopupType::info("a"));
         assert!(stack.is_some());
         assert_eq!(stack.depth(), 1);
-        stack.push(PopupType::Info("b".into()));
+        stack.push(PopupType::info("b"));
         assert_eq!(stack.depth(), 2);
         match stack.pop() {
-            Some(PopupType::Info(s)) => assert_eq!(s, "b"),
+            Some(PopupType::Info(InfoMessage(s))) => assert_eq!(s, "b"),
             _ => panic!("expected nested info"),
         }
         assert_eq!(stack.depth(), 1);
@@ -128,17 +145,17 @@ mod tests {
     #[test]
     fn open_over_moves_previous_into_new_dialog() {
         let mut stack = DialogStack::new();
-        stack.open_over(|_| PopupType::Info("never".into()));
+        stack.open_over(|_| PopupType::info("never"));
         assert!(stack.is_empty(), "no-op without an open dialog");
 
-        stack.replace(PopupType::Info("panel".into()));
+        stack.replace(PopupType::info("panel"));
         stack.open_over(|prev| match *prev {
-            PopupType::Info(s) => PopupType::Error(format!("over {s}")),
+            PopupType::Info(InfoMessage(s)) => PopupType::error(format!("over {s}")),
             _ => panic!("unexpected previous popup"),
         });
         assert_eq!(stack.depth(), 1);
         match stack.top() {
-            Some(PopupType::Error(s)) => assert_eq!(s, "over panel"),
+            Some(PopupType::Error(ErrorMessage(s))) => assert_eq!(s, "over panel"),
             other => panic!("unexpected top: {other:?}"),
         }
     }

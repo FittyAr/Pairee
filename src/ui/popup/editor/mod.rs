@@ -5,8 +5,10 @@ pub use widget::{EditorView, render_editor_widget};
 
 use super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::PopupType;
+use crate::app::state::popup::ConfirmDiscardEditorChanges;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -54,24 +56,27 @@ pub fn render_editor_popup(
             );
             true
         }
-        PopupType::ConfirmDiscardEditorChanges => {
-            let area = centered_rect_in(50, 20, size);
-            f.render_widget(Clear, area);
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(theme.popup_border))
-                .title(t("editor_discard_title"))
-                .style(Style::default().bg(theme.popup_bg));
-            let text = ratatui::text::Line::from(vec![ratatui::text::Span::styled(
-                t("editor_discard_prompt"),
-                Style::default().fg(theme.popup_fg),
-            )]);
-            let para = Paragraph::new(text)
-                .block(block)
-                .alignment(ratatui::layout::Alignment::Center);
-            f.render_widget(para, area);
-            true
-        }
         _ => false,
+    }
+}
+
+impl DialogView for ConfirmDiscardEditorChanges {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let theme = cx.theme;
+        let area = centered_rect_in(50, 20, cx.area);
+        f.render_widget(Clear, area);
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme.popup_border))
+            .title(t("editor_discard_title"))
+            .style(Style::default().bg(theme.popup_bg));
+        let text = ratatui::text::Line::from(vec![ratatui::text::Span::styled(
+            t("editor_discard_prompt"),
+            Style::default().fg(theme.popup_fg),
+        )]);
+        let para = Paragraph::new(text)
+            .block(block)
+            .alignment(ratatui::layout::Alignment::Center);
+        f.render_widget(para, area);
     }
 }

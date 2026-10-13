@@ -19,6 +19,7 @@ pub mod screens_menu;
 pub mod shortcuts;
 pub mod sync_dirs;
 pub mod update;
+pub mod view;
 pub mod viewer;
 pub mod yazi;
 
@@ -36,36 +37,47 @@ pub fn render_popup(
     left_rect: Rect,
     right_rect: Rect,
 ) {
-    let popup = match state.dialogs.top() {
-        Some(p) => p,
-        None => return,
+    let theme = context.theme();
+    let cx = view::ViewCtx {
+        state,
+        context,
+        theme: &theme,
+        area: f.area(),
+        panels: (left_rect, right_rect),
     };
+    let depth = state.dialogs.depth();
+    for (level, popup) in state.dialogs.iter().enumerate() {
+        if level + 1 < depth {
+            // Dialogs under the top one stay visible where they were
+            // opened, but only the top one takes the mouse.
+            crate::ui::hit::muted(|| {
+                crate::ui::placement::unplaced(|| render_specific_popup(f, popup, &cx))
+            });
+        } else {
+            render_one(f, popup, &cx);
+        }
+    }
+}
 
-    let panels = (left_rect, right_rect);
-
-    // If the active popup is a ScreensMenu that suspended another popup, render the suspended one first!
+/// Draws the top dialog, after the one a screens list suspended.
+fn render_one(f: &mut Frame, popup: &PopupType, cx: &view::ViewCtx<'_>) {
     if let PopupType::ScreensMenu {
         suspended_popup: Some(suspended),
         ..
     } = popup
     {
-        render_specific_popup(f, suspended, state, context, panels);
+        render_specific_popup(f, suspended, cx);
     }
-
-    render_specific_popup(f, popup, state, context, panels);
+    render_specific_popup(f, popup, cx);
 }
 
-/// Draws `popup`; `panels` are the left and right panel areas (for popups
-/// anchored to a panel).
-fn render_specific_popup(
-    f: &mut ratatui::Frame,
-    popup: &PopupType,
-    state: &AppState,
-    context: &AppContext,
-    panels: (Rect, Rect),
-) {
-    let theme = &context.theme();
-    let size = f.area();
+/// Draws `popup` (a dialog type, or one of the variants not migrated yet).
+fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::ViewCtx<'_>) {
+    if view::render_dialog(f, popup, cx) {
+        return;
+    }
+    let (state, context, theme, size, panels) =
+        (cx.state, cx.context, cx.theme, cx.area, cx.panels);
     if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
         return;
     }
@@ -101,9 +113,6 @@ fn render_specific_popup(
         return;
     }
     if info::render_info_popup(f, popup, theme, size) {
-        return;
-    }
-    if about::render_about_popup(f, popup, theme, size, Some(&state.scrollbar)) {
         return;
     }
     if plugin_menu::render(f, popup, theme, size, context) {

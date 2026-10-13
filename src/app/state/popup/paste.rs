@@ -4,6 +4,9 @@ use crate::app::text_input::TextField;
 impl PopupType {
     /// The text field that currently receives typing and pastes, if any.
     pub fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        if self.dialog().is_some() {
+            return self.dialog_mut().and_then(|d| d.focused_field_mut());
+        }
         match self {
             PopupType::MkDirPrompt {
                 input,
@@ -73,6 +76,7 @@ impl PopupType {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::popup::ConfirmQuit;
     use crate::app::state::types::LinkKind;
     use std::path::PathBuf;
 
@@ -156,7 +160,7 @@ mod tests {
 
     #[test]
     fn confirm_dialog_does_not_consume_paste() {
-        let mut popup = PopupType::ConfirmQuit;
+        let mut popup = PopupType::ConfirmQuit(ConfirmQuit);
         assert!(!popup.apply_paste("nope"));
     }
 }

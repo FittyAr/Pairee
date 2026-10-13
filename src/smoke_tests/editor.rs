@@ -1,6 +1,7 @@
 //! Built-in editor (F4): UTF-8 typing, selection with copy / paste, undo /
 //! redo, save, save as, CRLF line endings, reopening.
 
+use crate::app::state::popup::ConfirmDiscardEditorChanges;
 use crate::app::state::{PopupType, Screen};
 use crate::test_harness::Harness;
 
@@ -76,7 +77,9 @@ fn quitting_with_changes_asks_to_discard() {
     h.keys("Esc");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ConfirmDiscardEditorChanges)
+        Some(PopupType::ConfirmDiscardEditorChanges(
+            ConfirmDiscardEditorChanges
+        ))
     ));
     h.keys("Enter");
     assert!(in_panels(&h), "{}", h.screen_text());

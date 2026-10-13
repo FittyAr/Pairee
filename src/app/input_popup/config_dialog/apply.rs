@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use crate::app::state::ConfigDraft;
+use crate::app::state::popup::InfoPanel;
 use crate::app::sys_helpers::{change_preset, change_theme};
 
 pub fn apply_settings(state: &mut AppState, context: &mut AppContext, draft: ConfigDraft) {
@@ -30,9 +31,9 @@ pub fn apply_settings(state: &mut AppState, context: &mut AppContext, draft: Con
     if !report.ok() {
         state
             .dialogs
-            .replace(crate::app::state::PopupType::InfoPanel {
+            .replace(crate::app::state::PopupType::InfoPanel(InfoPanel {
                 lines: report.detail_lines(),
-            });
+            }));
     } else {
         state.dialogs.clear();
     }

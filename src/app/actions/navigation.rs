@@ -163,7 +163,7 @@ fn open_ssh_connect(state: &mut AppState, context: &AppContext) {
     if !context.config.settings.ssh_enabled {
         state
             .dialogs
-            .replace(PopupType::Info(t("feature_ssh_disabled")));
+            .replace(PopupType::info(t("feature_ssh_disabled")));
         return;
     }
     state.dialogs.replace(PopupType::SshConnectPrompt(
@@ -191,7 +191,7 @@ fn go_folder_shortcut(state: &mut AppState, n: u8, show_hidden: bool) {
     if let Some(target) = state.folder_shortcuts.get(&n).cloned() {
         state.jump_active_panel_to(target, show_hidden);
     } else {
-        state.dialogs.replace(PopupType::Info(
+        state.dialogs.replace(PopupType::info(
             t("error_no_folder_shortcut").replace("{}", &n.to_string()),
         ));
     }
@@ -200,6 +200,7 @@ fn go_folder_shortcut(state: &mut AppState, n: u8, show_hidden: bool) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::popup::InfoMessage;
     use crate::config::AppConfig;
     use std::path::PathBuf;
 
@@ -218,7 +219,7 @@ mod tests {
             &mut context
         ));
         match state.dialogs.top() {
-            Some(PopupType::Info(msg)) => assert!(!msg.is_empty()),
+            Some(PopupType::Info(InfoMessage(msg))) => assert!(!msg.is_empty()),
             other => panic!("expected Info, got {other:?}"),
         }
     }

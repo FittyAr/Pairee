@@ -5,14 +5,12 @@ impl PopupType {
     /// read-only panels. Dialogs that hold typed input or ask for a
     /// decision stay open so a stray click cannot discard them.
     pub fn closes_on_outside_click(&self) -> bool {
+        if let Some(dialog) = self.dialog() {
+            return dialog.closes_on_outside_click();
+        }
         matches!(
             self,
-            PopupType::Help { .. }
-                | PopupType::About { .. }
-                | PopupType::Error(_)
-                | PopupType::Info(_)
-                | PopupType::InfoPanel { .. }
-                | PopupType::UserMenu { .. }
+            PopupType::UserMenu { .. }
                 | PopupType::Menu { .. }
                 | PopupType::YaziSortPopup
                 | PopupType::YaziViewPopup
@@ -38,12 +36,12 @@ impl PopupType {
     /// Its content flows into whatever size it gets, so the user may resize
     /// it (by its bottom-right corner).
     pub fn resizable(&self) -> bool {
+        if let Some(dialog) = self.dialog() {
+            return dialog.resizable();
+        }
         matches!(
             self,
-            PopupType::Help { .. }
-                | PopupType::About { .. }
-                | PopupType::InfoPanel { .. }
-                | PopupType::UpdateAvailable { .. }
+            PopupType::UpdateAvailable { .. }
                 | PopupType::GitPanel(_)
                 | PopupType::SearchResults { .. }
                 | PopupType::CommandHistoryList { .. }

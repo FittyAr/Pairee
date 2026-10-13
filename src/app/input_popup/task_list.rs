@@ -95,7 +95,7 @@ fn on_selected<E: std::fmt::Display>(
         }
         Err(e) => state
             .dialogs
-            .replace(PopupType::Error(t(error_key).replace("{}", &e.to_string()))),
+            .replace(PopupType::error(t(error_key).replace("{}", &e.to_string()))),
     }
 }
 

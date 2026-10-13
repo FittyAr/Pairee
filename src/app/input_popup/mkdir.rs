@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
+use crate::app::state::popup::ConfirmRetryAsAdmin;
 use crate::app::state::popup::forms::MKDIR_FORM;
 use crate::app::state::popup::{CreateKind, split_multiple};
 use crate::app::state::{AppState, PopupType};
@@ -85,7 +86,7 @@ fn create_file(state: &mut AppState, context: &AppContext, name: &str) -> bool {
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+                .replace(PopupType::error(format!("{} {}", t("error_dir_error"), e)));
             false
         }
         Ok(()) => {
@@ -117,16 +118,18 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
     }
     match crate::fs::create_directory(&path, settings.req_admin_modification) {
         Err(_) if !settings.req_admin_modification => {
-            state.dialogs.replace(PopupType::ConfirmRetryAsAdmin {
-                paths: vec![path],
-                op_kind: crate::app::state::AdminOpKind::MkDir,
-            });
+            state
+                .dialogs
+                .replace(PopupType::ConfirmRetryAsAdmin(ConfirmRetryAsAdmin {
+                    paths: vec![path],
+                    op_kind: crate::app::state::AdminOpKind::MkDir,
+                }));
             false
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{} {}", t("error_dir_error"), e)));
+                .replace(PopupType::error(format!("{} {}", t("error_dir_error"), e)));
             false
         }
         Ok(()) => {

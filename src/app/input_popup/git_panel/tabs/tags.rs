@@ -58,6 +58,6 @@ fn push_tags(state: &mut AppState, repo_path: &Path) {
         ),
         Err(_) => state
             .dialogs
-            .replace(PopupType::Error(t("git_remote_no_remotes"))),
+            .replace(PopupType::error(t("git_remote_no_remotes"))),
     }
 }

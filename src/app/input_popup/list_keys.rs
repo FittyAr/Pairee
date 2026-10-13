@@ -71,7 +71,7 @@ mod tests {
     fn bound_keys_become_arrows_only_outside_text_fields() {
         let mut resolver = resolver(&[("list.down", "j, Down"), ("list.first", "g g, Home")]);
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::Info("x".into()));
+        state.dialogs.replace(PopupType::info("x"));
         let down = translate(&mut state, &mut resolver, press('j')).unwrap();
         assert_eq!(down.code, KeyCode::Down);
         assert_eq!(translate(&mut state, &mut resolver, press('g')), None);

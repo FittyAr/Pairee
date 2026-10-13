@@ -36,6 +36,6 @@ pub fn edit_file(state: &mut AppState, path: PathBuf, settings: &Settings) {
     } else {
         state
             .dialogs
-            .replace(PopupType::Info(t("vfs_action_unsupported")));
+            .replace(PopupType::info(t("vfs_action_unsupported")));
     }
 }

@@ -202,11 +202,11 @@ fn copy_hash(state: &mut AppState, commit: &CommitInfo) {
     match crate::app::sys_helpers::clipboard::set_text(&commit.hash_full) {
         Ok(()) => {
             let msg = t("git_hash_copied").replace("{}", &commit.hash_short);
-            state.dialogs.push(PopupType::Info(msg));
+            state.dialogs.push(PopupType::info(msg));
         }
         Err(e) => {
             let msg = t("clipboard_failed").replace("{}", &e.to_string());
-            state.dialogs.push(PopupType::Error(msg));
+            state.dialogs.push(PopupType::error(msg));
         }
     }
 }

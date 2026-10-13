@@ -1,6 +1,7 @@
 //! Tools, screens, and auxiliary dialog actions for UI settings.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::SaveSetupConfirm;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
@@ -43,7 +44,9 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
                 cursor_idx: 0,
             });
         }
-        Action::SaveSetup => state.dialogs.replace(PopupType::SaveSetupConfirm),
+        Action::SaveSetup => state
+            .dialogs
+            .replace(PopupType::SaveSetupConfirm(SaveSetupConfirm)),
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
                 crate::app::state::ConfigurationDialogState::new(&context.config, 0, 0, true),
@@ -98,7 +101,7 @@ fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         }
         Action::NextScreen => state.next_screen(),
         Action::PrevScreen => state.prev_screen(),
-        Action::VideoMode => state.dialogs.replace(PopupType::Info(t("video_mode_hint"))),
+        Action::VideoMode => state.dialogs.replace(PopupType::info(t("video_mode_hint"))),
         Action::CycleFKeysModifiers => cycle_fkeys_modifiers(state),
         Action::CheckForUpdates => check_for_updates(state),
         Action::CommandPalette => crate::app::actions::command_palette::open_palette(state),
@@ -130,7 +133,7 @@ fn edit_user_menu(state: &mut AppState, context: &AppContext) {
     if !path.exists()
         && let Err(e) = std::fs::write(&path, USER_MENU_TEMPLATE)
     {
-        state.dialogs.replace(PopupType::Error(
+        state.dialogs.replace(PopupType::error(
             t("error_read_usermenu_failed").replace("{}", &e.to_string()),
         ));
         return;
@@ -167,7 +170,7 @@ fn check_for_updates(state: &mut AppState) {
     crate::update::checker::UpdateChecker::check_in_background(tx);
     state.update.check_rx = Some(rx);
     state.update.status = crate::update::UpdateStatus::Checking;
-    state.dialogs.replace(PopupType::Info(t("update_checking")));
+    state.dialogs.replace(PopupType::info(t("update_checking")));
 }
 
 /// Expands a hidden/minimized transfer panel, or minimizes an expanded one.
@@ -176,7 +179,7 @@ fn toggle_transfer_panel(state: &mut AppState) {
     let Some(ref mut ts) = state.transfer else {
         state
             .dialogs
-            .replace(PopupType::Info(t("transfer_no_active")));
+            .replace(PopupType::info(t("transfer_no_active")));
         return;
     };
     match ts.view_mode {

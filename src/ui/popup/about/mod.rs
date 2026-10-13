@@ -2,8 +2,9 @@ mod libs;
 
 pub use libs::DEPENDENCY_LIBRARIES;
 
-use crate::app::state::PopupType;
+use crate::app::state::popup::About;
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::wrap::wrap_lines;
 use ratatui::{
@@ -38,16 +39,19 @@ impl AboutStyles {
     }
 }
 
-pub fn render_about_popup(
+impl DialogView for About {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render_about(f, self.scroll_y, cx.theme, cx.area, cx.scrollbar());
+    }
+}
+
+fn render_about(
     f: &mut Frame,
-    popup: &PopupType,
+    scroll_y: usize,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
-) -> bool {
-    let PopupType::About { scroll_y } = popup else {
-        return false;
-    };
+) {
     // Center the rectangle (width: 70 columns, height: 20 lines)
     let area = super::centered_rect_fixed(70, 20, size);
     f.render_widget(Clear, area);
@@ -66,7 +70,7 @@ pub fn render_about_popup(
 
     // Clamp scroll_y to valid range
     let max_scroll = total_lines.saturating_sub(inner_height);
-    let clamped_scroll = (*scroll_y).min(max_scroll);
+    let clamped_scroll = scroll_y.min(max_scroll);
 
     // Sub-layout: Content (top) and Hint (bottom)
     let popup_chunks = ratatui::layout::Layout::default()
@@ -112,7 +116,6 @@ pub fn render_about_popup(
 
     // Render block border and title
     f.render_widget(block, area);
-    true
 }
 
 /// Title, build information, links, license and credited libraries.

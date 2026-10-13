@@ -34,7 +34,6 @@ pub mod plugin_dialogs;
 pub mod plugin_menu;
 pub mod rename;
 pub mod rename_tab;
-pub mod save_setup;
 pub mod screens_menu;
 pub mod search;
 pub mod select_group;
@@ -57,6 +56,7 @@ pub mod update_popup;
 pub mod yazi_popup;
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::KeyHandler;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -68,11 +68,19 @@ pub fn handle_popup_input(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     // Pick the handler by reference: the popup itself is never cloned here.
-    let handler = state.dialogs.top().map(handler_for).ok_or(())?;
+    let handler = state
+        .dialogs
+        .top()
+        .map(|popup| {
+            popup
+                .dialog()
+                .map_or_else(|| handler_for(popup), |d| d.key_handler())
+        })
+        .ok_or(())?;
     handler(state, key, context)
 }
 
-type PopupHandler = fn(&mut AppState, KeyEvent, &mut AppContext) -> Result<Option<Action>, ()>;
+type PopupHandler = KeyHandler;
 
 /// Esc in the Git progress popup cancels the running operation.
 fn git_progress(
@@ -89,18 +97,9 @@ fn git_progress(
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
-        PopupType::Help { .. } => help::handle,
-        PopupType::About { .. } => about::handle,
         PopupType::MkDirPrompt { .. } => mkdir::handle,
         PopupType::PanelSearch { .. } => panel_search::handle,
         PopupType::TransferPrompt(..) => transfer_prompt::handle,
-        PopupType::ConfirmQuit
-        | PopupType::ConfirmUndo { .. }
-        | PopupType::ConfirmInterrupt
-        | PopupType::ConfirmReload
-        | PopupType::ConfirmDiscardEditorChanges
-        | PopupType::ConfirmClearHistory { .. }
-        | PopupType::ConfirmRetryAsAdmin { .. } => confirm_dialogs::handle,
         PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => delete::handle,
         PopupType::UserMenu { .. } => user_menu::handle,
         PopupType::EditorSearchPrompt(_)
@@ -135,7 +134,6 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::DiskUsage => disk_usage::handle,
         PopupType::PluginMenu(..) => plugin_menu::handle,
         PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
-        PopupType::SaveSetupConfirm => save_setup::handle,
         PopupType::ConfigurationDialog(..) => config_dialog::handle,
         PopupType::ColorGroupsDialog { .. } => color_groups::handle,
         PopupType::FilesHighlightingDialog { .. } => files_highlighting::handle,

@@ -1,6 +1,8 @@
 use super::centered_rect_in;
 use crate::app::state::PopupType;
+use crate::app::state::popup::InfoPanel;
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::Rect,
@@ -9,6 +11,31 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
+impl DialogView for InfoPanel {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let area = centered_rect_in(55, 55, cx.area);
+        f.render_widget(Clear, area);
+
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Cyan))
+            .title(t("info_panel_title"))
+            .style(Style::default().bg(cx.theme.popup_bg));
+
+        let text_lines: Vec<Line> = self
+            .lines
+            .iter()
+            .map(|l| Line::from(Span::raw(format!(" {}", l))))
+            .collect();
+
+        let paragraph = Paragraph::new(text_lines)
+            .block(block)
+            .style(Style::default().fg(cx.theme.popup_fg));
+
+        f.render_widget(paragraph, area);
+    }
+}
+
 pub fn render_info_popup(
     f: &mut Frame,
     popup: &PopupType,
@@ -16,28 +43,6 @@ pub fn render_info_popup(
     size: Rect,
 ) -> bool {
     match popup {
-        PopupType::InfoPanel { lines } => {
-            let area = centered_rect_in(55, 55, size);
-            f.render_widget(Clear, area);
-
-            let block = Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan))
-                .title(t("info_panel_title"))
-                .style(Style::default().bg(theme.popup_bg));
-
-            let text_lines: Vec<Line> = lines
-                .iter()
-                .map(|l| Line::from(Span::raw(format!(" {}", l))))
-                .collect();
-
-            let paragraph = Paragraph::new(text_lines)
-                .block(block)
-                .style(Style::default().fg(theme.popup_fg));
-
-            f.render_widget(paragraph, area);
-            true
-        }
         PopupType::FileAttributesDialog { attrs, mode_input } => {
             let area = centered_rect_in(65, 45, size);
             f.render_widget(Clear, area);

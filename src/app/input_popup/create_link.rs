@@ -52,7 +52,7 @@ fn create(
     match crate::app::actions::fs_ops::link::make(state, src, &dest, kind) {
         Err(e) => state
             .dialogs
-            .replace(PopupType::Error(format!("Link failed: {}", e))),
+            .replace(PopupType::error(format!("Link failed: {}", e))),
         Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
     }
 }

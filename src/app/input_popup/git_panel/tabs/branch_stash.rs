@@ -88,7 +88,7 @@ pub fn open_checkout(state: &mut AppState, repo_path: &Path, target: String, is_
 /// checked-out branch cannot be deleted.
 fn confirm_delete_branch(state: &mut AppState, repo_path: &Path, branch: &BranchInfo) {
     if branch.is_current {
-        state.dialogs.push(PopupType::Error(t(
+        state.dialogs.push(PopupType::error(t(
             "git_error_cannot_delete_current_branch",
         )));
         return;
@@ -154,7 +154,7 @@ fn apply_stash(state: &mut AppState, repo_path: &Path, index: usize) {
             state.reload_git_panel(&reload);
             state
                 .dialogs
-                .push(PopupType::Info(t("git_operation_success")));
+                .push(PopupType::info(t("git_operation_success")));
         },
     );
 }
@@ -213,7 +213,7 @@ mod tests {
     #[test]
     fn rename_prompt_starts_with_the_name_field_focused() {
         let mut state = AppState::new(".".into(), ".".into());
-        state.dialogs.replace(PopupType::Info("panel".into()));
+        state.dialogs.replace(PopupType::info("panel"));
         let branches = [BranchInfo {
             name: "feature".into(),
             is_current: false,

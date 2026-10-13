@@ -24,11 +24,11 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
             let prefix = pending.map(|(op, _)| t(op.error_key())).unwrap_or_default();
             state
                 .dialogs
-                .replace(PopupType::Error(format!("{}: {}", prefix, err)));
+                .replace(PopupType::error(format!("{}: {}", prefix, err)));
         }
         (Err(None), _) => state
             .dialogs
-            .push(PopupType::Info(t("git_operation_cancelled"))),
+            .push(PopupType::info(t("git_operation_cancelled"))),
     }
     state.mark_ui_dirty();
     true
@@ -39,7 +39,7 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
         FollowUp::Info => {
             state
                 .dialogs
-                .push(PopupType::Info(t("git_operation_success")));
+                .push(PopupType::info(t("git_operation_success")));
         }
         FollowUp::RefreshGitPanel {
             repo_path,
@@ -49,7 +49,7 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
             state.refresh_git_panel(&repo_path, active_tab, cursor_idx);
             state
                 .dialogs
-                .push(PopupType::Info(t("git_operation_success")));
+                .push(PopupType::info(t("git_operation_success")));
         }
         FollowUp::RestorePopup {
             previous,
@@ -63,7 +63,7 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
             state.refresh_both_panels(show_hidden);
             state
                 .dialogs
-                .replace(PopupType::Info(t("git_clone_success")));
+                .replace(PopupType::info(t("git_clone_success")));
         }
     }
 }

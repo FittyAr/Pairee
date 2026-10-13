@@ -103,7 +103,7 @@ fn result_reaches_a_panel_below_another_dialog() {
     let dir = repo_with_commits(2);
     let mut state = new_state();
     state.open_git_panel_at(dir.path(), 100);
-    state.dialogs.push(PopupType::Info("done".into()));
+    state.dialogs.push(PopupType::info("done"));
     state.poll_git_panel();
     assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
     assert_eq!(panel(&state).log_entries.len(), 2);

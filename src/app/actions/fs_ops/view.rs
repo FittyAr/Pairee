@@ -61,7 +61,7 @@ pub fn handle(
                     context,
                     terminal_backend,
                 ) {
-                    state.dialogs.replace(PopupType::Error(format!(
+                    state.dialogs.replace(PopupType::error(format!(
                         "{} {}",
                         t("error_viewer_failed"),
                         e

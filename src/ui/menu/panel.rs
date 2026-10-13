@@ -1,6 +1,7 @@
 //! "Left" and "Right" menus: the same entries for either panel.
 
 use super::types::{ActionRow, MenuBuilder, MenuItemData};
+use crate::app::state::popup::InfoPanel;
 use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::config::settings::Settings;
 use crate::keybindings::{Action, KeybindingResolver};
@@ -58,7 +59,10 @@ pub fn get_items(
         .separator()
         .toggle(
             ("menu_info_panel", Action::InfoPanel, "Ctrl+L"),
-            matches!(state.dialogs.top(), Some(PopupType::InfoPanel { .. })),
+            matches!(
+                state.dialogs.top(),
+                Some(PopupType::InfoPanel(InfoPanel { .. }))
+            ),
         )
         .toggle(
             ("menu_quick_view", Action::QuickView, "Ctrl+Q"),

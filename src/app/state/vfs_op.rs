@@ -44,7 +44,7 @@ impl AppState {
         };
         match result {
             Ok(follow_up) => follow_up(self, settings),
-            Err(message) => self.dialogs.replace(PopupType::Error(message)),
+            Err(message) => self.dialogs.replace(PopupType::error(message)),
         }
         self.refresh_both_panels(settings.show_hidden);
         self.mark_ui_dirty();

@@ -42,7 +42,7 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
             state.refresh_tab(tab, show_hidden, true);
         }
         Err(e) => {
-            state.dialogs.replace(PopupType::Error(format!(
+            state.dialogs.replace(PopupType::error(format!(
                 "{} {}",
                 crate::config::localization::t("error_ssh_failed"),
                 e

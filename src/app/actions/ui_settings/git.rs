@@ -24,12 +24,12 @@ pub fn init_repo_action(state: &mut AppState, context: &AppContext) -> bool {
             state.refresh_both_panels(context.config.settings.show_hidden);
             state
                 .dialogs
-                .replace(crate::app::state::PopupType::Info(t("git_init_success")));
+                .replace(crate::app::state::PopupType::info(t("git_init_success")));
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(crate::app::state::PopupType::Error(format!(
+                .replace(crate::app::state::PopupType::error(format!(
                     "{}: {}",
                     t("git_init_error"),
                     e

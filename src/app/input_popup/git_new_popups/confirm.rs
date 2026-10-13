@@ -77,9 +77,9 @@ impl After {
     fn popup(self, conflicts: bool) -> Option<PopupType> {
         match self {
             After::Nothing => None,
-            After::Info(key) => Some(PopupType::Info(t(key))),
-            After::ConflictsOr(key, _) if conflicts => Some(PopupType::Error(t(key))),
-            After::ConflictsOr(_, key) => Some(PopupType::Info(t(key))),
+            After::Info(key) => Some(PopupType::info(t(key))),
+            After::ConflictsOr(key, _) if conflicts => Some(PopupType::error(t(key))),
+            After::ConflictsOr(_, key) => Some(PopupType::info(t(key))),
         }
     }
 }

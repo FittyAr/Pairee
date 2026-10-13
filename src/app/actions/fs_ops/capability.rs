@@ -57,6 +57,6 @@ pub fn refuse_unsupported(state: &mut AppState, action: &Action) -> bool {
     }
     state
         .dialogs
-        .replace(PopupType::Info(t("vfs_action_unsupported")));
+        .replace(PopupType::info(t("vfs_action_unsupported")));
     true
 }

@@ -124,7 +124,7 @@ impl AppState {
     pub fn start_git_op(&mut self, op: GitNetOp, follow_up: FollowUp) {
         if self.git_op.is_running() {
             self.dialogs
-                .push(PopupType::Info(crate::config::localization::t(
+                .push(PopupType::info(crate::config::localization::t(
                     "git_operation_busy",
                 )));
             return;
@@ -149,7 +149,7 @@ impl AppState {
             self.dialogs.pop();
         }
         self.dialogs
-            .push(PopupType::Info(crate::config::localization::t(
+            .push(PopupType::info(crate::config::localization::t(
                 "git_operation_cancelled",
             )));
     }

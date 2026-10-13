@@ -2,7 +2,9 @@
 
 use super::{request, transfer_finished};
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmUndo;
 use crate::app::state::popup::CreateKind;
+use crate::app::state::popup::InfoMessage;
 use crate::app::state::{AppState, PopupType};
 use crate::config::AppConfig;
 use crate::config::localization::t;
@@ -26,7 +28,10 @@ fn press(state: &mut AppState, context: &mut AppContext, code: KeyCode) {
 fn confirm(state: &mut AppState, context: &mut AppContext, direction: Direction) {
     request(state, direction);
     assert!(
-        matches!(state.dialogs.top(), Some(PopupType::ConfirmUndo { .. })),
+        matches!(
+            state.dialogs.top(),
+            Some(PopupType::ConfirmUndo(ConfirmUndo { .. }))
+        ),
         "{:?}",
         state.dialogs.top()
     );
@@ -38,7 +43,7 @@ fn empty_journal_says_there_is_nothing_to_undo() {
     let (_, mut state) = app(Path::new("."));
     request(&mut state, Direction::Undo);
     assert!(
-        matches!(state.dialogs.top(), Some(PopupType::Info(m)) if *m == t("journal_nothing_to_undo"))
+        matches!(state.dialogs.top(), Some(PopupType::Info(InfoMessage(m))) if *m == t("journal_nothing_to_undo"))
     );
 }
 
@@ -148,7 +153,7 @@ fn changed_files_are_listed_before_undoing() {
     });
     // Undoing a trash restores: `b` is in the way.
     request(&mut state, Direction::Undo);
-    let Some(PopupType::ConfirmUndo { lines, .. }) = state.dialogs.top() else {
+    let Some(PopupType::ConfirmUndo(ConfirmUndo { lines, .. })) = state.dialogs.top() else {
         panic!("{:?}", state.dialogs.top());
     };
     let text = lines.join("\n");

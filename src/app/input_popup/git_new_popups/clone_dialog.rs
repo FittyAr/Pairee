@@ -31,7 +31,7 @@ pub fn handle_clone(
             if target.exists() {
                 state
                     .dialogs
-                    .replace(PopupType::Error(t("git_clone_dir_exists")));
+                    .replace(PopupType::error(t("git_clone_dir_exists")));
                 return Ok(None);
             }
             state.start_git_op(

@@ -135,6 +135,8 @@ impl DialogPlacement {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::popup::About;
+    use crate::app::state::popup::ConfirmQuit;
 
     fn dialogs(popup: PopupType) -> DialogStack {
         let mut stack = DialogStack::new();
@@ -144,19 +146,19 @@ mod tests {
 
     #[test]
     fn a_placement_belongs_to_the_dialog_it_was_made_for() {
-        let about = dialogs(PopupType::About { scroll_y: 0 });
+        let about = dialogs(PopupType::About(About { scroll_y: 0 }));
         let mut placement = DialogPlacement::default();
         placement.start(&about, DragKind::Move, (10, 10));
         assert!(placement.follow((15, 12)));
         assert!(placement.stop());
         assert_eq!(placement.for_top(&about).0.offset, (5, 2));
-        let other = dialogs(PopupType::ConfirmQuit);
+        let other = dialogs(PopupType::ConfirmQuit(ConfirmQuit));
         assert_eq!(placement.for_top(&other).0, Placement::default());
     }
 
     #[test]
     fn dragging_resumes_from_what_fit_on_screen() {
-        let about = dialogs(PopupType::About { scroll_y: 0 });
+        let about = dialogs(PopupType::About(About { scroll_y: 0 }));
         let mut placement = DialogPlacement::default();
         placement.start(&about, DragKind::Move, (10, 10));
         placement.follow((90, 10));
@@ -171,7 +173,7 @@ mod tests {
 
     #[test]
     fn only_resizable_dialogs_keep_their_size() {
-        let quit = dialogs(PopupType::ConfirmQuit);
+        let quit = dialogs(PopupType::ConfirmQuit(ConfirmQuit));
         let mut placement = DialogPlacement::default();
         placement.start(&quit, DragKind::Resize, (10, 10));
         placement.follow((20, 14));

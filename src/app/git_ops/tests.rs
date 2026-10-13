@@ -1,11 +1,13 @@
 use super::{FollowUp, GitNetOp};
+use crate::app::state::popup::ErrorMessage;
+use crate::app::state::popup::InfoMessage;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use std::path::PathBuf;
 
 fn top_info(st: &AppState) -> Option<String> {
     match st.dialogs.top() {
-        Some(PopupType::Info(msg)) => Some(msg.clone()),
+        Some(PopupType::Info(InfoMessage(msg))) => Some(msg.clone()),
         _ => None,
     }
 }
@@ -45,7 +47,9 @@ fn fetch_without_remote_reports_error() {
     );
     assert!(!st.git_op.is_running());
     match st.dialogs.top() {
-        Some(PopupType::Error(msg)) => assert!(msg.starts_with(&t("git_error_fetch_failed"))),
+        Some(PopupType::Error(ErrorMessage(msg))) => {
+            assert!(msg.starts_with(&t("git_error_fetch_failed")))
+        }
         other => panic!("expected error, got {other:?}"),
     }
 }

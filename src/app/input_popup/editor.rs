@@ -64,7 +64,7 @@ fn find_next(state: &mut AppState, query: &str, case_sensitive: bool) {
     if !ed.find_next(query, case_sensitive, height) {
         state
             .dialogs
-            .replace(PopupType::Error(t("editor_text_not_found")));
+            .replace(PopupType::error(t("editor_text_not_found")));
     }
 }
 

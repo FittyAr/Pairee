@@ -53,7 +53,7 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
                 Err(e) => {
                     state
                         .dialogs
-                        .replace(PopupType::Error(format!("Failed to list archive: {}", e)));
+                        .replace(PopupType::error(format!("Failed to list archive: {}", e)));
                 }
             }
         }
@@ -63,12 +63,12 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
                 Ok(_) => {
                     state
                         .dialogs
-                        .replace(PopupType::Info(crate::config::localization::t(
+                        .replace(PopupType::info(crate::config::localization::t(
                             "archive_test_ok",
                         )));
                 }
                 Err(e) => {
-                    state.dialogs.replace(PopupType::Error(format!(
+                    state.dialogs.replace(PopupType::error(format!(
                         "Archive integrity check failed: {}",
                         e
                     )));

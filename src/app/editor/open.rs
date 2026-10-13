@@ -70,13 +70,13 @@ pub fn open_in_editor(state: &mut AppState, path: PathBuf, settings: &Settings) 
                 } else {
                     "editor_read_only_warning"
                 };
-                state.dialogs.replace(PopupType::Info(t(key)));
+                state.dialogs.replace(PopupType::info(t(key)));
             }
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(load_error_message(&e)));
+                .replace(PopupType::error(load_error_message(&e)));
         }
     }
 }
@@ -120,7 +120,7 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
             true
         }
         Err(e) => {
-            state.dialogs.replace(PopupType::Error(
+            state.dialogs.replace(PopupType::error(
                 t("error_save_failed").replace("{}", &e.to_string()),
             ));
             false
@@ -134,7 +134,7 @@ pub fn reload_active_editor(state: &mut AppState) {
         return;
     };
     if let Err(e) = ed.reload() {
-        state.dialogs.replace(PopupType::Error(
+        state.dialogs.replace(PopupType::error(
             t("error_reload_file_failed").replace("{}", &load_error_message(&e)),
         ));
     }

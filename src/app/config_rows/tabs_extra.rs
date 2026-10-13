@@ -5,6 +5,7 @@ use super::{
 };
 use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
+use crate::app::state::popup::InfoPanel;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
 use crate::keybindings::embedded::available_presets;
@@ -56,9 +57,9 @@ pub fn interface(ctx: &RowCtx) -> Vec<Row> {
         status_row,
         Row::Hint(Label::Key("int_keymap_gray")),
         action("int_keymap_view", |s, context| {
-            Some(PopupType::InfoPanel {
+            Some(PopupType::InfoPanel(InfoPanel {
                 lines: keymap_report(s, &context.config.keybindings).detail_lines(),
-            })
+            }))
         }),
         action("int_keymap_shortcuts", |s, context| {
             let preset = crate::keybindings::embedded::normalize_preset_name(&s.keymap_preset);

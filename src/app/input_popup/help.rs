@@ -3,8 +3,10 @@
 use super::about::TEXT_SCROLL;
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key, scroll_key};
+use crate::app::state::popup::{Dialog, DialogScroll, Help, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
+use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent};
 use std::path::PathBuf;
 
@@ -13,7 +15,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::Help {
+    let Some(PopupType::Help(Help {
         mode,
         docs,
         plugin_docs,
@@ -21,7 +23,7 @@ pub fn handle(
         cursor_idx,
         scroll_y,
         active_content,
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     else {
         return Err(());
     };
@@ -73,4 +75,19 @@ pub fn handle(
         },
     }
     Ok(None)
+}
+
+impl Dialog for Help {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        (id == ScrollTargetId::HelpContent).then_some(DialogScroll::Offset(&mut self.scroll_y))
+    }
 }

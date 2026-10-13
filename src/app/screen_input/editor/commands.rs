@@ -5,6 +5,8 @@
 use super::{Edit, clipboard, edit_result};
 use crate::app::context::AppContext;
 use crate::app::editor::open::{reload_active_editor, save_active_editor};
+use crate::app::state::popup::ConfirmDiscardEditorChanges;
+use crate::app::state::popup::ConfirmReload;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::screens::EditorAction;
 
@@ -42,7 +44,9 @@ pub(super) fn run(
         E::ToggleBlockMode => ed.block_mode = !ed.block_mode,
         E::Reload => {
             if ed.is_dirty() && settings.confirmations.confirm_reload_edited_file {
-                state.dialogs.replace(PopupType::ConfirmReload);
+                state
+                    .dialogs
+                    .replace(PopupType::ConfirmReload(ConfirmReload));
             } else {
                 reload_active_editor(state);
             }
@@ -59,11 +63,15 @@ pub(super) fn run(
         }
         E::Discard => state
             .dialogs
-            .replace(PopupType::ConfirmDiscardEditorChanges),
+            .replace(PopupType::ConfirmDiscardEditorChanges(
+                ConfirmDiscardEditorChanges,
+            )),
         E::Quit if ed.has_selection() => ed.selection = None,
         E::Quit if ed.is_dirty() => state
             .dialogs
-            .replace(PopupType::ConfirmDiscardEditorChanges),
+            .replace(PopupType::ConfirmDiscardEditorChanges(
+                ConfirmDiscardEditorChanges,
+            )),
         E::Quit => state.close_current_screen(),
         E::Copy | E::Cut | E::Paste | E::SelectAll => {}
     }

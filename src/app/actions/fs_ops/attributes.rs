@@ -48,7 +48,7 @@ fn show(state: &mut AppState, source: PanelSource, read: io::Result<FileAttrs>) 
                 nlinks: attrs.nlinks,
             },
         },
-        Err(e) => PopupType::Error(format!("{} {}", t("error_read_attrs_failed"), e)),
+        Err(e) => PopupType::error(format!("{} {}", t("error_read_attrs_failed"), e)),
     };
     state.dialogs.replace(popup);
 }

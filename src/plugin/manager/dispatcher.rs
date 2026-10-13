@@ -38,7 +38,7 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
         PluginRequest::Notify { title, msg, level } => {
             state
                 .dialogs
-                .replace(PopupType::Info(format!("{}: {}", title, msg)));
+                .replace(PopupType::info(format!("{}: {}", title, msg)));
             log::info!("Plugin notify [{}]: {} - {}", level, title, msg);
         }
         PluginRequest::NotifyStructured(payload) => {
@@ -227,7 +227,7 @@ fn open_dev_plugin_select(state: &mut AppState, options: Vec<(String, String)>) 
         .top()
         .cloned()
         .map(Box::new)
-        .unwrap_or_else(|| Box::new(PopupType::Info(String::new())));
+        .unwrap_or_else(|| Box::new(PopupType::info(String::new())));
     state.dialogs.replace(PopupType::SelectDevPlugin {
         options,
         cursor_idx: 0,

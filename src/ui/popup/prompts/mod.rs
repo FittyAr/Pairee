@@ -20,7 +20,6 @@ pub fn render_prompt_popup(
     state: &AppState,
 ) -> bool {
     match popup {
-        PopupType::Help { .. } => help::render(f, popup, theme, size, Some(&state.scrollbar)),
         PopupType::MultiRename(dialog) => {
             file_ops::multi_rename::render(f, dialog, theme, size, &state.scrollbar)
         }
@@ -34,13 +33,6 @@ pub fn render_prompt_popup(
         | PopupType::DescribeFilePrompt { .. }
         | PopupType::CompressPrompt { .. } => file_ops::render(f, popup, theme, size),
 
-        PopupType::ConfirmQuit
-        | PopupType::ConfirmUndo { .. }
-        | PopupType::ConfirmInterrupt
-        | PopupType::ConfirmReload
-        | PopupType::ConfirmClearHistory { .. }
-        | PopupType::SaveSetupConfirm => confirm::render(f, popup, theme, size),
-
         PopupType::FilePanelFilterPrompt { .. }
         | PopupType::QuickFilterPrompt { .. }
         | PopupType::CopyMoveFilterPrompt { .. }
@@ -49,11 +41,9 @@ pub fn render_prompt_popup(
 
         PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
 
-        PopupType::ConfirmRetryAsAdmin { .. }
-        | PopupType::Error(_)
-        | PopupType::Info(_)
-        | PopupType::ApplyCommandPrompt { .. }
-        | PopupType::SelectGroupPrompt { .. } => system::render(f, popup, theme, size, state),
+        PopupType::ApplyCommandPrompt { .. } | PopupType::SelectGroupPrompt { .. } => {
+            system::render(f, popup, theme, size, state)
+        }
 
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
 

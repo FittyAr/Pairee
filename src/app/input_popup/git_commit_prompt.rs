@@ -28,7 +28,7 @@ pub fn handle(
         }
         KeyCode::Char('a' | 'A') if is_ctrl => {
             if let Err(msg) = toggle_amend(prompt) {
-                state.dialogs.push(PopupType::Error(msg));
+                state.dialogs.push(PopupType::error(msg));
             }
         }
         KeyCode::Enter => {
@@ -73,7 +73,7 @@ fn commit(state: &mut AppState, context: &AppContext, prompt: GitCommitPromptSta
     if message.is_empty() {
         state
             .dialogs
-            .replace(PopupType::Error(t("git_commit_empty_msg")));
+            .replace(PopupType::error(t("git_commit_empty_msg")));
         return;
     }
     let settings = &context.config.settings;
@@ -101,7 +101,7 @@ fn commit_work(
 ) -> Result<PopupType, GitFailure> {
     let statuses = crate::git::status::get_status(repo);
     if statuses.is_empty() && !is_amend {
-        return Ok(PopupType::Info(t("git_no_changes")));
+        return Ok(PopupType::info(t("git_no_changes")));
     }
     if !is_amend && !statuses.iter().any(|s| s.is_staged) {
         crate::git::stage::stage_all(repo).ctx("git_error_stage_failed")?;
@@ -114,7 +114,7 @@ fn commit_work(
     let oid = commit_fn(repo, message, name, email)
         .ctx("git_error_commit_failed")?
         .to_string();
-    Ok(PopupType::Info(format!(
+    Ok(PopupType::info(format!(
         "{} [{}]",
         t("git_commit_success"),
         &oid[..7.min(oid.len())]

@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ScrollKeys, scroll_key};
+use crate::app::state::popup::{Dialog, ErrorMessage, InfoMessage, InfoPanel, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -12,9 +13,8 @@ pub fn handle(
     match state.dialogs.top_mut() {
         Some(
             PopupType::Error(_)
-            | PopupType::Help { .. }
             | PopupType::Info(_)
-            | PopupType::InfoPanel { .. }
+            | PopupType::InfoPanel(_)
             | PopupType::CompareFoldersResult { .. },
         ) if matches!(key.code, KeyCode::Esc | KeyCode::Enter) => {
             // A message over another dialog returns to it.
@@ -54,3 +54,21 @@ const QUICK_VIEW_SCROLL: ScrollKeys = ScrollKeys {
     home_end: false,
     page: 15,
 };
+
+/// Messages close on Esc / Enter or a click outside them.
+macro_rules! message_dialog {
+    ($($ty:ty: resizable $resizable:literal),*) => {$(
+        impl Dialog for $ty {
+            fn key_handler(&self) -> KeyHandler {
+                handle
+            }
+            fn closes_on_outside_click(&self) -> bool {
+                true
+            }
+            fn resizable(&self) -> bool {
+                $resizable
+            }
+        }
+    )*};
+}
+message_dialog!(ErrorMessage: resizable false, InfoMessage: resizable false, InfoPanel: resizable true);

@@ -105,12 +105,12 @@ fn copy_managed_command(state: &mut AppState, method: &crate::update::detect::In
             state.dialogs.clear();
             state
                 .dialogs
-                .replace(PopupType::Info(t("update_cmd_copied").replace("{}", &cmd)));
+                .replace(PopupType::info(t("update_cmd_copied").replace("{}", &cmd)));
         }
         Err(e) => {
             state
                 .dialogs
-                .replace(PopupType::Error(t("clipboard_failed").replace("{}", &e)));
+                .replace(PopupType::error(t("clipboard_failed").replace("{}", &e)));
         }
     }
 }

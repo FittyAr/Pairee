@@ -1,6 +1,8 @@
-use crate::app::state::{AdminOpKind, PopupType, SelectMode};
+use crate::app::state::popup::{ErrorMessage, InfoMessage};
+use crate::app::state::{PopupType, SelectMode};
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, TextBox};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{Frame, layout::Rect, style::Color};
 
 pub fn render(
@@ -11,36 +13,7 @@ pub fn render(
     _state: &crate::app::state::AppState,
 ) -> bool {
     let fg = theme.popup_fg();
-    let text_box = match popup {
-        PopupType::ConfirmRetryAsAdmin { op_kind, .. } => {
-            let text_key = match op_kind {
-                AdminOpKind::MkDir => "prompt_sudo_mkdir_text",
-                AdminOpKind::Rename { .. } => "prompt_sudo_rename_text",
-            };
-            TextBox {
-                size: (65, 8),
-                title: t("prompt_sudo_title"),
-                border: kit::fg(Color::Yellow),
-                body: t(text_key).into(),
-                body_style: fg,
-            }
-            .render_wrapped(f, size, theme);
-            return true;
-        }
-        PopupType::Error(message) => TextBox {
-            size: (50, 8),
-            title: t("prompt_error_title"),
-            border: kit::fg(Color::Red),
-            body: message_body(message),
-            body_style: kit::fg(Color::LightRed),
-        },
-        PopupType::Info(message) => TextBox {
-            size: (55, 9),
-            title: t("prompt_info_title"),
-            border: kit::fg(Color::Cyan),
-            body: message_body(message),
-            body_style: fg,
-        },
+    match popup {
         PopupType::ApplyCommandPrompt { input, targets } => {
             let template = t("prompt_apply_cmd_text").replacen("{}", &files_label(targets), 1);
             TextBox {
@@ -52,7 +25,7 @@ pub fn render(
             }
             .with_field(kit::field_at(&template))
             .render(f, size, theme);
-            return true;
+            true
         }
         PopupType::SelectGroupPrompt { mode, query } => {
             let (title, label) = match mode {
@@ -73,16 +46,40 @@ pub fn render(
             }
             .with_field(kit::field_at(&template))
             .render(f, size, theme);
-            return true;
+            true
         }
-        _ => return false,
-    };
-    text_box.render(f, size, theme);
-    true
+        _ => false,
+    }
 }
 
 fn message_body(message: &str) -> ratatui::text::Text<'static> {
     format!("\n {}\n\n{}", message, t("prompt_dismiss_hint")).into()
+}
+
+impl DialogView for ErrorMessage {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        TextBox {
+            size: (50, 8),
+            title: t("prompt_error_title"),
+            border: kit::fg(Color::Red),
+            body: message_body(&self.0),
+            body_style: kit::fg(Color::LightRed),
+        }
+        .render(f, cx.area, cx.theme);
+    }
+}
+
+impl DialogView for InfoMessage {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        TextBox {
+            size: (55, 9),
+            title: t("prompt_info_title"),
+            border: kit::fg(Color::Cyan),
+            body: message_body(&self.0),
+            body_style: cx.theme.popup_fg(),
+        }
+        .render(f, cx.area, cx.theme);
+    }
 }
 
 /// "a, b, c" or "N files: a, b, c..." for the apply-command prompt.

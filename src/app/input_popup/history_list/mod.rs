@@ -4,6 +4,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::history::HistoryKind;
+use crate::app::state::popup::ConfirmClearHistory;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -69,9 +70,11 @@ fn clear_all(state: &mut AppState, context: &AppContext, kind: HistoryKind) {
         .confirmations
         .confirm_clear_history_list
     {
-        state.dialogs.replace(PopupType::ConfirmClearHistory {
-            history_type: kind.key().to_string(),
-        });
+        state
+            .dialogs
+            .replace(PopupType::ConfirmClearHistory(ConfirmClearHistory {
+                history_type: kind.key().to_string(),
+            }));
     } else {
         state.history.clear(kind);
         state.history.save();

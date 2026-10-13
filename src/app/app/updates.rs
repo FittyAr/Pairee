@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::InfoMessage;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::update::{UpdateInfo, UpdateStatus};
@@ -16,7 +17,7 @@ pub fn process_update_events(state: &mut AppState, context: &mut AppContext) {
 
 /// `true` while the "checking for updates" notice is on top.
 fn checking_notice_on_top(state: &AppState) -> bool {
-    matches!(state.dialogs.top(), Some(PopupType::Info(msg)) if msg == &t("update_checking"))
+    matches!(state.dialogs.top(), Some(PopupType::Info(InfoMessage(msg))) if msg == &t("update_checking"))
 }
 
 fn poll_update_check(state: &mut AppState, context: &AppContext) {
@@ -41,7 +42,7 @@ fn poll_update_check(state: &mut AppState, context: &AppContext) {
     };
     state.update.check_rx = None;
     if checking_notice_on_top(state) {
-        state.dialogs.replace(PopupType::Info(t(notice)));
+        state.dialogs.replace(PopupType::info(t(notice)));
     }
 }
 
@@ -65,7 +66,7 @@ fn show_update_found(state: &mut AppState, context: &AppContext, info: UpdateInf
             });
         }
     } else if state.dialogs.is_none() {
-        state.dialogs.replace(PopupType::Info(
+        state.dialogs.replace(PopupType::info(
             t("update_available_ignored").replace("{}", &info.tag),
         ));
     }
@@ -141,7 +142,7 @@ fn apply_install_result(
             state.update.status = UpdateStatus::Done;
             state
                 .dialogs
-                .replace(PopupType::Info(t("update_installed_restart")));
+                .replace(PopupType::info(t("update_installed_restart")));
         }
         Ok(InstallResult::ManagedCommandShown) => {
             state.update.status = UpdateStatus::Done;
@@ -156,7 +157,7 @@ fn apply_install_result(
             if !show_install_error(state, err.clone()) {
                 state
                     .dialogs
-                    .replace(PopupType::Info(t("update_failed").replace("{}", &err)));
+                    .replace(PopupType::info(t("update_failed").replace("{}", &err)));
             }
         }
     }

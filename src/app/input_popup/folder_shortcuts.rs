@@ -70,7 +70,7 @@ fn assign(state: &mut AppState, slot: u8, row: usize) {
 
 fn persist(state: &mut AppState) {
     if let Err(e) = bookmarks::save_shortcuts(&state.folder_shortcuts) {
-        state.dialogs.push(PopupType::Error(
+        state.dialogs.push(PopupType::error(
             t("error_save_bookmarks").replace("{}", &e.to_string()),
         ));
     }

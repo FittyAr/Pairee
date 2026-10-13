@@ -6,6 +6,8 @@ use crate::app::context::AppContext;
 use crate::app::input_popup::git_new_popups::{handle_confirm_action, open_confirm};
 use crate::app::input_popup::git_panel::tabs::{handle_stash_tab, handle_status_tab};
 use crate::app::state::GitConfirmedAction;
+use crate::app::state::popup::ErrorMessage;
+use crate::app::state::popup::InfoMessage;
 use crate::config::AppConfig;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use std::time::{Duration, Instant};
@@ -43,7 +45,7 @@ fn panel(state: &AppState) -> &crate::app::state::GitPanelState {
 
 fn top_error(state: &AppState) -> String {
     match state.dialogs.top() {
-        Some(PopupType::Error(msg)) => msg.clone(),
+        Some(PopupType::Error(ErrorMessage(msg))) => msg.clone(),
         other => panic!("expected an error, got {other:?}"),
     }
 }
@@ -157,12 +159,12 @@ async fn busy_while_running_and_refuses_a_second_operation() {
             let _ = release_rx.recv();
             Ok(())
         },
-        |state, ()| state.dialogs.push(PopupType::Info("done".into())),
+        |state, ()| state.dialogs.push(PopupType::info("done")),
     );
     assert!(state.git_panel.is_working(dir.path()));
     state.run_git_local(dir.path(), |_| Ok(()), |_, ()| panic!("refused"));
     match state.dialogs.pop() {
-        Some(PopupType::Info(msg)) => assert_eq!(msg, t("git_local_busy")),
+        Some(PopupType::Info(InfoMessage(msg))) => assert_eq!(msg, t("git_local_busy")),
         other => panic!("expected the busy notice, got {other:?}"),
     }
 
@@ -173,5 +175,5 @@ async fn busy_while_running_and_refuses_a_second_operation() {
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
     assert!(!state.git_panel.is_working(dir.path()));
-    assert!(matches!(state.dialogs.top(), Some(PopupType::Info(m)) if m == "done"));
+    assert!(matches!(state.dialogs.top(), Some(PopupType::Info(InfoMessage(m))) if m == "done"));
 }

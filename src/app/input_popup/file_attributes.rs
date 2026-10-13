@@ -60,6 +60,6 @@ fn apply(
     }
     match vfs.set_attributes(&path, change) {
         Ok(()) => state.refresh_both_panels(context.config.settings.show_hidden),
-        Err(e) => state.dialogs.replace(PopupType::Error(e.to_string())),
+        Err(e) => state.dialogs.replace(PopupType::error(e.to_string())),
     }
 }

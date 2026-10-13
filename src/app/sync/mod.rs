@@ -83,7 +83,7 @@ fn roots(state: &mut AppState, purpose: ScanPurpose) -> Option<(PathBuf, PathBuf
     if purpose == ScanPurpose::Sync && remote {
         state
             .dialogs
-            .replace(PopupType::Error(t("compare_local_only")));
+            .replace(PopupType::error(t("compare_local_only")));
         return None;
     }
     Some((left.current_path.clone(), right.current_path.clone()))

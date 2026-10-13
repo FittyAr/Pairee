@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::state::popup::InfoPanel;
 use crate::config::AppConfig;
 use crate::config::settings::TabExpansion;
 
@@ -94,7 +95,7 @@ fn view_keymap_issues_opens_info_panel() {
     let mut s = draft();
     match activate(2, "int_keymap_view", &mut s) {
         Activation::Open(popup) => {
-            let PopupType::InfoPanel { lines } = *popup else {
+            let PopupType::InfoPanel(InfoPanel { lines }) = *popup else {
                 panic!("expected InfoPanel");
             };
             assert!(

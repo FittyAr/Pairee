@@ -43,7 +43,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext, mode: DeleteMode) 
     if mode == DeleteMode::Trash && !state.get_active_panel().source.is_local() {
         state
             .dialogs
-            .replace(PopupType::Info(crate::config::localization::t(
+            .replace(PopupType::info(crate::config::localization::t(
                 "trash_unsupported",
             )));
         return true;

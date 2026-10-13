@@ -78,7 +78,7 @@ fn finish(state: &mut AppState, edit: Edit, height: usize) -> Result<(), ()> {
     if let Edit::Locked = edit {
         state
             .dialogs
-            .replace(PopupType::Info(t("editor_read_only_locked")));
+            .replace(PopupType::info(t("editor_read_only_locked")));
     } else if let Some(ed) = state.active_editor_mut() {
         ed.ensure_cursor_visible(height);
     }

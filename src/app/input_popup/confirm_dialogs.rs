@@ -1,61 +1,142 @@
 //! Yes/No confirmations (quit, interrupt transfers, reload / discard editor
-//! changes, clear history, retry as administrator, undo/redo).
+//! changes, clear history, retry as administrator, undo/redo, save setup).
+//! One generic key handler; each question says what its answers do.
 
 use crate::app::context::AppContext;
 use crate::app::form::confirm_answer;
 use crate::app::state::history::HistoryKind;
+use crate::app::state::popup::{
+    ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
+    ConfirmRetryAsAdmin, ConfirmUndo, Dialog, DialogKind, KeyHandler, KeyOutcome, SaveSetupConfirm,
+};
 use crate::app::state::{AdminOpKind, AppState, PopupType};
 use crate::config::localization::t;
-use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 use std::path::PathBuf;
 
-pub fn handle(
+/// A Yes/No question: what Enter (or `y`) and Esc (or `n`) do. Every
+/// dialog is closed before either runs.
+pub trait Confirmation: DialogKind {
+    /// `y` / `n` answer too (besides Enter / Esc).
+    const LETTERS: bool = false;
+
+    fn confirm(self, state: &mut AppState, context: &mut AppContext);
+
+    fn decline(self, _state: &mut AppState) {}
+}
+
+/// Keys of a confirmation of type `T`.
+pub fn handle<T: Confirmation>(
     state: &mut AppState,
     key: KeyEvent,
     context: &mut AppContext,
-) -> Result<Option<Action>, ()> {
-    let letters = matches!(
-        state.dialogs.top(),
-        Some(PopupType::ConfirmDiscardEditorChanges)
-    );
-    let Some(confirmed) = confirm_answer(&key, letters) else {
+) -> KeyOutcome {
+    let Some(confirmed) = confirm_answer(&key, T::LETTERS) else {
         return Err(());
     };
-    let Some(popup) = state.dialogs.pop() else {
+    let Some(question) = state.dialogs.pop_as::<T>() else {
         return Err(());
     };
     state.dialogs.clear();
     if confirmed {
-        on_confirm(state, context, popup);
-    } else if let PopupType::ConfirmClearHistory { history_type } = popup {
-        reopen_history(state, &history_type);
+        question.confirm(state, context);
+    } else {
+        question.decline(state);
     }
     Ok(None)
 }
 
-fn on_confirm(state: &mut AppState, context: &AppContext, popup: PopupType) {
-    let show_hidden = context.config.settings.show_hidden;
-    match popup {
-        PopupType::ConfirmQuit => state.should_quit = true,
-        PopupType::ConfirmUndo { direction, .. } => {
-            crate::app::actions::fs_ops::undo::confirm(state, context, direction)
-        }
-        PopupType::ConfirmInterrupt => {
-            cancel_transfers(state);
-            state.refresh_both_panels(show_hidden);
-        }
-        PopupType::ConfirmReload => crate::app::editor::open::reload_active_editor(state),
-        PopupType::ConfirmDiscardEditorChanges => state.close_current_screen(),
-        PopupType::ConfirmClearHistory { history_type } => clear_history(state, &history_type),
-        PopupType::ConfirmRetryAsAdmin { paths, op_kind } => {
-            if let Err(e) = retry_as_admin(state, paths, op_kind) {
-                state.dialogs.replace(PopupType::Error(e));
-            } else {
-                state.refresh_both_panels(show_hidden);
+macro_rules! confirmation_dialogs {
+    ($($ty:ty),*) => {$(
+        impl Dialog for $ty {
+            fn key_handler(&self) -> KeyHandler {
+                handle::<$ty>
             }
         }
-        _ => {}
+    )*};
+}
+confirmation_dialogs!(
+    ConfirmQuit,
+    ConfirmUndo,
+    ConfirmInterrupt,
+    ConfirmReload,
+    ConfirmDiscardEditorChanges,
+    ConfirmClearHistory,
+    ConfirmRetryAsAdmin,
+    SaveSetupConfirm
+);
+
+impl Confirmation for ConfirmQuit {
+    fn confirm(self, state: &mut AppState, _context: &mut AppContext) {
+        state.should_quit = true;
+    }
+}
+
+impl Confirmation for ConfirmUndo {
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
+        crate::app::actions::fs_ops::undo::confirm(state, context, self.direction);
+    }
+}
+
+impl Confirmation for ConfirmInterrupt {
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
+        cancel_transfers(state);
+        state.refresh_both_panels(context.config.settings.show_hidden);
+    }
+}
+
+impl Confirmation for ConfirmReload {
+    fn confirm(self, state: &mut AppState, _context: &mut AppContext) {
+        crate::app::editor::open::reload_active_editor(state);
+    }
+}
+
+impl Confirmation for ConfirmDiscardEditorChanges {
+    const LETTERS: bool = true;
+
+    fn confirm(self, state: &mut AppState, _context: &mut AppContext) {
+        state.close_current_screen();
+    }
+}
+
+impl Confirmation for ConfirmClearHistory {
+    fn confirm(self, state: &mut AppState, _context: &mut AppContext) {
+        if let Some(kind) = HistoryKind::from_key(&self.history_type) {
+            state.history.clear(kind);
+        }
+        state.history.save();
+    }
+
+    /// Back to the corresponding history list.
+    fn decline(self, state: &mut AppState) {
+        if let Some(kind) = HistoryKind::from_key(&self.history_type) {
+            let list = kind.list_popup(&state.history, 0);
+            state.dialogs.replace(list);
+        }
+    }
+}
+
+impl Confirmation for ConfirmRetryAsAdmin {
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
+        if let Err(e) = retry_as_admin(state, self.paths, self.op_kind) {
+            state.dialogs.replace(PopupType::error(e));
+        } else {
+            state.refresh_both_panels(context.config.settings.show_hidden);
+        }
+    }
+}
+
+impl Confirmation for SaveSetupConfirm {
+    fn confirm(self, state: &mut AppState, context: &mut AppContext) {
+        // An explicit "Save setup" is the user's confirmation that an
+        // invalid config.toml (already backed up) may be replaced.
+        context.config.confirm_settings_overwrite();
+        crate::app::sys_helpers::capture_setup(state, &mut context.config.settings);
+        let result = match context.config.save() {
+            Ok(_) => PopupType::info(t("setup_saved_success")),
+            Err(e) => PopupType::error(t("error_save_setup_failed").replace("{}", &e.to_string())),
+        };
+        state.dialogs.replace(result);
     }
 }
 
@@ -74,21 +155,6 @@ fn cancel_transfers(state: &AppState) {
         jobs.iter()
             .filter(|j| j.is_active())
             .for_each(|j| j.cancel());
-    }
-}
-
-fn clear_history(state: &mut AppState, history_type: &str) {
-    if let Some(kind) = HistoryKind::from_key(history_type) {
-        state.history.clear(kind);
-    }
-    state.history.save();
-}
-
-/// Esc on "clear history": back to the corresponding history list.
-fn reopen_history(state: &mut AppState, history_type: &str) {
-    if let Some(kind) = HistoryKind::from_key(history_type) {
-        let list = kind.list_popup(&state.history, 0);
-        state.dialogs.replace(list);
     }
 }
 

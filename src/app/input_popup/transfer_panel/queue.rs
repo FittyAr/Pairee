@@ -1,6 +1,7 @@
 //! Queue management actions for transfer panel (pause, cancel, retry, export, reorder).
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmInterrupt;
 use crate::app::state::{DialogStack, TransferUIState};
 use crate::fs::transfer::job::{TransferJob, TransferJobStatus};
 use crossterm::event::KeyCode;
@@ -59,7 +60,9 @@ pub fn handle_queue_action(
                 .confirmations
                 .confirm_interrupt_operation =>
         {
-            dialogs.replace(crate::app::state::PopupType::ConfirmInterrupt);
+            dialogs.replace(crate::app::state::PopupType::ConfirmInterrupt(
+                ConfirmInterrupt,
+            ));
             return true;
         }
         _ => {}
