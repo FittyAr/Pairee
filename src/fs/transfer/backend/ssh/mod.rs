@@ -38,7 +38,7 @@ impl SshJob {
             sources: job.sources,
             destination: job.destination,
             ssh,
-            options: job.options,
+            options: job.options.for_operation(job.operation),
             slot: job.active_conflict,
         }
     }

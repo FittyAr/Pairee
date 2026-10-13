@@ -133,7 +133,9 @@ impl Scanner<'_> {
         )
     }
 
-    /// How links are treated: a delete removes them and never follows them.
+    /// How links are treated: a delete removes links and never follows them
+    /// (moves never follow them either, see
+    /// [`TransferOptions::for_operation`]).
     fn link_policy(&self) -> LinkPolicy {
         let options = self.req.options;
         if self.is_delete() {

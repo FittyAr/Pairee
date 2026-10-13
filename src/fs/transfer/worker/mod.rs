@@ -70,7 +70,7 @@ impl TransferWorker {
 
     /// The options of this run: LAN destinations get bigger buffers.
     fn effective_options(&self) -> TransferOptions {
-        let mut options = self.options.clone();
+        let mut options = self.options.for_operation(self.operation);
         if super::network::is_lan_path(&self.destination) {
             options.buffer_size = crate::fs::transfer::options::BufferSize::_4MB;
         }

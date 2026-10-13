@@ -263,6 +263,39 @@ async fn relative_links_survive_a_move() {
     assert_eq!(std::fs::read(&link).unwrap(), b"x");
 }
 
+/// A move never follows links, even with "follow links" set: the link is
+/// moved and the folder it points to keeps its files.
+#[tokio::test]
+async fn a_move_moves_links_not_what_they_point_to() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = dir.path().join("outside");
+    std::fs::create_dir(&outside).unwrap();
+    std::fs::write(outside.join("keep.txt"), b"keep").unwrap();
+    let tree = dir.path().join("tree");
+    std::fs::create_dir(&tree).unwrap();
+    if !crate::fs::walk::tests::symlink_dir(&outside, &tree.join("link")) {
+        return;
+    }
+    let out = dir.path().join("out");
+    std::fs::create_dir(&out).unwrap();
+    let options = TransferOptions {
+        follow_symlinks: true,
+        ..TransferOptions::default()
+    };
+    run(job(TransferOperation::Move, &[&tree], &out, options))
+        .await
+        .unwrap();
+    assert!(outside.join("keep.txt").exists());
+    let moved = out.join("tree").join("link");
+    assert!(
+        std::fs::symlink_metadata(&moved)
+            .unwrap()
+            .file_type()
+            .is_symlink()
+    );
+    assert!(!tree.exists());
+}
+
 /// FEAT-03: an overwritten file goes to the trash when asked.
 #[tokio::test]
 async fn replaced_files_go_to_the_trash() {

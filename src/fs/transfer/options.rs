@@ -63,6 +63,20 @@ impl Default for TransferOptions {
     }
 }
 
+impl TransferOptions {
+    /// The options a job of `operation` runs with: deletes and moves never
+    /// follow links (they would delete, or move away, the files a link
+    /// points to outside the tree); links are removed or moved as links.
+    pub fn for_operation(&self, operation: super::job::TransferOperation) -> Self {
+        use super::job::TransferOperation as Op;
+        let mut options = self.clone();
+        if matches!(operation, Op::Delete | Op::Move) {
+            options.follow_symlinks = false;
+        }
+        options
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum HashAlgorithm {
     Crc32,

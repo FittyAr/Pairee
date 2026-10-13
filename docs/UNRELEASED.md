@@ -25,6 +25,7 @@
 - Copying a link changed the permissions and times of the file it pointed to; relative links became absolute (and broke when moved); and replacing a folder with a link could delete the folder. Links are now copied as they are and a folder is never replaced by a link.
 - A move reported success even when the source could not be deleted (for example a read-only file on Windows); it is now reported as failed.
 - Synchronizing folders with "follow links" could delete files outside the synchronized folders through a link; deletions never follow links now.
+- A move with "follow links" took the files out of linked folders outside the moved tree; moves now move links as links.
 - Deleting links to folders and junctions failed on Windows.
 - Unreadable folders were silently left out of copies, moves, folder imports into archives and SSH transfers; they are now reported.
 - A link to a folder on an SSH server no longer stops a whole copy: it is skipped with a warning.
