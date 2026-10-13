@@ -1,6 +1,7 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::PluginDialog;
 use crate::config::localization::t;
 use crate::plugin::manager::DialogPosition;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -9,40 +10,28 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    match popup {
-        PopupType::Plugin(crate::app::state::popup::PluginDialog::Confirm {
-            title,
-            msg,
-            cursor_idx,
-            position,
-        }) => {
-            render_confirm(f, theme, size, title, msg, *cursor_idx, position.as_ref());
-            true
+impl DialogView for PluginDialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        match self {
+            PluginDialog::Confirm {
+                title,
+                msg,
+                cursor_idx,
+                position,
+            } => render_confirm(f, theme, size, title, msg, *cursor_idx, position.as_ref()),
+            PluginDialog::Input {
+                title,
+                input,
+                obscure,
+                position,
+            } => render_input(f, theme, size, title, input, *obscure, position.as_ref()),
+            PluginDialog::Which {
+                candidates,
+                silent,
+                position,
+            } => render_which(f, theme, size, candidates, *silent, position.as_ref()),
         }
-        PopupType::Plugin(crate::app::state::popup::PluginDialog::Input {
-            title,
-            input,
-            obscure,
-            position,
-        }) => {
-            render_input(f, theme, size, title, input, *obscure, position.as_ref());
-            true
-        }
-        PopupType::Plugin(crate::app::state::popup::PluginDialog::Which {
-            candidates,
-            silent,
-            position,
-        }) => {
-            render_which(f, theme, size, candidates, *silent, position.as_ref());
-            true
-        }
-        _ => false,
     }
 }
 

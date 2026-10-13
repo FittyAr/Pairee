@@ -1,23 +1,12 @@
 use super::PopupType;
-use crate::app::text_input::TextField;
 
 impl PopupType {
-    /// The text field that currently receives typing and pastes, if any.
-    pub fn focused_field_mut(&mut self) -> Option<&mut TextField> {
-        if self.dialog().is_some() {
-            return self.dialog_mut().and_then(|d| d.focused_field_mut());
-        }
-        match self {
-            PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
-            _ => None,
-        }
-    }
-
     /// Inserts a single-line paste into the focused text field, if any.
     /// Returns true when the overlay consumed the paste.
     pub fn apply_paste(&mut self, paste: &str) -> bool {
         !paste.is_empty()
             && self
+                .dialog_mut()
                 .focused_field_mut()
                 .is_some_and(|field| field.paste(paste))
     }

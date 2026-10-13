@@ -12,11 +12,11 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ArchiveCommandsMenu(ArchiveCommandsMenu {
+    let Some(ArchiveCommandsMenu {
         archive_path,
         items,
         cursor_idx,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<ArchiveCommandsMenu>()
     else {
         return Err(());
     };

@@ -23,21 +23,21 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     match state.dialogs.top() {
-        Some(PopupType::SearchPrompt(SearchPrompt { .. })) => handle_prompt(state, key),
-        Some(PopupType::SearchResults(SearchResults { .. })) => handle_results(state, key, context),
+        Some(PopupType::SearchPrompt(_)) => handle_prompt(state, key),
+        Some(PopupType::SearchResults(_)) => handle_results(state, key, context),
         _ => Err(()),
     }
 }
 
 fn handle_prompt(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, ()> {
-    let Some(PopupType::SearchPrompt(SearchPrompt {
+    let Some(SearchPrompt {
         query,
         content_query,
         case_sensitive,
         search_target,
         cursor_idx,
         ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchPrompt>()
     else {
         return Err(());
     };
@@ -63,14 +63,14 @@ fn handle_prompt(state: &mut AppState, key: KeyEvent) -> Result<Option<Action>, 
 
 /// Starts the background search and shows the (filling) results list.
 fn start_search(state: &mut AppState) {
-    let Some(PopupType::SearchPrompt(SearchPrompt {
+    let Some(SearchPrompt {
         query,
         content_query,
         search_root,
         case_sensitive,
         search_target,
         ..
-    })) = state.dialogs.top()
+    }) = state.dialogs.top_as::<SearchPrompt>()
     else {
         return;
     };
@@ -105,11 +105,11 @@ fn handle_results(
     key: KeyEvent,
     context: &AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::SearchResults(SearchResults {
+    let Some(SearchResults {
         results,
         cursor_idx,
         ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchResults>()
     else {
         return Err(());
     };

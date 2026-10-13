@@ -3,8 +3,8 @@
 use super::about::TEXT_SCROLL;
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key, scroll_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::{Dialog, DialogScroll, Help, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -15,7 +15,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::Help(Help {
+    let Some(Help {
         mode,
         docs,
         plugin_docs,
@@ -23,7 +23,7 @@ pub fn handle(
         cursor_idx,
         scroll_y,
         active_content,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<Help>()
     else {
         return Err(());
     };

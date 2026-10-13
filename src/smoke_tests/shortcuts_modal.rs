@@ -100,7 +100,7 @@ fn enter_runs_the_highlighted_action() {
     let mut h = open();
     h.text("focus right");
     h.keys("Enter");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
     assert_eq!(h.state.panels.active, ActivePanel::Right);
 }
 

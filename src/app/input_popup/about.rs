@@ -1,7 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ScrollKeys, scroll_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::{About, Dialog, DialogScroll, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -18,7 +18,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::About(About { scroll_y })) = state.dialogs.top_mut() else {
+    let Some(About { scroll_y }) = state.dialogs.top_mut_as::<About>() else {
         return Err(());
     };
     if scroll_key(TEXT_SCROLL, key.code, scroll_y, usize::MAX) {

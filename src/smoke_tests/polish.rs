@@ -2,7 +2,6 @@
 //! chords that used to be rejected, keymap-driven F-key labels and the
 //! editor's block mode.
 
-use crate::app::state::popup::CommandPalette;
 use crate::app::state::{GitPanelState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::test_harness::Harness;
@@ -68,10 +67,7 @@ fn fixed_keymap_chords_reach_their_actions() {
         // Ctrl+Shift+P as a terminal with Shift reporting sends it.
         h.keys("Ctrl+Shift+P");
         assert!(
-            matches!(
-                h.state.dialogs.top(),
-                Some(PopupType::CommandPalette(CommandPalette { .. }))
-            ),
+            matches!(h.state.dialogs.top(), Some(PopupType::CommandPalette(_))),
             "{keymap}: {}",
             h.screen_text()
         );

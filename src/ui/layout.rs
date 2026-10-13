@@ -1,5 +1,4 @@
 use crate::app::state::AppState;
-use crate::app::state::popup::Menu;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 
 pub struct AppLayout {
@@ -27,7 +26,7 @@ pub fn calculate_layout(
     let settings = &config.settings;
     let menu_active = matches!(
         state.dialogs.top(),
-        Some(crate::app::state::PopupType::Menu(Menu { .. }))
+        Some(crate::app::state::PopupType::Menu(_))
     );
     // A menu bar that is not always shown lies over the top row while a
     // menu is open (as in Far), so opening it never moves the panels.

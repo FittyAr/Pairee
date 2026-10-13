@@ -14,7 +14,6 @@ mod tabs;
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
-use crate::app::state::popup::Menu;
 use crate::terminal::TerminalBackend;
 use crate::ui::hit::{Hit, HitTarget, Layer};
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
@@ -196,7 +195,7 @@ async fn on_click(
     {
         return Ok(Some(bars::click_title(state, menu, click)));
     }
-    if state.dialogs.is_some() && hit.as_ref().is_none_or(|hit| hit.layer < Layer::Popup) {
+    if state.dialogs.is_open() && hit.as_ref().is_none_or(|hit| hit.layer < Layer::Popup) {
         return outside_popup(state, context, terminal_backend, click)
             .await
             .map(Some);
@@ -291,7 +290,7 @@ async fn wheel(
     let Some(hit) = lookup(state, mouse.column, mouse.row) else {
         return Ok(None);
     };
-    if state.dialogs.is_some() && hit.layer < Layer::Popup {
+    if state.dialogs.is_open() && hit.layer < Layer::Popup {
         return Ok(Some(false));
     }
     let down = mouse.kind == MouseEventKind::ScrollDown;
@@ -333,14 +332,14 @@ async fn outside_popup(
         .is_some()
         || matches!(
             state.dialogs.top(),
-            Some(crate::app::state::PopupType::Menu(Menu { .. }))
+            Some(crate::app::state::PopupType::Menu(_))
         );
     let closes = click.button == MouseButton::Left
         && drawn
         && state
             .dialogs
             .top()
-            .is_some_and(|popup| popup.closes_on_outside_click());
+            .is_some_and(|popup| popup.dialog().closes_on_outside_click());
     if !closes {
         return Ok(false);
     }
@@ -365,7 +364,7 @@ fn lookup(state: &AppState, x: u16, y: u16) -> Option<Hit> {
 /// `on_mouse` for plugins: presses on the panels and the bars (as `on_key`,
 /// not while a dialog is open).
 fn notify_plugins(state: &AppState, click: Click) {
-    if state.dialogs.is_some() {
+    if state.dialogs.is_open() {
         return;
     }
     let hit = lookup(state, click.column, click.row);

@@ -16,8 +16,8 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FileAttributesDialog(FileAttributesDialog { attrs, mode_input })) =
-        state.dialogs.top_mut()
+    let Some(FileAttributesDialog { attrs, mode_input }) =
+        state.dialogs.top_mut_as::<FileAttributesDialog>()
     else {
         return Err(());
     };

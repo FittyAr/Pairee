@@ -45,9 +45,7 @@ pub(super) fn run(
         E::ToggleBlockMode => ed.block_mode = !ed.block_mode,
         E::Reload => {
             if ed.is_dirty() && settings.confirmations.confirm_reload_edited_file {
-                state
-                    .dialogs
-                    .replace(PopupType::ConfirmReload(ConfirmReload));
+                state.dialogs.replace(ConfirmReload);
             } else {
                 reload_active_editor(state);
             }

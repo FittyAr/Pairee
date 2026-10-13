@@ -1,10 +1,10 @@
 use crate::app::actions::fs_ops::rename as rename_action;
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
+use crate::app::state::AppState;
 use crate::app::state::popup::RenamePrompt;
 use crate::app::state::popup::forms::RENAME_FORM;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -16,9 +16,9 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::RenamePrompt(RenamePrompt {
+    let Some(RenamePrompt {
         input, cursor_idx, ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<RenamePrompt>()
     else {
         return Err(());
     };
@@ -26,13 +26,13 @@ pub fn handle(
     match RENAME_FORM.handle(cursor_idx, field, &key) {
         FormKey::Activate(BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
         FormKey::Activate(_) => {
-            if let Some(PopupType::RenamePrompt(RenamePrompt {
+            if let Some(RenamePrompt {
                 input,
                 original,
                 src_path,
                 parent_dir,
                 ..
-            })) = state.dialogs.pop()
+            }) = state.dialogs.pop_as::<RenamePrompt>()
             {
                 rename_action::commit(
                     state,

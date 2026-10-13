@@ -14,10 +14,10 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::Hotlist(Hotlist {
+    let Some(Hotlist {
         entries,
         cursor_idx,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<Hotlist>()
     else {
         return Err(());
     };

@@ -13,7 +13,6 @@ mod git_panel;
 mod git_prompts;
 mod menus;
 mod messages;
-mod mouse;
 mod multi_rename;
 mod paste;
 mod plugin;
@@ -56,7 +55,7 @@ pub use menus::{
 pub use messages::{About, ErrorMessage, Help, InfoMessage, InfoPanel};
 pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
-pub use plugin_menu::PluginMenuState;
+pub use plugin_menu::{PluginMenuState, SelectDevPlugin};
 pub use plugin_widget::PluginWidget;
 pub use prompts::{
     ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
@@ -83,102 +82,103 @@ pub enum CreateKind {
     Auto,
 }
 
-/// Every overlay dialog, once: `PopupType` (with its dispatch to
-/// [`Dialog`]) and the UI's painting dispatch are generated from this list.
-/// `typed` entries are `Variant(DialogType)`; `legacy` holds the variants
-/// not yet moved to their own type.
+/// Every overlay dialog, once, as `Variant(DialogType)`: `PopupType` (with
+/// its dispatch to [`Dialog`]) and the UI's painting dispatch
+/// (`ui::popup::view::render_dialog`) are generated from this list, so a
+/// new dialog is its type, its `Dialog` and `DialogView` impls and one line
+/// here.
 macro_rules! dialog_list {
     ($then:ident) => {
         $then! {
-            typed: [
-                Help(Help),
-                About(About),
-                Error(ErrorMessage),
-                Info(InfoMessage),
-                InfoPanel(InfoPanel),
-                ConfirmQuit(ConfirmQuit),
-                ConfirmUndo(ConfirmUndo),
-                ConfirmInterrupt(ConfirmInterrupt),
-                ConfirmReload(ConfirmReload),
-                ConfirmDiscardEditorChanges(ConfirmDiscardEditorChanges),
-                ConfirmClearHistory(ConfirmClearHistory),
-                ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
-                SaveSetupConfirm(SaveSetupConfirm),
-                MkDirPrompt(MkDirPrompt),
-                TransferPrompt(CopyMovePromptState),
-                RenamePrompt(RenamePrompt),
-                MultiRename(Box<MultiRenameState>),
-                CompressPrompt(CompressPrompt),
-                ApplyCommandPrompt(ApplyCommandPrompt),
-                DescribeFilePrompt(DescribeFilePrompt),
-                SelectGroupPrompt(SelectGroupPrompt),
-                CreateLinkPrompt(CreateLinkPrompt),
-                CopyMoveFilterPrompt(CopyMoveFilterPrompt),
-                ConfirmDelete(ConfirmDelete),
-                WipeConfirm(WipeConfirm),
-                PanelSearch(PanelSearch),
-                FilePanelFilterPrompt(FilePanelFilterPrompt),
-                RenameTabPrompt(RenameTabPrompt),
-                QuickFilterPrompt(QuickFilterPrompt),
-                SearchPrompt(SearchPrompt),
-                SearchResults(SearchResults),
-                EditorSaveAsPrompt(EditorSaveAsPrompt),
-                EditorConfirmOverwrite(EditorConfirmOverwrite),
-                ViewerEncoding(ViewerEncoding),
-                EditorSearchPrompt(EditorSearchPrompt),
-                ViewerSearchPrompt(ViewerSearchPrompt),
-                UserMenu(UserMenu),
-                Menu(Menu),
-                YaziSortPopup(YaziSortPopup),
-                YaziViewPopup(YaziViewPopup),
-                ContextMenu(ContextMenu),
-                DriveSelect(DriveSelect),
-                Hotlist(Hotlist),
-                FolderShortcuts(FolderShortcuts),
-                SortModesDialog(SortModesDialog),
-                ScreensMenu(ScreensMenu),
-                ArchiveCommandsMenu(ArchiveCommandsMenu),
-                CommandPalette(CommandPalette),
-                OnboardingKeymap(OnboardingKeymap),
-                Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
-                CommandHistoryList(CommandHistoryList),
-                FileViewHistoryList(FileViewHistoryList),
-                FoldersHistoryList(FoldersHistoryList),
-                DiskUsage(DiskUsage),
-                CompareFoldersResult(CompareFoldersResult),
-                FolderScanProgress(FolderScanProgress),
-                SyncDirs(Box<SyncDialog>),
-                TaskListDialog(TaskListDialog),
-                FileAssociationsDialog(FileAssociationsDialog),
-                TreeView(TreeView),
-                FileAttributesDialog(FileAttributesDialog),
-                TransferPanel(TransferPanel),
-                QuickViewPanel(Box<QuickViewDialog>),
-                ConfigurationDialog(ConfigurationDialogState),
-                ColorGroupsDialog(ColorGroupsDialog),
-                FilesHighlightingDialog(FilesHighlightingDialog),
-                UpdateAvailable(UpdateAvailable),
-                SshConnectPrompt(SshConnectPromptState),
-                GitPanel(GitPanelState),
-                GitProgress(GitProgress),
-                GitCommitPrompt(GitCommitPromptState),
-                GitConfirmCheckout(GitConfirmCheckoutState),
-                GitDiffView(GitDiffViewState),
-                GitNamePrompt(GitNamePromptState),
-                GitConfirmAction(GitConfirmActionState),
-                GitRemoteManage(GitRemoteManageState),
-                GitRemoteAdd(GitRemoteAddState),
-                GitClonePrompt(GitClonePromptState),
-            ]
-            legacy: [
-        SelectDevPlugin {
-            options: Vec<(String, String)>,
-            cursor_idx: usize,
-            previous_popup: Box<PopupType>,
-        },
-        PluginMenu(PluginMenuState),
-        Plugin(PluginDialog),
-            ]
+            // Messages and questions
+            Help(Help),
+            About(About),
+            Error(ErrorMessage),
+            Info(InfoMessage),
+            InfoPanel(InfoPanel),
+            ConfirmQuit(ConfirmQuit),
+            ConfirmUndo(ConfirmUndo),
+            ConfirmInterrupt(ConfirmInterrupt),
+            ConfirmReload(ConfirmReload),
+            ConfirmDiscardEditorChanges(ConfirmDiscardEditorChanges),
+            ConfirmClearHistory(ConfirmClearHistory),
+            ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
+            SaveSetupConfirm(SaveSetupConfirm),
+            // File operations
+            MkDirPrompt(MkDirPrompt),
+            TransferPrompt(CopyMovePromptState),
+            RenamePrompt(RenamePrompt),
+            MultiRename(Box<MultiRenameState>),
+            CompressPrompt(CompressPrompt),
+            ApplyCommandPrompt(ApplyCommandPrompt),
+            DescribeFilePrompt(DescribeFilePrompt),
+            SelectGroupPrompt(SelectGroupPrompt),
+            CreateLinkPrompt(CreateLinkPrompt),
+            CopyMoveFilterPrompt(CopyMoveFilterPrompt),
+            ConfirmDelete(ConfirmDelete),
+            WipeConfirm(WipeConfirm),
+            // Panel prompts, Find file, editor and viewer
+            PanelSearch(PanelSearch),
+            FilePanelFilterPrompt(FilePanelFilterPrompt),
+            RenameTabPrompt(RenameTabPrompt),
+            QuickFilterPrompt(QuickFilterPrompt),
+            SearchPrompt(SearchPrompt),
+            SearchResults(SearchResults),
+            EditorSearchPrompt(EditorSearchPrompt),
+            EditorSaveAsPrompt(EditorSaveAsPrompt),
+            EditorConfirmOverwrite(EditorConfirmOverwrite),
+            ViewerSearchPrompt(ViewerSearchPrompt),
+            ViewerEncoding(ViewerEncoding),
+            // Menus and pickers
+            UserMenu(UserMenu),
+            Menu(Menu),
+            YaziSortPopup(YaziSortPopup),
+            YaziViewPopup(YaziViewPopup),
+            ContextMenu(ContextMenu),
+            DriveSelect(DriveSelect),
+            Hotlist(Hotlist),
+            FolderShortcuts(FolderShortcuts),
+            SortModesDialog(SortModesDialog),
+            ScreensMenu(ScreensMenu),
+            ArchiveCommandsMenu(ArchiveCommandsMenu),
+            CommandPalette(CommandPalette),
+            OnboardingKeymap(OnboardingKeymap),
+            Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
+            // Lists and tools
+            CommandHistoryList(CommandHistoryList),
+            FileViewHistoryList(FileViewHistoryList),
+            FoldersHistoryList(FoldersHistoryList),
+            DiskUsage(DiskUsage),
+            CompareFoldersResult(CompareFoldersResult),
+            FolderScanProgress(FolderScanProgress),
+            SyncDirs(Box<SyncDialog>),
+            TaskListDialog(TaskListDialog),
+            FileAssociationsDialog(FileAssociationsDialog),
+            TreeView(TreeView),
+            FileAttributesDialog(FileAttributesDialog),
+            TransferPanel(TransferPanel),
+            QuickViewPanel(Box<QuickViewDialog>),
+            // Settings, update and SSH
+            ConfigurationDialog(ConfigurationDialogState),
+            ColorGroupsDialog(ColorGroupsDialog),
+            FilesHighlightingDialog(FilesHighlightingDialog),
+            UpdateAvailable(UpdateAvailable),
+            SshConnectPrompt(SshConnectPromptState),
+            // Git
+            GitPanel(GitPanelState),
+            GitProgress(GitProgress),
+            GitCommitPrompt(GitCommitPromptState),
+            GitConfirmCheckout(GitConfirmCheckoutState),
+            GitDiffView(GitDiffViewState),
+            GitNamePrompt(GitNamePromptState),
+            GitConfirmAction(GitConfirmActionState),
+            GitRemoteManage(GitRemoteManageState),
+            GitRemoteAdd(GitRemoteAddState),
+            GitClonePrompt(GitClonePromptState),
+            // Plugins
+            PluginMenu(PluginMenuState),
+            SelectDevPlugin(SelectDevPlugin),
+            Plugin(PluginDialog),
         }
     };
 }

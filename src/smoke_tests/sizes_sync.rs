@@ -1,8 +1,6 @@
 //! Folder sizes, the disk usage view, folder compare and synchronize
 //! (left to right plan applied through the Transfer Engine).
 
-use crate::app::state::popup::CompareFoldersResult;
-use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::popup::DiskUsage;
 use crate::app::state::{ActivePanel, PopupType};
 use crate::test_harness::Harness;
@@ -41,7 +39,7 @@ fn disk_usage_view_navigates_and_deletes() {
     h.keys("Delete");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ConfirmDelete(ConfirmDelete { .. }))
+        Some(PopupType::ConfirmDelete(_))
     ));
     h.keys("Enter");
     h.wait_until("delete from the view", |h| {
@@ -53,7 +51,7 @@ fn disk_usage_view_navigates_and_deletes() {
     ));
     h.assert_no_screen("clip.bin");
     h.keys("Backspace Esc");
-    assert!(h.state.dialogs.is_none());
+    assert!(h.state.dialogs.is_empty());
 }
 
 /// left: new.txt, both.txt (newer); right: both.txt (older), extra.txt.
@@ -75,7 +73,7 @@ fn compare_selects_the_differences() {
     h.wait_until("compare result", |h| {
         matches!(
             h.state.dialogs.top(),
-            Some(PopupType::CompareFoldersResult(CompareFoldersResult { .. }))
+            Some(PopupType::CompareFoldersResult(_))
         )
     });
     let left = h.state.panels.side(ActivePanel::Left);

@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::DescribeFilePrompt;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -12,16 +12,15 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::DescribeFilePrompt(DescribeFilePrompt { input, .. })) =
-        state.dialogs.top_mut()
+    let Some(DescribeFilePrompt { input, .. }) = state.dialogs.top_mut_as::<DescribeFilePrompt>()
     else {
         return Err(());
     };
     match field_key(input, &key) {
         FieldKey::Cancel => state.dialogs.clear(),
         FieldKey::Submit => {
-            if let Some(PopupType::DescribeFilePrompt(DescribeFilePrompt { path, input, .. })) =
-                state.dialogs.pop()
+            if let Some(DescribeFilePrompt { path, input, .. }) =
+                state.dialogs.pop_as::<DescribeFilePrompt>()
             {
                 state.dialogs.clear();
                 if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {

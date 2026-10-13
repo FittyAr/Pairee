@@ -28,10 +28,7 @@ fn press(state: &mut AppState, context: &mut AppContext, code: KeyCode) {
 fn confirm(state: &mut AppState, context: &mut AppContext, direction: Direction) {
     request(state, direction);
     assert!(
-        matches!(
-            state.dialogs.top(),
-            Some(PopupType::ConfirmUndo(ConfirmUndo { .. }))
-        ),
+        matches!(state.dialogs.top(), Some(PopupType::ConfirmUndo(_))),
         "{:?}",
         state.dialogs.top()
     );
@@ -153,7 +150,7 @@ fn changed_files_are_listed_before_undoing() {
     });
     // Undoing a trash restores: `b` is in the way.
     request(&mut state, Direction::Undo);
-    let Some(PopupType::ConfirmUndo(ConfirmUndo { lines, .. })) = state.dialogs.top() else {
+    let Some(ConfirmUndo { lines, .. }) = state.dialogs.top_as::<ConfirmUndo>() else {
         panic!("{:?}", state.dialogs.top());
     };
     let text = lines.join("\n");

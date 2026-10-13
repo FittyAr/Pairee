@@ -25,7 +25,7 @@ pub fn handle_cli_input(
     context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
-    if state.dialogs.is_some() {
+    if state.dialogs.is_open() {
         return Err(());
     }
     if state.cli.is_active() {

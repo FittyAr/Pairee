@@ -3,7 +3,7 @@ use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::popup::TreeView;
 use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::types::TreeViewCaller;
-use crate::app::state::{AppState, CopyMovePromptState, PopupType};
+use crate::app::state::{AppState, CopyMovePromptState};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -12,9 +12,9 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::TreeView(TreeView {
+    let Some(TreeView {
         nodes, cursor_idx, ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<TreeView>()
     else {
         return Err(());
     };
@@ -26,9 +26,9 @@ pub fn handle(
             }
         }
         ListKey::Activate(_) => {
-            let Some(PopupType::TreeView(TreeView {
+            let Some(TreeView {
                 nodes, cursor_idx, ..
-            })) = state.dialogs.top()
+            }) = state.dialogs.top_as::<TreeView>()
             else {
                 return Err(());
             };

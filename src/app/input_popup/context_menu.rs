@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::ContextMenu;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
@@ -22,8 +22,7 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ContextMenu(ContextMenu { items, cursor_idx })) = state.dialogs.top_mut()
-    else {
+    let Some(ContextMenu { items, cursor_idx }) = state.dialogs.top_mut_as::<ContextMenu>() else {
         return Err(());
     };
     match list_key(ListKeys::ARROWS, key.code, cursor_idx, items.len()) {

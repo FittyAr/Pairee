@@ -19,12 +19,12 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::MkDirPrompt(MkDirPrompt {
+    let Some(MkDirPrompt {
         input,
         cursor_idx,
         process_multiple,
         kind,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<MkDirPrompt>()
     else {
         return Err(());
     };

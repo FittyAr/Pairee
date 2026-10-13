@@ -42,16 +42,11 @@ impl<T: DialogView> DialogView for Box<T> {
 
 /// Generates [`render_dialog`] from the dialog list.
 macro_rules! define_render_dialog {
-    (typed: [$($variant:ident($ty:ty),)*] legacy: [$($legacy:tt)*]) => {
-        /// Paints `popup`; `false` for the variants that are not dialog
-        /// types yet.
-        pub fn render_dialog(f: &mut Frame, popup: &PopupType, cx: &ViewCtx<'_>) -> bool {
+    ($($variant:ident($ty:ty),)*) => {
+        /// Paints `popup`.
+        pub fn render_dialog(f: &mut Frame, popup: &PopupType, cx: &ViewCtx<'_>) {
             match popup {
-                $(PopupType::$variant(dialog) => {
-                    DialogView::render(dialog, f, cx);
-                    true
-                })*
-                _ => false,
+                $(PopupType::$variant(dialog) => DialogView::render(dialog, f, cx),)*
             }
         }
     };

@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::CompressPrompt;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -12,18 +12,17 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::CompressPrompt(CompressPrompt { input, .. })) = state.dialogs.top_mut()
-    else {
+    let Some(CompressPrompt { input, .. }) = state.dialogs.top_mut_as::<CompressPrompt>() else {
         return Err(());
     };
     match field_key(input, &key) {
         FieldKey::Cancel => state.dialogs.clear(),
         FieldKey::Submit => {
-            if let Some(PopupType::CompressPrompt(CompressPrompt {
+            if let Some(CompressPrompt {
                 input,
                 targets,
                 dest_dir,
-            })) = state.dialogs.pop()
+            }) = state.dialogs.pop_as::<CompressPrompt>()
             {
                 submit(state, input.into_text(), targets, dest_dir);
             }

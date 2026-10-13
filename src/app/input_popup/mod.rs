@@ -57,8 +57,7 @@ pub mod update_popup;
 pub mod yazi_popup;
 
 use crate::app::context::AppContext;
-use crate::app::state::popup::KeyHandler;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
@@ -69,26 +68,6 @@ pub fn handle_popup_input(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     // Pick the handler by reference: the popup itself is never cloned here.
-    let handler = state
-        .dialogs
-        .top()
-        .map(|popup| {
-            popup
-                .dialog()
-                .map_or_else(|| handler_for(popup), |d| d.key_handler())
-        })
-        .ok_or(())?;
+    let handler = state.dialogs.top().ok_or(())?.dialog().key_handler();
     handler(state, key, context)
-}
-
-type PopupHandler = KeyHandler;
-
-/// Maps the active popup to its key handler.
-fn handler_for(popup: &PopupType) -> PopupHandler {
-    match popup {
-        PopupType::PluginMenu(..) => plugin_menu::handle,
-        PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
-        PopupType::Plugin(_) => plugin_dialogs::handle,
-        _ => dismiss_only::handle,
-    }
 }

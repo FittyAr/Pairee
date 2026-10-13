@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::DriveSelect;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
@@ -11,11 +11,11 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::DriveSelect(DriveSelect {
+    let Some(DriveSelect {
         panel,
         drives,
         cursor_idx,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<DriveSelect>()
     else {
         return Err(());
     };

@@ -77,7 +77,7 @@ mod tests {
         run(&mut state, &context, Action::RenameTab);
         assert!(matches!(
             state.dialogs.top(),
-            Some(PopupType::RenameTabPrompt(RenameTabPrompt { .. }))
+            Some(PopupType::RenameTabPrompt(_))
         ));
         run(&mut state, &context, Action::CloseTab);
         assert_eq!(state.panels.tabs(ActivePanel::Right).count(), 2);

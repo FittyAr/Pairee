@@ -2,7 +2,6 @@
 //! sandbox configuration directory.
 
 use crate::app::state::PopupType;
-use crate::app::state::popup::FolderShortcuts;
 use crate::app::state::popup::Hotlist;
 use crate::test_harness::Harness;
 
@@ -55,7 +54,7 @@ fn folder_shortcuts_assign_jump_and_persist() {
         .keys("Enter @folder_shortcuts_config");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::FolderShortcuts(FolderShortcuts { .. }))
+        Some(PopupType::FolderShortcuts(_))
     ));
     h.keys("3 Esc");
     let target = h.left().join("destino");

@@ -1,7 +1,7 @@
 //! Apply scrollbar mouse drag/jump/wheel commands to application scroll state.
 
 use crate::app::state::popup::DialogScroll;
-use crate::app::state::{ActivePanel, AppState, PopupType, Screen};
+use crate::app::state::{ActivePanel, AppState, Screen};
 use crate::ui::scrollbar::{self, ScrollTargetId};
 use crossterm::event::MouseEvent;
 
@@ -25,21 +25,6 @@ pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
     true
 }
 
-/// Cursor and length of the popup list scrolled by `id`, if on top.
-fn popup_list(popup: &mut PopupType, id: ScrollTargetId) -> Option<(&mut usize, usize)> {
-    match (id, popup) {
-        (
-            ScrollTargetId::PluginSelect,
-            PopupType::SelectDevPlugin {
-                cursor_idx,
-                options,
-                ..
-            },
-        ) => Some((cursor_idx, options.len())),
-        _ => None,
-    }
-}
-
 fn apply_scroll_offset(
     state: &mut AppState,
     id: ScrollTargetId,
@@ -51,7 +36,7 @@ fn apply_scroll_offset(
         scrollbar::clamp_cursor_to_offset(cursor, offset, viewport, content_len.min(len));
     };
     if let Some(popup) = state.dialogs.top_mut() {
-        match popup.dialog_mut().and_then(|d| d.scroll_mut(id)) {
+        match popup.dialog_mut().scroll_mut(id) {
             Some(DialogScroll::Offset(scroll)) => {
                 *scroll = offset;
                 return;
@@ -69,10 +54,6 @@ fn apply_scroll_offset(
                 return;
             }
             None => {}
-        }
-        if let Some((cursor, len)) = popup_list(popup, id) {
-            clamp(cursor, len);
-            return;
         }
     }
     match id {
@@ -113,6 +94,7 @@ fn apply_scroll_offset(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::PopupType;
     use crate::app::state::popup::MultiRenameState;
 
     #[test]

@@ -2,7 +2,6 @@
 //! `[viewer]` keymap sections, and global panel actions keep working over
 //! them with whatever keys the keymap gives them.
 
-use crate::app::state::popup::ScreensMenu;
 use crate::app::state::{PopupType, Screen};
 use crate::keybindings::KeybindingResolver;
 use crate::test_harness::Harness;
@@ -38,7 +37,7 @@ fn editor_saves_with_a_rebound_key() {
     assert_eq!(saved.trim_end(), "hi");
     h.keys("F2");
     assert!(
-        h.state.dialogs.is_none(),
+        h.state.dialogs.is_empty(),
         "F2 no longer saves, nor opens anything"
     );
 }
@@ -49,7 +48,7 @@ fn global_actions_follow_their_keys_over_the_editor() {
     h.keys("@edit F11");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ScreensMenu(ScreensMenu { .. }))
+        Some(PopupType::ScreensMenu(_))
     ));
 }
 

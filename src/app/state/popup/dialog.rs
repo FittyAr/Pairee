@@ -65,6 +65,12 @@ pub trait Dialog {
     fn scroll_mut(&mut self, _id: ScrollTargetId) -> Option<DialogScroll<'_>> {
         None
     }
+
+    /// It reads every key itself (it records keys or hands them to plugin
+    /// code), so the `[list]` keymap never translates them.
+    fn reads_raw_keys(&self) -> bool {
+        false
+    }
 }
 
 /// Large dialogs are boxed in [`PopupType`]; the box is the dialog.
@@ -84,6 +90,9 @@ impl<T: Dialog> Dialog for Box<T> {
     fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
         (**self).scroll_mut(id)
     }
+    fn reads_raw_keys(&self) -> bool {
+        (**self).reads_raw_keys()
+    }
 }
 
 /// Typed access to one dialog type inside a [`PopupType`] (generated for
@@ -98,28 +107,25 @@ pub trait DialogKind: Dialog + Sized + Into<PopupType> {
 /// Defines [`PopupType`] from the dialog list: one variant per dialog
 /// type, plus [`PopupType::dialog`] and the typed accessors.
 macro_rules! define_popup_type {
-    (typed: [$($variant:ident($ty:ty),)*] legacy: [$($legacy:tt)*]) => {
+    ($($variant:ident($ty:ty),)*) => {
         /// The open overlay dialog (see [`Dialog`]).
         #[derive(Debug, Clone)]
         pub enum PopupType {
             $($variant($ty),)*
-            $($legacy)*
         }
 
         impl PopupType {
-            /// The dialog behind the variant.
-            pub fn dialog(&self) -> Option<&dyn Dialog> {
+            /// The dialog behind the variant: the one dispatch point.
+            pub fn dialog(&self) -> &dyn Dialog {
                 match self {
-                    $(Self::$variant(d) => Some(d),)*
-                    _ => None,
+                    $(Self::$variant(d) => d,)*
                 }
             }
 
             /// The dialog behind the variant, mutably.
-            pub fn dialog_mut(&mut self) -> Option<&mut dyn Dialog> {
+            pub fn dialog_mut(&mut self) -> &mut dyn Dialog {
                 match self {
-                    $(Self::$variant(d) => Some(d),)*
-                    _ => None,
+                    $(Self::$variant(d) => d,)*
                 }
             }
         }

@@ -34,11 +34,11 @@ pub fn handle(
             match field_key(input, &key) {
                 FieldKey::Submit => state.dialogs.clear(),
                 FieldKey::Cancel => {
-                    if let Some(PopupType::QuickFilterPrompt(QuickFilterPrompt {
+                    if let Some(QuickFilterPrompt {
                         original_mask,
                         original_cursor,
                         ..
-                    })) = state.dialogs.pop()
+                    }) = state.dialogs.pop_as::<QuickFilterPrompt>()
                     {
                         state.dialogs.clear();
                         state.update_panel_filter(active, original_mask);

@@ -1,8 +1,11 @@
-//! Overlay dialog stack (Phase C.3).
+//! Overlay dialog stack.
 //!
-//! The top frame is what the UI renders and what input handlers mutate.
-//! `replace` is the common “open this dialog” path (clears any underneath).
-//! `push` / `pop` are for nested prompts (filter on copy, git sub-dialogs).
+//! The top frame takes the keys and the mouse; the UI paints every frame,
+//! bottom to top. `replace` is the common "open this dialog" path (it
+//! closes any underneath); `push` / `pop` nest a dialog over another one
+//! that stays visible and gets the keys back (the Copy / Move file mask and
+//! folder tree, the Git prompts over the Git panel, the screens list, the
+//! development plugin picker, messages over a dialog).
 
 use super::popup::{DialogKind, PopupType};
 
@@ -49,15 +52,6 @@ impl DialogStack {
         !self.frames.is_empty()
     }
 
-    /// Option-like aliases used at existing call sites.
-    pub fn is_some(&self) -> bool {
-        self.is_open()
-    }
-
-    pub fn is_none(&self) -> bool {
-        self.is_empty()
-    }
-
     /// Every open dialog, bottom to top.
     pub fn iter(&self) -> impl Iterator<Item = &PopupType> {
         self.frames.iter()
@@ -71,11 +65,6 @@ impl DialogStack {
     /// Pop the top dialog (close it).
     pub fn pop(&mut self) -> Option<PopupType> {
         self.frames.pop()
-    }
-
-    /// Alias of [`Self::pop`] for former `Option::take` call sites.
-    pub fn take(&mut self) -> Option<PopupType> {
-        self.pop()
     }
 
     /// Close every overlay.
@@ -94,42 +83,22 @@ impl DialogStack {
         self.frames.push(popup.into());
     }
 
-    /// Option-like set: `Some` replaces, `None` clears.
-    pub fn set(&mut self, popup: Option<PopupType>) {
-        match popup {
-            Some(p) => self.replace(p),
-            None => self.clear(),
-        }
-    }
-
     pub fn depth(&self) -> usize {
         self.frames.len()
-    }
-
-    /// Opens a sub-dialog that remembers the current top dialog (moved, not
-    /// cloned) so it can be restored later: `build` receives the previous
-    /// popup and returns the new one, which becomes the sole overlay. Does
-    /// nothing when no dialog is open.
-    pub fn open_over(&mut self, build: impl FnOnce(Box<PopupType>) -> PopupType) {
-        if let Some(previous) = self.frames.pop() {
-            self.frames.clear();
-            self.frames.push(build(Box::new(previous)));
-        }
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::app::state::popup::ErrorMessage;
-    use crate::app::state::popup::InfoMessage;
+    use crate::app::state::popup::{ConfirmQuit, InfoMessage};
 
     #[test]
     fn replace_then_pop() {
         let mut stack = DialogStack::new();
-        assert!(stack.is_none());
+        assert!(stack.is_empty());
         stack.replace(PopupType::info("a"));
-        assert!(stack.is_some());
+        assert!(stack.is_open());
         assert_eq!(stack.depth(), 1);
         stack.push(PopupType::info("b"));
         assert_eq!(stack.depth(), 2);
@@ -143,20 +112,28 @@ mod tests {
     }
 
     #[test]
-    fn open_over_moves_previous_into_new_dialog() {
+    fn typed_access_reads_and_pops_only_its_own_type() {
         let mut stack = DialogStack::new();
-        stack.open_over(|_| PopupType::info("never"));
-        assert!(stack.is_empty(), "no-op without an open dialog");
-
-        stack.replace(PopupType::info("panel"));
-        stack.open_over(|prev| match *prev {
-            PopupType::Info(InfoMessage(s)) => PopupType::error(format!("over {s}")),
-            _ => panic!("unexpected previous popup"),
-        });
-        assert_eq!(stack.depth(), 1);
-        match stack.top() {
-            Some(PopupType::Error(ErrorMessage(s))) => assert_eq!(s, "over panel"),
-            other => panic!("unexpected top: {other:?}"),
-        }
+        assert!(stack.pop_as::<InfoMessage>().is_none(), "empty stack");
+        stack.replace(PopupType::info("under"));
+        stack.push(ConfirmQuit);
+        assert!(
+            stack.top_as::<InfoMessage>().is_none(),
+            "the top is the question"
+        );
+        assert!(
+            stack.pop_as::<InfoMessage>().is_none(),
+            "a different type stays"
+        );
+        assert_eq!(stack.depth(), 2);
+        assert!(stack.pop_as::<ConfirmQuit>().is_some());
+        let InfoMessage(text) = stack
+            .top_mut_as::<InfoMessage>()
+            .expect("message back on top");
+        text.push_str(" again");
+        assert_eq!(
+            stack.top_as::<InfoMessage>().map(|m| m.0.as_str()),
+            Some("under again")
+        );
     }
 }

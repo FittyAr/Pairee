@@ -25,7 +25,6 @@ pub mod progress;
 pub mod select_popup;
 
 pub use options::handle_dev;
-pub use select_popup::handle_select_popup;
 
 // The parent module's `reload_installed_plugins` helper is needed by
 // every option handler; expose it at the `dev` level so the submodules

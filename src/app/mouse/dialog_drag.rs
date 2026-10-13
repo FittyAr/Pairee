@@ -47,7 +47,9 @@ struct Drag {
 impl DialogPlacement {
     /// Placement of the top dialog, and whether it may be resized.
     pub fn for_top(&self, dialogs: &DialogStack) -> (Placement, bool) {
-        let resizable = dialogs.top().is_some_and(PopupType::resizable);
+        let resizable = dialogs
+            .top()
+            .is_some_and(|popup| popup.dialog().resizable());
         let placement = if self.key.is_some() && self.key == key_of(dialogs) {
             self.placement
         } else {

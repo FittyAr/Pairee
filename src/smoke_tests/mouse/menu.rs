@@ -2,7 +2,6 @@
 
 use super::{panels, top};
 use crate::app::state::popup::Menu;
-use crate::app::state::popup::MkDirPrompt;
 use crate::app::state::{ActivePanel, PopupType};
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
@@ -66,7 +65,7 @@ fn clicking_a_menu_item_runs_it() {
     let (item_x, item_y) = h.hit_cell(|t| *t == HitTarget::MenuItem { menu: 1, row });
     h.click(item_x + 2, item_y);
     assert!(
-        matches!(top(&h), Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))),
+        matches!(top(&h), Some(PopupType::MkDirPrompt(_))),
         "{}",
         h.screen_text()
     );
@@ -119,7 +118,7 @@ fn function_keys_on_the_bar_press_their_key() {
     });
     h.click(x + 1, y);
     assert!(
-        matches!(top(&h), Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))),
+        matches!(top(&h), Some(PopupType::MkDirPrompt(_))),
         "{}",
         h.screen_text()
     );

@@ -57,7 +57,7 @@ fn show_update_found(state: &mut AppState, context: &AppContext, info: UpdateInf
         .is_some_and(|d| d == info.tag);
     if !dismissed {
         state.update.available = Some(info.clone());
-        if state.dialogs.is_none() {
+        if state.dialogs.is_empty() {
             state
                 .dialogs
                 .replace(PopupType::UpdateAvailable(UpdateAvailable {
@@ -68,7 +68,7 @@ fn show_update_found(state: &mut AppState, context: &AppContext, info: UpdateInf
                     scroll_y: 0,
                 }));
         }
-    } else if state.dialogs.is_none() {
+    } else if state.dialogs.is_empty() {
         state.dialogs.replace(PopupType::info(
             t("update_available_ignored").replace("{}", &info.tag),
         ));
@@ -92,9 +92,9 @@ fn poll_download_progress(state: &mut AppState) {
         }
     }
     if let Some(p) = latest_progress {
-        if let Some(PopupType::UpdateAvailable(UpdateAvailable {
+        if let Some(UpdateAvailable {
             install_progress, ..
-        })) = state.dialogs.top_mut()
+        }) = state.dialogs.top_mut_as::<UpdateAvailable>()
         {
             *install_progress = Some(p);
         }
@@ -168,11 +168,11 @@ fn apply_install_result(
 
 /// Puts `err` in the open update dialog; `false` when it is not on top.
 fn show_install_error(state: &mut AppState, err: String) -> bool {
-    let Some(PopupType::UpdateAvailable(UpdateAvailable {
+    let Some(UpdateAvailable {
         error,
         install_progress,
         ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<UpdateAvailable>()
     else {
         return false;
     };

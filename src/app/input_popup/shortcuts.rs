@@ -217,4 +217,7 @@ impl Dialog for ShortcutsState {
             _ => None,
         }
     }
+    fn reads_raw_keys(&self) -> bool {
+        true
+    }
 }

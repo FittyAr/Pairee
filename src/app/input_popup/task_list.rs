@@ -13,12 +13,12 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::TaskListDialog(TaskListDialog {
+    let Some(TaskListDialog {
         tasks,
         cursor_idx,
         filter_query,
         is_filtering,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<TaskListDialog>()
     else {
         return Err(());
     };
@@ -77,12 +77,12 @@ fn on_selected<E: std::fmt::Display>(
     action: fn(u32) -> Result<(), E>,
     error_key: &str,
 ) {
-    let Some(PopupType::TaskListDialog(TaskListDialog {
+    let Some(TaskListDialog {
         tasks,
         cursor_idx,
         filter_query,
         ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<TaskListDialog>()
     else {
         return;
     };

@@ -17,9 +17,7 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     // Delete has [Delete] / [Cancel] buttons; Enter activates the focused one.
-    if let Some(PopupType::ConfirmDelete(ConfirmDelete { cursor_idx, .. })) =
-        state.dialogs.top_mut()
-    {
+    if let Some(ConfirmDelete { cursor_idx, .. }) = state.dialogs.top_mut_as::<ConfirmDelete>() {
         match key.code {
             KeyCode::Left => *cursor_idx = 0,
             KeyCode::Right | KeyCode::Tab => *cursor_idx = 1 - (*cursor_idx).min(1),

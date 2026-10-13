@@ -3,9 +3,9 @@
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::FileAssociationsDialog;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::config::associations::{AssocRule, AssociationsConfig};
 use crate::keybindings::Action;
@@ -16,14 +16,14 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FileAssociationsDialog(FileAssociationsDialog {
+    let Some(FileAssociationsDialog {
         rules,
         cursor_idx,
         editing_idx,
         editing_field,
         edit_buffer,
         original_rule,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<FileAssociationsDialog>()
     else {
         return Err(());
     };

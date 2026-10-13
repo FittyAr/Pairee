@@ -134,9 +134,7 @@ pub fn start_scan(
     let left_vfs = state.panels.side(ActivePanel::Left).source.vfs_for(&left);
     let right_vfs = state.panels.side(ActivePanel::Right).source.vfs_for(&right);
     state.folder_scan.purpose = Some(purpose);
-    state
-        .dialogs
-        .push(PopupType::FolderScanProgress(FolderScanProgress));
+    state.dialogs.push(FolderScanProgress);
     state.folder_scan.job.start(move |ctx| {
         let left = Side {
             vfs: left_vfs.as_ref(),

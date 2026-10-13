@@ -3,7 +3,6 @@
 use crate::app::actions::fs_ops::folder_size;
 use crate::app::context::AppContext;
 use crate::app::input_popup::handle_popup_input;
-use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::popup::DiskUsage;
 use crate::app::state::{AppState, PanelViewMode, PopupType};
 use crate::config::AppConfig;
@@ -105,7 +104,7 @@ fn disk_usage_delete_opens_confirmation_over_the_view() {
     key(&mut state, &mut context, KeyCode::Delete);
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::ConfirmDelete(ConfirmDelete { .. }))
+        Some(PopupType::ConfirmDelete(_))
     ));
     key(&mut state, &mut context, KeyCode::Esc);
     assert!(matches!(

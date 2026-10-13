@@ -24,8 +24,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::FolderShortcuts(FolderShortcuts { cursor_idx })) = state.dialogs.top_mut()
-    else {
+    let Some(FolderShortcuts { cursor_idx }) = state.dialogs.top_mut_as::<FolderShortcuts>() else {
         return Err(());
     };
     let action = list_key(ListKeys::ARROWS, key.code, cursor_idx, SLOT_COUNT);

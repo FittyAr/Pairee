@@ -53,7 +53,7 @@ fn menu_action(state: &mut AppState, action: &Action, context: &AppContext) -> b
         Action::ContextMenu => open_context_menu(state),
         Action::Quit => {
             if context.config.settings.confirmations.confirm_quit {
-                state.dialogs.replace(PopupType::ConfirmQuit(ConfirmQuit));
+                state.dialogs.replace(ConfirmQuit);
             } else {
                 state.should_quit = true;
             }
@@ -107,7 +107,7 @@ fn feature_action(state: &mut AppState, action: &Action, context: &mut AppContex
 }
 
 fn toggle_main_menu(state: &mut AppState, context: &AppContext) {
-    if let Some(PopupType::Menu(Menu { .. })) = state.dialogs.top() {
+    if let Some(PopupType::Menu(_)) = state.dialogs.top() {
         state.dialogs.clear();
         return;
     }

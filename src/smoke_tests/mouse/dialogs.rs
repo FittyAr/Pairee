@@ -3,9 +3,7 @@
 
 use super::top;
 use crate::app::state::PopupType;
-use crate::app::state::popup::About;
 use crate::app::state::popup::CommandPalette;
-use crate::app::state::popup::MkDirPrompt;
 use crate::app::state::popup::TransferPanel;
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
@@ -15,7 +13,7 @@ use crossterm::event::{KeyModifiers, MouseButton};
 fn clicking_outside_a_transient_popup_closes_it() {
     let mut h = Harness::new();
     h.keys("@about");
-    assert!(matches!(top(&h), Some(PopupType::About(About { .. }))));
+    assert!(matches!(top(&h), Some(PopupType::About(_))));
     h.click(0, 1);
     assert!(top(&h).is_none(), "{}", h.screen_text());
 }
@@ -25,22 +23,16 @@ fn clicking_inside_a_popup_keeps_it_open() {
     let mut h = Harness::new();
     h.keys("@about");
     h.click(50, 15);
-    assert!(matches!(top(&h), Some(PopupType::About(About { .. }))));
+    assert!(matches!(top(&h), Some(PopupType::About(_))));
 }
 
 #[test]
 fn a_dialog_with_typed_input_survives_a_stray_click() {
     let mut h = Harness::new();
     h.keys("@mkdir");
-    assert!(matches!(
-        top(&h),
-        Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))
-    ));
+    assert!(matches!(top(&h), Some(PopupType::MkDirPrompt(_))));
     h.click(0, 1);
-    assert!(matches!(
-        top(&h),
-        Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))
-    ));
+    assert!(matches!(top(&h), Some(PopupType::MkDirPrompt(_))));
 }
 
 fn body(h: &mut Harness) -> ratatui::layout::Rect {
@@ -66,10 +58,7 @@ fn dialogs_move_by_their_top_border_and_recenter_on_double_click() {
     );
     let moved = body(&mut h);
     assert_eq!((moved.x, moved.y), (start.x + 10, start.y + 2));
-    assert!(
-        matches!(top(&h), Some(PopupType::About(About { .. }))),
-        "still open"
-    );
+    assert!(matches!(top(&h), Some(PopupType::About(_))), "still open");
     // A click inside the moved dialog does not count as outside.
     h.click(moved.x + 2, moved.y + 3);
     assert!(top(&h).is_some());
@@ -150,10 +139,7 @@ fn list_rows_take_clicks_double_clicks_and_the_wheel() {
     // Clicking inside the palette keeps it open (it records its body now).
     let (qx, qy) = h.hit_cell(|t| matches!(t, HitTarget::PopupField { .. }));
     h.click(qx + 4, qy);
-    assert!(matches!(
-        top(&h),
-        Some(PopupType::CommandPalette(CommandPalette { .. }))
-    ));
+    assert!(matches!(top(&h), Some(PopupType::CommandPalette(_))));
 }
 
 #[test]
@@ -163,7 +149,7 @@ fn double_clicking_a_list_row_runs_it() {
     let (x, y) = h.hit_cell(|t| matches!(t, HitTarget::PopupRow { steps: 0, .. }));
     h.double_click(x + 2, y);
     assert!(
-        matches!(top(&h), Some(PopupType::About(About { .. }))),
+        matches!(top(&h), Some(PopupType::About(_))),
         "{}",
         h.screen_text()
     );

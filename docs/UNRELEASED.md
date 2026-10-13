@@ -22,6 +22,9 @@
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
 
 ### Improved
+- A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
+- The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
+- Git text prompts (commit message, branch / tag / stash names, add remote, clone) accept pasted text, and keys of the `[list]` keymap no longer turn typed letters into list moves there.
 - Moving files or folders within one drive is instant: they are renamed instead of copied and deleted. Moves to another drive, moves with "Verify after copy" and filtered moves still copy.
 - Copies and moves to and from SSH servers now ask (or follow the setting) when a file exists, retry failed files, verify copies, keep times and permissions, and write each file under a temporary name first.
 - Direct I/O ("Disable write cache") now bypasses the cache for every whole block of a file, not only for files whose size is a multiple of 4 KiB.

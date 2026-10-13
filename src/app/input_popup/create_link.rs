@@ -12,9 +12,9 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::CreateLinkPrompt(CreateLinkPrompt {
+    let Some(CreateLinkPrompt {
         dest_input, kind, ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<CreateLinkPrompt>()
     else {
         return Err(());
     };
@@ -28,11 +28,11 @@ pub fn handle(
     match field_key(dest_input, &key) {
         FieldKey::Cancel => state.dialogs.clear(),
         FieldKey::Submit => {
-            if let Some(PopupType::CreateLinkPrompt(CreateLinkPrompt {
+            if let Some(CreateLinkPrompt {
                 src,
                 dest_input,
                 kind,
-            })) = state.dialogs.pop()
+            }) = state.dialogs.pop_as::<CreateLinkPrompt>()
             {
                 create(state, context, &src, dest_input.text(), kind);
             }

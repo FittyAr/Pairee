@@ -51,7 +51,7 @@ fn set_menu(state: &mut AppState, focus: MenuFocus) -> bool {
 /// `true` when a click on the menu bar should act although a popup is open:
 /// only the menu itself may be open.
 pub fn menu_bar_reachable(state: &AppState) -> bool {
-    state.dialogs.is_none() || menu_focus(state).is_some()
+    state.dialogs.is_empty() || menu_focus(state).is_some()
 }
 
 /// Top menu whose title covers column `x` of the (hidden) bar.

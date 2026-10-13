@@ -1,7 +1,9 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
 use crate::app::state::popup::PluginDialog;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PendingPluginReply, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crate::plugin::keyspec::key_matches_spec;
 use crate::plugin::manager::InputDialogResult;
@@ -142,3 +144,18 @@ fn finish_which(state: &mut AppState, index: Option<usize>) {
 
 #[cfg(test)]
 mod tests;
+
+impl Dialog for PluginDialog {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        match self {
+            PluginDialog::Input { input, .. } => Some(input),
+            _ => None,
+        }
+    }
+    fn reads_raw_keys(&self) -> bool {
+        true
+    }
+}

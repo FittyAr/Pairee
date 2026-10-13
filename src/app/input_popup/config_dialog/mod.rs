@@ -7,7 +7,6 @@ pub mod apply;
 use crate::app::config_rows::{Activation, Row, RowCtx, TAB_KEYS, tab_rows};
 use crate::app::context::AppContext;
 use crate::app::list_nav::{wrap_next, wrap_prev};
-use crate::app::state::popup::InfoPanel;
 use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, ConfigurationDialogState, PopupType};
 use crate::keybindings::Action;
@@ -68,7 +67,7 @@ pub fn handle(
                 Activation::StartEdit(field) => dlg.edit = Some(field),
                 // Info panels open over the dialog; other dialogs replace it.
                 Activation::Open(popup) => match *popup {
-                    info @ (PopupType::Info(_) | PopupType::InfoPanel(InfoPanel { .. })) => {
+                    info @ (PopupType::Info(_) | PopupType::InfoPanel(_)) => {
                         state.dialogs.push(info)
                     }
                     other => state.dialogs.replace(other),

@@ -108,7 +108,7 @@ pub async fn dispatch_popup_key(
     terminal_backend: &mut TerminalBackend,
     key: crossterm::event::KeyEvent,
 ) -> anyhow::Result<bool> {
-    let popup_active = state.dialogs.is_some();
+    let popup_active = state.dialogs.is_open();
     let key = if popup_active {
         match crate::app::input_popup::list_keys::translate(state, &mut context.resolver, key) {
             Some(key) => key,

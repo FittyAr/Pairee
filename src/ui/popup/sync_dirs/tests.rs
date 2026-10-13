@@ -105,9 +105,7 @@ fn empty_review_and_progress_popup_render() {
     let mut state = state_with(dialog);
     assert!(screen(&state).contains("[Esc]"));
 
-    state
-        .dialogs
-        .push(PopupType::FolderScanProgress(FolderScanProgress));
+    state.dialogs.push(FolderScanProgress);
     let counts = t("sync_scan_progress").replacen("{}", "0", 2);
     assert!(screen(&state).contains(counts.trim()));
 }

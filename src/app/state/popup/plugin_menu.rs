@@ -17,3 +17,11 @@ pub struct PluginMenuState {
     pub dev_loading_status: String,
     pub dev_loading_progress: Option<(usize, usize)>,
 }
+
+/// Picker of the active development plugin, pushed over the Plugin Manager.
+#[derive(Debug, Clone)]
+pub struct SelectDevPlugin {
+    /// Label and value of each row.
+    pub options: Vec<(String, String)>,
+    pub cursor_idx: usize,
+}

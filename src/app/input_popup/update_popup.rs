@@ -46,11 +46,11 @@ pub fn handle(
 /// Scrolls the release notes (`Up`/`Down`/`PgUp`/`PgDn`, `j`/`k`) or moves
 /// between the buttons (`Left`/`Right`/`Tab`, `h`/`l`).
 fn move_in_popup(state: &mut AppState, code: KeyCode) {
-    let Some(PopupType::UpdateAvailable(UpdateAvailable {
+    let Some(UpdateAvailable {
         scroll_y,
         cursor_idx,
         ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<UpdateAvailable>()
     else {
         return;
     };
@@ -129,9 +129,9 @@ fn start_self_update(
     state.update.status = UpdateStatus::Downloading(0.0);
 
     // Set the progress marker in popup
-    if let Some(PopupType::UpdateAvailable(UpdateAvailable {
+    if let Some(UpdateAvailable {
         install_progress, ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<UpdateAvailable>()
     {
         *install_progress = Some(0.0);
     }

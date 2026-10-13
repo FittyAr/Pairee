@@ -5,7 +5,7 @@ use crate::app::text_input::first_paste_line;
 /// Insert a paste into the focused text field, the editor screen (every
 /// line), or the CLI when no overlay is open.
 pub fn handle_paste(state: &mut AppState, raw: &str) {
-    if state.dialogs.is_none()
+    if state.dialogs.is_empty()
         && (crate::app::screen_input::editor::paste_into_editor(state, raw)
             || crate::app::screen_input::terminal::paste_into_terminal(state, raw))
     {
@@ -15,7 +15,7 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
     if line.is_empty() {
         return;
     }
-    if state.dialogs.is_some() {
+    if state.dialogs.is_open() {
         if let Some(popup) = state.dialogs.top_mut() {
             let _ = popup.apply_paste(&line);
         }
@@ -63,7 +63,7 @@ mod paste_tests {
     #[test]
     fn paste_ignored_on_non_text_dialog() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::ConfirmQuit(ConfirmQuit));
+        state.dialogs.replace(ConfirmQuit);
         handle_paste(&mut state, "should-not-land-in-cli");
         assert!(state.cli.field.is_empty());
     }

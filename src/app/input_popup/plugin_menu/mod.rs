@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::{Dialog, KeyHandler, PluginMenuState};
 use crate::app::state::{ActivePanel, AppState, PopupType};
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -96,4 +97,13 @@ fn handle_dev_tab(state: &mut AppState, key: KeyEvent, context: &mut AppContext)
         menu.dev_loading_progress = live.dev_loading_progress;
     }
     state.dialogs.replace(PopupType::PluginMenu(menu));
+}
+
+impl Dialog for PluginMenuState {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
 }

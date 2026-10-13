@@ -65,9 +65,9 @@ pub fn process_search_updates(state: &mut AppState) {
         },
         None => return,
     };
-    if let Some(PopupType::SearchResults(SearchResults {
+    if let Some(SearchResults {
         results, searching, ..
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<SearchResults>()
         && (results.len() != hits.len() || !running)
     {
         *results = hits;

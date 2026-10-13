@@ -1,5 +1,6 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::PluginMenuState;
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -113,96 +114,90 @@ fn input_row(menu: &crate::app::state::PluginMenuState) -> (String, String) {
     (format!("{}{}|", t(label), menu.search_query), title)
 }
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-    context: &crate::app::context::AppContext,
-) -> bool {
-    let PopupType::PluginMenu(menu) = popup else {
-        return false;
-    };
-    let area = super::centered_rect_in(85, 80, size);
-    f.render_widget(Clear, area);
+impl DialogView for PluginMenuState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size, context) = (cx.theme, cx.area, cx.context);
+        let menu = self;
+        let area = super::centered_rect_in(85, 80, size);
+        f.render_widget(Clear, area);
 
-    let border_style = Style::default().fg(theme.popup_border);
-    let bg_style = Style::default().bg(theme.popup_bg);
-    f.render_widget(Block::default().style(bg_style), area);
+        let border_style = Style::default().fg(theme.popup_border);
+        let bg_style = Style::default().bg(theme.popup_bg);
+        f.render_widget(Block::default().style(bg_style), area);
 
-    let input = has_input_row(menu);
-    let mut constraints = vec![Constraint::Length(3)]; // tab bar
-    if input {
-        constraints.push(Constraint::Length(3)); // search input / prompt
-    }
-    constraints.extend([Constraint::Min(1), Constraint::Length(1)]); // content, legend
-    let chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints(constraints)
-        .split(area);
-    let (content_area, legend_area) = (chunks[chunks.len() - 2], chunks[chunks.len() - 1]);
+        let input = has_input_row(menu);
+        let mut constraints = vec![Constraint::Length(3)]; // tab bar
+        if input {
+            constraints.push(Constraint::Length(3)); // search input / prompt
+        }
+        constraints.extend([Constraint::Min(1), Constraint::Length(1)]); // content, legend
+        let chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints(constraints)
+            .split(area);
+        let (content_area, legend_area) = (chunks[chunks.len() - 2], chunks[chunks.len() - 1]);
 
-    let tab_block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(border_style)
-        .title(t("plugin_manager_title"))
-        .style(bg_style);
-    let dev_mode = context.config.settings.plugins_developer_mode;
-    let tabs = tabs_line(menu.active_tab, dev_mode);
-    register_tabs(
-        &tabs,
-        chunks[0],
-        menu.active_tab,
-        if dev_mode { 3 } else { 2 },
-    );
-    f.render_widget(Paragraph::new(tabs).block(tab_block), chunks[0]);
-
-    if input {
-        let (text, title) = input_row(menu);
-        let input_border = if menu.editing_query {
-            Color::Yellow
-        } else {
-            theme.popup_border
-        };
-        let block = Block::default()
+        let tab_block = Block::default()
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(input_border))
-            .title(title)
+            .border_style(border_style)
+            .title(t("plugin_manager_title"))
             .style(bg_style);
-        f.render_widget(Paragraph::new(text).block(block), chunks[1]);
+        let dev_mode = context.config.settings.plugins_developer_mode;
+        let tabs = tabs_line(menu.active_tab, dev_mode);
+        register_tabs(
+            &tabs,
+            chunks[0],
+            menu.active_tab,
+            if dev_mode { 3 } else { 2 },
+        );
+        f.render_widget(Paragraph::new(tabs).block(tab_block), chunks[0]);
+
+        if input {
+            let (text, title) = input_row(menu);
+            let input_border = if menu.editing_query {
+                Color::Yellow
+            } else {
+                theme.popup_border
+            };
+            let block = Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(input_border))
+                .title(title)
+                .style(bg_style);
+            f.render_widget(Paragraph::new(text).block(block), chunks[1]);
+        }
+
+        let content_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
+            .split(content_area);
+        let pane = Pane {
+            list_area: content_chunks[0],
+            detail_area: content_chunks[1],
+            theme,
+            border_style,
+            bg_style,
+        };
+
+        let hint_key = match menu.active_tab {
+            0 => {
+                installed::render_installed(f, &pane, menu);
+                "plugin_hint_tab0"
+            }
+            1 => {
+                search::render_search(f, &pane, menu);
+                "plugin_hint_tab1"
+            }
+            _ => {
+                dev::render_dev(f, &pane, menu, &context.config.settings.active_dev_plugin);
+                "plugin_hint_tab2"
+            }
+        };
+        f.render_widget(
+            Paragraph::new(t(hint_key))
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(Style::default().fg(Color::DarkGray)),
+            legend_area,
+        );
     }
-
-    let content_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(40), Constraint::Percentage(60)])
-        .split(content_area);
-    let pane = Pane {
-        list_area: content_chunks[0],
-        detail_area: content_chunks[1],
-        theme,
-        border_style,
-        bg_style,
-    };
-
-    let hint_key = match menu.active_tab {
-        0 => {
-            installed::render_installed(f, &pane, menu);
-            "plugin_hint_tab0"
-        }
-        1 => {
-            search::render_search(f, &pane, menu);
-            "plugin_hint_tab1"
-        }
-        _ => {
-            dev::render_dev(f, &pane, menu, &context.config.settings.active_dev_plugin);
-            "plugin_hint_tab2"
-        }
-    };
-    f.render_widget(
-        Paragraph::new(t(hint_key))
-            .alignment(ratatui::layout::Alignment::Center)
-            .style(Style::default().fg(Color::DarkGray)),
-        legend_area,
-    );
-    true
 }

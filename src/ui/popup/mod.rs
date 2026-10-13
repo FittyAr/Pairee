@@ -24,7 +24,7 @@ pub mod viewer;
 pub mod yazi;
 
 use crate::app::context::AppContext;
-use crate::app::state::{AppState, PopupType};
+use crate::app::state::AppState;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -51,27 +51,12 @@ pub fn render_popup(
             // Dialogs under the top one stay visible where they were
             // opened, but only the top one takes the mouse.
             crate::ui::hit::muted(|| {
-                crate::ui::placement::unplaced(|| render_specific_popup(f, popup, &cx))
+                crate::ui::placement::unplaced(|| view::render_dialog(f, popup, &cx))
             });
         } else {
-            render_specific_popup(f, popup, &cx);
+            view::render_dialog(f, popup, &cx);
         }
     }
-}
-
-/// Draws `popup` (a dialog type, or one of the variants not migrated yet).
-fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::ViewCtx<'_>) {
-    if view::render_dialog(f, popup, cx) {
-        return;
-    }
-    let (state, context, theme, size) = (cx.state, cx.context, cx.theme, cx.area);
-    if prompts::render_prompt_popup(f, popup, theme, size) {
-        return;
-    }
-    if plugin_menu::render(f, popup, theme, size, context) {
-        return;
-    }
-    plugin_menu::select::render_dev_select(f, popup, theme, size, Some(&state.scrollbar));
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,

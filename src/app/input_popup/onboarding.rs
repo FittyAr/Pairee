@@ -2,9 +2,9 @@
 
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::OnboardingKeymap;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::keybindings::Action;
 use crate::ui::popup::onboarding::preset_ids;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -14,8 +14,7 @@ pub fn handle(
     key: KeyEvent,
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::OnboardingKeymap(OnboardingKeymap { cursor_idx })) =
-        state.dialogs.top_mut()
+    let Some(OnboardingKeymap { cursor_idx }) = state.dialogs.top_mut_as::<OnboardingKeymap>()
     else {
         return Err(());
     };
@@ -61,6 +60,7 @@ impl Dialog for OnboardingKeymap {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::app::state::PopupType;
     use crate::config::AppConfig;
     use crossterm::event::{KeyEventKind, KeyEventState, KeyModifiers};
     use std::path::PathBuf;
@@ -109,7 +109,7 @@ mod tests {
         apply_choice(&mut context, &mut state, Some("neovim"));
         assert!(context.config.settings.onboarding_completed);
         assert_eq!(context.config.keybindings.preset, "neovim");
-        assert!(state.dialogs.is_none());
+        assert!(state.dialogs.is_empty());
     }
 
     #[test]

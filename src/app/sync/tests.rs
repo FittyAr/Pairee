@@ -50,8 +50,7 @@ fn compare_runs_inline_and_lists_rolled_up_top_level_entries() {
 
     start_compare(&mut state, &context());
 
-    let Some(PopupType::CompareFoldersResult(CompareFoldersResult { diff, .. })) =
-        state.dialogs.top()
+    let Some(CompareFoldersResult { diff, .. }) = state.dialogs.top_as::<CompareFoldersResult>()
     else {
         panic!("expected compare result, got {:?}", state.dialogs.top());
     };
@@ -124,6 +123,6 @@ async fn background_scan_reports_progress_and_can_be_cancelled() {
     finish_scan(&mut state).await;
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::CompareFoldersResult(CompareFoldersResult { .. }))
+        Some(PopupType::CompareFoldersResult(_))
     ));
 }

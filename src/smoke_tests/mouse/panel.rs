@@ -2,8 +2,6 @@
 //! between them and the screens behind.
 
 use super::{panels, top};
-use crate::app::state::popup::ContextMenu;
-use crate::app::state::popup::FoldersHistoryList;
 use crate::app::state::{ActivePanel, PopupType, SortField};
 use crate::config::settings::RightClick;
 use crate::test_harness::Harness;
@@ -84,10 +82,7 @@ fn right_click_can_open_the_context_menu() {
     let (x, y) = h.locate("alpha.txt");
     h.right_click(x, y);
     assert_eq!(h.cursor_name(), "alpha.txt");
-    assert!(matches!(
-        top(&h),
-        Some(PopupType::ContextMenu(ContextMenu { .. }))
-    ));
+    assert!(matches!(top(&h), Some(PopupType::ContextMenu(_))));
     // A click elsewhere closes it again.
     h.click(0, 1);
     assert!(top(&h).is_none());
@@ -154,10 +149,7 @@ fn the_folder_title_opens_the_folder_history() {
     let (x, y) = h.hit_cell(|t| *t == HitTarget::PanelTitle(ActivePanel::Right));
     h.click(x + 2, y);
     assert_eq!(h.state.panels.active, ActivePanel::Right);
-    assert!(matches!(
-        top(&h),
-        Some(PopupType::FoldersHistoryList(FoldersHistoryList { .. }))
-    ));
+    assert!(matches!(top(&h), Some(PopupType::FoldersHistoryList(_))));
 }
 
 #[test]

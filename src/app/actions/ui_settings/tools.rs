@@ -54,9 +54,7 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
                 cursor_idx: 0,
             });
         }
-        Action::SaveSetup => state
-            .dialogs
-            .replace(PopupType::SaveSetupConfirm(SaveSetupConfirm)),
+        Action::SaveSetup => state.dialogs.replace(SaveSetupConfirm),
         Action::SystemSettings => {
             state.dialogs.replace(PopupType::ConfigurationDialog(
                 crate::app::state::ConfigurationDialogState::new(&context.config, 0, 0, true),
@@ -194,9 +192,7 @@ fn toggle_transfer_panel(state: &mut AppState) {
     match ts.view_mode {
         TransferViewMode::Hidden | TransferViewMode::Minimized => {
             ts.view_mode = TransferViewMode::Expanded;
-            state
-                .dialogs
-                .replace(PopupType::TransferPanel(TransferPanel));
+            state.dialogs.replace(TransferPanel);
         }
         TransferViewMode::Expanded => {
             ts.view_mode = TransferViewMode::Minimized;

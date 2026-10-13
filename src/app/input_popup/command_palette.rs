@@ -3,9 +3,9 @@
 use crate::app::actions::command_palette::filter_items;
 use crate::app::context::AppContext;
 use crate::app::list_nav::{FilterKey, filter_list_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::CommandPalette;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -15,11 +15,11 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::CommandPalette(CommandPalette {
+    let Some(CommandPalette {
         query,
         cursor_idx,
         items,
-    })) = state.dialogs.top_mut()
+    }) = state.dialogs.top_mut_as::<CommandPalette>()
     else {
         return Err(());
     };

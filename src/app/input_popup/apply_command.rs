@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
+use crate::app::state::AppState;
 use crate::app::state::popup::ApplyCommandPrompt;
 use crate::app::state::popup::{Dialog, KeyHandler};
-use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
@@ -12,16 +12,15 @@ pub fn handle(
     key: KeyEvent,
     _context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
-    let Some(PopupType::ApplyCommandPrompt(ApplyCommandPrompt { input, .. })) =
-        state.dialogs.top_mut()
+    let Some(ApplyCommandPrompt { input, .. }) = state.dialogs.top_mut_as::<ApplyCommandPrompt>()
     else {
         return Err(());
     };
     match field_key(input, &key) {
         FieldKey::Cancel => state.dialogs.clear(),
         FieldKey::Submit => {
-            if let Some(PopupType::ApplyCommandPrompt(ApplyCommandPrompt { input, targets })) =
-                state.dialogs.pop()
+            if let Some(ApplyCommandPrompt { input, targets }) =
+                state.dialogs.pop_as::<ApplyCommandPrompt>()
             {
                 state.dialogs.clear();
                 if !input.is_empty() {

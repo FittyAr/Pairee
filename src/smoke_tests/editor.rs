@@ -2,7 +2,6 @@
 //! redo, save, save as, CRLF line endings, reopening.
 
 use crate::app::state::popup::ConfirmDiscardEditorChanges;
-use crate::app::state::popup::EditorSaveAsPrompt;
 use crate::app::state::{PopupType, Screen};
 use crate::test_harness::Harness;
 
@@ -53,10 +52,10 @@ fn edit_save_save_as_and_reopen_keep_crlf() {
         h.keys("Shift+F2");
         assert!(matches!(
             h.state.dialogs.top(),
-            Some(PopupType::EditorSaveAsPrompt(EditorSaveAsPrompt { .. }))
+            Some(PopupType::EditorSaveAsPrompt(_))
         ));
         h.keys("End Backspace*7").text("copia.txt").keys("Enter");
-        assert!(h.state.dialogs.is_none(), "{}", h.screen_text());
+        assert!(h.state.dialogs.is_empty(), "{}", h.screen_text());
         assert_eq!(h.read("work/left/copia.txt"), h.read("work/left/doc.txt"));
 
         // Quit and reopen: the saved text is back.
