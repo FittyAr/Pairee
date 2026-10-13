@@ -51,11 +51,6 @@ impl AppConfig {
         // 1. Settings Loading
         let settings_path = paths::get_config_file_path();
         let (mut settings, settings_parse_error) = loading::load_settings(&settings_path)?;
-        loading::drop_missing_dev_plugin(
-            &mut settings,
-            &settings_path,
-            settings_parse_error.is_none(),
-        );
 
         // Load active language
         localization::load_language(&settings.language);
@@ -78,6 +73,9 @@ impl AppConfig {
         if credentials.not_persisted {
             errors.push(localization::t("ssh_password_not_persisted"));
         }
+        // After the passwords are loaded: saving settings whose presets have
+        // no password yet would remove them from the keyring.
+        loading::drop_missing_dev_plugin(&mut settings, &settings_path, !settings_failed);
 
         // 2. Keybindings Loading, 2b. preset keymap files
         let (keybindings, keybindings_error) = loading::load_keybindings(&settings_path)?;
@@ -319,6 +317,39 @@ mod tests {
         assert!(locked.take_load_error().is_none());
         locked.confirm_settings_overwrite();
         assert!(!locked.settings_save_locked());
+    }
+
+    #[test]
+    fn clearing_a_missing_dev_plugin_keeps_keyring_passwords() {
+        let dir = tempfile::tempdir().unwrap();
+        let _root = paths::test_root::redirect(dir.path());
+        credentials::test_store::set_available(true);
+        let mut settings = Settings::default();
+        settings.ssh_presets.push(settings::SshPreset {
+            name: "box".into(),
+            host: "h".into(),
+            port: "22".into(),
+            username: "u".into(),
+            password: Some("pw".into()),
+            key_path: None,
+        });
+        settings.active_dev_plugin = Some("no-such-plugin".into());
+        write_atomic(
+            &paths::get_config_file_path(),
+            serialize_settings(&settings).unwrap().as_bytes(),
+        )
+        .unwrap();
+
+        let config = AppConfig::load_or_create().unwrap();
+        assert!(config.settings.active_dev_plugin.is_none());
+        assert_eq!(
+            config.settings.ssh_presets[0].password.as_deref(),
+            Some("pw")
+        );
+        assert_eq!(
+            credentials::test_store::secret("ssh-preset:box").as_deref(),
+            Some("pw")
+        );
     }
 
     #[test]
