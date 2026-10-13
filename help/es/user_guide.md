@@ -190,6 +190,7 @@ pairee [--cwd-file <archivo>] [--print-cwd] [--no-mouse] [<carpeta izquierda> [<
 * `--print-cwd` imprime esa carpeta por la salida estándar al salir.
 * `--no-mouse` arranca sin capturar el ratón, diga lo que diga la configuración.
 * `--version` (`-V`) muestra la versión instalada y termina.
+* `--help` (`-h`) muestra las opciones y los subcomandos (`plugin`, `developer`, `keymap`); `pairee <subcomando> --help` muestra los comandos de cada uno.
 
 ### Cambiar la carpeta de la shell al salir
 Añade una de estas funciones al perfil de tu shell e inicia Pairee con `p`:

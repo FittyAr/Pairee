@@ -11,7 +11,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     let utils = lua.create_table()?;
 
     // `pairee.target_os()` — returns the compile-time OS string.
@@ -46,7 +46,7 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // returned as a hex-encoded lowercase string.
     utils.set(
         "hash",
-        lua.create_function(|_lua, s: mlua::String| {
+        lua.create_function(|_lua, s: mlua::LuaString| {
             let mut hasher = DefaultHasher::new();
             s.as_bytes().hash(&mut hasher);
             Ok(format!("{:016x}", hasher.finish()))

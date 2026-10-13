@@ -3,6 +3,7 @@
 //! only returns results (it also runs inside the TUI, where printing would
 //! corrupt the screen).
 
+use super::help::{self, Topic};
 use crate::config::localization::t;
 use crate::plugin::developer_tool;
 use anyhow::Result;
@@ -16,7 +17,7 @@ pub async fn developer_command(cmd: &str, rest: &[String]) -> Result<()> {
                 let author = prompt_line("Enter plugin author:")?;
                 println!("{}", developer_tool::init(name, &desc, &author)?);
             }
-            None => println!("Error: init requires a plugin name"),
+            None => print!("{}", help::missing_argument(Topic::Developer, "init")),
         },
         "lint" => {
             let path = std::env::current_dir()?;
@@ -30,7 +31,7 @@ pub async fn developer_command(cmd: &str, rest: &[String]) -> Result<()> {
             );
         }
         "submit" => submit().await?,
-        _ => println!("Unknown developer command. Available: init, lint, package, submit"),
+        _ => print!("{}", help::unknown_command(Topic::Developer, cmd)),
     }
     Ok(())
 }

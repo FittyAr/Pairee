@@ -10,9 +10,11 @@ repository = "https://github.com/FittyAr/Pairee"
 readme = "README.md"
 
 [dependencies]
-ratatui = "0.30.2"
+# No termwiz/termina backends: default features would list them in the lock
+# through weak `?/underline-color` features (never built, but audited).
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
-tokio = { version = "1.52.3", features = ["full"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "1.1"
@@ -28,31 +30,33 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate", "tim
 tar = "0.4.46"
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 pulldown-cmark = "0.13"
-image = "0.25.10"
+# Only the formats the viewer and Quick View preview (no AVIF/rav1e, EXR, HDR...).
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga"] }
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https", "ssh"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
-mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
+mlua = { version = "0.12.2", features = ["lua54", "vendored", "serialize", "async", "send"] }
 percent-encoding = "2.3"
 regex = "1.13"
 blake3 = "1.5.4"
-md-5 = "0.10.6"
-sha1 = "0.10.6"
-sha2 = "0.10.8"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11.1"
 # Private, randomly named temp dirs for update downloads (0700 on Unix).
 tempfile = "3.27"
 crc32fast = "1.4.2"
 uuid = { version = "1.10.0", features = ["v4"] }
 filetime = "0.2.25"
-bytesize = "1.3.0"
+bytesize = "2.7"
 # Professional key-binding parser/dispatcher (replaces ad-hoc string maps).
 # Features: crossterm KeyEvent conversion, sequences, invalid-binding errors.
 keybinds = { version = "0.2", features = ["crossterm", "serde"] }
 unicode-width = "0.2"
 tui-scrollbar = { version = "0.2.7", features = ["crossterm"] }
 unicode-segmentation = "1.13.3"
-shlex = "1.3"
+shlex = "2.0"
 ansi-to-tui = "8.0"
-arboard = "3.6.1"
+# Text only: no clipboard images (their image-data feature pulls in image codecs).
+arboard = { version = "3.6.1", default-features = false }
 sevenz-rust2 = "0.22"
 # tar.bz2 / tar.xz: pure-Rust decoders (static musl builds keep working).
 bzip2 = "0.6"
@@ -64,14 +68,14 @@ portable-pty = "0.8.1"
 trash = "5.2.9"
 # Capability-based directory handles: plugin fs ops cannot escape the jail
 # root even if a path component is swapped for a symlink after validation.
-cap-std = "3"
+cap-std = "4.0"
 minisign-verify = "0.3.0"
 # Plugin `min_pairee` checks (pre-release aware).
 semver = "1.0.28"
 # SSH preset passwords in the OS keyring (Credential Manager, Keychain, Secret Service).
 keyring = "4.2.0"
 encoding_rs = "0.8"
-chardetng = "0.1"
+chardetng = "1.0"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
 notify = "8.2"
 
@@ -98,7 +102,7 @@ ssh2 = { version = "0.9" }
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
-signal-hook = { version = "0.3", features = ["iterator"] }
+signal-hook = { version = "0.4", features = ["iterator"] }
 # O_NOFOLLOW for symlink-safe secure wipe.
 libc = "0.2"
 
@@ -137,7 +141,7 @@ assets = [
 ]
 
 [build-dependencies]
-embed-resource = "2.5"
+embed-resource = "3.0"
 
 # Lints for every target (lib, bins, tests, benches) of every workspace
 # member; CI runs clippy with `-D warnings`.

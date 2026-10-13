@@ -1,0 +1,38 @@
+# Dependabot: keeps the SHA-pinned GitHub Actions and the Rust dependencies
+# current (project policy: latest versions until 1.0).
+version: 2
+updates:
+  # Workflows and the composite actions in .github/actions/. Dependabot
+  # updates the pinned commit SHA and the `# vX.Y.Z` comment next to it.
+  - package-ecosystem: "github-actions"
+    directories:
+      - "/"
+      - "/.github/actions/*"
+    schedule:
+      interval: "weekly"
+    groups:
+      github-actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "ci"
+
+  # The workspace (pairee + xtask) and the cargo-fuzz crate (own lockfile).
+  - package-ecosystem: "cargo"
+    directories:
+      - "/"
+      - "/fuzz"
+    schedule:
+      interval: "weekly"
+    groups:
+      # Compatible updates land together; a semver-incompatible bump usually
+      # needs code changes and gets its own pull request.
+      rust-dependencies:
+        patterns: ["*"]
+        update-types: ["minor", "patch"]
+    ignore:
+      # Pinned on purpose: 0.9 can hang simple commands under ConPTY
+      # (wezterm#6783). Remove once a fixed release is out.
+      - dependency-name: "portable-pty"
+        versions: [">= 0.9"]
+    commit-message:
+      prefix: "build(deps)"

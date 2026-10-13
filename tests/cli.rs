@@ -54,9 +54,7 @@ fn version_run_writes_its_log_in_the_cache_folder() {
 #[test]
 fn unknown_options_fail_without_starting_the_interface() {
     let home = tempfile::tempdir().unwrap();
-    // `--help` is not an option yet: it is rejected like any unknown one,
-    // with the usage line, instead of starting the full-screen interface.
-    for flag in ["--no-such-option", "--help"] {
+    for flag in ["--no-such-option", "--bogus=1"] {
         let out = pairee(home.path(), &[flag])
             .assert()
             .failure()
@@ -85,16 +83,74 @@ fn keymap_print_lists_presets_for_an_unknown_one() {
 }
 
 #[test]
-fn subcommands_without_arguments_print_their_usage() {
+fn help_flags_print_the_options_and_commands() {
     let home = tempfile::tempdir().unwrap();
-    for (args, usage) in [
-        (&["keymap"][..], "pairee keymap print"),
-        (&["plugin"][..], "pairee plugin ["),
-        (&["developer"][..], "pairee developer ["),
+    for args in [
+        &["--help"][..],
+        &["-h"],
+        &["/some/folder", "--help"],
+        &["--help", "x"],
     ] {
         let text = stdout_of(home.path(), args);
-        assert!(text.contains(usage), "{args:?}: {text}");
+        for word in [
+            "Usage:",
+            "--cwd-file",
+            "--no-mouse",
+            "--version",
+            "plugin",
+            "keymap",
+        ] {
+            assert!(
+                text.contains(word),
+                "{args:?}: {word} missing in
+{text}"
+            );
+        }
     }
+}
+
+#[test]
+fn subcommands_print_their_help() {
+    let home = tempfile::tempdir().unwrap();
+    for (args, expected) in [
+        (&["keymap"][..], "pairee keymap print"),
+        (&["keymap", "--help"], "--preset"),
+        (&["plugin"], "pairee plugin <command>"),
+        (&["plugin", "-h"], "check-updates"),
+        (&["plugin", "install", "--help"], "install <name>"),
+        (&["developer"], "pairee developer <command>"),
+        (&["developer", "--help"], "submit"),
+    ] {
+        let text = stdout_of(home.path(), args);
+        assert!(text.contains(expected), "{args:?}: {text}");
+    }
+}
+
+#[test]
+fn help_follows_the_configured_language() {
+    let home = tempfile::tempdir().unwrap();
+    // Wherever this platform keeps config.toml under the isolated home.
+    for dir in [
+        home.path().join("appdata").join("pairee").join("config"),
+        home.path().join("config").join("pairee"),
+        home.path()
+            .join("Library")
+            .join("Application Support")
+            .join("com.pairee.Pairee"),
+    ] {
+        std::fs::create_dir_all(&dir).unwrap();
+        std::fs::write(
+            dir.join("config.toml"),
+            "language = \"Español\"
+",
+        )
+        .unwrap();
+    }
+    let text = stdout_of(home.path(), &["--help"]);
+    assert!(
+        text.contains("Uso:") && text.contains("Opciones:"),
+        "{text}"
+    );
 }
 
 #[test]
@@ -113,7 +169,8 @@ fn plugin_commands_report_missing_arguments() {
         &["plugin", "bogus"],
     ] {
         let text = stdout_of(home.path(), args);
-        assert!(!text.trim().is_empty(), "{args:?} printed nothing");
+        assert!(text.contains(args[1]), "{args:?}: {text}");
+        assert!(text.contains("pairee plugin <command>"), "{args:?}: {text}");
     }
 }
 

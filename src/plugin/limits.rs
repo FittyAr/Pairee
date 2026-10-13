@@ -121,11 +121,14 @@ fn install_watchdog(lua: &mlua::Lua, max_run: Duration) {
     set_hook(lua, watchdog, CHECK_EVERY);
 }
 
+/// Installs the watchdog as the *global* hook: the main thread, the threads
+/// mlua creates for async calls and every coroutine Lua code creates (they
+/// inherit the hook) all run under it.
 fn set_hook(lua: &mlua::Lua, watchdog: Watchdog, every: u32) {
     let triggers = mlua::HookTriggers::new().every_nth_instruction(every);
-    lua.set_hook(triggers, move |lua, _debug| {
+    let result = lua.set_global_hook(triggers, move |lua, _debug| {
         match watchdog.tick(Instant::now()) {
-            Verdict::Ok => Ok(()),
+            Verdict::Ok => Ok(mlua::VmState::Continue),
             Verdict::Tripped => {
                 set_hook(lua, watchdog.clone(), 1);
                 Err(limit_error())
@@ -133,6 +136,9 @@ fn set_hook(lua: &mlua::Lua, watchdog: Watchdog, every: u32) {
             Verdict::StillTripped => Err(limit_error()),
         }
     });
+    if let Err(e) = result {
+        tracing::warn!("Could not install the plugin watchdog: {e}");
+    }
 }
 
 /// Runs `f` (a call into the plugin's Lua code) under the CPU watchdog:
@@ -195,6 +201,31 @@ mod tests {
             "while true do pcall(function() while true do end end) end",
         )
         .unwrap_err();
+        assert!(err.to_string().contains("execution time limit"), "{err}");
+    }
+
+    #[test]
+    fn coroutines_cannot_evade_the_watchdog() {
+        let lua = test_lua();
+        let err = run(
+            &lua,
+            "local co = coroutine.wrap(function() while true do end end) co()",
+        )
+        .unwrap_err();
+        assert!(err.to_string().contains("execution time limit"), "{err}");
+    }
+
+    #[test]
+    fn async_calls_cannot_evade_the_watchdog() {
+        let lua = test_lua();
+        let f: mlua::Function = lua
+            .load("return function() while true do end end")
+            .eval()
+            .unwrap();
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        let err = guarded(&lua, || rt.block_on(f.call_async::<()>(()))).unwrap_err();
         assert!(err.to_string().contains("execution time limit"), "{err}");
     }
 

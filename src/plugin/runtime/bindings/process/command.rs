@@ -134,7 +134,7 @@ fn chain(ud: AnyUserData) -> mlua::Result<AnyUserData> {
 }
 
 impl UserData for LuaCommand {
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_function("arg", |_, (ud, value): (AnyUserData, Value)| {
             {
                 let mut this = ud.borrow_mut::<Self>()?;
@@ -197,11 +197,7 @@ impl UserData for LuaCommand {
     }
 }
 
-pub fn bind(
-    lua: &Lua,
-    policy: Arc<CommandPolicy>,
-    sandbox: Arc<FsPolicy>,
-) -> mlua::Result<Table<'_>> {
+pub fn bind(lua: &Lua, policy: Arc<CommandPolicy>, sandbox: Arc<FsPolicy>) -> mlua::Result<Table> {
     let table = lua.create_table()?;
     table.set("NULL", StdioKind::NULL as i64)?;
     table.set("PIPED", StdioKind::PIPED as i64)?;
@@ -218,7 +214,7 @@ pub fn bind(
             ))
         })?,
     )?;
-    table.set_metatable(Some(mt));
+    table.set_metatable(Some(mt))?;
     Ok(table)
 }
 

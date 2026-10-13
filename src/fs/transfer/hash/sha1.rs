@@ -18,6 +18,6 @@ impl HashStrategy for Sha1Hasher {
 
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
-        format!("{:040X}", result)
+        super::to_hex(&result).to_uppercase()
     }
 }

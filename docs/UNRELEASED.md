@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
 - `install.sh` installs the aarch64 build on 64-bit ARM Linux, and `install.ps1` the ARM64 build on ARM64 Windows.
 - Git: fetch, pull and push now work with SSH remotes (`git@...`), using ssh-agent or your default keys in `~/.ssh`.
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.
@@ -29,6 +30,7 @@
 - Theme colors and highlighting rules are prepared once when they change instead of on every frame.
 
 ### Changed
+- Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.
 - `install.sh` requires `minisign` and a valid release signature; `--insecure-skip-signature` accepts the download on its SHA-256 checksum alone.
@@ -48,6 +50,9 @@
 ### Removed
 
 ### Fixed
+- Removing or renaming an SSH preset now deletes its old password from the system keyring.
+- Starting Pairee with a plugin under development whose folder was gone deleted the saved SSH preset passwords from the system keyring.
+- `pairee plugin install <name>` failed for every plugin: the name was sent to the registry with a `.pairee` suffix that plugin names cannot have.
 - Git: pull and fast-forward merges no longer discard uncommitted changes; they stop with an error when your local changes would be overwritten.
 - Git: committing after a merge records both parents and ends the merge; committing after a cherry-pick or revert clears its in-progress state.
 - Git: a push the remote rejects is reported as an error instead of a success.

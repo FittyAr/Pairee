@@ -190,6 +190,7 @@ pairee [--cwd-file <file>] [--print-cwd] [--no-mouse] [<left folder> [<right fol
 * `--print-cwd` prints that folder to standard output on exit.
 * `--no-mouse` starts without mouse capture, whatever the configuration says.
 * `--version` (`-V`) prints the installed version and exits.
+* `--help` (`-h`) lists the options and the subcommands (`plugin`, `developer`, `keymap`); `pairee <subcommand> --help` lists the commands of each.
 
 ### Change the shell folder on exit
 Add one of these functions to your shell profile and start Pairee with `p`:

@@ -116,9 +116,10 @@ pub fn detect(sample: &[u8], at_eof: bool, policy: EncodingPolicy) -> Detected {
         // Only a character cut by the end of the sample.
         Err(e) if e.error_len().is_none() && !at_eof => text(UTF_8),
         Err(_) => {
-            let mut detector = chardetng::EncodingDetector::new();
+            let mut detector =
+                chardetng::EncodingDetector::new(chardetng::Iso2022JpDetection::Allow);
             detector.feed(sample, at_eof);
-            text(detector.guess(None, true))
+            text(detector.guess(None, chardetng::Utf8Detection::Allow))
         }
     }
 }

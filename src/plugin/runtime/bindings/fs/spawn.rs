@@ -9,7 +9,7 @@ use tokio::sync::mpsc;
 
 pub fn bind_spawn(
     lua: &Lua,
-    fs: &Table<'_>,
+    fs: &Table,
     policy: &Arc<FsPolicy>,
     commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,

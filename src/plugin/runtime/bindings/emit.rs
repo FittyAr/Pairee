@@ -17,13 +17,13 @@ pub fn bind(
     lua: &mlua::Lua,
     tx: mpsc::Sender<PluginRequest>,
     origin: PluginOrigin,
-) -> mlua::Result<mlua::Function<'_>> {
+) -> mlua::Result<mlua::Function> {
     lua.create_async_function(move |lua, (name, args): (String, Option<mlua::Value>)| {
         let tx = tx.clone();
         let origin = origin.clone();
         // Refused (sparse, cyclic, too large) arguments raise a Lua error
         // instead of being silently replaced.
-        let args = lua_json::args_to_json(lua, args);
+        let args = lua_json::args_to_json(&lua, args);
         async move { send(&tx, origin, name, args?).await }
     })
 }

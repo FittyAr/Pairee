@@ -13,7 +13,7 @@ use tokio::sync::mpsc;
 
 pub fn bind(
     lua: &mlua::Lua,
-    pairee: &mlua::Table<'_>,
+    pairee: &mlua::Table,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
     // `pairee.confirm({pos, title, body})` — real confirm dialog.
@@ -27,7 +27,7 @@ pub fn bind(
                 // false return if it is missing). The `to_str` helper
                 // returns a `&str` borrowed from the Lua string, so we
                 // eagerly own the bytes to release the borrow.
-                let title_opt: Option<String> = match opts.get::<_, mlua::String>("title") {
+                let title_opt: Option<String> = match opts.get::<mlua::LuaString>("title") {
                     Ok(s) => match s.to_str() {
                         Ok(cow) => Some(cow.to_string()),
                         Err(_) => None,
@@ -42,7 +42,7 @@ pub fn bind(
                     }
                 };
                 let body: String = opts
-                    .get::<_, mlua::String>("body")
+                    .get::<mlua::LuaString>("body")
                     .ok()
                     .and_then(|s| s.to_str().ok().map(|cow| cow.to_string()))
                     .unwrap_or_default();
@@ -76,7 +76,7 @@ pub fn bind(
         lua.create_async_function(move |_lua_ctx, opts: mlua::Table| {
             let tx = tx_input.clone();
             async move {
-                let title_opt: Option<String> = match opts.get::<_, mlua::String>("title") {
+                let title_opt: Option<String> = match opts.get::<mlua::LuaString>("title") {
                     Ok(s) => s.to_str().ok().map(|cow| cow.to_string()),
                     Err(_) => None,
                 };
@@ -88,13 +88,13 @@ pub fn bind(
                     }
                 };
                 let value: String = opts
-                    .get::<_, mlua::String>("value")
+                    .get::<mlua::LuaString>("value")
                     .ok()
                     .and_then(|s| s.to_str().ok().map(|cow| cow.to_string()))
                     .unwrap_or_default();
-                let obscure = opts.get::<_, bool>("obscure").unwrap_or(false);
-                let realtime = opts.get::<_, bool>("realtime").unwrap_or(false);
-                let debounce_secs = opts.get::<_, f64>("debounce").unwrap_or(0.0);
+                let obscure = opts.get::<bool>("obscure").unwrap_or(false);
+                let realtime = opts.get::<bool>("realtime").unwrap_or(false);
+                let debounce_secs = opts.get::<f64>("debounce").unwrap_or(0.0);
                 let position = read_position(&opts);
 
                 let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
@@ -136,17 +136,17 @@ fn read_position(opts: &mlua::Table) -> Option<DialogPosition> {
     let pos: mlua::Table = opts.get("pos").ok()?;
     Some(DialogPosition {
         origin: pos
-            .get::<_, mlua::String>(1)
+            .get::<mlua::LuaString>(1)
             .ok()
             .map(|s| s.to_str().map(|s| s.to_string()))
             .transpose()
             .ok()
             .flatten()
             .unwrap_or_default(),
-        x: pos.get::<_, i64>("x").ok().unwrap_or(0) as i32,
-        y: pos.get::<_, i64>("y").ok().unwrap_or(0) as i32,
-        w: pos.get::<_, u16>("w").ok().unwrap_or(0),
-        h: pos.get::<_, u16>("h").ok().unwrap_or(0),
+        x: pos.get::<i64>("x").ok().unwrap_or(0) as i32,
+        y: pos.get::<i64>("y").ok().unwrap_or(0) as i32,
+        w: pos.get::<u16>("w").ok().unwrap_or(0),
+        h: pos.get::<u16>("h").ok().unwrap_or(0),
     })
 }
 
@@ -169,7 +169,7 @@ mod tests {
         title: &'a str,
         body: Option<&'a str>,
         pos_origin: Option<&'a str>,
-    ) -> mlua::Table<'a> {
+    ) -> mlua::Table {
         let opts = lua.create_table().unwrap();
         opts.set("title", title).unwrap();
         if let Some(b) = body {
