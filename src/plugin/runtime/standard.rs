@@ -77,6 +77,9 @@ pub fn bind_runtime(
         b::clipboard::bind(lua, trusted && !options.secure_mode)?,
     )?;
     pairee.set("Error", super::types::error::bind(lua)?)?;
+    pairee.set("Path", super::types::path::bind(lua)?)?;
+    pairee.set("Url", super::types::url::bind(lua)?)?;
+    pairee.set("Cha", super::types::cha::bind(lua)?)?;
     pairee.set("state", b::state::bind(lua, &fs_policy.data_dir)?)?;
     pairee.set("which", b::which::bind(lua, tx.clone())?)?;
     b::cx::bind_empty(lua, &pairee)?;

@@ -1,8 +1,9 @@
-//! Extra `pairee.fs` operations: mkdir, remove, rename, copy, read_dir, file.
+//! Extra `pairee.fs` operations: mkdir, remove, rename, copy, read_dir,
+//! file and cha.
 
 use super::path::{Access, FsPolicy, lua_to_path};
 use super::target::RemoveKind;
-use crate::plugin::runtime::types::LuaFile;
+use crate::plugin::runtime::types::{LuaCha, LuaError, LuaFile};
 use mlua::{Lua, Table, Value};
 use std::sync::Arc;
 
@@ -68,6 +69,25 @@ pub fn bind_extra(lua: &Lua, fs: &Table, policy: &Arc<FsPolicy>) -> mlua::Result
         lua.create_function(move |_, url: Value| {
             let path = lua_to_path(&p, url, Access::Read)?;
             Ok(LuaFile::from_path(path.path()))
+        })?,
+    )?;
+
+    // `cha(path, follow?)` -> Cha, nil | nil, Error (a sandbox refusal is a
+    // "PermissionDenied" Error, not a thrown error).
+    let p = Arc::clone(policy);
+    fs.set(
+        "cha",
+        lua.create_function(move |lua, (url, follow): (Value, Option<bool>)| {
+            let result = lua_to_path(&p, url, Access::Read)
+                .map_err(|e| LuaError {
+                    kind: Some("PermissionDenied".into()),
+                    code: None,
+                    message: e.to_string(),
+                })
+                .and_then(|target| {
+                    LuaCha::read(target.path(), follow.unwrap_or(false)).map_err(LuaError::from)
+                });
+            LuaError::pair(lua, result)
         })?,
     )?;
 
@@ -149,5 +169,41 @@ mod tests {
             name,
             tmp.path().file_name().unwrap().to_string_lossy().as_ref()
         );
+    }
+
+    #[test]
+    fn cha_returns_a_value_or_an_error() {
+        let lua = Lua::new();
+        lua.globals().set("fs", bind_fs(&lua)).unwrap();
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("a.txt"), "abc").unwrap();
+        lua.globals()
+            .set("dir", dir.path().to_string_lossy().as_ref())
+            .unwrap();
+        let (len, is_dir, kind): (u64, bool, String) = lua
+            .load(
+                r#"local c = fs.cha(dir .. "/a.txt")
+                   local _, err = fs.cha(dir .. "/missing")
+                   return c.len, fs.cha(dir).is_dir, err.kind"#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!((len, is_dir, kind.as_str()), (3, true, "NotFound"));
+
+        let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
+        let jailed = bind(
+            &lua,
+            std::sync::Arc::new(FsPolicy::new(std::path::Path::new("demo"), false, false)),
+            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
+            tx,
+        )
+        .unwrap();
+        lua.globals().set("jailed", jailed).unwrap();
+        let (value, kind): (Value, String) = lua
+            .load(r#"local v, e = jailed.cha(dir .. "/a.txt") return v, e.kind"#)
+            .eval()
+            .unwrap();
+        assert!(value.is_nil());
+        assert_eq!(kind, "PermissionDenied");
     }
 }
