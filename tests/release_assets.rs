@@ -58,22 +58,31 @@ fn install_ps1_names_the_windows_archives() {
 #[test]
 fn winget_workflow_picks_every_windows_installer() {
     let workflow = read(".github/workflows/winget.yml");
-    let prefix = "installers-regex: '^pairee-setup-";
-    assert!(
-        workflow.contains(prefix),
-        "winget.yml installers-regex changed"
-    );
+    let pattern = quoted_after(&workflow, "installers-regex:");
+    let regex = regex::Regex::new(&pattern).expect("installers-regex");
     let windows: Vec<_> = assets::PLATFORMS
         .iter()
         .filter_map(|p| assets::setup_name("0.11.0", p.triple))
         .collect();
     assert_eq!(windows.len(), 2, "{windows:?}");
-    for name in windows {
-        assert!(
-            name.starts_with("pairee-setup-") && name.ends_with(".exe"),
-            "{name}"
-        );
+    for name in &windows {
+        assert!(regex.is_match(name), "{pattern} does not match {name}");
     }
+    // Nothing else in a release: archives, MSIX, checksums, signatures.
+    for platform in assets::PLATFORMS {
+        let archive = assets::archive_name("0.11.0", platform.triple).unwrap();
+        for other in [archive.clone(), format!("{}.sha256", windows[0])] {
+            assert!(!regex.is_match(&other), "{pattern} matches {other}");
+        }
+    }
+}
+
+/// The single-quoted value after `key` (YAML).
+fn quoted_after(text: &str, key: &str) -> String {
+    let rest = &text[text.find(key).unwrap_or_else(|| panic!("no {key}")) + key.len()..];
+    let start = rest.find('\'').expect("opening quote") + 1;
+    let end = rest[start..].find('\'').expect("closing quote") + start;
+    rest[start..end].to_string()
 }
 
 #[test]

@@ -1,8 +1,15 @@
 name: Publish to WinGet
 
 # Called by release.yml once a release is public; run it by hand to retry a
-# submission. Opens a pull request on microsoft/winget-pkgs from the
-# WINGET_TOKEN owner's fork, so FittyAr.Pairee must already exist there.
+# submission. Opens a pull request on microsoft/winget-pkgs from the fork of
+# the WINGET_TOKEN owner (created on first use):
+#   - FittyAr.Pairee is not in winget-pkgs yet: a new-package pull request
+#     with the manifests of manifests/f/FittyAr/Pairee/<version>/ at the tag,
+#     completed with the installer URLs and SHA-256 of the release
+#     (`cargo xtask winget-manifests`) and sent with Microsoft's wingetcreate.
+#   - It is: an update pull request with winget-releaser, from the manifests
+#     already in winget-pkgs.
+# docs/winget-submission-guide.md has the one-time setup (token, fork, CLA).
 on:
   workflow_call:
     inputs:
@@ -20,6 +27,14 @@ on:
 permissions:
   contents: read
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: 'true'
+  # Microsoft's manifest tool (github.com/microsoft/winget-create), pinned by
+  # release and by the SHA-256 of wingetcreate.exe (published with it as
+  # wingetcreate.exe.txt). Update both together.
+  WINGETCREATE_VERSION: v1.12.13.0
+  WINGETCREATE_SHA256: 24042bd37915805615e6cf969ac57c6439124c3fe85823327f5f3fb24bd9ffea
+
 jobs:
   publish:
     name: Submit to microsoft/winget-pkgs
@@ -35,11 +50,93 @@ jobs:
             exit 1
           fi
 
-      - name: Submit package to WinGet
+      - name: Is FittyAr.Pairee in winget-pkgs?
+        id: package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          status=$(curl -sS -o /dev/null -w '%{http_code}' \
+            -H "Authorization: Bearer ${GH_TOKEN}" -H 'Accept: application/vnd.github+json' \
+            https://api.github.com/repos/microsoft/winget-pkgs/contents/manifests/f/FittyAr/Pairee)
+          case "$status" in
+            200) echo "exists=true" >> "$GITHUB_OUTPUT" ;;
+            404)
+              echo "exists=false" >> "$GITHUB_OUTPUT"
+              echo "::notice::FittyAr.Pairee is not in winget-pkgs yet: submitting it as a new package."
+              ;;
+            *)
+              echo "::error::GitHub API answered ${status} for microsoft/winget-pkgs"
+              exit 1
+              ;;
+          esac
+
+      # ── Existing package: update ─────────────────────────────────────────
+      - name: Submit the update
+        if: steps.package.outputs.exists == 'true'
         # Receives the WINGET_TOKEN PAT: pinned by SHA.
         uses: vedantmgoyal9/winget-releaser@b7370d4d152efdce803a26cc6ca9eee58cb2ad54 # v2
         with:
           identifier: FittyAr.Pairee
           release-tag: ${{ inputs.tag }}
-          installers-regex: '^pairee-setup-.*\.exe$'
+          installers-regex: '^pairee-setup-[0-9.]+-(x64|arm64)\.exe$'
           token: ${{ secrets.WINGET_TOKEN }}
+
+      # ── New package: first submission ────────────────────────────────────
+      - name: Checkout the release (manifests and xtask)
+        if: steps.package.outputs.exists == 'false'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag }}
+          persist-credentials: false
+
+      - name: Install Rust toolchain
+        if: steps.package.outputs.exists == 'false'
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: stable
+
+      - name: Write the manifests of the release
+        if: steps.package.outputs.exists == 'false'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'pairee-setup-*.exe.sha256' --dir "$RUNNER_TEMP/dist"
+          cargo xtask winget-manifests "$TAG" "$RUNNER_TEMP/dist" "$RUNNER_TEMP/winget"
+          for f in "$RUNNER_TEMP"/winget/*.yaml; do
+            echo "::group::$(basename "$f")"
+            cat "$f"
+            echo "::endgroup::"
+          done
+
+      - name: Download wingetcreate
+        if: steps.package.outputs.exists == 'false'
+        shell: pwsh
+        run: |
+          $exe = Join-Path $env:RUNNER_TEMP 'wingetcreate.exe'
+          $url = "https://github.com/microsoft/winget-create/releases/download/$env:WINGETCREATE_VERSION/wingetcreate.exe"
+          Invoke-WebRequest -Uri $url -OutFile $exe -UseBasicParsing
+          $sha = (Get-FileHash -Algorithm SHA256 -Path $exe).Hash.ToLowerInvariant()
+          if ($sha -ne $env:WINGETCREATE_SHA256) {
+            throw "wingetcreate.exe does not match its pinned SHA-256 ($sha)"
+          }
+
+      - name: Submit the new package
+        if: steps.package.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          # Read by wingetcreate; keeps the token off the command line.
+          WINGET_CREATE_GITHUB_TOKEN: ${{ secrets.WINGET_TOKEN }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          $version = $env:TAG.TrimStart('v')
+          & (Join-Path $env:RUNNER_TEMP 'wingetcreate.exe') submit --no-open `
+            --prtitle "New package: FittyAr.Pairee version $version" `
+            (Join-Path $env:RUNNER_TEMP 'winget')
+          if ($LASTEXITCODE -ne 0) {
+            throw "wingetcreate submit failed with exit code $LASTEXITCODE"
+          }
