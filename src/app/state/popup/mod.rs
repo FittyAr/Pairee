@@ -4,6 +4,8 @@
 
 mod config_dialog;
 mod confirm;
+mod connection;
+mod credential;
 mod dialog;
 mod editor_viewer;
 mod file_ops;
@@ -21,7 +23,6 @@ mod plugin_widget;
 mod prompts;
 mod quickview;
 mod settings;
-mod ssh;
 pub mod sync;
 mod text_search;
 mod tools;
@@ -31,6 +32,8 @@ pub use confirm::{
     ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
     ConfirmRetryAsAdmin, ConfirmUndo, SaveSetupConfirm,
 };
+pub use connection::{ConnectionField, ConnectionPromptState};
+pub use credential::CredentialPrompt;
 use dialog::define_popup_type;
 pub use dialog::{Dialog, DialogKind, DialogScroll, KeyHandler, KeyOutcome};
 pub use editor_viewer::{
@@ -63,7 +66,6 @@ pub use prompts::{
 };
 pub use quickview::QuickViewDialog;
 pub use settings::{ColorGroupsDialog, FilesHighlightingDialog, UpdateAvailable};
-pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
 pub use tools::{
@@ -158,12 +160,14 @@ macro_rules! dialog_list {
             FileAttributesDialog(FileAttributesDialog),
             TransferPanel(TransferPanel),
             QuickViewPanel(Box<QuickViewDialog>),
-            // Settings, update and SSH
+            // Settings and update
             ConfigurationDialog(ConfigurationDialogState),
             ColorGroupsDialog(ColorGroupsDialog),
             FilesHighlightingDialog(FilesHighlightingDialog),
             UpdateAvailable(UpdateAvailable),
-            SshConnectPrompt(SshConnectPromptState),
+            // Remote connections
+            ConnectionPrompt(ConnectionPromptState),
+            CredentialPrompt(CredentialPrompt),
             // Git
             GitPanel(GitPanelState),
             GitProgress(GitProgress),

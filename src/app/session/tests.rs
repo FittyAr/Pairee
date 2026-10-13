@@ -2,7 +2,7 @@ use super::*;
 use crate::app::state::tabs::spec::{SourceKind, TabSpec};
 use crate::app::state::{ActivePanel, PanelViewMode, PopupType, SortField};
 use crate::config::session::SideSession;
-use crate::config::settings::SshPreset;
+use crate::config::settings::Connection;
 use std::path::Path;
 
 fn spec(path: &Path, source: SourceKind) -> TabSpec {
@@ -17,13 +17,13 @@ fn spec(path: &Path, source: SourceKind) -> TabSpec {
         name: None,
         locked: false,
         cursor: Some("b.txt".into()),
-        ssh_preset: None,
+        connection: None,
     }
 }
 
 fn remote_spec(preset: &str) -> TabSpec {
     TabSpec {
-        ssh_preset: Some(preset.into()),
+        connection: Some(preset.into()),
         ..spec(Path::new("/srv/www"), SourceKind::Remote)
     }
 }
@@ -48,13 +48,12 @@ fn session(left: Vec<TabSpec>, right: Vec<TabSpec>) -> SessionFile {
 fn settings_with_preset(name: &str) -> Settings {
     Settings {
         ssh_enabled: true,
-        ssh_presets: vec![SshPreset {
+        connections: vec![Connection {
             name: name.into(),
             host: "127.0.0.1".into(),
             port: "1".into(),
             username: "nobody".into(),
-            password: None,
-            key_path: None,
+            ..Connection::default()
         }],
         ssh_timeout_secs: 1,
         ..Settings::default()
@@ -205,7 +204,7 @@ fn ssh_tabs_wait_until_shown() {
         ..Default::default()
     });
     remote::resume_pending(&mut state, &context);
-    let result = state.ssh_connect.poll();
+    let result = state.remote_connect.poll();
     let (id, result) = result.expect("the connection ran inline");
     assert_eq!(id, state.panels.active_tab_id(ActivePanel::Right));
     assert!(remote::finish(&mut state, id, &result, false));

@@ -1,50 +1,46 @@
-//! Lazy reconnection of restored SSH tabs: a tab connects the first time
+//! Lazy reconnection of restored remote tabs: a tab connects the first time
 //! it is shown; if that fails it stays on the local home folder.
 
 use crate::app::context::AppContext;
 use crate::app::state::tabs::PendingRemote;
 use crate::app::state::{ActivePanel, AppState, PopupType, TabId};
 use crate::config::localization::t;
-use crate::fs::ssh::SharedSshClient;
 
-/// Starts the connection of a shown restored SSH tab (one at a time).
+/// Starts the connection of a shown restored remote tab (one at a time).
 pub fn resume_pending(state: &mut AppState, context: &AppContext) {
-    if state.ssh_connect.is_running() {
+    if state.remote_connect.is_running() {
         return;
     }
-    let Some((id, preset_name)) = next_shown_pending(state) else {
+    let Some((id, name)) = next_shown_pending(state) else {
         return;
     };
-    let preset = context
+    let saved = context
         .config
         .settings
-        .ssh_presets
+        .connections
         .iter()
-        .find(|p| p.name == preset_name)
+        .find(|c| c.name == name)
         .cloned();
-    match preset {
-        Some(preset) => {
+    match saved {
+        Some(conn) => {
             if let Some(pending) = pending_mut(state, id) {
                 pending.connecting = true;
             }
-            crate::app::input_popup::ssh_connect::actions::start_connection(
-                state, context, id, preset,
+            crate::app::input_popup::connection::actions::start_connection(
+                state, context, id, conn,
             );
         }
         None => {
             if let Some((_, tab)) = state.panels.find_tab_mut(id) {
                 tab.pending_remote = None;
             }
-            notify(
-                state,
-                t("session_ssh_preset_missing").replace("{}", &preset_name),
-            );
+            notify(state, t("session_connection_missing").replace("{}", &name));
         }
     }
 }
 
 /// The shown tab (focused side first, then the other visible side) whose
-/// SSH connection has not been started yet.
+/// remote connection has not been started yet.
 fn next_shown_pending(state: &AppState) -> Option<(TabId, String)> {
     let panels = &state.panels;
     let focused = panels.active;
@@ -56,7 +52,7 @@ fn next_shown_pending(state: &AppState) -> Option<(TabId, String)> {
     sides.into_iter().find_map(|side| {
         let tab = panels.tabs(side).active();
         let pending = tab.pending_remote.as_ref().filter(|p| !p.connecting)?;
-        Some((tab.id, pending.preset.clone()))
+        Some((tab.id, pending.connection.clone()))
     })
 }
 
@@ -66,11 +62,11 @@ fn pending_mut(state: &mut AppState, id: TabId) -> Option<&mut PendingRemote> {
 }
 
 /// Applies a finished connection of a restored tab. Returns `false` when
-/// tab `id` was not waiting for one (a connection from the SSH dialog).
+/// tab `id` was not waiting for one (a connection from the dialog).
 pub fn finish(
     state: &mut AppState,
     id: TabId,
-    result: &anyhow::Result<SharedSshClient>,
+    result: &crate::app::state::RemoteConnectResult,
     show_hidden: bool,
 ) -> bool {
     let Some(pending) = state
@@ -81,10 +77,10 @@ pub fn finish(
         return false;
     };
     match result {
-        Ok(client) => {
+        Ok((conn, _)) => {
             if let Some((_, tab)) = state.panels.find_tab_mut(id) {
                 let panel = &mut tab.panel;
-                panel.source = crate::fs::vfs::PanelSource::Remote(client.clone());
+                panel.source = crate::fs::vfs::PanelSource::Remote(conn.clone());
                 panel.current_path = pending.path;
                 panel.pending_focus = pending.cursor;
                 panel.cursor_index = 0;
@@ -94,8 +90,8 @@ pub fn finish(
         }
         Err(e) => notify(
             state,
-            t("session_ssh_restore_failed")
-                .replacen("{}", &pending.preset, 1)
+            t("session_remote_restore_failed")
+                .replacen("{}", &pending.connection, 1)
                 .replacen("{}", &e.to_string(), 1),
         ),
     }

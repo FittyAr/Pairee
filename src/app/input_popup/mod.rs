@@ -7,9 +7,11 @@ pub mod command_palette;
 pub mod compress;
 pub mod config_dialog;
 pub mod confirm_dialogs;
+pub mod connection;
 pub mod context_menu;
 pub mod copy_filter;
 pub mod create_link;
+pub mod credential;
 pub mod delete;
 pub mod describe_file;
 pub mod disk_usage;
@@ -52,7 +54,7 @@ pub mod git_confirm_checkout;
 pub mod git_new_popups;
 pub mod git_panel;
 pub mod git_progress;
-pub mod ssh_connect;
+
 pub mod update_popup;
 pub mod yazi_popup;
 

@@ -63,7 +63,7 @@ pub fn commit(
         state.dialogs.clear();
         return;
     }
-    if let Some(ssh) = state.get_active_panel().source.ssh().cloned() {
+    if let Some(remote) = state.get_active_panel().source.remote().cloned() {
         // SFTP: renamed in the background by the rename executor, which
         // refuses an existing target and journals the step for undo.
         state.dialogs.clear();
@@ -71,7 +71,7 @@ pub fn commit(
             from: src_path,
             to: target,
         };
-        super::multi_rename::run_steps(state, vec![step], Some(ssh));
+        super::multi_rename::run_steps(state, vec![step], Some(remote));
         return;
     }
     match std::fs::rename(&src_path, &target) {
@@ -81,7 +81,7 @@ pub fn commit(
                     from: src_path,
                     to: target,
                 }],
-                ssh: None,
+                remote: None,
             });
             if context.config.settings.req_admin_modification {
                 state.redraw.needs_clear = true;

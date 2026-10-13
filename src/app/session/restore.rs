@@ -80,24 +80,24 @@ fn restore_tab(spec: &TabSpec, settings: &Settings, notices: &mut Vec<String>) -
     tab
 }
 
-/// The connection to reopen for a saved SSH tab, or `None` (with a notice)
-/// when its preset is gone or SSH is turned off.
+/// The connection to reopen for a saved remote tab, or `None` (with a
+/// notice) when the saved connection is gone or remote connections are off.
 fn remote_target(
     spec: &TabSpec,
     settings: &Settings,
     notices: &mut Vec<String>,
 ) -> Option<PendingRemote> {
-    let preset = spec.ssh_preset.as_deref().unwrap_or_default();
-    let known = settings.ssh_presets.iter().any(|p| p.name == preset);
+    let name = spec.connection.as_deref().unwrap_or_default();
+    let known = settings.connections.iter().any(|c| c.name == name);
     if settings.ssh_enabled && known {
         return Some(PendingRemote {
-            preset: preset.to_string(),
+            connection: name.to_string(),
             path: spec.path.clone(),
             cursor: spec.cursor.clone(),
             connecting: false,
         });
     }
-    notices.push(t("session_ssh_preset_missing").replace("{}", preset));
+    notices.push(t("session_connection_missing").replace("{}", name));
     None
 }
 
@@ -119,7 +119,7 @@ pub fn apply_start_paths(state: &mut AppState, paths: &[PathBuf]) {
         spec.path = folder;
         spec.cursor = cursor;
         spec.source = SourceKind::Local;
-        spec.ssh_preset = None;
+        spec.connection = None;
         spec.locked = false;
         *tab = Tab::from_spec(&spec);
     }

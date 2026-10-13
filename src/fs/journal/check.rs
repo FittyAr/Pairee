@@ -61,10 +61,13 @@ pub fn check(command: &FsCommand) -> Checked {
     let mut skipped = Vec::new();
     let runnable = match command {
         // The SFTP executor re-checks every target and rolls back on error.
-        FsCommand::Rename { ssh: Some(_), .. } => Some(command.clone()),
-        FsCommand::Rename { steps, ssh: None } => {
-            check_renames(steps, &mut skipped).then(|| command.clone())
-        }
+        FsCommand::Rename {
+            remote: Some(_), ..
+        } => Some(command.clone()),
+        FsCommand::Rename {
+            steps,
+            remote: None,
+        } => check_renames(steps, &mut skipped).then(|| command.clone()),
         FsCommand::Move(batch) => {
             batch_of(batch, &mut skipped, check_transfer).map(FsCommand::Move)
         }

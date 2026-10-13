@@ -103,13 +103,13 @@ mod tests {
             name: Some("src".into()),
             locked: true,
             cursor: Some("main.rs".into()),
-            ssh_preset: None,
+            connection: None,
         }
     }
 
     fn sample() -> SessionFile {
         let mut remote = spec("/srv/www", SourceKind::Remote);
-        remote.ssh_preset = Some("web".into());
+        remote.connection = Some("web".into());
         SessionFile {
             active_side: ActivePanel::Right,
             left_visible: true,
@@ -136,7 +136,7 @@ mod tests {
         let session = sample();
         session.save_to(&path).unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
-        assert!(text.contains("ssh_preset = \"web\""));
+        assert!(text.contains("connection = \"web\""));
         assert!(!text.contains("password"));
         assert_eq!(SessionFile::load_from(&path), Some(session));
     }

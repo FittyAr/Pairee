@@ -1,20 +1,16 @@
 //! SSH connection and host key verification helpers.
 
+use super::SshLogin;
 use crate::config::localization::t;
+use crate::credential_prompt::CredentialRequest;
 use anyhow::{Context, Result};
 use ssh2::Session;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
-pub fn open_session(
-    host: &str,
-    port: u16,
-    username: &str,
-    password: Option<&str>,
-    key_path: Option<&str>,
-    timeout: Duration,
-) -> Result<Session> {
+pub fn open_session(login: &SshLogin<'_>) -> Result<Session> {
+    let (host, port) = (login.host, login.port);
     let addr = format!("{}:{}", host, port);
     let socket_addrs = addr
         .to_socket_addrs()
@@ -33,11 +29,11 @@ pub fn open_session(
     sess.set_tcp_stream(stream);
     // Bound every blocking libssh2 call (handshake, auth, SFTP) so a dead
     // server cannot hang a worker forever. 0 = no limit.
-    sess.set_timeout(timeout_millis(timeout));
+    sess.set_timeout(timeout_millis(login.timeout));
     sess.handshake().context(t("error_ssh_handshake_failed"))?;
 
     verify_host_key(&mut sess, host, port)?;
-    authenticate(&mut sess, username, password, key_path)?;
+    authenticate(&mut sess, login)?;
 
     Ok(sess)
 }
@@ -142,62 +138,71 @@ pub(super) fn host_key_verdict(
     }
 }
 
-fn authenticate(
-    sess: &mut Session,
-    username: &str,
-    password: Option<&str>,
-    key_path: Option<&str>,
-) -> Result<()> {
-    let mut authenticated = false;
-
-    // Try key authentication if provided
-    if let Some(kp) = key_path
-        && !kp.trim().is_empty()
+/// Logs in with, in order: the connection's key file (its passphrase is
+/// the password, or asked for when the key is encrypted and none was
+/// given), the password, ssh-agent, the default keys in `~/.ssh` and
+/// finally a password asked from the user (`login.ask`).
+fn authenticate(sess: &mut Session, login: &SshLogin<'_>) -> Result<()> {
+    let username = login.username;
+    if let Some(path) = login
+        .key_path
+        .map(str::trim)
+        .filter(|k| !k.is_empty())
+        .map(Path::new)
+        .filter(|p| p.exists())
     {
-        let path = Path::new(kp);
-        if path.exists() {
-            sess.userauth_pubkey_file(username, None, path, password)
-                .context(t("error_ssh_key_auth_failed"))?;
-            authenticated = true;
+        return key_login(sess, login, path, login.password)
+            .context(t("error_ssh_key_auth_failed"));
+    }
+    if let Some(pass) = login.password {
+        return sess
+            .userauth_password(username, pass)
+            .context(t("error_ssh_password_auth_failed"));
+    }
+    if sess.userauth_agent(username).is_ok() {
+        return Ok(());
+    }
+    for key in crate::credential_prompt::key::default_key_paths() {
+        if key.exists() && key_login(sess, login, &key, None).is_ok() {
+            return Ok(());
         }
     }
-
-    // Try password authentication if key failed/not provided
-    if !authenticated && let Some(pass) = password {
-        sess.userauth_password(username, pass)
-            .context(t("error_ssh_password_auth_failed"))?;
-        authenticated = true;
-    }
-
-    // Try default keys if still not authenticated
-    if !authenticated {
-        let home = std::env::var("HOME").unwrap_or_else(|_| "/root".to_string());
-        let keys = vec![
-            format!("{}/.ssh/id_rsa", home),
-            format!("{}/.ssh/id_ed25519", home),
-        ];
-        for key in keys {
-            let path = Path::new(&key);
-            if path.exists()
-                && sess
-                    .userauth_pubkey_file(username, None, path, None)
-                    .is_ok()
-            {
-                authenticated = true;
-                break;
-            }
+    let accepts_password = sess
+        .auth_methods(username)
+        .is_ok_and(|methods| methods.split(',').any(|m| m == "password"));
+    if accepts_password {
+        let subject = crate::fs::remote::user_at_host(username, login.host);
+        if let Some(pass) = (login.ask)(CredentialRequest::password(subject)) {
+            return sess
+                .userauth_password(username, &pass)
+                .context(t("error_ssh_password_auth_failed"));
         }
     }
+    anyhow::bail!(t("error_ssh_auth_failed"))
+}
 
-    // Try agent if still not authenticated
-    if !authenticated && sess.userauth_agent(username).is_ok() {
-        authenticated = true;
+/// Public key login with the key file at `path`. An encrypted key uses
+/// `passphrase`, or one asked from the user (also after a wrong one).
+fn key_login(
+    sess: &Session,
+    login: &SshLogin<'_>,
+    path: &Path,
+    passphrase: Option<&str>,
+) -> Result<()> {
+    let username = login.username;
+    if !crate::credential_prompt::key::is_encrypted(path) {
+        return Ok(sess.userauth_pubkey_file(username, None, path, None)?);
     }
-
-    if !authenticated {
-        anyhow::bail!(t("error_ssh_auth_failed"));
+    if let Some(given) = passphrase
+        && sess
+            .userauth_pubkey_file(username, None, path, Some(given))
+            .is_ok()
+    {
+        return Ok(());
     }
-    Ok(())
+    let asked = (login.ask)(CredentialRequest::passphrase(path))
+        .ok_or_else(|| anyhow::anyhow!(t("credential_prompt_cancelled")))?;
+    Ok(sess.userauth_pubkey_file(username, None, path, Some(&asked))?)
 }
 
 /// Environment variable holding the user's home directory.

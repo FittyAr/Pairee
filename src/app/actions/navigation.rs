@@ -172,18 +172,18 @@ fn open_ssh_connect(state: &mut AppState, context: &AppContext) {
             .replace(PopupType::info(t("feature_ssh_disabled")));
         return;
     }
-    state.dialogs.replace(PopupType::SshConnectPrompt(
-        crate::app::state::SshConnectPromptState::new(
+    state.dialogs.replace(PopupType::ConnectionPrompt(
+        crate::app::state::ConnectionPromptState::new(
             state.panels.active,
-            &context.config.settings.ssh_presets,
+            &context.config.settings.connections,
         ),
     ));
 }
 
-/// Returns an SSH panel to the local working directory.
+/// Returns a remote panel to the local working directory.
 fn ssh_disconnect(state: &mut AppState, show_hidden: bool) {
     let panel = state.get_active_panel_mut();
-    if panel.source.ssh().is_none() {
+    if panel.source.remote().is_none() {
         return;
     }
     panel.source = crate::fs::vfs::PanelSource::Local;

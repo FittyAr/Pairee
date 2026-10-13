@@ -111,13 +111,29 @@ impl Config {
 fn tls_config() -> io::Result<Arc<rustls::ClientConfig>> {
     use rustls_platform_verifier::BuilderVerifierExt;
     let provider = Arc::new(rustls::crypto::ring::default_provider());
-    let config = rustls::ClientConfig::builder_with_provider(provider)
+    let builder = rustls::ClientConfig::builder_with_provider(provider)
         .with_safe_default_protocol_versions()
-        .and_then(|b| b.with_platform_verifier())
+        .map_err(io::Error::other)?;
+    #[cfg(test)]
+    if let Some(root) = TEST_ROOT.get() {
+        let mut roots = rustls::RootCertStore::empty();
+        roots.add(root.clone()).map_err(io::Error::other)?;
+        return Ok(Arc::new(
+            builder.with_root_certificates(roots).with_no_client_auth(),
+        ));
+    }
+    let config = builder
+        .with_platform_verifier()
         .map_err(io::Error::other)?
         .with_no_client_auth();
     Ok(Arc::new(config))
 }
+
+/// The certificate the FTPS test server signs with, trusted instead of the
+/// system's roots when set (tests only).
+#[cfg(test)]
+pub static TEST_ROOT: std::sync::OnceLock<rustls::pki_types::CertificateDer<'static>> =
+    std::sync::OnceLock::new();
 
 /// A download on a connection of its own.
 pub struct Download {

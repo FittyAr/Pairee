@@ -30,8 +30,8 @@ pub struct TabLock {
 /// the tab is shown (see `app::session::remote`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PendingRemote {
-    /// Name of the SSH preset to connect with.
-    pub preset: String,
+    /// Name of the saved connection to connect with.
+    pub connection: String,
     /// Remote folder to show once connected.
     pub path: PathBuf,
     /// Entry to put the cursor on once the remote folder is listed.
@@ -80,15 +80,15 @@ impl Tab {
         tab
     }
 
-    /// The plain, serializable description of this tab. A restored SSH tab
-    /// that was never shown keeps its remote folder and preset.
+    /// The plain, serializable description of this tab. A restored remote
+    /// tab that was never shown keeps its remote folder and connection.
     pub fn spec(&self) -> TabSpec {
         let panel = &self.panel;
-        let (path, source, ssh_preset, cursor) = match &self.pending_remote {
+        let (path, source, connection, cursor) = match &self.pending_remote {
             Some(remote) => (
                 remote.path.clone(),
                 SourceKind::Remote,
-                Some(remote.preset.clone()),
+                Some(remote.connection.clone()),
                 remote.cursor.clone(),
             ),
             None => (
@@ -113,7 +113,7 @@ impl Tab {
             name: self.name.clone(),
             locked: self.lock.is_some(),
             cursor,
-            ssh_preset,
+            connection,
         }
     }
 
@@ -169,7 +169,7 @@ impl Tab {
             .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.to_string_lossy().into_owned());
-        match self.panel.source.ssh() {
+        match self.panel.source.remote() {
             Some(client) => format!("{}:{folder}", client.info().host),
             None => folder,
         }

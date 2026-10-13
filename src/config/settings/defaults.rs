@@ -87,7 +87,7 @@ impl Default for Settings {
 
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),
-            ssh_presets: Vec::new(),
+            connections: Vec::new(),
 
             // Git integration
             git_enabled: true,

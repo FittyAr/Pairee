@@ -1,68 +1,72 @@
-# Manual de Conexiones SSH y SFTP
+# Manual de Conexiones Remotas (SFTP, FTP, FTPS, WebDAV, S3)
 
-Pairee integra un cliente SSH y un motor de protocolo SFTP completo, permitiéndote gestionar carpetas y archivos en servidores remotos Unix/Linux o Windows a través de SSH directamente desde uno de los paneles de navegación tradicionales.
-
----
-
-## 1. Establecer una Conexión
-
-Existen tres métodos para abrir el cuadro de diálogo de conexión SSH:
-1. **Atajo de Teclado:** Presiona **`Ctrl+Shift+S`**.
-2. **Menú Desplegable:** Selecciona **`Files`** (o **`Commands`**) -> **`Connect SSH...`** en la barra superior.
-3. **Panel de Selección de Unidad:** Presiona **`Alt+F1`** (panel izquierdo) o **`Alt+F2`** (panel derecho) para abrir la lista de discos, y selecciona la opción **`[Connect SSH]`**.
+Pairee puede mostrar un servidor remoto en cualquiera de los paneles y copiar entre dos lugares cualesquiera: local ↔ remoto y remoto ↔ remoto (por ejemplo, de un servidor FTP directamente a un bucket S3). Los protocolos son SFTP (SSH), FTP, FTPS (FTP con TLS explícito), WebDAV (HTTP o HTTPS) y S3 (Amazon S3 y almacenes compatibles como MinIO, Garage, Ceph o Cloudflare R2).
 
 ---
 
-## 2. Parámetros del Diálogo de Conexión
+## 1. Abrir el administrador de conexiones
 
-El formulario de conexión contiene los siguientes parámetros de ajuste:
-* **Preset Name (Nombre del Preset):** Una etiqueta identificativa personalizada para esta conexión (ej. `Servidor de Producción API`). Si la introduces, podrás guardarla como marcador.
-* **Host:** Dirección IP o dominio del servidor remoto (ej. `192.168.1.50` o `ssh.ejemplo.com`).
-* **Port (Puerto):** Puerto SSH del servidor remoto (por defecto es `22`).
-* **Username (Usuario):** Nombre de usuario de acceso en el servidor remoto.
-* **Password (Contraseña):** Contraseña del usuario para autenticación estándar, O la frase de paso (passphrase) para descifrar el archivo de llave privada.
-* **Key Path (Ruta de la Llave):** Ruta absoluta local a tu archivo de clave privada SSH (ej. `/home/usuario/.ssh/id_rsa`). Déjala en blanco para usar contraseña o el agente local SSH.
+1. **Atajo de teclado:** pulse **`Ctrl+Shift+S`**.
+2. **Menú:** **`Archivos`** (o **`Comandos`**) → **`Conectar a un servidor...`**.
+
+La conexión se abre en el panel que estaba activo.
 
 ---
 
-## 3. Marcadores de SSH (Presets)
+## 2. El diálogo de conexión
 
-* **Guardar Marcadores:** Rellena los datos de conexión, escribe un **Preset Name** único y presiona **`[Save]`**. El marcador se guardará en la configuración de la aplicación.
-* **Cargar Marcadores:** La columna izquierda muestra los marcadores guardados. Usa las flechas de dirección o haz clic para seleccionar uno, pulsa **`[Load]`** para completar los datos y haz clic en **`[Connect]`** (o presiona `Enter`) para iniciar la sesión.
-* **Eliminar Marcadores:** Selecciona un preset en la lista y presiona **`[Delete]`**.
+La columna izquierda lista las conexiones guardadas con su protocolo, p. ej. `backup (SFTP)`. Use las flechas (o haga clic) para mostrar una en los campos de la derecha. `Tab` / `Mayús+Tab` recorren la lista, los campos y los botones.
 
----
+| Campo | Significado |
+| :--- | :--- |
+| **Nombre** | Una etiqueta para la conexión guardada. |
+| **Protocolo** | SFTP, FTP, FTPS, WebDAV, WebDAV (HTTPS) o S3. Se cambia con `←` / `→` o `Espacio`. Un puerto que era el predeterminado del protocolo anterior pasa al del nuevo. |
+| **Host** (**Bucket** en S3) | El nombre o la IP del servidor; en S3, el bucket. |
+| **Puerto** | Vacío usa el predeterminado del protocolo (22, 21, 80 o 443). S3 no lo usa. |
+| **Usuario** (**Clave de acceso** en S3) | El nombre de inicio de sesión. FTP y WebDAV entran de forma anónima sin él; S3 usa entonces `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY`. |
+| **Contraseña** (**Clave secreta** en S3) | Se guarda en el llavero del sistema (ver §5). Puede quedar vacía: Pairee la pide al conectar. En SFTP es también la frase de contraseña del archivo de clave. |
+| **Ruta de clave** | Solo SFTP: su archivo de clave privada. Vacío: se prueban el ssh-agent y las claves predeterminadas de `~/.ssh`. |
+| **Carpeta** | La carpeta que se abre al conectar (vacío: la raíz del servidor). En WebDAV y S3 es la raíz del panel (un prefijo de claves en S3). |
+| **Opciones S3** | Solo S3: `endpoint=https://minio.local:9000&region=eu-west-1&path_style=true`. Sin endpoint se usa AWS. |
 
-## 4. Navegar por Sistemas de Archivos Remotos (SFTP)
-
-Una vez establecida la conexión, el panel activo pasa a modo SFTP:
-* El título del panel se actualiza de forma dinámica a: `[SSH: usuario@host]`.
-* **Navegación Básica:**
-  - **`Enter`**: Abre el directorio seleccionado o ejecuta las asociaciones de archivos.
-  - **`Backspace`** o **`..`**: Vuelve al directorio de nivel superior.
-* **Operaciones sobre Archivos:**
-  - **`F7`** (Renombrar): Renombra un archivo directamente en el servidor remoto (renombrado SFTP; nunca sobrescribe un nombre existente). Deshacer (`Alt+Backspace`) le devuelve el nombre anterior.
-  - **`F6`** (Mover): Traslada archivos remotos entre directorios. Si ambos paneles muestran la misma conexión, el movimiento es un renombrado en el servidor y se puede deshacer.
-  - **Crear carpeta**: Crea la carpeta en el servidor.
-  - **`F8`** (Delete): Elimina de forma recursiva carpetas y archivos en el servidor remoto (no se puede deshacer).
-  - **`F3`** (Viewer): Visualiza contenidos de archivos remotos en texto plano o modo hexadecimal (se leen en memoria, hasta 64 MiB).
-  - **`F4`** (Editor): El archivo se descarga a una carpeta temporal privada y se abre en el editor interno; el título muestra la ruta remota. Al guardar se sube en segundo plano. Si el archivo del servidor cambió desde que se abrió (tamaño o fecha de modificación distintos), Pairee pregunta antes de sobrescribirlo. "Guardar como" escribe un archivo local y deja de subirlo. La copia temporal se borra al cerrar el editor.
-  - **`Ctrl+A`** (Atributos): Muestra tamaño, fecha de modificación, permisos y el propietario numérico (`uid:gid`; SFTP no informa nombres de usuario). Cambiar el modo octal o la marca de solo lectura ejecuta `chmod` en el servidor (SFTP `setstat`); solo lectura quita todos los permisos de escritura y prevalece sobre el modo escrito.
-  - Las copias desde o hacia el servidor y los borrados quedan registrados como no reversibles.
+Botones: **Conectar**, **Guardar** (guarda los campos con su nombre y reemplaza una conexión del mismo nombre), **Eliminar** y **Cancelar**. Conectar no guarda.
 
 ---
 
-## 5. Transferencia Bidireccional de Archivos
+## 3. Contraseñas y frases de contraseña pedidas cuando hacen falta
 
-Puedes copiar o mover archivos entre tu sistema local y el servidor remoto de forma asíncrona:
-* **Subir (Upload):** Enfoca tu panel local, marca los archivos que deseas enviar y presiona **`F5`** (Copiar) o **`F6`** (Mover) para subirlos a la carpeta remota del panel opuesto.
-* **Descargar (Download):** Enfoca el panel de SSH (SFTP), marca los archivos remotos y presiona **`F5`** (Copiar) o **`F6`** (Mover) para descargarlos a la carpeta local activa del panel opuesto.
-* **Cola en Segundo Plano:** Todas las transferencias ocurren en hilos de trabajo asíncronos. Una ventana flotante de progreso mostrará el nombre del archivo actual, velocidad de transferencia (MB/s), tiempo transcurrido, tamaño total y una barra de progreso. Puedes cambiar de pantalla mientras las tareas completan su curso en segundo plano.
+Si una conexión necesita un secreto que Pairee no tiene, se abre un pequeño diálogo de **Autenticación** mientras la conexión sigue en segundo plano:
+
+* un servidor SFTP que acepta contraseñas cuando no funcionó ninguna clave, agente ni contraseña;
+* la frase de contraseña de una clave SSH cifrada (el archivo configurado o una clave predeterminada de `~/.ssh`);
+* la contraseña de una conexión FTP, WebDAV o S3 con usuario pero sin contraseña guardada, o cuya contraseña fue rechazada;
+* fetch, pull y push de Git con una clave cifrada en `~/.ssh`.
+
+Lo que escribe se oculta. `Intro` lo envía y `Esc` cancela (la conexión se detiene con un mensaje). Los secretos escritos ahí se usan solo para ese inicio de sesión; guárdelos en la conexión para conservarlos.
 
 ---
 
-## 6. Desconexión
+## 4. Trabajar en un panel remoto
 
-Para cerrar la sesión SSH y restaurar el panel al sistema de archivos local:
-1. Abre el menú superior: **`Files`** (o **`Commands`**) -> **`Disconnect SSH`**.
-2. O bien, abre el selector de unidad (`Alt+F1` / `Alt+F2`) y elige cualquier punto de montaje local (ej. `/` o `C:`).
+El título del panel muestra el protocolo y el servidor, p. ej. `[FTP: usuario@host]`.
+
+* **Navegación:** `Intro` abre carpetas, `Retroceso` / `..` sube.
+* **F5 / F6 (Copiar / Mover):** entre un panel remoto y uno local, o entre dos paneles remotos de cualquier protocolo. Las transferencias corren en segundo plano con el progreso del panel de transferencias, preguntas de conflicto, reintentos, verificación y reanudación. Mover dentro de una misma conexión es un renombrado en el servidor (y se puede deshacer).
+* **F7 (Renombrar), Crear carpeta, F8 (Eliminar):** en el servidor (eliminar no se puede deshacer).
+* **F3 / F4:** ver, o editar mediante una copia local temporal que se sube al guardar (antes se comprueba si cambió en el servidor).
+* **Ctrl+A (Atributos):** solo SFTP.
+* La actualización automática consulta carpetas remotas solo con `auto_refresh_ssh` activado.
+
+---
+
+## 5. Dónde se guardan los secretos
+
+Las contraseñas y las claves secretas de S3 se guardan en el llavero del sistema (Administrador de credenciales de Windows, Llavero de macOS, Secret Service en Linux), nunca en `config.toml`. Si el llavero no se puede usar se conservan solo durante la sesión, salvo que ponga `passwords_in_config = true` en la sección `[security]` de `config.toml`. Si el llavero no se puede leer al iniciar (bloqueado, no disponible momentáneamente), la contraseña guardada no se toca y se vuelve a leer al conectar.
+
+Las conexiones guardadas por versiones anteriores (`[[ssh_presets]]`) se leen como conexiones SFTP y sus entradas del llavero se mueven automáticamente.
+
+---
+
+## 6. Desconectar
+
+**`Archivos`** (o **`Comandos`**) → **`Desconectar`** devuelve el panel al disco local, igual que elegir una unidad local en el menú de unidades (`Alt+F1` / `Alt+F2`).

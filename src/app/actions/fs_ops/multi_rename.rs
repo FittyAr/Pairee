@@ -7,7 +7,7 @@ use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::fs::journal::FsCommand;
 use crate::fs::multi_rename::{RenameReport, RenameSource, Step, TargetFs, execute, plan};
-use crate::fs::ssh::{SharedSshClient, endpoint_vfs};
+use crate::fs::remote::{RemoteConn, endpoint_vfs};
 use crate::fs::vfs::Vfs;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -15,7 +15,7 @@ use std::path::{Path, PathBuf};
 /// A finished batch of renames and the panel connection it ran on.
 pub struct RenameRun {
     pub report: RenameReport,
-    pub ssh: Option<SharedSshClient>,
+    pub remote: Option<RemoteConn>,
 }
 
 /// Opens the dialog for the selected entries (or the one under the cursor),
@@ -62,8 +62,8 @@ pub fn start(state: &mut AppState) {
     }
     dialog.running = true;
     let moves = dialog.preview.moves(&dialog.sources);
-    let ssh = dialog.source.ssh().cloned();
-    spawn(state, ssh, move |backend, fs| {
+    let remote = dialog.source.remote().cloned();
+    spawn(state, remote, move |backend, fs| {
         let taken = |path: &Path| backend.exists(path);
         match plan(&moves, fs, &taken) {
             Ok(steps) => execute(&steps, backend, fs),
@@ -79,33 +79,35 @@ pub fn start(state: &mut AppState) {
 }
 
 /// Runs already ordered `steps` (an undo/redo of renames) in the background.
-pub fn run_steps(state: &mut AppState, steps: Vec<Step>, ssh: Option<SharedSshClient>) {
-    spawn(state, ssh, move |backend, fs| execute(&steps, backend, fs));
+pub fn run_steps(state: &mut AppState, steps: Vec<Step>, remote: Option<RemoteConn>) {
+    spawn(state, remote, move |backend, fs| {
+        execute(&steps, backend, fs)
+    });
 }
 
 /// Runs `job` on the panel's filesystem in the multi-rename job slot.
 fn spawn(
     state: &mut AppState,
-    ssh: Option<SharedSshClient>,
+    remote: Option<RemoteConn>,
     job: impl FnOnce(&dyn Vfs, TargetFs) -> RenameReport + Send + 'static,
 ) {
     state.multi_rename.start(move |_| {
-        let fs = TargetFs::for_panel(ssh.is_some());
-        let report = job(endpoint_vfs(&ssh).as_ref(), fs);
-        RenameRun { report, ssh }
+        let fs = TargetFs::for_panel(remote.is_some());
+        let report = job(endpoint_vfs(&remote).as_ref(), fs);
+        RenameRun { report, remote }
     });
 }
 
 /// Applies a finished rename job: closes the dialog or shows the error, and
 /// rereads the panels either way.
 pub fn poll(state: &mut AppState, context: &AppContext) {
-    let Some(RenameRun { report, ssh }) = state.multi_rename.poll() else {
+    let Some(RenameRun { report, remote }) = state.multi_rename.poll() else {
         return;
     };
     let direction = state.journal.finish_rename();
     let applied = FsCommand::Rename {
         steps: report.applied.clone(),
-        ssh,
+        remote,
     };
     state.journal.settle(direction, applied);
     if matches!(state.dialogs.top(), Some(PopupType::MultiRename(_))) {

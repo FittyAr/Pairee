@@ -8,7 +8,7 @@
 use crate::config::localization::t;
 use crate::fs::LinkKind;
 use crate::fs::multi_rename::Step;
-use crate::fs::ssh::SharedSshClient;
+use crate::fs::remote::RemoteConn;
 use crate::fs::stamp::Stamp;
 use crate::fs::transfer::part::Replaced;
 use std::path::PathBuf;
@@ -95,10 +95,10 @@ pub enum Irreversible {
 /// An applied operation.
 #[derive(Debug, Clone)]
 pub enum FsCommand {
-    /// Renames in the order they ran (local, or SFTP when `ssh` is set).
+    /// Renames in the order they ran (local, or on a remote connection when `remote` is set).
     Rename {
         steps: Vec<Step>,
-        ssh: Option<SharedSshClient>,
+        remote: Option<RemoteConn>,
     },
     Move(FileBatch),
     Copy(FileBatch),
@@ -144,7 +144,7 @@ impl FsCommand {
     /// The command that reverses this one (`None` when it cannot be undone).
     pub fn inverse(&self) -> Option<Self> {
         Some(match self {
-            Self::Rename { steps, ssh } => Self::Rename {
+            Self::Rename { steps, remote } => Self::Rename {
                 steps: steps
                     .iter()
                     .rev()
@@ -153,7 +153,7 @@ impl FsCommand {
                         to: s.from.clone(),
                     })
                     .collect(),
-                ssh: ssh.clone(),
+                remote: remote.clone(),
             },
             Self::Move(batch) => {
                 Self::Move(batch.reversing(batch.files.iter().map(FileStep::swapped).collect()))

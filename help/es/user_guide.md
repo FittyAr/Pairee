@@ -236,7 +236,7 @@ function p {
 ## 📖 5. Manuales de Integración Avanzada
 
 Para módulos más complejos y detallados, por favor consulta sus manuales específicos:
-* **Conexión SSH y SFTP:** Consulta el [Manual de Conexiones SSH y SFTP](ssh_sftp.md).
+* **Conexiones remotas (SFTP, FTP, FTPS, WebDAV, S3):** Consulta el [Manual de Conexiones Remotas](ssh_sftp.md).
 * **Integración con Git:** Consulta el [Manual de Integración con Git](git_integration.md).
 * **Detalle de Ajustes de Configuración:** Consulta el [Manual de Ajustes de Configuración](configuration_details.md).
 * **Atajos de Teclado del Sistema:** Consulta la [Guía de Atajos de Teclado](keyboard_shortcuts.md).

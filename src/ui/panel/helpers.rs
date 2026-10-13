@@ -32,9 +32,9 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
         String::new()
     };
 
-    let ssh_suffix = if let Some(client) = panel.source.ssh() {
-        let info = client.info();
-        format!(" [SSH: {}@{}]", info.username, info.host)
+    let remote_suffix = if let Some(conn) = panel.source.remote() {
+        let kind = crate::config::localization::t(conn.info().kind.label_key());
+        format!(" [{kind}: {}]", conn.user_at_host())
     } else {
         String::new()
     };
@@ -60,7 +60,7 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
     format!(
         " {}{}{} [{}{}]{} ",
         panel.current_path.to_string_lossy(),
-        ssh_suffix,
+        remote_suffix,
         git_suffix,
         mode_label,
         sort_letter,

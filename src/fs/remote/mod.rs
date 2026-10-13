@@ -2,8 +2,11 @@
 //! S3, each an adapter of the panel source port that passes the same
 //! contract suite as the local, SFTP and archive ones.
 //!
-//! [`connect`] is the factory the connection dialog plugs into: it reads a
-//! URL and returns the adapter for its scheme plus the folder to open.
+//! [`connect`] reads a URL and returns the adapter for its scheme plus the
+//! folder to open; [`open`] is what the connection dialog calls with a
+//! saved connection of any kind (SFTP included), asking for a missing
+//! password. Panels, transfers, the journal and auto-refresh hold the
+//! result as a [`RemoteConn`], whatever the protocol.
 //!
 //! | scheme | backend |
 //! |---|---|
@@ -16,16 +19,20 @@
 //! Every call performs network I/O: like SFTP, run them from background
 //! jobs. Paths are absolute in the adapter's namespace (`/dir/file`).
 
+mod conn;
 mod ftp;
 mod http;
+mod open;
 mod s3;
 mod webdav;
 mod xml;
 
 #[cfg(test)]
-mod tests;
+pub(crate) mod tests;
 
+pub use conn::{RemoteConn, RemoteInfo, endpoint_vfs, is_dir_on, user_at_host};
 pub use ftp::FtpVfs;
+pub use open::open;
 pub use s3::S3Vfs;
 pub use webdav::WebDavVfs;
 

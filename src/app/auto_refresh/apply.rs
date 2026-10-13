@@ -20,7 +20,7 @@ impl AppState {
             .filter(|panel| panel.source.archive().is_none())
             .map(|panel| WatchTarget {
                 dir: panel.current_path.clone(),
-                remote: panel.source.ssh().cloned(),
+                remote: panel.source.remote().cloned(),
             })
             .collect()
     }
@@ -48,7 +48,7 @@ impl AppState {
         let mut busy = false;
         for (_, tab) in self.panels.all_tabs_mut() {
             let panel = &mut tab.panel;
-            let origin = super::origin_of(panel.source.ssh());
+            let origin = super::origin_of(panel.source.remote());
             let monitored = panel.source.archive().is_none() && origin == change.origin;
             if !monitored || panel.current_path != change.dir {
                 continue;

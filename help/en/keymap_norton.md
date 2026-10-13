@@ -181,7 +181,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 
 | Keys | Action |
 | :--- | :--- |
-| `Ctrl+Alt+r` | SSH: connect |
+| `Ctrl+Alt+r` | Remote: connect |
 
 ### Tools
 

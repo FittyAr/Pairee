@@ -34,8 +34,8 @@ pub use panel::PanelState;
 pub use panel_pair::PanelPair;
 pub use plugin_host::{PendingPluginReply, PluginHostState};
 pub use popup::{
-    ConfigDraft, ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState,
-    PopupType, SshConnectPromptState,
+    ConfigDraft, ConfigurationDialogState, ConnectionPromptState, CopyMovePromptState,
+    GitPanelState, PluginMenuState, PopupType,
 };
 pub use prefs::PanelPrefs;
 pub use screens::{ScreenId, ScreenStack};
@@ -98,6 +98,10 @@ pub struct SelectionSnapshot {
     pub order: Vec<PathBuf>,
 }
 
+/// What a background connection attempt gives: the connection and the
+/// folder to open.
+pub type RemoteConnectResult = anyhow::Result<(crate::fs::remote::RemoteConn, PathBuf)>;
+
 pub struct AppState {
     pub panels: PanelPair,
     pub history: HistoryState,
@@ -113,9 +117,11 @@ pub struct AppState {
     /// Overlay dialogs (top frame is the active popup).
     pub dialogs: DialogStack,
     pub should_quit: bool,
-    /// Background SSH connection attempt (target tab, result).
-    pub ssh_connect:
-        crate::app::jobs::JobSlot<(TabId, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
+    /// Background remote connection attempt (target tab, the connection
+    /// and the folder to show).
+    pub remote_connect: crate::app::jobs::JobSlot<(TabId, RemoteConnectResult)>,
+    /// Credential requests of background jobs and their prompts.
+    pub credential_requests: crate::app::credential_requests::CredentialRequests,
     /// Background Find file search (matches so far as progress).
     pub search: crate::app::jobs::file_search::SearchSlot,
     pub plugins: PluginHostState,
@@ -198,7 +204,8 @@ impl AppState {
             last_panel_search: None,
             dialogs: DialogStack::new(),
             should_quit: false,
-            ssh_connect: Default::default(),
+            remote_connect: Default::default(),
+            credential_requests: Default::default(),
             search: Default::default(),
             plugins: PluginHostState::default(),
             screens: ScreenStack::default(),

@@ -9,8 +9,8 @@ use std::sync::Arc;
 use std::sync::mpsc::{Receiver, Sender, channel};
 use std::time::{Duration, SystemTime};
 
-/// Which filesystem a monitored folder is on: the local disk, or the SFTP
-/// connection with the given identity (`SharedSshClient::id`).
+/// Which filesystem a monitored folder is on: the local disk, or the remote
+/// connection with the given identity (`RemoteConn::id`).
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum WatchOrigin {
     #[default]

@@ -12,7 +12,7 @@ fn rename_batch(moves: &[(PathBuf, PathBuf)]) -> FsCommand {
     assert!(report.is_success(), "{report:?}");
     FsCommand::Rename {
         steps: report.applied,
-        ssh: None,
+        remote: None,
     }
 }
 
@@ -25,7 +25,7 @@ fn run(command: &FsCommand) -> FsCommand {
     assert!(report.is_success(), "{report:?}");
     FsCommand::Rename {
         steps: report.applied,
-        ssh: None,
+        remote: None,
     }
 }
 
@@ -73,7 +73,7 @@ fn rename_undo_is_refused_when_the_old_name_is_taken() {
             from: old.clone(),
             to: new.clone(),
         }],
-        ssh: None,
+        remote: None,
     };
     write(&old, "someone else");
     let checked = check(&entry.inverse().unwrap());
@@ -90,7 +90,7 @@ fn rename_undo_is_refused_when_the_file_is_gone() {
             from: p(dir.path(), "a"),
             to: p(dir.path(), "b"),
         }],
-        ssh: None,
+        remote: None,
     };
     let checked = check(&entry.inverse().unwrap());
     assert!(checked.runnable.is_none());

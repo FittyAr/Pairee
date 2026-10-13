@@ -1,4 +1,4 @@
-//! Scan phase shared by the local worker and the SSH backend: walks the
+//! Scan phase shared by the local worker and the remote backend: walks the
 //! sources (through the shared [`Walker`]) and lists what to transfer.
 //!
 //! * Files become `(source, destination, size)` mappings; folders become

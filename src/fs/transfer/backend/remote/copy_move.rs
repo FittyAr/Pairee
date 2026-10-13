@@ -1,4 +1,4 @@
-//! SSH copy and move: the shared scan and copy phase over the SFTP and
+//! Remote copy and move: the shared scan and copy phase over the remote and
 //! local [`Vfs`] adapters, so remote transfers get what local ones have —
 //! conflict resolution, retries, verification, times and permissions,
 //! atomic writes (`.pairee-part` + rename) and moves that only delete a
@@ -6,23 +6,23 @@
 //! are skipped with a warning (or walked when following links) instead of
 //! aborting the job.
 
-use super::super::super::job::{SshEndpoints, TransferOperation, TransferResults};
+use super::super::super::job::{RemoteEndpoints, TransferOperation, TransferResults};
 use super::fast_remote_rename;
-use crate::fs::ssh::endpoint_vfs;
+use crate::fs::remote::endpoint_vfs;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::copy_phase::{CopyRequest, Endpoints, run_copy_phase};
 use crate::fs::transfer::scan::{ScanOutcome, ScanRequest, scan, top_targets};
 use anyhow::anyhow;
 
-use super::SshJob;
+use super::RemoteJob;
 
-pub async fn run_ssh_copy_move(
-    job: SshJob,
+pub async fn run_remote_copy_move(
+    job: RemoteJob,
     control: JobControl,
 ) -> anyhow::Result<TransferResults> {
-    let SshEndpoints { src, dst } = job.ssh.clone();
+    let RemoteEndpoints { src, dst } = job.remote.clone();
     if src.is_none() && dst.is_none() {
-        return Err(anyhow!("SSH transfer requires at least one connection"));
+        return Err(anyhow!("Remote transfer requires at least one connection"));
     }
     let same_server = matches!((&src, &dst), (Some(a), Some(b)) if a.is_same_server(b));
     if job.operation == TransferOperation::Move && same_server {
@@ -52,7 +52,7 @@ pub async fn run_ssh_copy_move(
 
 /// The scan reads the server: it runs on a blocking thread.
 async fn scan_blocking(
-    job: &SshJob,
+    job: &RemoteJob,
     endpoints: &Endpoints,
     control: &JobControl,
 ) -> anyhow::Result<ScanOutcome> {
@@ -83,5 +83,5 @@ async fn blocking<T: Send + 'static>(
 ) -> anyhow::Result<T> {
     tokio::task::spawn_blocking(work)
         .await
-        .map_err(|e| anyhow!("SSH transfer task failed: {e}"))?
+        .map_err(|e| anyhow!("Remote transfer task failed: {e}"))?
 }

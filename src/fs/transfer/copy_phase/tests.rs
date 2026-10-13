@@ -10,7 +10,7 @@ use crate::fs::vfs::LocalVfs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
-/// Local folders reached through the stream copy, as an SSH job would.
+/// Local folders reached through the stream copy, as a remote job would.
 fn stream_endpoints() -> Endpoints {
     Endpoints {
         local: false,

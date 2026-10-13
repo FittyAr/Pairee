@@ -1,16 +1,6 @@
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-pub struct SshPreset {
-    pub name: String,
-    pub host: String,
-    pub port: String,
-    pub username: String,
-    pub password: Option<String>,
-    pub key_path: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct PluginConfig {
     pub name: String,
     #[serde(default)]
@@ -39,10 +29,11 @@ fn enabled_by_default() -> bool {
 /// registry downloads are authenticated.
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
 pub struct SecuritySettings {
-    /// Keep SSH preset passwords in `config.toml` (plain text) when the
+    /// Keep connection passwords in `config.toml` (plain text) when the
     /// system keyring is unavailable. Off: such passwords are not saved.
-    #[serde(default)]
-    pub ssh_passwords_in_config: bool,
+    /// Older releases called it `ssh_passwords_in_config`.
+    #[serde(default, alias = "ssh_passwords_in_config")]
+    pub passwords_in_config: bool,
     /// minisign public key the plugin registry is checked with (empty =
     /// the key pinned in Pairee).
     #[serde(default)]

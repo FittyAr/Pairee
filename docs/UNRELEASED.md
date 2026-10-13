@@ -25,6 +25,10 @@
 - The viewer's key bar shows the encoding key (F8).
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
 
+- Connection manager (`Ctrl+Shift+S`, Files → Connect to server...): save, edit, delete and connect SFTP, FTP, FTPS, WebDAV (HTTP / HTTPS) and S3 connections and open them in either panel. Copy and move work between any two places: local ↔ remote and remote ↔ remote (e.g. FTP → S3), with the transfer panel's progress, conflicts, retries and verification.
+- Pairee asks for a missing password or key passphrase in a prompt while connecting, instead of failing: SFTP logins, encrypted SSH keys (also for Git fetch, pull and push), and FTP / WebDAV / S3 connections without a stored password or whose password was rejected. Esc cancels.
+- FTP: file information comes from `MLST` when the server supports it (one request instead of listing the whole folder).
+
 ### Improved
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
 - The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
@@ -54,11 +58,14 @@
 - The screens list and the command-line screen indicator are translated.
 - Keymap problem reports are translated; unused translation keys were removed and a few Spanish texts translated.
 
+- SSH presets became connections of any protocol: `[[ssh_presets]]` in `config.toml` is read as SFTP connections and written back as `[[connections]]`; their keyring entries move from `ssh-preset:<name>` to `connection:<name>`. `[security] ssh_passwords_in_config` is now `passwords_in_config` (the old name still works). Saved sessions with SSH tabs still reopen.
+
 ### Deprecated
 
 ### Removed
 
 ### Fixed
+- A keyring that could not be read at startup (locked, temporarily unavailable) no longer makes the next save delete the stored connection password; it is read again when connecting.
 - Removing or renaming an SSH preset now deletes its old password from the system keyring.
 - Starting Pairee with a plugin under development whose folder was gone deleted the saved SSH preset passwords from the system keyring.
 - `pairee plugin install <name>` failed for every plugin: the name was sent to the registry with a `.pairee` suffix that plugin names cannot have.

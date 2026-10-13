@@ -142,10 +142,10 @@ impl DiskUsageState {
     /// (no rescan, no polling of the server). Returns `true` if any.
     pub fn job_finished(&mut self, job: &TransferJob, results: &TransferResults) -> bool {
         let remote = job
-            .ssh
+            .remote
             .as_ref()
             .and_then(|e| e.src.as_ref().or(e.dst.as_ref()));
-        let same_source = match (self.source.ssh(), remote) {
+        let same_source = match (self.source.remote(), remote) {
             (Some(shown), Some(job)) => shown.is_same_server(job),
             (None, None) => true,
             _ => false,

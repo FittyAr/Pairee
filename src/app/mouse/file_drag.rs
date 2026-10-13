@@ -234,8 +234,14 @@ pub fn release(
     match drop_target(state, &drag, target) {
         Some(Drop::Folder { side, dir }) => {
             let endpoints = (
-                state.panels.tabs(drag.side).panel().source.ssh().cloned(),
-                state.panels.tabs(side).panel().source.ssh().cloned(),
+                state
+                    .panels
+                    .tabs(drag.side)
+                    .panel()
+                    .source
+                    .remote()
+                    .cloned(),
+                state.panels.tabs(side).panel().source.remote().cloned(),
             );
             crate::app::actions::fs_ops::transfer::start(
                 state,

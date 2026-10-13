@@ -1,4 +1,4 @@
-//! Background channel event processors for terminal, SSH, search, and plugin dev tools.
+//! Background channel event processors for terminal, remote connections, search, and plugin dev tools.
 
 use crate::app::context::AppContext;
 use crate::app::state::popup::SearchResults;
@@ -18,8 +18,10 @@ pub fn process_terminal_updates(state: &mut AppState) {
     }
 }
 
-pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
-    let Some((tab, res)) = state.ssh_connect.poll() else {
+/// Applies a finished connection from the connection dialog (or of a
+/// restored tab, see `session::remote::finish`).
+pub fn process_remote_connect_updates(state: &mut AppState, context: &AppContext) {
+    let Some((tab, res)) = state.remote_connect.poll() else {
         return;
     };
     let show_hidden = context.config.settings.show_hidden;
@@ -30,13 +32,13 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
     match res {
         // The tab was closed while connecting: drop the connection.
         Ok(_) if state.panels.find_tab(tab).is_none() => state.dialogs.clear(),
-        Ok(client) => {
+        Ok((conn, start)) => {
             let Some((_, t)) = state.panels.find_tab_mut(tab) else {
                 return;
             };
             let p = &mut t.panel;
-            p.source = crate::fs::vfs::PanelSource::Remote(client);
-            p.current_path = std::path::PathBuf::from("/");
+            p.source = crate::fs::vfs::PanelSource::Remote(conn);
+            p.current_path = start;
             p.cursor_index = 0;
             p.clear_selection();
             state.dialogs.clear();
@@ -45,7 +47,7 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
         Err(e) => {
             state.dialogs.replace(PopupType::error(format!(
                 "{} {}",
-                crate::config::localization::t("error_ssh_failed"),
+                crate::config::localization::t("error_remote_connect_failed"),
                 e
             )));
         }

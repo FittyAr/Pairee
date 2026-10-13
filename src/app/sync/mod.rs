@@ -80,7 +80,7 @@ fn roots(state: &mut AppState, purpose: ScanPurpose) -> Option<(PathBuf, PathBuf
         state.panels.side(ActivePanel::Left),
         state.panels.side(ActivePanel::Right),
     );
-    let remote = left.source.ssh().is_some() || right.source.ssh().is_some();
+    let remote = left.source.remote().is_some() || right.source.remote().is_some();
     if purpose == ScanPurpose::Sync && remote {
         state
             .dialogs

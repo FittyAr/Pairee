@@ -17,32 +17,51 @@ struct Server {
     root: PathBuf,
 }
 
-/// Starts `serve` on a thread of its own, on a folder that lives as long
-/// as the process.
-fn start<F, Fut>(serve: F) -> Server
+/// Held while a port is picked: libunftp binds its own address, so an FTP
+/// server picks a free port, releases it and listens there; meanwhile no
+/// other test server may bind (it could be handed the same port).
+fn picking_ports() -> std::sync::MutexGuard<'static, ()> {
+    static PICKING: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    PICKING.lock().unwrap_or_else(|e| e.into_inner())
+}
+
+/// Runs `serve` on a thread of its own with a runtime, on a folder that
+/// lives as long as the process.
+fn spawn_server<F, Fut>(serve: F) -> PathBuf
 where
-    F: FnOnce(tokio::net::TcpListener, PathBuf) -> Fut + Send + 'static,
+    F: FnOnce(PathBuf) -> Fut + Send + 'static,
     Fut: std::future::Future<Output = ()>,
 {
     let root = tempfile::tempdir().unwrap().keep();
     let served = root.clone();
-    let (tx, rx) = std::sync::mpsc::channel();
     std::thread::spawn(move || {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .worker_threads(2)
             .enable_all()
             .build()
             .unwrap();
-        runtime.block_on(async move {
-            let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
-            tx.send(listener.local_addr().unwrap()).unwrap();
-            serve(listener, served).await;
-        });
+        runtime.block_on(serve(served));
     });
-    Server {
-        addr: rx.recv().unwrap(),
-        root,
-    }
+    root
+}
+
+/// Starts `serve` on a listener of its own.
+fn start<F, Fut>(serve: F) -> Server
+where
+    F: FnOnce(tokio::net::TcpListener, PathBuf) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()>,
+{
+    let listener = {
+        let _picking = picking_ports();
+        std::net::TcpListener::bind("127.0.0.1:0").unwrap()
+    };
+    let addr = listener.local_addr().unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let root = spawn_server(move |root| async move {
+        let listener = tokio::net::TcpListener::from_std(listener).unwrap();
+        serve(listener, root).await;
+    });
+    Server { addr, root }
 }
 
 /// Serves `service` on every connection `listener` accepts (HTTP/1).
@@ -107,20 +126,58 @@ fn s3_server() -> &'static Server {
     })
 }
 
+/// An FTP server with passive data ports in `ports`; with `tls` (certificate
+/// and key PEM files) it also offers explicit TLS (`AUTH TLS`). libunftp
+/// binds data ports with `SO_REUSEADDR`, which on Windows lets two sessions
+/// share one: wide ranges keep that unlikely while tests run in parallel.
+fn ftp_server_on(ports: std::ops::RangeInclusive<u16>, tls: Option<(PathBuf, PathBuf)>) -> Server {
+    let picking = picking_ports();
+    let addr = std::net::TcpListener::bind("127.0.0.1:0")
+        .unwrap()
+        .local_addr()
+        .unwrap();
+    let root = spawn_server(move |root| async move {
+        let mut builder = libunftp::ServerBuilder::new(Box::new(move || {
+            unftp_sbe_fs::Filesystem::new(root.clone()).unwrap()
+        }))
+        .passive_ports(ports);
+        if let Some((cert, key)) = tls {
+            builder = builder.ftps(cert, key);
+        }
+        let server = builder.build().unwrap();
+        server.listen(addr.to_string()).await.unwrap();
+    });
+    // The port is ours once the server accepts on it.
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
+    while std::net::TcpStream::connect(addr).is_err() {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "FTP server not listening"
+        );
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    drop(picking);
+    Server { addr, root }
+}
+
 fn ftp_server() -> &'static Server {
     static SERVER: OnceLock<Server> = OnceLock::new();
+    SERVER.get_or_init(|| ftp_server_on(20_000..=34_999, None))
+}
+
+/// FTPS with a self-signed certificate made now, which the client trusts
+/// instead of the system's roots (see `ftp::TEST_ROOT`).
+fn ftps_server() -> &'static Server {
+    static SERVER: OnceLock<Server> = OnceLock::new();
     SERVER.get_or_init(|| {
-        start(|listener, root| async move {
-            let addr = listener.local_addr().unwrap();
-            drop(listener);
-            let server = libunftp::ServerBuilder::new(Box::new(move || {
-                unftp_sbe_fs::Filesystem::new(root.clone()).unwrap()
-            }))
-            .passive_ports(50_000..=50_999)
-            .build()
-            .unwrap();
-            let _ = server.listen(addr.to_string()).await;
-        })
+        let names = vec!["localhost".to_string(), "127.0.0.1".to_string()];
+        let certified = rcgen::generate_simple_self_signed(names).unwrap();
+        let dir = tempfile::tempdir().unwrap().keep();
+        let (cert, key) = (dir.join("cert.pem"), dir.join("key.pem"));
+        std::fs::write(&cert, certified.cert.pem()).unwrap();
+        std::fs::write(&key, certified.signing_key.serialize_pem()).unwrap();
+        let _ = super::ftp::TEST_ROOT.set(certified.cert.der().clone());
+        ftp_server_on(35_000..=49_151, Some((cert, key)))
     })
 }
 
@@ -168,9 +225,100 @@ fn ftp_fixture() -> Fixture {
     fixture(&format!("ftp://{}/{name}", server.addr), dir)
 }
 
+/// For tests elsewhere (connection dialog, transfers): an empty folder of
+/// its own on the shared FTP (`webdav`: WebDAV) test server, the server's
+/// address and the folder's name.
+pub(crate) fn served_folder(webdav: bool) -> (tempfile::TempDir, SocketAddr, String) {
+    let server = if webdav {
+        webdav_server()
+    } else {
+        ftp_server()
+    };
+    let dir = tempfile::tempdir_in(&server.root).unwrap();
+    let name = crate::fs::file_name_lossy(dir.path());
+    (dir, server.addr, name)
+}
+
+fn ftps_fixture() -> Fixture {
+    let server = ftps_server();
+    let (dir, name) = folder_on(server, Path::new(""));
+    fixture(
+        &format!("ftps://127.0.0.1:{}/{name}", server.addr.port()),
+        dir,
+    )
+}
+
 vfs_contract!(webdav, super::webdav_fixture);
 vfs_contract!(s3, super::s3_fixture);
 vfs_contract!(ftp, super::ftp_fixture);
+vfs_contract!(ftps, super::ftps_fixture);
+
+/// `stat` asks `MLST` (libunftp answers it) instead of listing the parent.
+#[test]
+fn ftp_stat_uses_mlst_when_the_server_has_it() {
+    use crate::fs::vfs::Vfs;
+    let server = ftp_server();
+    let (dir, name) = folder_on(server, Path::new(""));
+    std::fs::write(dir.path().join("five.txt"), b"12345").unwrap();
+    let url = url::Url::parse(&format!("ftp://{}/{name}", server.addr)).unwrap();
+    let ftp = super::FtpVfs::open(&url, false).unwrap();
+    let folder = Path::new("/").join(&name);
+    let entry = ftp.stat(&folder.join("five.txt")).unwrap();
+    assert!(ftp.answers_mlst());
+    assert_eq!(
+        (entry.name.as_str(), entry.size, entry.is_dir),
+        ("five.txt", 5, false)
+    );
+    assert_eq!(entry.path, folder.join("five.txt"));
+    assert!(ftp.stat(&folder).unwrap().is_dir);
+    let missing = ftp.stat(&folder.join("nope")).unwrap_err();
+    assert_eq!(missing.kind(), std::io::ErrorKind::NotFound);
+}
+
+/// A saved FTP connection opens through `open` with its URL built from the
+/// fields; the folder is the start.
+#[test]
+fn saved_ftp_connections_open_on_their_folder() {
+    use crate::config::settings::{Connection, RemoteKind};
+    use crate::credential_prompt::CredentialRequest;
+    let server = ftp_server();
+    let (_dir, name) = folder_on(server, Path::new(""));
+    let conn = Connection {
+        name: "test".into(),
+        kind: RemoteKind::Ftp,
+        host: server.addr.ip().to_string(),
+        port: server.addr.port().to_string(),
+        path: format!("/{name}"),
+        ..Connection::default()
+    };
+    let timeout = std::time::Duration::from_secs(5);
+    let never =
+        |_: CredentialRequest| -> Option<String> { panic!("an anonymous login asks nothing") };
+    let (remote, start) = super::open(&conn, timeout, &never).unwrap();
+    assert_eq!(start, Path::new("/").join(&name));
+    assert_eq!(remote.info().kind, RemoteKind::Ftp);
+    assert!(
+        remote
+            .list(&start)
+            .unwrap()
+            .iter()
+            .any(|e| e.name == "a.txt")
+    );
+
+    // A user without a stored password: the password is asked for.
+    let with_user = Connection {
+        username: "me".into(),
+        ..conn
+    };
+    let asked = std::sync::Mutex::new(0);
+    let ask = |_: CredentialRequest| {
+        *asked.lock().unwrap() += 1;
+        Some("typed".to_string())
+    };
+    let (remote, _) = super::open(&with_user, timeout, &ask).unwrap();
+    assert_eq!(*asked.lock().unwrap(), 1);
+    assert_eq!(remote.user_at_host(), format!("me@{}", server.addr.ip()));
+}
 
 #[test]
 fn schemes_pick_their_backend() {
