@@ -31,3 +31,4 @@ mod transfer;
 mod typing_modes;
 mod vfs_followups;
 mod viewer;
+mod views;

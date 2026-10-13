@@ -15,6 +15,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Alt+Left` | Atrás |
 | `Down` | Bajar |
 | `Alt+Up` · `Backspace` | Ir a la carpeta superior |
+| `Ctrl+Alt+z` | Ir a una carpeta frecuente |
 | `Ctrl+Alt+1` | Ir al acceso a carpeta 1 |
 | `Ctrl+Alt+2` | Ir al acceso a carpeta 2 |
 | `Ctrl+Alt+3` | Ir al acceso a carpeta 3 |
@@ -45,7 +46,9 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Alt+Enter` | Atributos del archivo |
+| `Ctrl+Alt+u` | Buscar archivos duplicados |
 | `Alt+s` | Calcular tamaño de carpetas |
+| `Ctrl+Alt+c` | Comparar archivos |
 | `F5` | Copiar al otro panel |
 | `F7` · `Ctrl+N` | Crear carpeta |
 | `Ctrl+Alt+l` | Crear enlace |
@@ -61,6 +64,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `F2` | Renombrar |
 | `Alt+d` | Uso de disco |
 | `F3` | Ver archivo |
+| `Ctrl+Alt+x` · `Ctrl+B` | Vista de rama (todos los archivos debajo) |
 
 ### Portapapeles
 

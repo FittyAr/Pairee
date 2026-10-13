@@ -28,8 +28,7 @@ pub struct GitDiffViewState {
     pub repo_path: PathBuf,
     pub file_path: Option<String>,
     pub commit_hash: Option<String>,
-    pub diff_content: String,
-    pub scroll_y: usize,
+    pub viewer: super::DiffViewer,
 }
 
 /// What a Git name prompt does with the typed name (Strategy for the shared

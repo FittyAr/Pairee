@@ -133,6 +133,9 @@ pub(crate) fn prepare_first_frame(state: &mut AppState, context: &mut AppContext
             &context.config.settings,
         ));
     state.folder_shortcuts = crate::config::bookmarks::BookmarksFile::load().shortcut_map();
+    if context.config.settings.save_folders_history {
+        state.frecency = crate::config::frecency::FrecencyStore::load();
+    }
 
     // Initial folder scans
     state.refresh_both_panels(context.config.settings.show_hidden);

@@ -16,6 +16,7 @@
 //! search returns what it found, flagged [`DupeReport::partial`].
 
 mod group;
+pub mod keep;
 mod scan;
 
 #[cfg(test)]

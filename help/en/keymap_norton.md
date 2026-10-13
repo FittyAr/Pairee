@@ -29,6 +29,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `End` | Go to last item |
 | `Backspace` · `Ctrl+PageUp` | Go to parent folder |
 | `Ctrl+\` | Go to root folder |
+| `Ctrl+Alt+z` | Jump to a frequent folder |
 | `Down` | Move down |
 | `Up` | Move up |
 | `Enter` | Open / run |
@@ -51,7 +52,9 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | Keys | Action |
 | :--- | :--- |
 | `Ctrl+g` | Apply command |
+| `Ctrl+Alt+x` | Branch view (every file below) |
 | `Ctrl+Alt+s` | Calculate folder sizes |
+| `Ctrl+Alt+c` | Compare files |
 | `F5` | Copy to other panel |
 | `Alt+F6` | Create link |
 | `F8` | Delete |
@@ -60,6 +63,7 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `Ctrl+Alt+d` | Disk usage |
 | `F4` | Edit file |
 | `Ctrl+a` | File attributes |
+| `Ctrl+Alt+u` | Find duplicate files |
 | `F7` | Make folder |
 | `F6` | Move to other panel |
 | `Ctrl+Shift+F6` | Multi-rename |

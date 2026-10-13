@@ -96,6 +96,17 @@ impl HashAlgorithm {
             HashAlgorithm::Blake3 => "BLAKE3",
         }
     }
+
+    /// The next algorithm, in the order the option dialogs cycle them.
+    pub fn next(self) -> Self {
+        match self {
+            HashAlgorithm::Blake3 => HashAlgorithm::Crc32,
+            HashAlgorithm::Crc32 => HashAlgorithm::Md5,
+            HashAlgorithm::Md5 => HashAlgorithm::Sha1,
+            HashAlgorithm::Sha1 => HashAlgorithm::Sha256,
+            HashAlgorithm::Sha256 => HashAlgorithm::Blake3,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
