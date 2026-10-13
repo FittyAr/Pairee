@@ -138,6 +138,11 @@ mod tests {
         let text = std::fs::read_to_string(&path).unwrap();
         assert!(text.contains("connection = \"web\""));
         assert!(!text.contains("password"));
+        assert_eq!(SessionFile::load_from(&path), Some(session.clone()));
+
+        // Sessions of older releases named the field `ssh_preset`.
+        let old = text.replace("connection = \"web\"", "ssh_preset = \"web\"");
+        std::fs::write(&path, old).unwrap();
         assert_eq!(SessionFile::load_from(&path), Some(session));
     }
 

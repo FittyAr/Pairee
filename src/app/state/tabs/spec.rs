@@ -45,6 +45,6 @@ pub struct TabSpec {
     /// Saved connection of a remote tab (`path` is then the remote folder).
     /// Only the connection name is stored, never a password. Older
     /// releases called it `connection`.
-    #[serde(default, alias = "connection", skip_serializing_if = "Option::is_none")]
+    #[serde(default, alias = "ssh_preset", skip_serializing_if = "Option::is_none")]
     pub connection: Option<String>,
 }

@@ -87,14 +87,34 @@ pub fn connect(url: &str) -> io::Result<Remote> {
     }
 }
 
-/// The error of an unusable URL.
+/// The error of an unusable URL (its password, if any, left out).
 fn invalid(url: &str, why: &str) -> io::Error {
     io::Error::new(
         io::ErrorKind::InvalidInput,
         t("remote_invalid_url")
-            .replacen("{}", url, 1)
+            .replacen("{}", &without_password(url), 1)
             .replacen("{}", why, 1),
     )
+}
+
+/// `url` as it may be shown or logged: without its password (cut by hand
+/// when the URL does not parse).
+fn without_password(url: &str) -> String {
+    if let Ok(mut parsed) = url::Url::parse(url) {
+        let _ = parsed.set_password(None);
+        return parsed.into();
+    }
+    let Some((scheme, rest)) = url.split_once("://") else {
+        return url.to_string();
+    };
+    let authority = &rest[..rest.find('/').unwrap_or(rest.len())];
+    match authority.rfind('@') {
+        Some(at) => {
+            let user = authority[..at].split(':').next().unwrap_or_default();
+            format!("{scheme}://{user}@{}", &rest[at + 1..])
+        }
+        None => url.to_string(),
+    }
 }
 
 /// What the remote backends support: everything but local tools and the

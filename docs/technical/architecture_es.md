@@ -153,15 +153,21 @@ El sistema está desacoplado en varios componentes de responsabilidad única:
 
 ---
 
+## 🗄️ 8. Conexiones remotas y peticiones de credenciales
+
+Paneles, transferencias (`TransferJob::remote`, `backend::remote`), el historial de operaciones y el refresco automático guardan un lugar remoto como `fs::remote::RemoteConn` (el adaptador `Vfs` más un `RemoteInfo` sin secretos), sea SFTP, FTP/FTPS, WebDAV o S3; así se copia y mueve entre cualquier par de extremos locales y remotos. Las conexiones guardadas son `config::settings::Connection` (`[[connections]]`; los `[[ssh_presets]]` antiguos se leen como SFTP) y `fs::remote::open` las conecta. Sus secretos van al llavero (`connection:<nombre>` más un índice; un error de lectura marca la conexión `secret_unread` y guardar nunca borra la entrada). Un trabajo en segundo plano que necesita un secreto lo pide con `credential_prompt`: la petición cruza un canal hasta un `CredentialPrompt` (enmascarado) que la UI apila sobre los diálogos; Intro responde, Esc o cerrar el diálogo cancelan, sin bloquear el hilo de la UI.
+
+---
+
 ## 🗂️ 9. Pestañas de Carpetas
 
 `PanelPair` guarda un `PanelTabs` por lado (`app/state/tabs/`): un `Vec<Tab>` ordenado y el índice activo. Cada `Tab` posee un `PanelState` completo (ruta y `PanelSource`, listado, cursor, selección, vista, orden, filtros, tamaños de carpetas y sus `JobSlot`), un título opcional y un `TabLock` opcional. `PanelPair::side()` / `AppState::get_active_panel()` devuelven el panel de la pestaña activa, así que el código que trabaja con "el panel" no cambió.
 
-* **Enrutado:** cada pestaña tiene un `TabId` único y estable. Los trabajos en segundo plano viven en los `JobSlot` de la propia pestaña, `poll_panel_listings` recorre todas las pestañas y los trabajos iniciados fuera del panel (conexión SSH) llevan el `TabId`; si la pestaña se cerró, el resultado se descarta.
+* **Enrutado:** cada pestaña tiene un `TabId` único y estable. Los trabajos en segundo plano viven en los `JobSlot` de la propia pestaña, `poll_panel_listings` recorre todas las pestañas y los trabajos iniciados fuera del panel (conexión remota) llevan el `TabId`; si la pestaña se cerró, el resultado se descarta.
 * **Comandos:** `app/state/tab_ops.rs` y `app/actions/tabs.rs`. Una pestaña bloqueada se aplica en `refresh_tab`: si su ruta salió del bloqueo, vuelve a su carpeta y la nueva ubicación se abre en una pestaña contigua.
 * **Dibujo:** `ui/tab_bar.rs` distribuye los títulos y registra las celdas en `AppState::tab_bar` para los clics (`app/app/tab_mouse.rs`).
-* **Persistencia:** `Tab::spec()` / `Tab::from_spec()` convierten a `TabSpec`, una estructura serde sin tipos de UI (incluye el elemento bajo el cursor y el nombre del perfil SSH).
-* **Sesión:** `app/session/` gestiona el inicio y la salida. `start()` aplica los valores de "Guardar configuración", luego `config::session::SessionFile` (`session.toml`, leído y escrito con `config::toml_store` como marcadores e historial) y por último las carpetas de la línea de comandos (`launch_args.rs`) en las pestañas visibles. Las pestañas SFTP restauradas llevan un `PendingRemote` y se conectan desde su perfil la primera vez que se muestran (`session/remote.rs`, con el mismo `ssh_connect` que el diálogo SSH). `persist_on_exit()` guarda configuración, historial y sesión y devuelve la carpeta para `--cwd-file` / `--print-cwd`.
+* **Persistencia:** `Tab::spec()` / `Tab::from_spec()` convierten a `TabSpec`, una estructura serde sin tipos de UI (incluye el elemento bajo el cursor y el nombre de la conexión guardada).
+* **Sesión:** `app/session/` gestiona el inicio y la salida. `start()` aplica los valores de "Guardar configuración", luego `config::session::SessionFile` (`session.toml`, leído y escrito con `config::toml_store` como marcadores e historial) y por último las carpetas de la línea de comandos (`launch_args.rs`) en las pestañas visibles. Las pestañas remotas restauradas llevan un `PendingRemote` y se conectan desde su perfil la primera vez que se muestran (`session/remote.rs`, con el mismo `ssh_connect` que el diálogo SSH). `persist_on_exit()` guarda configuración, historial y sesión y devuelve la carpeta para `--cwd-file` / `--print-cwd`.
 
 ---
 

@@ -26,6 +26,8 @@ pub struct Fixture {
     /// An empty folder is visible. S3 emulators that keep no folder
     /// markers only show a folder once something is stored in it.
     pub empty_folders: bool,
+    /// Held for the test (a server the test must use alone).
+    pub _hold: Option<Box<dyn std::any::Any>>,
 }
 
 /// The local adapter on a temporary folder.
@@ -37,6 +39,7 @@ pub fn local_fixture() -> Fixture {
         root: dir.path().to_path_buf(),
         _dir: dir,
         empty_folders: true,
+        _hold: None,
     }
 }
 
@@ -53,6 +56,7 @@ pub fn archive_fixture(name: &str, write: ArchiveWriter) -> Fixture {
         root,
         _dir: dir,
         empty_folders: true,
+        _hold: None,
     }
 }
 

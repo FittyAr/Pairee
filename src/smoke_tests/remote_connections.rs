@@ -54,8 +54,8 @@ fn new_connections_of_any_kind_are_saved_from_the_dialog() {
 
 #[test]
 fn panels_connect_and_copy_between_local_and_remote_folders() {
-    let (ftp_dir, ftp_addr, ftp_folder) = served_folder(false);
-    let (dav_dir, dav_addr, dav_folder) = served_folder(true);
+    let (ftp_dir, ftp_addr, ftp_folder, _ftp_turn) = served_folder(false);
+    let (dav_dir, dav_addr, dav_folder, _) = served_folder(true);
     let mut h = Harness::builder()
         .settings(|s| {
             s.connections = vec![
