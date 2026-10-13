@@ -24,7 +24,12 @@ mod tests {
             dir.display()
         );
         let (tx, _rx) = mpsc::channel::<PluginRequest>(8);
-        let lua = create_sandboxed_lua(&dir, trusted, tx).expect("sandbox lua");
+        let lua = create_sandboxed_lua(
+            &dir,
+            &crate::plugin::load_options::PluginLoadOptions::new(name, trusted, false),
+            tx,
+        )
+        .expect("sandbox lua");
         (lua, dir)
     }
 

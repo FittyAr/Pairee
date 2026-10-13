@@ -9,20 +9,20 @@ mod target;
 
 use crate::plugin::command_policy::CommandPolicy;
 use crate::plugin::manager::PluginRequest;
-pub use jail::FsPolicy;
+pub use jail::{Access, FsPolicy, contain, normalize_lexical};
 use mlua::{Lua, Table};
 use std::sync::Arc;
+pub use target::Target;
 use tokio::sync::mpsc;
 
 /// Bind `pairee.fs`. `policy` is captured by every closure so the sandbox
 /// cannot be altered from Lua.
 pub fn bind(
     lua: &Lua,
-    policy: FsPolicy,
+    policy: Arc<FsPolicy>,
     commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<Table<'_>> {
-    let policy = Arc::new(policy);
     let fs = lua.create_table()?;
     ops::bind_core(lua, &fs, &policy)?;
     extra::bind_extra(lua, &fs, &policy)?;

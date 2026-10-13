@@ -6,8 +6,9 @@
 //! * Untrusted plugins: always jailed. Reads are allowed inside the plugin
 //!   directory and the per-plugin data directory; writes only inside the data
 //!   directory, and never inside Pairee's config directory.
-//! * Trusted plugins in Secure Mode: jailed to workspace, config, cache,
-//!   plugin and data directories.
+//! * Trusted plugins in Secure Mode: reads are jailed to workspace, config,
+//!   cache, plugin and data directories; writes to workspace, cache and data
+//!   directories, never to the config directory outside the data directory.
 //! * Trusted plugins otherwise: unrestricted (they already have `io`/`os`).
 //!
 //! Paths are normalized lexically and the nearest existing ancestor is
@@ -73,52 +74,68 @@ impl FsPolicy {
         let resolved = resolve_existing(&lexical)
             .ok_or_else(|| format!("Security violation: cannot resolve path {path:?}"))?;
 
-        let roots: Vec<&PathBuf> = if self.trusted {
-            vec![
-                &self.plugin_dir,
-                &self.data_dir,
-                &self.workspace,
-                &self.config_dir,
-                &self.cache_dir,
-            ]
-        } else {
-            match access {
-                Access::Read => vec![&self.plugin_dir, &self.data_dir],
-                Access::Write
-                    if canonical_root(&self.config_dir)
-                        .is_some_and(|cfg| resolved.starts_with(cfg)) =>
-                {
-                    Vec::new()
-                }
-                Access::Write => vec![&self.data_dir],
-            }
-        };
-        let matched = roots
+        let matched = self
+            .roots(access, &resolved)
             .into_iter()
-            .filter_map(|root| canonical_root(root))
-            .find(|root| resolved.starts_with(root));
-
-        if let Some(root) = matched {
-            let rel = resolved
-                .strip_prefix(&root)
-                .map(Path::to_path_buf)
-                .unwrap_or_default();
-            Ok(Target::Jailed {
-                root,
-                rel,
-                path: lexical,
-            })
-        } else {
+            .find_map(|root| jailed_in(root, &resolved, &lexical));
+        matched.ok_or_else(|| {
             let mode = if self.trusted {
                 "Secure Mode"
             } else {
                 "the untrusted plugin sandbox"
             };
-            Err(format!(
+            format!(
                 "Security violation: path {path:?} is outside the directories permitted by {mode}"
-            ))
+            )
+        })
+    }
+
+    /// Jail roots for `access` to the already resolved path `resolved`.
+    ///
+    /// Pairee's config directory (settings, keybindings, associations, user
+    /// menu, plugins and `plugins.lock`) is read-only for every jailed
+    /// plugin: a write there is only allowed inside the plugin's own data
+    /// directory, so a plugin cannot switch Secure Mode off or trust itself.
+    fn roots(&self, access: Access, resolved: &Path) -> Vec<&PathBuf> {
+        match access {
+            Access::Read if self.trusted => vec![
+                &self.plugin_dir,
+                &self.data_dir,
+                &self.workspace,
+                &self.config_dir,
+                &self.cache_dir,
+            ],
+            Access::Read => vec![&self.plugin_dir, &self.data_dir],
+            Access::Write if self.inside_config(resolved) => vec![&self.data_dir],
+            Access::Write if self.trusted => vec![&self.data_dir, &self.workspace, &self.cache_dir],
+            Access::Write => vec![&self.data_dir],
         }
     }
+
+    fn inside_config(&self, resolved: &Path) -> bool {
+        canonical_root(&self.config_dir).is_some_and(|cfg| resolved.starts_with(cfg))
+    }
+}
+
+/// `resolved` as a target under `root` when it lies inside it (`lexical`
+/// is the path shown to Lua).
+fn jailed_in(root: &Path, resolved: &Path, lexical: &Path) -> Option<Target> {
+    let root = canonical_root(root)?;
+    let rel = resolved.strip_prefix(&root).ok()?.to_path_buf();
+    Some(Target::Jailed {
+        root,
+        rel,
+        path: lexical.to_path_buf(),
+    })
+}
+
+/// `path` (absolute) as a target jailed to `root`, or `None` when `..`
+/// segments, symlinks or a dangling link would take it outside. Shared by
+/// `pairee.fs` and the plugin `require` loader.
+pub fn contain(root: &Path, path: &Path) -> Option<Target> {
+    let lexical = normalize_lexical(path);
+    let resolved = resolve_existing(&lexical)?;
+    jailed_in(root, &resolved, &lexical)
 }
 
 /// Collapse `.` and `..` without touching the filesystem. `..` never climbs
@@ -264,6 +281,56 @@ mod tests {
             f.policy.check(&target, Access::Write).unwrap(),
             Target::Free(PathBuf::from(&target))
         );
+    }
+
+    #[test]
+    fn secure_mode_config_dir_is_read_only() {
+        let f = fixture(true, true);
+        for name in [
+            "config.toml",
+            "keybindings.toml",
+            "associations.toml",
+            "plugins.lock",
+            "plugins/other/main.lua",
+        ] {
+            let target = f.policy.config_dir.join(name);
+            assert!(
+                f.policy.check(&s(&target), Access::Write).is_err(),
+                "{name}"
+            );
+            assert!(f.policy.check(&s(&target), Access::Read).is_ok(), "{name}");
+        }
+        let own_code = f.policy.plugin_dir.join("main.lua");
+        assert!(f.policy.check(&s(&own_code), Access::Write).is_err());
+        let data = f.policy.data_dir.join("state.json");
+        assert!(f.policy.check(&s(&data), Access::Write).is_ok());
+    }
+
+    #[test]
+    fn secure_mode_data_dir_inside_config_stays_writable() {
+        let mut f = fixture(true, true);
+        f.policy.data_dir = f.policy.config_dir.join("plugin-data").join("demo");
+        std::fs::create_dir_all(&f.policy.data_dir).unwrap();
+        let data = f.policy.data_dir.join("state.json");
+        assert!(f.policy.check(&s(&data), Access::Write).is_ok());
+        let cfg = f.policy.config_dir.join("config.toml");
+        assert!(f.policy.check(&s(&cfg), Access::Write).is_err());
+    }
+
+    #[test]
+    fn workspace_inside_config_dir_is_not_writable() {
+        let mut f = fixture(true, true);
+        f.policy.workspace = f.policy.config_dir.clone();
+        let cfg = f.policy.config_dir.join("config.toml");
+        assert!(f.policy.check(&s(&cfg), Access::Write).is_err());
+    }
+
+    #[test]
+    fn contain_keeps_paths_under_the_root() {
+        let f = fixture(false, false);
+        let root = &f.policy.plugin_dir;
+        assert!(contain(root, &root.join("lib").join("util.lua")).is_some());
+        assert!(contain(root, &root.join("..").join("..").join("x.lua")).is_none());
     }
 
     #[test]

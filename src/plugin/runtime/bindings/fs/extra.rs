@@ -85,7 +85,7 @@ mod tests {
         let (tx, _rx) = mpsc::channel::<PluginRequest>(1);
         bind(
             lua,
-            FsPolicy::new(std::path::Path::new("demo"), true, false),
+            std::sync::Arc::new(FsPolicy::new(std::path::Path::new("demo"), true, false)),
             std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
             tx,
         )
