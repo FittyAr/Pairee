@@ -54,8 +54,8 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
                     && ts.job_id == Some(job_id)
                 {
                     match &line {
-                        Some(text) => ts.output_lines.push(text.clone()),
-                        None => ts.is_running = false,
+                        Some(text) => ts.output.push(text.clone()),
+                        None => ts.job_finished(),
                     }
                 }
             }

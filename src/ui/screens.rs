@@ -6,20 +6,8 @@ use super::quickview;
 use super::tab_bar;
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, AppState, PopupType, Screen};
-use ansi_to_tui::IntoText as _;
 use ratatui::Frame;
 use ratatui::layout::Rect;
-use ratatui::text::Text;
-
-/// Visible terminal scrollback as ratatui Text, with SGR colors applied.
-pub fn terminal_output_text(output_lines: &[String], max_lines: usize) -> Text<'static> {
-    if output_lines.is_empty() || max_lines == 0 {
-        return Text::default();
-    }
-    let start = output_lines.len().saturating_sub(max_lines);
-    let joined = output_lines[start..].join("\n");
-    joined.into_text().unwrap_or_else(|_| Text::from(joined))
-}
 
 pub fn render_screen(
     f: &mut Frame,
@@ -63,16 +51,13 @@ pub fn render_screen(
                 },
             );
         }
-        Screen::Terminal(ts) => {
-            let max_lines = layout.main_rect.height.saturating_sub(2) as usize;
-            let text = terminal_output_text(&ts.output_lines, max_lines);
-            let p = ratatui::widgets::Paragraph::new(text).block(
-                ratatui::widgets::Block::default()
-                    .borders(ratatui::widgets::Borders::ALL)
-                    .title(format!(" Terminal: {} ", ts.command)),
-            );
-            f.render_widget(p, layout.main_rect);
-        }
+        Screen::Terminal(ts) => crate::ui::terminal_screen::render(
+            f,
+            layout.main_rect,
+            ts,
+            state.screens.active_id(),
+            &context.theme(),
+        ),
     }
 }
 

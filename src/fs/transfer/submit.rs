@@ -66,13 +66,10 @@ pub fn submit_apply_command(state: &mut AppState, template: String, targets: Vec
         TransferOptions::default(),
     )
     .with_shell_template(template.clone());
-    state.push_screen(Screen::Terminal(TerminalState {
-        command: template,
-        output_lines: Vec::new(),
-        is_running: true,
-        pid: None,
-        job_id: Some(job.id),
-    }));
+    let limit = state.screens.terminal_lines;
+    state.push_screen(Screen::Terminal(TerminalState::for_job(
+        template, job.id, limit,
+    )));
     submit_job(state, job);
 }
 
@@ -88,9 +85,9 @@ mod tests {
         match state.screens.last() {
             Some(Screen::Terminal(ts)) => {
                 assert_eq!(ts.command, "echo %f");
-                assert!(ts.is_running);
+                assert!(ts.is_running());
                 assert!(ts.job_id.is_some());
-                assert!(ts.output_lines.is_empty());
+                assert!(ts.output.is_empty());
             }
             other => panic!("expected Terminal screen, got {other:?}"),
         }

@@ -27,6 +27,7 @@ pub fn markdown(preset: &str, tr: Translate) -> String {
     out.push_str(&section(tr("shortcuts_tab_panels"), &loaded.panels, tr));
     out.push_str(&section(tr("shortcuts_tab_editor"), &loaded.editor, tr));
     out.push_str(&section(tr("shortcuts_tab_viewer"), &loaded.viewer, tr));
+    out.push_str(&section(tr("shortcuts_tab_terminal"), &loaded.terminal, tr));
     out.push_str(&section(tr("shortcuts_tab_list"), &loaded.list, tr));
     out
 }

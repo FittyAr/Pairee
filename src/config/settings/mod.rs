@@ -13,9 +13,9 @@ pub use types::{
     default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
     default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
     default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
-    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
-    default_transfer_max_retries, default_transfer_report_format, default_true,
-    default_viewer_codepage,
+    default_terminal_scrollback_lines, default_transfer_buffer, default_transfer_conflict,
+    default_transfer_hash, default_transfer_max_retries, default_transfer_report_format,
+    default_true, default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -151,6 +151,9 @@ pub struct Settings {
     /// Encoding name or label used when detection is off (e.g. `windows-1252`).
     #[serde(default = "default_viewer_codepage")]
     pub viewer_default_codepage: String,
+    /// Output lines each terminal screen (`command &`) keeps.
+    #[serde(default = "default_terminal_scrollback_lines")]
+    pub terminal_scrollback_lines: u32,
 
     // ── Colors settings (dialog tab 6) ───────────────────────────────────────
     pub highlight_rules: Vec<crate::ui::highlight::HighlightRule>,

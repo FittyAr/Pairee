@@ -264,6 +264,26 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | :--- | :--- |
 | `Esc` · `F10` | Close viewer |
 
+## Terminal
+
+### Navigation
+
+| Keys | Action |
+| :--- | :--- |
+| `Shift+End` | Go to end of output |
+| `Shift+Home` | Go to start of output |
+| `Shift+PageDown` | Page down |
+| `Shift+PageUp` | Page up |
+| `Shift+Down` | Scroll down |
+| `Shift+Up` | Scroll up |
+
+### System
+
+| Keys | Action |
+| :--- | :--- |
+| `F10` | Close terminal screen |
+| `F8` | Stop the process |
+
 ## Lists
 
 ### Navigation

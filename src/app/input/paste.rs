@@ -5,7 +5,10 @@ use crate::app::text_input::first_paste_line;
 /// Insert a paste into the focused text field, the editor screen (every
 /// line), or the CLI when no overlay is open.
 pub fn handle_paste(state: &mut AppState, raw: &str) {
-    if state.dialogs.is_none() && crate::app::screen_input::editor::paste_into_editor(state, raw) {
+    if state.dialogs.is_none()
+        && (crate::app::screen_input::editor::paste_into_editor(state, raw)
+            || crate::app::screen_input::terminal::paste_into_terminal(state, raw))
+    {
         return;
     }
     let line = first_paste_line(raw);

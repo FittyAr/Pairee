@@ -23,7 +23,7 @@ use super::keymap::ContextKeymap;
 use super::options::KeymapOptions;
 use super::plugin_commands::{self, PluginCommand, PluginCommandId};
 use super::registry::Bindable;
-use super::screens::{EditorAction, ListAction, ViewerAction};
+use super::screens::{EditorAction, ListAction, TerminalAction, ViewerAction};
 use crate::config::AppConfig;
 use crate::config::keybindings::{KeybindingsConfig, OverrideTable};
 use assign::Assignments;
@@ -59,6 +59,7 @@ pub struct LoadedKeymap {
     pub panels: ContextKeymap<Action>,
     pub editor: ContextKeymap<EditorAction>,
     pub viewer: ContextKeymap<ViewerAction>,
+    pub terminal: ContextKeymap<TerminalAction>,
     pub list: ContextKeymap<ListAction>,
     pub options: KeymapOptions,
     pub report: KeymapLoadReport,
@@ -112,6 +113,7 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
         panels: build_context(&plan, &mut report),
         editor: build_context(&plan, &mut report),
         viewer: build_context(&plan, &mut report),
+        terminal: build_context(&plan, &mut report),
         list: build_context(&plan, &mut report),
         options: plan.options,
         report: KeymapLoadReport::default(),
@@ -119,6 +121,7 @@ pub fn build_keymap(spec: &KeymapSpec, source: PresetSource) -> LoadedKeymap {
     report.bound_count = loaded.panels.rows().len()
         + loaded.editor.rows().len()
         + loaded.viewer.rows().len()
+        + loaded.terminal.rows().len()
         + loaded.list.rows().len();
     if loaded.panels.rows().is_empty() {
         report
@@ -204,7 +207,9 @@ pub fn split_sections(table: &OverrideTable) -> BTreeMap<String, Table> {
     let mut sections: BTreeMap<String, Table> = BTreeMap::new();
     for (id, keys) in table {
         let (section, id) = match id.split_once('.') {
-            Some((section, rest)) if ["panels", "editor", "viewer", "list"].contains(&section) => {
+            Some((section, rest))
+                if ["panels", "editor", "viewer", "terminal", "list"].contains(&section) =>
+            {
                 (section, rest)
             }
             _ => ("panels", id.as_str()),

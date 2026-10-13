@@ -24,6 +24,8 @@ pub struct ScreenStack {
     entries: Vec<Entry>,
     active: usize,
     next_id: u64,
+    /// Output lines a new terminal screen keeps (`terminal_scrollback_lines`).
+    pub terminal_lines: usize,
 }
 
 impl Default for ScreenStack {
@@ -36,6 +38,7 @@ impl Default for ScreenStack {
             }],
             active: 0,
             next_id: 1,
+            terminal_lines: super::terminal::DEFAULT_LINES,
         }
     }
 }
@@ -159,7 +162,8 @@ impl AppState {
         self.switch_screen((self.screens.active + len - 1) % len);
     }
 
-    /// Closes screen `id`. The panels screen cannot be closed.
+    /// Closes screen `id` (a terminal screen's process stops when its
+    /// state is dropped). The panels screen cannot be closed.
     pub fn close_screen(&mut self, id: ScreenId) {
         self.screens.remove(id, &mut self.dialogs);
     }

@@ -19,6 +19,7 @@
 //! behaviour stays deterministic.
 
 mod cancel;
+pub mod file_search;
 mod slot;
 
 #[cfg(test)]

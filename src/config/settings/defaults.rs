@@ -83,6 +83,7 @@ impl Default for Settings {
             viewer_show_scrollbar: false,
             viewer_autodetect_codepage: true,
             viewer_default_codepage: super::default_viewer_codepage(),
+            terminal_scrollback_lines: super::default_terminal_scrollback_lines(),
 
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),

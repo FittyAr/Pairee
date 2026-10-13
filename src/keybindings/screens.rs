@@ -1,5 +1,6 @@
-//! Commands of the editor and viewer screens and of list popups, bound in
-//! the `[editor]`, `[viewer]` and `[list]` sections of a preset.
+//! Commands of the editor, viewer and terminal screens and of list popups,
+//! bound in the `[editor]`, `[viewer]`, `[terminal]` and `[list]` sections
+//! of a preset.
 //!
 //! Typing and cursor motions with selection stay with the editor itself:
 //! only commands are bindable.
@@ -46,6 +47,22 @@ pub enum ViewerAction {
     Encoding,
     /// Stops a running search, else closes the viewer.
     Quit,
+}
+
+/// Terminal screen commands (output of `command &`). Keys not bound here
+/// are typed into the running process.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum TerminalAction {
+    ScrollUp,
+    ScrollDown,
+    PageUp,
+    PageDown,
+    Top,
+    Bottom,
+    /// Stops the running process (the screen stays open).
+    Kill,
+    /// Stops the process, if still running, and closes the screen.
+    Close,
 }
 
 /// Cursor keys of list popups (menus, history lists, pickers...). A key
@@ -100,6 +117,7 @@ const fn must<B: Copy>(def: ScreenDef<B>) -> ScreenDef<B> {
 use Category as C;
 use EditorAction as E;
 use ListAction as L;
+use TerminalAction as T;
 use ViewerAction as V;
 
 pub const EDITOR_CATALOG: &[ScreenDef<EditorAction>] = &[
@@ -131,8 +149,22 @@ pub const VIEWER_CATALOG: &[ScreenDef<ViewerAction>] = &[
     on_fkey(cmd("edit", V::Edit, C::Files), "fkey_edit"),
     on_fkey(cmd("search", V::Search, C::Search), "fkey_vw_search"),
     cmd("search_next", V::SearchNext, C::Search),
-    cmd("encoding", V::Encoding, C::View),
+    on_fkey(cmd("encoding", V::Encoding, C::View), "fkey_vw_encoding"),
     must(on_fkey(cmd("quit", V::Quit, C::System), "fkey_vw_quit")),
+];
+
+pub const TERMINAL_CATALOG: &[ScreenDef<TerminalAction>] = &[
+    cmd("scroll_up", T::ScrollUp, C::Navigation),
+    cmd("scroll_down", T::ScrollDown, C::Navigation),
+    cmd("page_up", T::PageUp, C::Navigation),
+    cmd("page_down", T::PageDown, C::Navigation),
+    cmd("top", T::Top, C::Navigation),
+    cmd("bottom", T::Bottom, C::Navigation),
+    on_fkey(cmd("kill", T::Kill, C::System), "fkey_term_kill"),
+    must(on_fkey(
+        cmd("close", T::Close, C::System),
+        "fkey_term_close",
+    )),
 ];
 
 pub const LIST_CATALOG: &[ScreenDef<ListAction>] = &[
@@ -171,6 +203,13 @@ impl ScreenCommand for ViewerAction {
     const SECTION: &'static str = "viewer";
     fn catalog() -> &'static [ScreenDef<Self>] {
         VIEWER_CATALOG
+    }
+}
+
+impl ScreenCommand for TerminalAction {
+    const SECTION: &'static str = "terminal";
+    fn catalog() -> &'static [ScreenDef<Self>] {
+        TERMINAL_CATALOG
     }
 }
 
@@ -242,6 +281,7 @@ mod tests {
     fn catalogues_are_unique_and_labelled() {
         check::<EditorAction>();
         check::<ViewerAction>();
+        check::<TerminalAction>();
         check::<ListAction>();
     }
 }

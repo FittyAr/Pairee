@@ -17,6 +17,7 @@ pub mod screens;
 pub mod scrollbar;
 pub mod search_highlight;
 pub mod tab_bar;
+pub mod terminal_screen;
 pub mod text_width;
 pub mod theme_apply;
 pub mod transfer;

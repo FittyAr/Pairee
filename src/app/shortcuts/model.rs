@@ -10,7 +10,7 @@ use crate::keybindings::keymap::ContextKeymap;
 use crate::keybindings::loader::{KeymapLoadReport, LoadedKeymap, Origin};
 use crate::keybindings::plugin_commands;
 use crate::keybindings::registry::Bindable;
-use crate::keybindings::screens::{EditorAction, ListAction, ViewerAction};
+use crate::keybindings::screens::{EditorAction, ListAction, TerminalAction, ViewerAction};
 use std::collections::HashSet;
 
 /// The contexts the modal shows as tabs.
@@ -19,11 +19,18 @@ pub enum ContextTab {
     Panels,
     Editor,
     Viewer,
+    Terminal,
     List,
 }
 
 impl ContextTab {
-    pub const ALL: [Self; 4] = [Self::Panels, Self::Editor, Self::Viewer, Self::List];
+    pub const ALL: [Self; 5] = [
+        Self::Panels,
+        Self::Editor,
+        Self::Viewer,
+        Self::Terminal,
+        Self::List,
+    ];
 
     /// Preset section of the context.
     pub fn section(self) -> &'static str {
@@ -31,6 +38,7 @@ impl ContextTab {
             Self::Panels => "panels",
             Self::Editor => "editor",
             Self::Viewer => "viewer",
+            Self::Terminal => "terminal",
             Self::List => "list",
         }
     }
@@ -40,6 +48,7 @@ impl ContextTab {
             Self::Panels => "shortcuts_tab_panels",
             Self::Editor => "shortcuts_tab_editor",
             Self::Viewer => "shortcuts_tab_viewer",
+            Self::Terminal => "shortcuts_tab_terminal",
             Self::List => "shortcuts_tab_list",
         }
     }
@@ -142,6 +151,13 @@ pub fn build_rows(
         ContextTab::Viewer,
         &loaded.viewer,
         ViewerAction::all(),
+        |_| None,
+        &ctx,
+    ));
+    rows.extend(context_rows(
+        ContextTab::Terminal,
+        &loaded.terminal,
+        TerminalAction::all(),
         |_| None,
         &ctx,
     ));

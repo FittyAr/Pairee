@@ -199,6 +199,11 @@ pub fn default_compare_mtime_tolerance_secs() -> u64 {
     crate::fs::compare::DEFAULT_MTIME_TOLERANCE_SECS
 }
 
+/// Output lines a terminal screen keeps (older lines are dropped).
+pub fn default_terminal_scrollback_lines() -> u32 {
+    10_000
+}
+
 pub fn default_git_log_limit() -> u32 {
     100
 }

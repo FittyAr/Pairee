@@ -34,6 +34,17 @@ pub fn system() -> Vec<Row> {
         toggle!(1, "sys_digits_numbers", treat_digits_as_numbers),
         toggle!(1, "sys_case_sensitive", case_sensitive_sort),
         toggle!("sys_auto_save", auto_save_setup),
+        super::title_key("sys_terminal_section"),
+        super::edit(
+            "sys_terminal_scrollback",
+            |s| s.terminal_scrollback_lines.to_string(),
+            |s| s.terminal_scrollback_lines.to_string(),
+            |s, v| {
+                if let Ok(n) = v.parse::<u32>() {
+                    s.terminal_scrollback_lines = n.clamp(100, 1_000_000);
+                }
+            },
+        ),
         super::title_key("feature_section"),
         toggle!("feature_ssh", ssh_enabled),
         toggle!("feature_plugins", plugins_enabled),

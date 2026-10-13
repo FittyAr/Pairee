@@ -136,6 +136,20 @@ search_next = "F3"
 encoding    = "F8"
 quit        = "Esc, F10"
 
+# ══ Terminal screens (`command &`) ════════════════════════════════════════════
+# Keys bound here act on the screen; every other key is typed into the
+# running process.
+[terminal]
+
+scroll_up   = "Shift+Up"
+scroll_down = "Shift+Down"
+page_up     = "Shift+PageUp"
+page_down   = "Shift+PageDown"
+top         = "Shift+Home"
+bottom      = "Shift+End"
+kill        = "F8"
+close       = "F10"
+
 # ══ Lists in dialogs (menus, history, pickers...) ═════════════════════════════
 # A key bound here acts as the arrow / Enter / Esc key it names, in every
 # dialog that is not typing into a text field.

@@ -68,6 +68,7 @@ impl AppState {
     /// auto-refresh monitors).
     pub fn apply_settings(&mut self, settings: &Settings) {
         self.prefs = PanelPrefs::from_settings(settings);
+        self.screens.terminal_lines = settings.terminal_scrollback_lines as usize;
         self.auto_refresh.configure(settings);
     }
 }

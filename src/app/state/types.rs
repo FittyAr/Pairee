@@ -170,16 +170,7 @@ pub enum GitConfirmedAction {
 
 pub use crate::app::editor::EditorState;
 
-#[derive(Debug, Clone)]
-pub struct TerminalState {
-    pub command: String,
-    pub output_lines: Vec<String>,
-    pub is_running: bool,
-    #[allow(dead_code)]
-    pub pid: Option<u32>,
-    /// When set, Transfer Engine apply-command stdout is routed here.
-    pub job_id: Option<uuid::Uuid>,
-}
+pub use super::terminal::TerminalState;
 
 /// Progress message emitted by a long-running Developer Tools operation
 /// (init, lint, package, install, submit) running in the background.
@@ -203,13 +194,7 @@ pub struct DevProgress {
     pub error: Option<String>,
 }
 
-#[derive(Debug, Clone)]
-pub struct TerminalUpdate {
-    pub screen: super::ScreenId,
-    pub line: Option<String>, // Some(line) = new output, None = process exited
-}
-
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum Screen {
     Panels,
     Viewer(crate::ui::viewer::ViewerState),

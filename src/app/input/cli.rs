@@ -157,32 +157,7 @@ fn change_dir(state: &mut AppState, target_dir: &str, current_path: &Path) {
 
 /// `command &`: runs on a PTY in a new terminal screen, streaming its output.
 fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) {
-    use crate::app::state::TerminalUpdate;
-    let ts = crate::app::state::types::TerminalState {
-        command: cmd_bg.clone(),
-        output_lines: vec![],
-        is_running: true,
-        pid: None,
-        job_id: None,
-    };
-    let screen = state.push_screen(crate::app::state::Screen::Terminal(ts));
-    let tx = state.term_tx.clone();
-
-    tokio::task::spawn_blocking(move || {
-        let tx_line = tx.clone();
-        let run =
-            crate::terminal::pty_cmd::stream_shell_on_pty(&cmd_bg, Some(&current_dir), |line| {
-                let _ = tx_line.send(TerminalUpdate {
-                    screen,
-                    line: Some(line),
-                });
-            });
-        if let Err(e) = run {
-            let _ = tx.send(TerminalUpdate {
-                screen,
-                line: Some(format!("Failed to spawn: {e}")),
-            });
-        }
-        let _ = tx.send(TerminalUpdate { screen, line: None });
-    });
+    let limit = state.screens.terminal_lines;
+    let ts = crate::app::state::TerminalState::spawn(cmd_bg, &current_dir, limit);
+    state.push_screen(crate::app::state::Screen::Terminal(ts));
 }

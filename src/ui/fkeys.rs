@@ -136,6 +136,7 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
     match Some(state.screens.active()) {
         Some(Screen::Editor(_)) => screen_cells(&context.resolver.editor, context, &prefix),
         Some(Screen::Viewer(_)) => screen_cells(&context.resolver.viewer, context, &prefix),
+        Some(Screen::Terminal(_)) => screen_cells(&context.resolver.terminal, context, &prefix),
         _ => {
             let mut row = keymap_cells(context, &prefix);
             if modifiers == KeyModifiers::SHIFT && is_dev_plugin_dir(context, state) {

@@ -14,7 +14,7 @@
 //! click inside a dialog from one on the panels behind it.
 
 use crate::app::state::tabs::TabId;
-use crate::app::state::{ActivePanel, SortField};
+use crate::app::state::{ActivePanel, ScreenId, SortField};
 use crate::keybindings::Action;
 use crate::ui::scrollbar::types::ScrollbarHitTarget;
 use crossterm::event::{KeyEvent, KeyModifiers};
@@ -84,6 +84,10 @@ pub enum HitTarget {
     PopupField { keys: Vec<KeyEvent>, text_x: u16 },
     /// A dialog's bottom-right corner: dragging it resizes the dialog.
     PopupResize,
+    /// The output of a terminal screen: the wheel scrolls it.
+    TerminalOutput(ScreenId),
+    /// The close box of a screen.
+    CloseScreen(ScreenId),
 }
 
 /// One recorded area.

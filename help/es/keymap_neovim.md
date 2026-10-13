@@ -318,6 +318,26 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | :--- | :--- |
 | `Esc` · `F10` · `q` | Cerrar el visor |
 
+## Terminal
+
+### Navegación
+
+| Teclas | Acción |
+| :--- | :--- |
+| `Shift+Down` | Desplazar abajo |
+| `Shift+Up` | Desplazar arriba |
+| `Shift+End` | Ir al final de la salida |
+| `Shift+Home` | Ir al inicio de la salida |
+| `Shift+PageDown` | Página abajo |
+| `Shift+PageUp` | Página arriba |
+
+### Sistema
+
+| Teclas | Acción |
+| :--- | :--- |
+| `F10` | Cerrar la pantalla de terminal |
+| `F8` | Detener el proceso |
+
 ## Listas
 
 ### Navegación

@@ -19,6 +19,7 @@ pub mod refresh;
 pub mod screens;
 mod tab_ops;
 pub mod tabs;
+pub mod terminal;
 mod vfs_op;
 pub use vfs_op::VfsFollowUp;
 pub mod viewer;
@@ -39,10 +40,11 @@ pub use popup::{
 pub use prefs::PanelPrefs;
 pub use screens::{ScreenId, ScreenStack};
 pub use tabs::TabId;
+pub use terminal::TerminalState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
-    PanelViewMode, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
+    PanelViewMode, ProcessEntry, Screen, SelectMode, SortField, TreeNode,
 };
 pub use update_state::UpdateState;
 
@@ -74,12 +76,9 @@ pub struct AppState {
     /// Background SSH connection attempt (target tab, result).
     pub ssh_connect:
         crate::app::jobs::JobSlot<(TabId, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
-    /// Channel receiver for running background file search operations
-    pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
+    /// Background Find file search (matches so far as progress).
+    pub search: crate::app::jobs::file_search::SearchSlot,
     pub plugins: PluginHostState,
-    /// Channel for communicating with the background terminal
-    pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
-    pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
     /// Full-screen clear on next paint (resize or native TTY/admin restore).
     /// Applied inside the synchronized-update region to avoid a visible flash.
     pub terminal_needs_clear: bool,
@@ -153,7 +152,6 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(left_path: PathBuf, right_path: PathBuf) -> Self {
-        let (term_tx, term_rx) = tokio::sync::mpsc::unbounded_channel();
         let is_root = crate::fs::is_elevated();
         Self {
             panels: PanelPair::new(left_path, right_path),
@@ -166,10 +164,8 @@ impl AppState {
             dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect: Default::default(),
-            search_rx: None,
+            search: Default::default(),
             plugins: PluginHostState::default(),
-            term_tx,
-            term_rx: Some(term_rx),
             screens: ScreenStack::default(),
             folder_shortcuts: HashMap::new(),
             selection_snapshot: SelectionSnapshot::default(),

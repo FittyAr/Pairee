@@ -87,7 +87,7 @@ fn start_search(state: &mut AppState) {
         case_sensitive: *case_sensitive,
         target: *search_target,
     };
-    state.search_rx = Some(crate::fs::search::find_files(search));
+    crate::app::jobs::file_search::start(&mut state.search, search);
     state.dialogs.replace(PopupType::SearchResults {
         query: if name.is_empty() { content } else { name },
         results: Vec::new(),
@@ -113,7 +113,7 @@ fn handle_results(
         ListKey::Moved => {}
         ListKey::Close => {
             // Esc also cancels a search still running.
-            state.search_rx = None;
+            state.search.cancel();
             state.dialogs.clear();
         }
         ListKey::Activate(idx) => {
@@ -127,7 +127,7 @@ fn handle_results(
                     .map(|p| p.to_path_buf())
                     .unwrap_or_else(|| path.clone())
             };
-            state.search_rx = None;
+            state.search.cancel();
             state.get_active_panel_mut().open_path(target);
             state.dialogs.clear();
             state.refresh_both_panels(context.config.settings.show_hidden);
