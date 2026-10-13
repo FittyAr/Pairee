@@ -1,3 +1,5 @@
+use crate::fs::transfer::hash::{hash_reader, to_hex};
+use crate::fs::transfer::options::HashAlgorithm;
 use anyhow::{Context as _, Result};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -78,16 +80,15 @@ pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -
 /// SHA-256 of an in-memory buffer as lowercase hex.
 pub fn sha256_hex(data: &[u8]) -> String {
     use sha2::Digest as _;
-    hex_encode(&sha2::Sha256::digest(data))
+    to_hex(&sha2::Sha256::digest(data))
 }
 
 /// Compute the SHA-256 checksum string (hex, 64 chars) of a file.
 pub fn compute_sha256(file_path: &std::path::Path) -> Result<String> {
-    use sha2::Digest as _;
     let mut file = std::fs::File::open(file_path).context("failed to open file for hashing")?;
-    let mut hasher = sha2::Sha256::new();
-    std::io::copy(&mut file, &mut hasher).context("read error during hashing")?;
-    Ok(hex_encode(&hasher.finalize()))
+    let hex = hash_reader(&mut file, HashAlgorithm::Sha256, &|| false)
+        .context("read error during hashing")?;
+    Ok(hex.to_ascii_lowercase())
 }
 
 /// Extracts the hex digest from the contents of a `.sha256` file
@@ -112,10 +113,6 @@ pub fn verify_sha256_bytes(data: &[u8], expected_hex: &str) -> Result<()> {
             actual_hex
         )
     }
-}
-
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 // ─── Platform target selection ───────────────────────────────────────────────
