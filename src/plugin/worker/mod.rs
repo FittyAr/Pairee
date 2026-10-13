@@ -10,6 +10,8 @@
 
 mod preview;
 
+pub use preview::PreviewTarget;
+
 use crate::plugin::annotations::Annotations;
 use crate::plugin::limits::guarded_async;
 use crate::plugin::manager::PluginRequest;

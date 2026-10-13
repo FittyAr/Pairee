@@ -175,3 +175,35 @@ async fn hook_callbacks_receive_the_payload() {
     let table: Table = w.lua.registry_value(&w.table_key).unwrap();
     assert_eq!(table.get::<String>("path").unwrap(), "/x");
 }
+
+#[tokio::test(flavor = "multi_thread")]
+async fn peek_can_show_the_previewed_image() {
+    let dir = tempfile::tempdir().unwrap();
+    let outside = tempfile::tempdir().unwrap();
+    let file = outside.path().join("pic.png");
+    image::RgbImage::from_pixel(4, 4, image::Rgb([1, 2, 3]))
+        .save(&file)
+        .unwrap();
+    let (w, _rx) = worker(
+        dir.path(),
+        r#"
+        local M = {}
+        function M:peek(job) return pairee.image.show(job.file) end
+        return M
+        "#,
+        false,
+    );
+    let widget = w.peek(job(&file, 0)).await.expect("widget");
+    let Renderable::Image(image) = widget else {
+        panic!("{widget:?}");
+    };
+    assert_eq!(image.path, file);
+    assert_eq!(image.image.expect("decoded").width(), 4);
+    // Outside a previewer call the same file is not showable.
+    w.lua
+        .globals()
+        .set("file", file.to_string_lossy().as_ref())
+        .unwrap();
+    let shown: mlua::Value = w.lua.load("return pairee.image.show(file)").eval().unwrap();
+    assert!(shown.is_nil());
+}

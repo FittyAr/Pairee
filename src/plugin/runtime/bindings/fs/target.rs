@@ -70,7 +70,8 @@ impl Target {
         self.with(|p| std::fs::read_to_string(p), |d, r| d.read_to_string(r))
     }
 
-    pub fn write(&self, data: &str) -> io::Result<()> {
+    pub fn write(&self, data: impl AsRef<[u8]>) -> io::Result<()> {
+        let data = data.as_ref();
         self.with(|p| std::fs::write(p, data), |d, r| d.write(r, data))
     }
 

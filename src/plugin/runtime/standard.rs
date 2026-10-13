@@ -92,6 +92,19 @@ pub fn bind_runtime(
     let t = super::i18n::bind(lua, plugin_dir, manifest.as_ref())?;
     pairee.set("t", t)?;
 
+    // 5. Namespaces built on first use.
+    let image_policy = Arc::clone(&fs_policy);
+    super::composer::install(
+        lua,
+        &pairee,
+        vec![(
+            "image",
+            super::composer::builder(move |lua| {
+                b::image::bind(lua, Arc::clone(&image_policy)).map(mlua::Value::Table)
+            }),
+        )],
+    )?;
+
     globals.set("pairee", pairee)?;
     Ok(())
 }

@@ -51,6 +51,14 @@ impl PreloadCache {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct PreviewTarget(pub PathBuf);
 
+impl PreviewTarget {
+    /// Whether `path` is the file being previewed right now in `lua`.
+    pub fn is_current(lua: &Lua, path: &Path) -> bool {
+        lua.app_data_ref::<PreviewTarget>()
+            .is_some_and(|target| target.0 == path)
+    }
+}
+
 /// The `job` table of a previewer call.
 fn job_table(
     lua: &Lua,
