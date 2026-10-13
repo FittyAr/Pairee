@@ -102,6 +102,17 @@ impl AppConfig {
             None => ConfigLoadState::Loaded,
         };
 
+        // 4. User syntax definitions (an invalid file is skipped and reported)
+        errors.extend(
+            crate::syntax::load_user_definitions(&paths::get_syntax_dir())
+                .into_iter()
+                .map(|(path, error)| {
+                    localization::t("error_syntax_file_invalid")
+                        .replacen("{}", &path.display().to_string(), 1)
+                        .replacen("{}", &error, 1)
+                }),
+        );
+
         Ok(Self {
             settings,
             theme,

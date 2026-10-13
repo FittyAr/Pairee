@@ -1,0 +1,56 @@
+# Windows batch files. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Batch"
+extensions = ["bat", "cmd", "btm"]
+case_insensitive = true
+
+[[rule]]
+kind = "function"
+pattern = '^\s*:[a-z0-9_.-]+'
+
+[[rule]]
+kind = "operator"
+pattern = '[|&<>()@]+|=='
+
+[[rule]]
+kind = "operator"
+words = ["equ", "neq", "lss", "leq", "gtr", "geq"]
+
+[[rule]]
+kind = "keyword"
+words = ["call", "cd", "chdir", "cls", "color", "copy", "defined", "del", "dir", "do",
+         "echo", "else", "endlocal", "erase", "errorlevel", "exist", "exit", "for", "goto",
+         "if", "in", "md", "mkdir", "move", "not", "off", "on", "pause", "popd", "pushd",
+         "rd", "ren", "rename", "rmdir", "set", "setlocal", "shift", "start", "title", "type",
+         "ver", "verify", "vol", "enabledelayedexpansion", "enableextensions", "nul"]
+
+[[rule]]
+kind = "constant"
+pattern = '%%~?[a-z]|%~[a-z]*[0-9]|%[0-9*]|%[a-z0-9_#$@.-]+(?::[^%]*)?%|![a-z0-9_#$@.-]+(?::[^!]*)?!'
+
+[[rule]]
+kind = "constant"
+pattern = '\b[0-9]+\b'
+
+[[rule]]
+kind = "constant"
+pattern = '(?:^|\s)(/[a-z?]+)'
+group = 1
+
+[[region]]
+kind = "comment"
+start = '^\s*@?rem(?:\s|$)'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '^\s*::'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+
+[[region.rule]]
+kind = "constant"
+pattern = '%%~?[a-z]|%~[a-z]*[0-9]|%[0-9*]|%[a-z0-9_#$@.-]+(?::[^%]*)?%|![a-z0-9_#$@.-]+(?::[^!]*)?!'

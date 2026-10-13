@@ -1,0 +1,81 @@
+# C++. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "C++"
+extensions = ["cpp", "cc", "cxx", "c++", "hpp", "hh", "hxx", "h++", "inl", "ipp", "tpp", "ino"]
+
+[[rule]]
+kind = "type_name"
+words = ["bool", "char", "char8_t", "char16_t", "char32_t", "double", "float", "int", "long",
+         "short", "signed", "unsigned", "void", "wchar_t", "auto", "size_t", "string",
+         "vector", "map", "set", "unique_ptr", "shared_ptr", "optional", "std"]
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Za-z_][A-Za-z0-9_]*_t\b|\b[A-Z][A-Za-z0-9_]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^<>()]*>)?\s*\('
+group = 1
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?]+'
+
+[[rule]]
+kind = "keyword"
+words = ["alignas", "alignof", "asm", "break", "case", "catch", "class", "concept", "const",
+         "consteval", "constexpr", "constinit", "const_cast", "continue", "co_await",
+         "co_return", "co_yield", "decltype", "default", "delete", "do", "dynamic_cast",
+         "else", "enum", "explicit", "export", "extern", "final", "for", "friend", "goto",
+         "if", "inline", "mutable", "namespace", "new", "noexcept", "operator", "override",
+         "private", "protected", "public", "register", "reinterpret_cast", "requires",
+         "return", "sizeof", "static", "static_assert", "static_cast", "struct", "switch",
+         "template", "this", "thread_local", "throw", "try", "typedef", "typeid",
+         "typename", "union", "using", "virtual", "volatile", "while"]
+
+[[rule]]
+kind = "constant"
+words = ["nullptr", "NULL", "true", "false"]
+
+[[rule]]
+kind = "constant"
+pattern = '''\b(?:0[xX][0-9A-Fa-f']+|0[bB][01']+|[0-9][0-9']*(?:\.[0-9']*)?(?:[eE][+-]?[0-9]+)?)[uUlLfFzZ]*\b'''
+
+[[rule]]
+kind = "keyword"
+pattern = '^\s*#\s*[a-z]+'
+
+[[rule]]
+kind = "string"
+pattern = '^\s*#\s*(?:include|import)\s*(<[^>]*>)'
+group = 1
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '(?:L|u8|u|U)?R"\('
+end = '\)"'
+
+[[region]]
+kind = "string"
+start = '(?:L|u8|u|U)?"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]+|[0-7]{1,3}|.)'
+
+[[region]]
+kind = "constant"
+start = '''(?:L|u8|u|U)?'(?:\\.|[^'\\])*''''
+end = ''

@@ -12,11 +12,13 @@
 //! cheap.
 
 use super::LineTokens;
-use super::engine::{self, LineState};
+use super::highlight::LineState;
+use super::language::Language;
+use super::registry;
 use std::collections::BTreeMap;
 use std::ops::Range;
 use std::path::Path;
-use syntect::parsing::SyntaxReference;
+use std::sync::Arc;
 
 /// Lines between remembered parser states.
 const CHECKPOINT_EVERY: usize = 64;
@@ -29,7 +31,7 @@ const RESYNC_LOOKBACK: usize = 200;
 /// Incremental highlighter of one document.
 #[derive(Debug, Clone)]
 pub struct SyntaxCache {
-    syntax: &'static SyntaxReference,
+    language: Arc<Language>,
     /// Parser state before line `key`.
     checkpoints: BTreeMap<usize, LineState>,
     /// Tokens of the lines last asked for.
@@ -38,18 +40,21 @@ pub struct SyntaxCache {
 
 impl SyntaxCache {
     /// A highlighter for `path` (whose first line is `first_line`), or
-    /// `None` when no grammar knows the file.
+    /// `None` when no language knows the file (or its grammar does not
+    /// compile).
     pub fn detect(path: &Path, first_line: &str) -> Option<Self> {
-        engine::detect(path, first_line).map(|syntax| Self {
-            syntax,
+        let language = registry::active().detect(path, first_line)?;
+        language.grammar()?;
+        Some(Self {
+            language,
             checkpoints: BTreeMap::new(),
             window: None,
         })
     }
 
-    /// Name of the grammar in use (status line).
+    /// Name of the language in use (status line).
     pub fn language(&self) -> &str {
-        &self.syntax.name
+        self.language.name()
     }
 
     /// Forgets everything that depends on line `line` or later (call after
@@ -64,8 +69,8 @@ impl SyntaxCache {
     fn origin(&self, start: usize) -> (usize, LineState) {
         match self.checkpoints.range(..=start).next_back() {
             Some((&line, state)) if start - line <= MAX_EXACT_GAP => (line, state.clone()),
-            _ if start <= MAX_EXACT_GAP => (0, LineState::start(self.syntax)),
-            _ => (start - RESYNC_LOOKBACK, LineState::start(self.syntax)),
+            _ if start <= MAX_EXACT_GAP => (0, LineState::default()),
+            _ => (start - RESYNC_LOOKBACK, LineState::default()),
         }
     }
 
@@ -89,15 +94,17 @@ impl SyntaxCache {
         S: AsRef<str>,
         F: FnOnce(Range<usize>) -> Vec<S>,
     {
+        let Some(grammar) = self.language.grammar() else {
+            return Vec::new();
+        };
         let (origin, mut state) = self.origin(range.start);
-        let mut buf = String::new();
         let mut out = Vec::with_capacity(range.len());
         for (i, line) in fetch(origin..range.end).iter().enumerate() {
             let y = origin + i;
             if y > origin && y % CHECKPOINT_EVERY == 0 {
                 self.checkpoints.entry(y).or_insert_with(|| state.clone());
             }
-            let tokens = state.advance(line.as_ref(), &mut buf);
+            let tokens = state.advance(grammar, line.as_ref());
             if y >= range.start {
                 out.push(tokens);
             }

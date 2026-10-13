@@ -1,0 +1,496 @@
+//! Every built-in definition: it parses, compiles, is detected for its
+//! files and colors a typical sample as expected.
+
+use super::{kind_at, run};
+use crate::syntax::SyntaxKind::{
+    self, Comment, Constant, Function, Keyword, Operator, String as Str, Tag, TypeName,
+};
+use crate::syntax::builtin::{FILES, languages};
+use crate::syntax::definition::Definition;
+use crate::syntax::registry::Registry;
+use std::collections::HashMap;
+use std::path::Path;
+
+/// A file name, the language detected for it, sample lines and the kinds
+/// expected at some needles: `(line index, needle, kind)`.
+struct Sample {
+    path: &'static str,
+    language: &'static str,
+    lines: &'static [&'static str],
+    expect: &'static [(usize, &'static str, Option<SyntaxKind>)],
+}
+
+const SAMPLES: &[Sample] = &[
+    Sample {
+        path: "main.rs",
+        language: "Rust",
+        lines: &[
+            r#"fn main() { let x: u32 = 42; println!("hi {x}\n"); } // done"#,
+            "/* block",
+            "end */ let c = '\"'; impl<'a> Foo<'a> {}",
+        ],
+        expect: &[
+            (0, "fn", Some(Keyword)),
+            (0, "main", Some(Function)),
+            (0, "u32", Some(TypeName)),
+            (0, "42", Some(Constant)),
+            (0, "println!", Some(Function)),
+            (0, "\"hi", Some(Str)),
+            (0, "{x}", Some(Constant)),
+            (0, "// done", Some(Comment)),
+            (2, "end", Some(Comment)),
+            (2, "'\"'", Some(Constant)),
+            (2, "impl", Some(Keyword)),
+            (2, "Foo", Some(TypeName)),
+        ],
+    },
+    Sample {
+        path: "a.c",
+        language: "C",
+        lines: &[
+            "#include <stdio.h>",
+            "int main(void) { printf(\"%d\\n\", 1); /* x */ }",
+        ],
+        expect: &[
+            (0, "#include", Some(Keyword)),
+            (0, "<stdio.h>", Some(Str)),
+            (1, "int", Some(TypeName)),
+            (1, "printf", Some(Function)),
+            (1, "%d", Some(Constant)),
+            (1, "/* x", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.cpp",
+        language: "C++",
+        lines: &["template <typename T> class Box { std::string s = R\"(raw)\"; };"],
+        expect: &[
+            (0, "template", Some(Keyword)),
+            (0, "Box", Some(TypeName)),
+            (0, "R\"(", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "a.cs",
+        language: "C#",
+        lines: &[
+            "public class A { var s = $\"v={x}\"; // c",
+            "[Obsolete] void M() => null;",
+        ],
+        expect: &[
+            (0, "public", Some(Keyword)),
+            (0, "A ", Some(TypeName)),
+            (0, "{x}", Some(Constant)),
+            (0, "// c", Some(Comment)),
+            (1, "Obsolete", Some(Function)),
+            (1, "null", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "a.go",
+        language: "Go",
+        lines: &["func main() { s := `raw`; fmt.Println(\"x\", nil) }"],
+        expect: &[
+            (0, "func", Some(Keyword)),
+            (0, "main", Some(Function)),
+            (0, "`raw`", Some(Str)),
+            (0, ":=", Some(Operator)),
+            (0, "nil", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "A.java",
+        language: "Java",
+        lines: &["@Override public String toString() { return \"a\"; }"],
+        expect: &[
+            (0, "@Override", Some(Function)),
+            (0, "public", Some(Keyword)),
+            (0, "String", Some(TypeName)),
+            (0, "\"a\"", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "a.js",
+        language: "JavaScript",
+        lines: &[
+            "const f = async (a) => `x ${a}`; // c",
+            "if (a === null) return 0x1F;",
+        ],
+        expect: &[
+            (0, "const", Some(Keyword)),
+            (0, "`x", Some(Str)),
+            (0, "${a}", Some(Constant)),
+            (0, "// c", Some(Comment)),
+            (1, "===", Some(Operator)),
+            (1, "null", Some(Constant)),
+            (1, "0x1F", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "a.ts",
+        language: "TypeScript",
+        lines: &["interface A { n: number } type B = keyof A;"],
+        expect: &[
+            (0, "interface", Some(Keyword)),
+            (0, "number", Some(TypeName)),
+            (0, "keyof", Some(Keyword)),
+        ],
+    },
+    Sample {
+        path: "a.py",
+        language: "Python",
+        lines: &[
+            "@dataclass",
+            "def f(x): return f\"{x}\" # c",
+            "s = \"\"\"doc",
+            "more\"\"\" if True else None",
+        ],
+        expect: &[
+            (0, "@dataclass", Some(Function)),
+            (1, "def", Some(Keyword)),
+            (1, "{x}", Some(Constant)),
+            (1, "# c", Some(Comment)),
+            (3, "more", Some(Str)),
+            (3, "True", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "a.rb",
+        language: "Ruby",
+        lines: &["def go(x) = puts \"#{x}\" # c", ":sym; @ivar; nil"],
+        expect: &[
+            (0, "def", Some(Keyword)),
+            (0, "#{x}", Some(Constant)),
+            (0, "# c", Some(Comment)),
+            (1, "sym", Some(Constant)),
+            (1, "@ivar", Some(TypeName)),
+        ],
+    },
+    Sample {
+        path: "a.php",
+        language: "PHP",
+        lines: &["<?php function f($a) { echo \"v $a\"; } // c"],
+        expect: &[
+            (0, "<?php", Some(Tag)),
+            (0, "function", Some(Keyword)),
+            (0, "$a)", Some(TypeName)),
+            (0, "$a\"", Some(Constant)),
+            (0, "// c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.lua",
+        language: "Lua",
+        lines: &[
+            "local function f(a) return a ~= nil end -- c",
+            "s = [[long",
+            "str]]",
+        ],
+        expect: &[
+            (0, "local", Some(Keyword)),
+            (0, "nil", Some(Constant)),
+            (0, "-- c", Some(Comment)),
+            (2, "str", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "run.sh",
+        language: "Shell",
+        lines: &["if [ -n \"$HOME\" ]; then echo 'x'; fi # c"],
+        expect: &[
+            (0, "if", Some(Keyword)),
+            (0, "-n", Some(Constant)),
+            (0, "$HOME", Some(Constant)),
+            (0, "echo", Some(Function)),
+            (0, "'x'", Some(Str)),
+            (0, "# c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.ps1",
+        language: "PowerShell",
+        lines: &["function F { param([string]$Name) Write-Host \"hi $Name\" -eq $true } # c"],
+        expect: &[
+            (0, "function", Some(Keyword)),
+            (0, "[string]", Some(TypeName)),
+            (0, "Write-Host", Some(Function)),
+            (0, "$Name\"", Some(Constant)),
+            (0, "-eq", Some(Operator)),
+            (0, "$true", Some(Constant)),
+            (0, "# c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.bat",
+        language: "Batch",
+        lines: &[
+            "@echo off",
+            "rem comment",
+            ":label",
+            "if exist %FILE% goto label",
+        ],
+        expect: &[
+            (0, "echo", Some(Keyword)),
+            (1, "comment", Some(Comment)),
+            (2, ":label", Some(Function)),
+            (3, "%FILE%", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "index.html",
+        language: "HTML",
+        lines: &["<!-- c --><a href=\"x\">&amp;</a>"],
+        expect: &[
+            (0, "c ", Some(Comment)),
+            (0, "<a", Some(Tag)),
+            (0, "href", Some(Function)),
+            (0, "\"x\"", Some(Str)),
+            (0, "&amp;", Some(Constant)),
+            (0, "</a", Some(Tag)),
+        ],
+    },
+    Sample {
+        path: "a.css",
+        language: "CSS",
+        lines: &[".box > a:hover { color: #fff; margin: 0 1.5em !important; } /* c */"],
+        expect: &[
+            (0, ".box", Some(TypeName)),
+            (0, ":hover", Some(Function)),
+            (0, "color", Some(TypeName)),
+            (0, "#fff", Some(Constant)),
+            (0, "1.5em", Some(Constant)),
+            (0, "!important", Some(Keyword)),
+            (0, "/* c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.xml",
+        language: "XML",
+        lines: &[
+            "<?xml version=\"1.0\"?>",
+            "<root a=\"1\"><![CDATA[x]]></root>",
+        ],
+        expect: &[
+            (0, "<?xml", Some(Keyword)),
+            (1, "<root", Some(Tag)),
+            (1, "a=", Some(Function)),
+            (1, "x]]", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "a.json",
+        language: "JSON",
+        lines: &["{\"key\": \"v\", \"n\": -1.5e3, \"b\": true}"],
+        expect: &[
+            (0, "\"key\"", Some(Tag)),
+            (0, "\"v\"", Some(Str)),
+            (0, "-1.5e3", Some(Constant)),
+            (0, "true", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "a.yaml",
+        language: "YAML",
+        lines: &["key: value # c", "- n: 12", "  b: true", "  s: 'it''s'"],
+        expect: &[
+            (0, "key", Some(Tag)),
+            (0, "value", None),
+            (0, "# c", Some(Comment)),
+            (1, "12", Some(Constant)),
+            (2, "true", Some(Constant)),
+            (3, "it", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "Cargo.toml",
+        language: "TOML",
+        lines: &["[package]", "name = \"pairee\" # c", "a.b = [1, true]"],
+        expect: &[
+            (0, "[package]", Some(TypeName)),
+            (1, "name", Some(Tag)),
+            (1, "\"pairee\"", Some(Str)),
+            (1, "# c", Some(Comment)),
+            (2, "a.b", Some(Tag)),
+            (2, "1", Some(Constant)),
+            (2, "true", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "a.ini",
+        language: "INI",
+        lines: &["; c", "[section]", "key = value"],
+        expect: &[
+            (0, "c", Some(Comment)),
+            (1, "[section]", Some(TypeName)),
+            (2, "key", Some(Tag)),
+            (2, "value", None),
+        ],
+    },
+    Sample {
+        path: "README.md",
+        language: "Markdown",
+        lines: &[
+            "# Title",
+            "Some **bold** and `code` [link](http://x)",
+            "```",
+            "code",
+            "```",
+        ],
+        expect: &[
+            (0, "Title", Some(Tag)),
+            (1, "**bold**", Some(Keyword)),
+            (1, "`code`", Some(Str)),
+            (1, "[link]", Some(Function)),
+            (3, "code", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "q.sql",
+        language: "SQL",
+        lines: &["SELECT name, COUNT(*) FROM t WHERE id = 'x''y' -- c"],
+        expect: &[
+            (0, "SELECT", Some(Keyword)),
+            (0, "COUNT", Some(Function)),
+            (0, "'x", Some(Str)),
+            (0, "y'", Some(Str)),
+            (0, "-- c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "Makefile",
+        language: "Makefile",
+        lines: &[
+            "CC := gcc # c",
+            "all: main.o",
+            "\t$(CC) -o $@ $(wildcard *.c)",
+        ],
+        expect: &[
+            (0, "CC", Some(TypeName)),
+            (0, "# c", Some(Comment)),
+            (1, "all", Some(Function)),
+            (2, "$(CC)", Some(Constant)),
+            (2, "$@", Some(Constant)),
+            (2, "wildcard", Some(Function)),
+        ],
+    },
+    Sample {
+        path: "Dockerfile",
+        language: "Dockerfile",
+        lines: &[
+            "# c",
+            "FROM rust:1 AS build",
+            "RUN cargo build --release && echo \"$HOME\"",
+        ],
+        expect: &[
+            (0, "c", Some(Comment)),
+            (1, "FROM", Some(Keyword)),
+            (1, "AS", Some(Keyword)),
+            (2, "--release", Some(Function)),
+            (2, "$HOME", Some(Constant)),
+        ],
+    },
+    Sample {
+        path: "x.patch",
+        language: "Diff",
+        lines: &[
+            "diff --git a/x b/x",
+            "--- a/x",
+            "@@ -1 +1 @@",
+            "-old",
+            "+new",
+        ],
+        expect: &[
+            (0, "diff", Some(Comment)),
+            (1, "---", Some(Tag)),
+            (2, "@@", Some(Function)),
+            (3, "-old", Some(Keyword)),
+            (4, "+new", Some(Str)),
+        ],
+    },
+    Sample {
+        path: "a.kt",
+        language: "Kotlin",
+        lines: &["fun main() { val s = \"v=${x}\" } // c"],
+        expect: &[
+            (0, "fun", Some(Keyword)),
+            (0, "main", Some(Function)),
+            (0, "${x}", Some(Constant)),
+            (0, "// c", Some(Comment)),
+        ],
+    },
+    Sample {
+        path: "a.swift",
+        language: "Swift",
+        lines: &["func f() -> String { let s = \"v=\\(x)\"; return nil } // c"],
+        expect: &[
+            (0, "func", Some(Keyword)),
+            (0, "String", Some(TypeName)),
+            (0, "\\(x)", Some(Constant)),
+            (0, "nil", Some(Constant)),
+            (0, "// c", Some(Comment)),
+        ],
+    },
+];
+
+#[test]
+fn every_file_parses_and_compiles() {
+    assert_eq!(
+        languages().len(),
+        FILES.len(),
+        "a built-in file failed to parse"
+    );
+    for language in languages() {
+        language
+            .check()
+            .unwrap_or_else(|e| panic!("{}: {e}", language.name()));
+    }
+}
+
+#[test]
+fn names_and_extensions_are_unique() {
+    let mut claimed: HashMap<String, String> = HashMap::new();
+    for (file, text) in FILES {
+        let def = Definition::parse(text).unwrap_or_else(|e| panic!("{file}: {e}"));
+        let keys = (def.extensions.iter().map(|e| format!("extension {e}")))
+            .chain(def.names.iter().map(|n| format!("file name {n}")))
+            .chain([format!("language {}", def.name)]);
+        for key in keys {
+            let key = key.to_lowercase();
+            if let Some(other) = claimed.insert(key.clone(), file.to_string()) {
+                panic!("{key} claimed by {other} and {file}");
+            }
+        }
+    }
+}
+
+#[test]
+fn every_language_has_a_sample() {
+    for language in languages() {
+        assert!(
+            SAMPLES.iter().any(|s| s.language == language.name()),
+            "no sample for {}",
+            language.name()
+        );
+    }
+}
+
+#[test]
+fn samples_are_detected_and_highlighted() {
+    let registry = Registry::new(Vec::new());
+    for sample in SAMPLES {
+        let language = registry
+            .detect(Path::new(sample.path), sample.lines[0])
+            .unwrap_or_else(|| panic!("{} not detected", sample.path));
+        assert_eq!(language.name(), sample.language, "{}", sample.path);
+        let tokens = run(language.grammar().unwrap(), sample.lines);
+        for &(line, needle, kind) in sample.expect {
+            assert_eq!(
+                kind_at(&tokens[line], sample.lines[line], needle),
+                kind,
+                "{}: {needle:?} in {:?}",
+                sample.language,
+                sample.lines[line]
+            );
+        }
+    }
+}

@@ -1,0 +1,70 @@
+# TOML. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "TOML"
+extensions = ["toml", "tml"]
+names = ["Cargo.lock", "Pipfile", "poetry.lock", "uv.lock", "Gopkg.lock"]
+
+[[rule]]
+kind = "operator"
+pattern = '[=,{}\[\]]'
+
+[[rule]]
+kind = "type_name"
+pattern = '^\s*\[\[?[^\]#]*\]\]?'
+
+[[rule]]
+kind = "tag"
+pattern = '''^\s*((?:[A-Za-z0-9_-]+|"[^"]*"|'[^']*')(?:\s*\.\s*(?:[A-Za-z0-9_-]+|"[^"]*"|'[^']*'))*)\s*='''
+group = 1
+
+[[rule]]
+kind = "tag"
+pattern = '''[{,]\s*((?:[A-Za-z0-9_-]+|"[^"]*")(?:\.(?:[A-Za-z0-9_-]+|"[^"]*"))*)\s*='''
+group = 1
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "inf", "nan"]
+
+[[rule]]
+kind = "constant"
+pattern = '[0-9]{4}-[0-9]{2}-[0-9]{2}(?:[Tt ][0-9:.]+(?:Z|[+-][0-9:]+)?)?|[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\.[0-9]+)?'
+
+[[rule]]
+kind = "constant"
+pattern = '(?:^|[\s=\[,])([-+]?(?:0x[0-9A-Fa-f_]+|0o[0-7_]+|0b[01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9_]+)?))\b'
+group = 1
+
+[[region]]
+kind = "comment"
+start = '#'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '"""'
+end = '"""'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|.)'
+
+[[region]]
+kind = "string"
+start = "'''"
+end = "'''"
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|.)'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'|$"

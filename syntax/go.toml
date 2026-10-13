@@ -1,0 +1,74 @@
+# Go. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Go"
+extensions = ["go"]
+names = ["go.mod", "go.work"]
+
+[[rule]]
+kind = "type_name"
+words = ["bool", "byte", "complex64", "complex128", "error", "float32", "float64", "int",
+         "int8", "int16", "int32", "int64", "rune", "string", "uint", "uint8", "uint16",
+         "uint32", "uint64", "uintptr", "any", "comparable"]
+
+[[rule]]
+kind = "type_name"
+pattern = '\btype\s+([A-Za-z_][A-Za-z0-9_]*)'
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~]+|:='
+
+[[rule]]
+kind = "keyword"
+words = ["break", "case", "chan", "const", "continue", "default", "defer", "else",
+         "fallthrough", "for", "func", "go", "goto", "if", "import", "interface", "map",
+         "package", "range", "return", "select", "struct", "switch", "type", "var",
+         "module", "require", "replace", "exclude", "toolchain"]
+
+[[rule]]
+kind = "function"
+words = ["append", "cap", "clear", "close", "complex", "copy", "delete", "imag", "len",
+         "make", "max", "min", "new", "panic", "print", "println", "real", "recover"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "nil", "iota"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][+-]?[0-9]+)?)i?\b'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '`'
+end = '`'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|[0-7]{3}|.)|%[-+ #0]*[0-9*]*(?:\.[0-9*]+)?[%vTtbcdoOqxXeEfFgGspU]'
+
+[[region]]
+kind = "constant"
+start = ''''(?:\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|U[0-9A-Fa-f]{8}|[0-7]{3}|.)|[^'\\])''''
+end = ''

@@ -102,6 +102,18 @@ impl ScreenStack {
         self.entries.iter_mut().map(|e| &mut e.screen)
     }
 
+    /// Applies changed highlighting settings to the open editors and
+    /// viewers (a viewer still loading picks them up when reopened).
+    pub fn apply_syntax_limits(&mut self, limits: &crate::syntax::SyntaxLimits) {
+        for screen in self.iter_mut() {
+            match screen {
+                Screen::Editor(ed) => ed.detect_syntax(limits),
+                Screen::Viewer(vw) if !vw.loading => vw.detect_syntax(limits),
+                _ => {}
+            }
+        }
+    }
+
     /// Makes screen `index` active: `dialogs` (the active screen's) are
     /// parked and replaced by the ones parked on `index`.
     fn activate(&mut self, index: usize, dialogs: &mut DialogStack) {
@@ -215,5 +227,25 @@ mod tests {
         state.close_current_screen();
         assert_eq!(state.screens.active_index(), 0);
         assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
+    }
+
+    #[test]
+    fn highlighting_settings_reach_open_screens() {
+        use crate::syntax::SyntaxLimits;
+        let mut state = AppState::new(".".into(), ".".into());
+        state.push_screen(viewer("a.rs"));
+        let highlighted = |state: &AppState| match state.screens.last() {
+            Some(Screen::Viewer(vw)) => vw.syntax.borrow().is_some(),
+            _ => unreachable!(),
+        };
+        assert!(!highlighted(&state), "opened with highlighting off");
+        let on = SyntaxLimits {
+            enabled: true,
+            max_bytes: 1024,
+        };
+        state.screens.apply_syntax_limits(&on);
+        assert!(highlighted(&state));
+        state.screens.apply_syntax_limits(&SyntaxLimits::default());
+        assert!(!highlighted(&state));
     }
 }

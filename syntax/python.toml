@@ -1,0 +1,85 @@
+# Python. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Python"
+extensions = ["py", "pyw", "pyi", "pyx", "pxd", "gyp", "gypi"]
+names = ["SConstruct", "SConscript", "wscript"]
+first_line = '^#!.*\bpython[0-9.]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '\bclass\s+([A-Za-z_][A-Za-z0-9_]*)'
+group = 1
+
+[[rule]]
+kind = "type_name"
+words = ["int", "float", "str", "bytes", "bool", "list", "dict", "set", "tuple", "object",
+         "type", "complex", "frozenset", "bytearray", "Exception"]
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~@]+|:='
+
+[[rule]]
+kind = "keyword"
+words = ["and", "as", "assert", "async", "await", "break", "class", "continue", "def", "del",
+         "elif", "else", "except", "finally", "for", "from", "global", "if", "import", "in",
+         "is", "lambda", "nonlocal", "not", "or", "pass", "raise", "return", "try", "while",
+         "with", "yield", "match", "case", "self", "cls"]
+
+[[rule]]
+kind = "constant"
+words = ["True", "False", "None", "NotImplemented", "Ellipsis", "__name__", "__file__"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]*)?(?:[eE][+-]?[0-9_]+)?)[jJlL]?\b'
+
+# Decorators (after the operators, which would paint the @).
+[[rule]]
+kind = "function"
+pattern = '^\s*@[A-Za-z_][A-Za-z0-9_.]*'
+
+[[region]]
+kind = "comment"
+start = '#'
+end = '$'
+
+[[region.rule]]
+kind = "keyword"
+words = ["TODO", "FIXME", "XXX"]
+
+[[region]]
+kind = "string"
+start = '[rRbBuUfF]{0,2}"""'
+end = '"""'
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = "[rRbBuUfF]{0,2}'''"
+end = "'''"
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = '[rRbBuUfF]{0,2}"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|N\{[^}]*\}|[0-7]{1,3}|.)|\{[^{}"]*\}'
+
+[[region]]
+kind = "string"
+start = "[rRbBuUfF]{0,2}'"
+end = "'|$"
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '''\\(?:x[0-9A-Fa-f]{2}|u[0-9A-Fa-f]{4}|N\{[^}]*\}|[0-7]{1,3}|.)|\{[^{}']*\}'''

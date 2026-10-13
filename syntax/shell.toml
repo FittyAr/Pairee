@@ -1,0 +1,73 @@
+# Shell scripts (sh, bash, zsh, ksh). Format: see help "Syntax highlighting definitions";
+# credits in README.md.
+name = "Shell"
+extensions = ["sh", "bash", "zsh", "ksh", "ash", "dash", "bats", "ebuild", "eclass"]
+names = [".bashrc", ".bash_profile", ".bash_login", ".bash_logout", ".bash_aliases",
+         ".profile", ".zshrc", ".zshenv", ".zprofile", ".zlogin", ".zlogout", ".kshrc",
+         "PKGBUILD", "APKBUILD", ".envrc"]
+first_line = '^#!.*\b(?:ba|z|k|da|a)?sh\b'
+
+[[rule]]
+kind = "function"
+pattern = '^\s*(?:function\s+)?([A-Za-z_][A-Za-z0-9_:.-]*)\s*\(\s*\)'
+group = 1
+
+[[rule]]
+kind = "function"
+words = ["alias", "bg", "bind", "builtin", "caller", "cd", "command", "compgen", "complete",
+         "dirs", "disown", "echo", "enable", "exec", "fc", "fg", "getopts", "hash", "help",
+         "history", "jobs", "kill", "let", "logout", "mapfile", "popd", "printf", "pushd",
+         "pwd", "read", "readarray", "set", "shopt", "source", "suspend", "test", "times",
+         "trap", "type", "ulimit", "umask", "unalias", "wait"]
+
+[[rule]]
+kind = "operator"
+pattern = '[|&;<>!=]+'
+
+[[rule]]
+kind = "keyword"
+words = ["case", "coproc", "declare", "do", "done", "elif", "else", "esac", "exit", "export",
+         "fi", "for", "function", "if", "in", "local", "readonly", "return", "select",
+         "shift", "then", "time", "typeset", "unset", "until", "while", "break", "continue",
+         "eval"]
+
+[[rule]]
+kind = "constant"
+pattern = '\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$[0-9@#?$!*_-]'
+
+[[rule]]
+kind = "constant"
+pattern = '(?:^|\s)(-{1,2}[A-Za-z0-9][A-Za-z0-9-]*)'
+group = 1
+
+[[region]]
+kind = "comment"
+start = '(?:^|[ \t;])#'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '\$?"'
+end = '"'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|\$\{[^}]*\}|\$[A-Za-z_][A-Za-z0-9_]*|\$[0-9@#?$!*_-]|\$\([^)]*\)|`[^`]*`'
+
+[[region]]
+kind = "string"
+start = "\\$'"
+end = "'"
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'"
+
+[[region]]
+kind = "function"
+start = '`'
+end = '`'
+skip = '\\.'

@@ -1,0 +1,90 @@
+# Ruby. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Ruby"
+extensions = ["rb", "rbw", "rake", "gemspec", "ru", "erb", "rbi", "jbuilder", "podspec"]
+names = ["Gemfile", "Rakefile", "Guardfile", "Vagrantfile", "Podfile", "Brewfile", "Fastfile",
+         "Capfile", "Thorfile", ".irbrc", ".pryrc"]
+first_line = '^#!.*\bruby\b'
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Z][A-Za-z0-9_]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\bdef\s+(?:self\.)?([A-Za-z_][A-Za-z0-9_]*[?!=]?)'
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '\b([a-z_][A-Za-z0-9_]*[?!]?)\('
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '@@?[A-Za-z_][A-Za-z0-9_]*|\$[A-Za-z_][A-Za-z0-9_]*'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~]+|\.\.\.?'
+
+[[rule]]
+kind = "keyword"
+words = ["BEGIN", "END", "alias", "and", "begin", "break", "case", "class", "def",
+         "defined?", "do", "else", "elsif", "end", "ensure", "for", "if", "in", "module",
+         "next", "not", "or", "redo", "rescue", "retry", "return", "self", "super", "then",
+         "undef", "unless", "until", "when", "while", "yield", "require", "require_relative",
+         "include", "extend", "prepend", "attr_reader", "attr_writer", "attr_accessor",
+         "private", "protected", "public", "raise", "lambda", "proc", "loop"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "nil", "__FILE__", "__LINE__", "__dir__"]
+
+[[rule]]
+kind = "constant"
+pattern = '(?:^|[^:]):[A-Za-z_][A-Za-z0-9_]*[?!]?|\b[A-Za-z_][A-Za-z0-9_]*:\s'
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)r?i?\b'
+
+[[region]]
+kind = "comment"
+start = '#'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '^=begin\b'
+end = '^=end\b'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|#\{[^}]*\}'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'"
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = '%[qQwWiI]?\['
+end = '\]'
+
+[[region]]
+kind = "string"
+start = '%[qQwWiI]?\('
+end = '\)'
+
+[[region]]
+kind = "string"
+start = '%[qQwWiI]?\{'
+end = '\}'

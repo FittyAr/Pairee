@@ -1,0 +1,90 @@
+# PowerShell. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "PowerShell"
+extensions = ["ps1", "psm1", "psd1", "ps1xml", "pssc", "psrc"]
+first_line = '^#!.*\bpwsh\b'
+case_insensitive = true
+
+[[rule]]
+kind = "function"
+pattern = '\b[a-z]+-[a-z][a-z0-9]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\bfunction\s+([a-z_][a-z0-9_-]*)'
+group = 1
+
+[[rule]]
+kind = "type_name"
+pattern = '\[[a-z_][a-z0-9_.]*(?:\[\])?\]'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!|]+'
+
+[[rule]]
+kind = "operator"
+pattern = '-(?:eq|ne|gt|ge|lt|le|like|notlike|match|notmatch|contains|notcontains|in|notin|replace|split|join|and|or|xor|not|band|bor|bxor|bnot|shl|shr|is|isnot|as|f)\b'
+
+[[rule]]
+kind = "keyword"
+words = ["begin", "break", "catch", "class", "continue", "data", "define", "do",
+         "dynamicparam", "else", "elseif", "end", "enum", "exit", "filter", "finally", "for",
+         "foreach", "from", "function", "hidden", "if", "in", "param", "process", "return",
+         "static", "switch", "throw", "trap", "try", "until", "using", "var", "while",
+         "workflow", "parallel", "sequence", "inlinescript"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0x[0-9a-f]+|[0-9]+(?:\.[0-9]+)?(?:e[+-]?[0-9]+)?)(?:kb|mb|gb|tb|pb|l|d)?\b'
+
+[[rule]]
+kind = "type_name"
+pattern = '\$(?:[a-z_][a-z0-9_]*:)?[a-z_][a-z0-9_]*|\$\{[^}]*\}|\$[$?^_]'
+
+[[rule]]
+kind = "constant"
+pattern = '\$(?:true|false|null)\b'
+
+[[region]]
+kind = "comment"
+start = '<#'
+end = '#>'
+
+[[region.rule]]
+kind = "keyword"
+pattern = '^\s*\.[a-z]+'
+
+[[region]]
+kind = "comment"
+start = '#'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '@"$'
+end = '^"@'
+
+[[region.rule]]
+kind = "constant"
+pattern = '`.|\$\([^)]*\)|\$[a-z_][a-z0-9_:]*'
+
+[[region]]
+kind = "string"
+start = "@'$"
+end = "^'@"
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"'
+skip = '`.|""'
+
+[[region.rule]]
+kind = "constant"
+pattern = '`.|\$\([^)]*\)|\$[a-z_][a-z0-9_:]*|\$\{[^}]*\}'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'"
+skip = "''"

@@ -1,0 +1,74 @@
+# Swift. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Swift"
+extensions = ["swift"]
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Z][A-Za-z0-9_]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\b([a-z_][A-Za-z0-9_]*)\s*(?:<[^<>()]*>)?\s*\('
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '@[A-Za-z_][A-Za-z0-9_]*'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?]+|\.\.[.<]'
+
+[[rule]]
+kind = "keyword"
+words = ["associatedtype", "actor", "as", "async", "await", "break", "case", "catch", "class",
+         "continue", "convenience", "default", "defer", "deinit", "didSet", "do", "dynamic",
+         "else", "enum", "extension", "fallthrough", "fileprivate", "final", "for", "func",
+         "get", "guard", "if", "import", "in", "indirect", "infix", "init", "inout",
+         "internal", "is", "lazy", "let", "mutating", "nonisolated", "nonmutating", "open",
+         "operator", "optional", "override", "postfix", "precedencegroup", "prefix",
+         "private", "protocol", "public", "repeat", "required", "rethrows", "return", "self",
+         "Self", "set", "some", "any", "static", "struct", "subscript", "super", "switch",
+         "throw", "throws", "try", "typealias", "unowned", "var", "weak", "where", "while",
+         "willSet"]
+
+[[rule]]
+kind = "keyword"
+pattern = '#[a-zA-Z]+'
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "nil"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0x[0-9A-Fa-f_]+|0o[0-7_]+|0b[01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)\b'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '#*"""'
+end = '"""#*'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\\([^)]*\)'
+
+[[region]]
+kind = "string"
+start = '#*"'
+end = '"#*|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\\([^)]*\)|\\(?:u\{[0-9A-Fa-f]+\}|.)'

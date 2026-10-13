@@ -1,0 +1,78 @@
+# Lua. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Lua"
+extensions = ["lua", "luau", "rockspec"]
+names = [".luacheckrc", ".luarc"]
+first_line = '^#!.*\blua(?:jit)?[0-9.]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:\(|"|\{)'
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '\bfunction\s+([A-Za-z_][A-Za-z0-9_.:]*)'
+group = 1
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%^#=<>~&|]+|\.\.\.?'
+
+[[rule]]
+kind = "keyword"
+words = ["and", "break", "do", "else", "elseif", "end", "for", "function", "goto", "if",
+         "in", "local", "not", "or", "repeat", "return", "then", "until", "while"]
+
+[[rule]]
+kind = "type_name"
+words = ["string", "table", "math", "io", "os", "coroutine", "debug", "utf8", "package",
+         "self", "_G", "_ENV"]
+
+[[rule]]
+kind = "function"
+words = ["assert", "error", "ipairs", "next", "pairs", "pcall", "print", "rawequal",
+         "rawget", "rawlen", "rawset", "require", "select", "setmetatable", "getmetatable",
+         "tonumber", "tostring", "type", "xpcall", "load", "loadfile", "dofile"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "nil"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f]+(?:\.[0-9A-Fa-f]*)?(?:[pP][+-]?[0-9]+)?|[0-9]+(?:\.[0-9]*)?(?:[eE][+-]?[0-9]+)?)\b'
+
+[[region]]
+kind = "comment"
+start = '--\[=*\['
+end = '\]=*\]'
+
+[[region]]
+kind = "comment"
+start = '--'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '\[=*\['
+end = '\]=*\]'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]+\}|[0-9]{1,3}|.)'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'|$"
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]{2}|u\{[0-9A-Fa-f]+\}|[0-9]{1,3}|.)'

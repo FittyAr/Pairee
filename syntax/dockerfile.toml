@@ -1,0 +1,47 @@
+# Dockerfiles and Containerfiles. Format: see help "Syntax highlighting definitions";
+# credits in README.md.
+name = "Dockerfile"
+extensions = ["dockerfile", "containerfile"]
+names = ["Dockerfile", "Containerfile"]
+filename = '^(?:Dockerfile|Containerfile)[._-]'
+case_insensitive = true
+
+[[rule]]
+kind = "keyword"
+pattern = '^\s*(?:onbuild\s+)?(?:add|arg|cmd|copy|entrypoint|env|expose|from|healthcheck|label|maintainer|onbuild|run|shell|stopsignal|user|volume|workdir)\b'
+
+[[rule]]
+kind = "keyword"
+pattern = '\bas\b'
+
+[[rule]]
+kind = "operator"
+pattern = '&&|\|\|?|\\$|[=;]'
+
+[[rule]]
+kind = "constant"
+pattern = '\$\{[^}]*\}|\$[a-z_][a-z0-9_]*|\b[0-9]+(?:/(?:tcp|udp))?\b'
+
+[[rule]]
+kind = "function"
+pattern = '--[a-z-]+'
+
+[[region]]
+kind = "comment"
+start = '^\s*#'
+end = '$'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|\$\{[^}]*\}|\$[a-z_][a-z0-9_]*'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'"
