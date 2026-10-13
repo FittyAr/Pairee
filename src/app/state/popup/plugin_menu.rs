@@ -1,4 +1,5 @@
-#[derive(Debug, Clone)]
+/// The Plugin Manager: Installed, Search and (developer mode) Dev tabs.
+#[derive(Debug, Clone, Default)]
 pub struct PluginMenuState {
     pub active_tab: usize,
     pub cursor_idx: usize,

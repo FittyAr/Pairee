@@ -23,6 +23,9 @@ pub mod view;
 pub mod viewer;
 pub mod yazi;
 
+#[cfg(test)]
+mod tests;
+
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
 use ratatui::{

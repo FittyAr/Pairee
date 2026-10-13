@@ -3,6 +3,9 @@ pub mod events;
 pub(crate) mod plugin_effects;
 pub mod updates;
 
+#[cfg(test)]
+mod tests;
+
 use super::context::AppContext;
 use super::state::AppState;
 use crate::app::state::popup::OnboardingKeymap;

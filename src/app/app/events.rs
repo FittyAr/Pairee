@@ -147,16 +147,4 @@ mod tests {
         assert!(state.redraw.needs_clear);
         assert!(state.needs_redraw());
     }
-
-    #[test]
-    fn terminate_event_marks_should_quit() {
-        let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.should_quit = false;
-        // In handle_input_event, Event::Terminate directly marks should_quit = true
-        let event = Event::Terminate;
-        if let Event::Terminate = event {
-            state.should_quit = true;
-        }
-        assert!(state.should_quit);
-    }
 }

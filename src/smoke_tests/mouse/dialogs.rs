@@ -168,26 +168,12 @@ fn plugin_search_rows_and_pages_take_clicks() {
             )
         })
         .collect();
-    h.state
-        .dialogs
-        .replace(PopupType::PluginMenu(crate::app::state::PluginMenuState {
-            active_tab: 1,
-            cursor_idx: 0,
-            installed: Vec::new(),
-            all_registry: registry.clone(),
-            registry,
-            search_query: String::new(),
-            is_searching: false,
-            editing_query: false,
-            dev_results: String::new(),
-            dev_wizard_step: 0,
-            dev_wizard_data: Vec::new(),
-            installed_loading: false,
-            installed_loading_status: String::new(),
-            dev_loading: false,
-            dev_loading_status: String::new(),
-            dev_loading_progress: None,
-        }));
+    h.state.dialogs.replace(crate::app::state::PluginMenuState {
+        active_tab: 1,
+        all_registry: registry.clone(),
+        registry,
+        ..Default::default()
+    });
     let cursor = |h: &Harness| match top(h) {
         Some(PopupType::PluginMenu(menu)) => menu.cursor_idx,
         other => panic!("{other:?}"),
