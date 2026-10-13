@@ -35,6 +35,18 @@ fn enabled_by_default() -> bool {
     true
 }
 
+/// `[plugin_registry]` of `config.toml`.
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+pub struct PluginRegistrySettings {
+    /// minisign public key the registry is checked with (empty = the key
+    /// pinned in Pairee).
+    #[serde(default)]
+    pub public_key: String,
+    /// Refuse registry files that have no signature.
+    #[serde(default)]
+    pub require_signature: bool,
+}
+
 /// How the built-in editor treats tab characters (`editor_expand_tabs`).
 ///
 /// Stored with the labels older releases wrote to `config.toml`; any other

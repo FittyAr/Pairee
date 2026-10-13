@@ -26,6 +26,5 @@ pub fn read_lockfile_from(path: &Path) -> PluginsLock {
 
 pub fn write_lockfile_to(path: &Path, lock: &PluginsLock) -> anyhow::Result<()> {
     let content = toml::to_string_pretty(lock)?;
-    std::fs::write(path, content)?;
-    Ok(())
+    crate::config::write_atomic(path, content.as_bytes())
 }

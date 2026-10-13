@@ -6,6 +6,11 @@ use crate::config::localization::t;
 use crate::plugin::manager::toggles::{self, PluginToggle};
 use crossterm::event::{KeyCode, KeyEvent};
 
+/// The registry key and signature policy of the user's settings.
+pub(super) fn registry_trust(context: &AppContext) -> crate::plugin::updater::RegistryTrust {
+    crate::plugin::updater::RegistryTrust::from_settings(&context.config.settings)
+}
+
 /// Flips trust or enabled for the plugin under the cursor (saved and
 /// applied by reloading the plugins) and refreshes the rows.
 fn toggle(
@@ -73,24 +78,28 @@ pub fn handle_installed(
                     title: t("plugin_toast_update_err_title"),
                     msg: t("plugin_toast_update_err").replace("{}", &name),
                 };
+                let trust = registry_trust(context);
                 spawn_with_toast(
-                    async move { crate::plugin::updater::install(&name, None).await },
+                    async move { crate::plugin::updater::update(Some(&name), &trust).await },
                     ok,
                     err,
                 );
             }
         }
-        KeyCode::Char('U') => spawn_with_toast(
-            crate::plugin::updater::update(None),
-            Toast {
-                title: t("plugin_toast_update_all_title"),
-                msg: t("plugin_toast_update_all_ok"),
-            },
-            Toast {
-                title: t("plugin_toast_update_all_err_title"),
-                msg: t("plugin_toast_update_all_err"),
-            },
-        ),
+        KeyCode::Char('U') => {
+            let trust = registry_trust(context);
+            spawn_with_toast(
+                async move { crate::plugin::updater::update(None, &trust).await },
+                Toast {
+                    title: t("plugin_toast_update_all_title"),
+                    msg: t("plugin_toast_update_all_ok"),
+                },
+                Toast {
+                    title: t("plugin_toast_update_all_err_title"),
+                    msg: t("plugin_toast_update_all_err"),
+                },
+            )
+        }
         _ => {}
     }
 }

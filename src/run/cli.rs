@@ -37,7 +37,10 @@ pub(super) async fn run_subcommand(args: &[String]) -> Result<bool> {
         }
         Some("developer") => {
             match args.get(2) {
-                Some(cmd) => developer_command(cmd, args.get(3..).unwrap_or_default()).await?,
+                Some(cmd) => {
+                    super::dev_cli::developer_command(cmd, args.get(3..).unwrap_or_default())
+                        .await?
+                }
                 None => {
                     println!("Developer CLI usage: pairee developer [init|lint|package|submit]")
                 }
@@ -85,43 +88,65 @@ fn keymap_command(rest: &[String]) {
     print!("{text}");
 }
 
-/// `pairee plugin <cmd> [rest...]`.
+/// `pairee plugin <cmd> [rest...]`. The updater returns reports; this CLI
+/// prints them (the updater itself never writes to stdout).
 async fn plugin_command(cmd: &str, rest: &[String]) -> Result<()> {
+    use plugin::updater;
     let first = rest.first().map(String::as_str);
-    match (cmd, first) {
-        ("list", _) => plugin::updater::list_installed().await?,
-        ("search", Some(query)) => plugin::updater::search(query).await?,
-        ("search", None) => println!("Error: search requires a query string"),
-        ("info", Some(name)) => plugin::updater::show_info(name).await?,
-        ("info", None) => println!("Error: info requires a plugin name"),
-        ("install" | "add", Some(_)) => install_plugins(rest).await,
+    let settings = crate::config::AppConfig::load_or_create()
+        .map(|c| c.settings)
+        .unwrap_or_default();
+    let trust = updater::RegistryTrust::from_settings(&settings);
+    let report = match (cmd, first) {
+        ("list", _) => updater::list_installed(&settings.plugins, &trust).await?,
+        ("search", Some(query)) => updater::search(query, &trust).await?,
+        ("info", Some(name)) => updater::show_info(name, &trust).await?,
+        ("install" | "add", Some(_)) => install_plugins(rest, &trust).await,
+        ("remove", Some(name)) => updater::remove(name)?,
+        ("pin", Some(name)) => updater::pin(name, true)?,
+        ("unpin", Some(name)) => updater::pin(name, false)?,
+        ("verify", _) => updater::verify(&trust).await?,
+        ("check-updates", _) => updater::check_updates(&trust).await?,
+        ("update", name) => updater::update(name, &trust).await?,
+        ("search", None) => usage("Error: search requires a query string"),
+        ("info", None) => usage("Error: info requires a plugin name"),
         ("install" | "add", None) => {
-            println!("Error: install command requires at least one plugin name")
+            usage("Error: install command requires at least one plugin name")
         }
-        ("remove", Some(name)) => plugin::updater::remove(name)?,
-        ("remove", None) => println!("Error: remove requires a plugin name"),
-        ("pin", Some(name)) => plugin::updater::pin(name, true)?,
-        ("pin", None) => println!("Error: pin requires a plugin name"),
-        ("unpin", Some(name)) => plugin::updater::pin(name, false)?,
-        ("unpin", None) => println!("Error: unpin requires a plugin name"),
-        ("verify", _) => plugin::updater::verify().await?,
-        ("check-updates", _) => plugin::updater::check_updates().await?,
-        ("update", name) => plugin::updater::update(name).await?,
-        _ => println!(
-            "Unknown plugin command. Available: list, search, info, install, add, remove, pin, unpin, verify, check-updates, update"
+        ("remove", None) => usage("Error: remove requires a plugin name"),
+        ("pin", None) => usage("Error: pin requires a plugin name"),
+        ("unpin", None) => usage("Error: unpin requires a plugin name"),
+        _ => usage(
+            "Unknown plugin command. Available: list, search, info, install, add, remove, pin, unpin, verify, check-updates, update",
         ),
-    }
+    };
+    println!("{report}");
     Ok(())
 }
 
+/// A report holding one usage message.
+fn usage(text: &str) -> plugin::updater::Report {
+    let mut report = plugin::updater::Report::default();
+    report.lines.push(text.to_string());
+    report
+}
+
 /// Installs each `name[@version]`; a failure is reported and the rest continue.
-async fn install_plugins(specs: &[String]) {
+async fn install_plugins(
+    specs: &[String],
+    trust: &plugin::updater::RegistryTrust,
+) -> plugin::updater::Report {
+    let mut report = plugin::updater::Report::default();
     for spec in specs {
         let (name, version) = parse_install_spec(spec);
-        if let Err(e) = plugin::updater::install(&name, version).await {
-            println!("Error installing plugin '{}': {:?}", name, e);
+        match plugin::updater::install(&name, version, trust).await {
+            Ok(r) => report.absorb(r),
+            Err(e) => report
+                .lines
+                .push(format!("Error installing plugin '{name}': {e:#}")),
         }
     }
+    report
 }
 
 /// `foo@1.2` → (`foo.pairee`, `Some("1.2")`); the `.pairee` suffix is added when missing.
@@ -135,33 +160,6 @@ fn parse_install_spec(spec: &str) -> (String, Option<&str>) {
         format!("{}.pairee", base)
     };
     (name, version)
-}
-
-/// `pairee developer <cmd> [rest...]`.
-async fn developer_command(cmd: &str, rest: &[String]) -> Result<()> {
-    match cmd {
-        "init" => match rest.first() {
-            Some(name) => {
-                let desc = prompt_line("Enter plugin description:")?;
-                let author = prompt_line("Enter plugin author:")?;
-                plugin::developer_tool::init(name, &desc, &author, true)?;
-            }
-            None => println!("Error: init requires a plugin name"),
-        },
-        "lint" => plugin::developer_tool::lint()?,
-        "package" => plugin::developer_tool::package()?,
-        "submit" => plugin::developer_tool::submit().await?,
-        _ => println!("Unknown developer command. Available: init, lint, package, submit"),
-    }
-    Ok(())
-}
-
-/// Prints `prompt` and reads one trimmed line from stdin.
-fn prompt_line(prompt: &str) -> Result<String> {
-    println!("{prompt}");
-    let mut line = String::new();
-    std::io::stdin().read_line(&mut line)?;
-    Ok(line.trim().to_string())
 }
 
 #[cfg(test)]

@@ -5,6 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 pub fn handle_search(
     key: KeyEvent,
+    trust: crate::plugin::updater::RegistryTrust,
     cursor_idx: &mut usize,
     registry: &mut Vec<(String, String, String, String)>,
     all_registry: &[(String, String, String, String)],
@@ -29,7 +30,7 @@ pub fn handle_search(
                     msg: t("plugin_toast_install_err").replace("{}", &name),
                 };
                 spawn_with_toast(
-                    async move { crate::plugin::updater::install(&name, None).await },
+                    async move { crate::plugin::updater::install(&name, None, &trust).await },
                     ok,
                     err,
                 );

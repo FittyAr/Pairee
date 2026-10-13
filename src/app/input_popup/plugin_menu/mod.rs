@@ -66,6 +66,7 @@ pub fn handle(
         0 => installed::handle_installed(key, context, &mut menu.cursor_idx, &mut menu.installed),
         1 => search::handle_search(
             key,
+            installed::registry_trust(context),
             &mut menu.cursor_idx,
             &mut menu.registry,
             &menu.all_registry,

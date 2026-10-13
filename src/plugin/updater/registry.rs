@@ -1,4 +1,10 @@
+//! Registry locations and the signed, size-limited fetches of its files.
+
+use super::http::{self, MAX_INDEX_BYTES, MAX_MANIFEST_BYTES};
+use super::report::Report;
+use super::trust::{RegistryTrust, SignatureStatus};
 use super::types::{Blocklist, RegistryIndex};
+use anyhow::Result;
 
 const REGISTRY_BASE_URL: &str =
     "https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry";
@@ -11,19 +17,29 @@ pub fn registry_author(author: Option<&str>) -> &str {
     }
 }
 
-/// URL of a file inside a plugin's registry folder, sharded by the first
-/// (lowercased) letter of the author, or `_` when it is not a letter.
-pub fn plugin_file_url(author: &str, name: &str, rel_path: &str) -> String {
+/// Path of a plugin file inside `registry/`, sharded by the first
+/// (lowercased) letter of the author, or `_` when it is not a letter. It is
+/// also the name a signature's trusted comment must carry.
+pub fn plugin_file_path(author: &str, name: &str, rel_path: &str) -> String {
     let first = author.chars().next().unwrap_or('u').to_ascii_lowercase();
     let shard = if first.is_ascii_alphabetic() {
         first.to_string()
     } else {
         "_".to_string()
     };
-    format!("{REGISTRY_BASE_URL}/plugins/{shard}/{author}/{name}/{rel_path}")
+    format!("plugins/{shard}/{author}/{name}/{rel_path}")
 }
 
-pub fn parse_index(text: &str) -> anyhow::Result<RegistryIndex> {
+/// URL of a file inside a plugin's registry folder.
+pub fn plugin_file_url(author: &str, name: &str, rel_path: &str) -> String {
+    registry_url(&plugin_file_path(author, name, rel_path))
+}
+
+fn registry_url(path: &str) -> String {
+    format!("{REGISTRY_BASE_URL}/{path}")
+}
+
+pub fn parse_index(text: &str) -> Result<RegistryIndex> {
     Ok(toml::from_str(text)?)
 }
 
@@ -32,26 +48,69 @@ pub fn parse_blocklist(text: &str) -> Blocklist {
     toml::from_str(text).unwrap_or_default()
 }
 
-pub async fn fetch_index() -> anyhow::Result<RegistryIndex> {
-    let url = format!("{REGISTRY_BASE_URL}/index.toml");
-    let client = reqwest::Client::builder().build()?;
-    let resp = client.get(&url).send().await?;
-    if resp.status().is_success() {
-        let text = resp.text().await?;
-        parse_index(&text)
-    } else {
-        anyhow::bail!("Failed to fetch plugin registry: HTTP {}", resp.status());
-    }
+/// Downloads the registry file at `path` (at most `max` bytes) and checks
+/// its `.minisig`. `Ok(None)` when the file itself does not exist; a bad
+/// signature is an error, a missing one is recorded in `report`.
+pub async fn fetch_signed(
+    client: &reqwest::Client,
+    trust: &RegistryTrust,
+    path: &str,
+    max: usize,
+    report: &mut Report,
+) -> Result<Option<String>> {
+    let Some(data) = http::fetch_limited(client, &registry_url(path), max).await? else {
+        return Ok(None);
+    };
+    check_signature(client, trust, path, &data, report).await?;
+    http::utf8(data, path).map(Some)
 }
 
-pub async fn fetch_blocklist() -> anyhow::Result<Blocklist> {
-    let url = format!("{REGISTRY_BASE_URL}/blocklist.toml");
-    let client = reqwest::Client::builder().build()?;
-    let resp = client.get(&url).send().await?;
-    if resp.status().is_success() {
-        let text = resp.text().await?;
-        Ok(parse_blocklist(&text))
-    } else {
-        Ok(Blocklist::default())
+/// Fetches `<path>.minisig` and checks `data` against it.
+async fn check_signature(
+    client: &reqwest::Client,
+    trust: &RegistryTrust,
+    path: &str,
+    data: &[u8],
+    report: &mut Report,
+) -> Result<()> {
+    let sig_url = format!("{}.minisig", registry_url(path));
+    let sig = http::fetch_limited(client, &sig_url, MAX_MANIFEST_BYTES)
+        .await?
+        .map(|bytes| http::utf8(bytes, "signature"))
+        .transpose()?;
+    if trust.verify(data, sig.as_deref(), path)? == SignatureStatus::Unsigned {
+        report.mark_unsigned(path);
     }
+    Ok(())
+}
+
+/// The registry index (signature checked).
+pub async fn fetch_index_with(trust: &RegistryTrust, report: &mut Report) -> Result<RegistryIndex> {
+    let client = http::client()?;
+    let text = fetch_signed(&client, trust, "index.toml", MAX_INDEX_BYTES, report)
+        .await?
+        .ok_or_else(|| anyhow::anyhow!("Failed to fetch plugin registry: index.toml not found"))?;
+    parse_index(&text)
+}
+
+/// The registry index; signature warnings are only logged.
+pub async fn fetch_index(trust: &RegistryTrust) -> Result<RegistryIndex> {
+    fetch_index_with(trust, &mut Report::default()).await
+}
+
+/// The blocklist. A missing or unreachable blocklist is empty; one with
+/// an invalid signature is an error (never silently ignored).
+pub async fn fetch_blocklist(trust: &RegistryTrust, report: &mut Report) -> Result<Blocklist> {
+    const PATH: &str = "blocklist.toml";
+    let client = http::client()?;
+    let data = match http::fetch_limited(&client, &registry_url(PATH), MAX_INDEX_BYTES).await {
+        Ok(Some(data)) => data,
+        Ok(None) => return Ok(Blocklist::default()),
+        Err(e) => {
+            tracing::warn!("Plugin blocklist unavailable: {e:#}");
+            return Ok(Blocklist::default());
+        }
+    };
+    check_signature(&client, trust, PATH, &data, report).await?;
+    Ok(parse_blocklist(&http::utf8(data, PATH)?))
 }
