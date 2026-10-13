@@ -22,9 +22,6 @@ pub enum PluginRequest {
     /// Structured notify payload used by `pairee.notify({title, content,
     /// level, timeout})`.
     NotifyStructured(NotifyPayload),
-    Cd {
-        path: String,
-    },
     SetFocus {
         side: String,
     },
@@ -68,10 +65,12 @@ pub enum PluginRequest {
         silent: bool,
         reply_tx: oneshot::Sender<Option<usize>>,
     },
-    /// Generic action dispatch (introduced in M0). Any `Action` in
-    /// `src/keybindings/actions.rs` is callable. The optional `reply_tx`
-    /// receives a JSON value when the action supports result data.
+    /// Generic action dispatch (`pairee.emit`, `pairee.app.cd`). `origin`
+    /// is captured in Rust when the runtime is bound; the main loop checks
+    /// it against the emit policy. The optional `reply_tx` receives a JSON
+    /// value when the action supports result data.
     EmitAction {
+        origin: PluginOrigin,
         name: String,
         args: serde_json::Value,
         reply_tx: Option<oneshot::Sender<serde_json::Value>>,
@@ -106,6 +105,14 @@ pub enum PluginRequest {
     DevPluginScan {
         options: Vec<(String, String)>,
     },
+}
+
+/// Which plugin sent a request, and whether the user trusts it. Built in
+/// Rust when the runtime is bound, so Lua cannot forge it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PluginOrigin {
+    pub name: String,
+    pub trusted: bool,
 }
 
 /// Position hint for a dialog popup. Mirrors the public Lua shape that

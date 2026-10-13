@@ -20,6 +20,7 @@
 use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, percent_encode};
 
 use super::utils_basic;
+use crate::plugin::runtime::lua_json;
 
 pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // Compose on top of `utils_basic` so the existing `target_os`,
@@ -65,15 +66,18 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
         })?,
     )?;
 
-    // `pairee.json_encode(value)` — serialise any Lua value (including
-    // userdata, tables, strings, numbers, booleans) to a JSON string.
+    // `pairee.json_encode(value)` — serialise a Lua value (tables, strings,
+    // numbers, booleans) to a JSON string with the shared bounded
+    // converter; values it refuses return nil.
     table.set(
         "json_encode",
-        lua.create_async_function(|_lua_ctx, value: mlua::Value| async move {
-            match serde_json::to_string(&value) {
-                Ok(s) => Ok(mlua::Value::String(_lua_ctx.create_string(&s)?)),
+        lua.create_function(|lua_ctx, value: mlua::Value| {
+            let encoded = lua_json::to_json(lua_ctx, value)
+                .and_then(|json| serde_json::to_string(&json).map_err(mlua::Error::external));
+            match encoded {
+                Ok(s) => Ok(mlua::Value::String(lua_ctx.create_string(&s)?)),
                 Err(e) => {
-                    log::warn!("pairee.json_encode failed: {e}");
+                    tracing::warn!("pairee.json_encode failed: {e}");
                     Ok(mlua::Value::Nil)
                 }
             }
@@ -83,16 +87,12 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // `pairee.json_decode(str)` — parse a JSON string into a Lua value.
     table.set(
         "json_decode",
-        lua.create_async_function(|_lua_ctx, s: mlua::String| async move {
-            match serde_json::from_str::<serde_json::Value>(&String::from_utf8_lossy(s.as_bytes()))
-            {
-                Ok(v) => {
-                    use mlua::LuaSerdeExt;
-                    let lua_value = _lua_ctx.to_value(&v).unwrap_or(mlua::Value::Nil);
-                    Ok(lua_value)
-                }
+        lua.create_function(|lua_ctx, s: mlua::String| {
+            let text = String::from_utf8_lossy(s.as_bytes());
+            match serde_json::from_str::<serde_json::Value>(&text) {
+                Ok(v) => Ok(lua_json::from_json(lua_ctx, &v).unwrap_or(mlua::Value::Nil)),
                 Err(e) => {
-                    log::warn!("pairee.json_decode failed: {e}");
+                    tracing::warn!("pairee.json_decode failed: {e}");
                     Ok(mlua::Value::Nil)
                 }
             }
@@ -186,11 +186,18 @@ mod tests {
     }
 
     #[test]
-    fn test_json_encode_string() {
+    fn json_encode_and_decode_use_the_bounded_converter() {
         let lua = Lua::new();
-        let s = lua.create_string("hello").unwrap();
-        // Just check it doesn't panic; round-trip is in the
-        // `to_lua_value` direction which serde handles for `Value`.
-        let _ = s;
+        lua.globals().set("u", bind(&lua).unwrap()).unwrap();
+        let (encoded, sparse, name): (String, mlua::Value, String) = lua
+            .load(
+                r#"return u.json_encode({ a = { 1, 2 } }), u.json_encode({ [2^40] = 1 }),
+                   u.json_decode('{"name":"x"}').name"#,
+            )
+            .eval()
+            .unwrap();
+        assert_eq!(encoded, r#"{"a":[1,2]}"#);
+        assert!(sparse.is_nil());
+        assert_eq!(name, "x");
     }
 }

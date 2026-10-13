@@ -66,6 +66,10 @@ trash = "5.2.9"
 # root even if a path component is swapped for a symlink after validation.
 cap-std = "3"
 minisign-verify = "0.3.0"
+# Plugin `min_pairee` checks (pre-release aware).
+semver = "1.0.28"
+# SSH preset passwords in the OS keyring (Credential Manager, Keychain, Secret Service).
+keyring = "4.2.0"
 encoding_rs = "0.8"
 chardetng = "0.1"
 # Directory change notifications for panel auto-refresh (non-recursive watches).

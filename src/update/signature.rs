@@ -19,7 +19,10 @@ pub fn verify_release_asset(data: &[u8], minisig_text: &str, asset_name: &str) -
     verify_with_key(RELEASE_PUBLIC_KEY, data, minisig_text, asset_name)
 }
 
-fn verify_with_key(
+/// Verify `data` against the `.minisig` text with `public_key_b64`; the
+/// trusted comment must contain `file:<asset_name>`. Shared with the plugin
+/// registry, which signs its index and manifests the same way.
+pub fn verify_with_key(
     public_key_b64: &str,
     data: &[u8],
     minisig_text: &str,

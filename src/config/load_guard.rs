@@ -28,7 +28,7 @@ pub fn backup_path(path: &Path) -> PathBuf {
     path.with_file_name(name)
 }
 
-/// Handles a settings parse failure: backs the file up and returns the
+/// Handles a config file parse failure: backs the file up and returns the
 /// localized message to show at startup. Call after the UI language has
 /// been loaded so the message is localized.
 pub fn backup_invalid_config(path: &Path, parse_error: &str) -> String {
@@ -36,7 +36,7 @@ pub fn backup_invalid_config(path: &Path, parse_error: &str) -> String {
     match std::fs::copy(path, &bak) {
         Ok(_) => {
             tracing::error!(
-                "config.toml at {:?} is invalid ({parse_error}); backed up to {:?}, using defaults",
+                "Config file {:?} is invalid ({parse_error}); backed up to {:?}, using defaults",
                 path,
                 bak
             );
@@ -47,7 +47,7 @@ pub fn backup_invalid_config(path: &Path, parse_error: &str) -> String {
         }
         Err(e) => {
             tracing::error!(
-                "config.toml at {:?} is invalid ({parse_error}); backup to {:?} failed: {e}",
+                "Config file {:?} is invalid ({parse_error}); backup to {:?} failed: {e}",
                 path,
                 bak
             );
@@ -56,6 +56,23 @@ pub fn backup_invalid_config(path: &Path, parse_error: &str) -> String {
                 .replacen("{}", parse_error.trim(), 1)
                 .replacen("{}", &e.to_string(), 1)
         }
+    }
+}
+
+/// Load-guard for one file: `parse_error` (when the file was invalid)
+/// backs it up, adds the localized message to `errors` and locks it
+/// against implicit saves.
+pub fn guard(
+    path: &Path,
+    parse_error: Option<String>,
+    errors: &mut Vec<String>,
+) -> ConfigLoadState {
+    match parse_error {
+        Some(err) => {
+            errors.push(backup_invalid_config(path, &err));
+            ConfigLoadState::SaveLocked
+        }
+        None => ConfigLoadState::Loaded,
     }
 }
 
@@ -81,5 +98,21 @@ mod tests {
             std::fs::read_to_string(backup_path(&path)).unwrap(),
             "theme = [broken"
         );
+    }
+
+    #[test]
+    fn guard_locks_only_invalid_files() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("keybindings.toml");
+        std::fs::write(&path, "preset = [").unwrap();
+        let mut errors = Vec::new();
+        assert_eq!(guard(&path, None, &mut errors), ConfigLoadState::Loaded);
+        assert!(errors.is_empty());
+        assert_eq!(
+            guard(&path, Some("bad".into()), &mut errors),
+            ConfigLoadState::SaveLocked
+        );
+        assert_eq!(errors.len(), 1);
+        assert!(backup_path(&path).exists());
     }
 }

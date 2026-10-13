@@ -1,63 +1,7 @@
-use super::package::{package_to_registry, validate_for_publish};
 use super::progress_status;
 use crate::app::state::DevProgress;
 use crate::config::localization::t;
 use tokio::sync::mpsc::UnboundedSender;
-
-pub async fn submit() -> anyhow::Result<()> {
-    println!("{}", t("plugin_dev_submit_wizard"));
-
-    let path = std::env::current_dir()?;
-    if let Err(err_msg) = validate_for_publish(&path) {
-        anyhow::bail!(err_msg);
-    }
-
-    let manifest_path = path.join("manifest.toml");
-    let content = std::fs::read_to_string(&manifest_path)?;
-    let manifest = crate::plugin::loader::PluginManifest::parse(&content)?;
-    let plugin_name = manifest.name.clone();
-
-    // 1. Run package_to_registry to make sure everything is in the temp registry clone
-    let msg = package_to_registry(&path)?;
-    println!("{}", msg);
-
-    // 2. Ask user for commit description
-    println!("{}", t("plugin_enter_commit_desc"));
-    let mut commit_msg = String::new();
-    std::io::stdin().read_line(&mut commit_msg)?;
-    let commit_msg = commit_msg.trim().to_string();
-    if commit_msg.is_empty() {
-        anyhow::bail!("Commit message cannot be empty.");
-    }
-
-    // 3. Commit locally
-    commit_registry_changes(&commit_msg)?;
-    println!("{}", t("plugin_dev_local_staged"));
-
-    // 4. Prompt for token (optional)
-    println!("{}", t("plugin_dev_submit_prompt")); // "Enter GitHub Token: "
-    let mut token = String::new();
-    std::io::stdin().read_line(&mut token)?;
-    let token = token.trim().to_string();
-
-    if token.is_empty() {
-        let temp_dir = crate::config::paths::get_cache_dir().join("temp_registry");
-        let msg = t("plugin_dev_no_token_inst").replace("{}", &temp_dir.display().to_string());
-        println!("\n{}", msg);
-    } else {
-        println!("{}", t("plugin_dev_submit_sending"));
-        match run_automatic_submit(&token, &commit_msg, &plugin_name).await {
-            Ok(success_msg) => println!("{}", success_msg),
-            Err(e) => anyhow::bail!("Automatic submission failed: {:?}", e),
-        }
-    }
-
-    Ok(())
-}
-
-pub fn commit_registry_changes(message: &str) -> anyhow::Result<()> {
-    commit_registry_changes_with_progress(message, None)
-}
 
 pub fn commit_registry_changes_with_progress(
     message: &str,

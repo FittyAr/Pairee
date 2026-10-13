@@ -197,13 +197,15 @@ Plugins run in a Lua sandbox that:
 
 - Exposes only `base`, `table`, `string`, `utf8`, and `math` (in untrusted mode).
 - Removes `load`, `loadstring`, `dofile`, and `loadfile` (in untrusted mode).
-- Replaces `require` with a path-bounded loader limited to the plugin's own directory.
+- Replaces `require` with a loader limited to the plugin's own directory (works in untrusted mode too; modules are cached per plugin).
 - Blocks `pairee.fs.spawn` and any `io`/`os`/`package` access (in untrusted mode).
+- Lets untrusted plugins fire only non-destructive actions with `pairee.emit` (navigation, view, sort, selection, help, their own commands).
+- Aborts any call into the plugin that runs for more than 10 seconds (time inside C functions included).
 
-When Secure Mode is active in the user's `pairee.toml`:
+When Secure Mode is active (`secure_mode = true`, toggled with `s` in the Plugin Manager):
 
-- `pairee.fs.spawn` is additionally blacklisted against a 27-command list (network tools, shells, script runtimes).
-- File-system operations are restricted to the active workspace + the user's config and cache directories.
+- Commands must be declared in the manifest and are never shells, interpreters or network tools; `Command:env` only sets locale/terminal/colour variables and `Command:cwd` must stay inside the jail.
+- File reads are restricted to the active workspace + the user's config and cache directories + the plugin's folders; writes to the workspace, the cache and the plugin's data folder (Pairee's config folder is read-only).
 
 See the `[sandbox]` section in `docs/plugin-dev-guide.md` for the full matrix.
 

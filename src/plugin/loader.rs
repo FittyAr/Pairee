@@ -1,3 +1,4 @@
+use crate::plugin::load_options::PluginLoadOptions;
 use crate::plugin::manager::PluginRequest;
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -85,12 +86,13 @@ fn collect_files_rec(dir: &Path, base_dir: &Path, files: &mut Vec<(String, std::
     }
 }
 
+/// Loads the plugin in `path` with the host's `options` and registers it.
 pub async fn load_plugin(
-    name: &str,
     path: &Path,
-    trusted: bool,
+    options: &PluginLoadOptions,
     tx: mpsc::Sender<PluginRequest>,
 ) -> anyhow::Result<()> {
+    let name = &options.name;
     // 1. Read manifest.toml
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
@@ -101,13 +103,13 @@ pub async fn load_plugin(
 
     // 2. Validate version compatibility
     if let Some(ref min_version) = manifest.min_pairee
-        && let Err(e) = check_version_compatibility(min_version)
+        && let Err(e) = check_version_compatibility(min_version, env!("CARGO_PKG_VERSION"))
     {
         anyhow::bail!("Version check failed for plugin {}: {}", name, e);
     }
 
     // 3. Create sandboxed Lua instance
-    let lua = crate::plugin::sandbox::create_sandboxed_lua(path, trusted, tx.clone())?;
+    let lua = crate::plugin::sandbox::create_sandboxed_lua(path, options, tx.clone())?;
 
     // 4. Load main.lua
     let main_path = path.join("main.lua");
@@ -116,8 +118,9 @@ pub async fn load_plugin(
     }
     let main_content = std::fs::read_to_string(&main_path)?;
 
-    // Evaluate Lua and run setup in a nested block to drop all non-Send mlua types before await
-    let table_key = {
+    // Evaluate Lua and run setup in a nested block to drop all non-Send mlua
+    // types before await. Both run under the CPU watchdog.
+    let table_key = crate::plugin::limits::guarded(&lua, || {
         let plugin_table: mlua::Table = lua.load(&main_content).eval()?;
 
         // 5. Run setup() if defined
@@ -127,14 +130,14 @@ pub async fn load_plugin(
             setup_fn.call::<_, ()>((plugin_table.clone(), opts))?;
         }
 
-        lua.create_registry_value(plugin_table)?
-    };
+        lua.create_registry_value(plugin_table)
+    })?;
 
     // 6. Register capabilities (Previewers, Commands, Hooks) and spawn task
     crate::plugin::registry::register_plugin(manifest.clone(), table_key, lua, path.to_path_buf())
         .await?;
 
-    log::info!(
+    tracing::info!(
         "Successfully loaded plugin: {} v{} (License: {:?}, Languages: {:?})",
         manifest.name,
         manifest.version,
@@ -144,41 +147,51 @@ pub async fn load_plugin(
     Ok(())
 }
 
-fn check_version_compatibility(min_version: &str) -> anyhow::Result<()> {
-    let current_version = env!("CARGO_PKG_VERSION");
-
-    // Parse helper
-    let parse = |v: &str| -> Option<(u32, u32, u32)> {
-        let parts: Vec<&str> = v.split('.').collect();
-        if parts.len() >= 3 {
-            let maj = parts[0].parse().ok()?;
-            let min = parts[1].parse().ok()?;
-            let pat = parts[2].parse().ok()?;
-            Some((maj, min, pat))
-        } else {
-            None
-        }
+/// Parses a version for the `min_pairee` check: full semver (pre-release
+/// and build metadata included), or `X` / `X.Y` padded with zeros.
+fn parse_version(v: &str) -> anyhow::Result<semver::Version> {
+    let v = v.trim();
+    let padded = match v.split(['-', '+']).next().unwrap_or(v).matches('.').count() {
+        0 => format!("{v}.0.0"),
+        1 => format!("{v}.0"),
+        _ => v.to_string(),
     };
+    semver::Version::parse(&padded).map_err(|e| anyhow::anyhow!("invalid version {v:?}: {e}"))
+}
 
-    if let (Some(cur), Some(min)) = (parse(current_version), parse(min_version)) {
-        if cur >= min {
-            Ok(())
-        } else {
-            anyhow::bail!(
-                "Pairee version {} is less than required minimum {}",
-                current_version,
-                min_version
-            );
-        }
-    } else {
-        // Fallback to allow if parsing fails
+/// Fails when `current` is older than `min_version` or either cannot be
+/// parsed (an unreadable requirement is not silently accepted).
+fn check_version_compatibility(min_version: &str, current: &str) -> anyhow::Result<()> {
+    let min = parse_version(min_version)?;
+    let cur = parse_version(current)?;
+    if cur >= min {
         Ok(())
+    } else {
+        anyhow::bail!("Pairee version {current} is less than required minimum {min_version}");
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn version_check_accepts_newer_and_prerelease() {
+        assert!(check_version_compatibility("0.7.0", "0.10.0").is_ok());
+        assert!(check_version_compatibility("0.10.0", "0.10.0").is_ok());
+        assert!(check_version_compatibility("0.10.0-beta.1", "0.10.0").is_ok());
+        assert!(check_version_compatibility("0.9", "0.10.0").is_ok());
+        assert!(check_version_compatibility("1", "0.10.0").is_err());
+        assert!(check_version_compatibility("0.11.0", "0.10.0").is_err());
+        assert!(check_version_compatibility("0.10.0", "0.10.0-rc.1").is_err());
+    }
+
+    #[test]
+    fn version_check_rejects_unparsable_requirements() {
+        for bad in ["", "latest", "0.x.1", "v0.7.0", ">=0.7"] {
+            assert!(check_version_compatibility(bad, "0.10.0").is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn test_parse_manifest_flat() {

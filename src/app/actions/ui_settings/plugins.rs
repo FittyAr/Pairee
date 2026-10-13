@@ -31,12 +31,18 @@ pub fn open_plugin_menu(state: &mut AppState, context: &AppContext) {
     // mutably) so the background task does not capture a reference
     // to it.
     let plugins_settings = context.config.settings.plugins.clone();
+    let secure_mode = crate::plugin::load_options::effective_secure_mode(&context.config);
+    let trust = crate::plugin::updater::RegistryTrust::from_settings(&context.config.settings);
     let tx = crate::plugin::PluginManager::get_sender();
     tokio::spawn(async move {
         let lock = crate::plugin::updater::read_lockfile();
-        let index = crate::plugin::updater::fetch_index().await.ok();
-        let installed =
-            crate::plugin::installed::installed_rows(&lock, &plugins_settings, index.as_ref());
+        let index = crate::plugin::updater::fetch_index(&trust).await.ok();
+        let installed = crate::plugin::installed::installed_rows(
+            &lock,
+            &plugins_settings,
+            secure_mode,
+            index.as_ref(),
+        );
         // Build the full registry list (all available plugins) so the
         // Search tab shows results immediately without requiring a query.
         let registry: Vec<(String, String, String, String)> = index

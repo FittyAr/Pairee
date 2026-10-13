@@ -107,6 +107,7 @@ impl Default for Settings {
             plugins: std::collections::HashMap::new(),
             plugin_settings: std::collections::HashMap::new(),
             active_dev_plugin: None,
+            security: Default::default(),
 
             // Transfer Engine
             transfer_default_hash: "blake3".to_string(),

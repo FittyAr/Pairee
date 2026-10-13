@@ -123,10 +123,15 @@ Muestra una lista con todos los plugins que se han cargado y están instalados l
 ##### Indicadores de Estado (Badges):
 * **`[P]` (Pinned):** El plugin está anclado a su versión actual. No se actualizará de manera automática al ejecutar actualizaciones globales.
 * **`[T]` (Trusted):** El plugin tiene permisos de ejecución extendidos ("Modo de Confianza"). Los plugins que no muestran esta etiqueta se ejecutan en modo estrictamente restringido (sandbox), sin acceso a la red ni a comandos arbitrarios del sistema operativo.
+* **`[-]` (Desactivado):** El plugin está instalado pero no se carga; no se ejecuta nada de su código ni de sus hooks.
 * **`[▲]` (Update Available):** Indica que existe una versión más reciente de este plugin disponible en el repositorio central.
 
 ##### Controles de Teclado:
 * **`t` / `T`:** Cambia (activa/desactiva) el estado de confianza (Trusted) del plugin seleccionado en la configuración.
+* **`e` / `E`:** Activa o desactiva el plugin seleccionado.
+* **`s` / `S`:** Activa o desactiva el Modo Seguro global para todos los plugins.
+
+Los cambios de confianza, activación y Modo Seguro se guardan y se aplican al instante: Pairee recarga sus plugins con la nueva configuración. Si `config.toml` no se puede leer, los plugins se ejecutan en Modo Seguro hasta que se corrija. Las descargas del registro se comprueban con las firmas minisign del registro; mientras el registro todavía no esté firmado, las instalaciones y actualizaciones muestran un aviso de "sin firmar".
 * **`p` / `P`:** Ancla (Pin) o desancla la versión actual del plugin en `plugins.lock`.
 * **`u`:** Actualiza el plugin seleccionado a la versión más reciente en segundo plano. Recibirás una notificación en la parte superior cuando finalice.
 * **`U`:** Actualiza todos los plugins instalados (que no estén anclados) de forma masiva en segundo plano.

@@ -142,20 +142,15 @@ fn clone_from_template(
     }
 }
 
-pub fn init(name: &str, description: &str, author: &str, print_output: bool) -> anyhow::Result<()> {
+/// CLI entry: creates the plugin in the current folder and returns the
+/// success message for the caller to print.
+pub fn init(name: &str, description: &str, author: &str) -> anyhow::Result<String> {
     // CLI entry: the process is single-threaded at this point, so reading
     // the cwd is safe. The interactive UI must NOT use this helper — it
     // should call `init_in` with an explicit `target_parent` so the
     // process-wide cwd is never mutated while other tasks are running.
     let target_parent = std::env::current_dir()?;
-    init_in(
-        name,
-        description,
-        author,
-        print_output,
-        None,
-        &target_parent,
-    )
+    init_in(name, description, author, None, &target_parent)
 }
 
 /// Initialises a new plugin inside `target_parent` (an absolute path).
@@ -169,10 +164,9 @@ pub fn init_in(
     name: &str,
     description: &str,
     author: &str,
-    print_output: bool,
     progress: Option<UnboundedSender<DevProgress>>,
     target_parent: &std::path::Path,
-) -> anyhow::Result<()> {
+) -> anyhow::Result<String> {
     let folder_name = if name.ends_with(".pairee") {
         name.to_string()
     } else {
@@ -193,13 +187,9 @@ pub fn init_in(
         anyhow::bail!(t("plugin_dev_err_template_unavailable"));
     }
 
-    if print_output {
-        let ok_msg = t("plugin_dev_init_ok")
-            .replace("{}", &manifest_name)
-            .replace("{:?}", &path.to_string_lossy());
-        println!("{}", ok_msg);
-    }
-    Ok(())
+    Ok(t("plugin_dev_init_ok")
+        .replace("{}", &manifest_name)
+        .replace("{:?}", &path.to_string_lossy()))
 }
 
 /// Like [`init_in`] but always reports progress over the optional
@@ -210,18 +200,10 @@ pub fn init_with_progress_in(
     name: &str,
     description: &str,
     author: &str,
-    print_output: bool,
     progress: Option<UnboundedSender<DevProgress>>,
     target_parent: &std::path::Path,
-) -> anyhow::Result<()> {
-    init_in(
-        name,
-        description,
-        author,
-        print_output,
-        progress,
-        target_parent,
-    )
+) -> anyhow::Result<String> {
+    init_in(name, description, author, progress, target_parent)
 }
 
 #[cfg(test)]
@@ -262,7 +244,7 @@ mod tests {
             assert!(help_content.contains("# Help for test_remote Plugin"));
         } else {
             // If offline, it's expected to return false, but shouldn't panic
-            println!("Offline: remote clone skipped.");
+            tracing::info!("Offline: remote clone skipped.");
         }
     }
 }

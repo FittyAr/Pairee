@@ -9,8 +9,8 @@ pub mod types;
 
 pub use confirmations::ConfirmationSettings;
 pub use types::{
-    MouseMode, PluginConfig, RightClick, SshPreset, TabExpansion, clamp_panel_split,
-    default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
+    MouseMode, PluginConfig, RightClick, SecuritySettings, SshPreset, TabExpansion,
+    clamp_panel_split, default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
     default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
     default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
     default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
@@ -204,6 +204,9 @@ pub struct Settings {
         std::collections::HashMap<String, std::collections::HashMap<String, String>>,
     #[serde(default)]
     pub active_dev_plugin: Option<String>,
+    /// `[security]`: credential storage and registry signatures.
+    #[serde(default)]
+    pub security: SecuritySettings,
 
     // ── Transfer Engine settings ─────────────────────────────────
     #[serde(default = "default_transfer_hash")]

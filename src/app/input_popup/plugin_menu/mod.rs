@@ -15,6 +15,7 @@ pub fn reload_installed_plugins(
     crate::plugin::installed::installed_rows(
         &crate::plugin::updater::read_lockfile(),
         &context.config.settings.plugins,
+        crate::plugin::load_options::effective_secure_mode(&context.config),
         index.as_ref(),
     )
 }
@@ -65,6 +66,7 @@ pub fn handle(
         0 => installed::handle_installed(key, context, &mut menu.cursor_idx, &mut menu.installed),
         1 => search::handle_search(
             key,
+            installed::registry_trust(context),
             &mut menu.cursor_idx,
             &mut menu.registry,
             &menu.all_registry,

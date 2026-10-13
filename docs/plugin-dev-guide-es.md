@@ -75,7 +75,7 @@ description = "Complemento simple de prueba Hola Mundo"
 author = "tu-usuario"
 license = "MIT"
 type = "command"
-min_pairee = "0.7.0"
+min_pairee = "0.7.0"   # semver; sirven pre-releases como "0.10.0-beta.1", un valor ilegible impide la carga
 ```
 
 Regístralo en `pairee.toml`:
@@ -186,6 +186,13 @@ child:close_stdin()
 local streamed = child:wait_with_output()
 ```
 
+En Modo Seguro (13.3) `:env(nombre, valor)` solo acepta variables de idioma,
+terminal y color (`LANG`, `LANGUAGE`, `LC_*`, `TERM`, `COLORTERM`, `NO_COLOR`,
+`CLICOLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `TZ`, `COLUMNS`, `LINES`);
+cualquier otro nombre provoca una violación de seguridad. `:cwd(ruta)` debe
+indicar una carpeta existente dentro de la jaula de lectura de `pairee.fs` del
+complemento.
+
 ### `pairee.ui` — Constructores de Widgets
 
 ```lua
@@ -271,9 +278,27 @@ una secuencia (`g b`).
 activo como `{ chord, id, label, origin }`; `pairee.keymap.chord_for(id)`
 devuelve el primer chord de una acción (`"copy"`,
 `"plugin.<nombre>.<comando>"`) o `nil`. **Disparar acciones.**
-`pairee.emit(id)` ejecuta cualquier acción del keymap como si se pulsara su
+`pairee.emit(id)` ejecuta una acción del keymap como si se pulsara su
 tecla (`pairee.emit("go_to_tab_2")`); `cd` y `focus` aceptan además
-argumentos.
+argumentos. Lo que un complemento puede disparar depende de su confianza:
+
+* Los complementos **no confiables** solo pueden disparar acciones de
+  navegación, vista, orden, selección y ayuda (`move_down`, `go_parent`,
+  `go_to_tab_<n>`, `sort_by_name`, `select_all`, `quick_view`, `help`, ...) y
+  sus **propios** comandos (`plugin.<este complemento>.<comando>`). Todo lo que
+  copia, mueve, borra, escribe, ejecuta comandos, cambia la configuración o se
+  conecta se rechaza con un diálogo de error.
+* Los complementos **confiables** pueden disparar cualquier acción. Se
+  ejecuta exactamente como la pulsación de la tecla, así que se aplican los
+  diálogos de confirmación habituales (y la configuración de confirmaciones
+  del usuario, como `confirm_delete`).
+* `cd` (y `pairee.app.cd`) resuelve una ruta relativa respecto de la carpeta
+  del panel activo y solo acepta una carpeta local existente; se rechaza en
+  paneles SSH y de archivos comprimidos.
+* Los argumentos se convierten a JSON con límites: las tablas deben ser listas
+  densas (`{ "a", "b" }`) o mapas con claves de texto, con a lo sumo 32
+  niveles de anidamiento y 100 000 valores en total. Las tablas dispersas,
+  mixtas o cíclicas lanzan un error de Lua.
 
 La tabla anterior `[keybindings] "ctrl+h" = "toggle"` sigue funcionando: cada
 valor pasa a ser un comando con esas teclas como predeterminadas.
@@ -450,7 +475,7 @@ Para proteger a los usuarios de complementos maliciosos o con fallos, Pairee imp
 Por defecto, todos los complementos se ejecutan en **Modo No Confiable** (`trusted = false`), lo que los aísla dentro de una máquina virtual de sandbox segura:
 * **Bibliotecas Bloqueadas:** El complemento no puede acceder a las bibliotecas estándar de Lua `io`, `os`, `package`, `coroutine` o `debug`.
 * **Funciones Dinámicas Prohibidas:** Las funciones globales que permiten la evaluación dinámica de código (`load`, `loadstring`, `dofile`, `loadfile`) están deshabilitadas.
-* **Aislamiento de Require:** La función global `require` es una implementación personalizada en Rust que restringe la carga de módulos exclusivamente a archivos dentro del directorio del propio complemento.
+* **Aislamiento de Require:** `require("lib.util")` carga `lib/util.lua` (o `lib/util/init.lua`) de la carpeta del propio complemento, lo ejecuta una vez y guarda el resultado en una tabla privada del complemento. Funciona igual en complementos confiables y no confiables (no necesita la biblioteca `package`). Los nombres de módulo son identificadores con puntos (letras, dígitos, `_`, `-`); ni `..`, ni separadores, ni enlaces simbólicos o junctions pueden llegar a archivos fuera de la carpeta del complemento.
 * **Sin Comandos Externos:** Cualquier llamada a `pairee.fs.spawn()` generará inmediatamente un error de ejecución.
 * **Jaula del Sistema de Archivos:** `pairee.fs` solo puede leer dentro del directorio del propio complemento y de su directorio de datos privado (`pairee.fs.data_dir()`), y solo puede escribir dentro del directorio de datos. Esto se aplica tanto si el Modo Seguro está activo como si no; los segmentos `..` y los enlaces simbólicos no permiten escapar de ella.
 
@@ -482,7 +507,15 @@ Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seg
   * El programa debe indicarse por **nombre simple** (sin ruta absoluta ni relativa); se resuelve mediante las entradas absolutas de `PATH` y se ejecuta esa ruta absoluta. En Windows solo se resuelven `.exe` / `.com` (nunca `.bat` / `.cmd`).
   * Los shells, intérpretes, utilidades de red y envoltorios de comandos (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) se rechazan **siempre**, aunque estén declarados, y también cuando un nombre declarado es un enlace simbólico a uno de ellos.
   * Los comandos no declarados fallan con `Security violation: ... is not declared in the plugin manifest`. El Gestor de Complementos muestra los comandos declarados en los detalles del complemento para que el usuario los revise antes de confiar en él.
-* **Sandboxing del Sistema de Archivos:** Para complementos confiables, las API de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. Los complementos no confiables mantienen su jaula más estricta (13.1).
+* **Entorno y directorio de trabajo:** `Command:env` se limita a variables de idioma/terminal/color y `Command:cwd` a carpetas dentro de la jaula (ver `pairee.Command`), para que una herramienta declarada no se convierta en un ejecutor de código mediante `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` y variables similares.
+* **Sandboxing del Sistema de Archivos:** Para complementos confiables, las **lecturas** de archivos (`pairee.fs`) están restringidas al espacio de trabajo activo, a las carpetas de configuración y caché del usuario, y a los directorios propio y de datos del complemento. Las **escrituras** se limitan al espacio de trabajo, la caché y el directorio de datos del complemento: la carpeta de configuración de Pairee (`config.toml`, `keybindings.toml`, asociaciones, el menú de usuario, `plugins/`, `plugins.lock`) es de solo lectura, así que un complemento no puede desactivar el Modo Seguro ni marcarse como confiable. Los complementos no confiables mantienen su jaula más estricta (13.1).
+* **Falla cerrado:** si `config.toml` no se puede leer, los complementos se ejecutan en Modo Seguro hasta que se corrija (el error de inicio lo indica).
+
+### 13.4 Límites de recursos
+Cada complemento tiene un límite de memoria (128 MiB no confiable, 512 MiB confiable) y un watchdog de CPU: cada llamada que Pairee hace al complemento (`main.lua`, `setup`, `entry`, `peek`, callbacks de hooks) puede durar como máximo 10 segundos de tiempo real, incluido el tiempo dentro de funciones C como `string.rep`. Una llamada que se pasa del presupuesto se aborta con `plugin aborted: exceeded its execution time limit` y `pcall` no puede capturarlo; la siguiente llamada empieza con un presupuesto nuevo.
+
+### 13.5 Gestionar complementos
+En el Gestor de Complementos (pestaña Instalados) `t` alterna la confianza de un complemento, `e` lo activa o desactiva y `s` alterna el Modo Seguro global. Los cambios se guardan y se aplican de inmediato: todos los complementos se recargan con la nueva configuración. Los complementos desactivados no se cargan, así que no se ejecuta nada de su código ni de sus hooks.
 
 ---
 
@@ -658,7 +691,7 @@ Cuando `pairee.t()` resuelve una clave:
 Los complementos pueden declarar sus propios parámetros de configuración. Estos se cargan y renderizan dinámicamente en la ventana de opciones principal TUI de Pairee, lo que permite a los usuarios modificar variables sin tener que editar directamente el código de Lua.
 
 ### 18.1 Definición de settings_schema
-En el manifiesto `manifest.toml` de tu complemento, define una tabla `[settings_schema]` que contenga las opciones configurables. Cada opción debe especificar un tipo `type` (`bool`, `string` o `integer`), un valor por defecto `default` y una breve descripción `description`:
+En el manifiesto `manifest.toml` de tu complemento, define una tabla `[settings_schema]` que contenga las opciones configurables. Cada opción debe especificar un tipo `type` (`bool`, `string`, `integer` o `number`), un valor por defecto `default` y una breve descripción `description`. El valor del usuario se convierte con el tipo declarado (sin `type`, se usa el tipo de `default`); un valor que no corresponde al tipo se ignora y se usa el valor por defecto:
 ```toml
 [settings_schema]
 show_hidden = { type = "bool", default = false, description = "Mostrar archivos ocultos de VCS" }

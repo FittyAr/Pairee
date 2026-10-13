@@ -42,10 +42,10 @@ pub struct RegistryPlugin {
     pub min_pairee: Option<String>,
 }
 
+/// The registry copy of a plugin `manifest.toml`; only its `[files]`
+/// table (relative path → SHA-256) matters to the installer.
 #[derive(Debug, Deserialize)]
-#[allow(dead_code)]
 pub struct RegistryPluginManifestWrapper {
-    pub plugin: Option<RegistryPlugin>,
     pub files: Option<HashMap<String, String>>,
 }
 

@@ -1,78 +1,73 @@
-//! Query operations for the plugin registry (listing, searching, showing info).
+//! Query operations for the plugin registry (listing, searching, showing
+//! info). They return a [`Report`]; the CLI prints it.
 
+use crate::config::settings::PluginConfig;
+use crate::plugin::updater::http::{self, MAX_MANIFEST_BYTES};
 use crate::plugin::updater::lockfile::read_lockfile;
 use crate::plugin::updater::registry::{
-    fetch_blocklist, fetch_index, plugin_file_url, registry_author,
+    fetch_blocklist, fetch_index_with, fetch_signed, plugin_file_path, registry_author,
 };
-use crate::plugin::updater::types::RegistryPluginManifestWrapper;
+use crate::plugin::updater::report::Report;
+use crate::plugin::updater::trust::RegistryTrust;
+use crate::plugin::updater::types::{RegistryPlugin, RegistryPluginManifestWrapper};
+use std::collections::HashMap;
 
-pub async fn list_installed() -> anyhow::Result<()> {
+/// Installed plugins with pin, trust, blocked and update badges. `plugins`
+/// are the host's plugin settings (trust).
+pub async fn list_installed(
+    plugins: &HashMap<String, PluginConfig>,
+    trust: &RegistryTrust,
+) -> anyhow::Result<Report> {
     let lock = read_lockfile();
-    println!("Installed Plugins:");
+    let mut report = Report::default();
+    report.line("Installed Plugins:");
     if lock.plugins.is_empty() {
-        println!("  (none)");
-        return Ok(());
+        report.line("  (none)");
+        return Ok(report);
     }
-
-    let index = fetch_index().await.ok();
-    let blocklist = fetch_blocklist().await.unwrap_or_default();
-    let config = crate::config::AppConfig::load_or_create().ok();
+    let index = fetch_index_with(trust, &mut report).await.ok();
+    let blocklist = fetch_blocklist(trust, &mut report).await?;
 
     for (name, info) in &lock.plugins {
         let pin_str = if info.pinned { " [PINNED]" } else { "" };
-        let trusted_str = if let Some(ref conf) = config {
-            let trusted = conf
-                .settings
-                .plugins
-                .get(name)
-                .map(|p| p.trusted)
-                .unwrap_or(false);
-            if trusted {
-                " [TRUSTED]"
-            } else {
-                " [UNTRUSTED]"
-            }
-        } else {
-            " [UNTRUSTED]"
+        let trusted_str = match plugins.get(name) {
+            Some(p) if p.trusted => " [TRUSTED]",
+            _ => " [UNTRUSTED]",
         };
-
-        let blocked_str = if blocklist.blocked.contains_key(name) {
-            " [BLOCKED]"
-        } else {
-            ""
+        let disabled_str = match plugins.get(name) {
+            Some(p) if !p.enabled => " [DISABLED]",
+            _ => "",
         };
-
-        let update_str = if blocked_str.is_empty() {
-            index
-                .as_ref()
-                .and_then(|idx| idx.update_for(name, &info.version))
-                .map(|v| format!(" (Update available: v{})", v))
-                .unwrap_or_default()
-        } else {
-            "".to_string()
-        };
-
-        println!(
-            "  - {} v{}{}{}{}{}",
-            name, info.version, pin_str, trusted_str, blocked_str, update_str
-        );
+        let blocked = blocklist.blocked.contains_key(name);
+        let blocked_str = if blocked { " [BLOCKED]" } else { "" };
+        let update_str = index
+            .as_ref()
+            .filter(|_| !blocked)
+            .and_then(|idx| idx.update_for(name, &info.version))
+            .map(|v| format!(" (Update available: v{v})"))
+            .unwrap_or_default();
+        report.line(format!(
+            "  - {name} v{}{pin_str}{trusted_str}{disabled_str}{blocked_str}{update_str}",
+            info.version
+        ));
     }
-    Ok(())
+    Ok(report)
 }
 
-pub async fn check_updates() -> anyhow::Result<()> {
-    println!("Checking for plugin updates...");
-    let index = fetch_index().await?;
-    let blocklist = fetch_blocklist().await.unwrap_or_default();
+pub async fn check_updates(trust: &RegistryTrust) -> anyhow::Result<Report> {
+    let mut report = Report::default();
+    report.line("Checking for plugin updates...");
+    let index = fetch_index_with(trust, &mut report).await?;
+    let blocklist = fetch_blocklist(trust, &mut report).await?;
     let lock = read_lockfile();
     let mut updates_available = 0;
 
     for (name, info) in &lock.plugins {
         if let Some(reason) = blocklist.blocked.get(name) {
-            println!(
-                "  - {}: v{} [BLOCKED] Reason: {}",
-                name, info.version, reason
-            );
+            report.line(format!(
+                "  - {name}: v{} [BLOCKED] Reason: {reason}",
+                info.version
+            ));
             updates_available += 1;
             continue;
         }
@@ -82,129 +77,113 @@ pub async fn check_updates() -> anyhow::Result<()> {
             } else {
                 ""
             };
-            println!("  - {}: {} -> {}{}", name, info.version, latest, pin_str);
+            report.line(format!("  - {name}: {} -> {latest}{pin_str}", info.version));
             updates_available += 1;
         }
     }
 
     if updates_available == 0 {
-        println!("All plugins are up to date.");
+        report.line("All plugins are up to date.");
     } else {
-        println!(
-            "Found {} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins.",
-            updates_available
-        );
+        report.line(format!(
+            "Found {updates_available} plugin update(s). Run 'pairee plugin update' to update non-pinned plugins."
+        ));
     }
-    Ok(())
+    Ok(report)
 }
 
-pub async fn search(query: &str) -> anyhow::Result<()> {
-    println!("Searching registry for '{}'...", query);
-    let index = fetch_index().await?;
-    let blocklist = fetch_blocklist().await.unwrap_or_default();
+/// `* name vX by author [Hook] [EN] [ES]` and its description.
+fn describe(plugin: &RegistryPlugin, report: &mut Report) {
+    let author = plugin.author.as_deref().unwrap_or("unknown");
+    let lang_badges = plugin
+        .languages
+        .as_ref()
+        .map(|langs| {
+            langs
+                .iter()
+                .map(|l| format!(" [{}]", l.to_uppercase()))
+                .collect::<String>()
+        })
+        .unwrap_or_default();
+    let hook_badge = if plugin.hooks.as_ref().is_some_and(|h| !h.is_empty()) {
+        " [Hook]"
+    } else {
+        ""
+    };
+    report.line(format!(
+        "* {} v{} by {author}{hook_badge}{lang_badges}",
+        plugin.name, plugin.version
+    ));
+    if let Some(ref desc) = plugin.description {
+        report.line(format!("  Description: {desc}"));
+    }
+    report.line("");
+}
+
+pub async fn search(query: &str, trust: &RegistryTrust) -> anyhow::Result<Report> {
+    let mut report = Report::default();
+    report.line(format!("Searching registry for '{query}'..."));
+    let index = fetch_index_with(trust, &mut report).await?;
+    let blocklist = fetch_blocklist(trust, &mut report).await?;
     let query_lower = query.to_lowercase();
 
     for (name, plugin) in &index.plugins {
-        if blocklist.blocked.contains_key(name) {
-            continue;
-        }
-        if name.to_lowercase().contains(&query_lower)
+        let matches = name.to_lowercase().contains(&query_lower)
             || plugin
                 .description
                 .as_ref()
-                .map(|d| d.to_lowercase().contains(&query_lower))
-                .unwrap_or(false)
-        {
-            let author = plugin.author.as_deref().unwrap_or("unknown");
-            let lang_badges = plugin
-                .languages
-                .as_ref()
-                .map(|langs| {
-                    langs
-                        .iter()
-                        .map(|l| format!("[{}]", l.to_uppercase()))
-                        .collect::<Vec<_>>()
-                        .join(" ")
-                })
-                .unwrap_or_default();
-
-            let hook_badge = if plugin
-                .hooks
-                .as_ref()
-                .map(|h| !h.is_empty())
-                .unwrap_or(false)
-            {
-                " [Hook]"
-            } else {
-                ""
-            };
-
-            println!(
-                "* {} v{} by {}{}{}",
-                plugin.name,
-                plugin.version,
-                author,
-                hook_badge,
-                if lang_badges.is_empty() {
-                    "".to_string()
-                } else {
-                    format!(" {}", lang_badges)
-                }
-            );
-            if let Some(ref desc) = plugin.description {
-                println!("  Description: {}", desc);
-            }
-            println!();
+                .is_some_and(|d| d.to_lowercase().contains(&query_lower));
+        if matches && !blocklist.blocked.contains_key(name) {
+            describe(plugin, &mut report);
         }
     }
-    Ok(())
+    Ok(report)
 }
 
-pub async fn show_info(name: &str) -> anyhow::Result<()> {
-    let blocklist = fetch_blocklist().await.unwrap_or_default();
+pub async fn show_info(name: &str, trust: &RegistryTrust) -> anyhow::Result<Report> {
+    let mut report = Report::default();
+    let blocklist = fetch_blocklist(trust, &mut report).await?;
     if let Some(reason) = blocklist.blocked.get(name) {
-        anyhow::bail!(
-            "Plugin '{}' is blocked by registry maintainers: {}",
-            name,
-            reason
-        );
+        anyhow::bail!("Plugin '{name}' is blocked by registry maintainers: {reason}");
     }
 
-    let index = fetch_index().await?;
+    let index = fetch_index_with(trust, &mut report).await?;
     let plugin = index
         .plugins
         .get(name)
         .ok_or_else(|| anyhow::anyhow!("Plugin '{}' not found in registry", name))?;
 
-    println!("Plugin: {}", plugin.name);
-    println!("Version: {}", plugin.version);
-    println!("Author: {}", plugin.author.as_deref().unwrap_or("unknown"));
+    report.line(format!("Plugin: {}", plugin.name));
+    report.line(format!("Version: {}", plugin.version));
+    report.line(format!(
+        "Author: {}",
+        plugin.author.as_deref().unwrap_or("unknown")
+    ));
     if let Some(ref desc) = plugin.description {
-        println!("Description: {}", desc);
+        report.line(format!("Description: {desc}"));
     }
     if let Some(ref min_p) = plugin.min_pairee {
-        println!("Requires Pairee: >= {}", min_p);
+        report.line(format!("Requires Pairee: >= {min_p}"));
     }
     if let Some(ref langs) = plugin.languages {
-        println!("Supported languages: {}", langs.join(", "));
+        report.line(format!("Supported languages: {}", langs.join(", ")));
     }
     if let Some(ref hooks) = plugin.hooks {
-        println!("Subscribes to hooks: {}", hooks.join(", "));
+        report.line(format!("Subscribes to hooks: {}", hooks.join(", ")));
     }
 
     let author = registry_author(plugin.author.as_deref());
-    let client = reqwest::Client::builder().build()?;
-    let manifest_url = plugin_file_url(author, name, "manifest.toml");
-    if let Ok(resp) = client.get(&manifest_url).send().await
-        && resp.status().is_success()
-        && let Ok(text) = resp.text().await
-        && let Ok(manifest_wrapper) = toml::from_str::<RegistryPluginManifestWrapper>(&text)
-        && let Some(files) = manifest_wrapper.files
+    let path = plugin_file_path(author, name, "manifest.toml");
+    let client = http::client()?;
+    if let Ok(Some(text)) =
+        fetch_signed(&client, trust, &path, MAX_MANIFEST_BYTES, &mut report).await
+        && let Ok(manifest) = toml::from_str::<RegistryPluginManifestWrapper>(&text)
+        && let Some(files) = manifest.files
     {
-        println!("Files:");
+        report.line("Files:");
         for file in files.keys() {
-            println!("  - {}", file);
+            report.line(format!("  - {file}"));
         }
     }
-    Ok(())
+    Ok(report)
 }

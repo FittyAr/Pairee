@@ -1,4 +1,5 @@
 mod cli;
+mod dev_cli;
 
 use anyhow::{Context, Result};
 use std::env;
@@ -71,7 +72,7 @@ async fn run_app() -> Result<()> {
     // 5.5. Initialize and load plugins
     plugin::PluginManager::init();
     if context.config.settings.plugins_enabled {
-        plugin::PluginManager::load_all_plugins(&context).await;
+        plugin::PluginManager::load_all_plugins(&context.config).await;
     } else {
         log::info!("Plugins disabled by feature flag; skipping load");
     }

@@ -4,9 +4,9 @@ pub mod package;
 pub mod submit;
 
 pub use init::{init, init_with_progress_in};
-pub use lint::{lint, lint_with_progress};
-pub use package::{package, package_to_registry_with_progress, validate_for_publish};
-pub use submit::{commit_registry_changes_with_progress, run_automatic_submit, submit};
+pub use lint::lint_with_progress;
+pub use package::{package_to_registry, package_to_registry_with_progress, validate_for_publish};
+pub use submit::{commit_registry_changes_with_progress, run_automatic_submit};
 
 use crate::app::state::DevProgress;
 use tokio::sync::mpsc::UnboundedSender;

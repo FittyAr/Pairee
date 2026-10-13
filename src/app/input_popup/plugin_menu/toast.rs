@@ -21,17 +21,36 @@ pub async fn notify(toast: Toast, level: &str) {
         .await;
 }
 
-/// Runs `job` in the background and shows `ok`, or `err` with the `{:?}` in
-/// its message replaced by the error.
+/// Extra text a successful job adds to its toast (e.g. an unsigned
+/// registry warning).
+pub trait ToastDetail {
+    fn detail(&self) -> Option<String>;
+}
+
+impl ToastDetail for crate::plugin::updater::Report {
+    fn detail(&self) -> Option<String> {
+        self.unsigned
+            .then(|| crate::config::localization::t("plugin_registry_unsigned_warning"))
+    }
+}
+
+/// Runs `job` in the background and shows `ok` (plus the job's detail), or
+/// `err` with the `{:?}` in its message replaced by the error.
 pub fn spawn_with_toast<T, E, F>(job: F, ok: Toast, err: Toast)
 where
     F: Future<Output = Result<T, E>> + Send + 'static,
-    T: Send + 'static,
+    T: ToastDetail + Send + 'static,
     E: Debug + Send + 'static,
 {
     tokio::spawn(async move {
         match job.await {
-            Ok(_) => notify(ok, "info").await,
+            Ok(done) => match done.detail() {
+                Some(extra) => {
+                    let msg = format!("{}\n{extra}", ok.msg);
+                    notify(Toast { msg, ..ok }, "warn").await
+                }
+                None => notify(ok, "info").await,
+            },
             Err(e) => {
                 let msg = err.msg.replace("{:?}", &format!("{:?}", e));
                 notify(Toast { msg, ..err }, "error").await;

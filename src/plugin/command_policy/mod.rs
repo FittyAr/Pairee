@@ -8,9 +8,12 @@
 //!   must not be a shell / interpreter / wrapper (hard deny list, also checked
 //!   on the symlink target), and is resolved through absolute `PATH` entries.
 //!   The resolved absolute path is what gets executed, so a renamed binary or
-//!   an explicit path cannot slip through.
+//!   an explicit path cannot slip through. Environment variables the plugin
+//!   sets are limited to a locale/terminal allowlist (see `env`), and the
+//!   working directory must lie inside the `pairee.fs` jail.
 
 mod deny;
+mod env;
 mod resolve;
 
 pub use deny::normalize_command_name;
@@ -55,6 +58,22 @@ impl CommandPolicy {
     pub fn authorize(&self, program: &str) -> Result<PathBuf, String> {
         let path_var = std::env::var_os("PATH").unwrap_or_default();
         self.authorize_with_path(program, &path_var)
+    }
+
+    /// `Ok` when the plugin may set the environment variable `name` on the
+    /// commands it spawns.
+    pub fn authorize_env(&self, name: &str) -> Result<(), String> {
+        match self {
+            Self::Allowlist(_) if !env::is_allowed(name) => Err(format!(
+                "Security violation: Secure Mode does not let plugins set the environment variable '{name}'"
+            )),
+            _ => Ok(()),
+        }
+    }
+
+    /// `true` in Secure Mode, where the working directory is jailed too.
+    pub fn is_allowlist(&self) -> bool {
+        matches!(self, Self::Allowlist(_))
     }
 
     fn authorize_with_path(&self, program: &str, path_var: &OsStr) -> Result<PathBuf, String> {
@@ -215,6 +234,16 @@ mod tests {
         let p = CommandPolicy::new(true, true, &declared(&["mytool"]));
         let err = p.authorize_with_path("mytool", &path_var).unwrap_err();
         assert!(err.contains("resolves to"), "{err}");
+    }
+
+    #[test]
+    fn secure_mode_filters_environment_variables() {
+        let p = CommandPolicy::new(true, true, &declared(&["git"]));
+        assert!(p.authorize_env("GIT_SSH_COMMAND").is_err());
+        assert!(p.authorize_env("LD_PRELOAD").is_err());
+        assert!(p.authorize_env("LANG").is_ok());
+        let free = CommandPolicy::new(true, false, &[]);
+        assert!(free.authorize_env("GIT_SSH_COMMAND").is_ok());
     }
 
     #[test]

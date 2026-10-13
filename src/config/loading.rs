@@ -89,7 +89,7 @@ pub(super) fn drop_missing_dev_plugin(
     }
     settings.active_dev_plugin = None;
     if may_save
-        && let Ok(toml_str) = toml::to_string_pretty(&*settings)
+        && let Ok(toml_str) = super::serialize_settings(settings)
         && let Err(e) = write_atomic(settings_path, toml_str.as_bytes())
     {
         log::warn!(
@@ -100,15 +100,23 @@ pub(super) fn drop_missing_dev_plugin(
     }
 }
 
+/// A loaded file plus its parse error, when it was invalid (the value is
+/// then the default and the file must not be overwritten).
+pub(super) type Loaded<T> = (T, Option<String>);
+
 /// Reads `keybindings.toml` (written with defaults when missing). A missing
 /// file takes its preset from the legacy `keybinding_preset` key of
-/// `config.toml` (`settings_path`), which older releases also wrote.
-pub(super) fn load_keybindings(settings_path: &Path) -> Result<KeybindingsConfig> {
+/// `config.toml` (`settings_path`), which older releases also wrote. An
+/// invalid file yields the defaults and its parse error.
+pub(super) fn load_keybindings(settings_path: &Path) -> Result<Loaded<KeybindingsConfig>> {
     let keybindings_path = paths::get_keybindings_file_path();
     if keybindings_path.exists() {
         let content =
             fs::read_to_string(&keybindings_path).context("Failed to read keybindings.toml")?;
-        return Ok(KeybindingsConfig::from_toml(&content).unwrap_or_default());
+        return Ok(match KeybindingsConfig::from_toml(&content) {
+            Ok(cfg) => (cfg, None),
+            Err(e) => (KeybindingsConfig::default(), Some(e.to_string())),
+        });
     }
     let mut default_keybindings = KeybindingsConfig::default();
     if let Some(preset) = fs::read_to_string(settings_path)
@@ -119,8 +127,9 @@ pub(super) fn load_keybindings(settings_path: &Path) -> Result<KeybindingsConfig
     }
     let toml_str = toml::to_string_pretty(&default_keybindings)
         .context("Failed to serialize default keybindings")?;
-    fs::write(&keybindings_path, toml_str).context("Failed to write default keybindings.toml")?;
-    Ok(default_keybindings)
+    write_atomic(&keybindings_path, toml_str.as_bytes())
+        .context("Failed to write default keybindings.toml")?;
+    Ok((default_keybindings, None))
 }
 
 /// The `keybinding_preset` key that `config.toml` held before the preset
@@ -130,8 +139,27 @@ fn legacy_preset(config_toml: &str) -> Option<String> {
     Some(table.get("keybinding_preset")?.as_str()?.to_owned())
 }
 
-/// Reads `themes/<name>.toml`, falling back to the built-in theme of that name.
-pub(super) fn load_theme(theme_name: &str) -> Result<Theme> {
+/// `true` for a theme name that is a plain file stem: letters, digits,
+/// `_`, `-`, `.` and spaces, no leading dot and no `..`, so
+/// `themes/<name>.toml` can never point outside the themes folder.
+pub fn valid_theme_name(name: &str) -> bool {
+    !name.is_empty()
+        && name.len() <= 64
+        && !name.starts_with('.')
+        && !name.contains("..")
+        && name
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '-' | '.' | ' '))
+}
+
+/// `themes/<name>.toml` for a [`valid_theme_name`].
+pub fn theme_path(theme_name: &str) -> Option<PathBuf> {
+    valid_theme_name(theme_name).then(|| paths::get_themes_dir().join(format!("{theme_name}.toml")))
+}
+
+/// Reads `themes/<name>.toml`, falling back to the built-in theme of that
+/// name; an invalid file yields the built-in theme and its parse error.
+pub(super) fn load_theme(theme_name: &str) -> Result<Loaded<Theme>> {
     let builtin = || {
         if theme_name == "classic_blue" {
             Theme::classic_blue()
@@ -139,17 +167,39 @@ pub(super) fn load_theme(theme_name: &str) -> Result<Theme> {
             Theme::default()
         }
     };
-    let theme_path = paths::get_themes_dir().join(format!("{}.toml", theme_name));
-    if !theme_path.exists() {
-        return Ok(builtin());
-    }
+    let Some(theme_path) = theme_path(theme_name).filter(|p| p.exists()) else {
+        return Ok((builtin(), None));
+    };
     let content = fs::read_to_string(&theme_path).context("Failed to read theme file")?;
-    Ok(toml::from_str(&content).unwrap_or_else(|_| builtin()))
+    Ok(match toml::from_str(&content) {
+        Ok(theme) => (theme, None),
+        Err(e) => (builtin(), Some(e.to_string())),
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn theme_names_cannot_leave_the_themes_folder() {
+        for ok in ["slate", "classic_blue", "My theme-2", "v1.2"] {
+            assert!(valid_theme_name(ok), "{ok}");
+        }
+        for bad in [
+            "",
+            "../config",
+            "..",
+            "a/b",
+            "a\\b",
+            "C:evil",
+            ".hidden",
+            "x..y",
+        ] {
+            assert!(!valid_theme_name(bad), "{bad}");
+            assert!(theme_path(bad).is_none(), "{bad}");
+        }
+    }
 
     #[test]
     fn legacy_preset_is_read_from_old_config_toml() {

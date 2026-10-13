@@ -1,4 +1,5 @@
 use super::super::{progress_progress, progress_status};
+use super::license::AskLicense;
 use super::registry_repo::fetch_or_clone_registry;
 use super::validate::validate_for_publish_with_progress;
 use crate::app::state::DevProgress;
@@ -8,13 +9,26 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use tokio::sync::mpsc::UnboundedSender;
 
-pub fn package_to_registry(plugin_dir: &Path) -> anyhow::Result<String> {
-    package_to_registry_with_progress(plugin_dir, None)
+/// CLI packaging: `ask_license` asks for a license name when needed.
+pub fn package_to_registry(
+    plugin_dir: &Path,
+    ask_license: AskLicense<'_>,
+) -> anyhow::Result<String> {
+    package_impl(plugin_dir, None, ask_license)
 }
 
+/// TUI packaging with progress updates (never prompts on the terminal).
 pub fn package_to_registry_with_progress(
     plugin_dir: &Path,
     progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<String> {
+    package_impl(plugin_dir, progress, None)
+}
+
+fn package_impl(
+    plugin_dir: &Path,
+    progress: Option<UnboundedSender<DevProgress>>,
+    ask_license: AskLicense<'_>,
 ) -> anyhow::Result<String> {
     // 1. Validate the plugin
     if let Err(err_msg) = validate_for_publish_with_progress(plugin_dir, progress.clone()) {
@@ -25,7 +39,7 @@ pub fn package_to_registry_with_progress(
     progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let content = std::fs::read_to_string(&manifest_path)?;
     let mut manifest = PluginManifest::parse(&content)?;
-    if let Some(lic) = super::license::resolve_license(plugin_dir, &manifest)? {
+    if let Some(lic) = super::license::resolve_license(plugin_dir, &manifest, ask_license)? {
         write_manifest_license(&manifest_path, &content, &lic)?;
         manifest.license = Some(lic);
     }

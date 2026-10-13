@@ -2,7 +2,9 @@
 //! detection, registry URLs and lockfile persistence. No network access.
 
 use super::lockfile::{read_lockfile_from, write_lockfile_to};
-use super::registry::{parse_blocklist, parse_index, plugin_file_url, registry_author};
+use super::registry::{
+    parse_blocklist, parse_index, plugin_file_path, plugin_file_url, registry_author,
+};
 use super::types::{PinnedPlugin, PluginsLock, RegistryPluginManifestWrapper};
 use std::collections::HashMap;
 
@@ -77,7 +79,6 @@ fn manifest_parses_plugin_and_files_sections() {
         "[plugin]\nname = \"demo\"\nversion = \"2.0.0\"\n\n[files]\n\"main.lua\" = \"{HELLO_SHA256}\"\n\"lib/util.lua\" = \"abc\"\n"
     );
     let manifest: RegistryPluginManifestWrapper = toml::from_str(&text).unwrap();
-    assert_eq!(manifest.plugin.unwrap().version, "2.0.0");
     let files = manifest.files.unwrap();
     assert_eq!(files.len(), 2);
     assert_eq!(files["main.lua"], HELLO_SHA256);
@@ -116,6 +117,12 @@ fn plugin_file_urls_are_sharded_by_author_initial() {
         "{url}"
     );
     assert!(url.starts_with("https://"), "{url}");
+
+    assert_eq!(
+        plugin_file_path("Alice", "git-status", "manifest.toml"),
+        "plugins/a/Alice/git-status/manifest.toml",
+        "the signed name is the registry-relative path"
+    );
 
     let digit = plugin_file_url("42team", "demo", "lib/util.lua");
     assert!(
