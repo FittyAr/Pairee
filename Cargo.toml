@@ -71,6 +71,11 @@ chardetng = "0.1"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
 notify = "8.2"
 
+[features]
+# Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
+# fuzz/ (not a public API).
+fuzzing = []
+
 [profile.release]
 lto = "thin"
 codegen-units = 1

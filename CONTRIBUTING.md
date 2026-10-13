@@ -60,6 +60,15 @@ Run them by hand with `cargo xtask lint`. Before submitting code, you must ensur
    ```sh
    cargo deny check
    ```
+5. **Fuzzing** (optional; nightly, Linux or macOS): the parsers of untrusted input
+   (archives, keymaps, command line, ANSI output, multi-rename patterns, release
+   checksums) have [cargo-fuzz](https://github.com/rust-fuzz/cargo-fuzz) targets in
+   `fuzz/`. They call `src/fuzz_api.rs`, which `src/test_fuzz.rs` also drives with
+   junk input on stable in every test run.
+   ```sh
+   cargo +nightly fuzz list
+   cargo +nightly fuzz run archive_zip -- -max_total_time=60
+   ```
 
 ## Developer Guidelines
 
