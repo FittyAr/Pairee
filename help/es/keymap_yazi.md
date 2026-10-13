@@ -335,6 +335,15 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `F10` | Cerrar la pantalla de terminal |
 | `F8` | Detener el proceso |
 
+## Línea de comandos
+
+### Archivos
+
+| Teclas | Acción |
+| :--- | :--- |
+| `Ctrl+w` | Borrar la palabra antes del cursor |
+| `Tab` | Completar nombre de archivo o carpeta |
+
 ## Listas
 
 ### Navegación

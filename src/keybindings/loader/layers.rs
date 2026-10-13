@@ -47,7 +47,8 @@ pub struct Layer {
 #[derive(Debug, Clone)]
 pub struct FileLayer {
     pub origin: Origin,
-    /// Section name (`panels`, `editor`, `viewer`, `terminal`, `list`) → table.
+    /// Section name (`panels`, `editor`, `viewer`, `terminal`, `cli`, `list`)
+    /// → table.
     pub sections: BTreeMap<String, Table>,
 }
 
@@ -85,6 +86,8 @@ struct PresetFile {
     #[serde(default)]
     terminal: Table,
     #[serde(default)]
+    cli: Table,
+    #[serde(default)]
     list: Table,
 }
 
@@ -95,6 +98,7 @@ impl PresetFile {
             ("editor".to_string(), self.editor),
             ("viewer".to_string(), self.viewer),
             ("terminal".to_string(), self.terminal),
+            ("cli".to_string(), self.cli),
             ("list".to_string(), self.list),
         ])
     }

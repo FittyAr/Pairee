@@ -1,6 +1,6 @@
-//! Commands of the editor, viewer and terminal screens and of list popups,
-//! bound in the `[editor]`, `[viewer]`, `[terminal]` and `[list]` sections
-//! of a preset.
+//! Commands of the editor, viewer and terminal screens, of the command
+//! line and of list popups, bound in the `[editor]`, `[viewer]`,
+//! `[terminal]`, `[cli]` and `[list]` sections of a preset.
 //!
 //! Typing and cursor motions with selection stay with the editor itself:
 //! only commands are bindable.
@@ -65,6 +65,17 @@ pub enum TerminalAction {
     Close,
 }
 
+/// Command-line commands, used while the command line holds text or has
+/// the focus. Typing and the cursor keys stay with the line itself.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CliAction {
+    /// Completes the file or folder name before the cursor (again: the
+    /// next match).
+    Complete,
+    /// Deletes the word before the cursor.
+    DeleteWord,
+}
+
 /// Cursor keys of list popups (menus, history lists, pickers...). A key
 /// bound here acts as the matching arrow / Enter / Esc key.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -115,6 +126,7 @@ const fn must<B: Copy>(def: ScreenDef<B>) -> ScreenDef<B> {
 }
 
 use Category as C;
+use CliAction as Cl;
 use EditorAction as E;
 use ListAction as L;
 use TerminalAction as T;
@@ -167,6 +179,11 @@ pub const TERMINAL_CATALOG: &[ScreenDef<TerminalAction>] = &[
     )),
 ];
 
+pub const CLI_CATALOG: &[ScreenDef<CliAction>] = &[
+    cmd("complete", Cl::Complete, C::Files),
+    cmd("delete_word", Cl::DeleteWord, C::Files),
+];
+
 pub const LIST_CATALOG: &[ScreenDef<ListAction>] = &[
     must(cmd("up", L::Up, C::Navigation)),
     must(cmd("down", L::Down, C::Navigation)),
@@ -210,6 +227,13 @@ impl ScreenCommand for TerminalAction {
     const SECTION: &'static str = "terminal";
     fn catalog() -> &'static [ScreenDef<Self>] {
         TERMINAL_CATALOG
+    }
+}
+
+impl ScreenCommand for CliAction {
+    const SECTION: &'static str = "cli";
+    fn catalog() -> &'static [ScreenDef<Self>] {
+        CLI_CATALOG
     }
 }
 
@@ -282,6 +306,7 @@ mod tests {
         check::<EditorAction>();
         check::<ViewerAction>();
         check::<TerminalAction>();
+        check::<CliAction>();
         check::<ListAction>();
     }
 }

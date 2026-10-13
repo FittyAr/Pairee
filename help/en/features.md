@@ -127,6 +127,13 @@ Pairee features a robust multitasking screens architecture. You can spawn severa
 * **Screens List Overlay:** View a list of all active open screens. The active screen is marked with an asterisk (`*`).
 * **Suspend/Resume Popups:** Switching screens preserves the state of active popup dialogues. For example, if you are midway through a copy prompt dialog, you can open the Screens Menu, check another file in the Editor, and switch back to resume the copy prompt dialog exactly where you left off.
 * **Cycle Shortcuts:** Use hotkeys to cycle forward or backward through your open screen contexts without opening the menu.
+* **Terminal Screens:** A command ending in `&` runs in its own terminal screen. Keys you type go to the running program; `F8` stops it, `F10` (or the `[×]` box, or `Delete` in the Screens list) closes the screen, and `Shift+Up/Down`, `Shift+PageUp/PageDown` or the mouse wheel scroll back through its output. How many lines each screen keeps is set in Options → System.
+
+### 4.1 Command Line
+
+* **`cd`** understands quoted names (`cd "My Docs"`, as drag & drop inserts them), `~` and `~/folder`, `cd -` (back to the previous folder), relative paths, and works inside SFTP and archive panels. Every `cd` is added to the folder history.
+* **Editing:** `Left`/`Right`, `Home`/`End`, `Backspace`/`Delete` and `Ctrl+W` (delete the previous word) edit the line; a long prompt scrolls so what you type stays visible.
+* **Completion:** `Tab` completes the file or folder name before the cursor; press it again for the next match.
 
 ---
 

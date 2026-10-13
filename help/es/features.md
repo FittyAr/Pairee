@@ -127,6 +127,13 @@ Pairee cuenta con una arquitectura de entornos de trabajo concurrentes (por ejem
 * **Menú de Pantallas:** Muestra la lista de todas las pantallas activas. El entorno actual se marca con un asterisco (`*`).
 * **Preservación de Estado (Suspend/Resume):** Cambiar de pantalla mantiene el estado de los diálogos emergentes activos. Por ejemplo, si estás a medio camino en un prompt de copia de archivos, puedes ir a la lista de pantallas, consultar un archivo en el Editor y regresar reanudando la ventana de copia exactamente donde estaba.
 * **Atajos de Navegación:** Utiliza los atajos de teclado para avanzar o retroceder en el carrusel de pantallas abiertas sin necesidad de desplegar el menú.
+* **Pantallas de Terminal:** Un comando terminado en `&` se ejecuta en su propia pantalla de terminal. Lo que escribes va al programa en ejecución; `F8` lo detiene, `F10` (o la casilla `[×]`, o `Supr` en la lista de pantallas) cierra la pantalla, y `Shift+Arriba/Abajo`, `Shift+RePág/AvPág` o la rueda del ratón recorren su salida. Las líneas que guarda cada pantalla se configuran en Opciones → Sistema.
+
+### 4.1 Línea de Comandos
+
+* **`cd`** entiende nombres entre comillas (`cd "Mis Documentos"`, como los inserta el arrastrar y soltar), `~` y `~/carpeta`, `cd -` (vuelve a la carpeta anterior), rutas relativas, y funciona dentro de paneles SFTP y de archivos comprimidos. Cada `cd` se agrega al historial de carpetas.
+* **Edición:** `Izquierda`/`Derecha`, `Inicio`/`Fin`, `Retroceso`/`Supr` y `Ctrl+W` (borra la palabra anterior) editan la línea; un prompt largo se desplaza para que lo que escribes siga visible.
+* **Autocompletado:** `Tab` completa el nombre de archivo o carpeta antes del cursor; pulsalo otra vez para la siguiente coincidencia.
 
 ---
 

@@ -317,6 +317,15 @@ This page lists the keys the preset ships with; your own changes are not shown h
 | `F10` | Close terminal screen |
 | `F8` | Stop the process |
 
+## Command line
+
+### Files
+
+| Keys | Action |
+| :--- | :--- |
+| `Tab` | Complete file or folder name |
+| `Ctrl+w` | Delete word before the cursor |
+
 ## Lists
 
 ### Navigation

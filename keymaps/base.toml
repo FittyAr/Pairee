@@ -150,6 +150,14 @@ bottom      = "Shift+End"
 kill        = "F8"
 close       = "F10"
 
+# ══ Command line ══════════════════════════════════════════════════════════════
+# While the command line holds text (or has the focus). Typing, Left / Right,
+# Home / End, Backspace and Delete edit it.
+[cli]
+
+complete    = "Tab"
+delete_word = "Ctrl+w"
+
 # ══ Lists in dialogs (menus, history, pickers...) ═════════════════════════════
 # A key bound here acts as the arrow / Enter / Esc key it names, in every
 # dialog that is not typing into a text field.

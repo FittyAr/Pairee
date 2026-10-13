@@ -119,6 +119,30 @@ impl TextField {
         self.cursor = self.text.len();
     }
 
+    /// Puts the cursor at byte offset `at` (moved back to a grapheme
+    /// boundary, clamped to the text).
+    pub fn set_cursor(&mut self, at: usize) {
+        self.cursor = floor_boundary(&self.text, at);
+    }
+
+    /// Deletes the word before the cursor (and the spaces after it), as
+    /// `Ctrl+W` in a shell. Returns `true` when text changed.
+    pub fn delete_word_back(&mut self) -> bool {
+        let head = &self.text[..self.cursor];
+        let trimmed = head.trim_end();
+        let start = trimmed
+            .char_indices()
+            .rev()
+            .find(|(_, c)| c.is_whitespace())
+            .map_or(0, |(i, c)| i + c.len_utf8());
+        if start == self.cursor {
+            return false;
+        }
+        self.text.replace_range(start..self.cursor, "");
+        self.cursor = start;
+        true
+    }
+
     /// Applies a text-editing key: printable characters, Backspace, Delete,
     /// Left/Right, Home/End and `Ctrl+V` (paste from the system clipboard).
     pub fn handle_key(&mut self, key: &KeyEvent) -> FieldEdit {

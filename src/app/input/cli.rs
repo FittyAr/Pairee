@@ -1,13 +1,16 @@
 use crate::app::actions::execute_shell_command;
 use crate::app::actions::panel_search::open as open_search;
 use crate::app::context::AppContext;
+use crate::app::input::cli_cd::{cd_argument, change_dir};
+use crate::app::input::cli_complete::complete;
 use crate::app::input::panel_find::NameMatch;
 use crate::app::input::type_ahead::find_match;
 use crate::app::state::AppState;
 use crate::keybindings::options::TypingMode;
+use crate::keybindings::screens::CliAction;
 use crate::terminal::TerminalBackend;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Captures characters for bottom shell CLI command input.
@@ -19,13 +22,13 @@ use std::time::Instant;
 pub fn handle_cli_input(
     state: &mut AppState,
     key: KeyEvent,
-    context: &AppContext,
+    context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
     if state.dialogs.is_some() {
         return Err(());
     }
-    if state.cli.focused || !state.cli.field.is_empty() {
+    if state.cli.is_active() {
         return edit_cli(state, key, context, terminal_backend);
     }
     // Uses an immutable peek so multi-key sequences are not consumed here.
@@ -79,42 +82,54 @@ fn type_ahead(state: &mut AppState, c: char) {
     }
 }
 
-/// Keys while the command line is being edited.
+/// Keys while the command line is being edited: Enter runs it, Esc clears
+/// it, the `[cli]` keymap completes names and deletes words, and typing and
+/// the cursor keys edit the text. Other keys (Up / Down, F-keys...) go on to
+/// the panels.
 fn edit_cli(
     state: &mut AppState,
     key: KeyEvent,
-    context: &AppContext,
+    context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
-    if let Some(c) = printable(key) {
-        state.cli.field.insert_char(c);
-        return Ok(());
-    }
     match key.code {
-        KeyCode::Backspace => {
-            state.cli.field.backspace();
-            Ok(())
-        }
-        KeyCode::Enter => {
-            state.cli.focused = false;
-            state.cli.history_pos = None;
+        KeyCode::Enter if key.modifiers.is_empty() => {
             let cmd = state.cli.text().trim().to_string();
-            state.cli.field.clear();
+            state.cli.reset();
             if !cmd.is_empty() {
                 state.push_command_history(cmd.clone());
                 run_cli_command(state, &cmd, context, terminal_backend);
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }
-            Ok(())
+            return Ok(());
         }
         KeyCode::Esc => {
-            state.cli.focused = false;
-            state.cli.history_pos = None;
-            state.cli.field.clear();
-            Ok(())
+            state.cli.reset();
+            return Ok(());
         }
-        _ => Err(()),
+        _ => {}
     }
+    if let Some(command) = context.resolver.cli.dispatch(key) {
+        match command {
+            CliAction::Complete => {
+                complete(state);
+            }
+            CliAction::DeleteWord => {
+                state.cli.completion = None;
+                state.cli.field.delete_word_back();
+            }
+        }
+        return Ok(());
+    }
+    // Characters only without Ctrl / Alt: those chords are shortcuts.
+    if matches!(key.code, KeyCode::Char(_)) && printable(key).is_none() {
+        return Err(());
+    }
+    if state.cli.field.handle_key(&key).consumed() {
+        state.cli.completion = None;
+        return Ok(());
+    }
+    Err(())
 }
 
 /// Runs a submitted command line: `cd`, a background `... &` job or a shell command.
@@ -125,33 +140,12 @@ fn run_cli_command(
     terminal_backend: &mut TerminalBackend,
 ) {
     let current_path = state.get_active_panel().current_path.clone();
-    if cmd == "cd" || cmd.starts_with("cd ") {
-        change_dir(
-            state,
-            cmd.strip_prefix("cd").unwrap_or("").trim(),
-            &current_path,
-        );
+    if let Some(arg) = cd_argument(cmd) {
+        change_dir(state, arg);
     } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
         spawn_background(state, cmd_bg.trim().to_string(), current_path);
     } else {
         let _ = execute_shell_command(cmd, &current_path, context, terminal_backend);
-    }
-}
-
-/// `cd [dir]`: an empty target or `~` goes home; relative targets resolve
-/// against the active panel's folder.
-fn change_dir(state: &mut AppState, target_dir: &str, current_path: &Path) {
-    let new_path = if target_dir.is_empty() || target_dir == "~" {
-        crate::app::session::restore::home_dir()
-    } else {
-        current_path.join(Path::new(target_dir))
-    };
-    let new_path = std::fs::canonicalize(&new_path).unwrap_or(new_path);
-    if new_path.is_dir() {
-        let active = state.get_active_panel_mut();
-        active.current_path = new_path;
-        active.cursor_index = 0;
-        active.clear_selection();
     }
 }
 

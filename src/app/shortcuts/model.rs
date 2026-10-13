@@ -10,7 +10,9 @@ use crate::keybindings::keymap::ContextKeymap;
 use crate::keybindings::loader::{KeymapLoadReport, LoadedKeymap, Origin};
 use crate::keybindings::plugin_commands;
 use crate::keybindings::registry::Bindable;
-use crate::keybindings::screens::{EditorAction, ListAction, TerminalAction, ViewerAction};
+use crate::keybindings::screens::{
+    CliAction, EditorAction, ListAction, TerminalAction, ViewerAction,
+};
 use std::collections::HashSet;
 
 /// The contexts the modal shows as tabs.
@@ -20,15 +22,17 @@ pub enum ContextTab {
     Editor,
     Viewer,
     Terminal,
+    Cli,
     List,
 }
 
 impl ContextTab {
-    pub const ALL: [Self; 5] = [
+    pub const ALL: [Self; 6] = [
         Self::Panels,
         Self::Editor,
         Self::Viewer,
         Self::Terminal,
+        Self::Cli,
         Self::List,
     ];
 
@@ -39,6 +43,7 @@ impl ContextTab {
             Self::Editor => "editor",
             Self::Viewer => "viewer",
             Self::Terminal => "terminal",
+            Self::Cli => "cli",
             Self::List => "list",
         }
     }
@@ -49,6 +54,7 @@ impl ContextTab {
             Self::Editor => "shortcuts_tab_editor",
             Self::Viewer => "shortcuts_tab_viewer",
             Self::Terminal => "shortcuts_tab_terminal",
+            Self::Cli => "shortcuts_tab_cli",
             Self::List => "shortcuts_tab_list",
         }
     }
@@ -158,6 +164,13 @@ pub fn build_rows(
         ContextTab::Terminal,
         &loaded.terminal,
         TerminalAction::all(),
+        |_| None,
+        &ctx,
+    ));
+    rows.extend(context_rows(
+        ContextTab::Cli,
+        &loaded.cli,
+        CliAction::all(),
         |_| None,
         &ctx,
     ));

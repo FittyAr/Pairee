@@ -2,6 +2,7 @@
 //! command-history position and the Tab completion in progress.
 
 use crate::app::text_input::TextField;
+use std::path::PathBuf;
 
 /// Candidates of a Tab completion being cycled.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -26,6 +27,8 @@ pub struct CliLine {
     pub history_pos: Option<usize>,
     /// Tab completion being cycled (cleared by any other key).
     pub completion: Option<Completion>,
+    /// Folder the active panel showed before the last `cd` (for `cd -`).
+    pub previous_dir: Option<PathBuf>,
 }
 
 impl CliLine {

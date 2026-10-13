@@ -1,4 +1,6 @@
 pub mod cli;
+pub mod cli_cd;
+pub mod cli_complete;
 pub mod panel_find;
 pub mod panel_nav;
 pub mod paste;
