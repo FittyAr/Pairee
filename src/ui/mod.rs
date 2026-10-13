@@ -20,6 +20,7 @@ pub mod tab_bar;
 pub mod terminal_screen;
 pub mod text_width;
 pub mod theme_apply;
+pub mod too_small;
 pub mod transfer;
 pub mod viewer;
 pub mod which_key_prefix;
@@ -42,6 +43,10 @@ use ratatui::layout::Rect;
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     let _recording = hit::Recording::start(&state.hits);
+    if too_small::is_too_small(f.area()) {
+        too_small::render(f);
+        return;
+    }
     // 1. Compute geometry partitions (respects panel visibility flags)
     let layout = layout::calculate_layout(f.area(), state, &context.config);
 

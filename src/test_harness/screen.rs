@@ -34,6 +34,7 @@ impl Harness {
 
     /// Resizes the terminal (with the resize event) and paints a frame.
     pub fn resize(&mut self, width: u16, height: u16) -> &mut Self {
+        self.screen.backend_mut().resize(width, height);
         self.screen
             .resize(Rect::new(0, 0, width, height))
             .expect("resize");

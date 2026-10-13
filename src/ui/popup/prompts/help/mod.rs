@@ -5,6 +5,7 @@ pub use markdown::parse_markdown_to_lines;
 
 use super::super::centered_rect_in;
 use crate::app::state::PopupType;
+use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
 use ratatui::{
@@ -61,8 +62,7 @@ pub fn render(
     // 2. Render Right panel (content viewer)
     let doc_title = current_docs
         .get(*cursor_idx)
-        .map(|(t, _)| t.as_str())
-        .unwrap_or(" Documentation ");
+        .map_or_else(|| t("help_documentation"), |(title, _)| title.clone());
     let right_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(focus_color(*mode == 1, theme)))
@@ -79,7 +79,7 @@ pub fn render(
             scrollbar,
         ),
         None => {
-            let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);
+            let empty_paragraph = Paragraph::new(t("help_no_document")).block(right_block);
             f.render_widget(empty_paragraph, chunks[1]);
         }
     }
@@ -87,11 +87,11 @@ pub fn render(
     // 3. Render help hint at the bottom
     let hint_area = Rect {
         x: area.x + 2,
-        y: area.y + area.height - 2,
+        y: area.y + area.height.saturating_sub(2),
         width: area.width.saturating_sub(4),
         height: 1,
     };
-    let hint_text = " [Tab] Switch Panels  [Up/Down/j/k] Navigate/Scroll  [Esc] Close ";
+    let hint_text = t("help_hint");
     f.render_widget(
         Paragraph::new(hint_text)
             .alignment(ratatui::layout::Alignment::Center)
@@ -143,9 +143,9 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: 
     };
     let tabs_line = Line::from(vec![
         Span::styled(" [ ", dim),
-        Span::styled("Core Help", tab_style(0)),
+        Span::styled(t("help_tab_core"), tab_style(0)),
         Span::styled(" ]  [ ", dim),
-        Span::styled("Plugins Help", tab_style(1)),
+        Span::styled(t("help_tab_plugins"), tab_style(1)),
         Span::styled(" ]", dim),
     ]);
     let tab_block = Block::default()
@@ -209,8 +209,8 @@ fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
         height: 1,
     };
     let labels = [
-        " [ Core Help ]".to_string(),
-        "  [ Plugins Help ]".to_string(),
+        format!(" [ {} ]", t("help_tab_core")),
+        format!("  [ {} ]", t("help_tab_plugins")),
     ];
     let keys = (0..2)
         .map(|tab| {

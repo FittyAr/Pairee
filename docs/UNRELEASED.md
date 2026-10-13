@@ -5,6 +5,7 @@
 - Terminal screens of `command &` can be closed (F10, the close box or Delete in the screens list), their process stopped (F8), scrolled back (Shift+arrows, Shift+PageUp/PageDown, mouse wheel) and typed into.
 - Setting "Lines kept per terminal screen" (System tab) bounds the output a terminal screen keeps.
 - Command line editing: cursor keys, Home/End, Delete, Ctrl+W to delete a word and Tab to complete file and folder names.
+- A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
 
 ### Improved
 
@@ -28,3 +29,4 @@
 - `cd` on the command line accepts quoted names (as drag & drop inserts them), `~/folder`, `cd -`, relative paths and SFTP or archive panels, and records the folder history.
 - Typed text stays visible on the command line when the prompt is long.
 - A double click in a long panel opens the entry that was clicked: the panel scrolls only when the cursor leaves the view, as in Far and Midnight Commander.
+- The help window no longer crashes in a very small terminal, and its texts are translated.

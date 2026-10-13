@@ -25,6 +25,7 @@ mod shortcuts_modal;
 mod sizes_sync;
 mod tabs_session;
 mod terminal_screens;
+mod tiny_terminal;
 mod transfer;
 mod typing_modes;
 mod vfs_followups;
