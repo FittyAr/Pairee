@@ -48,7 +48,7 @@ fn a_layout_draws_each_child_in_its_area() {
         ratio: 0.5,
         label: Some(WSpan {
             content: "half".into(),
-            style: WStyle::default(),
+            ..WSpan::default()
         }),
         block: None,
         style: WStyle::default(),

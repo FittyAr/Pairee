@@ -29,7 +29,7 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.clipboard(text?)` | Write the clipboard; read it (trusted plugins outside Secure Mode only) | New in 1.2 |
 | `pairee.state.get / set / all / clear` | Small store kept between calls and sessions | New in 1.2 |
 | `pairee.image.show / info / precache` | Images in previews | New in 1.2 |
-| `pairee.preview_code / preview_widget` | Text preview with line numbers; show a widget later | New in 1.2 |
+| `pairee.preview_code / preview_widget` | Highlighted text preview with line numbers; show a widget later | New in 1.2 |
 | `pairee.rt` / `pairee.th` | Runtime facts and preferences; theme colors as styles | New in 1.2 |
 | `pairee.utils.user_name / host_name / uid / gid / group_name` | Who and where Pairee runs (`nil` where the platform has none) | New in 1.2 |
 | `pairee.ps.sub / pub / unsub` | Local pub/sub | Stable |

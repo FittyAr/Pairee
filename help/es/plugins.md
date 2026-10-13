@@ -29,7 +29,7 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.clipboard(texto?)` | Escribir el portapapeles; leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
 | `pairee.state.get / set / all / clear` | Pequeño almacén que se conserva entre llamadas y sesiones | Nuevo en 1.2 |
 | `pairee.image.show / info / precache` | Imágenes en las vistas previas | Nuevo en 1.2 |
-| `pairee.preview_code / preview_widget` | Vista previa de texto con números de línea; mostrar un widget más tarde | Nuevo en 1.2 |
+| `pairee.preview_code / preview_widget` | Vista previa de texto resaltado con números de línea; mostrar un widget más tarde | Nuevo en 1.2 |
 | `pairee.rt` / `pairee.th` | Datos y preferencias del entorno; colores del tema como estilos | Nuevo en 1.2 |
 | `pairee.utils.user_name / host_name / uid / gid / group_name` | Quién y dónde ejecuta Pairee (`nil` donde la plataforma no lo tiene) | Nuevo en 1.2 |
 | `pairee.ps.sub / pub / unsub` | Pub/sub local | Estable |

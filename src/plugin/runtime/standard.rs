@@ -95,7 +95,14 @@ pub fn bind_runtime(
     b::preview::bind(
         lua,
         &pairee,
-        (&options.name, Arc::clone(&fs_policy)),
+        (
+            &options.name,
+            Arc::clone(&fs_policy),
+            crate::syntax::SyntaxLimits {
+                enabled: options.host.syntax_highlighting,
+                max_bytes: options.host.syntax_max_bytes,
+            },
+        ),
         tx.clone(),
     )?;
 

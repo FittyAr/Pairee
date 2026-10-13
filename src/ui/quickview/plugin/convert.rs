@@ -4,6 +4,7 @@
 use crate::app::state::popup::plugin_widget::{
     WAlign, WBorder, WBorderType, WConstraint, WLine, WSpan, WStyle, WText, WTextBody,
 };
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::theme_apply::parse_color;
 use ansi_to_tui::IntoText as _;
 use ratatui::{
@@ -40,22 +41,31 @@ pub fn alignment(align: WAlign) -> Alignment {
     }
 }
 
-pub fn span(span: &WSpan) -> Span<'static> {
-    Span::styled(span.content.clone(), style(&span.style))
+/// A span; highlighted code takes the theme's color for its token class,
+/// under the span's own style.
+pub fn span(span: &WSpan, theme: &ResolvedTheme) -> Span<'static> {
+    let own = style(&span.style);
+    let style = match span.syntax {
+        Some(kind) => theme.syntax(kind).patch(own),
+        None => own,
+    };
+    Span::styled(span.content.clone(), style)
 }
 
-pub fn line(line: &WLine) -> Line<'static> {
-    let mut out =
-        Line::from(line.spans.iter().map(span).collect::<Vec<_>>()).style(style(&line.style));
+pub fn line(line: &WLine, theme: &ResolvedTheme) -> Line<'static> {
+    let spans: Vec<Span> = line.spans.iter().map(|s| span(s, theme)).collect();
+    let mut out = Line::from(spans).style(style(&line.style));
     if let Some(align) = line.align {
         out = out.alignment(alignment(align));
     }
     out
 }
 
-pub fn text(text: &WText) -> Text<'static> {
+pub fn text(text: &WText, theme: &ResolvedTheme) -> Text<'static> {
     let mut out = match &text.body {
-        WTextBody::Lines(lines) => Text::from(lines.iter().map(line).collect::<Vec<_>>()),
+        WTextBody::Lines(lines) => {
+            Text::from(lines.iter().map(|l| line(l, theme)).collect::<Vec<_>>())
+        }
         WTextBody::Ansi(raw) => raw
             .as_bytes()
             .into_text()
@@ -69,7 +79,7 @@ pub fn text(text: &WText) -> Text<'static> {
 }
 
 /// The frame of `border` (its sides use the same bits as ratatui).
-pub fn block(border: &WBorder) -> Block<'static> {
+pub fn block(border: &WBorder, theme: &ResolvedTheme) -> Block<'static> {
     let kind = match border.kind {
         WBorderType::Plain => BorderType::Plain,
         WBorderType::Rounded => BorderType::Rounded,
@@ -81,7 +91,7 @@ pub fn block(border: &WBorder) -> Block<'static> {
         .border_type(kind)
         .border_style(style(&border.style));
     if let Some(title) = &border.title {
-        out = out.title(line(title));
+        out = out.title(line(title, theme));
     }
     out
 }
@@ -119,12 +129,27 @@ mod tests {
     }
 
     #[test]
+    fn highlighted_code_takes_the_theme_syntax_colors() {
+        use crate::syntax::SyntaxKind;
+        let theme = ResolvedTheme::default();
+        let code = WSpan {
+            content: "fn".into(),
+            syntax: Some(SyntaxKind::Keyword),
+            ..WSpan::default()
+        };
+        assert_eq!(
+            span(&code, &theme).style.fg,
+            theme.syntax(SyntaxKind::Keyword).fg
+        );
+    }
+
+    #[test]
     fn ansi_text_is_decoded() {
         let t = WText {
             body: WTextBody::Ansi("\x1b[31mred\x1b[0m plain".into()),
             ..WText::default()
         };
-        let out = text(&t);
+        let out = text(&t, &ResolvedTheme::default());
         assert_eq!(out.lines.len(), 1);
         assert_eq!(out.lines[0].spans[0].style.fg, Some(Color::Red));
     }

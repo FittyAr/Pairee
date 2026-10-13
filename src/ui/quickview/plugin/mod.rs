@@ -32,10 +32,18 @@ pub fn render_plugin_widget(
     let inner = block.inner(area);
     f.render_widget(block, area);
     let base = Style::default().fg(theme.panel_fg);
-    draw(f, inner, widget, (base, theme), scroll);
+    draw(f, inner, widget, Paint { base, theme }, scroll);
     if let Some(content_len) = widget.content_len() {
         render_scrollbar(f, area, theme, (content_len, scroll), scrollbar);
     }
+}
+
+/// What every widget is drawn with: the panel text style under it and the
+/// theme (syntax colors of highlighted code).
+#[derive(Clone, Copy)]
+struct Paint<'a> {
+    base: Style,
+    theme: &'a ResolvedTheme,
 }
 
 /// Inner area of a widget's own border (if any), after drawing it.
@@ -43,10 +51,11 @@ fn framed(
     f: &mut Frame,
     area: Rect,
     border: Option<&crate::app::state::popup::plugin_widget::WBorder>,
+    theme: &ResolvedTheme,
 ) -> Rect {
     match border {
         Some(border) => {
-            let block = convert::block(border);
+            let block = convert::block(border, theme);
             let inner = block.inner(area);
             f.render_widget(block, area);
             inner
@@ -55,30 +64,24 @@ fn framed(
     }
 }
 
-fn draw(
-    f: &mut Frame,
-    area: Rect,
-    widget: &Renderable,
-    (base, theme): (Style, &ResolvedTheme),
-    scroll: usize,
-) {
+fn draw(f: &mut Frame, area: Rect, widget: &Renderable, cx: Paint, scroll: usize) {
     match widget {
-        Renderable::Paragraph(p) => draw_paragraph(f, area, p, base, scroll),
-        Renderable::List(l) => draw_list(f, area, l, base, scroll),
-        Renderable::Table(table) => draw_table(f, area, table, base, scroll),
-        Renderable::Gauge(g) => draw_gauge(f, area, g, base),
-        Renderable::Layout(l) => draw_layout(f, area, l, (base, theme)),
-        Renderable::Image(image) => draw_image(f, area, image, (base, theme), scroll),
+        Renderable::Paragraph(p) => draw_paragraph(f, area, p, cx, scroll),
+        Renderable::List(l) => draw_list(f, area, l, cx, scroll),
+        Renderable::Table(table) => draw_table(f, area, table, cx, scroll),
+        Renderable::Gauge(g) => draw_gauge(f, area, g, cx),
+        Renderable::Layout(l) => draw_layout(f, area, l, cx),
+        Renderable::Image(image) => draw_image(f, area, image, cx, scroll),
     }
 }
 
-fn draw_paragraph(f: &mut Frame, area: Rect, p: &WParagraph, base: Style, scroll: usize) {
-    let area = framed(f, area, p.block.as_ref());
+fn draw_paragraph(f: &mut Frame, area: Rect, p: &WParagraph, cx: Paint, scroll: usize) {
+    let area = framed(f, area, p.block.as_ref(), cx.theme);
     let offset = (p.scroll as usize)
         .saturating_add(scroll)
         .min(u16::MAX as usize) as u16;
-    let mut para = Paragraph::new(convert::text(&p.text))
-        .style(base.patch(convert::style(&p.style)))
+    let mut para = Paragraph::new(convert::text(&p.text, cx.theme))
+        .style(cx.base.patch(convert::style(&p.style)))
         .scroll((offset, 0));
     if p.wrap != WWrap::No {
         para = para.wrap(Wrap {
@@ -88,24 +91,24 @@ fn draw_paragraph(f: &mut Frame, area: Rect, p: &WParagraph, base: Style, scroll
     f.render_widget(para, area);
 }
 
-fn draw_list(f: &mut Frame, area: Rect, l: &WList, base: Style, scroll: usize) {
-    let area = framed(f, area, l.block.as_ref());
+fn draw_list(f: &mut Frame, area: Rect, l: &WList, cx: Paint, scroll: usize) {
+    let area = framed(f, area, l.block.as_ref(), cx.theme);
     let items: Vec<ListItem> = l
         .items
         .iter()
         .skip(scroll)
-        .map(|item| ListItem::new(convert::text(item)))
+        .map(|item| ListItem::new(convert::text(item, cx.theme)))
         .collect();
     f.render_widget(
-        List::new(items).style(base.patch(convert::style(&l.style))),
+        List::new(items).style(cx.base.patch(convert::style(&l.style))),
         area,
     );
 }
 
-fn draw_table(f: &mut Frame, area: Rect, table: &WTable, base: Style, scroll: usize) {
-    let area = framed(f, area, table.block.as_ref());
+fn draw_table(f: &mut Frame, area: Rect, table: &WTable, cx: Paint, scroll: usize) {
+    let area = framed(f, area, table.block.as_ref(), cx.theme);
     let row = |r: &crate::app::state::popup::plugin_widget::WRow| {
-        Row::new(r.cells.iter().map(convert::text))
+        Row::new(r.cells.iter().map(|c| convert::text(c, cx.theme)))
             .height(r.height.max(1))
             .style(convert::style(&r.style))
     };
@@ -123,7 +126,7 @@ fn draw_table(f: &mut Frame, area: Rect, table: &WTable, base: Style, scroll: us
     };
     let mut widget = Table::new(table.rows.iter().skip(scroll).map(row), widths)
         .column_spacing(table.spacing)
-        .style(base.patch(convert::style(&table.style)));
+        .style(cx.base.patch(convert::style(&table.style)));
     if let Some(header) = &table.header {
         widget = widget
             .header(row(header).style(convert::style(&header.style).add_modifier(Modifier::BOLD)));
@@ -131,19 +134,19 @@ fn draw_table(f: &mut Frame, area: Rect, table: &WTable, base: Style, scroll: us
     f.render_widget(widget, area);
 }
 
-fn draw_gauge(f: &mut Frame, area: Rect, g: &WGauge, base: Style) {
-    let area = framed(f, area, g.block.as_ref());
+fn draw_gauge(f: &mut Frame, area: Rect, g: &WGauge, cx: Paint) {
+    let area = framed(f, area, g.block.as_ref(), cx.theme);
     let mut gauge = Gauge::default()
         .ratio(g.ratio.clamp(0.0, 1.0))
-        .style(base.patch(convert::style(&g.style)))
+        .style(cx.base.patch(convert::style(&g.style)))
         .gauge_style(convert::style(&g.gauge_style));
     if let Some(label) = &g.label {
-        gauge = gauge.label(convert::span(label));
+        gauge = gauge.label(convert::span(label, cx.theme));
     }
     f.render_widget(gauge, area);
 }
 
-fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: (Style, &ResolvedTheme)) {
+fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: Paint) {
     let area = area.inner(Margin::new(l.margin, l.margin));
     let count = l.children.len();
     let constraints: Vec<Constraint> = (0..count)
@@ -166,17 +169,13 @@ fn draw_layout(f: &mut Frame, area: Rect, l: &WLayout, cx: (Style, &ResolvedThem
     }
 }
 
-fn draw_image(
-    f: &mut Frame,
-    area: Rect,
-    image: &PluginImage,
-    (base, theme): (Style, &ResolvedTheme),
-    scroll: usize,
-) {
+fn draw_image(f: &mut Frame, area: Rect, image: &PluginImage, cx: Paint, scroll: usize) {
     match &image.image {
-        Some(img) => super::render_quick_view_image(f, area, img, Block::default(), theme, scroll),
+        Some(img) => {
+            super::render_quick_view_image(f, area, img, Block::default(), cx.theme, scroll)
+        }
         None => f.render_widget(
-            Paragraph::new(t("quickview_plugin_image_error")).style(base),
+            Paragraph::new(t("quickview_plugin_image_error")).style(cx.base),
             area,
         ),
     }

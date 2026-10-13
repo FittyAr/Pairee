@@ -300,7 +300,8 @@ pairee.preview_widget({ file = path, skip = 0 }, widget)  -- show a widget later
 `image.show`, `image.info` and `preview_code` accept the file being previewed
 (the `peek` / `preload` / `seek` job's file) even when it is outside the
 plugin's `pairee.fs` jail; `precache` needs a source the jail allows.
-`preview_code` shows plain text with line numbers (no syntax highlighting).
+`preview_code` shows the text with line numbers, highlighted like the built-in
+viewer when syntax highlighting is on and a grammar knows the file.
 
 ### `pairee.ps` — Pub/Sub
 

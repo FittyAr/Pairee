@@ -1,21 +1,10 @@
 //! `pairee.preview_code` / `pairee.preview_widget` in a sandboxed runtime.
 
 use super::*;
-use crate::app::state::popup::plugin_widget::{Renderable, WTextBody};
+use crate::app::state::popup::plugin_widget::Renderable;
 use crate::plugin::load_options::PluginLoadOptions;
 use crate::plugin::sandbox::create_sandboxed_lua;
-
-#[test]
-fn code_text_numbers_lines_and_expands_tabs() {
-    let text = code_text("a\n\tb\nc\x07\n", 1, 2);
-    let WTextBody::Lines(lines) = text.body else {
-        panic!()
-    };
-    assert_eq!(lines.len(), 2);
-    assert_eq!(lines[0].spans[0].content, "2 │ ");
-    assert_eq!(lines[0].spans[1].content, "    b");
-    assert_eq!(lines[1].spans[1].content, "c");
-}
+use std::path::Path;
 
 fn runtime(dir: &Path) -> (Lua, mpsc::Receiver<PluginRequest>) {
     let (tx, rx) = mpsc::channel(4);

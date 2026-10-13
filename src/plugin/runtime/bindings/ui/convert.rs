@@ -71,7 +71,7 @@ fn from_legacy_table(table: &Table) -> mlua::Result<Renderable> {
                 .clamp(0.0, 1.0),
             label: table.get::<Option<String>>("label")?.map(|l| WSpan {
                 content: l,
-                style: WStyle::default(),
+                ..WSpan::default()
             }),
             block: None,
             style: WStyle::default(),
@@ -138,6 +138,7 @@ fn legacy_span(table: &Table) -> mlua::Result<WSpan> {
             fg: color.filter(|c| !c.is_empty()),
             ..WStyle::default()
         },
+        syntax: None,
     })
 }
 

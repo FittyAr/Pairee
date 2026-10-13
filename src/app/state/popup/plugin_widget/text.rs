@@ -64,6 +64,9 @@ pub enum WAlign {
 pub struct WSpan {
     pub content: String,
     pub style: WStyle,
+    /// Token class of highlighted code (`pairee.preview_code`): the UI
+    /// colors it with the active theme's syntax colors, under `style`.
+    pub syntax: Option<crate::syntax::SyntaxKind>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -78,7 +81,7 @@ impl WLine {
         Self {
             spans: vec![WSpan {
                 content: text.into(),
-                style: WStyle::default(),
+                ..WSpan::default()
             }],
             ..Self::default()
         }

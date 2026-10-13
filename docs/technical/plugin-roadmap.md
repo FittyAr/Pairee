@@ -41,7 +41,7 @@
 | M4 `rt`, `th` | Done (read-only snapshots of the configuration the plugins loaded with; `rt.term.size()` live) | `bindings/{rt,th}.rs` |
 | M4 `km` | Covered by the existing `pairee.keymap` | `bindings/keymap.rs` |
 | M4 `cx` beyond `active` / `left` / `right` (`tabs`, `tasks`, `yanked`) | Not done | — |
-| M4 `preview_code` / `preview_widget` | Done; `preview_code` is plain text with line numbers (no syntax highlighter in the dependency set) | `bindings/preview.rs` |
+| M4 `preview_code` / `preview_widget` | Done; `preview_code` numbers the lines and reuses the editor/viewer highlighter (`crate::syntax`, theme syntax colors, user's on/off and size limit) | `bindings/preview.rs` |
 | G11 settings form | Done: `c` / Enter in the Plugin Manager opens a schema-driven form; saved to `[settings.plugin_settings.<name>]`, plugins reloaded | `app/input_popup/plugin_menu/settings.rs`, `ui/popup/plugin_menu/settings.rs` |
 | Acceptance | `tests/plugin_acceptance/roadmap_api` (untrusted plugin over the new surface); fzf / zoxide / code-preview ports still pending | `src/plugin/acceptance.rs` |
 

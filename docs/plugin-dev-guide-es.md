@@ -303,8 +303,9 @@ pairee.preview_widget({ file = ruta, skip = 0 }, widget)  -- mostrar un widget m
 `image.show`, `image.info` y `preview_code` aceptan el archivo que se está
 previsualizando (el archivo del job de `peek` / `preload` / `seek`) aunque esté
 fuera de la jaula de `pairee.fs` del complemento; `precache` necesita un
-origen que la jaula permita. `preview_code` muestra texto plano con números de
-línea (sin resaltado de sintaxis).
+origen que la jaula permita. `preview_code` muestra el texto con números de
+línea, resaltado como en el visor integrado cuando el resaltado de sintaxis
+está activo y una gramática reconoce el archivo.
 
 ### `pairee.ps` — Pub/Sub
 
