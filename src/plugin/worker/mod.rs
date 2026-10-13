@@ -101,7 +101,7 @@ impl Worker {
             .ok()
     }
 
-    async fn entry(&self, args: Vec<String>) {
+    pub(crate) async fn entry(&self, args: Vec<String>) {
         let result = async {
             let table = self.lua.create_sequence_from(args.iter().cloned())?;
             if let Some(command) = args.first() {
@@ -115,7 +115,7 @@ impl Worker {
 
     /// Runs the plugin's `pairee.ps.sub` callbacks for `event` with the
     /// payload and who sent it (`sender`, recorded by Rust).
-    async fn event(&self, event: &str, data: &str, sender: Option<&PluginOrigin>) {
+    pub(crate) async fn event(&self, event: &str, data: &str, sender: Option<&PluginOrigin>) {
         let callbacks = self.lua.globals().get::<Table>("pairee").and_then(|p| {
             p.get::<Table>("ps")?
                 .get::<Table>("_callbacks")?

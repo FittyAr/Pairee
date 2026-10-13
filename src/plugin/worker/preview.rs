@@ -122,7 +122,7 @@ impl Worker {
         result
     }
 
-    pub(super) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
+    pub(crate) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
         let result = async {
             let Some(values) = self.preview_call("peek", &job, None).await? else {
                 return Ok(None);

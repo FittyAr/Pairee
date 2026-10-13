@@ -1,6 +1,7 @@
 ## [Unreleased]
 
 ### Added
+- Plugin API 1.3.0: positional widgets (`ui.Rect`, `Pad`, `Pos`, `Bar`, `Clear`, `Fill`, `widget:area(rect)`, `Layout:split(rect)`, lists of widgets from `peek`), `pairee.cx.tabs` / `tasks` / `yanked` and panel URLs, `File` inherits the fields of `Cha`, and `pairee.fs` on remote URLs of connections open in a panel (trusted plugins; read-only in Secure Mode).
 - `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
 - Linux and macOS: "Copy attributes" in the Copy / Move dialog also copies extended attributes, and "Copy access control list" copies POSIX ACLs (Linux).
 - Interrupted copies to and from SSH servers resume from the part already written, like local ones.

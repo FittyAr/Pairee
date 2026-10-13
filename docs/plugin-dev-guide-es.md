@@ -114,7 +114,7 @@ Un complemento es una carpeta que contiene un script Lua principal, un manifiest
 ### `pairee.app` — Control de la Aplicación
 
 ```lua
-pairee._lua_api_version                 -- "1.2.0" (semver de la superficie Lua)
+pairee._lua_api_version                 -- "1.3.0" (semver de la superficie Lua)
 pairee.app.cwd()                        -- string: directorio actual
 pairee.app.cd(path)                     -- navegar a path
 pairee.app.focus()                      -- "left" | "right"

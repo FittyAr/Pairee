@@ -1,7 +1,7 @@
 # Lua API Changelog
 
 Semver of the **plugin Lua surface** (`pairee.*`), independent of the Pairee
-crate version. Current: **1.2.0** (`pairee._lua_api_version`).
+crate version. Current: **1.3.0** (`pairee._lua_api_version`).
 
 Policy:
 
@@ -11,7 +11,23 @@ Policy:
 
 ## [Unreleased]
 
+## [1.3.0]
+
 ### Added
+
+- Positional widgets: `ui.Rect` (`x`, `y`, `w`, `h`, `left`, `right`,
+  `top`, `bottom`, `:pad`), `ui.Pad` (+ `top/right/bottom/left/x/y/xy`),
+  `ui.Pos`, `ui.Bar`, `ui.Clear`, `ui.Fill`, `widget:area(rect)` and
+  `Layout:split(rect)`; `peek` may return a list of widgets; `job.area`
+  is a `Rect`.
+- `pairee.cx.tabs` (`idx`, `{url, name, locked}`), `cx.tasks` (transfer
+  jobs with progress), `cx.yanked` (`Url` list, `is_cut`) and a `url`
+  (`Url`) on every folder table; files of remote panels carry their
+  remote URL.
+- `File` derives from `Cha`: `file.len`, `file.mode`, `file:perm()`, ...
+- `pairee.fs` accepts remote URLs of connections open in a panel (read,
+  write, exists, stat, file, list, read_dir, cha, mkdir, remove, rename):
+  refused for untrusted plugins, read-only in Secure Mode.
 
 - `pairee.ps.sub` callbacks receive a second argument `meta`
   (`from_host`, `sender`, `trusted`), recorded by the host.

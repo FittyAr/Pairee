@@ -1,0 +1,6 @@
+[plugin]
+name = "acceptance-code-preview"
+version = "1.0.0"
+description = "CI acceptance: code previewer (preview_code, Layout:split, Rect, Pad, Bar, Clear, Fill, :area)"
+author = "Pairee"
+default_language = "en"

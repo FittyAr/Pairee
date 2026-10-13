@@ -1,0 +1,9 @@
+[plugin]
+name = "acceptance-fzf"
+version = "1.0.0"
+description = "CI acceptance: fzf port (Command with piped stdio, cx, emit cd)"
+author = "Pairee"
+default_language = "en"
+
+[permissions]
+commands = ["fzf"]

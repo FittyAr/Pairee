@@ -1,6 +1,6 @@
 # Pairee Plugin Lua API Reference
 
-This document describes the Lua API surface exposed to Pairee plugins. The versioned contract is **Lua API v1.2.0** (`pairee._lua_api_version`) — see [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). For architecture see [`docs/technical/plugin-system-design.md`](../../docs/technical/plugin-system-design.md) and the [plugin roadmap](../../docs/technical/plugin-roadmap.md). How-to: [`docs/plugin-dev-guide.md`](../../docs/plugin-dev-guide.md).
+This document describes the Lua API surface exposed to Pairee plugins. The versioned contract is **Lua API v1.3.0** (`pairee._lua_api_version`) — see [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). For architecture see [`docs/technical/plugin-system-design.md`](../../docs/technical/plugin-system-design.md) and the [plugin roadmap](../../docs/technical/plugin-roadmap.md). How-to: [`docs/plugin-dev-guide.md`](../../docs/plugin-dev-guide.md).
 
 ---
 
@@ -15,17 +15,18 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.confirm({pos, title, body})` | Open a real confirm dialog (Y/N) | Implemented (TUI) |
 | `pairee.input({pos, title, value, obscure, realtime, debounce})` | Open a real input dialog | Implemented (TUI; realtime streaming later) |
 | `pairee.which({cands, silent})` | Prompt the user to press one of several candidate keys | Implemented (TUI) |
-| `pairee.cx` | Live panel context (`active.cwd`, `hovered` File, `selected`) | Filled inside `pairee.sync` |
+| `pairee.cx` | Live panel context (`active.cwd` / `url`, `hovered` File, `selected`; `tabs`, `tasks`, `yanked`) | Filled inside `pairee.sync`; `tabs` / `tasks` / `yanked` / `url` new in 1.3 |
 | `pairee.notify({title, content, level, timeout})` | Show a structured notification | New in M0 |
 | `pairee.file_cache({file, skip})` | Get a stable cache path for a `(file, skip)` pair | New in M0 |
 | `pairee.utils.target_os()` | Return `"linux"` / `"macos"` / `"windows"` / ... | New in M0 |
 | `pairee.utils.target_family()` | Return `"unix"` / `"windows"` / `"wasm"` | New in M0 |
 | `pairee.utils.time()` | Return the current UNIX epoch in seconds (float) | New in M0 |
 | `pairee.utils.hash(str)` | Return a stable 64-bit hash of `str` as a hex string | New in M0 |
-| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Stable + mkdir/remove/rename/copy |
+| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Stable + mkdir/remove/rename/copy; 1.3: remote URLs (`sftp://`, `ftp://`, `webdav://`, `s3://`, ...) of connections open in a panel, for trusted plugins (read-only in Secure Mode) |
 | `pairee.Command` | Process builder (`:arg` `:cwd` `:env` `:stdin/out/err` `:spawn` `:output`) | Implemented; Child streams via pipes |
 | `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (chained builders) | Stable (1.2: userdata) |
-| `pairee.Path / Url / Cha / Error` | Typed path, URL, file-information and error values; `pairee.fs.cha(path)` | New in 1.2 |
+| `pairee.ui.Rect / Pad / Pos / Bar / Clear / Fill`, `widget:area(rect)`, `Layout:split(rect)` | Place widgets at positions of the preview (`job.area` is a `Rect`); `peek` may return a list of widgets | New in 1.3 |
+| `pairee.Path / Url / Cha / Error` | Typed path, URL, file-information and error values; `pairee.fs.cha(path)`; a `File` has every `Cha` field (1.3) | New in 1.2 |
 | `pairee.clipboard(text?)` | Write the clipboard; read it (trusted plugins outside Secure Mode only) | New in 1.2 |
 | `pairee.state.get / set / all / clear` | Small store kept between calls and sessions | New in 1.2 |
 | `pairee.image.show / info / precache` | Images in previews | New in 1.2 |
@@ -38,7 +39,7 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.settings.*` | Read access to the plugin's resolved settings | Stable |
 | `pairee.t(key, vars)` | Localised string lookup with variable interpolation | Stable |
 | `pairee._secure_mode` | Boolean: `true` when global Secure Mode is active | Stable |
-| `pairee._lua_api_version` | Semver string of this Lua surface (`1.2.0`) | Stable |
+| `pairee._lua_api_version` | Semver string of this Lua surface (`1.3.0`) | Stable |
 
 ---
 

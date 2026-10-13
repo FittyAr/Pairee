@@ -1,6 +1,6 @@
 # Referencia de la API Lua de Plugins de Pairee
 
-Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee. El contrato versionado es **API Lua v1.2.0** (`pairee._lua_api_version`) — ver [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). Arquitectura: [`plugin-system-design-es.md`](../../docs/technical/plugin-system-design-es.md). Guía: [`plugin-dev-guide-es.md`](../../docs/plugin-dev-guide-es.md).
+Este documento describe la superficie de la API Lua expuesta a los plugins de Pairee. El contrato versionado es **API Lua v1.3.0** (`pairee._lua_api_version`) — ver [`docs/api/lua/v1.md`](../../docs/api/lua/v1.md). Arquitectura: [`plugin-system-design-es.md`](../../docs/technical/plugin-system-design-es.md). Guía: [`plugin-dev-guide-es.md`](../../docs/plugin-dev-guide-es.md).
 
 ---
 
@@ -15,17 +15,18 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.confirm({pos, title, body})` | Abre un diálogo de confirmación real (Sí/No) | Implementado (TUI) |
 | `pairee.input({pos, title, value, obscure, realtime, debounce})` | Abre un diálogo de entrada real | Implementado (TUI; streaming realtime más adelante) |
 | `pairee.which({cands, silent})` | Pide al usuario presionar una de varias teclas candidatas | Implementado (TUI) |
-| `pairee.cx` | Contexto vivo del panel (`active.cwd`, `hovered` File, `selected`) | Se rellena dentro de `pairee.sync` |
+| `pairee.cx` | Contexto vivo del panel (`active.cwd` / `url`, `hovered` File, `selected`; `tabs`, `tasks`, `yanked`) | Se rellena dentro de `pairee.sync`; `tabs` / `tasks` / `yanked` / `url` nuevos en 1.3 |
 | `pairee.notify({title, content, level, timeout})` | Muestra una notificación estructurada | Nuevo en M0 |
 | `pairee.file_cache({file, skip})` | Obtiene una ruta de caché estable para un par `(archivo, skip)` | Nuevo en M0 |
 | `pairee.utils.target_os()` | Devuelve `"linux"` / `"macos"` / `"windows"` / ... | Nuevo en M0 |
 | `pairee.utils.target_family()` | Devuelve `"unix"` / `"windows"` / `"wasm"` | Nuevo en M0 |
 | `pairee.utils.time()` | Devuelve el epoch UNIX actual en segundos (float) | Nuevo en M0 |
 | `pairee.utils.hash(str)` | Devuelve un hash estable de 64 bits de `str` como cadena hex | Nuevo en M0 |
-| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Estable + mkdir/remove/rename/copy |
+| `pairee.fs.*` | Filesystem (`read`, `write`, `exists`, `stat`/`file`, `list`/`read_dir`, `mkdir`, `remove`, `rename`, `copy`, `spawn`) | Estable + mkdir/remove/rename/copy; 1.3: URLs remotas (`sftp://`, `ftp://`, `webdav://`, `s3://`, ...) de conexiones abiertas en un panel, para plugins confiables (solo lectura en Secure Mode) |
 | `pairee.Command` | Builder de procesos (`:arg` `:cwd` `:env` `:stdin/out/err` `:spawn` `:output`) | Implementado; Child con pipes |
 | `pairee.ui.*` | Widgets: `Style`, `Span`, `Line`, `Text`, `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`, `Layout`, `Constraint` (constructores encadenables) | Estable (1.2: userdata) |
-| `pairee.Path / Url / Cha / Error` | Valores tipados de ruta, URL, información de archivo y error; `pairee.fs.cha(ruta)` | Nuevo en 1.2 |
+| `pairee.ui.Rect / Pad / Pos / Bar / Clear / Fill`, `widget:area(rect)`, `Layout:split(rect)` | Ubican widgets en posiciones de la vista previa (`job.area` es un `Rect`); `peek` puede devolver una lista de widgets | Nuevo en 1.3 |
+| `pairee.Path / Url / Cha / Error` | Valores tipados de ruta, URL, información de archivo y error; `pairee.fs.cha(ruta)`; un `File` tiene todos los campos de `Cha` (1.3) | Nuevo en 1.2 |
 | `pairee.clipboard(texto?)` | Escribir el portapapeles; leerlo (solo plugins de confianza fuera del Modo Seguro) | Nuevo en 1.2 |
 | `pairee.state.get / set / all / clear` | Pequeño almacén que se conserva entre llamadas y sesiones | Nuevo en 1.2 |
 | `pairee.image.show / info / precache` | Imágenes en las vistas previas | Nuevo en 1.2 |
@@ -38,7 +39,7 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.settings.*` | Acceso de lectura a los settings resueltos del plugin | Estable |
 | `pairee.t(key, vars)` | Búsqueda de cadenas localizadas con interpolación de variables | Estable |
 | `pairee._secure_mode` | Booleano: `true` cuando Secure Mode global está activo | Estable |
-| `pairee._lua_api_version` | Semver de esta superficie Lua (`1.2.0`) | Estable |
+| `pairee._lua_api_version` | Semver de esta superficie Lua (`1.3.0`) | Estable |
 
 ---
 
