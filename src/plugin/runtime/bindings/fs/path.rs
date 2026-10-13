@@ -19,7 +19,7 @@ pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Res
         && ud.borrow::<LuaUrl>().is_ok_and(|u| u.scheme.is_some())
     {
         return Err(mlua::Error::RuntimeError(
-            "pairee.fs works on local paths only, not on remote URLs".into(),
+            "this pairee.fs function works on local paths only, not on remote URLs".into(),
         ));
     }
     let path = path_arg(&value)?;

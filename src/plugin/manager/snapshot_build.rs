@@ -25,6 +25,21 @@ fn file_on(source: &PanelSource, entry: &crate::fs::FileEntry) -> FileEntrySnaps
     file
 }
 
+/// The connection open in any panel tab that `scheme` and `domain` name.
+pub fn open_connection(
+    state: &AppState,
+    scheme: &str,
+    domain: &str,
+) -> Option<crate::fs::remote::RemoteConn> {
+    [ActivePanel::Left, ActivePanel::Right]
+        .into_iter()
+        .flat_map(|side| state.panels.tabs(side).tabs())
+        .find_map(|tab| match &tab.panel.source {
+            PanelSource::Remote(conn) if conn.info().matches(scheme, domain) => Some(conn.clone()),
+            _ => None,
+        })
+}
+
 /// Read-only view of the panels, tabs, transfers and file clipboard.
 pub fn build_snapshot(state: &AppState) -> AppStateSnapshot {
     let active = state.get_active_panel();

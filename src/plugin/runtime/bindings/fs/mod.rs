@@ -4,6 +4,7 @@ mod extra;
 pub(crate) mod jail;
 mod ops;
 mod path;
+pub mod remote;
 mod spawn;
 mod target;
 
@@ -27,6 +28,11 @@ pub fn bind(
     let fs = lua.create_table()?;
     ops::bind_core(lua, &fs, &policy)?;
     extra::bind_extra(lua, &fs, &policy)?;
+    let access = remote::RemoteAccess {
+        mode: remote::RemoteMode::new(policy.trusted, policy.secure_mode),
+        tx: tx.clone(),
+    };
+    remote::wrap(lua, &fs, access)?;
     spawn::bind_spawn(lua, &fs, &policy, commands, tx)?;
     Ok(fs)
 }

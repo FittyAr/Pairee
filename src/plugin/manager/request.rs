@@ -106,6 +106,13 @@ pub enum PluginRequest {
     DevPluginScan {
         options: Vec<(String, String)>,
     },
+    /// The connection open in a panel tab that a remote URL names
+    /// (`scheme`, `domain` = `[user@]host[:port]`), for `pairee.fs`.
+    RemoteConnection {
+        scheme: String,
+        domain: String,
+        reply: oneshot::Sender<Option<crate::fs::remote::RemoteConn>>,
+    },
 }
 
 /// Which plugin sent a request, and whether the user trusts it. Built in

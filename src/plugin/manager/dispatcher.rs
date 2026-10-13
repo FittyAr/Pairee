@@ -36,6 +36,15 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
         PluginRequest::GetStateSnapshot(reply_tx) => {
             let _ = reply_tx.send(build_snapshot(state));
         }
+        PluginRequest::RemoteConnection {
+            scheme,
+            domain,
+            reply,
+        } => {
+            let _ = reply.send(super::snapshot_build::open_connection(
+                state, &scheme, &domain,
+            ));
+        }
         PluginRequest::Notify { title, msg, level } => {
             state
                 .dialogs
