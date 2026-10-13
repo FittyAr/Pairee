@@ -1,7 +1,7 @@
 //! Worker calls driven from Lua plugin sources.
 
 use super::*;
-use crate::app::state::types::PluginWidget;
+use crate::app::state::popup::plugin_widget::{Renderable, WTextBody};
 use crate::plugin::load_options::PluginLoadOptions;
 use crate::plugin::manager::snapshot::AppStateSnapshot;
 use crate::plugin::registry::PreviewJob;
@@ -78,17 +78,20 @@ async fn peek_gets_a_file_userdata_and_area() {
         r#"
         local M = {}
         function M:peek(job)
-            return { Paragraph = job.file.name .. " " .. job.file.mime .. " " .. job.area.w .. "x" .. job.area.h .. " " .. job.skip }
+            return pairee.ui.Paragraph(job.file.name .. " " .. job.file.mime .. " " .. job.area.w .. "x" .. job.area.h .. " " .. job.skip)
         end
         return M
         "#,
         false,
     );
     let widget = w.peek(job(&file, 3)).await.expect("widget");
-    let PluginWidget::Paragraph(text) = widget else {
+    let Renderable::Paragraph(p) = widget else {
         panic!("{widget:?}");
     };
-    assert_eq!(text, "notes.md text/plain 40x10 3");
+    let WTextBody::Lines(lines) = p.text.body else {
+        panic!("ansi");
+    };
+    assert_eq!(lines[0].spans[0].content, "notes.md text/plain 40x10 3");
 }
 
 #[tokio::test(flavor = "multi_thread")]

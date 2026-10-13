@@ -153,7 +153,8 @@ fn preview_is_debounced_then_cached() {
 
 /// A quick view showing a plugin preview (`seekable` or not).
 fn plugin_quick_view(seekable: bool) -> AppState {
-    use crate::app::state::popup::{PluginPreview, PluginWidget, QuickViewDialog};
+    use crate::app::state::popup::plugin_widget::WText;
+    use crate::app::state::popup::{PluginPreview, QuickViewDialog, Renderable};
     let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
     state.panels.quick_view_active = true;
     state
@@ -164,7 +165,7 @@ fn plugin_quick_view(seekable: bool) -> AppState {
             scroll: 0,
             image_data: None,
             plugin: Some(PluginPreview {
-                widget: PluginWidget::Paragraph("x".into()),
+                widget: Renderable::text(WText::raw("x")),
                 plugin: "demo".into(),
                 skip: 0,
                 seekable,

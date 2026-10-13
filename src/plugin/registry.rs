@@ -3,7 +3,7 @@
 //! host-side entry points that send work to them (`run_previewer`,
 //! `run_preload`, `run_seek`, `run_command`, `emit_hook_event`).
 
-use crate::app::state::types::PluginWidget;
+use crate::app::state::types::Renderable;
 use crate::plugin::annotations::Annotations;
 use crate::plugin::loader::PluginManifest;
 use crate::plugin::manager::PluginRequest;
@@ -25,7 +25,7 @@ pub struct PreviewJob {
 pub enum PluginTaskRequest {
     Peek {
         job: PreviewJob,
-        reply_tx: oneshot::Sender<Option<PluginWidget>>,
+        reply_tx: oneshot::Sender<Option<Renderable>>,
     },
     /// `preload(job)` ahead of a peek; replies whether the plugin reported
     /// the work complete.
@@ -155,7 +155,7 @@ async fn tell(name: &str, req: PluginTaskRequest) {
     }
 }
 
-pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<PluginWidget> {
+pub async fn run_previewer(name: &str, job: PreviewJob) -> Option<Renderable> {
     ask(name, |reply_tx| PluginTaskRequest::Peek { job, reply_tx })
         .await
         .flatten()

@@ -18,7 +18,7 @@ mod paste;
 mod plugin;
 mod plugin_menu;
 mod plugin_settings;
-mod plugin_widget;
+pub mod plugin_widget;
 mod prompts;
 mod quickview;
 mod settings;
@@ -60,7 +60,7 @@ pub use plugin_menu::{PluginMenuState, SelectDevPlugin};
 pub use plugin_settings::{
     BUTTON_DEFAULTS, BUTTON_SAVE, PluginSettingRow, PluginSettingValue, PluginSettingsDialog,
 };
-pub use plugin_widget::{PluginPreview, PluginWidget};
+pub use plugin_widget::{PluginPreview, Renderable};
 pub use prompts::{
     ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
     DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,

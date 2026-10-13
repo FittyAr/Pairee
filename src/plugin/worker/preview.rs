@@ -18,12 +18,14 @@
 //! accept it even when it lies outside the plugin's `pairee.fs` jail.
 
 use super::Worker;
-use crate::app::state::types::PluginWidget;
+use crate::app::state::popup::plugin_widget::Renderable;
 use crate::plugin::registry::PreviewJob;
+use crate::plugin::runtime::bindings::ui::to_renderable;
 use crate::plugin::runtime::types::LuaFile;
-use mlua::{Lua, LuaSerdeExt, MultiValue, Table, Value};
+use mlua::{Lua, MultiValue, Table, Value};
 use std::collections::HashSet;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 /// File versions whose preload completed, kept until there are too many.
 #[derive(Debug, Default)]
@@ -73,12 +75,25 @@ fn job_table(
     Ok(table)
 }
 
-/// Converts what `peek` returned into a widget (`None` for `nil`).
-fn to_widget(lua: &Lua, value: Value) -> mlua::Result<Option<PluginWidget>> {
-    if value.is_nil() {
-        return Ok(None);
+/// Decodes the images of `widget` (the plugin only named the files; the
+/// host reads at most the quick view's size cap of each).
+fn decode_images(widget: &mut Renderable) {
+    for image in widget.images_mut() {
+        image.image = load_image(&image.path);
     }
-    lua.from_value(value).map(Some)
+}
+
+fn load_image(path: &Path) -> Option<Arc<image::DynamicImage>> {
+    use crate::app::state::quick_view::load::QUICK_VIEW_MAX_BYTES;
+    use crate::fs::vfs::{LocalVfs, Vfs};
+    crate::plugin::runtime::bindings::fs::blocking(|| {
+        let size = std::fs::metadata(path).ok()?.len();
+        if size > QUICK_VIEW_MAX_BYTES {
+            return None;
+        }
+        let bytes = LocalVfs.read_prefix(path, QUICK_VIEW_MAX_BYTES).ok()?;
+        crate::ui::viewer::decode_image(path, bytes).map(Arc::new)
+    })
 }
 
 impl Worker {
@@ -98,15 +113,17 @@ impl Worker {
         result
     }
 
-    pub(super) async fn peek(&self, job: PreviewJob) -> Option<PluginWidget> {
+    pub(super) async fn peek(&self, job: PreviewJob) -> Option<Renderable> {
         let result = async {
             let Some(values) = self.preview_call("peek", &job, None).await? else {
                 return Ok(None);
             };
-            to_widget(&self.lua, values.into_iter().next().unwrap_or(Value::Nil))
+            to_renderable(&values.into_iter().next().unwrap_or(Value::Nil))
         }
         .await;
-        self.report("peek", result).flatten()
+        let mut widget = self.report("peek", result).flatten()?;
+        decode_images(&mut widget);
+        Some(widget)
     }
 
     pub(super) async fn preload(&mut self, job: PreviewJob) -> bool {

@@ -214,7 +214,7 @@ fn clean_dir(dir: &Dir) -> io::Result<()> {
 }
 
 /// Let other tasks run on a multi-thread runtime while blocking on I/O.
-fn blocking<T>(f: impl FnOnce() -> T) -> T {
+pub(crate) fn blocking<T>(f: impl FnOnce() -> T) -> T {
     match tokio::runtime::Handle::try_current() {
         Ok(handle) if handle.runtime_flavor() == tokio::runtime::RuntimeFlavor::MultiThread => {
             tokio::task::block_in_place(f)

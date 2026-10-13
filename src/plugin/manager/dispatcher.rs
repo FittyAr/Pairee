@@ -154,7 +154,7 @@ fn dispatch_popup_update(state: &mut AppState, req: PluginRequest) {
             if let Some(PopupType::QuickViewPanel(qv)) = state.dialogs.top_mut()
                 && qv.path == path
             {
-                qv.plugin = Some(preview);
+                qv.plugin = Some(*preview);
             }
         }
         PluginRequest::PluginMenuLoaded {

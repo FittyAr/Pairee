@@ -13,6 +13,7 @@ pub use jail::{Access, FsPolicy, contain, normalize_lexical};
 use mlua::{Lua, Table};
 use std::sync::Arc;
 pub use target::Target;
+pub(crate) use target::blocking;
 use tokio::sync::mpsc;
 
 /// Bind `pairee.fs`. `policy` is captured by every closure so the sandbox

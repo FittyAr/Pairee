@@ -53,12 +53,12 @@ async fn show(plugin: &PluginInfo, path: &Path, skip: usize) -> bool {
     let Some(widget) = registry::run_previewer(name, job(path, skip)).await else {
         return false;
     };
-    let preview = PluginPreview {
+    let preview = Box::new(PluginPreview {
         widget,
         plugin: name.clone(),
         skip,
         seekable: plugin.methods.seek,
-    };
+    });
     let req = PluginRequest::UpdatePluginWidget {
         path: path.to_path_buf(),
         preview,

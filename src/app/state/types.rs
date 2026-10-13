@@ -191,4 +191,4 @@ pub enum AdminOpKind {
     },
 }
 
-pub use super::popup::{PluginWidget, PopupType};
+pub use super::popup::{PopupType, Renderable};
