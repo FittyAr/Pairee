@@ -30,11 +30,18 @@ pub fn fast_forward(
 ) -> anyhow::Result<()> {
     let commit = repo.find_commit(target)?;
     safe_checkout(repo, commit.as_object())?;
-    let mut head = repo.head()?;
-    if head.is_branch() {
-        head.set_target(target, reflog)?;
-    } else {
-        repo.set_head_detached(target)?;
+    match repo.head() {
+        Ok(mut head) if head.is_branch() => {
+            head.set_target(target, reflog)?;
+        }
+        Ok(_) => repo.set_head_detached(target)?,
+        // No commit yet: the branch HEAD names starts at `target`.
+        Err(e) if e.code() == git2::ErrorCode::UnbornBranch => {
+            let head = repo.find_reference("HEAD")?;
+            let branch = head.symbolic_target().ok().flatten().unwrap_or("HEAD");
+            repo.reference(branch, target, true, reflog)?;
+        }
+        Err(e) => return Err(e.into()),
     }
     Ok(())
 }

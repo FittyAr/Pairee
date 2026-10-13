@@ -35,7 +35,9 @@ pub fn checkout_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Re
     if let Ok(remote_branch) = repo.find_branch(branch_name, git2::BranchType::Remote) {
         let local_name = local_branch_name_for_remote(repo, branch_name);
         if local_name.is_empty() || local_name == "HEAD" {
-            anyhow::bail!("Cannot checkout remote HEAD reference");
+            anyhow::bail!(crate::config::localization::t(
+                "git_error_checkout_remote_head"
+            ));
         }
         return checkout_remote_tracking(repo, &local_name, &remote_branch, branch_name);
     }
@@ -53,7 +55,9 @@ pub fn checkout_branch(repo: &git2::Repository, branch_name: &str) -> anyhow::Re
         }
     }
 
-    anyhow::bail!("Branch not found: {}", branch_name)
+    anyhow::bail!(
+        crate::config::localization::t("git_error_branch_not_found").replace("{}", branch_name)
+    )
 }
 
 fn checkout_remote_tracking(

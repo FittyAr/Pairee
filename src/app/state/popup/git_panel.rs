@@ -13,6 +13,8 @@ pub struct GitPanelState {
     pub stash_entries: Vec<crate::git::stash::StashInfo>,
     pub tag_entries: Vec<crate::git::tags::TagInfo>,
     pub current_branch: String,
+    /// A merge / cherry-pick / revert / rebase waiting for the user.
+    pub operation: Option<crate::git::outcome::PendingOperation>,
     /// The whole history is loaded (no further log pages to fetch).
     pub log_complete: bool,
 }
@@ -31,6 +33,7 @@ impl GitPanelState {
             stash_entries: Vec::new(),
             tag_entries: Vec::new(),
             current_branch: String::new(),
+            operation: None,
             log_complete: false,
         }
     }
@@ -58,6 +61,7 @@ impl GitPanelState {
         self.branch_entries = snapshot.branches;
         self.stash_entries = snapshot.stashes;
         self.tag_entries = snapshot.tags;
+        self.operation = snapshot.operation;
         self.clamp_cursor();
     }
 

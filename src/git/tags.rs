@@ -66,7 +66,7 @@ pub fn delete_tag(repo: &git2::Repository, tag_name: &str) -> anyhow::Result<()>
 pub fn push_tags(
     repo: &git2::Repository,
     remote_name: &str,
-    observer: crate::git::remote::ProgressObserver<'_>,
+    hooks: crate::git::remote::NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let tag_names = repo.tag_names(None)?;
@@ -77,7 +77,7 @@ pub fn push_tags(
         }
     }
     if !refspecs.is_empty() {
-        crate::git::push::push_refspecs(&mut remote, &refspecs, observer)?;
+        crate::git::push::push_refspecs(&mut remote, &refspecs, hooks)?;
     }
     Ok(())
 }

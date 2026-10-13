@@ -93,9 +93,29 @@ pub enum FollowUp {
     Cloned { show_hidden: bool },
 }
 
-/// Outcome delivered by the job: `Err` carries the error text, `None` inside
-/// means the user cancelled.
-pub type GitOpResult = Result<(), Option<String>>;
+/// Outcome delivered by the job: `Ok` carries the files a pull left
+/// conflicted (empty when clean); `Err` carries the error text, `None`
+/// inside means the user cancelled.
+pub type GitOpResult = Result<Vec<String>, Option<String>>;
+
+/// The first conflicted `paths` on one line, "and N more" for the rest.
+pub fn conflict_summary(paths: &[String]) -> String {
+    const SHOWN: usize = 5;
+    let mut text = paths
+        .iter()
+        .take(SHOWN)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(", ");
+    if paths.len() > SHOWN {
+        text.push(' ');
+        text.push_str(
+            &crate::config::localization::t("git_conflicts_more")
+                .replace("{}", &(paths.len() - SHOWN).to_string()),
+        );
+    }
+    text
+}
 
 /// The single in-flight Git network operation (one at a time).
 #[derive(Debug, Default)]
@@ -128,10 +148,13 @@ impl AppState {
         }
         let title = crate::config::localization::t(op.title_key());
         let job_op = op.clone();
+        let asker = self.credential_requests.asker();
         self.git_op.pending = Some((op, follow_up));
         self.dialogs
             .push(crate::app::state::popup::GitProgress { title });
-        self.git_op.job.start(move |ctx| run::run(&job_op, ctx));
+        self.git_op
+            .job
+            .start(move |ctx| run::run(&job_op, ctx, &asker));
         // Inline execution (no runtime) has finished already.
         poll_git_op(self);
     }

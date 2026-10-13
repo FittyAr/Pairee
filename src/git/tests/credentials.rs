@@ -1,6 +1,7 @@
 //! Credential negotiation always terminates.
 
 use crate::config::localization::t;
+use crate::credential_prompt::nobody;
 use crate::git::credentials::CredentialState;
 use git2::CredentialType;
 
@@ -19,7 +20,7 @@ fn exhaust(state: &mut CredentialState, allowed: CredentialType) -> (usize, git2
 #[test]
 fn test_ssh_negotiation_is_bounded_and_explains_passphrases() {
     let missing = std::env::temp_dir().join("pairee-no-such-key");
-    let mut state = CredentialState::new(vec![missing]);
+    let mut state = CredentialState::new(vec![missing], &nobody);
 
     let (offers, err) = exhaust(&mut state, CredentialType::SSH_KEY);
 
@@ -38,10 +39,11 @@ fn test_encrypted_keys_are_offered_with_the_asked_passphrase() {
     std::fs::write(&plain, key("none")).unwrap();
     let asked = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
     let log = asked.clone();
-    let mut state = CredentialState::new(vec![encrypted.clone(), plain]).with_prompt(move |req| {
-        log.lock().unwrap().push(req);
-        None
-    });
+    let mut state =
+        CredentialState::new(vec![encrypted.clone(), plain], &nobody).with_prompt(move |req| {
+            log.lock().unwrap().push(req);
+            None
+        });
 
     let (offers, _) = exhaust(&mut state, CredentialType::SSH_KEY);
 
@@ -59,10 +61,38 @@ fn test_encrypted_keys_are_offered_with_the_asked_passphrase() {
 
 #[test]
 fn test_repeated_username_requests_are_capped() {
-    let mut state = CredentialState::new(Vec::new());
+    let mut state = CredentialState::new(Vec::new(), &nobody);
 
     let (offers, err) = exhaust(&mut state, CredentialType::USERNAME);
 
     assert!(offers < 100);
     assert_eq!(err.message(), t("git_error_auth_failed"));
+}
+
+#[test]
+fn test_passphrases_go_to_the_asker_of_the_starting_state() {
+    let dir = tempfile::tempdir().unwrap();
+    let encrypted = dir.path().join("id_ed25519");
+    let key = crate::credential_prompt::key::tests::openssh_key;
+    std::fs::write(&encrypted, key("aes256-ctr")).unwrap();
+    let (asker, inbox) = crate::credential_prompt::channel(|| {});
+    let answerer = std::thread::spawn(move || {
+        loop {
+            if let Some(pending) = inbox.try_next() {
+                let request = pending.request.clone();
+                pending.answer(None);
+                return request;
+            }
+            std::thread::yield_now();
+        }
+    });
+    let ask = |request| asker.ask(request);
+    let mut state = CredentialState::new(vec![encrypted.clone()], &ask);
+
+    let _ = exhaust(&mut state, CredentialType::SSH_KEY);
+
+    assert_eq!(
+        answerer.join().unwrap(),
+        crate::credential_prompt::CredentialRequest::passphrase(&encrypted)
+    );
 }

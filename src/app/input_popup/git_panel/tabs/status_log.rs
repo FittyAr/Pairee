@@ -79,7 +79,7 @@ pub fn handle_status_tab(
         }
         KeyCode::Char('X') => {
             if let Some(repo) = crate::git::repo::find_repo(repo_path)
-                && repo.state() == git2::RepositoryState::Merge
+                && crate::git::outcome::PendingOperation::of(&repo).is_some_and(|op| op.abortable())
             {
                 let msg = t("git_confirm_abort_merge");
                 open_confirm(state, repo_path, msg, GitConfirmedAction::AbortMerge);

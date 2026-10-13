@@ -13,6 +13,27 @@ pub fn commit(
     author_email: &str,
 ) -> anyhow::Result<git2::Oid> {
     let sig = resolve_signature(repo, author_name, author_email, fallback_identity())?;
+    commit_as(repo, message, &sig, &sig)
+}
+
+/// Commits the index as `author` (the configured identity when `None`),
+/// committed by the configured identity, recording every parent of an
+/// in-progress merge and ending a pending merge / cherry-pick / revert.
+pub fn commit_staged(
+    repo: &git2::Repository,
+    message: &str,
+    author: Option<&git2::Signature<'_>>,
+) -> anyhow::Result<git2::Oid> {
+    let committer = resolve_signature(repo, "", "", fallback_identity())?;
+    commit_as(repo, message, author.unwrap_or(&committer), &committer)
+}
+
+fn commit_as(
+    repo: &git2::Repository,
+    message: &str,
+    author: &git2::Signature<'_>,
+    committer: &git2::Signature<'_>,
+) -> anyhow::Result<git2::Oid> {
     let mut index = repo.index()?;
     let tree_oid = index.write_tree()?;
     let tree = repo.find_tree(tree_oid)?;
@@ -20,7 +41,7 @@ pub fn commit(
     let parent_commits = commit_parents(repo)?;
     let parents: Vec<&git2::Commit> = parent_commits.iter().collect();
 
-    let oid = repo.commit(Some("HEAD"), &sig, &sig, message, &tree, &parents)?;
+    let oid = repo.commit(Some("HEAD"), author, committer, message, &tree, &parents)?;
     finish_pending_operation(repo)?;
     Ok(oid)
 }

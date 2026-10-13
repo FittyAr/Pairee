@@ -2,7 +2,7 @@
 //! per-reference rejections reported by the remote into errors.
 
 use crate::config::localization::t;
-use crate::git::remote::{ProgressObserver, create_callbacks};
+use crate::git::remote::{NetHooks, create_callbacks};
 use std::cell::RefCell;
 
 /// Pushes `refspecs` to `remote`, failing when the remote rejects any of
@@ -11,11 +11,11 @@ use std::cell::RefCell;
 pub fn push_refspecs(
     remote: &mut git2::Remote<'_>,
     refspecs: &[String],
-    observer: ProgressObserver<'_>,
+    hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let rejected = RefCell::new(Vec::new());
     {
-        let mut callbacks = create_callbacks(observer);
+        let mut callbacks = create_callbacks(hooks);
         callbacks.push_update_reference(|refname, status| {
             if let Some(reason) = status {
                 rejected.borrow_mut().push(format!("{refname}: {reason}"));
@@ -42,11 +42,11 @@ pub fn push(
     remote_name: &str,
     branch_name: &str,
     set_upstream: bool,
-    observer: ProgressObserver<'_>,
+    hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let mut remote = repo.find_remote(remote_name)?;
     let refspec = format!("refs/heads/{branch_name}:refs/heads/{branch_name}");
-    push_refspecs(&mut remote, &[refspec], observer)?;
+    push_refspecs(&mut remote, &[refspec], hooks)?;
 
     if set_upstream
         && let Ok(mut local_branch) = repo.find_branch(branch_name, git2::BranchType::Local)
@@ -63,7 +63,7 @@ pub fn delete_remote_branch(
     repo: &git2::Repository,
     remote_name: &str,
     branch_name: &str,
-    observer: ProgressObserver<'_>,
+    hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
     let clean_branch = branch_name
         .strip_prefix(&format!("{remote_name}/"))
@@ -71,7 +71,7 @@ pub fn delete_remote_branch(
 
     let mut remote = repo.find_remote(remote_name)?;
     let refspec = format!(":refs/heads/{clean_branch}");
-    push_refspecs(&mut remote, &[refspec], observer)?;
+    push_refspecs(&mut remote, &[refspec], hooks)?;
 
     // Also remove local tracking reference if it exists
     let refname = format!("refs/remotes/{remote_name}/{clean_branch}");

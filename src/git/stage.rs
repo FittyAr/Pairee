@@ -4,9 +4,7 @@ use std::path::Path;
 pub fn stage_file(repo: &git2::Repository, file_path: &str) -> anyhow::Result<()> {
     let mut index = repo.index()?;
     let path = Path::new(file_path);
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("No working directory"))?;
+    let workdir = crate::git::repo::workdir(repo)?;
     if workdir.join(path).exists() {
         index.add_path(path)?;
     } else {
@@ -60,9 +58,7 @@ pub fn discard_file_changes(repo: &git2::Repository, file_path: &str) -> anyhow:
     // First unstage any staged changes for this file
     let _ = unstage_file(repo, file_path);
 
-    let workdir = repo
-        .workdir()
-        .ok_or_else(|| anyhow::anyhow!("No working directory"))?;
+    let workdir = crate::git::repo::workdir(repo)?;
     let full_path = workdir.join(file_path);
 
     // If file exists in HEAD, check it out to restore working copy

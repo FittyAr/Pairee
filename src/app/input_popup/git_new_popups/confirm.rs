@@ -58,18 +58,20 @@ enum After {
     Nothing,
     /// An info popup with this message key.
     Info(&'static str),
-    /// Conflict error (first key) or success info (second key), depending on
-    /// whether the index has conflicts.
+    /// Conflict error (first key, `{}` = the conflicted files) or success
+    /// info (second key), depending on whether the index has conflicts.
     ConflictsOr(&'static str, &'static str),
 }
 
 impl After {
-    /// The popup to show, given whether the index has conflicts.
-    fn popup(self, conflicts: bool) -> Option<PopupType> {
+    /// The popup to show, given the conflicted files of the index.
+    fn popup(self, conflicts: &[String]) -> Option<PopupType> {
         match self {
             After::Nothing => None,
             After::Info(key) => Some(PopupType::info(t(key))),
-            After::ConflictsOr(key, _) if conflicts => Some(PopupType::error(t(key))),
+            After::ConflictsOr(key, _) if !conflicts.is_empty() => Some(PopupType::error(
+                t(key).replace("{}", &crate::app::git_ops::conflict_summary(conflicts)),
+            )),
             After::ConflictsOr(_, key) => Some(PopupType::info(t(key))),
         }
     }
@@ -110,11 +112,11 @@ fn run(state: &mut AppState, confirm: GitConfirmActionState) {
                 &repo_path,
                 move |repo| {
                     exec(repo).ctx(error_key)?;
-                    Ok(repo.index().map(|i| i.has_conflicts()).unwrap_or(false))
+                    Ok(crate::git::outcome::conflicted_paths(repo).unwrap_or_default())
                 },
-                move |state, conflicts| {
+                move |state, conflicts: Vec<String>| {
                     state.reload_git_panel(&reload);
-                    if let Some(popup) = after.popup(conflicts) {
+                    if let Some(popup) = after.popup(&conflicts) {
                         state.dialogs.push(popup);
                     }
                 },

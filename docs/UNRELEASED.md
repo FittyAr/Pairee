@@ -39,6 +39,10 @@
 - FTP: file information comes from `MLST` when the server supports it (one request instead of listing the whole folder).
 
 ### Improved
+- Git: a pull whose merge conflicts no longer gives up: like `git pull`, it leaves the merge in progress with conflict markers in the files, lists them, and the Git panel title shows "MERGING (N conflicts)"; stage each resolved file with Space and commit, or abort with `X` (also for cherry-picks and reverts).
+- Git: merges, cherry-picks and reverts without conflicts are committed at once, like the Git command line (default merge message, original message and author for cherry-picks, "Revert ..." for reverts).
+- Git: passphrase prompts of fetch, pull, push and clone go to the window that started them (the same per-state prompt connections use) instead of a process-wide one.
+- Git errors that were still in English (no working directory, unsupported merge, branch not found, rebase failures, no remote) are translated.
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
 - The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
 - The color groups and file highlighting dialogs open over the configuration dialog instead of replacing it, and what they save is no longer undone by pressing OK in the configuration dialog.

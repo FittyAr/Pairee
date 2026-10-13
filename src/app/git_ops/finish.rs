@@ -18,8 +18,15 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
     }
     let pending = state.git_op.pending.take();
     match (result, pending) {
-        (Ok(()), Some((_, follow_up))) => apply_follow_up(state, follow_up),
-        (Ok(()), None) => {}
+        (Ok(conflicts), Some((_, follow_up))) => {
+            apply_follow_up(state, follow_up, conflicts.is_empty());
+            if !conflicts.is_empty() {
+                let summary = super::conflict_summary(&conflicts);
+                let msg = t("git_pull_conflicts").replace("{}", &summary);
+                state.dialogs.push(PopupType::error(msg));
+            }
+        }
+        (Ok(_), None) => {}
         (Err(Some(err)), pending) => {
             let prefix = pending.map(|(op, _)| t(op.error_key())).unwrap_or_default();
             state
@@ -34,7 +41,9 @@ pub fn poll_git_op(state: &mut AppState) -> bool {
     true
 }
 
-fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
+/// Applies `follow_up`; the success message only when the operation ended
+/// `clean` (a conflicted pull shows its own message instead).
+fn apply_follow_up(state: &mut AppState, follow_up: FollowUp, clean: bool) {
     match follow_up {
         FollowUp::Info => {
             state
@@ -47,9 +56,11 @@ fn apply_follow_up(state: &mut AppState, follow_up: FollowUp) {
             cursor_idx,
         } => {
             state.refresh_git_panel(&repo_path, active_tab, cursor_idx);
-            state
-                .dialogs
-                .push(PopupType::info(t("git_operation_success")));
+            if clean {
+                state
+                    .dialogs
+                    .push(PopupType::info(t("git_operation_success")));
+            }
         }
         FollowUp::RefreshPanelOnTop { repo_path } => {
             crate::app::input_popup::git_new_popups::refresh_panel_on_top(state, &repo_path);

@@ -93,6 +93,10 @@ fn frame_block(
         .and_then(|n| n.to_str())
         .unwrap_or("?");
     let mut title = format!(" Git: {} [{}] ", repo_name, panel.current_branch);
+    if let Some(operation) = operation_label(panel) {
+        title.push_str(&operation);
+        title.push(' ');
+    }
     if let Some(marker) = marker {
         title.push_str(&t(marker));
         title.push(' ');
@@ -107,6 +111,28 @@ fn frame_block(
                 .add_modifier(Modifier::BOLD),
         ))
         .style(Style::default().bg(theme.popup_bg))
+}
+
+/// "MERGING (2 conflicts)" while an operation waits for the user.
+fn operation_label(panel: &GitPanelState) -> Option<String> {
+    use crate::git::outcome::PendingOperation as Op;
+    let key = match panel.operation? {
+        Op::Merge => "git_state_merge",
+        Op::CherryPick => "git_state_cherry_pick",
+        Op::Revert => "git_state_revert",
+        Op::Rebase => "git_state_rebase",
+    };
+    let conflicts = panel
+        .status_entries
+        .iter()
+        .filter(|e| e.kind == crate::git::status::StatusKind::Conflicted)
+        .count();
+    Some(if conflicts == 0 {
+        t(key)
+    } else {
+        let count = t("git_state_conflicts").replace("{}", &conflicts.to_string());
+        format!("{} ({count})", t(key))
+    })
 }
 
 fn render_tab_header(f: &mut Frame, area: Rect, active_tab: usize, theme: &ResolvedTheme) {
