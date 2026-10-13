@@ -14,6 +14,8 @@ mod file_step;
 mod retry;
 mod single_file;
 mod stream;
+#[cfg(test)]
+mod tests;
 mod verify_step;
 
 use std::sync::Arc;

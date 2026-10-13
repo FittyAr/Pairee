@@ -67,6 +67,41 @@ fn transfer_jobs_overwrite_keep_times_and_carry_the_mask() {
     assert_eq!(job.into_transfer_job(&base, "").options.filter_mask, None);
 }
 
+/// Regression (FS-06): with "follow links" in the base options, a sync
+/// deletion through a link to a folder outside the synchronized trees
+/// removes the link only, never the files it points to.
+#[tokio::test]
+async fn sync_deletes_never_follow_links_out_of_the_tree() {
+    let (_l, r) = trees();
+    let outside = tempfile::tempdir().unwrap();
+    put(outside.path(), "precious.txt", "keep", 0);
+    let link = r.path().join("linked");
+    if !crate::fs::walk::tests::symlink_dir(outside.path(), &link) {
+        return;
+    }
+    let delete = PlannedJob {
+        operation: TransferOperation::Delete,
+        sources: vec![link.clone()],
+        destination: PathBuf::new(),
+    };
+    let base = TransferOptions {
+        follow_symlinks: true,
+        ..TransferOptions::default()
+    };
+    let job = delete.into_transfer_job(&base, "");
+    assert!(!job.options.follow_symlinks);
+    let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
+    tokio::spawn(async move { while rx.recv().await.is_some() {} });
+    crate::fs::transfer::backend::run_job(job, tx)
+        .await
+        .unwrap();
+    assert!(
+        std::fs::symlink_metadata(&link).is_err(),
+        "the link is gone"
+    );
+    assert!(outside.path().join("precious.txt").exists());
+}
+
 /// Runs the plan on the real local Transfer Engine backend.
 async fn apply(items: &[SyncItem], mask: &str) {
     for planned in plan_jobs(items) {
