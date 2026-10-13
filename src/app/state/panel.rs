@@ -16,6 +16,10 @@ pub struct PanelState {
     pub entries: Vec<FileEntry>,
     /// Index of the currently highlighted item
     pub cursor_index: usize,
+    /// First entry shown. The view only scrolls when the cursor leaves it
+    /// (as in Far and MC), so rows stay put under the mouse; kept up to
+    /// date by the renderer, which knows the panel height.
+    pub scroll_top: std::cell::Cell<usize>,
     /// Set of file/folder paths selected (tagged) by the user
     pub selected_paths: HashSet<PathBuf>,
     /// The order in which paths were selected (tagged) by the user
@@ -66,6 +70,7 @@ impl PanelState {
             current_path: path.clone(),
             entries: Vec::new(),
             cursor_index: 0,
+            scroll_top: Default::default(),
             selected_paths: HashSet::new(),
             selection_order: Vec::new(),
             view_mode: PanelViewMode::default(),

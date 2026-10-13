@@ -3,8 +3,9 @@
 //! This is not a VT emulator: bytes are split into lines and later rendered
 //! with `ansi-to-tui`. The child sees `isatty(stdout) == true`.
 
+use super::pty_control::{Control, PtyControl};
 use anyhow::{Context, anyhow};
-use portable_pty::{CommandBuilder, PtySize, native_pty_system};
+use portable_pty::{Child, CommandBuilder, PtySize, native_pty_system};
 use std::io::{Read, Write};
 use std::path::Path;
 
@@ -34,8 +35,23 @@ pub fn run_shell_on_pty(script: &str, cwd: Option<&Path>) -> anyhow::Result<PtyR
 pub fn stream_shell_on_pty(
     script: &str,
     cwd: Option<&Path>,
-    mut on_line: impl FnMut(String),
+    on_line: impl FnMut(String),
 ) -> anyhow::Result<PtyRunResult> {
+    let (control, run) = spawn_shell_on_pty(script, cwd)?;
+    let success = run.wait(on_line)?;
+    Ok(PtyRunResult {
+        output: String::new(),
+        success,
+        pid: control.pid(),
+    })
+}
+
+/// Starts `script` on a new PTY. The [`PtyControl`] types into and stops
+/// the process; [`PtyRun::wait`] streams its output until it exits.
+pub fn spawn_shell_on_pty(
+    script: &str,
+    cwd: Option<&Path>,
+) -> anyhow::Result<(PtyControl, PtyRun)> {
     if script.trim().is_empty() {
         anyhow::bail!("empty command");
     }
@@ -57,16 +73,77 @@ pub fn stream_shell_on_pty(
         cmd.cwd(dir);
     }
 
-    let mut child = pair
+    let child = pair
         .slave
         .spawn_command(cmd)
         .with_context(|| format!("spawn in pty: {script}"))?;
-    let pid = child.process_id();
     drop(pair.slave);
+    let reader = pair.master.try_clone_reader().context("pty reader")?;
+    let writer = pair.master.take_writer().context("pty writer")?;
+    let control = PtyControl::new(Control {
+        pid: child.process_id(),
+        writer: Some(writer),
+        master: Some(pair.master),
+        killer: Some(child.clone_killer()),
+    });
+    let run = PtyRun {
+        child,
+        reader,
+        control: control.clone(),
+    };
+    Ok((control, run))
+}
 
-    // Read on a side thread so PTY buffers cannot deadlock against wait().
+/// A spawned PTY child whose output is still to be read.
+pub struct PtyRun {
+    child: Box<dyn Child + Send + Sync>,
+    reader: Box<dyn Read + Send>,
+    control: PtyControl,
+}
+
+impl PtyRun {
+    /// Calls `on_line` with every complete output line until the child
+    /// exits; returns whether it succeeded.
+    pub fn wait(self, mut on_line: impl FnMut(String)) -> anyhow::Result<bool> {
+        let PtyRun {
+            mut child,
+            reader,
+            control,
+        } = self;
+        let line_rx = read_lines(reader);
+        let (done_tx, done_rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let _ = done_tx.send(child.wait());
+        });
+
+        let status = loop {
+            match done_rx.try_recv() {
+                Ok(exit) => break exit.map_err(|e| anyhow!("wait pty child: {e}")),
+                Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                    break Err(anyhow!("pty wait thread ended"));
+                }
+                Err(std::sync::mpsc::TryRecvError::Empty) => {}
+            }
+            match line_rx.recv_timeout(std::time::Duration::from_millis(16)) {
+                Ok(line) => on_line(line),
+                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                    std::thread::sleep(std::time::Duration::from_millis(16));
+                }
+            }
+        };
+        control.release();
+        while let Ok(line) = line_rx.recv() {
+            on_line(line);
+        }
+        Ok(status?.success())
+    }
+}
+
+/// Reads `reader` on a side thread (so PTY buffers cannot deadlock against
+/// `wait()`) and sends every complete line.
+fn read_lines(mut reader: Box<dyn Read + Send>) -> std::sync::mpsc::Receiver<String> {
     let (line_tx, line_rx) = std::sync::mpsc::channel();
-    let mut reader = pair.master.try_clone_reader().context("pty reader")?;
     std::thread::spawn(move || {
         let mut pending = Vec::new();
         let mut acc = String::new();
@@ -96,44 +173,7 @@ pub fn stream_shell_on_pty(
             let _ = line_tx.send(acc);
         }
     });
-
-    // Take the writer so we can EOF the child after it exits. Do not drop it
-    // before wait(): ConPTY would close stdin and cmd.exe can exit before
-    // `/C` runs. Do not read on this thread while holding it (deadlock).
-    let writer = pair.master.take_writer().context("pty writer")?;
-    let (done_tx, done_rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let _ = done_tx.send(child.wait());
-    });
-
-    let status = loop {
-        match done_rx.try_recv() {
-            Ok(st) => break st.map_err(|e| anyhow!("wait pty child: {e}"))?,
-            Err(std::sync::mpsc::TryRecvError::Disconnected) => {
-                anyhow::bail!("pty wait thread ended");
-            }
-            Err(std::sync::mpsc::TryRecvError::Empty) => {}
-        }
-        match line_rx.recv_timeout(std::time::Duration::from_millis(16)) {
-            Ok(line) => on_line(line),
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                std::thread::sleep(std::time::Duration::from_millis(16));
-            }
-        }
-    };
-    drop(writer);
-    drop(pair.master);
-
-    while let Ok(line) = line_rx.recv() {
-        on_line(line);
-    }
-
-    Ok(PtyRunResult {
-        output: String::new(),
-        success: status.success(),
-        pid,
-    })
+    line_rx
 }
 
 /// portable-pty quotes every argument itself, so the shell invocation comes

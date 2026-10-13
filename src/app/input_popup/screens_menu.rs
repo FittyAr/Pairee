@@ -3,6 +3,7 @@
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
 use crate::app::state::{AppState, PopupType, Screen};
+use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -31,6 +32,7 @@ pub fn handle(
         }
         ListKey::Activate(idx) => switch_to(state, idx),
         ListKey::Other if key.code == KeyCode::F(3) => view_terminal_output(state, cursor),
+        ListKey::Other if key.code == KeyCode::Delete => close_at(state, cursor),
         ListKey::Other => return Err(()),
     }
     Ok(None)
@@ -53,15 +55,20 @@ fn switch_to(state: &mut AppState, idx: usize) {
         state.dialogs.clear();
         return;
     }
-    if idx == state.active_screen_idx {
-        state.dialogs.set(suspended);
+    state.dialogs.set(suspended);
+    state.switch_screen(idx);
+}
+
+/// Delete: closes screen `idx` (never the panels), stopping its process.
+fn close_at(state: &mut AppState, idx: usize) {
+    let Some(id) = state.screens.id_at(idx).filter(|_| idx > 0) else {
         return;
+    };
+    state.close_screen(id);
+    let last = state.screens.len() - 1;
+    if let Some(PopupType::ScreensMenu { cursor_idx, .. }) = state.dialogs.top_mut() {
+        *cursor_idx = (*cursor_idx).min(last);
     }
-    let mut parked = crate::app::state::DialogStack::new();
-    parked.set(suspended);
-    state.screen_dialogs[state.active_screen_idx] = parked;
-    state.active_screen_idx = idx;
-    state.dialogs = std::mem::take(&mut state.screen_dialogs[idx]);
 }
 
 /// F3 on a terminal screen: open its output in the viewer.
@@ -69,10 +76,9 @@ fn view_terminal_output(state: &mut AppState, idx: usize) {
     let Some(Screen::Terminal(ts)) = state.screens.get(idx) else {
         return;
     };
-    let viewer = crate::ui::viewer::ViewerState::from_text(
-        std::path::PathBuf::from(format!("Terminal: {}", ts.command)),
-        ts.output_lines.clone(),
-    );
+    let title = t("terminal_view_output_title").replacen("{}", &ts.command, 1);
+    let viewer =
+        crate::ui::viewer::ViewerState::from_text(std::path::PathBuf::from(title), ts.output.all());
     state.push_screen(Screen::Viewer(viewer));
     state.dialogs.clear();
 }

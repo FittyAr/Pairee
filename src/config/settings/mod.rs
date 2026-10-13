@@ -5,17 +5,17 @@ mod confirmations;
 mod defaults;
 #[cfg(test)]
 mod tests;
+mod transfer;
 pub mod types;
 
 pub use confirmations::ConfirmationSettings;
+pub use transfer::TransferSettings;
 pub use types::{
     MouseMode, PluginConfig, RightClick, SecuritySettings, SshPreset, TabExpansion,
     clamp_panel_split, default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
     default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
     default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
-    default_transfer_buffer, default_transfer_conflict, default_transfer_hash,
-    default_transfer_max_retries, default_transfer_report_format, default_true,
-    default_viewer_codepage,
+    default_terminal_scrollback_lines, default_true, default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -151,6 +151,9 @@ pub struct Settings {
     /// Encoding name or label used when detection is off (e.g. `windows-1252`).
     #[serde(default = "default_viewer_codepage")]
     pub viewer_default_codepage: String,
+    /// Output lines each terminal screen (`command &`) keeps.
+    #[serde(default = "default_terminal_scrollback_lines")]
+    pub terminal_scrollback_lines: u32,
 
     // ── Colors settings (dialog tab 6) ───────────────────────────────────────
     pub highlight_rules: Vec<crate::ui::highlight::HighlightRule>,
@@ -208,37 +211,7 @@ pub struct Settings {
     #[serde(default)]
     pub security: SecuritySettings,
 
-    // ── Transfer Engine settings ─────────────────────────────────
-    #[serde(default = "default_transfer_hash")]
-    pub transfer_default_hash: String,
-    #[serde(default = "default_transfer_buffer")]
-    pub transfer_buffer_size: u32,
-    #[serde(default)]
-    pub transfer_verify_after_copy: bool,
-    #[serde(default)]
-    pub transfer_direct_io: bool,
-    #[serde(default = "default_true")]
-    pub transfer_preserve_timestamps: bool,
-    #[serde(default = "default_true")]
-    pub transfer_preserve_attributes: bool,
-    #[serde(default = "default_transfer_max_retries")]
-    pub transfer_max_retries: u32,
-    #[serde(default = "default_transfer_conflict")]
-    pub transfer_conflict_resolution: String,
-    #[serde(default)]
-    pub transfer_skip_symlinks: bool,
-    #[serde(default)]
-    pub transfer_halt_on_error: bool,
-    #[serde(default)]
-    pub transfer_preserve_acl: bool,
-    #[serde(default)]
-    pub transfer_preserve_streams: bool,
-    #[serde(default)]
-    pub transfer_follow_symlinks: bool,
-    #[serde(default)]
-    pub transfer_limit_bandwidth_rate: Option<u64>,
-    #[serde(default)]
-    pub transfer_auto_report: bool,
-    #[serde(default = "default_transfer_report_format")]
-    pub transfer_report_format: String,
+    /// Transfer engine defaults, stored as flat `transfer_*` keys.
+    #[serde(flatten)]
+    pub transfer: TransferSettings,
 }

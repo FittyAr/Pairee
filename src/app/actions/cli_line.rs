@@ -29,8 +29,8 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
         Action::InsertLeftPathToCli => insert_panel_path(state, ActivePanel::Left),
         Action::InsertRightPathToCli => insert_panel_path(state, ActivePanel::Right),
         Action::ClearCli => {
-            state.cli_input.clear();
-            state.cli_history_pos = None;
+            state.cli.field.clear();
+            state.cli.history_pos = None;
         }
         Action::CliHistoryPrev => step_history(state, true),
         Action::CliHistoryNext => step_history(state, false),
@@ -65,10 +65,10 @@ pub fn handle(state: &mut AppState, action: &Action, context: &mut AppContext) -
 /// Appends `text` (quoted when it has spaces) and a space to the command line.
 fn insert(state: &mut AppState, text: &str) {
     if text.contains(' ') {
-        state.cli_input.push_str(&format!("\"{text}\" "));
+        state.cli.field.insert_str(&format!("\"{text}\" "));
     } else {
-        state.cli_input.push_str(text);
-        state.cli_input.push(' ');
+        state.cli.field.insert_str(text);
+        state.cli.field.insert_char(' ');
     }
 }
 
@@ -81,16 +81,17 @@ fn insert_panel_path(state: &mut AppState, side: ActivePanel) {
 /// stepping past the newest clears it.
 fn step_history(state: &mut AppState, older: bool) {
     let len = state.history.commands.len();
-    let pos = match (state.cli_history_pos, older) {
+    let pos = match (state.cli.history_pos, older) {
         (None, true) if len > 0 => Some(0),
         (Some(i), true) => Some((i + 1).min(len.saturating_sub(1))),
         (Some(i), false) if i > 0 => Some(i - 1),
         _ => None,
     };
-    state.cli_history_pos = pos;
-    state.cli_input = pos
+    state.cli.history_pos = pos;
+    let text = pos
         .and_then(|i| state.history.commands.get(i).cloned())
         .unwrap_or_default();
+    state.cli.set_text(text);
 }
 
 #[cfg(test)]
@@ -109,14 +110,14 @@ mod tests {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         state.history.commands = vec!["new".into(), "old".into()];
         run(&mut state, Action::CliHistoryPrev);
-        assert_eq!(state.cli_input, "new");
+        assert_eq!(state.cli.text(), "new");
         run(&mut state, Action::CliHistoryPrev);
         run(&mut state, Action::CliHistoryPrev);
-        assert_eq!(state.cli_input, "old", "stops at the oldest");
+        assert_eq!(state.cli.text(), "old", "stops at the oldest");
         run(&mut state, Action::CliHistoryNext);
-        assert_eq!(state.cli_input, "new");
+        assert_eq!(state.cli.text(), "new");
         run(&mut state, Action::CliHistoryNext);
-        assert_eq!(state.cli_input, "");
+        assert_eq!(state.cli.text(), "");
     }
 
     #[test]
@@ -126,9 +127,9 @@ mod tests {
         run(&mut state, Action::InsertRightPathToCli);
         let right = PathBuf::from("/c").to_string_lossy().into_owned();
         let left = PathBuf::from("/a b").to_string_lossy().into_owned();
-        assert_eq!(state.cli_input, format!("\"{left}\" {right} "));
+        assert_eq!(state.cli.text(), format!("\"{left}\" {right} "));
         run(&mut state, Action::ClearCli);
-        assert!(state.cli_input.is_empty());
+        assert!(state.cli.field.is_empty());
     }
 
     #[test]

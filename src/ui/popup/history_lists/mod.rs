@@ -12,7 +12,7 @@ use ratatui::{Frame, layout::Rect};
 pub fn render_history_lists_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {

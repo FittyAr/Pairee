@@ -3,7 +3,6 @@ use crate::app::state::popup::CreateKind;
 use crate::app::state::popup::forms::MKDIR_FORM;
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, FocusStyles, mouse::FormFocus};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,7 +13,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::MkDirPrompt {
@@ -35,7 +34,7 @@ pub fn render(
             CreateKind::File => "prompt_new_file_title",
             CreateKind::Auto => "prompt_create_title",
         }),
-        kit::fg(parse_color(&theme.popup_border)),
+        kit::fg(theme.popup_border),
         theme,
     );
     let chunks = Layout::default()

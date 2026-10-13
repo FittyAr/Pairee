@@ -9,7 +9,6 @@ use crate::config::localization::t;
 use crate::fs::FileEntry;
 use crate::fs::attrs::format_unix_mode;
 use crate::ui::hit::{self, HitTarget};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
@@ -268,7 +267,7 @@ pub(crate) fn render_table(
         table = table.header(
             Row::new(titles.collect::<Vec<_>>()).style(
                 Style::default()
-                    .fg(parse_color(&ctx.context.config.theme.header_fg))
+                    .fg(ctx.context.theme().header_fg)
                     .add_modifier(Modifier::BOLD),
             ),
         );

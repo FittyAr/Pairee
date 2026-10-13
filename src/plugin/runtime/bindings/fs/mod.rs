@@ -1,7 +1,7 @@
 //! `pairee.fs` — filesystem + process helpers for plugins.
 
 mod extra;
-mod jail;
+pub(crate) mod jail;
 mod ops;
 mod path;
 mod spawn;

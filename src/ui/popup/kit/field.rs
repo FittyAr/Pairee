@@ -27,6 +27,28 @@ pub fn field_spans(
     ]
 }
 
+/// [`field_spans`] fitted in `width` columns: when the text is longer, its
+/// start is scrolled out of view so the cursor (at the right edge) stays
+/// visible, as in a shell.
+pub fn field_spans_scrolled(
+    field: &TextField,
+    style: Style,
+    cursor: Style,
+    focused: bool,
+    width: usize,
+) -> Vec<Span<'static>> {
+    use crate::ui::text_width::{display_width, skip_columns};
+    let (before, at, _) = split_at_cursor(field.text(), field.cursor());
+    let at_width = display_width(at).max(1);
+    let overflow = (display_width(before) + at_width).saturating_sub(width);
+    let mut spans = field_spans(field, style, cursor, focused);
+    if overflow > 0 {
+        let visible = skip_columns(&spans[0].content, overflow).to_string();
+        spans[0] = Span::styled(visible, spans[0].style);
+    }
+    spans
+}
+
 /// `template` (a localized, possibly multi-line text) with its first `{}`
 /// replaced by `field`, drawn with a block cursor when `focused`.
 pub fn template_with_field(
@@ -75,6 +97,17 @@ mod tests {
         assert_eq!(text(&spans), "abc ");
         let spans = field_spans(&field, Style::default(), Style::default(), false);
         assert_eq!(text(&spans), "abc");
+    }
+
+    #[test]
+    fn long_text_scrolls_to_keep_the_cursor_visible() {
+        let field = TextField::new("abcdefghij");
+        let spans = field_spans_scrolled(&field, Style::default(), Style::default(), true, 5);
+        assert_eq!(text(&spans), "ghij ");
+        let mut field = TextField::new("日本語テキスト");
+        field.move_home();
+        let spans = field_spans_scrolled(&field, Style::default(), Style::default(), true, 4);
+        assert_eq!(spans[1].content, "日", "the cursor stays at the start");
     }
 
     #[test]

@@ -17,7 +17,7 @@ impl AppState {
     /// Digit runs compare numerically when "treat digits as numbers" is on or
     /// the sorting collation is set to `natural`.
     pub fn natural_sort(&self) -> bool {
-        self.treat_digits_as_numbers || self.sorting_collation == "natural"
+        self.prefs.sort.natural()
     }
 
     /// Rereads both panels in the background.
@@ -68,7 +68,7 @@ impl AppState {
             return;
         };
         let options = self.listing_options(&tab.panel, show_hidden);
-        let limit = self.disable_panel_update_object_count;
+        let limit = self.prefs.disable_panel_update_object_count;
         let Some((side, tab)) = self.panels.find_tab_mut(id) else {
             return;
         };
@@ -158,21 +158,21 @@ impl AppState {
     fn listing_options(&self, panel: &PanelState, show_hidden: bool) -> ListingOptions {
         ListingOptions {
             show_hidden,
-            case_sensitive: self.case_sensitive_sort,
+            case_sensitive: self.prefs.sort.case_sensitive,
             natural: self.natural_sort(),
-            req_admin: self.req_admin_reading,
+            req_admin: self.prefs.req_admin_reading,
             sort_field: panel.sort_field,
             sort_reverse: panel.sort_reverse,
-            folder_by_ext: self.sort_folder_names_by_extension,
-            show_dotdot: self.show_dotdot_in_root_folders,
+            folder_by_ext: self.prefs.sort.folder_names_by_extension,
+            show_dotdot: self.prefs.show_dotdot_in_root_folders,
         }
     }
 
     /// Dynamically applies / updates in-memory sorting and filtering on the active panel.
     pub fn update_panel_filter(&mut self, active_panel: ActivePanel, mask: Option<String>) {
         let natural = self.natural_sort();
-        let case_sensitive = self.case_sensitive_sort;
-        let folder_by_ext = self.sort_folder_names_by_extension;
+        let case_sensitive = self.prefs.sort.case_sensitive;
+        let folder_by_ext = self.prefs.sort.folder_names_by_extension;
         let panel = self.panels.side_mut(active_panel);
 
         let prev_selected_path = panel

@@ -13,7 +13,7 @@ pub(crate) fn render_jobs_sidebar(
     area: Rect,
     ts: &TransferUIState,
     jobs: &[crate::fs::transfer::job::TransferJob],
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {
     let mut list_items = Vec::new();

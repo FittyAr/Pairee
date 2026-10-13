@@ -5,17 +5,14 @@ use crate::app::state::{PopupType, Screen};
 use crate::test_harness::Harness;
 
 fn editor_lines(h: &Harness) -> Vec<String> {
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Editor(ed)) => ed.lines.clone(),
         _ => panic!("editor screen expected\n{}", h.screen_text()),
     }
 }
 
 fn in_panels(h: &Harness) -> bool {
-    matches!(
-        h.state.screens.get(h.state.active_screen_idx),
-        Some(Screen::Panels)
-    )
+    matches!(Some(h.state.screens.active()), Some(Screen::Panels))
 }
 
 #[test]

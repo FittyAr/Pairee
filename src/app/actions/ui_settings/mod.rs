@@ -66,7 +66,7 @@ fn app_control_action(state: &mut AppState, action: &Action, context: &mut AppCo
             context.config.save_logging();
             state.refresh_both_panels(context.config.settings.show_hidden);
         }
-        Action::FocusCli => state.cli_focused = true,
+        Action::FocusCli => state.cli.focused = true,
         Action::Unfocus => unfocus(state),
         Action::Refresh | Action::RereadPanel => {
             state.force_refresh_both_panels(context.config.settings.show_hidden);
@@ -151,10 +151,10 @@ fn open_context_menu(state: &mut AppState) {
 /// Esc: closes dialogs, clears the command line and stops folder size calculations.
 fn unfocus(state: &mut AppState) {
     state.dialogs.clear();
-    state.cli_input.clear();
-    state.cli_focused = false;
+    state.cli.field.clear();
+    state.cli.focused = false;
     state.get_active_panel_mut().visual = None;
-    state.fkeys_modifier_override = None;
+    state.key_bar.pinned = None;
     for (_, tab) in state.panels.all_tabs_mut() {
         tab.panel.dir_sizes.cancel();
     }

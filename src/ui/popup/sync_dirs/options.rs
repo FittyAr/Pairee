@@ -3,8 +3,8 @@
 use crate::app::state::popup::SyncDialog;
 use crate::app::state::popup::sync::{OPTIONS_FORM, rows};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::kit::{self, FocusStyles};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,7 +12,7 @@ use ratatui::{
     widgets::Paragraph,
 };
 
-pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &Theme, size: Rect) {
+pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &ResolvedTheme, size: Rect) {
     let inner = kit::dialog_frame(
         f,
         size,
@@ -32,7 +32,7 @@ pub(super) fn render(f: &mut Frame, dialog: &SyncDialog, theme: &Theme, size: Re
         .constraints(constraints)
         .split(inner);
     let styles = FocusStyles::from_theme(theme);
-    let fg = kit::popup_fg(theme);
+    let fg = theme.popup_fg();
     let path_line = |key: &str, path: &std::path::Path| {
         Paragraph::new(t(key).replacen("{}", &path.display().to_string(), 1)).style(fg)
     };

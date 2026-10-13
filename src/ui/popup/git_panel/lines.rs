@@ -1,5 +1,4 @@
-use crate::config::theme::Theme;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -22,7 +21,7 @@ pub fn render_status_lines(
     cursor_idx: usize,
     scroll: usize,
     height: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     entries
         .iter()
@@ -32,16 +31,7 @@ pub fn render_status_lines(
         .map(|(i, entry)| {
             let is_cursor = i == cursor_idx;
             let label_color = status_color(&entry.kind);
-            let bg = if is_cursor {
-                parse_color(&theme.selection_bg)
-            } else {
-                parse_color(&theme.popup_bg)
-            };
-            let fg = if is_cursor {
-                parse_color(&theme.selection_fg)
-            } else {
-                parse_color(&theme.popup_fg)
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let stage_label = if entry.is_staged && entry.is_unstaged {
                 "[staged+] "
             } else if entry.is_staged {
@@ -79,7 +69,7 @@ pub fn render_log_lines(
     cursor_idx: usize,
     scroll: usize,
     height: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     entries
         .iter()
@@ -88,16 +78,7 @@ pub fn render_log_lines(
         .take(height)
         .map(|(i, commit)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                parse_color(&theme.selection_bg)
-            } else {
-                parse_color(&theme.popup_bg)
-            };
-            let fg = if is_cursor {
-                parse_color(&theme.selection_fg)
-            } else {
-                parse_color(&theme.popup_fg)
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             Line::from(vec![
                 Span::styled(
                     format!(" {} ", commit.hash_short.clone()),
@@ -125,7 +106,7 @@ pub fn render_branch_lines(
     cursor_idx: usize,
     scroll: usize,
     height: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     entries
         .iter()
@@ -135,16 +116,16 @@ pub fn render_branch_lines(
         .map(|(i, branch)| {
             let is_cursor = i == cursor_idx;
             let bg = if is_cursor {
-                parse_color(&theme.selection_bg)
+                theme.selection_bg
             } else {
-                parse_color(&theme.popup_bg)
+                theme.popup_bg
             };
             let name_color = if branch.is_remote {
                 Color::DarkGray
             } else if branch.is_current {
                 Color::Green
             } else {
-                parse_color(&theme.popup_fg)
+                theme.popup_fg
             };
             let prefix = if branch.is_current { "* " } else { "  " };
             let type_label = if branch.is_remote {
@@ -183,7 +164,7 @@ pub fn render_stash_lines(
     cursor_idx: usize,
     scroll: usize,
     height: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     entries
         .iter()
@@ -192,16 +173,7 @@ pub fn render_stash_lines(
         .take(height)
         .map(|(i, stash)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                parse_color(&theme.selection_bg)
-            } else {
-                parse_color(&theme.popup_bg)
-            };
-            let fg = if is_cursor {
-                parse_color(&theme.selection_fg)
-            } else {
-                parse_color(&theme.popup_fg)
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let short_oid = if stash.oid.len() > 7 {
                 &stash.oid[..7]
             } else {
@@ -230,7 +202,7 @@ pub fn render_tag_lines(
     cursor_idx: usize,
     scroll: usize,
     height: usize,
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) -> Vec<Line<'static>> {
     entries
         .iter()
@@ -239,16 +211,7 @@ pub fn render_tag_lines(
         .take(height)
         .map(|(i, tag)| {
             let is_cursor = i == cursor_idx;
-            let bg = if is_cursor {
-                parse_color(&theme.selection_bg)
-            } else {
-                parse_color(&theme.popup_bg)
-            };
-            let fg = if is_cursor {
-                parse_color(&theme.selection_fg)
-            } else {
-                parse_color(&theme.popup_fg)
-            };
+            let (bg, fg) = theme.row_colors(is_cursor);
             let short_oid = if tag.target_oid.len() > 7 {
                 &tag.target_oid[..7]
             } else {

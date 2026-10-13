@@ -93,7 +93,7 @@ fn fkey_bar_shift_row_comes_from_the_keymap() {
     h.assert_screen(&t("fkey_sh_pack"));
     // A fourth press goes back to following the held modifiers.
     h.keys("@cycle_fkeys_modifiers");
-    assert_eq!(h.state.fkeys_modifier_override, None);
+    assert_eq!(h.state.key_bar.pinned, None);
 }
 
 #[test]
@@ -104,7 +104,7 @@ fn editor_block_mode_selects_columns_with_shift_arrows() {
     h.keys("Ctrl+b").render();
     h.assert_screen(&t("editor_block_mode_flag"));
     h.keys("Down Home Shift+Right*2 Shift+Up Ctrl+x");
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Editor(ed)) => assert_eq!(ed.lines[..2], ["cd", "gh"]),
         _ => panic!("editor expected\n{}", h.screen_text()),
     }
@@ -116,6 +116,6 @@ fn unbound_letters_follow_the_preset_typing_mode() {
     for (keymap, typed) in [("norton", "zx"), ("neovim", ""), ("yazi", "")] {
         let mut h = Harness::builder().keymap(keymap).build();
         h.text("zx");
-        assert_eq!(h.state.cli_input, typed, "{keymap}");
+        assert_eq!(h.state.cli.text(), typed, "{keymap}");
     }
 }

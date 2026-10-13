@@ -20,6 +20,10 @@ struct PresetFile {
     #[serde(default)]
     viewer: BTreeMap<String, String>,
     #[serde(default)]
+    terminal: BTreeMap<String, String>,
+    #[serde(default)]
+    cli: BTreeMap<String, String>,
+    #[serde(default)]
     list: BTreeMap<String, String>,
 }
 
@@ -39,6 +43,8 @@ fn base_is_the_root_layer() {
     for (section, table) in [
         ("editor", &base.editor),
         ("viewer", &base.viewer),
+        ("terminal", &base.terminal),
+        ("cli", &base.cli),
         ("list", &base.list),
     ] {
         assert!(!table.is_empty(), "base defines the {section} keys");
@@ -65,6 +71,8 @@ fn presets_extend_their_parent_and_only_list_differences() {
             (&preset.panels, &parent.panels),
             (&preset.editor, &parent.editor),
             (&preset.viewer, &parent.viewer),
+            (&preset.terminal, &parent.terminal),
+            (&preset.cli, &parent.cli),
             (&preset.list, &parent.list),
         ];
         for (own, inherited) in tables {

@@ -1,4 +1,4 @@
-use super::screens::terminal_output_text;
+use super::terminal_screen::terminal_output_text;
 use crate::app::context::AppContext;
 use crate::app::state::types::TerminalState;
 use crate::app::state::{AppState, PopupType, Screen};
@@ -223,13 +223,11 @@ fn terminal_output_limits_to_last_max_lines() {
 #[test]
 fn draw_ui_terminal_screen_renders_ansi_without_escape_codes() {
     let (context, mut state) = test_app();
-    state.push_screen(Screen::Terminal(TerminalState {
-        command: "echo".into(),
-        output_lines: vec!["\x1b[31mred\x1b[0m".into(), "plain".into()],
-        is_running: false,
-        pid: None,
-        job_id: None,
-    }));
+    let mut ts = TerminalState::for_job("echo".into(), uuid::Uuid::new_v4(), 100);
+    ts.output.push("\x1b[31mred\x1b[0m".into());
+    ts.output.push("plain".into());
+    ts.job_finished();
+    state.push_screen(Screen::Terminal(ts));
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal

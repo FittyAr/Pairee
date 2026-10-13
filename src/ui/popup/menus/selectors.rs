@@ -3,9 +3,8 @@
 use super::super::centered_rect_in;
 use crate::app::state::ActivePanel;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
-use crate::ui::popup::kit::{self, ListPopup, Scroll, marked};
-use crate::ui::theme_apply::parse_color;
+use crate::ui::popup::kit::{ListPopup, Scroll, marked};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -54,7 +53,7 @@ fn menu_popup(
 
 pub fn render_drive_select(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     (left_rect, right_rect): (Rect, Rect),
     panel: &ActivePanel,
     drives: &[String],
@@ -67,8 +66,8 @@ pub fn render_drive_select(
     menu_popup(
         centered_rect_in(35, 60, panel_rect(*panel, left_rect, right_rect)),
         t("popup_select_drive").replacen("{}", &panel_label, 1),
-        parse_color(&theme.popup_border),
-        marked_rows(drives, cursor_idx, kit::popup_fg(theme)),
+        theme.popup_border,
+        marked_rows(drives, cursor_idx, theme.popup_fg()),
         cursor_idx,
     )
     .render(f, theme);
@@ -76,7 +75,7 @@ pub fn render_drive_select(
 
 pub fn render_context_menu(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
     items: &[String],
@@ -90,8 +89,8 @@ pub fn render_context_menu(
             panel_rect(active_panel, left_rect, right_rect),
         ),
         t("popup_actions"),
-        parse_color(&theme.popup_border),
-        marked_rows(items, cursor_idx, kit::popup_fg(theme)),
+        theme.popup_border,
+        marked_rows(items, cursor_idx, theme.popup_fg()),
         cursor_idx,
     )
     .render(f, theme);
@@ -99,7 +98,7 @@ pub fn render_context_menu(
 
 pub fn render_archive_commands_menu(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     archive_path: &Path,
     items: &[String],
@@ -114,7 +113,7 @@ pub fn render_archive_commands_menu(
             centered_rect_in(60, 45, size),
             title,
             Color::Yellow,
-            marked_rows(items, cursor_idx, kit::popup_fg(theme)),
+            marked_rows(items, cursor_idx, theme.popup_fg()),
             cursor_idx,
         )
     }

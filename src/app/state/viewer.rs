@@ -79,7 +79,7 @@ impl AppState {
 
     /// The viewer on the active screen.
     pub fn active_viewer_mut(&mut self) -> Option<&mut ViewerState> {
-        match self.screens.get_mut(self.active_screen_idx) {
+        match Some(self.screens.active_mut()) {
             Some(Screen::Viewer(vw)) => Some(vw),
             _ => None,
         }
@@ -108,7 +108,7 @@ impl AppState {
             changed = true;
         }
         let search = self.viewer.search_progress();
-        let seen = match self.screens.get(self.active_screen_idx) {
+        let seen = match Some(self.screens.active()) {
             Some(Screen::Viewer(vw)) => (vw.doc.index_progress(), vw.doc.line_count(), search),
             _ => (None, 0, search),
         };

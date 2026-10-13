@@ -60,30 +60,6 @@ pub fn split_at_column(s: &str, col: usize) -> (&str, &str) {
     (s, "")
 }
 
-/// Pad or truncate `s` to exactly `width` display columns.
-#[allow(dead_code)] // public helper for fixed-width columns
-pub fn pad_or_truncate(s: &str, width: usize) -> String {
-    if width == 0 {
-        return String::new();
-    }
-    let w = s.width();
-    if w == width {
-        s.to_string()
-    } else if w > width {
-        truncate_to_width(s, width)
-    } else {
-        let mut out = s.to_string();
-        out.push_str(&" ".repeat(width - w));
-        out
-    }
-}
-
-/// Width of a single Unicode scalar, treating control chars as 0.
-#[allow(dead_code)]
-pub fn char_width(c: char) -> usize {
-    UnicodeWidthChar::width(c).unwrap_or(0)
-}
-
 const TAB: char = '\t';
 
 /// Replaces each tab with spaces up to the next multiple of `tab_size` columns
@@ -163,11 +139,5 @@ mod tests {
         // max 3 → budget 2 → "日…" (2+1=3)
         assert_eq!(truncate_to_width("日本語", 3), "日…");
         assert_eq!(truncate_to_width("日本語", 6), "日本語");
-    }
-
-    #[test]
-    fn pad_or_truncate_exact() {
-        assert_eq!(pad_or_truncate("ab", 5), "ab   ");
-        assert_eq!(pad_or_truncate("abcdef", 4), "abc…");
     }
 }

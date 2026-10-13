@@ -6,7 +6,7 @@ use ratatui::{Frame, layout::Rect, style::Color};
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let PopupType::DescribeFilePrompt {
@@ -25,7 +25,7 @@ pub fn render(
         title: t("prompt_description_title"),
         border: kit::fg(Color::Cyan),
         body: kit::prompt_text(&template, input, theme),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .with_field(kit::field_at(&template))
     .render(f, size, theme);

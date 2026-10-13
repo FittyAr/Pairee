@@ -47,7 +47,7 @@ pub fn load_error_message(err: &LoadError) -> String {
 impl AppState {
     /// The editor of the active screen, if the active screen is an editor.
     pub fn active_editor_mut(&mut self) -> Option<&mut EditorState> {
-        match self.screens.get_mut(self.active_screen_idx) {
+        match Some(self.screens.active_mut()) {
             Some(Screen::Editor(ed)) => Some(ed),
             _ => None,
         }

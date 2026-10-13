@@ -1,6 +1,8 @@
 //! Interface, Plugins, Editor/Viewer, Colors and Git tabs.
 
-use super::{CycleFormat, Kind, Label, Row, RowCtx, Setting, cycle, title, title_key, toggle};
+use super::{
+    CycleFormat, Kind, Label, Row, RowCtx, Setting, cycle, edit, title, title_key, toggle,
+};
 use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
 use crate::config::localization::t;
@@ -291,18 +293,5 @@ fn action(
         label: Label::Key(key),
         indent: 0,
         kind: Kind::Action(open),
-    })
-}
-
-fn edit(
-    key: &'static str,
-    show: fn(&ConfigDraft) -> String,
-    get: fn(&ConfigDraft) -> String,
-    set: fn(&mut ConfigDraft, &str),
-) -> Row {
-    Row::Setting(Setting {
-        label: Label::Key(key),
-        indent: 0,
-        kind: Kind::Edit { show, get, set },
     })
 }

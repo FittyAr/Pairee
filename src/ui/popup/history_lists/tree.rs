@@ -1,7 +1,7 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
-use crate::ui::popup::kit::{self, ListPopup, Scroll};
+use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
     Frame,
@@ -12,7 +12,7 @@ use ratatui::{
 pub(super) fn render_tree(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     _scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -29,7 +29,7 @@ pub(super) fn render_tree(
             let style = if node.is_dir {
                 Style::default().fg(Color::LightBlue)
             } else {
-                kit::popup_fg(theme)
+                theme.popup_fg()
             };
             (
                 format!("{}{}{}", "  ".repeat(node.depth), prefix, node.name),

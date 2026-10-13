@@ -4,10 +4,11 @@ use crate::app::shortcuts::model::{ContextTab, ShortcutRow};
 use crate::app::shortcuts::state::{Mode, ShortcutsState};
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::keybindings::catalog::Category;
 use crate::ui::popup::centered_rect_fixed;
-use crate::ui::popup::kit::{ListPopup, Scroll, fg, popup_fg};
+use crate::ui::popup::kit::{ListPopup, Scroll, fg};
+use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::truncate_to_width;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -18,7 +19,7 @@ use ratatui::{
 /// Columns of the chords column.
 const CHORDS_WIDTH: usize = 30;
 
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, area: Rect) -> bool {
+pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, area: Rect) -> bool {
     let PopupType::Shortcuts(s) = popup else {
         return false;
     };
@@ -141,7 +142,7 @@ fn mode_line(s: &ShortcutsState) -> String {
 }
 
 /// Visible rows under category headings, and the line of the cursor row.
-fn list_rows(s: &ShortcutsState, theme: &Theme) -> (Vec<(String, Style)>, usize) {
+fn list_rows(s: &ShortcutsState, theme: &ResolvedTheme) -> (Vec<(String, Style)>, usize) {
     let heading = fg(Color::DarkGray).add_modifier(Modifier::BOLD);
     let mut lines = Vec::new();
     let mut cursor_line = 0;
@@ -157,7 +158,7 @@ fn list_rows(s: &ShortcutsState, theme: &Theme) -> (Vec<(String, Style)>, usize)
         let style = if row.chords.is_empty() {
             fg(Color::DarkGray)
         } else {
-            popup_fg(theme)
+            theme.popup_fg()
         };
         lines.push((row_text(row), style));
     }
@@ -170,7 +171,7 @@ fn row_text(row: &ShortcutRow) -> String {
     } else {
         row.chords.join(", ")
     };
-    let chords = clip(&chords, CHORDS_WIDTH);
+    let chords = truncate_to_width(&chords, CHORDS_WIDTH);
     let origin = match (&row.plugin, row.user) {
         (_, true) => format!("  ({})", t("shortcuts_origin_user")),
         (Some(plugin), false) => format!("  ({plugin})"),
@@ -183,23 +184,13 @@ fn row_text(row: &ShortcutRow) -> String {
     )
 }
 
-/// `text` cut to `width` characters, with `…` when cut.
-fn clip(text: &str, width: usize) -> String {
-    if text.chars().count() <= width {
-        return text.to_string();
-    }
-    let mut out: String = text.chars().take(width - 1).collect();
-    out.push('…');
-    out
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn long_chord_lists_are_clipped() {
-        assert_eq!(clip("F5", 4), "F5");
-        assert_eq!(clip("abcdef", 4), "abc…");
+        assert_eq!(truncate_to_width("F5", 4), "F5");
+        assert_eq!(truncate_to_width("abcdef", 4), "abc…");
     }
 }

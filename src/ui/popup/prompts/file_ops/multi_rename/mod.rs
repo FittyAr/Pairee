@@ -4,8 +4,8 @@ mod preview;
 
 use crate::app::state::popup::{MultiRenameState as Dialog, RenameField};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::{centered_rect_in, kit};
+use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::ScrollbarUiState;
 use ratatui::{
     Frame,
@@ -20,7 +20,7 @@ const SIZE_PERCENT: (u16, u16) = (90, 85);
 pub fn render(
     f: &mut Frame,
     dialog: &Dialog,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     scrollbar: &ScrollbarUiState,
 ) -> bool {

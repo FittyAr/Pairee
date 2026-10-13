@@ -4,21 +4,16 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, DevProgress, PopupType, Screen};
 use crate::terminal::TerminalBackend;
 
+/// New output and exits of the terminal screens' processes.
 pub fn process_terminal_updates(state: &mut AppState) {
-    if let Some(rx) = state.term_rx.as_mut() {
-        let mut got = false;
-        while let Ok(update) = rx.try_recv() {
-            got = true;
-            if let Some(Screen::Terminal(ts)) = state.screens.get_mut(update.screen_idx) {
-                match update.line {
-                    Some(line) => ts.output_lines.push(line),
-                    None => ts.is_running = false,
-                }
-            }
+    let mut changed = false;
+    for screen in state.screens.iter_mut() {
+        if let Screen::Terminal(ts) = screen {
+            changed |= ts.poll();
         }
-        if got {
-            state.mark_ui_dirty();
-        }
+    }
+    if changed {
+        state.mark_ui_dirty();
     }
 }
 
@@ -57,42 +52,25 @@ pub fn process_ssh_connect_updates(state: &mut AppState, context: &AppContext) {
     state.mark_ui_dirty();
 }
 
+/// Matches of the Find file search shown so far, and its end.
 pub fn process_search_updates(state: &mut AppState) {
-    if let Some(rx) = state.search_rx.as_mut() {
-        let mut new_results = Vec::new();
-        let mut closed = false;
-        loop {
-            match rx.try_recv() {
-                Ok((path, is_dir)) => {
-                    new_results.push((path, is_dir));
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Empty) => {
-                    break;
-                }
-                Err(tokio::sync::mpsc::error::TryRecvError::Disconnected) => {
-                    closed = true;
-                    break;
-                }
-            }
-        }
-        if !new_results.is_empty()
-            && let Some(PopupType::SearchResults { results, .. }) = state.dialogs.top_mut()
-        {
-            for (path, is_dir) in new_results {
-                if results.len() < 500 {
-                    results.push((path, is_dir));
-                } else {
-                    closed = true;
-                    break;
-                }
-            }
-        }
-        if closed {
-            if let Some(PopupType::SearchResults { searching, .. }) = state.dialogs.top_mut() {
-                *searching = false;
-            }
-            state.search_rx = None;
-        }
+    let finished = state.search.poll();
+    let running = state.search.is_running();
+    let hits = match finished {
+        Some(hits) => hits,
+        None if running => match state.search.progress() {
+            Some(hits) => hits,
+            None => return,
+        },
+        None => return,
+    };
+    if let Some(PopupType::SearchResults {
+        results, searching, ..
+    }) = state.dialogs.top_mut()
+        && (results.len() != hits.len() || !running)
+    {
+        *results = hits;
+        *searching = running;
         state.mark_ui_dirty();
     }
 }

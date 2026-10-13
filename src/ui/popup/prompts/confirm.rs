@@ -6,7 +6,7 @@ use ratatui::{Frame, layout::Rect, style::Color};
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let (dims, title_key, border, text) = match popup {
@@ -55,7 +55,7 @@ pub fn render(
         title: t(title_key),
         border: kit::fg(border),
         body: text.into(),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .render(f, size, theme);
     true
@@ -66,7 +66,7 @@ fn render_undo(
     f: &mut Frame,
     direction: crate::fs::journal::Direction,
     lines: &[String],
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) {
     use crate::fs::journal::Direction;
@@ -90,7 +90,7 @@ fn render_undo(
         title,
         border: kit::fg(Color::Yellow),
         body: body.into(),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .render(f, size, theme);
 }

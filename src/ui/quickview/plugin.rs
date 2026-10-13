@@ -10,18 +10,18 @@ use ratatui::{
     widgets::{Block, Gauge, List, ListItem, Paragraph, Row, Table, Wrap},
 };
 
-type Theme = crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 
 pub fn render_plugin_widget(
     f: &mut Frame,
     area: Rect,
     widget: &PluginWidget,
     block: Block,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     scroll: usize,
     scrollbar: Option<&ScrollbarUiState>,
 ) {
-    let panel_style = Style::default().fg(parse_color(&theme.panel_fg));
+    let panel_style = Style::default().fg(theme.panel_fg);
     match widget {
         PluginWidget::Paragraph(text) => {
             let para = Paragraph::new(text.as_str())
@@ -72,7 +72,7 @@ pub fn render_plugin_widget(
 fn render_scrollbar(
     f: &mut Frame,
     area: Rect,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     (content_len, offset): (usize, usize),
     scrollbar: Option<&ScrollbarUiState>,
 ) {

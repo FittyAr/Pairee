@@ -1,9 +1,8 @@
 use crate::app::state::popup::GitRemoteManageState;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,7 +14,7 @@ use ratatui::{
 pub fn render_remote_manage(
     f: &mut Frame,
     state: &GitRemoteManageState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     let inner = kit::frame_in(
@@ -43,16 +42,7 @@ pub fn render_remote_manage(
             .enumerate()
             .map(|(i, remote)| {
                 let is_selected = i == state.selected_idx;
-                let bg = if is_selected {
-                    parse_color(&theme.selection_bg)
-                } else {
-                    parse_color(&theme.popup_bg)
-                };
-                let fg = if is_selected {
-                    parse_color(&theme.selection_fg)
-                } else {
-                    parse_color(&theme.popup_fg)
-                };
+                let (bg, fg) = theme.row_colors(is_selected);
                 let url = remote.url.as_deref().unwrap_or("-");
                 Line::from(vec![
                     Span::styled(

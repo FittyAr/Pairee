@@ -1,9 +1,8 @@
 use super::state::ViewerState;
 use crate::ui::search_highlight::highlight_line;
 use crate::ui::text_width::expand_tabs;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
-    style::{Modifier, Style},
+    style::Style,
     text::{Line, Span},
 };
 
@@ -26,11 +25,8 @@ pub(crate) fn text_lines(
         .map(|l| expand_tabs(l, opts.tab_size))
         .map(|l| match search_info {
             Some((q, cs)) => {
-                let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
-                let highlight_style = Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.marked_fg))
-                    .add_modifier(Modifier::BOLD);
+                let normal_style = Style::default().fg(theme.panel_fg);
+                let highlight_style = theme.search_match();
                 Line::from(highlight_line(&l, q, cs, normal_style, highlight_style))
             }
             None => Line::from(Span::raw(l)),

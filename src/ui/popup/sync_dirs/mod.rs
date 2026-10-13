@@ -8,9 +8,9 @@ mod tests;
 
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::fs::sync::SyncDirection;
-use crate::ui::popup::kit::{self, TextBox};
+use crate::ui::popup::kit::TextBox;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -22,7 +22,7 @@ pub fn render(
     f: &mut Frame,
     popup: &PopupType,
     state: &AppState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     match popup {
@@ -50,7 +50,7 @@ fn bytes(n: u64) -> String {
     bytesize::ByteSize::b(n).to_string()
 }
 
-fn render_progress(f: &mut Frame, state: &AppState, theme: &Theme, size: Rect) {
+fn render_progress(f: &mut Frame, state: &AppState, theme: &ResolvedTheme, size: Rect) {
     let title_key = state
         .folder_scan
         .purpose()
@@ -70,7 +70,7 @@ fn render_progress(f: &mut Frame, state: &AppState, theme: &Theme, size: Rect) {
         title: t(title_key),
         border: Style::default().fg(Color::Cyan),
         body,
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .render(f, size, theme);
 }

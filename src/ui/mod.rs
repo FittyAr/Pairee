@@ -11,12 +11,16 @@ pub mod panel;
 pub mod placement;
 pub mod popup;
 pub mod quickview;
+pub mod render_cache;
+pub mod resolved_theme;
 pub mod screens;
 pub mod scrollbar;
 pub mod search_highlight;
 pub mod tab_bar;
+pub mod terminal_screen;
 pub mod text_width;
 pub mod theme_apply;
+pub mod too_small;
 pub mod transfer;
 pub mod viewer;
 pub mod which_key_prefix;
@@ -39,6 +43,10 @@ use ratatui::layout::Rect;
 /// The primary render dispatch function for drawing the application.
 pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     let _recording = hit::Recording::start(&state.hits);
+    if too_small::is_too_small(f.area()) {
+        too_small::render(f);
+        return;
+    }
     // 1. Compute geometry partitions (respects panel visibility flags)
     let layout = layout::calculate_layout(f.area(), state, &context.config);
 
@@ -52,7 +60,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     cli::render_cli(f, layout.cli_rect, state, context);
 
     // 3. Draw active screen
-    if let Some(screen) = state.screens.get(state.active_screen_idx) {
+    if let Some(screen) = Some(state.screens.active()) {
         screens::render_screen(f, &layout, context, state, screen);
     }
 
@@ -63,7 +71,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
 
     // 3b. The border between two visible panels can be dragged.
     if matches!(
-        state.screens.get(state.active_screen_idx),
+        Some(state.screens.active()),
         Some(crate::app::state::Screen::Panels)
     ) && state.panels.left_visible
         && state.panels.right_visible
@@ -114,5 +122,5 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     }
     state.mouse.placed(placement::finish());
     // Last, over everything: where dragged files would go.
-    drag_label::render(f, state, &context.config.theme);
+    drag_label::render(f, state, &context.theme());
 }

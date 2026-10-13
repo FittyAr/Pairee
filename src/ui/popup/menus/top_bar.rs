@@ -2,10 +2,8 @@
 
 use crate::app::context::AppContext;
 use crate::app::state::AppState;
-use crate::config::theme::Theme;
 use crate::ui::menu::MenuItemData;
-use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -28,7 +26,7 @@ const DROPDOWN_WIDTH: u16 = 37;
 
 pub fn render_top_dropdown(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     (state, context): (&AppState, &AppContext),
     focus: MenuFocus,
@@ -48,8 +46,8 @@ pub fn render_top_dropdown(
     let rect = Rect::new(x, 1, DROPDOWN_WIDTH, (items.len() + 2) as u16).intersection(size);
     // While a submenu is open its parent row is highlighted differently.
     let parent = Style::default()
-        .bg(parse_color("Blue"))
-        .fg(parse_color("White"))
+        .bg(Color::Blue)
+        .fg(Color::White)
         .add_modifier(Modifier::BOLD);
     let highlight = match focus.submenu {
         Some(_) => (item, parent),
@@ -76,8 +74,8 @@ pub fn render_top_dropdown(
     }
 }
 
-fn selected(theme: &Theme) -> Style {
-    kit::selection(theme).add_modifier(Modifier::BOLD)
+fn selected(theme: &ResolvedTheme) -> Style {
+    theme.selection().add_modifier(Modifier::BOLD)
 }
 
 /// Draws the `items` of menu `menu` in a bordered box, row `highlight.0` in
@@ -87,7 +85,7 @@ fn render_box(
     rect: Rect,
     (menu, items): (usize, &[MenuItemData]),
     (highlight_row, highlight): (usize, Style),
-    theme: &Theme,
+    theme: &ResolvedTheme,
 ) {
     crate::ui::popup::popup_body(rect);
     let rows = rect.inner(ratatui::layout::Margin::new(1, 1));
@@ -101,7 +99,7 @@ fn render_box(
         }
     }
     f.render_widget(Clear, rect);
-    let normal = kit::popup_fg(theme);
+    let normal = theme.popup_fg();
     let lines: Vec<Line> = items
         .iter()
         .enumerate()
@@ -112,8 +110,8 @@ fn render_box(
         .collect();
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .border_style(Style::default().fg(theme.popup_border))
+        .style(Style::default().bg(theme.popup_bg));
     f.render_widget(Paragraph::new(lines).block(block), rect);
 }
 

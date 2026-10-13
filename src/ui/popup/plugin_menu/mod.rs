@@ -1,6 +1,5 @@
 use crate::app::state::PopupType;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,14 +14,13 @@ pub mod installed;
 pub mod search;
 pub mod select;
 
-pub mod wrap;
-pub use wrap::wrap_text;
+pub use crate::ui::wrap::wrap_text;
 
 /// Where a plugin-manager tab draws: list and detail areas plus styles.
 pub struct Pane<'a> {
     pub list_area: Rect,
     pub detail_area: Rect,
-    pub theme: &'a crate::config::theme::Theme,
+    pub theme: &'a crate::ui::resolved_theme::ResolvedTheme,
     pub border_style: Style,
     pub bg_style: Style,
 }
@@ -118,7 +116,7 @@ fn input_row(menu: &crate::app::state::PluginMenuState) -> (String, String) {
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     context: &crate::app::context::AppContext,
 ) -> bool {
@@ -128,8 +126,8 @@ pub fn render(
     let area = super::centered_rect_in(85, 80, size);
     f.render_widget(Clear, area);
 
-    let border_style = Style::default().fg(parse_color(&theme.popup_border));
-    let bg_style = Style::default().bg(parse_color(&theme.popup_bg));
+    let border_style = Style::default().fg(theme.popup_border);
+    let bg_style = Style::default().bg(theme.popup_bg);
     f.render_widget(Block::default().style(bg_style), area);
 
     let input = has_input_row(menu);
@@ -164,7 +162,7 @@ pub fn render(
         let input_border = if menu.editing_query {
             Color::Yellow
         } else {
-            parse_color(&theme.popup_border)
+            theme.popup_border
         };
         let block = Block::default()
             .borders(Borders::ALL)
@@ -207,19 +205,4 @@ pub fn render(
         legend_area,
     );
     true
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_wrap_text_utf8() {
-        let text = "Realiza auditorías de verificación de cumplimiento";
-        let lines = wrap_text(text, 15);
-        assert!(!lines.is_empty());
-        for line in &lines {
-            assert!(line.chars().count() <= 15);
-        }
-    }
 }

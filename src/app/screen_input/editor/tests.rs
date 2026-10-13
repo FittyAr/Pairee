@@ -24,7 +24,7 @@ fn press(state: &mut AppState, context: &mut AppContext, code: KeyCode) {
 }
 
 fn editor(state: &AppState) -> &EditorState {
-    match state.screens.get(state.active_screen_idx) {
+    match Some(state.screens.active()) {
         Some(Screen::Editor(ed)) => ed,
         _ => panic!("expected editor screen"),
     }
@@ -226,7 +226,7 @@ fn bracketed_paste_inserts_all_lines() {
         editor(&state).lines,
         vec!["[x".to_string(), "y]".to_string()]
     );
-    assert!(state.cli_input.is_empty());
+    assert!(state.cli.field.is_empty());
 }
 
 #[test]
@@ -237,7 +237,7 @@ fn escape_clears_selection_before_closing() {
     press(&mut state, &mut context, KeyCode::Esc);
     assert!(!editor(&state).has_selection());
     assert!(matches!(
-        state.screens.get(state.active_screen_idx),
+        Some(state.screens.active()),
         Some(Screen::Editor(_))
     ));
 }

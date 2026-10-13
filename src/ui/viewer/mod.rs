@@ -9,7 +9,6 @@ pub use state::{VIEWER_MAX_BYTES, ViewerMode, ViewerState, decode_image};
 use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTarget, ScrollTargetId, ScrollView};
 use crate::ui::scrollbar::{ScrollbarSurface, ScrollbarUiState};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -21,7 +20,7 @@ use ratatui::{
 /// How the viewer is drawn: theme, the dialog over it (for search
 /// highlighting) and the viewer settings.
 pub struct ViewerOpts<'a> {
-    pub theme: &'a crate::config::theme::Theme,
+    pub theme: &'a crate::ui::resolved_theme::ResolvedTheme,
     pub active_popup: Option<&'a crate::app::state::PopupType>,
     pub show_scrollbar: bool,
     pub tab_size: usize,
@@ -55,18 +54,18 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.panel_border)))
+        .border_style(Style::default().fg(theme.panel_border))
         .title(Span::styled(
             title,
             Style::default()
-                .fg(parse_color(&theme.header_fg))
+                .fg(theme.header_fg)
                 .add_modifier(Modifier::BOLD),
         ))
         .title_bottom(Span::styled(
             status::status_text(state, opts.search_progress),
-            Style::default().fg(parse_color(&theme.header_fg)),
+            Style::default().fg(theme.header_fg),
         ))
-        .style(Style::default().bg(parse_color(&theme.panel_bg)));
+        .style(Style::default().bg(theme.panel_bg));
 
     let height = area.height.saturating_sub(2) as usize;
     let para = match state.mode {
@@ -79,9 +78,7 @@ pub fn render_viewer(f: &mut Frame, area: Rect, state: &ViewerState, opts: &View
             return;
         }
     };
-    let para = para
-        .block(block)
-        .style(Style::default().fg(parse_color(&theme.panel_fg)));
+    let para = para.block(block).style(Style::default().fg(theme.panel_fg));
     f.render_widget(para, area);
     let view = ScrollView {
         content_len: state.content_rows(),

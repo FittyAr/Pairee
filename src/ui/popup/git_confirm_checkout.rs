@@ -1,8 +1,7 @@
 use crate::app::state::PopupType;
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,7 +13,7 @@ use ratatui::{
 use crate::app::state::popup::GitPromptPopup;
 
 /// Renders the git checkout confirmation dialog.
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
+pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, size: Rect) -> bool {
     if let PopupType::GitPrompt(GitPromptPopup::ConfirmCheckout(state)) = popup {
         let target = &state.target;
         let is_branch = &state.is_branch;
@@ -53,7 +52,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             kind_str
         );
         f.render_widget(
-            Paragraph::new(msg1).style(Style::default().fg(parse_color(&theme.popup_fg))),
+            Paragraph::new(msg1).style(Style::default().fg(theme.popup_fg)),
             chunks[0],
         );
         f.render_widget(
@@ -80,7 +79,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             ),
             Span::styled(
                 crate::config::localization::t("git_checkout_yes"),
-                Style::default().fg(parse_color(&theme.popup_fg)),
+                Style::default().fg(theme.popup_fg),
             ),
             Span::styled("    ", Style::default()),
             Span::styled(
@@ -89,7 +88,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
             ),
             Span::styled(
                 crate::config::localization::t("git_checkout_no"),
-                Style::default().fg(parse_color(&theme.popup_fg)),
+                Style::default().fg(theme.popup_fg),
             ),
         ]);
         f.render_widget(Paragraph::new(buttons), chunks[3]);

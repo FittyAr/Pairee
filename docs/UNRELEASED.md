@@ -12,11 +12,21 @@
 - Copies resume where they stopped: a copy interrupted by a crash, a power cut or a failed attempt continues from the part already written (after checking it matches the source).
 - When a copy overwrites a file, the old file goes to the trash, so undoing the copy brings it back.
 
+- Terminal screens of `command &` can be closed (F10, the close box or Delete in the screens list), their process stopped (F8), scrolled back (Shift+arrows, Shift+PageUp/PageDown, mouse wheel) and typed into.
+- Setting "Lines kept per terminal screen" (System tab) bounds the output a terminal screen keeps.
+- Command line editing: cursor keys, Home/End, Delete, Ctrl+W to delete a word and Tab to complete file and folder names.
+- A terminal smaller than 24×8 shows a "terminal too small" notice instead of a squeezed layout.
+- The viewer's key bar shows the encoding key (F8).
+- Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
+
 ### Improved
 - Moving files or folders within one drive is instant: they are renamed instead of copied and deleted. Moves to another drive, moves with "Verify after copy" and filtered moves still copy.
 - Copies and moves to and from SSH servers now ask (or follow the setting) when a file exists, retry failed files, verify copies, keep times and permissions, and write each file under a temporary name first.
 - Direct I/O ("Disable write cache") now bypasses the cache for every whole block of a file, not only for files whose size is a multiple of 4 KiB.
 - Queued transfers start at once instead of after a short delay, and an idle transfer engine no longer wakes up five times a second.
+
+- Text in the plugin manager, shortcuts list, file associations and undo labels is cut by display width, so wide characters stay aligned.
+- Theme colors and highlighting rules are prepared once when they change instead of on every frame.
 
 ### Changed
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
@@ -29,6 +39,9 @@
 - Plugin `min_pairee` versions are read as semver (pre-releases accepted); an unreadable version stops the plugin from loading.
 - Plugin settings are converted with the type declared in `settings_schema`.
 - "Verify after copy" reads every copy back from the disk and compares it with the source; a file that does not match is retried and, if it still differs, reported as failed. Files copied without verification are no longer marked as verified in the job log.
+
+- The screens list and the command-line screen indicator are translated.
+- Keymap problem reports are translated; unused translation keys were removed and a few Spanish texts translated.
 
 ### Deprecated
 
@@ -72,3 +85,13 @@
 - The transfer speed kept being reported after a job ended.
 - Find files with "containing text" stopped reading a file at the first byte that was not valid UTF-8, so text in Latin-1, UTF-16 or binary files was missed; files are now decoded like the viewer does (binary files are searched byte by byte), and closing the search stops it at once.
 - Adding files to a zip archive changed the archive's permissions to owner-only, and entries over 4 GiB failed; compressing to zip also failed on files over 4 GiB and stopped silently at unreadable folders.
+
+- The plugin manager no longer crashes when a registry plugin has a non-ASCII name or author.
+- Plugin manager descriptions no longer freeze the app in a very narrow terminal.
+- The panels now use the "Files highlighting" rules from Options instead of always the built-in ones.
+- Output of a background command no longer goes to the wrong screen, or gets lost, after an earlier screen is closed.
+- `cd` on the command line accepts quoted names (as drag & drop inserts them), `~/folder`, `cd -`, relative paths and SFTP or archive panels, and records the folder history.
+- Typed text stays visible on the command line when the prompt is long.
+- A double click in a long panel opens the entry that was clicked: the panel scrolls only when the cursor leaves the view, as in Far and Midnight Commander.
+- The help window no longer crashes in a very small terminal, and its texts are translated.
+- Missing texts for the plugin developer install messages and the video mode hint.

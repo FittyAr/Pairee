@@ -2,15 +2,15 @@
 //!
 //! Crossterm still delivers raw `KeyEvent`s; **mapping** is owned by `keybinds`
 //! (parse + dispatch + sequences). Invalid chords never enter the map.
-//! The panels keymap answers through the methods below; the editor, viewer
-//! and list keymaps are public fields.
+//! The panels keymap answers through the methods below; the editor, viewer,
+//! terminal, command-line and list keymaps are public fields.
 
 use super::actions::Action;
 use super::keymap::ContextKeymap;
 use super::loader::{KeymapLoadReport, KeymapSpec, LoadedKeymap, load_keymap};
 use super::options::KeymapOptions;
 use super::registry::is_global;
-use super::screens::{EditorAction, ListAction, ViewerAction};
+use super::screens::{CliAction, EditorAction, ListAction, TerminalAction, ViewerAction};
 use crate::config::AppConfig;
 use crossterm::event::KeyEvent;
 use keybinds::KeyInput;
@@ -20,6 +20,8 @@ pub struct KeybindingResolver {
     panels: ContextKeymap<Action>,
     pub editor: ContextKeymap<EditorAction>,
     pub viewer: ContextKeymap<ViewerAction>,
+    pub terminal: ContextKeymap<TerminalAction>,
+    pub cli: ContextKeymap<CliAction>,
     pub list: ContextKeymap<ListAction>,
     options: KeymapOptions,
     load_report: KeymapLoadReport,
@@ -40,6 +42,8 @@ impl KeybindingResolver {
             panels: loaded.panels,
             editor: loaded.editor,
             viewer: loaded.viewer,
+            terminal: loaded.terminal,
+            cli: loaded.cli,
             list: loaded.list,
             options: loaded.options,
             load_report: loaded.report,

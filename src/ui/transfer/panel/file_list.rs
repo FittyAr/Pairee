@@ -13,7 +13,7 @@ pub(crate) fn render_file_list_tab(
     area: Rect,
     ts: &TransferUIState,
     res: &TransferResults,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {
     let total_files = res.failed_files.len() + res.skipped_files.len() + res.completed_files.len();

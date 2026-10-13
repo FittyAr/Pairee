@@ -12,7 +12,7 @@ pub(crate) fn render_tabs(
     f: &mut Frame,
     area: Rect,
     active_tab: TransferTab,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
 ) {
     let tab_titles = vec![
         (0, "[1] File List"),
@@ -40,13 +40,13 @@ pub(crate) fn render_tabs(
         ])
         .split(tab_layout[0]);
 
-    let border_color = crate::ui::theme_apply::parse_color(&theme.popup_border);
+    let border_color = theme.popup_border;
     f.render_widget(
         Paragraph::new("─".repeat(area.width as usize)).style(Style::default().fg(border_color)),
         tab_layout[1],
     );
 
-    let fg_color = crate::ui::theme_apply::parse_color(&theme.popup_fg);
+    let fg_color = theme.popup_fg;
 
     for (idx, (tab_idx, title)) in tab_titles.into_iter().enumerate() {
         // Digits 1-4 open the tabs.
@@ -263,7 +263,7 @@ pub(crate) fn render_log_tab(
     f: &mut Frame,
     area: Rect,
     log_lines: &[String],
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     ts: &TransferUIState,
     scrollbar: Option<&crate::ui::scrollbar::ScrollbarUiState>,
 ) {

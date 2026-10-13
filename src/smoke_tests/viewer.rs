@@ -6,7 +6,7 @@ use crate::test_harness::Harness;
 use crate::ui::viewer::{ViewerMode, ViewerState};
 
 fn viewer(h: &Harness) -> &ViewerState {
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Viewer(vw)) => vw,
         _ => panic!("viewer screen expected\n{}", h.screen_text()),
     }
@@ -61,7 +61,7 @@ fn latin1_text_search_hex_and_encoding_selector() {
         h.assert_screen("caf\u{FFFD}");
         h.keys("Esc");
         assert!(matches!(
-            h.state.screens.get(h.state.active_screen_idx),
+            Some(h.state.screens.active()),
             Some(Screen::Panels)
         ));
     }
@@ -82,7 +82,20 @@ fn large_sparse_file_opens_and_scrolls() {
     h.render();
     h.keys("Esc");
     assert!(matches!(
-        h.state.screens.get(h.state.active_screen_idx),
+        Some(h.state.screens.active()),
         Some(Screen::Panels)
     ));
+}
+
+#[test]
+fn key_bar_shows_the_encoding_key() {
+    let mut h = Harness::new();
+    h.write("work/left/a.txt", "text");
+    open(&mut h, "a.txt");
+    h.assert_screen(&crate::config::localization::t("fkey_vw_encoding"));
+    h.keys("F8");
+    assert!(
+        h.state.dialogs.top().is_some(),
+        "F8 opens the encoding selector"
+    );
 }

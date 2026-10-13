@@ -4,10 +4,10 @@
 use super::bytes;
 use crate::app::state::popup::{SyncDialog, SyncReview};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::fs::sync::{SyncAction, SyncItem, SyncSummary};
 use crate::ui::popup::centered_rect_in;
-use crate::ui::popup::kit::{self, ListPopup, Scroll, TextBox};
+use crate::ui::popup::kit::{ListPopup, Scroll, TextBox};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -24,7 +24,7 @@ pub(super) fn render(
     f: &mut Frame,
     dialog: &SyncDialog,
     review: &SyncReview,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) {
     let summary = review.summary();
@@ -96,7 +96,7 @@ fn summary_text(s: &SyncSummary) -> String {
         .replacen("{}", &s.equal.to_string(), 1)
 }
 
-fn render_confirm(f: &mut Frame, s: &SyncSummary, theme: &Theme, size: Rect) {
+fn render_confirm(f: &mut Frame, s: &SyncSummary, theme: &ResolvedTheme, size: Rect) {
     let question = t("sync_confirm_delete")
         .replacen("{}", &s.delete.to_string(), 1)
         .replacen("{}", &bytes(s.delete_bytes), 1)
@@ -111,7 +111,7 @@ fn render_confirm(f: &mut Frame, s: &SyncSummary, theme: &Theme, size: Rect) {
             Line::from(""),
             Line::from(t("sync_confirm_hint")),
         ]),
-        body_style: kit::popup_fg(theme),
+        body_style: theme.popup_fg(),
     }
     .render_wrapped(f, size, theme);
 }

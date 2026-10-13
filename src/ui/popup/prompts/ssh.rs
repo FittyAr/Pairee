@@ -4,7 +4,6 @@ use crate::app::state::popup::SshField;
 use crate::app::state::{PopupType, SshConnectPromptState};
 use crate::config::localization::t;
 use crate::ui::popup::kit;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,7 +14,7 @@ use ratatui::{
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     context: &AppContext,
 ) -> bool {
@@ -28,7 +27,7 @@ pub fn render(
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan))
             .title(t("prompt_ssh_title"))
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            .style(Style::default().bg(theme.popup_bg));
         let inner = block.inner(area);
         f.render_widget(block, area);
 
@@ -51,7 +50,7 @@ pub fn render(
             .split(main_chunks[0]);
 
         let active_style = Style::default().bg(Color::Cyan).fg(Color::Black);
-        let normal_style = Style::default().fg(parse_color(&theme.popup_fg));
+        let normal_style = Style::default().fg(theme.popup_fg);
 
         let styles = kit::FocusStyles {
             active: active_style,
@@ -65,7 +64,7 @@ pub fn render(
             .title(format!(" {} ", t("ssh_presets_title").trim()));
         let list = List::new(list_items)
             .block(presets_block)
-            .style(Style::default().bg(parse_color(&theme.popup_bg)));
+            .style(Style::default().bg(theme.popup_bg));
         f.render_widget(list, form_chunks[0]);
         let form = kit::mouse::FormFocus::new(FORM, *cursor_idx);
         register_presets(

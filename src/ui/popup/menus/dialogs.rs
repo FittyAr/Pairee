@@ -3,8 +3,7 @@
 use super::super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::{ActivePanel, SortField};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Rect},
@@ -15,7 +14,7 @@ use ratatui::{
 
 pub fn render_sort_modes_dialog(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     current: &SortField,
     reverse: bool,
@@ -26,9 +25,9 @@ pub fn render_sort_modes_dialog(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(t("popup_sort_modes"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let fields = [
         SortField::Name,
@@ -55,12 +54,9 @@ pub fn render_sort_modes_dialog(
 
         let line_str = format!(" {} [{}] {} ", cursor_marker, active_marker, name);
         let style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
+            theme.selection().add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
+            Style::default().fg(theme.popup_fg)
         };
         lines.push(Line::from(Span::styled(line_str, style)));
     }
@@ -76,12 +72,9 @@ pub fn render_sort_modes_dialog(
         t("popup_reverse_order")
     );
     let style = if is_reverse_cursor {
-        Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD)
+        theme.selection().add_modifier(Modifier::BOLD)
     } else {
-        Style::default().fg(parse_color(&theme.popup_fg))
+        Style::default().fg(theme.popup_fg)
     };
     lines.push(Line::from(""));
     lines.push(Line::from(Span::styled(line_str, style)));
@@ -109,7 +102,7 @@ pub fn render_sort_modes_dialog(
 
 pub fn render_user_menu_dialog(
     f: &mut Frame,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     (left_rect, right_rect): (Rect, Rect),
     active_panel: ActivePanel,
     cursor_idx: usize,
@@ -126,20 +119,17 @@ pub fn render_user_menu_dialog(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(t("popup_user_menu"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let mut menu_rows = Vec::new();
     for (i, item) in items.iter().enumerate() {
         let is_cursor = i == cursor_idx;
         let style = if is_cursor {
-            Style::default()
-                .bg(parse_color(&theme.selection_bg))
-                .fg(parse_color(&theme.selection_fg))
-                .add_modifier(Modifier::BOLD)
+            theme.selection().add_modifier(Modifier::BOLD)
         } else {
-            Style::default().fg(parse_color(&theme.popup_fg))
+            Style::default().fg(theme.popup_fg)
         };
         menu_rows.push(Row::new(vec![
             Cell::from(item.key.as_str()).style(style),

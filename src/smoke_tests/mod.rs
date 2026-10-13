@@ -5,12 +5,16 @@
 
 mod archives;
 mod bookmarks;
+mod command_line;
 mod editor;
 mod file_clipboard;
 mod file_ops;
+mod find_file;
 mod git_panel;
 mod mouse;
 mod navigation;
+mod panel_render;
+mod panel_scroll;
 mod panel_search;
 mod plugin_keys;
 mod polish;
@@ -20,6 +24,8 @@ mod selection_jumps;
 mod shortcuts_modal;
 mod sizes_sync;
 mod tabs_session;
+mod terminal_screens;
+mod tiny_terminal;
 mod transfer;
 mod typing_modes;
 mod vfs_followups;

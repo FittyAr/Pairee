@@ -1,10 +1,8 @@
 //! Type-to-filter list popup (command palette): a `> query` line,
 //! the matching rows with the cursor highlighted, and an optional hint.
 
-use super::{popup_fg, selection};
 use crate::app::text_input::TextField;
-use crate::config::theme::Theme;
-use crate::ui::theme_apply::parse_color;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -26,19 +24,19 @@ pub struct FilterListView<'a> {
 
 impl FilterListView<'_> {
     /// Draws the popup centered horizontally, in the upper third of `area`.
-    pub fn render(self, f: &mut Frame, area: Rect, theme: &Theme) {
+    pub fn render(self, f: &mut Frame, area: Rect, theme: &ResolvedTheme) {
         let width = area.width.min(self.max_width);
         let height = area.height.min(18);
         let x = area.x + (area.width.saturating_sub(width)) / 2;
         let y = area.y + (area.height.saturating_sub(height)) / 3;
         let rect = crate::ui::popup::place_popup(Rect::new(x, y, width, height), area);
 
-        let normal = popup_fg(theme).bg(parse_color(&theme.popup_bg));
+        let normal = theme.popup_fg().bg(theme.popup_bg);
         f.render_widget(Clear, rect);
         let block = Block::default()
             .title(self.title)
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+            .border_style(Style::default().fg(theme.popup_border))
             .style(normal);
         let inner = block.inner(rect);
         f.render_widget(block, rect);
@@ -67,7 +65,7 @@ impl FilterListView<'_> {
         );
 
         let cursor = self.cursor.min(self.rows.len().saturating_sub(1));
-        let highlighted = selection(theme).add_modifier(Modifier::BOLD);
+        let highlighted = theme.selection().add_modifier(Modifier::BOLD);
         // Keep the cursor row in view when the list is taller than the box.
         let height = chunks[1].height as usize;
         let start = crate::ui::scrollbar::centered_scroll(cursor, self.rows.len(), height);

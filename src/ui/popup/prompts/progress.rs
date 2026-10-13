@@ -3,7 +3,6 @@
 use super::super::centered_rect_fixed;
 use crate::config::localization::t;
 use crate::git::remote::TransferStats;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,7 +14,7 @@ pub fn render_git(
     f: &mut Frame,
     title: &str,
     stats: Option<TransferStats>,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     let area = centered_rect_fixed(60, 7, size);
@@ -24,7 +23,7 @@ pub fn render_git(
         .borders(Borders::ALL)
         .border_style(Style::default().fg(Color::Cyan))
         .title(title.to_string())
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -48,7 +47,7 @@ pub fn render_git(
         ),
         _ => (t("git_progress_waiting"), 0.0),
     };
-    let fg = Style::default().fg(parse_color(&theme.popup_fg));
+    let fg = Style::default().fg(theme.popup_fg);
     f.render_widget(Paragraph::new(label).style(fg), rows[0]);
     f.render_widget(
         Gauge::default()

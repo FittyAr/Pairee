@@ -1,8 +1,8 @@
 use crate::app::state::PopupType;
 use crate::app::state::popup::GitPromptPopup;
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::kit;
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -12,7 +12,7 @@ use ratatui::{
 };
 
 /// Renders the git commit message input prompt.
-pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bool {
+pub fn render(f: &mut Frame, popup: &PopupType, theme: &ResolvedTheme, size: Rect) -> bool {
     let PopupType::GitPrompt(GitPromptPopup::CommitPrompt(state)) = popup else {
         return false;
     };
@@ -34,7 +34,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         .constraints([Constraint::Length(1); 5]) // label, separator, input, empty, hint
         .split(inner);
 
-    let fg = kit::popup_fg(theme);
+    let fg = theme.popup_fg();
     f.render_widget(
         Paragraph::new(t("git_commit_msg_label")).style(fg),
         chunks[0],
@@ -43,7 +43,7 @@ pub fn render(f: &mut Frame, popup: &PopupType, theme: &Theme, size: Rect) -> bo
         kit::separator(inner.width, kit::fg(Color::DarkGray)),
         chunks[1],
     );
-    let cursor = kit::selection(theme);
+    let cursor = theme.selection();
     f.render_widget(
         Paragraph::new(Line::from(kit::field_spans(&state.input, fg, cursor, true))),
         chunks[2],

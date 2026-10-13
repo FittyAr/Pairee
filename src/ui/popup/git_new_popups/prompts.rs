@@ -4,9 +4,9 @@
 use crate::app::form::FieldPair;
 use crate::app::state::popup::{GitNameAction, GitNamePromptState as Prompt};
 use crate::config::localization::t;
-use crate::config::theme::Theme;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{self, FocusStyles};
+use crate::ui::resolved_theme::ResolvedTheme;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -37,7 +37,12 @@ fn texts(action: &GitNameAction) -> (String, String) {
     }
 }
 
-pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: Rect) -> bool {
+pub fn render_name_prompt(
+    f: &mut Frame,
+    prompt: &Prompt,
+    theme: &ResolvedTheme,
+    size: Rect,
+) -> bool {
     let (title, label) = texts(&prompt.action);
     let inner = kit::frame_in(
         f,
@@ -64,8 +69,8 @@ pub fn render_name_prompt(f: &mut Frame, prompt: &Prompt, theme: &Theme, size: R
     );
     focus.field(chunks[1], 0, chunks[1].x + 1);
     let styles = FocusStyles {
-        active: kit::selection(theme).add_modifier(Modifier::BOLD),
-        normal: kit::popup_fg(theme),
+        active: theme.selection().add_modifier(Modifier::BOLD),
+        normal: theme.popup_fg(),
     };
     let buttons = [
         format!(" [ {} ] ", t("btn_ok").trim()),
@@ -87,7 +92,7 @@ pub fn render_field_pair(
     f: &mut Frame,
     pair: &FieldPair,
     texts: PairTexts,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
 ) -> bool {
     let inner = kit::frame_in(
@@ -109,10 +114,7 @@ pub fn render_field_pair(
         ])
         .split(inner);
     for (i, label) in texts.labels.into_iter().enumerate() {
-        f.render_widget(
-            Paragraph::new(label).style(kit::popup_fg(theme)),
-            chunks[i * 2],
-        );
+        f.render_widget(Paragraph::new(label).style(theme.popup_fg()), chunks[i * 2]);
         f.render_widget(
             kit::input_box(&pair.fields[i], pair.focus == i, theme),
             chunks[i * 2 + 1],

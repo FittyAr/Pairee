@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Theme {
     pub name: String,
     pub panel_bg: String,
@@ -91,24 +91,33 @@ macro_rules! color_props {
     };
 }
 
-color_props!(
-    panel_bg,
-    panel_fg,
-    panel_border,
-    selection_bg,
-    selection_fg,
-    marked_fg,
-    header_bg,
-    header_fg,
-    cli_bg,
-    cli_fg,
-    fkey_num_fg,
-    fkey_text_fg,
-    fkey_bg,
-    popup_bg,
-    popup_fg,
-    popup_border,
-);
+/// Calls `$callback!` with every theme color field in dialog order: the one
+/// list [`COLOR_PROPS`] and the UI's resolved theme are both built from.
+#[macro_export]
+macro_rules! with_theme_colors {
+    ($callback:ident) => {
+        $callback!(
+            panel_bg,
+            panel_fg,
+            panel_border,
+            selection_bg,
+            selection_fg,
+            marked_fg,
+            header_bg,
+            header_fg,
+            cli_bg,
+            cli_fg,
+            fkey_num_fg,
+            fkey_text_fg,
+            fkey_bg,
+            popup_bg,
+            popup_fg,
+            popup_border,
+        );
+    };
+}
+
+with_theme_colors!(color_props);
 
 /// Named colors cycled with Left / Right in the color dialogs.
 pub const NAMED_COLORS: [&str; 17] = [

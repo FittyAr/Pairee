@@ -5,7 +5,6 @@ use super::centered_rect_in;
 use crate::app::config_rows::{Row, RowCtx, TAB_KEYS, tab_rows};
 use crate::app::state::{ConfigurationDialogState, PopupType};
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -14,12 +13,12 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-type Theme = crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 
 pub fn render_config_dialog_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     keybindings: &crate::config::keybindings::KeybindingsConfig,
 ) -> bool {
@@ -31,9 +30,9 @@ pub fn render_config_dialog_popup(
 
     let block = Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
+        .border_style(Style::default().fg(theme.popup_border))
         .title(t("config_dialog_title"))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -152,7 +151,7 @@ fn render_separators(f: &mut Frame, vertical: Rect, bottom: Rect, width: u16) {
 }
 
 /// One `[ Tab ]` line per tab, marking the active one (filled when focused).
-fn tab_lines(dialog: &ConfigurationDialogState, theme: &Theme) -> Vec<Line<'static>> {
+fn tab_lines(dialog: &ConfigurationDialogState, theme: &ResolvedTheme) -> Vec<Line<'static>> {
     let focus_on_tabs = dialog.focus_on_tabs;
     TAB_KEYS
         .map(t)
@@ -161,22 +160,16 @@ fn tab_lines(dialog: &ConfigurationDialogState, theme: &Theme) -> Vec<Line<'stat
         .map(|(i, title)| {
             let is_active = i == dialog.active_tab;
             let (prefix, base_style) = if is_active && focus_on_tabs {
-                (
-                    "▶ ",
-                    Style::default()
-                        .bg(parse_color(&theme.selection_bg))
-                        .fg(parse_color(&theme.selection_fg))
-                        .add_modifier(Modifier::BOLD),
-                )
+                ("▶ ", theme.selection().add_modifier(Modifier::BOLD))
             } else if is_active {
                 (
                     "▷ ",
                     Style::default()
-                        .fg(parse_color(&theme.selection_bg))
+                        .fg(theme.selection_bg)
                         .add_modifier(Modifier::BOLD),
                 )
             } else {
-                ("  ", Style::default().fg(parse_color(&theme.popup_fg)))
+                ("  ", Style::default().fg(theme.popup_fg))
             };
             let hotkey_style = if is_active && focus_on_tabs {
                 base_style.fg(Color::Yellow)
@@ -202,7 +195,7 @@ fn tab_lines(dialog: &ConfigurationDialogState, theme: &Theme) -> Vec<Line<'stat
 /// The visible rows of the active tab plus OK/Cancel, scrolled around the cursor.
 fn row_lines(
     dialog: &ConfigurationDialogState,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     keybindings: &crate::config::keybindings::KeybindingsConfig,
     list_height: usize,
 ) -> Vec<Line<'static>> {
@@ -218,15 +211,12 @@ fn row_lines(
     let row_count = rows.len() + ok_cancel.len();
     let selected = if dialog.focus_on_tabs {
         Style::default()
-            .fg(parse_color(&theme.selection_bg))
+            .fg(theme.selection_bg)
             .add_modifier(Modifier::BOLD)
     } else {
-        Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg))
-            .add_modifier(Modifier::BOLD)
+        theme.selection().add_modifier(Modifier::BOLD)
     };
-    let normal = Style::default().fg(parse_color(&theme.popup_fg));
+    let normal = Style::default().fg(theme.popup_fg);
 
     let scroll_start = dialog.cursor_idx.saturating_sub(list_height / 2);
     (scroll_start..row_count)

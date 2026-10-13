@@ -179,7 +179,7 @@ fn retry_failed(transfer: &mut TransferUIState, job: &TransferJob) {
 fn export_report(transfer: &TransferUIState, context: &AppContext, job: &TransferJob) {
     use crate::fs::transfer::report;
     let res = &job.results;
-    let format = context.config.settings.transfer_report_format.clone();
+    let format = context.config.settings.transfer.report_format.clone();
     let content = if format == "csv" {
         report::generate_csv_report(res)
     } else {

@@ -6,7 +6,6 @@ use crate::app::state::popup::TextSearchState as Search;
 use crate::config::localization::t;
 use crate::fs::text::ENCODINGS;
 use crate::ui::popup::kit::{self, FocusStyles, ListPopup, Scroll, list_area, marked};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,7 +14,7 @@ use ratatui::{
 pub fn render_viewer_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
     match popup {
@@ -31,18 +30,23 @@ pub fn render_viewer_popup(
 }
 
 /// The list of encodings the viewer can switch to.
-fn render_encodings(f: &mut Frame, cursor: usize, theme: &crate::config::theme::Theme, size: Rect) {
+fn render_encodings(
+    f: &mut Frame,
+    cursor: usize,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+    size: Rect,
+) {
     let rows: Vec<(String, _)> = ENCODINGS
         .iter()
         .enumerate()
-        .map(|(i, e)| (marked(e.name(), i == cursor), kit::popup_fg(theme)))
+        .map(|(i, e)| (marked(e.name(), i == cursor), theme.popup_fg()))
         .collect();
     let width = rows.iter().map(|(text, _)| text.len()).max().unwrap_or(0);
     let hint = t("viewer_encoding_hint");
     ListPopup {
         area: list_area(size, width.max(hint.chars().count()), rows.len() + 2, 20),
         title: t("viewer_encoding_title"),
-        border: parse_color(&theme.popup_border),
+        border: theme.popup_border,
         empty: None,
         header: Vec::new(),
         rows,
@@ -59,10 +63,10 @@ pub fn render_search(
     f: &mut Frame,
     title_key: &str,
     search: &Search,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
 ) -> bool {
-    let border = kit::fg(parse_color(&theme.popup_border));
+    let border = kit::fg(theme.popup_border);
     let inner = kit::dialog_frame(f, size, (50, 9), t(title_key), border, theme);
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -76,8 +80,8 @@ pub fn render_search(
         .split(inner);
 
     let styles = FocusStyles {
-        active: kit::selection(theme),
-        normal: kit::popup_fg(theme),
+        active: theme.selection(),
+        normal: theme.popup_fg(),
     };
     let focus = kit::mouse::FormFocus::new(Search::FORM, search.cursor_idx);
     kit::form_labelled_field(

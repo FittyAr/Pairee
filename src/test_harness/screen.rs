@@ -34,11 +34,18 @@ impl Harness {
 
     /// Resizes the terminal (with the resize event) and paints a frame.
     pub fn resize(&mut self, width: u16, height: u16) -> &mut Self {
+        self.screen.backend_mut().resize(width, height);
         self.screen
             .resize(Rect::new(0, 0, width, height))
             .expect("resize");
         self.send(Event::Resize(width, height));
         self.render()
+    }
+
+    /// Style of the screen cell (column, row) in a freshly painted frame.
+    pub fn cell_style(&mut self, column: u16, row: u16) -> ratatui::style::Style {
+        self.render();
+        self.screen.backend().buffer()[(column, row)].style()
     }
 
     /// Asserts the screen shows `needle`.

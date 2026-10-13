@@ -1,3 +1,4 @@
+pub mod cli_line;
 pub mod dialog_stack;
 pub mod dir_sizes;
 pub mod file_clipboard;
@@ -8,6 +9,7 @@ pub mod panel;
 pub mod panel_pair;
 pub mod plugin_host;
 pub mod popup;
+pub mod prefs;
 pub mod transfer_state;
 pub mod types;
 pub mod update_state;
@@ -17,14 +19,16 @@ pub mod refresh;
 pub mod screens;
 mod tab_ops;
 pub mod tabs;
+pub mod terminal;
 mod vfs_op;
 pub use vfs_op::VfsFollowUp;
 pub mod viewer;
 pub mod visual;
 
 pub use crate::fs::compare::CompareStatus;
+pub use cli_line::CliLine;
 pub use dialog_stack::DialogStack;
-pub use glob::{glob_matches, glob_matches_case};
+pub use glob::{Glob, glob_matches, glob_matches_case};
 pub use history::HistoryState;
 pub use panel::PanelState;
 pub use panel_pair::PanelPair;
@@ -33,27 +37,73 @@ pub use popup::{
     ConfigDraft, ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState,
     PopupType, SshConnectPromptState,
 };
+pub use prefs::PanelPrefs;
+pub use screens::{ScreenId, ScreenStack};
 pub use tabs::TabId;
+pub use terminal::TerminalState;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
     ActivePanel, AdminOpKind, DevProgress, FileAttrsSnapshot, GitConfirmedAction, LinkKind,
-    PanelViewMode, ProcessEntry, Screen, SelectMode, SortField, TerminalUpdate, TreeNode,
+    PanelViewMode, ProcessEntry, Screen, SelectMode, SortField, TreeNode,
 };
 pub use update_state::UpdateState;
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+/// Dirty-flag rendering: the main loop paints only when something changed.
+#[derive(Debug)]
+pub struct Redraw {
+    /// When false, the main loop may skip `terminal.draw`.
+    pub dirty: bool,
+    /// Full-screen clear on next paint (resize or native TTY/admin restore).
+    /// Applied inside the synchronized-update region to avoid a visible flash.
+    pub needs_clear: bool,
+    /// Last time transfer progress forced a redraw (rate-limit).
+    pub last_transfer_draw: Option<std::time::Instant>,
+}
+
+impl Default for Redraw {
+    fn default() -> Self {
+        Self {
+            dirty: true,
+            needs_clear: false,
+            last_transfer_draw: None,
+        }
+    }
+}
+
+/// Which modifier row of the F-key bar is shown.
+#[derive(Debug, Clone, Copy)]
+pub struct KeyBarMods {
+    /// Modifiers held right now (as the terminal reports them).
+    pub held: crossterm::event::KeyModifiers,
+    /// Row picked with `cycle_fkeys_modifiers` or a click (wins over `held`).
+    pub pinned: Option<crossterm::event::KeyModifiers>,
+}
+
+impl Default for KeyBarMods {
+    fn default() -> Self {
+        Self {
+            held: crossterm::event::KeyModifiers::empty(),
+            pinned: None,
+        }
+    }
+}
+
+/// Selection saved for RestoreSelection: the marked paths and their order.
+#[derive(Debug, Clone, Default)]
+pub struct SelectionSnapshot {
+    pub paths: HashSet<PathBuf>,
+    pub order: Vec<PathBuf>,
+}
+
 pub struct AppState {
     pub panels: PanelPair,
     pub history: HistoryState,
     pub update: UpdateState,
-    pub cli_input: String,
-    /// The command line was opened explicitly (`focus_cli`) and takes every
-    /// printable key, even while empty.
-    pub cli_focused: bool,
-    /// Command-history entry shown on the command line (`cli_history_*`).
-    pub cli_history_pos: Option<usize>,
+    /// The command line under the panels.
+    pub cli: CliLine,
     /// Letters typed for type-ahead find.
     pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
     /// Items yanked / cut for a later paste.
@@ -66,46 +116,26 @@ pub struct AppState {
     /// Background SSH connection attempt (target tab, result).
     pub ssh_connect:
         crate::app::jobs::JobSlot<(TabId, anyhow::Result<crate::fs::ssh::SharedSshClient>)>,
-    /// Channel receiver for running background file search operations
-    pub search_rx: Option<tokio::sync::mpsc::Receiver<(PathBuf, bool)>>,
+    /// Background Find file search (matches so far as progress).
+    pub search: crate::app::jobs::file_search::SearchSlot,
     pub plugins: PluginHostState,
-    /// Channel for communicating with the background terminal
-    pub term_tx: tokio::sync::mpsc::UnboundedSender<TerminalUpdate>,
-    pub term_rx: Option<tokio::sync::mpsc::UnboundedReceiver<TerminalUpdate>>,
-    /// Full-screen clear on next paint (resize or native TTY/admin restore).
-    /// Applied inside the synchronized-update region to avoid a visible flash.
-    pub terminal_needs_clear: bool,
-    /// When false, the main loop may skip `terminal.draw` (dirty-flag rendering).
-    pub ui_dirty: bool,
-    /// Last time transfer progress forced a redraw (rate-limit).
-    pub last_transfer_draw: Option<std::time::Instant>,
+    /// When the next frame must be painted (dirty-flag rendering).
+    pub redraw: Redraw,
 
-    // ── Screens Management ────────────────────────────────────────────────────
-    pub screens: Vec<Screen>,
-    pub screen_dialogs: Vec<DialogStack>,
-    pub active_screen_idx: usize,
+    /// Panels, viewers, editors and terminals the user switches between.
+    pub screens: ScreenStack,
 
     // ── Folder shortcuts: number 1–9 → absolute path ─────────────────────────
     pub folder_shortcuts: HashMap<u8, PathBuf>,
 
-    // ── Selection snapshot for RestoreSelection ───────────────────────────────
-    pub last_selection_snapshot: HashSet<PathBuf>,
-    pub last_selection_order_snapshot: Vec<PathBuf>,
+    /// Selection saved for RestoreSelection.
+    pub selection_snapshot: SelectionSnapshot,
 
-    // ── System settings ───────────────────────────────────────────────────────
-    pub case_sensitive_sort: bool,
-    pub treat_digits_as_numbers: bool,
-    pub sorting_collation: String,
-    pub req_admin_reading: bool,
+    /// Panel options mirrored from the settings ([`Self::apply_settings`]).
+    pub prefs: PanelPrefs,
 
-    // ── Panel settings (mirrors Settings for quick access) ────────────────────
-    pub select_folders: bool,
-    pub sort_folder_names_by_extension: bool,
-    pub show_dotdot_in_root_folders: bool,
-    pub disable_panel_update_object_count: u32,
-
-    pub current_modifiers: crossterm::event::KeyModifiers,
-    pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
+    /// Modifier row the F-key bar shows.
+    pub key_bar: KeyBarMods,
     pub pending_custom_command: Option<String>,
     pub is_root: bool,
 
@@ -157,44 +187,26 @@ pub struct AppState {
 
 impl AppState {
     pub fn new(left_path: PathBuf, right_path: PathBuf) -> Self {
-        let (term_tx, term_rx) = tokio::sync::mpsc::unbounded_channel();
         let is_root = crate::fs::is_elevated();
         Self {
             panels: PanelPair::new(left_path, right_path),
             history: HistoryState::default(),
             update: UpdateState::default(),
-            cli_input: String::new(),
-            cli_focused: false,
-            cli_history_pos: None,
+            cli: CliLine::default(),
             type_ahead: Default::default(),
             file_clipboard: None,
             last_panel_search: None,
             dialogs: DialogStack::new(),
             should_quit: false,
             ssh_connect: Default::default(),
-            search_rx: None,
+            search: Default::default(),
             plugins: PluginHostState::default(),
-            term_tx,
-            term_rx: Some(term_rx),
-            screens: vec![Screen::Panels],
-            screen_dialogs: vec![DialogStack::new()],
-            active_screen_idx: 0,
+            screens: ScreenStack::default(),
             folder_shortcuts: HashMap::new(),
-            last_selection_snapshot: HashSet::new(),
-            last_selection_order_snapshot: Vec::new(),
-            case_sensitive_sort: false,
-            treat_digits_as_numbers: false,
-            sorting_collation: "linguistic".to_string(),
-            req_admin_reading: false,
-            select_folders: false,
-            sort_folder_names_by_extension: false,
-            show_dotdot_in_root_folders: false,
-            disable_panel_update_object_count: 0,
-            current_modifiers: crossterm::event::KeyModifiers::empty(),
-            fkeys_modifier_override: None,
-            terminal_needs_clear: false,
-            ui_dirty: true,
-            last_transfer_draw: None,
+            selection_snapshot: SelectionSnapshot::default(),
+            prefs: PanelPrefs::default(),
+            key_bar: KeyBarMods::default(),
+            redraw: Redraw::default(),
             pending_custom_command: None,
             is_root,
             // Transfer Engine
@@ -218,13 +230,13 @@ impl AppState {
     }
 
     pub fn mark_ui_dirty(&mut self) {
-        self.ui_dirty = true;
+        self.redraw.dirty = true;
     }
 
     /// True when the frame should be painted this tick.
     /// Transfer/update progress must call [`Self::mark_ui_dirty`] (rate-limited in the main loop).
     pub fn needs_redraw(&self) -> bool {
-        self.ui_dirty || self.terminal_needs_clear
+        self.redraw.dirty || self.redraw.needs_clear
     }
 
     /// Returns a reference to the active panel state.
@@ -254,8 +266,11 @@ impl AppState {
 
     /// Saves the current selection snapshot for later RestoreSelection.
     pub fn snapshot_selection(&mut self) {
-        self.last_selection_snapshot = self.get_active_panel().selected_paths.clone();
-        self.last_selection_order_snapshot = self.get_active_panel().selection_order.clone();
+        let panel = self.get_active_panel();
+        self.selection_snapshot = SelectionSnapshot {
+            paths: panel.selected_paths.clone(),
+            order: panel.selection_order.clone(),
+        };
     }
 
     /// Points the active panel at a local folder (hotlist / folder shortcut jump).
@@ -269,10 +284,10 @@ impl AppState {
 
     /// Restores the last saved selection snapshot.
     pub fn restore_selection(&mut self) {
-        let snapshot = self.last_selection_snapshot.clone();
-        self.get_active_panel_mut().selected_paths = snapshot;
-        let order_snapshot = self.last_selection_order_snapshot.clone();
-        self.get_active_panel_mut().selection_order = order_snapshot;
+        let snapshot = self.selection_snapshot.clone();
+        let panel = self.get_active_panel_mut();
+        panel.selected_paths = snapshot.paths;
+        panel.selection_order = snapshot.order;
     }
 }
 
@@ -284,9 +299,9 @@ mod tests {
     #[test]
     fn needs_redraw_when_only_terminal_needs_clear() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.ui_dirty = false;
+        state.redraw.dirty = false;
         assert!(!state.needs_redraw());
-        state.terminal_needs_clear = true;
+        state.redraw.needs_clear = true;
         assert!(state.needs_redraw());
     }
 }

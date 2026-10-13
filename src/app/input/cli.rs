@@ -1,13 +1,16 @@
 use crate::app::actions::execute_shell_command;
 use crate::app::actions::panel_search::open as open_search;
 use crate::app::context::AppContext;
+use crate::app::input::cli_cd::{cd_argument, change_dir};
+use crate::app::input::cli_complete::complete;
 use crate::app::input::panel_find::NameMatch;
 use crate::app::input::type_ahead::find_match;
 use crate::app::state::AppState;
 use crate::keybindings::options::TypingMode;
+use crate::keybindings::screens::CliAction;
 use crate::terminal::TerminalBackend;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::time::Instant;
 
 /// Captures characters for bottom shell CLI command input.
@@ -19,13 +22,13 @@ use std::time::Instant;
 pub fn handle_cli_input(
     state: &mut AppState,
     key: KeyEvent,
-    context: &AppContext,
+    context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
     if state.dialogs.is_some() {
         return Err(());
     }
-    if state.cli_focused || !state.cli_input.is_empty() {
+    if state.cli.is_active() {
         return edit_cli(state, key, context, terminal_backend);
     }
     // Uses an immutable peek so multi-key sequences are not consumed here.
@@ -42,7 +45,7 @@ pub fn handle_cli_input(
         return Err(());
     };
     match context.resolver.options().typing {
-        TypingMode::Cli => state.cli_input.push(c),
+        TypingMode::Cli => state.cli.field.insert_char(c),
         TypingMode::TypeAhead => type_ahead(state, c),
         TypingMode::Commands => return Err(()),
     }
@@ -79,42 +82,54 @@ fn type_ahead(state: &mut AppState, c: char) {
     }
 }
 
-/// Keys while the command line is being edited.
+/// Keys while the command line is being edited: Enter runs it, Esc clears
+/// it, the `[cli]` keymap completes names and deletes words, and typing and
+/// the cursor keys edit the text. Other keys (Up / Down, F-keys...) go on to
+/// the panels.
 fn edit_cli(
     state: &mut AppState,
     key: KeyEvent,
-    context: &AppContext,
+    context: &mut AppContext,
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
-    if let Some(c) = printable(key) {
-        state.cli_input.push(c);
-        return Ok(());
-    }
     match key.code {
-        KeyCode::Backspace => {
-            state.cli_input.pop();
-            Ok(())
-        }
-        KeyCode::Enter => {
-            state.cli_focused = false;
-            state.cli_history_pos = None;
-            let cmd = state.cli_input.trim().to_string();
-            state.cli_input.clear();
+        KeyCode::Enter if key.modifiers.is_empty() => {
+            let cmd = state.cli.text().trim().to_string();
+            state.cli.reset();
             if !cmd.is_empty() {
                 state.push_command_history(cmd.clone());
                 run_cli_command(state, &cmd, context, terminal_backend);
                 state.refresh_both_panels(context.config.settings.show_hidden);
             }
-            Ok(())
+            return Ok(());
         }
         KeyCode::Esc => {
-            state.cli_focused = false;
-            state.cli_history_pos = None;
-            state.cli_input.clear();
-            Ok(())
+            state.cli.reset();
+            return Ok(());
         }
-        _ => Err(()),
+        _ => {}
     }
+    if let Some(command) = context.resolver.cli.dispatch(key) {
+        match command {
+            CliAction::Complete => {
+                complete(state);
+            }
+            CliAction::DeleteWord => {
+                state.cli.completion = None;
+                state.cli.field.delete_word_back();
+            }
+        }
+        return Ok(());
+    }
+    // Characters only without Ctrl / Alt: those chords are shortcuts.
+    if matches!(key.code, KeyCode::Char(_)) && printable(key).is_none() {
+        return Err(());
+    }
+    if state.cli.field.handle_key(&key).consumed() {
+        state.cli.completion = None;
+        return Ok(());
+    }
+    Err(())
 }
 
 /// Runs a submitted command line: `cd`, a background `... &` job or a shell command.
@@ -125,12 +140,8 @@ fn run_cli_command(
     terminal_backend: &mut TerminalBackend,
 ) {
     let current_path = state.get_active_panel().current_path.clone();
-    if cmd == "cd" || cmd.starts_with("cd ") {
-        change_dir(
-            state,
-            cmd.strip_prefix("cd").unwrap_or("").trim(),
-            &current_path,
-        );
+    if let Some(arg) = cd_argument(cmd) {
+        change_dir(state, arg);
     } else if let Some(cmd_bg) = cmd.strip_suffix('&') {
         spawn_background(state, cmd_bg.trim().to_string(), current_path);
     } else {
@@ -138,55 +149,9 @@ fn run_cli_command(
     }
 }
 
-/// `cd [dir]`: an empty target or `~` goes home; relative targets resolve
-/// against the active panel's folder.
-fn change_dir(state: &mut AppState, target_dir: &str, current_path: &Path) {
-    let new_path = if target_dir.is_empty() || target_dir == "~" {
-        crate::app::session::restore::home_dir()
-    } else {
-        current_path.join(Path::new(target_dir))
-    };
-    let new_path = std::fs::canonicalize(&new_path).unwrap_or(new_path);
-    if new_path.is_dir() {
-        let active = state.get_active_panel_mut();
-        active.current_path = new_path;
-        active.cursor_index = 0;
-        active.clear_selection();
-    }
-}
-
 /// `command &`: runs on a PTY in a new terminal screen, streaming its output.
 fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) {
-    use crate::app::state::TerminalUpdate;
-    let ts = crate::app::state::types::TerminalState {
-        command: cmd_bg.clone(),
-        output_lines: vec![],
-        is_running: true,
-        pid: None,
-        job_id: None,
-    };
+    let limit = state.screens.terminal_lines;
+    let ts = crate::app::state::TerminalState::spawn(cmd_bg, &current_dir, limit);
     state.push_screen(crate::app::state::Screen::Terminal(ts));
-    let screen_idx = state.screens.len() - 1;
-    let tx = state.term_tx.clone();
-
-    tokio::task::spawn_blocking(move || {
-        let tx_line = tx.clone();
-        let run =
-            crate::terminal::pty_cmd::stream_shell_on_pty(&cmd_bg, Some(&current_dir), |line| {
-                let _ = tx_line.send(TerminalUpdate {
-                    screen_idx,
-                    line: Some(line),
-                });
-            });
-        if let Err(e) = run {
-            let _ = tx.send(TerminalUpdate {
-                screen_idx,
-                line: Some(format!("Failed to spawn: {e}")),
-            });
-        }
-        let _ = tx.send(TerminalUpdate {
-            screen_idx,
-            line: None,
-        });
-    });
 }

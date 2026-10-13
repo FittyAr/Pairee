@@ -6,10 +6,7 @@ use crate::fs::archive::test_fixtures::{SAMPLE_TREE, write_tar_gz, write_zip};
 use crate::test_harness::Harness;
 
 fn in_viewer(h: &Harness) -> bool {
-    matches!(
-        h.state.screens.get(h.state.active_screen_idx),
-        Some(Screen::Viewer(_))
-    )
+    matches!(Some(h.state.screens.active()), Some(Screen::Viewer(_)))
 }
 
 /// Enters `archive`, views `sub/b.txt`, copies it out to the right panel

@@ -83,6 +83,7 @@ impl Default for Settings {
             viewer_show_scrollbar: false,
             viewer_autodetect_codepage: true,
             viewer_default_codepage: super::default_viewer_codepage(),
+            terminal_scrollback_lines: super::default_terminal_scrollback_lines(),
 
             // Tab 6
             highlight_rules: crate::ui::highlight::default_highlight_rules(),
@@ -109,23 +110,7 @@ impl Default for Settings {
             active_dev_plugin: None,
             security: Default::default(),
 
-            // Transfer Engine
-            transfer_default_hash: "blake3".to_string(),
-            transfer_buffer_size: 1024 * 1024,
-            transfer_verify_after_copy: false,
-            transfer_direct_io: false,
-            transfer_preserve_timestamps: true,
-            transfer_preserve_attributes: true,
-            transfer_max_retries: 3,
-            transfer_conflict_resolution: "ask".to_string(),
-            transfer_skip_symlinks: false,
-            transfer_halt_on_error: false,
-            transfer_preserve_acl: false,
-            transfer_preserve_streams: false,
-            transfer_follow_symlinks: false,
-            transfer_limit_bandwidth_rate: None,
-            transfer_auto_report: false,
-            transfer_report_format: "html".to_string(),
+            transfer: super::TransferSettings::default(),
         }
     }
 }

@@ -64,7 +64,7 @@ fn render_specific_popup(
     context: &AppContext,
     panels: (Rect, Rect),
 ) {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let size = f.area();
     if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
         return;
@@ -140,7 +140,7 @@ fn render_specific_popup(
     if command_palette::render(f, popup, theme, size, &context.resolver) {
         return;
     }
-    if shortcuts::render(f, popup, theme, size) {}
+    shortcuts::render(f, popup, theme, size);
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,

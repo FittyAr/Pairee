@@ -14,7 +14,7 @@ use ratatui::{Frame, layout::Rect};
 pub fn render_prompt_popup(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
     context: &AppContext,
     state: &AppState,

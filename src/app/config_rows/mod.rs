@@ -241,3 +241,18 @@ pub fn cycle(
 
 #[cfg(test)]
 mod tests;
+
+/// A text row: `show` is the value displayed, `get` the text edited and
+/// `set` stores the typed text.
+pub(super) fn edit(
+    key: &'static str,
+    show: fn(&ConfigDraft) -> String,
+    get: fn(&ConfigDraft) -> String,
+    set: fn(&mut ConfigDraft, &str),
+) -> Row {
+    Row::Setting(Setting {
+        label: Label::Key(key),
+        indent: 0,
+        kind: Kind::Edit { show, get, set },
+    })
+}

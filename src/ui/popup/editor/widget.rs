@@ -4,7 +4,6 @@ use crate::app::editor::viewport::Viewport;
 use crate::app::state::PopupType;
 use crate::app::text_input;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -27,7 +26,7 @@ pub fn render_editor_widget(
     area: Rect,
     ed: &EditorState,
     view: EditorView,
-    theme: &crate::config::theme::Theme,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
     active_popup: Option<&PopupType>,
 ) {
     let block = editor_block(ed, theme);
@@ -44,16 +43,11 @@ pub fn render_editor_widget(
         Some(PopupType::EditorSearchPrompt(search)) => search.active_query(),
         _ => None,
     };
-    let normal_style = Style::default().fg(parse_color(&theme.panel_fg));
+    let normal_style = Style::default().fg(theme.panel_fg);
     let styles = LineStyles {
         normal: normal_style,
-        search: Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.marked_fg))
-            .add_modifier(ratatui::style::Modifier::BOLD),
-        selected: Style::default()
-            .bg(parse_color(&theme.selection_bg))
-            .fg(parse_color(&theme.selection_fg)),
+        search: theme.search_match(),
+        selected: theme.selection(),
     };
 
     // Horizontal scroll: keep the cursor column inside the text area.
@@ -100,11 +94,8 @@ pub fn render_editor_widget(
     f.render_widget(Paragraph::new(text).style(normal_style), edit_area);
 
     let status_text = status_text(ed, current_line);
-    let status_para = Paragraph::new(status_text).style(
-        Style::default()
-            .bg(parse_color(&theme.header_fg))
-            .fg(parse_color(&theme.header_bg)),
-    );
+    let status_para =
+        Paragraph::new(status_text).style(Style::default().bg(theme.header_fg).fg(theme.header_bg));
     f.render_widget(status_para, status_area);
 
     // Draw the terminal blinking cursor at the editing position
@@ -117,20 +108,23 @@ pub fn render_editor_widget(
 }
 
 /// Frame titled with the file name and a `*` when modified.
-fn editor_block<'a>(ed: &EditorState, theme: &crate::config::theme::Theme) -> Block<'a> {
+fn editor_block<'a>(
+    ed: &EditorState,
+    theme: &crate::ui::resolved_theme::ResolvedTheme,
+) -> Block<'a> {
     let title = t("editor_title")
         .replacen("{}", &ed.display_path().to_string_lossy(), 1)
         .replacen("{}", if ed.is_dirty() { "*" } else { "" }, 1);
     Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.panel_border)))
+        .border_style(Style::default().fg(theme.panel_border))
         .title(ratatui::text::Span::styled(
             title,
             Style::default()
-                .fg(parse_color(&theme.header_fg))
+                .fg(theme.header_fg)
                 .add_modifier(ratatui::style::Modifier::BOLD),
         ))
-        .style(Style::default().bg(parse_color(&theme.panel_bg)))
+        .style(Style::default().bg(theme.panel_bg))
 }
 
 /// Line length, line count, cursor position, line ending and mode flags.

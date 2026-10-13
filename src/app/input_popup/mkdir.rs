@@ -134,7 +134,7 @@ fn create(state: &mut AppState, context: &AppContext, name: &str) -> bool {
                 .journal
                 .record(crate::fs::journal::FsCommand::MakeDir { path });
             if settings.req_admin_modification {
-                state.terminal_needs_clear = true;
+                state.redraw.needs_clear = true;
             }
             state.dialogs.clear();
             state.refresh_both_panels(settings.show_hidden);

@@ -78,9 +78,9 @@ mod tests {
             .insert(src.path().join("a.txt"));
         let mut context = context();
         context.config.settings.confirmations.confirm_move = false;
-        context.config.settings.transfer_preserve_attributes = true;
-        context.config.settings.transfer_conflict_resolution = "skip".into();
-        context.config.settings.transfer_follow_symlinks = true;
+        context.config.settings.transfer.preserve_attributes = true;
+        context.config.settings.transfer.conflict_resolution = "skip".into();
+        context.config.settings.transfer.follow_symlinks = true;
 
         assert!(handle(&mut state, &mut context, TransferPromptOp::Move));
         let jobs = state.transfer.as_ref().unwrap().engine.queue.get_all();

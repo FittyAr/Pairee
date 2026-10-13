@@ -13,12 +13,14 @@ pub fn check_prefixes<B: Bindable>(rows: &[Row<B>], report: &mut KeymapLoadRepor
     for short in rows {
         for long in rows {
             if long.seq.match_to(short.seq.as_slice()) == Match::Prefix {
-                report.errors.push(format!(
-                    "'{}' ({}) hides the sequence '{}' ({})",
-                    short.seq,
-                    short.command.id(),
-                    long.seq,
-                    long.command.id()
+                report.errors.push(fill(
+                    "keymap_issue_hidden_sequence",
+                    &[
+                        &short.seq.to_string(),
+                        short.command.id(),
+                        &long.seq.to_string(),
+                        long.command.id(),
+                    ],
                 ));
             }
         }
@@ -36,15 +38,21 @@ pub fn check_robustness<B: Bindable>(rows: &[Row<B>], report: &mut KeymapLoadRep
         if reasons.is_empty() {
             report
                 .robustness
-                .push(format!("'{}' has no key", command.id()));
+                .push(fill("keymap_issue_no_key", &[command.id()]));
         } else if reasons.iter().all(Option::is_some)
             && let Some(Some(reason)) = reasons.first()
         {
-            report.robustness.push(format!(
-                "'{}' only has chords some terminals cannot send: {}",
-                command.id(),
-                t(reason.label_key())
+            report.robustness.push(fill(
+                "keymap_issue_fragile_only",
+                &[command.id(), &t(reason.label_key())],
             ));
         }
     }
+}
+
+/// The translation of `key` with its `{}` placeholders filled in order.
+fn fill(key: &str, values: &[&str]) -> String {
+    values
+        .iter()
+        .fold(t(key), |text, value| text.replacen("{}", value, 1))
 }

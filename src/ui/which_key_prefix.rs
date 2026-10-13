@@ -4,7 +4,6 @@
 
 use crate::app::context::AppContext;
 use crate::config::localization::t;
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::Rect,
@@ -54,17 +53,13 @@ pub fn render(f: &mut Frame, context: &AppContext, area: Rect) {
     let y = area.y + area.height.saturating_sub(height).saturating_sub(1);
     let rect = Rect::new(x, y, width, height);
 
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     f.render_widget(Clear, rect);
     let block = Block::default()
         .title(title)
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(parse_color(&theme.popup_border)))
-        .style(
-            Style::default()
-                .fg(parse_color(&theme.popup_fg))
-                .bg(parse_color(&theme.popup_bg)),
-        );
+        .border_style(Style::default().fg(theme.popup_border))
+        .style(Style::default().fg(theme.popup_fg).bg(theme.popup_bg));
     let inner = block.inner(rect);
     f.render_widget(block, rect);
     f.render_widget(Paragraph::new(rows), inner);

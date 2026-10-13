@@ -40,7 +40,7 @@ pub fn handle_transfer_event(
         TransferEvent::JobCompleted { results, .. } => {
             effects.term_forwards.push((job_id, None));
             effects.refresh_needed = true;
-            if context.config.settings.transfer_auto_report {
+            if context.config.settings.transfer.auto_report {
                 save_report(transfer, context, job_id, &results);
             }
             effects.finished.push((job_id, Some(results)));
@@ -76,7 +76,7 @@ fn save_report(
     job_id: Uuid,
     results: &TransferResults,
 ) {
-    let format = &context.config.settings.transfer_report_format;
+    let format = &context.config.settings.transfer.report_format;
     let content = if format == "csv" {
         crate::fs::transfer::report::generate_csv_report(results)
     } else {

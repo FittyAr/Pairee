@@ -110,7 +110,7 @@ pub fn launch_args(args: &[String]) {
 /// Renders `text` (terminal output with escape sequences) as styled text.
 pub fn ansi(text: &str) {
     let lines: Vec<String> = text.lines().map(str::to_string).collect();
-    let _ = crate::ui::screens::terminal_output_text(&lines, 200);
+    let _ = crate::ui::terminal_screen::terminal_output_text(&lines, 200);
 }
 
 /// Multi-rename rules applied to one file name.

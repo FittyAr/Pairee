@@ -8,6 +8,7 @@ pub mod file_drag;
 pub mod gesture;
 mod panel;
 mod popup;
+mod screens;
 pub mod scrollbar;
 mod tabs;
 
@@ -263,9 +264,14 @@ async fn on_click(
             act(state, context, terminal_backend, action).await?;
             Some(true)
         }
+        HitTarget::CloseScreen(id) if click.button == MouseButton::Left => {
+            Some(screens::close(state, id))
+        }
         HitTarget::MenuTitle(_)
         | HitTarget::PanelSplitter { .. }
         | HitTarget::Action(_)
+        | HitTarget::TerminalOutput(_)
+        | HitTarget::CloseScreen(_)
         | HitTarget::PopupBody
         | HitTarget::PopupTitle
         | HitTarget::PopupResize
@@ -288,6 +294,9 @@ async fn wheel(
         return Ok(Some(false));
     }
     let down = mouse.kind == MouseEventKind::ScrollDown;
+    if let HitTarget::TerminalOutput(id) = hit.target {
+        return Ok(Some(screens::wheel(state, id, down)));
+    }
     if let HitTarget::PopupRow { focus, .. } = hit.target {
         return popup::wheel(state, context, terminal_backend, (focus, down))
             .await

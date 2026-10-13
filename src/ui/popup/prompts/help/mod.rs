@@ -5,9 +5,9 @@ pub use markdown::parse_markdown_to_lines;
 
 use super::super::centered_rect_in;
 use crate::app::state::PopupType;
+use crate::config::localization::t;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
-use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -16,12 +16,12 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-type Theme = crate::config::theme::Theme;
+use crate::ui::resolved_theme::ResolvedTheme;
 
 pub fn render(
     f: &mut Frame,
     popup: &PopupType,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
@@ -62,13 +62,12 @@ pub fn render(
     // 2. Render Right panel (content viewer)
     let doc_title = current_docs
         .get(*cursor_idx)
-        .map(|(t, _)| t.as_str())
-        .unwrap_or(" Documentation ");
+        .map_or_else(|| t("help_documentation"), |(title, _)| title.clone());
     let right_block = Block::default()
         .borders(Borders::ALL)
         .border_style(Style::default().fg(focus_color(*mode == 1, theme)))
         .title(format!(" {} ", doc_title))
-        .style(Style::default().bg(parse_color(&theme.popup_bg)));
+        .style(Style::default().bg(theme.popup_bg));
     match active_content {
         Some(content) => render_content(
             f,
@@ -80,7 +79,7 @@ pub fn render(
             scrollbar,
         ),
         None => {
-            let empty_paragraph = Paragraph::new(" No document loaded ").block(right_block);
+            let empty_paragraph = Paragraph::new(t("help_no_document")).block(right_block);
             f.render_widget(empty_paragraph, chunks[1]);
         }
     }
@@ -88,11 +87,11 @@ pub fn render(
     // 3. Render help hint at the bottom
     let hint_area = Rect {
         x: area.x + 2,
-        y: area.y + area.height - 2,
+        y: area.y + area.height.saturating_sub(2),
         width: area.width.saturating_sub(4),
         height: 1,
     };
-    let hint_text = " [Tab] Switch Panels  [Up/Down/j/k] Navigate/Scroll  [Esc] Close ";
+    let hint_text = t("help_hint");
     f.render_widget(
         Paragraph::new(hint_text)
             .alignment(ratatui::layout::Alignment::Center)
@@ -103,11 +102,11 @@ pub fn render(
 }
 
 /// Yellow border on the focused pane, the theme border otherwise.
-fn focus_color(focused: bool, theme: &Theme) -> Color {
+fn focus_color(focused: bool, theme: &ResolvedTheme) -> Color {
     if focused {
         Color::Yellow
     } else {
-        parse_color(&theme.popup_border)
+        theme.popup_border
     }
 }
 
@@ -120,9 +119,9 @@ struct DocList<'a> {
 }
 
 /// Core/Plugins tab bar above the document titles.
-fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &Theme, list: &DocList) {
+fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &ResolvedTheme, list: &DocList) {
     let border_style = Style::default().fg(focus_color(list.focused, theme));
-    let bg_style = Style::default().bg(parse_color(&theme.popup_bg));
+    let bg_style = Style::default().bg(theme.popup_bg);
     // Split left panel into Tabs and Document list
     let left_chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -144,9 +143,9 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &Theme, list: &DocList
     };
     let tabs_line = Line::from(vec![
         Span::styled(" [ ", dim),
-        Span::styled("Core Help", tab_style(0)),
+        Span::styled(t("help_tab_core"), tab_style(0)),
         Span::styled(" ]  [ ", dim),
-        Span::styled("Plugins Help", tab_style(1)),
+        Span::styled(t("help_tab_plugins"), tab_style(1)),
         Span::styled(" ]", dim),
     ]);
     let tab_block = Block::default()
@@ -161,12 +160,11 @@ fn render_doc_list(f: &mut Frame, left_area: Rect, theme: &Theme, list: &DocList
         .enumerate()
         .map(|(i, (doc_title, _))| {
             let style = if i == list.cursor_idx {
-                Style::default()
-                    .bg(parse_color(&theme.selection_bg))
-                    .fg(parse_color(&theme.selection_fg))
+                theme
+                    .selection()
                     .add_modifier(ratatui::style::Modifier::BOLD)
             } else {
-                Style::default().fg(parse_color(&theme.popup_fg))
+                Style::default().fg(theme.popup_fg)
             };
             ListItem::new(Line::from(vec![Span::styled(
                 format!("  {}  ", doc_title),
@@ -211,8 +209,8 @@ fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
         height: 1,
     };
     let labels = [
-        " [ Core Help ]".to_string(),
-        "  [ Plugins Help ]".to_string(),
+        format!(" [ {} ]", t("help_tab_core")),
+        format!("  [ {} ]", t("help_tab_plugins")),
     ];
     let keys = (0..2)
         .map(|tab| {
@@ -231,7 +229,7 @@ fn register_doc_list(tabs_area: Rect, rows_area: Rect, list: &DocList) {
 fn render_content(
     f: &mut Frame,
     right_area: Rect,
-    theme: &Theme,
+    theme: &ResolvedTheme,
     right_block: Block,
     content: &str,
     scroll_y: usize,
@@ -245,7 +243,7 @@ fn render_content(
     let paragraph = Paragraph::new(wrapped_lines)
         .block(right_block)
         .scroll((scroll_y as u16, 0))
-        .style(Style::default().fg(parse_color(&theme.popup_fg)));
+        .style(Style::default().fg(theme.popup_fg));
     f.render_widget(paragraph, right_area);
 
     // Fractional scrollbar when content overflows the viewer pane

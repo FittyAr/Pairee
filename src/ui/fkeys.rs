@@ -5,7 +5,6 @@ use crate::keybindings::Action;
 use crate::keybindings::keymap::ContextKeymap;
 use crate::keybindings::registry::is_global;
 use crate::keybindings::screens::ScreenCommand;
-use crate::ui::theme_apply::parse_color;
 use crossterm::event::KeyModifiers;
 use ratatui::{
     Frame,
@@ -134,9 +133,10 @@ fn cells(label: impl Fn(usize) -> String) -> Vec<(String, String)> {
 fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
     let modifiers = bar_modifiers(state);
     let prefix = modifier_prefix(modifiers);
-    match state.screens.get(state.active_screen_idx) {
+    match Some(state.screens.active()) {
         Some(Screen::Editor(_)) => screen_cells(&context.resolver.editor, context, &prefix),
         Some(Screen::Viewer(_)) => screen_cells(&context.resolver.viewer, context, &prefix),
+        Some(Screen::Terminal(_)) => screen_cells(&context.resolver.terminal, context, &prefix),
         _ => {
             let mut row = keymap_cells(context, &prefix);
             if modifiers == KeyModifiers::SHIFT && is_dev_plugin_dir(context, state) {
@@ -149,9 +149,7 @@ fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
 
 /// Modifiers whose row the bar shows.
 fn bar_modifiers(state: &AppState) -> KeyModifiers {
-    state
-        .fkeys_modifier_override
-        .unwrap_or(state.current_modifiers)
+    state.key_bar.pinned.unwrap_or(state.key_bar.held)
 }
 
 /// `Shift+F11` installs the plugin under the cursor in developer mode.
@@ -169,7 +167,7 @@ fn is_dev_plugin_dir(context: &AppContext, state: &AppState) -> bool {
 }
 
 pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &AppState) {
-    let theme = &context.config.theme;
+    let theme = &context.theme();
     let fkeys = bar_cells(context, state);
 
     // Divide the row into 12 equal columns
@@ -179,13 +177,9 @@ pub fn render_fkeys(f: &mut Frame, area: Rect, context: &AppContext, state: &App
         .constraints(constraints)
         .split(area);
 
-    let num_style = Style::default()
-        .bg(parse_color(&theme.fkey_bg))
-        .fg(parse_color(&theme.fkey_num_fg));
+    let num_style = Style::default().bg(theme.fkey_bg).fg(theme.fkey_num_fg);
 
-    let text_style = Style::default()
-        .bg(parse_color("DarkGray"))
-        .fg(parse_color(&theme.fkey_text_fg));
+    let text_style = Style::default().bg(Color::DarkGray).fg(theme.fkey_text_fg);
 
     let modifiers = bar_modifiers(state);
     for (i, (num, text)) in fkeys.iter().enumerate() {
@@ -244,7 +238,7 @@ mod tests {
     fn panel_cells(modifiers: KeyModifiers) -> Vec<(String, String)> {
         let context = AppContext::new(AppConfig::default());
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.fkeys_modifier_override = Some(modifiers);
+        state.key_bar.pinned = Some(modifiers);
         bar_cells(&context, &state)
     }
 
@@ -257,7 +251,7 @@ mod tests {
         assert_eq!(label(&plain, 2), t("fkey_ed_save"));
         assert_eq!(label(&plain, 3), t("fkey_ed_next"));
         assert_eq!(label(&plain, 4), t("fkey_ed_hex"));
-        state.fkeys_modifier_override = Some(KeyModifiers::SHIFT);
+        state.key_bar.pinned = Some(KeyModifiers::SHIFT);
         let shifted = bar_cells(&context, &state);
         assert_eq!(label(&shifted, 2), t("fkey_ed_save_as"));
         assert_eq!(label(&shifted, 7), t("fkey_ed_next"));
