@@ -14,8 +14,8 @@
 //!
 //! Para salir del modo de diagnóstico, pulsa la tecla `Esc`.
 //!
-//! Ejecutar con `cargo run --example test_keys` (es un ejemplo para que
-//! `cargo install` no lo instale junto a `pairee`).
+//! Run with `cargo run --example test_keys` (an example, so `cargo install`
+//! installs only `pairee`).
 
 use crossterm::{
     event::{self, Event, KeyCode, KeyEventKind},

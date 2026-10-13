@@ -18,3 +18,4 @@
 - Windows self-update (zip install): the new `pairee.exe` is put in place while Pairee runs, and the previous one is restored if that fails, instead of a helper script that waited 2 seconds and copied without checking errors. Restart Pairee to use the new version.
 - The updater removes the files earlier updates left behind (the replaced `pairee.exe`, the downloaded installer).
 - `install.sh` honours `XDG_CONFIG_HOME`, removes its temporary files when interrupted, replaces a running `pairee` without "Text file busy", and no longer cancels a non-interactive update when `/dev/tty` cannot be opened.
+- The MSIX package no longer replaces the minimum Windows version it declares with the Pairee version.
