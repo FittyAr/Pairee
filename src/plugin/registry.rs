@@ -1,5 +1,7 @@
 use crate::app::state::types::PluginWidget;
+use crate::plugin::limits::guarded;
 use crate::plugin::loader::PluginManifest;
+use crate::plugin::runtime::lua_json;
 use mlua::LuaSerdeExt;
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -125,11 +127,11 @@ fn execute_peek_internal(
         let _ = job_table.set("area", area_table);
         let _ = job_table.set("skip", job.skip);
 
-        // Call peek(job)
-        let result: mlua::Value = match peek_fn.call((table, job_table)) {
+        // Call peek(job) under the CPU watchdog
+        let result: mlua::Value = match guarded(lua, || peek_fn.call((table, job_table))) {
             Ok(val) => val,
             Err(e) => {
-                log::error!("Error in plugin peek: {:?}", e);
+                tracing::error!("Error in plugin peek: {:?}", e);
                 return None;
             }
         };
@@ -157,7 +159,9 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
         if let Some(command) = args.first() {
             let _ = args_table.set("command", command.clone());
         }
-        let _: Result<(), mlua::Error> = entry_fn.call((table, args_table));
+        if let Err(e) = guarded(lua, || entry_fn.call::<_, ()>((table, args_table))) {
+            tracing::error!("Error in plugin command: {e}");
+        }
     }
 }
 
@@ -174,16 +178,16 @@ fn execute_event_internal(
         && let Ok(callbacks) = ps_table.get::<_, mlua::Table>("_callbacks")
         && let Ok(callback_list) = callbacks.get::<_, mlua::Table>(event_name)
     {
-        let parsed_data: mlua::Value =
-            if let Ok(val) = serde_json::from_str::<serde_json::Value>(data) {
-                lua.to_value(&val).unwrap_or(mlua::Value::Nil)
-            } else {
-                mlua::Value::Nil
-            };
+        let parsed_data: mlua::Value = serde_json::from_str::<serde_json::Value>(data)
+            .ok()
+            .and_then(|val| lua_json::from_json(lua, &val).ok())
+            .unwrap_or(mlua::Value::Nil);
         let len = callback_list.len().unwrap_or(0);
         for i in 1..=len {
-            if let Ok(func) = callback_list.get::<_, mlua::Function>(i) {
-                let _: Result<(), mlua::Error> = func.call(parsed_data.clone());
+            if let Ok(func) = callback_list.get::<_, mlua::Function>(i)
+                && let Err(e) = guarded(lua, || func.call::<_, ()>(parsed_data.clone()))
+            {
+                tracing::error!("Error in plugin hook '{event_name}': {e}");
             }
         }
     }
@@ -212,7 +216,7 @@ pub async fn run_command(name: &str, args: Vec<String>) {
     let registry = get_registry();
     let plugins = registry.plugins.read().await;
     if let Some(info) = plugins.get(name) {
-        log::debug!(
+        tracing::debug!(
             "Running plugin command for {} (path: {:?})",
             name,
             info.path

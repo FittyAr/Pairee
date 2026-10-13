@@ -1,7 +1,11 @@
-use crate::plugin::manager::PluginRequest;
+use crate::plugin::manager::{PluginOrigin, PluginRequest};
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(
+    lua: &mlua::Lua,
+    tx: mpsc::Sender<PluginRequest>,
+    origin: PluginOrigin,
+) -> mlua::Result<mlua::Table<'_>> {
     let app = lua.create_table()?;
 
     // Read active cwd from snapshot
@@ -40,10 +44,17 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
         })?,
     )?;
 
-    // Navigate active panel to path, set focus side, popup notification
+    // Navigate the active panel: same validated path as `pairee.emit("cd")`.
+    let tx_cd = tx.clone();
     app.set(
         "cd",
-        fire_and_forget(lua, &tx, |path: String| PluginRequest::Cd { path })?,
+        lua.create_async_function(move |_, path: String| {
+            let tx = tx_cd.clone();
+            let origin = origin.clone();
+            async move {
+                super::emit::send(&tx, origin, "cd".into(), serde_json::Value::String(path)).await
+            }
+        })?,
     )?;
     app.set(
         "set_focus",

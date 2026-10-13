@@ -7,7 +7,7 @@
 //! `dispatch_actions.rs`; this file is the routing layer: one small handler
 //! per request group.
 
-use super::dispatch_actions::dispatch_emit_action;
+use super::dispatch_actions::{dispatch_emit_action, set_focus};
 use super::request::PluginRequest;
 use super::snapshot::{AppStateSnapshot, FileEntrySnapshot};
 use crate::app::context::AppContext;
@@ -44,17 +44,14 @@ fn dispatch_request(state: &mut AppState, context: &AppContext, req: PluginReque
         PluginRequest::NotifyStructured(payload) => {
             super::dispatch_actions::render_notify(state, &payload);
         }
-        PluginRequest::Cd { path } => {
-            state.get_active_panel_mut().current_path = PathBuf::from(path);
-            state.refresh_both_panels(context.config.settings.show_hidden);
-        }
         PluginRequest::SetFocus { side } => set_focus(state, &side),
         PluginRequest::EmitAction {
+            origin,
             name,
             args,
             reply_tx,
         } => {
-            dispatch_emit_action(state, context, &name, &args);
+            dispatch_emit_action(state, context, &origin, &name, &args);
             // Emit is fire-and-forget for the caller; send `null` so the
             // awaiting binding returns at once.
             if let Some(tx) = reply_tx {
@@ -204,14 +201,6 @@ fn build_snapshot(state: &AppState) -> AppStateSnapshot {
         right_cwd: cwd(ActivePanel::Right),
         hovered_file: hovered,
         selected_files: selected,
-    }
-}
-
-fn set_focus(state: &mut AppState, side: &str) {
-    match side {
-        "left" => state.panels.active = ActivePanel::Left,
-        "right" => state.panels.active = ActivePanel::Right,
-        _ => {}
     }
 }
 
