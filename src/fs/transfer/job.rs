@@ -99,6 +99,18 @@ impl TransferJob {
         self
     }
 
+    /// Attaches the remote ends, when there is any (`None`, `None`: local).
+    pub fn with_remotes(
+        self,
+        src: Option<crate::fs::ssh::SharedSshClient>,
+        dst: Option<crate::fs::ssh::SharedSshClient>,
+    ) -> Self {
+        if src.is_none() && dst.is_none() {
+            return self;
+        }
+        self.with_ssh(SshEndpoints { src, dst })
+    }
+
     /// Attach shell template for ApplyCommand (`%f` expands to each source path).
     pub fn with_shell_template(mut self, template: impl Into<String>) -> Self {
         self.shell_template = Some(template.into());

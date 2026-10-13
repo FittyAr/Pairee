@@ -61,13 +61,13 @@ impl LuaFile {
     }
 }
 
-impl<'lua> FromLua<'lua> for LuaFile {
-    fn from_lua(value: Value<'lua>, _lua: &'lua mlua::Lua) -> mlua::Result<Self> {
+impl FromLua for LuaFile {
+    fn from_lua(value: Value, _lua: &mlua::Lua) -> mlua::Result<Self> {
         match value {
             Value::UserData(ud) => Ok(ud.borrow::<Self>()?.clone()),
             _ => Err(mlua::Error::FromLuaConversionError {
                 from: value.type_name(),
-                to: "File",
+                to: "File".to_string(),
                 message: Some("expected File userdata".into()),
             }),
         }
@@ -75,7 +75,7 @@ impl<'lua> FromLua<'lua> for LuaFile {
 }
 
 impl UserData for LuaFile {
-    fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("name", |_, this| Ok(this.name.clone()));
         fields.add_field_method_get("path", |_, this| Ok(this.path.clone()));
         fields.add_field_method_get("url", |_, this| Ok(this.url.clone()));
@@ -88,7 +88,7 @@ impl UserData for LuaFile {
         fields.add_field_method_get("is_exec", |_, this| Ok(this.is_exec));
     }
 
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_meta_method(MetaMethod::ToString, |_, this, ()| Ok(this.path.clone()));
         methods.add_meta_method(
             MetaMethod::Eq,

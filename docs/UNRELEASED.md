@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Added
+- `pairee --help` (`-h`) lists the options and subcommands, and `pairee plugin|developer|keymap --help` the commands of each, in the configured language.
+- Linux and macOS: "Copy attributes" in the Copy / Move dialog also copies extended attributes, and "Copy access control list" copies POSIX ACLs (Linux).
+- Interrupted copies to and from SSH servers resume from the part already written, like local ones.
+- Tar (plain, .gz, .bz2, .xz) and 7z archives can be changed like zip ones: copy files into them, create folders, edit and delete entries. Files and folders can also be moved into and out of zip, tar and 7z archives.
 - `install.sh` installs the aarch64 build on 64-bit ARM Linux, and `install.ps1` the ARM64 build on ARM64 Windows.
 - Git: fetch, pull and push now work with SSH remotes (`git@...`), using ssh-agent or your default keys in `~/.ssh`.
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.
@@ -25,6 +29,7 @@
 - A dialog opened from another one now shows over it instead of hiding it: the file mask and folder tree of the Copy / Move dialog, the Git prompts (commit, checkout, diff, branch and tag names, confirmations, remotes) over the Git panel, and the development plugin picker over the Plugin Manager. Closing it returns to the dialog underneath.
 - The screens list (F12) opened over dialogs brings all of them back when closed, not only the top one.
 - Git text prompts (commit message, branch / tag / stash names, add remote, clone) accept pasted text, and keys of the `[list]` keymap no longer turn typed letters into list moves there.
+- Files added to a zip, tar or 7z archive keep their permissions and modification time, and extracting zip and 7z archives restores the stored Unix permissions.
 - Moving files or folders within one drive is instant: they are renamed instead of copied and deleted. Moves to another drive, moves with "Verify after copy" and filtered moves still copy.
 - Copies and moves to and from SSH servers now ask (or follow the setting) when a file exists, retry failed files, verify copies, keep times and permissions, and write each file under a temporary name first.
 - Direct I/O ("Disable write cache") now bypasses the cache for every whole block of a file, not only for files whose size is a multiple of 4 KiB.
@@ -34,6 +39,7 @@
 - Theme colors and highlighting rules are prepared once when they change instead of on every frame.
 
 ### Changed
+- Sizes in dialogs, the transfer panel and the viewer status line use binary units (KiB, MiB, GiB), matching the 1024-byte steps they are computed with.
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.
 - `install.sh` requires `minisign` and a valid release signature; `--insecure-skip-signature` accepts the download on its SHA-256 checksum alone.
@@ -53,6 +59,9 @@
 ### Removed
 
 ### Fixed
+- Removing or renaming an SSH preset now deletes its old password from the system keyring.
+- Starting Pairee with a plugin under development whose folder was gone deleted the saved SSH preset passwords from the system keyring.
+- `pairee plugin install <name>` failed for every plugin: the name was sent to the registry with a `.pairee` suffix that plugin names cannot have.
 - Git: pull and fast-forward merges no longer discard uncommitted changes; they stop with an error when your local changes would be overwritten.
 - Git: committing after a merge records both parents and ends the merge; committing after a cherry-pick or revert clears its in-progress state.
 - Git: a push the remote rejects is reported as an error instead of a success.

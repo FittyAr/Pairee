@@ -1,10 +1,10 @@
 use super::dir_sizes::DirSizes;
-use super::glob::glob_matches;
 use super::refresh::listing::PanelListing;
 use super::types::{PanelViewMode, SortField};
 use crate::app::jobs::JobSlot;
 use crate::fs::FileEntry;
 use crate::fs::attrs::FileAttrs;
+use crate::fs::glob::glob_matches;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 

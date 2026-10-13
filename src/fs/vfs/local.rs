@@ -3,13 +3,12 @@
 use super::{Capabilities, Vfs, VfsEntry};
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
-use crate::fs::du::DuEntry;
 use crate::fs::file_id::{FileIdentity, file_identity};
 use crate::fs::list::{ListOptions, is_hidden};
 use crate::fs::remove::remove_entry;
 use crate::fs::text::{ByteStore, FileStore};
 use std::fs;
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::sync::Arc;
 use std::time::SystemTime;
@@ -33,10 +32,14 @@ impl Write for SyncOnFlush {
 
 /// Entry for `path` from its link metadata; links are followed for the
 /// folder flag, size and time, so a link to a folder lists (and is
-/// entered) as a folder.
+/// entered) as a folder. The link's own size, hard-link identity and
+/// unreadable metadata are recorded for walkers that need them.
 fn local_entry(name: String, path: std::path::PathBuf, link: Option<fs::Metadata>) -> VfsEntry {
     let hidden = is_hidden(&name, link.as_ref());
     let is_symlink = link.as_ref().is_some_and(|m| m.file_type().is_symlink());
+    let link_size = link.as_ref().filter(|_| is_symlink).map(fs::Metadata::len);
+    let hard_link = link.as_ref().filter(|m| m.is_file()).and_then(hard_link_id);
+    let unreadable = link.is_none();
     let meta = if is_symlink {
         fs::metadata(&path).ok().or(link)
     } else {
@@ -51,7 +54,22 @@ fn local_entry(name: String, path: std::path::PathBuf, link: Option<fs::Metadata
         size: meta.as_ref().map_or(0, fs::Metadata::len),
         modified: meta.and_then(|m| m.modified().ok()),
         hidden,
+        link_size,
+        hard_link,
+        unreadable,
     }
+}
+
+/// `(device, inode)` of a file with more than one hard link.
+#[cfg(unix)]
+fn hard_link_id(meta: &fs::Metadata) -> Option<(u64, u64)> {
+    use std::os::unix::fs::MetadataExt;
+    (meta.nlink() > 1).then(|| (meta.dev(), meta.ino()))
+}
+
+#[cfg(not(unix))]
+fn hard_link_id(_meta: &fs::Metadata) -> Option<(u64, u64)> {
+    None
 }
 
 impl Vfs for LocalVfs {
@@ -99,8 +117,19 @@ impl Vfs for LocalVfs {
         Ok(Box::new(fs::File::open(path)?))
     }
 
+    fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
+        let mut file = fs::File::open(path)?;
+        file.seek(SeekFrom::Start(offset))?;
+        Ok(Box::new(file))
+    }
+
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
         Ok(Box::new(SyncOnFlush(fs::File::create(path)?)))
+    }
+
+    fn append_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        let file = fs::OpenOptions::new().append(true).open(path)?;
+        Ok(Box::new(SyncOnFlush(file)))
     }
 
     /// A read-only file is replaced too; a folder never is.
@@ -164,10 +193,5 @@ impl Vfs for LocalVfs {
     /// Adds the elevated retry of unreadable folders.
     fn read_panel(&self, dir: &Path, opts: &ListOptions) -> anyhow::Result<Vec<FileEntry>> {
         crate::fs::list::read_directory_ext(dir, opts)
-    }
-
-    /// Keeps hard-link identities (counted once) and unreadable entries.
-    fn du_list(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
-        crate::fs::du::local_entries(dir)
     }
 }

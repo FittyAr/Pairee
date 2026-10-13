@@ -60,6 +60,22 @@ pub trait ArchiveReader: Send + Sync {
     fn writable(&self) -> bool {
         false
     }
+
+    /// Applies `edit` to `archive`, atomically (see [`super::edit`]).
+    fn rewrite(
+        &self,
+        _archive: &Path,
+        _edit: &super::edit::ArchiveEdit,
+        _on_added: &mut super::edit::OnAdded,
+    ) -> Result<()> {
+        Err(crate::fs::vfs::unsupported().into())
+    }
+}
+
+/// A stored Unix mode worth applying: some archivers record `0` (or only
+/// the file type), which would leave extracted files unreadable.
+pub(super) fn usable_mode(mode: Option<u32>) -> Option<u32> {
+    mode.filter(|m| m & 0o777 != 0)
 }
 
 /// Converts a timestamp in seconds since the Unix epoch.

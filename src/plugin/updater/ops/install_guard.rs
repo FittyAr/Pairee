@@ -2,7 +2,6 @@
 //! and in-memory hash checks. Everything coming from the registry is treated
 //! as untrusted.
 
-use sha2::{Digest, Sha256};
 use std::path::{Component, Path, PathBuf};
 
 /// Registry identifiers (plugin name, author) must match `[A-Za-z0-9_-]+`.
@@ -48,10 +47,7 @@ pub fn safe_join(base: &Path, rel: &str) -> anyhow::Result<PathBuf> {
 
 /// Verify the downloaded bytes before they touch the final location.
 pub fn verify_bytes_sha256(bytes: &[u8], expected_hex: &str) -> anyhow::Result<()> {
-    let actual: String = Sha256::digest(bytes)
-        .iter()
-        .map(|b| format!("{b:02x}"))
-        .collect();
+    let actual = crate::update::downloader::sha256_hex(bytes);
     if actual.eq_ignore_ascii_case(expected_hex.trim()) {
         Ok(())
     } else {

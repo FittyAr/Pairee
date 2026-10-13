@@ -11,12 +11,12 @@
 use crate::plugin::manager::{NotifyPayload, PluginRequest};
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function> {
     let tx_notify = tx;
     lua.create_async_function(move |_lua, opts: mlua::Table| {
         let tx = tx_notify.clone();
         async move {
-            let title = match opts.get::<_, mlua::String>("title") {
+            let title = match opts.get::<mlua::LuaString>("title") {
                 Ok(s) => s.to_str()?.to_string(),
                 Err(_) => {
                     log::warn!("pairee.notify: missing or non-string `title`");
@@ -24,18 +24,18 @@ pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<ml
                 }
             };
             let content = opts
-                .get::<_, mlua::String>("content")
+                .get::<mlua::LuaString>("content")
                 .ok()
                 .map(|s| s.to_str().map(|s| s.to_string()))
                 .transpose()?
                 .unwrap_or_default();
             let level = opts
-                .get::<_, mlua::String>("level")
+                .get::<mlua::LuaString>("level")
                 .ok()
                 .map(|s| s.to_str().map(|s| s.to_string()))
                 .transpose()?
                 .or_else(|| Some("info".to_string()));
-            let timeout_secs = opts.get::<_, f64>("timeout").ok();
+            let timeout_secs = opts.get::<f64>("timeout").ok();
 
             let payload = NotifyPayload {
                 title,

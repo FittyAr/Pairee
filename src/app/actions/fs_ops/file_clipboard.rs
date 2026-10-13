@@ -5,10 +5,11 @@ use super::link;
 use crate::app::context::AppContext;
 use crate::app::state::file_clipboard::{ClipMode, FileClipboard};
 use crate::app::state::{AppState, PopupType};
+use crate::app::transfer_submit::submit_simple;
 use crate::config::localization::t;
 use crate::fs::LinkKind;
 use crate::fs::transfer::job::TransferOperation;
-use crate::fs::transfer::{submit_simple, transfer_options_from_settings};
+use crate::fs::transfer::transfer_options_from_settings;
 use crate::keybindings::Action;
 
 pub fn handle(state: &mut AppState, action: &Action, context: &AppContext) -> bool {

@@ -20,6 +20,6 @@ impl HashStrategy for Sha256Hasher {
 
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
-        format!("{:064X}", result)
+        super::to_hex(&result).to_uppercase()
     }
 }

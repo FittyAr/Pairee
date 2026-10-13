@@ -1,7 +1,7 @@
 use crate::plugin::manager::PluginRequest;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table> {
     let ps = lua.create_table()?;
     let callbacks = lua.create_table()?;
     ps.set("_callbacks", callbacks)?;

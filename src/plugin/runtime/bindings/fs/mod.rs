@@ -22,7 +22,7 @@ pub fn bind(
     policy: Arc<FsPolicy>,
     commands: Arc<CommandPolicy>,
     tx: mpsc::Sender<PluginRequest>,
-) -> mlua::Result<Table<'_>> {
+) -> mlua::Result<Table> {
     let fs = lua.create_table()?;
     ops::bind_core(lua, &fs, &policy)?;
     extra::bind_extra(lua, &fs, &policy)?;

@@ -10,9 +10,11 @@ repository = "https://github.com/FittyAr/Pairee"
 readme = "README.md"
 
 [dependencies]
-ratatui = "0.30.2"
+# No termwiz/termina backends: default features would list them in the lock
+# through weak `?/underline-color` features (never built, but audited).
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
-tokio = { version = "1.52.3", features = ["full"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "1.1"
@@ -24,39 +26,41 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
 tracing-log = "0.2"
 chrono = "0.4"
-zip = { version = "8.6.0", default-features = false, features = ["deflate", "time"] }
+zip = { version = "9.0.2", default-features = false, features = ["deflate", "time"] }
 tar = "0.4.46"
-flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
+flate2 = { version = "1.1.10", default-features = false, features = ["rust_backend"] }
 pulldown-cmark = "0.13"
-image = "0.25.10"
+# Only the formats the viewer and Quick View preview (no AVIF/rav1e, EXR, HDR...).
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga"] }
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https", "ssh"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
-mlua = { version = "0.9.9", features = ["lua54", "vendored", "serialize", "async", "send"] }
+mlua = { version = "0.12.2", features = ["lua54", "vendored", "serialize", "async", "send"] }
 percent-encoding = "2.3"
 regex = "1.13"
 blake3 = "1.5.4"
-md-5 = "0.10.6"
-sha1 = "0.10.6"
-sha2 = "0.10.8"
+md-5 = "0.11"
+sha1 = "0.11"
+sha2 = "0.11.1"
 # Private, randomly named temp dirs for update downloads (0700 on Unix).
 tempfile = "3.27"
 crc32fast = "1.4.2"
 uuid = { version = "1.10.0", features = ["v4"] }
 filetime = "0.2.25"
-bytesize = "1.3.0"
+bytesize = "2.7"
 # Professional key-binding parser/dispatcher (replaces ad-hoc string maps).
 # Features: crossterm KeyEvent conversion, sequences, invalid-binding errors.
 keybinds = { version = "0.2", features = ["crossterm", "serde"] }
 unicode-width = "0.2"
 tui-scrollbar = { version = "0.2.7", features = ["crossterm"] }
 unicode-segmentation = "1.13.3"
-shlex = "1.3"
+shlex = "2.0"
 ansi-to-tui = "8.0"
-arboard = "3.6.1"
-sevenz-rust2 = "0.22"
+# Text only: no clipboard images (their image-data feature pulls in image codecs).
+arboard = { version = "3.6.1", default-features = false }
+sevenz-rust2 = "0.24"
 # tar.bz2 / tar.xz: pure-Rust decoders (static musl builds keep working).
-bzip2 = "0.6"
-lzma-rust2 = { version = "0.20", default-features = false, features = ["std", "xz"] }
+bzip2 = "0.6.1"
+lzma-rust2 = { version = "0.22", default-features = false, features = ["std", "xz", "encoder"] }
 nucleo-matcher = "0.3.1"
 # Unix openpty / Windows ConPTY for background Terminal (`command &`) and apply-command.
 # Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
@@ -64,16 +68,27 @@ portable-pty = "0.8.1"
 trash = "5.2.9"
 # Capability-based directory handles: plugin fs ops cannot escape the jail
 # root even if a path component is swapped for a symlink after validation.
-cap-std = "3"
+cap-std = "4.0"
 minisign-verify = "0.3.0"
 # Plugin `min_pairee` checks (pre-release aware).
 semver = "1.0.28"
 # SSH preset passwords in the OS keyring (Credential Manager, Keychain, Secret Service).
 keyring = "4.2.0"
 encoding_rs = "0.8"
-chardetng = "0.1"
+chardetng = "1.0"
 # Directory change notifications for panel auto-refresh (non-recursive watches).
 notify = "8.2"
+# Remote backends (src/fs/remote): FTP/FTPS over rustls (ring), S3 request
+# signing (sans-IO, sent with reqwest), WebDAV PROPFIND parsing, URLs and
+# the streamed request bodies of uploads.
+suppaftp = { version = "12.2.0", features = ["rustls-ring"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-platform-verifier = "0.7.1"
+rusty-s3 = "0.10.2"
+quick-xml = "0.42.0"
+url = "2.5.8"
+bytes = "1.12"
+http-body = "1.1"
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
@@ -88,6 +103,16 @@ strip = true
 [dev-dependencies]
 # Runs the built `pairee` binary in the CLI tests (tests/cli.rs).
 assert_cmd = "2.2"
+# In-process servers the remote backends run their Vfs contract tests
+# against (src/fs/remote/tests): WebDAV, S3 (checks request signatures)
+# and FTP, all serving temporary folders.
+dav-server = { version = "0.11", default-features = false, features = ["localfs"] }
+s3s = "0.14"
+s3s-fs = "0.14"
+libunftp = { version = "0.23", default-features = false, features = ["ring"] }
+unftp-sbe-fs = "0.4"
+hyper = { version = "1", features = ["server", "http1"] }
+hyper-util = { version = "0.1", features = ["tokio", "server", "http1"] }
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
@@ -96,11 +121,12 @@ ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
-rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
-signal-hook = { version = "0.3", features = ["iterator"] }
+signal-hook = { version = "0.4", features = ["iterator"] }
 # O_NOFOLLOW for symlink-safe secure wipe.
 libc = "0.2"
+# Extended attributes and POSIX ACLs of copies (already in the tree through tar).
+xattr = "1.6.1"
 
 [package.metadata.deb]
 name = "pairee"
@@ -137,7 +163,7 @@ assets = [
 ]
 
 [build-dependencies]
-embed-resource = "2.5"
+embed-resource = "3.0"
 
 # Lints for every target (lib, bins, tests, benches) of every workspace
 # member; CI runs clippy with `-D warnings`.

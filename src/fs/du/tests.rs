@@ -157,30 +157,33 @@ impl Vfs for FlakySource {
         Capabilities::READ_ONLY
     }
 
-    fn list(&self, _dir: &Path) -> io::Result<Vec<VfsEntry>> {
-        Err(io::Error::from(io::ErrorKind::Unsupported))
+    fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
+        let entry = |name: &str| VfsEntry {
+            name: name.into(),
+            path: dir.join(name),
+            ..VfsEntry::default()
+        };
+        match dir.to_str() {
+            Some("root") => Ok(vec![
+                VfsEntry {
+                    size: 7,
+                    ..entry("ok.bin")
+                },
+                VfsEntry {
+                    is_dir: true,
+                    ..entry("locked")
+                },
+                VfsEntry {
+                    unreadable: true,
+                    ..entry("broken")
+                },
+            ]),
+            _ => Err(io::Error::from(io::ErrorKind::PermissionDenied)),
+        }
     }
 
     fn stat(&self, _path: &Path) -> io::Result<VfsEntry> {
         Err(io::Error::from(io::ErrorKind::Unsupported))
-    }
-
-    fn du_list(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
-        let entry = |name: &str, kind, size| DuEntry {
-            name: name.into(),
-            path: dir.join(name),
-            kind,
-            size,
-            id: None,
-        };
-        match dir.to_str() {
-            Some("root") => Ok(vec![
-                entry("ok.bin", DuKind::File, 7),
-                entry("locked", DuKind::Dir, 0),
-                entry("broken", DuKind::Unreadable, 0),
-            ]),
-            _ => Err(io::Error::from(io::ErrorKind::PermissionDenied)),
-        }
     }
 }
 
@@ -194,6 +197,51 @@ fn permission_errors_give_partial_result() {
     let names: Vec<_> = node.children.iter().map(|c| c.name.as_str()).collect();
     assert_eq!(names, ["ok.bin", "locked"]);
     assert!(node.children[1].size.partial);
+}
+
+/// A flat source with a link and two hard links of one file.
+#[derive(Debug)]
+struct LinkSource;
+
+impl Vfs for LinkSource {
+    fn capabilities(&self) -> Capabilities {
+        Capabilities::READ_ONLY
+    }
+
+    fn list(&self, dir: &Path) -> io::Result<Vec<VfsEntry>> {
+        let entry = |name: &str, size| VfsEntry {
+            name: name.into(),
+            path: dir.join(name),
+            size,
+            ..VfsEntry::default()
+        };
+        Ok(vec![
+            VfsEntry {
+                is_symlink: true,
+                link_size: Some(3),
+                ..entry("link", 1000)
+            },
+            VfsEntry {
+                hard_link: Some((1, 2)),
+                ..entry("one", 40)
+            },
+            VfsEntry {
+                hard_link: Some((1, 2)),
+                ..entry("two", 40)
+            },
+        ])
+    }
+
+    fn stat(&self, _path: &Path) -> io::Result<VfsEntry> {
+        Err(io::Error::from(io::ErrorKind::Unsupported))
+    }
+}
+
+#[test]
+fn links_count_their_own_size_and_hard_links_once() {
+    let node = scan(&LinkSource, Path::new("root"), true, &NONE);
+    assert_eq!((node.size.bytes, node.size.files), (43, 3));
+    assert_eq!(node.children.len(), 3);
 }
 
 #[cfg(unix)]

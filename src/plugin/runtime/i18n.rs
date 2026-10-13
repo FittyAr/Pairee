@@ -17,11 +17,11 @@ fn read_dictionary(lang_dir: &Path, code: &str) -> Dictionary {
 }
 
 /// Builds the `pairee.t` function for the plugin in `plugin_dir`.
-pub fn bind<'lua>(
-    lua: &'lua mlua::Lua,
+pub fn bind(
+    lua: &mlua::Lua,
     plugin_dir: &Path,
     manifest: Option<&PluginManifest>,
-) -> mlua::Result<mlua::Function<'lua>> {
+) -> mlua::Result<mlua::Function> {
     let default_lang = manifest
         .and_then(|m| m.default_language.clone())
         .unwrap_or_else(|| "en".to_string());

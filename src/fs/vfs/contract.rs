@@ -23,6 +23,9 @@ pub struct Fixture {
     pub root: PathBuf,
     /// Keeps the backing files alive for the test.
     pub _dir: tempfile::TempDir,
+    /// An empty folder is visible. S3 emulators that keep no folder
+    /// markers only show a folder once something is stored in it.
+    pub empty_folders: bool,
 }
 
 /// The local adapter on a temporary folder.
@@ -33,6 +36,7 @@ pub fn local_fixture() -> Fixture {
         vfs: Arc::new(super::LocalVfs),
         root: dir.path().to_path_buf(),
         _dir: dir,
+        empty_folders: true,
     }
 }
 
@@ -48,6 +52,7 @@ pub fn archive_fixture(name: &str, write: ArchiveWriter) -> Fixture {
         vfs: Arc::new(crate::fs::archive::ArchiveVfs::open(root.clone()).unwrap()),
         root,
         _dir: dir,
+        empty_folders: true,
     }
 }
 
@@ -69,7 +74,7 @@ fn options(show_hidden: bool) -> ListOptions {
         case_sensitive: false,
         natural: false,
         req_admin: false,
-        sort_field: crate::app::state::SortField::Name,
+        sort_field: crate::fs::list::SortField::Name,
         sort_reverse: false,
         folder_by_ext: false,
         show_dotdot: false,
@@ -168,6 +173,9 @@ pub fn creates_folders(f: &Fixture) {
         return assert_unsupported(result);
     }
     result.unwrap();
+    if !f.empty_folders {
+        f.vfs.write_file(&path.join("x"), &mut &b"x"[..]).unwrap();
+    }
     assert!(f.vfs.stat(&path).unwrap().is_dir);
 }
 
@@ -266,6 +274,9 @@ macro_rules! vfs_contract {
         }
     };
 }
+
+/// Other modules instantiate the suite for their adapters too.
+pub(crate) use vfs_contract;
 
 vfs_contract!(local, super::local_fixture);
 

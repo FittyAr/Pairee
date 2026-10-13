@@ -47,7 +47,7 @@ fn running(h: &Harness, done: usize, total: usize) -> TransferJob {
 
 /// Queues `jobs` (nothing runs them) and shows the transfers as `mode`.
 fn queue(h: &mut Harness, jobs: Vec<TransferJob>, mode: TransferViewMode) {
-    crate::fs::transfer::submit::ensure_transfer_ui(&mut h.state);
+    crate::app::transfer_submit::ensure_transfer_ui(&mut h.state);
     let ts = h.state.transfer.as_mut().expect("transfer state");
     for job in jobs {
         ts.engine.queue.enqueue(job);

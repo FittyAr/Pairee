@@ -105,7 +105,7 @@ fn execute_peek_internal(
         Ok(t) => t,
         Err(_) => return None,
     };
-    if let Ok(peek_fn) = table.get::<_, mlua::Function>("peek") {
+    if let Ok(peek_fn) = table.get::<mlua::Function>("peek") {
         let job_table = match lua.create_table() {
             Ok(t) => t,
             Err(_) => return None,
@@ -148,7 +148,7 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
         Ok(t) => t,
         Err(_) => return,
     };
-    if let Ok(entry_fn) = table.get::<_, mlua::Function>("entry") {
+    if let Ok(entry_fn) = table.get::<mlua::Function>("entry") {
         let args_table = match lua.create_table() {
             Ok(t) => t,
             Err(_) => return,
@@ -159,7 +159,7 @@ fn execute_command_internal(lua: &mlua::Lua, table_key: &mlua::RegistryKey, args
         if let Some(command) = args.first() {
             let _ = args_table.set("command", command.clone());
         }
-        if let Err(e) = guarded(lua, || entry_fn.call::<_, ()>((table, args_table))) {
+        if let Err(e) = guarded(lua, || entry_fn.call::<()>((table, args_table))) {
             tracing::error!("Error in plugin command: {e}");
         }
     }
@@ -173,10 +173,10 @@ fn execute_event_internal(
 ) {
     // Look up callbacks for event in global Pub/Sub channel list
     let globals = lua.globals();
-    if let Ok(pairee_table) = globals.get::<_, mlua::Table>("pairee")
-        && let Ok(ps_table) = pairee_table.get::<_, mlua::Table>("ps")
-        && let Ok(callbacks) = ps_table.get::<_, mlua::Table>("_callbacks")
-        && let Ok(callback_list) = callbacks.get::<_, mlua::Table>(event_name)
+    if let Ok(pairee_table) = globals.get::<mlua::Table>("pairee")
+        && let Ok(ps_table) = pairee_table.get::<mlua::Table>("ps")
+        && let Ok(callbacks) = ps_table.get::<mlua::Table>("_callbacks")
+        && let Ok(callback_list) = callbacks.get::<mlua::Table>(event_name)
     {
         let parsed_data: mlua::Value = serde_json::from_str::<serde_json::Value>(data)
             .ok()
@@ -184,8 +184,8 @@ fn execute_event_internal(
             .unwrap_or(mlua::Value::Nil);
         let len = callback_list.len().unwrap_or(0);
         for i in 1..=len {
-            if let Ok(func) = callback_list.get::<_, mlua::Function>(i)
-                && let Err(e) = guarded(lua, || func.call::<_, ()>(parsed_data.clone()))
+            if let Ok(func) = callback_list.get::<mlua::Function>(i)
+                && let Err(e) = guarded(lua, || func.call::<()>(parsed_data.clone()))
             {
                 tracing::error!("Error in plugin hook '{event_name}': {e}");
             }

@@ -1,5 +1,6 @@
 //! Copying metadata from a source to its copy: times, access mode
-//! (permission bits / ACL), Windows attributes and alternate data streams,
+//! (permission bits / ACL), attributes (Windows attributes; extended
+//! attributes on Unix, see [`super::xattrs`]) and alternate data streams,
 //! each controlled by its own option.
 //!
 //! A copied link gets only its own times (`lutimes`): permissions,
@@ -30,7 +31,7 @@ pub fn preserve_metadata(src: &Path, dst: &Path, options: &TransferOptions) -> s
         platform::copy_acl(src, dst);
     }
     if options.preserve_attributes {
-        platform::copy_attributes(&src_meta, dst);
+        platform::copy_attributes(src, &src_meta, dst);
     }
     // Times last: writing streams or attributes may touch them.
     if options.preserve_timestamps {
@@ -57,9 +58,15 @@ mod platform {
         let _ = std::fs::set_permissions(dst, src_meta.permissions());
     }
 
-    pub fn copy_acl(_src: &Path, _dst: &Path) {}
+    /// POSIX ACLs (Linux).
+    pub fn copy_acl(src: &Path, dst: &Path) {
+        crate::fs::transfer::xattrs::copy_posix_acl(src, dst);
+    }
 
-    pub fn copy_attributes(_src_meta: &Metadata, _dst: &Path) {}
+    /// Extended attributes.
+    pub fn copy_attributes(src: &Path, _src_meta: &Metadata, dst: &Path) {
+        crate::fs::transfer::xattrs::copy_extended_attributes(src, dst);
+    }
 
     pub fn copy_alternate_streams(_src: &Path, _dst: &Path) {}
 }
@@ -87,7 +94,7 @@ mod platform {
     }
 
     /// Read-only, hidden, system and archive attributes.
-    pub fn copy_attributes(src_meta: &Metadata, dst: &Path) {
+    pub fn copy_attributes(_src: &Path, src_meta: &Metadata, dst: &Path) {
         use std::os::windows::fs::MetadataExt;
         let path = wide(dst);
         // SAFETY: `path` is a valid NUL-terminated wide string.
@@ -188,7 +195,7 @@ mod platform {
 
     pub fn copy_access_mode(_src: &Path, _src_meta: &Metadata, _dst: &Path) {}
     pub fn copy_acl(_src: &Path, _dst: &Path) {}
-    pub fn copy_attributes(_src_meta: &Metadata, _dst: &Path) {}
+    pub fn copy_attributes(_src: &Path, _src_meta: &Metadata, _dst: &Path) {}
     pub fn copy_alternate_streams(_src: &Path, _dst: &Path) {}
 }
 

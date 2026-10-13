@@ -5,7 +5,7 @@ use crate::plugin::runtime::types::LuaFile;
 use mlua::{Lua, Table, Value};
 use std::sync::Arc;
 
-pub fn bind_core(lua: &Lua, fs: &Table<'_>, policy: &Arc<FsPolicy>) -> mlua::Result<()> {
+pub fn bind_core(lua: &Lua, fs: &Table, policy: &Arc<FsPolicy>) -> mlua::Result<()> {
     let p = Arc::clone(policy);
     fs.set(
         "read",

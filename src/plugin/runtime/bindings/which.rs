@@ -6,12 +6,12 @@
 use crate::plugin::manager::{PluginRequest, WhichCandidate};
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function> {
     let tx_which = tx;
     lua.create_async_function(move |_lua, opts: mlua::Table| {
         let tx = tx_which.clone();
         async move {
-            let silent = opts.get::<_, bool>("silent").unwrap_or(false);
+            let silent = opts.get::<bool>("silent").unwrap_or(false);
             let candidates = match read_candidates(&opts) {
                 Ok(c) => c,
                 Err(e) => {
@@ -58,7 +58,7 @@ fn read_candidates(opts: &mlua::Table) -> mlua::Result<Vec<WhichCandidate>> {
             mlua::Value::String(s) => vec![s.to_str()?.to_string()],
             mlua::Value::Table(t) => {
                 let mut keys = Vec::new();
-                for v in t.sequence_values::<mlua::String>() {
+                for v in t.sequence_values::<mlua::LuaString>() {
                     keys.push(v?.to_str()?.to_string());
                 }
                 keys
@@ -74,7 +74,7 @@ fn read_candidates(opts: &mlua::Table) -> mlua::Result<Vec<WhichCandidate>> {
             }
         };
         let desc: Option<String> = cand
-            .get::<_, mlua::String>("desc")
+            .get::<mlua::LuaString>("desc")
             .ok()
             .map(|s| s.to_str().map(|s| s.to_string()))
             .transpose()?;
@@ -91,7 +91,7 @@ mod tests {
     fn make_cands_table<'a>(
         lua: &'a Lua,
         entries: &'a [(&'a str, Option<&'a str>)],
-    ) -> mlua::Result<mlua::Table<'a>> {
+    ) -> mlua::Result<mlua::Table> {
         let cands = lua.create_table()?;
         for (i, (on, desc)) in entries.iter().enumerate() {
             let cand = lua.create_table()?;

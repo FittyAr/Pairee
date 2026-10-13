@@ -57,16 +57,29 @@ pub(super) fn load_settings(settings_path: &Path) -> Result<(Settings, Option<St
             // Keep the user's language if the file is still valid TOML
             // so the error below is shown in the language they chose.
             let mut fallback = Settings::default();
-            if let Some(lang) = content
-                .parse::<toml::Table>()
-                .ok()
-                .and_then(|t| t.get("language")?.as_str().map(str::to_owned))
-            {
+            if let Some(lang) = language_of(&content) {
                 fallback.language = lang;
             }
             Ok((fallback, Some(e.to_string())))
         }
     }
+}
+
+/// The `language` of a `config.toml` text, if it is valid TOML and has one.
+fn language_of(content: &str) -> Option<String> {
+    content
+        .parse::<toml::Table>()
+        .ok()
+        .and_then(|t| t.get("language")?.as_str().map(str::to_owned))
+}
+
+/// The language set in `config.toml`, read without creating or changing
+/// any file (the default when the file is missing or unreadable).
+pub(super) fn configured_language(settings_path: &Path) -> String {
+    fs::read_to_string(settings_path)
+        .ok()
+        .and_then(|content| language_of(&content))
+        .unwrap_or_else(|| Settings::default().language)
 }
 
 /// Clears `active_dev_plugin` when its folder or manifest is gone, saving

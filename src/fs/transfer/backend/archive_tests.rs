@@ -3,7 +3,9 @@
 
 use super::archive_vfs::{ArchivePlan, plan};
 use super::run_job;
-use crate::fs::archive::test_fixtures::{SAMPLE_TREE, snapshot, write_tar_gz, write_zip};
+use crate::fs::archive::test_fixtures::{
+    SAMPLE_TREE, snapshot, write_7z, write_tar_gz, write_tar_xz, write_zip,
+};
 use crate::fs::archive::{ArchiveVfs, list_archive_files};
 use crate::fs::transfer::conflict::ConflictResolution;
 use crate::fs::transfer::events::{EventSender, TransferEvent};
@@ -60,6 +62,7 @@ fn plans_follow_the_paths_of_the_job() {
             base: PathBuf::from("sub"),
             selected: vec![PathBuf::from("sub").join("b.txt")],
             dest: dir.path().join("out"),
+            moving: false,
         }
     );
     let moved = job(
@@ -68,8 +71,11 @@ fn plans_follow_the_paths_of_the_job() {
         dir.path().into(),
     );
     assert!(
-        plan(&moved).unwrap().is_err(),
-        "moving out of an archive is refused"
+        matches!(
+            plan(&moved).unwrap().unwrap(),
+            ArchivePlan::Extract { moving: true, .. }
+        ),
+        "moving out of a writable archive"
     );
 }
 
@@ -125,21 +131,60 @@ async fn copy_into_a_zip_and_delete_inside_round_trip() {
     assert_eq!(sorted_names(&archive), ["in/top.txt", "keep.txt"]);
 }
 
+/// An archive stored in an archive is read-only.
 #[tokio::test]
-async fn writing_into_a_read_only_archive_fails_cleanly() {
+async fn writing_into_a_nested_archive_fails_cleanly() {
     let dir = tempfile::tempdir().unwrap();
-    let archive = dir.path().join("a.tar.gz");
-    write_tar_gz(&archive, SAMPLE_TREE);
+    let archive = dir.path().join("a.zip");
+    write_zip(&archive, &[("inner.tar.gz", b"not really")]);
     let before = fs::read(&archive).unwrap();
     fs::write(dir.path().join("new.txt"), b"n").unwrap();
 
     let sources = vec![dir.path().join("new.txt")];
+    let target = archive.join("inner.tar.gz");
     assert!(
-        run(job(TransferOperation::Copy, sources, archive.clone()))
+        run(job(TransferOperation::Copy, sources, target))
             .await
             .is_err()
     );
     assert_eq!(fs::read(&archive).unwrap(), before, "archive untouched");
+}
+
+/// FEAT-10: moving into a tar.xz adds the files and deletes the sources;
+/// moving out of a 7z extracts the entries and removes them.
+#[tokio::test]
+async fn moves_into_and_out_of_tar_and_7z_archives() {
+    let dir = tempfile::tempdir().unwrap();
+    let tar = dir.path().join("a.tar.xz");
+    write_tar_xz(&tar, &[("keep.txt", b"keep")]);
+    let local = dir.path().join("docs");
+    fs::create_dir_all(local.join("inner")).unwrap();
+    fs::write(local.join("inner").join("n.txt"), b"note").unwrap();
+    run(job(
+        TransferOperation::Move,
+        vec![local.clone()],
+        tar.clone(),
+    ))
+    .await
+    .unwrap();
+    assert!(!local.exists(), "moved sources are deleted");
+    let names = sorted_names(&tar);
+    assert!(names.contains(&"docs/inner/n.txt".to_string()), "{names:?}");
+    assert!(names.contains(&"keep.txt".to_string()));
+
+    let seven = dir.path().join("b.7z");
+    write_7z(&seven, SAMPLE_TREE);
+    let out = dir.path().join("out");
+    fs::create_dir(&out).unwrap();
+    fs::write(out.join("a.txt"), b"in the way").unwrap();
+    let sources = vec![seven.join("sub"), seven.join("a.txt")];
+    run(job(TransferOperation::Move, sources, out.clone()))
+        .await
+        .unwrap();
+    assert_eq!(fs::read(out.join("sub").join("b.txt")).unwrap(), b"bravo");
+    assert_eq!(fs::read(out.join("a.txt")).unwrap(), b"in the way");
+    let left: Vec<String> = sorted_names(&seven);
+    assert_eq!(left, ["a.txt"], "a skipped entry stays in the archive");
 }
 
 /// Copies a local `a.txt` ("new") into a zip already holding `a.txt`

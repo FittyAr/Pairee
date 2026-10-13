@@ -25,6 +25,17 @@ pub fn create_hasher(algorithm: HashAlgorithm) -> Box<dyn HashStrategy> {
     }
 }
 
+/// Lowercase hex of a digest (the hashers upper-case it for display).
+pub fn to_hex(bytes: &[u8]) -> String {
+    use std::fmt::Write as _;
+    bytes
+        .iter()
+        .fold(String::with_capacity(bytes.len() * 2), |mut s, b| {
+            let _ = write!(s, "{b:02x}");
+            s
+        })
+}
+
 /// Block size for [`hash_reader`].
 const HASH_BLOCK: usize = 256 * 1024;
 

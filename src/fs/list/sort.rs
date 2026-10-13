@@ -73,16 +73,36 @@ fn entry_sort_key_ext(entry: &FileEntry, sort_folder_names_by_extension: bool) -
     }
 }
 
+/// The key a listing is sorted by.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SortField {
+    #[default]
+    Name,
+    Extension,
+    Size,
+    Date,
+    Unsorted,
+}
+
+impl SortField {
+    pub const ALL: [Self; 5] = [
+        Self::Name,
+        Self::Extension,
+        Self::Size,
+        Self::Date,
+        Self::Unsorted,
+    ];
+}
+
 pub fn sort_entries(
     entries: &mut Vec<FileEntry>,
-    sort_field: crate::app::state::SortField,
+    sort_field: SortField,
     sort_reverse: bool,
     case_sensitive_sort: bool,
     treat_digits_as_numbers: bool,
     sort_folder_names_by_extension: bool,
 ) {
-    use crate::app::state::SortField;
-
     if matches!(sort_field, SortField::Unsorted) {
         // No sorting — just pin ".." first
         if let Some(pos) = entries.iter().position(|e| e.name == "..") {

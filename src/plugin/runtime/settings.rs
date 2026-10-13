@@ -37,7 +37,7 @@ impl Kind {
         }
     }
 
-    fn parse<'lua>(self, lua: &'lua Lua, raw: &str) -> mlua::Result<Option<Value<'lua>>> {
+    fn parse(self, lua: &Lua, raw: &str) -> mlua::Result<Option<Value>> {
         let raw = raw.trim();
         Ok(match self {
             Self::Bool => raw.parse().ok().map(Value::Boolean),
@@ -48,7 +48,7 @@ impl Kind {
     }
 }
 
-fn toml_to_lua<'lua>(lua: &'lua Lua, value: &toml::Value) -> mlua::Result<Value<'lua>> {
+fn toml_to_lua(lua: &Lua, value: &toml::Value) -> mlua::Result<Value> {
     Ok(match value {
         toml::Value::Boolean(b) => Value::Boolean(*b),
         toml::Value::Integer(i) => Value::Integer(*i),
@@ -59,11 +59,11 @@ fn toml_to_lua<'lua>(lua: &'lua Lua, value: &toml::Value) -> mlua::Result<Value<
 }
 
 /// Builds the `pairee.settings` table.
-pub fn build<'lua>(
-    lua: &'lua Lua,
+pub fn build(
+    lua: &Lua,
     manifest: Option<&PluginManifest>,
     user: &HashMap<String, String>,
-) -> mlua::Result<Table<'lua>> {
+) -> mlua::Result<Table> {
     let table = lua.create_table()?;
     let Some(schema) = manifest.and_then(|m| m.settings_schema.as_ref()) else {
         return Ok(table);
@@ -129,10 +129,10 @@ mod tests {
     fn defaults_apply_without_user_values() {
         let lua = Lua::new();
         let t = build(&lua, Some(&manifest()), &HashMap::new()).unwrap();
-        assert!(!t.get::<_, bool>("flag").unwrap());
-        assert_eq!(t.get::<_, i64>("depth").unwrap(), 3);
-        assert_eq!(t.get::<_, f64>("ratio").unwrap(), 0.5);
-        assert_eq!(t.get::<_, String>("label").unwrap(), "x");
+        assert!(!t.get::<bool>("flag").unwrap());
+        assert_eq!(t.get::<i64>("depth").unwrap(), 3);
+        assert_eq!(t.get::<f64>("ratio").unwrap(), 0.5);
+        assert_eq!(t.get::<String>("label").unwrap(), "x");
     }
 
     #[test]
@@ -146,16 +146,13 @@ mod tests {
             ("inferred", "11"),
         ]);
         let t = build(&lua, Some(&manifest()), &values).unwrap();
-        assert!(t.get::<_, bool>("flag").unwrap());
-        assert_eq!(t.get::<_, i64>("depth").unwrap(), 7);
-        assert_eq!(t.get::<_, f64>("ratio").unwrap(), 1.5);
+        assert!(t.get::<bool>("flag").unwrap());
+        assert_eq!(t.get::<i64>("depth").unwrap(), 7);
+        assert_eq!(t.get::<f64>("ratio").unwrap(), 1.5);
         // A string setting stays a string even when it looks like a number.
+        assert!(matches!(t.get::<Value>("code").unwrap(), Value::String(_)));
         assert!(matches!(
-            t.get::<_, Value>("code").unwrap(),
-            Value::String(_)
-        ));
-        assert!(matches!(
-            t.get::<_, Value>("inferred").unwrap(),
+            t.get::<Value>("inferred").unwrap(),
             Value::Integer(11)
         ));
     }
@@ -164,6 +161,6 @@ mod tests {
     fn invalid_user_values_fall_back_to_the_default() {
         let lua = Lua::new();
         let t = build(&lua, Some(&manifest()), &user(&[("depth", "deep")])).unwrap();
-        assert_eq!(t.get::<_, i64>("depth").unwrap(), 3);
+        assert_eq!(t.get::<i64>("depth").unwrap(), 3);
     }
 }

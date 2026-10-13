@@ -8,7 +8,7 @@ use crate::fs::attrs::{AttrChange, FileAttrs};
 use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::vfs::{Capabilities, Vfs, VfsEntry, panel_listing};
-use std::io::{self, Read, Write};
+use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::path::Path;
 use std::time::SystemTime;
 
@@ -79,38 +79,34 @@ impl Vfs for SharedSshClient {
         Ok(Box::new(file))
     }
 
+    fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
+        let mut file = self.lock().sftp.open(path).map_err(io_err)?;
+        file.seek(SeekFrom::Start(offset))?;
+        Ok(Box::new(file))
+    }
+
     fn create_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
         let file = self.lock().sftp.create(path).map_err(io_err)?;
         Ok(Box::new(SyncOnFlush(file)))
     }
 
-    /// SFTP v3 servers (OpenSSH) refuse to rename over an existing file:
-    /// the old file is then moved aside, the new one put in place and the
-    /// old one deleted — or put back when the second rename fails, so the
-    /// destination is never lost.
-    fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
+    /// Opened for writing without truncation, positioned after the last
+    /// byte (SFTP writes carry their offset, so no server-side append mode
+    /// is needed).
+    fn append_file(&self, path: &Path) -> io::Result<Box<dyn Write + Send>> {
         let client = self.lock();
-        let first = match client.sftp.rename(from, to, None) {
-            Ok(()) => return Ok(()),
-            Err(e) => e,
-        };
-        if !client.sftp.lstat(to).is_ok_and(|s| !s.is_dir()) {
-            return Err(io_err(first));
-        }
-        let mut aside = to.as_os_str().to_owned();
-        aside.push(".pairee-old");
-        let aside = std::path::PathBuf::from(aside);
-        client.sftp.rename(to, &aside, None).map_err(io_err)?;
-        match client.sftp.rename(from, to, None) {
-            Ok(()) => {
-                let _ = client.sftp.unlink(&aside);
-                Ok(())
-            }
-            Err(e) => {
-                let _ = client.sftp.rename(&aside, to, None);
-                Err(io_err(e))
-            }
-        }
+        let size = client.sftp.stat(path).map_err(io_err)?.size.unwrap_or(0);
+        let mut file = client
+            .sftp
+            .open_mode(path, ssh2::OpenFlags::WRITE, 0o644, ssh2::OpenType::File)
+            .map_err(io_err)?;
+        file.seek(SeekFrom::Start(size))?;
+        Ok(Box::new(SyncOnFlush(file)))
+    }
+
+    /// SFTP v3 servers (OpenSSH) refuse to rename over an existing file.
+    fn replace(&self, from: &Path, to: &Path) -> io::Result<()> {
+        crate::fs::vfs::replace_by_moving_aside(self, from, to)
     }
 
     /// `setstat` with the time (access time set alike) and permission bits.

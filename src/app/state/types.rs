@@ -68,27 +68,9 @@ impl PanelViewMode {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-#[serde(rename_all = "snake_case")]
-#[derive(Default)]
-pub enum SortField {
-    #[default]
-    Name,
-    Extension,
-    Size,
-    Date,
-    Unsorted,
-}
+pub use crate::fs::list::SortField;
 
 impl SortField {
-    pub const ALL: [Self; 5] = [
-        Self::Name,
-        Self::Extension,
-        Self::Size,
-        Self::Date,
-        Self::Unsorted,
-    ];
-
     /// The field after this one (wrapping).
     pub fn next(self) -> Self {
         next_of(&Self::ALL, self)

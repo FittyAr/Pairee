@@ -40,7 +40,7 @@ pub fn args_to_json(lua: &Lua, value: Option<Value>) -> mlua::Result<serde_json:
 }
 
 /// Converts JSON produced by the host into a Lua value.
-pub fn from_json<'lua>(lua: &'lua Lua, value: &serde_json::Value) -> mlua::Result<Value<'lua>> {
+pub fn from_json(lua: &Lua, value: &serde_json::Value) -> mlua::Result<Value> {
     lua.to_value(value)
 }
 

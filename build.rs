@@ -33,6 +33,8 @@ fn main() {
     println!("cargo:rerun-if-changed=manifests/windows/pairee.rc");
     println!("cargo:rerun-if-changed=manifests/windows/pairee.ico");
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
-        embed_resource::compile("manifests/windows/pairee.rc", embed_resource::NONE);
+        embed_resource::compile("manifests/windows/pairee.rc", embed_resource::NONE)
+            .manifest_optional()
+            .expect("failed to compile the Windows resource file");
     }
 }

@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::time::SystemTime;
 
 /// One entry of a [`super::Vfs`] listing.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct VfsEntry {
     pub name: String,
     pub path: PathBuf,
@@ -19,12 +19,26 @@ pub struct VfsEntry {
     pub modified: Option<SystemTime>,
     /// Dot-file, or hidden by a platform attribute.
     pub hidden: bool,
+    /// For a link: the size of the link itself (walkers that do not follow
+    /// links count this instead of the target's `size`).
+    pub link_size: Option<u64>,
+    /// `(device, inode)` of a file with more than one hard link, so walkers
+    /// can count it once; `None` otherwise or where the adapter cannot tell.
+    pub hard_link: Option<(u64, u64)>,
+    /// Its metadata could not be read: kind and size are unknown.
+    pub unreadable: bool,
 }
 
 impl VfsEntry {
     /// A folder that is not reached through a link: walkers descend into it.
     pub fn is_real_dir(&self) -> bool {
         self.is_dir && !self.is_symlink
+    }
+
+    /// Bytes this entry takes when links are not followed: a link's own
+    /// size, the size of anything else.
+    pub fn own_size(&self) -> u64 {
+        self.link_size.unwrap_or(self.size)
     }
 
     /// A folder entry at `path` named `name` (archive folders, roots).
@@ -34,9 +48,7 @@ impl VfsEntry {
             name,
             path,
             is_dir: true,
-            is_symlink: false,
-            size: 0,
-            modified: None,
+            ..Self::default()
         }
     }
 

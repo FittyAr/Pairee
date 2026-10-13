@@ -7,6 +7,8 @@ const GITHUB_API_LATEST: &str = "https://api.github.com/repos/FittyAr/Pairee/rel
 const CACHE_TTL_SECS: u64 = 3600; // 1 hour
 /// Whole-request timeout of the release check.
 const CHECK_TIMEOUT: Duration = Duration::from_secs(15);
+/// Largest GitHub "latest release" API response accepted.
+const MAX_API_BYTES: usize = 4 * 1024 * 1024;
 
 /// Parsed information about an available update.
 #[derive(Debug, Clone)]
@@ -172,7 +174,7 @@ impl UpdateChecker {
         }
 
         // Fetch from GitHub
-        let client = super::downloader::build_client(CHECK_TIMEOUT)?;
+        let client = super::http::client(CHECK_TIMEOUT)?;
         let response = client
             .get(GITHUB_API_LATEST)
             .header("Accept", "application/vnd.github+json")
@@ -184,10 +186,11 @@ impl UpdateChecker {
             anyhow::bail!("GitHub API returned status {}", response.status());
         }
 
-        let release: GhRelease = response
-            .json()
+        let body = super::http::read_limited(response, MAX_API_BYTES, |_, _| {})
             .await
-            .context("failed to parse GitHub release JSON")?;
+            .context("failed to read the GitHub API response")?;
+        let release: GhRelease =
+            serde_json::from_slice(&body).context("failed to parse GitHub release JSON")?;
 
         save_cache(&release);
 

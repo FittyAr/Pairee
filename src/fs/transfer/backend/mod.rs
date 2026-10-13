@@ -3,11 +3,12 @@
 //! - [`local`] — filesystem worker (`TransferWorker`) for copy/move/delete
 //! - [`ssh`] — SFTP copy/move/delete emitting [`TransferEvent`]s
 //! - [`ops_jobs`] — wipe / compress / extract (same Transfer UI, local)
-//! - [`archive_vfs`] — copy out of / into archives, delete inside zip files
+//! - [`archive_vfs`] — copy out of / into archives, delete and move inside zip, tar and 7z files
 //!
 //! The engine picks a backend from job operation, optional SSH endpoints
 //! and whether a path lies inside an archive file.
 
+mod archive_move;
 #[cfg(test)]
 mod archive_tests;
 pub mod archive_vfs;

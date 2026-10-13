@@ -18,6 +18,6 @@ impl HashStrategy for Md5Hasher {
 
     fn finalize(self: Box<Self>) -> String {
         let result = self.state.finalize();
-        format!("{:032X}", result)
+        super::to_hex(&result).to_uppercase()
     }
 }

@@ -5,7 +5,7 @@ use crate::plugin::runtime::types::LuaFile;
 use mlua::{Lua, Table, Value};
 
 /// Empty `pairee.cx` so plugins can read the table before the first sync.
-pub fn bind_empty(lua: &Lua, pairee: &Table<'_>) -> mlua::Result<()> {
+pub fn bind_empty(lua: &Lua, pairee: &Table) -> mlua::Result<()> {
     let cx = lua.create_table()?;
     let active = lua.create_table()?;
     active.set("cwd", "")?;

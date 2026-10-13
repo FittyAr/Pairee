@@ -18,7 +18,7 @@ impl LuaStatus {
 }
 
 impl UserData for LuaStatus {
-    fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("success", |_, this| Ok(this.success));
         fields.add_field_method_get("code", |_, this| Ok(this.code));
     }
@@ -32,7 +32,7 @@ pub struct LuaOutput {
 }
 
 impl UserData for LuaOutput {
-    fn add_fields<'lua, F: UserDataFields<'lua, Self>>(fields: &mut F) {
+    fn add_fields<F: UserDataFields<Self>>(fields: &mut F) {
         fields.add_field_method_get("stdout", |_, this| Ok(this.stdout.clone()));
         fields.add_field_method_get("stderr", |_, this| Ok(this.stderr.clone()));
         fields.add_field_method_get("status", |_, this| Ok(this.status.clone()));

@@ -1,3 +1,5 @@
+use crate::fs::transfer::hash::{hash_reader, to_hex};
+use crate::fs::transfer::options::HashAlgorithm;
 use anyhow::{Context as _, Result};
 use std::time::Duration;
 use tokio::sync::mpsc;
@@ -39,8 +41,8 @@ pub fn validate_release_url(url: &str) -> Result<()> {
 pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -> Result<Vec<u8>> {
     validate_release_url(url)?;
 
-    let client = build_client(DOWNLOAD_TIMEOUT)?;
-    let mut response = client
+    let client = super::http::client(DOWNLOAD_TIMEOUT)?;
+    let response = client
         .get(url)
         .send()
         .await
@@ -50,23 +52,15 @@ pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -
         anyhow::bail!("download returned status {}", response.status());
     }
 
-    let total = response.content_length().unwrap_or(0);
-    if total > MAX_ASSET_BYTES {
-        anyhow::bail!("release asset is too large ({total} bytes)");
-    }
-    let mut data = Vec::with_capacity(total as usize);
-
-    while let Some(chunk) = response.chunk().await.context("stream error")? {
-        data.extend_from_slice(&chunk);
-        if data.len() as u64 > MAX_ASSET_BYTES {
-            anyhow::bail!("release asset exceeds {MAX_ASSET_BYTES} bytes");
-        }
+    let data = super::http::read_limited(response, MAX_ASSET_BYTES as usize, |got, total| {
         if total > 0
             && let Some(tx) = &progress_tx
         {
-            let _ = tx.try_send(data.len() as f32 / total as f32);
+            let _ = tx.try_send(got as f32 / total as f32);
         }
-    }
+    })
+    .await
+    .context("release asset download failed")?;
 
     if let Some(tx) = &progress_tx {
         let _ = tx.try_send(1.0);
@@ -78,16 +72,15 @@ pub async fn download_bytes(url: &str, progress_tx: Option<mpsc::Sender<f32>>) -
 /// SHA-256 of an in-memory buffer as lowercase hex.
 pub fn sha256_hex(data: &[u8]) -> String {
     use sha2::Digest as _;
-    hex_encode(&sha2::Sha256::digest(data))
+    to_hex(&sha2::Sha256::digest(data))
 }
 
 /// Compute the SHA-256 checksum string (hex, 64 chars) of a file.
 pub fn compute_sha256(file_path: &std::path::Path) -> Result<String> {
-    use sha2::Digest as _;
     let mut file = std::fs::File::open(file_path).context("failed to open file for hashing")?;
-    let mut hasher = sha2::Sha256::new();
-    std::io::copy(&mut file, &mut hasher).context("read error during hashing")?;
-    Ok(hex_encode(&hasher.finalize()))
+    let hex = hash_reader(&mut file, HashAlgorithm::Sha256, &|| false)
+        .context("read error during hashing")?;
+    Ok(hex.to_ascii_lowercase())
 }
 
 /// Extracts the hex digest from the contents of a `.sha256` file
@@ -112,10 +105,6 @@ pub fn verify_sha256_bytes(data: &[u8], expected_hex: &str) -> Result<()> {
             actual_hex
         )
     }
-}
-
-fn hex_encode(bytes: &[u8]) -> String {
-    bytes.iter().map(|b| format!("{:02x}", b)).collect()
 }
 
 // ─── Platform target selection ───────────────────────────────────────────────
@@ -146,16 +135,6 @@ pub fn expected_installer_name(version: &str) -> String {
 /// Returns the current target triple for this binary.
 fn current_target() -> &'static str {
     env!("PAIREE_TARGET")
-}
-
-/// HTTP client of the updater (release check and downloads), identified as
-/// `pairee/<version>` as the GitHub API requires.
-pub fn build_client(timeout: Duration) -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(timeout)
-        .user_agent(concat!("pairee/", env!("CARGO_PKG_VERSION")))
-        .build()
-        .context("failed to build HTTP client")
 }
 
 #[cfg(test)]

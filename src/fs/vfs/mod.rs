@@ -25,7 +25,6 @@ pub use source::PanelSource;
 
 use crate::fs::FileEntry;
 use crate::fs::attrs::{AttrChange, FileAttrs};
-use crate::fs::du::{DuEntry, DuKind};
 use crate::fs::file_id::FileIdentity;
 use crate::fs::list::ListOptions;
 use crate::fs::text::ByteStore;
@@ -104,6 +103,34 @@ pub fn unsupported() -> io::Error {
     )
 }
 
+/// [`Vfs::replace`] for servers whose rename refuses an existing target
+/// (SFTP v3, some FTP servers): the old file is moved aside, the new one
+/// put in place and the old one deleted — or put back when the second
+/// rename fails, so the destination is never lost.
+pub fn replace_by_moving_aside(vfs: &dyn Vfs, from: &Path, to: &Path) -> io::Result<()> {
+    let first = match vfs.rename(from, to) {
+        Ok(()) => return Ok(()),
+        Err(e) => e,
+    };
+    if !vfs.stat(to).is_ok_and(|e| !e.is_dir) {
+        return Err(first);
+    }
+    let mut aside = to.as_os_str().to_owned();
+    aside.push(".pairee-old");
+    let aside = PathBuf::from(aside);
+    vfs.rename(to, &aside)?;
+    match vfs.rename(from, to) {
+        Ok(()) => {
+            let _ = vfs.remove_file(&aside);
+            Ok(())
+        }
+        Err(e) => {
+            let _ = vfs.rename(&aside, to);
+            Err(e)
+        }
+    }
+}
+
 /// A browsable filesystem (the port). Paths are absolute in the adapter's
 /// own namespace: local paths, remote paths, or `archive.zip/inner/path`.
 pub trait Vfs: Send + Sync + std::fmt::Debug {
@@ -133,9 +160,27 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
         Err(unsupported())
     }
 
+    /// A stream over the contents of the file at `path` from byte `offset`.
+    /// Adapters that can seek override this; the default reads and drops
+    /// the first `offset` bytes.
+    fn open_read_at(&self, path: &Path, offset: u64) -> io::Result<Box<dyn Read + Send>> {
+        let mut reader = self.open_read(path)?;
+        let skipped = io::copy(&mut (&mut reader).take(offset), &mut io::sink())?;
+        if skipped < offset {
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
+        }
+        Ok(reader)
+    }
+
     /// Creates (or truncates) the file `path` for writing. Flushing the
     /// writer makes its data durable (it reaches the disk or server).
     fn create_file(&self, _path: &Path) -> io::Result<Box<dyn Write + Send>> {
+        Err(unsupported())
+    }
+
+    /// Opens the existing file `path` for writing after its last byte (an
+    /// interrupted copy resumed). Flushing makes the data durable.
+    fn append_file(&self, _path: &Path) -> io::Result<Box<dyn Write + Send>> {
         Err(unsupported())
     }
 
@@ -250,23 +295,5 @@ pub trait Vfs: Send + Sync + std::fmt::Debug {
     /// The panel listing of `dir`: `..`, hidden filter and sort as `opts` say.
     fn read_panel(&self, dir: &Path, opts: &ListOptions) -> anyhow::Result<Vec<FileEntry>> {
         Ok(panel_listing(dir, self.list(dir)?, opts))
-    }
-
-    /// Children of `dir` for the folder size walker (links not followed).
-    fn du_list(&self, dir: &Path) -> io::Result<Vec<DuEntry>> {
-        Ok(self
-            .list(dir)?
-            .into_iter()
-            .map(|e| {
-                let is_dir = e.is_real_dir();
-                DuEntry {
-                    kind: if is_dir { DuKind::Dir } else { DuKind::File },
-                    size: if is_dir { 0 } else { e.size },
-                    name: e.name,
-                    path: e.path,
-                    id: None,
-                }
-            })
-            .collect())
     }
 }

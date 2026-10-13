@@ -6,7 +6,7 @@
 
 use crate::keybindings::published;
 
-pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     let table = lua.create_table()?;
     table.set(
         "list",

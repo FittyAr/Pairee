@@ -22,7 +22,7 @@ use percent_encoding::{AsciiSet, CONTROLS, percent_decode_str, percent_encode};
 use super::utils_basic;
 use crate::plugin::runtime::lua_json;
 
-pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     // Compose on top of `utils_basic` so the existing `target_os`,
     // `target_family`, `time`, `hash` entries remain available.
     let table = utils_basic::bind(lua)?;
@@ -32,8 +32,9 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // and `nil` auto-detects from `std::env::consts::FAMILY`.
     table.set(
         "quote",
-        lua.create_function(|_lua, (s, unix): (mlua::String, Option<bool>)| {
-            let text = String::from_utf8_lossy(s.as_bytes());
+        lua.create_function(|_lua, (s, unix): (mlua::LuaString, Option<bool>)| {
+            let bytes = s.as_bytes();
+            let text = String::from_utf8_lossy(&bytes);
             let escaped = match unix {
                 Some(true) => crate::shell::quote_posix(&text),
                 Some(false) => crate::shell::quote_cmd(&text),
@@ -47,8 +48,8 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // (unreserved characters preserved).
     table.set(
         "percent_encode",
-        lua.create_function(|_lua, s: mlua::String| {
-            let bytes = s.as_bytes();
+        lua.create_function(|_lua, s: mlua::LuaString| {
+            let bytes = &s.as_bytes();
             let encoded = percent_encode(bytes, FRAGMENT).to_string();
             Ok(mlua::Value::String(_lua.create_string(&encoded)?))
         })?,
@@ -57,8 +58,8 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // `pairee.percent_decode(str)` — decode a percent-encoded string.
     table.set(
         "percent_decode",
-        lua.create_function(|_lua, s: mlua::String| {
-            let bytes = s.as_bytes();
+        lua.create_function(|_lua, s: mlua::LuaString| {
+            let bytes = &s.as_bytes();
             let decoded = percent_decode_str(&String::from_utf8_lossy(bytes))
                 .decode_utf8_lossy()
                 .into_owned();
@@ -87,8 +88,9 @@ pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
     // `pairee.json_decode(str)` — parse a JSON string into a Lua value.
     table.set(
         "json_decode",
-        lua.create_function(|lua_ctx, s: mlua::String| {
-            let text = String::from_utf8_lossy(s.as_bytes());
+        lua.create_function(|lua_ctx, s: mlua::LuaString| {
+            let bytes = s.as_bytes();
+            let text = String::from_utf8_lossy(&bytes);
             match serde_json::from_str::<serde_json::Value>(&text) {
                 Ok(v) => Ok(lua_json::from_json(lua_ctx, &v).unwrap_or(mlua::Value::Nil)),
                 Err(e) => {

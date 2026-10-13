@@ -24,6 +24,7 @@ pub mod sync;
 pub mod sys_helpers;
 pub mod text_filter;
 pub mod text_input;
+pub mod transfer_submit;
 
 pub use app::run;
 pub use context::AppContext;

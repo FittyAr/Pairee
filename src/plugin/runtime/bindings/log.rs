@@ -1,4 +1,4 @@
-pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table<'_>> {
+pub fn bind(lua: &mlua::Lua) -> mlua::Result<mlua::Table> {
     let log_table = lua.create_table()?;
 
     log_table.set(

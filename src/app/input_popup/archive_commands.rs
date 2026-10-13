@@ -84,7 +84,7 @@ fn execute_option(state: &mut AppState, archive_path: &Path, cursor_idx: usize) 
             } else {
                 state.get_passive_panel().current_path.clone()
             };
-            crate::fs::transfer::submit_simple(
+            crate::app::transfer_submit::submit_simple(
                 state,
                 crate::fs::transfer::job::TransferOperation::Extract,
                 vec![archive_path.to_path_buf()],

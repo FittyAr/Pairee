@@ -214,7 +214,7 @@ fn spawn_copy_task(state: &mut AppState, context: &AppContext, from: PathBuf, to
     let options = transfer_options_from_settings(&context.config.settings);
     let job = TransferJob::new(TransferOperation::Copy, vec![from], to, options);
 
-    crate::fs::transfer::submit::ensure_transfer_ui(state);
+    crate::app::transfer_submit::ensure_transfer_ui(state);
     if let Some(ref mut ts) = state.transfer {
         ts.engine.submit_job(job);
         ts.view_mode = crate::app::state::TransferViewMode::Minimized;

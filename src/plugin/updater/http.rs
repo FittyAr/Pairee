@@ -18,11 +18,7 @@ pub const MAX_PLUGIN_FILES: usize = 1000;
 
 /// HTTP client for registry requests.
 pub fn client() -> Result<reqwest::Client> {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(60))
-        .user_agent(format!("pairee/{}", env!("CARGO_PKG_VERSION")))
-        .build()
-        .context("failed to build HTTP client")
+    crate::update::http::client(Duration::from_secs(60))
 }
 
 /// Downloads `url` into memory, at most `max` bytes. `Ok(None)` when the
@@ -32,23 +28,16 @@ pub async fn fetch_limited(
     url: &str,
     max: usize,
 ) -> Result<Option<Vec<u8>>> {
-    let mut response = client.get(url).send().await?;
+    let response = client.get(url).send().await?;
     if response.status() == reqwest::StatusCode::NOT_FOUND {
         return Ok(None);
     }
     if !response.status().is_success() {
         anyhow::bail!("HTTP {} for {url}", response.status());
     }
-    if response
-        .content_length()
-        .is_some_and(|len| len > max as u64)
-    {
-        anyhow::bail!("{url} is larger than the {max}-byte limit");
-    }
-    let mut data = Vec::new();
-    while let Some(chunk) = response.chunk().await? {
-        push_limited(&mut data, &chunk, max).with_context(|| url.to_string())?;
-    }
+    let data = crate::update::http::read_limited(response, max, |_, _| {})
+        .await
+        .with_context(|| url.to_string())?;
     Ok(Some(data))
 }
 
@@ -59,30 +48,7 @@ pub async fn fetch_required(client: &reqwest::Client, url: &str, max: usize) -> 
         .ok_or_else(|| anyhow::anyhow!("{url} was not found (HTTP 404)"))
 }
 
-/// Appends `chunk` unless that makes `data` longer than `max`.
-fn push_limited(data: &mut Vec<u8>, chunk: &[u8], max: usize) -> Result<()> {
-    if data.len() + chunk.len() > max {
-        anyhow::bail!("download exceeds the {max}-byte limit");
-    }
-    data.extend_from_slice(chunk);
-    Ok(())
-}
-
 /// The text of a downloaded TOML/signature file.
 pub fn utf8(bytes: Vec<u8>, what: &str) -> Result<String> {
     String::from_utf8(bytes).with_context(|| format!("{what} is not valid UTF-8"))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn chunks_past_the_limit_are_refused() {
-        let mut data = Vec::new();
-        push_limited(&mut data, &[0; 6], 10).unwrap();
-        push_limited(&mut data, &[0; 4], 10).unwrap();
-        assert!(push_limited(&mut data, &[0; 1], 10).is_err());
-        assert_eq!(data.len(), 10);
-    }
 }
