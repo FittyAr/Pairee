@@ -3,13 +3,11 @@ use crate::app::state::AppState;
 
 /// Changes the current configuration theme.
 pub fn change_theme(context: &mut AppContext, state: &mut AppState, theme_name: &str) {
-    context.config.settings.theme = theme_name.to_string();
-    let theme = if theme_name == "classic_blue" {
-        crate::config::theme::Theme::classic_blue()
-    } else {
-        crate::config::theme::Theme::default()
-    };
-    context.config.theme = theme;
+    if let Some(error) = context.config.switch_theme(theme_name) {
+        state
+            .dialogs
+            .replace(crate::app::state::PopupType::Error(error));
+    }
     context.config.save_logging();
     state.refresh_both_panels(context.config.settings.show_hidden);
 }

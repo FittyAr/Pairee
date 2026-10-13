@@ -27,6 +27,10 @@ pub struct AppConfig {
     pub keybindings: KeybindingsConfig,
     /// Whether `config.toml` may be overwritten (locked after a parse error).
     pub load_state: ConfigLoadState,
+    /// Same guard for `keybindings.toml`.
+    pub keybindings_state: ConfigLoadState,
+    /// Same guard for the active `themes/<name>.toml`.
+    pub theme_state: ConfigLoadState,
     /// Localized load error to show once at startup.
     pub load_error: Option<String>,
 }
@@ -48,28 +52,69 @@ impl AppConfig {
 
         // Load active language
         localization::load_language(&settings.language);
-        let (load_state, load_error) = match settings_parse_error {
-            Some(err) => (
-                ConfigLoadState::SaveLocked,
-                Some(load_guard::backup_invalid_config(&settings_path, &err)),
-            ),
-            None => (ConfigLoadState::Loaded, None),
-        };
+        let mut errors = Vec::new();
+        let settings_failed = settings_parse_error.is_some();
+        let load_state = load_guard::guard(&settings_path, settings_parse_error, &mut errors);
+        if settings_failed {
+            // Plugins run in Secure Mode until the file is readable again.
+            errors.push(localization::t("plugin_secure_mode_forced"));
+        }
 
         // 2. Keybindings Loading, 2b. preset keymap files
-        let keybindings = loading::load_keybindings(&settings_path)?;
+        let (keybindings, keybindings_error) = loading::load_keybindings(&settings_path)?;
+        let keybindings_state = load_guard::guard(
+            &paths::get_keybindings_file_path(),
+            keybindings_error,
+            &mut errors,
+        );
         keymap_seed::seed_preset_keymaps(&paths::get_keymaps_dir())?;
 
-        // 3. Theme Loading
-        let theme = loading::load_theme(&settings.theme)?;
+        // 3. Theme Loading (the name becomes a file path: sanitize it)
+        if !loading::valid_theme_name(&settings.theme) {
+            errors.push(localization::t("error_theme_name_invalid").replacen(
+                "{}",
+                &settings.theme,
+                1,
+            ));
+            settings.theme = Settings::default().theme;
+        }
+        let (theme, theme_error) = loading::load_theme(&settings.theme)?;
+        let theme_state = match loading::theme_path(&settings.theme) {
+            Some(path) => load_guard::guard(&path, theme_error, &mut errors),
+            None => ConfigLoadState::Loaded,
+        };
 
         Ok(Self {
             settings,
             theme,
             keybindings,
             load_state,
-            load_error,
+            keybindings_state,
+            theme_state,
+            load_error: (!errors.is_empty()).then(|| errors.join("\n\n")),
         })
+    }
+
+    /// Switches to theme `name`: its file in the themes folder when there
+    /// is one (an invalid file keeps the built-in look and is not
+    /// overwritten), else the built-in theme. Returns the load error to
+    /// show, if any.
+    pub fn switch_theme(&mut self, name: &str) -> Option<String> {
+        if !loading::valid_theme_name(name) {
+            return Some(localization::t("error_theme_name_invalid").replacen("{}", name, 1));
+        }
+        let (theme, error) = match loading::load_theme(name) {
+            Ok(loaded) => loaded,
+            Err(e) => (theme::Theme::default(), Some(e.to_string())),
+        };
+        let mut errors = Vec::new();
+        self.theme_state = match loading::theme_path(name) {
+            Some(path) => load_guard::guard(&path, error, &mut errors),
+            None => ConfigLoadState::Loaded,
+        };
+        self.settings.theme = name.to_string();
+        self.theme = theme;
+        errors.pop()
     }
 
     /// `true` while `config.toml` must not be overwritten implicitly.
@@ -77,9 +122,12 @@ impl AppConfig {
         self.load_state == ConfigLoadState::SaveLocked
     }
 
-    /// Lifts the lock after the user explicitly confirmed saving the settings.
+    /// Lifts the locks after the user explicitly confirmed saving the
+    /// settings ("Save setup" replaces every invalid file, already backed up).
     pub fn confirm_settings_overwrite(&mut self) {
         self.load_state = ConfigLoadState::Loaded;
+        self.keybindings_state = ConfigLoadState::Loaded;
+        self.theme_state = ConfigLoadState::Loaded;
     }
 
     /// Returns (once) the localized load error to show at startup, if any.
@@ -101,18 +149,27 @@ impl AppConfig {
         }
 
         let keybindings_path = paths::get_keybindings_file_path();
-        let keybindings_toml = toml::to_string_pretty(&self.keybindings)?;
-        write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
-
-        // Save active theme
-        let theme_name = &self.settings.theme;
-        let themes_dir = paths::get_themes_dir();
-        if !themes_dir.exists() {
-            fs::create_dir_all(&themes_dir)?;
+        if self.keybindings_state == ConfigLoadState::SaveLocked {
+            log::warn!("Not overwriting invalid {keybindings_path:?} until Save setup");
+        } else {
+            let keybindings_toml = toml::to_string_pretty(&self.keybindings)?;
+            write_atomic(&keybindings_path, keybindings_toml.as_bytes())?;
         }
-        let theme_path = themes_dir.join(format!("{}.toml", theme_name));
-        let theme_toml = toml::to_string_pretty(&self.theme)?;
-        write_atomic(&theme_path, theme_toml.as_bytes())?;
+
+        // Save active theme (never to a path outside the themes folder)
+        match loading::theme_path(&self.settings.theme) {
+            Some(theme_path) if self.theme_state == ConfigLoadState::Loaded => {
+                let theme_toml = toml::to_string_pretty(&self.theme)?;
+                write_atomic(&theme_path, theme_toml.as_bytes())?;
+            }
+            Some(theme_path) => {
+                log::warn!("Not overwriting invalid {theme_path:?} until Save setup");
+            }
+            None => log::warn!(
+                "Not saving theme with invalid name {:?}",
+                self.settings.theme
+            ),
+        }
 
         Ok(())
     }
