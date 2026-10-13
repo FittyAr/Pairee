@@ -14,6 +14,7 @@ mod git_panel;
 mod mouse;
 mod navigation;
 mod panel_render;
+mod panel_scroll;
 mod panel_search;
 mod plugin_keys;
 mod polish;

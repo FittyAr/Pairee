@@ -27,3 +27,4 @@
 - Output of a background command no longer goes to the wrong screen, or gets lost, after an earlier screen is closed.
 - `cd` on the command line accepts quoted names (as drag & drop inserts them), `~/folder`, `cd -`, relative paths and SFTP or archive panels, and records the folder history.
 - Typed text stays visible on the command line when the prompt is long.
+- A double click in a long panel opens the entry that was clicked: the panel scrolls only when the cursor leaves the view, as in Far and Midnight Commander.

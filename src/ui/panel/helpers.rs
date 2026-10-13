@@ -69,7 +69,8 @@ pub(crate) fn build_panel_title(panel: &PanelState, settings: &Settings) -> Stri
 }
 
 /// The shown entries: from `peek` when a file drag scrolled the view (see
-/// `app::mouse::file_drag`), else around the cursor ([`visible_range`]).
+/// `app::mouse::file_drag`), else the panel's stable view
+/// ([`visible_range`]).
 pub(crate) fn shown_range(
     panel: &PanelState,
     height: usize,
@@ -83,21 +84,28 @@ pub(crate) fn shown_range(
     (start, start + height.min(len - start))
 }
 
+/// The `height` entries shown from the panel's first shown entry, scrolled
+/// only as far as needed to keep the cursor in view (the new first entry
+/// is stored back in the panel).
 pub(crate) fn visible_range(panel: &PanelState, height: usize) -> (usize, usize) {
-    let start = if panel.cursor_index > height / 2 {
-        panel.cursor_index.saturating_sub(height / 2)
+    let len = panel.entries.len();
+    let start = follow_cursor(panel.scroll_top.get(), panel.cursor_index, height, len);
+    panel.scroll_top.set(start);
+    (start, start + height.min(len.saturating_sub(start)))
+}
+
+/// First shown entry: `top` unless the cursor is above it or below the
+/// `height` rows from it, and never leaving rows empty at the end.
+fn follow_cursor(top: usize, cursor: usize, height: usize, len: usize) -> usize {
+    let height = height.max(1);
+    let top = if cursor < top {
+        cursor
+    } else if cursor >= top + height {
+        cursor + 1 - height
     } else {
-        0
+        top
     };
-    let start = if start + height > panel.entries.len() {
-        panel.entries.len().saturating_sub(height)
-    } else {
-        start
-    };
-    (
-        start,
-        start + height.min(panel.entries.len().saturating_sub(start)),
-    )
+    top.min(len.saturating_sub(height))
 }
 
 /// Entries in `start..end`, or nothing when the range is out of bounds
@@ -240,5 +248,21 @@ mod tests {
         panel.calculate_dir_sizes(std::slice::from_ref(&folder.path));
         panel.dir_sizes.poll();
         assert_eq!(entry_size_text(&panel, &folder).as_deref(), Some("10 B"));
+    }
+
+    #[test]
+    fn view_scrolls_only_when_the_cursor_leaves_it() {
+        // 100 entries, 10 rows.
+        assert_eq!(follow_cursor(0, 9, 10, 100), 0, "cursor still shown");
+        assert_eq!(follow_cursor(0, 10, 10, 100), 1, "one row past the end");
+        assert_eq!(follow_cursor(20, 25, 10, 100), 20, "moves inside the view");
+        assert_eq!(follow_cursor(20, 5, 10, 100), 5, "above the view");
+        assert_eq!(
+            follow_cursor(95, 99, 10, 100),
+            90,
+            "no empty rows at the end"
+        );
+        assert_eq!(follow_cursor(7, 0, 10, 3), 0, "short lists start at 0");
+        assert_eq!(follow_cursor(3, 3, 0, 10), 3, "zero height");
     }
 }
