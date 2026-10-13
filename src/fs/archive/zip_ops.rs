@@ -42,7 +42,7 @@ fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> Result<EntryMeta> {
         },
         size: file.size(),
         modified: file.last_modified().and_then(zip_time),
-        mode: file.unix_mode(),
+        mode: super::format::usable_mode(file.unix_mode()),
     })
 }
 

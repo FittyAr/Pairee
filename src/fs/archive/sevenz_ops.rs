@@ -19,9 +19,11 @@ fn meta(entry: &sevenz_rust2::ArchiveEntry) -> EntryMeta {
         modified: entry
             .has_last_modified_date
             .then(|| entry.last_modified_date.into()),
-        mode: (entry.has_windows_attributes
-            && entry.windows_attributes & super::sevenz_write::UNIX_EXTENSION != 0)
-            .then_some(entry.windows_attributes >> 16),
+        mode: super::format::usable_mode(
+            (entry.has_windows_attributes
+                && entry.windows_attributes & super::sevenz_write::UNIX_EXTENSION != 0)
+                .then_some(entry.windows_attributes >> 16),
+        ),
     }
 }
 

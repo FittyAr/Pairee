@@ -72,6 +72,12 @@ pub trait ArchiveReader: Send + Sync {
     }
 }
 
+/// A stored Unix mode worth applying: some archivers record `0` (or only
+/// the file type), which would leave extracted files unreadable.
+pub(super) fn usable_mode(mode: Option<u32>) -> Option<u32> {
+    mode.filter(|m| m & 0o777 != 0)
+}
+
 /// Converts a timestamp in seconds since the Unix epoch.
 pub(super) fn unix_time(secs: u64) -> SystemTime {
     SystemTime::UNIX_EPOCH + std::time::Duration::from_secs(secs)
