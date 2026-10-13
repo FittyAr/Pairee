@@ -123,10 +123,15 @@ Lists all plugins currently loaded and active in your local Pairee setup.
 ##### Status Badges:
 * **`[P]` (Pinned):** The plugin version is pinned. It will not be automatically updated when running global batch updates.
 * **`[T]` (Trusted):** The plugin has been granted extended system permissions ("Trust Mode"). Untagged plugins run inside a strict sandbox without network or raw terminal command execution access.
+* **`[-]` (Disabled):** The plugin is installed but not loaded; none of its code or hooks run.
 * **`[▲]` (Update Available):** A newer version is available in the central registry.
 
 ##### Keyboard Shortcuts:
 * **`t` / `T`:** Toggle trust configuration status for the highlighted plugin.
+* **`e` / `E`:** Enable or disable the highlighted plugin.
+* **`s` / `S`:** Turn the global Secure Mode on or off for all plugins.
+
+Trust, enable and Secure Mode changes are saved and applied at once: Pairee reloads its plugins with the new settings. If `config.toml` cannot be read, plugins run in Secure Mode until it is fixed. Registry downloads are checked against the registry's minisign signatures; while the registry is not signed yet, installs and updates show an "unsigned" warning.
 * **`p` / `P`:** Toggle version pinning in `plugins.lock`.
 * **`u`:** Update the selected plugin to the latest version in the background. A notification toast will display at the top once complete.
 * **`U`:** Update all unpinned plugins in a batch background operation.

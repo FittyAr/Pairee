@@ -1,6 +1,6 @@
 # Pairee Plugin Registry — Specification
 
-> **Status: Planned. This document describes the future versioned community plugin registry hosted on the `plugin-registry` Git branch of the Pairee repository.**
+> **Status: Partially implemented. Sections 5 and 6 (CLI, download, verification and signatures) describe the current behaviour; the versioned layout of section 2 is planned.**
 
 ---
 
@@ -216,33 +216,76 @@ git.pairee  [Hook] [EN] [ES]  Git status integration for file panels  #git #vcs
 ## 6. Download & Verification Flow
 
 ```
-pairee plugin install git.pairee
+pairee plugin install <name>        (TUI: Plugin Manager → Search → i)
   │
-  ├─ 1. Fetch registry/index.toml via HTTPS
-  │       URL: https://raw.githubusercontent.com/FittyAr/Pairee/plugin-registry/registry/index.toml
-  │
-  ├─ 2. Locate plugin entry in index → resolve latest version and its file mappings list
-  │
-  ├─ 3. Fetch manifest.toml for the target version
-  │       URL: .../registry/plugins/git.pairee/manifest.toml
-  │
-  ├─ 4. Check min_pairee ≤ current Pairee version
-  │       └─ FAIL → print error, abort
-  │
-  ├─ 5. Download each file individually based on resolved mapping paths
-  │       For each file:
-  │         ├─ Download file content (e.g. main.lua)
-  │         ├─ Compute SHA-256 hash of downloaded file
-  │         ├─ Compare against declared hash in index.toml
-  │         │    ├─ MATCH → write to ~/.config/pairee/plugins/git.pairee/<path>
-  │         │    └─ MISMATCH → delete downloaded assets, print error, abort
-  │
-  ├─ 6. Append or update entry in plugins.lock
-  │
-  └─ 7. Print success summary
-          ├─ If requires_trust = true → print trust opt-in reminder
-          └─ Merge keybinding overlays into active resolver config
+  ├─ 1. Fetch registry/blocklist.toml (+ .minisig)      ≤ 4 MiB
+  │       blocked → abort
+  ├─ 2. Fetch registry/index.toml (+ .minisig)          ≤ 4 MiB
+  │       resolve the latest version and the author
+  ├─ 3. Fetch plugins/<shard>/<author>/<name>/manifest.toml (+ .minisig)  ≤ 1 MiB
+  │       its [files] table pins the SHA-256 of every file
+  ├─ 4. Validate every [files] key (no "..", absolute, drive, "\" or ":")
+  │       at most 1000 files
+  ├─ 5. Download each file into memory                  ≤ 16 MiB each, ≤ 64 MiB total
+  │       compare its SHA-256 with [files] → any mismatch aborts, nothing written
+  ├─ 6. Write every file atomically; remove the files the previous version
+  │       listed in plugins.lock that this version no longer ships
+  └─ 7. Update plugins.lock (atomic write; the pin flag is kept)
 ```
+
+Every limit is enforced while streaming: a response is refused as soon as it
+grows past its limit (and up front when `Content-Length` already exceeds it).
+The updater never prints: operations return a report that the CLI prints and
+the TUI shows in a toast.
+
+### 6.1 Registry signatures (minisign)
+
+The SHA-256 values come from the registry itself, so they only protect
+against corrupted downloads. Authenticity comes from **minisign signatures**
+of the files that carry those hashes:
+
+| Signed file | Signature | Trusted comment must contain |
+|-------------|-----------|------------------------------|
+| `registry/index.toml` | `registry/index.toml.minisig` | `file:index.toml` |
+| `registry/blocklist.toml` | `registry/blocklist.toml.minisig` | `file:blocklist.toml` |
+| `registry/plugins/<s>/<author>/<name>/manifest.toml` | same path + `.minisig` | `file:plugins/<s>/<author>/<name>/manifest.toml` |
+
+Pairee verifies them with the same minisign code as its self-updater
+(`update::signature::verify_with_key`): prehashed signatures only, and the
+trusted comment (covered by the global signature) must name the file by its
+path inside `registry/`, so a signature cannot be replayed for another file.
+
+* A signature that is present but does not verify **always** fails the
+  operation (also for the blocklist).
+* A missing signature is accepted with an **"unsigned" warning** (CLI report
+  line, TUI toast) while the registry is not signed yet. Users can refuse
+  unsigned files with `registry_require_signature = true` under `[security]`
+  in `config.toml`; this will become the default once the registry is signed.
+* The public key defaults to the Pairee release key embedded in the binary
+  (`RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6`). A fork or a
+  private registry can set `registry_public_key = "<base64 key>"` under
+  `[security]`.
+
+**How maintainers sign the registry** (on the `plugin-registry` branch, with
+the offline release secret key):
+
+```bash
+cd registry
+# index and blocklist
+minisign -S -s pairee.key -m index.toml     -t "file:index.toml"
+minisign -S -s pairee.key -m blocklist.toml -t "file:blocklist.toml"
+# every plugin manifest (its [files] table pins the plugin's files)
+find plugins -name manifest.toml | while read -r m; do
+  minisign -S -s pairee.key -m "$m" -t "file:$m"
+done
+git add -A && git commit -m "registry: sign index, blocklist and manifests"
+```
+
+Re-sign a manifest whenever it changes (new plugin version) and the index on
+every merge. `minisign -S` writes `<file>.minisig` next to the file; the
+default (prehashed) mode is the one Pairee accepts. `-t` sets the whole
+trusted comment; it may hold more words (`file:index.toml date:2026-10-13`),
+Pairee only requires the `file:` word to match.
 
 ---
 

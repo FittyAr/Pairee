@@ -75,7 +75,7 @@ description = "Simple Hello World test plugin"
 author = "your-handle"
 license = "MIT"
 type = "command"
-min_pairee = "0.7.0"
+min_pairee = "0.7.0"   # semver; pre-releases like "0.10.0-beta.1" work, an unreadable value refuses to load
 ```
 
 Register it in `pairee.toml`:
@@ -186,6 +186,12 @@ child:close_stdin()
 local streamed = child:wait_with_output()
 ```
 
+In Secure Mode (13.3) `:env(name, value)` only accepts locale, terminal and
+colour variables (`LANG`, `LANGUAGE`, `LC_*`, `TERM`, `COLORTERM`, `NO_COLOR`,
+`CLICOLOR`, `CLICOLOR_FORCE`, `FORCE_COLOR`, `TZ`, `COLUMNS`, `LINES`); any
+other name raises a security violation. `:cwd(path)` must name an existing
+folder inside the plugin's `pairee.fs` read jail.
+
 ### `pairee.ui` — Widget Constructors
 
 ```lua
@@ -270,9 +276,25 @@ letter means Shift (`Ctrl+H`); a space separates the keys of a sequence
 **Reading the keymap from Lua.** `pairee.keymap.list()` returns every live
 binding as `{ chord, id, label, origin }`; `pairee.keymap.chord_for(id)`
 returns the first chord of an action (`"copy"`, `"plugin.<name>.<command>"`)
-or `nil`. **Firing actions.** `pairee.emit(id)` runs any keymap action as if
+or `nil`. **Firing actions.** `pairee.emit(id)` runs a keymap action as if
 its key were pressed (`pairee.emit("go_to_tab_2")`); `cd` and `focus` also
-take arguments.
+take arguments. What a plugin may fire depends on its trust:
+
+* **Untrusted** plugins may only fire navigation, view, sort, selection and
+  help actions (`move_down`, `go_parent`, `go_to_tab_<n>`, `sort_by_name`,
+  `select_all`, `quick_view`, `help`, ...) and their **own** commands
+  (`plugin.<this plugin>.<command>`). Anything that copies, moves, deletes,
+  writes, runs commands, changes settings or connects is refused with an
+  error dialog.
+* **Trusted** plugins may fire any action. It runs exactly like the key
+  press, so the usual confirmation dialogs (and the user's confirmation
+  settings, such as `confirm_delete`) apply.
+* `cd` (and `pairee.app.cd`) resolves a relative path against the active
+  panel's folder and only accepts an existing local folder; it is refused
+  on SSH and archive panels.
+* Arguments are converted to JSON with limits: tables must be dense lists
+  (`{ "a", "b" }`) or string-keyed maps, nested at most 32 levels and 100 000
+  values in total. Sparse, mixed or cyclic tables raise a Lua error.
 
 The pre-v2 table `[keybindings] "ctrl+h" = "toggle"` still works: each value
 becomes a command with those keys as its default.
@@ -449,7 +471,7 @@ To protect users against malicious or buggy third-party plugins, Pairee implemen
 By default, all plugins run in **Untrusted Mode** (`trusted = false`), which isolates them inside a secure sandbox VM:
 * **Blocked Libraries:** The plugin cannot access Lua standard libraries `io`, `os`, `package`, `coroutine`, or `debug`.
 * **Banned Runtimes:** Global functions capable of dynamic script evaluation (`load`, `loadstring`, `dofile`, `loadfile`) are disabled.
-* **Require Isolation:** The global `require` function is custom-implemented by Rust to restrict module loading exclusively to files within the plugin's own directory.
+* **Require Isolation:** `require("lib.util")` loads `lib/util.lua` (or `lib/util/init.lua`) from the plugin's own folder, runs it once and caches the result in a table private to the plugin. It works for untrusted and trusted plugins alike (it does not need the `package` library). Module names are plain dotted identifiers (letters, digits, `_`, `-`); `..`, separators, symlinks and junctions cannot reach files outside the plugin folder.
 * **No Commands:** Any call to `pairee.fs.spawn()` will immediately throw a runtime error.
 * **Filesystem Jail:** `pairee.fs` can only read inside the plugin's own directory and its private data directory (`pairee.fs.data_dir()`), and can only write inside the data directory. This applies whether or not Secure Mode is enabled; `..` segments and symlinks cannot escape it.
 
@@ -481,7 +503,15 @@ To prevent data exfiltration, users can enable a global **Secure Mode** in their
   * The program must be given by **bare name** (no absolute/relative path); it is resolved through the absolute entries of `PATH` and that absolute path is executed. On Windows only `.exe` / `.com` are resolved (never `.bat` / `.cmd`).
   * Shells, interpreters, network utilities and command wrappers (`sh`, `bash`, `cmd`, `powershell`, `pwsh`, `python*`, `node`, `perl`, `ruby`, `lua`, `curl`, `wget`, `ssh`, `env`, `xargs`, `sudo`, ...) are **always** refused, even if declared, and also when a declared name is a symlink to one of them.
   * Undeclared commands fail with `Security violation: ... is not declared in the plugin manifest`. The Plugin Manager shows the declared commands in the plugin details so the user can review them before trusting the plugin.
-* **FS Sandboxing:** For trusted plugins, file APIs (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. Untrusted plugins keep their stricter jail (13.1).
+* **Environment and working directory:** `Command:env` is limited to locale/terminal/colour variables and `Command:cwd` to folders inside the jail (see `pairee.Command`), so a declared tool cannot be turned into a code runner through `GIT_SSH_COMMAND`, `LD_PRELOAD`, `PAGER` and similar variables.
+* **FS Sandboxing:** For trusted plugins, file **reads** (`pairee.fs`) are locked to the active workspace folder, the user's config and cache directories, and the plugin's own and data directories. **Writes** are limited to the workspace, the cache and the plugin's data directory: Pairee's config directory (`config.toml`, `keybindings.toml`, associations, the user menu, `plugins/`, `plugins.lock`) is read-only, so a plugin cannot switch Secure Mode off or trust itself. Untrusted plugins keep their stricter jail (13.1).
+* **Fails closed:** if `config.toml` cannot be parsed, plugins run in Secure Mode until it is fixed (the startup error says so).
+
+### 13.4 Resource limits
+Every plugin has a memory cap (128 MiB untrusted, 512 MiB trusted) and a CPU watchdog: each call Pairee makes into the plugin (`main.lua`, `setup`, `entry`, `peek`, hook callbacks) may run for at most 10 seconds of wall-clock time, time spent inside C functions such as `string.rep` included. A call over budget is aborted with `plugin aborted: exceeded its execution time limit`, and `pcall` cannot catch it; the next call starts with a fresh budget.
+
+### 13.5 Managing plugins
+In the Plugin Manager (Installed tab) `t` toggles a plugin's trust, `e` enables or disables it and `s` toggles the global Secure Mode. Changes are saved and applied at once: all plugins are reloaded with the new settings. Disabled plugins are not loaded at all, so none of their code or hooks run.
 
 ---
 
@@ -659,7 +689,7 @@ When `pairee.t()` resolves a key:
 Plugins can declare their own settings and configuration variables. These are dynamically loaded and rendered in Pairee's main TUI options window, allowing users to modify parameters without editing Lua code directly.
 
 ### 18.1 Defining settings_schema
-In your plugin's `manifest.toml`, define a `[settings_schema]` table containing the configurable options. Each option must specify a `type` (`bool`, `string`, or `integer`), a `default` value, and a brief `description`:
+In your plugin's `manifest.toml`, define a `[settings_schema]` table containing the configurable options. Each option must specify a `type` (`bool`, `string`, `integer` or `number`), a `default` value, and a brief `description`. The user's value is converted with the declared type (without `type`, the type of `default` is used); a value that does not fit the type is ignored and the default is used:
 ```toml
 [settings_schema]
 show_hidden = { type = "bool", default = false, description = "Show hidden VCS files" }
