@@ -2,7 +2,11 @@
 
 use crate::app::context::AppContext;
 use crate::app::form::{FieldKey, field_key};
+use crate::app::state::popup::FilePanelFilterPrompt;
+use crate::app::state::popup::QuickFilterPrompt;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::KeyEvent;
 
@@ -12,7 +16,7 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     match state.dialogs.top_mut() {
-        Some(PopupType::FilePanelFilterPrompt { input }) => {
+        Some(PopupType::FilePanelFilterPrompt(FilePanelFilterPrompt { input })) => {
             match field_key(input, &key) {
                 FieldKey::Cancel => state.dialogs.clear(),
                 FieldKey::Submit => {
@@ -25,16 +29,16 @@ pub fn handle(
             }
             Ok(None)
         }
-        Some(PopupType::QuickFilterPrompt { input, .. }) => {
+        Some(PopupType::QuickFilterPrompt(QuickFilterPrompt { input, .. })) => {
             let active = state.panels.active;
             match field_key(input, &key) {
                 FieldKey::Submit => state.dialogs.clear(),
                 FieldKey::Cancel => {
-                    if let Some(PopupType::QuickFilterPrompt {
+                    if let Some(PopupType::QuickFilterPrompt(QuickFilterPrompt {
                         original_mask,
                         original_cursor,
                         ..
-                    }) = state.dialogs.pop()
+                    })) = state.dialogs.pop()
                     {
                         state.dialogs.clear();
                         state.update_panel_filter(active, original_mask);
@@ -50,5 +54,23 @@ pub fn handle(
             Ok(None)
         }
         _ => Err(()),
+    }
+}
+
+impl Dialog for FilePanelFilterPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.input)
+    }
+}
+
+impl Dialog for QuickFilterPrompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        Some(&mut self.input)
     }
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::app::editor::EditorClipboard;
 use crate::app::state::Screen;
+use crate::app::state::popup::EditorSaveAsPrompt;
 use crate::config::AppConfig;
 use std::path::PathBuf;
 
@@ -93,7 +94,7 @@ fn f2_saves_and_shift_f2_opens_save_as() {
     press_mod(&mut state, &mut context, KeyCode::F(2), KeyModifiers::SHIFT);
     assert!(matches!(
         state.dialogs.top(),
-        Some(PopupType::EditorSaveAsPrompt { .. })
+        Some(PopupType::EditorSaveAsPrompt(EditorSaveAsPrompt { .. }))
     ));
 }
 

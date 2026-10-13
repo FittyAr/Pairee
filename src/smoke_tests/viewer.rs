@@ -1,6 +1,7 @@
 //! Internal viewer (F3): legacy encodings, search, hex view, encoding
 //! selector and a large file.
 
+use crate::app::state::popup::ViewerEncoding;
 use crate::app::state::{PopupType, Screen};
 use crate::test_harness::Harness;
 use crate::ui::viewer::{ViewerMode, ViewerState};
@@ -53,7 +54,7 @@ fn latin1_text_search_hex_and_encoding_selector() {
         h.keys("F8");
         assert!(matches!(
             h.state.dialogs.top(),
-            Some(PopupType::ViewerEncoding { .. })
+            Some(PopupType::ViewerEncoding(ViewerEncoding { .. }))
         ));
         h.keys("Home Enter");
         assert_eq!(viewer(&h).doc.encoding(), encoding_rs::UTF_8);

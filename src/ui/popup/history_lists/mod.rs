@@ -17,7 +17,6 @@ pub fn render_history_lists_popup(
     scrollbar: Option<&ScrollbarUiState>,
 ) -> bool {
     lists::render_history_lists(f, popup, theme, size, scrollbar)
-        || search::render_search(f, popup, theme, size, scrollbar)
         || tree::render_tree(f, popup, theme, size, scrollbar)
         || compare::render_compare(f, popup, theme, size, scrollbar)
         || task_list::render_task_list(f, popup, theme, size, scrollbar)

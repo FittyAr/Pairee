@@ -26,7 +26,6 @@ impl PopupType {
                 | PopupType::FileViewHistoryList { .. }
                 | PopupType::FoldersHistoryList { .. }
                 | PopupType::CommandPalette { .. }
-                | PopupType::ViewerEncoding { .. }
                 | PopupType::TreeView { .. }
                 | PopupType::SelectDevPlugin { .. }
                 | PopupType::UpdateAvailable { .. }
@@ -43,7 +42,6 @@ impl PopupType {
             self,
             PopupType::UpdateAvailable { .. }
                 | PopupType::GitPanel(_)
-                | PopupType::SearchResults { .. }
                 | PopupType::CommandHistoryList { .. }
                 | PopupType::FileViewHistoryList { .. }
                 | PopupType::FoldersHistoryList { .. }

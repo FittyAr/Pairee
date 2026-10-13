@@ -90,12 +90,6 @@ fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::V
     if screens_menu::render_screens_menu(f, popup, state, theme, size) {
         return;
     }
-    if editor::render_editor_popup(f, popup, theme, size) {
-        return;
-    }
-    if viewer::render_viewer_popup(f, popup, theme, size) {
-        return;
-    }
     if sync_dirs::render(f, popup, state, theme, size) {
         return;
     }

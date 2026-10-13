@@ -5,7 +5,9 @@
 mod config_dialog;
 mod confirm;
 mod dialog;
+mod editor_viewer;
 mod file_ops;
+mod filters;
 pub mod forms;
 mod git_panel;
 mod git_prompts;
@@ -29,7 +31,15 @@ pub use confirm::{
 };
 use dialog::define_popup_type;
 pub use dialog::{Dialog, DialogKind, DialogScroll, KeyHandler, KeyOutcome};
+pub use editor_viewer::{
+    EditorConfirmOverwrite, EditorSaveAsPrompt, EditorSearchPrompt, ViewerEncoding,
+    ViewerSearchPrompt,
+};
 pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp, split_multiple};
+pub use filters::{
+    FilePanelFilterPrompt, PanelSearch, QuickFilterPrompt, RenameTabPrompt, SearchPrompt,
+    SearchResults,
+};
 pub use git_panel::GitPanelState;
 pub use git_prompts::{
     GitClonePromptState, GitCommitPromptState, GitConfirmActionState, GitConfirmCheckoutState,
@@ -99,28 +109,19 @@ macro_rules! dialog_list {
                 CopyMoveFilterPrompt(CopyMoveFilterPrompt),
                 ConfirmDelete(ConfirmDelete),
                 WipeConfirm(WipeConfirm),
+                PanelSearch(PanelSearch),
+                FilePanelFilterPrompt(FilePanelFilterPrompt),
+                RenameTabPrompt(RenameTabPrompt),
+                QuickFilterPrompt(QuickFilterPrompt),
+                SearchPrompt(SearchPrompt),
+                SearchResults(SearchResults),
+                EditorSaveAsPrompt(EditorSaveAsPrompt),
+                EditorConfirmOverwrite(EditorConfirmOverwrite),
+                ViewerEncoding(ViewerEncoding),
+                EditorSearchPrompt(EditorSearchPrompt),
+                ViewerSearchPrompt(ViewerSearchPrompt),
             ]
             legacy: [
-        /// In-panel search (`find_in_panel`, NC quick search).
-        PanelSearch {
-            query: TextField,
-            how: crate::app::input::panel_find::NameMatch,
-            /// Cursor when the search started.
-            origin: usize,
-        },
-        FilePanelFilterPrompt {
-            input: TextField,
-        },
-        /// Title of a folder tab (empty: the folder name).
-        RenameTabPrompt {
-            tab: crate::app::state::TabId,
-            input: TextField,
-        },
-        QuickFilterPrompt {
-            input: TextField,
-            original_mask: Option<String>,
-            original_cursor: usize,
-        },
         SelectDevPlugin {
             options: Vec<(String, String)>,
             cursor_idx: usize,
@@ -165,39 +166,10 @@ macro_rules! dialog_list {
             cursor_idx: usize,
             suspended_popup: Option<Box<PopupType>>,
         },
-        EditorSearchPrompt(TextSearchState),
-        /// "Save as" path entry for the built-in editor (Shift+F2).
-        EditorSaveAsPrompt {
-            input: TextField,
-        },
-        /// Saving would overwrite a file changed on disk or an existing target.
-        EditorConfirmOverwrite {
-            target: PathBuf,
-            reason: crate::app::editor::open::OverwriteReason,
-        },
-        ViewerSearchPrompt(TextSearchState),
-        /// Encoding selector of the viewer (F8); the cursor indexes `fs::text::ENCODINGS`.
-        ViewerEncoding {
-            cursor_idx: usize,
-        },
         QuickViewPanel(Box<QuickViewDialog>),
         FileAttributesDialog {
             attrs: FileAttrsSnapshot,
             mode_input: String,
-        },
-        SearchPrompt {
-            query: TextField,
-            content_query: TextField,
-            search_root: PathBuf,
-            case_sensitive: bool,
-            search_target: crate::fs::search::SearchTarget,
-            cursor_idx: usize,
-        },
-        SearchResults {
-            query: String,
-            results: Vec<(PathBuf, bool)>,
-            cursor_idx: usize,
-            searching: bool,
         },
         CommandHistoryList {
             entries: Vec<String>,

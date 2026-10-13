@@ -7,6 +7,7 @@
 use super::EditorState;
 use super::document::EDITOR_MAX_BYTES;
 use super::open::{OverwriteReason, open_in_editor};
+use crate::app::state::popup::EditorConfirmOverwrite;
 use crate::app::state::{AppState, PopupType, VfsFollowUp};
 use crate::fs::stamp::Stamp;
 use crate::fs::vfs::{Vfs, VfsEntry};
@@ -94,13 +95,16 @@ pub fn open_remote(state: &mut AppState, vfs: Arc<dyn Vfs>, path: PathBuf) {
 pub fn start_upload(state: &mut AppState, origin: RemoteOrigin, local: PathBuf, force: bool) {
     state.start_vfs_task(move || {
         let uploaded = upload(&origin, &local, force)?;
-        let follow_up: VfsFollowUp = Box::new(move |state, _| match uploaded {
-            Some(stamp) => state.set_remote_stamp(&local, stamp),
-            None => state.dialogs.replace(PopupType::EditorConfirmOverwrite {
-                target: local,
-                reason: OverwriteReason::ChangedRemotely,
-            }),
-        });
+        let follow_up: VfsFollowUp =
+            Box::new(move |state, _| match uploaded {
+                Some(stamp) => state.set_remote_stamp(&local, stamp),
+                None => state.dialogs.replace(PopupType::EditorConfirmOverwrite(
+                    EditorConfirmOverwrite {
+                        target: local,
+                        reason: OverwriteReason::ChangedRemotely,
+                    },
+                )),
+            });
         Ok(follow_up)
     });
 }

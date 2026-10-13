@@ -1,6 +1,7 @@
 //! Background channel event processors for terminal, SSH, search, and plugin dev tools.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::SearchResults;
 use crate::app::state::{AppState, DevProgress, PopupType, Screen};
 use crate::terminal::TerminalBackend;
 
@@ -64,9 +65,9 @@ pub fn process_search_updates(state: &mut AppState) {
         },
         None => return,
     };
-    if let Some(PopupType::SearchResults {
+    if let Some(PopupType::SearchResults(SearchResults {
         results, searching, ..
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
         && (results.len() != hits.len() || !running)
     {
         *results = hits;

@@ -97,28 +97,18 @@ fn git_progress(
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
-        PopupType::PanelSearch { .. } => panel_search::handle,
         PopupType::UserMenu { .. } => user_menu::handle,
-        PopupType::EditorSearchPrompt(_)
-        | PopupType::EditorSaveAsPrompt { .. }
-        | PopupType::EditorConfirmOverwrite { .. } => editor::handle,
-        PopupType::ViewerSearchPrompt(_) | PopupType::ViewerEncoding { .. } => viewer::handle,
         PopupType::Menu { .. } => menu::handle,
         PopupType::YaziSortPopup | PopupType::YaziViewPopup => yazi_popup::handle,
         PopupType::ScreensMenu { .. } => screens_menu::handle,
         PopupType::DriveSelect { .. } => drive_select::handle,
         PopupType::Hotlist { .. } => hotlist::handle,
         PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
-        PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
         PopupType::TreeView { .. } => tree_view::handle,
         PopupType::SyncDirs(_) => sync_dirs::handle,
         PopupType::FolderScanProgress => sync_dirs::handle_progress,
         PopupType::ContextMenu { .. } => context_menu::handle,
         PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle,
-        PopupType::RenameTabPrompt { .. } => rename_tab::handle,
-        PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
-            file_filter::handle
-        }
         PopupType::TaskListDialog { .. } => task_list::handle,
         PopupType::DiskUsage => disk_usage::handle,
         PopupType::PluginMenu(..) => plugin_menu::handle,

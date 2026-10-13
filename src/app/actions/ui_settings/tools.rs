@@ -1,7 +1,10 @@
 //! Tools, screens, and auxiliary dialog actions for UI settings.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::FilePanelFilterPrompt;
+use crate::app::state::popup::QuickFilterPrompt;
 use crate::app::state::popup::SaveSetupConfirm;
+use crate::app::state::popup::SearchPrompt;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
@@ -61,22 +64,22 @@ fn config_action(state: &mut AppState, action: &Action, context: &AppContext) ->
 fn panel_prompt_action(state: &mut AppState, action: &Action) -> bool {
     let active = state.get_active_panel();
     let popup = match action {
-        Action::FilePanelFilter => PopupType::FilePanelFilterPrompt {
+        Action::FilePanelFilter => PopupType::FilePanelFilterPrompt(FilePanelFilterPrompt {
             input: active.filter_mask.clone().unwrap_or_default().into(),
-        },
-        Action::QuickFilter => PopupType::QuickFilterPrompt {
+        }),
+        Action::QuickFilter => PopupType::QuickFilterPrompt(QuickFilterPrompt {
             input: active.quick_filter_mask.clone().unwrap_or_default().into(),
             original_mask: active.quick_filter_mask.clone(),
             original_cursor: active.cursor_index,
-        },
-        Action::FindFile => PopupType::SearchPrompt {
+        }),
+        Action::FindFile => PopupType::SearchPrompt(SearchPrompt {
             query: Default::default(),
             content_query: Default::default(),
             search_root: active.current_path.clone(),
             case_sensitive: false,
             search_target: crate::fs::search::SearchTarget::Any,
             cursor_idx: 0,
-        },
+        }),
         Action::TaskList => PopupType::TaskListDialog {
             tasks: get_process_list(),
             cursor_idx: 0,

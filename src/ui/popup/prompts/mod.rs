@@ -20,11 +20,6 @@ pub fn render_prompt_popup(
     state: &AppState,
 ) -> bool {
     match popup {
-        PopupType::FilePanelFilterPrompt { .. }
-        | PopupType::QuickFilterPrompt { .. }
-        | PopupType::RenameTabPrompt { .. }
-        | PopupType::PanelSearch { .. } => filter::render(f, popup, theme, size),
-
         PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
 
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),

@@ -7,6 +7,7 @@
 
 use super::document::LoadError;
 use super::{EditorOptions, EditorState};
+use crate::app::state::popup::EditorConfirmOverwrite;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::config::settings::Settings;
@@ -102,7 +103,10 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
     if let Some(reason) = reason {
         state
             .dialogs
-            .replace(PopupType::EditorConfirmOverwrite { target, reason });
+            .replace(PopupType::EditorConfirmOverwrite(EditorConfirmOverwrite {
+                target,
+                reason,
+            }));
         return false;
     }
     match ed.save_to(&target) {
@@ -177,10 +181,10 @@ mod tests {
         assert!(!save_active_editor(&mut state, Some(other.clone()), false));
         assert!(matches!(
             state.dialogs.top(),
-            Some(PopupType::EditorConfirmOverwrite {
+            Some(PopupType::EditorConfirmOverwrite(EditorConfirmOverwrite {
                 reason: OverwriteReason::TargetExists,
                 ..
-            })
+            }))
         ));
         assert_eq!(std::fs::read_to_string(&other).unwrap(), "keep");
         assert!(save_active_editor(&mut state, Some(other.clone()), true));

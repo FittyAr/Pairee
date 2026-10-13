@@ -2,6 +2,7 @@
 //! quick search.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::PanelSearch;
 use crate::keybindings::{Action, KeybindingResolver};
 use crate::test_harness::Harness;
 
@@ -56,7 +57,7 @@ fn alt_letter_starts_a_quick_search_when_the_preset_asks() {
     h.keys("Alt+p");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::PanelSearch { .. })
+        Some(PopupType::PanelSearch(PanelSearch { .. }))
     ));
     assert_eq!(h.cursor_name(), "pineapple.txt", "prefix match");
     h.text("i");

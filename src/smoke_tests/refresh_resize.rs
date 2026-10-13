@@ -1,6 +1,7 @@
 //! Panel auto-refresh after an external change, and every screen painted
 //! at tiny terminal sizes without panicking.
 
+use crate::app::state::popup::ViewerEncoding;
 use crate::app::state::{PopupType, Screen};
 use crate::fs::archive::test_fixtures::{SAMPLE_TREE, write_zip};
 use crate::test_harness::Harness;
@@ -107,7 +108,7 @@ fn editor_viewer_and_archive_at_tiny_sizes() {
     h.keys("F8");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ViewerEncoding { .. })
+        Some(PopupType::ViewerEncoding(ViewerEncoding { .. }))
     ));
     survive_tiny_sizes(&mut h, "encoding selector");
     h.keys("Esc Esc");

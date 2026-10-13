@@ -3,6 +3,7 @@
 
 use super::top;
 use crate::app::state::PopupType;
+use crate::app::state::popup::FilePanelFilterPrompt;
 use crate::app::state::popup::MkDirPrompt;
 use crate::app::state::popup::RenamePrompt;
 use crate::test_harness::Harness;
@@ -213,7 +214,7 @@ fn clicking_in_a_one_field_prompt_moves_its_cursor() {
     assert!(row.starts_with("abcdef"), "{row:?}");
     h.click(text_x + 2, fy);
     let cursor = match top(&h) {
-        Some(PopupType::FilePanelFilterPrompt { input }) => input.cursor(),
+        Some(PopupType::FilePanelFilterPrompt(FilePanelFilterPrompt { input })) => input.cursor(),
         other => panic!("{other:?}"),
     };
     assert_eq!(cursor, 2);

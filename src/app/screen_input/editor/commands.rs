@@ -7,6 +7,7 @@ use crate::app::context::AppContext;
 use crate::app::editor::open::{reload_active_editor, save_active_editor};
 use crate::app::state::popup::ConfirmDiscardEditorChanges;
 use crate::app::state::popup::ConfirmReload;
+use crate::app::state::popup::EditorSaveAsPrompt;
 use crate::app::state::{AppState, PopupType};
 use crate::keybindings::screens::EditorAction;
 
@@ -36,7 +37,9 @@ pub(super) fn run(
                 .unwrap_or_default();
             state
                 .dialogs
-                .replace(PopupType::EditorSaveAsPrompt { input: name.into() });
+                .replace(PopupType::EditorSaveAsPrompt(EditorSaveAsPrompt {
+                    input: name.into(),
+                }));
         }
         E::Save => {
             save_active_editor(state, None, false);

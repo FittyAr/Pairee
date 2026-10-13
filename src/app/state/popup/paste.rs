@@ -8,33 +8,13 @@ impl PopupType {
             return self.dialog_mut().and_then(|d| d.focused_field_mut());
         }
         match self {
-            PopupType::FilePanelFilterPrompt { input, .. }
-            | PopupType::RenameTabPrompt { input, .. }
-            | PopupType::QuickFilterPrompt { input, .. }
-            | PopupType::PanelSearch { query: input, .. } => Some(input),
             PopupType::CommandPalette { query, .. } => Some(query),
             PopupType::Shortcuts(s) => match &mut s.mode {
                 crate::app::shortcuts::state::Mode::Browse => Some(&mut s.query),
                 crate::app::shortcuts::state::Mode::Export { name } => Some(name),
                 _ => None,
             },
-            PopupType::EditorSearchPrompt(search) | PopupType::ViewerSearchPrompt(search)
-                if search.cursor_idx == 0 =>
-            {
-                Some(&mut search.query)
-            }
-            PopupType::EditorSaveAsPrompt { input }
-            | PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
-            PopupType::SearchPrompt {
-                query,
-                content_query,
-                cursor_idx,
-                ..
-            } => match *cursor_idx {
-                0 => Some(query),
-                1 => Some(content_query),
-                _ => None,
-            },
+            PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
             PopupType::SshConnectPrompt(prompt) => {
                 let row = prompt.cursor_idx;
                 prompt.field_at(row).map(|(_, field)| field)
