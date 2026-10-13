@@ -67,6 +67,20 @@ impl TransferJob {
             restore_after: Vec::new(),
         }
     }
+    /// Whether the job worked on `source`: the same remote connection, or
+    /// the local disk (archives included) for a job without remote endpoints.
+    /// local disk (archives included) for a job without SSH endpoints.
+    pub fn ran_on(&self, source: &crate::fs::vfs::PanelSource) -> bool {
+        let remote = self
+            .remote
+            .as_ref()
+            .and_then(|e| e.src.as_ref().or(e.dst.as_ref()));
+        match (source.remote(), remote) {
+            (Some(shown), Some(job)) => shown.is_same_server(job),
+            (None, None) => true,
+            _ => false,
+        }
+    }
 
     /// Copy/Move job of explicit file pairs (local only); every destination
     /// folder that is missing is created.

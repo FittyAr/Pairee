@@ -17,7 +17,8 @@ pub use types::{
     default_auto_refresh_poll_secs, default_auto_refresh_ssh_poll_secs,
     default_compare_mtime_tolerance_secs, default_double_click_ms, default_git_log_limit,
     default_panel_split, default_plugins_dev_dir, default_ssh_timeout_secs,
-    default_terminal_scrollback_lines, default_true, default_viewer_codepage,
+    default_syntax_highlighting_max_kb, default_terminal_scrollback_lines, default_true,
+    default_viewer_codepage,
 };
 
 /// User settings stored in `config.toml`.
@@ -143,6 +144,12 @@ pub struct Settings {
     pub editor_show_line_numbers: bool,
     pub editor_lock_editing_readonly: bool,
     pub editor_warn_opening_readonly: bool,
+    /// Color code by language in the editor and the viewer.
+    #[serde(default = "default_true")]
+    pub syntax_highlighting: bool,
+    /// Files larger than this (KiB) open without syntax highlighting.
+    #[serde(default = "default_syntax_highlighting_max_kb")]
+    pub syntax_highlighting_max_kb: u32,
     pub viewer_use_external: bool,
     pub viewer_tab_size: u32,
     pub viewer_show_scrollbar: bool,

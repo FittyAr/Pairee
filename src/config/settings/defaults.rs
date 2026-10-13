@@ -78,6 +78,8 @@ impl Default for Settings {
             editor_show_line_numbers: true,
             editor_lock_editing_readonly: false,
             editor_warn_opening_readonly: false,
+            syntax_highlighting: true,
+            syntax_highlighting_max_kb: super::default_syntax_highlighting_max_kb(),
             viewer_use_external: false,
             viewer_tab_size: 8,
             viewer_show_scrollbar: false,

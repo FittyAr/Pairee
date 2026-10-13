@@ -4,6 +4,7 @@ use ratatui::style::{Color, Modifier, Style};
 use ratatui::widgets::{Block, BorderType, Borders, List, ListItem};
 
 use crate::app::state::TransferUIState;
+use crate::config::localization::t;
 use crate::fs::transfer::job::TransferJobStatus;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
@@ -29,33 +30,26 @@ pub(crate) fn render_jobs_sidebar(
     for (idx, job) in jobs.iter().enumerate() {
         let is_selected = idx == ts.queue_cursor;
 
-        let op_name = job.operation.label();
-
-        let (status_str, color) = match job.status {
-            TransferJobStatus::Queued => ("Queued".to_string(), Color::Gray),
-            TransferJobStatus::Scanning => ("Scanning...".to_string(), Color::Cyan),
-            TransferJobStatus::Transferring => {
-                let pct = job
-                    .progress
-                    .as_ref()
-                    .map(|p| p.percent_bytes())
-                    .unwrap_or(0.0);
-                (format!("Running ({:.0}%)", pct), Color::Green)
-            }
-            TransferJobStatus::Verifying => ("Verifying...".to_string(), Color::LightBlue),
-            TransferJobStatus::Paused => ("Paused".to_string(), Color::Yellow),
-            TransferJobStatus::Completed => ("Completed".to_string(), Color::LightGreen),
-            TransferJobStatus::Failed => ("Failed".to_string(), Color::LightRed),
-            TransferJobStatus::Cancelled => ("Cancelled".to_string(), Color::Red),
+        let op_name = crate::ui::transfer::labels::operation(job.operation);
+        let status_str = crate::ui::transfer::labels::status(job);
+        let color = match job.status {
+            TransferJobStatus::Queued => Color::Gray,
+            TransferJobStatus::Scanning => Color::Cyan,
+            TransferJobStatus::Transferring => Color::Green,
+            TransferJobStatus::Verifying => Color::LightBlue,
+            TransferJobStatus::Paused => Color::Yellow,
+            TransferJobStatus::Completed => Color::LightGreen,
+            TransferJobStatus::Failed => Color::LightRed,
+            TransferJobStatus::Cancelled => Color::Red,
         };
 
         let title_line = format!("#{} {} - {}", idx + 1, op_name, status_str);
-        let dest_str = format!(
-            "Dest: {}",
-            job.destination
+        let dest_str = t("transfer_job_dest").replace(
+            "{}",
+            &job.destination
                 .file_name()
                 .unwrap_or(job.destination.as_os_str())
-                .to_string_lossy()
+                .to_string_lossy(),
         );
 
         let mut item_style = Style::default().fg(color);
@@ -90,7 +84,7 @@ pub(crate) fn render_jobs_sidebar(
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(" Jobs List ")
+                .title(t("transfer_jobs_title"))
                 .border_type(BorderType::Rounded)
                 .border_style(Style::default().fg(Color::DarkGray)),
         )

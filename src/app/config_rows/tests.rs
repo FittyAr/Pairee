@@ -67,6 +67,14 @@ fn cycles_and_nested_fields() {
     s.editor_tab_size = 8;
     activate(5, "ed_tab_size", &mut s);
     assert_eq!(s.editor_tab_size, 2);
+    assert_eq!(s.syntax_highlighting_max_kb, 2048);
+    activate(5, "ed_syntax_max_size", &mut s);
+    assert_eq!(s.syntax_highlighting_max_kb, 8192);
+    s.syntax_highlighting_max_kb = 32768;
+    activate(5, "ed_syntax_max_size", &mut s);
+    assert_eq!(s.syntax_highlighting_max_kb, 512, "wraps around");
+    activate(5, "ed_syntax_highlighting", &mut s);
+    assert!(!s.syntax_highlighting);
     let before = s.confirmations.confirm_quit;
     activate(3, "conf_exit", &mut s);
     assert_ne!(s.confirmations.confirm_quit, before);

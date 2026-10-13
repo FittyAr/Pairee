@@ -7,7 +7,7 @@ use crate::app::context::AppContext;
 use crate::app::state::{AppState, TransferViewMode};
 use crate::config::localization::t;
 
-pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context: &AppContext) {
+pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, context: &AppContext) {
     let transfer_state = match &state.transfer {
         Some(ts) => ts,
         None => return,
@@ -74,12 +74,10 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
         .split(inner_area);
 
     // 1. Info de archivos
-    let info_text = format!(
-        "📋 {} {}/{} files",
-        t("transfer_copying"),
-        progress.files_completed,
-        progress.files_total
-    );
+    let info_text = t("transfer_bar_files")
+        .replace("{op}", &super::labels::operation(job.operation))
+        .replace("{done}", &progress.files_completed.to_string())
+        .replace("{total}", &progress.files_total.to_string());
     f.render_widget(
         Paragraph::new(info_text).style(Style::default().fg(Color::White)),
         chunks[0],
@@ -96,19 +94,14 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
     f.render_widget(gauge, chunks[1]);
 
     // 3. Velocidad y ETA
-    let speed_formatted = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
-        "0 B".to_string()
+    let paused = job.status == crate::fs::transfer::job::TransferJobStatus::Paused;
+    let speed = if paused {
+        0
     } else {
-        bytesize::ByteSize(transfer_state.speed_info.0 as u64).to_string()
+        transfer_state.speed_info.0 as u64
     };
-    let eta_text = if job.status == crate::fs::transfer::job::TransferJobStatus::Paused {
-        "ETA --".to_string()
-    } else {
-        match transfer_state.speed_info.1 {
-            Some(secs) => format!("ETA {}s", secs),
-            None => "ETA --".to_string(),
-        }
-    };
+    let speed_formatted = bytesize::ByteSize(speed).to_string();
+    let eta_text = super::labels::eta(transfer_state.speed_info.1.filter(|_| !paused));
     let speed_eta = format!(" {}/s | {}", speed_formatted, eta_text);
     f.render_widget(
         Paragraph::new(speed_eta).style(Style::default().fg(Color::Yellow)),
@@ -116,7 +109,11 @@ pub fn render_transfer_bar(f: &mut Frame, area: Rect, state: &AppState, _context
     );
 
     // 4. Atajo de ayuda compacta
-    let action_text = " [Ctrl+T] Expand ";
+    let chord = context
+        .resolver
+        .key_for_action(crate::keybindings::Action::ToggleTransferPanel)
+        .unwrap_or_default();
+    let action_text = t("transfer_bar_expand").replace("{}", chord);
     f.render_widget(
         Paragraph::new(action_text)
             .style(Style::default().fg(Color::Cyan).add_modifier(Modifier::DIM)),

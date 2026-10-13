@@ -174,6 +174,12 @@ pub struct AppState {
     pub folder_scan: crate::app::sync::FolderScanState,
     /// Disk usage view: background scan and cached size tree.
     pub disk_usage: crate::app::disk_usage::DiskUsageState,
+    /// Duplicate finder: background search and the marked files.
+    pub dupes: crate::app::dupes::DupesState,
+    /// Comparison of two files (diff or hashes), computed in the background.
+    pub file_compare: crate::app::file_compare::FileCompareState,
+    /// Frecency of the visited folders (folder jump, `z`).
+    pub frecency: crate::config::frecency::FrecencyStore,
     /// Folder monitors that reread panels when their folder changes.
     pub auto_refresh: crate::app::auto_refresh::AutoRefresh,
 
@@ -227,6 +233,9 @@ impl AppState {
             journal: Default::default(),
             folder_scan: Default::default(),
             disk_usage: Default::default(),
+            dupes: Default::default(),
+            file_compare: Default::default(),
+            frecency: Default::default(),
             auto_refresh: Default::default(),
             scrollbar: crate::ui::scrollbar::ScrollbarUiState::default(),
             hits: Default::default(),

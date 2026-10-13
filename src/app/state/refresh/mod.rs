@@ -80,9 +80,14 @@ impl AppState {
         if changed {
             panel.quick_filter_mask = None;
             panel.visual = None;
+            // The branch view belongs to the folder it was opened on.
+            panel.branch_view = false;
             let left = std::mem::replace(&mut panel.last_path, path.clone());
             panel.nav.visited(left, &path);
             emit_on_cd(&path, side);
+            if panel.source.is_local() {
+                self.frecency.visit(&path, crate::config::frecency::now());
+            }
         }
         if skip_auto_update(limit, panel.entries.len(), changed || force) {
             return;
@@ -94,11 +99,12 @@ impl AppState {
             filter_mask: panel.filter_mask.clone(),
             quick_filter_mask: panel.quick_filter_mask.clone(),
             want_attrs: panel.view_mode.needs_attrs(),
+            branch: panel.branch_view,
         };
         panel.quiet_listing = quiet;
-        panel
-            .listing
-            .start(move |ctx| listing::run(&request, &|| ctx.is_cancelled()));
+        panel.listing.start(move |ctx| {
+            listing::run(&request, &|| ctx.is_cancelled(), &|found| ctx.report(found))
+        });
         // Inline execution (no runtime) has the result ready right away.
         self.poll_panel_listings();
     }
@@ -119,6 +125,8 @@ impl AppState {
             }
             // Finished folder sizes, or progress ticks of a running batch.
             changed |= panel.dir_sizes.poll() || panel.dir_sizes.is_running();
+            // Files found so far by a branch view being read.
+            changed |= panel.branch_view && panel.listing.is_running();
         }
         for (id, error, show_hidden) in failed {
             self.leave_unreadable_archive(id, &error, show_hidden);

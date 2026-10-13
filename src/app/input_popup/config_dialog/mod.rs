@@ -65,11 +65,14 @@ pub fn handle(
             match setting.activate(&mut dlg.draft, context) {
                 Activation::Changed => {}
                 Activation::StartEdit(field) => dlg.edit = Some(field),
-                // Info panels open over the dialog; other dialogs replace it.
+                // Info panels and the color dialogs open over the dialog
+                // (the color dialogs update its draft when they save);
+                // other dialogs replace it.
                 Activation::Open(popup) => match *popup {
-                    info @ (PopupType::Info(_) | PopupType::InfoPanel(_)) => {
-                        state.dialogs.push(info)
-                    }
+                    over @ (PopupType::Info(_)
+                    | PopupType::InfoPanel(_)
+                    | PopupType::ColorGroupsDialog(_)
+                    | PopupType::FilesHighlightingDialog(_)) => state.dialogs.push(over),
                     other => state.dialogs.replace(other),
                 },
             }

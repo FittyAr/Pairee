@@ -16,7 +16,7 @@ pub fn process_background_updates(
     state.poll_panel_listings();
     state.poll_quick_view();
     state.poll_viewer();
-    if state.disk_usage.poll() {
+    if state.disk_usage.poll() | state.dupes.poll() | crate::app::file_compare::poll(state) {
         state.mark_ui_dirty();
     }
     crate::app::git_ops::poll_git_op(state);

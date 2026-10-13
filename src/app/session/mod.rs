@@ -53,6 +53,15 @@ pub fn persist_on_exit(state: &AppState, context: &mut AppContext) -> Option<Pat
     if let Err(e) = persisted_history(state.history.to_store(), settings).save() {
         log::warn!("Failed to save the history: {e}");
     }
+    // Folder frecency is part of the folders history: kept only with it.
+    let frecency = if settings.save_folders_history {
+        state.frecency.clone()
+    } else {
+        Default::default()
+    };
+    if let Err(e) = frecency.save() {
+        log::warn!("Failed to save the folder frecency: {e}");
+    }
     if settings.restore_session
         && let Err(e) = capture::capture(state, &settings.connections).save()
     {

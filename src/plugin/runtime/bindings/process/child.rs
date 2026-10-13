@@ -164,13 +164,9 @@ mod tests {
     use super::super::command::LuaCommand;
     use super::super::stdio::StdioKind;
 
-    fn echo() -> LuaCommand {
-        let (prog, args) = if cfg!(windows) {
-            ("cmd.exe".into(), vec!["/C".into(), "echo hello".into()])
-        } else {
-            ("echo".into(), vec!["hello".into()])
-        };
-        let mut cmd = LuaCommand::new(
+    /// A command for `prog` with no command or file system restrictions.
+    fn unrestricted(prog: String) -> LuaCommand {
+        LuaCommand::new(
             prog,
             std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
             std::sync::Arc::new(crate::plugin::runtime::bindings::fs::FsPolicy::new(
@@ -178,7 +174,16 @@ mod tests {
                 true,
                 false,
             )),
-        );
+        )
+    }
+
+    fn echo() -> LuaCommand {
+        let (prog, args) = if cfg!(windows) {
+            ("cmd.exe".into(), vec!["/C".into(), "echo hello".into()])
+        } else {
+            ("echo".into(), vec!["hello".into()])
+        };
+        let mut cmd = unrestricted(prog);
         cmd.args = args;
         cmd.stdout = StdioKind::Piped;
         cmd.stderr = StdioKind::Piped;
@@ -198,10 +203,7 @@ mod tests {
     #[cfg(unix)]
     #[tokio::test]
     async fn write_all_then_close_stdin_streams_through_cat() {
-        let mut cmd = LuaCommand::new(
-            "cat".into(),
-            std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
-        );
+        let mut cmd = unrestricted("cat".into());
         cmd.stdin = StdioKind::Piped;
         cmd.stdout = StdioKind::Piped;
         let mut child = cmd.spawn_inner().await.unwrap();

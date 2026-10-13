@@ -2,7 +2,6 @@
 
 use super::history::Pos;
 use super::state::EditorState;
-use crate::app::sys_helpers::find_next_in_editor;
 use crate::app::text_input;
 
 impl EditorState {
@@ -60,36 +59,6 @@ impl EditorState {
             self.scroll_y = self.cursor_y;
         } else if self.cursor_y >= self.scroll_y + height {
             self.scroll_y = self.cursor_y + 1 - height;
-        }
-    }
-
-    /// Moves to the next match of `query` and centres it when off-screen.
-    /// Returns `false` when there is no match.
-    pub fn find_next(&mut self, query: &str, case_sensitive: bool, height: usize) -> bool {
-        let Some((x, y)) = find_next_in_editor(
-            &self.lines,
-            self.cursor_x,
-            self.cursor_y,
-            query,
-            case_sensitive,
-        ) else {
-            return false;
-        };
-        self.selection = None;
-        self.set_cursor(Pos::new(y, x));
-        if self.cursor_y < self.scroll_y || self.cursor_y >= self.scroll_y + height.max(1) {
-            self.scroll_y = self.cursor_y.saturating_sub(height / 2);
-        }
-        self.last_search = Some(query.to_string());
-        self.last_case_sensitive = case_sensitive;
-        true
-    }
-
-    /// Repeats the last search, if any.
-    pub fn repeat_search(&mut self, height: usize) -> bool {
-        match self.last_search.clone() {
-            Some(q) => self.find_next(&q, self.last_case_sensitive, height),
-            None => false,
         }
     }
 }

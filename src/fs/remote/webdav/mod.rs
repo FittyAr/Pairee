@@ -53,7 +53,7 @@ impl WebDavVfs {
         base.set_query(None);
         let path = base.path().trim_end_matches('/').to_string();
         base.set_path(&path);
-        let client = reqwest::Client::builder()
+        let client = crate::update::http::builder()
             .connect_timeout(CONNECT_TIMEOUT)
             .read_timeout(READ_TIMEOUT)
             .build()

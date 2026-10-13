@@ -111,23 +111,7 @@ pub fn handle_options_toggle(transfer: &mut TransferUIState) {
                     };
                 }
                 6 => {
-                    j.options.hash_algorithm = match j.options.hash_algorithm {
-                        crate::fs::transfer::options::HashAlgorithm::Blake3 => {
-                            crate::fs::transfer::options::HashAlgorithm::Crc32
-                        }
-                        crate::fs::transfer::options::HashAlgorithm::Crc32 => {
-                            crate::fs::transfer::options::HashAlgorithm::Md5
-                        }
-                        crate::fs::transfer::options::HashAlgorithm::Md5 => {
-                            crate::fs::transfer::options::HashAlgorithm::Sha1
-                        }
-                        crate::fs::transfer::options::HashAlgorithm::Sha1 => {
-                            crate::fs::transfer::options::HashAlgorithm::Sha256
-                        }
-                        crate::fs::transfer::options::HashAlgorithm::Sha256 => {
-                            crate::fs::transfer::options::HashAlgorithm::Blake3
-                        }
-                    };
+                    j.options.hash_algorithm = j.options.hash_algorithm.next();
                 }
                 7 => j.options.preserve_acl = !j.options.preserve_acl,
                 8 => j.options.preserve_streams = !j.options.preserve_streams,

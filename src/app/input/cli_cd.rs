@@ -1,7 +1,9 @@
 //! `cd` typed on the command line: quoted names (as drag & drop and
 //! "insert path" put them there), `~` and `~/x`, `cd -` (the folder before
 //! the last `cd`), relative paths, and panels showing an SFTP server or an
-//! archive (the target is resolved and listed inside them).
+//! archive (the target is resolved and listed inside them). `z <words>`
+//! jumps to the best visited folder matching the words (frecency, as
+//! zoxide); a bare `z` opens the folder jump list.
 
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
@@ -17,6 +19,13 @@ pub fn cd_argument(line: &str) -> Option<&str> {
     }
     // cmd.exe style: `cd..`, `cd\`, `cd/`.
     (rest.starts_with("..") || rest.starts_with(['\\', '/'])).then_some(rest)
+}
+
+/// The query of a `z` command line (`z`, `z words`), or `None` when `line`
+/// is another command.
+pub fn z_argument(line: &str) -> Option<&str> {
+    let rest = line.strip_prefix('z')?;
+    (rest.is_empty() || rest.starts_with(char::is_whitespace)).then(|| rest.trim())
 }
 
 /// `arg` without its shell quoting: shell words on Unix (several words are
@@ -109,6 +118,34 @@ pub fn change_dir(state: &mut AppState, arg: &str) {
         state.dialogs.replace(PopupType::error(text));
         return;
     }
+    go_to(state, current, path);
+}
+
+/// Runs `z <query>` on the active panel: the best visited folder matching
+/// `query` that still exists (and is not the current one); a bare `z`
+/// opens the folder jump list. The caller rereads the panels.
+pub fn jump(state: &mut AppState, query: &str) {
+    if query.is_empty() {
+        crate::app::folder_jump::open(state);
+        return;
+    }
+    let current = state.get_active_panel().current_path.clone();
+    let now = crate::config::frecency::now();
+    let best = state
+        .frecency
+        .best(query, now, |path| path != current && path.is_dir());
+    match best {
+        Some(path) => go_to(state, current, path),
+        None => {
+            let text = t("cli_z_no_match").replacen("{}", query, 1);
+            state.dialogs.replace(PopupType::info(text));
+        }
+    }
+}
+
+/// Moves the active panel from `current` to `path`, recording the folder
+/// history and the folder `cd -` returns to.
+pub fn go_to(state: &mut AppState, current: PathBuf, path: PathBuf) {
     if path != current {
         state.cli.previous_dir = Some(current);
     }
@@ -127,6 +164,14 @@ mod tests {
         assert_eq!(cd_argument("cd.."), Some(".."));
         assert_eq!(cd_argument("cdx"), None);
         assert_eq!(cd_argument("echo cd"), None);
+    }
+
+    #[test]
+    fn recognizes_z_lines() {
+        assert_eq!(z_argument("z"), Some(""));
+        assert_eq!(z_argument("z  proj src "), Some("proj src"));
+        assert_eq!(z_argument("zip a.zip"), None);
+        assert_eq!(z_argument("cd z"), None);
     }
 
     #[test]

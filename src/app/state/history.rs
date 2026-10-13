@@ -11,6 +11,9 @@ pub struct HistoryState {
     pub commands: Vec<String>,
     pub viewed_files: Vec<PathBuf>,
     pub folders: Vec<PathBuf>,
+    /// Editor search patterns and replacements (newest first).
+    pub searches: Vec<String>,
+    pub replacements: Vec<String>,
 }
 
 /// One of the three history lists (Strategy for the shared history popup).
@@ -111,6 +114,8 @@ impl HistoryState {
             commands: store.commands,
             viewed_files: store.viewed_files,
             folders: store.visited_folders,
+            searches: store.searches,
+            replacements: store.replacements,
         }
     }
 
@@ -119,6 +124,8 @@ impl HistoryState {
             commands: self.commands.clone(),
             viewed_files: self.viewed_files.clone(),
             visited_folders: self.folders.clone(),
+            searches: self.searches.clone(),
+            replacements: self.replacements.clone(),
         }
     }
 
@@ -127,6 +134,8 @@ impl HistoryState {
             commands: std::mem::take(&mut self.commands),
             viewed_files: std::mem::take(&mut self.viewed_files),
             visited_folders: std::mem::take(&mut self.folders),
+            searches: std::mem::take(&mut self.searches),
+            replacements: std::mem::take(&mut self.replacements),
         };
         f(&mut store);
         *self = Self::from_store(store);
@@ -142,6 +151,10 @@ impl HistoryState {
 
     pub fn push_command(&mut self, cmd: String) {
         self.mutate(|store| store.push_command(cmd));
+    }
+
+    pub fn push_search(&mut self, pattern: String, replacement: Option<String>) {
+        self.mutate(|store| store.push_search(pattern, replacement));
     }
 }
 

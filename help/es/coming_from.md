@@ -99,8 +99,8 @@ visual, `Ctrl+A` todo, `Ctrl+R` invierte, `y` / `x` / `p` / `P` copian, cortan,
 pegan y pegan sobrescribiendo, `Y` / `X` vacían el portapapeles, `-` enlaza,
 `d` / `D` papelera y borrar, `a` crea (con `/` al final, una carpeta), `r`
 renombra, `.` archivos ocultos, `f` filtra, `/` `n` `N` buscan, `s` / `S`
-buscan archivos y contenidos, `z` busca un archivo, `Z` salta a una carpeta
-visitada, `cc` / `cd` / `cf` / `cn` copian ruta, carpeta, nombre y nombre sin
+buscan archivos y contenidos, `z` salta a una carpeta frecuente, `Z` a una
+carpeta visitada, `cc` / `cd` / `cf` / `cn` copian ruta, carpeta, nombre y nombre sin
 extensión, `,` + una letra ordena, `m` + una letra cambia las columnas, `t`
 nueva pestaña, `1`…`9` cambian de pestaña, `[` / `]` anterior / siguiente,
 `{` / `}` la mueven, `Ctrl+C` la cierra, `w` tareas, `;` / `:` shell, `~`
@@ -111,6 +111,6 @@ secuencias esperan su siguiente tecla.
 el panel de información (el "spot" de yazi); `Ctrl+Q` muestra una vista
 previa del archivo en el otro panel. Ordenar al revés es `, r` en vez de las
 letras mayúsculas. Hay un solo tipo de enlace (`_` no se usa). `e` edita con
-el editor integrado. `z` y `Z` usan la búsqueda y el historial de carpetas de
-Pairee en lugar de fzf y zoxide. Las teclas F de Norton siguen funcionando
+el editor integrado. `z` usa la frecencia de carpetas propia de Pairee (como
+zoxide) y `Z` su historial de carpetas en lugar de fzf. Las teclas F de Norton siguen funcionando
 (`F5` copiar, `F7` carpeta...).

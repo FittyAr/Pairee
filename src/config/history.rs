@@ -4,7 +4,7 @@ use std::path::PathBuf;
 
 const MAX_HISTORY: usize = 100;
 
-/// Persists the three history lists between sessions.
+/// Persists the history lists between sessions.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct HistoryStore {
     /// CLI commands executed in the command-line bar.
@@ -13,6 +13,20 @@ pub struct HistoryStore {
     pub viewed_files: Vec<PathBuf>,
     /// Directories navigated to in the panels.
     pub visited_folders: Vec<PathBuf>,
+    /// Patterns searched for in the editor (find / replace dialog).
+    #[serde(default)]
+    pub searches: Vec<String>,
+    /// Replacement texts of the editor's replace dialog.
+    #[serde(default)]
+    pub replacements: Vec<String>,
+}
+
+/// Puts `item` at the front of `list`, dropping an older copy and the
+/// entries past [`MAX_HISTORY`].
+fn push_front<T: PartialEq>(list: &mut Vec<T>, item: T) {
+    list.retain(|old| old != &item);
+    list.insert(0, item);
+    list.truncate(MAX_HISTORY);
 }
 
 impl HistoryStore {
@@ -28,6 +42,8 @@ impl HistoryStore {
 
     /// Clears the lists whose "save … history" setting is off, so only the
     /// categories the user opted into are restored or written to disk.
+    /// The editor's search and replace lists go with the "view and edit"
+    /// history.
     pub fn retain_enabled(mut self, commands: bool, folders: bool, viewed_files: bool) -> Self {
         if !commands {
             self.commands.clear();
@@ -37,6 +53,8 @@ impl HistoryStore {
         }
         if !viewed_files {
             self.viewed_files.clear();
+            self.searches.clear();
+            self.replacements.clear();
         }
         self
     }
@@ -45,24 +63,28 @@ impl HistoryStore {
     pub fn push_command(&mut self, cmd: impl Into<String>) {
         let cmd = cmd.into();
         if !cmd.trim().is_empty() {
-            self.commands.retain(|c| c != &cmd);
-            self.commands.insert(0, cmd);
-            self.commands.truncate(MAX_HISTORY);
+            push_front(&mut self.commands, cmd);
         }
     }
 
     /// Adds a viewed file to the front of the list.
     pub fn push_viewed_file(&mut self, path: PathBuf) {
-        self.viewed_files.retain(|p| p != &path);
-        self.viewed_files.insert(0, path);
-        self.viewed_files.truncate(MAX_HISTORY);
+        push_front(&mut self.viewed_files, path);
     }
 
     /// Adds a visited folder to the front of the list.
     pub fn push_visited_folder(&mut self, path: PathBuf) {
-        self.visited_folders.retain(|p| p != &path);
-        self.visited_folders.insert(0, path);
-        self.visited_folders.truncate(MAX_HISTORY);
+        push_front(&mut self.visited_folders, path);
+    }
+
+    /// Adds an editor search pattern and, when given, its replacement.
+    pub fn push_search(&mut self, pattern: String, replacement: Option<String>) {
+        if !pattern.is_empty() {
+            push_front(&mut self.searches, pattern);
+        }
+        if let Some(replacement) = replacement {
+            push_front(&mut self.replacements, replacement);
+        }
     }
 }
 
@@ -104,7 +126,16 @@ mod tests {
         assert!(kept.commands.is_empty());
         assert_eq!(kept.visited_folders.len(), 1);
         assert!(kept.viewed_files.is_empty());
+        store.push_search("a".into(), Some(String::new()));
+        assert!(
+            store
+                .clone()
+                .retain_enabled(true, true, false)
+                .searches
+                .is_empty()
+        );
         let all = store.retain_enabled(true, true, true);
+        assert_eq!((all.searches.len(), all.replacements.len()), (1, 1));
         assert_eq!(all.commands.len(), 1);
         assert_eq!(all.viewed_files.len(), 1);
     }
@@ -118,5 +149,13 @@ mod tests {
         let deserialized: HistoryStore = toml::from_str(&serialized).unwrap();
         assert_eq!(deserialized.commands, store.commands);
         assert_eq!(deserialized.visited_folders, store.visited_folders);
+    }
+
+    #[test]
+    fn older_files_without_search_lists_still_load() {
+        let old = "commands = [\"ls\"]\nviewed_files = []\nvisited_folders = []\n";
+        let store: HistoryStore = toml::from_str(old).unwrap();
+        assert_eq!(store.commands, ["ls"]);
+        assert!(store.searches.is_empty());
     }
 }

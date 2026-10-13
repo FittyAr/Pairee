@@ -19,6 +19,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+PageDown` | Entrar en carpeta o archivo comprimido |
 | `Ctrl+\` | Ir a la carpeta raíz |
 | `Backspace` · `Ctrl+PageUp` | Ir a la carpeta superior |
+| `Ctrl+Alt+z` | Ir a una carpeta frecuente |
 | `Ctrl+Alt+1` | Ir al acceso a carpeta 1 |
 | `Ctrl+Alt+2` | Ir al acceso a carpeta 2 |
 | `Ctrl+Alt+3` | Ir al acceso a carpeta 3 |
@@ -53,7 +54,9 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+g` | Aplicar comando |
 | `Ctrl+a` | Atributos del archivo |
 | `Alt+Delete` | Borrado seguro |
+| `Ctrl+Alt+u` | Buscar archivos duplicados |
 | `Ctrl+Alt+s` | Calcular tamaño de carpetas |
+| `Ctrl+Alt+c` | Comparar archivos |
 | `F5` | Copiar al otro panel |
 | `F7` | Crear carpeta |
 | `Alt+F6` | Crear enlace |
@@ -71,6 +74,7 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | `Ctrl+Alt+d` | Uso de disco |
 | `F3` | Ver archivo |
 | `Alt+F3` | Ver archivo (alternativo) |
+| `Ctrl+Alt+x` | Vista de rama (todos los archivos debajo) |
 
 ### Portapapeles
 
@@ -244,7 +248,9 @@ Esta página lista las teclas con las que viene el preset; tus cambios no aparec
 | Teclas | Acción |
 | :--- | :--- |
 | `Ctrl+f` · `F7` | Buscar |
+| `Alt+F7` · `Shift+F3` | Buscar anterior |
 | `F3` · `Shift+F7` | Buscar siguiente |
+| `Ctrl+F7` · `Ctrl+h` | Buscar y reemplazar |
 
 ### Vista
 

@@ -5,11 +5,20 @@
 use anyhow::{Context as _, Result};
 use std::time::Duration;
 
+/// Client builder every HTTP client in Pairee starts from: Pairee's user
+/// agent, and (outside Windows, where reqwest uses rustls without a bundled
+/// provider) the ring crypto provider installed first, so building a client
+/// works from any entry point, tests included.
+pub fn builder() -> reqwest::ClientBuilder {
+    #[cfg(not(target_os = "windows"))]
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    reqwest::Client::builder().user_agent(concat!("pairee/", env!("CARGO_PKG_VERSION")))
+}
+
 /// HTTP client with Pairee's user agent and a whole-request `timeout`.
 pub fn client(timeout: Duration) -> Result<reqwest::Client> {
-    reqwest::Client::builder()
+    builder()
         .timeout(timeout)
-        .user_agent(concat!("pairee/", env!("CARGO_PKG_VERSION")))
         .build()
         .context("failed to build HTTP client")
 }

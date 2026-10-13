@@ -174,6 +174,14 @@ pub enum Action {
     CalculateFolderSizes,
     /// Disk usage view of the current folder, largest items first (Commands menu)
     DiskUsage,
+    /// Every file below the current folder in one flat list (Total Commander's Ctrl+B)
+    BranchView,
+    /// Jump to a visited folder, best frecency first, with a fuzzy filter
+    FolderJump,
+    /// Compare two files: the two selected ones, or the cursor file of each panel
+    CompareFiles,
+    /// Find files with the same contents in the selection or the current folder
+    FindDuplicates,
     /// Open user menu editor (Commands menu)
     EditUserMenu,
     /// Open file associations editor (Commands menu)

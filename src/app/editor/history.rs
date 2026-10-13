@@ -192,6 +192,18 @@ impl EditHistory {
         Some(cursor)
     }
 
+    /// Earliest line touched by the step just undone or redone (it is on
+    /// top of one of the stacks; the other top only lowers the bound).
+    pub fn first_changed_line(&self) -> Option<usize> {
+        self.undo
+            .last()
+            .into_iter()
+            .chain(self.redo.last())
+            .flat_map(|step| &step.edits)
+            .map(|edit| edit.start.y)
+            .min()
+    }
+
     /// Marks the current revision as the one on disk.
     pub fn mark_saved(&mut self) {
         self.saved = self.current;

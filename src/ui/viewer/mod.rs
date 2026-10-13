@@ -24,6 +24,8 @@ pub struct ViewerOpts<'a> {
     pub active_popup: Option<&'a crate::app::state::PopupType>,
     pub show_scrollbar: bool,
     pub tab_size: usize,
+    /// Paint syntax colors (the setting; the file may still have none).
+    pub syntax: bool,
     pub scrollbar: Option<&'a ScrollbarUiState>,
     /// Progress (0–100) of a running search, shown in the status line.
     pub search_progress: Option<u8>,

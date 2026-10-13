@@ -68,18 +68,17 @@ pub fn render_transfer_panel(f: &mut Frame, state: &AppState, context: &AppConte
 
     // --- 2. RENDER INSPECTOR (COL DERECHA) ---
     if jobs.is_empty() {
-        let empty_p =
-            Paragraph::new("\n No jobs in queue.\n Press F5 to Copy or F6 to Move files.")
-                .style(
-                    Style::default()
-                        .fg(Color::Gray)
-                        .add_modifier(Modifier::ITALIC),
-                )
-                .block(
-                    Block::default()
-                        .borders(Borders::LEFT)
-                        .border_style(Style::default().fg(Color::DarkGray)),
-                );
+        let empty_p = Paragraph::new(t("transfer_no_jobs"))
+            .style(
+                Style::default()
+                    .fg(Color::Gray)
+                    .add_modifier(Modifier::ITALIC),
+            )
+            .block(
+                Block::default()
+                    .borders(Borders::LEFT)
+                    .border_style(Style::default().fg(Color::DarkGray)),
+            );
         f.render_widget(empty_p, main_layout[1]);
         return;
     }
