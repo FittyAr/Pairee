@@ -3,6 +3,7 @@
 //! handle to type into or stop it, and the job that waits for it.
 
 use crate::app::jobs::JobSlot;
+use crate::terminal::pty::PtySize;
 use crate::terminal::pty_control::PtyControl;
 use std::collections::VecDeque;
 use std::path::Path;
@@ -120,7 +121,8 @@ impl TerminalState {
     /// screen's output.
     pub fn spawn(command: String, cwd: &Path, limit: usize) -> Self {
         let mut ts = Self::new(command, limit);
-        match crate::terminal::pty_cmd::spawn_shell_on_pty(&ts.command, Some(cwd)) {
+        let size = PtySize::of_terminal();
+        match crate::terminal::pty_cmd::spawn_shell_on_pty(&ts.command, Some(cwd), size) {
             Ok((control, run)) => {
                 ts.process = Some(control);
                 let output = ts.output.clone();
@@ -156,6 +158,15 @@ impl TerminalState {
             && let Some(process) = &self.process
         {
             process.kill();
+        }
+    }
+
+    /// Gives the running process the new size of Pairee's terminal.
+    pub fn resize(&self, size: PtySize) {
+        if self.is_running()
+            && let Some(process) = &self.process
+        {
+            process.resize(size);
         }
     }
 

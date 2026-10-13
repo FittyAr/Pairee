@@ -1,7 +1,7 @@
 //! What the UI keeps of a running PTY child (see [`super::pty_cmd`]): its
 //! pid, its input and a way to stop it.
 
-use portable_pty::{ChildKiller, MasterPty};
+use super::pty::{ChildKiller, PtyMaster, PtySize};
 use std::io::Write;
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -13,8 +13,8 @@ pub struct PtyControl(Arc<Mutex<Control>>);
 pub(super) struct Control {
     pub pid: Option<u32>,
     pub writer: Option<Box<dyn Write + Send>>,
-    pub master: Option<Box<dyn MasterPty + Send>>,
-    pub killer: Option<Box<dyn ChildKiller + Send + Sync>>,
+    pub master: Option<Box<dyn PtyMaster>>,
+    pub killer: Option<Box<dyn ChildKiller>>,
 }
 
 impl std::fmt::Debug for PtyControl {
@@ -50,6 +50,16 @@ impl PtyControl {
             .is_ok()
     }
 
+    /// Tells the process its terminal is now `size` (no effect once it
+    /// has exited).
+    pub fn resize(&self, size: PtySize) {
+        if let Some(master) = self.lock().master.as_ref()
+            && let Err(e) = master.resize(size)
+        {
+            log::warn!("resize pty: {e}");
+        }
+    }
+
     /// Stops the process (no effect once it has exited).
     pub fn kill(&self) {
         if let Some(killer) = self.lock().killer.as_mut()
@@ -62,10 +72,17 @@ impl PtyControl {
     /// Closes the input and the PTY so the output reader sees EOF. Done
     /// once the child exited: ConPTY must keep stdin open until then, or
     /// cmd.exe may exit before `/C` runs.
+    /// Closed outside the lock: closing a pseudo console may block until
+    /// its last output is read, and the UI must not wait for that.
     pub(super) fn release(&self) {
-        let mut control = self.lock();
-        control.writer = None;
-        control.master = None;
-        control.killer = None;
+        let released = {
+            let mut control = self.lock();
+            (
+                control.writer.take(),
+                control.master.take(),
+                control.killer.take(),
+            )
+        };
+        drop(released);
     }
 }

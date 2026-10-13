@@ -3,6 +3,9 @@
 
 [graph]
 all-features = true
+# Dev-only crates (the in-process FTP/S3/WebDAV test servers) never ship;
+# they are left out of every check, duplicates included.
+exclude-dev = true
 targets = [
     "x86_64-unknown-linux-gnu",
     "x86_64-unknown-linux-musl",
@@ -17,7 +20,6 @@ targets = [
 [advisories]
 yanked = "deny"
 ignore = [
-    { id = "RUSTSEC-2017-0008", reason = "serial is unmaintained and pulled transitively by portable-pty 0.8.1; no direct usage." },
     { id = "RUSTSEC-2025-0141", reason = "bincode 1.3.3 is unmaintained (its authors call it complete); syntect only decodes its own embedded syntax dump with it, never untrusted input." },
 ]
 
@@ -51,8 +53,9 @@ allow = [
 ]
 
 [bans]
-# Duplicate versions are common (windows-sys, thiserror, nom); warn, do not fail CI.
-multiple-versions = "warn"
+# One version of every shipped crate; the few duplicates only an upstream
+# release can fix are listed in `skip` below, each with its exit condition.
+multiple-versions = "deny"
 # Every dependency names a version; a path dependency of a private
 # (publish = false) workspace crate may omit it.
 wildcards = "deny"
@@ -64,6 +67,24 @@ deny = [
     # backend through the `openssl` crate). The updater's HTTP client on Linux
     # and macOS uses rustls; a new path to OpenSSL needs a decision here.
     { crate = "openssl-sys", wrappers = ["git2", "libgit2-sys", "libssh2-sys", "native-tls", "openssl"], reason = "keep OpenSSL confined to git/ssh and native-tls" },
+]
+# Older copies that only an upstream release can remove (every dependent is
+# already on its latest version). Drop an entry as soon as `cargo deny check
+# bans` reports it unused.
+skip = [
+    { crate = "getrandom:0.2", reason = "ring 0.17 (rustls) uses 0.2; tempfile, uuid and sevenz-rust2 use 0.4. Until ring moves to getrandom 0.3+." },
+    { crate = "hashbrown:0.16", reason = "kasuari 0.4 (ratatui-core) uses 0.16; indexmap, lru and ratatui use 0.17. Until kasuari moves to 0.17." },
+    { crate = "io-lifetimes:2", reason = "fs-set-times 0.20 uses 2; cap-primitives and io-extras use 3 (all cap-std). Until fs-set-times moves to 3." },
+    { crate = "miniz_oxide:0.8", reason = "png 0.18 (image) uses 0.8; flate2 uses 0.9. Until png moves to 0.9." },
+    { crate = "openssl-probe:0.1", reason = "git2 0.21 uses 0.1; native-tls and rustls-native-certs use 0.2. Until git2 moves to 0.2." },
+    { crate = "syn:2", reason = "proc macros mid-migration: tracing-attributes, strum_macros, zerocopy-derive, jiff-static, windows-implement... use 2; serde_derive, thiserror-impl, tokio-macros... use 3. Until the remaining ones move to syn 3." },
+    { crate = "windows-sys:0.60", reason = "arboard 3.6, notify 8.2 and io-extras (cap-std) use 0.60; Pairee and the rest use 0.61. Until they move to 0.61." },
+]
+# The two oldest windows-sys also bring windows-targets 0.52 and its
+# per-target import libraries (0.60 uses 0.53, 0.61 none).
+skip-tree = [
+    { crate = "windows-sys:0.52", depth = 3, reason = "ring 0.17 (rustls) uses 0.52. Until ring moves to 0.61." },
+    { crate = "windows-sys:0.59", depth = 3, reason = "fs-set-times 0.20 and winx 0.36 (cap-std) use 0.59. Until they move to 0.61." },
 ]
 
 [sources]

@@ -131,6 +131,15 @@ pub async fn dispatch_popup_key(
 fn apply_terminal_resize(state: &mut AppState, width: u16, height: u16) {
     log::debug!("Terminal resized to {}x{}", width, height);
     state.redraw.needs_clear = true;
+    let size = crate::terminal::pty::PtySize {
+        rows: height,
+        cols: width,
+    };
+    for screen in state.screens.iter() {
+        if let crate::app::state::Screen::Terminal(ts) = screen {
+            ts.resize(size);
+        }
+    }
 }
 
 #[cfg(test)]

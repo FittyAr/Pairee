@@ -8,7 +8,7 @@
 //! `/V:OFF` disables delayed `!VAR!` expansion regardless of the registry.
 
 /// Environment variable carrying the script when a raw command line cannot
-/// be passed (portable-pty quotes every argument itself).
+/// be passed (the PTY layer quotes every argument itself).
 #[cfg(windows)]
 pub const SCRIPT_ENV_VAR: &str = "PAIREE_SHELL_SCRIPT";
 
