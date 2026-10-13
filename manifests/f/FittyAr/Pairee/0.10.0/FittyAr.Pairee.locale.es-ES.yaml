@@ -1,4 +1,5 @@
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.12.0.schema.json
+
 PackageIdentifier: FittyAr.Pairee
 PackageVersion: 0.10.0
 PackageLocale: es-ES
@@ -12,8 +13,8 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: Un clon moderno en Rust de Norton Commander con diseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±o de doble panel, temas y soporte completo para ratÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n.
-Description: Un clon moderno en Rust de Norton Commander con diseÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â±o de doble panel, temas y soporte completo para ratÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³n. Cuenta con temas personalizables, traducciones, soporte para formatos estÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¡ndar de archivo, resolvedor de combinaciones de teclas y comandos interactivos.
+ShortDescription: Gestor de archivos de terminal de doble panel, inspirado en Norton Commander y Far Manager.
+Description: Un gestor de archivos moderno en Rust con diseño de doble panel, temas y soporte completo para ratón. Cuenta con temas personalizables, traducciones, soporte para formatos estándar de archivo comprimido, combinaciones de teclas a medida y comandos interactivos.
 Tags:
   - rust
   - gestor-de-archivos

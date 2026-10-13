@@ -27,7 +27,7 @@ fn enabled_by_default() -> bool {
 
 /// `[security]` of `config.toml`: credential storage and how plugin
 /// registry downloads are authenticated.
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct SecuritySettings {
     /// Keep connection passwords in `config.toml` (plain text) when the
     /// system keyring is unavailable. Off: such passwords are not saved.
@@ -38,9 +38,21 @@ pub struct SecuritySettings {
     /// the key pinned in Pairee).
     #[serde(default)]
     pub registry_public_key: String,
-    /// Refuse plugin registry files that have no signature.
-    #[serde(default)]
+    /// Refuse plugin registry files that have no signature once the
+    /// registry has been seen signed (on by default; until the first signed
+    /// file, unsigned ones are only warned about). Off: always only warn.
+    #[serde(default = "enabled_by_default")]
     pub registry_require_signature: bool,
+}
+
+impl Default for SecuritySettings {
+    fn default() -> Self {
+        Self {
+            passwords_in_config: false,
+            registry_public_key: String::new(),
+            registry_require_signature: true,
+        }
+    }
 }
 
 /// How the built-in editor treats tab characters (`editor_expand_tabs`).

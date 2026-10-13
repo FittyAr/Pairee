@@ -88,13 +88,17 @@ NCRust ofrece binarios precompilados de forma automática mediante GitHub Action
     ```powershell
     irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex
     ```
+    El instalador verifica la firma de la versión con la compilación oficial de [`minisign`](https://jedisct1.github.io/minisign/), que descarga por su cuenta (versión y SHA-256 fijados en el script). Para aceptar la descarga solo con su checksum SHA-256, pasá `-InsecureSkipSignature`:
+    ```powershell
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -InsecureSkipSignature
+    ```
   * **Compilar desde Código Fuente (Modo Debug):**
     ```powershell
-    irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex -Arguments debug
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -DebugMode
     ```
   * **Desinstalar:**
     ```powershell
-    irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex -Arguments uninstall
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -Uninstall
     ```
 
 ### Compilar desde el Código Fuente
@@ -116,7 +120,7 @@ cargo build --release
 ```
 
 ### Iniciar en Modo Independiente
-Puedes revisar los scripts de lanzamiento `run.bat` (Windows) o `run.sh` (Linux/macOS) para arrancar la aplicación en una ventana de consola dedicada.
+Ejecutá `pairee --standalone` (desde el código fuente: `cargo xtask dev standalone`) para arrancar la aplicación en una ventana de consola dedicada. `cargo xtask dev` lista las demás acciones de desarrollo.
 
 ---
 

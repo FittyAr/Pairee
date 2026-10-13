@@ -10,27 +10,13 @@ use anyhow::{Context as _, Result, anyhow};
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
 
-use super::{InstallResult, Package, cleanup, extract};
-use crate::update::detect::InstallMethod;
-use crate::update::downloader;
+use super::{InstallResult, cleanup, extract};
 
-/// The installer for an Inno Setup install, the zip otherwise.
-pub(super) fn package_for(version: &str, method: &InstallMethod) -> Package {
-    let is_installer = matches!(method, InstallMethod::InnoSetup);
-    let asset_name = if is_installer {
-        downloader::expected_installer_name(version)
-    } else {
-        downloader::expected_asset_name(version)
-    };
-    Package {
-        asset_name,
-        is_installer,
-    }
-}
-
-pub(super) fn install(data: &[u8], package: &Package) -> Result<InstallResult> {
-    if package.is_installer {
-        install_inno(data, &package.asset_name)
+/// Runs the verified installer `asset_name` (`is_installer`), or replaces
+/// the running exe with the one in the verified zip.
+pub(super) fn install(data: &[u8], asset_name: &str, is_installer: bool) -> Result<InstallResult> {
+    if is_installer {
+        install_inno(data, asset_name)
     } else {
         let new_exe = extract::exe_from_zip(data)?;
         let exe = std::env::current_exe().context("cannot determine current exe path")?;

@@ -1,11 +1,16 @@
 //! Pairee maintenance tasks, run as `cargo xtask <command>` (alias in
 //! `.cargo/config.toml`). One cross-platform implementation replaces the
-//! former PowerShell and Bash copies of the release scripts.
+//! former PowerShell and Bash copies of the release and developer scripts.
 
+mod assets;
 mod changelog;
 mod cmd;
+mod dev;
 mod lint;
 mod release;
+// The release asset name table, shared with the updater.
+#[path = "../../src/update/assets.rs"]
+mod release_assets;
 mod text;
 mod ui;
 
@@ -30,6 +35,14 @@ Commands:
       Fast checks run by the pre-push hook: rustfmt, typos, translation parity.
   install-hooks
       Point git at .githooks so every `git push` runs `cargo xtask lint`.
+  dev [<action>]
+      Developer menu (build, run, test, clippy, fmt, clean, WinGet, MSIX,
+      release). With an action, runs it directly: `cargo xtask dev list`.
+  asset-names <target-triple> <vX.Y.Z>
+      Release file names of one build, as KEY=value lines (packaging scripts).
+  winget-manifests <vX.Y.Z> <dist-dir> <out-dir>
+      WinGet manifests of a release: the versioned folder under manifests/
+      with the installer URLs and the SHA-256 from <dist-dir>/*.exe.sha256.
 ";
 
 fn main() -> ExitCode {
@@ -48,6 +61,9 @@ fn main() -> ExitCode {
         Some("changelog") => changelog::print(rest),
         Some("lint") => lint::run(),
         Some("install-hooks") => lint::install_hooks(),
+        Some("dev") => dev::run(rest),
+        Some("asset-names") => assets::print(rest),
+        Some("winget-manifests") => release::winget_manifests(rest),
         Some("help" | "-h" | "--help") | None => {
             print!("{USAGE}");
             Ok(())
