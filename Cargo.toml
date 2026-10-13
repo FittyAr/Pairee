@@ -10,9 +10,11 @@ repository = "https://github.com/FittyAr/Pairee"
 readme = "README.md"
 
 [dependencies]
-ratatui = "0.30.2"
+# No termwiz/termina backends: default features would list them in the lock
+# through weak `?/underline-color` features (never built, but audited).
+ratatui = { version = "0.30.2", default-features = false, features = ["crossterm", "layout-cache"] }
 crossterm = { version = "0.29.0", features = ["event-stream"] }
-tokio = { version = "1.53", features = ["full"] }
+tokio = { version = "1.53", features = ["rt-multi-thread", "macros", "sync", "time", "process", "io-util"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 toml = "1.1"
@@ -28,7 +30,8 @@ zip = { version = "8.6.0", default-features = false, features = ["deflate", "tim
 tar = "0.4.46"
 flate2 = { version = "1.1.9", default-features = false, features = ["rust_backend"] }
 pulldown-cmark = "0.13"
-image = "0.25.10"
+# Only the formats the viewer and Quick View preview (no AVIF/rav1e, EXR, HDR...).
+image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "gif", "webp", "bmp", "ico", "tiff", "tga"] }
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2", "https", "ssh"] }
 futures-util = { version = "0.3", default-features = false, features = ["io"] }
 mlua = { version = "0.12.2", features = ["lua54", "vendored", "serialize", "async", "send"] }
@@ -52,7 +55,8 @@ tui-scrollbar = { version = "0.2.7", features = ["crossterm"] }
 unicode-segmentation = "1.13.3"
 shlex = "2.0"
 ansi-to-tui = "8.0"
-arboard = "3.6.1"
+# Text only: no clipboard images (their image-data feature pulls in image codecs).
+arboard = { version = "3.6.1", default-features = false }
 sevenz-rust2 = "0.22"
 # tar.bz2 / tar.xz: pure-Rust decoders (static musl builds keep working).
 bzip2 = "0.6"
