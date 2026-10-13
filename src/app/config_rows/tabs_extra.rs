@@ -117,6 +117,7 @@ pub fn plugins(settings: &Settings) -> Vec<Row> {
         ),
         title_key("plugins_manager_settings"),
         Row::Subtitle(Label::Owned(format!("  {}", t("plugin_selection")))),
+        toggle!(1, "cfg_secure_mode", secure_mode),
         toggle!(1, "developer_mode", plugins_developer_mode),
     ];
     if settings.plugins_developer_mode {

@@ -38,8 +38,9 @@ pub fn flip_secure_mode(config: &mut AppConfig) -> bool {
     config.settings.secure_mode
 }
 
-/// Saves `config` and reloads the plugins with it.
-fn apply(config: &AppConfig) {
+/// Saves `config` and reloads the plugins with it (also used by the
+/// configuration dialog when its Secure Mode row changed).
+pub fn apply(config: &AppConfig) {
     config.save_logging();
     PluginManager::reload_all(config);
 }

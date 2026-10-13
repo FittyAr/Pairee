@@ -5,6 +5,8 @@
 - Git: fetch, pull and push now work with SSH remotes (`git@...`), using ssh-agent or your default keys in `~/.ssh`.
 - Plugins can be enabled or disabled in the Plugin Manager (`e`); disabled plugins are not loaded.
 - Secure Mode can be toggled in the Plugin Manager (`s`); trust, enable and Secure Mode changes apply at once by reloading the plugins.
+- Secure Mode can also be switched in the configuration dialog (Plugins tab); OK applies it at once, like the Plugin Manager.
+- Setting "Overwritten files go to the Recycle Bin" (System tab, `transfer_trash_replaced`, on by default) decides whether a file replaced by a copy or move is sent to the trash first.
 - SSH preset passwords are stored in the system keyring; passwords found in `config.toml` are moved there automatically.
 - Plugin registry files are checked against minisign signatures; unsigned registry files show a warning and can be refused with `[security] registry_require_signature`.
 - The Copy / Move dialog options now work: "Copy files access mode" keeps permissions (Unix) or the access control list (Windows), "Produce sparse files" leaves runs of zeros as holes, "Use copy on write" clones the data instantly where the file system supports it (Btrfs, XFS, APFS, ReFS) and copies normally elsewhere, and "Process multiple destinations" copies to every `;`-separated destination (a move copies to all and moves to the last).
