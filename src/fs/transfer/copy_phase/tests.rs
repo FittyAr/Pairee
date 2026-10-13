@@ -80,7 +80,13 @@ async fn stream_copies_resolve_conflicts_verify_and_keep_times() {
         verify_after_copy: true,
         ..TransferOptions::default()
     };
-    let results = run_stream(TransferOperation::Copy, &[src.clone()], &dst, options).await;
+    let results = run_stream(
+        TransferOperation::Copy,
+        std::slice::from_ref(&src),
+        &dst,
+        options,
+    )
+    .await;
     assert_eq!(results.completed_files.len(), 1);
     assert!(results.completed_files[0].verified);
     assert_eq!(results.skipped_files.len(), 1);
@@ -109,7 +115,7 @@ async fn stream_moves_remove_sources_after_copying() {
     std::fs::create_dir(&dst).unwrap();
     let results = run_stream(
         TransferOperation::Move,
-        &[src.clone()],
+        std::slice::from_ref(&src),
         &dst,
         TransferOptions::default(),
     )
