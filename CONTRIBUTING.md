@@ -86,7 +86,14 @@ cargo xtask release            # or option 10 of run.bat / run.sh
 The task updates every dependency to its latest compatible version, runs the
 local gate (lint, clippy, tests), bumps the version (Cargo.toml, installer,
 WinGet manifests), moves `docs/UNRELEASED.md` into `docs/CHANGELOG.md`, then
-commits, tags and pushes. `cargo xtask help` lists its options.
+commits, tags and pushes the branch and the tag in one atomic push.
+`cargo xtask help` lists its options.
+
+It refuses to start with uncommitted changes outside the files it rewrites,
+or when the tag already exists locally or on origin. If the gate fails, an
+error occurs or you cancel, the release files are put back exactly as they
+were. When releasing from a feature branch it merges it into the main branch
+only after a fast-forward pull of that branch; otherwise it stops.
 
 The tag starts the Release workflow: it re-runs every check, builds and
 smoke-tests all targets, and creates a signed **draft** release. Approve the
