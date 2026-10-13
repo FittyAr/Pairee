@@ -6,7 +6,7 @@
 use crate::app::state::types::Renderable;
 use crate::plugin::annotations::Annotations;
 use crate::plugin::loader::PluginManifest;
-use crate::plugin::manager::PluginRequest;
+use crate::plugin::manager::{PluginOrigin, PluginRequest};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::OnceLock;
@@ -46,6 +46,8 @@ pub enum PluginTaskRequest {
     EmitEvent {
         name: String,
         data: String, // JSON payload
+        /// The plugin that published it (`None`: a host event).
+        sender: Option<PluginOrigin>,
     },
 }
 
@@ -187,10 +189,16 @@ pub async fn run_command(name: &str, args: Vec<String>) {
     tell(name, PluginTaskRequest::ExecuteCommand { args }).await;
 }
 
-pub async fn emit_hook_event(plugin_name: &str, event_name: &str, data: String) {
+pub async fn emit_hook_event(
+    plugin_name: &str,
+    event_name: &str,
+    data: String,
+    sender: Option<PluginOrigin>,
+) {
     let req = PluginTaskRequest::EmitEvent {
         name: event_name.to_string(),
         data,
+        sender,
     };
     tell(plugin_name, req).await;
 }

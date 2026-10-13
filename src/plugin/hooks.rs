@@ -1,17 +1,67 @@
+//! Events delivered to the plugins' `pairee.ps.sub` callbacks: host hooks
+//! (`on_cd`, `on_hover`, `on_key`, `on_mouse`) and `pairee.ps.pub` messages
+//! of other plugins. The sender is recorded by Rust, never by Lua, so a
+//! subscriber can tell host events from plugin messages and which plugin
+//! sent one.
+
+use crate::plugin::manager::PluginOrigin;
 use crate::plugin::registry::{emit_hook_event, get_loaded_plugins};
 
-/// Broadcasts a hook event (e.g. "on_cd", "on_hover", "on_key") to all loaded plugins.
+/// Prefixes of event names only the host (or a trusted plugin) may publish:
+/// the host hooks (`on_*`) and anything under `pairee.`.
+const RESERVED_PREFIXES: [&str; 2] = ["on_", "pairee."];
+
+/// Whether `event` is a host / system event name an untrusted plugin may
+/// not publish.
+pub fn is_reserved(event: &str) -> bool {
+    RESERVED_PREFIXES
+        .iter()
+        .any(|prefix| event.starts_with(prefix))
+}
+
+/// Broadcasts a host hook event (e.g. "on_cd", "on_hover", "on_key") to all
+/// loaded plugins.
 pub async fn emit_event(event_name: &str, data: serde_json::Value) {
+    broadcast(event_name, data, None).await;
+}
+
+/// Broadcasts `pairee.ps.pub(event_name, data)` of the plugin `sender`.
+pub async fn publish(sender: PluginOrigin, event_name: &str, data: serde_json::Value) {
+    broadcast(event_name, data, Some(sender)).await;
+}
+
+async fn broadcast(event_name: &str, data: serde_json::Value, sender: Option<PluginOrigin>) {
     let data_str = data.to_string();
-    let plugins = get_loaded_plugins().await;
-    for plugin in plugins {
-        // Let's emit the hook event to every active plugin task.
-        // The Lua side registry checks if the plugin VM has callbacks registered for this event.
+    for plugin in get_loaded_plugins().await {
+        // The Lua side checks whether the plugin has callbacks for the event.
         let name = plugin.manifest.name.clone();
         let ev = event_name.to_string();
         let d = data_str.clone();
+        let sender = sender.clone();
         tokio::spawn(async move {
-            emit_hook_event(&name, &ev, d).await;
+            emit_hook_event(&name, &ev, d, sender).await;
         });
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::is_reserved;
+
+    #[test]
+    fn host_and_system_names_are_reserved() {
+        for name in [
+            "on_cd",
+            "on_hover",
+            "on_key",
+            "on_mouse",
+            "on_anything",
+            "pairee.quit",
+        ] {
+            assert!(is_reserved(name), "{name}");
+        }
+        for name in ["git-status", "my_plugin.done", "onion", "paireex"] {
+            assert!(!is_reserved(name), "{name}");
+        }
     }
 }

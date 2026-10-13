@@ -1,7 +1,10 @@
-use crate::plugin::manager::PluginRequest;
-use tokio::sync::mpsc;
+//! `pairee.ps`: publish / subscribe between plugins. Messages carry the
+//! sender recorded here in Rust (`origin`), and untrusted plugins cannot
+//! publish under the host's reserved names (see `plugin::hooks`).
 
-pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Table> {
+use crate::plugin::manager::PluginOrigin;
+
+pub fn bind(lua: &mlua::Lua, origin: PluginOrigin) -> mlua::Result<mlua::Table> {
     let ps = lua.create_table()?;
     let callbacks = lua.create_table()?;
     ps.set("_callbacks", callbacks)?;
@@ -31,10 +34,16 @@ pub fn bind(lua: &mlua::Lua, _tx: mpsc::Sender<PluginRequest>) -> mlua::Result<m
 
     ps.set(
         "pub",
-        lua.create_function(|lua_ctx, (event_name, data): (String, mlua::Value)| {
+        lua.create_function(move |lua_ctx, (event_name, data): (String, mlua::Value)| {
+            if !origin.trusted && crate::plugin::hooks::is_reserved(&event_name) {
+                return Err(mlua::Error::runtime(format!(
+                    "pairee.ps.pub: '{event_name}' is reserved for Pairee events"
+                )));
+            }
             let json_val = crate::plugin::runtime::lua_json::to_json(lua_ctx, data)?;
+            let sender = origin.clone();
             tokio::spawn(async move {
-                crate::plugin::hooks::emit_event(&event_name, json_val).await;
+                crate::plugin::hooks::publish(sender, &event_name, json_val).await;
             });
             Ok(())
         })?,

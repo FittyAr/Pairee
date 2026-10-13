@@ -14,7 +14,7 @@ pub use preview::{PreviewTarget, decode_images};
 
 use crate::plugin::annotations::Annotations;
 use crate::plugin::limits::guarded_async;
-use crate::plugin::manager::PluginRequest;
+use crate::plugin::manager::{PluginOrigin, PluginRequest};
 use crate::plugin::registry::PluginTaskRequest;
 use crate::plugin::runtime::bindings::sync::{clear_snapshot, refresh_context};
 use crate::plugin::runtime::lua_json;
@@ -65,7 +65,9 @@ impl Worker {
                 let _ = reply_tx.send(self.seek(job, units).await);
             }
             PluginTaskRequest::ExecuteCommand { args } => self.entry(args).await,
-            PluginTaskRequest::EmitEvent { name, data } => self.event(&name, &data).await,
+            PluginTaskRequest::EmitEvent { name, data, sender } => {
+                self.event(&name, &data, sender.as_ref()).await
+            }
         }
     }
 
@@ -111,8 +113,9 @@ impl Worker {
         self.report("entry", result);
     }
 
-    /// Runs the plugin's `pairee.ps.sub` callbacks for `event`.
-    async fn event(&self, event: &str, data: &str) {
+    /// Runs the plugin's `pairee.ps.sub` callbacks for `event` with the
+    /// payload and who sent it (`sender`, recorded by Rust).
+    async fn event(&self, event: &str, data: &str, sender: Option<&PluginOrigin>) {
         let callbacks = self.lua.globals().get::<Table>("pairee").and_then(|p| {
             p.get::<Table>("ps")?
                 .get::<Table>("_callbacks")?
@@ -125,12 +128,28 @@ impl Worker {
             .ok()
             .and_then(|val| lua_json::from_json(&self.lua, &val).ok())
             .unwrap_or(Value::Nil);
+        let Some(meta) = self.report(event, event_meta(&self.lua, sender)) else {
+            return;
+        };
         let funcs: Vec<mlua::Function> = callbacks.sequence_values().flatten().collect();
         for func in funcs {
-            let call = func.call_async::<()>(payload.clone());
+            let call = func.call_async::<()>((payload.clone(), meta.clone()));
             self.report(event, guarded_async(&self.lua, call).await);
         }
     }
+}
+
+/// The second argument of a `pairee.ps.sub` callback: `from_host` for host
+/// hooks; `sender` (plugin name) and `trusted` for `pairee.ps.pub`
+/// messages. Built from what Rust recorded, so a plugin cannot fake it.
+fn event_meta(lua: &mlua::Lua, sender: Option<&PluginOrigin>) -> mlua::Result<Table> {
+    let meta = lua.create_table()?;
+    meta.set("from_host", sender.is_none())?;
+    if let Some(origin) = sender {
+        meta.set("sender", origin.name.as_str())?;
+        meta.set("trusted", origin.trusted)?;
+    }
+    Ok(meta)
 }
 
 /// Starts the worker task; it ends when the registry drops the channel.

@@ -32,7 +32,7 @@ Inside a plugin's `main.lua`, the table `pairee` is the only public entry point.
 | `pairee.preview_code / preview_widget` | Highlighted text preview with line numbers; show a widget later | New in 1.2 |
 | `pairee.rt` / `pairee.th` | Runtime facts and preferences; theme colors as styles | New in 1.2 |
 | `pairee.utils.user_name / host_name / uid / gid / group_name` | Who and where Pairee runs (`nil` where the platform has none) | New in 1.2 |
-| `pairee.ps.sub / pub / unsub` | Local pub/sub | Stable |
+| `pairee.ps.sub / pub / unsub` | Local pub/sub; callbacks get `(data, meta)` with the sender set by Pairee (`meta.sender`, `meta.trusted`, `meta.from_host`); untrusted plugins cannot publish `on_*` / `pairee.*` names | Stable |
 | `pairee.log.*` | Log a message at the given level | Stable |
 | `pairee.sync(fn)` | Snapshot-bridge into the main thread state (also `--- @sync <method>`) | Stable |
 | `pairee.settings.*` | Read access to the plugin's resolved settings | Stable |

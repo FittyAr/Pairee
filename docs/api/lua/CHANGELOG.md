@@ -13,6 +13,8 @@ Policy:
 
 ### Added
 
+- `pairee.ps.sub` callbacks receive a second argument `meta`
+  (`from_host`, `sender`, `trusted`), recorded by the host.
 - `on_mouse` hook event: clicks on the panels and the bars, with the button,
   the cell, what was clicked and (for a file row) its panel and 1-based index.
 - `pairee.fs.data_dir()` — the plugin's private data directory.
@@ -21,6 +23,8 @@ Policy:
 
 ### Changed
 
+- `pairee.ps.pub` from an untrusted plugin refuses reserved event names
+  (`on_*`, `pairee.*`) with an error, so it cannot fake host events.
 - `pairee.fs` is always path-jailed for untrusted plugins (read: plugin dir + data dir; write: data dir only).
 - `pairee._secure_mode` is informational; the host no longer reads it back.
 - Secure Mode: `pairee.Command` / `pairee.fs.spawn` use an allowlist. Only

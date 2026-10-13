@@ -32,7 +32,7 @@ Dentro del `main.lua` de un plugin, la tabla `pairee` es el único punto de entr
 | `pairee.preview_code / preview_widget` | Vista previa de texto resaltado con números de línea; mostrar un widget más tarde | Nuevo en 1.2 |
 | `pairee.rt` / `pairee.th` | Datos y preferencias del entorno; colores del tema como estilos | Nuevo en 1.2 |
 | `pairee.utils.user_name / host_name / uid / gid / group_name` | Quién y dónde ejecuta Pairee (`nil` donde la plataforma no lo tiene) | Nuevo en 1.2 |
-| `pairee.ps.sub / pub / unsub` | Pub/sub local | Estable |
+| `pairee.ps.sub / pub / unsub` | Pub/sub local; los callbacks reciben `(data, meta)` con el remitente fijado por Pairee (`meta.sender`, `meta.trusted`, `meta.from_host`); los plugins no confiables no pueden publicar nombres `on_*` / `pairee.*` | Estable |
 | `pairee.log.*` | Loguea un mensaje en el nivel dado | Estable |
 | `pairee.sync(fn)` | Bridge de snapshot al estado del hilo principal (también `--- @sync <método>`) | Estable |
 | `pairee.settings.*` | Acceso de lectura a los settings resueltos del plugin | Estable |

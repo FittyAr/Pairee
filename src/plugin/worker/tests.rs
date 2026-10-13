@@ -171,9 +171,65 @@ async fn hook_callbacks_receive_the_payload() {
         "#,
         false,
     );
-    w.event("on_cd", r#"{"path":"/x"}"#).await;
+    w.event("on_cd", r#"{"path":"/x"}"#, None).await;
     let table: Table = w.lua.registry_value(&w.table_key).unwrap();
     assert_eq!(table.get::<String>("path").unwrap(), "/x");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn subscribers_see_who_sent_an_event() {
+    let dir = tempfile::tempdir().unwrap();
+    let (w, _rx) = worker(
+        dir.path(),
+        r#"
+        local M = { seen = {} }
+        local function record(_, meta)
+            M.seen[#M.seen + 1] = tostring(meta.from_host) .. ":" .. tostring(meta.sender)
+                .. ":" .. tostring(meta.trusted)
+        end
+        pairee.ps.sub("on_cd", record)
+        pairee.ps.sub("done", record)
+        return M
+        "#,
+        false,
+    );
+    let other = crate::plugin::manager::PluginOrigin {
+        name: "other".into(),
+        trusted: false,
+    };
+    w.event("on_cd", "{}", None).await;
+    w.event("done", "{}", Some(&other)).await;
+
+    let table: Table = w.lua.registry_value(&w.table_key).unwrap();
+    let seen: Vec<String> = table
+        .get::<Table>("seen")
+        .unwrap()
+        .sequence_values()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(seen, ["true:nil:nil", "false:other:false"]);
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn untrusted_plugins_cannot_publish_reserved_events() {
+    let dir = tempfile::tempdir().unwrap();
+    let source = r#"
+        local M = {}
+        function M:entry()
+            M.host = pcall(pairee.ps.pub, "on_cd", { path = "/fake" })
+            M.system = pcall(pairee.ps.pub, "pairee.quit", {})
+            M.own = pcall(pairee.ps.pub, "my-event", {})
+        end
+        return M
+        "#;
+    for (trusted, reserved_allowed) in [(false, false), (true, true)] {
+        let (w, _rx) = worker(dir.path(), source, trusted);
+        w.entry(Vec::new()).await;
+        let table: Table = w.lua.registry_value(&w.table_key).unwrap();
+        assert_eq!(table.get::<bool>("host").unwrap(), reserved_allowed);
+        assert_eq!(table.get::<bool>("system").unwrap(), reserved_allowed);
+        assert!(table.get::<bool>("own").unwrap());
+    }
 }
 
 #[tokio::test(flavor = "multi_thread")]
