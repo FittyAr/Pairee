@@ -2,13 +2,14 @@
 # Pairee installer for Linux (x86_64 and aarch64).
 #
 #   curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
-#   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature]
+#   ... | sh -s -- [debug] [uninstall] [--insecure-skip-signature] [--verify-only]
 #
 # Installs the static (musl) binary to ~/.local/bin and its resources to
 # ${XDG_CONFIG_HOME:-~/.config}/pairee. The download is checked against its
 # SHA-256 and its minisign signature; minisign is required unless
 # --insecure-skip-signature is given (then only the checksum, served from the
-# same place as the archive, is checked).
+# same place as the archive, is checked). --verify-only downloads and verifies
+# the release and installs nothing.
 #
 # Everything runs from `main` on the last line, so a download cut short
 # executes nothing.
@@ -24,6 +25,7 @@ CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pairee"
 DEBUG_MODE=false
 UNINSTALL_MODE=false
 SKIP_SIGNATURE=false
+VERIFY_ONLY=false
 # Removed on exit, whatever the outcome.
 TEMP_DIR=""
 STAGED_BIN=""
@@ -55,7 +57,8 @@ parse_args() {
             debug | --debug) DEBUG_MODE=true ;;
             uninstall | --uninstall) UNINSTALL_MODE=true ;;
             --insecure-skip-signature) SKIP_SIGNATURE=true ;;
-            *) die "Unknown argument '$arg'. Usage: install.sh [debug] [uninstall] [--insecure-skip-signature]" ;;
+            --verify-only) VERIFY_ONLY=true ;;
+            *) die "Unknown argument '$arg'. Usage: install.sh [debug] [uninstall] [--insecure-skip-signature] [--verify-only]" ;;
         esac
     done
 }
@@ -163,12 +166,19 @@ uninstall() {
 
 # ─── Install ─────────────────────────────────────────────────────────────────
 
-# Release target of this machine (the release publishes static musl builds).
-detect_target() {
+# Release platform of this machine (the static musl builds). The platform
+# names come from src/update/assets.rs (checked by tests/release_assets.rs).
+detect_platform() {
     [ "$(uname -s)" = "Linux" ] || die "This script only supports Linux."
     case "$(uname -m)" in
-        x86_64 | amd64) TARGET="x86_64-unknown-linux-musl" ;;
-        aarch64 | arm64) TARGET="aarch64-unknown-linux-musl" ;;
+        x86_64 | amd64)
+            PLATFORM="linux-x64-musl"
+            LEGACY_TARGET="x86_64-unknown-linux-musl"
+            ;;
+        aarch64 | arm64)
+            PLATFORM="linux-arm64-musl"
+            LEGACY_TARGET="aarch64-unknown-linux-musl"
+            ;;
         *) die "Unsupported architecture '$(uname -m)'. Release builds exist for x86_64 and aarch64." ;;
     esac
 }
@@ -230,7 +240,8 @@ confirm_overwrite() {
 
 latest_version() {
     echo "Fetching latest version info..."
-    VERSION=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
+    RELEASE_JSON=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest")
+    VERSION=$(printf '%s\n' "$RELEASE_JSON" | grep '"tag_name":' | head -n 1 | cut -d '"' -f 4)
     [ -n "$VERSION" ] || die "Could not retrieve latest release version from GitHub API."
     case "$VERSION" in
         v[0-9]*.[0-9]*.[0-9]*) ;;
@@ -272,9 +283,21 @@ verify_download() {
     fi
 }
 
+# The archive of this machine in the latest release: its current name or,
+# TRANSITION, its pre-0.11 name (releases up to 0.12.0 carry both; drop the
+# second name and LEGACY_TARGET once 0.13.0 is the latest release).
+choose_tarball() {
+    for TARBALL in "pairee-${VERSION#v}-${PLATFORM}.tar.gz" "pairee-${VERSION}-${LEGACY_TARGET}.tar.gz"; do
+        if printf '%s\n' "$RELEASE_JSON" | grep -qE "\"name\": *\"${TARBALL}\""; then
+            return 0
+        fi
+    done
+    die "Release ${VERSION} has no ${PLATFORM} archive."
+}
+
 # Sets PKG_FOLDER and BIN_SRC.
 download_release() {
-    TARBALL="pairee-${VERSION}-${TARGET}.tar.gz"
+    choose_tarball
     DOWNLOAD_URL="https://github.com/${REPO}/releases/download/${VERSION}/${TARBALL}"
 
     echo "Downloading ${TARBALL}..."
@@ -282,9 +305,11 @@ download_release() {
     verify_download "${TEMP_DIR}/${TARBALL}" "$TARBALL" "$DOWNLOAD_URL"
 
     echo "Extracting archive..."
-    tar -xzf "${TEMP_DIR}/${TARBALL}" -C "$TEMP_DIR"
-    PKG_FOLDER="${TEMP_DIR}/pairee-${VERSION}-${TARGET}"
-    BIN_SRC="${PKG_FOLDER}/pairee"
+    mkdir "${TEMP_DIR}/extract"
+    tar -xzf "${TEMP_DIR}/${TARBALL}" -C "${TEMP_DIR}/extract"
+    BIN_SRC=$(find "${TEMP_DIR}/extract" -type f -name pairee | head -n 1)
+    [ -n "$BIN_SRC" ] || die "pairee not found in ${TARBALL}."
+    PKG_FOLDER=$(dirname "$BIN_SRC")
 }
 
 # Sets PKG_FOLDER and BIN_SRC.
@@ -359,9 +384,11 @@ main() {
 
     echo "${BLUE}Pairee Installer for Linux${NC}"
     echo "=============================="
-    detect_target
+    detect_platform
     check_dependencies
-    confirm_overwrite
+    if [ "$VERIFY_ONLY" != "true" ]; then
+        confirm_overwrite
+    fi
 
     trap cleanup EXIT
     trap 'exit 130' INT
@@ -375,6 +402,10 @@ main() {
     else
         latest_version
         download_release
+    fi
+    if [ "$VERIFY_ONLY" = "true" ]; then
+        echo "${GREEN}Pairee ${VERSION} downloaded and verified; nothing was installed (--verify-only).${NC}"
+        return 0
     fi
 
     install_files

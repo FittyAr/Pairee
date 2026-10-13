@@ -15,7 +15,7 @@
 - Plugin API 1.2.0: clipboard, persistent plugin state, path / URL / file-information values, image helpers, theme and runtime information (see `docs/api/lua/v1.md`).
 - Setting "Overwritten files go to the Recycle Bin" (System tab, `transfer_trash_replaced`, on by default) decides whether a file replaced by a copy or move is sent to the trash first.
 - SSH preset passwords are stored in the system keyring; passwords found in `config.toml` are moved there automatically.
-- Plugin registry files are checked against minisign signatures; unsigned registry files show a warning and can be refused with `[security] registry_require_signature`.
+- Plugin registry files are checked against minisign signatures. Once Pairee has seen the registry signed, unsigned registry files are refused (`[security] registry_require_signature`, on by default; until then they only show a warning).
 - The Copy / Move dialog options now work: "Copy files access mode" keeps permissions (Unix) or the access control list (Windows), "Produce sparse files" leaves runs of zeros as holes, "Use copy on write" clones the data instantly where the file system supports it (Btrfs, XFS, APFS, ReFS) and copies normally elsewhere, and "Process multiple destinations" copies to every `;`-separated destination (a move copies to all and moves to the last).
 - "Process multiple names" in the Make folder dialog creates every `;`-separated name.
 - Copies resume where they stopped: a copy interrupted by a crash, a power cut or a failed attempt continues from the part already written (after checking it matches the source).
@@ -58,6 +58,8 @@
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.
 - `install.sh` requires `minisign` and a valid release signature; `--insecure-skip-signature` accepts the download on its SHA-256 checksum alone.
+- `install.ps1` always verifies the release signature, with the official minisign build it downloads itself (pinned version and SHA-256); `-InsecureSkipSignature` accepts the download on its SHA-256 checksum alone. Both install scripts can also just download and verify (`--verify-only` / `-VerifyOnly`).
+- Release archives are named after the platform instead of the Rust target triple: `pairee-X.Y.Z-linux-x64-musl.tar.gz`, `pairee-X.Y.Z-macos-arm64.tar.gz`, `pairee-X.Y.Z-windows-x64.zip`... Until 0.12.0 each archive is also published under its old name, so Pairee 0.10 and older can still update itself.
 - Git: pull follows the branch's configured upstream instead of always using the same-named remote branch.
 - Git: aborting a merge keeps the local changes you had in other files, like `git merge --abort`.
 - Untrusted plugins can only fire navigation, view, sort, selection and help actions (and their own commands) with `pairee.emit`.
@@ -78,6 +80,7 @@
 ### Deprecated
 
 ### Removed
+- `run.bat` and `run.sh`: their developer menu is now `cargo xtask dev` (also `cargo xtask dev <action>`, e.g. `cargo xtask dev clippy`).
 
 ### Fixed
 - Previews drawn with `pairee.ui` are shown in the Quick View, and plugin commands, previews and hooks can use dialogs, `pairee.sync` and other calls that wait; waiting for the user no longer counts against a plugin's 10-second limit.

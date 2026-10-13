@@ -9,8 +9,13 @@
 //! the updater's minisign code ([`crate::update::signature::verify_with_key`]).
 //!
 //! * A signature that is present but does not verify is always an error.
-//! * A missing signature is accepted with an "unsigned" warning, unless the
-//!   user set `registry_require_signature = true` under `[security]`.
+//! * A missing signature is refused once this installation has seen the
+//!   registry signed with the configured key (recorded in
+//!   [`SIGNED_MARKER`]): stripping the signatures cannot downgrade it to
+//!   unsigned files. Until then (the registry is being signed for the first
+//!   time) it is accepted with an "unsigned" warning. This is the default,
+//!   `registry_require_signature = true` under `[security]`; `false` always
+//!   only warns.
 //!
 //! The public key defaults to the Pairee release key (the registry is
 //! signed by the same maintainers) and can be replaced with
@@ -18,6 +23,11 @@
 
 use crate::config::settings::Settings;
 use anyhow::Result;
+use std::path::PathBuf;
+
+/// File in the config folder holding the key the registry was last seen
+/// signed with.
+pub const SIGNED_MARKER: &str = "registry_signed";
 
 /// How a registry file was authenticated.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -32,15 +42,18 @@ pub enum SignatureStatus {
 pub struct RegistryTrust {
     /// minisign public key (base64).
     pub public_key: String,
-    /// Refuse files without a signature.
+    /// Refuse files without a signature once the registry was seen signed.
     pub require_signature: bool,
+    /// Where that is recorded (`None`: nowhere, so never).
+    pub signed_marker: Option<PathBuf>,
 }
 
 impl Default for RegistryTrust {
     fn default() -> Self {
         Self {
             public_key: crate::update::signature::RELEASE_PUBLIC_KEY.to_string(),
-            require_signature: false,
+            require_signature: true,
+            signed_marker: None,
         }
     }
 }
@@ -56,6 +69,26 @@ impl RegistryTrust {
                 key.to_string()
             },
             require_signature: settings.security.registry_require_signature,
+            signed_marker: Some(crate::config::paths::get_config_dir().join(SIGNED_MARKER)),
+        }
+    }
+
+    /// Whether a file signed with this key has been verified before.
+    fn seen_signed(&self) -> bool {
+        self.signed_marker
+            .as_ref()
+            .and_then(|path| std::fs::read_to_string(path).ok())
+            .is_some_and(|key| key.trim() == self.public_key)
+    }
+
+    fn record_signed(&self) {
+        let Some(path) = &self.signed_marker else {
+            return;
+        };
+        if !self.seen_signed()
+            && let Err(e) = std::fs::write(path, &self.public_key)
+        {
+            tracing::warn!("Cannot record that the plugin registry is signed: {e}");
         }
     }
 
@@ -73,10 +106,12 @@ impl RegistryTrust {
                     .map_err(|e| {
                         anyhow::anyhow!("registry signature of {signed_name} is invalid: {e:#}")
                     })?;
+                self.record_signed();
                 Ok(SignatureStatus::Verified)
             }
-            None if self.require_signature => anyhow::bail!(
-                "{signed_name} is not signed and [security] registry_require_signature is on"
+            None if self.require_signature && self.seen_signed() => anyhow::bail!(
+                "{signed_name} is not signed, but the registry was signed before; \
+                 refusing it ([security] registry_require_signature)"
             ),
             None => {
                 tracing::warn!("Plugin registry file {signed_name} is not signed");
@@ -103,6 +138,14 @@ trusted comment: timestamp:1700000000\tfile:payload.tar.gz\thashed
         RegistryTrust {
             public_key: TEST_PK.to_string(),
             require_signature: require,
+            signed_marker: None,
+        }
+    }
+
+    fn with_marker(require: bool, dir: &tempfile::TempDir) -> RegistryTrust {
+        RegistryTrust {
+            signed_marker: Some(dir.path().join(SIGNED_MARKER)),
+            ..trust(require)
         }
     }
 
@@ -137,23 +180,62 @@ trusted comment: timestamp:1700000000\tfile:payload.tar.gz\thashed
     }
 
     #[test]
-    fn missing_signature_warns_or_fails_by_policy() {
+    fn unsigned_files_are_accepted_until_the_registry_is_seen_signed() {
+        let dir = tempfile::tempdir().unwrap();
+        let strict = with_marker(true, &dir);
         assert_eq!(
-            trust(false).verify(PAYLOAD, None, "index.toml").unwrap(),
+            strict.verify(PAYLOAD, None, "index.toml").unwrap(),
             SignatureStatus::Unsigned
         );
-        assert!(trust(true).verify(PAYLOAD, None, "index.toml").is_err());
+        strict.verify(PAYLOAD, Some(SIG), "payload.tar.gz").unwrap();
+        // Signatures stripped later: refused, also by a new process.
+        assert!(strict.verify(PAYLOAD, None, "index.toml").is_err());
+        assert!(
+            with_marker(true, &dir)
+                .verify(PAYLOAD, None, "index.toml")
+                .is_err()
+        );
+        // Opted out: only a warning.
+        assert_eq!(
+            with_marker(false, &dir)
+                .verify(PAYLOAD, None, "index.toml")
+                .unwrap(),
+            SignatureStatus::Unsigned
+        );
+    }
+
+    #[test]
+    fn another_registry_key_starts_unsigned_again() {
+        let dir = tempfile::tempdir().unwrap();
+        with_marker(true, &dir)
+            .verify(PAYLOAD, Some(SIG), "payload.tar.gz")
+            .unwrap();
+        let other = RegistryTrust {
+            public_key: crate::update::signature::RELEASE_PUBLIC_KEY.to_string(),
+            ..with_marker(true, &dir)
+        };
+        assert_eq!(
+            other.verify(PAYLOAD, None, "index.toml").unwrap(),
+            SignatureStatus::Unsigned
+        );
     }
 
     #[test]
     fn settings_override_the_pinned_key() {
         let mut settings = Settings::default();
-        assert_eq!(
-            RegistryTrust::from_settings(&settings),
-            RegistryTrust::default()
-        );
+        let pinned = RegistryTrust::from_settings(&settings);
+        assert_eq!(pinned.public_key, RegistryTrust::default().public_key);
+        assert!(pinned.require_signature);
+        assert!(pinned.signed_marker.is_some());
         settings.security.registry_public_key = format!(" {TEST_PK} ");
-        settings.security.registry_require_signature = true;
-        assert_eq!(RegistryTrust::from_settings(&settings), trust(true));
+        settings.security.registry_require_signature = false;
+        let custom = RegistryTrust::from_settings(&settings);
+        assert_eq!(
+            custom,
+            RegistryTrust {
+                signed_marker: pinned.signed_marker,
+                ..trust(false)
+            }
+        );
     }
 }
