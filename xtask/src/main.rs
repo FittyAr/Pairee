@@ -21,7 +21,9 @@ Commands:
   release [--version X.Y.Z] [--yes] [--no-update] [--skip-checks] [--no-push]
       Update dependencies to their latest compatible versions, run the local
       gate (lint, clippy, tests), bump the version, stamp the changelog,
-      commit, tag and push. The tag starts the Release workflow.
+      commit, tag and push branch and tag in one atomic push. The tag starts
+      the Release workflow. Needs a tree clean apart from the release files;
+      a failure or a cancel restores those files as they were.
   changelog <vX.Y.Z|Unreleased>
       Print one changelog section (the GitHub release body).
   lint

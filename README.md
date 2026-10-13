@@ -68,11 +68,12 @@ Pairee/
 
 Pairee provides precompiled binaries built automatically via GitHub Actions (supporting Windows MSVC, Linux GNU, and static Linux MUSL). You can install them instantly via command line:
 
-* **Linux (statically linked, standalone binary):**
+* **Linux (statically linked, standalone binary, x86_64 and aarch64):**
   * **Standard Release:**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
+    The installer verifies the release signature and needs [`minisign`](https://jedisct1.github.io/minisign/) (e.g. `sudo apt install minisign`). Without it, it stops; add `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) to accept the download on its SHA-256 checksum alone.
   * **Build from Source (Debug/Source Mode):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug
@@ -168,7 +169,7 @@ Pairee stores configurations, custom themes, and debug logs in the system's stan
 * **Windows:** `%APPDATA%/pairee/config` and `%APPDATA%/pairee/cache`
 * **Linux/macOS:** `~/.config/pairee` and `~/.cache/pairee`
 
-Debug logs are saved to `app.log` in the cache directory, allowing you to troubleshoot without cluttering the TUI.
+Logs are appended to `app.log` in the cache directory, allowing you to troubleshoot without cluttering the TUI. Past 5 MiB the file moves to `app.log.1`. Release builds log at `info` level; run with `RUST_LOG=debug` for more detail.
 
 ---
 

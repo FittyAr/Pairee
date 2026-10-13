@@ -1,0 +1,29 @@
+name: Build dependencies
+description: >-
+  System packages Pairee needs to build: pkg-config and the OpenSSL headers on
+  Linux, pkg-config on macOS (nothing on Windows), plus any extra apt
+  packages a job needs.
+
+inputs:
+  apt-extra:
+    description: Extra apt packages to install on Linux (space separated).
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install Linux build deps
+      if: runner.os == 'Linux'
+      shell: bash
+      env:
+        APT_EXTRA: ${{ inputs.apt-extra }}
+      run: |
+        sudo apt-get update -qq
+        # shellcheck disable=SC2086 # APT_EXTRA is a word list
+        sudo apt-get install -y -qq pkg-config libssl-dev $APT_EXTRA
+
+    - name: Install macOS build deps
+      if: runner.os == 'macOS'
+      shell: bash
+      run: brew install pkg-config

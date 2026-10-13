@@ -26,9 +26,13 @@ fn main() {
     println!("cargo:rerun-if-changed=.git/HEAD");
     println!("cargo:rerun-if-changed=.git/refs/heads");
 
-    // 4. Embed Windows resource icon
-    #[cfg(target_os = "windows")]
-    {
+    // 4. Embed the Windows resource icon. The build script runs on the host,
+    // so the target is read from Cargo (`#[cfg]` would test the host and skip
+    // the icon when cross-compiling to Windows, or try it for a Linux target
+    // built on Windows).
+    println!("cargo:rerun-if-changed=manifests/windows/pairee.rc");
+    println!("cargo:rerun-if-changed=manifests/windows/pairee.ico");
+    if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("windows") {
         embed_resource::compile("manifests/windows/pairee.rc", embed_resource::NONE);
     }
 }

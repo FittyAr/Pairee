@@ -68,11 +68,12 @@ Pairee/
 
 NCRust ofrece binarios precompilados de forma automática mediante GitHub Actions (compatibles con Windows MSVC, Linux GNU y Linux MUSL estático). Puedes instalarlos al instante desde tu terminal:
 
-* **Linux (enlace estático, ejecutable independiente):**
+* **Linux (enlace estático, ejecutable independiente, x86_64 y aarch64):**
   * **Lanzamiento Estándar:**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh
     ```
+    El instalador verifica la firma de la versión y necesita [`minisign`](https://jedisct1.github.io/minisign/) (p. ej. `sudo apt install minisign`). Sin él se detiene; agregá `--insecure-skip-signature` (`... | sh -s -- --insecure-skip-signature`) para aceptar la descarga solo con su checksum SHA-256.
   * **Compilar desde Código Fuente (Modo Debug):**
     ```bash
     curl -fsSL https://raw.githubusercontent.com/FittyAr/Pairee/master/install.sh | sh -s -- debug
@@ -126,7 +127,7 @@ Pairee almacena configuraciones, temas y registros de depuración en los directo
 * **Windows:** `%APPDATA%/pairee/config` y `%APPDATA%/pairee/cache`
 * **Linux/macOS:** `~/.config/pairee` y `~/.cache/pairee`
 
-Los registros de depuración se guardan en `app.log` dentro de la carpeta cache, permitiéndote resolver problemas sin ensuciar la interfaz TUI.
+Los registros se añaden a `app.log` dentro de la carpeta cache, permitiéndote resolver problemas sin ensuciar la interfaz TUI. Al superar 5 MiB el archivo pasa a `app.log.1`. Las versiones release registran a nivel `info`; ejecutá con `RUST_LOG=debug` para más detalle.
 
 ---
 

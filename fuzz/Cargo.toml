@@ -1,0 +1,80 @@
+[package]
+name = "pairee-fuzz"
+version = "0.0.0"
+edition = "2024"
+description = "cargo-fuzz targets for the Pairee parsers that read untrusted input"
+license = "GPL-3.0-only"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4.13"
+pairee = { path = "..", features = ["fuzzing"] }
+
+# Not a member of the Pairee workspace (it needs nightly and libFuzzer).
+[workspace]
+
+[[bin]]
+name = "archive_zip"
+path = "fuzz_targets/archive_zip.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "archive_tar"
+path = "fuzz_targets/archive_tar.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "archive_7z"
+path = "fuzz_targets/archive_7z.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "archive_xz"
+path = "fuzz_targets/archive_xz.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "keymap_toml"
+path = "fuzz_targets/keymap_toml.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "launch_args"
+path = "fuzz_targets/launch_args.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "ansi"
+path = "fuzz_targets/ansi.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "rename_pattern"
+path = "fuzz_targets/rename_pattern.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "sha256_file"
+path = "fuzz_targets/sha256_file.rs"
+test = false
+doc = false
+bench = false

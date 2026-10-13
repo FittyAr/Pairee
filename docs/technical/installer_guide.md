@@ -160,12 +160,14 @@ Ed25519). The self-updater (`src/update/signature.rs`) refuses to install an
 update unless the release contains both `<asset>.sha256` **and**
 `<asset>.minisig`, the signature verifies against the embedded public key and
 its trusted comment names the asset (`file:<asset>`). The install scripts
-always check the SHA-256 and also verify the signature when `minisign` is on
-`PATH` (then it is mandatory).
+always check the SHA-256. `install.sh` also requires the signature: without
+`minisign` on `PATH` it stops, unless it is run with
+`--insecure-skip-signature` (checksum only). `install.ps1` verifies the
+signature when `minisign` is on `PATH` (then it is mandatory).
 
 **Public key** (key id `B478F4237C0DE585`), embedded in
 `src/update/signature.rs` (`RELEASE_PUBLIC_KEY`), `install.sh` and
-`install.ps1`:
+`install.ps1` (`tests/release_key.rs` checks that they agree):
 
 ```
 untrusted comment: minisign public key: B478F4237C0DE585
@@ -185,11 +187,14 @@ minisign -V -P RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6 -m paire
 | `MINISIGN_SECRET_KEY` | Full contents of the minisign secret key file (both lines). |
 | `MINISIGN_PASSWORD` | Optional. Only if the secret key is password-protected. |
 
-The `Publish Release` job in `.github/workflows/release.yml` installs
-`minisign`, signs every file in `dist/` (except `.sha256` / `.minisig`) with
-the trusted comment `file:<asset> version:<tag>`, checks every signature
-against the public key embedded in `src/update/signature.rs`, and uploads the
-`.minisig` files with the release. If `MINISIGN_SECRET_KEY` is missing, the
+The `Draft release` job in `.github/workflows/release.yml` installs
+`minisign` and runs `.github/scripts/sign.sh`, which signs every file in
+`dist/` (except `.sha256` / `.minisig`) with the trusted comment
+`file:<asset> version:<tag>` and checks every signature against the public
+key embedded in `src/update/signature.rs`; the job uploads the `.minisig`
+files with the release. Packaging and checksums are
+`.github/scripts/package.sh` (with `package-msix.ps1`) and
+`.github/scripts/checksums.sh`. If `MINISIGN_SECRET_KEY` is missing, the
 job fails instead of publishing unsigned assets.
 
 ### Key custody

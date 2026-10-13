@@ -15,11 +15,29 @@ $ErrorActionPreference = "Stop"
 
 $repo = "FittyAr/Pairee"
 # Pairee release signing key (minisign). Must match RELEASE_PUBLIC_KEY in
-# src/update/signature.rs and install.sh.
+# src/update/signature.rs and install.sh (checked by tests/release_key.rs).
 $minisignPubKey = "RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6"
 $installDir = Join-Path $HOME "AppData\Local\Programs\pairee"
 $configDir = Join-Path $env:APPDATA "pairee\config"
 $exePath = Join-Path $installDir "pairee.exe"
+
+# Release target of this machine: the ARM64 build on ARM64 Windows (also when
+# this PowerShell itself runs emulated as x64), the x64 build otherwise.
+function Get-ReleaseTarget {
+    $arch = $null
+    try {
+        $arch = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString()
+    } catch {
+        $arch = $null
+    }
+    if (-not $arch) {
+        $arch = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+    }
+    if ($arch -match '^arm64$') {
+        return "aarch64-pc-windows-msvc"
+    }
+    return "x86_64-pc-windows-msvc"
+}
 
 # Uninstall logic
 if ($Uninstall) {
@@ -213,7 +231,8 @@ if ($DebugMode) {
     $extractedFolder = $srcPath
     $binSrc = Join-Path $extractedFolder "target\release\pairee.exe"
 } else {
-    $zipName = "pairee-$version-x86_64-pc-windows-msvc.zip"
+    $target = Get-ReleaseTarget
+    $zipName = "pairee-$version-$target.zip"
     $downloadUrl = "https://github.com/$repo/releases/download/$version/$zipName"
     $zipPath = Join-Path $tempDir $zipName
 
@@ -279,7 +298,7 @@ if ($DebugMode) {
         exit 1
     }
 
-    $extractedFolder = Join-Path $tempDir "pairee-$version-x86_64-pc-windows-msvc"
+    $extractedFolder = Join-Path $tempDir "pairee-$version-$target"
     $binSrc = Join-Path $extractedFolder "pairee.exe"
 }
 

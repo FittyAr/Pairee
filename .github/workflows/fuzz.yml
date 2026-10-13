@@ -1,0 +1,89 @@
+name: Fuzz
+
+# cargo-fuzz targets in fuzz/ (parsers of untrusted input: archives, keymaps,
+# command line, ANSI output, multi-rename patterns, release checksums).
+# A short smoke run per target on pushes and pull requests that touch the
+# code, a longer one every week. Not part of the release gate.
+on:
+  push:
+    branches: [master, main]
+    paths: ['src/**', 'fuzz/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/fuzz.yml']
+  pull_request:
+    branches: [master, main]
+    paths: ['src/**', 'fuzz/**', 'Cargo.toml', 'Cargo.lock', '.github/workflows/fuzz.yml']
+  schedule:
+    - cron: '17 4 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+# Third-party actions are pinned by commit SHA (the comment names the
+# release); update the SHA and the comment together.
+jobs:
+  fuzz:
+    name: cargo fuzz
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      # Seconds of fuzzing per target.
+      FUZZ_SECONDS: ${{ github.event_name == 'schedule' && '600' || '60' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install nightly toolchain (libFuzzer and sanitizers)
+        uses: dtolnay/rust-toolchain@e2a55d2ffb04f378e9626c28d38b36d230d1e12f # v1
+        with:
+          toolchain: nightly
+
+      - name: Install build deps
+        uses: ./.github/actions/build-deps
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@1168f6810a3cb30a3514bf5756a3b7f0422c6df8 # v2.87.28
+        with:
+          tool: cargo-fuzz
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2.9.2
+        with:
+          workspaces: fuzz -> target
+          key: fuzz
+
+      - name: Build fuzz targets
+        run: cargo fuzz build
+
+      # Every target runs even when an earlier one finds a crash; the job
+      # fails at the end and the crashing inputs are uploaded.
+      - name: Fuzz every target
+        shell: bash
+        run: |
+          failed=()
+          for target in $(cargo fuzz list); do
+            echo "::group::${target} (${FUZZ_SECONDS}s)"
+            if ! cargo fuzz run "$target" -- \
+              -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048 -timeout=20; then
+              failed+=("$target")
+            fi
+            echo "::endgroup::"
+          done
+          if [ "${#failed[@]}" -gt 0 ]; then
+            echo "::error::fuzz targets failed: ${failed[*]}"
+            exit 1
+          fi
+
+      - name: Upload crashing inputs
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: fuzz-artifacts
+          path: fuzz/artifacts
+          if-no-files-found: ignore
