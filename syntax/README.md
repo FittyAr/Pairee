@@ -10,7 +10,7 @@ the same format into the `syntax/` folder of the Pairee configuration directory.
 
 1. Write `<language>.toml` here (see any file for an example).
 2. Add its stem to `FILES` in `src/syntax/builtin.rs`.
-3. Add a sample to the language tests in `src/syntax/tests/languages.rs`.
+3. Add a sample to the language tests in `src/syntax/tests/samples.rs`.
 
 ## Credits
 

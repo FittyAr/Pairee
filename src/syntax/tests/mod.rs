@@ -3,6 +3,7 @@
 
 mod engine;
 mod languages;
+mod samples;
 
 use super::definition::Definition;
 use super::grammar::Grammar;
