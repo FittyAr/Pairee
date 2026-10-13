@@ -3,8 +3,9 @@
 
 use super::centered_rect_in;
 use crate::app::config_rows::{Row, RowCtx, TAB_KEYS, tab_rows};
-use crate::app::state::{ConfigurationDialogState, PopupType};
+use crate::app::state::ConfigurationDialogState;
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -15,57 +16,51 @@ use ratatui::{
 
 use crate::ui::resolved_theme::ResolvedTheme;
 
-pub fn render_config_dialog_popup(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &ResolvedTheme,
-    size: Rect,
-    keybindings: &crate::config::keybindings::KeybindingsConfig,
-) -> bool {
-    let PopupType::ConfigurationDialog(dialog) = popup else {
-        return false;
-    };
-    let area = centered_rect_in(85, 85, size);
-    f.render_widget(Clear, area);
+impl DialogView for ConfigurationDialogState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size, keybindings) = (cx.theme, cx.area, &cx.context.config.keybindings);
+        let dialog = self;
+        let area = centered_rect_in(85, 85, size);
+        f.render_widget(Clear, area);
 
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.popup_border))
-        .title(t("config_dialog_title"))
-        .style(Style::default().bg(theme.popup_bg));
+        let block = Block::default()
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(theme.popup_border))
+            .title(t("config_dialog_title"))
+            .style(Style::default().bg(theme.popup_bg));
 
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+        let inner = block.inner(area);
+        f.render_widget(block, area);
 
-    let main_chunks = Layout::default()
-        .direction(Direction::Vertical)
-        .constraints([
-            Constraint::Min(1),    // Body area (tabs and contents side by side)
-            Constraint::Length(1), // Bottom separator
-            Constraint::Length(1), // Hint/Status bar
-        ])
-        .split(inner);
+        let main_chunks = Layout::default()
+            .direction(Direction::Vertical)
+            .constraints([
+                Constraint::Min(1),    // Body area (tabs and contents side by side)
+                Constraint::Length(1), // Bottom separator
+                Constraint::Length(1), // Hint/Status bar
+            ])
+            .split(inner);
 
-    let body_chunks = Layout::default()
-        .direction(Direction::Horizontal)
-        .constraints([
-            Constraint::Length(25), // Left panel: Tabs (vertical list)
-            Constraint::Length(1),  // Vertical separator
-            Constraint::Min(1),     // Right panel: Content list
-        ])
-        .split(main_chunks[0]);
+        let body_chunks = Layout::default()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(25), // Left panel: Tabs (vertical list)
+                Constraint::Length(1),  // Vertical separator
+                Constraint::Min(1),     // Right panel: Content list
+            ])
+            .split(main_chunks[0]);
 
-    render_separators(f, body_chunks[1], main_chunks[1], inner.width);
-    f.render_widget(Paragraph::new(tab_lines(dialog, theme)), body_chunks[0]);
-    let content_area = body_chunks[2];
-    let lines = row_lines(dialog, theme, keybindings, content_area.height as usize);
-    f.render_widget(Paragraph::new(lines), content_area);
-    register_mouse(dialog, keybindings, body_chunks[0], content_area);
+        render_separators(f, body_chunks[1], main_chunks[1], inner.width);
+        f.render_widget(Paragraph::new(tab_lines(dialog, theme)), body_chunks[0]);
+        let content_area = body_chunks[2];
+        let lines = row_lines(dialog, theme, keybindings, content_area.height as usize);
+        f.render_widget(Paragraph::new(lines), content_area);
+        register_mouse(dialog, keybindings, body_chunks[0], content_area);
 
-    let hint_widget =
-        Paragraph::new(t("config_dialog_hint")).style(Style::default().fg(Color::Yellow));
-    f.render_widget(hint_widget, main_chunks[2]);
-    true
+        let hint_widget =
+            Paragraph::new(t("config_dialog_hint")).style(Style::default().fg(Color::Yellow));
+        f.render_widget(hint_widget, main_chunks[2]);
+    }
 }
 
 /// Tabs take a click through their hotkey; a row is reached with the arrows

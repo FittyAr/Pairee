@@ -1,4 +1,5 @@
 use super::PopupType;
+use crate::app::state::popup::UpdateAvailable;
 
 impl PopupType {
     /// A click outside closes it (as `Esc` would): menus, pickers and
@@ -10,9 +11,7 @@ impl PopupType {
         }
         matches!(
             self,
-            PopupType::PluginMenu(_)
-                | PopupType::SelectDevPlugin { .. }
-                | PopupType::UpdateAvailable { .. }
+            PopupType::PluginMenu(_) | PopupType::SelectDevPlugin { .. }
         )
     }
 
@@ -24,7 +23,7 @@ impl PopupType {
         }
         matches!(
             self,
-            PopupType::UpdateAvailable { .. } | PopupType::GitPanel(_)
+            PopupType::UpdateAvailable(UpdateAvailable { .. }) | PopupType::GitPanel(_)
         )
     }
 }

@@ -5,7 +5,9 @@ pub mod actions;
 use crate::app::context::AppContext;
 use crate::app::list_nav::{wrap_next, wrap_prev};
 use crate::app::state::popup::SshField;
+use crate::app::state::popup::{Dialog, KeyHandler};
 use crate::app::state::{AppState, PopupType, SshConnectPromptState as Prompt};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -78,4 +80,14 @@ pub fn handle(
         },
     }
     Ok(None)
+}
+
+impl Dialog for Prompt {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        let row = self.cursor_idx;
+        self.field_at(row).map(|(_, field)| field)
+    }
 }

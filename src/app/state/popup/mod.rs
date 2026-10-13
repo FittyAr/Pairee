@@ -21,6 +21,7 @@ mod plugin_menu;
 mod plugin_widget;
 mod prompts;
 mod quickview;
+mod settings;
 mod ssh;
 pub mod sync;
 mod text_search;
@@ -62,6 +63,7 @@ pub use prompts::{
     DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,
 };
 pub use quickview::QuickViewDialog;
+pub use settings::{ColorGroupsDialog, FilesHighlightingDialog, UpdateAvailable};
 pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
@@ -70,8 +72,6 @@ pub use tools::{
     FileAttributesDialog, FileViewHistoryList, FolderScanProgress, FoldersHistoryList,
     TaskListDialog, TransferPanel, TreeView,
 };
-
-use crate::app::text_input::TextField;
 
 /// What the create prompt makes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -154,6 +154,11 @@ macro_rules! dialog_list {
                 FileAttributesDialog(FileAttributesDialog),
                 TransferPanel(TransferPanel),
                 QuickViewPanel(Box<QuickViewDialog>),
+                ConfigurationDialog(ConfigurationDialogState),
+                ColorGroupsDialog(ColorGroupsDialog),
+                FilesHighlightingDialog(FilesHighlightingDialog),
+                UpdateAvailable(UpdateAvailable),
+                SshConnectPrompt(SshConnectPromptState),
             ]
             legacy: [
         SelectDevPlugin {
@@ -162,32 +167,11 @@ macro_rules! dialog_list {
             previous_popup: Box<PopupType>,
         },
         PluginMenu(PluginMenuState),
-        ConfigurationDialog(ConfigurationDialogState),
-        ColorGroupsDialog {
-            cursor_idx: usize,
-            /// The color being typed (Enter), if any.
-            edit: Option<TextField>,
-            theme: crate::config::theme::Theme,
-        },
-        FilesHighlightingDialog {
-            cursor_idx: usize,
-            /// The color being typed (Enter), if any.
-            edit: Option<TextField>,
-            rules: Vec<crate::ui::highlight::HighlightRule>,
-        },
         GitPanel(GitPanelState),
         GitPrompt(GitPromptPopup),
         /// Progress of the background Git network operation (`AppState::git_op`).
         GitProgress {
             title: String,
-        },
-        SshConnectPrompt(SshConnectPromptState),
-        UpdateAvailable {
-            info: crate::update::UpdateInfo,
-            cursor_idx: usize,
-            install_progress: Option<f32>,
-            error: Option<String>,
-            scroll_y: usize,
         },
         Plugin(PluginDialog),
             ]

@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::popup::InfoMessage;
+use crate::app::state::popup::UpdateAvailable;
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::update::{UpdateInfo, UpdateStatus};
@@ -57,13 +58,15 @@ fn show_update_found(state: &mut AppState, context: &AppContext, info: UpdateInf
     if !dismissed {
         state.update.available = Some(info.clone());
         if state.dialogs.is_none() {
-            state.dialogs.replace(PopupType::UpdateAvailable {
-                info,
-                cursor_idx: 0,
-                install_progress: None,
-                error: None,
-                scroll_y: 0,
-            });
+            state
+                .dialogs
+                .replace(PopupType::UpdateAvailable(UpdateAvailable {
+                    info,
+                    cursor_idx: 0,
+                    install_progress: None,
+                    error: None,
+                    scroll_y: 0,
+                }));
         }
     } else if state.dialogs.is_none() {
         state.dialogs.replace(PopupType::info(
@@ -89,9 +92,9 @@ fn poll_download_progress(state: &mut AppState) {
         }
     }
     if let Some(p) = latest_progress {
-        if let Some(PopupType::UpdateAvailable {
+        if let Some(PopupType::UpdateAvailable(UpdateAvailable {
             install_progress, ..
-        }) = state.dialogs.top_mut()
+        })) = state.dialogs.top_mut()
         {
             *install_progress = Some(p);
         }
@@ -165,11 +168,11 @@ fn apply_install_result(
 
 /// Puts `err` in the open update dialog; `false` when it is not on top.
 fn show_install_error(state: &mut AppState, err: String) -> bool {
-    let Some(PopupType::UpdateAvailable {
+    let Some(PopupType::UpdateAvailable(UpdateAvailable {
         error,
         install_progress,
         ..
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     else {
         return false;
     };

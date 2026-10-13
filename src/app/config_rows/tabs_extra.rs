@@ -5,6 +5,8 @@ use super::{
 };
 use crate::app::state::ConfigDraft;
 use crate::app::state::PopupType;
+use crate::app::state::popup::ColorGroupsDialog;
+use crate::app::state::popup::FilesHighlightingDialog;
 use crate::app::state::popup::InfoPanel;
 use crate::config::localization::t;
 use crate::config::settings::Settings;
@@ -230,18 +232,20 @@ pub fn colors() -> Vec<Row> {
             },
         ),
         action("col_groups", |_, context| {
-            Some(PopupType::ColorGroupsDialog {
+            Some(PopupType::ColorGroupsDialog(ColorGroupsDialog {
                 cursor_idx: 0,
                 edit: None,
                 theme: context.config.theme.clone(),
-            })
+            }))
         }),
         action("col_highlighting", |s, _| {
-            Some(PopupType::FilesHighlightingDialog {
-                cursor_idx: 0,
-                edit: None,
-                rules: s.highlight_rules.clone(),
-            })
+            Some(PopupType::FilesHighlightingDialog(
+                FilesHighlightingDialog {
+                    cursor_idx: 0,
+                    edit: None,
+                    rules: s.highlight_rules.clone(),
+                },
+            ))
         }),
     ]
 }

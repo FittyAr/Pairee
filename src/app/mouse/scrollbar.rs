@@ -25,16 +25,6 @@ pub fn handle_scrollbar_mouse(state: &mut AppState, mouse: MouseEvent) -> bool {
     true
 }
 
-/// Scroll offset of the popup text view scrolled by `id`, if on top.
-fn popup_scroll(popup: &mut PopupType, id: ScrollTargetId) -> Option<&mut usize> {
-    match (id, popup) {
-        (ScrollTargetId::UpdateNotes, PopupType::UpdateAvailable { scroll_y, .. }) => {
-            Some(scroll_y)
-        }
-        _ => None,
-    }
-}
-
 /// Cursor and length of the popup list scrolled by `id`, if on top.
 fn popup_list(popup: &mut PopupType, id: ScrollTargetId) -> Option<(&mut usize, usize)> {
     match (id, popup) {
@@ -79,10 +69,6 @@ fn apply_scroll_offset(
                 return;
             }
             None => {}
-        }
-        if let Some(scroll) = popup_scroll(popup, id) {
-            *scroll = offset;
-            return;
         }
         if let Some((cursor, len)) = popup_list(popup, id) {
             clamp(cursor, len);

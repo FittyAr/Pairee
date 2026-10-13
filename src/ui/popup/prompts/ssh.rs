@@ -1,9 +1,9 @@
 use super::super::centered_rect_fixed;
-use crate::app::context::AppContext;
+use crate::app::state::SshConnectPromptState;
 use crate::app::state::popup::SshField;
-use crate::app::state::{PopupType, SshConnectPromptState};
 use crate::config::localization::t;
 use crate::ui::popup::kit;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
@@ -11,14 +11,10 @@ use ratatui::{
     widgets::{Block, Borders, Clear, List, ListItem, Paragraph},
 };
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-    context: &AppContext,
-) -> bool {
-    if let PopupType::SshConnectPrompt(prompt) = popup {
+impl DialogView for SshConnectPromptState {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size, context) = (cx.theme, cx.area, cx.context);
+        let prompt = self;
         let cursor_idx = &prompt.cursor_idx;
         let area = centered_rect_fixed(75, 12, size);
         f.render_widget(Clear, area);
@@ -102,10 +98,6 @@ pub fn render(
         ]
         .map(|key| format!(" {} ", t(key)));
         kit::form_buttons(f, main_chunks[2], &buttons, form, styles);
-
-        true
-    } else {
-        false
     }
 }
 

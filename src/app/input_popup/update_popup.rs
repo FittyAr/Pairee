@@ -1,7 +1,10 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::UpdateAvailable;
+use crate::app::state::popup::{Dialog, DialogScroll, KeyHandler};
 use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::keybindings::Action;
+use crate::ui::scrollbar::ScrollTargetId;
 use crate::update::{UpdateStatus, detect::detect_install_method, installer};
 use crossterm::event::{KeyCode, KeyEvent};
 use tokio::sync::mpsc;
@@ -14,12 +17,12 @@ pub fn handle(
     context: &mut AppContext,
 ) -> Result<Option<Action>, ()> {
     let (info_clone, cursor_idx) = match state.dialogs.top() {
-        Some(PopupType::UpdateAvailable {
+        Some(PopupType::UpdateAvailable(UpdateAvailable {
             info,
             cursor_idx,
             install_progress,
             ..
-        }) => {
+        })) => {
             // Block navigation while installing, but allow Esc or 'q' to close the popup
             if install_progress.is_some() {
                 if key.code == KeyCode::Esc || key.code == KeyCode::Char('q') {
@@ -43,11 +46,11 @@ pub fn handle(
 /// Scrolls the release notes (`Up`/`Down`/`PgUp`/`PgDn`, `j`/`k`) or moves
 /// between the buttons (`Left`/`Right`/`Tab`, `h`/`l`).
 fn move_in_popup(state: &mut AppState, code: KeyCode) {
-    let Some(PopupType::UpdateAvailable {
+    let Some(PopupType::UpdateAvailable(UpdateAvailable {
         scroll_y,
         cursor_idx,
         ..
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     else {
         return;
     };
@@ -126,9 +129,9 @@ fn start_self_update(
     state.update.status = UpdateStatus::Downloading(0.0);
 
     // Set the progress marker in popup
-    if let Some(PopupType::UpdateAvailable {
+    if let Some(PopupType::UpdateAvailable(UpdateAvailable {
         install_progress, ..
-    }) = state.dialogs.top_mut()
+    })) = state.dialogs.top_mut()
     {
         *install_progress = Some(0.0);
     }
@@ -140,4 +143,19 @@ fn start_self_update(
         let result = installer::perform_update(&info, &method, progress_tx).await;
         let _ = install_tx.send(result.map_err(|e| e.to_string()));
     });
+}
+
+impl Dialog for UpdateAvailable {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn closes_on_outside_click(&self) -> bool {
+        true
+    }
+    fn resizable(&self) -> bool {
+        true
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        (id == ScrollTargetId::UpdateNotes).then_some(DialogScroll::Offset(&mut self.scroll_y))
+    }
 }

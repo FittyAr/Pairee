@@ -11,6 +11,7 @@ use crate::app::state::popup::ScreensMenu;
 use crate::app::state::popup::SearchPrompt;
 use crate::app::state::popup::TaskListDialog;
 use crate::app::state::popup::TransferPanel;
+use crate::app::state::popup::UpdateAvailable;
 use crate::app::state::{AppState, PopupType};
 use crate::app::sys_helpers::get_process_list;
 use crate::config::localization::t;
@@ -161,13 +162,15 @@ fn cycle_fkeys_modifiers(state: &mut AppState) {
 /// Shows a known update, or starts a fresh check (dropping the cache).
 fn check_for_updates(state: &mut AppState) {
     if let Some(info) = state.update.available.clone() {
-        state.dialogs.replace(PopupType::UpdateAvailable {
-            info,
-            cursor_idx: 0,
-            install_progress: None,
-            error: None,
-            scroll_y: 0,
-        });
+        state
+            .dialogs
+            .replace(PopupType::UpdateAvailable(UpdateAvailable {
+                info,
+                cursor_idx: 0,
+                install_progress: None,
+                error: None,
+                scroll_y: 0,
+            }));
         return;
     }
     let cache = crate::config::paths::get_config_dir().join("update_cache.json");

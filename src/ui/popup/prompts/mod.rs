@@ -7,7 +7,6 @@ pub mod progress;
 pub mod ssh;
 pub mod system;
 
-use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
 use ratatui::{Frame, layout::Rect};
 
@@ -16,12 +15,9 @@ pub fn render_prompt_popup(
     popup: &PopupType,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
-    context: &AppContext,
     state: &AppState,
 ) -> bool {
     match popup {
-        PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
-
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
 
         PopupType::GitProgress { title } => {

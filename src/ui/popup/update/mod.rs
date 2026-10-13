@@ -4,7 +4,8 @@ pub use crate::ui::wrap::wrap_lines;
 pub use controls::render_controls;
 
 use super::centered_rect_fixed;
-use crate::app::state::PopupType;
+use crate::app::state::popup::UpdateAvailable;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::{ScrollTarget, ScrollView};
@@ -18,25 +19,28 @@ use ratatui::{
     widgets::{Block, Borders, Clear, Paragraph},
 };
 
-/// Render the "Update Available" popup.
-/// Returns true if the popup was handled (consumed).
-pub fn render(
+impl DialogView for UpdateAvailable {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render(f, self, cx.theme, cx.area, cx.scrollbar());
+    }
+}
+
+/// The "Update Available" popup.
+fn render(
     f: &mut Frame,
-    popup: &PopupType,
+    dialog: &UpdateAvailable,
     theme: &ResolvedTheme,
     size: Rect,
     scrollbar: Option<&ScrollbarUiState>,
-) -> bool {
-    let (info, cursor_idx, install_progress, error, scroll_y) = match popup {
-        PopupType::UpdateAvailable {
-            info,
-            cursor_idx,
-            install_progress,
-            error,
-            scroll_y,
-        } => (info, cursor_idx, install_progress, error, *scroll_y),
-        _ => return false,
-    };
+) {
+    let UpdateAvailable {
+        info,
+        cursor_idx,
+        install_progress,
+        error,
+        scroll_y,
+    } = dialog;
+    let scroll_y = *scroll_y;
 
     let width: u16 = 80.min(size.width.saturating_sub(4));
     let height: u16 = 24.min(size.height.saturating_sub(4));
@@ -110,8 +114,6 @@ pub fn render(
 
     // Hint line at the bottom
     render_hint(f, area, size, &method);
-
-    true
 }
 
 /// ` (12.3 MB)` for the download this install method would fetch.

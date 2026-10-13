@@ -9,10 +9,6 @@ impl PopupType {
         }
         match self {
             PopupType::Plugin(super::PluginDialog::Input { input, .. }) => Some(input),
-            PopupType::SshConnectPrompt(prompt) => {
-                let row = prompt.cursor_idx;
-                prompt.field_at(row).map(|(_, field)| field)
-            }
             _ => None,
         }
     }

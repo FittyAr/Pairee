@@ -65,14 +65,7 @@ fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::V
         return;
     }
     let (state, context, theme, size) = (cx.state, cx.context, cx.theme, cx.area);
-    if prompts::render_prompt_popup(f, popup, theme, size, context, state) {
-        return;
-    }
-    if config_dialog::render_config_dialog_popup(f, popup, theme, size, &context.config.keybindings)
-    {
-        return;
-    }
-    if color_groups::render_color_groups_popup(f, popup, theme, size) {
+    if prompts::render_prompt_popup(f, popup, theme, size, state) {
         return;
     }
     if plugin_menu::render(f, popup, theme, size, context) {
@@ -97,10 +90,7 @@ fn render_specific_popup(f: &mut ratatui::Frame, popup: &PopupType, cx: &view::V
     if git_confirm_checkout::render(f, popup, theme, size) {
         return;
     }
-    if git_new_popups::render(f, popup, theme, size) {
-        return;
-    }
-    update::render(f, popup, theme, size, Some(&state.scrollbar));
+    git_new_popups::render(f, popup, theme, size);
 }
 
 /// Records `area` as a dialog on screen: a click there counts as inside it,

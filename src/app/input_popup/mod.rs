@@ -99,10 +99,6 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
         PopupType::PluginMenu(..) => plugin_menu::handle,
         PopupType::SelectDevPlugin { .. } => plugin_menu::dev::handle_select_popup,
-        PopupType::ConfigurationDialog(..) => config_dialog::handle,
-        PopupType::ColorGroupsDialog { .. } => color_groups::handle,
-        PopupType::FilesHighlightingDialog { .. } => files_highlighting::handle,
-        PopupType::SshConnectPrompt(..) => ssh_connect::handle,
         PopupType::GitPanel(..) => git_panel::handle,
         PopupType::GitProgress { .. } => git_progress,
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::CommitPrompt(_)) => {
@@ -129,7 +125,6 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::GitPrompt(crate::app::state::popup::GitPromptPopup::ClonePrompt(_)) => {
             git_new_popups::handle_clone
         }
-        PopupType::UpdateAvailable { .. } => update_popup::handle,
         PopupType::Plugin(_) => plugin_dialogs::handle,
         _ => dismiss_only::handle,
     }
