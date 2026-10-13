@@ -1,6 +1,7 @@
 //! State of the keyboard-shortcuts modal.
 
 use super::model::{ContextTab, ShortcutRow};
+use crate::app::text_filter::TextFilter;
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
 
@@ -58,13 +59,13 @@ impl ShortcutsState {
 
     /// Rows of the current tab that pass the text or key filter.
     pub fn visible(&self) -> Vec<&ShortcutRow> {
-        let query = self.query.text().trim().to_lowercase();
+        let filter = TextFilter::new(self.query.text());
         self.rows
             .iter()
             .filter(|r| r.tab == self.tab)
             .filter(|r| match &self.key_filter {
                 Some(chord) => r.chords.iter().any(|c| c == chord),
-                None => query.is_empty() || matches_query(r, &query),
+                None => matches_query(r, &filter),
             })
             .collect()
     }
@@ -110,10 +111,9 @@ impl ShortcutsState {
     }
 }
 
-fn matches_query(row: &ShortcutRow, query: &str) -> bool {
-    row.label.to_lowercase().contains(query)
-        || row.id.to_lowercase().contains(query)
-        || row.chords.iter().any(|c| c.to_lowercase().contains(query))
+fn matches_query(row: &ShortcutRow, filter: &TextFilter) -> bool {
+    let fields = [row.label.as_str(), row.id.as_str()].into_iter();
+    filter.matches_any(fields.chain(row.chords.iter().map(String::as_str)))
 }
 
 #[cfg(test)]

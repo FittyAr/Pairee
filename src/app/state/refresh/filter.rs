@@ -22,22 +22,11 @@ pub fn apply_masks(
 
 /// Keeps `..` first, then entries whose name contains `mask`, then the rest.
 pub fn partition_entries_by_mask(entries: Vec<FileEntry>, mask: &str) -> Vec<FileEntry> {
-    let mask_lower = mask.to_lowercase();
-    let mut dotdot = Vec::new();
-    let mut matching = Vec::new();
-    let mut non_matching = Vec::new();
-    for entry in entries {
-        if entry.name == ".." {
-            dotdot.push(entry);
-        } else if entry.name.to_lowercase().contains(&mask_lower) {
-            matching.push(entry);
-        } else {
-            non_matching.push(entry);
-        }
-    }
+    let filter = crate::app::text_filter::TextFilter::new(mask);
+    let (mut dotdot, rest): (Vec<FileEntry>, Vec<FileEntry>) =
+        entries.into_iter().partition(|e| e.name == "..");
     dotdot.truncate(1);
-    dotdot.extend(matching);
-    dotdot.extend(non_matching);
+    dotdot.extend(filter.matching_first(rest, |e| &e.name));
     dotdot
 }
 

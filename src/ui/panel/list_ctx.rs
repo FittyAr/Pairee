@@ -4,6 +4,7 @@
 use super::helpers::{entry_display_name, entry_display_name_truncated};
 use crate::app::context::AppContext;
 use crate::app::state::{ActivePanel, PanelState};
+use crate::app::text_filter::TextFilter;
 use crate::fs::FileEntry;
 use crate::ui::highlight::Highlighter;
 use crate::ui::hit::{self, HitTarget};
@@ -22,6 +23,8 @@ pub(crate) struct ListCtx<'a> {
     pub theme: Arc<ResolvedTheme>,
     /// Compiled "Files highlighting" rules, when highlighting is on.
     pub highlighter: Option<Arc<Highlighter>>,
+    /// Quick filter: entries it does not match are dimmed.
+    pub quick_filter: Option<TextFilter>,
 }
 
 impl ListCtx<'_> {
@@ -64,10 +67,8 @@ impl ListCtx<'_> {
 
     /// Entries not matching the quick filter are dimmed (".." never is).
     fn is_dimmed(&self, entry: &FileEntry) -> bool {
-        match &self.panel.quick_filter_mask {
-            Some(mask) if entry.name != ".." => {
-                !entry.name.to_lowercase().contains(&mask.to_lowercase())
-            }
+        match &self.quick_filter {
+            Some(filter) if entry.name != ".." => !filter.matches(&entry.name),
             _ => false,
         }
     }

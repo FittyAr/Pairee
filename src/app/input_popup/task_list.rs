@@ -1,6 +1,7 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType, ProcessEntry};
 use crate::app::sys_helpers::{get_process_list, kill_process};
+use crate::app::text_filter::TextFilter;
 use crate::config::localization::t;
 use crate::keybindings::Action;
 use crossterm::event::{KeyCode, KeyEvent};
@@ -105,33 +106,13 @@ fn clamp_cursor(tasks: &[ProcessEntry], query: &str, cursor: &mut usize) {
 
 fn apply_filter(tasks: &mut Vec<ProcessEntry>, query: &str) {
     tasks.sort_by_key(|p| p.pid);
-    if query.is_empty() {
-        return;
-    }
-    let query_lower = query.to_lowercase();
-    let mut matching = Vec::new();
-    let mut non_matching = Vec::new();
-    for task in tasks.drain(..) {
-        if task.name.to_lowercase().contains(&query_lower) {
-            matching.push(task);
-        } else {
-            non_matching.push(task);
-        }
-    }
-    tasks.extend(matching);
-    tasks.extend(non_matching);
+    let filter = TextFilter::new(query);
+    *tasks = filter.matching_first(std::mem::take(tasks), |t| &t.name);
 }
 
 fn get_matching_count(tasks: &[ProcessEntry], query: &str) -> usize {
-    if query.is_empty() {
-        tasks.len()
-    } else {
-        let query_lower = query.to_lowercase();
-        tasks
-            .iter()
-            .filter(|t| t.name.to_lowercase().contains(&query_lower))
-            .count()
-    }
+    let filter = TextFilter::new(query);
+    tasks.iter().filter(|t| filter.matches(&t.name)).count()
 }
 
 #[cfg(test)]

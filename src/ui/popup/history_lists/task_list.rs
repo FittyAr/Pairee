@@ -43,11 +43,11 @@ pub(super) fn render_task_list(
         )));
         header.push(Line::from(""));
     }
-    let needle = filter_query.text().to_lowercase();
+    let filter = crate::app::text_filter::TextFilter::new(filter_query.text());
     let rows = tasks
         .iter()
         .map(|task| {
-            let matches = needle.is_empty() || task.name.to_lowercase().contains(&needle);
+            let matches = filter.matches(&task.name);
             let style = if matches {
                 theme.popup_fg()
             } else {

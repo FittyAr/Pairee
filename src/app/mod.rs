@@ -22,6 +22,7 @@ pub mod shortcuts;
 pub mod state;
 pub mod sync;
 pub mod sys_helpers;
+pub mod text_filter;
 pub mod text_input;
 
 pub use app::run;

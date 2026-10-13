@@ -67,18 +67,12 @@ pub fn apply_filter(
     all_registry: &[(String, String, String, String)],
     query: &str,
 ) {
-    let q = query.to_lowercase();
-    *registry = if q.is_empty() {
-        all_registry.to_vec()
-    } else {
-        all_registry
-            .iter()
-            .filter(|(name, _, desc, author)| {
-                name.to_lowercase().contains(&q)
-                    || desc.to_lowercase().contains(&q)
-                    || author.to_lowercase().contains(&q)
-            })
-            .cloned()
-            .collect()
-    };
+    let filter = crate::app::text_filter::TextFilter::new(query);
+    *registry = all_registry
+        .iter()
+        .filter(|(name, _, desc, author)| {
+            filter.matches_any([name, desc, author].map(String::as_str))
+        })
+        .cloned()
+        .collect();
 }

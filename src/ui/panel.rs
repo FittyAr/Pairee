@@ -101,6 +101,10 @@ pub fn render_panel(
         context,
         theme: context.theme(),
         highlighter: settings.highlight_files.then(|| context.highlighter()),
+        quick_filter: panel
+            .quick_filter_mask
+            .as_deref()
+            .map(crate::app::text_filter::TextFilter::new),
     };
     match table_view::for_mode(panel.view_mode) {
         Some(view) => render_table(f, list_area, block, &ctx, view),
