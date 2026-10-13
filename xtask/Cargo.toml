@@ -10,3 +10,6 @@ publish = false
 # Standard library only: the release tooling must not add dependencies to the
 # lockfile it updates.
 [dependencies]
+
+[lints]
+workspace = true
