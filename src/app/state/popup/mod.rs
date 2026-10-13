@@ -5,6 +5,7 @@
 mod config_dialog;
 mod confirm;
 mod dialog;
+mod editor_find;
 mod editor_viewer;
 mod file_ops;
 mod filters;
@@ -33,9 +34,9 @@ pub use confirm::{
 };
 use dialog::define_popup_type;
 pub use dialog::{Dialog, DialogKind, DialogScroll, KeyHandler, KeyOutcome};
+pub use editor_find::{EditorSearchPrompt, FindButton, FindKey, FindRow};
 pub use editor_viewer::{
-    EditorConfirmOverwrite, EditorSaveAsPrompt, EditorSearchPrompt, ViewerEncoding,
-    ViewerSearchPrompt,
+    EditorConfirmOverwrite, EditorSaveAsPrompt, ViewerEncoding, ViewerSearchPrompt,
 };
 pub use file_ops::{CopyMovePromptState, TransferEndpoints, TransferPromptOp, split_multiple};
 pub use filters::{
@@ -124,7 +125,7 @@ macro_rules! dialog_list {
             QuickFilterPrompt(QuickFilterPrompt),
             SearchPrompt(SearchPrompt),
             SearchResults(SearchResults),
-            EditorSearchPrompt(EditorSearchPrompt),
+            EditorSearchPrompt(Box<EditorSearchPrompt>),
             EditorSaveAsPrompt(EditorSaveAsPrompt),
             EditorConfirmOverwrite(EditorConfirmOverwrite),
             ViewerSearchPrompt(ViewerSearchPrompt),

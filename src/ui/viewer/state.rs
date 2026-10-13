@@ -2,6 +2,8 @@ use crate::app::jobs::spawn_blocking_or_inline;
 use crate::config::localization::t;
 use crate::fs::text::{self, DETECT_SAMPLE_BYTES, EncodingPolicy, IndexJob, TextDocument};
 use crate::fs::vfs::Vfs;
+use crate::syntax::{SyntaxCache, SyntaxLimits};
+use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 
 /// Largest file read whole: images decoded by the viewer (the editor uses the
@@ -38,6 +40,9 @@ pub struct ViewerState {
     pub loading: bool,
     /// Message for the status line (e.g. "not found"), cleared on the next search.
     pub notice: Option<String>,
+    /// Syntax highlighter of text mode (`None`: plain text, off or too
+    /// large). Painting fills its cache, hence the cell.
+    pub syntax: RefCell<Option<SyntaxCache>>,
 }
 
 pub(crate) fn is_image_extension(path: &Path) -> bool {
@@ -143,12 +148,28 @@ impl ViewerState {
             last_case_sensitive: false,
             loading: false,
             notice: None,
+            syntax: RefCell::new(None),
         }
+    }
+
+    /// Picks the syntax highlighter for a text file (by name and first
+    /// line) when `limits` allow it.
+    pub fn detect_syntax(&mut self, limits: &SyntaxLimits) {
+        let cache = if self.is_text && !self.is_image {
+            let first = self.doc.lines(0, 1).pop().unwrap_or_default();
+            limits.cache_for(&self.path, &first, self.doc.len())
+        } else {
+            None
+        };
+        *self.syntax.get_mut() = cache;
     }
 
     /// Re-reads the content in `encoding` (chosen by the user) as text.
     pub fn set_encoding(&mut self, encoding: &'static encoding_rs::Encoding) {
         spawn_index(self.doc.set_encoding(encoding));
+        if let Some(cache) = self.syntax.get_mut() {
+            cache.invalidate_from(0);
+        }
         self.is_text = true;
         self.mode = ViewerMode::Text;
         self.scroll = 0;

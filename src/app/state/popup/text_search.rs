@@ -2,8 +2,8 @@ use crate::app::form::{FormKey, FormLayout};
 use crate::app::text_input::TextField;
 use crossterm::event::KeyEvent;
 
-/// Find dialog shared by the viewer and the editor: query, "case sensitive",
-/// [Search] and [Cancel].
+/// Find dialog of the viewer: query, "case sensitive", [Search] and
+/// [Cancel].
 #[derive(Debug, Clone, Default)]
 pub struct TextSearchState {
     pub query: TextField,

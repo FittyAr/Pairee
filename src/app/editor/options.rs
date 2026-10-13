@@ -1,6 +1,7 @@
 //! Editor behaviour derived from the user's settings.
 
 use crate::config::settings::{Settings, TabExpansion};
+use crate::syntax::SyntaxLimits;
 
 /// The subset of [`Settings`] that changes how the editor edits text.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -10,6 +11,8 @@ pub struct EditorOptions {
     pub auto_indent: bool,
     /// Read-only files open locked (no edits allowed).
     pub lock_read_only: bool,
+    /// When files get syntax highlighting.
+    pub syntax: SyntaxLimits,
 }
 
 impl From<&Settings> for EditorOptions {
@@ -19,6 +22,7 @@ impl From<&Settings> for EditorOptions {
             tab_expansion: s.editor_expand_tabs,
             auto_indent: s.editor_auto_indent,
             lock_read_only: s.editor_lock_editing_readonly,
+            syntax: SyntaxLimits::from_settings(s),
         }
     }
 }

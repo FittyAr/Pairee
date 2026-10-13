@@ -1,3 +1,4 @@
+mod find;
 mod line_spans;
 pub mod widget;
 
@@ -5,7 +6,7 @@ pub use widget::{EditorView, render_editor_widget};
 
 use super::{centered_rect_fixed, centered_rect_in};
 use crate::app::state::popup::{
-    ConfirmDiscardEditorChanges, EditorConfirmOverwrite, EditorSaveAsPrompt, EditorSearchPrompt,
+    ConfirmDiscardEditorChanges, EditorConfirmOverwrite, EditorSaveAsPrompt,
 };
 use crate::config::localization::t;
 use crate::ui::popup::kit;
@@ -15,12 +16,6 @@ use ratatui::{
     style::Style,
     widgets::{Block, Borders, Clear, Paragraph},
 };
-
-impl DialogView for EditorSearchPrompt {
-    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
-        super::viewer::render_search(f, "editor_search_title", self, cx.theme, cx.area);
-    }
-}
 
 impl DialogView for EditorSaveAsPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {

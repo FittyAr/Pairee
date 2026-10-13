@@ -16,6 +16,7 @@ pub mod resolved_theme;
 pub mod screens;
 pub mod scrollbar;
 pub mod search_highlight;
+pub mod styled_line;
 pub mod tab_bar;
 pub mod terminal_screen;
 pub(crate) use crate::text_width;

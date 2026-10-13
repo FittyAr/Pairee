@@ -181,6 +181,14 @@ pub fn editor_viewer() -> Vec<Row> {
         toggle!(1, "ed_cursor_at_end", editor_cursor_at_end),
         toggle!(1, "ed_lock_readonly", editor_lock_editing_readonly),
         toggle!(1, "ed_warn_readonly", editor_warn_opening_readonly),
+        toggle!(1, "ed_syntax_highlighting", syntax_highlighting),
+        cycle(
+            "ed_syntax_max_size",
+            1,
+            CycleFormat::Bracket,
+            |s| bytesize::ByteSize::kib(u64::from(s.syntax_highlighting_max_kb)).to_string(),
+            |s| s.syntax_highlighting_max_kb = next_syntax_limit(s.syntax_highlighting_max_kb),
+        ),
         title_key("vi_settings_title"),
         toggle!(1, "vi_external", viewer_use_external),
         toggle!(1, "vi_enter_external", enter_use_external),
@@ -202,6 +210,13 @@ pub fn editor_viewer() -> Vec<Row> {
             |s| s.viewer_default_codepage = next_codepage(&s.viewer_default_codepage),
         ),
     ]
+}
+
+/// Syntax highlighting size limits offered (KiB): 512 KiB → 1 → 2 → 8 →
+/// 32 MiB → 512 KiB.
+fn next_syntax_limit(kb: u32) -> u32 {
+    const LIMITS: [u32; 5] = [512, 1024, 2048, 8192, 32768];
+    LIMITS.into_iter().find(|&l| l > kb).unwrap_or(LIMITS[0])
 }
 
 /// The encoding after `name` in the viewer's list (wrapping; unknown → first).
@@ -235,7 +250,7 @@ pub fn colors() -> Vec<Row> {
             Some(PopupType::ColorGroupsDialog(ColorGroupsDialog {
                 cursor_idx: 0,
                 edit: None,
-                theme: context.config.theme.clone(),
+                theme: Box::new(context.config.theme.clone()),
             }))
         }),
         action("col_highlighting", |s, _| {

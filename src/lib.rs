@@ -14,6 +14,7 @@ mod logging;
 mod plugin;
 mod run;
 mod shell;
+mod syntax;
 mod terminal;
 mod text_width;
 mod ui;

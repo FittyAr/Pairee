@@ -7,6 +7,7 @@ mod archives;
 mod bookmarks;
 mod command_line;
 mod editor;
+mod editor_search;
 mod file_clipboard;
 mod file_ops;
 mod find_file;

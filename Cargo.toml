@@ -89,11 +89,29 @@ quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
 http-body = "1.1"
+# Syntax highlighting of the editor and viewer: the embedded default syntax
+# set with the pure-Rust fancy-regex engine (no Oniguruma C build, so static
+# musl builds keep working); colors come from the Pairee theme.
+syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
 # fuzz/ (not a public API).
 fuzzing = []
+
+# Syntax grammars compile hundreds of regexes on first use; unoptimized,
+# that takes seconds per language in debug builds and tests.
+[profile.dev.package.fancy-regex]
+opt-level = 3
+
+[profile.dev.package.regex-automata]
+opt-level = 3
+
+[profile.dev.package.regex-syntax]
+opt-level = 3
+
+[profile.dev.package.syntect]
+opt-level = 3
 
 [profile.release]
 lto = "thin"

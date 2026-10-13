@@ -19,6 +19,57 @@ pub struct Theme {
     pub popup_bg: String,
     pub popup_fg: String,
     pub popup_border: String,
+    /// Syntax highlighting colors of the editor and viewer (`[syntax]`;
+    /// theme files without it get the default ones).
+    #[serde(default)]
+    pub syntax: SyntaxColors,
+}
+
+/// Colors of the token classes of syntax highlighting.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SyntaxColors {
+    pub comment: String,
+    pub string: String,
+    pub keyword: String,
+    /// Numbers, `true` / `false`, escapes.
+    pub constant: String,
+    pub function: String,
+    pub type_name: String,
+    pub operator: String,
+    /// Markup tags, headings and links.
+    pub tag: String,
+}
+
+impl Default for SyntaxColors {
+    fn default() -> Self {
+        Self::from_list([
+            "DarkGray",
+            "Green",
+            "LightMagenta",
+            "LightRed",
+            "LightYellow",
+            "LightCyan",
+            "Gray",
+            "LightBlue",
+        ])
+    }
+}
+
+impl SyntaxColors {
+    /// The colors in field order.
+    fn from_list(c: [&str; 8]) -> Self {
+        Self {
+            comment: c[0].into(),
+            string: c[1].into(),
+            keyword: c[2].into(),
+            constant: c[3].into(),
+            function: c[4].into(),
+            type_name: c[5].into(),
+            operator: c[6].into(),
+            tag: c[7].into(),
+        }
+    }
 }
 
 impl Default for Theme {
@@ -42,6 +93,7 @@ impl Default for Theme {
             popup_bg: "Black".to_string(),
             popup_fg: "White".to_string(),
             popup_border: "DarkGray".to_string(),
+            syntax: SyntaxColors::default(),
         }
     }
 }
@@ -67,6 +119,10 @@ impl Theme {
             popup_bg: "#AAAAAA".to_string(),
             popup_fg: "#000000".to_string(),
             popup_border: "#000000".to_string(),
+            syntax: SyntaxColors::from_list([
+                "#00AAAA", "#55FF55", "#FFFFFF", "#FF55FF", "#FFFF55", "#55FFFF", "#FFFFFF",
+                "#FF5555",
+            ]),
         }
     }
 }
@@ -81,23 +137,28 @@ pub struct ColorProp {
 /// Builds [`COLOR_PROPS`] from the field list, so the order and the
 /// accessors cannot drift apart.
 macro_rules! color_props {
-    ($($field:ident),* $(,)?) => {
+    ([$($field:ident),* $(,)?] [$($syntax:ident),* $(,)?]) => {
         /// Theme colors in the order the "Color groups" dialog lists them.
         pub const COLOR_PROPS: &[ColorProp] = &[$(ColorProp {
             name: stringify!($field),
             get: |t| &t.$field,
             get_mut: |t| &mut t.$field,
-        }),*];
+        },)* $(ColorProp {
+            name: concat!("syntax_", stringify!($syntax)),
+            get: |t| &t.syntax.$syntax,
+            get_mut: |t| &mut t.syntax.$syntax,
+        },)*];
     };
 }
 
-/// Calls `$callback!` with every theme color field in dialog order: the one
-/// list [`COLOR_PROPS`] and the UI's resolved theme are both built from.
+/// Calls `$callback!` with every theme color field in dialog order, then
+/// every [`SyntaxColors`] field: the one list [`COLOR_PROPS`] and the UI's
+/// resolved theme are both built from.
 #[macro_export]
 macro_rules! with_theme_colors {
     ($callback:ident) => {
         $callback!(
-            panel_bg,
+            [panel_bg,
             panel_fg,
             panel_border,
             selection_bg,
@@ -112,7 +173,8 @@ macro_rules! with_theme_colors {
             fkey_bg,
             popup_bg,
             popup_fg,
-            popup_border,
+            popup_border,]
+            [comment, string, keyword, constant, function, type_name, operator, tag]
         );
     };
 }
@@ -160,11 +222,28 @@ mod tests {
     #[test]
     fn color_props_cover_fields_in_order() {
         let mut theme = Theme::default();
-        assert_eq!(COLOR_PROPS.len(), 16);
+        assert_eq!(COLOR_PROPS.len(), 24);
+        assert_eq!(COLOR_PROPS[16].name, "syntax_comment");
+        *(COLOR_PROPS[23].get_mut)(&mut theme) = "Blue".into();
+        assert_eq!(theme.syntax.tag, "Blue");
         assert_eq!(COLOR_PROPS[3].name, "selection_bg");
         *(COLOR_PROPS[15].get_mut)(&mut theme) = "Red".into();
         assert_eq!(theme.popup_border, "Red");
         assert_eq!((COLOR_PROPS[0].get)(&theme), &theme.panel_bg);
+    }
+
+    #[test]
+    fn theme_files_without_syntax_colors_still_load() {
+        let mut table = toml::Table::try_from(Theme::classic_blue()).unwrap();
+        table.remove("syntax");
+        let theme: Theme = toml::from_str(&table.to_string()).unwrap();
+        assert_eq!(theme.panel_bg, "#0000AA");
+        assert_eq!(theme.syntax, SyntaxColors::default());
+        let partial: SyntaxColors = toml::from_str("comment = \"Red\"").unwrap();
+        assert_eq!(
+            (partial.comment.as_str(), partial.string.as_str()),
+            ("Red", "Green")
+        );
     }
 
     #[test]

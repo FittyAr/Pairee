@@ -1,19 +1,12 @@
-//! Highlighting of search matches inside a line (viewer and editor).
+//! Matches of the viewer's search inside a line, for highlighting.
 
-use ratatui::style::Style;
-use ratatui::text::Span;
+use std::ops::Range;
 
-/// Splits `line` into spans, styling every match of `query` with
-/// `highlight_style` and the rest with `normal_style`.
-pub fn highlight_line(
-    line: &str,
-    query: &str,
-    case_sensitive: bool,
-    normal_style: Style,
-    highlight_style: Style,
-) -> Vec<Span<'static>> {
+/// Byte ranges of `line` matching `query` (plain text), left to right and
+/// without overlaps.
+pub fn match_ranges(line: &str, query: &str, case_sensitive: bool) -> Vec<Range<usize>> {
     if query.is_empty() {
-        return vec![Span::styled(line.to_string(), normal_style)];
+        return Vec::new();
     }
     // Fold char by char so both sides keep one entry per `char` of `line`.
     let fold = |c: char| {
@@ -23,63 +16,45 @@ pub fn highlight_line(
             c.to_lowercase().next().unwrap_or(c)
         }
     };
-    let chars: Vec<char> = line.chars().collect();
-    let folded: Vec<char> = chars.iter().map(|&c| fold(c)).collect();
+    let chars: Vec<(usize, char)> = line.char_indices().collect();
     let needle: Vec<char> = query.chars().map(fold).collect();
-    let matches_at = |i: usize| folded.get(i..i + needle.len()) == Some(needle.as_slice());
-
-    let mut spans = Vec::new();
-    let mut plain = String::new();
+    let byte_at = |i: usize| chars.get(i).map_or(line.len(), |(b, _)| *b);
+    let mut ranges = Vec::new();
     let mut i = 0;
-    while i < chars.len() {
-        if matches_at(i) {
-            if !plain.is_empty() {
-                spans.push(Span::styled(std::mem::take(&mut plain), normal_style));
-            }
-            let found: String = chars[i..i + needle.len()].iter().collect();
-            spans.push(Span::styled(found, highlight_style));
+    while i + needle.len() <= chars.len() {
+        let hit = chars[i..i + needle.len()]
+            .iter()
+            .zip(&needle)
+            .all(|((_, c), n)| fold(*c) == *n);
+        if hit {
+            ranges.push(byte_at(i)..byte_at(i + needle.len()));
             i += needle.len();
         } else {
-            plain.push(chars[i]);
             i += 1;
         }
     }
-    if !plain.is_empty() {
-        spans.push(Span::styled(plain, normal_style));
-    }
-    spans
+    ranges
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::style::Color;
-
-    fn texts(spans: &[Span]) -> Vec<String> {
-        spans.iter().map(|s| s.content.to_string()).collect()
-    }
 
     #[test]
     fn marks_matches_case_insensitive() {
-        let hl = Style::default().fg(Color::Red);
-        let spans = highlight_line("Foo bar FOO", "foo", false, Style::default(), hl);
-        assert_eq!(texts(&spans), ["Foo", " bar ", "FOO"]);
-        assert_eq!(spans[0].style, hl);
-        assert_eq!(spans[2].style, hl);
+        assert_eq!(match_ranges("Foo bar FOO", "foo", false), [0..3, 8..11]);
     }
 
     #[test]
     fn case_sensitive_and_empty_query() {
-        let spans = highlight_line("Foo foo", "foo", true, Style::default(), Style::default());
-        assert_eq!(texts(&spans), ["Foo ", "foo"]);
-        let spans = highlight_line("abc", "", true, Style::default(), Style::default());
-        assert_eq!(texts(&spans), ["abc"]);
+        assert_eq!(match_ranges("Foo foo", "foo", true), vec![4..7]);
+        assert!(match_ranges("abc", "", true).is_empty());
     }
 
     #[test]
     fn expanding_lowercase_does_not_panic() {
         // 'İ' lowercases to two chars; matching must stay aligned.
-        let spans = highlight_line("xİyİ", "i", false, Style::default(), Style::default());
-        assert_eq!(texts(&spans).concat(), "xİyİ");
+        assert_eq!(match_ranges("xİyİ", "i", false), [1..3, 4..6]);
+        assert_eq!(match_ranges("ñandú", "Ú", false), vec![5..7]);
     }
 }
