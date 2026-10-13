@@ -173,7 +173,7 @@ impl S3Vfs {
             .or_else(Credentials::from_env);
         let prefix = url.path().trim_matches('/').to_string();
         let store = Store {
-            client: reqwest::Client::builder()
+            client: crate::update::http::builder()
                 .connect_timeout(CONNECT_TIMEOUT)
                 .build()
                 .map_err(http::io_error)?,

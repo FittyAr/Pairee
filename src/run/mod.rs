@@ -26,10 +26,6 @@ pub async fn run() -> Result<()> {
 }
 
 async fn run_app() -> Result<()> {
-    // Install the rustls ring crypto provider for reqwest on non-Windows platforms
-    #[cfg(not(target_os = "windows"))]
-    let _ = rustls::crypto::ring::default_provider().install_default();
-
     // Non-interactive subcommands (elevated helper, plugin and developer CLIs)
     let args: Vec<String> = env::args().collect();
     if cli::run_subcommand(&args).await? {

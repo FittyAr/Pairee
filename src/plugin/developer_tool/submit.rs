@@ -45,7 +45,7 @@ pub async fn run_automatic_submit(
     commit_msg: &str,
     plugin_name: &str,
 ) -> anyhow::Result<String> {
-    let client = reqwest::Client::builder().build()?;
+    let client = crate::update::http::builder().build()?;
 
     // 1. Fetch user login/username
     let user_resp = client
