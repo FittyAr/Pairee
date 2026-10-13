@@ -116,7 +116,7 @@ Create a file named `AppxManifest.xml` in your staging folder. Populate it with 
 > [!IMPORTANT]
 > The template manifest contains placeholders (`TEMPLATE_PACKAGE_IDENTITY_NAME`, `TEMPLATE_PACKAGE_IDENTITY_PUBLISHER`, and `TEMPLATE_PUBLISHER_DISPLAY_NAME`) to prevent hardcoding sensitive credentials in the source code.
 > 
-> - **Local Development:** The local scripts (`run.bat` and `run.sh`) automatically replace these placeholders with developer testing defaults during local packaging.
+> - **Local Development:** `cargo xtask dev msix-package` (then `msix-cert`, `msix-sign`, `msix-install`) packages the local release build with `.github/scripts/package-msix.ps1`, the script the Release workflow uses; unset `STORE_*` variables fall back to the Pairee Store identity defined in that script.
 > - **CI/CD Pipeline (GitHub Actions):** To compile a production-ready package with your actual credentials, you should configure GitHub Repository secrets or variables.
 > 
 > ### How to configure Store variables:
