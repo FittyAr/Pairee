@@ -83,9 +83,8 @@ impl ArchiveReader for TarReader {
 mod tests {
     use crate::fs::archive::extract_archive;
     use crate::fs::archive::test_fixtures::write_tar_gz;
+    use crate::fs::progress::ArchiveReport;
     use std::fs;
-    use std::sync::atomic::AtomicBool;
-    use tokio::sync::mpsc;
 
     #[test]
     fn extract_does_not_overwrite_existing_files() {
@@ -96,8 +95,7 @@ mod tests {
         fs::create_dir(&dest).unwrap();
         fs::write(dest.join("keep.txt"), b"original").unwrap();
 
-        let (tx, _rx) = mpsc::channel(64);
-        extract_archive(&archive, &dest, &tx, &AtomicBool::new(false)).unwrap();
+        extract_archive(&archive, &dest, &mut ArchiveReport::detached(false)).unwrap();
         assert_eq!(fs::read(dest.join("keep.txt")).unwrap(), b"original");
         assert_eq!(
             fs::read(dest.join("sub").join("new.txt")).unwrap(),

@@ -8,7 +8,7 @@ use super::*;
 /// and returns that folder's file snapshot.
 fn extract_all(archive: &Path) -> std::collections::BTreeMap<String, Vec<u8>> {
     let dest = archive.parent().unwrap().join("out");
-    run(|tx, cancel| extract_archive(archive, &dest, tx, cancel)).unwrap();
+    run(|report| extract_archive(archive, &dest, report)).unwrap();
     snapshot(&dest)
 }
 
@@ -58,7 +58,7 @@ fn unsupported_formats_are_rejected() {
     let path = dir.path().join("notes.txt");
     std::fs::write(&path, b"plain").unwrap();
     assert!(list_archive_files(&path).is_err());
-    assert!(run(|tx, cancel| extract_archive(&path, dir.path(), tx, cancel)).is_err());
+    assert!(run(|report| extract_archive(&path, dir.path(), report)).is_err());
 }
 
 #[test]
@@ -70,7 +70,7 @@ fn zip_round_trip_preserves_folder_and_loose_file() {
     std::fs::write(&loose, b"loose").unwrap();
 
     let archive = dir.path().join("bundle.zip");
-    run(|tx, cancel| compress_zip(vec![src.clone(), loose.clone()], &archive, tx, cancel)).unwrap();
+    run(|report| compress_zip(vec![src.clone(), loose.clone()], &archive, report)).unwrap();
 
     let listed = sorted(list_archive_files(&archive).unwrap());
     for (rel, _) in SAMPLE_TREE {
@@ -120,9 +120,8 @@ fn extraction_stops_when_cancelled() {
     write_tar_gz(&archive, SAMPLE_TREE);
     let dest = dir.path().join("out");
 
-    let (tx, _rx) = tokio::sync::mpsc::channel(16);
-    let cancel = AtomicBool::new(true);
-    assert!(extract_archive(&archive, &dest, &tx, &cancel).is_err());
+    let mut report = crate::fs::progress::ArchiveReport::detached(true);
+    assert!(extract_archive(&archive, &dest, &mut report).is_err());
     assert!(!dest.join("a.txt").exists());
 }
 
@@ -151,7 +150,7 @@ fn bzip2_and_xz_tars_list_and_extract() {
         assert_eq!(listed, ["a.txt", "sub/b.txt", "sub/deeper/c.bin"], "{name}");
         let out = dir.path().join("out");
         std::fs::create_dir(&out).unwrap();
-        run(|tx, cancel| extract_archive(&archive, &out, tx, cancel)).unwrap();
+        run(|report| extract_archive(&archive, &out, report)).unwrap();
         assert_eq!(snapshot(&out), expected(SAMPLE_TREE, None), "{name}");
     }
 }

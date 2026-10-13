@@ -1,16 +1,11 @@
 //! Shared fixtures for archive tests: building archives in memory/on disk,
 //! running an extraction without a UI, and snapshotting extracted trees.
 
-use crate::fs::progress::ProgressUpdate;
+use crate::fs::progress::ArchiveReport;
 use std::collections::BTreeMap;
 use std::fs;
 use std::io::Write as _;
 use std::path::Path;
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
-
-/// Large enough that `blocking_send` never waits on an undrained receiver.
-const PROGRESS_CAPACITY: usize = 1024;
 
 /// Files used by round-trip tests: `(relative path, contents)`.
 pub const SAMPLE_TREE: &[(&str, &[u8])] = &[
@@ -116,11 +111,8 @@ pub fn expected(entries: &[(&str, &[u8])], prefix: Option<&str>) -> BTreeMap<Str
         .collect()
 }
 
-/// Runs an extract/compress function with a fresh progress channel and no
-/// cancellation.
-pub fn run<T>(
-    op: impl FnOnce(&mpsc::Sender<ProgressUpdate>, &AtomicBool) -> anyhow::Result<T>,
-) -> anyhow::Result<T> {
-    let (tx, _rx) = mpsc::channel(PROGRESS_CAPACITY);
-    op(&tx, &AtomicBool::new(false))
+/// Runs an extract/compress function with a report that goes nowhere and
+/// no cancellation.
+pub fn run<T>(op: impl FnOnce(&mut ArchiveReport) -> anyhow::Result<T>) -> anyhow::Result<T> {
+    op(&mut ArchiveReport::detached(false))
 }

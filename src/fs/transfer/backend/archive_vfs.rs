@@ -10,7 +10,7 @@ use super::super::options::TransferOptions;
 use super::ops_jobs::archive::run_archive_blocking;
 use crate::config::localization::t;
 use crate::fs::archive::{ArchiveVfs, ZipEdit, ZipSource, extract_selected, split_archive_path};
-use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::progress::ArchiveReport;
 use crate::fs::transfer::control::JobControl;
 use crate::fs::transfer::worker::is_destination_parent_dir;
 use crate::fs::vfs::{LocalVfs, Vfs};
@@ -172,7 +172,7 @@ pub async fn run(
             run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| extract_selected(&archive, &base, &selected, &dest, tx, cancel),
+                move |report| extract_selected(&archive, &base, &selected, &dest, report),
                 "error_extraction_failed",
             )
             .await
@@ -189,7 +189,7 @@ pub async fn run(
             let mut results = run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| apply_edit(&archive, &edit, tx, cancel),
+                move |report| apply_edit(&archive, &edit, report),
                 "archive_update_failed",
             )
             .await?;
@@ -205,7 +205,7 @@ pub async fn run(
             run_archive_blocking(
                 control,
                 total,
-                move |tx, cancel| apply_edit(&archive, &edit, tx, cancel),
+                move |report| apply_edit(&archive, &edit, report),
                 "archive_update_failed",
             )
             .await
@@ -285,28 +285,15 @@ async fn resolve_conflicts(
 }
 
 /// Rewrites `archive` with `edit`, reporting each added entry.
-fn apply_edit(
-    archive: &Path,
-    edit: &ZipEdit,
-    tx: &tokio::sync::mpsc::Sender<ProgressUpdate>,
-    cancel: &std::sync::atomic::AtomicBool,
-) -> anyhow::Result<()> {
+fn apply_edit(archive: &Path, edit: &ZipEdit, report: &mut ArchiveReport) -> anyhow::Result<()> {
     let vfs = ArchiveVfs::open(archive.to_path_buf())
         .ok_or_else(|| anyhow!(t("vfs_action_unsupported")))?;
-    ensure_not_cancelled(cancel)?;
+    report.ensure_running()?;
     let total_files = edit.add.len();
     let mut done = 0usize;
     vfs.edit(edit, &mut |rel| {
-        ensure_not_cancelled(cancel).map_err(std::io::Error::other)?;
-        let _ = tx.blocking_send(ProgressUpdate {
-            skipped: false,
-            current_file: crate::fs::file_name_lossy(rel),
-            files_copied: done,
-            total_files,
-            bytes_copied: 0,
-            total_bytes: 0,
-            error: None,
-        });
+        report.ensure_running().map_err(std::io::Error::other)?;
+        report.entry(&crate::fs::file_name_lossy(rel), done, total_files);
         done += 1;
         Ok(())
     })?;

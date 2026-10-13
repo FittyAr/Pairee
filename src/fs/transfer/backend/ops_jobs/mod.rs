@@ -1,8 +1,8 @@
 //! Wipe / Compress / Extract / ApplyCommand / Restore backends for the
 //! Transfer Engine.
 //!
-//! Pattern: **Strategy** (per-op runner) with cooperative cancel via
-//! [crate::fs::progress::ensure_not_cancelled] inside archive loops.
+//! Pattern: **Strategy** (per-op runner); archive loops report and check
+//! cancellation through [crate::fs::progress::ArchiveReport].
 
 pub(super) mod archive;
 mod cmd;

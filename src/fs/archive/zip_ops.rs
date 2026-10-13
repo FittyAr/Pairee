@@ -5,13 +5,11 @@ use anyhow::Result;
 use std::fs;
 use std::io::{self, Read};
 use std::path::{Path, PathBuf};
-use std::sync::atomic::AtomicBool;
-use tokio::sync::mpsc;
 use zip::ZipArchive;
 
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
 use super::zip_write::file_options;
-use crate::fs::progress::{ProgressUpdate, ensure_not_cancelled};
+use crate::fs::progress::ArchiveReport;
 use crate::fs::vfs::LocalVfs;
 use crate::fs::walk::{WalkOptions, Walker};
 
@@ -82,35 +80,30 @@ impl ArchiveReader for ZipReader {
 pub fn compress_zip(
     sources: Vec<PathBuf>,
     dest_archive: &Path,
-    tx: &mpsc::Sender<ProgressUpdate>,
-    cancel: &AtomicBool,
+    report: &mut ArchiveReport,
 ) -> Result<()> {
     let mut zip = zip::ZipWriter::new(fs::File::create(dest_archive)?);
     let total_files = sources.len();
     let mut added = 0usize;
-    let mut add_file =
-        |zip: &mut zip::ZipWriter<fs::File>, path: &Path, name: String| -> Result<()> {
-            let _ = tx.blocking_send(ProgressUpdate {
-                skipped: false,
-                current_file: name.clone(),
-                files_copied: added,
-                total_files,
-                bytes_copied: 0,
-                total_bytes: 0,
-                error: None,
-            });
-            let mut file = fs::File::open(path)?;
-            zip.start_file(name, file_options(file.metadata()?.len()))?;
-            io::copy(&mut file, zip)?;
-            added += 1;
-            Ok(())
-        };
+    let mut add_file = |zip: &mut zip::ZipWriter<fs::File>,
+                        report: &mut ArchiveReport,
+                        path: &Path,
+                        name: String|
+     -> Result<()> {
+        report.entry(&name, added, total_files);
+        let mut file = fs::File::open(path)?;
+        zip.start_file(name, file_options(file.metadata()?.len()))?;
+        io::copy(&mut file, zip)?;
+        added += 1;
+        Ok(())
+    };
+    let cancel = report.cancel_flag();
     let cancelled = || cancel.load(std::sync::atomic::Ordering::Relaxed);
     for src in sources {
-        ensure_not_cancelled(cancel)?;
+        report.ensure_running()?;
         let top = src.file_name().unwrap_or_default().to_os_string();
         if !src.is_dir() {
-            add_file(&mut zip, &src, top.to_string_lossy().into_owned())?;
+            add_file(&mut zip, report, &src, top.to_string_lossy().into_owned())?;
             continue;
         }
         zip.add_directory(zip_entry_name(&top, Path::new("")), file_options(0))?;
@@ -121,7 +114,7 @@ pub fn compress_zip(
             if item.entry.is_dir {
                 zip.add_directory(name, file_options(0))?;
             } else {
-                add_file(&mut zip, item.path(), name)?;
+                add_file(&mut zip, report, item.path(), name)?;
             }
         }
     }
@@ -154,8 +147,7 @@ mod tests {
         fs::create_dir(&dest).unwrap();
         fs::write(dest.join("keep.txt"), b"original").unwrap();
 
-        let (tx, _rx) = mpsc::channel(64);
-        extract_archive(&archive, &dest, &tx, &AtomicBool::new(false)).unwrap();
+        extract_archive(&archive, &dest, &mut ArchiveReport::detached(false)).unwrap();
         assert_eq!(fs::read(dest.join("keep.txt")).unwrap(), b"original");
         assert_eq!(
             fs::read(dest.join("sub").join("new.txt")).unwrap(),
@@ -170,8 +162,7 @@ mod tests {
         write_zip(&archive, &[("../evil.txt", b"x")]);
         let dest = dir.path().join("out");
 
-        let (tx, _rx) = mpsc::channel(64);
-        assert!(extract_archive(&archive, &dest, &tx, &AtomicBool::new(false)).is_err());
+        assert!(extract_archive(&archive, &dest, &mut ArchiveReport::detached(false)).is_err());
         assert!(!dir.path().join("evil.txt").exists());
     }
 }
