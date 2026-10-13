@@ -205,7 +205,7 @@ pub struct DevProgress {
 
 #[derive(Debug, Clone)]
 pub struct TerminalUpdate {
-    pub screen_idx: usize,
+    pub screen: super::ScreenId,
     pub line: Option<String>, // Some(line) = new output, None = process exited
 }
 

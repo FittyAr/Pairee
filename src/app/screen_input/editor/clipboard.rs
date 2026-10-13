@@ -8,7 +8,7 @@ use crate::keybindings::screens::EditorAction;
 
 /// Runs a clipboard command (`copy`, `cut`, `paste`, `select_all`).
 pub(super) fn run(state: &mut AppState, command: EditorAction) -> Edit {
-    let Some(Screen::Editor(ed)) = state.screens.get_mut(state.active_screen_idx) else {
+    let Some(Screen::Editor(ed)) = Some(state.screens.active_mut()) else {
         return Edit::Ignored;
     };
     let clipboard = &mut state.editor_clipboard;

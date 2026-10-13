@@ -6,7 +6,7 @@ use crate::test_harness::Harness;
 use crate::ui::viewer::{ViewerMode, ViewerState};
 
 fn viewer(h: &Harness) -> &ViewerState {
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Viewer(vw)) => vw,
         _ => panic!("viewer screen expected\n{}", h.screen_text()),
     }
@@ -61,7 +61,7 @@ fn latin1_text_search_hex_and_encoding_selector() {
         h.assert_screen("caf\u{FFFD}");
         h.keys("Esc");
         assert!(matches!(
-            h.state.screens.get(h.state.active_screen_idx),
+            Some(h.state.screens.active()),
             Some(Screen::Panels)
         ));
     }
@@ -82,7 +82,7 @@ fn large_sparse_file_opens_and_scrolls() {
     h.render();
     h.keys("Esc");
     assert!(matches!(
-        h.state.screens.get(h.state.active_screen_idx),
+        Some(h.state.screens.active()),
         Some(Screen::Panels)
     ));
 }

@@ -133,7 +133,7 @@ fn cells(label: impl Fn(usize) -> String) -> Vec<(String, String)> {
 fn bar_cells(context: &AppContext, state: &AppState) -> Vec<(String, String)> {
     let modifiers = bar_modifiers(state);
     let prefix = modifier_prefix(modifiers);
-    match state.screens.get(state.active_screen_idx) {
+    match Some(state.screens.active()) {
         Some(Screen::Editor(_)) => screen_cells(&context.resolver.editor, context, &prefix),
         Some(Screen::Viewer(_)) => screen_cells(&context.resolver.viewer, context, &prefix),
         _ => {

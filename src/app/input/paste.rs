@@ -18,7 +18,7 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
         }
         return;
     }
-    state.cli_input.push_str(&line);
+    state.cli.field.insert_str(&line);
 }
 
 #[cfg(test)]
@@ -31,7 +31,7 @@ mod paste_tests {
     fn paste_goes_to_cli_when_no_dialog() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         handle_paste(&mut state, "echo hi\r\nignored");
-        assert_eq!(state.cli_input, "echo hi");
+        assert_eq!(state.cli.text(), "echo hi");
     }
 
     #[test]
@@ -51,7 +51,7 @@ mod paste_tests {
             }
             other => panic!("expected rename prompt, got {other:?}"),
         }
-        assert!(state.cli_input.is_empty());
+        assert!(state.cli.field.is_empty());
     }
 
     #[test]
@@ -59,7 +59,7 @@ mod paste_tests {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
         state.dialogs.replace(PopupType::ConfirmQuit);
         handle_paste(&mut state, "should-not-land-in-cli");
-        assert!(state.cli_input.is_empty());
+        assert!(state.cli.field.is_empty());
     }
 
     #[test]

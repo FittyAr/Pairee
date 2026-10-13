@@ -27,7 +27,7 @@ fn with_typing(mode: &str) -> Harness {
 fn cli_mode_types_into_the_command_line() {
     let mut h = with_typing("cli");
     h.text("ls");
-    assert_eq!(h.state.cli_input, "ls");
+    assert_eq!(h.state.cli.text(), "ls");
 }
 
 #[test]
@@ -36,7 +36,7 @@ fn type_ahead_jumps_to_the_typed_name() {
     h.text("br");
     assert_eq!(h.cursor_name(), "bravo.md");
     h.text("a");
-    assert!(h.state.cli_input.is_empty());
+    assert!(h.state.cli.field.is_empty());
 }
 
 #[test]
@@ -44,12 +44,12 @@ fn commands_mode_ignores_unbound_letters_until_the_line_is_focused() {
     let mut h = with_typing("commands");
     let before = h.cursor_name();
     h.text("xq");
-    assert!(h.state.cli_input.is_empty());
+    assert!(h.state.cli.field.is_empty());
     assert_eq!(h.cursor_name(), before);
     h.text(":ls");
-    assert_eq!(h.state.cli_input, "ls");
+    assert_eq!(h.state.cli.text(), "ls");
     h.keys("Esc");
-    assert!(h.state.cli_input.is_empty() && !h.state.cli_focused);
+    assert!(h.state.cli.field.is_empty() && !h.state.cli.focused);
     h.text("x");
-    assert!(h.state.cli_input.is_empty());
+    assert!(h.state.cli.field.is_empty());
 }

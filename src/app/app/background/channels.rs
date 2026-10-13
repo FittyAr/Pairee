@@ -9,7 +9,7 @@ pub fn process_terminal_updates(state: &mut AppState) {
         let mut got = false;
         while let Ok(update) = rx.try_recv() {
             got = true;
-            if let Some(Screen::Terminal(ts)) = state.screens.get_mut(update.screen_idx) {
+            if let Some(Screen::Terminal(ts)) = state.screens.by_id_mut(update.screen) {
                 match update.line {
                     Some(line) => ts.output_lines.push(line),
                     None => ts.is_running = false,

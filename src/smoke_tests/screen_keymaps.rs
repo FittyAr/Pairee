@@ -19,7 +19,7 @@ fn with_overrides(overrides: &[(&str, &str)]) -> Harness {
 }
 
 fn on_screen(h: &Harness) -> &'static str {
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Editor(_)) => "editor",
         Some(Screen::Viewer(_)) => "viewer",
         _ => "panels",

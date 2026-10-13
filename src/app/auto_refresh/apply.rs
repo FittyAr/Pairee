@@ -12,7 +12,7 @@ impl AppState {
     /// objects than `disable_panel_update_object_count` (when set) are not
     /// refreshed automatically, as the setting says.
     pub fn auto_refresh_targets(&self) -> Vec<WatchTarget> {
-        let limit = self.disable_panel_update_object_count as usize;
+        let limit = self.prefs.disable_panel_update_object_count as usize;
         [ActivePanel::Left, ActivePanel::Right]
             .into_iter()
             .map(|side| self.panels.side(side))

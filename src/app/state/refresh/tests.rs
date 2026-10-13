@@ -58,9 +58,9 @@ fn partition_keeps_dotdot_then_matches() {
 #[test]
 fn natural_collation_enables_numeric_sort() {
     let mut state = AppState::new(".".into(), ".".into());
-    state.sorting_collation = "linguistic".into();
+    state.prefs.sort.collation = "linguistic".into();
     assert!(!state.natural_sort());
-    state.sorting_collation = "natural".into();
+    state.prefs.sort.collation = "natural".into();
     assert!(state.natural_sort());
 }
 

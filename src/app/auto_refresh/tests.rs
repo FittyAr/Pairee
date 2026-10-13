@@ -87,7 +87,7 @@ fn folders_above_the_update_limit_are_not_refreshed() {
         std::fs::write(d[0].path().join(format!("f{i}")), b"x").unwrap();
     }
     let mut state = state_on(d[0].path(), d[1].path());
-    state.disable_panel_update_object_count = 2;
+    state.prefs.disable_panel_update_object_count = 2;
     let targets = state.auto_refresh_targets();
     assert_eq!(targets.len(), 1);
     assert_eq!(targets[0].dir, d[1].path());

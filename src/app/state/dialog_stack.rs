@@ -42,16 +42,6 @@ impl DialogStack {
         self.is_empty()
     }
 
-    #[allow(dead_code)]
-    pub fn as_ref(&self) -> Option<&PopupType> {
-        self.top()
-    }
-
-    #[allow(dead_code)]
-    pub fn as_mut(&mut self) -> Option<&mut PopupType> {
-        self.top_mut()
-    }
-
     /// Every open dialog, bottom to top.
     #[cfg(test)]
     pub fn iter(&self) -> impl Iterator<Item = &PopupType> {
@@ -85,7 +75,6 @@ impl DialogStack {
     }
 
     /// Push a nested dialog on top of the current one.
-    #[allow(dead_code)]
     pub fn push(&mut self, popup: PopupType) {
         self.frames.push(popup);
     }

@@ -54,7 +54,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
     cli::render_cli(f, layout.cli_rect, state, context);
 
     // 3. Draw active screen
-    if let Some(screen) = state.screens.get(state.active_screen_idx) {
+    if let Some(screen) = Some(state.screens.active()) {
         screens::render_screen(f, &layout, context, state, screen);
     }
 
@@ -65,7 +65,7 @@ pub fn draw_ui(f: &mut Frame, context: &AppContext, state: &AppState) {
 
     // 3b. The border between two visible panels can be dragged.
     if matches!(
-        state.screens.get(state.active_screen_idx),
+        Some(state.screens.active()),
         Some(crate::app::state::Screen::Panels)
     ) && state.panels.left_visible
         && state.panels.right_visible

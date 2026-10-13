@@ -14,14 +14,8 @@ pub fn handle_screen_input(
     context: &mut AppContext,
 ) -> Result<(), ()> {
     // Determine the type of the active screen
-    let is_editor = matches!(
-        state.screens.get(state.active_screen_idx),
-        Some(Screen::Editor(_))
-    );
-    let is_viewer = matches!(
-        state.screens.get(state.active_screen_idx),
-        Some(Screen::Viewer(_))
-    );
+    let is_editor = matches!(Some(state.screens.active()), Some(Screen::Editor(_)));
+    let is_viewer = matches!(Some(state.screens.active()), Some(Screen::Viewer(_)));
 
     if is_editor {
         return handle_editor_screen(state, key, context);

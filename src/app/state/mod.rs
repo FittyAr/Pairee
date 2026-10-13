@@ -1,3 +1,4 @@
+pub mod cli_line;
 pub mod dialog_stack;
 pub mod dir_sizes;
 pub mod file_clipboard;
@@ -8,6 +9,7 @@ pub mod panel;
 pub mod panel_pair;
 pub mod plugin_host;
 pub mod popup;
+pub mod prefs;
 pub mod transfer_state;
 pub mod types;
 pub mod update_state;
@@ -23,6 +25,7 @@ pub mod viewer;
 pub mod visual;
 
 pub use crate::fs::compare::CompareStatus;
+pub use cli_line::CliLine;
 pub use dialog_stack::DialogStack;
 pub use glob::{Glob, glob_matches, glob_matches_case};
 pub use history::HistoryState;
@@ -33,6 +36,8 @@ pub use popup::{
     ConfigDraft, ConfigurationDialogState, CopyMovePromptState, GitPanelState, PluginMenuState,
     PopupType, SshConnectPromptState,
 };
+pub use prefs::PanelPrefs;
+pub use screens::{ScreenId, ScreenStack};
 pub use tabs::TabId;
 pub use transfer_state::{TransferTab, TransferUIState, TransferViewMode};
 pub use types::{
@@ -44,16 +49,19 @@ pub use update_state::UpdateState;
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
 
+/// Selection saved for RestoreSelection: the marked paths and their order.
+#[derive(Debug, Clone, Default)]
+pub struct SelectionSnapshot {
+    pub paths: HashSet<PathBuf>,
+    pub order: Vec<PathBuf>,
+}
+
 pub struct AppState {
     pub panels: PanelPair,
     pub history: HistoryState,
     pub update: UpdateState,
-    pub cli_input: String,
-    /// The command line was opened explicitly (`focus_cli`) and takes every
-    /// printable key, even while empty.
-    pub cli_focused: bool,
-    /// Command-history entry shown on the command line (`cli_history_*`).
-    pub cli_history_pos: Option<usize>,
+    /// The command line under the panels.
+    pub cli: CliLine,
     /// Letters typed for type-ahead find.
     pub type_ahead: crate::app::input::type_ahead::TypeAheadBuffer,
     /// Items yanked / cut for a later paste.
@@ -80,29 +88,17 @@ pub struct AppState {
     /// Last time transfer progress forced a redraw (rate-limit).
     pub last_transfer_draw: Option<std::time::Instant>,
 
-    // ── Screens Management ────────────────────────────────────────────────────
-    pub screens: Vec<Screen>,
-    pub screen_dialogs: Vec<DialogStack>,
-    pub active_screen_idx: usize,
+    /// Panels, viewers, editors and terminals the user switches between.
+    pub screens: ScreenStack,
 
     // ── Folder shortcuts: number 1–9 → absolute path ─────────────────────────
     pub folder_shortcuts: HashMap<u8, PathBuf>,
 
-    // ── Selection snapshot for RestoreSelection ───────────────────────────────
-    pub last_selection_snapshot: HashSet<PathBuf>,
-    pub last_selection_order_snapshot: Vec<PathBuf>,
+    /// Selection saved for RestoreSelection.
+    pub selection_snapshot: SelectionSnapshot,
 
-    // ── System settings ───────────────────────────────────────────────────────
-    pub case_sensitive_sort: bool,
-    pub treat_digits_as_numbers: bool,
-    pub sorting_collation: String,
-    pub req_admin_reading: bool,
-
-    // ── Panel settings (mirrors Settings for quick access) ────────────────────
-    pub select_folders: bool,
-    pub sort_folder_names_by_extension: bool,
-    pub show_dotdot_in_root_folders: bool,
-    pub disable_panel_update_object_count: u32,
+    /// Panel options mirrored from the settings ([`Self::apply_settings`]).
+    pub prefs: PanelPrefs,
 
     pub current_modifiers: crossterm::event::KeyModifiers,
     pub fkeys_modifier_override: Option<crossterm::event::KeyModifiers>,
@@ -163,9 +159,7 @@ impl AppState {
             panels: PanelPair::new(left_path, right_path),
             history: HistoryState::default(),
             update: UpdateState::default(),
-            cli_input: String::new(),
-            cli_focused: false,
-            cli_history_pos: None,
+            cli: CliLine::default(),
             type_ahead: Default::default(),
             file_clipboard: None,
             last_panel_search: None,
@@ -176,20 +170,10 @@ impl AppState {
             plugins: PluginHostState::default(),
             term_tx,
             term_rx: Some(term_rx),
-            screens: vec![Screen::Panels],
-            screen_dialogs: vec![DialogStack::new()],
-            active_screen_idx: 0,
+            screens: ScreenStack::default(),
             folder_shortcuts: HashMap::new(),
-            last_selection_snapshot: HashSet::new(),
-            last_selection_order_snapshot: Vec::new(),
-            case_sensitive_sort: false,
-            treat_digits_as_numbers: false,
-            sorting_collation: "linguistic".to_string(),
-            req_admin_reading: false,
-            select_folders: false,
-            sort_folder_names_by_extension: false,
-            show_dotdot_in_root_folders: false,
-            disable_panel_update_object_count: 0,
+            selection_snapshot: SelectionSnapshot::default(),
+            prefs: PanelPrefs::default(),
             current_modifiers: crossterm::event::KeyModifiers::empty(),
             fkeys_modifier_override: None,
             terminal_needs_clear: false,
@@ -254,8 +238,11 @@ impl AppState {
 
     /// Saves the current selection snapshot for later RestoreSelection.
     pub fn snapshot_selection(&mut self) {
-        self.last_selection_snapshot = self.get_active_panel().selected_paths.clone();
-        self.last_selection_order_snapshot = self.get_active_panel().selection_order.clone();
+        let panel = self.get_active_panel();
+        self.selection_snapshot = SelectionSnapshot {
+            paths: panel.selected_paths.clone(),
+            order: panel.selection_order.clone(),
+        };
     }
 
     /// Points the active panel at a local folder (hotlist / folder shortcut jump).
@@ -269,10 +256,10 @@ impl AppState {
 
     /// Restores the last saved selection snapshot.
     pub fn restore_selection(&mut self) {
-        let snapshot = self.last_selection_snapshot.clone();
-        self.get_active_panel_mut().selected_paths = snapshot;
-        let order_snapshot = self.last_selection_order_snapshot.clone();
-        self.get_active_panel_mut().selection_order = order_snapshot;
+        let snapshot = self.selection_snapshot.clone();
+        let panel = self.get_active_panel_mut();
+        panel.selected_paths = snapshot.paths;
+        panel.selection_order = snapshot.order;
     }
 }
 

@@ -103,7 +103,7 @@ fn apply_scroll_offset(
     }
     match id {
         ScrollTargetId::Viewer => {
-            if let Some(Screen::Viewer(vw)) = state.screens.get_mut(state.active_screen_idx) {
+            if let Some(Screen::Viewer(vw)) = Some(state.screens.active_mut()) {
                 vw.scroll = offset;
             }
         }

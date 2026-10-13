@@ -49,7 +49,7 @@ pub fn process_transfer_events(state: &mut AppState, context: &AppContext) {
     }
     if !effects.term_forwards.is_empty() {
         for (job_id, line) in effects.term_forwards {
-            for screen in &mut state.screens {
+            for screen in state.screens.iter_mut() {
                 if let Screen::Terminal(ts) = screen
                     && ts.job_id == Some(job_id)
                 {

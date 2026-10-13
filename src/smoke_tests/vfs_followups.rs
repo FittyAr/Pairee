@@ -23,10 +23,7 @@ fn zip_entry(archive: &Path, name: &str) -> String {
 }
 
 fn in_editor(h: &Harness) -> bool {
-    matches!(
-        h.state.screens.get(h.state.active_screen_idx),
-        Some(Screen::Editor(_))
-    )
+    matches!(Some(h.state.screens.active()), Some(Screen::Editor(_)))
 }
 
 #[test]

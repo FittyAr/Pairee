@@ -253,11 +253,11 @@ pub fn release(
                     shlex::try_quote(&text).map_or_else(|_| text.to_string(), |q| q.into_owned())
                 })
                 .collect();
-            if !state.cli_input.is_empty() && !state.cli_input.ends_with(' ') {
-                state.cli_input.push(' ');
+            if !state.cli.field.is_empty() && !state.cli.text().ends_with(' ') {
+                state.cli.field.insert_char(' ');
             }
-            state.cli_input.push_str(&quoted.join(" "));
-            state.cli_focused = true;
+            state.cli.field.insert_str(&quoted.join(" "));
+            state.cli.focused = true;
         }
         None => {}
     }

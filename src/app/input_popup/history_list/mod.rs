@@ -45,7 +45,7 @@ pub fn handle(
 fn activate(state: &mut AppState, context: &AppContext, popup: PopupType, idx: usize) {
     match popup {
         PopupType::CommandHistoryList { mut entries, .. } if idx < entries.len() => {
-            state.cli_input = entries.swap_remove(idx);
+            state.cli.set_text(entries.swap_remove(idx));
         }
         PopupType::FileViewHistoryList { mut entries, .. } if idx < entries.len() => {
             let path = entries.swap_remove(idx);

@@ -23,7 +23,7 @@ pub fn render_cli(f: &mut Frame, area: Rect, state: &AppState, context: &AppCont
     let screen_indicator = if state.screens.len() > 1 {
         format!(
             " [Screens: {}/{}] ",
-            state.active_screen_idx + 1,
+            state.screens.active_index() + 1,
             state.screens.len()
         )
     } else {
@@ -50,11 +50,12 @@ pub fn render_cli(f: &mut Frame, area: Rect, state: &AppState, context: &AppCont
         prompt_symbol
     );
 
-    let cli_text = &state.cli_input;
-
     let line = Line::from(vec![
         Span::styled(prompt, Style::default().fg(theme.header_fg)),
-        Span::styled(cli_text.clone(), Style::default().fg(theme.cli_fg)),
+        Span::styled(
+            state.cli.text().to_string(),
+            Style::default().fg(theme.cli_fg),
+        ),
     ]);
 
     let paragraph = Paragraph::new(line).style(Style::default().bg(theme.cli_bg));

@@ -53,15 +53,8 @@ fn switch_to(state: &mut AppState, idx: usize) {
         state.dialogs.clear();
         return;
     }
-    if idx == state.active_screen_idx {
-        state.dialogs.set(suspended);
-        return;
-    }
-    let mut parked = crate::app::state::DialogStack::new();
-    parked.set(suspended);
-    state.screen_dialogs[state.active_screen_idx] = parked;
-    state.active_screen_idx = idx;
-    state.dialogs = std::mem::take(&mut state.screen_dialogs[idx]);
+    state.dialogs.set(suspended);
+    state.switch_screen(idx);
 }
 
 /// F3 on a terminal screen: open its output in the viewer.

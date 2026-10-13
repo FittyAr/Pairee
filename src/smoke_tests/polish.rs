@@ -104,7 +104,7 @@ fn editor_block_mode_selects_columns_with_shift_arrows() {
     h.keys("Ctrl+b").render();
     h.assert_screen(&t("editor_block_mode_flag"));
     h.keys("Down Home Shift+Right*2 Shift+Up Ctrl+x");
-    match h.state.screens.get(h.state.active_screen_idx) {
+    match Some(h.state.screens.active()) {
         Some(Screen::Editor(ed)) => assert_eq!(ed.lines[..2], ["cd", "gh"]),
         _ => panic!("editor expected\n{}", h.screen_text()),
     }
@@ -116,6 +116,6 @@ fn unbound_letters_follow_the_preset_typing_mode() {
     for (keymap, typed) in [("norton", "zx"), ("neovim", ""), ("yazi", "")] {
         let mut h = Harness::builder().keymap(keymap).build();
         h.text("zx");
-        assert_eq!(h.state.cli_input, typed, "{keymap}");
+        assert_eq!(h.state.cli.text(), typed, "{keymap}");
     }
 }

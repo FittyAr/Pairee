@@ -333,9 +333,9 @@ fn function_keys_on_the_bar_press_their_key() {
 fn clicking_the_command_line_focuses_it() {
     let mut h = Harness::new();
     let (x, y) = h.hit_cell(|t| *t == HitTarget::Action(crate::keybindings::Action::FocusCli));
-    assert!(!h.state.cli_focused);
+    assert!(!h.state.cli.focused);
     h.click(x + 3, y);
-    assert!(h.state.cli_focused);
+    assert!(h.state.cli.focused);
 }
 
 #[test]
@@ -362,7 +362,7 @@ fn the_wheel_scrolls_the_viewer_without_a_scrollbar() {
     h.write("work/left/long.txt", text);
     h.reread();
     h.focus("long.txt").keys("@view");
-    let scroll = |h: &Harness| match h.state.screens.get(h.state.active_screen_idx) {
+    let scroll = |h: &Harness| match Some(h.state.screens.active()) {
         Some(crate::app::state::Screen::Viewer(vw)) => vw.scroll,
         _ => panic!("viewer not open"),
     };
@@ -809,11 +809,11 @@ fn dropping_on_the_command_line_inserts_the_path() {
     let (cx, cy) = h.hit_cell(|t| *t == HitTarget::Action(crate::keybindings::Action::FocusCli));
     h.drag(MouseButton::Left, from, (cx + 5, cy), KeyModifiers::NONE);
     assert!(
-        h.state.cli_input.contains("beta.txt"),
+        h.state.cli.text().contains("beta.txt"),
         "{:?}",
-        h.state.cli_input
+        h.state.cli.text()
     );
-    assert!(h.state.cli_focused);
+    assert!(h.state.cli.focused);
 }
 
 #[test]

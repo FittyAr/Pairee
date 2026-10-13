@@ -17,7 +17,7 @@ pub fn render_screens_menu(
         .iter()
         .enumerate()
         .map(|(i, screen)| {
-            let active_marker = if i == state.active_screen_idx {
+            let active_marker = if i == state.screens.active_index() {
                 "*"
             } else {
                 " "

@@ -25,7 +25,7 @@ pub fn handle_cli_input(
     if state.dialogs.is_some() {
         return Err(());
     }
-    if state.cli_focused || !state.cli_input.is_empty() {
+    if state.cli.focused || !state.cli.field.is_empty() {
         return edit_cli(state, key, context, terminal_backend);
     }
     // Uses an immutable peek so multi-key sequences are not consumed here.
@@ -42,7 +42,7 @@ pub fn handle_cli_input(
         return Err(());
     };
     match context.resolver.options().typing {
-        TypingMode::Cli => state.cli_input.push(c),
+        TypingMode::Cli => state.cli.field.insert_char(c),
         TypingMode::TypeAhead => type_ahead(state, c),
         TypingMode::Commands => return Err(()),
     }
@@ -87,19 +87,19 @@ fn edit_cli(
     terminal_backend: &mut TerminalBackend,
 ) -> Result<(), ()> {
     if let Some(c) = printable(key) {
-        state.cli_input.push(c);
+        state.cli.field.insert_char(c);
         return Ok(());
     }
     match key.code {
         KeyCode::Backspace => {
-            state.cli_input.pop();
+            state.cli.field.backspace();
             Ok(())
         }
         KeyCode::Enter => {
-            state.cli_focused = false;
-            state.cli_history_pos = None;
-            let cmd = state.cli_input.trim().to_string();
-            state.cli_input.clear();
+            state.cli.focused = false;
+            state.cli.history_pos = None;
+            let cmd = state.cli.text().trim().to_string();
+            state.cli.field.clear();
             if !cmd.is_empty() {
                 state.push_command_history(cmd.clone());
                 run_cli_command(state, &cmd, context, terminal_backend);
@@ -108,9 +108,9 @@ fn edit_cli(
             Ok(())
         }
         KeyCode::Esc => {
-            state.cli_focused = false;
-            state.cli_history_pos = None;
-            state.cli_input.clear();
+            state.cli.focused = false;
+            state.cli.history_pos = None;
+            state.cli.field.clear();
             Ok(())
         }
         _ => Err(()),
@@ -165,8 +165,7 @@ fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) 
         pid: None,
         job_id: None,
     };
-    state.push_screen(crate::app::state::Screen::Terminal(ts));
-    let screen_idx = state.screens.len() - 1;
+    let screen = state.push_screen(crate::app::state::Screen::Terminal(ts));
     let tx = state.term_tx.clone();
 
     tokio::task::spawn_blocking(move || {
@@ -174,19 +173,16 @@ fn spawn_background(state: &mut AppState, cmd_bg: String, current_dir: PathBuf) 
         let run =
             crate::terminal::pty_cmd::stream_shell_on_pty(&cmd_bg, Some(&current_dir), |line| {
                 let _ = tx_line.send(TerminalUpdate {
-                    screen_idx,
+                    screen,
                     line: Some(line),
                 });
             });
         if let Err(e) = run {
             let _ = tx.send(TerminalUpdate {
-                screen_idx,
+                screen,
                 line: Some(format!("Failed to spawn: {e}")),
             });
         }
-        let _ = tx.send(TerminalUpdate {
-            screen_idx,
-            line: None,
-        });
+        let _ = tx.send(TerminalUpdate { screen, line: None });
     });
 }

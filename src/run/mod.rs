@@ -109,15 +109,7 @@ pub(crate) fn initial_state(
         .map(|p| p.to_path_buf())
         .unwrap_or_else(|| current_dir.clone());
     let mut state = app::AppState::new(current_dir, right_dir);
-    state.case_sensitive_sort = settings.case_sensitive_sort;
-    state.treat_digits_as_numbers = settings.treat_digits_as_numbers;
-    state.sorting_collation = settings.sorting_collation.clone();
-    state.req_admin_reading = settings.req_admin_reading;
-    state.select_folders = settings.select_folders;
-    state.sort_folder_names_by_extension = settings.sort_folder_names_by_extension;
-    state.show_dotdot_in_root_folders = settings.show_dotdot_in_root_folders;
-    state.disable_panel_update_object_count = settings.disable_panel_update_object_count;
-    state.auto_refresh.configure(settings);
+    state.apply_settings(settings);
     for notice in app::session::start(&mut state, settings, cli_paths) {
         state.dialogs.push(app::state::PopupType::Info(notice));
     }

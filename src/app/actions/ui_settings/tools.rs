@@ -92,7 +92,7 @@ fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::ScreensList => {
             let suspended = state.dialogs.take();
             state.dialogs.replace(PopupType::ScreensMenu {
-                cursor_idx: state.active_screen_idx,
+                cursor_idx: state.screens.active_index(),
                 suspended_popup: suspended.map(Box::new),
             });
         }

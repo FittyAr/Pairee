@@ -135,7 +135,7 @@ fn select_item(state: &mut AppState) {
 /// Tags or untags entry `idx` of the active panel. Like Far/MC, tagging a
 /// folder also measures it.
 pub(crate) fn set_selected(state: &mut AppState, idx: usize, selected: bool) {
-    let select_folders = state.select_folders;
+    let select_folders = state.prefs.select_folders;
     let panel = state.get_active_panel_mut();
     if selected && let Some(entry) = panel.entries.get(idx) {
         let path = entry.path.clone();

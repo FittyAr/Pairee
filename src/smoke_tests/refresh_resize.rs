@@ -45,10 +45,7 @@ fn survive_tiny_sizes(h: &mut Harness, what: &str) {
 }
 
 fn in_panels(h: &Harness) -> bool {
-    matches!(
-        h.state.screens.get(h.state.active_screen_idx),
-        Some(Screen::Panels)
-    )
+    matches!(Some(h.state.screens.active()), Some(Screen::Panels))
 }
 
 /// A sandbox with something to show in every view.
@@ -101,7 +98,7 @@ fn editor_viewer_and_archive_at_tiny_sizes() {
     assert!(in_panels(&h), "{}", h.screen_text());
     h.resize(100, 30).focus("texto.txt").keys("@view");
     assert!(matches!(
-        h.state.screens.get(h.state.active_screen_idx),
+        Some(h.state.screens.active()),
         Some(Screen::Viewer(_))
     ));
     survive_tiny_sizes(&mut h, "viewer");
