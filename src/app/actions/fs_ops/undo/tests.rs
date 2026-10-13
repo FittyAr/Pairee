@@ -159,7 +159,7 @@ fn changed_files_are_listed_before_undoing() {
 #[test]
 fn finished_transfer_jobs_are_journaled_once() {
     let (_, mut state) = app(Path::new("."));
-    crate::fs::transfer::submit::ensure_transfer_ui(&mut state);
+    crate::app::transfer_submit::ensure_transfer_ui(&mut state);
     let job = crate::fs::transfer::job::TransferJob::new(
         crate::fs::transfer::job::TransferOperation::Move,
         vec!["a".into()],

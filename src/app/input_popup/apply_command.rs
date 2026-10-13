@@ -18,7 +18,11 @@ pub fn handle(
             if let Some(PopupType::ApplyCommandPrompt { input, targets }) = state.dialogs.pop() {
                 state.dialogs.clear();
                 if !input.is_empty() {
-                    crate::fs::transfer::submit_apply_command(state, input.into_text(), targets);
+                    crate::app::transfer_submit::submit_apply_command(
+                        state,
+                        input.into_text(),
+                        targets,
+                    );
                 }
             }
         }

@@ -1,11 +1,13 @@
-//! UI-facing facade to enqueue transfer jobs on the engine.
+//! App-side facade to enqueue transfer jobs on the engine: it owns the
+//! transfer UI state on [`AppState`]; the jobs themselves are plain data
+//! built by [`crate::fs::transfer::job`].
 
-use super::engine::TransferEngine;
-use super::job::{SshEndpoints, TransferJob, TransferOperation};
-use super::options::TransferOptions;
 use crate::app::state::types::{Screen, TerminalState};
 use crate::app::state::{AppState, TransferViewMode};
 use crate::fs::ssh::SharedSshClient;
+use crate::fs::transfer::engine::TransferEngine;
+use crate::fs::transfer::job::{TransferJob, TransferOperation};
+use crate::fs::transfer::options::TransferOptions;
 use std::path::PathBuf;
 
 /// Ensure the transfer UI + engine exist on `state`.
@@ -21,10 +23,10 @@ pub fn ensure_transfer_ui(state: &mut AppState) {
 /// Submit a job (local or SSH) and show the minimized transfer bar.
 pub fn submit_job(state: &mut AppState, job: TransferJob) {
     for src in &job.sources {
-        super::history::add_source_path(src);
+        crate::fs::transfer::history::add_source_path(src);
     }
     if !job.destination.as_os_str().is_empty() {
-        super::history::add_dest_path(&job.destination);
+        crate::fs::transfer::history::add_dest_path(&job.destination);
     }
 
     ensure_transfer_ui(state);
@@ -45,13 +47,8 @@ pub fn submit_simple(
     src_ssh: Option<SharedSshClient>,
     dst_ssh: Option<SharedSshClient>,
 ) {
-    let mut job = TransferJob::new(operation, sources, destination, options);
-    if src_ssh.is_some() || dst_ssh.is_some() {
-        job = job.with_ssh(SshEndpoints {
-            src: src_ssh,
-            dst: dst_ssh,
-        });
-    }
+    let job =
+        TransferJob::new(operation, sources, destination, options).with_remotes(src_ssh, dst_ssh);
     submit_job(state, job);
 }
 

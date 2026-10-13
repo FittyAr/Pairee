@@ -96,7 +96,7 @@ pub(super) fn run(
 /// Queues `job` and remembers which undo/redo it runs.
 fn submit(state: &mut AppState, direction: Direction, job: TransferJob, command: FsCommand) {
     state.journal.begin_job(job.id, direction, command);
-    crate::fs::transfer::submit::submit_job(state, job);
+    crate::app::transfer_submit::submit_job(state, job);
 }
 
 /// Copy/Move of the batch's files, one by one, never overwriting anything.

@@ -7,6 +7,7 @@ use std::io::{self, Read};
 use std::path::{Path, PathBuf};
 use zip::ZipArchive;
 
+use super::edit::{ArchiveEdit, OnAdded};
 use super::format::{ArchiveReader, EntryKind, EntryMeta, Visit, Visitor, unix_time};
 use super::zip_write::file_options;
 use crate::fs::progress::ArchiveReport;
@@ -29,9 +30,9 @@ fn zip_time(dt: zip::DateTime) -> Option<std::time::SystemTime> {
         .map(unix_time)
 }
 
-fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> EntryMeta {
-    EntryMeta {
-        name: file.name().to_string(),
+fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> Result<EntryMeta> {
+    Ok(EntryMeta {
+        name: file.name()?.into_owned(),
         // Links are stored as small files holding the target; they are
         // extracted as such, never as links.
         kind: if file.is_dir() {
@@ -41,15 +42,15 @@ fn meta<R: Read>(file: &zip::read::ZipFile<'_, R>) -> EntryMeta {
         },
         size: file.size(),
         modified: file.last_modified().and_then(zip_time),
-        mode: None,
-    }
+        mode: super::format::usable_mode(file.unix_mode()),
+    })
 }
 
 impl ArchiveReader for ZipReader {
     fn entries(&self, archive: &Path) -> Result<Vec<EntryMeta>> {
         let mut zip = open(archive)?;
         (0..zip.len())
-            .map(|i| Ok(meta(&zip.by_index_raw(i)?)))
+            .map(|i| meta(&zip.by_index_raw(i)?))
             .collect()
     }
 
@@ -57,7 +58,7 @@ impl ArchiveReader for ZipReader {
         let mut zip = open(archive)?;
         for i in 0..zip.len() {
             let mut file = zip.by_index(i)?;
-            if visit(&meta(&file), &mut file)? == Visit::Stop {
+            if visit(&meta(&file)?, &mut file)? == Visit::Stop {
                 break;
             }
         }
@@ -70,6 +71,10 @@ impl ArchiveReader for ZipReader {
 
     fn writable(&self) -> bool {
         true
+    }
+
+    fn rewrite(&self, archive: &Path, edit: &ArchiveEdit, on_added: &mut OnAdded) -> Result<()> {
+        super::zip_write::rewrite_zip(archive, edit, on_added)
     }
 }
 

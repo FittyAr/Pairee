@@ -6,6 +6,7 @@ use super::*;
 use crate::fs::transfer::job::TransferJob;
 use crate::fs::transfer::part::part_path;
 use crate::fs::transfer::scan::{ScanRequest, scan, top_targets};
+use crate::fs::vfs::LocalVfs;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, SystemTime};
 
@@ -23,6 +24,16 @@ async fn run_stream(
     destination: &Path,
     options: TransferOptions,
 ) -> TransferResults {
+    run_with(stream_endpoints(), operation, sources, destination, options).await
+}
+
+async fn run_with(
+    endpoints: Endpoints,
+    operation: TransferOperation,
+    sources: &[PathBuf],
+    destination: &Path,
+    options: TransferOptions,
+) -> TransferResults {
     let (tx, mut rx) = crate::fs::transfer::events::EventSender::channel();
     tokio::spawn(async move { while rx.recv().await.is_some() {} });
     let job = TransferJob::new(
@@ -32,7 +43,6 @@ async fn run_stream(
         options,
     );
     let ctl = JobControl::for_job(&job, tx);
-    let endpoints = stream_endpoints();
     let roots = top_targets(sources, destination, operation, endpoints.dst.as_ref());
     let request = ScanRequest {
         roots: &roots,
@@ -126,4 +136,91 @@ async fn stream_moves_remove_sources_after_copying() {
         std::fs::read(dst.join("tree").join("sub").join("f.txt")).unwrap(),
         b"f"
     );
+}
+
+/// A local folder seen through an adapter that records how the part file
+/// of a copy was opened (resume over SFTP without a server).
+#[derive(Debug, Default)]
+struct Recorder {
+    appended: std::sync::Mutex<Vec<PathBuf>>,
+}
+
+impl Vfs for Recorder {
+    fn capabilities(&self) -> crate::fs::vfs::Capabilities {
+        LocalVfs.capabilities()
+    }
+    fn list(&self, dir: &Path) -> std::io::Result<Vec<crate::fs::vfs::VfsEntry>> {
+        LocalVfs.list(dir)
+    }
+    fn stat(&self, path: &Path) -> std::io::Result<crate::fs::vfs::VfsEntry> {
+        LocalVfs.stat(path)
+    }
+    fn open_read(&self, path: &Path) -> std::io::Result<Box<dyn std::io::Read + Send>> {
+        LocalVfs.open_read(path)
+    }
+    fn create_file(&self, path: &Path) -> std::io::Result<Box<dyn std::io::Write + Send>> {
+        LocalVfs.create_file(path)
+    }
+    fn append_file(&self, path: &Path) -> std::io::Result<Box<dyn std::io::Write + Send>> {
+        self.appended.lock().unwrap().push(path.to_path_buf());
+        LocalVfs.append_file(path)
+    }
+    fn replace(&self, from: &Path, to: &Path) -> std::io::Result<()> {
+        LocalVfs.replace(from, to)
+    }
+    fn mkdir(&self, path: &Path) -> std::io::Result<()> {
+        LocalVfs.mkdir(path)
+    }
+    fn remove_file(&self, path: &Path) -> std::io::Result<()> {
+        LocalVfs.remove_file(path)
+    }
+}
+
+/// Copies `data` into an empty folder whose part file already holds
+/// `left`; returns the copy and the part files that were appended to.
+async fn resume_with(data: &[u8], left: &[u8]) -> (Vec<u8>, Vec<PathBuf>) {
+    let dir = tempfile::tempdir().unwrap();
+    let src = dir.path().join("big.bin");
+    std::fs::write(&src, data).unwrap();
+    let dst = dir.path().join("out");
+    std::fs::create_dir(&dst).unwrap();
+    let copied = dst.join("big.bin");
+    std::fs::write(part_path(&copied), left).unwrap();
+    let recorder = Arc::new(Recorder::default());
+    let endpoints = Endpoints {
+        dst: recorder.clone(),
+        same_fs: false,
+        ..stream_endpoints()
+    };
+    let options = TransferOptions {
+        verify_after_copy: true,
+        ..TransferOptions::default()
+    };
+    let results = run_with(
+        endpoints,
+        TransferOperation::Copy,
+        std::slice::from_ref(&src),
+        &dst,
+        options,
+    )
+    .await;
+    assert_eq!(results.completed_files.len(), 1);
+    assert!(results.completed_files[0].verified);
+    assert!(!part_path(&copied).exists());
+    let appended = recorder.appended.lock().unwrap().clone();
+    (std::fs::read(&copied).unwrap(), appended)
+}
+
+/// A remote copy resumes an interrupted part file whose bytes match the
+/// source, and starts over when they do not.
+#[tokio::test]
+async fn stream_copies_resume_matching_part_files() {
+    let data: Vec<u8> = (0..100_000u32).map(|i| (i % 251) as u8).collect();
+    let (copy, appended) = resume_with(&data, &data[..40_000]).await;
+    assert_eq!(copy, data);
+    assert_eq!(appended.len(), 1);
+
+    let (copy, appended) = resume_with(&data, b"not the source").await;
+    assert_eq!(copy, data);
+    assert!(appended.is_empty());
 }

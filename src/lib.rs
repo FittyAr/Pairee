@@ -15,6 +15,7 @@ mod plugin;
 mod run;
 mod shell;
 mod terminal;
+mod text_width;
 mod ui;
 mod update;
 
@@ -33,3 +34,8 @@ pub use app::AppState;
 pub use app::state::ActivePanel;
 pub use config::settings::Settings;
 pub use run::run;
+
+/// Filesystem engines whose screens come in a later release (the
+/// duplicate finder, the remote `Vfs` backends): library API until then,
+/// exercised by `tests/fs_engines.rs`.
+pub use fs::{dupes, remote, vfs};

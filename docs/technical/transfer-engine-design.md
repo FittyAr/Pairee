@@ -252,7 +252,7 @@ Incluir o excluir tipos de archivos por patrón.
 
 **Detalles técnicos:**
 - Patrones glob: `*.jpg;*.png;*.gif` (include) o `!*.tmp;!*.bak` (exclude)
-- Reutilizar la función existente `glob_matches()` de `src/app/state/glob.rs`
+- Reutilizar la función existente `glob_matches()` de `src/fs/glob.rs`
 - Interfaz en el popup de confirmación de copia/movimiento (ya existe campo `filter_mask` en `CopyPrompt`)
 - Ampliar para soportar:
   - Filtros por tamaño: `>10MB`, `<1KB`
@@ -879,7 +879,7 @@ pub mod post_action;
 - Parser para sintaxis: `"*.jpg;*.png"`, `">10MB"`, `"newer:30d"`
 
 **Requisitos:**
-- Reutilizar `glob_matches()` de `src/app/state/glob.rs`
+- Reutilizar `glob_matches()` de `src/fs/glob.rs`
 - Parsear filtros desde una cadena unificada
 - Test: verificar cada tipo de filtro
 

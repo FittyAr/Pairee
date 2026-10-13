@@ -1,8 +1,8 @@
 use crate::app::context::AppContext;
 use crate::app::state::{AppState, PopupType};
+use crate::app::transfer_submit::submit_simple;
 use crate::fs::transfer::job::TransferOperation;
 use crate::fs::transfer::options::TransferOptions;
-use crate::fs::transfer::submit_simple;
 
 pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
     let targets = state.get_active_panel().get_targeted_paths();

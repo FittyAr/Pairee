@@ -33,6 +33,7 @@ pub(super) fn sftp_entry(path: PathBuf, stat: &FileStat) -> Option<VfsEntry> {
         is_dir: stat.is_dir(),
         is_symlink: stat.file_type().is_symlink(),
         modified: stat_time(stat.mtime),
+        ..VfsEntry::default()
     })
 }
 
