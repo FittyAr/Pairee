@@ -257,17 +257,32 @@ path inside `registry/`, so a signature cannot be replayed for another file.
 
 * A signature that is present but does not verify **always** fails the
   operation (also for the blocklist).
-* A missing signature is accepted with an **"unsigned" warning** (CLI report
-  line, TUI toast) while the registry is not signed yet. Users can refuse
-  unsigned files with `registry_require_signature = true` under `[security]`
-  in `config.toml`; this will become the default once the registry is signed.
+* A missing signature is refused once the installation has verified a
+  registry file signed with the configured key (recorded in
+  `registry_signed` in the config folder), so stripping the signatures does
+  not downgrade a signed registry. Before that first signed file it is
+  accepted with an **"unsigned" warning** (CLI report line, TUI toast): the
+  grace period while the registry gets signed. This is the default,
+  `registry_require_signature = true` under `[security]` in `config.toml`;
+  `false` accepts unsigned files with the warning, always.
 * The public key defaults to the Pairee release key embedded in the binary
   (`RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6`). A fork or a
   private registry can set `registry_public_key = "<base64 key>"` under
   `[security]`.
 
-**How maintainers sign the registry** (on the `plugin-registry` branch, with
-the offline release secret key):
+**How the registry is signed.** The `plugin-registry` branch has a **Sign
+registry** workflow (`.github/workflows/sign-registry.yml` on that branch):
+after every push that changes `index.toml`, `blocklist.toml` or a
+`manifest.toml`, it signs them with master's `.github/scripts/sign.sh` (the
+release signing script; repository secrets `MINISIGN_SECRET_KEY` and, if the
+key has one, `MINISIGN_PASSWORD`), verifies each signature against the key
+embedded in Pairee and commits the `.minisig` files that changed (with
+`GITHUB_TOKEN` and `[skip ci]`, so it does not trigger itself; signing is
+deterministic, so a rerun commits nothing). Because every push gets signed,
+the branch must only take reviewed pull requests; required reviewers on the
+`registry-signing` environment can also gate each run.
+
+By hand (same result, with the offline release secret key):
 
 ```bash
 cd registry
