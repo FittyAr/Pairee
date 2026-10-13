@@ -84,14 +84,14 @@ impl DialogStack {
     }
 
     /// Open `popup` as the sole overlay (replaces the stack).
-    pub fn replace(&mut self, popup: PopupType) {
+    pub fn replace(&mut self, popup: impl Into<PopupType>) {
         self.frames.clear();
-        self.frames.push(popup);
+        self.frames.push(popup.into());
     }
 
     /// Push a nested dialog on top of the current one.
-    pub fn push(&mut self, popup: PopupType) {
-        self.frames.push(popup);
+    pub fn push(&mut self, popup: impl Into<PopupType>) {
+        self.frames.push(popup.into());
     }
 
     /// Option-like set: `Some` replaces, `None` clears.

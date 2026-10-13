@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::WipeConfirm;
 use crate::app::state::{AppState, PopupType};
 use crate::fs::transfer::job::TransferOperation;
 use crate::fs::transfer::options::TransferOptions;
@@ -10,7 +11,7 @@ pub fn handle(state: &mut AppState, context: &mut AppContext) -> bool {
         if context.config.settings.confirmations.confirm_wipe {
             state
                 .dialogs
-                .replace(PopupType::WipeConfirm { paths: targets });
+                .replace(PopupType::WipeConfirm(WipeConfirm { paths: targets }));
         } else {
             submit_simple(
                 state,

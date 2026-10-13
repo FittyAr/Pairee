@@ -4,6 +4,7 @@
 use super::top;
 use crate::app::state::PopupType;
 use crate::app::state::popup::About;
+use crate::app::state::popup::MkDirPrompt;
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
 use crossterm::event::{KeyModifiers, MouseButton};
@@ -29,9 +30,15 @@ fn clicking_inside_a_popup_keeps_it_open() {
 fn a_dialog_with_typed_input_survives_a_stray_click() {
     let mut h = Harness::new();
     h.keys("@mkdir");
-    assert!(matches!(top(&h), Some(PopupType::MkDirPrompt { .. })));
+    assert!(matches!(
+        top(&h),
+        Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))
+    ));
     h.click(0, 1);
-    assert!(matches!(top(&h), Some(PopupType::MkDirPrompt { .. })));
+    assert!(matches!(
+        top(&h),
+        Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))
+    ));
 }
 
 fn body(h: &mut Harness) -> ratatui::layout::Rect {

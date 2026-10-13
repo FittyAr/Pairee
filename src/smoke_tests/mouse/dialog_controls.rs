@@ -3,6 +3,8 @@
 
 use super::top;
 use crate::app::state::PopupType;
+use crate::app::state::popup::MkDirPrompt;
+use crate::app::state::popup::RenamePrompt;
 use crate::test_harness::Harness;
 use crate::ui::hit::HitTarget;
 
@@ -28,9 +30,9 @@ fn form_controls_toggle_type_and_press_buttons() {
     let mut h = Harness::new();
     h.keys("@mkdir");
     let multiple = |h: &Harness| match top(h) {
-        Some(PopupType::MkDirPrompt {
+        Some(PopupType::MkDirPrompt(MkDirPrompt {
             process_multiple, ..
-        }) => *process_multiple,
+        })) => *process_multiple,
         other => panic!("mkdir closed: {other:?}"),
     };
     let before = multiple(&h);
@@ -71,7 +73,7 @@ fn clicking_in_a_field_moves_its_cursor() {
     };
     h.click(text_x + 3, fy);
     let cursor = match top(&h) {
-        Some(PopupType::RenamePrompt { input, .. }) => input.cursor(),
+        Some(PopupType::RenamePrompt(RenamePrompt { input, .. })) => input.cursor(),
         other => panic!("{other:?}"),
     };
     assert_eq!(cursor, 3);

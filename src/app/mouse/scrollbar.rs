@@ -32,9 +32,6 @@ fn popup_scroll(popup: &mut PopupType, id: ScrollTargetId) -> Option<&mut usize>
             Some(scroll_y)
         }
         (ScrollTargetId::QuickView, PopupType::QuickViewPanel(qv)) => Some(&mut qv.scroll),
-        (ScrollTargetId::MultiRenamePreview, PopupType::MultiRename(dialog)) => {
-            Some(&mut dialog.scroll)
-        }
         _ => None,
     }
 }

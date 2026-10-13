@@ -1,4 +1,5 @@
 use super::*;
+use crate::app::state::popup::CopyMoveFilterPrompt;
 use crate::app::state::popup::TransferPromptOp;
 use crate::config::AppConfig;
 use crossterm::event::KeyModifiers;
@@ -70,12 +71,19 @@ fn filter_button_opens_filter_over_the_dialog() {
     }
     press(&mut state, KeyCode::Enter).unwrap();
     match state.dialogs.top() {
-        Some(PopupType::CopyMoveFilterPrompt { input, previous }) => {
+        Some(PopupType::CopyMoveFilterPrompt(CopyMoveFilterPrompt { input })) => {
             assert_eq!(input, "*.txt");
-            assert!(matches!(**previous, PopupType::TransferPrompt(_)));
         }
         other => panic!("expected filter prompt, got {other:?}"),
     }
+    // Stacked over the transfer dialog, which gets the mask back on Enter.
+    assert_eq!(state.dialogs.depth(), 2);
+    for code in [KeyCode::Char('x'), KeyCode::Enter] {
+        let key = KeyEvent::new(code, KeyModifiers::NONE);
+        crate::app::input_popup::handle_popup_input(&mut state, key, &mut context()).unwrap();
+    }
+    assert_eq!(state.dialogs.depth(), 1);
+    assert_eq!(prompt(&state).filter_mask, "*.txtx");
 }
 
 #[test]

@@ -1,6 +1,7 @@
 //! Folder sizes, the disk usage view, folder compare and synchronize
 //! (left to right plan applied through the Transfer Engine).
 
+use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::{ActivePanel, PopupType};
 use crate::test_harness::Harness;
 
@@ -35,7 +36,7 @@ fn disk_usage_view_navigates_and_deletes() {
     h.keys("Delete");
     assert!(matches!(
         h.state.dialogs.top(),
-        Some(PopupType::ConfirmDelete { .. })
+        Some(PopupType::ConfirmDelete(ConfirmDelete { .. }))
     ));
     h.keys("Enter");
     h.wait_until("delete from the view", |h| {

@@ -7,18 +7,25 @@ mod options;
 use crate::app::state::CopyMovePromptState as Prompt;
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, FocusStyles};
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
 };
 
-pub fn render(
+impl DialogView for Prompt {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render(f, self, cx.theme, cx.area);
+    }
+}
+
+fn render(
     f: &mut Frame,
     prompt: &Prompt,
     theme: &crate::ui::resolved_theme::ResolvedTheme,
     size: Rect,
-) -> bool {
+) {
     let labels = prompt.op.labels();
     let inner = kit::dialog_frame(
         f,
@@ -53,5 +60,4 @@ pub fn render(
         kit::mouse::FormFocus::new(Prompt::FORM, prompt.cursor_idx),
         styles,
     );
-    true
 }

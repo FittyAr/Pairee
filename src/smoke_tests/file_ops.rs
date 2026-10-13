@@ -2,7 +2,9 @@
 //! to the trash) and undo / redo of the journal.
 
 use crate::app::state::PopupType;
+use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::popup::ConfirmUndo;
+use crate::app::state::popup::MkDirPrompt;
 use crate::test_harness::Harness;
 
 const KEYMAPS: [&str; 2] = ["norton", "vscode"];
@@ -18,7 +20,10 @@ fn make_folder() {
         let mut h = Harness::builder().keymap(keymap).build();
         h.keys("@mkdir");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::MkDirPrompt { .. })),
+            matches!(
+                h.state.dialogs.top(),
+                Some(PopupType::MkDirPrompt(MkDirPrompt { .. }))
+            ),
             "{keymap}"
         );
         h.text("nueva carpeta").keys("Enter");
@@ -76,7 +81,10 @@ fn permanent_delete_asks_first() {
         h.write("work/left/doomed.txt", "x");
         h.reread().focus("doomed.txt").keys("@delete");
         assert!(
-            matches!(h.state.dialogs.top(), Some(PopupType::ConfirmDelete { .. })),
+            matches!(
+                h.state.dialogs.top(),
+                Some(PopupType::ConfirmDelete(ConfirmDelete { .. }))
+            ),
             "{keymap}"
         );
         h.assert_screen("doomed.txt");

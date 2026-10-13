@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::ConfirmDelete;
 use crate::app::state::{AppState, DialogStack, PopupType};
 use crate::fs::transfer::job::TransferOperation;
 use crate::fs::transfer::options::TransferOptions;
@@ -87,11 +88,11 @@ pub fn request(
             }));
 
     if show_prompt {
-        let confirm = PopupType::ConfirmDelete {
+        let confirm = PopupType::ConfirmDelete(ConfirmDelete {
             paths: targets,
             cursor_idx: 0,
             to_trash,
-        };
+        });
         if over_dialog {
             state.dialogs.push(confirm);
         } else {

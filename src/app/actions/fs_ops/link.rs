@@ -1,3 +1,4 @@
+use crate::app::state::popup::CreateLinkPrompt;
 use crate::app::state::{AppState, LinkKind, PopupType};
 use std::path::Path;
 
@@ -6,11 +7,13 @@ pub fn handle(state: &mut AppState) -> bool {
     if let Some(entry) = active.entries.get(active.cursor_index)
         && entry.name != ".."
     {
-        state.dialogs.replace(PopupType::CreateLinkPrompt {
-            src: entry.path.clone(),
-            dest_input: entry.name.as_str().into(),
-            kind: LinkKind::Symbolic,
-        });
+        state
+            .dialogs
+            .replace(PopupType::CreateLinkPrompt(CreateLinkPrompt {
+                src: entry.path.clone(),
+                dest_input: entry.name.as_str().into(),
+                kind: LinkKind::Symbolic,
+            }));
     }
     true
 }

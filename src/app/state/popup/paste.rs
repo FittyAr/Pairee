@@ -8,29 +8,10 @@ impl PopupType {
             return self.dialog_mut().and_then(|d| d.focused_field_mut());
         }
         match self {
-            PopupType::MkDirPrompt {
-                input,
-                cursor_idx: 0,
-                ..
-            }
-            | PopupType::RenamePrompt {
-                input,
-                cursor_idx: 0,
-                ..
-            }
-            | PopupType::ApplyCommandPrompt { input, .. }
-            | PopupType::CompressPrompt { input, .. }
-            | PopupType::FilePanelFilterPrompt { input, .. }
+            PopupType::FilePanelFilterPrompt { input, .. }
             | PopupType::RenameTabPrompt { input, .. }
             | PopupType::QuickFilterPrompt { input, .. }
-            | PopupType::PanelSearch { query: input, .. }
-            | PopupType::DescribeFilePrompt { input, .. }
-            | PopupType::CopyMoveFilterPrompt { input, .. }
-            | PopupType::SelectGroupPrompt { query: input, .. }
-            | PopupType::CreateLinkPrompt {
-                dest_input: input, ..
-            } => Some(input),
-            PopupType::TransferPrompt(prompt) if prompt.cursor_idx == 0 => Some(&mut prompt.input),
+            | PopupType::PanelSearch { query: input, .. } => Some(input),
             PopupType::CommandPalette { query, .. } => Some(query),
             PopupType::Shortcuts(s) => match &mut s.mode {
                 crate::app::shortcuts::state::Mode::Browse => Some(&mut s.query),
@@ -54,7 +35,6 @@ impl PopupType {
                 1 => Some(content_query),
                 _ => None,
             },
-            PopupType::MultiRename(dialog) => dialog.focused_field_mut(),
             PopupType::SshConnectPrompt(prompt) => {
                 let row = prompt.cursor_idx;
                 prompt.field_at(row).map(|(_, field)| field)
@@ -77,38 +57,39 @@ impl PopupType {
 mod tests {
     use super::*;
     use crate::app::state::popup::ConfirmQuit;
+    use crate::app::state::popup::{ApplyCommandPrompt, CreateLinkPrompt, MkDirPrompt};
     use crate::app::state::types::LinkKind;
     use std::path::PathBuf;
 
     #[test]
     fn empty_paste_is_ignored() {
-        let mut popup = PopupType::ApplyCommandPrompt {
+        let mut popup = PopupType::ApplyCommandPrompt(ApplyCommandPrompt {
             input: "echo ".into(),
             targets: vec![],
-        };
+        });
         assert!(!popup.apply_paste(""));
     }
 
     #[test]
     fn mkdir_pastes_only_when_input_focused() {
-        let mut popup = PopupType::MkDirPrompt {
+        let mut popup = PopupType::MkDirPrompt(MkDirPrompt {
             input: "dir".into(),
             cursor_idx: 0,
             process_multiple: false,
             kind: crate::app::state::popup::CreateKind::Folder,
-        };
+        });
         assert!(popup.apply_paste("_x"));
         match &popup {
-            PopupType::MkDirPrompt { input, .. } => assert_eq!(input, "dir_x"),
+            PopupType::MkDirPrompt(MkDirPrompt { input, .. }) => assert_eq!(input, "dir_x"),
             _ => panic!("expected mkdir"),
         }
 
-        if let PopupType::MkDirPrompt { cursor_idx, .. } = &mut popup {
+        if let PopupType::MkDirPrompt(MkDirPrompt { cursor_idx, .. }) = &mut popup {
             *cursor_idx = 1;
         }
         assert!(!popup.apply_paste("_y"));
         match &popup {
-            PopupType::MkDirPrompt { input, .. } => assert_eq!(input, "dir_x"),
+            PopupType::MkDirPrompt(MkDirPrompt { input, .. }) => assert_eq!(input, "dir_x"),
             _ => panic!("expected mkdir"),
         }
     }
@@ -129,14 +110,14 @@ mod tests {
 
     #[test]
     fn create_link_pastes_into_dest() {
-        let mut popup = PopupType::CreateLinkPrompt {
+        let mut popup = PopupType::CreateLinkPrompt(CreateLinkPrompt {
             src: PathBuf::from("a"),
             dest_input: "b".into(),
             kind: LinkKind::Symbolic,
-        };
+        });
         assert!(popup.apply_paste("/c"));
         match popup {
-            PopupType::CreateLinkPrompt { dest_input, .. } => {
+            PopupType::CreateLinkPrompt(CreateLinkPrompt { dest_input, .. }) => {
                 assert_eq!(dest_input, "b/c");
             }
             _ => panic!("expected link prompt"),

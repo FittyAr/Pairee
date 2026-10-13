@@ -1,26 +1,22 @@
-use crate::app::state::PopupType;
+use crate::app::state::popup::WipeConfirm;
 use crate::config::localization::t;
 use crate::ui::popup::kit;
-use ratatui::{Frame, layout::Rect, style::Color};
+use crate::ui::popup::view::{DialogView, ViewCtx};
+use ratatui::{Frame, style::Color};
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-) -> bool {
-    let PopupType::WipeConfirm { paths } = popup else {
-        return false;
-    };
-    kit::TextBox {
-        size: (55, 8),
-        title: t("prompt_wipe_warn_title"),
-        border: kit::fg(Color::Red),
-        body: t("prompt_wipe_warn_text")
-            .replacen("{}", &paths.len().to_string(), 1)
-            .into(),
-        body_style: kit::fg(Color::LightRed),
+impl DialogView for WipeConfirm {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (theme, size) = (cx.theme, cx.area);
+        let WipeConfirm { paths } = self;
+        kit::TextBox {
+            size: (55, 8),
+            title: t("prompt_wipe_warn_title"),
+            border: kit::fg(Color::Red),
+            body: t("prompt_wipe_warn_text")
+                .replacen("{}", &paths.len().to_string(), 1)
+                .into(),
+            body_style: kit::fg(Color::LightRed),
+        }
+        .render(f, size, theme);
     }
-    .render(f, size, theme);
-    true
 }

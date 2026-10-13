@@ -1,5 +1,6 @@
 use crate::app::context::AppContext;
 use crate::app::state::popup::ConfirmRetryAsAdmin;
+use crate::app::state::popup::RenamePrompt;
 use crate::app::state::{AppState, PopupType};
 use crate::app::text_input::TextField;
 use crate::config::localization::t;
@@ -18,13 +19,13 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext, basename: bool) -
                 input.move_left();
             }
         }
-        state.dialogs.replace(PopupType::RenamePrompt {
+        state.dialogs.replace(PopupType::RenamePrompt(RenamePrompt {
             input,
             original,
             src_path: entry.path.clone(),
             parent_dir: active.current_path.clone(),
             cursor_idx: 0,
-        });
+        }));
         true
     } else {
         state

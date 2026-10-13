@@ -1,54 +1,45 @@
-use crate::app::state::popup::{ErrorMessage, InfoMessage};
-use crate::app::state::{PopupType, SelectMode};
+use crate::app::state::SelectMode;
+use crate::app::state::popup::{ApplyCommandPrompt, ErrorMessage, InfoMessage, SelectGroupPrompt};
 use crate::config::localization::t;
 use crate::ui::popup::kit::{self, TextBox};
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{Frame, layout::Rect, style::Color};
+use ratatui::{Frame, style::Color};
 
-pub fn render(
-    f: &mut Frame,
-    popup: &PopupType,
-    theme: &crate::ui::resolved_theme::ResolvedTheme,
-    size: Rect,
-    _state: &crate::app::state::AppState,
-) -> bool {
-    let fg = theme.popup_fg();
-    match popup {
-        PopupType::ApplyCommandPrompt { input, targets } => {
-            let template = t("prompt_apply_cmd_text").replacen("{}", &files_label(targets), 1);
-            TextBox {
-                size: (65, 10),
-                title: t("prompt_apply_cmd_title"),
-                border: kit::fg(Color::Yellow),
-                body: kit::prompt_text(&template, input, theme),
-                body_style: fg,
-            }
-            .with_field(kit::field_at(&template))
-            .render(f, size, theme);
-            true
+impl DialogView for ApplyCommandPrompt {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let template = t("prompt_apply_cmd_text").replacen("{}", &files_label(&self.targets), 1);
+        TextBox {
+            size: (65, 10),
+            title: t("prompt_apply_cmd_title"),
+            border: kit::fg(Color::Yellow),
+            body: kit::prompt_text(&template, &self.input, cx.theme),
+            body_style: cx.theme.popup_fg(),
         }
-        PopupType::SelectGroupPrompt { mode, query } => {
-            let (title, label) = match mode {
-                SelectMode::Add => ("prompt_select_group_title", "prompt_select_group_pat"),
-                SelectMode::Remove => ("prompt_unselect_group_title", "prompt_unselect_group_pat"),
-            };
-            let template = format!(
-                "\n {}\n\n > {{}}\n\n {}",
-                t(label),
-                t("prompt_confirm_cancel_hint")
-            );
-            TextBox {
-                size: (50, 9),
-                title: t(title),
-                border: kit::fg(Color::Cyan),
-                body: kit::prompt_text(&template, query, theme),
-                body_style: fg,
-            }
-            .with_field(kit::field_at(&template))
-            .render(f, size, theme);
-            true
+        .with_field(kit::field_at(&template))
+        .render(f, cx.area, cx.theme);
+    }
+}
+
+impl DialogView for SelectGroupPrompt {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        let (title, label) = match self.mode {
+            SelectMode::Add => ("prompt_select_group_title", "prompt_select_group_pat"),
+            SelectMode::Remove => ("prompt_unselect_group_title", "prompt_unselect_group_pat"),
+        };
+        let template = format!(
+            "\n {}\n\n > {{}}\n\n {}",
+            t(label),
+            t("prompt_confirm_cancel_hint")
+        );
+        TextBox {
+            size: (50, 9),
+            title: t(title),
+            border: kit::fg(Color::Cyan),
+            body: kit::prompt_text(&template, &self.query, cx.theme),
+            body_style: cx.theme.popup_fg(),
         }
-        _ => false,
+        .with_field(kit::field_at(&template))
+        .render(f, cx.area, cx.theme);
     }
 }
 

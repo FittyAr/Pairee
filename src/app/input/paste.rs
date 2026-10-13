@@ -28,7 +28,9 @@ pub fn handle_paste(state: &mut AppState, raw: &str) {
 mod paste_tests {
     use super::*;
     use crate::app::state::PopupType;
+    use crate::app::state::popup::ApplyCommandPrompt;
     use crate::app::state::popup::ConfirmQuit;
+    use crate::app::state::popup::RenamePrompt;
     use std::path::PathBuf;
 
     #[test]
@@ -41,16 +43,16 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_rename_prompt() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::RenamePrompt {
+        state.dialogs.replace(PopupType::RenamePrompt(RenamePrompt {
             input: "old".into(),
             original: "old".into(),
             src_path: PathBuf::from("old"),
             parent_dir: PathBuf::from("."),
             cursor_idx: 0,
-        });
+        }));
         handle_paste(&mut state, "new-name.txt\n");
         match state.dialogs.top() {
-            Some(PopupType::RenamePrompt { input, .. }) => {
+            Some(PopupType::RenamePrompt(RenamePrompt { input, .. })) => {
                 assert_eq!(input, "oldnew-name.txt");
             }
             other => panic!("expected rename prompt, got {other:?}"),
@@ -69,13 +71,15 @@ mod paste_tests {
     #[test]
     fn paste_goes_to_apply_command() {
         let mut state = AppState::new(PathBuf::from("."), PathBuf::from("."));
-        state.dialogs.replace(PopupType::ApplyCommandPrompt {
-            input: "echo ".into(),
-            targets: vec![],
-        });
+        state
+            .dialogs
+            .replace(PopupType::ApplyCommandPrompt(ApplyCommandPrompt {
+                input: "echo ".into(),
+                targets: vec![],
+            }));
         handle_paste(&mut state, "%f\r\nmore");
         match state.dialogs.top() {
-            Some(PopupType::ApplyCommandPrompt { input, .. }) => {
+            Some(PopupType::ApplyCommandPrompt(ApplyCommandPrompt { input, .. })) => {
                 assert_eq!(input, "echo %f");
             }
             other => panic!("expected apply prompt, got {other:?}"),

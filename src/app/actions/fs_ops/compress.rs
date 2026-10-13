@@ -1,4 +1,5 @@
 use crate::app::context::AppContext;
+use crate::app::state::popup::CompressPrompt;
 use crate::app::state::{AppState, PopupType};
 
 pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
@@ -10,11 +11,13 @@ pub fn handle(state: &mut AppState, _context: &mut AppContext) -> bool {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_else(|| "archive".to_string());
         let dest_dir = state.get_passive_panel().current_path.clone();
-        state.dialogs.replace(PopupType::CompressPrompt {
-            input: default_name.into(),
-            targets,
-            dest_dir,
-        });
+        state
+            .dialogs
+            .replace(PopupType::CompressPrompt(CompressPrompt {
+                input: default_name.into(),
+                targets,
+                dest_dir,
+            }));
     }
     true
 }

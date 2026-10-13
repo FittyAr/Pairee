@@ -97,10 +97,7 @@ fn git_progress(
 /// Maps the active popup to its key handler.
 fn handler_for(popup: &PopupType) -> PopupHandler {
     match popup {
-        PopupType::MkDirPrompt { .. } => mkdir::handle,
         PopupType::PanelSearch { .. } => panel_search::handle,
-        PopupType::TransferPrompt(..) => transfer_prompt::handle,
-        PopupType::ConfirmDelete { .. } | PopupType::WipeConfirm { .. } => delete::handle,
         PopupType::UserMenu { .. } => user_menu::handle,
         PopupType::EditorSearchPrompt(_)
         | PopupType::EditorSaveAsPrompt { .. }
@@ -112,21 +109,13 @@ fn handler_for(popup: &PopupType) -> PopupHandler {
         PopupType::DriveSelect { .. } => drive_select::handle,
         PopupType::Hotlist { .. } => hotlist::handle,
         PopupType::FolderShortcuts { .. } => folder_shortcuts::handle,
-        PopupType::RenamePrompt { .. } => rename::handle,
-        PopupType::MultiRename(..) => multi_rename::handle,
         PopupType::SearchPrompt { .. } | PopupType::SearchResults { .. } => search::handle,
         PopupType::TreeView { .. } => tree_view::handle,
         PopupType::SyncDirs(_) => sync_dirs::handle,
         PopupType::FolderScanProgress => sync_dirs::handle_progress,
         PopupType::ContextMenu { .. } => context_menu::handle,
-        PopupType::CompressPrompt { .. } => compress::handle,
         PopupType::ArchiveCommandsMenu { .. } => archive_commands::handle,
-        PopupType::CopyMoveFilterPrompt { .. } => copy_filter::handle,
-        PopupType::SelectGroupPrompt { .. } => select_group::handle,
-        PopupType::ApplyCommandPrompt { .. } => apply_command::handle,
-        PopupType::DescribeFilePrompt { .. } => describe_file::handle,
         PopupType::RenameTabPrompt { .. } => rename_tab::handle,
-        PopupType::CreateLinkPrompt { .. } => create_link::handle,
         PopupType::FilePanelFilterPrompt { .. } | PopupType::QuickFilterPrompt { .. } => {
             file_filter::handle
         }

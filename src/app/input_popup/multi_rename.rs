@@ -6,9 +6,12 @@ use crate::app::actions::fs_ops::multi_rename;
 use crate::app::context::AppContext;
 use crate::app::form::FormKey;
 use crate::app::list_nav::{ScrollKeys, scroll_key};
-use crate::app::state::popup::MultiRenameState as Dialog;
+use crate::app::state::popup::MultiRenameState as MultiRename;
+use crate::app::state::popup::{Dialog, DialogScroll, KeyHandler};
 use crate::app::state::{AppState, PopupType};
+use crate::app::text_input::TextField;
 use crate::keybindings::Action;
+use crate::ui::scrollbar::ScrollTargetId;
 use crossterm::event::{KeyCode, KeyEvent};
 
 /// Preview rows moved by PgUp / PgDn.
@@ -28,16 +31,16 @@ pub fn handle(
     if scroll_preview(dialog, key.code) {
         return Ok(None);
     }
-    if dialog.focus == Dialog::ROW_CASE && matches!(key.code, KeyCode::Left | KeyCode::Right) {
+    if dialog.focus == MultiRename::ROW_CASE && matches!(key.code, KeyCode::Left | KeyCode::Right) {
         dialog.case = dialog.case.cycle(key.code == KeyCode::Right);
         dialog.refresh_preview();
         return Ok(None);
     }
     let mut focus = dialog.focus;
-    let outcome = Dialog::FORM.handle(&mut focus, dialog.focused_field_mut(), &key);
+    let outcome = MultiRename::FORM.handle(&mut focus, dialog.focused_field_mut(), &key);
     dialog.focus = focus;
     match outcome {
-        FormKey::Activate(Dialog::BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
+        FormKey::Activate(MultiRename::BUTTON_CANCEL) | FormKey::Cancel => state.dialogs.clear(),
         FormKey::Activate(_) => multi_rename::start(state),
         FormKey::Toggle(row) => {
             toggle(dialog, row);
@@ -50,18 +53,18 @@ pub fn handle(
 }
 
 /// Space on an option row.
-fn toggle(dialog: &mut Dialog, row: usize) {
+fn toggle(dialog: &mut MultiRename, row: usize) {
     match row {
-        Dialog::ROW_REGEX => dialog.regex = !dialog.regex,
-        Dialog::ROW_IGNORE_CASE => dialog.ignore_case = !dialog.ignore_case,
-        Dialog::ROW_CASE => dialog.case = dialog.case.cycle(true),
+        MultiRename::ROW_REGEX => dialog.regex = !dialog.regex,
+        MultiRename::ROW_IGNORE_CASE => dialog.ignore_case = !dialog.ignore_case,
+        MultiRename::ROW_CASE => dialog.case = dialog.case.cycle(true),
         _ => {}
     }
 }
 
 /// PgUp / PgDn scroll the preview table (arrows move the focus between the
 /// fields).
-fn scroll_preview(dialog: &mut Dialog, code: KeyCode) -> bool {
+fn scroll_preview(dialog: &mut MultiRename, code: KeyCode) -> bool {
     if !matches!(code, KeyCode::PageUp | KeyCode::PageDown) {
         return false;
     }
@@ -76,3 +79,15 @@ fn scroll_preview(dialog: &mut Dialog, code: KeyCode) -> bool {
 
 #[cfg(test)]
 mod tests;
+
+impl Dialog for MultiRename {
+    fn key_handler(&self) -> KeyHandler {
+        handle
+    }
+    fn focused_field_mut(&mut self) -> Option<&mut TextField> {
+        MultiRename::focused_field_mut(self)
+    }
+    fn scroll_mut(&mut self, id: ScrollTargetId) -> Option<DialogScroll<'_>> {
+        (id == ScrollTargetId::MultiRenamePreview).then_some(DialogScroll::Offset(&mut self.scroll))
+    }
+}

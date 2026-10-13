@@ -20,30 +20,12 @@ pub fn render_prompt_popup(
     state: &AppState,
 ) -> bool {
     match popup {
-        PopupType::MultiRename(dialog) => {
-            file_ops::multi_rename::render(f, dialog, theme, size, &state.scrollbar)
-        }
-
-        PopupType::MkDirPrompt { .. }
-        | PopupType::TransferPrompt(..)
-        | PopupType::RenamePrompt { .. }
-        | PopupType::ConfirmDelete { .. }
-        | PopupType::WipeConfirm { .. }
-        | PopupType::CreateLinkPrompt { .. }
-        | PopupType::DescribeFilePrompt { .. }
-        | PopupType::CompressPrompt { .. } => file_ops::render(f, popup, theme, size),
-
         PopupType::FilePanelFilterPrompt { .. }
         | PopupType::QuickFilterPrompt { .. }
-        | PopupType::CopyMoveFilterPrompt { .. }
         | PopupType::RenameTabPrompt { .. }
         | PopupType::PanelSearch { .. } => filter::render(f, popup, theme, size),
 
         PopupType::SshConnectPrompt(..) => ssh::render(f, popup, theme, size, context),
-
-        PopupType::ApplyCommandPrompt { .. } | PopupType::SelectGroupPrompt { .. } => {
-            system::render(f, popup, theme, size, state)
-        }
 
         PopupType::Plugin(_) => plugin::render(f, popup, theme, size),
 

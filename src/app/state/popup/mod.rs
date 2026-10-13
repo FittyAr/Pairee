@@ -16,6 +16,7 @@ mod paste;
 mod plugin;
 mod plugin_menu;
 mod plugin_widget;
+mod prompts;
 mod quickview;
 mod ssh;
 pub mod sync;
@@ -40,14 +41,17 @@ pub use multi_rename::{MultiRenameState, RenameField};
 pub use plugin::PluginDialog;
 pub use plugin_menu::PluginMenuState;
 pub use plugin_widget::PluginWidget;
+pub use prompts::{
+    ApplyCommandPrompt, CompressPrompt, ConfirmDelete, CopyMoveFilterPrompt, CreateLinkPrompt,
+    DescribeFilePrompt, MkDirPrompt, RenamePrompt, SelectGroupPrompt, WipeConfirm,
+};
 pub use quickview::QuickViewDialog;
 pub use ssh::{SshConnectPromptState, SshField};
 pub use sync::{SyncDialog, SyncReview};
 pub use text_search::{SearchKey, TextSearchState};
 
 use super::types::{
-    ActivePanel, FileAttrsSnapshot, LinkKind, ProcessEntry, SelectMode, SortField, TreeNode,
-    TreeViewCaller,
+    ActivePanel, FileAttrsSnapshot, ProcessEntry, SortField, TreeNode, TreeViewCaller,
 };
 use crate::app::text_input::TextField;
 use std::path::PathBuf;
@@ -83,56 +87,26 @@ macro_rules! dialog_list {
                 ConfirmClearHistory(ConfirmClearHistory),
                 ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
                 SaveSetupConfirm(SaveSetupConfirm),
+                MkDirPrompt(MkDirPrompt),
+                TransferPrompt(CopyMovePromptState),
+                RenamePrompt(RenamePrompt),
+                MultiRename(Box<MultiRenameState>),
+                CompressPrompt(CompressPrompt),
+                ApplyCommandPrompt(ApplyCommandPrompt),
+                DescribeFilePrompt(DescribeFilePrompt),
+                SelectGroupPrompt(SelectGroupPrompt),
+                CreateLinkPrompt(CreateLinkPrompt),
+                CopyMoveFilterPrompt(CopyMoveFilterPrompt),
+                ConfirmDelete(ConfirmDelete),
+                WipeConfirm(WipeConfirm),
             ]
             legacy: [
-
         /// In-panel search (`find_in_panel`, NC quick search).
         PanelSearch {
             query: TextField,
             how: crate::app::input::panel_find::NameMatch,
             /// Cursor when the search started.
             origin: usize,
-        },
-        MkDirPrompt {
-            input: TextField,
-            cursor_idx: usize,
-            process_multiple: bool,
-            /// Folder (`mkdir`), file (`new_file`) or either (`create`).
-            kind: CreateKind,
-        },
-        /// Copy (F5) / Move (F6) dialog.
-        TransferPrompt(CopyMovePromptState),
-        RenamePrompt {
-            input: TextField,
-            original: String,
-            src_path: PathBuf,
-            parent_dir: PathBuf,
-            cursor_idx: usize,
-        },
-        /// Multi-rename tool (Shift+F6).
-        MultiRename(Box<MultiRenameState>),
-        CompressPrompt {
-            input: TextField,
-            targets: Vec<PathBuf>,
-            dest_dir: PathBuf,
-        },
-        ApplyCommandPrompt {
-            input: TextField,
-            targets: Vec<PathBuf>,
-        },
-        DescribeFilePrompt {
-            path: PathBuf,
-            current_desc: String,
-            input: TextField,
-        },
-        SelectGroupPrompt {
-            mode: SelectMode,
-            query: TextField,
-        },
-        CreateLinkPrompt {
-            src: PathBuf,
-            dest_input: TextField,
-            kind: LinkKind,
         },
         FilePanelFilterPrompt {
             input: TextField,
@@ -147,28 +121,12 @@ macro_rules! dialog_list {
             original_mask: Option<String>,
             original_cursor: usize,
         },
-        CopyMoveFilterPrompt {
-            input: TextField,
-            previous: Box<PopupType>,
-        },
         SelectDevPlugin {
             options: Vec<(String, String)>,
             cursor_idx: usize,
             previous_popup: Box<PopupType>,
         },
-
-        ConfirmDelete {
-            paths: Vec<PathBuf>,
-            cursor_idx: usize,
-            /// Goes to the recycle bin (else deleted for good).
-            to_trash: bool,
-        },
-        WipeConfirm {
-            paths: Vec<PathBuf>,
-        },
-
         TransferPanel,
-
         UserMenu {
             cursor_idx: usize,
         },
@@ -198,18 +156,15 @@ macro_rules! dialog_list {
             cursor_idx: usize,
         },
         PluginMenu(PluginMenuState),
-
         SortModesDialog {
             current: SortField,
             reverse: bool,
             cursor_idx: usize,
         },
-
         ScreensMenu {
             cursor_idx: usize,
             suspended_popup: Option<Box<PopupType>>,
         },
-
         EditorSearchPrompt(TextSearchState),
         /// "Save as" path entry for the built-in editor (Shift+F2).
         EditorSaveAsPrompt {
@@ -226,12 +181,10 @@ macro_rules! dialog_list {
             cursor_idx: usize,
         },
         QuickViewPanel(Box<QuickViewDialog>),
-
         FileAttributesDialog {
             attrs: FileAttrsSnapshot,
             mode_input: String,
         },
-
         SearchPrompt {
             query: TextField,
             content_query: TextField,
@@ -246,7 +199,6 @@ macro_rules! dialog_list {
             cursor_idx: usize,
             searching: bool,
         },
-
         CommandHistoryList {
             entries: Vec<String>,
             cursor_idx: usize,
@@ -259,10 +211,8 @@ macro_rules! dialog_list {
             entries: Vec<PathBuf>,
             cursor_idx: usize,
         },
-
         /// Disk usage view; its data lives in `AppState::disk_usage`.
         DiskUsage,
-
         CompareFoldersResult {
             diff: Vec<crate::fs::compare::CompareEntry>,
             cursor_idx: usize,
@@ -271,14 +221,12 @@ macro_rules! dialog_list {
         FolderScanProgress,
         /// Synchronize folders: options, then review of the differences.
         SyncDirs(Box<SyncDialog>),
-
         TaskListDialog {
             tasks: Vec<ProcessEntry>,
             cursor_idx: usize,
             filter_query: TextField,
             is_filtering: bool,
         },
-
         FileAssociationsDialog {
             rules: Vec<crate::config::associations::AssocRule>,
             cursor_idx: usize,
@@ -287,21 +235,17 @@ macro_rules! dialog_list {
             edit_buffer: TextField,
             original_rule: Option<crate::config::associations::AssocRule>,
         },
-
         TreeView {
             nodes: Vec<TreeNode>,
             cursor_idx: usize,
             caller: TreeViewCaller,
         },
-
         ArchiveCommandsMenu {
             archive_path: PathBuf,
             items: Vec<String>,
             cursor_idx: usize,
         },
-
         ConfigurationDialog(ConfigurationDialogState),
-
         ColorGroupsDialog {
             cursor_idx: usize,
             /// The color being typed (Enter), if any.
@@ -314,16 +258,13 @@ macro_rules! dialog_list {
             edit: Option<TextField>,
             rules: Vec<crate::ui::highlight::HighlightRule>,
         },
-
         GitPanel(GitPanelState),
         GitPrompt(GitPromptPopup),
         /// Progress of the background Git network operation (`AppState::git_op`).
         GitProgress {
             title: String,
         },
-
         SshConnectPrompt(SshConnectPromptState),
-
         UpdateAvailable {
             info: crate::update::UpdateInfo,
             cursor_idx: usize,
@@ -331,20 +272,16 @@ macro_rules! dialog_list {
             error: Option<String>,
             scroll_y: usize,
         },
-
         OnboardingKeymap {
             cursor_idx: usize,
         },
-
         CommandPalette {
             query: TextField,
             cursor_idx: usize,
             items: Vec<(String, crate::keybindings::Action)>,
         },
-
         /// Keyboard-shortcuts modal (`which_key`).
         Shortcuts(Box<crate::app::shortcuts::state::ShortcutsState>),
-
         Plugin(PluginDialog),
             ]
         }

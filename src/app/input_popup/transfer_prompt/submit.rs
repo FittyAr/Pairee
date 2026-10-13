@@ -1,6 +1,7 @@
 //! Actions of the transfer dialog buttons: submit, folder tree, filter.
 
 use crate::app::context::AppContext;
+use crate::app::state::popup::CopyMoveFilterPrompt;
 use crate::app::state::types::TreeViewCaller;
 use crate::app::state::{AppState, PopupType};
 use crate::fs::transfer::{submit_simple, transfer_options_from_settings};
@@ -52,7 +53,5 @@ pub fn open_filter_prompt(state: &mut AppState) {
         return;
     };
     let input = prompt.filter_mask.as_str().into();
-    state
-        .dialogs
-        .open_over(|previous| PopupType::CopyMoveFilterPrompt { input, previous });
+    state.dialogs.push(CopyMoveFilterPrompt { input });
 }

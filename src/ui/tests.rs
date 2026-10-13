@@ -1,5 +1,6 @@
 use super::terminal_screen::terminal_output_text;
 use crate::app::context::AppContext;
+use crate::app::state::popup::RenamePrompt;
 use crate::app::state::types::TerminalState;
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::AppConfig;
@@ -98,13 +99,13 @@ fn draw_ui_survives_resize_and_tiny_frame() {
 #[test]
 fn draw_ui_rename_prompt_does_not_panic() {
     let (context, mut state) = test_app();
-    state.dialogs.replace(PopupType::RenamePrompt {
+    state.dialogs.replace(PopupType::RenamePrompt(RenamePrompt {
         input: "nuevo.txt".into(),
         original: "old.txt".into(),
         src_path: PathBuf::from("./old.txt"),
         parent_dir: PathBuf::from("."),
         cursor_idx: 0,
-    });
+    }));
     let backend = TestBackend::new(80, 24);
     let mut terminal = Terminal::new(backend).expect("test terminal");
     terminal

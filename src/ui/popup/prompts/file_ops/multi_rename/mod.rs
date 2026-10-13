@@ -4,6 +4,7 @@ mod preview;
 
 use crate::app::state::popup::{MultiRenameState as Dialog, RenameField};
 use crate::config::localization::t;
+use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::popup::{centered_rect_in, kit};
 use crate::ui::resolved_theme::ResolvedTheme;
 use crate::ui::scrollbar::ScrollbarUiState;
@@ -17,13 +18,19 @@ use ratatui::{
 /// Width / height of the dialog in percent of the screen.
 const SIZE_PERCENT: (u16, u16) = (90, 85);
 
-pub fn render(
+impl DialogView for Dialog {
+    fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
+        render(f, self, cx.theme, cx.area, &cx.state.scrollbar);
+    }
+}
+
+fn render(
     f: &mut Frame,
     dialog: &Dialog,
     theme: &ResolvedTheme,
     size: Rect,
     scrollbar: &ScrollbarUiState,
-) -> bool {
+) {
     let area = centered_rect_in(SIZE_PERCENT.0, SIZE_PERCENT.1, size);
     let mut title = t("multi_rename_title");
     if dialog.running {
@@ -91,7 +98,6 @@ pub fn render(
         kit::mouse::FormFocus::new(Dialog::FORM, dialog.focus),
         rename_style,
     );
-    true
 }
 
 /// "N files, M to rename, K conflicts", or the regex error in red.
