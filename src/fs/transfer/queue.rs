@@ -1,6 +1,7 @@
 use crate::lock::LockExt;
 use std::collections::VecDeque;
 use std::sync::{Arc, Mutex};
+use tokio::sync::Notify;
 use uuid::Uuid;
 
 use super::job::{TransferJob, TransferJobStatus};
@@ -9,6 +10,9 @@ use super::job::{TransferJob, TransferJobStatus};
 pub struct TransferQueue {
     jobs: Arc<Mutex<VecDeque<TransferJob>>>,
     active_job_id: Arc<Mutex<Option<Uuid>>>,
+    /// Signalled whenever jobs are added or changed, so the engine's
+    /// coordinator waits for work instead of polling.
+    changed: Arc<Notify>,
 }
 
 impl TransferQueue {
@@ -16,12 +20,19 @@ impl TransferQueue {
         Self {
             jobs: Arc::new(Mutex::new(VecDeque::new())),
             active_job_id: Arc::new(Mutex::new(None)),
+            changed: Arc::new(Notify::new()),
         }
     }
 
+    /// Waits until the queue changes (a change made while nobody waited
+    /// is remembered).
+    pub async fn changed(&self) {
+        self.changed.notified().await;
+    }
+
     pub fn enqueue(&self, job: TransferJob) {
-        let mut jobs = self.jobs.lock_safe();
-        jobs.push_back(job);
+        self.jobs.lock_safe().push_back(job);
+        self.changed.notify_one();
     }
 
     pub fn dequeue(&self) -> Option<TransferJob> {
@@ -117,5 +128,7 @@ impl TransferQueue {
         if let Some(job) = jobs.iter_mut().find(|j| j.id == job_id) {
             update_fn(job);
         }
+        drop(jobs);
+        self.changed.notify_one();
     }
 }
