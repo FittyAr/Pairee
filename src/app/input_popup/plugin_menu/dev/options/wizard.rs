@@ -68,7 +68,6 @@ fn finish_init_wizard(state: &mut AppState, context: &mut AppContext, menu: &mut
             &folder_name,
             &desc,
             &author,
-            false,
             Some(tx.clone()),
             &plugins_dev_dir,
         );

@@ -11,6 +11,7 @@
 
 mod shipped;
 
+use crate::config::write_atomic;
 use crate::keybindings::embedded;
 use anyhow::{Context, Result};
 use std::fs;
@@ -34,7 +35,8 @@ fn seed_preset(dir: &Path, name: &str, shipped: &str) -> Result<()> {
     let shipped_digest = digest(shipped);
     match fs::read_to_string(&path) {
         Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
-            fs::write(&path, shipped).with_context(|| format!("writing {}", path.display()))?;
+            write_atomic(&path, shipped.as_bytes())
+                .with_context(|| format!("writing {}", path.display()))?;
         }
         Err(e) => return Err(e).with_context(|| format!("reading {}", path.display())),
         Ok(current) if digest(&current) == shipped_digest => {
@@ -44,16 +46,18 @@ fn seed_preset(dir: &Path, name: &str, shipped: &str) -> Result<()> {
         // Written by Pairee and never edited: a version it shipped, or the
         // one it last wrote here.
         Ok(current) if unedited(&current, &stamp) => {
-            fs::write(&path, shipped).with_context(|| format!("writing {}", path.display()))?;
+            write_atomic(&path, shipped.as_bytes())
+                .with_context(|| format!("writing {}", path.display()))?;
             let _ = fs::remove_file(&pending);
         }
         Ok(_) if fs::read_to_string(&stamp).is_ok_and(|s| s.trim() == shipped_digest) => {}
         Ok(_) => {
-            fs::write(&pending, shipped)
+            write_atomic(&pending, shipped.as_bytes())
                 .with_context(|| format!("writing {}", pending.display()))?;
         }
     }
-    fs::write(&stamp, &shipped_digest).with_context(|| format!("writing {}", stamp.display()))
+    write_atomic(&stamp, shipped_digest.as_bytes())
+        .with_context(|| format!("writing {}", stamp.display()))
 }
 
 /// `current` is a preset version Pairee shipped or last wrote (`stamp`).

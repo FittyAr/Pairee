@@ -3,12 +3,12 @@ use crate::app::state::DevProgress;
 use crate::config::localization::t;
 use tokio::sync::mpsc::UnboundedSender;
 
-pub fn lint() -> anyhow::Result<()> {
-    lint_with_progress(None)
-}
-
-pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> anyhow::Result<()> {
-    let path = std::env::current_dir()?;
+/// Lints the plugin in `path` and returns the report text (the caller
+/// prints or shows it; nothing is written to stdout here).
+pub fn lint_with_progress(
+    path: &std::path::Path,
+    progress: Option<UnboundedSender<DevProgress>>,
+) -> anyhow::Result<String> {
     progress_status(&progress, t("plugin_dev_progress_reading_manifest"));
     let manifest_path = path.join("manifest.toml");
     if !manifest_path.exists() {
@@ -26,10 +26,7 @@ pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> any
         anyhow::bail!(t("plugin_dev_lint_err_default_lang"));
     }
 
-    print!(
-        "{}",
-        t("plugin_dev_lint_start").replace("{}", &manifest.name)
-    );
+    let mut out = t("plugin_dev_lint_start").replace("{}", &manifest.name);
 
     progress_status(&progress, t("plugin_dev_progress_checking_lua"));
     let main_path = path.join("main.lua");
@@ -44,28 +41,23 @@ pub fn lint_with_progress(progress: Option<UnboundedSender<DevProgress>>) -> any
         let forbidden = ["os.execute", "io.open", "os.system", "dofile", "loadfile"];
         for f in &forbidden {
             if lua_code.contains(f) {
-                print!("{}", t("plugin_dev_lint_warn_unsafe").replace("{}", f));
+                out.push_str(&t("plugin_dev_lint_warn_unsafe").replace("{}", f));
                 warnings += 1;
             }
         }
     }
 
     for problem in key_problems(&manifest) {
-        print!("{}", t("plugin_dev_lint_warn_key").replace("{}", &problem));
+        out.push_str(&t("plugin_dev_lint_warn_key").replace("{}", &problem));
         warnings += 1;
     }
 
     if warnings == 0 {
-        print!("{}", t("plugin_dev_lint_ok"));
-        println!();
+        out.push_str(&t("plugin_dev_lint_ok"));
     } else {
-        print!(
-            "{}",
-            t("plugin_dev_lint_warn_total").replace("{}", &warnings.to_string())
-        );
-        println!();
+        out.push_str(&t("plugin_dev_lint_warn_total").replace("{}", &warnings.to_string()));
     }
-    Ok(())
+    Ok(out)
 }
 
 /// Key problems of the plugin's commands in each built-in preset: invalid

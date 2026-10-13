@@ -4,11 +4,16 @@
 use crate::plugin::loader::PluginManifest;
 use std::path::Path;
 
+/// Asks the user for a license name (the CLI reads it from the terminal;
+/// the TUI has no prompt and publishes "Custom").
+pub type AskLicense<'a> = Option<&'a dyn Fn() -> String>;
+
 /// Decides the license to publish with, writing `LICENSE` when missing.
 /// `None` keeps the manifest as it is.
 pub(super) fn resolve_license(
     plugin_dir: &Path,
     manifest: &PluginManifest,
+    ask: AskLicense<'_>,
 ) -> anyhow::Result<Option<String>> {
     if !has_license_file(plugin_dir) {
         // No license file present. Auto-assign MIT
@@ -23,7 +28,13 @@ pub(super) fn resolve_license(
     if named {
         return Ok(manifest.license.clone());
     }
-    Ok(Some(prompt_license_name()))
+    let answer = ask.map(|ask| ask()).unwrap_or_default();
+    let answer = answer.trim();
+    Ok(Some(if answer.is_empty() {
+        "Custom".to_string()
+    } else {
+        answer.to_string()
+    }))
 }
 
 /// Check for LICENSE file (case-insensitive)
@@ -38,23 +49,6 @@ fn has_license_file(plugin_dir: &Path) -> bool {
             "license" | "license.txt" | "license.md"
         )
     })
-}
-
-/// Prompt the user for license name if stdin is a terminal ("Custom" otherwise).
-fn prompt_license_name() -> String {
-    use std::io::IsTerminal;
-    let mut license_name = String::new();
-    if std::io::stdin().is_terminal() {
-        println!("LICENSE file detected, but no license name specified in manifest.toml.");
-        println!("Please enter the license name (e.g. MIT, GPL-3.0, Apache-2.0):");
-        let _ = std::io::stdin().read_line(&mut license_name);
-    }
-    let license_name = license_name.trim();
-    if license_name.is_empty() {
-        "Custom".to_string()
-    } else {
-        license_name.to_string()
-    }
 }
 
 /// MIT license text for `author_name`, dated this year.

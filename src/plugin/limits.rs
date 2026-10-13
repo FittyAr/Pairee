@@ -29,7 +29,7 @@ pub const TRUSTED_MEMORY_LIMIT: usize = 512 * 1024 * 1024;
 pub const MAX_CONTINUOUS_RUN: Duration = Duration::from_secs(10);
 
 /// Instructions between watchdog checks in normal operation.
-const CHECK_EVERY: u32 = 10_000;
+const CHECK_EVERY: u32 = 1_000;
 
 #[derive(Default)]
 struct CallState {

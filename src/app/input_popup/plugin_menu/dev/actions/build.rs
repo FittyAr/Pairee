@@ -42,16 +42,11 @@ pub fn handle_option_lint(
             let path_for_task = path.clone();
             let name_for_result = name.clone();
             tokio::task::spawn_blocking(move || {
-                let prev = std::env::current_dir().ok();
-                let _ = std::env::set_current_dir(&path_for_task);
-                let res = developer_tool::lint_with_progress(Some(tx.clone()));
-                if let Some(prev) = prev {
-                    let _ = std::env::set_current_dir(&prev);
-                }
+                let res = developer_tool::lint_with_progress(&path_for_task, Some(tx.clone()));
                 match res {
-                    Ok(_) => {
+                    Ok(details) => {
                         let result = format!(
-                            "{} '{}' {}",
+                            "{details}\n\n{} '{}' {}",
                             t("plugin_dev_lint_complete_for"),
                             name_for_result,
                             t("plugin_dev_lint_complete_tail")
