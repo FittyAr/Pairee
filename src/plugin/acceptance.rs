@@ -33,7 +33,7 @@ mod tests {
         (lua, dir)
     }
 
-    fn eval_module<'lua>(lua: &'lua Lua, dir: &Path) -> Table<'lua> {
+    fn eval_module(lua: &Lua, dir: &Path) -> Table {
         let src = std::fs::read_to_string(dir.join("main.lua")).expect("main.lua");
         lua.load(&src)
             .set_name("main.lua")
@@ -41,7 +41,7 @@ mod tests {
             .unwrap_or_else(|e| panic!("loading {}: {e}", dir.display()))
     }
 
-    fn call_run<'lua>(module: &Table<'lua>, arg: impl mlua::IntoLuaMulti<'lua>) -> Table<'lua> {
+    fn call_run(module: &Table, arg: impl mlua::IntoLuaMulti) -> Table {
         let run: Function = module.get("run").expect("M.run");
         run.call(arg)
             .unwrap_or_else(|e| panic!("M.run failed: {e}"))
@@ -122,7 +122,7 @@ mod tests {
         let args = lua.create_table().unwrap();
         args.set(1, "legacy").unwrap();
         args.set("command", "legacy").unwrap();
-        entry.call::<_, ()>((module.clone(), args)).unwrap();
+        entry.call::<()>((module.clone(), args)).unwrap();
         let received: String = module.get("received").unwrap();
         assert_eq!(received, "legacy");
     }

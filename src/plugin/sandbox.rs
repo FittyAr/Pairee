@@ -122,13 +122,13 @@ mod tests {
 
         // Standard restricted globals should be nil
         let globals = lua.globals();
-        assert!(globals.get::<_, mlua::Value>("load").unwrap().is_nil());
-        assert!(globals.get::<_, mlua::Value>("dofile").unwrap().is_nil());
+        assert!(globals.get::<mlua::Value>("load").unwrap().is_nil());
+        assert!(globals.get::<mlua::Value>("dofile").unwrap().is_nil());
 
         // io module should not exist
-        assert!(globals.get::<_, mlua::Value>("io").unwrap().is_nil());
+        assert!(globals.get::<mlua::Value>("io").unwrap().is_nil());
         // os module should not exist
-        assert!(globals.get::<_, mlua::Value>("os").unwrap().is_nil());
+        assert!(globals.get::<mlua::Value>("os").unwrap().is_nil());
     }
 
     #[test]
@@ -137,8 +137,8 @@ mod tests {
         let (tx, _rx) = tokio::sync::mpsc::channel(4);
         let lua = create_sandboxed_lua(dir.path(), &options(true), tx).unwrap();
         let globals = lua.globals();
-        assert!(!globals.get::<_, mlua::Value>("pairee").unwrap().is_nil());
-        assert!(!globals.get::<_, mlua::Value>("io").unwrap().is_nil());
+        assert!(!globals.get::<mlua::Value>("pairee").unwrap().is_nil());
+        assert!(!globals.get::<mlua::Value>("io").unwrap().is_nil());
     }
 
     #[tokio::test(flavor = "multi_thread")]

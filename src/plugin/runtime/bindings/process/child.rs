@@ -134,7 +134,7 @@ impl LuaChild {
 }
 
 impl UserData for LuaChild {
-    fn add_methods<'lua, M: UserDataMethods<'lua, Self>>(methods: &mut M) {
+    fn add_methods<M: UserDataMethods<Self>>(methods: &mut M) {
         methods.add_method("id", |_, this, ()| Ok(this.id()));
         methods.add_method_mut("start_kill", |_, this, ()| this.start_kill());
         methods.add_method_mut("try_wait", |_, this, ()| this.try_wait());
@@ -143,18 +143,17 @@ impl UserData for LuaChild {
             Ok(())
         });
 
-        methods.add_async_method_mut("write_all", |_, this, src: String| async move {
+        methods.add_async_method_mut("write_all", |_, mut this, src: String| async move {
             this.write_all(src.as_bytes()).await
         });
-        methods.add_async_method_mut("read", |_, this, len: Option<usize>| async move {
+        methods.add_async_method_mut("read", |_, mut this, len: Option<usize>| async move {
             this.read(len.unwrap_or(4096)).await
         });
-        methods.add_async_method_mut(
-            "read_line",
-            |_, this, ()| async move { this.read_line().await },
-        );
-        methods.add_async_method_mut("wait", |_, this, ()| async move { this.wait().await });
-        methods.add_async_method_mut("wait_with_output", |_, this, ()| async move {
+        methods.add_async_method_mut("read_line", |_, mut this, ()| async move {
+            this.read_line().await
+        });
+        methods.add_async_method_mut("wait", |_, mut this, ()| async move { this.wait().await });
+        methods.add_async_method_mut("wait_with_output", |_, mut this, ()| async move {
             this.wait_with_output().await
         });
     }

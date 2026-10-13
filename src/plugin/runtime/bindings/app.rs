@@ -5,7 +5,7 @@ pub fn bind(
     lua: &mlua::Lua,
     tx: mpsc::Sender<PluginRequest>,
     origin: PluginOrigin,
-) -> mlua::Result<mlua::Table<'_>> {
+) -> mlua::Result<mlua::Table> {
     let app = lua.create_table()?;
 
     // Read active cwd from snapshot
@@ -20,7 +20,7 @@ pub fn bind(
             } else {
                 "right_cwd"
             };
-            Ok(t.get::<_, String>(cwd_key).unwrap_or_default())
+            Ok(t.get::<String>(cwd_key).unwrap_or_default())
         })?,
     )?;
 
@@ -75,9 +75,9 @@ pub fn bind(
 /// through the deprecated stub dispatcher in the main loop. New code calls
 /// the top-level `pairee.confirm` / `pairee.input` registered in
 /// `standard.rs` with the structured opts table.
-fn bind_legacy_dialogs<'lua>(
-    lua: &'lua mlua::Lua,
-    app: &mlua::Table<'lua>,
+fn bind_legacy_dialogs(
+    lua: &mlua::Lua,
+    app: &mlua::Table,
     tx: &mpsc::Sender<PluginRequest>,
 ) -> mlua::Result<()> {
     let tx_confirm = tx.clone();
@@ -125,13 +125,13 @@ fn bind_legacy_dialogs<'lua>(
 }
 
 /// Async Lua function that sends the request built from its arguments and returns nothing.
-fn fire_and_forget<'lua, A>(
-    lua: &'lua mlua::Lua,
+fn fire_and_forget<A>(
+    lua: &mlua::Lua,
     tx: &mpsc::Sender<PluginRequest>,
     make: fn(A) -> PluginRequest,
-) -> mlua::Result<mlua::Function<'lua>>
+) -> mlua::Result<mlua::Function>
 where
-    A: mlua::FromLuaMulti<'lua> + 'static,
+    A: mlua::FromLuaMulti + 'static,
 {
     let tx = tx.clone();
     lua.create_async_function(move |_, args: A| {
@@ -145,10 +145,10 @@ where
 }
 
 /// `pairee.app._current_snapshot`, when a snapshot was taken.
-fn snapshot_table(lua: &mlua::Lua) -> mlua::Result<Option<mlua::Table<'_>>> {
+fn snapshot_table(lua: &mlua::Lua) -> mlua::Result<Option<mlua::Table>> {
     let pairee: mlua::Table = lua.globals().get("pairee")?;
     let app_table: mlua::Table = pairee.get("app")?;
-    Ok(match app_table.get::<_, mlua::Value>("_current_snapshot") {
+    Ok(match app_table.get::<mlua::Value>("_current_snapshot") {
         Ok(mlua::Value::Table(t)) => Some(t),
         _ => None,
     })

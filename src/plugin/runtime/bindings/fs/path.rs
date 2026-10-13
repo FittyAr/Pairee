@@ -15,7 +15,7 @@ pub fn validate_path(policy: &FsPolicy, path_str: &str, access: Access) -> mlua:
 /// Accept a Lua string or `File` userdata.
 pub fn lua_to_path(policy: &FsPolicy, value: Value, access: Access) -> mlua::Result<Target> {
     match value {
-        Value::String(s) => validate_path(policy, s.to_str()?, access),
+        Value::String(s) => validate_path(policy, &s.to_str()?, access),
         Value::UserData(ud) => match ud.borrow::<LuaFile>() {
             Ok(file) => validate_path(policy, &file.path, access),
             Err(_) => Err(mlua::Error::RuntimeError(

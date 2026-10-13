@@ -127,7 +127,7 @@ pub async fn load_plugin(
         if plugin_table.contains_key("setup")? {
             let setup_fn: mlua::Function = plugin_table.get("setup")?;
             let opts = lua.create_table()?;
-            setup_fn.call::<_, ()>((plugin_table.clone(), opts))?;
+            setup_fn.call::<()>((plugin_table.clone(), opts))?;
         }
 
         lua.create_registry_value(plugin_table)

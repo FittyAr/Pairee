@@ -10,7 +10,7 @@ use crate::plugin::manager::PluginRequest;
 use std::path::PathBuf;
 use tokio::sync::mpsc;
 
-pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function<'_>> {
+pub fn bind(lua: &mlua::Lua, tx: mpsc::Sender<PluginRequest>) -> mlua::Result<mlua::Function> {
     let tx_cache = tx;
     lua.create_async_function(move |_lua, (file, skip): (Option<String>, Option<usize>)| {
         let tx = tx_cache.clone();
