@@ -39,9 +39,14 @@ elevation from becoming an easy remote-code or credential leak path.
    plugin outside Secure Mode); writing is allowed but stripped of control
    characters other than tab/LF and capped at 1 MiB. `pairee.state` stores
    at most 256 KiB in a fixed `state.json` of the data directory, written
-   atomically.
+   atomically. Remote URLs (`sftp://`, `ftp://`, `webdav://`, `s3://`, ...)
+   in `pairee.fs` are refused for untrusted plugins.
 3. **Trusted plugin** — `StdLib::ALL_SAFE` (io/os/package, no debug) plus
-   `pairee.Command` / `fs.spawn`.
+   `pairee.Command` / `fs.spawn`, and `pairee.fs` on remote URLs of
+   connections **already open in a panel tab** (looked up by the main loop
+   by scheme, host, port and user; the plugin never opens a connection
+   or sees a secret): read and write outside Secure Mode, read only in
+   Secure Mode.
 4. **Secure Mode** — extra path jail for trusted plugins (reads: workspace +
    config + cache + plugin dir + plugin data dir; **writes: workspace + cache
    + plugin data dir only** — Pairee's config directory, i.e. `config.toml`,
