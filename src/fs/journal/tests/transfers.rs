@@ -149,6 +149,44 @@ async fn copy_undo_deletes_only_new_copies() {
     assert_eq!(read(&dst.join("new.txt")), "new");
 }
 
+/// FEAT-03: a file the copy replaced went to the trash; undoing the copy
+/// deletes the copy and puts the original back.
+#[tokio::test]
+async fn copy_undo_restores_a_trashed_original() {
+    let root = tempfile::tempdir().unwrap();
+    if !crate::fs::journal::trash::trash_round_trips_in(root.path()) {
+        return;
+    }
+    let (src, dst) = (p(root.path(), "src"), p(root.path(), "dst"));
+    write(&src.join("old.txt"), "source");
+    write(&dst.join("old.txt"), "precious");
+    let options = TransferOptions {
+        trash_replaced: true,
+        ..options()
+    };
+    let job = TransferJob::new(
+        TransferOperation::Copy,
+        vec![src.join("old.txt")],
+        dst.clone(),
+        options,
+    );
+    let entry = run_recorded(job, None).await.unwrap();
+    assert_eq!(read(&dst.join("old.txt")), "source");
+
+    let undo = runnable_inverse(&entry);
+    let batch = batch(&undo);
+    assert_eq!(batch.trashed_originals(), vec![dst.join("old.txt")]);
+    let delete = TransferJob::new(
+        TransferOperation::Delete,
+        vec![dst.join("old.txt")],
+        PathBuf::new(),
+        TransferOptions::default(),
+    )
+    .with_restore_after(batch.trashed_originals());
+    run_job(delete).await;
+    assert_eq!(read(&dst.join("old.txt")), "precious");
+}
+
 #[tokio::test]
 async fn copy_undo_keeps_a_copy_whose_original_is_gone() {
     let root = tempfile::tempdir().unwrap();
