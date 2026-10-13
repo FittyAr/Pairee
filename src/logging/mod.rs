@@ -4,9 +4,14 @@
 //! macro invocations via [`tracing_log::LogTracer`]. All log records are
 //! directed exclusively to `app.log` without ANSI color escape codes to avoid
 //! corrupting the terminal UI.
+//!
+//! The log is appended to (never truncated) and rotated by size, see
+//! [`rotate`]. The level is `info` in release builds and `debug` in debug
+//! builds; `RUST_LOG` overrides it (e.g. `RUST_LOG=debug pairee`).
+
+mod rotate;
 
 use anyhow::{Context, Result};
-use std::fs::File;
 use std::path::Path;
 use std::sync::Mutex;
 use tracing_subscriber::filter::EnvFilter;
@@ -23,15 +28,14 @@ pub fn init_logging(log_file_path: &Path) -> Result<()> {
         let _ = std::fs::create_dir_all(parent);
     }
 
-    let file = File::create(log_file_path)
-        .with_context(|| format!("Failed to create log file at {}", log_file_path.display()))?;
+    let file = rotate::RotatingFile::open(log_file_path, rotate::MAX_LOG_BYTES)
+        .with_context(|| format!("Failed to open log file at {}", log_file_path.display()))?;
 
     // Bridge standard log records into tracing events
     let _ = tracing_log::LogTracer::init();
 
-    // Respect RUST_LOG environment variable, otherwise default to debug
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("debug,html5ever=info,reqwest=info,hyper=info"));
+    let env_filter =
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(default_filter()));
 
     let file_layer = Layer::new()
         .with_writer(Mutex::new(file))
@@ -46,7 +50,23 @@ pub fn init_logging(log_file_path: &Path) -> Result<()> {
     // Set as global default. Ignore error if already set (e.g. in test suites).
     let _ = subscriber.try_init();
 
+    // Several processes may append to the same file: tag this one.
+    log::info!(
+        "Pairee {} started (pid {})",
+        env!("CARGO_PKG_VERSION"),
+        std::process::id()
+    );
     Ok(())
+}
+
+/// Filter used without `RUST_LOG`: `debug` only in debug builds, with the
+/// HTTP stack kept at `info`.
+fn default_filter() -> &'static str {
+    if cfg!(debug_assertions) {
+        "debug,html5ever=info,reqwest=info,hyper=info"
+    } else {
+        "info"
+    }
 }
 
 #[cfg(test)]
@@ -67,5 +87,13 @@ mod tests {
 
         // Verify file existence
         assert!(log_path.exists());
+    }
+
+    #[test]
+    fn default_level_depends_on_the_build() {
+        assert_eq!(
+            default_filter().starts_with("debug"),
+            cfg!(debug_assertions)
+        );
     }
 }
