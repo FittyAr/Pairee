@@ -67,6 +67,8 @@ async fn run_app() -> Result<()> {
     }
 
     // 5.5. Initialize and load plugins
+    // `Layout:split(rect)` in plugins splits like the quick view draws.
+    crate::ui::quickview::install_layout_solver();
     plugin::PluginManager::init();
     if context.config.settings.plugins_enabled {
         plugin::PluginManager::load_all_plugins(&context.config).await;

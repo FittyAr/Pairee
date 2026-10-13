@@ -2,8 +2,10 @@
 //! `pairee.preview_widget`) hands to the host. Plain data with no ratatui
 //! types; `ui::quickview::plugin` maps it to ratatui widgets.
 
+pub mod geometry;
 mod text;
 
+pub use geometry::{WBar, WFill, WPad, WRect};
 pub use text::{WAlign, WLine, WSpan, WStyle, WText, WTextBody, modifier};
 
 use std::path::PathBuf;
@@ -128,6 +130,14 @@ pub enum Renderable {
     Gauge(WGauge),
     Layout(WLayout),
     Image(PluginImage),
+    /// A widget drawn in `rect` of its area (`widget:area(rect)`).
+    Placed(WRect, Box<Renderable>),
+    /// Widgets drawn one over the other (`peek` returning a list).
+    Stack(Vec<Renderable>),
+    Bar(WBar),
+    /// Clears its area (`ui.Clear`), e.g. under a placed popup.
+    Clear,
+    Fill(WFill),
 }
 
 /// Most widgets, spans and cells one `Renderable` may hold.
@@ -167,13 +177,24 @@ impl Renderable {
                 (n + t.rows.len() + 1, b)
             }
             Self::Gauge(g) => (1, g.label.as_ref().map_or(0, |l| l.content.len())),
-            Self::Layout(l) => l
-                .children
-                .iter()
-                .map(Self::weight)
-                .fold((1, 0), |(n, b), (cn, cb)| (n + cn, b + cb)),
-            Self::Image(_) => (1, 0),
+            Self::Layout(l) => Self::weight_of(&l.children),
+            Self::Stack(children) => Self::weight_of(children),
+            Self::Placed(_, child) => {
+                let (n, b) = child.weight();
+                (n + 1, b)
+            }
+            Self::Bar(bar) => (1, bar.symbol.as_ref().map_or(0, String::len)),
+            Self::Fill(fill) => (1, fill.symbol.len()),
+            Self::Image(_) | Self::Clear => (1, 0),
         }
+    }
+
+    /// Weight of a container of `children` (itself counts as one node).
+    fn weight_of(children: &[Renderable]) -> (usize, usize) {
+        children
+            .iter()
+            .map(Self::weight)
+            .fold((1, 0), |(n, b), (cn, cb)| (n + cn, b + cb))
     }
 
     /// Whether this tree stays within [`MAX_RENDERABLE_NODES`] and
@@ -187,11 +208,10 @@ impl Renderable {
     pub fn images_mut(&mut self) -> Vec<&mut PluginImage> {
         match self {
             Self::Image(image) => vec![image],
-            Self::Layout(layout) => layout
-                .children
-                .iter_mut()
-                .flat_map(Self::images_mut)
-                .collect(),
+            Self::Layout(WLayout { children, .. }) | Self::Stack(children) => {
+                children.iter_mut().flat_map(Self::images_mut).collect()
+            }
+            Self::Placed(_, child) => child.images_mut(),
             _ => Vec::new(),
         }
     }

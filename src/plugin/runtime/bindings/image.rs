@@ -38,7 +38,11 @@ const MAX_SIDE: u32 = 16_384;
 const MAX_ALLOC: u64 = 256 * 1024 * 1024;
 
 /// An image widget is opaque to Lua.
-impl UserData for PluginImage {}
+impl UserData for PluginImage {
+    fn add_methods<M: mlua::UserDataMethods<Self>>(methods: &mut M) {
+        super::ui::add_area_method(methods);
+    }
+}
 
 fn denied(message: String) -> LuaError {
     LuaError {

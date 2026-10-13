@@ -65,11 +65,13 @@ macro_rules! framed {
 }
 framed!(WParagraph, WList, WTable, WGauge);
 
+/// `:block(border)` plus `:area(rect)`, shared by the framed widgets.
 fn add_block_method<T: Framed + 'static, M: UserDataMethods<T>>(methods: &mut M) {
     methods.add_function("block", |_, (ud, border): (AnyUserData, Value)| {
         *ud.borrow_mut::<T>()?.block_mut() = Some(border_arg(&border)?);
         Ok(ud)
     });
+    super::geometry::add_area_method(methods);
 }
 
 impl UserData for WParagraph {

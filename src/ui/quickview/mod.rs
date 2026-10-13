@@ -1,6 +1,8 @@
 mod img_render;
 mod plugin;
 
+pub use plugin::install_layout_solver;
+
 pub use img_render::render_quick_view_image;
 pub use plugin::render_plugin_widget;
 

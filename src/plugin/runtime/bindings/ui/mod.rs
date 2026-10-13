@@ -5,16 +5,20 @@
 //!
 //! * text: `Span`, `Line`, `Text` (`Text.parse` for ANSI), `Style`;
 //! * widgets: `Paragraph`, `List`, `Table` / `Row`, `Gauge`, `Border`;
-//! * layout: `Layout`, `Constraint`;
+//! * layout: `Layout` (`:split(rect)`), `Constraint`;
+//! * positions: `Rect`, `Pad`, `Pos`, `widget:area(rect)`, and the
+//!   position-only widgets `Bar`, `Clear`, `Fill`;
 //! * constants: `Align`, `Wrap`, `Edge`, `Border.*`, `Layout.*`.
 
 pub mod convert;
+mod geometry;
 mod layout;
 mod style;
 mod text;
 mod widgets;
 
 pub use convert::to_renderable;
+pub use geometry::add_area_method;
 
 use crate::app::state::popup::plugin_widget::WStyle;
 use mlua::{Lua, Table};
@@ -25,6 +29,7 @@ pub fn bind(lua: &Lua) -> mlua::Result<Table> {
     text::bind(lua, &ui)?;
     widgets::bind(lua, &ui)?;
     layout::bind(lua, &ui)?;
+    geometry::bind(lua, &ui)?;
     ui.set("Style", lua.create_function(|_, ()| Ok(WStyle::default()))?)?;
     let constants = |pairs: &[(&str, &str)]| -> mlua::Result<Table> {
         let table = lua.create_table()?;

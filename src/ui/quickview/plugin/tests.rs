@@ -76,6 +76,78 @@ fn a_layout_draws_each_child_in_its_area() {
 }
 
 #[test]
+fn placed_widgets_bars_and_fills_draw_in_their_rectangles() {
+    use crate::app::state::popup::plugin_widget::{WBar, WFill, WRect, edge};
+    let stack = Renderable::Stack(vec![
+        Renderable::Fill(WFill {
+            symbol: ".".into(),
+            style: WStyle::default(),
+        }),
+        Renderable::Placed(
+            WRect {
+                x: 2,
+                y: 1,
+                w: 6,
+                h: 1,
+            },
+            Box::new(Renderable::text(WText::raw("placed"))),
+        ),
+        Renderable::Placed(
+            WRect {
+                x: 0,
+                y: 3,
+                w: 100,
+                h: 9,
+            },
+            Box::new(Renderable::Bar(WBar {
+                edges: edge::TOP,
+                symbol: Some("=".into()),
+                style: WStyle::default(),
+            })),
+        ),
+    ]);
+    // Inside the frame: 12 x 5 cells at (1, 1).
+    let text = screen(&stack, 14, 7);
+    let cells = |row: usize, from: usize, to: usize| -> String {
+        text.lines()
+            .nth(row)
+            .unwrap()
+            .chars()
+            .skip(from)
+            .take(to - from)
+            .collect()
+    };
+    assert_eq!(cells(1, 1, 13), "............", "{text}");
+    assert_eq!(cells(2, 1, 13), "..placed....", "{text}");
+    // The bar is clipped to the preview width.
+    assert_eq!(cells(4, 1, 13), "============", "{text}");
+    assert_eq!(cells(4, 13, 14), "│", "{text}");
+}
+
+#[test]
+fn the_installed_solver_splits_like_the_drawing() {
+    use crate::app::state::popup::plugin_widget::WRect;
+    use crate::app::state::popup::plugin_widget::geometry::split;
+    super::install_layout_solver();
+    let rects = split(
+        WRect {
+            x: 0,
+            y: 0,
+            w: 10,
+            h: 4,
+        },
+        WDirection::Horizontal,
+        0,
+        &[WConstraint::Length(3), WConstraint::Fill(1)],
+    )
+    .unwrap();
+    assert_eq!(rects.len(), 2);
+    assert_eq!((rects[0].x, rects[0].w), (0, 3));
+    assert_eq!((rects[1].x, rects[1].w), (3, 7));
+    assert_eq!(rects[1].h, 4);
+}
+
+#[test]
 fn a_missing_image_says_so() {
     let image = Renderable::Image(PluginImage {
         path: "x.png".into(),

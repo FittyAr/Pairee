@@ -3,11 +3,11 @@
 //! The layout is declarative: the plugin lists the children and their
 //! constraints, and the host splits the preview area when it draws
 //! (`ui.Layout():direction(ui.Layout.HORIZONTAL):constraints({...})
-//! :children({...})`). Splitting needs the terminal geometry, which only
-//! the UI layer has, so there is no `split(rect)` returning rectangles.
+//! :children({...})`). `:split(rect)` returns the rectangles instead, split
+//! by the solver the UI draws with, to place widgets with `:area(rect)`.
 
 use super::convert::renderable_arg;
-use crate::app::state::popup::plugin_widget::{WConstraint, WDirection, WLayout};
+use crate::app::state::popup::plugin_widget::{WConstraint, WDirection, WLayout, WRect};
 use mlua::{AnyUserData, Lua, Table, UserData, UserDataMethods, Value};
 
 impl UserData for WConstraint {}
@@ -34,6 +34,10 @@ impl UserData for WLayout {
             ud.borrow_mut::<WLayout>()?.constraints = constraint_list(&list)?;
             Ok(ud)
         });
+        methods.add_method("split", |_, layout, rect: AnyUserData| {
+            super::geometry::split_layout(layout, *rect.borrow::<WRect>()?)
+        });
+        super::geometry::add_area_method(methods);
         methods.add_function("children", |_, (ud, list): (AnyUserData, Table)| {
             let children = list
                 .sequence_values::<Value>()
