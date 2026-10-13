@@ -6,7 +6,10 @@
 //!   still written in `config.toml` (older releases) is moved into the
 //!   keyring and the file is rewritten without it.
 //! * Saving writes a copy of the settings whose passwords were stored in
-//!   the keyring (or removed from it when the password was cleared).
+//!   the keyring (or removed from it when the password was cleared). The
+//!   entries of presets that were removed or renamed are deleted too: an
+//!   index entry in the keyring lists the presets that may have one (the
+//!   keyring itself cannot be listed).
 //! * Without a usable keyring, passwords are only written to `config.toml`
 //!   when the user opted in (`[security] ssh_passwords_in_config = true`);
 //!   otherwise they are kept for the session only and a warning is shown.
@@ -120,7 +123,73 @@ fn store() -> &'static dyn SecretStore {
 
 /// Keyring account of a preset's password.
 fn account(preset: &SshPreset) -> String {
-    format!("ssh-preset:{}", preset.name)
+    account_of(&preset.name)
+}
+
+fn account_of(name: &str) -> String {
+    format!("ssh-preset:{name}")
+}
+
+/// Keyring account holding the names of the presets that may have a
+/// password entry (a JSON list).
+const INDEX_ACCOUNT: &str = "ssh-preset-index";
+
+fn read_index() -> Result<Vec<String>, String> {
+    Ok(store()
+        .get(INDEX_ACCOUNT)?
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default())
+}
+
+fn write_index(names: &[String]) -> Result<(), String> {
+    if names.is_empty() {
+        return store().delete(INDEX_ACCOUNT);
+    }
+    let text = serde_json::to_string(names).map_err(|e| e.to_string())?;
+    store().set(INDEX_ACCOUNT, &text)
+}
+
+fn preset_names(settings: &Settings) -> Vec<String> {
+    let mut names: Vec<String> = settings
+        .ssh_presets
+        .iter()
+        .map(|p| p.name.clone())
+        .collect();
+    names.sort();
+    names.dedup();
+    names
+}
+
+/// Adds the loaded presets to the index, so entries written before the
+/// index existed are found once those presets are removed.
+fn track_presets(settings: &Settings) -> Result<(), String> {
+    let mut index = read_index()?;
+    let before = index.len();
+    for name in preset_names(settings) {
+        if !index.contains(&name) {
+            index.push(name);
+        }
+    }
+    if index.len() == before {
+        return Ok(());
+    }
+    index.sort();
+    write_index(&index)
+}
+
+/// Deletes the entries of presets no longer in `settings` (removed or
+/// renamed). One that cannot be deleted stays in the index for next time.
+fn prune_removed_presets(settings: &Settings) -> Result<(), String> {
+    let current = preset_names(settings);
+    let mut index = current.clone();
+    for stale in read_index()?.into_iter().filter(|n| !current.contains(n)) {
+        if let Err(e) = store().delete(&account_of(&stale)) {
+            tracing::warn!("Cannot delete the password of removed SSH preset {stale:?}: {e}");
+            index.push(stale);
+        }
+    }
+    index.sort();
+    write_index(&index)
 }
 
 /// What loading the passwords found.
@@ -158,6 +227,9 @@ pub fn load_passwords(settings: &mut Settings) -> LoadOutcome {
             },
         }
     }
+    if let Err(e) = track_presets(settings) {
+        tracing::debug!("SSH preset keyring index not updated: {e}");
+    }
     outcome
 }
 
@@ -185,6 +257,9 @@ pub fn for_disk(settings: &Settings) -> Settings {
             }
             Err(e) => tracing::warn!("Keyring unavailable for SSH preset {:?}: {e}", preset.name),
         }
+    }
+    if let Err(e) = prune_removed_presets(settings) {
+        tracing::debug!("Passwords of removed SSH presets not pruned: {e}");
     }
     disk
 }
@@ -234,6 +309,45 @@ mod tests {
         assert_eq!(load_passwords(&mut loaded), LoadOutcome::default());
         assert_eq!(loaded.ssh_presets[0].password.as_deref(), Some("pw"));
         let _ = for_disk(&settings_with(None));
+        assert!(test_store::secret("ssh-preset:box").is_none());
+    }
+
+    #[test]
+    fn removed_and_renamed_presets_lose_their_keyring_entry() {
+        test_store::set_available(true);
+        let mut settings = settings_with(Some("pw"));
+        let mut other = settings.ssh_presets[0].clone();
+        other.name = "other".into();
+        settings.ssh_presets.push(other);
+        let _ = for_disk(&settings);
+        assert!(test_store::secret("ssh-preset:other").is_some());
+
+        settings.ssh_presets[0].name = "renamed".into();
+        settings.ssh_presets.pop();
+        let _ = for_disk(&settings);
+        assert!(test_store::secret("ssh-preset:box").is_none(), "renamed");
+        assert!(test_store::secret("ssh-preset:other").is_none(), "removed");
+        assert_eq!(
+            test_store::secret("ssh-preset:renamed").as_deref(),
+            Some("pw")
+        );
+
+        settings.ssh_presets.clear();
+        let _ = for_disk(&settings);
+        assert!(test_store::secret("ssh-preset:renamed").is_none());
+        assert!(test_store::secret(INDEX_ACCOUNT).is_none());
+    }
+
+    #[test]
+    fn entries_from_before_the_index_are_pruned_once_loaded() {
+        test_store::set_available(true);
+        // An entry written by an older release: no index yet.
+        test_store::Memory.set("ssh-preset:box", "pw").unwrap();
+        let mut settings = settings_with(None);
+        load_passwords(&mut settings);
+        assert_eq!(settings.ssh_presets[0].password.as_deref(), Some("pw"));
+        settings.ssh_presets.clear();
+        let _ = for_disk(&settings);
         assert!(test_store::secret("ssh-preset:box").is_none());
     }
 

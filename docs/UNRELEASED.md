@@ -50,6 +50,7 @@
 ### Removed
 
 ### Fixed
+- Removing or renaming an SSH preset now deletes its old password from the system keyring.
 - Starting Pairee with a plugin under development whose folder was gone deleted the saved SSH preset passwords from the system keyring.
 - `pairee plugin install <name>` failed for every plugin: the name was sent to the registry with a `.pairee` suffix that plugin names cannot have.
 - Git: pull and fast-forward merges no longer discard uncommitted changes; they stop with an error when your local changes would be overwritten.
