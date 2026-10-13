@@ -55,7 +55,9 @@ fn input_reaches_the_process_and_kill_stops_it() {
     let id = run_in_background(&mut h, ECHO_INPUT);
     assert!(terminal(&h, id).pid().is_some(), "the real pid is kept");
     h.text("marker42").keys("Enter");
-    h.wait_until("echoed input", |h| output(h, id).contains("marker42"));
+    // On the rendered screen: under load ConPTY may paint its window title
+    // (an OSC sequence) in the middle of the echoed text.
+    h.wait_for_text("marker42");
 
     h.keys("F8");
     h.wait_until("killed", |h| !terminal(h, id).is_running());

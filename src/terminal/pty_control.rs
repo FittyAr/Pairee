@@ -72,10 +72,17 @@ impl PtyControl {
     /// Closes the input and the PTY so the output reader sees EOF. Done
     /// once the child exited: ConPTY must keep stdin open until then, or
     /// cmd.exe may exit before `/C` runs.
+    /// Closed outside the lock: closing a pseudo console may block until
+    /// its last output is read, and the UI must not wait for that.
     pub(super) fn release(&self) {
-        let mut control = self.lock();
-        control.writer = None;
-        control.master = None;
-        control.killer = None;
+        let released = {
+            let mut control = self.lock();
+            (
+                control.writer.take(),
+                control.master.take(),
+                control.killer.take(),
+            )
+        };
+        drop(released);
     }
 }
