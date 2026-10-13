@@ -4,6 +4,7 @@ use super::child::LuaChild;
 use super::output::{LuaOutput, LuaStatus};
 use super::stdio::StdioKind;
 use crate::plugin::command_policy::CommandPolicy;
+use crate::plugin::runtime::bindings::fs::{Access, FsPolicy, Target};
 use mlua::{AnyUserData, Lua, MetaMethod, Table, UserData, UserDataMethods, Value};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -18,10 +19,12 @@ pub struct LuaCommand {
     pub stdout: StdioKind,
     pub stderr: StdioKind,
     pub policy: Arc<CommandPolicy>,
+    /// The plugin's `pairee.fs` jail; in Secure Mode `cwd` must lie inside.
+    pub sandbox: Arc<FsPolicy>,
 }
 
 impl LuaCommand {
-    pub fn new(program: String, policy: Arc<CommandPolicy>) -> Self {
+    pub fn new(program: String, policy: Arc<CommandPolicy>, sandbox: Arc<FsPolicy>) -> Self {
         Self {
             program,
             args: Vec::new(),
@@ -31,7 +34,39 @@ impl LuaCommand {
             stdout: StdioKind::Inherit,
             stderr: StdioKind::Inherit,
             policy,
+            sandbox,
         }
+    }
+
+    /// Records `name=value` for the child, if the policy allows the name.
+    pub fn set_env(&mut self, name: String, value: String) -> mlua::Result<()> {
+        self.policy
+            .authorize_env(&name)
+            .map_err(mlua::Error::RuntimeError)?;
+        self.env.push((name, value));
+        Ok(())
+    }
+
+    /// Sets the working directory. In Secure Mode it must be an existing
+    /// folder inside the plugin's `pairee.fs` read jail; the resolved
+    /// (canonical) folder is what the child starts in.
+    pub fn set_cwd(&mut self, path: &str) -> mlua::Result<()> {
+        if !self.policy.is_allowlist() {
+            self.cwd = Some(PathBuf::from(path));
+            return Ok(());
+        }
+        let dir = match self.sandbox.check(path, Access::Read) {
+            Ok(Target::Jailed { root, rel, .. }) => root.join(rel),
+            Ok(Target::Free(p)) => p,
+            Err(e) => return Err(mlua::Error::RuntimeError(e)),
+        };
+        if !dir.is_dir() {
+            return Err(mlua::Error::RuntimeError(format!(
+                "Command:cwd: {path:?} is not an existing folder"
+            )));
+        }
+        self.cwd = Some(dir);
+        Ok(())
     }
 
     /// The program to execute (absolute in Secure Mode) or a violation.
@@ -121,12 +156,12 @@ impl UserData for LuaCommand {
         });
 
         methods.add_function("cwd", |_, (ud, path): (AnyUserData, String)| {
-            ud.borrow_mut::<Self>()?.cwd = Some(PathBuf::from(path));
+            ud.borrow_mut::<Self>()?.set_cwd(&path)?;
             chain(ud)
         });
 
         methods.add_function("env", |_, (ud, (k, v)): (AnyUserData, (String, String))| {
-            ud.borrow_mut::<Self>()?.env.push((k, v));
+            ud.borrow_mut::<Self>()?.set_env(k, v)?;
             chain(ud)
         });
 
@@ -162,7 +197,11 @@ impl UserData for LuaCommand {
     }
 }
 
-pub fn bind(lua: &Lua, policy: Arc<CommandPolicy>) -> mlua::Result<Table<'_>> {
+pub fn bind(
+    lua: &Lua,
+    policy: Arc<CommandPolicy>,
+    sandbox: Arc<FsPolicy>,
+) -> mlua::Result<Table<'_>> {
     let table = lua.create_table()?;
     table.set("NULL", StdioKind::NULL as i64)?;
     table.set("PIPED", StdioKind::PIPED as i64)?;
@@ -172,7 +211,11 @@ pub fn bind(lua: &Lua, policy: Arc<CommandPolicy>) -> mlua::Result<Table<'_>> {
     mt.set(
         "__call",
         lua.create_function(move |_, (_, program): (Table, String)| {
-            Ok(LuaCommand::new(program, Arc::clone(&policy)))
+            Ok(LuaCommand::new(
+                program,
+                Arc::clone(&policy),
+                Arc::clone(&sandbox),
+            ))
         })?,
     )?;
     table.set_metatable(Some(mt));
@@ -188,6 +231,46 @@ mod tests {
         Arc::new(CommandPolicy::new(trusted, secure, &declared))
     }
 
+    fn sandbox(trusted: bool, secure: bool) -> Arc<FsPolicy> {
+        Arc::new(FsPolicy::new(Path::new("demo"), trusted, secure))
+    }
+
+    fn cmd(program: &str, trusted: bool, secure: bool, declared: &[&str]) -> LuaCommand {
+        LuaCommand::new(
+            program.into(),
+            policy(trusted, secure, declared),
+            sandbox(trusted, secure),
+        )
+    }
+
+    #[test]
+    fn secure_mode_refuses_dangerous_environment() {
+        let mut c = cmd("git", true, true, &["git"]);
+        for name in ["GIT_SSH_COMMAND", "LD_PRELOAD", "PAGER", "NODE_OPTIONS"] {
+            assert!(c.set_env(name.into(), "x".into()).is_err(), "{name}");
+        }
+        c.set_env("LANG".into(), "C".into()).unwrap();
+        assert_eq!(c.env, vec![("LANG".to_string(), "C".to_string())]);
+    }
+
+    #[test]
+    fn secure_mode_cwd_must_be_inside_the_jail() {
+        let mut c = cmd("git", true, true, &["git"]);
+        let outside = tempfile::tempdir().unwrap();
+        let err = c.set_cwd(&outside.path().to_string_lossy()).unwrap_err();
+        assert!(err.to_string().contains("Security violation"), "{err}");
+        let cwd = std::env::current_dir().unwrap();
+        c.set_cwd(&cwd.to_string_lossy()).unwrap();
+        assert!(c.cwd.unwrap().is_dir());
+    }
+
+    #[test]
+    fn secure_mode_cwd_must_exist() {
+        let mut c = cmd("git", true, true, &["git"]);
+        let missing = std::env::current_dir().unwrap().join("no-such-dir-xyz");
+        assert!(c.set_cwd(&missing.to_string_lossy()).is_err());
+    }
+
     fn echo() -> (String, Vec<String>) {
         if cfg!(windows) {
             ("cmd.exe".into(), vec!["/C".into(), "echo hello".into()])
@@ -198,7 +281,7 @@ mod tests {
 
     #[test]
     fn builder_accumulates_args_cwd_env() {
-        let mut cmd = LuaCommand::new("ls".into(), policy(true, false, &[]));
+        let mut cmd = cmd("ls", true, false, &[]);
         cmd.args.push("-l".into());
         cmd.cwd = Some(PathBuf::from("/tmp"));
         cmd.env.push(("FOO".into(), "bar".into()));
@@ -211,16 +294,16 @@ mod tests {
 
     #[test]
     fn untrusted_command_is_rejected() {
-        let cmd = LuaCommand::new("echo".into(), policy(false, false, &[]));
+        let cmd = cmd("echo", false, false, &[]);
         let err = cmd.check_allowed().unwrap_err();
         assert!(err.to_string().contains("sandboxed"));
     }
 
     #[test]
     fn secure_mode_requires_manifest_declaration() {
-        let cmd = LuaCommand::new("curl".into(), policy(true, true, &["curl"]));
-        assert!(cmd.check_allowed().is_err());
-        let undeclared = LuaCommand::new("rg".into(), policy(true, true, &[]));
+        let curl = cmd("curl", true, true, &["curl"]);
+        assert!(curl.check_allowed().is_err());
+        let undeclared = cmd("rg", true, true, &[]);
         let err = undeclared.check_allowed().unwrap_err();
         assert!(err.to_string().contains("not declared"), "{err}");
     }
@@ -228,7 +311,7 @@ mod tests {
     #[tokio::test]
     async fn output_captures_echo() {
         let (prog, args) = echo();
-        let mut cmd = LuaCommand::new(prog, policy(true, false, &[]));
+        let mut cmd = cmd(&prog, true, false, &[]);
         cmd.args = args;
         let out = cmd.output_inner().await.unwrap();
         assert!(out.status.success);
@@ -239,7 +322,10 @@ mod tests {
     fn lua_call_constructs_and_chains() {
         let lua = Lua::new();
         lua.globals()
-            .set("Command", bind(&lua, policy(true, false, &[])).unwrap())
+            .set(
+                "Command",
+                bind(&lua, policy(true, false, &[]), sandbox(true, false)).unwrap(),
+            )
             .unwrap();
         let prog: String = lua
             .load(r#"return tostring(Command("rg"):arg("-n"):arg({"a"}))"#)

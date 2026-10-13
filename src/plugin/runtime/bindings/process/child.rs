@@ -174,6 +174,11 @@ mod tests {
         let mut cmd = LuaCommand::new(
             prog,
             std::sync::Arc::new(crate::plugin::command_policy::CommandPolicy::Unrestricted),
+            std::sync::Arc::new(crate::plugin::runtime::bindings::fs::FsPolicy::new(
+                std::path::Path::new("demo"),
+                true,
+                false,
+            )),
         );
         cmd.args = args;
         cmd.stdout = StdioKind::Piped;
