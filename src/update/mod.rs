@@ -6,6 +6,7 @@
 /// - Downloading the correct asset for the current platform
 /// - Verifying its SHA-256 and minisign signature (both mandatory)
 /// - Applying the update (or notifying the user which package-manager command to run)
+pub mod assets;
 pub mod checker;
 pub mod detect;
 pub mod downloader;

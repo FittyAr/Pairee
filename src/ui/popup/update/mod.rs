@@ -121,18 +121,8 @@ fn download_size_suffix(info: &UpdateInfo, method: &InstallMethod) -> String {
     if method.is_managed() {
         return String::new();
     }
-    #[cfg(target_os = "windows")]
-    let asset_name = if matches!(method, InstallMethod::InnoSetup) {
-        crate::update::downloader::expected_installer_name(&info.version)
-    } else {
-        crate::update::downloader::expected_asset_name(&info.version)
-    };
-    #[cfg(not(target_os = "windows"))]
-    let asset_name = crate::update::downloader::expected_asset_name(&info.version);
-
-    info.assets
-        .iter()
-        .find(|a| a.name == asset_name)
+    crate::update::installer::update_asset(info, method)
+        .ok()
         .map(|asset| format!(" ({:.1} MB)", asset.size as f64 / 1_048_576.0))
         .unwrap_or_default()
 }

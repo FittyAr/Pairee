@@ -13,8 +13,10 @@
 mod branch;
 mod ci;
 mod snapshot;
-mod version;
+pub mod version;
 mod winget;
+
+pub use winget::manifests_for_release as winget_manifests;
 
 use std::path::PathBuf;
 

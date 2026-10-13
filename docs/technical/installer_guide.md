@@ -160,10 +160,23 @@ Ed25519). The self-updater (`src/update/signature.rs`) refuses to install an
 update unless the release contains both `<asset>.sha256` **and**
 `<asset>.minisig`, the signature verifies against the embedded public key and
 its trusted comment names the asset (`file:<asset>`). The install scripts
-always check the SHA-256. `install.sh` also requires the signature: without
-`minisign` on `PATH` it stops, unless it is run with
-`--insecure-skip-signature` (checksum only). `install.ps1` verifies the
-signature when `minisign` is on `PATH` (then it is mandatory).
+always check the SHA-256 and require the signature too:
+
+- `install.sh` uses the `minisign` on `PATH`; without it, it stops.
+- `install.ps1` downloads the official Windows build of minisign
+  (`jedisct1/minisign`, version and SHA-256 of the zip pinned in the script)
+  into its temporary folder and verifies with it.
+
+Either can be told to accept the download on its checksum alone
+(`install.sh --insecure-skip-signature`, `install.ps1 -InsecureSkipSignature`),
+which is weaker: the checksum is served from the same place as the archive.
+`install.sh --verify-only` / `install.ps1 -VerifyOnly` download and verify the
+latest release and install nothing (a dry run of the download path).
+
+To move `install.ps1` to a newer minisign, update `$minisignVersion` and
+`$minisignZipSha256` together (the SHA-256 of `minisign-<ver>-win64.zip`;
+check it against the `.minisig` published with it, made with the minisign
+author's key `RWQf6LRCGA9i59SLOFxz6NxvASXDJeRtuZykwQepbDEGt87ig1BNpWaE`).
 
 **Public key** (key id `B478F4237C0DE585`), embedded in
 `src/update/signature.rs` (`RELEASE_PUBLIC_KEY`), `install.sh` and
@@ -177,8 +190,39 @@ RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6
 Manual verification of a downloaded asset:
 
 ```bash
-minisign -V -P RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6 -m pairee-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz
+minisign -V -P RWSF5Q18I/R4tADVZ5LQzgP2gRzPD/yzWj0p5kw13d6g4+Ycwbn27Fm6 -m pairee-X.Y.Z-linux-x64-musl.tar.gz
 ```
+
+### Release asset names
+
+Archives are named after the platform, not the Rust target triple:
+
+| Target triple | Archive |
+|---|---|
+| `x86_64-unknown-linux-gnu` | `pairee-X.Y.Z-linux-x64-gnu.tar.gz` |
+| `x86_64-unknown-linux-musl` | `pairee-X.Y.Z-linux-x64-musl.tar.gz` |
+| `aarch64-unknown-linux-musl` | `pairee-X.Y.Z-linux-arm64-musl.tar.gz` |
+| `x86_64-apple-darwin` | `pairee-X.Y.Z-macos-x64.tar.gz` |
+| `aarch64-apple-darwin` | `pairee-X.Y.Z-macos-arm64.tar.gz` |
+| `x86_64-pc-windows-msvc` | `pairee-X.Y.Z-windows-x64.zip` |
+| `aarch64-pc-windows-msvc` | `pairee-X.Y.Z-windows-arm64.zip` |
+
+plus `pairee-setup-X.Y.Z-<x64|arm64>.exe`, `pairee-X.Y.Z-<x64|arm64>.msix`
+and the `.deb` / `.rpm` of the x64 musl build. The table lives in
+`src/update/assets.rs` only: the updater reads it directly and the packaging
+scripts through `cargo xtask asset-names <triple> <vX.Y.Z>`;
+`tests/release_assets.rs` checks the names spelled out in `install.sh`,
+`install.ps1` and the workflows.
+
+**Transition.** Up to 0.10 the archives were `pairee-vX.Y.Z-<triple>.<ext>`,
+and the updater of those versions only looks for that name. Releases up to
+**0.12.0** (`LEGACY_NAMES_UNTIL` in `xtask/src/assets.rs`) therefore also
+publish each archive under its old name, with its own `.sha256` and
+`.minisig`; the install scripts and the updater fall back to the old name.
+From 0.13.0 the copies stop on their own; then delete the code marked
+`TRANSITION` (`legacy_archive_name`, the `LEGACY` handling in
+`.github/scripts/package.sh` / `verify-dist.sh`, the fallbacks in
+`install.sh`, `install.ps1` and `src/update/downloader.rs`).
 
 ### Required GitHub secrets
 

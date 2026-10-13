@@ -134,7 +134,7 @@ fn drop_empty_subsections(lines: &[String]) -> Vec<String> {
 }
 
 /// Today's UTC date as `YYYY-MM-DD` (civil-from-days, H. Hinnant).
-fn today_utc() -> String {
+pub fn today_utc() -> String {
     let secs = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |d| d.as_secs());

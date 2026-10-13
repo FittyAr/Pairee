@@ -30,6 +30,14 @@ pub fn ask(question: &str, default: &str) -> Result<String> {
     Ok(if answer.is_empty() { default } else { answer }.to_string())
 }
 
+/// Waits for Enter.
+pub fn pause() -> Result {
+    print!("Press Enter to continue...");
+    io::stdout().flush()?;
+    io::stdin().lock().read_line(&mut String::new())?;
+    Ok(())
+}
+
 /// A yes/no question that defaults to "no"; `assume_yes` answers it unasked.
 pub fn confirm(question: &str, assume_yes: bool) -> Result<bool> {
     if assume_yes {

@@ -1,4 +1,3 @@
-# Created using wingetcreate 1.12.8.0
 # yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.12.0.schema.json
 
 PackageIdentifier: FittyAr.Pairee
@@ -14,8 +13,8 @@ PackageUrl: https://github.com/FittyAr/Pairee
 License: GPL-3.0
 LicenseUrl: https://github.com/FittyAr/Pairee/blob/master/LICENSE
 Copyright: Copyright (c) FittyAr
-ShortDescription: A modern, highly modular, cross-platform terminal file manager inspired by the classic **Norton Commander** and **Far Manager**.
-Description: A modern Rust clone of Norton Commander with dual-panel layout, themes, and full mouse support. It features customizable themes, translations, standard archive support, keybindings resolver, and smooth terminal interactions.
+ShortDescription: A dual-panel terminal file manager inspired by Norton Commander and Far Manager.
+Description: A modern Rust file manager with dual-panel layout, themes, and full mouse support. It features customizable themes, translations, standard archive support, keybindings resolver, and smooth terminal interactions.
 Moniker: pairee
 Tags:
   - rust
