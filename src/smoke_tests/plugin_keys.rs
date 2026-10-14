@@ -47,3 +47,49 @@ fn emitted_actions_run_like_key_presses() {
     assert_eq!(h.state.panels.active, crate::app::state::ActivePanel::Right);
     assert!(h.state.plugins.emitted_actions.is_empty());
 }
+
+/// Uninstalling from the Plugin Manager asks first; Esc keeps the plugin
+/// and Enter removes it, leaving the manager open with the rows refreshed.
+#[test]
+fn plugin_uninstall_asks_first() {
+    use crate::app::state::PopupType;
+    use crate::app::state::popup::{ConfirmUninstallPlugin, PluginMenuState};
+    use crate::plugin::updater::types::PinnedPlugin;
+    use crate::plugin::updater::{read_lockfile, write_lockfile};
+    let mut h = Harness::new();
+    let mut lock = read_lockfile();
+    lock.plugins.insert(
+        "demo".into(),
+        PinnedPlugin {
+            version: "1.0.0".into(),
+            pinned: false,
+            files: Default::default(),
+        },
+    );
+    write_lockfile(&lock).expect("lockfile");
+    let dir = crate::config::paths::get_installed_plugin_dir("demo");
+    std::fs::create_dir_all(&dir).expect("plugin dir");
+    let installed = crate::app::input_popup::plugin_menu::reload_installed_plugins(&h.ctx, &None);
+    assert_eq!(installed.len(), 1);
+    h.state.dialogs.replace(PluginMenuState {
+        installed,
+        ..Default::default()
+    });
+
+    h.keys("d");
+    let asked = h.state.dialogs.top_as::<ConfirmUninstallPlugin>();
+    assert_eq!(asked.map(|q| q.name.as_str()), Some("demo"));
+    h.assert_screen("'demo'");
+    h.keys("Esc");
+    assert!(read_lockfile().plugins.contains_key("demo"), "Esc keeps it");
+    assert!(dir.exists());
+
+    h.keys("Delete Enter");
+    assert!(!read_lockfile().plugins.contains_key("demo"));
+    assert!(!dir.exists());
+    match h.state.dialogs.top() {
+        Some(PopupType::PluginMenu(menu)) => assert!(menu.installed.is_empty()),
+        other => panic!("the manager stays open: {other:?}"),
+    }
+    assert_eq!(h.state.dialogs.depth(), 1);
+}

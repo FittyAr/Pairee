@@ -2,6 +2,8 @@ use super::reload_installed_plugins;
 use super::toast::{Toast, spawn_with_toast};
 use crate::app::context::AppContext;
 use crate::app::list_nav::{ListKey, ListKeys, list_key};
+use crate::app::state::popup::{ConfirmUninstallPlugin, PluginMenuState};
+use crate::app::state::{AppState, PopupType};
 use crate::config::localization::t;
 use crate::plugin::manager::toggles::{self, PluginToggle};
 use crossterm::event::{KeyCode, KeyEvent};
@@ -22,6 +24,31 @@ fn toggle(
     if let Some(name) = installed.get(cursor_idx).map(|p| p.name.clone()) {
         toggles::flip(&mut context.config, &name, what);
         *installed = reload_installed_plugins(context, &None);
+    }
+}
+
+/// Uninstalls `name` (asked first by `ConfirmUninstallPlugin`) and
+/// refreshes the Plugin Manager's Installed rows when it is on top.
+pub fn uninstall(state: &mut AppState, context: &AppContext, name: &str) {
+    match crate::plugin::updater::remove(name) {
+        Ok(_) => {
+            let name = name.to_string();
+            tokio::spawn(async move {
+                crate::plugin::registry::unregister_plugin(&name).await;
+            });
+        }
+        Err(e) => {
+            state.dialogs.push(PopupType::error(
+                t("plugin_uninstall_failed")
+                    .replacen("{}", name, 1)
+                    .replacen("{}", &e.to_string(), 1),
+            ));
+            return;
+        }
+    }
+    if let Some(menu) = state.dialogs.top_mut_as::<PluginMenuState>() {
+        menu.installed = reload_installed_plugins(context, &None);
+        menu.cursor_idx = menu.cursor_idx.min(menu.installed.len().saturating_sub(1));
     }
 }
 
@@ -54,18 +81,6 @@ pub fn handle_installed(
                 let _ = crate::plugin::updater::write_lockfile(&lock);
 
                 *installed = reload_installed_plugins(context, &None);
-            }
-        }
-        KeyCode::Char('d') | KeyCode::Char('D') | KeyCode::Delete => {
-            if let Some(name) = installed.get(*cursor_idx).map(|p| &p.name) {
-                if crate::plugin::updater::remove(name).is_ok() {
-                    let name = name.clone();
-                    tokio::spawn(async move {
-                        crate::plugin::registry::unregister_plugin(&name).await;
-                    });
-                }
-                *installed = reload_installed_plugins(context, &None);
-                *cursor_idx = (*cursor_idx).min(installed.len().saturating_sub(1));
             }
         }
         KeyCode::Char('u') => {
@@ -102,4 +117,21 @@ pub fn handle_installed(
         }
         _ => {}
     }
+}
+
+/// The uninstall key (`d` / `D` / Del) asks [`ConfirmUninstallPlugin`] for
+/// the plugin under the cursor. Returns whether `key` was that key.
+pub fn ask_uninstall(state: &mut AppState, key: KeyEvent) -> bool {
+    if !matches!(key.code, KeyCode::Char('d' | 'D') | KeyCode::Delete) {
+        return false;
+    }
+    let name = state
+        .dialogs
+        .top_as::<PluginMenuState>()
+        .and_then(|menu| menu.installed.get(menu.cursor_idx))
+        .map(|p| p.name.clone());
+    if let Some(name) = name {
+        state.dialogs.push(ConfirmUninstallPlugin { name });
+    }
+    true
 }

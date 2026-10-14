@@ -33,7 +33,7 @@ mod views;
 pub use config_dialog::{ConfigDraft, ConfigurationDialogState};
 pub use confirm::{
     ConfirmClearHistory, ConfirmDiscardEditorChanges, ConfirmInterrupt, ConfirmQuit, ConfirmReload,
-    ConfirmRetryAsAdmin, ConfirmUndo, SaveSetupConfirm,
+    ConfirmRetryAsAdmin, ConfirmUndo, ConfirmUninstallPlugin, SaveSetupConfirm,
 };
 pub use connection::{ConnectionField, ConnectionPromptState};
 pub use credential::CredentialPrompt;
@@ -114,6 +114,7 @@ macro_rules! dialog_list {
             ConfirmDiscardEditorChanges(ConfirmDiscardEditorChanges),
             ConfirmClearHistory(ConfirmClearHistory),
             ConfirmRetryAsAdmin(ConfirmRetryAsAdmin),
+            ConfirmUninstallPlugin(ConfirmUninstallPlugin),
             SaveSetupConfirm(SaveSetupConfirm),
             // File operations
             MkDirPrompt(MkDirPrompt),

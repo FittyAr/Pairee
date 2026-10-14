@@ -156,3 +156,4 @@
 - A double click in a long panel opens the entry that was clicked: the panel scrolls only when the cursor leaves the view, as in Far and Midnight Commander.
 - The help window no longer crashes in a very small terminal, and its texts are translated.
 - Missing texts for the plugin developer install messages and the video mode hint.
+- Uninstalling a plugin in the Plugin Manager (`d` / Del) asks for confirmation first.

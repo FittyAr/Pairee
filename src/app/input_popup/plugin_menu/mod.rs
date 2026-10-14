@@ -72,6 +72,12 @@ pub fn handle(
         return Ok(None);
     }
 
+    if menu.active_tab == 0 && installed::ask_uninstall(state, key) {
+        return Ok(None);
+    }
+    let Some(PopupType::PluginMenu(menu)) = state.dialogs.top_mut() else {
+        return Err(());
+    };
     match menu.active_tab {
         0 => installed::handle_installed(key, context, &mut menu.cursor_idx, &mut menu.installed),
         1 => search::handle_search(
