@@ -102,13 +102,15 @@ impl ScreenStack {
         self.entries.iter_mut().map(|e| &mut e.screen)
     }
 
-    /// Applies changed highlighting settings to the open editors and
-    /// viewers (a viewer still loading picks them up when reopened).
+    /// Applies changed highlighting settings (or reloaded definitions) to
+    /// the open editors and viewers; a viewer still loading applies them
+    /// once its content arrives.
     pub fn apply_syntax_limits(&mut self, limits: &crate::syntax::SyntaxLimits) {
         for screen in self.iter_mut() {
             match screen {
                 Screen::Editor(ed) => ed.detect_syntax(limits),
-                Screen::Viewer(vw) if !vw.loading => vw.detect_syntax(limits),
+                Screen::Viewer(vw) if vw.loading => vw.pending_syntax = Some(*limits),
+                Screen::Viewer(vw) => vw.detect_syntax(limits),
                 _ => {}
             }
         }
