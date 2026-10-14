@@ -236,6 +236,11 @@ mod tests {
             assert_eq!(reader.read(&mut byte).expect("read"), 1, "{seen:?}");
             seen.push(byte[0]);
         }
+        // Keep reading, as Pairee does: on macOS a dying process can wait
+        // for its terminal's unread output to drain before it exits.
+        std::thread::spawn(move || {
+            let _ = std::io::copy(&mut reader, &mut std::io::sink());
+        });
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let _ = tx.send(waiter.wait());
