@@ -131,4 +131,38 @@ impl TransferQueue {
         drop(jobs);
         self.changed.notify_one();
     }
+
+    /// Drops the oldest log lines of every job so each keeps at most `keep`
+    /// (in place: no job is copied).
+    pub fn trim_logs(&self, keep: usize) {
+        for job in self.jobs.lock_safe().iter_mut() {
+            let excess = job.log_lines.len().saturating_sub(keep);
+            job.log_lines.drain(..excess);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fs::transfer::job::TransferOperation;
+    use crate::fs::transfer::options::TransferOptions;
+
+    #[test]
+    fn trim_logs_keeps_the_newest_lines() {
+        let queue = TransferQueue::new();
+        let mut job = TransferJob::new(
+            TransferOperation::Copy,
+            Vec::new(),
+            Default::default(),
+            TransferOptions::default(),
+        );
+        job.log_lines = (0..5).map(|i| i.to_string()).collect();
+        let id = job.id;
+        queue.enqueue(job);
+        queue.trim_logs(2);
+        assert_eq!(queue.get(id).unwrap().log_lines, ["3", "4"]);
+        queue.trim_logs(10);
+        assert_eq!(queue.get(id).unwrap().log_lines.len(), 2);
+    }
 }
