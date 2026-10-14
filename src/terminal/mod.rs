@@ -2,6 +2,7 @@ pub mod backend;
 pub mod events;
 pub mod mouse;
 pub mod panic_hook;
+pub mod pty;
 pub mod pty_cmd;
 pub mod pty_control;
 #[cfg(unix)]

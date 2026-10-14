@@ -46,7 +46,7 @@ pub fn quote_cmd(s: &str) -> String {
 }
 
 /// MSVCRT / `CommandLineToArgvW` quoting (always wrapped in quotes).
-fn quote_msvcrt(s: &str) -> String {
+pub fn quote_msvcrt(s: &str) -> String {
     let mut out = String::with_capacity(s.len() + 2);
     out.push('"');
     let mut backslashes = 0usize;
