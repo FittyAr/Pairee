@@ -122,6 +122,58 @@ fn save_as_on_a_zip_entry_writes_a_new_entry_beside_it() {
 }
 
 #[test]
+fn deleting_inside_an_archive_never_claims_to_use_the_trash() {
+    use crate::app::actions::fs_ops::delete::{DeleteMode, request};
+    use crate::app::state::popup::ConfirmDelete;
+    let mut h = Harness::new();
+    write_zip(&h.left().join("bundle.zip"), SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    let target = vec![h.state.get_active_panel().current_path.join("a.txt")];
+    request(
+        &mut h.state,
+        &h.ctx,
+        target.clone(),
+        false,
+        DeleteMode::Trash,
+    );
+    assert!(matches!(h.state.dialogs.top(), Some(PopupType::Info(_))));
+    h.state.dialogs.clear();
+    h.ctx.config.settings.delete_to_recycle_bin = true;
+    h.ctx.config.settings.confirmations.confirm_delete = true;
+    request(&mut h.state, &h.ctx, target, false, DeleteMode::Configured);
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::ConfirmDelete(ConfirmDelete {
+            to_trash: false,
+            ..
+        }))
+    ));
+}
+
+#[test]
+fn local_tools_never_write_into_an_archive_panel_path() {
+    use crate::app::actions::fs_ops::capability::refuse_unsupported;
+    use crate::app::state::popup::CompressPrompt;
+    use crate::keybindings::Action;
+    let mut h = Harness::new();
+    h.write("work/left/notes.txt", "n");
+    write_zip(&h.right().join("bundle.zip"), SAMPLE_TREE);
+    h.reread().keys("Tab").focus("bundle.zip").keys("Enter Tab");
+    h.focus("notes.txt");
+    for action in [Action::CreateLink, Action::ExtractArchive] {
+        assert!(refuse_unsupported(&mut h.state, &action), "{action:?}");
+        h.state.dialogs.clear();
+    }
+    assert!(!refuse_unsupported(&mut h.state, &Action::CompressFiles));
+    crate::app::actions::fs_ops::compress::handle(&mut h.state, &mut h.ctx);
+    let Some(PopupType::CompressPrompt(CompressPrompt { dest_dir, .. })) = h.state.dialogs.top()
+    else {
+        panic!("compress prompt");
+    };
+    assert_eq!(dest_dir, &h.left(), "beside the files, not inside the zip");
+}
+
+#[test]
 fn copying_into_a_zip_asks_about_existing_entries() {
     let mut h = Harness::new();
     let archive = h.left().join("bundle.zip");
