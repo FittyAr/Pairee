@@ -5,11 +5,14 @@
 //! * refuses to create anything beneath a pre-existing symlink/junction in
 //!   the destination, so an archive can never write through a link;
 //! * never overwrites an existing file or link — such entries are skipped
-//!   and reported via [`ExtractGuard::skipped`];
+//!   and reported via [`ExtractGuard::skipped`] — except one this very
+//!   extraction wrote: a later entry of the same name replaces it, as tar
+//!   archives updated with `tar -u` expect;
 //! * caps the number of entries and the total uncompressed bytes written,
 //!   aborting decompression bombs early.
 
 use anyhow::{Result, anyhow, bail};
+use std::collections::HashSet;
 use std::fs::{self, File, OpenOptions};
 use std::io::{ErrorKind, Read, Write};
 use std::path::{Component, Path, PathBuf};
@@ -32,6 +35,9 @@ pub struct ExtractGuard {
     bytes: u64,
     entries: usize,
     skipped: Vec<PathBuf>,
+    /// Files and links this extraction created (a later entry of the same
+    /// name replaces them).
+    written: HashSet<PathBuf>,
 }
 
 impl ExtractGuard {
@@ -55,6 +61,7 @@ impl ExtractGuard {
             bytes: 0,
             entries: 0,
             skipped: Vec::new(),
+            written: HashSet::new(),
         })
     }
 
@@ -160,6 +167,11 @@ impl ExtractGuard {
         let parent = self.create_dir(rel.parent().unwrap_or(Path::new("")))?;
         let target = parent.join(file_name);
         match fs::symlink_metadata(&target) {
+            Ok(meta) if !meta.is_dir() && self.written.contains(&target) => {
+                // An older copy of this entry, written by this extraction.
+                fs::remove_file(&target)?;
+                Ok(Some(target))
+            }
             Ok(_) => {
                 tracing::warn!("extract: skipping existing {}", target.display());
                 self.skipped.push(rel.to_path_buf());
@@ -184,7 +196,10 @@ impl ExtractGuard {
             .create_new(true)
             .open(&target)
         {
-            Ok(f) => Ok(Some((f, target))),
+            Ok(f) => {
+                self.written.insert(target.clone());
+                Ok(Some((f, target)))
+            }
             Err(e) if e.kind() == ErrorKind::AlreadyExists => {
                 self.skipped.push(rel.to_path_buf());
                 Ok(None)
@@ -221,7 +236,8 @@ impl ExtractGuard {
     #[cfg(unix)]
     pub fn create_symlink(&mut self, rel: &Path, link_target: &Path) -> Result<()> {
         if let Some(target) = self.prepare_leaf(rel)? {
-            std::os::unix::fs::symlink(link_target, target)?;
+            std::os::unix::fs::symlink(link_target, &target)?;
+            self.written.insert(target);
         }
         Ok(())
     }
@@ -317,6 +333,26 @@ mod tests {
         let written = guard.write_file(Path::new("keep.txt"), &mut data, &|| false);
         assert!(written.unwrap().is_none());
         assert_eq!(guard.skipped(), &[PathBuf::from("keep.txt")]);
+        assert_eq!(fs::read(dir.path().join("keep.txt")).unwrap(), b"original");
+    }
+
+    /// `tar -u` appends newer versions: the last one is what extracts, but
+    /// a file that was there before the extraction is still never touched.
+    #[test]
+    fn a_later_entry_replaces_only_what_this_extraction_wrote() {
+        let dir = tempfile::tempdir().unwrap();
+        fs::write(dir.path().join("keep.txt"), b"original").unwrap();
+        let mut guard = ExtractGuard::new(dir.path()).unwrap();
+        for data in [&b"old"[..], &b"new"[..]] {
+            let mut data = data;
+            guard
+                .write_file(Path::new("a.txt"), &mut data, &|| false)
+                .unwrap();
+        }
+        assert_eq!(fs::read(dir.path().join("a.txt")).unwrap(), b"new");
+        let mut data: &[u8] = b"x";
+        let kept = guard.write_file(Path::new("keep.txt"), &mut data, &|| false);
+        assert!(kept.unwrap().is_none());
         assert_eq!(fs::read(dir.path().join("keep.txt")).unwrap(), b"original");
     }
 
