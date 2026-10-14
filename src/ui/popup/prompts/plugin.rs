@@ -7,7 +7,7 @@ use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, Clear, Paragraph, Wrap},
+    widgets::{Paragraph, Wrap},
 };
 
 impl DialogView for PluginDialog {
@@ -77,15 +77,7 @@ fn render_confirm(
     position: Option<&DialogPosition>,
 ) {
     let area = dialog_area(size, position, 50, 8);
-    f.render_widget(Clear, area);
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Yellow))
-        .title(format!(" {title} "))
-        .style(Style::default().bg(theme.popup_bg));
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+    let inner = crate::ui::popup::kit::frame_in(f, area, format!(" {title} "), crate::ui::popup::kit::fg(Color::Yellow), theme);
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -151,15 +143,13 @@ fn render_input(
     position: Option<&DialogPosition>,
 ) {
     let area = dialog_area(size, position, 56, 7);
-    f.render_widget(Clear, area);
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(theme.popup_border))
-        .title(format!(" {title} "))
-        .style(Style::default().bg(theme.popup_bg));
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+    let inner = crate::ui::popup::kit::frame_in(
+        f,
+        area,
+        format!(" {title} "),
+        crate::ui::popup::kit::fg(theme.popup_border),
+        theme,
+    );
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -197,31 +187,23 @@ fn render_which(
 ) {
     if silent {
         let area = dialog_area(size, position, 40, 3);
-        f.render_widget(Clear, area);
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Cyan))
-            .style(Style::default().bg(theme.popup_bg));
+        let inner = crate::ui::popup::kit::frame_in(f, area, "", crate::ui::popup::kit::fg(Color::Cyan), theme);
         f.render_widget(
-            Paragraph::new(t("plugin_dialog_which_silent"))
-                .block(block)
-                .style(Style::default().fg(theme.popup_fg)),
-            area,
+            Paragraph::new(t("plugin_dialog_which_silent")).style(Style::default().fg(theme.popup_fg)),
+            inner,
         );
         return;
     }
 
     let height = (candidates.len() as u16).saturating_add(4).min(16);
     let area = dialog_area(size, position, 50, height);
-    f.render_widget(Clear, area);
-
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::default().fg(Color::Cyan))
-        .title(t("plugin_dialog_which_title"))
-        .style(Style::default().bg(theme.popup_bg));
-    let inner = block.inner(area);
-    f.render_widget(block, area);
+    let inner = crate::ui::popup::kit::frame_in(
+        f,
+        area,
+        t("plugin_dialog_which_title"),
+        crate::ui::popup::kit::fg(Color::Cyan),
+        theme,
+    );
 
     let mut lines: Vec<Line> = candidates
         .iter()

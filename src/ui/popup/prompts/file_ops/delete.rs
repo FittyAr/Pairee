@@ -1,12 +1,11 @@
 use crate::app::state::popup::ConfirmDelete;
 use crate::config::localization::t;
-use crate::ui::popup::centered_rect_fixed;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
     style::{Color, Style},
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 impl DialogView for ConfirmDelete {
@@ -18,21 +17,12 @@ impl DialogView for ConfirmDelete {
             to_trash,
             folders,
         } = self;
-        let area = centered_rect_fixed(50, 8, size);
-        f.render_widget(Clear, area);
-
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Red))
-            .title(t(if *to_trash {
-                "prompt_trash_title"
-            } else {
-                "prompt_delete_title"
-            }))
-            .style(Style::default().bg(theme.popup_bg));
-
-        let inner = block.inner(area);
-        f.render_widget(block, area);
+        let title = t(if *to_trash {
+            "prompt_trash_title"
+        } else {
+            "prompt_delete_title"
+        });
+        let inner = crate::ui::popup::kit::dialog_frame(f, size, (50, 8), title, crate::ui::popup::kit::fg(Color::Red), theme);
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

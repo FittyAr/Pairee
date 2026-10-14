@@ -4,7 +4,7 @@ pub mod widget;
 
 pub use widget::{EditorView, render_editor_widget};
 
-use super::{centered_rect_fixed, centered_rect_in};
+use super::centered_rect_in;
 use crate::app::state::popup::{
     ConfirmDiscardEditorChanges, EditorConfirmOverwrite, EditorSaveAsPrompt,
 };
@@ -13,8 +13,7 @@ use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use ratatui::{
     Frame,
-    style::Style,
-    widgets::{Block, Borders, Clear, Paragraph},
+    widgets::Paragraph,
 };
 
 impl DialogView for EditorSaveAsPrompt {
@@ -35,41 +34,31 @@ impl DialogView for EditorSaveAsPrompt {
 impl DialogView for EditorConfirmOverwrite {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let theme = cx.theme;
-        let area = centered_rect_fixed(60, 8, cx.area);
-        f.render_widget(Clear, area);
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(theme.popup_border))
-            .title(t("editor_overwrite_title"))
-            .style(Style::default().bg(theme.popup_bg));
         let text = t(self.reason.message_key()).replacen("{}", &self.target.to_string_lossy(), 1);
-        f.render_widget(
-            Paragraph::new(text)
-                .block(block)
-                .wrap(ratatui::widgets::Wrap { trim: false })
-                .style(Style::default().fg(theme.popup_fg)),
-            area,
-        );
+        kit::TextBox {
+            size: (60, 8),
+            title: t("editor_overwrite_title"),
+            border: kit::fg(theme.popup_border),
+            body: text.into(),
+            body_style: theme.popup_fg(),
+        }
+        .render_wrapped(f, cx.area, theme);
     }
 }
 
 impl DialogView for ConfirmDiscardEditorChanges {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {
         let theme = cx.theme;
-        let area = centered_rect_in(50, 20, cx.area);
-        f.render_widget(Clear, area);
-        let block = Block::default()
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(theme.popup_border))
-            .title(t("editor_discard_title"))
-            .style(Style::default().bg(theme.popup_bg));
-        let text = ratatui::text::Line::from(vec![ratatui::text::Span::styled(
-            t("editor_discard_prompt"),
-            Style::default().fg(theme.popup_fg),
-        )]);
-        let para = Paragraph::new(text)
-            .block(block)
+        let inner = kit::frame_in(
+            f,
+            centered_rect_in(50, 20, cx.area),
+            t("editor_discard_title"),
+            kit::fg(theme.popup_border),
+            theme,
+        );
+        let para = Paragraph::new(t("editor_discard_prompt"))
+            .style(theme.popup_fg())
             .alignment(ratatui::layout::Alignment::Center);
-        f.render_widget(para, area);
+        f.render_widget(para, inner);
     }
 }
