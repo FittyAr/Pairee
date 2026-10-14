@@ -10,6 +10,7 @@
 //!   position-only widgets `Bar`, `Clear`, `Fill`;
 //! * constants: `Align`, `Wrap`, `Edge`, `Border.*`, `Layout.*`.
 
+mod budget;
 pub mod convert;
 mod geometry;
 mod layout;

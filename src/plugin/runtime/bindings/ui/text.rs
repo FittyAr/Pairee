@@ -8,6 +8,7 @@
 //! * `ui.Text(x)`: lines from a string (split at line breaks), a `Span`, a
 //!   `Line` or a list of them; `ui.Text.parse(s)` keeps ANSI colors.
 
+use super::budget::{Budget, nested};
 use super::style::{add_style_methods, style_arg};
 use crate::app::state::popup::plugin_widget::{WAlign, WLine, WSpan, WText, WTextBody};
 use mlua::{AnyUserData, Lua, Table, UserData, UserDataMethods, Value};
@@ -44,12 +45,21 @@ pub fn span_arg(value: &Value) -> mlua::Result<WSpan> {
 }
 
 pub fn line_arg(value: &Value) -> mlua::Result<WLine> {
+    line_at(value, 0)
+}
+
+/// [`line_arg`] for a value `depth` lists deep.
+fn line_at(value: &Value, depth: usize) -> mlua::Result<WLine> {
     match value {
         Value::UserData(ud) if ud.borrow::<WLine>().is_ok() => Ok(ud.borrow::<WLine>()?.clone()),
         Value::Table(items) => {
+            let depth = nested(depth)?;
+            let mut budget = Budget::default();
             let mut spans = Vec::new();
             for item in items.sequence_values::<Value>() {
-                match line_arg(&item?)? {
+                let line = line_at(&item?, depth)?;
+                budget.line(&line)?;
+                match line {
                     line if line.style == Default::default() => spans.extend(line.spans),
                     line => spans.extend(line.spans.into_iter().map(|mut s| {
                         s.style = line.style.patch(&s.style);
@@ -75,9 +85,14 @@ pub fn text_arg(value: &Value) -> mlua::Result<WText> {
         Value::String(s) => Ok(WText::raw(&s.to_string_lossy())),
         Value::UserData(ud) if ud.borrow::<WText>().is_ok() => Ok(ud.borrow::<WText>()?.clone()),
         Value::Table(items) => {
+            let mut budget = Budget::default();
             let lines = items
                 .sequence_values::<Value>()
-                .map(|item| line_arg(&item?))
+                .map(|item| {
+                    let line = line_arg(&item?)?;
+                    budget.line(&line)?;
+                    Ok(line)
+                })
                 .collect::<mlua::Result<Vec<_>>>()?;
             Ok(WText::lines(lines))
         }
