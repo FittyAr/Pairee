@@ -8,6 +8,27 @@ case_insensitive = true
 kind = "constant"
 pattern = '&(?:[a-z][a-z0-9]*|#[0-9]+|#x[0-9a-f]+);'
 
+# Embedded languages: the tags in the tag color, the content highlighted as
+# JavaScript, CSS or PHP.
+[[region]]
+kind = "tag"
+start = '<script\b[^>]*>'
+end = '</script\s*>'
+include = "JavaScript"
+
+[[region]]
+kind = "tag"
+start = '<style\b[^>]*>'
+end = '</style\s*>'
+include = "CSS"
+
+[[region]]
+kind = "tag"
+# (`<?php`, `<?=`, a short `<? `; not `<?xml`)
+start = '<\?(?:php\b|=|\s|$)'
+end = '\?>'
+include = "PHP"
+
 [[region]]
 kind = "comment"
 start = '<!--'

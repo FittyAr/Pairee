@@ -99,9 +99,12 @@ impl AppState {
     /// (indexing or search progress) changed. Returns `true` on a change.
     pub fn poll_viewer(&mut self) -> bool {
         let mut changed = false;
-        if let Some(loaded) = self.viewer.load.poll()
+        if let Some(mut loaded) = self.viewer.load.poll()
             && let Some(slot) = self.viewer_for(&loaded.path.clone(), true)
         {
+            if let Some(limits) = slot.pending_syntax.take() {
+                loaded.detect_syntax(&limits);
+            }
             *slot = loaded;
             changed = true;
         }
@@ -208,6 +211,32 @@ mod tests {
         assert_eq!(vw.doc.lines(0, 5), ["hello"]);
         assert_eq!(vw.mode, crate::ui::viewer::ViewerMode::Hex);
         assert!(matches!(state.screens.last(), Some(Screen::Viewer(_))));
+    }
+
+    #[test]
+    fn highlighting_changed_while_loading_applies_on_arrival() {
+        use crate::syntax::SyntaxLimits;
+        use crate::ui::viewer::ViewerState;
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("a.rs");
+        std::fs::write(&path, "fn main() {}").unwrap();
+        let mut state = AppState::new(dir.path().into(), dir.path().into());
+        state.push_screen(Screen::Viewer(ViewerState::loading(path.clone())));
+        let on = SyntaxLimits {
+            enabled: true,
+            max_bytes: 1 << 20,
+        };
+        state.screens.apply_syntax_limits(&on);
+        // The job was started with highlighting off.
+        state.viewer.load.start(move |_| {
+            let policy = crate::fs::text::EncodingPolicy::Detect;
+            ViewerState::load_with_images(&crate::fs::vfs::LocalVfs, path, false, policy)
+        });
+        state.poll_viewer();
+        let vw = state.active_viewer_mut().expect("viewer screen");
+        assert!(!vw.loading);
+        assert!(vw.syntax.borrow().is_some(), "the new limits applied");
+        assert!(vw.pending_syntax.is_none());
     }
 
     #[test]

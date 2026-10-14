@@ -1,7 +1,8 @@
 name: Fuzz
 
 # cargo-fuzz targets in fuzz/ (parsers of untrusted input: archives, keymaps,
-# command line, ANSI output, multi-rename patterns, release checksums).
+# command line, ANSI output, multi-rename patterns, release checksums, user
+# syntax highlighting definitions).
 # A short smoke run per target on pushes and pull requests that touch the
 # code, a longer one every week. Not part of the release gate.
 on:

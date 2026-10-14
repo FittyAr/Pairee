@@ -109,6 +109,13 @@ fn screen_action(state: &mut AppState, action: &Action, context: &AppContext) ->
         Action::VideoMode => state.dialogs.replace(PopupType::info(t("video_mode_hint"))),
         Action::CycleFKeysModifiers => cycle_fkeys_modifiers(state),
         Action::CheckForUpdates => check_for_updates(state),
+        Action::ReloadSyntaxDefinitions => {
+            crate::app::syntax_reload::reload_syntax_definitions(
+                state,
+                &context.config.settings,
+                true,
+            );
+        }
         Action::CommandPalette => crate::app::actions::command_palette::open_palette(state),
         Action::WhichKey => crate::app::shortcuts::open(state, context),
         Action::ToggleTransferPanel => toggle_transfer_panel(state),

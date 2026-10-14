@@ -103,15 +103,7 @@ impl AppConfig {
         };
 
         // 4. User syntax definitions (an invalid file is skipped and reported)
-        errors.extend(
-            crate::syntax::load_user_definitions(&paths::get_syntax_dir())
-                .into_iter()
-                .map(|(path, error)| {
-                    localization::t("error_syntax_file_invalid")
-                        .replacen("{}", &path.display().to_string(), 1)
-                        .replacen("{}", &error, 1)
-                }),
-        );
+        errors.extend(load_syntax_definitions());
 
         Ok(Self {
             settings,
@@ -296,6 +288,19 @@ fn create_private_file(path: &std::path::Path) -> std::io::Result<fs::File> {
         opts.mode(0o600);
     }
     opts.open(path)
+}
+
+/// (Re)reads the user's syntax definitions (`<config>/syntax/*.toml`) and
+/// returns why each invalid file is ignored.
+pub fn load_syntax_definitions() -> Vec<String> {
+    crate::syntax::load_user_definitions(&paths::get_syntax_dir())
+        .into_iter()
+        .map(|(path, error)| {
+            localization::t("error_syntax_file_invalid")
+                .replacen("{}", &path.display().to_string(), 1)
+                .replacen("{}", &error, 1)
+        })
+        .collect()
 }
 
 #[cfg(test)]

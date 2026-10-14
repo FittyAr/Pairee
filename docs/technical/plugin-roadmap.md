@@ -479,7 +479,7 @@ The 6 areas build on the 4 foundations above. Each area lists the new API, its L
 - **Rust**: new `PluginRequest::FileCache`.
 
 **E5. `pairee.preview_code({area, file, mime, skip})` and `pairee.preview_widget(opts, widget)`**
-- `preview_code` integrates the existing `pulldown-cmark` and adds syntax highlighting (no highlighter today; add `syntect` or shell-out).
+- `preview_code` integrates the existing `pulldown-cmark` and Pairee's own syntax highlighter (`src/syntax/`, the one of the editor and viewer).
 - `preview_widget` writes a widget directly to the preview pane (extends `UpdatePluginWidget` to accept any `Renderable`).
 
 **E6. `pairee.notify({title, content, timeout, level})`**

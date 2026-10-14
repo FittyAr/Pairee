@@ -2,7 +2,7 @@
 //! files and colors a typical sample as expected.
 
 use super::samples::SAMPLES;
-use super::{kind_at, run};
+use super::{check, run};
 use crate::syntax::builtin::{FILES, languages};
 use crate::syntax::definition::Definition;
 use crate::syntax::registry::Registry;
@@ -60,14 +60,6 @@ fn samples_are_detected_and_highlighted() {
             .unwrap_or_else(|| panic!("{} not detected", sample.path));
         assert_eq!(language.name(), sample.language, "{}", sample.path);
         let tokens = run(language.grammar().unwrap(), sample.lines);
-        for &(line, needle, kind) in sample.expect {
-            assert_eq!(
-                kind_at(&tokens[line], sample.lines[line], needle),
-                kind,
-                "{}: {needle:?} in {:?}",
-                sample.language,
-                sample.lines[line]
-            );
-        }
+        check(sample.language, sample.lines, &tokens, sample.expect);
     }
 }

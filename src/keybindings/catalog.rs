@@ -318,6 +318,11 @@ pub const CATALOG: &[ActionDef] = &[
     def("save_setup", Action::SaveSetup, C::System),
     def("system_settings", Action::SystemSettings, C::System),
     def("check_for_updates", Action::CheckForUpdates, C::System),
+    def(
+        "reload_syntax_definitions",
+        Action::ReloadSyntaxDefinitions,
+        C::System,
+    ),
     essential("quit", Action::Quit, C::System),
 ];
 

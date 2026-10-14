@@ -3,7 +3,7 @@
 
 use super::{grammar, kind_at, run};
 use crate::syntax::SyntaxKind::{self, Comment, Constant, Function, Keyword, String as Str};
-use crate::syntax::highlight::{LineState, MAX_LINE_BYTES};
+use crate::syntax::highlight::MAX_LINE_BYTES;
 use std::time::{Duration, Instant};
 
 const C_LIKE: &str = r#"
@@ -111,7 +111,7 @@ fn tokens_are_ordered_and_on_char_boundaries() {
 /// Highlights `line` with `g`, asserting it takes little time.
 fn bounded(g: &crate::syntax::grammar::Grammar, line: &str) -> Vec<crate::syntax::Token> {
     let started = Instant::now();
-    let tokens = LineState::default().advance(g, line);
+    let tokens = run(g, &[line]).remove(0);
     assert!(
         started.elapsed() < Duration::from_secs(5),
         "took {:?}",

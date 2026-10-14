@@ -78,3 +78,10 @@ path = "fuzz_targets/sha256_file.rs"
 test = false
 doc = false
 bench = false
+
+[[bin]]
+name = "syntax_definition"
+path = "fuzz_targets/syntax_definition.rs"
+test = false
+doc = false
+bench = false
