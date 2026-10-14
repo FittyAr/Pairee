@@ -33,7 +33,10 @@ pub struct EditorSaveAsPrompt {
 /// Saving would overwrite a file changed on disk or an existing target.
 #[derive(Debug, Clone)]
 pub struct EditorConfirmOverwrite {
+    /// The local file saved (a remote copy's temporary file).
     pub target: PathBuf,
+    /// The file named to the user (a remote copy's original).
+    pub shown: PathBuf,
     pub reason: crate::app::editor::open::OverwriteReason,
 }
 

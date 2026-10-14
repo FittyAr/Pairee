@@ -48,11 +48,18 @@ fn switch_to(state: &mut AppState, idx: usize) {
 }
 
 /// Delete: closes screen `idx` (never the panels), stopping its process.
+/// An editor with unsaved changes is shown with the question instead.
 fn close_at(state: &mut AppState, idx: usize) {
     let Some(id) = state.screens.id_at(idx).filter(|_| idx > 0) else {
         return;
     };
-    state.close_screen(id);
+    let menu = state.dialogs.pop_as::<ScreensMenu>();
+    if !state.request_close_screen(id) {
+        return;
+    }
+    if let Some(menu) = menu {
+        state.dialogs.push(menu);
+    }
     let last = state.screens.len() - 1;
     if let Some(ScreensMenu { cursor_idx, .. }) = state.dialogs.top_mut_as::<ScreensMenu>() {
         *cursor_idx = (*cursor_idx).min(last);

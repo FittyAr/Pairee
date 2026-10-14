@@ -22,8 +22,12 @@ pub struct RemoteOrigin {
     pub vfs: Arc<dyn Vfs>,
     /// The file in the source's namespace.
     pub path: PathBuf,
-    /// Size and time of the original when it was downloaded or last uploaded.
-    pub stamp: Stamp,
+    /// Size and time of the original when it was downloaded or last
+    /// uploaded (`None` after "save as": the target is not known yet).
+    pub stamp: Option<Stamp>,
+    /// The last save reached the original (closing the editor before then
+    /// asks first, as with unsaved changes).
+    pub uploaded: bool,
     /// Holds the local copy; removed when the last editor or upload drops it.
     _dir: Arc<tempfile::TempDir>,
 }
@@ -51,19 +55,21 @@ pub fn download(vfs: Arc<dyn Vfs>, path: &Path) -> io::Result<(RemoteOrigin, Pat
     let origin = RemoteOrigin {
         vfs,
         path: path.to_path_buf(),
-        stamp: stamp_of(&entry),
+        stamp: Some(stamp_of(&entry)),
+        uploaded: true,
         _dir: Arc::new(dir),
     };
     Ok((origin, local))
 }
 
 /// Uploads the local copy over the original. Unless `force` is set, a
-/// changed original is left alone and `None` is returned. A deleted
-/// original is recreated. Returns the original's new stamp.
+/// changed original (or an existing "save as" target) is left alone and
+/// `None` is returned. A deleted original is recreated. Returns the
+/// original's new stamp.
 pub fn upload(origin: &RemoteOrigin, local: &Path, force: bool) -> io::Result<Option<Stamp>> {
     if !force {
         match origin.vfs.stat(&origin.path) {
-            Ok(entry) if stamp_of(&entry) != origin.stamp => return Ok(None),
+            Ok(entry) if Some(stamp_of(&entry)) != origin.stamp => return Ok(None),
             Ok(_) => {}
             Err(e) if e.kind() == io::ErrorKind::NotFound => {}
             Err(e) => return Err(e),
@@ -93,15 +99,21 @@ pub fn open_remote(state: &mut AppState, vfs: Arc<dyn Vfs>, path: PathBuf) {
 /// Uploads the saved copy `local` in the background; asks before
 /// overwriting an original that changed since it was opened.
 pub fn start_upload(state: &mut AppState, origin: RemoteOrigin, local: PathBuf, force: bool) {
+    let reason = if origin.stamp.is_some() {
+        OverwriteReason::ChangedRemotely
+    } else {
+        OverwriteReason::TargetExists
+    };
     state.start_vfs_task(move || {
         let uploaded = upload(&origin, &local, force)?;
         let follow_up: VfsFollowUp =
             Box::new(move |state, _| match uploaded {
-                Some(stamp) => state.set_remote_stamp(&local, stamp),
+                Some(stamp) => state.set_remote_stamp(&local, &origin.path, stamp),
                 None => state.dialogs.replace(PopupType::EditorConfirmOverwrite(
                     EditorConfirmOverwrite {
                         target: local,
-                        reason: OverwriteReason::ChangedRemotely,
+                        shown: origin.path,
+                        reason,
                     },
                 )),
             });
@@ -109,16 +121,55 @@ pub fn start_upload(state: &mut AppState, origin: RemoteOrigin, local: PathBuf, 
     });
 }
 
+/// "Overwrite?" answered Yes for the remote copy `local`: uploads it
+/// again over whatever is there. Returns `false` when `local` is not an
+/// open remote copy.
+pub fn force_upload(state: &mut AppState, local: &Path) -> bool {
+    let Some(origin) = state.editor_of_mut(local).and_then(|ed| ed.remote.clone()) else {
+        return false;
+    };
+    start_upload(state, origin, local.to_path_buf(), true);
+    true
+}
+
+/// "Save as" of a remote copy: `target` names a file on the same source
+/// (a server or an archive); the local copy is saved and uploaded there.
+pub fn save_remote_as(state: &mut AppState, target: PathBuf) {
+    let Some(ed) = state.active_editor_mut() else {
+        return;
+    };
+    let local = ed.path.clone();
+    if let Err(e) = ed.save_to(&local) {
+        state.dialogs.replace(PopupType::error(
+            crate::config::localization::t("error_save_failed").replace("{}", &e.to_string()),
+        ));
+        return;
+    }
+    let Some(origin) = ed.remote.as_mut() else {
+        return;
+    };
+    if origin.path != target {
+        origin.path = target;
+        origin.stamp = None;
+    }
+    origin.uploaded = false;
+    let origin = origin.clone();
+    let limits = ed.syntax_limits;
+    ed.detect_syntax(&limits);
+    start_upload(state, origin, local, false);
+}
+
 impl AppState {
-    /// Records the stamp of an upload on the editor of `local`, if open.
-    fn set_remote_stamp(&mut self, local: &Path, stamp: Stamp) {
-        for screen in self.screens.iter_mut() {
-            if let crate::app::state::Screen::Editor(ed) = screen
-                && ed.path == local
-                && let Some(origin) = ed.remote.as_mut()
-            {
-                origin.stamp = stamp;
-            }
+    /// Records an upload of `local` to `remote` on its editor, if it is
+    /// still open and still saves there.
+    fn set_remote_stamp(&mut self, local: &Path, remote: &Path, stamp: Stamp) {
+        if let Some(origin) = self
+            .editor_of_mut(local)
+            .and_then(|ed| ed.remote.as_mut())
+            .filter(|origin| origin.path == remote)
+        {
+            origin.stamp = Some(stamp);
+            origin.uploaded = true;
         }
     }
 }

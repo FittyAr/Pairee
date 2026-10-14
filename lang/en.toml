@@ -149,6 +149,7 @@ editor_status_text = " Line Chars: {} | Total Lines: {} | Pos: ({}, {}) | {}"
 editor_target_exists = "\n {}\n already exists.\n\n [Enter] Overwrite   [Esc] Cancel"
 editor_text_not_found = "Text not found"
 editor_title = " Editor - {} {} "
+editor_unsaved_before_quit = "This editor has changes that are not saved (or not uploaded yet). Save them (F2) or close the editor (Esc) before quitting."
 # Editor: find / replace and syntax highlighting
 ed_syntax_highlighting = "Syntax highlighting (editor and viewer)"
 ed_syntax_max_size = "Highlight files up to:"

@@ -149,6 +149,7 @@ editor_status_text = " Caracteres de línea: {} | Total líneas: {} | Pos: ({}, 
 editor_target_exists = "\n {}\n ya existe.\n\n [Enter] Sobrescribir   [Esc] Cancelar"
 editor_text_not_found = "Texto no encontrado"
 editor_title = " Editor - {} {} "
+editor_unsaved_before_quit = "Este editor tiene cambios sin guardar (o aún sin subir). Guárdalos (F2) o cierra el editor (Esc) antes de salir."
 # Editor: find / replace and syntax highlighting
 ed_syntax_highlighting = "Resaltado de sintaxis (editor y visor)"
 ed_syntax_max_size = "Resaltar archivos de hasta:"

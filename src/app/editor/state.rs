@@ -27,6 +27,9 @@ pub struct EditorState {
     pub last_search: Option<Box<LastSearch>>,
     /// Highlight the matches of `last_search` (until Esc).
     pub show_matches: bool,
+    /// Where the last find stopped on an empty match (`^`, `$`...), which
+    /// cannot be shown as a selection; "Replace" replaces it there.
+    pub empty_match: Option<Pos>,
     /// Line ending, final newline and BOM to write back.
     pub format: TextFormat,
     /// Modification time / read-only flag when the file was read or saved.
@@ -65,6 +68,7 @@ impl EditorState {
             scroll_y: 0,
             last_search: None,
             show_matches: false,
+            empty_match: None,
             format,
             stamp: DiskStamp::default(),
             locked: false,
@@ -117,6 +121,12 @@ impl EditorState {
 
     pub fn is_dirty(&self) -> bool {
         self.history.is_dirty()
+    }
+
+    /// Closing would lose work: edits not saved, or (remote copy) saved
+    /// locally but not uploaded to the original yet.
+    pub fn has_unsaved_changes(&self) -> bool {
+        self.is_dirty() || self.remote.as_ref().is_some_and(|origin| !origin.uploaded)
     }
 
     /// Applies `edit` through the undo history. Returns `false` when the
@@ -175,7 +185,9 @@ impl EditorState {
         self.history.seal();
         let mut text = String::from("\n");
         if auto_indent {
-            let line = &self.current_line()[..self.cursor_x];
+            // The line the newline goes into (a selection's start).
+            let at = self.insertion_point();
+            let line = &self.lines[at.y][..at.x];
             let indent_len = line.len() - line.trim_start_matches([' ', '\t']).len();
             text.push_str(&line[..indent_len]);
         }
@@ -358,6 +370,17 @@ mod tests {
         assert_eq!(ed.cursor(), Pos::new(1, 3));
         ed.insert_newline(false);
         assert_eq!(ed.lines[2], "");
+    }
+
+    #[test]
+    fn auto_indent_over_a_selection_uses_the_line_it_starts_on() {
+        let mut ed = editor("  a\nbb");
+        ed.selection = Some(Selection::Stream {
+            anchor: Pos::new(0, 2),
+        });
+        ed.set_cursor(Pos::new(1, 2));
+        ed.insert_newline(true);
+        assert_eq!(ed.lines, vec!["  ", "  "]);
     }
 
     #[test]

@@ -72,11 +72,13 @@ pub(super) fn run(
             ed.selection = None;
             ed.show_matches = false;
         }
-        E::Quit if ed.is_dirty() => state
-            .dialogs
-            .replace(PopupType::ConfirmDiscardEditorChanges(
-                ConfirmDiscardEditorChanges,
-            )),
+        E::Quit if ed.has_unsaved_changes() => {
+            state
+                .dialogs
+                .replace(PopupType::ConfirmDiscardEditorChanges(
+                    ConfirmDiscardEditorChanges,
+                ))
+        }
         E::Quit => state.close_current_screen(),
         E::Copy
         | E::Cut

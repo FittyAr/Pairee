@@ -51,6 +51,8 @@ fn menu_action(state: &mut AppState, action: &Action, context: &AppContext) -> b
         Action::UserMenu => state.dialogs.replace(UserMenu { cursor_idx: 0 }),
         Action::Menu => toggle_main_menu(state, context),
         Action::ContextMenu => open_context_menu(state),
+        // An editor with unsaved changes is shown instead of quitting.
+        Action::Quit if !state.may_quit() => {}
         Action::Quit => {
             if context.config.settings.confirmations.confirm_quit {
                 state.dialogs.replace(ConfirmQuit);

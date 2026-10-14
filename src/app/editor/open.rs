@@ -7,7 +7,7 @@
 
 use super::document::LoadError;
 use super::{EditorOptions, EditorState};
-use crate::app::state::popup::EditorConfirmOverwrite;
+use crate::app::state::popup::{ConfirmDiscardEditorChanges, EditorConfirmOverwrite};
 use crate::app::state::{AppState, PopupType, Screen};
 use crate::config::localization::t;
 use crate::config::settings::Settings;
@@ -48,10 +48,52 @@ pub fn load_error_message(err: &LoadError) -> String {
 impl AppState {
     /// The editor of the active screen, if the active screen is an editor.
     pub fn active_editor_mut(&mut self) -> Option<&mut EditorState> {
-        match Some(self.screens.active_mut()) {
-            Some(Screen::Editor(ed)) => Some(ed),
+        match self.screens.active_mut() {
+            Screen::Editor(ed) => Some(ed),
             _ => None,
         }
+    }
+
+    /// The open editor of `path` (its local file).
+    pub fn editor_of_mut(&mut self, path: &Path) -> Option<&mut EditorState> {
+        self.screens.iter_mut().find_map(|screen| match screen {
+            Screen::Editor(ed) if ed.path == path => Some(ed),
+            _ => None,
+        })
+    }
+
+    /// Position of the first editor screen holding unsaved changes.
+    pub fn first_unsaved_editor(&self) -> Option<usize> {
+        self.screens
+            .iter()
+            .position(|screen| matches!(screen, Screen::Editor(ed) if ed.has_unsaved_changes()))
+    }
+
+    /// Closes screen `id`; an editor with unsaved changes is shown with the
+    /// "discard changes?" question instead. Returns `true` when closed.
+    pub fn request_close_screen(&mut self, id: crate::app::state::ScreenId) -> bool {
+        let Some(index) = self.screens.index_of(id) else {
+            return false;
+        };
+        if matches!(self.screens.get(index), Some(Screen::Editor(ed)) if ed.has_unsaved_changes()) {
+            self.switch_screen(index);
+            self.dialogs.replace(ConfirmDiscardEditorChanges);
+            return false;
+        }
+        self.close_screen(id);
+        true
+    }
+
+    /// Before quitting: shows the first editor with unsaved changes and
+    /// says so. Returns `true` when nothing would be lost.
+    pub fn may_quit(&mut self) -> bool {
+        let Some(index) = self.first_unsaved_editor() else {
+            return true;
+        };
+        self.switch_screen(index);
+        self.dialogs
+            .replace(PopupType::info(t("editor_unsaved_before_quit")));
+        false
     }
 }
 
@@ -101,21 +143,22 @@ pub fn save_active_editor(state: &mut AppState, target: Option<PathBuf>, force: 
         target.exists().then_some(OverwriteReason::TargetExists)
     };
     if let Some(reason) = reason {
-        state
-            .dialogs
-            .replace(EditorConfirmOverwrite { target, reason });
+        state.dialogs.replace(EditorConfirmOverwrite {
+            shown: target.clone(),
+            target,
+            reason,
+        });
         return false;
     }
     match ed.save_to(&target) {
         Ok(()) => {
-            // A remote copy is uploaded; "save as" keeps the new file local.
-            let origin = if own_file {
-                ed.remote.clone()
-            } else {
+            // A remote copy is uploaded ("save as" of a remote copy goes
+            // through `remote::save_remote_as`, so `own_file` holds).
+            if !own_file {
                 ed.remote = None;
-                None
-            };
-            if let Some(origin) = origin {
+            } else if let Some(origin) = ed.remote.as_mut() {
+                origin.uploaded = false;
+                let origin = origin.clone();
                 super::remote::start_upload(state, origin, target, force);
             }
             true
@@ -187,6 +230,29 @@ mod tests {
         assert!(save_active_editor(&mut state, Some(other.clone()), true));
         assert_eq!(std::fs::read_to_string(&other).unwrap(), "x");
         assert_eq!(state.active_editor_mut().unwrap().path, other);
+    }
+
+    #[test]
+    fn unsaved_editors_are_not_closed_or_quit_silently() {
+        let (mut state, _dir, _) = state_with_file("x");
+        let editor = state.screens.active_id();
+        state.active_editor_mut().unwrap().insert_char('y');
+        state.switch_screen(0);
+        assert!(!state.may_quit());
+        assert_eq!(state.screens.active_id(), editor, "the editor is shown");
+        assert!(matches!(state.dialogs.top(), Some(PopupType::Info(_))));
+        state.dialogs.clear();
+        state.switch_screen(0);
+        assert!(!state.request_close_screen(editor));
+        assert_eq!(state.screens.len(), 2);
+        assert!(matches!(
+            state.dialogs.top(),
+            Some(PopupType::ConfirmDiscardEditorChanges(_))
+        ));
+        assert!(save_active_editor(&mut state, None, false));
+        assert!(state.may_quit());
+        assert!(state.request_close_screen(editor));
+        assert_eq!(state.screens.len(), 1);
     }
 
     #[test]

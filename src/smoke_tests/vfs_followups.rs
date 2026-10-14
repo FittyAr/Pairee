@@ -85,6 +85,43 @@ fn f4_edits_a_zip_entry_and_saves_it_back() {
 }
 
 #[test]
+fn save_as_on_a_zip_entry_writes_a_new_entry_beside_it() {
+    let mut h = Harness::new();
+    let archive = h.left().join("bundle.zip");
+    write_zip(&archive, SAMPLE_TREE);
+    h.reread().focus("bundle.zip").keys("Enter");
+    h.focus("a.txt").keys("@edit");
+    h.wait_until("editor on the copy", |h| in_editor(h));
+    h.text("copy ").keys("Shift+F2");
+    assert!(matches!(
+        h.state.dialogs.top(),
+        Some(PopupType::EditorSaveAsPrompt(_))
+    ));
+    for _ in 0.."a.txt".len() {
+        h.keys("Backspace");
+    }
+    h.text("b.txt").keys("Enter");
+    h.wait_until("new entry uploaded", |h| {
+        let file = std::fs::File::open(h.left().join("bundle.zip")).unwrap();
+        zip::ZipArchive::new(file).unwrap().by_name("b.txt").is_ok()
+    });
+    assert_eq!(zip_entry(&archive, "b.txt"), "copy alpha");
+    assert_eq!(
+        zip_entry(&archive, "a.txt"),
+        "alpha",
+        "the original is kept"
+    );
+    h.wait_until("upload recorded", |h| {
+        h.state.first_unsaved_editor().is_none()
+    });
+    let Screen::Editor(ed) = h.state.screens.active() else {
+        panic!("the editor stays open");
+    };
+    assert!(ed.path.exists(), "the local copy is kept");
+    assert!(ed.display_path().ends_with("b.txt"));
+}
+
+#[test]
 fn copying_into_a_zip_asks_about_existing_entries() {
     let mut h = Harness::new();
     let archive = h.left().join("bundle.zip");
