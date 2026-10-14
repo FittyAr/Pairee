@@ -42,7 +42,7 @@ Our custom build script `build.rs` automatically captures target compilation, gi
 ### Formatting & Lints
 
 Install the git hook once so every `git push` runs the fast checks (rustfmt,
-[typos](https://github.com/crate-ci/typos), translation key parity) first:
+[typos](https://github.com/crate-ci/typos), translations and help pages; Python 3.11+) first:
 
 ```sh
 cargo xtask install-hooks
