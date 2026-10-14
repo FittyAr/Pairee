@@ -34,7 +34,7 @@ El sistema de complementos de Pairee permitirá a los desarrolladores de la comu
 - **`mlua`** (LuaJIT o Lua 5.4 compilado estáticamente) es la biblioteca de integración. Se integra nativamente con Tokio para ejecución asíncrona.
 - El código de los complementos **nunca bloquea el hilo de renderizado**. Toda ejecución de complementos ocurre dentro de tareas Tokio dedicadas.
 - El `AppState` de Rust **nunca es mutado directamente** por los complementos. Las mutaciones fluyen a través de una cola de eventos tipados.
-- El acceso de los complementos a las bibliotecas estándar peligrosas de Lua (`io`, `os`, `package`) está **bloqueado por defecto** y requiere habilitación explícita del usuario (`trusted = true`) en `pairee.toml`.
+- El acceso de los complementos a las bibliotecas estándar peligrosas de Lua (`io`, `os`, `package`) está **bloqueado por defecto** y requiere habilitación explícita del usuario (`trusted = true`) en `config.toml`.
 - Un parámetro de configuración global de solo lectura **`secure_mode`** evita todo acceso a internet y ejecución de comandos externos independientemente de la configuración de confianza de cada complemento.
 - Oculta bajo una sección `[developer]`, una suite interna se encarga de la validación sintáctica, autoformateado, cálculo de hashes SHA-256 por cada archivo del plugin y automatización de ramas/PRs de Git.
 
@@ -45,7 +45,7 @@ El sistema de complementos de Pairee permitirá a los desarrolladores de la comu
 ```mermaid
 graph TD
     subgraph "Capa de Configuración"
-        TOML[pairee.toml\ntablas [settings], [plugins] y [developer]] --> PM
+        TOML[config.toml\najustes y tablas [plugins.nombre]] --> PM
         LOCK[plugins.lock\nhash de archivos + versiones fijadas] --> PM
     end
 
@@ -310,13 +310,13 @@ Cuando se ejecuta un complemento, su entorno de Lua se carga en una instancia de
 3. **Restricciones de Ejecución:** Cualquier intento de llamar a `pairee.fs.spawn()` para ejecutar procesos externos genera inmediatamente un error de ejecución en el script.
 
 ### 10.2 Modo Confiable (`trusted = true`)
-Para complementos avanzados que requieren integración con el sistema (como ejecutar comandos de Git o herramientas de diagnóstico), el usuario puede optar explícitamente por el **Modo Confiable** en su archivo `pairee.toml`:
+Para complementos avanzados que requieren integración con el sistema (como ejecutar comandos de Git o herramientas de diagnóstico), el usuario puede optar explícitamente por el **Modo Confiable** en su archivo `config.toml` (`[plugins.<nombre>] trusted = true`):
 * La VM se inicializa con acceso a las bibliotecas estándar peligrosas (`io`, `os`, `package`) para permitir la carga de archivos y módulos externos.
 * Se permite que el complemento invoque procesos externos a través de la API `pairee.fs.spawn()`.
 
 ### 10.3 Modo Seguro Global (`secure_mode = true`)
 Para evitar que incluso los complementos marcados como de confianza recopilen sigilosamente archivos y los filtren a través de la red, Pairee implementa un **Modo Seguro** global e inmutable que actúa como salvaguarda a nivel del motor en Rust:
-* **Activación:** Se habilita en el archivo de configuración principal (`pairee.toml` bajo `[settings]` -> `secure_mode = true`).
+* **Activación:** Se habilita en el archivo de configuración principal (`secure_mode = true` en la raíz de `config.toml`).
 * **Inmutabilidad:** El objeto de configuración principal se carga como de solo lectura por el núcleo de Rust; los scripts de Lua no tienen acceso de escritura a este espacio de memoria y no pueden desactivar el Modo Seguro.
 * **Intercepción de Red y Sockets:** Incluso si un complemento está configurado con `trusted = true`, el runtime de Rust bloquea cualquier creación de sockets TCP/UDP o llamadas HTTP desde el entorno de la VM.
 * **Lista Negra de Ejecución de Procesos:** El ejecutor de procesos de Rust intercepta todas las llamadas a `pairee.fs.spawn()`. Si el binario coincide con alguna herramienta de red o intérprete de comandos prohibido, la ejecución se bloquea inmediatamente:
@@ -418,31 +418,23 @@ El motor de ayuda realiza la búsqueda del archivo adecuado según el idioma act
 
 ## 14. Herramientas del Modo Desarrollador y TUI de Envío de Pull Request
 
-Cuando el desarrollador configura `developer_mode = true` en `pairee.toml` bajo una sección `[developer]`, se desbloquea una suite de utilidades de desarrollo:
+Con `plugins_developer_mode = true` en `config.toml` aparece la pestaña Developer Tools en el menú de plugins; los comandos de CLI de abajo funcionan sin esa opción:
 
-### 14.1 Comandos de Desarrollador en CLI y Validaciones Estrictas
-* `pairee developer format <ruta>`: Formatea todos los archivos Lua en el directorio del complemento usando el estándar de estilo de Pairee.
-* `pairee developer validate <ruta>`: Analiza scripts con linter y valida la sintaxis Lua, ejecutando un conjunto de verificaciones estrictas de compatibilidad multiplataforma.
-* `pairee developer package <ruta>`: Escanea la estructura del directorio, ejecuta el suite de validación y empaqueta el complemento:
-  * **Autodetección de Idiomas:** Inspecciona la carpeta `lang/` buscando archivos `*.toml`, extrae los códigos de idioma (p. ej., `en`, `es`) y los escribe automáticamente en la lista `languages` del manifiesto `manifest.toml`.
-  * **Autodetección de Categoría/Tipo:** Analiza el script `main.lua` para comprobar qué APIs o ganchos se referencian (p. ej., la presencia de funciones `peek`/`seek` clasifica el tipo como `"previewer"`; suscripciones a `pairee.ps.sub` lo clasifican como `"hook"`). Escribe esto en el campo `type` del manifiesto.
-  * **Generación de Hashing de Integridad:** Genera o actualiza automáticamente el archivo `sha256.sum` con los hashes SHA-256 de cada archivo en el directorio del plugin.
+### 14.1 Comandos de Desarrollador en CLI
+`pairee developer <cmd>` (`src/run/dev_cli.rs`) actúa sobre el directorio actual y no requiere el modo desarrollador:
+* `init <nombre>`: Crea un complemento a partir de la rama `plugin-template`.
+* `lint`: Comprueba el manifiesto y `default_language`, que exista `main.lua`, las llamadas inseguras (`os.execute`, `io.open`, `os.system`, `dofile`, `loadfile`) en un complemento sin `requires_trust` y las teclas sugeridas en cada preset.
+* `package`: Ejecuta las comprobaciones de publicación (14.2), resuelve la licencia, copia el complemento a un clon local de `plugin-registry`, escribe `sha256.sum` y la tabla `[files]` del manifiesto y actualiza `registry/index.toml`. No detecta idiomas ni el tipo de complemento: `languages` y `type` se toman del manifiesto tal como están.
+* `submit`: `package`, luego un commit local y, con un token de GitHub, push a un fork y una pull request.
 
-### 14.2 Reglas del Suite de Validación Estricta
-Los comandos `validate` y `package` (junto con el script de CI `./scripts/validate-plugin.sh`) imponen rigurosamente:
-1. **Seguridad de Nombres Multiplataforma:**
-   * Los nombres de archivos y directorios deben contener únicamente caracteres alfanuméricos en minúsculas, puntos (`.`), guiones (`-`) y guiones bajos (`_`).
-   * Se prohíben espacios, letras mayúsculas o caracteres especiales (como `?`, `*`, `:`, `\`, `/`, `|`, `<`, `>`, `"`) incompatibles entre sistemas de archivos.
-2. **Consistencia de Nombres:**
-   * El nombre del directorio raíz del complemento debe coincidir exactamente con el campo `name` declarado en `manifest.toml`.
-3. **Cobertura de Archivos de Localización y Ayuda:**
-   * Cada idioma declarado en el array `languages` del manifiesto debe tener tanto un archivo de traducción (`lang/<locale>.toml`) como un archivo de ayuda (`help/<locale>.md`).
-   * No se permite la presencia de archivos de traducción o ayuda adicionales en esos subdirectorios que no estén explícitamente listados en el array `languages` del manifiesto.
-   * Deben estar presentes el archivo de traducción y de ayuda correspondientes al `default_language`.
-4. **Sincronización de Claves de Traducción:**
-   * Analiza todos los archivos TOML en `lang/` y verifica que el árbol de claves sea idéntico en todos ellos. Cualquier clave faltante en un idioma secundario genera una advertencia.
-5. **Codificación UTF-8:**
-   * Todos los archivos `.toml`, `.md` y `.lua` deben estar codificados en UTF-8 válido.
+### 14.2 Comprobaciones de Publicación
+`validate_for_publish` (`src/plugin/developer_tool/package/validate.rs`) se detiene en el primer fallo:
+1. `manifest.toml` existe y se puede analizar.
+2. `name` y `author` solo usan `[A-Za-z0-9_-]` (lo comprueba `registry_plugin_dir` al copiar los archivos).
+3. El icono existe y es una imagen legible de 256x256 o 512x512.
+4. Hay al menos una captura listada; cada una existe y es una imagen legible de al menos 640x480.
+
+Al empaquetar no se validan los nombres de archivo, la cobertura de traducciones, la alineación de claves, la sintaxis Lua ni la codificación UTF-8.
 
 ### 14.3 Asistente TUI de Metadatos y Envío Automático de PR
 Se añade una pantalla interactiva TUI exclusiva para desarrolladores que actúa como asistente paso a paso de metadatos y envío de complementos:

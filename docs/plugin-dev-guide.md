@@ -34,7 +34,7 @@ Pairee plugins are **Lua modules** that extend the file manager with:
 - **Lifecycle hooks** — react to navigation events (directory changes, file hover, key presses).
 - **Functional commands** — execute actions invoked via keybindings or the user menu.
 
-Plugins are stored in your configuration folder and declared in `pairee.toml`. Once loaded, they run asynchronously on background threads without blocking terminal UI rendering.
+Plugins are stored in your configuration folder and configured in `config.toml`. Once loaded, they run asynchronously on background threads without blocking terminal UI rendering.
 
 ---
 
@@ -88,7 +88,7 @@ id    = "hello"
 title = "Say hello"
 ```
 
-Register it in `pairee.toml`:
+Register it in `config.toml`:
 
 ```toml
 [plugins.hello]
@@ -632,7 +632,7 @@ By default, all plugins run in **Untrusted Mode** (`trusted = false`), which iso
 * **Clipboard:** an untrusted plugin may write the clipboard but not read it (reading needs a trusted plugin outside Secure Mode).
 
 ```toml
-# In pairee.toml
+# In config.toml
 [plugins.csv-preview]
 name    = "csv-preview"
 trusted = false       # No system access needed (Untrusted sandbox mode)
@@ -649,7 +649,7 @@ When a plugin is explicitly trusted by the user, it runs in **Trusted Mode**:
 
 ### 13.3 Global Secure Mode (`secure_mode = true`)
 To prevent data exfiltration, users can enable a global **Secure Mode** in their settings. This mode acts as an overriding runtime firewall:
-* **Activation:** Configured in `pairee.toml` under `[settings]` -> `secure_mode = true`. This configuration is read-only at runtime and completely immutable from Lua.
+* **Activation:** Configured in `config.toml` as `secure_mode = true` (or **Configuration → Language & Plugins → Secure Mode for all plugins**). This configuration is read-only at runtime and completely immutable from Lua.
 * **Restricted standard library:** a trusted plugin gets the same Lua libraries as an untrusted one plus `coroutine` and a clock-only `os` (`os.time`, `os.date`, `os.clock`, `os.difftime`): no `io`, `package`, `load` / `loadfile` / `dofile`, `os.execute`, `os.remove`, `os.rename`, `os.getenv` or `os.exit`, which would bypass the jail and the process allowlist below.
 * **Network & Socket Ban:** TCP/UDP socket creation and HTTP requests are completely disabled at the engine level for all plugins, including those with `trusted = true`.
 * **Process Allowlist:** In Secure Mode a trusted plugin may only spawn (`pairee.Command`, `pairee.fs.spawn`) programs it declares in its manifest:
@@ -676,28 +676,27 @@ In the Plugin Manager (Installed tab) `c` or Enter opens the plugin's settings (
 ## 14. Testing Your Plugin Locally
 
 1. **Place your plugin** folder under `~/.config/pairee/plugins/<name>.pairee/`; the manifest `name` must be `<name>`.
-2. **Register it** in `pairee.toml` (needed for `trusted = true`; an unregistered plugin loads untrusted).
+2. **Register it** in `config.toml` (needed for `trusted = true`; an unregistered plugin loads untrusted).
 3. Run Pairee and check the logs in `~/.cache/pairee/app.log` for execution events.
 
 ---
 
 ## 15. Developer Mode Tools & PR Submission TUI
 
-To simplify packaging and validation of plugins, developers can enable a dedicated developer suite in `pairee.toml`:
+To simplify packaging and validation of plugins, developers can enable developer mode: **Configuration → Language & Plugins → Plugins developer mode**, stored in `config.toml` as:
 
 ```toml
-# In pairee.toml
-[developer]
-developer_mode = true   # Gates access to CLI developer commands and PR screens
+# In config.toml
+plugins_developer_mode = true   # Shows the Developer Tools tab in the plugin menu
 ```
 
-### 15.1 CLI Developer Commands & Auto-Detection
-With developer mode enabled, the following commands are available:
-* `pairee developer format <path>`: Formats all Lua files in the plugin directory according to Pairee's standard.
-* `pairee developer validate <path>`: Lints scripts, checks `manifest.toml` schemas, validates Lua syntax, and enforces strict cross-platform naming safety, name consistency, localized files coverage, translation key sync, and text encoding checks.
-* `pairee developer package <path>`: Scans the directory structure, executes the validation suite, and packages the plugin:
-  * **Auto-Detects Languages:** Scans the `lang/` directory for TOML files and registers them in the manifest.
-  * **Auto-Detects Plugin Category:** Inspects references in `main.lua` to identify the plugin type.
+The `pairee developer` CLI commands below work with or without it; the setting only gates the TUI tools (15.2).
+
+### 15.1 CLI Developer Commands
+Run them from inside the plugin folder (they act on the current directory):
+* `pairee developer init <name>`: Creates a new plugin from the `plugin-template` branch (15.4), asking for a description and an author.
+* `pairee developer lint`: Checks that `manifest.toml` parses and sets `default_language`, that `main.lua` exists, warns about `os.execute`, `io.open`, `os.system`, `dofile` and `loadfile` in a plugin that does not set `requires_trust = true`, and reports invalid or conflicting suggested keys per preset.
+* `pairee developer package`: Runs the publication checks (15.3) and packages the plugin into a local clone of the `plugin-registry` branch:
   * **Generates Hashes:** Automatically generates/updates the version-specific `sha256.sum` file containing SHA-256 hashes of every file in the directory. (Note: this does not create a compressed archive; Pairee registry plugins are distributed as raw folders).
   * **License Detection & Generation:**
     - Checks for an existing `LICENSE` file (case-insensitive) in the plugin directory.
@@ -705,7 +704,7 @@ With developer mode enabled, the following commands are available:
     - If no license file is found, the tool automatically assigns the `"MIT"` license to your manifest and writes a standard MIT `LICENSE` file containing your copyright details in the plugin workspace.
 
 ### 15.2 TUI Developer Tools & PR Submission Wizard
-The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → Files → Plugin commands** → `Developer Tools` tab when `developer_mode = true` is enabled in `pairee.toml`) provide the following suite of utilities:
+The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → Files → Plugin commands** → `Developer Tools` tab when developer mode is enabled) provide the following suite of utilities:
 
 * **Active Plugin Selection (Option 0):** Opens an interactive modal selection list displaying all detected development plugins. It lists all plugins found under `plugins_dev_dir` and also scans the active directories of Panel 1 and Panel 2 for a `manifest.toml` file, letting you choose the targeted plugin from the list with your keyboard.
 * **Initialize boilerplate (Option 1):** Guides the developer step-by-step to create a new plugin skeleton under your development directory. Upon successful creation, the new plugin is automatically set as the active plugin (Option 0) and Option 1 is disabled.
@@ -714,18 +713,23 @@ The interactive TUI developer tools (accessible via **Top Menu Bar (F9) → File
 * **Install Local (Option 4):** Copies the active plugin to the local plugins runtime folder and registers it in `plugins.lock` for immediate TUI testing.
 * **Submit Plugin (GitHub PR) (Option 5):** Submission wizard that collects descriptions, git commits, and optional GitHub PATs to automatically push to a fork and open a Pull Request.
 
-### 15.3 Developer Validation Troubleshooting Guide
-When running `pairee developer validate <path>` (or the CI validator), you may encounter the following validation errors. Here is how to fix them:
+### 15.3 Publication Checks Troubleshooting Guide
+`pairee developer package`, `pairee developer submit` and the TUI **Package** / **Submit** options stop at the first failed check below. The message is shown as is (there are no error codes):
 
-| Error / Warning Code | Root Cause | Solution |
-|----------------------|------------|----------|
-| `ERR_INVALID_NAME_CHAR` | File/folder name contains spaces, capitals, or special characters. | Rename files/directories to use lowercase alphanumeric, dots, dashes, and underscores only. |
-| `ERR_MANIFEST_NAME_MISMATCH` | The plugin root directory name doesn't match `name` in `manifest.toml`. | Rename the root folder to match the manifest name exactly. |
-| `ERR_LANG_FILE_MISSING` | A locale declared in `languages` is missing its `lang/<locale>.toml` file. | Create the missing `.toml` file under the `lang/` directory, or remove the locale from the manifest. |
-| `ERR_HELP_FILE_MISSING` | A locale declared in `languages` is missing its `help/<locale>.md` file. | Create the missing `.md` file under the `help/` directory. |
-| `ERR_DEFAULT_LANG_MISSING` | The specified `default_language` is missing its translation/help files. | Ensure both `lang/<default_lang>.toml` and `help/<default_lang>.md` exist. |
-| `WARN_KEY_MISALIGNMENT` | Translation key is present in some language files but missing in others. | Update all `lang/*.toml` files to define the same keys to prevent runtime UI bracket placeholders. |
-| `ERR_INVALID_ENCODING` | A file is not encoded in UTF-8. | Re-save the file using UTF-8 encoding in your text editor. |
+| Message | Root Cause | Solution |
+|---------|------------|----------|
+| `No manifest.toml found in current directory...` | The command was run outside the plugin folder. | `cd` into the plugin folder first. |
+| `Error reading manifest.toml` / `Error parsing manifest.toml` | The manifest cannot be read or is not valid TOML / misses required fields. | Fix the TOML syntax and the fields listed in section 20. |
+| `Invalid plugin name or author '...'` | `name` or `author` contains a character other than letters, digits, `_` and `-`. | Rename it; the registry folder is `plugins/<shard>/<author>/<name>/`. |
+| `icon.png not found in the plugin root...` | `icon` is missing from the manifest or the file does not exist. | Add a PNG and point `icon` at it. |
+| `icon size must be either 256x256 or 512x512 pixels` | The icon has another size. | Resize it to exactly 256x256 or 512x512. |
+| `icon image format is invalid or corrupt` | The file is not a readable image. | Re-export it as PNG. |
+| `screenshots/ directory does not contain any screenshots...` | The `screenshots` array is missing or empty. | List at least one PNG/JPG/JPEG. |
+| `screenshot '...' not found` | A listed screenshot does not exist. | Fix the path (relative to the plugin root). |
+| `screenshot '...' size must be at least 640x480 pixels` | A screenshot is too small. | Use a capture of at least 640x480. |
+| `screenshot '...' image format is invalid or corrupt` | The file is not a readable image. | Re-export it. |
+
+Lua syntax, translation coverage and key alignment are not checked at packaging time: run `pairee developer lint` and test the plugin locally (section 14). `scripts/check_translations.py` only covers Pairee's own `lang/` files.
 
 ### 15.4 Plugin Template Branch (`plugin-template`)
 
@@ -785,8 +789,8 @@ git checkout master
 
 ## 16. Registry Submission Flow
 
-1. **Enable Developer Mode** in `pairee.toml`.
-2. Open the **Metadata Wizard TUI** or run `pairee developer package ~/.config/pairee/plugins/my-plugin.pairee` to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
+1. **Enable Developer Mode** (`plugins_developer_mode = true` in `config.toml`).
+2. Open the **Metadata Wizard TUI** or run `pairee developer package` from inside the plugin folder to validate your files, copy them to a local checkout of the `plugin-registry` branch, and update the central `registry/index.toml` catalog file.
 3. Ensure the plugin meets the following mandatory publication requirements:
    - **Icon:** A PNG icon named `icon.png` must be located in the plugin's root directory (recommended sizes: `512x512` or `256x256` pixels).
    - **Screenshots:** A `screenshots/` directory must exist in the plugin's root containing at least one screenshot (PNG, JPG, or JPEG).

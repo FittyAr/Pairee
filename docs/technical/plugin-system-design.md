@@ -37,7 +37,7 @@ Pairee's plugin system allows community developers to extend the file manager's 
 - **`mlua`** (vendored LuaJIT or Lua 5.4) is the embedding library. It integrates natively with Tokio for async execution.
 - Plugin code **never blocks the rendering thread**. All plugin execution runs inside dedicated Tokio tasks.
 - The Rust `AppState` is **never directly mutated** by plugins. Mutations flow through a typed event queue.
-- Plugin access to dangerous Lua standard libraries (`io`, `os`, `package`) is **blocked by default** and requires explicit user opt-in (`trusted = true`) in `pairee.toml`.
+- Plugin access to dangerous Lua standard libraries (`io`, `os`, `package`) is **blocked by default** and requires explicit user opt-in (`trusted = true`) in `config.toml`.
 - A global, read-only configuration parameter **`secure_mode`** prevents all internet access and external command execution regardless of individual plugin trust settings.
 - Gated behind a `[developer]` setting, a built-in suite handles syntax validation, file auto-formatting, hash calculation for all folder assets, and Git branch/PR automation.
 
@@ -48,7 +48,7 @@ Pairee's plugin system allows community developers to extend the file manager's 
 ```mermaid
 graph TD
     subgraph "Configuration Layer"
-        TOML[pairee.toml\n[settings], [plugins], and [developer] tables] --> PM
+        TOML[config.toml\nsettings and [plugins.name] tables] --> PM
         LOCK[plugins.lock\nhash mappings + version pins] --> PM
     end
 
@@ -312,13 +312,13 @@ When a plugin runs, its Lua environment is loaded into an isolated VM instance. 
 3. **Execution Restrictions:** Any attempt to call `pairee.fs.spawn()` to run external processes immediately results in a runtime script error.
 
 ### 10.2 Trusted Mode (`trusted = true`)
-For advanced plugins that need system integration (e.g., executing Git or running diagnostic tools), the user can opt-in to **Trusted Mode** in `pairee.toml`:
+For advanced plugins that need system integration (e.g., executing Git or running diagnostic tools), the user can opt-in to **Trusted Mode** in `config.toml` (`[plugins.<name>] trusted = true`):
 * The VM is initialized with access to dangerous standard libraries (`io`, `os`, `package`) to allow loading external files and modules.
 * The plugin is permitted to invoke external processes using the `pairee.fs.spawn()` API.
 
 ### 10.3 Global Secure Mode (`secure_mode = true`)
 To prevent even trusted plugins from stealthily exfiltrating data or stealing sensitive files, Pairee implements a global, immutable **Secure Mode** acting as an engine-level safeguard:
-* **Activation:** Enabled via the main configuration file (`pairee.toml` under `[settings]` -> `secure_mode = true`).
+* **Activation:** Enabled via the main configuration file (`secure_mode = true` at the top level of `config.toml`).
 * **Immutability:** The main configuration object is loaded as read-only by the Rust core; Lua scripts have no write access to this memory space and cannot disable Secure Mode.
 * **Network & Socket Interception:** Even if a plugin is set to `trusted = true`, the Rust runtime blocks any TCP/UDP socket creation or HTTP calls from within the VM environment.
 * **Process Spawning Allowlist:** `pairee.Command` and `pairee.fs.spawn()` go through `plugin::command_policy::CommandPolicy`. A program runs only if it is a bare name declared in the manifest (`[permissions] commands`), is not a shell / interpreter / network tool / command wrapper (hard deny list, also checked on the symlink target), and resolves through an absolute `PATH` entry (Windows: `.exe` / `.com` only). The resolved absolute path is executed.
@@ -417,31 +417,23 @@ The help parser queries the active system locale to select the correct documenta
 
 ## 14. Developer Mode Tools & Pull Request Submission TUI
 
-When a developer sets `developer_mode = true` in `pairee.toml` under a `[developer]` settings section, a suite of development utilities is unlocked:
+Setting `plugins_developer_mode = true` in `config.toml` shows the Developer Tools tab in the plugin menu; the CLI commands below work without it:
 
-### 14.1 CLI Developer Commands & Strict Validations
-* `pairee developer format <path>`: Formats all Lua files in the plugin directory according to Pairee's style standards.
-* `pairee developer validate <path>`: Runs a syntax, schema, and directory structure linter over all plugin assets, enforcing strict cross-platform checks.
-* `pairee developer package <path>`: Scans the directory structure, executes the validation suite, and packages the plugin:
-  * **Language Detection:** Scans the `lang/` folder for `*.toml` files, extracts the language codes (e.g., `en`, `es`), and writes them to the `languages` array in `manifest.toml`.
-  * **Type Detection:** Parses `main.lua` and checks which hooks or APIs are referenced (e.g., presence of `peek`/`seek` designates a `"previewer"`; `pairee.ps.sub` subscriptions designate a `"hook"`). Writes this to `type` in the manifest.
-  * **Integrity Hash Generation:** Automatically generates/updates the `sha256.sum` listing the hashes of every single file within the plugin directory.
+### 14.1 CLI Developer Commands
+`pairee developer <cmd>` (`src/run/dev_cli.rs`) acts on the current directory and does not require developer mode:
+* `init <name>`: Creates a plugin from the `plugin-template` branch.
+* `lint`: Checks the manifest and `default_language`, that `main.lua` exists, unsafe calls (`os.execute`, `io.open`, `os.system`, `dofile`, `loadfile`) in a plugin without `requires_trust`, and suggested keys per built-in preset.
+* `package`: Runs the publication checks (14.2), resolves the license, copies the plugin into a local clone of `plugin-registry`, writes `sha256.sum` and the manifest `[files]` table, and updates `registry/index.toml`. It does not detect languages or the plugin type: `languages` and `type` are taken from the manifest as written.
+* `submit`: `package`, then a local commit and, with a GitHub token, a fork push and a pull request.
 
-### 14.2 Strict Validation Suite Rules
-The `validate` and `package` commands (along with the CI runner `./scripts/validate-plugin.sh`) strictly enforce:
-1. **Cross-Platform Naming Safety:**
-   * Directory and file names must consist exclusively of lowercase alphanumeric characters, dots (`.`), dashes (`-`), and underscores (`_`).
-   * No spaces, capital letters, or special characters (such as `?`, `*`, `:`, `\`, `/`, `|`, `<`, `>`, `"`) are permitted.
-2. **Name Consistency:**
-   * The plugin's root directory name must match exactly the `name` field declared inside `manifest.toml`.
-3. **Locale File Coverage:**
-   * Every locale declared in `languages` under `manifest.toml` must have both a corresponding translation file (`lang/<locale>.toml`) and help file (`help/<locale>.md`).
-   * No extra/untracked translation or help files may exist in those directories without being listed in the `languages` manifest array.
-   * A translation file and help file must be present for the specified `default_language`.
-4. **Translation Key Synchronization:**
-   * Parses all TOML files in `lang/` and verifies that all translation keys are identical across all files. Any missing keys in secondary languages generate warnings.
-5. **UTF-8 Encoding:**
-   * All `.toml`, `.md`, and `.lua` files must be valid UTF-8.
+### 14.2 Publication Checks
+`validate_for_publish` (`src/plugin/developer_tool/package/validate.rs`) stops at the first failure:
+1. `manifest.toml` exists and parses.
+2. `name` and `author` only use `[A-Za-z0-9_-]` (checked by `registry_plugin_dir` when the files are copied).
+3. The icon exists and is a readable 256x256 or 512x512 image.
+4. At least one screenshot is listed; each exists and is a readable image of at least 640x480.
+
+File naming, translation coverage, key alignment, Lua syntax and UTF-8 encoding are not validated when packaging.
 
 ### 14.3 Automated PR Submission UI & Metadata Wizard
 An interactive developer-only TUI metadata builder and submission wizard is added to submit plugins directly from Pairee:

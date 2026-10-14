@@ -391,13 +391,13 @@ Plugins follow **Semantic Versioning 2.0.0** (`MAJOR.MINOR.PATCH`):
 
 ## 8. Community Plugin Submission Workflow
 
-When `developer_mode = true` is set in `pairee.toml`:
+With `pairee developer` (CLI) or the Developer Tools tab, shown when `plugins_developer_mode = true` is set in `config.toml`:
 1. The developer prepares their plugin directory locally (`~/.config/pairee/plugins/my-plugin.pairee`).
-2. Runs validation and signs the files locally:
+2. Runs the publication checks (section 9) and packages the plugin, from inside its folder:
    ```bash
-   pairee developer package ~/.config/pairee/plugins/my-plugin.pairee
+   pairee developer package
    ```
-   This generates `sha256.sum` containing hashes of every file in the directory.
+   This generates `sha256.sum` containing hashes of every file in the directory. Nothing is signed locally: the registry signs after the merge (section 10).
 3. Accesses the **PR Submission TUI** inside Pairee.
 4. Inputs GitHub personal access token (PAT), developer fork URL, and commit details.
 5. Chooses "Submit Pull Request". The Rust engine:
@@ -408,73 +408,26 @@ When `developer_mode = true` is set in `pairee.toml`:
 
 ---
 
-## 9. Validation Script (`scripts/validate-plugin.sh`)
+## 9. Publication Checks
 
-This script is provided in the repository for local pre-submission validation and is run by the CI system. It performs:
+There is no standalone validation script. `pairee developer package`, `pairee developer submit` and the TUI Package / Submit options run these checks and stop at the first failure (`plugin::developer_tool::validate_for_publish`, plus the name check in `registry_plugin_dir`):
 
-1. **Manifest Schema & Fields Verification:**
-   * Checks that `manifest.toml` exists and is valid TOML.
-   * Checks required fields: `name`, `version`, `description`, `author`, `license`, `type`, `min_pairee`.
-   * Checks `type` is one of: `previewer`, `preloader`, `hook`, `command`, `mixed`.
-2. **Directory & File Structure Verification:**
-   * Verifies that the plugin folder contains `main.lua` and `sha256.sum`.
-   * Iterates each file listed in `sha256.sum`, verifies that it exists in the folder, and computes the SHA-256 hash to confirm it matches exactly.
-   * Runs `luac -p` to validate Lua syntax of all Lua files.
-3. **Cross-Platform Naming Checks:**
-   * Verifies that all directory and file names within the package contain ONLY lowercase alphanumeric characters, dots (`.`), dashes (`-`), and underscores (`_`).
-   * Rejects names containing spaces, capital letters, or special characters (e.g. `?`, `*`, `:`, `\`, `/`, `|`, `<`, `>`, `"`) which are incompatible across filesystems.
-4. **Name Consistency Check:**
-   * Verifies that the plugin folder name matches exactly the `name` field declared in `manifest.toml`.
-5. **Localization & Help File Coverage:**
-   * Compares the `languages` array in `manifest.toml` with the files in `lang/` and `help/` subdirectories.
-   * Rejects the plugin if a declared language lacks a corresponding `lang/<locale>.toml` or `help/<locale>.md` file.
-   * Rejects the plugin if there are untracked language/help files present in `lang/` or `help/` that are not registered in the `languages` array.
-   * Confirms that the `default_language` has both `lang/<default_language>.toml` and `help/<default_language>.md` files.
-6. **Translation Key Sync Validation:**
-   * Parses all `lang/*.toml` files and extracts the full tree of keys.
-   * Raises a warning if there are missing translation keys in any of the localized files compared to the default language or other languages.
-7. **Encoding Validation:**
-   * Ensures all text files (`.toml`, `.md`, `.lua`) are encoded in valid, well-formed UTF-8.
+1. `manifest.toml` exists in the current directory and parses as a `PluginManifest`.
+2. `name` and `author` only use `[A-Za-z0-9_-]` (they become the registry path `plugins/<shard>/<author>/<name>/`).
+3. **Icon:** `icon` is set, the file exists and is a readable image of exactly 256x256 or 512x512 pixels.
+4. **Screenshots:** `screenshots` lists at least one file; every listed file exists and is a readable image of at least 640x480 pixels.
+
+The packager then resolves the license (MIT plus a generated `LICENSE` when the plugin has none), copies the plugin files, writes `sha256.sum` and the `[files]` table of the copied `manifest.toml`, and updates `registry/index.toml`.
+
+Lua syntax, file naming, translation coverage, key alignment and encoding are **not** checked at packaging time. `pairee developer lint` covers part of it (manifest and `default_language`, `main.lua` present, unsafe calls in untrusted plugins, suggested keys per preset); the rest is up to the reviewer of the pull request.
 
 ---
 
-## 10. CI Workflow (`plugin-registry-ci.yml`)
+## 10. CI on the `plugin-registry` Branch
 
-A GitHub Actions workflow runs on every PR targeting the `plugin-registry` branch:
+The branch has a single workflow, `.github/workflows/sign-registry.yml`. On every push that touches `registry/index.toml`, `registry/blocklist.toml` or a plugin `manifest.toml`, it signs them with the Pairee release key (minisign, through master's `.github/scripts/sign.sh`), verifies each signature against the key embedded in Pairee and commits the `.minisig` files that changed (`[skip ci]`). Signing runs in the `registry-signing` environment, so required reviewers can approve each run.
 
-```yaml
-# .github/workflows/plugin-registry-ci.yml
-name: Plugin Registry CI
-on:
-  pull_request:
-    branches: [plugin-registry]
-
-jobs:
-  validate:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Validate plugin manifests & file hashes
-        run: ./scripts/validate-plugin.sh
-      - name: Lint Lua files
-        run: |
-          find registry/plugins -name "*.lua" -exec luac -p {} \;
-
-  regenerate-index:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/plugin-registry'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Regenerate index.toml with new file mappings
-        run: ./scripts/generate-index.sh
-      - name: Commit updated index
-        run: |
-          git config user.name "Pairee CI"
-          git config user.email "ci@pairee"
-          git add registry/index.toml
-          git commit -m "chore: regenerate plugin index" || echo "No changes"
-          git push
-```
+No workflow validates pull requests or regenerates `index.toml`: the index is written by the packager (section 9) and reviewed in the pull request. Because anything merged is signed with the release key, keep the branch protected (pull requests with review).
 
 ---
 

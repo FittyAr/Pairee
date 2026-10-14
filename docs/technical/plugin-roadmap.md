@@ -533,7 +533,7 @@ The 6 areas build on the 4 foundations above. Each area lists the new API, its L
 
 ## 6. Secure-Mode Mapping for New APIs
 
-When Secure Mode is active (`pairee.toml` `[settings] secure_mode = true`), each new API must be classified:
+When Secure Mode is active (`secure_mode = true` in `config.toml`), each new API must be classified:
 
 | New API | Risk in Secure Mode | Recommended action |
 |---|---|---|

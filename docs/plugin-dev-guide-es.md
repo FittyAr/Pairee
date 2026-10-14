@@ -34,7 +34,7 @@ Los complementos de Pairee son **módulos Lua** que extienden el gestor de archi
 - **Hooks de ciclo de vida** — reaccionan a eventos de navegación (cambio de directorio, pasar el cursor sobre un archivo, pulsaciones de tecla).
 - **Comandos funcionales** — ejecutan acciones invocadas mediante atajos de teclado o el menú de usuario.
 
-Los complementos se almacenan en tu carpeta de configuración y se declaran en `pairee.toml`. Una vez cargados, se ejecutan de manera asíncrona en hilos de segundo plano sin bloquear el renderizado de la interfaz de terminal.
+Los complementos se almacenan en tu carpeta de configuración y se configuran en `config.toml`. Una vez cargados, se ejecutan de manera asíncrona en hilos de segundo plano sin bloquear el renderizado de la interfaz de terminal.
 
 ---
 
@@ -88,7 +88,7 @@ id    = "hello"
 title = "Decir hola"
 ```
 
-Regístralo en `pairee.toml`:
+Regístralo en `config.toml`:
 
 ```toml
 [plugins.hello]
@@ -641,7 +641,7 @@ Por defecto, todos los complementos se ejecutan en **Modo No Confiable** (`trust
 * **Portapapeles:** un complemento no confiable puede escribir en el portapapeles pero no leerlo (leer requiere un complemento de confianza fuera del Modo Seguro).
 
 ```toml
-# En pairee.toml
+# En config.toml
 [plugins.csv-preview]
 name    = "csv-preview"
 trusted = false       # No requiere acceso al sistema (modo sandbox no confiable)
@@ -658,7 +658,7 @@ Cuando un complemento es marcado explícitamente como confiable por el usuario, 
 
 ### 13.3 Modo Seguro Global (`secure_mode = true`)
 Para evitar la filtración de datos, los usuarios pueden habilitar un **Modo Seguro** global en su configuración principal. Este modo actúa como un cortafuegos a nivel de motor:
-* **Activación:** Se configura en `pairee.toml` bajo `[settings]` -> `secure_mode = true`. Esta configuración es de solo lectura en tiempo de ejecución y completamente inmutable desde Lua.
+* **Activación:** Se configura en `config.toml` como `secure_mode = true` (o en **Configuración → Lenguaje y Plugins → Modo Seguro para todos los plugins**). Esta configuración es de solo lectura en tiempo de ejecución y completamente inmutable desde Lua.
 * **Biblioteca estándar restringida:** un complemento confiable recibe las mismas bibliotecas de Lua que uno no confiable, más `coroutine` y un `os` reducido al reloj (`os.time`, `os.date`, `os.clock`, `os.difftime`): sin `io`, `package`, `load` / `loadfile` / `dofile`, `os.execute`, `os.remove`, `os.rename`, `os.getenv` ni `os.exit`, que saltearían la jaula y la lista de procesos permitidos de abajo.
 * **Prohibición de Red y Sockets:** La creación de sockets TCP/UDP y las solicitudes HTTP están completamente deshabilitadas a nivel de motor para todos los complementos, incluso aquellos con `trusted = true`.
 * **Lista Permitida de Procesos:** En Modo Seguro, un complemento confiable solo puede ejecutar (`pairee.Command`, `pairee.fs.spawn`) los programas que declara en su manifiesto:
@@ -685,28 +685,27 @@ En el Gestor de Complementos (pestaña Instalados) `c` o Enter abre los ajustes 
 ## 14. Probar tu Complemento Localmente
 
 1. **Coloca la carpeta de tu complemento** bajo `~/.config/pairee/plugins/<nombre>.pairee/`; el `name` del manifiesto debe ser `<nombre>`.
-2. **Regístralo** en `pairee.toml` (hace falta para `trusted = true`; un complemento sin registrar carga como no confiable).
+2. **Regístralo** en `config.toml` (hace falta para `trusted = true`; un complemento sin registrar carga como no confiable).
 3. Ejecuta Pairee y revisa los registros en `~/.cache/pairee/app.log` para ver los eventos de ejecución.
 
 ---
 
 ## 15. Herramientas del Modo Desarrollador y TUI de Envío de PR
 
-Para simplificar el formateado y la validación de los complementos, los desarrolladores pueden activar una suite de desarrollo en `pairee.toml`:
+Para simplificar el empaquetado y la validación de los complementos, los desarrolladores pueden activar el modo desarrollador: **Configuración → Lenguaje y Plugins → Modo desarrollador de plugins**, que se guarda en `config.toml` como:
 
 ```toml
-# En pairee.toml
-[developer]
-developer_mode = true   # Habilita el acceso a los comandos de CLI y pantallas de PR
+# En config.toml
+plugins_developer_mode = true   # Muestra la pestaña Developer Tools en el menú de plugins
 ```
 
-### 15.1 Comandos de Desarrollador en CLI y Autodetección
-Con el modo desarrollador activo, se desbloquean los siguientes comandos:
-* `pairee developer format <ruta>`: Formatea todos los archivos Lua en el directorio del complemento usando el estándar de Pairee.
-* `pairee developer validate <ruta>`: Analiza scripts con linter, verifica el esquema de `manifest.toml`, valida la sintaxis Lua y comprueba que se cumplan estrictamente las reglas de nomenclatura de archivos, consistencia de manifiesto, cobertura de traducciones y ayuda, sincronización de claves de traducción y codificación de texto.
-* `pairee developer package <ruta>`: Escanea la estructura del directorio del complemento, ejecuta el suite de validación y empaqueta el complemento:
-  * **Autodetecta Idiomas:** Escanea el directorio `lang/` buscando archivos TOML y los registra en el manifiesto.
-  * **Autodetecta Categoría del Complemento:** Analiza las referencias en `main.lua` para identificar el tipo de plugin.
+Los comandos de CLI `pairee developer` de abajo funcionan con o sin esta opción; solo habilita las herramientas de la TUI (15.2).
+
+### 15.1 Comandos de Desarrollador en CLI
+Se ejecutan desde dentro de la carpeta del complemento (actúan sobre el directorio actual):
+* `pairee developer init <nombre>`: Crea un complemento nuevo a partir de la rama `plugin-template` (15.4); pide una descripción y un autor.
+* `pairee developer lint`: Comprueba que `manifest.toml` se pueda leer y defina `default_language`, que exista `main.lua`, avisa del uso de `os.execute`, `io.open`, `os.system`, `dofile` y `loadfile` en un complemento sin `requires_trust = true`, e informa las teclas sugeridas inválidas o en conflicto en cada preset.
+* `pairee developer package`: Ejecuta las comprobaciones de publicación (15.3) y empaqueta el complemento en un clon local de la rama `plugin-registry`:
   * **Genera Hashes:** Genera/actualiza automáticamente el archivo de hashes de integridad `sha256.sum` para todos los archivos de la carpeta. (Nota: esto no crea un archivo comprimido; los complementos en el registro de Pairee se distribuyen como carpetas abiertas).
   * **Detección y Generación de Licencia:**
     - Busca un archivo de licencia `LICENSE` (sin distinguir mayúsculas/minúsculas) en la raíz del plugin.
@@ -714,7 +713,7 @@ Con el modo desarrollador activo, se desbloquean los siguientes comandos:
     - Si no existe ningún archivo de licencia, asigna automáticamente la licencia `"MIT"` en el manifiesto y genera un archivo `LICENSE` con la licencia MIT estándar y los datos de derechos de autor en el espacio de trabajo del plugin.
 
 ### 15.2 Herramientas de Desarrollo en TUI y Asistente de PR
-Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Barra de menú (F9) → Archivos → Comandos de plugins** → pestaña `Developer Tools` cuando `developer_mode = true` está habilitado en `pairee.toml`) ofrecen el siguiente conjunto de utilidades:
+Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Barra de menú (F9) → Archivos → Comandos de plugins** → pestaña `Developer Tools` cuando el modo desarrollador está activo) ofrecen el siguiente conjunto de utilidades:
 
 * **Seleccionar Plugin Activo (Opción 0):** Abre un modal interactivo con la lista de plugins detectados en el sistema. Enumera todos los plugins encontrados bajo `plugins_dev_dir` y escanea las rutas actuales de los paneles activos (Panel 1 y Panel 2) en busca de un archivo `manifest.toml`, permitiéndote seleccionar tu objetivo de desarrollo directamente con el teclado.
 * **Inicializar plantilla (Opción 1):** Guía paso a paso al desarrollador para crear un nuevo esqueleto de plugin en el directorio de desarrollo. Al completarse con éxito, el nuevo plugin se selecciona automáticamente en la Opción 0 y esta opción queda deshabilitada.
@@ -723,18 +722,23 @@ Las herramientas interactivas de desarrollo en TUI (accesibles a través de **Ba
 * **Instalar localmente (Opción 4):** Copia el plugin activo directamente al directorio local de plugins de Pairee y lo registra en `plugins.lock` para poder probarlo de forma inmediata en la interfaz.
 * **Enviar plugin (GitHub PR) (Opción 5):** Asistente que recopila descripciones, realiza commits git locales y opcionalmente utiliza un token PAT de GitHub para subir los cambios a un fork y abrir una Pull Request de forma automatizada.
 
-### 15.3 Guía de Resolución de Problemas de Validación
-Al ejecutar `pairee developer validate <ruta>` (o durante la verificación del CI), podrías encontrarte con los siguientes errores de validación. A continuación te explicamos cómo corregirlos:
+### 15.3 Guía de Resolución de Problemas de las Comprobaciones de Publicación
+`pairee developer package`, `pairee developer submit` y las opciones **Package** / **Submit** de la TUI se detienen en la primera comprobación que falla. El mensaje se muestra tal cual (no hay códigos de error):
 
-| Código de Error / Advertencia | Causa Raíz | Solución |
-|-------------------------------|------------|----------|
-| `ERR_INVALID_NAME_CHAR` | El nombre de un archivo o carpeta contiene espacios, mayúsculas o caracteres especiales. | Cambia el nombre de los archivos/directorios para usar solo caracteres alfanuméricos en minúsculas, puntos, guiones y guiones bajos. |
-| `ERR_MANIFEST_NAME_MISMATCH` | El nombre de la carpeta raíz del complemento no coincide con `name` en `manifest.toml`. | Cambia el nombre de la carpeta raíz para que coincida exactamente con el especificado en el manifiesto. |
-| `ERR_LANG_FILE_MISSING` | Un idioma declarado en `languages` no tiene su archivo `lang/<locale>.toml`. | Crea el archivo `.toml` correspondiente en la carpeta `lang/` o elimina el idioma del array en el manifiesto. |
-| `ERR_HELP_FILE_MISSING` | Un idioma declarado en `languages` no tiene su archivo `help/<locale>.md`. | Crea el archivo de ayuda `.md` correspondiente en la carpeta `help/`. |
-| `ERR_DEFAULT_LANG_MISSING` | El idioma por defecto `default_language` no cuenta con sus archivos de traducción/ayuda. | Asegúrate de que existan tanto `lang/<default_lang>.toml` como `help/<default_lang>.md`. |
-| `WARN_KEY_MISALIGNMENT` | Falta alguna clave de traducción en un archivo de idioma que sí está en otro. | Actualiza todos los archivos de `lang/*.toml` para que tengan exactamente las mismas claves de traducción. |
-| `ERR_INVALID_ENCODING` | Un archivo de texto no está codificado en UTF-8. | Vuelve a guardar el archivo utilizando la codificación UTF-8 en tu editor de texto. |
+| Mensaje | Causa | Solución |
+|---------|-------|----------|
+| `No se encontró manifest.toml en el directorio actual...` | El comando se ejecutó fuera de la carpeta del complemento. | Entra primero (`cd`) en la carpeta del complemento. |
+| `Error al leer manifest.toml` / `Error al analizar manifest.toml` | El manifiesto no se puede leer, no es TOML válido o le faltan campos obligatorios. | Corrige la sintaxis TOML y los campos de la sección 20. |
+| `Nombre o autor de plugin no válido '...'` | `name` o `author` contiene algo distinto de letras, dígitos, `_` y `-`. | Renómbralo; la carpeta del registro es `plugins/<shard>/<autor>/<nombre>/`. |
+| `icon.png no encontrado en la raíz del plugin...` | Falta `icon` en el manifiesto o el archivo no existe. | Agrega un PNG y apunta `icon` a él. |
+| `el tamaño del icono debe ser de 256x256 o 512x512 píxeles` | El icono tiene otro tamaño. | Redimensiónalo a 256x256 o 512x512 exactos. |
+| `el formato de imagen del icono no es válido o está dañado` | El archivo no es una imagen legible. | Vuelve a exportarlo como PNG. |
+| `el directorio screenshots/ no contiene ninguna captura...` | Falta el array `screenshots` o está vacío. | Lista al menos una imagen PNG/JPG/JPEG. |
+| `captura de pantalla '...' no encontrada` | Una captura listada no existe. | Corrige la ruta (relativa a la raíz del complemento). |
+| `el tamaño de la captura '...' debe ser de al menos 640x480 píxeles` | Una captura es demasiado chica. | Usa una captura de al menos 640x480. |
+| `el formato de imagen de la captura '...' no es válido o está dañado` | El archivo no es una imagen legible. | Vuelve a exportarla. |
+
+La sintaxis Lua, la cobertura de traducciones y la alineación de claves no se comprueban al empaquetar: ejecuta `pairee developer lint` y prueba el complemento localmente (sección 14). `scripts/check_translations.py` solo cubre los archivos `lang/` del propio Pairee.
 
 ### 15.4 Rama de Plantilla de Complementos (`plugin-template`)
 
@@ -794,8 +798,8 @@ git checkout master
 
 ## 16. Flujo de Envío al Registro
 
-1. **Activar el Modo Desarrollador** en `pairee.toml`.
-2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package ~/.config/pairee/plugins/mi-complemento.pairee` para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
+1. **Activar el Modo Desarrollador** (`plugins_developer_mode = true` en `config.toml`).
+2. Abrir la pantalla del **Asistente de Metadatos TUI** o ejecutar `pairee developer package` desde dentro de la carpeta del complemento para validar tus archivos, copiarlos a una copia de trabajo local de la rama `plugin-registry` y actualizar el archivo de catálogo central `registry/index.toml`.
 3. Asegurarse de que el plugin cumpla con los siguientes requisitos obligatorios de publicación:
    - **Icono:** Debe existir un icono PNG llamado `icon.png` en el directorio raíz del plugin (tamaños recomendados: `512x512` o `256x256` píxeles).
    - **Capturas de pantalla:** Debe existir un directorio `screenshots/` en la raíz del plugin que contenga al menos una captura de pantalla (PNG, JPG o JPEG).
