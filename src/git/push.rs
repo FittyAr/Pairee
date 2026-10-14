@@ -81,9 +81,8 @@ pub fn delete_remote_branch(
     branch_name: &str,
     hooks: NetHooks<'_>,
 ) -> anyhow::Result<()> {
-    let clean_branch = branch_name
-        .strip_prefix(&format!("{remote_name}/"))
-        .unwrap_or(branch_name);
+    let clean_branch =
+        crate::git::remote::branch_of_remote(remote_name, branch_name).unwrap_or(branch_name);
 
     let mut remote = repo.find_remote(remote_name)?;
     let refspec = format!(":refs/heads/{clean_branch}");

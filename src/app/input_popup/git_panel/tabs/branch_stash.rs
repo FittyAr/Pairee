@@ -36,7 +36,7 @@ pub fn handle_branch_tab(
             }
         }
         KeyCode::Char('r') => {
-            if let Some(branch) = branch.filter(|b| !b.is_remote) {
+            if let Some(branch) = branch.filter(|b| !b.is_remote()) {
                 let old_name = branch.name.clone();
                 open_name_prompt(state, repo_path, GitNameAction::RenameBranch { old_name });
             }
@@ -88,8 +88,8 @@ fn confirm_delete_branch(state: &mut AppState, repo_path: &Path, branch: &Branch
         )));
         return;
     }
-    let (msg, action) = if branch.is_remote {
-        let Some((remote, name)) = branch.name.split_once('/') else {
+    let (msg, action) = if let Some(remote) = &branch.remote {
+        let Some(name) = crate::git::remote::branch_of_remote(remote, &branch.name) else {
             return;
         };
         let msg = t("git_confirm_delete_remote_branch")
@@ -209,7 +209,7 @@ mod tests {
         let branches = [BranchInfo {
             name: "feature".into(),
             is_current: false,
-            is_remote: false,
+            remote: None,
             ahead: 0,
             behind: 0,
         }];

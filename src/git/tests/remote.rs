@@ -1,6 +1,43 @@
 use super::*;
 
 #[test]
+fn remote_branch_names_split_at_the_longest_known_remote() {
+    use crate::git::remote::{branch_of_remote, split_with_remotes};
+    let remotes = ["origin", "team/eu", "team"];
+    assert_eq!(
+        split_with_remotes(remotes, "origin/feat/x"),
+        Some(("origin", "feat/x"))
+    );
+    assert_eq!(
+        split_with_remotes(remotes, "team/eu/main"),
+        Some(("team/eu", "main"))
+    );
+    assert_eq!(
+        split_with_remotes(remotes, "team/main"),
+        Some(("team", "main"))
+    );
+    assert_eq!(
+        split_with_remotes(remotes, "other/main"),
+        Some(("other", "main")),
+        "unknown remote: up to the first '/'"
+    );
+    assert_eq!(split_with_remotes(remotes, "main"), None);
+    assert_eq!(branch_of_remote("origin", "origin/main"), Some("main"));
+    assert_eq!(branch_of_remote("origin", "originx/main"), None);
+    assert_eq!(branch_of_remote("origin", "origin/"), None);
+}
+
+#[test]
+fn checkout_name_of_a_remote_with_a_slash() {
+    let (_dir, repo) = setup_temp_repo();
+    add_remote(&repo, "team/eu", "https://example.com/eu.git").unwrap();
+    assert_eq!(
+        crate::git::checkout::local_branch_name_for_remote(&repo, "team/eu/feat"),
+        "feat"
+    );
+}
+
+#[test]
 fn test_remote_list_add_delete() {
     let (_dir, repo) = setup_temp_repo();
 

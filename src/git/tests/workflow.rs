@@ -214,7 +214,7 @@ fn test_checkout_local_and_remote_branch() {
         .iter()
         .find(|b| b.name == "origin/feature-remote")
         .expect("origin/feature-remote must be in branch list");
-    assert!(remote_entry.is_remote);
+    assert_eq!(remote_entry.remote.as_deref(), Some("origin"));
 
     // 4. Checkout the remote branch: should create local "feature-remote", track origin, and switch
     let checked_out_remote = checkout_branch(&repo, "origin/feature-remote").unwrap();

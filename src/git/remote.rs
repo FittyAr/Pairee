@@ -76,6 +76,38 @@ pub fn create_callbacks(hooks: NetHooks<'_>) -> git2::RemoteCallbacks<'_> {
     callbacks
 }
 
+/// The branch part of `name` when it is a branch of `remote`
+/// (`origin/feat` -> `feat`).
+pub fn branch_of_remote<'n>(remote: &str, name: &'n str) -> Option<&'n str> {
+    name.strip_prefix(remote)?
+        .strip_prefix('/')
+        .filter(|branch| !branch.is_empty())
+}
+
+/// Splits a remote-tracking branch name into its remote and branch: the
+/// longest configured remote that prefixes it (remote names may contain
+/// `/`), else the text before the first `/`. `None` without a `/`.
+pub fn split_remote_branch<'n>(repo: &git2::Repository, name: &'n str) -> Option<(&'n str, &'n str)> {
+    let remotes = repo.remotes().ok();
+    let names: Vec<&str> = remotes
+        .as_ref()
+        .map(|r| r.iter().flatten().flatten().collect())
+        .unwrap_or_default();
+    split_with_remotes(names, name)
+}
+
+/// [`split_remote_branch`] against the remote names `remotes`.
+pub fn split_with_remotes<'a, 'n>(
+    remotes: impl IntoIterator<Item = &'a str>,
+    name: &'n str,
+) -> Option<(&'n str, &'n str)> {
+    remotes
+        .into_iter()
+        .filter_map(|remote| branch_of_remote(remote, name).map(|b| (&name[..remote.len()], b)))
+        .max_by_key(|(remote, _)| remote.len())
+        .or_else(|| name.split_once('/'))
+}
+
 /// Dynamically resolves the remote to use for operations:
 /// 1. If branch_name is given, checks if it has an upstream configured.
 /// 2. If no upstream, checks if "origin" remote exists.
@@ -88,7 +120,7 @@ pub fn resolve_remote_name(
         && let Ok(local_branch) = repo.find_branch(b_name, git2::BranchType::Local)
         && let Ok(upstream) = local_branch.upstream()
         && let Ok(Some(upstream_name)) = upstream.name()
-        && let Some((remote, _)) = upstream_name.split_once('/')
+        && let Some((remote, _)) = split_remote_branch(repo, upstream_name)
     {
         return Ok(remote.to_string());
     }

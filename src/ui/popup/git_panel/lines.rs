@@ -121,7 +121,7 @@ pub fn render_branch_lines(
             } else {
                 theme.popup_bg
             };
-            let name_color = if branch.is_remote {
+            let name_color = if branch.is_remote() {
                 Color::DarkGray
             } else if branch.is_current {
                 Color::Green
@@ -129,12 +129,12 @@ pub fn render_branch_lines(
                 theme.popup_fg
             };
             let prefix = if branch.is_current { "* " } else { "  " };
-            let type_label = if branch.is_remote {
+            let type_label = if branch.is_remote() {
                 "[remote] "
             } else {
                 "         "
             };
-            let sync_label = if !branch.is_remote {
+            let sync_label = if !branch.is_remote() {
                 if branch.ahead > 0 && branch.behind > 0 {
                     format!(" [↑{} ↓{}]", branch.ahead, branch.behind)
                 } else if branch.ahead > 0 {
