@@ -65,7 +65,10 @@ impl DialogView for GitConfirmCheckoutState {
         );
 
         f.render_widget(
-            crate::ui::popup::kit::separator(inner.width, crate::ui::popup::kit::fg(Color::DarkGray)),
+            crate::ui::popup::kit::separator(
+                inner.width,
+                crate::ui::popup::kit::fg(Color::DarkGray),
+            ),
             chunks[2],
         );
 

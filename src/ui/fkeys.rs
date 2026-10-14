@@ -281,7 +281,10 @@ mod tests {
             is_symlink: false,
             modified: None,
         });
-        assert_eq!(label(&bar_cells(&context, &state), 11), t("plugin_install_dev"));
+        assert_eq!(
+            label(&bar_cells(&context, &state), 11),
+            t("plugin_install_dev")
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
-use crate::ui::text_width::pad_to_width;
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},

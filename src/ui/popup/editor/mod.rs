@@ -11,10 +11,7 @@ use crate::app::state::popup::{
 use crate::config::localization::t;
 use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use ratatui::{
-    Frame,
-    widgets::Paragraph,
-};
+use ratatui::{Frame, widgets::Paragraph};
 
 impl DialogView for EditorSaveAsPrompt {
     fn render(&self, f: &mut Frame, cx: &ViewCtx<'_>) {

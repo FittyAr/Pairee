@@ -72,8 +72,8 @@ pub fn render_controls(
     if let Some(progress) = install_progress {
         let gauge_area = layout[5];
         if gauge_area.height > 0 {
-            let label = t("update_downloading")
-                .replacen("{}", &format!("{:.0}", progress * 100.0), 1);
+            let label =
+                t("update_downloading").replacen("{}", &format!("{:.0}", progress * 100.0), 1);
             let gauge = Gauge::default()
                 .block(Block::default().borders(Borders::NONE))
                 .gauge_style(Style::default().fg(Color::Cyan).bg(Color::DarkGray))

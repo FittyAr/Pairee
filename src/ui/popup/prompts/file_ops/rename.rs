@@ -14,7 +14,11 @@ use ratatui::{
 /// Whether `target` exists in `dir`: from the listing of a panel showing
 /// `dir` (no disk access while drawing, right for remote panels), else on
 /// the local disk.
-fn is_listed(state: &crate::app::state::AppState, dir: &std::path::Path, target: &std::path::Path) -> bool {
+fn is_listed(
+    state: &crate::app::state::AppState,
+    dir: &std::path::Path,
+    target: &std::path::Path,
+) -> bool {
     use crate::app::state::ActivePanel;
     [ActivePanel::Left, ActivePanel::Right]
         .into_iter()

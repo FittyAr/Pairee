@@ -1,6 +1,5 @@
 //! Directory hotlist and folder shortcut dialog rendering.
 
-use crate::ui::text_width::pad_to_width;
 use super::super::centered_rect_in;
 use crate::app::input_popup::folder_shortcuts::{SLOT_COUNT, slot_for_row};
 use crate::config::bookmarks::HotlistEntry;
@@ -8,6 +7,7 @@ use crate::config::localization::t;
 use crate::keybindings::{Action, KeybindingResolver};
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{Frame, layout::Rect, text::Line};
 use std::collections::HashMap;
 use std::path::PathBuf;

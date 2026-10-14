@@ -15,8 +15,11 @@ pub fn render_installed(f: &mut Frame, pane: &Pane, menu: &PluginMenuState) {
     let loading = menu.installed_loading && installed.is_empty();
     // Scrolled to keep the cursor in view when there are more plugins than rows.
     let rows = pane.list_area.inner(ratatui::layout::Margin::new(1, 1));
-    let start =
-        crate::ui::scrollbar::centered_scroll(menu.cursor_idx, installed.len(), rows.height as usize);
+    let start = crate::ui::scrollbar::centered_scroll(
+        menu.cursor_idx,
+        installed.len(),
+        rows.height as usize,
+    );
 
     let list_items = if loading {
         vec![ListItem::new(Line::from(vec![Span::styled(

@@ -327,7 +327,10 @@ mod tests {
         };
         let press = MouseEventKind::Down(MouseButton::Left);
         assert!(map.scrollbars_for(event(press, 9, 3)).is_empty());
-        assert!(map.scrollbars_for(event(MouseEventKind::ScrollDown, 6, 3)).is_empty());
+        assert!(
+            map.scrollbars_for(event(MouseEventKind::ScrollDown, 6, 3))
+                .is_empty()
+        );
         assert_eq!(map.scrollbars_for(event(press, 9, 8)), vec![bar.clone()]);
         let drag = MouseEventKind::Drag(MouseButton::Left);
         assert_eq!(map.scrollbars_for(event(drag, 9, 3)), vec![bar]);

@@ -56,7 +56,12 @@ impl FilterListView<'_> {
             "> ",
             Style::default().add_modifier(Modifier::BOLD),
         )];
-        prompt.extend(super::field_spans(self.query, normal, theme.selection(), true));
+        prompt.extend(super::field_spans(
+            self.query,
+            normal,
+            theme.selection(),
+            true,
+        ));
         let prompt = Line::from(prompt);
         f.render_widget(Paragraph::new(prompt).style(normal), chunks[0]);
         crate::ui::hit::register(

@@ -343,7 +343,10 @@ fn help_keeps_a_far_document_in_view() {
         })
         .expect("hint shown");
     let above: String = (0..100u16).map(|x| buf[(x, row - 1)].symbol()).collect();
-    assert!(above.contains('└'), "pane borders above the hint: {above:?}");
+    assert!(
+        above.contains('└'),
+        "pane borders above the hint: {above:?}"
+    );
 }
 
 #[test]
@@ -353,7 +356,9 @@ fn menu_titles_under_the_clock_are_not_clickable() {
     context.config.settings.interface_always_show_menu_bar = true;
     state.is_root = true;
     let mut terminal = Terminal::new(TestBackend::new(30, 10)).expect("test terminal");
-    terminal.draw(|f| draw_ui(f, &context, &state)).expect("draw");
+    terminal
+        .draw(|f| draw_ui(f, &context, &state))
+        .expect("draw");
     // 20 columns of titles; the ROOT badge and the clock take the rest.
     let titles = state.hits.collect(|t| match t {
         HitTarget::MenuTitle(_) => Some(()),
@@ -370,9 +375,7 @@ fn menu_titles_under_the_clock_are_not_clickable() {
 fn left_rows_shown(context: &AppContext, state: &AppState) -> usize {
     use crate::ui::hit::HitTarget;
     let mut terminal = Terminal::new(TestBackend::new(80, 24)).expect("test terminal");
-    terminal
-        .draw(|f| draw_ui(f, context, state))
-        .expect("draw");
+    terminal.draw(|f| draw_ui(f, context, state)).expect("draw");
     state
         .hits
         .collect(|t| match t {

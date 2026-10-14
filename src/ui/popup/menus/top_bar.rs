@@ -132,8 +132,9 @@ fn item_line(item: &MenuItemData, base: Style, is_cursor: bool) -> Line<'static>
         base,
         hotkey,
     ));
-    let label_len =
-        crate::ui::text_width::display_width(&crate::ui::hotkey::parse_hotkey(&item.label).clean_text);
+    let label_len = crate::ui::text_width::display_width(
+        &crate::ui::hotkey::parse_hotkey(&item.label).clean_text,
+    );
     spans.push(Span::styled(
         " ".repeat(25usize.saturating_sub(label_len)),
         base,

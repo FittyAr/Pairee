@@ -77,7 +77,13 @@ fn render_confirm(
     position: Option<&DialogPosition>,
 ) {
     let area = dialog_area(size, position, 50, 8);
-    let inner = crate::ui::popup::kit::frame_in(f, area, format!(" {title} "), crate::ui::popup::kit::fg(Color::Yellow), theme);
+    let inner = crate::ui::popup::kit::frame_in(
+        f,
+        area,
+        format!(" {title} "),
+        crate::ui::popup::kit::fg(Color::Yellow),
+        theme,
+    );
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -187,9 +193,16 @@ fn render_which(
 ) {
     if silent {
         let area = dialog_area(size, position, 40, 3);
-        let inner = crate::ui::popup::kit::frame_in(f, area, "", crate::ui::popup::kit::fg(Color::Cyan), theme);
+        let inner = crate::ui::popup::kit::frame_in(
+            f,
+            area,
+            "",
+            crate::ui::popup::kit::fg(Color::Cyan),
+            theme,
+        );
         f.render_widget(
-            Paragraph::new(t("plugin_dialog_which_silent")).style(Style::default().fg(theme.popup_fg)),
+            Paragraph::new(t("plugin_dialog_which_silent"))
+                .style(Style::default().fg(theme.popup_fg)),
             inner,
         );
         return;

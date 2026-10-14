@@ -8,8 +8,8 @@ use crate::app::state::popup::UpdateAvailable;
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
 use crate::ui::resolved_theme::ResolvedTheme;
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::ScrollTarget;
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::update::UpdateInfo;
 use crate::update::detect::InstallMethod;
 use ratatui::{

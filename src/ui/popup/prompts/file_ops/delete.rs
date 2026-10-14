@@ -22,7 +22,14 @@ impl DialogView for ConfirmDelete {
         } else {
             "prompt_delete_title"
         });
-        let inner = crate::ui::popup::kit::dialog_frame(f, size, (50, 8), title, crate::ui::popup::kit::fg(Color::Red), theme);
+        let inner = crate::ui::popup::kit::dialog_frame(
+            f,
+            size,
+            (50, 8),
+            title,
+            crate::ui::popup::kit::fg(Color::Red),
+            theme,
+        );
 
         let chunks = Layout::default()
             .direction(Direction::Vertical)

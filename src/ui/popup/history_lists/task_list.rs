@@ -1,9 +1,9 @@
-use crate::ui::text_width::pad_to_width;
 use crate::app::state::popup::TaskListDialog;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit::{ListPopup, Scroll};
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     style::{Color, Modifier, Style},

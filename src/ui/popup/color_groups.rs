@@ -1,7 +1,6 @@
 //! "Color groups" and "Files highlighting" dialogs: a scrolled list of
 //! `name < color >` rows with the cursor row highlighted.
 
-use crate::ui::text_width::{display_width, pad_to_width};
 use super::centered_rect_in;
 use crate::app::state::popup::{ColorGroupsDialog, FilesHighlightingDialog};
 use crate::app::text_input::TextField;
@@ -9,6 +8,7 @@ use crate::config::localization::t;
 use crate::config::theme::COLOR_PROPS;
 use crate::ui::popup::kit;
 use crate::ui::popup::view::{DialogView, ViewCtx};
+use crate::ui::text_width::{display_width, pad_to_width};
 use crate::ui::theme_apply::parse_color;
 use ratatui::{
     Frame,
@@ -156,7 +156,10 @@ fn color_lines(
                 style,
             )];
             spans.extend(value);
-            spans.push(Span::styled(format!("{} >", " ".repeat(pad - pad / 2)), style));
+            spans.push(Span::styled(
+                format!("{} >", " ".repeat(pad - pad / 2)),
+                style,
+            ));
             Line::from(spans)
         })
         .collect()

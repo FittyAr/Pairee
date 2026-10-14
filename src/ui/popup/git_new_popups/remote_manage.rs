@@ -1,9 +1,9 @@
-use crate::ui::text_width::pad_to_width;
 use crate::app::state::popup::GitRemoteManageState;
 use crate::config::localization::t;
 use crate::ui::popup::centered_rect_in;
 use crate::ui::popup::kit;
 use crate::ui::resolved_theme::ResolvedTheme;
+use crate::ui::text_width::pad_to_width;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},

@@ -7,8 +7,8 @@ use super::super::centered_rect_in;
 use crate::app::state::popup::Help;
 use crate::config::localization::t;
 use crate::ui::popup::view::{DialogView, ViewCtx};
-use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use crate::ui::scrollbar::ScrollTarget;
+use crate::ui::scrollbar::{self, ScrollTargetId, ScrollbarSurface, ScrollbarUiState};
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},

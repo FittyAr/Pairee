@@ -84,7 +84,10 @@ mod tests {
         assert_eq!(over([200, 0, 0, 255], bg), Color::Rgb(200, 0, 0));
         assert_eq!(over([200, 0, 0, 0], bg), bg);
         assert_eq!(over([0, 0, 0, 0], Color::Reset), Color::Reset);
-        assert_eq!(over([255, 255, 255, 255], Color::Reset), Color::Rgb(255, 255, 255));
+        assert_eq!(
+            over([255, 255, 255, 255], Color::Reset),
+            Color::Rgb(255, 255, 255)
+        );
     }
 
     #[test]
