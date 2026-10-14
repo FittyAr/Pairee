@@ -47,6 +47,7 @@ archive_expands_too_much = "Extracción rechazada: el archivo comprimido ocupa m
 archive_extract_through_link = "Extracción rechazada: escribiría a través del enlace existente {}"
 archive_file_in_the_way = "No se puede crear la carpeta {}: hay un archivo con ese nombre"
 archive_too_many_entries = "Extracción rechazada: el archivo comprimido tiene más de {} entradas (posible bomba de descompresión)"
+archive_unsafe_entry_name = "Extracción rechazada: el nombre de entrada {} no se puede guardar en este sistema"
 archive_unsafe_entry_path = "Extracción rechazada: la entrada {} tiene una ruta insegura"
 archive_unsupported_format = "Formato de archivo comprimido no admitido"
 associations_editing_mask = "Editando Máscara:"

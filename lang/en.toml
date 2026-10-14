@@ -47,6 +47,7 @@ archive_expands_too_much = "Extraction refused: the archive expands to more than
 archive_extract_through_link = "Extraction refused: it would write through the existing link {}"
 archive_file_in_the_way = "Cannot create the folder {}: a file with that name is in the way"
 archive_too_many_entries = "Extraction refused: the archive has more than {} entries (possible decompression bomb)"
+archive_unsafe_entry_name = "Extraction refused: the entry name {} cannot be stored on this system"
 archive_unsafe_entry_path = "Extraction refused: the entry {} has an unsafe path"
 archive_unsupported_format = "Unsupported archive format"
 associations_editing_mask = "Editing Mask:"

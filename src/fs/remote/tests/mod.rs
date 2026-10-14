@@ -145,6 +145,96 @@ fn saved_ftp_connections_open_on_their_folder() {
     assert_eq!(remote.user_at_host(), format!("me@{}", server.addr.ip()));
 }
 
+/// A saved connection's folder with a space and a non-ASCII letter travels
+/// percent-encoded in the URL and is decoded again by FTP and S3.
+#[test]
+fn saved_folders_with_spaces_and_accents_open() {
+    use crate::config::settings::{Connection, RemoteKind};
+    use crate::credential_prompt::{CredentialRequest, Secret};
+    let never = |_: CredentialRequest| -> Option<Secret> { panic!("nothing to ask") };
+    let timeout = std::time::Duration::from_secs(5);
+    let folder = "My Docs \u{e9}";
+
+    let server = ftp_server();
+    let _turn = server.turn();
+    let (dir, name) = folder_on(server, Path::new(""));
+    std::fs::create_dir(dir.path().join(folder)).unwrap();
+    std::fs::write(dir.path().join(folder).join("inside.txt"), b"x").unwrap();
+    let ftp = Connection {
+        name: "ftp".into(),
+        kind: RemoteKind::Ftp,
+        host: server.addr.ip().to_string(),
+        port: server.addr.port().to_string(),
+        path: format!("/{name}/{folder}"),
+        ..Connection::default()
+    };
+    let (remote, start) = super::open(&ftp, timeout, &never).unwrap();
+    assert_eq!(start, Path::new(&format!("/{name}/{folder}")));
+    assert!(
+        remote
+            .list(&start)
+            .unwrap()
+            .iter()
+            .any(|e| e.name == "inside.txt")
+    );
+
+    let s3 = s3_server();
+    let (dir, name) = folder_on(s3, Path::new(S3_BUCKET));
+    std::fs::create_dir(dir.path().join(folder)).unwrap();
+    std::fs::write(dir.path().join(folder).join("inside.txt"), b"x").unwrap();
+    let saved = Connection {
+        name: "s3".into(),
+        kind: RemoteKind::S3,
+        host: S3_BUCKET.into(),
+        username: S3_KEY.into(),
+        password: Some(Secret::new(S3_SECRET.to_string())),
+        path: format!("{name}/{folder}"),
+        options: format!(
+            "endpoint=http://{}&path_style=true&region=us-east-1",
+            s3.addr
+        ),
+        ..Connection::default()
+    };
+    let (remote, start) = super::open(&saved, timeout, &never).unwrap();
+    assert!(
+        remote
+            .list(&start)
+            .unwrap()
+            .iter()
+            .any(|e| e.name == "inside.txt")
+    );
+}
+
+/// A name with a line break or NUL never reaches an FTP command line.
+#[test]
+fn ftp_command_paths_refuse_line_breaks() {
+    use super::command_path;
+    assert_eq!(
+        command_path(Path::new("/a b/\u{e9}")).unwrap(),
+        "/a b/\u{e9}"
+    );
+    for bad in ["/x\r\nDELE /y", "/x\ny", "/x\0y"] {
+        let err = command_path(Path::new(bad)).unwrap_err();
+        assert_eq!(err.kind(), std::io::ErrorKind::InvalidInput, "{bad:?}");
+    }
+}
+
+/// Renaming onto an existing S3 object is refused like on the other
+/// adapters (a copy would overwrite it silently); `replace` still replaces.
+#[test]
+fn s3_rename_keeps_an_existing_target() {
+    let f = s3_fixture();
+    let (from, to) = (f.root.join("a.txt"), f.root.join("b.txt"));
+    f.vfs.write_file(&from, &mut &b"from"[..]).unwrap();
+    f.vfs.write_file(&to, &mut &b"target"[..]).unwrap();
+    let err = f.vfs.rename(&from, &to).unwrap_err();
+    assert_eq!(err.kind(), std::io::ErrorKind::AlreadyExists);
+    assert!(f.vfs.exists(&from));
+    f.vfs.replace(&from, &to).unwrap();
+    assert!(!f.vfs.exists(&from));
+    assert_eq!(f.vfs.read_prefix(&to, 16).unwrap(), b"from");
+}
+
 #[test]
 fn schemes_pick_their_backend() {
     assert_eq!(Scheme::parse("FTPS"), Some(Scheme::Ftp { secure: true }));
