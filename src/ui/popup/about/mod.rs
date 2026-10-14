@@ -103,7 +103,7 @@ fn about_lines(styles: &AboutStyles) -> Vec<Line<'static>> {
     let mut lines = vec![
         Line::from(vec![
             Span::styled("Pairee", styles.title.fg(Color::LightCyan)),
-            Span::styled(" - Terminal File Manager", styles.title),
+            Span::styled(t("about_tagline"), styles.title),
         ]),
         Line::from(Span::styled(
             "==============================",
