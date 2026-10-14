@@ -117,11 +117,12 @@ scripts through `cargo xtask asset-names <triple> <vX.Y.Z>`;
 `install.ps1` and the workflows.
 
 **Transition.** Up to 0.10 the archives were `pairee-vX.Y.Z-<triple>.<ext>`,
-and the updater of those versions only looks for that name. Releases up to
-**0.12.0** (`LEGACY_NAMES_UNTIL` in `xtask/src/assets.rs`) therefore also
-publish each archive under its old name, with its own `.sha256` and
-`.minisig`; the install scripts and the updater fall back to the old name.
-From 0.13.0 the copies stop on their own; then delete the code marked
+and the updater of those versions only looks for that name. **0.11.0**
+(`LEGACY_NAMES_UNTIL` in `xtask/src/assets.rs`) therefore also published each
+archive under its old name, with its own `.sha256` and `.minisig`, so 0.10
+and older can update to it; the install scripts and the updater fall back to
+the old name. Later releases carry only the platform names (an install of
+0.10 or older updates to 0.11.0 by hand first, or reinstalls). Delete the code marked
 `TRANSITION` (`legacy_archive_name`, the `LEGACY` handling in
 `.github/scripts/package.sh` / `verify-dist.sh`, the fallbacks in
 `install.sh`, `install.ps1` and `src/update/downloader.rs`).

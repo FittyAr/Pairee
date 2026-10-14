@@ -45,7 +45,7 @@ case "$TARGET" in
     ;;
 esac
 
-# TRANSITION (until 0.12.0, see LEGACY_NAMES_UNTIL in xtask/src/assets.rs):
+# TRANSITION (only 0.11.0, see LEGACY_NAMES_UNTIL in xtask/src/assets.rs):
 # the archive also goes out under its pre-0.11 name, which the updater of
 # 0.10 and older looks for. checksums.sh and sign.sh give the copy its own
 # .sha256 and .minisig (signed for that name).

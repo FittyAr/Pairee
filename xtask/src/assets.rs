@@ -8,13 +8,15 @@ use crate::release::version::Version;
 use crate::release_assets as table;
 
 /// The last release that also publishes each archive under its pre-0.11
-/// name, so installs of 0.10 and older can still update themselves: two
-/// releases after the rename (0.11.0 and 0.12.0).
+/// name (with the Rust target triple, e.g. `x86_64-unknown-linux-musl`), so
+/// installs of 0.10 and older could update themselves: only 0.11.0, the
+/// release of the rename. Later releases carry the platform names only; an
+/// install of 0.10 or older updates to 0.11.0 by hand first.
 ///
-/// TRANSITION: once 0.12.0 is out, delete this constant, the `LEGACY` line
-/// and its uses in package.sh, `legacy_archive_name` and the fallbacks in
-/// install.sh, install.ps1 and the updater.
-const LEGACY_NAMES_UNTIL: Version = Version(0, 12, 0);
+/// TRANSITION: delete this constant, the `LEGACY` line and its uses in
+/// package.sh, `legacy_archive_name` and the fallbacks in install.sh,
+/// install.ps1 and the updater.
+const LEGACY_NAMES_UNTIL: Version = Version(0, 11, 0);
 
 /// The names of the build of `triple` at `version`, one `KEY=value` per line.
 /// Empty values: no Windows installers elsewhere; no legacy copy after
@@ -74,11 +76,11 @@ mod tests {
 
     #[test]
     fn legacy_copies_stop_after_the_transition() {
-        let names = names("x86_64-unknown-linux-musl", "0.13.0").unwrap();
-        assert!(names.contains("ARCHIVE=pairee-0.13.0-linux-x64-musl.tar.gz\n"));
+        let names = names("x86_64-unknown-linux-musl", "0.11.1").unwrap();
+        assert!(names.contains("ARCHIVE=pairee-0.11.1-linux-x64-musl.tar.gz\n"));
         assert!(names.contains("LEGACY=\nSETUP=\nMSIX=\n"), "{names}");
-        let last = super::names("x86_64-unknown-linux-musl", "0.12.0").unwrap();
-        assert!(last.contains("LEGACY=pairee-v0.12.0-x86_64-unknown-linux-musl.tar.gz\n"));
+        let last = super::names("x86_64-unknown-linux-musl", "0.11.0").unwrap();
+        assert!(last.contains("LEGACY=pairee-v0.11.0-x86_64-unknown-linux-musl.tar.gz\n"));
     }
 
     #[test]

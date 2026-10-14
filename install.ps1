@@ -64,9 +64,9 @@ function Get-ArchiveNames([string]$tag) {
         $platform = "windows-x64"
         $legacyTarget = "x86_64-pc-windows-msvc"
     }
-    # TRANSITION: releases up to 0.12.0 (and every release before 0.11) also
+    # TRANSITION: 0.11.0 (and every release before it) also
     # carry the archive under its pre-0.11 name; drop it, and $legacyTarget,
-    # once 0.13.0 is the latest release.
+    # once a later release is the latest.
     return @("pairee-$num-$platform.zip", "pairee-$tag-$legacyTarget.zip")
 }
 

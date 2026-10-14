@@ -313,8 +313,8 @@ verify_download() {
 }
 
 # The archive of this machine in the latest release: its current name or,
-# TRANSITION, its pre-0.11 name (releases up to 0.12.0 carry both; drop the
-# second name and LEGACY_TARGET once 0.13.0 is the latest release).
+# TRANSITION, its pre-0.11 name (only 0.11.0 carries both; drop the
+# second name and LEGACY_TARGET once a later release is the latest).
 choose_tarball() {
     for TARBALL in "pairee-${VERSION#v}-${PLATFORM}.tar.gz" "pairee-${VERSION}-${LEGACY_TARGET}.tar.gz"; do
         if printf '%s\n' "$RELEASE_JSON" | grep -qE "\"name\": *\"${TARBALL}\""; then

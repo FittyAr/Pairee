@@ -91,7 +91,7 @@ pub fn archive_name(version: &str, triple: &str) -> Option<String> {
 /// The name the archive had up to 0.10 (`pairee-v<X.Y.Z>-<triple>.<ext>`),
 /// which the updater of those versions looks for.
 ///
-/// TRANSITION: the releases up to xtask's `LEGACY_NAMES_UNTIL` (0.12.0) also
+/// TRANSITION: the releases up to xtask's `LEGACY_NAMES_UNTIL` (0.11.0) also
 /// publish each archive under this name, and the updater falls back to it.
 /// Once those releases are out, delete this function and its callers.
 pub fn legacy_archive_name(version: &str, triple: &str) -> String {

@@ -52,7 +52,7 @@ for item in "$EXE" lang help README.md LICENSE; do
 done
 ok "archive contents"
 check_binary "$ROOT/$EXE" archive
-# TRANSITION (until 0.12.0): the copy under the pre-0.11 name.
+# TRANSITION (only 0.11.0): the copy under the pre-0.11 name.
 if [ -n "$LEGACY" ]; then
   cmp -s "dist/${ARCHIVE}" "dist/${LEGACY}" || fail "${LEGACY} is not a copy of ${ARCHIVE}"
   ok "legacy copy ${LEGACY}"

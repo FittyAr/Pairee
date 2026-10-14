@@ -87,12 +87,18 @@ fn quoted_after(text: &str, key: &str) -> String {
 
 #[test]
 fn release_workflow_builds_every_platform() {
-    let workflow = read(".github/workflows/release.yml");
+    let workflow = read(".github/workflows/release.yml").replace("\r\n", "\n");
     for platform in assets::PLATFORMS {
+        // Each build names its job and artifact by the asset slug.
+        let entry = format!(
+            "- target: {}\n            slug: {}",
+            platform.triple, platform.slug
+        );
         assert!(
-            workflow.contains(&format!("- target: {}", platform.triple)),
-            "release.yml does not build {}",
-            platform.triple
+            workflow.contains(&entry),
+            "release.yml does not build {} as {}",
+            platform.triple,
+            platform.slug
         );
     }
     assert!(assets::RELEASE_DOWNLOAD_PREFIX.starts_with("https://github.com/"));
