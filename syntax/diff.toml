@@ -1,0 +1,24 @@
+# Diffs and patches. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Diff"
+extensions = ["diff", "patch", "rej", "debdiff", "dpatch"]
+first_line = '^(?:diff\s|---\s|Index:\s|From [0-9a-f]{40}\s)'
+
+[[rule]]
+kind = "string"
+pattern = '^[+>].*'
+
+[[rule]]
+kind = "keyword"
+pattern = '^[-<].*'
+
+[[rule]]
+kind = "tag"
+pattern = '^(?:\+\+\+|---)\s.*|^\*\*\*\s.*'
+
+[[rule]]
+kind = "function"
+pattern = '^@@.*?@@|^[0-9]+(?:,[0-9]+)?[acd][0-9]+(?:,[0-9]+)?$'
+
+[[rule]]
+kind = "comment"
+pattern = '^(?:diff|index|Index:|new file mode|deleted file mode|old mode|new mode|similarity index|rename from|rename to|Binary files|Only in)\b.*|^\\ .*|^={3,}$|^From .*|^(?:Subject|Date|From):.*'

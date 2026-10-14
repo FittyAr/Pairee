@@ -11,4 +11,6 @@ mod quote;
 
 pub use command::{shell_command, shell_invocation};
 pub use open::open_with_system_handler;
+#[cfg(windows)]
+pub use quote::quote_msvcrt;
 pub use quote::{expand_placeholders, quote_cmd, quote_native, quote_path, quote_posix};

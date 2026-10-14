@@ -7,11 +7,13 @@
 #
 # Every package must carry VERSION; where the runner can execute the binary,
 # the copy inside each package must run and report it (`pairee --version`).
+# The file names come from `cargo xtask asset-names`, as in package.sh.
 set -euo pipefail
 
 : "${TARGET:?}" "${VERSION:?}"
 NUM="${VERSION#v}"
-PKG="pairee-${VERSION}-${TARGET}"
+# Sets STEM, ARCHIVE, LEGACY, SETUP, MSIX and ARCH.
+eval "$(cargo xtask asset-names "$TARGET" "$VERSION")"
 WORK="$(mktemp -d)"
 
 fail() { echo "::error::${TARGET}: $*"; exit 1; }
@@ -34,14 +36,14 @@ extract() {
 
 case "$TARGET" in
   *windows*)
-    extract "dist/${PKG}.zip" "$WORK/zip"
-    ROOT="$WORK/zip/${PKG}"
+    extract "dist/${ARCHIVE}" "$WORK/zip"
+    ROOT="$WORK/zip/${STEM}"
     EXE="pairee.exe"
     ;;
   *)
     mkdir -p "$WORK/tar"
-    tar -xzf "dist/${PKG}.tar.gz" -C "$WORK/tar" || fail "cannot extract ${PKG}.tar.gz"
-    ROOT="$WORK/tar/${PKG}"
+    tar -xzf "dist/${ARCHIVE}" -C "$WORK/tar" || fail "cannot extract ${ARCHIVE}"
+    ROOT="$WORK/tar/${STEM}"
     EXE="pairee"
     ;;
 esac
@@ -50,13 +52,15 @@ for item in "$EXE" lang help README.md LICENSE; do
 done
 ok "archive contents"
 check_binary "$ROOT/$EXE" archive
+# TRANSITION (until 0.12.0): the copy under the pre-0.11 name.
+if [ -n "$LEGACY" ]; then
+  cmp -s "dist/${ARCHIVE}" "dist/${LEGACY}" || fail "${LEGACY} is not a copy of ${ARCHIVE}"
+  ok "legacy copy ${LEGACY}"
+fi
 
 case "$TARGET" in
   *windows*)
-    ARCH=x64
-    [[ "$TARGET" == aarch64-* ]] && ARCH=arm64
-
-    SETUP="dist/pairee-setup-${NUM}-${ARCH}.exe"
+    SETUP="dist/${SETUP}"
     [ -s "$SETUP" ] || fail "missing $(basename "$SETUP")"
     if [ "${RUNNABLE:-false}" = true ]; then
       # Silent install with a deadline: a setup that waits for input must not
@@ -78,7 +82,7 @@ case "$TARGET" in
       check_binary "$WORK/installed/pairee.exe" installer
     fi
 
-    MSIX="dist/pairee-${NUM}-${ARCH}.msix"
+    MSIX="dist/${MSIX}"
     [ -s "$MSIX" ] || fail "missing $(basename "$MSIX")"
     extract "$MSIX" "$WORK/msix" AppxManifest.xml
     grep -q "Version=\"${NUM}.0\"" "$WORK/msix/AppxManifest.xml" || fail "MSIX version is not ${NUM}.0"

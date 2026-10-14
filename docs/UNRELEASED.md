@@ -17,7 +17,7 @@
 - Plugin API 1.2.0: clipboard, persistent plugin state, path / URL / file-information values, image helpers, theme and runtime information (see `docs/api/lua/v1.md`).
 - Setting "Overwritten files go to the Recycle Bin" (System tab, `transfer_trash_replaced`, on by default) decides whether a file replaced by a copy or move is sent to the trash first.
 - SSH preset passwords are stored in the system keyring; passwords found in `config.toml` are moved there automatically.
-- Plugin registry files are checked against minisign signatures; unsigned registry files show a warning and can be refused with `[security] registry_require_signature`.
+- Plugin registry files are checked against minisign signatures. Once Pairee has seen the registry signed, unsigned registry files are refused (`[security] registry_require_signature`, on by default; until then they only show a warning).
 - The Copy / Move dialog options now work: "Copy files access mode" keeps permissions (Unix) or the access control list (Windows), "Produce sparse files" leaves runs of zeros as holes, "Use copy on write" clones the data instantly where the file system supports it (Btrfs, XFS, APFS, ReFS) and copies normally elsewhere, and "Process multiple destinations" copies to every `;`-separated destination (a move copies to all and moves to the last).
 - "Process multiple names" in the Make folder dialog creates every `;`-separated name.
 - Copies resume where they stopped: a copy interrupted by a crash, a power cut or a failed attempt continues from the part already written (after checking it matches the source).
@@ -30,7 +30,7 @@
 - The viewer's key bar shows the encoding key (F8).
 - Help page with the keys of the Vi layer shared by the Neovim and yazi presets.
 - Editor: find and replace dialog (`Ctrl+F7` / `Ctrl+H`; find stays on `F7` / `Ctrl+F`) with case sensitive, whole words, regular expression (`$1` groups in the replacement), backward and wrap-around options. Replace goes match by match and "All" replaces every match as one undo step; `Alt+F7` / `Shift+F3` search backward. Matches on screen are highlighted, and patterns and replacements are kept in the history (`Ctrl+Up` / `Ctrl+Down` in the dialog).
-- Syntax highlighting in the editor and the viewer, in new `[syntax]` theme colors. Settings "Syntax highlighting" and "Highlight files up to" (Editor tab, 2 MiB by default).
+- Syntax highlighting in the editor and the viewer, in new `[syntax]` theme colors, for 29 languages (Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, shell, PowerShell, batch, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefile, Dockerfile, diff). Settings "Syntax highlighting" and "Highlight files up to" (Editor tab, 2 MiB by default) apply at once to open editors and viewers, and "Save as" with another extension switches the language. Languages are TOML files of regular expressions: put your own in the `syntax` folder of the configuration directory to add languages or replace built-in ones (see the help, "Syntax highlighting definitions").
 - Branch view (`Ctrl+Alt+X`, `Ctrl+Shift+B` in the Standard preset, Commands menu): every file below the current folder in one flat list with its relative path, read in the background; sorting, filters, selection and file operations work on it, and the action again (or leaving the folder) returns to the normal listing.
 - Jump to a frequent folder (`Ctrl+Alt+Z`, `z` in the yazi preset, Commands menu): visited folders ranked by frecency as zoxide does, with a fuzzy filter. `z <words>` on the command line jumps straight to the best match. The ranking is saved in `frecency.toml` only while "Save folders history" is on.
 - Compare files (`Ctrl+Alt+C`, Commands menu): a unified or side-by-side diff of the two selected files (or the cursor file of each panel) outside Git; binary files show whether they are identical, with their hashes.
@@ -70,6 +70,8 @@
 - The log file `app.log` is appended to instead of truncated on every start, and rotates to `app.log.1` past 5 MiB; two Pairee windows no longer overwrite each other's log.
 - Release builds log at `info` level instead of `debug` (`RUST_LOG=debug` restores the detail); errors while loading the configuration or running a subcommand are now logged too.
 - `install.sh` requires `minisign` and a valid release signature; `--insecure-skip-signature` accepts the download on its SHA-256 checksum alone.
+- `install.ps1` always verifies the release signature, with the official minisign build it downloads itself (pinned version and SHA-256); `-InsecureSkipSignature` accepts the download on its SHA-256 checksum alone. Both install scripts can also just download and verify (`--verify-only` / `-VerifyOnly`).
+- Release archives are named after the platform instead of the Rust target triple: `pairee-X.Y.Z-linux-x64-musl.tar.gz`, `pairee-X.Y.Z-macos-arm64.tar.gz`, `pairee-X.Y.Z-windows-x64.zip`... Until 0.12.0 each archive is also published under its old name, so Pairee 0.10 and older can still update itself.
 - Git: pull follows the branch's configured upstream instead of always using the same-named remote branch.
 - Git: aborting a merge keeps the local changes you had in other files, like `git merge --abort`.
 - Untrusted plugins can only fire navigation, view, sort, selection and help actions (and their own commands) with `pairee.emit`.
@@ -77,6 +79,8 @@
 - Plugin `min_pairee` versions are read as semver (pre-releases accepted); an unreadable version stops the plugin from loading.
 - Plugin settings are converted with the type declared in `settings_schema`.
 - "Verify after copy" reads every copy back from the disk and compares it with the source; a file that does not match is retried and, if it still differs, reported as failed. Files copied without verification are no longer marked as verified in the job log.
+- Terminal screens (`command &`) and apply-command run on Pairee's own pseudo-terminal layer (ConPTY on Windows, `posix_openpt` on Unix) instead of `portable-pty`, which also drops the unmaintained `serial` crate (RUSTSEC-2017-0008) and a second copy of `nix`, `bitflags`, `thiserror` and `winreg`. A terminal screen's process now sees the size of Pairee's window and is told when it changes.
+- `cargo deny` now fails on duplicate versions of shipped crates; the few that only an upstream release can remove are listed in `deny.toml` with the condition to drop them.
 
 - The screens list and the command-line screen indicator are translated.
 - The transfer panel (conflict dialog, jobs list, tabs, options, statistics), the yazi sort and view key boards and the development plugin picker are translated.
@@ -88,6 +92,7 @@
 ### Deprecated
 
 ### Removed
+- `run.bat` and `run.sh`: their developer menu is now `cargo xtask dev` (also `cargo xtask dev <action>`, e.g. `cargo xtask dev clippy`).
 
 ### Fixed
 - Folder sizes and the disk usage view are marked incomplete again when some entries of a folder cannot be read, and copies report such folders instead of silently leaving those entries out.

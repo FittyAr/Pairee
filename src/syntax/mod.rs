@@ -1,23 +1,39 @@
 //! Syntax highlighting of the text shown by the built-in editor and viewer.
 //!
-//! Parsing uses `syntect` with its embedded default grammars and the pure
-//! Rust `fancy-regex` engine. This module does not depend on the terminal
-//! backend: it yields byte ranges of each line tagged with a [`SyntaxKind`],
-//! and the UI paints every kind with a color of the active theme.
+//! Pairee's own highlighter, in the style of the micro editor: every
+//! language is a TOML file of regular expressions (`definition.rs`), the
+//! built-in ones embedded from the `syntax/` folder (`builtin.rs`) and the
+//! user's read from the configuration directory (`registry.rs`). Rules
+//! color matches and regions (strings, comments) span lines; the state
+//! carried between lines is the list of open regions (`highlight.rs`).
+//!
+//! This module does not depend on the terminal backend: it yields byte
+//! ranges of each line tagged with a [`SyntaxKind`], and the UI paints
+//! every kind with a color of the active theme.
 //!
 //! Only the lines on screen are highlighted. [`SyntaxCache`] remembers the
-//! parser state every few lines, so scrolling and typing re-parse a few
+//! line state every few lines, so scrolling and typing re-parse a few
 //! dozen lines rather than the whole file (see `cache.rs`).
 
+mod builtin;
 mod cache;
-mod engine;
+mod definition;
+mod grammar;
+mod highlight;
+mod language;
+mod registry;
+#[cfg(test)]
+mod tests;
 
 pub use cache::SyntaxCache;
+pub use registry::load_user_definitions;
 
 use std::ops::Range;
 
-/// The token classes the theme gives colors to.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+/// The token classes the theme gives colors to (named as the theme's
+/// `[syntax]` keys in definition files).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum SyntaxKind {
     Comment,
     String,
@@ -58,8 +74,8 @@ pub struct Token {
 /// every token is plain.
 pub type LineTokens = Vec<Token>;
 
-/// When highlighting applies, from the user's settings.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// When highlighting applies, from the user's settings (off by default).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct SyntaxLimits {
     pub enabled: bool,
     /// Larger files open without highlighting.
@@ -76,7 +92,7 @@ impl SyntaxLimits {
 
     /// A highlighter for a file of `size` bytes at `path` whose first line
     /// is `first_line`, or `None` when highlighting is off, the file is too
-    /// large or no grammar knows it.
+    /// large or no language knows it.
     pub fn cache_for(
         &self,
         path: &std::path::Path,

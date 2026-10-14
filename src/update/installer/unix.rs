@@ -5,18 +5,10 @@ use anyhow::{Context as _, Result};
 use std::io::Write as _;
 use std::path::Path;
 
-use super::{InstallResult, Package, cleanup, extract};
-use crate::update::detect::InstallMethod;
-use crate::update::downloader;
+use super::{InstallResult, cleanup, extract};
 
-/// The tarball of this target.
-pub(super) fn package_for(version: &str, _method: &InstallMethod) -> Package {
-    Package {
-        asset_name: downloader::expected_asset_name(version),
-    }
-}
-
-pub(super) fn install(archive: &[u8], _package: &Package) -> Result<InstallResult> {
+/// Replaces the running binary with the one in the verified tarball.
+pub(super) fn install(archive: &[u8]) -> Result<InstallResult> {
     let exe = std::env::current_exe().context("cannot determine current exe path")?;
     let exe_dir = exe.parent().context("exe has no parent directory")?;
 

@@ -1,0 +1,76 @@
+# Markdown. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "Markdown"
+extensions = ["md", "markdown", "mdown", "mkd", "mkdn", "mdx", "mdwn", "ronn", "workbook"]
+
+[[rule]]
+kind = "tag"
+pattern = '^\s{0,3}#{1,6}(?:\s.*)?$|^\s{0,3}(?:=+|-+)\s*$'
+
+[[rule]]
+kind = "operator"
+pattern = '^\s*(?:[-*+]|[0-9]+[.)])\s|^\s*>+|^\s{0,3}(?:(?:\*\s*){3,}|(?:_\s*){3,})$|^\s*\|.*\|\s*$'
+
+# Emphasis before strong emphasis, which paints over it.
+[[rule]]
+kind = "type_name"
+pattern = '\*[^*\s](?:[^*]*[^*\s])?\*'
+
+[[rule]]
+kind = "type_name"
+pattern = '(?:^|[^\w])(_[^_\s](?:[^_]*[^_\s])?_)(?:[^\w]|$)'
+group = 1
+
+[[rule]]
+kind = "keyword"
+pattern = '\*\*[^*\s](?:[^*]*[^*\s])?\*\*|__[^_\s](?:[^_]*[^_\s])?__'
+
+[[rule]]
+kind = "comment"
+pattern = '~~[^~]+~~'
+
+[[rule]]
+kind = "function"
+pattern = '!?\[[^\]]*\](?:\([^)]*\)|\[[^\]]*\])?|^\s{0,3}\[[^\]]+\]:\s*\S+|<(?:https?|ftp|mailto):[^>\s]+>|\bhttps?://[^\s)>\]]+'
+
+[[rule]]
+kind = "constant"
+pattern = '\\[\\`*_{}\[\]()#+\-.!|]|&[a-zA-Z0-9#]+;'
+
+[[region]]
+kind = "string"
+start = '^\s{0,3}```'
+end = '^\s{0,3}```\s*$'
+
+[[region]]
+kind = "string"
+start = '^\s{0,3}~~~'
+end = '^\s{0,3}~~~\s*$'
+
+[[region]]
+kind = "string"
+start = '``'
+end = '``|^\s*$'
+
+[[region]]
+kind = "string"
+start = '`'
+end = '`|^\s*$'
+
+[[region]]
+kind = "comment"
+start = '<!--'
+end = '-->'
+
+[[region]]
+kind = "tag"
+start = '</?[A-Za-z][A-Za-z0-9-]*'
+end = '/?>'
+
+[[region.rule]]
+kind = "function"
+pattern = '[A-Za-z_:-][A-Za-z0-9_:.-]*'
+
+[[region.region]]
+kind = "string"
+start = '"'
+end = '"'

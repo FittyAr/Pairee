@@ -64,9 +64,6 @@ lzma-rust2 = { version = "0.22", default-features = false, features = ["std", "x
 nucleo-matcher = "0.3.1"
 # Line diffs of two files (Compare files).
 similar = "3.2.0"
-# Unix openpty / Windows ConPTY for background Terminal (`command &`) and apply-command.
-# Pin 0.8.1: 0.9.0 ConPTY INHERIT_CURSOR can hang simple commands (wezterm#6783).
-portable-pty = "0.8.1"
 trash = "5.2.9"
 # Capability-based directory handles: plugin fs ops cannot escape the jail
 # root even if a path component is swapped for a symlink after validation.
@@ -93,28 +90,19 @@ quick-xml = "0.42.0"
 url = "2.5.8"
 bytes = "1.12"
 http-body = "1.1"
-# Syntax highlighting of the editor and viewer: the embedded default syntax
-# set with the pure-Rust fancy-regex engine (no Oniguruma C build, so static
-# musl builds keep working); colors come from the Pairee theme.
-syntect = { version = "5.3", default-features = false, features = ["default-syntaxes", "regex-fancy"] }
 
 [features]
 # Exposes the parser entry points of `fuzz_api` to the cargo-fuzz crate in
 # fuzz/ (not a public API).
 fuzzing = []
 
-# Syntax grammars compile hundreds of regexes on first use; unoptimized,
-# that takes seconds per language in debug builds and tests.
-[profile.dev.package.fancy-regex]
-opt-level = 3
-
+# The syntax highlighter compiles a few dozen regexes per language on first
+# use, and the tests compile every built-in language; unoptimized regex
+# compilation would make that slow in debug builds.
 [profile.dev.package.regex-automata]
 opt-level = 3
 
 [profile.dev.package.regex-syntax]
-opt-level = 3
-
-[profile.dev.package.syntect]
 opt-level = 3
 
 [profile.release]
@@ -143,13 +131,18 @@ tokio-rustls = { version = "0.26.6", default-features = false, features = ["ring
 
 [target.'cfg(windows)'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["native-tls", "json"] }
-windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation", "Win32_UI_Shell", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_WindowsProgramming", "Win32_System_SystemInformation"] }
+windows-sys = { version = "0.61", features = ["Win32_UI_Input_KeyboardAndMouse", "Win32_System_Console", "Win32_UI_WindowsAndMessaging", "Win32_Storage_FileSystem", "Win32_Security", "Win32_Security_Authorization", "Win32_System_Memory", "Win32_Foundation", "Win32_UI_Shell", "Win32_System_IO", "Win32_System_Ioctl", "Win32_System_WindowsProgramming", "Win32_System_SystemInformation", "Win32_System_Pipes", "Win32_System_Threading"] }
 ssh2 = { version = "0.9" }
 
 [target.'cfg(not(target_os = "windows"))'.dependencies]
 reqwest = { version = "0.13.4", default-features = false, features = ["rustls-no-provider", "json"] }
 ssh2 = { version = "0.9", features = ["vendored-openssl"] }
-signal-hook = { version = "0.4", features = ["iterator"] }
+# 0.3, the version crossterm uses, so only one signal-hook is built.
+signal-hook = { version = "0.3", features = ["iterator"] }
+# The PTY of background Terminal (`command &`) and apply-command
+# (src/terminal/pty): posix_openpt, TIOCSCTTY, TIOCSWINSZ. Already in the
+# tree through tempfile and others.
+rustix = { version = "1.1", features = ["pty", "termios", "process"] }
 # O_NOFOLLOW for symlink-safe secure wipe.
 libc = "0.2"
 # Extended attributes and POSIX ACLs of copies (already in the tree through tar).

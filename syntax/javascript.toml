@@ -1,0 +1,73 @@
+# JavaScript. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "JavaScript"
+extensions = ["js", "jsx", "mjs", "cjs"]
+first_line = '^#!.*\b(?:node|deno|bun|nodejs)\b'
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Z][A-Za-z0-9_$]*\b'
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_$][A-Za-z0-9_$]*)\s*\('
+group = 1
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?]+|\.\.\.'
+
+[[rule]]
+kind = "keyword"
+words = ["async", "await", "break", "case", "catch", "class", "const", "continue",
+         "debugger", "default", "delete", "do", "else", "export", "extends", "finally",
+         "for", "from", "function", "get", "if", "import", "in", "instanceof", "let", "new",
+         "of", "return", "set", "static", "super", "switch", "this", "throw", "try",
+         "typeof", "var", "void", "while", "with", "yield", "as"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "null", "undefined", "NaN", "Infinity"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[oO][0-7_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)n?\b'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '`'
+end = '`'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.|\$\{[^}]*\}'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'|$"
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\.'

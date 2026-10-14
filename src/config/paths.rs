@@ -92,6 +92,12 @@ pub fn get_themes_dir() -> PathBuf {
     get_config_dir().join("themes")
 }
 
+/// Returns the path to the folder of the user's syntax highlighting
+/// definitions (`<language>.toml`, added to or replacing the built-in ones).
+pub fn get_syntax_dir() -> PathBuf {
+    get_config_dir().join("syntax")
+}
+
 /// Returns the path to the keymaps subdirectory where preset TOML files live.
 /// Each file is named `<preset_name>.toml` (e.g. `norton.toml`, `neovim.toml`).
 pub fn get_keymaps_dir() -> PathBuf {

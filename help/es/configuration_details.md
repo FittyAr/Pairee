@@ -172,6 +172,48 @@ Pairee edita los archivos solo con su editor integrado (`F4`); no existe la opci
 * **Resaltado de sintaxis (editor y visor):** Colorea los archivos de código según el lenguaje (`syntax_highlighting`). Los colores son el grupo `[syntax]` del tema (ver *Color groups*).
 * **Resaltar archivos de hasta:** Los archivos más grandes se abren sin resaltado (`syntax_highlighting_max_kb`; Enter recorre 512 KiB, 1, 2, 8 y 32 MiB).
 
+Ambos ajustes se aplican de inmediato a los editores y visores ya abiertos. Tras *Guardar como* con otra extensión, el editor resalta el archivo según el nuevo lenguaje.
+
+### Definiciones de resaltado de sintaxis
+Pairee conoce Rust, C, C++, C#, Go, Java, Kotlin, Swift, JavaScript, TypeScript, Python, Ruby, PHP, Lua, scripts de shell (sh, bash, zsh), PowerShell, archivos batch, HTML, CSS, XML, JSON, YAML, TOML, INI, Markdown, SQL, Makefiles, Dockerfiles y diffs. Cada lenguaje es un pequeño archivo TOML. Para agregar un lenguaje, o cambiar uno incorporado, coloque un archivo `<nombre>.toml` en la carpeta `syntax` del directorio de configuración (junto a `config.toml`) y reinicie Pairee. Un archivo cuyo `name` es el de un lenguaje incorporado lo reemplaza. Un archivo que no se puede leer o cuyos patrones no son válidos se omite, y Pairee indica el motivo al iniciar.
+
+```toml
+name = "Notas"                  # se muestra en la línea de estado del editor
+extensions = ["note", "notes"]  # sin el punto, en mayúsculas o minúsculas
+names = ["NOTES"]               # nombres de archivo completos (opcional)
+filename = '^notes[-_]'         # expresión regular sobre el nombre (opcional)
+first_line = '^#!.*\bnotes\b'   # expresión regular sobre la primera línea (opcional)
+case_insensitive = false        # todos los patrones sin distinguir mayúsculas (opcional)
+
+[[rule]]                        # colorea cada coincidencia de un patrón...
+kind = "keyword"
+words = ["TODO", "DONE"]        # ...o cualquiera de estas palabras completas
+
+[[rule]]
+kind = "function"
+pattern = '@(\w+)'
+group = 1                       # colorea solo este grupo de la coincidencia (opcional)
+
+[[region]]                      # de `start` a `end`, aun a lo largo de varias líneas
+kind = "string"
+start = '"'
+end = '"'
+skip = '\\.'                    # se saltea al buscar el final (opcional)
+
+[[region.rule]]                 # reglas y regiones dentro de la región
+kind = "constant"
+pattern = '\\.'
+```
+
+* **Tipos** (`kind`): son los colores `[syntax]` del tema: `comment`, `string`, `keyword`, `constant`, `function`, `type_name`, `operator` y `tag`.
+* **Patrones:** usan la sintaxis del crate `regex` de Rust (sin look-around ni referencias hacia atrás). Escríbalos entre comillas simples (`'...'`) para que las barras invertidas se mantengan tal cual.
+* **Reglas:** se aplican en orden: una regla posterior pinta encima de una anterior. Solo ven el texto fuera de las regiones, o dentro de la región a la que pertenecen.
+* **Regiones:** tienen prioridad sobre las reglas: donde podrían empezar varias, gana la que empieza antes (la primera declarada si empatan). Use `end = '$'` para una región que termina con la línea (comentarios de línea), y un `end = ''` vacío para un único token que nada puede partir (un literal de carácter como `'"'`).
+* **Detección:** un nombre de `names` gana sobre `filename`, que gana sobre la extensión, que gana sobre la primera línea. Sus archivos se prueban antes que los incorporados.
+* De una línea muy larga solo se resaltan los primeros 4 KiB.
+
+Las definiciones incorporadas están en la carpeta [`syntax`](https://github.com/FittyAr/Pairee/tree/master/syntax) del código fuente; copie una como punto de partida.
+
 ---
 
 ## 📂 Pestaña 6: Ajustes de Colores

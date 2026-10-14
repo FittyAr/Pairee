@@ -1,0 +1,106 @@
+# CSS (also SCSS and Less, approximately). Format: see help "Syntax highlighting
+# definitions"; credits in README.md.
+name = "CSS"
+extensions = ["css", "scss", "sass", "less", "pcss", "postcss"]
+
+# Selectors (outside declaration blocks).
+[[rule]]
+kind = "tag"
+pattern = '\b[a-z][a-z0-9-]*\b'
+
+[[rule]]
+kind = "type_name"
+pattern = '\.[A-Za-z_-][A-Za-z0-9_-]*'
+
+[[rule]]
+kind = "function"
+pattern = '#[A-Za-z_-][A-Za-z0-9_-]*|::?[a-z-]+(?:\([^)]*\))?'
+
+[[rule]]
+kind = "keyword"
+pattern = '@[a-z-]+'
+
+[[rule]]
+kind = "operator"
+pattern = '[>+~*,]|\$[A-Za-z_-][A-Za-z0-9_-]*'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = "'"
+end = "'|$"
+skip = '\\.'
+
+[[region]]
+kind = "string"
+start = '\['
+end = '\]'
+
+# A declaration block: properties and values.
+[[region]]
+start = '\{'
+end = '\}'
+
+[[region.rule]]
+kind = "type_name"
+pattern = '(-{0,2}[A-Za-z][A-Za-z0-9-]*)\s*:'
+group = 1
+
+[[region.rule]]
+kind = "function"
+pattern = '\b([a-z-]+)\('
+group = 1
+
+[[region.rule]]
+kind = "constant"
+pattern = '#[0-9A-Fa-f]{3,8}\b|(?:\B-)?\.?\b[0-9]+(?:\.[0-9]+)?(?:%|[a-z]+\b)?'
+
+[[region.rule]]
+kind = "keyword"
+pattern = '!important\b|@[a-z-]+'
+
+[[region.rule]]
+kind = "operator"
+pattern = '\$[A-Za-z_-][A-Za-z0-9_-]*|var\(--[A-Za-z0-9_-]+\)'
+
+[[region.region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region.region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region.region]]
+kind = "string"
+start = 'url\('
+end = '\)'
+
+[[region.region]]
+kind = "string"
+start = '"'
+end = '"|$'
+skip = '\\.'
+
+[[region.region]]
+kind = "string"
+start = "'"
+end = "'|$"
+skip = '\\.'
+
+[[region]]
+kind = "comment"
+start = '(?:^|\s)//'
+end = '$'

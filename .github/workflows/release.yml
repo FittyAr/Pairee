@@ -166,9 +166,10 @@ jobs:
         env:
           TARGET: ${{ matrix.target }}
           VERSION: ${{ needs.release-notes.outputs.version }}
-          STORE_PACKAGE_NAME: ${{ secrets.STORE_PACKAGE_NAME || vars.STORE_PACKAGE_NAME || '30176FittyDev.Pairee' }}
-          STORE_PUBLISHER: ${{ secrets.STORE_PUBLISHER || vars.STORE_PUBLISHER || 'CN=EDC5BDED-A726-42CD-B98E-5657B88D9832' }}
-          STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.STORE_PUBLISHER_DISPLAY_NAME || vars.STORE_PUBLISHER_DISPLAY_NAME || 'FittyAr' }}
+          # Unset: package-msix.ps1 uses the Pairee Store identity.
+          STORE_PACKAGE_NAME: ${{ secrets.STORE_PACKAGE_NAME || vars.STORE_PACKAGE_NAME }}
+          STORE_PUBLISHER: ${{ secrets.STORE_PUBLISHER || vars.STORE_PUBLISHER }}
+          STORE_PUBLISHER_DISPLAY_NAME: ${{ secrets.STORE_PUBLISHER_DISPLAY_NAME || vars.STORE_PUBLISHER_DISPLAY_NAME }}
         run: bash .github/scripts/package.sh
 
       - name: Smoke-test packages

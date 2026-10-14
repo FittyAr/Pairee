@@ -31,6 +31,12 @@ To compile a release build:
 cargo build --release
 ```
 
+`cargo xtask dev` opens a menu with the everyday developer actions (run,
+standalone run, build, release build, tests, check, clippy, fmt, lint,
+clean, the WinGet install/upgrade/uninstall commands, local MSIX packaging,
+signing and install, and the release). Each entry also runs directly:
+`cargo xtask dev clippy`; `cargo xtask dev list` lists them.
+
 Our custom build script `build.rs` automatically captures target compilation, git commit hash, and profile info so you don't get "unknown" values in the About dialog.
 
 ### Formatting & Lints
@@ -105,7 +111,7 @@ Our code architecture values modularity and clean decoupling. All modifications 
 ## Releasing (maintainers)
 
 ```sh
-cargo xtask release            # or option 10 of run.bat / run.sh
+cargo xtask release            # or `cargo xtask dev release`
 ```
 
 The task updates every dependency to its latest compatible version, runs the

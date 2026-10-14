@@ -88,13 +88,17 @@ Pairee provides precompiled binaries built automatically via GitHub Actions (sup
     ```powershell
     irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex
     ```
+    The installer verifies the release signature with the official [`minisign`](https://jedisct1.github.io/minisign/) build, which it downloads itself (version and SHA-256 pinned in the script). To accept the download on its SHA-256 checksum alone, pass `-InsecureSkipSignature`:
+    ```powershell
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -InsecureSkipSignature
+    ```
   * **Build from Source (Debug/Source Mode):**
     ```powershell
-    irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex -Arguments debug
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -DebugMode
     ```
   * **Uninstall:**
     ```powershell
-    irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1 | iex -Arguments uninstall
+    & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FittyAr/Pairee/master/install.ps1))) -Uninstall
     ```
 
 ### Build from Source
@@ -158,7 +162,7 @@ function p {
 ```
 
 ### Launch Standalone Mode
-You can use the launcher script wrappers `run.bat` (Windows) or `run.sh` (Linux/macOS) to boot the application in a dedicated console window.
+Run `pairee --standalone` (from a checkout: `cargo xtask dev standalone`) to boot the application in a dedicated console window. `cargo xtask dev` lists the other developer actions.
 
 ---
 

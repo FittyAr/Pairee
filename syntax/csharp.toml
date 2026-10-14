@@ -1,0 +1,88 @@
+# C#. Format: see help "Syntax highlighting definitions"; credits in README.md.
+name = "C#"
+extensions = ["cs", "csx"]
+
+[[rule]]
+kind = "type_name"
+pattern = '\b[A-Z][A-Za-z0-9_]*\b'
+
+[[rule]]
+kind = "type_name"
+words = ["bool", "byte", "char", "decimal", "double", "dynamic", "float", "int", "long",
+         "nint", "nuint", "object", "sbyte", "short", "string", "uint", "ulong", "ushort",
+         "var", "void"]
+
+[[rule]]
+kind = "function"
+pattern = '\b([A-Za-z_][A-Za-z0-9_]*)\s*(?:<[^<>()]*>)?\s*\('
+group = 1
+
+[[rule]]
+kind = "function"
+pattern = '^\s*\[[A-Za-z_][A-Za-z0-9_.]*'
+
+[[rule]]
+kind = "operator"
+pattern = '[-+*/%=<>!&|^~?]+'
+
+[[rule]]
+kind = "keyword"
+words = ["abstract", "as", "async", "await", "base", "break", "case", "catch", "checked",
+         "class", "const", "continue", "default", "delegate", "do", "else", "enum", "event",
+         "explicit", "extern", "finally", "fixed", "for", "foreach", "get", "goto", "if",
+         "implicit", "in", "init", "interface", "internal", "is", "lock", "namespace", "new",
+         "operator", "out", "override", "params", "partial", "private", "protected", "public",
+         "readonly", "record", "ref", "required", "return", "sealed", "set", "sizeof",
+         "stackalloc", "static", "struct", "switch", "this", "throw", "try", "typeof",
+         "unchecked", "unsafe", "using", "value", "virtual", "volatile", "when", "where",
+         "while", "yield", "with", "global", "nameof", "and", "or", "not", "from", "select",
+         "let", "orderby", "group", "by", "into", "join", "on", "equals", "ascending",
+         "descending"]
+
+[[rule]]
+kind = "constant"
+words = ["true", "false", "null"]
+
+[[rule]]
+kind = "constant"
+pattern = '\b(?:0[xX][0-9A-Fa-f_]+|0[bB][01_]+|[0-9][0-9_]*(?:\.[0-9_]+)?(?:[eE][+-]?[0-9]+)?)[uUlLfFdDmM]*\b'
+
+[[rule]]
+kind = "keyword"
+pattern = '^\s*#\s*[a-z]+'
+
+[[region]]
+kind = "comment"
+start = '//'
+end = '$'
+
+[[region]]
+kind = "comment"
+start = '/\*'
+end = '\*/'
+
+[[region]]
+kind = "string"
+start = '\$?"""'
+end = '"""'
+
+[[region]]
+kind = "string"
+start = '(?:\$@|@\$|@)"'
+end = '"'
+skip = '""'
+
+[[region]]
+kind = "string"
+start = '\$?"'
+end = '"|$'
+skip = '\\.'
+
+[[region.rule]]
+kind = "constant"
+pattern = '\\(?:x[0-9A-Fa-f]{1,4}|u[0-9A-Fa-f]{4}|.)|\{[^{}"]*\}'
+
+[[region]]
+kind = "constant"
+start = ''''(?:\\(?:u[0-9A-Fa-f]{4}|x[0-9A-Fa-f]{1,4}|.)|[^'\\])''''
+end = ''

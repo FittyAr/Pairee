@@ -1,3 +1,4 @@
+use super::assets;
 use crate::fs::transfer::hash::{hash_reader, to_hex};
 use crate::fs::transfer::options::HashAlgorithm;
 use anyhow::{Context as _, Result};
@@ -5,7 +6,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 
 /// Only release assets published under this prefix are ever downloaded.
-pub const RELEASE_DOWNLOAD_PREFIX: &str = "https://github.com/FittyAr/Pairee/releases/download/";
+pub use super::assets::RELEASE_DOWNLOAD_PREFIX;
 
 /// Upper bound for a single downloaded release asset, so a hostile or
 /// broken server cannot exhaust memory.
@@ -107,34 +108,20 @@ pub fn verify_sha256_bytes(data: &[u8], expected_hex: &str) -> Result<()> {
     }
 }
 
-// ─── Platform target selection ───────────────────────────────────────────────
+// ─── Platform asset selection ────────────────────────────────────────────────
 
-/// Returns the expected asset filename for the current platform and target.
-pub fn expected_asset_name(version: &str) -> String {
-    let target = current_target();
-    // Linux: pairee-vX.Y.Z-x86_64-unknown-linux-musl.tar.gz
-    // Windows: pairee-vX.Y.Z-x86_64-pc-windows-msvc.zip
-    let ext = if cfg!(target_os = "windows") {
-        "zip"
-    } else {
-        "tar.gz"
-    };
-    format!("pairee-v{}-{}.{}", version, target, ext)
-}
-
-/// Returns the Inno Setup installer asset filename for Windows.
-#[cfg(target_os = "windows")]
-pub fn expected_installer_name(version: &str) -> String {
-    if cfg!(target_arch = "aarch64") {
-        format!("pairee-setup-{}-arm64.exe", version)
-    } else {
-        format!("pairee-setup-{}-x64.exe", version)
+/// Names of the asset that updates this build, preferred first: the Inno
+/// Setup installer when `installer`, else the archive under its name and
+/// then under its pre-0.11 name (see [`assets::legacy_archive_name`]).
+pub fn update_asset_names(version: &str, installer: bool) -> Vec<String> {
+    let target = env!("PAIREE_TARGET");
+    if installer {
+        return assets::setup_name(version, target).into_iter().collect();
     }
-}
-
-/// Returns the current target triple for this binary.
-fn current_target() -> &'static str {
-    env!("PAIREE_TARGET")
+    assets::archive_name(version, target)
+        .into_iter()
+        .chain([assets::legacy_archive_name(version, target)])
+        .collect()
 }
 
 #[cfg(test)]
