@@ -155,15 +155,22 @@ const PASSIVE_PORTS: u16 = 256;
 /// An FTP server; with `tls` (certificate and key PEM files) it also offers
 /// explicit TLS (`AUTH TLS`). Its passive ports are a block picked at
 /// random, so test processes running at once rarely share one (see
-/// [`Server::turn`]).
+/// [`Server::turn`]); the servers of one process never do.
 fn ftp_server_on(tls: Option<(PathBuf, PathBuf)>) -> Server {
-    let seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap()
-        .subsec_nanos()
-        ^ std::process::id();
-    for attempt in 0..16u32 {
-        let block = (seed.wrapping_add(attempt * 7919) % 100) as u16;
+    static SEED: OnceLock<u32> = OnceLock::new();
+    static TRIED: std::sync::atomic::AtomicU32 = std::sync::atomic::AtomicU32::new(0);
+    let seed = *SEED.get_or_init(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .subsec_nanos()
+            ^ std::process::id()
+    });
+    for _ in 0..16 {
+        // 19 is prime to 100: the first 100 tries of the process each get
+        // a block of their own.
+        let attempt = TRIED.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+        let block = ((seed % 100 + attempt * 19) % 100) as u16;
         let first = 20_000 + block * PASSIVE_PORTS;
         if let Some(server) = try_ftp_server(first..=first + PASSIVE_PORTS - 1, tls.clone()) {
             return server;
@@ -194,9 +201,9 @@ fn try_ftp_server(
         let result = builder.build().unwrap().listen(addr.to_string()).await;
         let _ = stopped_tx.send(result.err().map(|e| e.to_string()));
     });
-    // The port is ours once the server accepts on it.
+    // The port is ours once the server greets on it.
     let deadline = std::time::Instant::now() + std::time::Duration::from_secs(10);
-    while std::net::TcpStream::connect(addr).is_err() {
+    while !greets(addr) {
         if stopped.try_recv().is_ok() {
             return None;
         }
@@ -208,6 +215,21 @@ fn try_ftp_server(
     }
     drop(picking);
     Some(Server::new(addr, root))
+}
+
+/// Whether an FTP server greets at `addr`. A connection alone proves
+/// nothing: on Linux, connecting to a free port of the ephemeral range can
+/// connect the socket to itself, or reach another server's passive port.
+fn greets(addr: SocketAddr) -> bool {
+    use std::io::Read;
+    let timeout = std::time::Duration::from_secs(1);
+    let Ok(mut probe) = std::net::TcpStream::connect_timeout(&addr, timeout) else {
+        return false;
+    };
+    let mut code = [0; 3];
+    probe.set_read_timeout(Some(timeout)).is_ok()
+        && probe.read_exact(&mut code).is_ok()
+        && &code == b"220"
 }
 
 pub fn ftp_server() -> &'static Server {
@@ -248,13 +270,70 @@ pub fn trust_test_cert() -> String {
 }
 
 /// FTPS with the self-signed [`test_cert`] (not trusted unless the URL
-/// says `ca=`, see [`trust_test_cert`]).
+/// says `ca=`, see [`trust_test_cert`]), behind [`relay_auth_tls`].
 pub fn ftps_server() -> &'static Server {
     static SERVER: OnceLock<Server> = OnceLock::new();
     SERVER.get_or_init(|| {
         let cert = test_cert();
-        ftp_server_on(Some((cert.cert.clone(), cert.key.clone())))
+        let ftps = ftp_server_on(Some((cert.cert.clone(), cert.key.clone())));
+        let upstream = ftps.addr;
+        let relay = start(move |listener, _| relay_auth_tls(listener, upstream));
+        Server::new(relay.addr, ftps.root)
     })
+}
+
+/// How long [`relay_auth_tls`] holds a client's TLS handshake.
+const AUTH_TLS_SETTLE: std::time::Duration = std::time::Duration::from_millis(100);
+
+/// Relays the connections `listener` accepts to the FTPS server at
+/// `upstream`, holding back the first bytes a client sends after
+/// `AUTH TLS` (its TLS handshake) for [`AUTH_TLS_SETTLE`].
+///
+/// libunftp answers `234` to `AUTH TLS` and only then, from a task of its
+/// own, tells the session to start TLS. Until that message arrives the
+/// session keeps reading commands, so a client that starts its handshake
+/// at once (as it should) can have it read as a command: the session then
+/// answers `500` in plain text (`InvalidContentType` for the client) or
+/// waits for a handshake it already swallowed. That happens on Linux,
+/// where the task often runs late on a busy machine.
+async fn relay_auth_tls(listener: tokio::net::TcpListener, upstream: SocketAddr) {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    loop {
+        let (client, _) = listener.accept().await.unwrap();
+        tokio::spawn(async move {
+            let Ok(server) = tokio::net::TcpStream::connect(upstream).await else {
+                return;
+            };
+            let (mut from_client, mut to_client) = client.into_split();
+            let (mut from_server, mut to_server) = server.into_split();
+            tokio::spawn(async move {
+                let _ = tokio::io::copy(&mut from_server, &mut to_client).await;
+            });
+            // The plain-text commands sent so far, until `AUTH TLS`.
+            let mut commands = Some(Vec::new());
+            let mut handshake_next = false;
+            let mut buf = vec![0; 16 * 1024];
+            loop {
+                let n = match from_client.read(&mut buf).await {
+                    Ok(0) | Err(_) => break,
+                    Ok(n) => n,
+                };
+                if std::mem::take(&mut handshake_next) {
+                    tokio::time::sleep(AUTH_TLS_SETTLE).await;
+                }
+                if let Some(sent) = &mut commands {
+                    sent.extend_from_slice(&buf[..n]);
+                    if sent.to_ascii_uppercase().ends_with(b"AUTH TLS\r\n") {
+                        commands = None;
+                        handshake_next = true;
+                    }
+                }
+                if to_server.write_all(&buf[..n]).await.is_err() {
+                    break;
+                }
+            }
+        });
+    }
 }
 
 /// WebDAV over HTTPS with the self-signed [`test_cert`].

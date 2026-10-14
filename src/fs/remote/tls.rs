@@ -18,7 +18,7 @@ use rustls::crypto::{CryptoProvider, verify_tls12_signature, verify_tls13_signat
 use rustls::pki_types::pem::PemObject;
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, SignatureScheme};
-use std::io::{self, BufRead, BufReader, Write};
+use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -277,26 +277,39 @@ fn shake_hands(
 
 /// Reads the FTP greeting and asks for explicit TLS.
 fn auth_tls(tcp: &mut std::net::TcpStream) -> io::Result<()> {
-    let mut reader = BufReader::new(tcp.try_clone()?);
-    let reply = |reader: &mut BufReader<std::net::TcpStream>| -> io::Result<String> {
-        loop {
-            let mut line = String::new();
-            if reader.read_line(&mut line)? == 0 {
-                return Err(io::ErrorKind::UnexpectedEof.into());
-            }
-            // The last line of a reply is "NNN text" (a dash continues it).
-            if line.len() >= 4 && line.as_bytes()[3] == b' ' {
-                return Ok(line);
-            }
-        }
-    };
-    reply(&mut reader)?;
+    let mut greeting = ftp_reply(tcp)?;
+    // "120 ready in N minutes" comes before the real greeting.
+    while greeting.starts_with('1') {
+        greeting = ftp_reply(tcp)?;
+    }
+    if !greeting.starts_with('2') {
+        return Err(io::Error::other(greeting.trim().to_string()));
+    }
     tcp.write_all(b"AUTH TLS\r\n")?;
-    let answer = reply(&mut reader)?;
+    let answer = ftp_reply(tcp)?;
     if answer.starts_with("234") {
         Ok(())
     } else {
         Err(io::Error::other(answer.trim().to_string()))
+    }
+}
+
+/// The last line of the FTP reply `from` sends: `NNN text`, after any
+/// `NNN-text` (or free text) lines continuing it. Read byte by byte, so
+/// nothing after the reply (the TLS handshake) is taken from `from`.
+fn ftp_reply(from: &mut impl Read) -> io::Result<String> {
+    loop {
+        let mut line = Vec::new();
+        let mut byte = [0];
+        while line.last() != Some(&b'\n') {
+            if from.read(&mut byte)? == 0 {
+                return Err(io::ErrorKind::UnexpectedEof.into());
+            }
+            line.push(byte[0]);
+        }
+        if line.len() >= 4 && line[..3].iter().all(u8::is_ascii_digit) && line[3] == b' ' {
+            return Ok(String::from_utf8_lossy(&line).into_owned());
+        }
     }
 }
 
