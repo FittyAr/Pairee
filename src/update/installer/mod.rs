@@ -141,10 +141,20 @@ mod tests {
     #[test]
     fn archive_prefers_the_friendly_name_and_accepts_the_legacy_one() {
         let names = downloader::update_asset_names("0.11.0", false);
-        let [friendly, legacy] = names.as_slice() else {
-            panic!("expected the friendly and the legacy name: {names:?}");
-        };
         let method = InstallMethod::Unknown;
+        // A build for a target no release ships (e.g. aarch64 glibc in CI)
+        // only knows the legacy name.
+        let [friendly, legacy] = names.as_slice() else {
+            let [legacy] = names.as_slice() else {
+                panic!("expected the friendly and the legacy name: {names:?}");
+            };
+            assert!(crate::update::assets::platform(env!("PAIREE_TARGET")).is_none());
+            assert_eq!(
+                &update_asset(&release(&[legacy]), &method).unwrap().name,
+                legacy
+            );
+            return;
+        };
 
         let both = release(&[legacy, friendly]);
         assert_eq!(&update_asset(&both, &method).unwrap().name, friendly);

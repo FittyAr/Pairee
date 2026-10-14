@@ -4,7 +4,7 @@
 //! The candidates narrow in three passes, each cheaper than the next:
 //!
 //! 1. **size** — the trees are read by the shared walker
-//!    ([`crate::fs::walk::Walker`]) over any [`Vfs`]; only files sharing a
+//!    (`crate::fs::walk::Walker`) over any [`Vfs`]; only files sharing a
 //!    size go on. Links are never followed and hard links of one file
 //!    (the identity folder sizes use, [`crate::fs::vfs::VfsEntry::hard_link`])
 //!    count once: they take no extra space;

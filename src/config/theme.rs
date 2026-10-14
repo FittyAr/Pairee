@@ -225,7 +225,7 @@ macro_rules! color_props {
 }
 
 /// Calls `$callback!` with every theme color field in dialog order, then
-/// every [`SyntaxColors`] field, then every [`UiColors`] field: the one list [`COLOR_PROPS`] and the UI's
+/// every `SyntaxColors` field, then every `UiColors` field: the one list `COLOR_PROPS` and the UI's
 /// resolved theme are both built from.
 #[macro_export]
 macro_rules! with_theme_colors {

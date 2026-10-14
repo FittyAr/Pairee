@@ -18,8 +18,10 @@ use std::time::Duration;
 
 pub(super) fn spawn(cmd: &PtyCommand) -> io::Result<SpawnedPty> {
     let master = open_master()?;
-    set_size(&master, cmd.size)?;
+    // macOS refuses terminal ioctls on a master whose slave was never
+    // opened (ENOTTY), so the size is set once the slave is open.
     let slave = open_slave(&master)?;
+    set_size(&slave, cmd.size)?;
     let child = command(cmd, slave)?.spawn()?;
     let pid = child.id();
     let master = File::from(master);
@@ -250,13 +252,14 @@ mod tests {
     #[test]
     fn resize_reaches_the_terminal() {
         let master = open_master().unwrap();
+        let slave = open_slave(&master).unwrap();
         let pty = Master(File::from(master));
         let size = PtySize {
             rows: 40,
             cols: 120,
         };
         pty.resize(size).unwrap();
-        let got = rustix::termios::tcgetwinsize(&pty.0).unwrap();
+        let got = rustix::termios::tcgetwinsize(&slave).unwrap();
         assert_eq!((got.ws_row, got.ws_col), (40, 120));
     }
 }

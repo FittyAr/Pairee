@@ -61,8 +61,14 @@ jobs:
           workspaces: fuzz -> target
           key: fuzz
 
+      # The prebuilt cargo-fuzz is a musl binary and defaults to its own
+      # target, where the sanitizers cannot link: build for the host.
+      - name: Pick the host target
+        shell: bash
+        run: echo "FUZZ_TARGET=$(rustc -vV | sed -n 's/^host: //p')" >> "$GITHUB_ENV"
+
       - name: Build fuzz targets
-        run: cargo fuzz build
+        run: cargo fuzz build --target "$FUZZ_TARGET"
 
       # Every target runs even when an earlier one finds a crash; the job
       # fails at the end and the crashing inputs are uploaded.
@@ -72,7 +78,7 @@ jobs:
           failed=()
           for target in $(cargo fuzz list); do
             echo "::group::${target} (${FUZZ_SECONDS}s)"
-            if ! cargo fuzz run "$target" -- \
+            if ! cargo fuzz run --target "$FUZZ_TARGET" "$target" -- \
               -max_total_time="$FUZZ_SECONDS" -rss_limit_mb=2048 -timeout=20; then
               failed+=("$target")
             fi
