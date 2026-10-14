@@ -60,7 +60,7 @@ The panel title shows the protocol and the server, e.g. `[FTP: user@host]`.
 
 * **Navigation:** `Enter` opens folders, `Backspace` / `..` goes up.
 * **F5 / F6 (Copy / Move):** between a remote panel and a local one, or between two remote panels of any protocol. Transfers run in the background with the transfer panel's progress, conflict questions, retries, verification and resume. A move within one connection is a server-side rename (and can be undone).
-* **F7 (Rename), Make folder, F8 (Delete):** on the server (delete is not undoable).
+* **Rename (`Shift+F6`; `F2` in the Standard preset), F7 (Make folder), F8 (Delete):** on the server (delete is not undoable).
 * **F3 / F4:** view, or edit through a temporary local copy that is uploaded when saved (the server copy is checked for changes first).
 * **Ctrl+A (Attributes):** SFTP only.
 * Auto-refresh polls remote folders only with `auto_refresh_ssh` on.

@@ -67,7 +67,7 @@ RUN echo '\n\
     - Check if X11 forwarding works: test it by running `xeyes` or `xclock`.\n\
     - If X11 works, running `cargo run` will dynamically load libX11.so\n\
       and show modifier key updates in real-time when pressing Ctrl/Alt!\n\
-    - Fallback: Press Ctrl+p in the app to cycle modifier states manually.\n\
+    - Fallback: Ctrl+Alt+K (Norton preset) cycles the modifier states.\n\
  =========================================================================\n' > /etc/motd
 
 # Expose SSH port
