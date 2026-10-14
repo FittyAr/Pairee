@@ -205,6 +205,26 @@ fn the_selected_transfer_option_stays_in_view_on_a_short_screen() {
 }
 
 #[test]
+fn the_jobs_scrollbar_counts_jobs_and_follows_the_list() {
+    use crate::ui::scrollbar::ScrollTargetId;
+    let mut h = Harness::builder().size(100, 30).build();
+    let jobs = (0..12).map(|_| running(&h, 0, 1)).collect();
+    queue(&mut h, jobs, TransferViewMode::Expanded);
+    h.state.transfer.as_mut().unwrap().queue_cursor = 11;
+    h.render();
+    let bar = h
+        .state
+        .hits
+        .scrollbars()
+        .into_iter()
+        .find(|b| b.id == ScrollTargetId::TransferJobs)
+        .expect("twelve jobs overflow the list");
+    let rows = bar.area.height as usize;
+    assert_eq!(bar.viewport_len, rows / 3, "three rows per job");
+    assert_eq!(bar.offset + bar.viewport_len, 12, "the last job is shown");
+}
+
+#[test]
 fn an_empty_queue_says_how_to_start_a_transfer() {
     let mut h = Harness::new();
     queue(&mut h, Vec::new(), TransferViewMode::Expanded);

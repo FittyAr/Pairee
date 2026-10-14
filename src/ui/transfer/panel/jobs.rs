@@ -96,16 +96,15 @@ pub(crate) fn render_jobs_sidebar(
     f.render_stateful_widget(jobs_list, area, &mut list_state);
     register_jobs(area, list_state.offset(), jobs.len(), ts.queue_cursor);
 
-    // Jobs list items are multi-line (~3 rows each); approximate viewport by area height.
-    let viewport = area.height.saturating_sub(2) as usize;
-    let offset = scrollbar::centered_scroll(ts.queue_cursor, jobs.len(), viewport.max(1));
+    // The bar counts jobs, as the list scrolls: JOB_ROWS rows each.
+    let viewport = (area.height.saturating_sub(2) / JOB_ROWS).max(1) as usize;
     scrollbar::render_vertical_inside_block(
         f,
         area,
         ScrollView {
             content_len: jobs.len(),
-            viewport_len: viewport.max(1),
-            offset,
+            viewport_len: viewport,
+            offset: list_state.offset(),
         },
         theme,
         ScrollTarget {
@@ -116,10 +115,12 @@ pub(crate) fn render_jobs_sidebar(
     );
 }
 
-/// Each job takes three rows (title, destination, blank) from the list's
-/// first shown job on; a click on them moves the cursor there.
+/// Rows of one job in the list: title, destination, blank.
+const JOB_ROWS: u16 = 3;
+
+/// Each job takes [`JOB_ROWS`] rows from the list's first shown job on; a
+/// click on them moves the cursor there.
 fn register_jobs(area: Rect, offset: usize, count: usize, cursor: usize) {
-    const JOB_ROWS: u16 = 3;
     let inner = area.inner(ratatui::layout::Margin::new(1, 1));
     let mut y = inner.y;
     for index in offset..count {
