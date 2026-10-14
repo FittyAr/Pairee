@@ -91,6 +91,7 @@
 - Keymap problem reports are translated; unused translation keys were removed and a few Spanish texts translated.
 
 - SSH presets became connections of any protocol: `[[ssh_presets]]` in `config.toml` is read as SFTP connections and written back as `[[connections]]`; their keyring entries move from `ssh-preset:<name>` to `connection:<name>`. `[security] ssh_passwords_in_config` is now `passwords_in_config` (the old name still works). Saved sessions with SSH tabs still reopen.
+- Building Pairee from source needs Rust 1.96 or newer (was 1.93), the version the latest dependencies require.
 
 ### Deprecated
 
