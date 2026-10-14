@@ -17,6 +17,10 @@ on:
         description: Release tag (vX.Y.Z)
         required: true
         type: string
+    secrets:
+      WINGET_TOKEN:
+        description: Classic PAT with public_repo scope (fork and pull requests on winget-pkgs)
+        required: false
   workflow_dispatch:
     inputs:
       tag:
