@@ -101,9 +101,6 @@ fn add_entry<W: io::Write + Seek>(
         EntrySource::Dir => {
             out.push_archive_entry(ArchiveEntry::new_directory(&name), None::<&[u8]>)?;
         }
-        EntrySource::Bytes(bytes) => {
-            out.push_archive_entry(ArchiveEntry::new_file(&name), Some(bytes.as_slice()))?;
-        }
         EntrySource::File(path) => {
             let meta = fs::metadata(path)?;
             let mut entry = ArchiveEntry::from_path(path, name);

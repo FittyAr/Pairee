@@ -3,21 +3,15 @@
 //! from the containing archive the first time it is needed, so the panel
 //! thread never waits for it. Nested archives are read-only.
 
+use super::edit::PrivateTempFile;
 use super::vfs::ArchiveVfs;
-use crate::config::localization::t;
+use crate::config::localization::t_fill;
 use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, OnceLock};
 
 /// Largest inner archive extracted for browsing.
 pub const MAX_NESTED_ARCHIVE_BYTES: u64 = 512 * 1024 * 1024;
-
-/// An extracted inner archive; the folder goes away with it.
-#[derive(Debug)]
-pub struct Extracted {
-    _dir: tempfile::TempDir,
-    file: PathBuf,
-}
 
 /// The archive file behind a panel's archive source.
 #[derive(Debug)]
@@ -28,7 +22,7 @@ pub enum ArchiveData {
     Nested {
         parent: Arc<ArchiveVfs>,
         entry: PathBuf,
-        extracted: OnceLock<Result<Extracted, String>>,
+        extracted: OnceLock<Result<PrivateTempFile, String>>,
     },
 }
 
@@ -52,7 +46,7 @@ impl ArchiveData {
             } => extracted
                 .get_or_init(|| extract(parent, entry).map_err(|e| e.to_string()))
                 .as_ref()
-                .map(|x| x.file.clone())
+                .map(|x| x.path().to_path_buf())
                 .map_err(|message| io::Error::other(message.clone())),
         }
     }
@@ -66,31 +60,29 @@ impl ArchiveData {
     }
 }
 
-/// Copies `entry` of `parent` into a new temporary folder, refusing
+/// Copies `entry` of `parent` into a new private temporary file, refusing
 /// archives above [`MAX_NESTED_ARCHIVE_BYTES`].
-fn extract(parent: &ArchiveVfs, entry: &Path) -> io::Result<Extracted> {
+fn extract(parent: &ArchiveVfs, entry: &Path) -> io::Result<PrivateTempFile> {
     let size = crate::fs::vfs::Vfs::stat(parent, entry)?.size;
     if size > MAX_NESTED_ARCHIVE_BYTES {
         return Err(io::Error::other(too_large(size)));
     }
-    // Private: the shared temp folder would let other users read it.
-    let dir = crate::fs::privileges::private_temp_dir("pairee-nested-")?;
     // The file keeps the entry's name: the format is told by its extension.
-    let file = dir.path().join(crate::fs::file_name_lossy(entry));
-    let mut out = std::fs::File::create(&file)?;
+    let extracted = PrivateTempFile::new(&crate::fs::file_name_lossy(entry))?;
+    let mut out = std::fs::File::create(extracted.path())?;
     let written = parent.copy_entry(entry, &mut out, MAX_NESTED_ARCHIVE_BYTES + 1)?;
     if written > MAX_NESTED_ARCHIVE_BYTES {
         return Err(io::Error::other(too_large(written)));
     }
-    Ok(Extracted { _dir: dir, file })
+    Ok(extracted)
 }
 
 fn too_large(size: u64) -> String {
-    t("archive_nested_too_large")
-        .replacen("{}", &bytesize::ByteSize::b(size).to_string(), 1)
-        .replacen(
-            "{}",
+    t_fill(
+        "archive_nested_too_large",
+        &[
+            &bytesize::ByteSize::b(size).to_string(),
             &bytesize::ByteSize::b(MAX_NESTED_ARCHIVE_BYTES).to_string(),
-            1,
-        )
+        ],
+    )
 }

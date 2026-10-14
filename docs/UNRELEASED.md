@@ -105,6 +105,8 @@
 
 - Copying a folder into itself or a file onto itself showed the untranslated message key instead of the error; the help index shows translated titles for every page (it showed file names such as "Ssh Sftp").
 ### Fixed
+- Files written into a zip, tar or 7z archive from a remote panel or another archive are staged in a private temporary file instead of being held whole in memory, so large files no longer risk running out of memory; the temporary file is removed when the copy ends, fails or is cancelled.
+- Errors from archives and extraction (unsafe entries, decompression bombs, links in the way, 7z failures, unsupported formats) and from creating folders and links, reading folders, changing attributes, wiping and saving descriptions are shown in the configured language, and name the file and the cause.
 - SSH: a wrong passphrase for an encrypted key is asked again (up to three times, saying the previous one was wrong) instead of failing the connection.
 - Passwords and passphrases typed into prompts or read from the keyring are wiped from memory when no longer needed.
 - Keys: `Ctrl+,` (a literal comma) works in keymaps, overrides and plugin key declarations instead of being split at the comma.
