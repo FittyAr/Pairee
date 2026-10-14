@@ -5,6 +5,9 @@
 //! conflict markers in the files, for the user to resolve, stage and
 //! commit (or abort).
 
+use std::collections::BTreeSet;
+use std::path::PathBuf;
+
 /// The end state of a merge-like operation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Outcome {
@@ -83,17 +86,44 @@ pub fn ensure_ready(repo: &git2::Repository) -> anyhow::Result<()> {
     ensure_nothing_staged(repo)
 }
 
-/// The conflicted paths of the index, sorted and deduplicated.
-pub fn conflicted_paths(repo: &git2::Repository) -> anyhow::Result<Vec<String>> {
-    let index = repo.index()?;
-    let mut paths = std::collections::BTreeSet::new();
+/// The repository-relative path of an index entry: its bytes as they are
+/// on Unix (a name that is not UTF-8 stays usable), UTF-8 elsewhere (what
+/// Git writes on Windows).
+pub fn index_path(bytes: &[u8]) -> PathBuf {
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStrExt;
+        PathBuf::from(std::ffi::OsStr::from_bytes(bytes))
+    }
+    #[cfg(not(unix))]
+    {
+        PathBuf::from(String::from_utf8_lossy(bytes).as_ref())
+    }
+}
+
+/// Every path the conflicts of `index` involve (any side), sorted and
+/// deduplicated.
+pub fn conflict_paths(index: &git2::Index) -> anyhow::Result<BTreeSet<PathBuf>> {
+    let mut paths = BTreeSet::new();
     for conflict in index.conflicts()? {
         let conflict = conflict?;
-        if let Some(entry) = conflict.our.or(conflict.their).or(conflict.ancestor) {
-            paths.insert(String::from_utf8_lossy(&entry.path).into_owned());
+        for entry in [conflict.ancestor, conflict.our, conflict.their]
+            .into_iter()
+            .flatten()
+        {
+            paths.insert(index_path(&entry.path));
         }
     }
-    Ok(paths.into_iter().collect())
+    Ok(paths)
+}
+
+/// The conflicted paths of the index as shown to the user (`/`
+/// separated), sorted and deduplicated.
+pub fn conflicted_paths(repo: &git2::Repository) -> anyhow::Result<Vec<String>> {
+    Ok(conflict_paths(&repo.index()?)?
+        .iter()
+        .map(|path| path.to_string_lossy().into_owned())
+        .collect())
 }
 
 /// After the index and working tree hold the operation's result: reports
