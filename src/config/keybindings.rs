@@ -69,6 +69,7 @@ impl KeybindingsConfig {
     pub fn from_toml(src: &str) -> Result<Self, toml::de::Error> {
         let mut cfg: Self = toml::from_str(src)?;
         cfg.preset = crate::keybindings::embedded::normalize_preset_name(&cfg.preset);
+        cfg.canonicalize_override_tables();
         let legacy = std::mem::take(&mut cfg.custom_bindings);
         if !legacy.is_empty() {
             let all = cfg.overrides.entry(ALL_PRESETS.to_string()).or_default();
@@ -86,6 +87,27 @@ impl KeybindingsConfig {
             .filter_map(|key| self.overrides.get_key_value(key))
             .map(|(k, table)| (k.as_str(), table))
             .collect()
+    }
+
+    /// Renames the `[overrides.<legacy preset>]` tables (`vscode`, `vim`...)
+    /// to the built-in preset they stand for, as `preset` was; where both
+    /// names have a table, the canonical one wins for the same action.
+    fn canonicalize_override_tables(&mut self) {
+        use crate::keybindings::embedded::normalize_preset_name;
+        for (key, table) in std::mem::take(&mut self.overrides) {
+            let target = self
+                .overrides
+                .entry(normalize_preset_name(&key))
+                .or_default();
+            if target.is_empty() || normalize_preset_name(&key) == key {
+                // The canonical spelling goes on top of what came before.
+                target.extend(table);
+            } else {
+                for (action, keys) in table {
+                    target.entry(action).or_insert(keys);
+                }
+            }
+        }
     }
 
     /// Sets one override (`preset` = `"all"` or a preset name).
@@ -139,6 +161,19 @@ mod tests {
         let saved = toml::to_string(&cfg).unwrap();
         assert!(!saved.contains("custom_bindings"), "{saved}");
         assert!(saved.contains("[overrides.all]"), "{saved}");
+    }
+
+    #[test]
+    fn overrides_under_a_legacy_preset_name_apply_to_the_built_in() {
+        let cfg = KeybindingsConfig::from_toml(
+            "preset = \"vscode\"\n[overrides.vscode]\ncopy = \"F15\"\n\
+             [overrides.Vim]\nmove = \"F16\"\n",
+        )
+        .unwrap();
+        assert_eq!(cfg.preset, "standard");
+        assert_eq!(cfg.merged_overrides("standard")["copy"], "F15");
+        assert_eq!(cfg.merged_overrides("neovim")["move"], "F16");
+        assert!(!cfg.overrides.contains_key("vscode"));
     }
 
     #[test]

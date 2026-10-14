@@ -60,7 +60,7 @@ find_prev     = "Ctrl+G"
 find_file     = "Ctrl+F, Ctrl+Alt+f"
 
 # ── View ──────────────────────────────────────────────────────────────────────
-toggle_hidden    = "Ctrl+h, Ctrl+."
+toggle_hidden    = "Ctrl+h, Ctrl+., Alt+."
 refresh          = "Ctrl+r"
 cycle_panel_view = "Ctrl+Alt+v"
 cycle_sort       = "Ctrl+Alt+s"
