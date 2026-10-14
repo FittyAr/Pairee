@@ -56,6 +56,16 @@ fn next_shown_pending(state: &AppState) -> Option<(TabId, String)> {
     })
 }
 
+/// The running connection is being replaced: restored tabs that waited for
+/// it connect again when next shown.
+pub fn requeue_pending(state: &mut AppState) {
+    for (_, tab) in state.panels.all_tabs_mut() {
+        if let Some(pending) = tab.pending_remote.as_mut() {
+            pending.connecting = false;
+        }
+    }
+}
+
 fn pending_mut(state: &mut AppState, id: TabId) -> Option<&mut PendingRemote> {
     let (_, tab) = state.panels.find_tab_mut(id)?;
     tab.pending_remote.as_mut()
@@ -101,4 +111,24 @@ pub fn finish(
 fn notify(state: &mut AppState, message: String) {
     state.dialogs.push(PopupType::info(message));
     state.mark_ui_dirty();
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_replaced_connection_lets_the_restored_tab_try_again() {
+        let mut state = AppState::new(".".into(), ".".into());
+        let id = state.panels.active_tab_id(state.panels.active);
+        state.panels.find_tab_mut(id).unwrap().1.pending_remote = Some(PendingRemote {
+            connection: "srv".into(),
+            path: "/home".into(),
+            cursor: None,
+            connecting: true,
+        });
+        assert!(next_shown_pending(&state).is_none(), "waiting for its job");
+        requeue_pending(&mut state);
+        assert_eq!(next_shown_pending(&state), Some((id, "srv".to_string())));
+    }
 }
